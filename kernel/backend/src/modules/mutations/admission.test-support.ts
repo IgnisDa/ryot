@@ -2,60 +2,26 @@ import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer, Ref } from "effect";
 
 import { user } from "#schema/tables/auth";
-import { idempotencyKey, mutationReceipt } from "#schema/tables/mutations";
+import { idempotencyKey } from "#schema/tables/mutations";
 import { fakeDatabaseSession } from "#testing/effect";
 
 export const mutationAdmissionTestLayer = Layer.unwrap(
 	Effect.gen(function* () {
-		const fingerprints = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
-		const receiptRows = yield* Ref.make<Map<string, typeof mutationReceipt.$inferInsert>>(
-			new Map(),
-		);
 		const keyRows = yield* Ref.make<ReadonlyMap<string, typeof idempotencyKey.$inferInsert>>(
 			new Map(),
 		);
 		const dialect = new PgDialect();
 		return fakeDatabaseSession({
-			execute: (query: Parameters<PgDialect["sqlToQuery"]>[0]) => {
-				const [id] = dialect.sqlToQuery(query).params;
-				return Ref.get(fingerprints).pipe(
-					Effect.map((stored) => [
-						{
-							retiring: false,
-							fingerprint: typeof id === "string" ? (stored.get(id) ?? null) : null,
-						},
-					]),
-				);
-			},
-			insert: (table: unknown) => ({
-				values: (
-					input: typeof idempotencyKey.$inferInsert & typeof mutationReceipt.$inferInsert,
-				) =>
-					table === idempotencyKey
-						? {
-								onConflictDoNothing: () =>
-									Ref.update(keyRows, (stored) =>
-										stored.has(`${input.userId}:${input.key}`)
-											? stored
-											: new Map(stored).set(`${input.userId}:${input.key}`, input),
-									),
-							}
-						: Object.assign(
-								Ref.update(receiptRows, (stored) => new Map(stored).set(input.id, input)),
-								{
-									onConflictDoNothing: () => ({
-										returning: () =>
-											Ref.modify(fingerprints, (stored) =>
-												stored.has(input.id)
-													? [[], stored]
-													: [
-															[{ fingerprint: input.inputFingerprint }],
-															new Map(stored).set(input.id, input.inputFingerprint),
-														],
-											),
-									}),
-								},
-							),
+			execute: () => Effect.succeed([]),
+			insert: () => ({
+				values: (input: typeof idempotencyKey.$inferInsert) => ({
+					onConflictDoNothing: () =>
+						Ref.update(keyRows, (stored) =>
+							stored.has(`${input.userId}:${input.key}`)
+								? stored
+								: new Map(stored).set(`${input.userId}:${input.key}`, input),
+						),
+				}),
 			}),
 			select: () => ({
 				from: (table: unknown) => ({
@@ -64,20 +30,13 @@ export const mutationAdmissionTestLayer = Layer.unwrap(
 							if (table === user) {
 								return Effect.succeed([{ token: "test-account-generation" }]);
 							}
-							if (table === idempotencyKey) {
-								const [userId, key] = dialect.sqlToQuery(condition).params;
-								return Effect.map(Ref.get(keyRows), (stored) => {
-									const row = stored.get(`${String(userId)}:${String(key)}`);
-									return row ? [row] : [];
-								});
-							}
-							if (table !== mutationReceipt) {
+							if (table !== idempotencyKey) {
 								return Effect.succeed([]);
 							}
-							const [id] = dialect.sqlToQuery(condition).params;
-							return Effect.map(Ref.get(receiptRows), (stored) => {
-								const row = typeof id === "string" ? stored.get(id) : undefined;
-								return row?.receiptType === "item" ? [row] : [];
+							const [userId, key] = dialect.sqlToQuery(condition).params;
+							return Effect.map(Ref.get(keyRows), (stored) => {
+								const row = stored.get(`${String(userId)}:${String(key)}`);
+								return row ? [row] : [];
 							});
 						})();
 						return Object.assign(rows, { for: () => rows, limit: () => rows });

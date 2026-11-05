@@ -6,8 +6,8 @@ records use `needs-scheduling`; they cannot run until the user creates a replace
 
 ## Transactions and lock order
 
-Commands admit the account generation and lock the mutation receipt before inspecting current
-state. They then take the plugin ingestion lock in shared mode, entity user-data locks in sorted ID
+Commands admit the account generation, and a create locks its idempotency key, before inspecting
+current state. They then take the plugin ingestion lock in shared mode, entity user-data locks in sorted ID
 order, and finally reminder rows. Due processing uses the same account, ingestion, entity, reminder
 order. Signal planning takes its catalog/configuration and budget locks inside that transaction;
 execution starts only after commit. No transaction spans sandbox execution or provider I/O.

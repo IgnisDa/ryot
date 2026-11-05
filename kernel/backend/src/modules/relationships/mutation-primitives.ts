@@ -29,7 +29,7 @@ import {
 	type DomainWritePin,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
-import { MutationReceiptIdentityConflict, mutationUserIds } from "#modules/mutations/receipts";
+import { mutationUserIds } from "#modules/mutations/account-admission";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import { isCollectionMember } from "./collection-order";
@@ -49,13 +49,6 @@ import {
 	validateUserRelationshipEntities,
 } from "./mutation-support";
 import { relationshipMutationLockKey } from "./repository";
-
-export const classifyRelationshipReceiptConflict = (
-	error: DbError | MutationReceiptIdentityConflict,
-) =>
-	error instanceof MutationReceiptIdentityConflict
-		? new RelationshipBadRequest({ reason: { code: "lifecycle-command-conflict" } })
-		: error;
 
 export type ValidatedMutation = {
 	readonly active: RelationshipSchemaDefinition;
@@ -109,6 +102,7 @@ export const makeRelationshipMutationPrimitives = ({
 	planner,
 	entities,
 	execution,
+	admission,
 	repository,
 	definitions,
 	assetReferences,
@@ -597,6 +591,9 @@ export const makeRelationshipMutationPrimitives = ({
 	});
 	const lockMutations = Effect.fnUntraced(function* (mutations: ReadonlyArray<Mutation>) {
 		yield* assertActiveTransaction;
+		for (const { input, command } of mutations) {
+			yield* admission.admitCommand(command, input.scope === "user" ? input.userId : null);
+		}
 		yield* entities.lockEntityReferencesByIds(
 			mutations.flatMap(({ input }) => [input.sourceEntityId, input.targetEntityId]),
 		);

@@ -9,7 +9,6 @@ import { Cause, Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
-import { mutationReceiptRecord } from "#modules/entities/mutation-persistence";
 import {
 	type PreparedEntityCreate,
 	preparedEntityCreateData,
@@ -18,7 +17,6 @@ import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 
 import {
-	classifyRelationshipReceiptConflict,
 	makeRelationshipMutationPrimitives,
 	type MutationEntities,
 	mutationWriteCheck,
@@ -28,17 +26,16 @@ import {
 	type CreateRelationshipInput,
 	type DeleteRelationshipInput,
 	type Mutation,
+	recordRelationshipImportItem,
 	relationshipIdentity,
 	type RelationshipMutationDependencies,
-	relationshipReceiptIdentity,
-	RelationshipRecordedResult,
+	type RelationshipRecordedResult,
 	relationshipSchemaReference,
 	relationshipWriteFailure,
 	rootTransaction,
 	rootTransactionGuard,
 	snapshot,
 } from "./mutation-support";
-import type { RelationshipIdentityInput } from "./repository";
 
 type CommittedRelationship = {
 	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
@@ -95,24 +92,11 @@ const withCreatedEndpoint = (
 export const makePreparedRelationshipMutations = (
 	dependencies: RelationshipMutationDependencies,
 ) => {
-	const { writes, session, planner, receipts, execution, repository, definitions } = dependencies;
+	const { keys, writes, session, planner, execution, repository, definitions } = dependencies;
 	const primitives = makeRelationshipMutationPrimitives(dependencies);
 	const transaction = rootTransaction(session);
 	const assertRootTransaction = rootTransactionGuard(session);
 	const assertActiveTransaction = activeTransactionGuard(session);
-	const committedReplay = Effect.fnUntraced(function* (
-		input: RelationshipIdentityInput,
-		command: DomainLifecycleCommand,
-		mode: Mutation["mode"],
-		properties: unknown,
-	) {
-		return yield* receipts
-			.peek(
-				relationshipReceiptIdentity({ mode, input, command, properties }),
-				RelationshipRecordedResult,
-			)
-			.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
-	});
 	const prepareUserMutation = Effect.fnUntraced(function* (
 		submitted: CreateRelationshipInput | DeleteRelationshipInput,
 		commandInput: DomainLifecycleCommand,
@@ -133,34 +117,17 @@ export const makePreparedRelationshipMutations = (
 		yield* writes
 			.check(command, relationshipSchemaReference(input).owner, input.userId)
 			.pipe(Effect.mapError(relationshipWriteFailure));
-		let receiptMode: "merge" | "upsert" | "delete";
+		let mutationMode: "merge" | "upsert" | "delete";
 		if (mode === "create") {
 			if (propertiesMode === "merge") {
-				receiptMode = "merge";
+				mutationMode = "merge";
 			} else {
-				receiptMode = "upsert";
+				mutationMode = "upsert";
 			}
 		} else {
-			receiptMode = "delete";
+			mutationMode = "delete";
 		}
-		const submittedProperties = "properties" in submitted ? submitted.properties : undefined;
-		const receipt = relationshipReceiptIdentity({
-			input,
-			command,
-			mode: receiptMode,
-			properties: submittedProperties,
-		});
-		const replay = yield* committedReplay(input, command, receiptMode, submittedProperties);
-		if (replay) {
-			if (!replay.result.relationship) {
-				return yield* new DbError({ message: "Committed relationship is missing its result" });
-			}
-			return {
-				mutation: { input, command, mode: receiptMode, properties: submittedProperties },
-				committed: { dispatch: replay.dispatch, relationship: replay.result.relationship },
-			} satisfies PreparedData;
-		}
-		let mutation: Mutation = { input, command, receipt, mode: receiptMode };
+		let mutation: Mutation = { input, command, mode: mutationMode };
 		if (mode === "create") {
 			if (!("properties" in submitted)) {
 				return yield* Effect.die("Prepared relationship create is missing properties");
@@ -277,16 +244,6 @@ export const makePreparedRelationshipMutations = (
 			return { dispatch: prepared.committed.dispatch, result: prepared.committed.relationship };
 		}
 		const { mutation } = prepared;
-		const receipt = relationshipReceiptIdentity(mutation);
-		const replay = yield* receipts
-			.lookup(receipt, RelationshipRecordedResult)
-			.pipe(Effect.mapError(classifyRelationshipReceiptConflict));
-		if (replay) {
-			if (!replay.result.relationship) {
-				return yield* new DbError({ message: "Committed relationship is missing its result" });
-			}
-			return { dispatch: replay.dispatch, result: replay.result.relationship };
-		}
 		const batchScope = {
 			resource: "relationship" as const,
 			command: batchInput?.command ?? mutation.command,
@@ -314,16 +271,12 @@ export const makePreparedRelationshipMutations = (
 			mutation,
 			requestId: prepared.requestId,
 		});
-		yield* receipts.insert(
-			mutationReceiptRecord({
-				batch,
-				result,
-				dispatch,
-				evidence: change,
-				identity: receipt,
-				index: batchInput?.index ?? 0,
-			}),
-		);
+		yield* recordRelationshipImportItem(keys, mutation, result.operation);
+		yield* planner.recordBatchChange(batch.id, {
+			payload: change,
+			index: batchInput?.index ?? 0,
+			scopeUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
+		});
 		return { dispatch, result: result.relationship };
 	});
 	const persistPreparedUserCreate = Effect.fn("RelationshipsService.persistPreparedUserCreate")(
@@ -339,7 +292,6 @@ export const makePreparedRelationshipMutations = (
 		) => persistPreparedUserMutation(prepared[preparedUserRelationshipDelete], batch),
 	);
 	return {
-		committedReplay,
 		prepareUserCreate,
 		prepareUserDelete,
 		persistPreparedUserCreate,

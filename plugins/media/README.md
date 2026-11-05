@@ -424,7 +424,7 @@ including imported positional metadata. Imported rating-only reviews need no pla
 The header and empty review activity tab open the same **Rate or review** composer, with the rating
 first and spoiler controls shown only when text exists. Clearing both fields while editing asks the
 user to retain content or delete the review. Writes remain protected in demo sessions and use the
-existing replay receipts and stale-update snapshots. Successful writes refresh active queries
+operation idempotency keys and stale-update snapshots. Successful writes refresh active queries
 through the client SDK mutation notification. Review changes do not log consumption, and deleting
 the last review does not remove library membership.
 

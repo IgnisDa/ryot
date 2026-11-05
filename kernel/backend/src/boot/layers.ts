@@ -89,7 +89,6 @@ import {
 	IntegrationSyncJobProvidedLive,
 } from "#modules/integrations/layer";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import {
 	NotificationAdmissionsLive,
 	NotificationDeliveryJobProvidedLive,
@@ -298,7 +297,6 @@ const ServicesLive = Layer.mergeAll(
 	UploadServicesLive,
 	ManagedAssetCollectorLive,
 	EntityGraphCollectorLive,
-	MutationReceipts.layer,
 	UserLifecycleServiceLive,
 	UserSettingsServiceLive,
 	EntityUserDataServiceLive,

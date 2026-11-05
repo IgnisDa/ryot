@@ -606,7 +606,7 @@ the script. The compiler records key metadata, not generated files for the full 
 scripts do not author per-script key lists. Configuration is never copied into automation input or
 history. `emitSignal` returns `{ triggerId, wasCreated }`.
 Notification subscriptions remain portable user configuration; triggers, runs, attempts, retry
-state, logs, mutation receipts, pending batch evidence, and encryption keys are not account-backup data.
+state, logs, idempotency keys, and encryption keys are not account-backup data.
 
 Create executable references with `defineScriptReference` and `defineWorkflowReference` from
 `@ryot-app/plugin-backend-sdk/workflow`. `defineExecutableAlternatives({ id, stage, references })` and
@@ -637,8 +637,7 @@ Run/issue recipes expose these reports and setup blocking directly. See
 [imports](../../kernel/backend/src/modules/imports/README.md) for capture, expiry, cancellation, and
 recovery lifetimes.
 
-Mutation receipts replay commands even with no matching hooks. Batch candidates pin code/config
-before writing; sealed committed chunks determine their runs. Later plugin changes cannot add hooks
+Batch candidates pin code/config before writing; sealed committed chunks determine their runs. Later plugin changes cannot add hooks
 to an already committed command. See [automations](../../kernel/backend/src/modules/automations/README.md).
 
 ## HTTP Rate Limits

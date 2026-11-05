@@ -133,7 +133,6 @@ export type LifecycleBatchChange = {
 };
 
 export type LifecycleBatchInput = {
-	readonly commandInput?: unknown;
 	readonly command: LifecycleCommand;
 	readonly identity: ReadonlyArray<string>;
 	readonly resource: LifecycleBatchResource;
@@ -170,6 +169,11 @@ export class LifecyclePlanner extends Context.Service<
 		planChange: (input: {
 			trigger: AutomationTrigger;
 		}) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
+		/** Adds one committed item to a prepared batch, for its hooks to see when the batch is planned. */
+		recordBatchChange: (
+			id: string,
+			change: LifecycleBatchChange & { readonly index: number },
+		) => Effect.Effect<void, DbError>;
 		/** Plans committed changes together, one list of dispatch plans per trigger; derived writes join the first. */
 		planChanges: (
 			triggers: ReadonlyArray<AutomationTrigger>,

@@ -10,7 +10,7 @@ import { IngestionCaptures } from "@ryot-app/kernel-backend/modules/imports/capt
 import { IngestionExecution } from "@ryot-app/kernel-backend/modules/imports/execution-service";
 import {
 	ingestionTestDatabase,
-	ingestionTestReceipt,
+	ingestionTestItem,
 	ingestionTestRun,
 	ingestionTestScope,
 	ingestionTestSource,
@@ -166,10 +166,9 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 			const item = chunk.items[0];
 			const event = item?.events[0];
 			assert(item && event);
-			const receipt = ingestionTestReceipt(
+			const receipt = ingestionTestItem(
 				genericImportOperationIdentity(ingestionTestScope.runId, item, event.operationId),
-				"event:create",
-				{ processed: [], eventId: "committed-event" },
+				"created",
 			);
 			let batch: IngestionBatch = {
 				ordinal: 0,

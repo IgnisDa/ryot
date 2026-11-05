@@ -1,7 +1,5 @@
 import { Layer } from "effect";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
-
 import { NotificationAdmissions } from "./admission";
 import { NotificationDeliveryService, NotificationMailer } from "./delivery";
 import { NotificationDeliveryJobLive } from "./delivery-job";
@@ -11,11 +9,7 @@ import { NotificationsService } from "./service";
 
 export const NotificationAdmissionsLive = NotificationAdmissions.layer.pipe(
 	Layer.provide(
-		Layer.mergeAll(
-			NotificationsRepository.layer,
-			NotificationDeliveryRepository.layer,
-			MutationReceipts.layer,
-		),
+		Layer.mergeAll(NotificationsRepository.layer, NotificationDeliveryRepository.layer),
 	),
 );
 
@@ -29,10 +23,6 @@ export const NotificationDeliveryServiceLive = NotificationDeliveryService.layer
 
 export const NotificationDeliveryJobProvidedLive = NotificationDeliveryJobLive.pipe(
 	Layer.provide(
-		Layer.mergeAll(
-			NotificationDeliveryRepository.layer,
-			NotificationsRepository.layer,
-			MutationReceipts.layer,
-		),
+		Layer.mergeAll(NotificationDeliveryRepository.layer, NotificationsRepository.layer),
 	),
 );

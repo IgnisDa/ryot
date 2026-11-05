@@ -6,7 +6,6 @@ import { AutomationTriggerRepository } from "#modules/automations/trigger-reposi
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import { NotificationSourcePolicy } from "#modules/notifications/source-policy";
 import { PluginRepositoryLive } from "#modules/plugins/packages/repository-layer";
@@ -19,7 +18,6 @@ const repositories = Layer.mergeAll(
 	AutomationRunRepository.layer,
 	AutomationTriggerRepository.layer,
 	RemindersRepository.layer,
-	MutationReceipts.layer,
 	EntitiesRepositoryLive,
 	EntityUserDataGraphRepository.layer,
 	NotificationDeliveryRepository.layer,

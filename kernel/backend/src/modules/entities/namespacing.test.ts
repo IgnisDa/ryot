@@ -36,7 +36,6 @@ import { type EventCreateInput, makeEventCreate } from "#modules/events/event-cr
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -168,7 +167,6 @@ const admittedCommand = Effect.fnUntraced(function* (
 });
 
 const userDataService = EntityUserDataService.make.pipe(
-	Effect.provideServiceEffect(MutationReceipts, MutationReceipts.make),
 	Effect.provideServiceEffect(EntityUserDataGraphRepository, EntityUserDataGraphRepository.make),
 );
 

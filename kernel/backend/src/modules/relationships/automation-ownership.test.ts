@@ -175,7 +175,7 @@ const installGlobalHooks = Effect.fn(function* () {
 
 layer(relationshipDatabaseLayer())((test) => {
 	test.effect(
-		"persists and replays global system automation item and batch writes with user attribution",
+		"persists global system automation item and batch writes with user attribution",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
@@ -210,17 +210,6 @@ layer(relationshipDatabaseLayer())((test) => {
 				expect(reconciled).toEqual([
 					{ created: 1, updated: 1, deleted: 0, upserted: 2, warnings: [] },
 				]);
-				expect(yield* service.create(input, singleCommand)).toEqual(created);
-				expect(yield* service.reconcileGlobal([group], batchCommand)).toEqual(reconciled);
-				const rows = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-				expect(rows.some(({ receiptType }) => receiptType === "item")).toBe(true);
-				expect(rows.some(({ receiptType }) => receiptType === "batch-decision")).toBe(true);
-				expect(
-					rows.every(
-						({ ownerUserId, scopeUserId, accountGeneration }) =>
-							ownerUserId === null && scopeUserId === null && accountGeneration === null,
-					),
-				).toBe(true);
 				const relationships = yield* session.run((db) => db.select().from(tables.relationship));
 				expect(relationships).toHaveLength(2);
 				expect(
@@ -265,15 +254,6 @@ layer(relationshipDatabaseLayer())((test) => {
 				expect(yield* service.reconcileGlobal([group], executing)).toEqual([
 					{ created: 1, updated: 0, deleted: 0, upserted: 1, warnings: [] },
 				]);
-				const before = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-				expect(before.some(({ receiptType }) => receiptType === "item")).toBe(true);
-				expect(before.some(({ receiptType }) => receiptType === "batch-decision")).toBe(true);
-				expect(
-					before.every(
-						({ ownerUserId, accountGeneration }) =>
-							ownerUserId === userId && accountGeneration?.userId === userId,
-					),
-				).toBe(true);
 				const missing = yield* Effect.flip(
 					service.create(baseInput, {
 						...automationCommand("missing-user"),
@@ -296,9 +276,6 @@ layer(relationshipDatabaseLayer())((test) => {
 				expect(missingRoot).toMatchObject({
 					message: "Mutation command account generation is missing",
 				});
-				expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
-					before,
-				);
 				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
 			}),
 		testTimeout,

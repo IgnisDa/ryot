@@ -29,10 +29,9 @@ Admission persists the request before dispatching the root workflow. The durable
 Automatic retry is bounded to three attempts total. Only `infrastructure` or `timeout` failures with no boundary code/data are retried. The two durable waits are 5 seconds and 30 seconds. Other failures are terminal for that request.
 
 `POST /entities/:entityId/enrichment` selects `operation: "population" | "translation"`,
-`action: "refresh" | "retry"`, and an immutable `idempotencyKey`. It returns
-`enrichmentRequestId`, or null when no work is admitted. A retry links to the caller's failed
-or cancelled request. A refresh does not require a failure. Identical submissions replay the
-same identity after completion; reusing that identity with different input is refused.
+and `action: "refresh" | "retry"`. It returns `enrichmentRequestId`, or null when no work is
+admitted. A retry links to the caller's failed or cancelled request. A refresh does not require a
+failure. A resent request joins the compatible active request.
 
 Population admission is shared by imports, interest, monitoring, refresh and retry. Compatible
 active requests share one fetch under the same provider, external ID, schema owner, data scope,

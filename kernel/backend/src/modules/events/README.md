@@ -92,9 +92,12 @@ the same anchor event ID. Atomic commands can reorder anchors and dependents tog
 key collisions are permitted. Standalone dependent writes remain valid when a matching anchor and at
 least one dependent of each declared schema remain. Deleting a last dependent requires deleting its anchor in the same
 atomic command. Entity cascades and merges finalize after the whole source change, not per event.
-Violations fail as a generic `EventBadRequest` mutation conflict and roll back source writes and receipts.
+Violations fail as a generic `EventBadRequest` mutation conflict and roll back source writes.
 
 Before policies run outside this transaction and do not establish cardinality or binding consistency.
+An event create runs its before policies in chunks of at most 50 items, so one invocation fits the
+sandbox context limit; a subject's items share a chunk. All accepted items then commit in one
+transaction.
 Historical restore validates final consistency with SQL, without comparing or recapturing immutable
 properties from live metadata.
 

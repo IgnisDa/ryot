@@ -50,7 +50,6 @@ const activity = {
 } satisfies typeof importActivity.$inferSelect.data;
 const outcome = {
 	reason: null,
-	receiptId: null,
 	unit: "records",
 	result: "skipped",
 	recordKind: "entry",

@@ -108,7 +108,6 @@ export const IngestionOutcome = Schema.Struct({
 	operationId: Schema.NonEmptyString,
 	reason: Schema.NullOr(IngestionReason),
 	inputFingerprint: Schema.NonEmptyString,
-	receiptId: Schema.NullOr(Schema.String),
 	unit: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(128))),
 	recordKind: Schema.NonEmptyString.pipe(Schema.check(Schema.isMaxLength(128))),
 	result: Schema.Literals(["created", "updated", "unchanged", "skipped", "unsuccessful"]),

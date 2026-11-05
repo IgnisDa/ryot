@@ -25,7 +25,7 @@ import { ImportWorkflowPinning } from "./workflow-pinning";
 
 for (const mode of ["removal", "quarantine"] as const) {
 	it.effect(
-		`${mode} reconciles committed receipts with its retained-work cleanup policy`,
+		`${mode} reconciles committed items with its retained-work cleanup policy`,
 		() =>
 			Effect.gen(function* () {
 				const events: string[] = [];

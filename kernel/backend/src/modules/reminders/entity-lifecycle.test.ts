@@ -30,7 +30,6 @@ import { EntityUserDataService } from "#modules/entities/user-data/service";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
@@ -64,7 +63,6 @@ const execution = Layer.effectContext(
 
 const repositories = Layer.mergeAll(
 	RemindersRepository.layer,
-	MutationReceipts.layer,
 	NotificationDeliveryRepository.layer,
 	EntitiesRepository.layer,
 	EntityUserDataGraphRepository.layer,

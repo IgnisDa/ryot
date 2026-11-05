@@ -18,8 +18,8 @@ import {
 import { IngestionCaptures } from "./capture-service";
 import {
 	ingestionTestDatabase,
+	ingestionTestItem,
 	ingestionTestNow,
-	ingestionTestReceipt,
 	ingestionTestScope,
 } from "./ingestion.test-support";
 import { genericImportOperationIdentity, ingestionItemIdentity } from "./outcomes";
@@ -72,7 +72,6 @@ const recorded = (operationId: string, result: "skipped" | "unsuccessful"): Inge
 	result,
 	operationId,
 	unit: "plays",
-	receiptId: null,
 	recordKind: "play",
 	inputFingerprint: "fingerprint",
 	reason: { key: null, code: result },
@@ -84,16 +83,15 @@ const recorded = (operationId: string, result: "skipped" | "unsuccessful"): Inge
 });
 
 it.effect(
-	"reconciles a late committed receipt before cancellation and returns only attributed event completion facts",
+	"reconciles a late committed item before cancellation and returns only attributed event completion facts",
 	() =>
 		Effect.gen(function* () {
 			const [item] = chunk.items;
 			assert(item);
-			const receipts = [
-				ingestionTestReceipt(
+			const items = [
+				ingestionTestItem(
 					genericImportOperationIdentity(ingestionTestScope.runId, item, "committed"),
-					"event:create",
-					{ processed: [], eventId: "event-1" },
+					"created",
 				),
 			];
 			const outcomes = new Map(
@@ -105,7 +103,7 @@ it.effect(
 			);
 			const projections: IngestionBatch[] = [];
 			const dependencies = Layer.mergeAll(
-				ingestionTestDatabase(() => receipts),
+				ingestionTestDatabase(() => items),
 				Layer.mock(IngestionCaptures)({
 					read: () => Effect.succeed(Buffer.from(JSON.stringify(chunk))),
 				}),

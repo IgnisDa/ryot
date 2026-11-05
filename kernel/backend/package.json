@@ -27,7 +27,6 @@
 		"./modules/integrations/ingestion": "./src/modules/integrations/ingestion.ts",
 		"./modules/integrations/repository": "./src/modules/integrations/repository.ts",
 		"./modules/mutations/account-admission": "./src/modules/mutations/account-admission.ts",
-		"./modules/mutations/receipts": "./src/modules/mutations/receipts.ts",
 		"./modules/mutations/workflow-catalogue": "./src/modules/mutations/workflow-catalogue.ts",
 		"./modules/pages/bundles/image-artifacts": "./src/modules/pages/bundles/image-artifacts.ts",
 		"./modules/plugins/catalog/readiness-service": "./src/modules/plugins/catalog/readiness-service.ts",

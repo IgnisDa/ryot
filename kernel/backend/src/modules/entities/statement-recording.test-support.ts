@@ -8,7 +8,7 @@ import { DatabaseSession } from "#platform/db/session";
 const transactionStart = "<transaction>";
 const transactionEnd = "</transaction>";
 
-export type StatementClass = "lock" | "check" | "lookup" | "receipt";
+export type StatementClass = "lock" | "check" | "lookup" | "admission";
 
 export class StatementLog extends Context.Service<
 	StatementLog,
@@ -30,18 +30,14 @@ export const statementClass = (statement: string): null | StatementClass => {
 	if (statement.includes("pg_advisory_xact_lock(") || statement.includes(" for update")) {
 		return "lock";
 	}
-	if (
-		statement.includes('"mutation_receipt"') ||
-		statement.includes('"user_lifecycle_operation"') ||
-		statement.includes('from "user"')
-	) {
-		return "receipt";
+	if (statement.includes('"user_lifecycle_operation"') || statement.includes('from "user"')) {
+		return "admission";
 	}
 	return statement.startsWith("select") && statement.includes('from "entity"') ? "lookup" : null;
 };
 
 export const countStatementClasses = (statements: ReadonlyArray<string>) => {
-	const counts: Record<StatementClass, number> = { lock: 0, check: 0, lookup: 0, receipt: 0 };
+	const counts: Record<StatementClass, number> = { lock: 0, check: 0, lookup: 0, admission: 0 };
 	for (const statement of statements) {
 		const kind = statementClass(statement);
 		if (kind) {

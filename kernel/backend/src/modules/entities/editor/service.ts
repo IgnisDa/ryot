@@ -79,6 +79,7 @@ const directionOf = (directions: ReadonlyMap<string, Direction>, slug: string) =
 };
 
 const SaveResult = Schema.Struct({ entityId: EntityId });
+const DeleteResult = Schema.Struct({ deleted: Schema.Literal(true) });
 const refused = (message: string) => new EntityEditorRefused({ message });
 const invalid = (message: string): EntityEditorSaveOutput => ({ message, kind: "invalid" });
 const stale: EntityEditorSaveOutput = { kind: "stale" };
@@ -543,11 +544,28 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			});
 
 			const remove = Effect.fn("EntityEditorService.remove")(function* (input: {
+				key: string;
 				userId: UserId;
 				lifecycle: DomainLifecycleCommand;
 				submission: EntityEditorDeleteSubmission;
 			}) {
-				const { userId, submission } = input;
+				const { key, userId, submission } = input;
+				const identity = idempotencyIdentity({
+					key,
+					userId,
+					kind: "entity-editor:delete",
+					request: { userId, submission },
+				});
+				const replay = yield* keys
+					.read(identity, DeleteResult)
+					.pipe(
+						Effect.catchTag("IdempotencyConflict", () =>
+							Effect.fail(refused("Command identity was reused with a different submission")),
+						),
+					);
+				if (replay) {
+					return { warnings: noWarnings, output: { kind: "deleted" as const } };
+				}
 				const entityId = EntityId.make(submission.entityId);
 				const authorization = yield* authorize(userId, submission.entitySchema, []);
 				if (authorization.kind === "refused") {
@@ -591,6 +609,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				if (deletedCount === 0) {
 					return yield* new EntityNotFound({ reason: { entityId, code: "entity-not-found" } });
 				}
+				yield* keys.record(identity, DeleteResult, { deleted: true });
 				return { warnings, output: { kind: "deleted" } satisfies EntityEditorSaveOutput };
 			});
 

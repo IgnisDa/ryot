@@ -1,16 +1,11 @@
 # Entity mutation results
 
-Entity-returning create, update, and upsert commands retain one `ListedEntity` snapshot in
-their receipts. A no-op retains the entity returned by that command. Replay reads the
-receipt before reading the source, so later updates or deletion cannot change the result.
-
-Ensure-user and global-batch item receipts retain only `entityId` and `wasInserted`, which
-their external results require. A delete item receipt retains `null`; its identity proves
-completion, and the batch receipt retains the deleted count.
+Entity commands return their results from the write itself. A retried command derives the same
+entity IDs from its execution ID and item identity, so it finds its earlier rows instead of creating
+new ones.
 
 The entity persistence operation builds change evidence in the source-write transaction.
-Matching hook plans, receipt results, dispatch references, and conditional batch evidence
-commit with the source. Result codecs do not contain universal before/after outcomes.
+Matching hook plans, dispatch references, and batch evidence commit with the source. Result codecs do not contain universal before/after outcomes.
 Prepared policy inputs still retain the source snapshot needed to detect concurrent changes.
 
 Provider root-write activities retain the entity snapshot and dispatch references.
@@ -55,9 +50,9 @@ shared ingestion lock.
 
 The request carries `idempotencyKey` and `submittedAt`. The execution ID hashes the account
 generation, the action, the schema reference, and the key; `submittedAt` becomes the command's
-`occurredAt`. The single `entity-editor:save` receipt retains the entity ID and dispatch list, so an
-identical retry replays the result and re-dispatches, while the same key with a different body fails
-with `EntityEditorRefused` (409). Updates carry the loaded entity snapshot and the original user
+`occurredAt`. The `entity-editor:save` key retains the entity ID, so an identical retry returns the
+stored result without dispatching hooks again, while the same key with a different body fails with
+`EntityEditorRefused` (409). Updates carry the loaded entity snapshot and the original user
 relationship groups for every submitted schema, including empty groups. Relationship baselines
 compare related entities and properties independently of array order. Changes since loading or
 during save preparation return `stale`; no entity or relationship diff is committed. Baseline and
@@ -69,7 +64,7 @@ endpoint errors.
 A delete carries the loaded `updatedAt`; a newer entity returns `stale`. It returns `invalid` when the
 entity has any history or any user relationship other than its declared editor links, so children
 must be removed first. Entity deletion re-checks history in its commit transaction and never cascades
-events. Identical retries replay through the entity delete receipts.
+events. A delete carries its own key; an identical retry returns the stored result.
 
 # Graph retention
 

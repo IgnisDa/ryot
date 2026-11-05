@@ -225,40 +225,6 @@ describe("user lifecycle persistence cleanup", () => {
 								},
 							]);
 							const encryptionKeys = yield* db.select().from(tables.pluginConfigEncryptionKey);
-							yield* db.insert(tables.mutationReceipt).values([
-								{
-									dispatch: [],
-									ownerUserId: owner,
-									id: "pending-batch",
-									mutationScope: "global",
-									commandKind: "batch:entity",
-									receiptType: "batch-decision",
-									itemIdentity: "pending-batch",
-									executionId: "pending-execution",
-									inputFingerprint: "pending-input",
-									rootExecutionId: "pending-execution",
-									result: { maxItems: 2, candidateCount: 1 },
-								},
-								{
-									result: {},
-									dispatch: [],
-									ownerUserId: owner,
-									scopeUserId: owner,
-									mutationScope: "user",
-									id: "pending-candidate",
-									batchId: "pending-batch",
-									commandKind: "batch:entity",
-									itemIdentity: "pending-batch",
-									receiptType: "batch-candidate",
-									executionId: "pending-execution",
-									pluginId: privatePlugin.pluginId,
-									inputFingerprint: "pending-input",
-									sandboxScriptId: privateScript.id,
-									rootExecutionId: "pending-execution",
-									pluginRevisionId: privatePlugin.revisionId,
-									pluginConfigRevisionId: privatePlugin.installation.activeConfigRevisionId,
-								},
-							]);
 
 							const reminderEntity = {
 								userId: owner,
@@ -312,7 +278,6 @@ describe("user lifecycle persistence cleanup", () => {
 								} satisfies typeof tables.notificationDelivery.$inferInsert);
 
 							yield* repository.deleteUserData(owner);
-							expect(yield* db.select().from(tables.mutationReceipt)).toEqual([]);
 							expect(
 								yield* db.select().from(tables.reminder).where(eq(tables.reminder.userId, owner)),
 							).toEqual([]);

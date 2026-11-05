@@ -305,7 +305,6 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 									Effect.gen(function* () {
 										yield* repository.recordOutcome(scope, {
 											...operation,
-											receiptId: null,
 											result: "unsuccessful",
 											inputFingerprint: registered.inputFingerprint,
 											reason: { key: null, code: "input-transformation-failed" },
@@ -527,7 +526,6 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 								});
 								yield* repository.recordOutcome(scope, {
 									...operation,
-									receiptId: null,
 									result: "unsuccessful",
 									inputFingerprint: input.batch.inputFingerprint,
 									reason: { key: null, code: failureReasonByStage[failure.stage].code },
@@ -757,7 +755,6 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 					yield* database.transaction(
 						repository.recordOutcome(scope, {
 							...operation,
-							receiptId: null,
 							result: "skipped",
 							reason: { key: null, code: outcome.reason },
 							inputFingerprint: input.batch.inputFingerprint,

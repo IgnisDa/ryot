@@ -123,7 +123,7 @@ layer(
 	ImportsRepository.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("lifecycle_retirement"))),
 )((test) => {
 	test.effect(
-		"retires a boot-injected owner before deleting receipts even when no source write occurred",
+		"retires a boot-injected owner before deleting idempotency keys even when no source write occurred",
 		() =>
 			Effect.gen(function* () {
 				const calls: Array<string> = [];

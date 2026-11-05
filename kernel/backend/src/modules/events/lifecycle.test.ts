@@ -18,13 +18,14 @@ import {
 	EntitySchemaSlug,
 	EventId,
 	EventSchemaSlug,
+	ImportRunId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
@@ -47,7 +48,7 @@ import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
@@ -613,7 +614,7 @@ describe("Event lifecycle PostgreSQL", () => {
 
 	layer(lifecycleDatabaseLayer())("event lifecycle harness", (test) => {
 		test.effect(
-			"conditional event edits and deletes reject stale input and replay committed results",
+			"conditional event edits and deletes reject stale input",
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
@@ -650,7 +651,6 @@ describe("Event lifecycle PostgreSQL", () => {
 					const editCommand = command("conditional-edit");
 					const saved = yield* service.updateBatch([item], userId, editCommand);
 					expect(saved.count).toBe(1);
-					expect(yield* service.updateBatch([item], userId, editCommand)).toEqual(saved);
 					assertExitFails(
 						yield* Effect.exit(service.updateBatch([item], userId, command("stale-edit"))),
 						new EventStale({ reason: { eventId, code: "event-stale" } }),
@@ -683,14 +683,6 @@ describe("Event lifecycle PostgreSQL", () => {
 						deleteExpected,
 					);
 					expect(deleted.count).toBe(1);
-					expect(
-						yield* service.deleteBatch([eventId], userId, deleteCommand, deleteExpected),
-					).toEqual(deleted);
-					expect(
-						yield* service
-							.deleteBatch([eventId], userId, deleteCommand, { [eventId]: expected })
-							.pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "mutation-conflict" } });
 					expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
 				}),
 			testTimeout,
@@ -1301,7 +1293,7 @@ describe("Event lifecycle PostgreSQL", () => {
 		"event lifecycle harness",
 		(test) => {
 			test.effect(
-				"creates a no-policy event in one transaction and replays its receipt",
+				"creates a no-policy event in one transaction",
 				() =>
 					Effect.gen(function* () {
 						const service = yield* EventsService;
@@ -1313,16 +1305,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						};
 						const created = yield* service.create({ ...input, command: lifecycle });
 						expect(created).toMatchObject({ count: 1, failure: null });
-						expect(yield* service.create({ ...input, command: lifecycle })).toEqual(created);
 						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
-						expect(
-							yield* session.run((db) =>
-								db
-									.select({ commandKind: tables.mutationReceipt.commandKind })
-									.from(tables.mutationReceipt)
-									.where(eq(tables.mutationReceipt.commandKind, "event:create-operation")),
-							),
-						).toHaveLength(1);
 					}),
 				testTimeout,
 			);
@@ -1333,11 +1316,12 @@ describe("Event lifecycle PostgreSQL", () => {
 		"event lifecycle harness",
 		(test) => {
 			test.effect(
-				"keeps operation replay receipts separate from imported source-item receipts",
+				"records an imported event item in its write",
 				() =>
 					Effect.gen(function* () {
-						const lifecycle = command("imported-event-receipt");
-						assert(lifecycle.accountGeneration);
+						const importRunId = ImportRunId.make("imported-event-run");
+						const base = command("imported-event-item");
+						const lifecycle = { ...base, causation: { ...base.causation, importRunId } };
 						const result = yield* runCreate({
 							userId,
 							command: lifecycle,
@@ -1345,13 +1329,14 @@ describe("Event lifecycle PostgreSQL", () => {
 							payload: [{ entityId, eventSchemaSlug, properties: { rating: 2 } }],
 						});
 						expect(result.count).toBe(1);
-						const committed = yield* (yield* MutationReceipts.make).getCommittedItems({
+						const committed = yield* (yield* IdempotencyKeys.make).importItems({
 							userId,
+							runId: importRunId,
 							itemIdentities: [lifecycle.itemIdentity],
-							accountGeneration: lifecycle.accountGeneration,
-							rootExecutionId: lifecycle.causation.rootExecutionId,
 						});
-						expect(committed.map(({ commandKind }) => commandKind)).toEqual(["event:create"]);
+						expect(committed).toEqual([
+							{ result: "created", itemIdentity: lifecycle.itemIdentity },
+						]);
 					}),
 				testTimeout,
 			);
@@ -1362,7 +1347,7 @@ describe("Event lifecycle PostgreSQL", () => {
 		"event lifecycle harness",
 		(test) => {
 			test.effect(
-				"commits no-hook updates and deletes with their receipts in one transaction",
+				"commits no-hook updates and deletes in one transaction",
 				() =>
 					Effect.gen(function* () {
 						const service = yield* EventsService;
@@ -1398,53 +1383,21 @@ describe("Event lifecycle PostgreSQL", () => {
 								updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
-						expect(yield* service.moveReferences(move, command("no-hook-noop"))).toEqual(noop);
 						expect(
 							(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.entityId,
 						).toBe(entityId);
-						expect(
-							yield* service
-								.moveReferences({ ...move, mergeInto: entityId }, command("no-hook-noop"))
-								.pipe(Effect.flip),
-						).toMatchObject({ message: "Conflicting event command identity" });
 						const deleted = yield* service.delete({ userId, eventId }, command("no-hook-delete"));
 						expect(deleted).toEqual({ eventId, warnings: [] });
-						expect(yield* service.moveReferences(move, command("no-hook-update"))).toEqual(updated);
-						expect(yield* service.delete({ userId, eventId }, command("no-hook-delete"))).toEqual(
-							deleted,
-						);
 						const missingId = EventId.make("no-hook-missing-delete");
 						const missingCommand = command("no-hook-missing-delete");
 						expect(yield* service.delete({ userId, eventId: missingId }, missingCommand)).toEqual({
 							warnings: [],
 							eventId: null,
 						});
-						yield* session.transaction(
-							repository.createEvent({
-								userId,
-								entityId,
-								id: missingId,
-								properties: {},
-								eventSchemaSlug,
-								eventSchemaName: "Rating",
-								eventSchemaPluginId: null,
-								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
-							}),
-						);
-						expect(yield* service.delete({ userId, eventId: missingId }, missingCommand)).toEqual({
-							warnings: [],
-							eventId: null,
-						});
-						expect(
-							yield* repository.getEventSnapshot({ userId, eventId: missingId }),
-						).not.toBeNull();
-						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
+						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(0);
 						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
 							[],
 						);
-						const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-						expect(receipts.filter(({ receiptType }) => receiptType === "item")).toHaveLength(4);
-						expect(receipts.every(({ evidence }) => evidence === null)).toBe(true);
 						const transactions = yield* fixture.planTransactions;
 						expect(transactions).toHaveLength(4);
 						expect(transactions[0]).toBe(transactions[1]);
@@ -1482,7 +1435,7 @@ describe("Event lifecycle PostgreSQL", () => {
 		),
 	)("event lifecycle harness", (test) => {
 		test.effect(
-			"applies event policy transforms in order and replays the raw submitted edit",
+			"applies event policy transforms in order",
 			() =>
 				Effect.gen(function* () {
 					policyInputs.length = 0;
@@ -1523,24 +1476,6 @@ describe("Event lifecycle PostgreSQL", () => {
 					expect(
 						(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
 					).toEqual({ rating: 10 });
-					expect(yield* service.edit(submitted, userId, lifecycle)).toEqual({
-						eventId,
-						warnings: [],
-					});
-					expect(policyInputs).toHaveLength(2);
-					const conflict = yield* Effect.flip(
-						service.edit(
-							updateItem("policy-edit-event", { properties: { remove: [], set: { rating: 11 } } }),
-							userId,
-							lifecycle,
-						),
-					);
-					expect(conflict).toMatchObject({
-						_tag: "EventBadRequest",
-						reason: { code: "mutation-conflict" },
-					});
-					expect(policyInputs).toHaveLength(2);
-
 					const moveEventId = EventId.make("policy-move-event");
 					yield* session.transaction(
 						repository.createEvent({
@@ -1576,11 +1511,6 @@ describe("Event lifecycle PostgreSQL", () => {
 						properties: { rating: 10 },
 						occurredAt: "2026-09-16T00:00:00.000Z",
 					});
-					expect(yield* service.moveReferences(move, moveCommand)).toEqual({
-						warnings: [],
-						eventId: moveEventId,
-					});
-					expect(policyInputs).toHaveLength(2);
 				}),
 			testTimeout,
 		);
@@ -1969,79 +1899,10 @@ describe("Event lifecycle PostgreSQL", () => {
 							(yield* repository.getEventSnapshot({ userId, eventId }))?.snapshot.properties,
 						).toEqual({ rating: 1 });
 					}
-					expect(
-						yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.commandKind, "event:edit")),
-						),
-					).toEqual([]);
 				}),
 			testTimeout,
 		);
 	});
-
-	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))(
-		"event lifecycle harness",
-		(test) => {
-			test.effect(
-				"replays a committed event delete batch",
-				() =>
-					Effect.gen(function* () {
-						const service = yield* EventsService;
-						const repository = yield* EventsRepository;
-						const session = yield* DatabaseSession;
-						const eventId = EventId.make("delete-batch-event");
-						yield* session.transaction(
-							repository.createEvent({
-								userId,
-								entityId,
-								id: eventId,
-								eventSchemaSlug,
-								properties: { rating: 1 },
-								eventSchemaName: "Rating",
-								eventSchemaPluginId: null,
-								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
-							}),
-						);
-						const lifecycle = command("delete-event-batch");
-						expect(yield* service.deleteBatch([eventId], userId, lifecycle)).toEqual({
-							count: 1,
-							warnings: [],
-						});
-						expect(yield* service.deleteBatch([eventId], userId, lifecycle)).toEqual({
-							count: 1,
-							warnings: [],
-						});
-						expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
-					}),
-				testTimeout,
-			);
-
-			test.effect(
-				"deletes an event whose timestamps were written by the database",
-				() =>
-					Effect.gen(function* () {
-						const service = yield* EventsService;
-						const repository = yield* EventsRepository;
-						const { observer } = yield* LifecycleDatabase;
-						const eventId = EventId.make("database-timestamp-event");
-						yield* Effect.promise(() =>
-							observer.query(
-								`INSERT INTO event (id,user_id,entity_id,event_schema_slug,properties,occurred_at,created_at,updated_at) VALUES ($1,$2,$3,$4,'{"rating":1}',$5,$5,$5)`,
-								[eventId, userId, entityId, eventSchemaSlug, "2026-09-15T00:00:00.000123Z"],
-							),
-						);
-						expect(
-							yield* service.deleteBatch([eventId], userId, command("database-timestamp-delete")),
-						).toEqual({ count: 1, warnings: [] });
-						expect(yield* repository.getEventSnapshot({ userId, eventId })).toBeNull();
-					}),
-				testTimeout,
-			);
-		},
-	);
 
 	layer(
 		Layer.provideMerge(

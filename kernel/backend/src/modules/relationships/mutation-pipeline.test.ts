@@ -16,7 +16,6 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
-import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
@@ -56,7 +55,6 @@ import {
 import { RelationshipMutationPipeline } from "./mutation-pipeline";
 import { itemCommand, type Mutation } from "./mutation-support";
 import { RelationshipsRepository } from "./repository";
-import { relationshipLifecycleHostSteps } from "./script-host";
 import { RelationshipsService } from "./service";
 
 const otherUserId = UserId.make("other-relationship-owner");
@@ -230,7 +228,6 @@ const mutationState = Effect.gen(function* () {
 		Effect.all({
 			runs: db.select().from(tables.automationRun).orderBy(tables.automationRun.id),
 			relationships: db.select().from(tables.relationship).orderBy(tables.relationship.id),
-			receipts: db.select().from(tables.mutationReceipt).orderBy(tables.mutationReceipt.id),
 			triggers: db.select().from(tables.automationTrigger).orderBy(tables.automationTrigger.id),
 		}),
 	);
@@ -330,57 +327,12 @@ describe("Relationship set-based mutation pipeline", () => {
 							({ targetEntityId }) => targetEntityId === createdTarget,
 						);
 						assert(created);
-						const itemResults = before.receipts
-							.filter(
-								({ commandKind }) =>
-									commandKind !== "relationship:change-user-batch" &&
-									commandKind !== "relationship:reconcile-group",
-							)
-							.map(({ result }) => result);
-						for (const [operation, id] of [
-							["create", created.id],
-							["update", updated.id],
-							["delete", deleted.id],
-							["noop", unchanged.id],
-						]) {
-							expect(itemResults).toContainEqual<unknown>(
-								objectContaining({ operation, relationship: objectContaining({ id }) }),
-							);
-						}
 						expect(
 							before.triggers
 								.filter(({ category }) => category === "change")
 								.map(({ operation }) => operation)
 								.sort(),
 						).toEqual(["batch", "create", "create", "delete", "update"]);
-						expect(before.receipts.find(({ id }) => id === pending.rootDecision?.id)?.result).toBe(
-							"sealed",
-						);
-						const replayed =
-							scope === "user"
-								? yield* pipeline.commitBatch(pending)
-								: yield* pipeline.commitReconciliation(pending);
-						expect(replayed).toEqual(committed);
-						const hosts = relationshipLifecycleHostSteps(pipeline);
-						const hostReplay =
-							scope === "user"
-								? yield* hosts.changeUserRelationships
-										.itemWrite({
-											userId,
-											batches: [],
-											command: lifecycle,
-											_tag: "ChangeUserRelationships",
-										})
-										.commit()(pending)
-								: yield* hosts.upsertGlobalRelationships
-										.itemWrite({
-											groups: [],
-											command: lifecycle,
-											_tag: "UpsertGlobalRelationships",
-										})
-										.commit()(pending);
-						expect(hostReplay).toEqual(committed);
-						expect(yield* mutationState).toEqual(before);
 					}),
 				testTimeout,
 			);
@@ -409,14 +361,6 @@ describe("Relationship set-based mutation pipeline", () => {
 						const first = yield* service.changeUser(userId, batches, command(id));
 						expect(first).toEqual([{ created: 0, updated: 0, deleted: 0, warnings: [] }]);
 						const before = yield* mutationState;
-						expect(
-							before.receipts.find(
-								({ executionId, commandKind, receiptType }) =>
-									executionId === id &&
-									commandKind === "relationship:change-user" &&
-									receiptType === "batch-decision",
-							)?.result,
-						).toBe("sealed");
 						expect(yield* service.changeUser(userId, batches, command(id))).toEqual(first);
 						expect(yield* mutationState).toEqual(before);
 					}
@@ -432,11 +376,6 @@ describe("Relationship set-based mutation pipeline", () => {
 					]);
 					expect(yield* mutationState).toEqual(before);
 					expect(before.triggers).toEqual([]);
-					expect(
-						before.receipts
-							.filter(({ receiptType }) => receiptType === "batch-decision")
-							.every(({ result }) => result === "sealed"),
-					).toBe(true);
 				}),
 			testTimeout,
 		);
@@ -459,8 +398,6 @@ describe("Relationship set-based mutation pipeline", () => {
 					assert(mutation);
 					const prepared = yield* pipeline.prepareSingle({ ...mutation, mode: "ensure" });
 					assert(prepared._tag === "PoliciesRequired");
-					const [pendingItem] = prepared.pending.items;
-					expect(pendingItem?.receipt.commandKind).toBe("relationship:ensure");
 
 					const existingProperties = { rank: 9, labels: ["saved"] };
 					yield* repository.createRelationship({

@@ -78,6 +78,7 @@ export const withLifecycleBatchPlanning = (
 		);
 	return {
 		plan: recordPlan,
+		recordBatchChange: () => Effect.void,
 		planChange: (input) =>
 			Effect.map(recordPlan(input), (result) =>
 				result.trigger === null ? [] : [toLifecycleDispatchPlan(result)],

@@ -1185,30 +1185,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const data = yield* Schema.decodeEffect(IngestionOutcome)(outcome);
 				yield* lockProjection(scope, ["running", "cancelling"]);
-				if (["created", "updated", "unchanged"].includes(data.result)) {
-					const [receipt] = yield* database.run((db) =>
-						db
-							.select({ id: schema.mutationReceipt.id })
-							.from(schema.mutationReceipt)
-							.where(
-								and(
-									eq(schema.mutationReceipt.id, data.receiptId ?? ""),
-									eq(schema.mutationReceipt.ownerUserId, scope.userId),
-									eq(schema.mutationReceipt.rootExecutionId, scope.runId),
-									eq(schema.mutationReceipt.itemIdentity, data.operationId),
-									eq(schema.mutationReceipt.receiptType, "item"),
-									eq(schema.mutationReceipt.inputFingerprint, data.inputFingerprint),
-									sql`${schema.mutationReceipt.accountGeneration}->>'token' = ${scope.accountGeneration.token}`,
-								),
-							)
-							.limit(1),
-					);
-					if (!receipt) {
-						return yield* new DbError({
-							message: "Committed outcome requires its mutation receipt",
-						});
-					}
-				}
 				const [existing] = yield* database.run((db) =>
 					db
 						.select()

@@ -31,11 +31,6 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 					writeContext: null,
 				};
 				return yield* service.create({ payload, command, userId: user.id }).pipe(
-					Effect.catchTag("EventCreateItemError", (error) =>
-						Effect.logError("event creation conflicted with its recorded command", error).pipe(
-							Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
-						),
-					),
 					Effect.catchIf(
 						(error): error is DbError => error instanceof DbError,
 						(error) =>

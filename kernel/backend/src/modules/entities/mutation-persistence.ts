@@ -14,7 +14,6 @@ import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
-import { chunksOf } from "effect/Array";
 
 import type {
 	ManagedAssetReferenceLocker,
@@ -22,26 +21,20 @@ import type {
 } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import type {
-	CommittedLifecycleWork,
 	LifecycleDispatchPlan,
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
-import {
-	MutationReceiptIdentity,
-	MutationReceiptIdentityConflict,
-	type MutationReceipts,
-	mutationUserIds,
-} from "#modules/mutations/receipts";
+import { type AccountAdmission, mutationUserIds } from "#modules/mutations/account-admission";
+import type { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { CatalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { isUniqueConstraintError } from "#platform/db/errors";
 
-import { type EntitiesRepository, type MutationEntity, STATEMENT_CHUNK_SIZE } from "./repository";
+import type { EntitiesRepository, MutationEntity } from "./repository";
 import { DomainLifecycleCommand, type DomainWritePin } from "./write-context";
 
 export const PreparedEntityMutation = Schema.Struct({
 	entityId: EntityId,
 	draft: AutomationEntityDraft,
-	receipt: MutationReceiptIdentity,
 	lifecycle: DomainLifecycleCommand,
 	scopeUserId: Schema.NullOr(UserId),
 	before: Schema.NullOr(AutomationEntitySnapshot),
@@ -111,72 +104,20 @@ export const isUnchangedUpdate = (input: PreparedMutation) =>
 		draftOf(input.before),
 		effectiveDraft({ input, batchIndex: 0, pin: undefined }, input.before),
 	);
-export type MutationReceiptRecord = Parameters<MutationReceipts["Service"]["insert"]>[0];
-
-export const mutationReceiptRecord = (input: {
-	readonly index: number;
-	readonly result: unknown;
-	readonly identity: MutationReceiptIdentity;
-	readonly batch: null | undefined | PersistBatch;
-	readonly evidence?: MutationReceiptRecord["evidence"];
-	readonly dispatch: ReadonlyArray<LifecycleDispatchPlan>;
-}): MutationReceiptRecord => ({
-	result: input.result,
-	identity: input.identity,
-	dispatch: input.dispatch,
-	...(input.batch ? { batchId: input.batch.id, batchIndex: input.index } : {}),
-	...(input.batch?.hasCandidates && input.evidence ? { evidence: input.evidence } : {}),
-});
-
-// Above one statement's bind budget, chunks follow id order so receipt locks stay globally sorted.
-const receiptChunks = <T>(items: ReadonlyArray<T>, idOf: (item: T) => string) => {
-	const indexed = items.map((item, index) => ({ item, index, id: idOf(item) }));
-	return items.length <= STATEMENT_CHUNK_SIZE
-		? [indexed]
-		: chunksOf(
-				indexed.sort((left, right) => (left.id < right.id ? -1 : Number(left.id > right.id))),
-				STATEMENT_CHUNK_SIZE,
-			);
-};
-
-export const makeReceiptBatches = (receipts: MutationReceipts["Service"]) => ({
-	insertReceipts: Effect.fnUntraced(function* (records: ReadonlyArray<MutationReceiptRecord>) {
-		for (const chunk of receiptChunks(records, ({ identity }) => identity.id)) {
-			yield* receipts.insertMany(chunk.map(({ item }) => item));
-		}
-	}),
-	lookupReceipts: Effect.fnUntraced(function* <Result>(
-		identities: ReadonlyArray<MutationReceiptIdentity>,
-		codec: Schema.Codec<Result, unknown>,
-	) {
-		const results: Array<null | CommittedLifecycleWork<Result>> = identities.map(() => null);
-		for (const chunk of receiptChunks(identities, ({ id }) => id)) {
-			const found = yield* receipts.lookupMany(
-				chunk.map(({ item }) => item),
-				codec,
-			);
-			for (const [position, { index }] of chunk.entries()) {
-				results[index] = found[position] ?? null;
-			}
-		}
-		return results;
-	}),
-});
-
 export const makePersistMutation = <E, R, Result>({
+	keys,
 	planner,
-	receipts,
 	resultOf,
+	admission,
 	repository,
-	resultCodec,
 	validateDraft,
 	assetReferences,
 	authorizeMutation,
 }: {
+	keys: IdempotencyKeys["Service"];
 	planner: LifecyclePlanner["Service"];
-	receipts: MutationReceipts["Service"];
+	admission: AccountAdmission["Service"];
 	repository: EntitiesRepository["Service"];
-	resultCodec: Schema.Codec<Result, unknown>;
 	assetReferences: ManagedAssetReferenceLocker["Service"];
 	resultOf: (entity: ListedEntity, wasInserted: boolean) => Result;
 	authorizeMutation: (mutation: PreparedMutation) => Effect.Effect<void, E, R>;
@@ -206,6 +147,7 @@ export const makePersistMutation = <E, R, Result>({
 	) {
 		const assetRecords: OwnedManagedAssetPropertyRecord[] = [];
 		for (const { pin, input } of items) {
+			yield* admission.admitCommand(input.lifecycle, input.scopeUserId);
 			const currentSchema = yield* validateDraft(
 				input.draft,
 				input.scopeUserId,
@@ -322,7 +264,6 @@ export const makePersistMutation = <E, R, Result>({
 			);
 		}
 		const results: Array<{ result: Result; dispatch: ReadonlyArray<LifecycleDispatchPlan> }> = [];
-		const records: MutationReceiptRecord[] = [];
 		for (const { item, before } of writes) {
 			const { input } = item;
 			let entity: null | ListedEntity = before;
@@ -394,18 +335,22 @@ export const makePersistMutation = <E, R, Result>({
 				: [];
 			const result = resultOf(entity, input.operation === "create" && before === null);
 			results.push({ result, dispatch });
-			records.push(
-				mutationReceiptRecord({
-					batch,
-					result,
-					evidence,
-					dispatch,
+			if (input.operation !== "delete") {
+				yield* keys.recordImportItem(
+					input.lifecycle,
+					input.scopeUserId,
+					input.operation === "create" ? "created" : "updated",
+				);
+			}
+			if (batch && evidence) {
+				yield* planner.recordBatchChange(batch.id, {
+					payload: evidence,
 					index: item.batchIndex,
-					identity: input.receipt,
-				}),
-			);
+					scopeUserId: input.scopeUserId,
+				});
+			}
 		}
-		return { results, records };
+		return { results };
 	});
 	const persistSave = Effect.fnUntraced(function* (
 		input: PreparedMutation,
@@ -413,28 +358,14 @@ export const makePersistMutation = <E, R, Result>({
 	) {
 		yield* repository.lockSchemaCatalog(mutationUserIds(input.lifecycle, input.scopeUserId));
 		yield* authorizeMutation(input);
-		const replay = yield* receipts
-			.lookup(input.receipt, resultCodec)
-			.pipe(
-				Effect.mapError((error) =>
-					error instanceof MutationReceiptIdentityConflict
-						? conflict("Command identity was reused with a different entity payload")
-						: error,
-				),
-			);
-		if (replay) {
-			return { result: replay.result, dispatch: replay.dispatch };
-		}
 		const persisted = yield* persistMany(
 			[{ input, pin: undefined, batchIndex: batch?.index ?? 0 }],
 			batch,
 		);
 		const [saved] = persisted.results;
-		const [record] = persisted.records;
-		if (!saved || !record) {
+		if (!saved) {
 			return yield* Effect.die("Persisted entity mutation is missing its result");
 		}
-		yield* receipts.insert(record);
 		return saved;
 	});
 	return { persistMany, persistSave };

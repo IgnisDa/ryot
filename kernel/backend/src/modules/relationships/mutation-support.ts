@@ -38,12 +38,8 @@ import {
 	DomainWriteConflict,
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
-import {
-	MutationReceiptIdentity,
-	mutationReceiptIdentity,
-	mutationReceiptOwner,
-	type MutationReceipts,
-} from "#modules/mutations/receipts";
+import type { AccountAdmission } from "#modules/mutations/account-admission";
+import type { IdempotencyKeys, ImportItemResult } from "#modules/mutations/idempotency";
 import {
 	CatalogDefinitionFingerprint,
 	type PluginRuntimeResolver,
@@ -113,7 +109,6 @@ export const RelationshipMutation = Schema.Struct({
 	input: RelationshipIdentityInput,
 	properties: Schema.optional(Schema.Unknown),
 	propertiesSchema: Schema.optional(AppSchema),
-	receipt: Schema.optional(MutationReceiptIdentity),
 	schemaFingerprint: Schema.optional(CatalogDefinitionFingerprint),
 	mode: Schema.Literals(["upsert", "update", "delete", "merge", "ensure"]),
 });
@@ -130,29 +125,24 @@ export const RelationshipRecordedResult = Schema.Struct({
 	),
 });
 
-export const relationshipReceiptIdentity = (
-	mutation: Pick<Mutation, "mode" | "input" | "command" | "receipt" | "properties">,
-) =>
-	mutation.receipt ??
-	mutationReceiptIdentity({
-		command: mutation.command,
-		commandKind: `relationship:${mutation.mode}`,
-		scopeUserId: mutation.input.scope === "user" ? mutation.input.userId : null,
-		ownerUserId: mutationReceiptOwner(
-			mutation.command,
-			mutation.input.scope === "user" ? mutation.input.userId : null,
-		),
-		input: {
-			scope: mutation.input.scope,
-			writeContext: mutation.command.writeContext,
-			...(mutation.input.scope === "user" ? { userId: mutation.input.userId } : {}),
-			properties: mutation.properties ?? null,
-			sourceEntityId: mutation.input.sourceEntityId,
-			targetEntityId: mutation.input.targetEntityId,
-			relationshipSchemaSlug: mutation.input.relationshipSchemaSlug,
-			relationshipSchemaPluginId: mutation.input.relationshipSchemaPluginId,
-		},
-	});
+export const recordRelationshipImportItem = (
+	keys: IdempotencyKeys["Service"],
+	mutation: Pick<Mutation, "input" | "command">,
+	operation: "noop" | "create" | "update" | "delete",
+) => {
+	let result: ImportItemResult = "unchanged";
+	if (operation === "create") {
+		result = "created";
+	}
+	if (operation === "update") {
+		result = "updated";
+	}
+	return keys.recordImportItem(
+		mutation.command,
+		mutation.input.scope === "user" ? mutation.input.userId : null,
+		result,
+	);
+};
 
 export const relationshipChange = (
 	request: AutomationRelationshipRequestPayload,
@@ -387,10 +377,11 @@ export const relationshipIdentity = (
 });
 
 export type RelationshipMutationDependencies = {
+	readonly keys: IdempotencyKeys["Service"];
 	readonly session: DatabaseSession["Service"];
 	readonly writes: DomainWriteChecks["Service"];
 	readonly planner: LifecyclePlanner["Service"];
-	readonly receipts: MutationReceipts["Service"];
+	readonly admission: AccountAdmission["Service"];
 	readonly entities: EntitiesRepository["Service"];
 	readonly execution: LifecycleExecution["Service"];
 	readonly runtime: PluginRuntimeResolver["Service"];

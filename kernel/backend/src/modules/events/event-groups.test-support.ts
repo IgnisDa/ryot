@@ -13,7 +13,6 @@ import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph
 import { EntityUserDataService } from "#modules/entities/user-data/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -52,9 +51,7 @@ const propertiesSchema: AppSchema = {
 };
 export const eventGroupWorkflowLayer = Layer.mergeAll(
 	UserCommands.layer,
-	EntityUserDataService.layer.pipe(
-		Layer.provideMerge(Layer.merge(EntityUserDataGraphRepository.layer, MutationReceipts.layer)),
-	),
+	EntityUserDataService.layer.pipe(Layer.provideMerge(EntityUserDataGraphRepository.layer)),
 ).pipe(
 	Layer.provideMerge(
 		EventMutations.layer.pipe(

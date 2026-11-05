@@ -917,7 +917,7 @@ layer(
 	);
 
 	test.effect(
-		"replays the root and the page workflow without receipt conflicts",
+		"replays the root and the page workflow without identity conflicts",
 		() =>
 			Effect.gen(function* () {
 				const h = yield* harness("replay");

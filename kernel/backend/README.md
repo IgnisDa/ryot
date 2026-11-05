@@ -66,8 +66,8 @@ retirement and is rejected. Unreferenced assets are retired, their object is del
 the row removed; a failed deletion is retried on the next run.
 
 Unused provider entities are collected by the [graph retention](src/modules/entities/README.md#graph-retention)
-rules. Mutation receipts and settled background work expire as described in
-[mutation admission](src/modules/mutations/README.md#receipt-retention) and
+rules. Idempotency keys and settled background work expire as described in
+[mutation admission](src/modules/mutations/README.md#idempotency-keys) and
 [background work](src/modules/background-work/README.md).
 
 Redis infrastructure owns backend keys, channels, codecs, and parsing; the sandbox owns its

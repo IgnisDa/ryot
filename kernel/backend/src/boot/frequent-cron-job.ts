@@ -19,7 +19,6 @@ import { ingestionFrequentTask } from "#modules/imports/frequent-task";
 import type { ImportsService } from "#modules/imports/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationAdmissions } from "#modules/notifications/admission";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
@@ -46,7 +45,6 @@ const frequentCronTasks: ReadonlyArray<
 		| ImportsService
 		| ReminderWorker
 		| DatabaseSession
-		| MutationReceipts
 		| AutomationRetention
 		| UploadIntentsService
 		| EntityGraphCollector
@@ -136,13 +134,6 @@ const frequentCronTasks: ReadonlyArray<
 		run: () =>
 			Effect.flatMap(IdempotencyKeys.make, (keys) => keys.pruneExpired(500)).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("idempotency key retention failed", cause)),
-			),
-	},
-	{
-		name: "mutation-receipt-retention",
-		run: () =>
-			Effect.flatMap(MutationReceipts, (receipts) => receipts.pruneRetired(500)).pipe(
-				Effect.catchCause((cause) => Effect.logWarning("mutation receipt retention failed", cause)),
 			),
 	},
 	{

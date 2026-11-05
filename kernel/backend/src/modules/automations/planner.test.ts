@@ -31,7 +31,6 @@ import {
 	LifecycleWork,
 } from "#modules/automations/lifecycle/planning";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
-import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import {
@@ -963,9 +962,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								excludedOncePerSubjectPolicies: [...exclusions].toReversed(),
 							}),
 						).toEqual({ ...second, wasCreated: false });
-						expect(yield* planner.plan({ trigger }).pipe(Effect.flip)).toMatchObject({
-							_tag: "DbError",
-						});
 					}),
 				testTimeout,
 			);
@@ -1375,16 +1371,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 									.where(eq(tables.automationTrigger.id, "filtered")),
 							),
 						).toHaveLength(0);
-						expect(
-							yield* planner
-								.plan({
-									trigger: {
-										...(yield* entityTrigger(installed.pluginId, "create")),
-										occurredAt: "2026-09-16T00:00:00.000Z",
-									},
-								})
-								.pipe(Effect.flip),
-						).toMatchObject({ _tag: "DbError" });
 					}),
 				testTimeout,
 			);
@@ -1682,9 +1668,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								yield* planner.plan({
 									trigger: yield* entityTrigger(installed.pluginId, "rollback"),
 								});
-								return yield* planner.plan({
-									trigger: { ...firstTrigger, scopeUserId: recipient },
-								});
+								return yield* new DbError({ message: "rollback" });
 							}),
 						)
 						.pipe(Effect.flip);
@@ -1796,346 +1780,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		"planner harness",
 		(test) => {
 			test.effect(
-				"retains a pending batch hook's script and configuration through revision pruning",
+				"chunks batch evidence for batch-only hooks",
 				() =>
 					Effect.gen(function* () {
 						const planner = yield* LifecyclePlanner;
 						const session = yield* DatabaseSession;
-						const plugins = yield* PluginRepository;
-						const receipts = yield* MutationReceipts.make;
-						const source = afterHookPackage("v1", { frequency: "batch" });
-						const installed = yield* installRevisionPackage(source, owner);
-						const input = {
-							identity: ["pinned"],
-							resource: "entity" as const,
-							command: {
-								itemIdentity: "pinned",
-								occurredAt: "2026-09-15T00:00:00.000Z",
-								causation: triggerFixture("pinned").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
-							},
-						};
-						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-						expect(decision.hasCandidates).toBe(true);
-						const [pin] = yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-						);
-						const configId = pin?.pluginConfigRevisionId;
-						const scriptId = pin?.sandboxScriptId;
-						assert(pin && configId && scriptId);
-						expect(pin.pluginRevisionId).toBe(installed.revisionId);
-						expect(pin.result).toEqual<unknown>({
-							scriptSlug: "fixture.automation",
-							scriptContentHash: "fixture.automation-v1",
-							hook: source.manifest.hooks.find(({ slug }) => slug === "fixture.changed"),
-						});
-						yield* installRevisionPackage(afterHookPackage("v2", { frequency: "batch" }), owner);
-						const expiry = DateTime.toDateUtc(DateTime.makeUnsafe("2027-01-01T00:00:00.000Z"));
-						yield* plugins.pruneRevisionArtifacts({ limit: 100, now: expiry, retryWindowDays: 7 });
-						yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 100, now: expiry });
-						const [config] = yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.pluginConfigRevision)
-								.where(eq(tables.pluginConfigRevision.id, configId)),
-						);
-						const [script] = yield* session.run((db) =>
-							db.select().from(tables.sandboxScript).where(eq(tables.sandboxScript.id, scriptId)),
-						);
-						assert(config && script);
-						expect(config.encryptedPayload).not.toBeNull();
-						expect(script.id).toBe<unknown>(pin.sandboxScriptId);
-						expect((yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).id).toBe(
-							decision.id,
-						);
-						yield* nested(
-							Effect.gen(function* () {
-								yield* receipts.insert({
-									dispatch: [],
-									batchIndex: 0,
-									batchId: decision.id,
-									result: { id: "first" },
-									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-										entityChange(installed.pluginId, "first"),
-									),
-									identity: mutationReceiptIdentity({
-										ownerUserId: owner,
-										scopeUserId: owner,
-										input: { id: "first" },
-										commandKind: "entity:create",
-										command: { ...input.command, itemIdentity: "pinned:item" },
-									}),
-								});
-							}),
-						);
-						const dispatch = yield* nested(planner.planBatch(input));
-						expect(dispatch).toHaveLength(1);
-						const [run] = yield* session.run((db) => db.select().from(tables.automationRun));
-						expect(run?.pluginRevisionId).toBe(installed.revisionId);
-						expect(run?.pluginConfigRevisionId).toBe(pin.pluginConfigRevisionId);
-						expect(run?.sandboxScriptId).toBe(pin.sandboxScriptId);
-						expect(run?.scriptContentHash).toBe("fixture.automation-v1");
-						expect(run?.executionUserId).toBe(owner);
-						expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
-						expect(
-							(yield* session.run((db) => db.select().from(tables.mutationReceipt))).filter(
-								({ evidence, receiptType }) =>
-									receiptType === "batch-candidate" || evidence !== null,
-							),
-						).toEqual([]);
-					}),
-				testTimeout,
-			);
-		},
-	);
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"replays distinct retained pins, including global execution with a user receipt owner",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const session = yield* DatabaseSession;
-						const plugins = yield* PluginRepository;
-						const receipts = yield* MutationReceipts.make;
-						const packages = [
-							{
-								scopeUserId: owner,
-								executionScope: "user" as const,
-								packageId: testPluginPackageId(),
-							},
-							{
-								scopeUserId: null,
-								packageId: testPluginPackageId(),
-								executionScope: "global" as const,
-							},
-						];
-						const installed = yield* Effect.forEach(
-							packages,
-							({ packageId, scopeUserId, executionScope }) =>
-								installRevisionPackage(
-									afterHookPackage("v1", { executionScope, frequency: "batch" }, packageId),
-									scopeUserId,
-								),
-						);
-						const input: LifecycleBatchInput = {
-							resource: "entity",
-							identity: ["distinct-pins"],
-							command: {
-								itemIdentity: "distinct-pins",
-								occurredAt: "2026-09-15T00:00:00.000Z",
-								causation: triggerFixture("distinct-pins").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
-							},
-						};
-						const decision = yield* nested(
-							planner.prepareBatch({ ...input, scopes: [owner, null] }),
-						);
-						const pins = yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-						);
-						expect(pins).toHaveLength(2);
-						expect(new Set(pins.map(({ sandboxScriptId }) => sandboxScriptId)).size).toBe(2);
-						expect(
-							new Set(pins.map(({ pluginConfigRevisionId }) => pluginConfigRevisionId)).size,
-						).toBe(2);
-						for (const pin of pins) {
-							expect(pin.ownerUserId).toBe(owner);
-							expect(Object.keys(pin.result ?? {}).sort()).toEqual([
-								"hook",
-								"scriptContentHash",
-								"scriptSlug",
-							]);
-						}
-						yield* Effect.forEach(packages, ({ packageId, scopeUserId, executionScope }) =>
-							installRevisionPackage(
-								afterHookPackage("v2", { executionScope, frequency: "batch" }, packageId),
-								scopeUserId,
-							),
-						);
-						const expiry = DateTime.toDateUtc(DateTime.makeUnsafe("2027-01-01T00:00:00.000Z"));
-						yield* plugins.pruneRevisionArtifacts({ limit: 100, now: expiry, retryWindowDays: 7 });
-						yield* plugins.deleteUnreferencedScripts(new Set(), { limit: 100, now: expiry });
-						expect(
-							yield* nested(planner.prepareBatch({ ...input, scopes: [owner, null] })),
-						).toEqual(decision);
-						for (const [index, installation] of installed.entries()) {
-							const scopeUserId = packages[index]?.scopeUserId;
-							assert(scopeUserId !== undefined);
-							yield* nested(
-								receipts.insert({
-									dispatch: [],
-									batchIndex: index,
-									batchId: decision.id,
-									result: { id: `item-${index}` },
-									evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
-										entityChange(installation.pluginId, `item-${index}`),
-									),
-									identity: mutationReceiptIdentity({
-										scopeUserId,
-										input: { index },
-										ownerUserId: owner,
-										commandKind: "entity:create",
-										command: { ...input.command, itemIdentity: `distinct-pins:${index}` },
-									}),
-								}),
-							);
-						}
-						const dispatch = yield* nested(planner.planBatch(input));
-						const runs = yield* session.run((db) => db.select().from(tables.automationRun));
-						expect(runs).toHaveLength(2);
-						for (const pin of pins) {
-							const run = runs.find(({ pluginId }) => pluginId === pin.pluginId);
-							expect(run).toMatchObject({
-								pluginId: pin.pluginId,
-								executionUserId: pin.scopeUserId,
-								sandboxScriptId: pin.sandboxScriptId,
-								pluginRevisionId: pin.pluginRevisionId,
-								scriptContentHash: "fixture.automation-v1",
-								pluginConfigRevisionId: pin.pluginConfigRevisionId,
-							});
-						}
-						expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
-					}),
-				testTimeout,
-			);
-		},
-	);
-	layer(plannerLayer().pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"retires only the referenced user or private plugin, including user-owned global receipts",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const session = yield* DatabaseSession;
-						const receipts = yield* MutationReceipts.make;
-						const removedPlugin = yield* installRevisionPackage(
-							afterHookPackage(
-								"v1",
-								{ frequency: "batch", executionScope: "user" },
-								testPluginPackageId(),
-							),
-							owner,
-						);
-						const retainedPlugin = yield* installRevisionPackage(
-							afterHookPackage(
-								"v1",
-								{ frequency: "batch", executionScope: "user" },
-								testPluginPackageId(),
-							),
-							owner,
-						);
-						const recipientPlugin = yield* installRevisionPackage(
-							afterHookPackage(
-								"v1",
-								{ frequency: "batch", executionScope: "user" },
-								testPluginPackageId(),
-							),
-							recipient,
-						);
-						const globalPlugin = yield* installRevisionPackage(
-							afterHookPackage(
-								"v1",
-								{ frequency: "batch", executionScope: "global" },
-								testPluginPackageId(),
-							),
-						);
-						yield* nested(
-							planner.prepareBatch({
-								resource: "entity",
-								identity: ["retirement"],
-								scopes: [owner, recipient, null],
-								command: {
-									itemIdentity: "retirement",
-									occurredAt: "2026-09-15T00:00:00.000Z",
-									causation: triggerFixture("retirement").causation,
-									accountGeneration: { userId: owner, token: "test-account-generation" },
-								},
-							}),
-						);
-						const candidatePluginIds = Effect.map(
-							session.run((db) =>
-								db
-									.select({ pluginId: tables.mutationReceipt.pluginId })
-									.from(tables.mutationReceipt)
-									.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-							),
-							(rows) =>
-								rows
-									.map(({ pluginId }) => pluginId)
-									.sort((a, b) => (a ?? "").localeCompare(b ?? "")),
-						);
-						expect(yield* candidatePluginIds).toEqual(
-							[
-								removedPlugin.pluginId,
-								retainedPlugin.pluginId,
-								recipientPlugin.pluginId,
-								globalPlugin.pluginId,
-							].sort((a, b) => a.localeCompare(b)),
-						);
-						yield* nested(receipts.retireUserPins(recipient, [removedPlugin.pluginId]));
-						expect(yield* candidatePluginIds).toEqual(
-							[retainedPlugin.pluginId, globalPlugin.pluginId].sort((a, b) => a.localeCompare(b)),
-						);
-						yield* nested(receipts.retireUserPins(owner, []));
-						expect(yield* candidatePluginIds).toEqual([]);
-					}),
-				testTimeout,
-			);
-		},
-	);
-	layer(plannerLayer(100, 2).pipe(Layer.provideMerge(revisionDatabaseLayer)))(
-		"planner harness",
-		(test) => {
-			test.effect(
-				"refuses to seal a batch whose pinned candidate was lost",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const session = yield* DatabaseSession;
-						yield* installRevisionPackage(afterHookPackage("v1", { frequency: "batch" }));
-						const input = {
-							identity: ["lost-pin"],
-							resource: "entity" as const,
-							command: {
-								itemIdentity: "lost-pin",
-								occurredAt: "2026-09-15T00:00:00.000Z",
-								causation: triggerFixture("unused").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
-							},
-						};
-						expect(
-							(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).hasCandidates,
-						).toBe(true);
-						yield* session.run((db) =>
-							db
-								.delete(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-						);
-						const failure = yield* nested(planner.planBatch(input)).pipe(Effect.flip);
-						expect(failure.message).toContain("Missing pinned batch hooks");
-						expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
-							[],
-						);
-					}),
-				testTimeout,
-			);
-			test.effect(
-				"chunks receipt evidence for batch-only hooks and seals pinned runs on replay",
-				() =>
-					Effect.gen(function* () {
-						const planner = yield* LifecyclePlanner;
-						const session = yield* DatabaseSession;
-						const receipts = yield* MutationReceipts.make;
 						const installed = yield* installRevisionPackage(
 							afterHookPackage("v1", { frequency: "batch" }),
 						);
@@ -2154,24 +1803,12 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
 								expect(decision.hasCandidates).toBe(true);
 								for (const [index, id] of ["first", "second", "third"].entries()) {
-									yield* receipts.insert({
-										dispatch: [],
-										result: { id },
-										batchIndex: index,
-										batchId: decision.id,
-										evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+									yield* planner.recordBatchChange(decision.id, {
+										index,
+										scopeUserId: owner,
+										payload: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
 											entityChange(installed.pluginId, id),
 										),
-										identity: mutationReceiptIdentity({
-											input: { id },
-											ownerUserId: owner,
-											scopeUserId: owner,
-											commandKind: "entity:create",
-											command: {
-												...input.command,
-												itemIdentity: `${input.command.itemIdentity}:${id}`,
-											},
-										}),
 									});
 								}
 								return yield* planner.planBatch(input);
@@ -2194,12 +1831,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								.sort((left, right) => left - right),
 						).toEqual([1, 2]);
 						expect(chunked.flatMap(({ runs }) => runs)).toHaveLength(2);
-						const replay = yield* nested(planner.planBatch(input));
-						expect(replay).toEqual(chunked);
-						const rows = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-						expect(
-							rows.filter((row) => row.receiptType === "batch-candidate" || row.evidence !== null),
-						).toEqual([]);
 					}),
 				testTimeout,
 			);
@@ -2209,12 +1840,11 @@ describe("LifecyclePlanner PostgreSQL", () => {
 		"planner harness",
 		(test) => {
 			test.effect(
-				"applies a pinned hook item cap to 200 matching items without loss or duplication",
+				"applies a hook item cap to 200 matching items without loss or duplication",
 				() =>
 					Effect.gen(function* () {
 						const planner = yield* LifecyclePlanner;
 						const session = yield* DatabaseSession;
-						const receipts = yield* MutationReceipts.make;
 						const ids = Array.from(
 							{ length: 200 },
 							(_, index) => `item-${String(index).padStart(3, "0")}`,
@@ -2233,49 +1863,22 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							afterHookPackage("v1", { batchMaxItems: 50, frequency: "batch" }),
 							owner,
 						);
-						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-						expect(decision.hasCandidates).toBe(true);
-						const [candidate] = yield* session.run((db) =>
-							db
-								.select({ result: tables.mutationReceipt.result })
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-						);
-						expect(candidate?.result).toMatchObject({ hook: { batchMaxItems: 50 } });
-						yield* installRevisionPackage(
-							afterHookPackage("v2", { frequency: "batch", batchMaxItems: 100 }),
-							owner,
-						);
-						expect(yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }))).toEqual(
-							decision,
-						);
-						yield* nested(
+						const dispatch = yield* nested(
 							Effect.gen(function* () {
+								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
+								expect(decision.hasCandidates).toBe(true);
 								for (const [batchIndex, id] of ids.entries()) {
-									yield* receipts.insert({
-										batchIndex,
-										dispatch: [],
-										result: { id },
-										batchId: decision.id,
-										evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+									yield* planner.recordBatchChange(decision.id, {
+										index: batchIndex,
+										scopeUserId: owner,
+										payload: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
 											entityChange(installed.pluginId, id),
 										),
-										identity: mutationReceiptIdentity({
-											input: { id },
-											ownerUserId: owner,
-											scopeUserId: owner,
-											commandKind: "entity:create",
-											command: {
-												...input.command,
-												itemIdentity: `${input.command.itemIdentity}:${id}`,
-											},
-										}),
 									});
 								}
+								return yield* planner.planBatch(input);
 							}),
 						);
-
-						const dispatch = yield* nested(planner.planBatch(input));
 						const triggers = yield* session.run((db) =>
 							db
 								.select({ payload: tables.automationTrigger.payload })
@@ -2299,7 +1902,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						expect([...committedIds].sort()).toEqual<unknown>(ids);
 						expect(dispatch).toHaveLength(4);
 						expect(dispatch.flatMap(({ runs }) => runs)).toHaveLength(4);
-						expect(yield* nested(planner.planBatch(input))).toEqual(dispatch);
 					}),
 				testTimeout,
 			);
@@ -2314,7 +1916,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					Effect.gen(function* () {
 						const planner = yield* LifecyclePlanner;
 						const session = yield* DatabaseSession;
-						const receipts = yield* MutationReceipts.make;
 						const value = afterHookPackage("v1", { batchMaxItems: 10, frequency: "batch" });
 						const capHook = value.manifest.hooks.find(({ slug }) => slug === "fixture.changed");
 						assert(capHook?.stage === "after");
@@ -2347,34 +1948,21 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							},
 						};
 						const ids = Array.from({ length: 11 }, (_, index) => `mixed-${index}`);
-						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-						yield* nested(
+						const dispatch = yield* nested(
 							Effect.gen(function* () {
+								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
 								for (const [batchIndex, id] of ids.entries()) {
-									yield* receipts.insert({
-										batchIndex,
-										dispatch: [],
-										result: { id },
-										batchId: decision.id,
-										evidence: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
+									yield* planner.recordBatchChange(decision.id, {
+										index: batchIndex,
+										scopeUserId: owner,
+										payload: yield* Schema.decodeEffect(AutomationEntityChangePayload)(
 											entityChange(installed.pluginId, id),
 										),
-										identity: mutationReceiptIdentity({
-											input: { id },
-											ownerUserId: owner,
-											scopeUserId: owner,
-											commandKind: "entity:create",
-											command: {
-												...input.command,
-												itemIdentity: `${input.command.itemIdentity}:${id}`,
-											},
-										}),
 									});
 								}
+								return yield* planner.planBatch(input);
 							}),
 						);
-
-						const dispatch = yield* nested(planner.planBatch(input));
 						const triggers = yield* session.run((db) =>
 							db
 								.select({ payload: tables.automationTrigger.payload })
@@ -2402,7 +1990,6 @@ describe("LifecyclePlanner PostgreSQL", () => {
 					Effect.gen(function* () {
 						const planner = yield* LifecyclePlanner;
 						const session = yield* DatabaseSession;
-						const receipts = yield* MutationReceipts.make;
 						const value = hookPackage("v1");
 						const [entitySchema] = value.manifest.entitySchemas;
 						assert(entitySchema);
@@ -2461,41 +2048,21 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							},
 						};
 						const ids = Array.from({ length: 60 }, (_, index) => `fixture-${index}`);
-						const decision = yield* nested(planner.prepareBatch({ ...input, scopes: [owner] }));
-						const candidates = yield* session.run((db) =>
-							db
-								.select({ result: tables.mutationReceipt.result })
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.receiptType, "batch-candidate")),
-						);
-						expect(candidates).toHaveLength(2);
-						yield* nested(
+						const dispatch = yield* nested(
 							Effect.gen(function* () {
+								const decision = yield* planner.prepareBatch({ ...input, scopes: [owner] });
 								for (const [batchIndex, id] of ids.entries()) {
-									yield* receipts.insert({
-										batchIndex,
-										dispatch: [],
-										result: { id },
-										batchId: decision.id,
-										evidence: yield* Schema.decodeEffect(AutomationEventChangePayload)(
+									yield* planner.recordBatchChange(decision.id, {
+										index: batchIndex,
+										scopeUserId: owner,
+										payload: yield* Schema.decodeEffect(AutomationEventChangePayload)(
 											yield* eventChange(installed.pluginId, id),
 										),
-										identity: mutationReceiptIdentity({
-											input: { id },
-											ownerUserId: owner,
-											scopeUserId: owner,
-											commandKind: "event:create",
-											command: {
-												...input.command,
-												itemIdentity: `${input.command.itemIdentity}:${id}`,
-											},
-										}),
 									});
 								}
+								return yield* planner.planBatch(input);
 							}),
 						);
-
-						const dispatch = yield* nested(planner.planBatch(input));
 						const triggers = yield* session.run((db) =>
 							db
 								.select({ payload: tables.automationTrigger.payload })

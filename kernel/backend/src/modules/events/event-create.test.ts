@@ -12,7 +12,6 @@ import {
 	type AutomationWarning,
 	DEFAULT_AUTOMATION_RETRY_POLICY,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { EventCreateItemError } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
 	AutomationHookSlug,
@@ -901,72 +900,6 @@ layer(harnessLayer({ afterHookRatings: [1], policies: [{ position: 1, slug: "pol
 	},
 );
 
-layer(harnessLayer())("event create", (test) => {
-	test.effect(
-		"replays operation receipts and rejects changed input before writing",
-		() =>
-			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
-				const secondEntity = EntityId.make("second-subject");
-				const writeCommand = {
-					...command,
-					causation: {
-						...command.causation,
-						executionId: AutomationExecutionId.make("stable-submission"),
-						rootExecutionId: AutomationExecutionId.make("stable-submission"),
-					},
-				};
-				const input = {
-					...payload,
-					writeCommand,
-					payload: [
-						...payload.payload,
-						{ eventSchemaSlug, entityId: secondEntity, properties: { rating: 0 } },
-					],
-				};
-				yield* h.reset({ unreadableEntity: secondEntity });
-				expect(yield* run(input)).toMatchObject({ count: 1, failure: { index: 1 } });
-				expect(yield* h.created).toHaveLength(1);
-				yield* h.reset({});
-				const retry = {
-					...input,
-					command: {
-						...command,
-						causation: {
-							...command.causation,
-							executionId: AutomationExecutionId.make("retry-attempt"),
-							rootExecutionId: AutomationExecutionId.make("retry-attempt"),
-						},
-					},
-				};
-				expect(yield* run(retry)).toMatchObject({ count: 2, failure: null });
-				expect((yield* h.created).map(({ entityId: createdEntityId }) => createdEntityId)).toEqual([
-					secondEntity,
-				]);
-				yield* h.reset({});
-				const replayed = yield* run(retry);
-				expect(replayed).toMatchObject({ count: 2, failure: null });
-				expect(yield* h.created).toEqual([]);
-				expect(yield* h.triggers).toEqual([]);
-				yield* h.reset({});
-				const changed = {
-					...retry,
-					payload: input.payload.map((item, index) =>
-						index === 1
-							? { eventSchemaSlug, entityId: secondEntity, properties: { rating: 2 } }
-							: item,
-					),
-				};
-				assertExitFails(
-					yield* Effect.exit(run(changed)),
-					new EventCreateItemError({ reason: { code: "mutation-conflict" } }),
-				);
-				expect(yield* h.created).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
-
 layer(
 	harnessLayer({
 		policies: [
@@ -1577,28 +1510,6 @@ layer(harnessLayer({ noHooks: true, afterHookRatings: [2] }))("event create", (t
 	);
 });
 
-layer(harnessLayer({ noHooks: true, afterHookRatings: [2] }))("event create", (test) => {
-	test.effect(
-		"replays a completed operation receipt without new writes",
-		() =>
-			Effect.gen(function* () {
-				const h = yield* EventCreateHarness;
-				const input = { ...payload, payload: ratedItems([1, 2, 3]) };
-				const first = yield* run(input);
-				expect(yield* h.created).toHaveLength(3);
-				yield* h.reset({ noHooks: true, afterHookRatings: [2] });
-				const replayed = yield* run(input);
-				expect(replayed).toEqual(first);
-				expect(yield* h.created).toEqual([]);
-				expect(yield* h.triggers).toEqual([]);
-				expect(yield* h.calls).not.toContain("write");
-				expect(yield* h.calls).not.toContain("batch-policy");
-				expect(yield* h.executed).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
-
 layer(
 	harnessLayer({
 		noHooks: true,
@@ -1667,7 +1578,7 @@ layer(
 	}),
 )("event create", (test) => {
 	test.effect(
-		"keeps once-per-subject exclusions across a large batch",
+		"runs a once-per-subject policy once per subject across policy chunks",
 		() =>
 			Effect.gen(function* () {
 				const h = yield* EventCreateHarness;
@@ -1689,7 +1600,7 @@ layer(
 				expect(result.outcomes).toHaveLength(51);
 				expect(yield* h.executed).toHaveLength(50);
 				expect(yield* h.inputs).toHaveLength(50);
-				expect((yield* h.calls).filter((call) => call === "batch-policy")).toHaveLength(1);
+				expect((yield* h.calls).filter((call) => call === "batch-policy")).toHaveLength(2);
 			}),
 		testTimeout,
 	);

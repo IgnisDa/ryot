@@ -4,6 +4,7 @@ import {
 	AutomationEntityDraft,
 	AutomationEventDraft,
 	AutomationEventSnapshot,
+	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import {
@@ -33,11 +34,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { assertStableUnder, DomainWriteChecks } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import {
-	MutationReceiptIdentity,
-	mutationReceiptIdentity,
-	MutationReceipts,
-} from "#modules/mutations/receipts";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import {
 	CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
@@ -48,11 +45,23 @@ import { readEventCreateChunkScopes } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
 import { EventsRepository } from "./repository";
 
+const EventWriteIdentity = Schema.Struct({
+	itemIdentity: Schema.String,
+	accountGeneration: LifecycleCommand.fields.accountGeneration,
+	executionId: LifecycleCommand.fields.causation.fields.executionId,
+});
+
+export const eventWriteIdentity = (command: LifecycleCommand) => ({
+	itemIdentity: command.itemIdentity,
+	executionId: command.causation.executionId,
+	accountGeneration: command.accountGeneration,
+});
+
 export const PreparedEventChange = Schema.Struct({
 	position: Schema.Int,
 	change: EventMutationChange,
 	draft: AutomationEventDraft,
-	receipt: MutationReceiptIdentity,
+	identity: EventWriteIdentity,
 	schemaFingerprint: CatalogDefinitionFingerprint,
 	source: Schema.NullOr(Schema.Struct({ revision: Schema.Int, snapshot: AutomationEventSnapshot })),
 	order: Schema.optionalKey(
@@ -102,7 +111,7 @@ const preparedMutationReferences = (input: {
 
 const preparedEventId = (row: typeof PreparedEventChange.Type) =>
 	EventId.make(
-		`event_${row.position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify([row.receipt.executionId, row.receipt.itemIdentity]))}`,
+		`event_${row.position.toString(36).padStart(4, "0")}_${sha256Base64Url(stableStringify([row.identity.executionId, row.identity.itemIdentity]))}`,
 	);
 
 const capturedEventIds = (batches: ReadonlyArray<{ readonly prepared: PreparedEventChanges }>) =>
@@ -201,7 +210,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			const schemas = yield* EventSchemaReader;
 			const writes = yield* DomainWriteChecks;
 			const planner = yield* LifecyclePlanner;
-			const receipts = yield* MutationReceipts.make;
+			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 			const groups = yield* EventGroupConstraints.make;
@@ -213,10 +222,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					readonly prepared: PreparedEventChanges;
 				}>;
 			}) {
-				const accounts = new Map<
-					UserId,
-					NonNullable<MutationReceiptIdentity["accountGeneration"]>
-				>();
+				const accounts = new Map<UserId, NonNullable<LifecycleCommand["accountGeneration"]>>();
 				const expectedRevisions = new Map<EventId, number>();
 				for (const { prepared } of input.batches) {
 					for (const row of prepared.items) {
@@ -226,8 +232,8 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						if (row.order) {
 							expectedRevisions.set(row.order.anchorId, row.order.revision);
 						}
-						if (row.receipt.accountGeneration !== null) {
-							accounts.set(row.receipt.accountGeneration.userId, row.receipt.accountGeneration);
+						if (row.identity.accountGeneration !== null) {
+							accounts.set(row.identity.accountGeneration.userId, row.identity.accountGeneration);
 						}
 					}
 				}
@@ -391,16 +397,10 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							draft,
 							change: item.change,
 							source: item.source,
+							identity: eventWriteIdentity(command),
 							position: (input.positionOffset ?? 0) + index,
 							propertiesSchema: scope.eventSchemaScope.propertiesSchema,
 							schemaFingerprint: catalogDefinitionFingerprint(scope.eventSchemaScope),
-							receipt: mutationReceiptIdentity({
-								command,
-								input: item.change,
-								ownerUserId: input.userId,
-								scopeUserId: input.userId,
-								commandKind: `event:${item.change.kind}`,
-							}),
 						};
 					}).pipe(Effect.result),
 				);
@@ -440,27 +440,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				command: DomainLifecycleCommand;
 			}) {
 				yield* session.requireTransaction.pipe(Effect.orDie);
-				const prior = yield* receipts
-					.lookupMany(
-						input.prepared.items.map((row) => row.receipt),
-						Schema.Struct({ eventId: EventId }),
-					)
-					.pipe(
-						Effect.catchTag("MutationReceiptIdentityConflict", () =>
-							bad("mutation-conflict", "Event identity reused with different input"),
-						),
-					);
-				if (prior.length > 0 && prior.every((item) => item !== null)) {
-					return {
-						dispatch: prior.flatMap((item) => item.dispatch),
-						results: input.prepared.items.flatMap((row, index) => {
-							const replay = prior[index];
-							return replay
-								? [{ eventId: replay.result.eventId, itemIdentity: row.change.itemIdentity }]
-								: [];
-						}),
-					};
-				}
 				yield* schemas.lockCatalog([input.userId]);
 				const mutationReferences = preparedMutationReferences({
 					batches: [input],
@@ -571,7 +550,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 				const results = [];
 				const dispatch = [];
-				const recorded: Array<Parameters<typeof receipts.insertMany>[0][number]> = [];
 				const triggers: Array<AutomationTrigger> = [];
 				const checkedOwners = new Set<null | string>();
 				const assetOwners: Array<Parameters<typeof assets.lock>[0][number]> = [];
@@ -587,9 +565,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					>["draft"];
 				}> = [];
 				for (const [index, row] of rows.entries()) {
-					if (prior[index]) {
-						continue;
-					}
 					const accepted = input.validated.items.find(
 						(item) => item.itemIdentity === row.change.itemIdentity,
 					);
@@ -628,7 +603,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					}
 					const command = {
 						...input.command,
-						itemIdentity: row.receipt.itemIdentity,
+						itemIdentity: row.identity.itemIdentity,
 						causation: {
 							...input.command.causation,
 							parentTriggerId: input.validated.triggerId ?? input.command.causation.parentTriggerId,
@@ -684,12 +659,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 				const acceptedByIndex = new Map(validatedRows.map((entry) => [entry.index, entry]));
 				for (const [index, row] of rows.entries()) {
-					const replay = prior[index];
-					if (replay) {
-						results.push({ eventId: replay.result.eventId, itemIdentity: row.change.itemIdentity });
-						dispatch.push(...replay.dispatch);
-						continue;
-					}
 					const entry = acceptedByIndex.get(index);
 					if (!entry) {
 						return yield* new DbError({ message: "Validated event change is unavailable" });
@@ -754,26 +723,18 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						}
 					}
 					triggers.push(yield* lifecycleTrigger(command, input.userId, change));
-					recorded.push({
-						dispatch: [],
-						identity: row.receipt,
-						batchId: preparedBatch.id,
-						batchIndex: (input.batchIndexOffset ?? 0) + index,
-						evidence: preparedBatch.hasCandidates ? change : undefined,
-						result:
-							row.change.kind === "create" ? { eventId, processed: entry.processed } : { eventId },
+					if (row.change.kind === "create") {
+						yield* keys.recordImportItem(command, input.userId, "created");
+					}
+					yield* planner.recordBatchChange(preparedBatch.id, {
+						payload: change,
+						scopeUserId: input.userId,
+						index: (input.batchIndexOffset ?? 0) + index,
 					});
 					results.push({ eventId, itemIdentity: row.change.itemIdentity });
 				}
 				const planned = yield* planner.planChanges(triggers);
-				for (const [index, plans] of planned.entries()) {
-					dispatch.push(...plans);
-					const entry = recorded[index];
-					if (entry) {
-						recorded[index] = { ...entry, dispatch: plans };
-					}
-				}
-				yield* receipts.insertMany(recorded);
+				dispatch.push(...planned.flat());
 				if (input.sealBatch !== false) {
 					dispatch.push(...(yield* planner.planBatch(batch)));
 				}

@@ -7,13 +7,13 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { PgDialect } from "drizzle-orm/pg-core";
 import { Effect, Layer } from "effect";
 
+import { importItemKey, type ImportItemResult } from "#modules/mutations/idempotency";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import { user } from "#schema/tables/auth";
-import { mutationReceipt } from "#schema/tables/mutations";
+import { idempotencyKey } from "#schema/tables/mutations";
 import { fakeDatabaseSession } from "#testing/effect";
 
 export const ingestionTestScope = {
@@ -73,47 +73,19 @@ export const ingestionTestSource = {
 	workflowScriptId: SandboxScriptId.make("script-1"),
 };
 
-export const ingestionTestReceipt = (
-	itemIdentity: string,
-	commandKind: string,
-	result: (typeof mutationReceipt.$inferSelect)["result"],
-): typeof mutationReceipt.$inferSelect => ({
-	result,
-	commandKind,
-	dispatch: [],
-	itemIdentity,
-	batchId: null,
-	evidence: null,
-	pluginId: null,
-	batchIndex: null,
-	receiptType: "item",
-	mutationScope: "user",
-	sandboxScriptId: null,
-	pluginRevisionId: null,
-	pluginConfigRevisionId: null,
-	id: `receipt:${itemIdentity}`,
-	executionId: ingestionTestScope.runId,
-	ownerUserId: ingestionTestScope.userId,
-	scopeUserId: ingestionTestScope.userId,
-	recordedAt: new Date(ingestionTestNow),
-	rootExecutionId: ingestionTestScope.runId,
-	inputFingerprint: `fingerprint:${itemIdentity}`,
-	accountGeneration: ingestionTestScope.accountGeneration,
+export const ingestionTestItem = (itemIdentity: string, response: ImportItemResult) => ({
+	response,
+	key: importItemKey(ingestionTestScope.runId, itemIdentity),
 });
 
 export const ingestionTestDatabase = (
-	read: () => ReadonlyArray<typeof mutationReceipt.$inferSelect> = () => [],
+	read: () => ReadonlyArray<ReturnType<typeof ingestionTestItem>> = () => [],
 ) =>
 	Layer.unwrap(
-		Effect.sync(() => {
-			const fingerprints = new Map<string, string>();
-			const dialect = new PgDialect();
-			return fakeDatabaseSession({
-				execute: (query: Parameters<PgDialect["sqlToQuery"]>[0]) => {
-					const [id] = dialect.sqlToQuery(query).params;
-					const fingerprint = typeof id === "string" ? (fingerprints.get(id) ?? null) : null;
-					return Effect.succeed([{ fingerprint, retiring: false }]);
-				},
+		Effect.sync(() =>
+			fakeDatabaseSession({
+				execute: () => Effect.succeed([{ retiring: false, fingerprint: null }]),
+				insert: () => ({ values: () => ({ onConflictDoNothing: () => Effect.void }) }),
 				select: () => ({
 					from: (table: unknown) => ({
 						where: () => {
@@ -121,31 +93,12 @@ export const ingestionTestDatabase = (
 								if (table === user) {
 									return [{ token: ingestionTestScope.accountGeneration.token }];
 								}
-								if (table !== mutationReceipt) {
-									return [];
-								}
-								return [...read()];
+								return table === idempotencyKey ? [...read()] : [];
 							});
 							return Object.assign(rows, { for: () => rows, limit: () => rows });
 						},
 					}),
 				}),
-				insert: () => ({
-					values: (
-						input: Pick<typeof mutationReceipt.$inferInsert, "id" | "inputFingerprint">,
-					) => ({
-						onConflictDoNothing: () => ({
-							returning: () =>
-								Effect.sync(() => {
-									if (fingerprints.has(input.id)) {
-										return [];
-									}
-									fingerprints.set(input.id, input.inputFingerprint);
-									return [{ fingerprint: input.inputFingerprint }];
-								}),
-						}),
-					}),
-				}),
-			});
-		}),
+			}),
+		),
 	);

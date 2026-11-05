@@ -39,8 +39,15 @@ kernel can't see in advance. Today nine request schemas carry a key.
 - The key row is inserted in the same transaction as the write (rule 4), so the write and the key commit
   together. A retry with the same key and fingerprint returns the stored response; a different
   fingerprint is a conflict.
-- A plugin operation's key covers every write its script makes, because they share that transaction. This
-  replaces per-item receipts.
+- A plugin operation's key covers the operation's result. Until step 4 its script's writes still commit
+  in their own transactions, so a retry that reaches the script again relies on natural keys: the script's
+  execution ID and each host call's index derive the same entity and event IDs. This replaces per-item
+  receipts.
+- The integration data webhook keeps its key on `data_import_submission`, which already records the
+  delivery with its import run.
+- Until step 6, import runs record each committed item's result in `idempotency_key`, keyed by run and
+  item identity, so reconciliation can project committed items.
+- A replay returns the stored response and does not dispatch after-hooks again.
 - Keyed requests keep `submittedAt` and the 7-day submission window from
   `kernel/backend/src/modules/mutations/submission-window.ts`, so a draft resent after its key expires is
   rejected instead of applied twice. Keys are deleted after 14 days by a job.

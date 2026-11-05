@@ -217,8 +217,8 @@ overrides the original offset.
 `measurement-reading-log` validates every metric's schema/visibility, creates an entry, and sends one
 `createEvents` batch (at most 100 values). The log, edit, and delete forms hand their write to the
 kernel's background submissions and close once it is accepted; the shell tray reports the outcome and
-offers Retry, which replays the same input and idempotency key so mutation receipts replay the entry
-and committed readings without duplication. A partial write reports `incomplete`. Cancelling never
+offers Retry, which resends the same input and idempotency key so the operation returns its stored
+result without duplicating the entry or committed readings. A partial write reports `incomplete`. Cancelling never
 rolls back committed readings. Exercise note create, edit, and delete use background submissions too.
 Workout deletion stays a foreground write because the page navigates away only after it succeeds, and
 workout time correction stays foreground because its conflict and invalid results must reach the

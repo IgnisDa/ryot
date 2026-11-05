@@ -29,7 +29,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
 	installRevisionPackage,
@@ -348,13 +347,11 @@ const tablesState = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
 	const entityRows = yield* session.run((db) => db.select().from(tables.entity));
 	const relationshipRows = yield* session.run((db) => db.select().from(tables.relationship));
-	const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
 	const keys = yield* session.run((db) => db.select().from(tables.idempotencyKey));
 	return {
 		entityRows,
 		relationshipRows,
 		editorKeys: keys.filter(({ key }) => key.startsWith("entity-editor:save:")),
-		entityReceipts: receipts.filter(({ commandKind }) => commandKind.startsWith("entity:")),
 	};
 });
 
@@ -383,9 +380,7 @@ const editorCase = (
 ) => layer(freshLayer())(name, (test) => test.effect(name, () => body, testTimeout));
 
 const freshLayer = () =>
-	Layer.mergeAll(MutationReceipts.layer, IdempotencyKeys.layer).pipe(
-		Layer.provideMerge(relationshipDatabaseLayer()),
-	);
+	IdempotencyKeys.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
 
 describe("EntityEditorService", () => {
 	editorCase(
@@ -851,7 +846,6 @@ describe("EntityEditorService", () => {
 			expect(after.entityRows).toEqual(before.entityRows);
 			expect(after.relationshipRows).toEqual(before.relationshipRows);
 			expect(after.editorKeys).toEqual([]);
-			expect(after.entityReceipts).toEqual(before.entityReceipts);
 			expect(yield* log.calls).toEqual([]);
 		}),
 	);

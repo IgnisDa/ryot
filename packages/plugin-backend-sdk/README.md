@@ -58,7 +58,7 @@ capability vocabulary; kernel requirements/execution-policy records must exhaust
 contains `name`, `entitySchemaSlug`, and `properties`. `updateUserEntity(item)` takes
 `entityId`, `name`, `properties`, and the expected current `{ name, updatedAt, properties }`; it also
 returns `{ entityId }`. These require a user subject, owned schema, and exact user-owned target;
-the host binds ownership and normal service validation/hooks/receipts. Scripts cannot set ownership,
+the host binds ownership and normal service validation and hooks. Scripts cannot set ownership,
 global scope, provider provenance, or `populatedAt`. `ensureUserEntities` is bootstrap-only, not
 general entity creation. Runtime authorization is detailed in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
@@ -77,8 +77,7 @@ and `absentProperties` lists keys that must still be missing, at most 100 of eac
 Delete options may include an `expected` map from every requested event ID to such a precondition.
 A stale precondition fails before mutation with `data: { code: "event-stale", eventId }`; a stale
 `updateUserEntity` `expected` snapshot fails with `data: { code: "entity-stale", entityId }`, which
-`entityStaleReasonSchema` matches. A committed retry returns its receipt before checking the
-original precondition again.
+`entityStaleReasonSchema` matches.
 Event creation returns `{ count, outcomes }`;
 each outcome is `{ index, eventId, status: "written" }`,
 `{ index, reason, status: "skipped_by_policy" }`, or `{ index, reason, status: "failed" }`.
@@ -100,7 +99,7 @@ independent, pinned user background work and returns `{ workId }`. Keys and scop
 at most 512 characters; input must fit the sandbox context bound. Identity includes account generation,
 plugin, script, and key; replay with different input or scope conflicts. The common
 `BackgroundWorkWorkflow` owns the durable job and its `background_work` row. Admission retains the
-script/config references and workflow-owner receipts in the transaction, then dispatches after commit.
+script/config references in the transaction, then dispatches after commit.
 The user-scoped `backgroundWork` RyotQL table exposes status and scope, not execution input or pins.
 Plugins page their own work, persist checkpoints with atomic commands, and schedule continuations with
 new deterministic keys. Retry a failed job with a fresh key.

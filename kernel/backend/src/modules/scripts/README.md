@@ -184,7 +184,7 @@ single host map shared by inline and durable dispatch.
 ## Script Writes
 
 Entity capabilities enforce exact schema, plugin, scope, and user ownership through normal services,
-policies, and receipts. Scripts cannot set global scope, provider provenance, ownership, or
+and policies. Scripts cannot set global scope, provider provenance, ownership, or
 `populatedAt`; policies/system subjects cannot use user-entity creation.
 
 | Operation                               | Contract                                                                                                                                        |

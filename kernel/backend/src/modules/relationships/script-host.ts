@@ -81,6 +81,65 @@ export const relationshipLifecycleHostSteps = (
 	const applyRelationshipHostPolicies = (pending: PendingRelationshipMutations) =>
 		relationships.applyPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure));
 	return {
+		upsertGlobalRelationships: {
+			value: (results: ReadonlyArray<RelationshipReconciliationSummary>) =>
+				results.map(({ deleted, upserted }) => ({ deleted, upserted })),
+			itemWrite: (input: LifecycleHostInput<"UpsertGlobalRelationships">) => {
+				return {
+					items: input.groups,
+					result: RelationshipReconciliationSummary,
+					applyPolicies: applyRelationshipHostPolicies,
+					commit: () => (pending: PendingRelationshipMutations) =>
+						relationships.commitReconciliation(pending).pipe(Effect.mapError(lifecycleHostFailure)),
+					prepare: (
+						group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
+						index: number,
+					) =>
+						relationships
+							.prepareReconcileGlobalGroup(
+								toReconcileGroup(group, input.command),
+								index,
+								input.command,
+							)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+				} satisfies LifecycleItemWrite<
+					LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
+					RelationshipReconciliationSummary
+				>;
+			},
+			validate: (
+				rawInput: ScriptRunInput,
+				groups: LifecycleHostInput<"UpsertGlobalRelationships">["groups"],
+			): Effect.Effect<LifecycleHostInput<"UpsertGlobalRelationships">, SandboxHostError> =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireSandboxCapabilityInput(
+							rawInput,
+							"upsertGlobalRelationships",
+						);
+						const relationshipCount = groups.reduce(
+							(total, group) => total + group.relationships.length,
+							0,
+						);
+						if (groups.length > SANDBOX_LIMITS.globalWrites.relationshipGroups) {
+							return yield* Effect.fail(
+								`upsertGlobalRelationships exceeds ${SANDBOX_LIMITS.globalWrites.relationshipGroups} groups`,
+							);
+						}
+						if (relationshipCount > SANDBOX_LIMITS.globalWrites.relationshipsTotal) {
+							return yield* Effect.fail(
+								`upsertGlobalRelationships exceeds ${SANDBOX_LIMITS.globalWrites.relationshipsTotal} relationships`,
+							);
+						}
+						const command = yield* sandboxLifecycleCommand(
+							input,
+							"provider-refresh",
+							"upsertGlobalRelationships",
+						);
+						return { groups, command, _tag: "UpsertGlobalRelationships" } as const;
+					}),
+				),
+		},
 		changeUserRelationships: {
 			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
 				results.map(({ created, deleted }) => ({ created, deleted })),
@@ -136,71 +195,10 @@ export const relationshipLifecycleHostSteps = (
 						relationships.commitBatch(pending).pipe(Effect.mapError(lifecycleHostFailure)),
 					prepare: (current: (typeof batches)[number], index: number) =>
 						relationships
-							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
+							.prepareChangeUserBatch(input.userId, current, index, input.command)
 							.pipe(Effect.mapError(lifecycleHostFailure)),
 				} satisfies LifecycleItemWrite<(typeof batches)[number], RelationshipBatchSummary>;
 			},
-		},
-		upsertGlobalRelationships: {
-			value: (results: ReadonlyArray<RelationshipReconciliationSummary>) =>
-				results.map(({ deleted, upserted }) => ({ deleted, upserted })),
-			itemWrite: (input: LifecycleHostInput<"UpsertGlobalRelationships">) => {
-				const groups = input.groups.map((group) => toReconcileGroup(group, input.command));
-				return {
-					items: input.groups,
-					result: RelationshipReconciliationSummary,
-					applyPolicies: applyRelationshipHostPolicies,
-					commit: () => (pending: PendingRelationshipMutations) =>
-						relationships.commitReconciliation(pending).pipe(Effect.mapError(lifecycleHostFailure)),
-					prepare: (
-						group: LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
-						index: number,
-					) =>
-						relationships
-							.prepareReconcileGlobalGroup(
-								toReconcileGroup(group, input.command),
-								index,
-								input.command,
-								groups,
-							)
-							.pipe(Effect.mapError(lifecycleHostFailure)),
-				} satisfies LifecycleItemWrite<
-					LifecycleHostInput<"UpsertGlobalRelationships">["groups"][number],
-					RelationshipReconciliationSummary
-				>;
-			},
-			validate: (
-				rawInput: ScriptRunInput,
-				groups: LifecycleHostInput<"UpsertGlobalRelationships">["groups"],
-			): Effect.Effect<LifecycleHostInput<"UpsertGlobalRelationships">, SandboxHostError> =>
-				sandboxHostEffect(
-					Effect.gen(function* () {
-						const input = yield* requireSandboxCapabilityInput(
-							rawInput,
-							"upsertGlobalRelationships",
-						);
-						const relationshipCount = groups.reduce(
-							(total, group) => total + group.relationships.length,
-							0,
-						);
-						if (groups.length > SANDBOX_LIMITS.globalWrites.relationshipGroups) {
-							return yield* Effect.fail(
-								`upsertGlobalRelationships exceeds ${SANDBOX_LIMITS.globalWrites.relationshipGroups} groups`,
-							);
-						}
-						if (relationshipCount > SANDBOX_LIMITS.globalWrites.relationshipsTotal) {
-							return yield* Effect.fail(
-								`upsertGlobalRelationships exceeds ${SANDBOX_LIMITS.globalWrites.relationshipsTotal} relationships`,
-							);
-						}
-						const command = yield* sandboxLifecycleCommand(
-							input,
-							"provider-refresh",
-							"upsertGlobalRelationships",
-						);
-						return { groups, command, _tag: "UpsertGlobalRelationships" } as const;
-					}),
-				),
 		},
 	};
 };

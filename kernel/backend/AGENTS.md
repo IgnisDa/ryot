@@ -9,10 +9,10 @@
 - Provider enrichment and foreign-ID resolution use sandbox provider scripts. Pass provider-native IDs only as resolved inputs; source connectors may fetch user data, not enrichment APIs.
 - Services own transactions. Repositories capture `DatabaseSession` and use `session.run`; raw executors stay inside its callback. Never hold a transaction across sandbox/network I/O, workflow boundaries, sleeps, or fan-out.
 - Validate schema-backed properties before writes. Keep persisted JSON and schemas aligned; store timezone-aware timestamps and emit UTC ISO dates. Auth patches validated preferences on the user row, never from session copies.
-- Mutation receipts own replay independently of automation history. Retain change evidence only for matching hooks or pending batch candidates; start execution after commit.
+- Retain change evidence only for matching hooks or open batches; start execution after commit.
 - Catalog reads exclude script bodies and hot manifest reads. Use persisted revision sections and definition views; cold manifest owners are enforced by `ryot/no-hot-manifest-read`.
-- Keep batch locks, receipts, and lookups set-based. Historical restore persistence belongs only to backups.
-- Repositories own canonical lock ordering. Provider callers retain input order for results, receipt indexes, and lifecycle dispatch.
+- Keep batch locks, admission, and lookups set-based. Historical restore persistence belongs only to backups.
+- Repositories own canonical lock ordering. Provider callers retain input order for results and lifecycle dispatch.
 - One durable owner implements each business operation. Activities never dispatch workflows/queues; workflow bodies do. Use deterministic child execution IDs and idempotent owners.
 - Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`. Lifecycle execution inside an activity runs as request work, outside the workflow journal.
 - Redis infrastructure owns backend keys and codecs; sandbox recovery keys remain sandbox-owned.

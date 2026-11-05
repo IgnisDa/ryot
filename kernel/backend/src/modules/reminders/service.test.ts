@@ -18,7 +18,6 @@ import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { makeAppConfigLayer } from "#testing/effect";
@@ -33,7 +32,6 @@ const services = RemindersService.layer.pipe(
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,
 			RemindersRepository.layer,
-			MutationReceipts.layer,
 			EntitiesRepository.layer,
 			EntityUserDataGraphRepository.layer,
 			NotificationDeliveryRepository.layer,
@@ -115,7 +113,7 @@ layer(services)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"checks receipt replay before revisions and rejects stale editors",
+		"settles a matching edit and rejects stale editors",
 		() =>
 			Effect.gen(function* () {
 				const { user, body } = yield* reminderTestInput();

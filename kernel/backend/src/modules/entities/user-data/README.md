@@ -28,15 +28,14 @@ ordinary text, event IDs, occurrence dates, ordering and retained evidence are p
 
 Policies prepare event and relationship changes before the transaction. The commit locks the affected
 entity references in canonical order, rereads the full selected scope and root merge identities, and
-rejects drift. Existing per-record guards reject concurrent edits. All source changes, lifecycle
-planning and the command receipt commit together. Hook dispatch starts after commit.
+rejects drift. Existing per-record guards reject concurrent edits. All source changes and lifecycle
+planning commit together. Hook dispatch starts after commit.
 
 Merge retains explicit events without heuristic deduplication. Relationships combine by identity;
 destination properties win collisions and source-only properties transfer. No-op shared relationships
 remain intact. Clear deletes selected state, including evidence stored away from the subject.
 
-HTTP requests require an immutable `idempotencyKey` and `submittedAt`. Sandbox writes retain the
-operation submission identity. A completed replay returns the recorded result rather than repeating
-the mutation, even if new data has since arrived. Reusing the identity for different inputs conflicts.
+Requests carry no idempotency key. A second clear finds nothing to delete, and a second merge finds
+the source already merged and reports success.
 There is no persistent exclusion or integration suppression: already-running and future integrations
 remain ordinary writers. Both public commands are protected for demo credentials.

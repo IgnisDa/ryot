@@ -54,7 +54,6 @@ import {
 	type PreparedEventDelete,
 	type PreparedEventMoveReferences,
 } from "#modules/events/service";
-import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { RelationshipsService } from "#modules/relationships/service";
 import {
@@ -242,19 +241,6 @@ const makeServiceLayer = (
 				options.relationshipsRepository ?? makeRelationshipsRepository(),
 				options.relationshipsService ?? makeRelationshipsService(),
 				emptyEntityUserDataAttachments,
-				Layer.mock(MutationReceipts)({
-					insert: () => Effect.void,
-					peek: () => Effect.succeed(null),
-					lookup: () => Effect.succeed(null),
-					batchIdentity: (input) =>
-						mutationReceiptIdentity({
-							scopeUserId: null,
-							input: input.identity,
-							command: input.command,
-							ownerUserId: input.ownerUserId,
-							commandKind: `batch:${input.resource}`,
-						}),
-				}),
 			),
 		),
 	);

@@ -5,7 +5,6 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 
@@ -19,7 +18,6 @@ export const EntityEditorServiceLive = EntityEditorService.layer.pipe(
 			LifecycleServicesLive,
 			EntitiesRepositoryLive,
 			RelationshipsRepository.layer,
-			MutationReceipts.layer,
 			IdempotencyKeys.layer,
 		),
 	),

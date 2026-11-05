@@ -1,4 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -7,6 +8,15 @@ import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
+
+const mutationOwner = (command: LifecycleCommand, scopeUserId: null | UserId) =>
+	command.accountGeneration?.userId ??
+	(command.causation.source !== "automation" && command.causation.initiator.kind === "user"
+		? command.causation.initiator.id
+		: scopeUserId);
+
+export const mutationUserIds = (command: LifecycleCommand, scopeUserId: null | UserId) =>
+	[mutationOwner(command, scopeUserId), scopeUserId].filter((id) => id !== null);
 
 // Admissions within one transaction share its `for share` lock on the user row, which account
 // retirement must take exclusively, so each account needs admitting once per transaction.
@@ -51,6 +61,24 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 					}),
 				);
 			});
+			const admitCommand = Effect.fn("AccountAdmission.admitCommand")(function* (
+				command: LifecycleCommand,
+				scopeUserId: null | UserId,
+			) {
+				const account = command.accountGeneration;
+				const owner = mutationOwner(command, scopeUserId);
+				if (account === null) {
+					return owner === null && scopeUserId === null
+						? undefined
+						: yield* new DbError({ message: "Mutation command account generation is missing" });
+				}
+				if (scopeUserId !== null && scopeUserId !== account.userId) {
+					return yield* new DbError({
+						message: "Mutation command account identity does not match its scope",
+					});
+				}
+				return yield* admitAccount(account);
+			});
 			const currentAccount = Effect.fn("AccountAdmission.currentAccount")(function* (
 				userId: UserId,
 			) {
@@ -77,7 +105,7 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 				);
 				return account;
 			});
-			return { admitAccount, currentAccount };
+			return { admitAccount, admitCommand, currentAccount };
 		}),
 	},
 ) {

@@ -10,7 +10,6 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -196,13 +195,6 @@ const harness = Effect.fnUntraced(function* (
 		translations,
 		registrationCalls,
 		references: references.listReferences(installed.pluginId),
-		receipts: (id: string) =>
-			session.run((db) =>
-				db
-					.select({ id: tables.mutationReceipt.id })
-					.from(tables.mutationReceipt)
-					.where(eq(tables.mutationReceipt.executionId, id)),
-			),
 	};
 });
 
@@ -236,7 +228,6 @@ layer(dependencies)((test) => {
 						const loser = h.registrationCalls[0];
 						assert(loser);
 						expect(yield* h.requests.get(loser)).toBeNull();
-						expect(yield* h.receipts(loser)).toEqual([]);
 					}
 				}),
 			testTimeout,
@@ -256,7 +247,6 @@ layer(dependencies)((test) => {
 				assert(id);
 				expect(yield* h.requests.get(id)).toBeNull();
 				expect(yield* h.references).toEqual([]);
-				expect(yield* h.receipts(id)).toEqual([]);
 				expect(h.dispatches).toEqual([]);
 			}),
 		testTimeout,

@@ -212,7 +212,7 @@ layer(relationshipDatabaseLayer())((test) => {
 	);
 
 	test.effect(
-		"a sweep deletion fires the delete hook once and replays without conflicts",
+		"a sweep deletion fires the delete hook once",
 		() =>
 			Effect.gen(function* () {
 				const { rows, persist, planned } = yield* setup("sweep");
@@ -227,21 +227,10 @@ layer(relationshipDatabaseLayer())((test) => {
 				yield* persist("page", [{ rank: 1, target: t1 }], { value: "g1", kind: "page" });
 				yield* Ref.set(planned, []);
 
-				const first = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
+				yield* persist("sweep", [], { value: "g1", kind: "sweep" });
 				const deletePlans = (yield* Ref.get(planned)).filter((entry) => entry.endsWith("delete"));
 				expect(deletePlans).toEqual(["change:delete"]);
-
-				yield* Ref.set(planned, []);
-				const replayed = yield* persist("sweep", [], { value: "g1", kind: "sweep" });
-				expect(replayed).toEqual(first);
-				expect(yield* Ref.get(planned)).toEqual([]);
 				expect((yield* rows).map(({ target }) => target)).toEqual([t1]);
-
-				const replayedPage = yield* persist("page", [{ rank: 1, target: t1 }], {
-					value: "g1",
-					kind: "page",
-				});
-				expect(replayedPage.result).toEqual([{ created: 0, updated: 0, deleted: 0, upserted: 1 }]);
 			}),
 		testTimeout,
 	);

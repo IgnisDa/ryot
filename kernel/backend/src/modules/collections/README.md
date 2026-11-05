@@ -28,10 +28,9 @@ the RyotQL `relationship.collectionRank` field, ordered with the member's stable
 
 ## Commands and reads
 
-`POST /collections/memberships/reorder` takes the member, an anchor or absolute end, expected revision,
-and immutable submission identity/time. Ownership, revision validation, position changes, and the
-mutation receipt commit atomically. Completed commands replay before checking newer revisions;
-reusing an identity for different input is a conflict. No collection add/remove events or domain hooks
+`POST /collections/memberships/reorder` takes the member, an anchor or absolute end, and the expected
+revision. Ownership, revision validation and position changes commit atomically. Moving a member to where it
+already is succeeds without checking the revision, so a resent reorder is safe. No collection add/remove events or domain hooks
 are emitted for internal rank changes.
 
 The collection-members recipe reads its revision and page in one RyotQL repeatable-read snapshot.

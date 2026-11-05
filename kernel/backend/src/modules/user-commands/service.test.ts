@@ -789,7 +789,7 @@ layer(testLayer(false))((test) => {
 
 layer(testLayer(true))((test) => {
 	test.effect(
-		"rolls back every source component and item receipt after a late commit failure",
+		"rolls back every source component and import item after a late commit failure",
 		() =>
 			Effect.gen(function* () {
 				const input = yield* fixture();
@@ -822,21 +822,9 @@ layer(testLayer(true))((test) => {
 						.from(tables.event)
 						.where(eq(tables.event.eventSchemaPluginId, input.pluginId)),
 				);
-				const receipts = yield* input.session.run((db) =>
-					db
-						.select()
-						.from(tables.mutationReceipt)
-						.where(
-							and(
-								eq(tables.mutationReceipt.receiptType, "item"),
-								eq(tables.mutationReceipt.rootExecutionId, input.command.causation.rootExecutionId),
-							),
-						),
-				);
 				expect(entities).toMatchObject([{ name: "Existing target" }]);
 				expect(relationships).toEqual([]);
 				expect(events).toEqual([]);
-				expect(receipts).toEqual([]);
 			}),
 		testTimeout,
 	);

@@ -14,7 +14,6 @@ import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntityUserDataGraphRepository } from "#modules/entities/user-data/graph-repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationDeliveryRepository } from "#modules/notifications/delivery-repository";
 import {
 	installRevisionPackage,
@@ -37,7 +36,6 @@ const testLayer = Layer.mergeAll(EntityGraphCollector.layer, RemindersService.la
 			EntityRetentionRepository.layer,
 			EntitiesRepository.layer,
 			EntityUserDataGraphRepository.layer,
-			MutationReceipts.layer,
 			RemindersRepository.layer,
 			AutomationRunRepository.layer,
 			AutomationTriggerRepository.layer,

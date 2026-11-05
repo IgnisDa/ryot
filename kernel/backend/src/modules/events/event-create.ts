@@ -1,9 +1,8 @@
 import { DbError } from "@ryot-app/contract/errors";
 import {
 	CreateEventItem,
-	CreateEventsResponse,
+	type CreateEventsResponse,
 	EventCreateFailureReason,
-	EventCreateItemError,
 	EventCreateItemOutcome,
 } from "@ryot-app/contract/modules/events/schemas";
 import { type EventId, UserId } from "@ryot-app/contract/schema/brands";
@@ -21,10 +20,8 @@ import {
 } from "#modules/automations/lifecycle/policy-batch";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 
-import { eventCreateBatchInput, eventCreateReceiptIdentity } from "./mutation-receipts";
-import { EventMutations, type PreparedEventChanges } from "./mutations";
+import { EventMutations, eventWriteIdentity, type PreparedEventChanges } from "./mutations";
 
 export const EventCreateInput = Schema.Struct({
 	userId: UserId,
@@ -61,17 +58,22 @@ class EventCreateRejected extends Schema.TaggedError<
 	kept: Schema.Array(EventCreateItemOutcome),
 }) {}
 
-const operationReceiptOf = (
-	input: EventCreateInput,
-	batch: ReturnType<typeof eventCreateBatchInput>,
-) =>
-	mutationReceiptIdentity({
-		input: batch.commandInput,
-		ownerUserId: input.userId,
-		scopeUserId: input.userId,
-		commandKind: "event:create-operation",
-		command: { ...input.command, itemIdentity: `${input.command.itemIdentity}:operation` },
-	});
+const eventCreateBatchInput = (input: { command: DomainLifecycleCommand }) => ({
+	identity: ["events"],
+	command: input.command,
+	resource: "event" as const,
+});
+
+const eventCreateWriteCommand = (
+	payload: EventCreateInput,
+	index: number,
+): DomainLifecycleCommand => {
+	const command = payload.writeCommand ?? payload.command;
+	return {
+		...command,
+		itemIdentity: payload.itemIdentities?.[index] ?? `${command.itemIdentity}:event:${index}`,
+	};
+};
 
 const changesOf = (input: EventCreateInput) =>
 	input.payload.map((item, index) => ({
@@ -80,12 +82,30 @@ const changesOf = (input: EventCreateInput) =>
 		itemIdentity: input.itemIdentities?.[index] ?? `event:${index}`,
 	}));
 
-const policyBatchOf = (input: EventCreateInput, prepared: PreparedEventChanges) => ({
+const policyChunkSize = 50;
+
+// One policy invocation must fit the sandbox context limit. A subject's items share a chunk, so a
+// once-per-subject policy still runs once for it.
+const policyChunks = (prepared: PreparedEventChanges) => {
+	const subjects = Map.groupBy(prepared.items, (item) => item.draft.entityId);
+	const chunks: Array<PreparedEventChanges["items"][number][]> = [];
+	for (const items of subjects.values()) {
+		const last = chunks.at(-1);
+		if (last && last.length + items.length <= policyChunkSize) {
+			last.push(...items);
+		} else {
+			chunks.push([...items]);
+		}
+	}
+	return chunks;
+};
+
+const policyBatchOf = (input: EventCreateInput, prepared: PreparedEventChanges, chunk: number) => ({
 	userId: input.userId,
 	resource: "event" as const,
 	references: prepared.references,
 	propertiesSchemas: prepared.propertiesSchemas,
-	command: { ...input.command, itemIdentity: `${input.command.itemIdentity}:policies:0` },
+	command: { ...input.command, itemIdentity: `${input.command.itemIdentity}:policies:${chunk}` },
 	items: prepared.items.map((item) => ({
 		itemIdentity: item.change.itemIdentity,
 		schemaKey: item.schemaFingerprint.digest,
@@ -128,7 +148,7 @@ const policyOutcomes = (
 	return { outcomes, accepted };
 };
 
-const createResult = (outcomes: ReadonlyArray<EventCreateItemOutcome>) => {
+const createResult = (outcomes: ReadonlyArray<EventCreateItemOutcome>): CreateEventsResponse => {
 	const sorted = [...outcomes].sort((left, right) => left.index - right.index);
 	const failed = sorted.find((outcome) => outcome.status === "failed");
 	return {
@@ -153,10 +173,9 @@ const commitRejection = (error: { readonly _tag: string; readonly reason?: unkno
 /**
  * Creates events and returns their final outcome. Preparation, policy planning and, when no policy
  * matches, the write share one transaction; matching before-policies run in the sandbox between it and
- * the commit. A replayed command returns its recorded result.
+ * the commit.
  */
 export const makeEventCreate = Effect.gen(function* () {
-	const receipts = yield* MutationReceipts.make;
 	const execution = yield* LifecycleExecution;
 	const mutations = yield* EventMutations;
 	const planner = yield* LifecyclePlanner;
@@ -167,7 +186,6 @@ export const makeEventCreate = Effect.gen(function* () {
 				return { count: 0, outcomes: [], warnings: [], failure: null };
 			}
 			const batch = eventCreateBatchInput(input);
-			const identity = operationReceiptOf(input, batch);
 			const changes = changesOf(input);
 			const indexes = new Map(changes.map((change, index) => [change.itemIdentity, index]));
 			const indexOf = (itemIdentity: string) => indexes.get(itemIdentity) ?? -1;
@@ -187,7 +205,6 @@ export const makeEventCreate = Effect.gen(function* () {
 						index: indexOf(row.itemIdentity),
 					})),
 				]);
-				yield* receipts.insert({ result, dispatch, identity });
 				return { result, dispatch };
 			});
 
@@ -217,44 +234,68 @@ export const makeEventCreate = Effect.gen(function* () {
 
 			const commit = Effect.fnUntraced(function* (
 				prepared: PreparedEventChanges,
-				validated: PolicyBatchResult,
+				chunks: ReadonlyArray<{
+					readonly chunk: PreparedEventChanges;
+					readonly validated: PolicyBatchResult;
+				}>,
 			) {
-				const policy = policyOutcomes(validated, indexOf);
-				const kept = [...prepareFailures(prepared), ...policy.outcomes];
-				const written =
-					policy.accepted.size === 0
-						? nothingWritten
-						: yield* mutations
-								.persist({
-									batch,
-									command,
-									validated,
-									sealBatch: false,
-									userId: input.userId,
-									prepared: {
-										...prepared,
-										items: prepared.items.filter((item) =>
-											policy.accepted.has(item.change.itemIdentity),
-										),
-									},
-								})
-								.pipe(
-									Effect.mapError((error) =>
-										error._tag === "DbError"
-											? error
-											: new EventCreateRejected({ kept, reason: commitRejection(error) }),
-									),
-								);
-				return yield* record(kept, written);
+				const policies = chunks.map(({ validated }) => policyOutcomes(validated, indexOf));
+				const kept = [
+					...prepareFailures(prepared),
+					...policies.flatMap((policy) => policy.outcomes),
+				];
+				const results: Array<Written["results"][number]> = [];
+				const dispatch: Array<LifecycleDispatchPlan> = [];
+				for (const [index, { chunk, validated }] of chunks.entries()) {
+					const accepted = chunk.items.filter((item) =>
+						policies[index]?.accepted.has(item.change.itemIdentity),
+					);
+					if (accepted.length === 0) {
+						continue;
+					}
+					const written = yield* mutations
+						.persist({
+							batch,
+							command,
+							validated,
+							sealBatch: false,
+							userId: input.userId,
+							batchIndexOffset: results.length,
+							prepared: { ...prepared, items: accepted },
+						})
+						.pipe(
+							Effect.mapError((error) =>
+								error._tag === "DbError"
+									? error
+									: new EventCreateRejected({ kept, reason: commitRejection(error) }),
+							),
+						);
+					results.push(...written.results);
+					dispatch.push(...written.dispatch);
+				}
+				return yield* record(kept, { results, dispatch });
 			});
 
-			const reject = (rejection: EventCreateRejected, readmit: boolean) =>
+			const applyChunks = (
+				planned: ReadonlyArray<{
+					readonly chunk: PreparedEventChanges;
+					readonly plan: Parameters<typeof runPolicyBatchDirect>[1];
+					readonly policyBatch: Parameters<typeof runPolicyBatchDirect>[0];
+				}>,
+				prepared: PreparedEventChanges,
+			) =>
+				Effect.forEach(planned, ({ plan, chunk, policyBatch }) =>
+					Effect.map(applyPolicies(policyBatch, plan, prepared), (validated) => ({
+						chunk,
+						validated,
+					})),
+				);
+
+			const reject = (rejection: EventCreateRejected) =>
 				mutations
 					.transaction(
 						Effect.gen(function* () {
-							if (readmit) {
-								yield* admitBatch;
-							}
+							yield* admitBatch;
 							const settled = new Set(rejection.kept.map((outcome) => outcome.index));
 							const recorded = yield* record(
 								[
@@ -267,7 +308,7 @@ export const makeEventCreate = Effect.gen(function* () {
 								],
 								nothingWritten,
 							);
-							return { ...recorded, replayed: false, kind: "written" as const };
+							return { ...recorded, kind: "written" as const };
 						}),
 					)
 					.pipe(
@@ -279,10 +320,6 @@ export const makeEventCreate = Effect.gen(function* () {
 			const started = yield* mutations
 				.transaction(
 					Effect.gen(function* () {
-						const replay = yield* receipts.peek(identity, CreateEventsResponse);
-						if (replay) {
-							return { replayed: true, kind: "written" as const, ...replay };
-						}
 						yield* admitBatch;
 						const prepared = yield* mutations
 							.prepare({ changes, command, independent: true, userId: input.userId })
@@ -302,51 +339,53 @@ export const makeEventCreate = Effect.gen(function* () {
 										...value,
 										items: value.items.map((item) => ({
 											...item,
-											receipt:
+											identity:
 												item.change.kind === "create"
-													? eventCreateReceiptIdentity(
-															input,
-															indexOf(item.change.itemIdentity),
-															item.change.item,
+													? eventWriteIdentity(
+															eventCreateWriteCommand(input, indexOf(item.change.itemIdentity)),
 														)
-													: item.receipt,
+													: item.identity,
 										})),
 									}),
 								}),
 							);
-						const policyBatch = policyBatchOf(input, prepared);
-						const plan = yield* planPolicyBatch(policyBatch).pipe(
-							Effect.provideService(LifecyclePlanner, planner),
+						const planned = yield* Effect.forEach(policyChunks(prepared), (items, index) =>
+							Effect.gen(function* () {
+								const chunk = { ...prepared, items };
+								const policyBatch = policyBatchOf(input, chunk, index);
+								const plan = yield* planPolicyBatch(policyBatch).pipe(
+									Effect.provideService(LifecyclePlanner, planner),
+								);
+								return { plan, chunk, policyBatch };
+							}),
 						);
-						if (plan.trigger === null) {
-							const written = yield* commit(
-								prepared,
-								yield* applyPolicies(policyBatch, plan, prepared),
-							);
-							return { replayed: false, kind: "written" as const, ...written };
+						if (planned.every(({ plan }) => plan.trigger === null)) {
+							const written = yield* commit(prepared, yield* applyChunks(planned, prepared));
+							return { kind: "written" as const, ...written };
 						}
-						if (plan.trigger.blockedReason) {
+						const blocked = planned.find(({ plan }) => plan.trigger?.blockedReason);
+						if (blocked?.plan.trigger) {
 							return yield* new EventCreateRejected({
 								kept: prepareFailures(prepared),
-								reason: { triggerId: plan.trigger.id, code: "automation-limit-reached" },
+								reason: { code: "automation-limit-reached", triggerId: blocked.plan.trigger.id },
 							});
 						}
-						return { plan, prepared, policyBatch, kind: "policies" as const };
+						return { planned, prepared, kind: "policies" as const };
 					}),
 				)
 				.pipe(
 					Effect.catchTag("EventBadRequest", (error) =>
 						Effect.fail(new EventCreateRejected({ kept: [], reason: commitRejection(error) })),
 					),
-					Effect.catchTag("EventCreateRejected", (rejection) => reject(rejection, true)),
+					Effect.catchTag("EventCreateRejected", reject),
 				);
 
 			const written =
 				started.kind === "policies"
-					? yield* applyPolicies(started.policyBatch, started.plan, started.prepared).pipe(
-							Effect.flatMap((validated) =>
+					? yield* applyChunks(started.planned, started.prepared).pipe(
+							Effect.flatMap((chunks) =>
 								mutations
-									.transaction(commit(started.prepared, validated))
+									.transaction(Effect.andThen(admitBatch, commit(started.prepared, chunks)))
 									.pipe(
 										Effect.catchTag("EventBadRequest", (error) =>
 											Effect.fail(
@@ -358,21 +397,18 @@ export const makeEventCreate = Effect.gen(function* () {
 										),
 									),
 							),
-							Effect.map((value) => ({ ...value, replayed: false })),
-							Effect.catchTag("EventCreateRejected", (rejection) => reject(rejection, false)),
+							Effect.catchTag("EventCreateRejected", reject),
 						)
 					: started;
 			const warnings = yield* execution
 				.dispatch(written.dispatch)
 				.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-			return written.replayed
-				? written.result
-				: { ...written.result, warnings: [...written.result.warnings, ...warnings] };
+			const response: CreateEventsResponse = {
+				...written.result,
+				warnings: [...written.result.warnings, ...warnings],
+			};
+			return response;
 		},
-		Effect.catchTags({
-			DatabaseSessionStateError: Effect.die,
-			MutationReceiptIdentityConflict: () =>
-				Effect.fail(new EventCreateItemError({ reason: { code: "mutation-conflict" } })),
-		}),
+		Effect.catchTag("DatabaseSessionStateError", Effect.die),
 	);
 });

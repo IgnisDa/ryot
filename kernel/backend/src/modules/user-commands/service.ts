@@ -11,10 +11,7 @@ import {
 	EventNotFound,
 	EventStale,
 } from "@ryot-app/contract/modules/events/schemas";
-import {
-	type UserCommand,
-	UserCommandResult,
-} from "@ryot-app/contract/modules/mutations/user-command";
+import type { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	RelationshipBadRequest,
@@ -51,7 +48,6 @@ import {
 	type PreparedEventChanges,
 } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { mutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
 import type { PreparedUserRelationshipCreate } from "#modules/relationships/prepared-mutations";
 import { RelationshipsService } from "#modules/relationships/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -84,7 +80,6 @@ export class UserCommands extends Context.Service<UserCommands>()(
 	"@ryot-app/kernel-backend/modules/user-commands/service/UserCommands",
 	{
 		make: Effect.gen(function* () {
-			const receipts = yield* MutationReceipts.make;
 			const session = yield* DatabaseSession;
 			const entities = yield* EntitiesService;
 			const entityRows = yield* EntitiesRepository;
@@ -106,27 +101,6 @@ export class UserCommands extends Context.Service<UserCommands>()(
 					return yield* new DbError({ message: "User command requires exact plugin authority" });
 				}
 				const owner = definitionOwner(pluginRevision.id);
-				const receiptIdentity = mutationReceiptIdentity({
-					input,
-					command,
-					ownerUserId: userId,
-					scopeUserId: userId,
-					commandKind: "user-command:commit",
-				});
-				const existing = yield* receipts
-					.peek(receiptIdentity, UserCommandResult)
-					.pipe(
-						Effect.catchTag(
-							"MutationReceiptIdentityConflict",
-							() => new DbError({ message: "Command identity reused with different input" }),
-						),
-					);
-				if (existing) {
-					yield* lifecycle
-						.dispatch(existing.dispatch)
-						.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die));
-					return existing.result;
-				}
 				const entity = yield* entities.prepareUserSave({
 					userId,
 					name: input.entity.name,
@@ -251,18 +225,6 @@ export class UserCommands extends Context.Service<UserCommands>()(
 					.transaction(
 						reuseLockedWriteChecks(
 							Effect.gen(function* () {
-								const replay = yield* receipts
-									.lookup(receiptIdentity, UserCommandResult)
-									.pipe(
-										Effect.catchTag(
-											"MutationReceiptIdentityConflict",
-											() =>
-												new DbError({ message: "Command identity reused with different input" }),
-										),
-									);
-								if (replay) {
-									return { result: replay.result, dispatch: replay.dispatch };
-								}
 								const baselines = input.events.baselines ?? [];
 								for (const baseline of baselines) {
 									const visible = yield* entityRows.getByIdForUser({
@@ -371,7 +333,6 @@ export class UserCommands extends Context.Service<UserCommands>()(
 								}
 								dispatch.push(...(yield* planner.planBatch(eventBatch)));
 								const result = { events: written, entityId: saved.entity.id };
-								yield* receipts.insert({ result, dispatch, identity: receiptIdentity });
 								return { result, dispatch };
 							}),
 						),

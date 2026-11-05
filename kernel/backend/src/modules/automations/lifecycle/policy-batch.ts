@@ -53,7 +53,7 @@ export class PolicyBatchBlocked extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("PolicyBatchBlocked", { triggerId: AutomationTrigger.fields.id }) {}
 
-export const PolicyBatchPayload = Schema.Struct({
+const PolicyBatchPayload = Schema.Struct({
 	userId: UserId,
 	command: DomainLifecycleCommand,
 	items: Schema.Array(PolicyBatchItem),

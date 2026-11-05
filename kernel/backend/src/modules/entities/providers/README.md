@@ -100,14 +100,14 @@ and writes each page in one transaction:
 - A page upserts only its own entries and deletes nothing. Authoritative groups replace the
   properties of existing relationships; additive groups keep them. A relationship that is otherwise
   unchanged only has its stamp written, directly, with no lifecycle request or change evidence.
-- The page index is part of the item, batch and activity identity, so replay after a crash reuses
-  committed receipts. The sweep has its own identity.
+- The page index is part of the item, batch and activity identity, so replay after a crash derives
+  the same entity IDs. The sweep has its own identity.
 - Every page write and the sweep take a transaction advisory lock on the group key and return an
   explicit superseded outcome unless the stored generation is still their own. A newer population of the same group
   therefore supersedes an older one without interleaved writes.
 - After a page declares complete coverage, an authoritative group is swept: relationships whose stamp
   differs from the generation are deleted through the normal planned-reconciliation delete path
-  (triggers, receipts, change evidence). Additive groups are never swept.
+  (triggers, change evidence). Additive groups are never swept.
 - A source-limited page fails with its reason before that page is written. A failed page, repeated
   continuation, or reaching the 200-page limit fails the page workflow and skips its sweep. A
   superseded run also skips its sweep and cannot complete the related level. The parent collects
@@ -149,18 +149,17 @@ mutates rows:
 1. The schema catalog lock.
 2. Domain write authority checks with `lock=true`, once per distinct writer, kernel-collection
    flag, definition owner, and scope.
-3. Mutation receipt locks, `hashtext('mutation-receipt:' || id)`.
-4. Provider entity identities, sorted by scope, user, entity schema, provider, and external ID
+3. Provider entity identities, sorted by scope, user, entity schema, provider, and external ID
    (`hashtextextended(key, 0)`).
-5. User ensure scopes or global provenance scopes (`hashtext(key)`).
-6. `entity-mutation:` keys of the known entity ids (`hashtextextended(key, 0)`).
-7. Entity rows `FOR UPDATE`, ordered by id.
+4. User ensure scopes or global provenance scopes (`hashtext(key)`).
+5. `entity-mutation:` keys of the known entity ids (`hashtextextended(key, 0)`).
+6. Entity rows `FOR UPDATE`, ordered by id.
 
 Population transactions then lock relationship identities, sorted by scope, user, relationship
 schema provenance, source entity, and target entity, in one statement of the same shape, and
 mutate entity rows before relationship rows.
 
-Steps 3 to 6 are transaction-scoped PostgreSQL advisory locks. Each step is one statement: keys are
+Steps 3 to 5 are transaction-scoped PostgreSQL advisory locks. Each step is one statement: keys are
 deduplicated, sorted in TypeScript by UTF-16 code unit, and locked through
 `unnest(...) with ordinality ... order by ordinality`. The lock keys use JSON arrays so field
 boundaries are unambiguous. Callers acquire all known locks before the first write; they must not
@@ -170,10 +169,8 @@ The locks are granular. Unrelated entity graphs continue concurrently, while tra
 the same provider entity or relationship serialize their conflicting mutations.
 
 Repositories own lock sorting; provider callers submit children and deduplicated related entities in
-provider order. Results, receipt batch indexes, and sibling lifecycle dispatch follow that order,
-with entity dispatch before relationship dispatch. Item command and receipt identities do not depend
-on sibling positions. Replayed receipts retain their recorded dispatch; newly admitted batches use
-provider order. Child-related stamps stay in the child-set transaction, and nested child sets use the
+provider order. Results and sibling lifecycle dispatch follow that order, with entity dispatch before
+relationship dispatch. Item command identities do not depend on sibling positions. Child-related stamps stay in the child-set transaction, and nested child sets use the
 same provider-order result positions as their input subtrees.
 
 ### Deadlock retry

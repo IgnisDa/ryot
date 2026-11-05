@@ -80,7 +80,7 @@ import { testDatabaseUrl } from "#testing/database";
 import { makeAppConfigLayer, makeConfigProviderLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
-import { EntitiesService, type UpdateEntityInput, type UpsertEntityInput } from "./service";
+import { EntitiesService, type UpsertEntityInput } from "./service";
 import {
 	countStatementClasses,
 	recordingDatabaseLayer,
@@ -572,7 +572,7 @@ const expectInvariant = (counts: ReadonlyArray<ReturnType<typeof countStatementC
 	const [small, large] = counts;
 	assert(small && large);
 	expect(large).toEqual(small);
-	expect([small.check, small.lock, small.receipt].every((count) => count > 0)).toBe(true);
+	expect([small.check, small.lock].every((count) => count > 0)).toBe(true);
 };
 
 describe("EntitiesService committed lifecycle", () => {
@@ -582,7 +582,6 @@ describe("EntitiesService committed lifecycle", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
 					const created = yield* service.create(createInput("conditional-create"));
 					const input = {
 						userId: owner,
@@ -600,20 +599,10 @@ describe("EntitiesService committed lifecycle", () => {
 					};
 					const saved = yield* service.update(input);
 					expect(saved.entity.properties).toEqual({ title: "changed" });
-					const receiptCount = (yield* session.run((db) =>
-						db.select().from(tables.mutationReceipt),
-					)).length;
-					expect(yield* service.update(input)).toEqual(saved);
-					expect(
-						(yield* session.run((db) => db.select().from(tables.mutationReceipt))).length,
-					).toBe(receiptCount);
 					assertExitFails(
 						yield* Effect.exit(service.update({ ...input, lifecycle: command("stale-update") })),
 						new EntityStale({ reason: { code: "entity-stale", entityId: created.entity.id } }),
 					);
-					expect(
-						yield* service.update({ ...input, name: "Different" }).pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "mutation-conflict" } });
 				}),
 			testTimeout,
 		);
@@ -751,37 +740,6 @@ describe("EntitiesService committed lifecycle", () => {
 			testTimeout,
 		);
 	});
-	layer(entitiesLayer({ noHooks: true }))("entities service harness", (test) => {
-		test.effect(
-			"replays a no-hook create after source deletion without new history",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const input = createInput("no-hook-replay");
-					const first = yield* service.create(input);
-					expect(first.warnings).toEqual([]);
-					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
-						[],
-					);
-					const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-					expect(receipts.filter(({ receiptType }) => receiptType === "item")).toHaveLength(1);
-					expect(receipts.every(({ evidence }) => evidence === null)).toBe(true);
-					yield* session.run((db) =>
-						db.delete(tables.entity).where(eq(tables.entity.id, first.entity.id)),
-					);
-					expect(yield* service.create(input)).toEqual(first);
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-					expect(
-						yield* service.create({ ...input, name: "Different" }).pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "mutation-conflict" } });
-					expect(yield* session.run((db) => db.select().from(tables.automationTrigger))).toEqual(
-						[],
-					);
-				}),
-			testTimeout,
-		);
-	});
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
 			"normalizes numeric properties before persisting the entity and change snapshot",
@@ -838,89 +796,6 @@ describe("EntitiesService committed lifecycle", () => {
 	});
 
 	layer(entitiesLayer())("entities service harness", (test) => {
-		test.effect(
-			"replays exact create, update and noop results after newer writes and deletion",
-			() =>
-				Effect.gen(function* () {
-					const service = yield* EntitiesService;
-					const session = yield* DatabaseSession;
-					const original = createInput("snapshot-create");
-					const created = yield* service.prepareCreateStep(original);
-					assert(created._tag === "Committed");
-					const input = {
-						userId: owner,
-						name: "Updated",
-						populatedAt: null,
-						scope: "user" as const,
-						properties: { title: "updated" },
-						entityId: created.result.entity.id,
-						lifecycle: command("snapshot-update"),
-					} satisfies UpdateEntityInput;
-					const updated = yield* service.update(input);
-					const noopInput = { ...input, lifecycle: command("snapshot-noop") };
-					const noop = yield* service.update(noopInput);
-					expect(noop).toEqual({ warnings: [], entity: updated.entity });
-					const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-					const updateReceipt = receipts.find(
-						(row) =>
-							row.executionId === input.lifecycle.causation.executionId &&
-							row.commandKind === "entity:update",
-					);
-					const noopReceipt = receipts.find(
-						(row) =>
-							row.executionId === noopInput.lifecycle.causation.executionId &&
-							row.commandKind === "entity:update",
-					);
-					assert(updateReceipt && noopReceipt);
-					expect(updateReceipt.result).toEqual<unknown>({ entity: updated.entity });
-					expect(noopReceipt.result).toEqual<unknown>({ entity: noop.entity });
-					expect(noopReceipt.dispatch).toEqual([]);
-					yield* service.update({
-						...input,
-						name: "Newest",
-						properties: { title: "newest" },
-						lifecycle: command("snapshot-newest"),
-					});
-					expect(yield* service.prepareCreateStep(original)).toEqual(created);
-					expect(yield* service.update(input)).toEqual(updated);
-					expect(yield* service.update(noopInput)).toEqual(noop);
-					const deleteCommand = command("snapshot-delete");
-					const deleted = yield* service.deleteByIds([input.entityId], deleteCommand);
-					const deleteReceipts = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.executionId, deleteCommand.causation.executionId)),
-					);
-					const itemReceipt = deleteReceipts.find((row) => row.commandKind === "entity:delete");
-					assert(itemReceipt);
-					expect(itemReceipt.result).toBeNull();
-					// Force item-receipt recovery rather than the aggregate replay shortcut.
-					yield* session.run((db) =>
-						db
-							.delete(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.commandKind, "entity:delete-batch")),
-					);
-					expect(yield* service.deleteByIds([input.entityId], deleteCommand)).toEqual(deleted);
-					const beforeReplay = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-					expect(yield* service.prepareCreateStep(original)).toEqual(created);
-					expect(yield* service.update(input)).toEqual(updated);
-					expect(yield* service.update(noopInput)).toEqual(noop);
-					expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
-						beforeReplay,
-					);
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-					expect(
-						(yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.id, updateReceipt.id)),
-						))[0]?.dispatch,
-					).toEqual(updateReceipt.dispatch);
-				}),
-			testTimeout,
-		);
 		test.effect(
 			"commits in prepare without policies and after policies with the same rows",
 			() =>
@@ -1129,23 +1004,6 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(eventBatches).toHaveLength(1);
 					assert(eventBatches[0]?.payload?.operation === "batch");
 					expect(eventBatches[0].payload.items).toHaveLength(2);
-					const [batchReceipt] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.commandKind, "entity:delete-batch")),
-					);
-					assert(batchReceipt);
-					for (const trigger of [...eventDeletes, ...eventBatches]) {
-						expect(batchReceipt.dispatch).toContainEqual<unknown>(
-							objectContaining({ triggerId: trigger.id }),
-						);
-					}
-					const receiptCount = yield* session.run((db) => db.select().from(tables.mutationReceipt));
-					expect(yield* service.deleteByIds([recordSession.entity.id], lifecycle)).toEqual(deleted);
-					expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual(
-						receiptCount,
-					);
 					expect(yield* events.listEventIdentitiesForEntities([recordSession.entity.id])).toEqual(
 						[],
 					);
@@ -1238,9 +1096,6 @@ describe("EntitiesService committed lifecycle", () => {
 					).toBe(1);
 					expect(yield* events.listEventIdentitiesForEntities([part.entity.id])).toEqual([]);
 					expect(yield* service.getByIdAnyScope(part.entity.id)).toEqual<unknown>(part.entity);
-					expect(
-						(yield* service.deleteByIds([record.entity.id], lifecycle, target)).deletedCount,
-					).toBe(1);
 				}),
 			testTimeout,
 		);
@@ -1831,10 +1686,6 @@ describe("EntitiesService committed lifecycle", () => {
 						"skipped",
 					]);
 					expect(result.warnings).toEqual([warning, warning, warning]);
-					const replay = yield* service.upsertGlobalEntities(items, providerId, command("bulk"), {
-						maximumTotal: 2,
-					});
-					expect(replay.results).toEqual(result.results);
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(2);
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
@@ -1896,7 +1747,7 @@ describe("EntitiesService committed lifecycle", () => {
 
 	layer(entitiesLayer({ warnings: [warning] }))("entities service harness", (test) => {
 		test.effect(
-			"returns warnings after commit, replays create once and rejects conflicting command content",
+			"returns warnings after commit",
 			() =>
 				Effect.gen(function* () {
 					const service = yield* EntitiesService;
@@ -1904,12 +1755,6 @@ describe("EntitiesService committed lifecycle", () => {
 					const first = yield* service.create(createInput("replay"));
 					expect(first.warnings).toEqual([warning, warning]);
 					expect(first.entity.name).toBe("Original");
-					expect(yield* service.create(createInput("replay"))).toEqual(first);
-					expect(
-						yield* service
-							.create({ ...createInput("replay"), properties: { title: "different" } })
-							.pipe(Effect.flip),
-					).toMatchObject({ reason: { code: "mutation-conflict" } });
 					const [entities, triggers] = yield* session.run((db) =>
 						Effect.all([
 							db.select().from(tables.entity),
@@ -1957,9 +1802,6 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(noop.entity).toEqual(updated.entity);
 					const deleted = yield* service.deleteByIds([created.entity.id], command("delete"));
 					expect(deleted).toEqual({ warnings: [], deletedCount: 1 });
-					expect(yield* service.deleteByIds([created.entity.id], command("delete"))).toEqual(
-						deleted,
-					);
 					const changes = (yield* session.run((db) =>
 						db.select().from(tables.automationTrigger),
 					)).filter((row) => row.category === "change");
@@ -2164,20 +2006,6 @@ describe("EntitiesService committed lifecycle", () => {
 					const noop = yield* session.transaction(service.persistPlannedProviderUpsert(noopInput));
 					expect(noop.result).toEqual(newer.result);
 					expect(noop.dispatch).toEqual([]);
-					expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
-						work,
-					);
-					yield* service.deleteByIds([work.result.entity.id], command("planned-delete"));
-					expect(yield* session.transaction(service.persistPlannedProviderUpsert(input))).toEqual(
-						work,
-					);
-					expect(
-						yield* session.transaction(service.persistPlannedProviderUpsert(newerInput)),
-					).toEqual(newer);
-					expect(
-						yield* session.transaction(service.persistPlannedProviderUpsert(noopInput)),
-					).toEqual(noop);
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
 			testTimeout,
 		);
@@ -2332,7 +2160,6 @@ describe("EntitiesService committed lifecycle", () => {
 					const items = [{ entitySchema, name: "Routine", properties: { title: "routine" } }];
 					const first = yield* service.ensureUserEntities(owner, items, command("ensure"));
 					expect(first).toMatchObject([{ wasInserted: true, warnings: [warning, warning] }]);
-					expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toHaveLength(1);
 					expect(
 						(yield* session.run((db) => db.select().from(tables.automationTrigger))).filter(
@@ -2343,19 +2170,6 @@ describe("EntitiesService committed lifecycle", () => {
 					expect(noop).toEqual(
 						first.map(({ entityId }) => ({ entityId, warnings: [], wasInserted: false })),
 					);
-					const [ensured] = first;
-					assert(ensured);
-					yield* service.deleteByIds([ensured.entityId], command("ensure-delete"));
-					yield* session.run((db) =>
-						db
-							.delete(tables.mutationReceipt)
-							.where(eq(tables.mutationReceipt.commandKind, "entity:ensure-batch")),
-					);
-					expect(yield* service.ensureUserEntities(owner, items, command("ensure"))).toEqual(first);
-					expect(yield* service.ensureUserEntities(owner, items, command("ensure-noop"))).toEqual(
-						noop,
-					);
-					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
 				}),
 			testTimeout,
 		);
@@ -2412,7 +2226,7 @@ describe("EntitiesService committed lifecycle", () => {
 		"entities service harness",
 		(test) => {
 			test.effect(
-				"issues the same checks, locks, lookups and receipt statements for 2 and 20 item commits",
+				"issues the same checks, locks, lookups and admission statements for 2 and 20 item commits",
 				() =>
 					Effect.gen(function* () {
 						yield* seedProvider;
@@ -2539,17 +2353,6 @@ describe("EntitiesService committed lifecycle", () => {
 							const stored = yield* service.getByIdAnyScope(created.entity.id);
 							expect(single.entity).toEqual(stored);
 							expect(batch.results).toEqual([{ entity: stored }]);
-							const receipts = yield* session.run((db) =>
-								db
-									.select()
-									.from(tables.mutationReceipt)
-									.where(eq(tables.mutationReceipt.commandKind, "entity:upsert")),
-							);
-							for (const id of [`single-${round}`, `batch-${round}`]) {
-								const receipt = receipts.find(({ executionId }) => executionId === id);
-								assert(receipt);
-								expect(receipt.result).toEqual<unknown>({ entity: stored });
-							}
 						}
 						expect(yield* log.errorCodes).not.toContain("40P01");
 					}),
@@ -2743,14 +2546,13 @@ describe("EntitiesService committed lifecycle", () => {
 						new EntityBadRequest({ reason: { paths: [["title"]], code: "invalid-properties" } }),
 					);
 					expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-					expect(yield* session.run((db) => db.select().from(tables.mutationReceipt))).toEqual([]);
 				}),
 			testTimeout,
 		);
 	});
 	layer(entitiesLayer())("entities service harness", (test) => {
 		test.effect(
-			"records and replays provider-order results, receipt indexes, and dispatch",
+			"records provider-order results and dispatch",
 			() =>
 				Effect.gen(function* () {
 					yield* seedProvider;
@@ -2769,29 +2571,7 @@ describe("EntitiesService committed lifecycle", () => {
 						"Alpha",
 						"alpha",
 					]);
-					const receipts = yield* session.run((db) =>
-						db.select().from(tables.mutationReceipt).orderBy(tables.mutationReceipt.batchIndex),
-					);
-					const items = receipts.filter(
-						({ receiptType, commandKind }) =>
-							receiptType === "item" && commandKind === "entity:upsert",
-					);
-					expect(items.map(({ result, batchIndex }) => ({ result, batchIndex }))).toEqual<unknown>(
-						first.results.map((result, batchIndex) => ({ result, batchIndex })),
-					);
-					expect(first.dispatch.slice(0, 3)).toEqual<unknown>(
-						items.flatMap(({ dispatch }) => dispatch),
-					);
 					expect(first.dispatch).toHaveLength(4);
-					const snapshotRows = Effect.all([
-						session.run((db) => db.select().from(tables.entity)),
-						session.run((db) => db.select().from(tables.mutationReceipt)),
-					]);
-					const before = yield* snapshotRows;
-					expect(yield* session.transaction(service.persistPlannedProviderUpserts(input))).toEqual(
-						first,
-					);
-					expect(yield* snapshotRows).toEqual(before);
 				}),
 			testTimeout,
 		);

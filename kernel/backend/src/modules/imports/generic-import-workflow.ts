@@ -60,7 +60,7 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -239,20 +239,6 @@ export const prepareGenericImportEntity = Effect.fn("imports.prepareGenericImpor
 	) {
 		const reference = { owner, slug: EntitySchemaSlug.make(intent.entitySchemaSlug) };
 		const entities = yield* EntitiesService;
-		const replay = yield* entities.replayCreateStep({
-			userId,
-			lifecycle,
-			scope: "user",
-			name: intent.name,
-			entitySchema: reference,
-			properties: intent.properties,
-		});
-		if (replay) {
-			return {
-				...replay,
-				result: { result: "created" as const, entityId: replay.result.entity.id },
-			};
-		}
 		const entityId = yield* findImportEntity(intent, userId, reference);
 		if (entityId) {
 			const preparedReference = yield* entities.prepareReferenceStep({
@@ -917,7 +903,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 	"ProcessGenericImportChunksWorkflow",
 )(
 	function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
-		const receipts = yield* MutationReceipts.make;
+		const keys = yield* IdempotencyKeys.make;
 		yield* admitWorkflow(payload.command.accountGeneration).pipe(Effect.mapError(toWorkflowError));
 		if (!payload.command.accountGeneration) {
 			return yield* new ImportRunError({ message: "Ingestion account generation is missing" });
@@ -984,7 +970,6 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			const outcome = {
 				...operation,
 				result,
-				receiptId: null,
 				reason: { code, key: null },
 				inputFingerprint: payload.inputFingerprint,
 			};
@@ -1157,15 +1142,14 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 						(intent) => intent.operationId === operation.operationId,
 					),
 				);
-				const committed = yield* receipts.getCommittedItems({
+				const committed = yield* keys.importItems({
+					runId: scope.runId,
 					userId: scope.userId,
-					rootExecutionId: scope.runId,
-					accountGeneration: scope.accountGeneration,
 					itemIdentities: candidates.map((operation) => operation.itemIdentity),
 				});
 				for (const operation of candidates) {
 					if (
-						!committed.some((receipt) => receipt.itemIdentity === operation.itemIdentity) &&
+						!committed.some((value) => value.itemIdentity === operation.itemIdentity) &&
 						!(yield* repository.getOutcome(scope, operation.operationId))
 					) {
 						yield* record(operation, "unsuccessful", failureCode);

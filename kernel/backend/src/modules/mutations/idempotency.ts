@@ -1,10 +1,11 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { Context, Duration, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -45,6 +46,12 @@ const encode = <Response>(
 		),
 		Effect.mapError(() => new DbError({ message: `Invalid response for ${identity.key}` })),
 	);
+const ImportItemResult = Schema.Literals(["created", "updated", "unchanged"]);
+export type ImportItemResult = typeof ImportItemResult.Type;
+
+export const importItemKey = (runId: string, itemIdentity: string) =>
+	`import-item:${sha256Base64Url(stableStringify([runId, itemIdentity]))}`;
+
 export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 	"@ryot-app/kernel-backend/modules/mutations/idempotency/IdempotencyKeys",
 	{
@@ -133,7 +140,63 @@ export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 				);
 				return rows.length;
 			});
-			return { once, read, record, lockedRead, pruneExpired };
+			const recordImportItem = Effect.fn("IdempotencyKeys.recordImportItem")(function* (
+				command: LifecycleCommand,
+				userId: null | UserId,
+				result: ImportItemResult,
+			) {
+				const runId = command.causation.importRunId;
+				if (runId === undefined || userId === null) {
+					return yield* Effect.void;
+				}
+				yield* session.run((db) =>
+					db
+						.insert(idempotencyKey)
+						.values({
+							userId,
+							response: result,
+							fingerprint: "import-item",
+							key: importItemKey(runId, command.itemIdentity),
+						})
+						.onConflictDoNothing(),
+				);
+				return yield* Effect.void;
+			});
+			const importItems = Effect.fn("IdempotencyKeys.importItems")(function* (input: {
+				runId: string;
+				userId: UserId;
+				itemIdentities: ReadonlyArray<string>;
+			}) {
+				if (input.itemIdentities.length === 0) {
+					return [];
+				}
+				const identities = new Map(
+					input.itemIdentities.map((itemIdentity) => [
+						importItemKey(input.runId, itemIdentity),
+						itemIdentity,
+					]),
+				);
+				const rows = yield* session.run((db) =>
+					db
+						.select({ key: idempotencyKey.key, response: idempotencyKey.response })
+						.from(idempotencyKey)
+						.where(
+							and(
+								eq(idempotencyKey.userId, input.userId),
+								inArray(idempotencyKey.key, [...identities.keys()]),
+							),
+						),
+				);
+				return yield* Effect.forEach(rows, (row) =>
+					Schema.decodeUnknownEffect(ImportItemResult)(row.response).pipe(
+						Effect.mapBoth({
+							onFailure: () => new DbError({ message: `Invalid import item ${row.key}` }),
+							onSuccess: (result) => ({ result, itemIdentity: identities.get(row.key) ?? "" }),
+						}),
+					),
+				);
+			});
+			return { once, read, record, lockedRead, importItems, pruneExpired, recordImportItem };
 		}),
 	},
 ) {

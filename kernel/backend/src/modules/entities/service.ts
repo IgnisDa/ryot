@@ -33,7 +33,7 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
 	type CommittedLifecycleWork,
 	type LifecycleBatchInput,
-	LifecycleDispatchPlan,
+	type LifecycleDispatchPlan,
 	LifecyclePersistenceError,
 	LifecyclePlannedPolicy,
 	LifecyclePlanner,
@@ -51,28 +51,19 @@ import { parseAppSchemaProperties } from "#modules/definitions/properties/runtim
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService, type PreparedEventDelete } from "#modules/events/service";
-import { AccountAdmission } from "#modules/mutations/account-admission";
-import {
-	MutationReceiptIdentity,
-	mutationReceiptIdentity,
-	MutationReceiptIdentityConflict,
-	mutationReceiptOwner,
-	MutationReceipts,
-	mutationUserIds,
-} from "#modules/mutations/receipts";
+import { AccountAdmission, mutationUserIds } from "#modules/mutations/account-admission";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { catalogDefinitionFingerprint } from "#modules/plugins/catalog/runtime-resolver";
 import { principalOwner } from "#modules/scripts/authorization/principal";
 import { DatabaseSession } from "#platform/db/session";
 import { runRootTransaction } from "#platform/db/transaction";
 import { trimToNull } from "#platform/validation";
 
-import { EntityDeleteResult, EntityEnsureResult, EntitySnapshotResult } from "./mutation-outcomes";
+import { EntitySnapshotResult } from "./mutation-outcomes";
 import {
 	draftOf,
 	isUnchangedUpdate,
 	makePersistMutation,
-	makeReceiptBatches,
-	type MutationReceiptRecord,
 	type PersistItem,
 	PreparedEntityMutation,
 	type PreparedMutation,
@@ -169,9 +160,7 @@ export const PendingEntityMutation = Schema.Struct({
 export type PendingEntityMutation = typeof PendingEntityMutation.Type;
 export const EntityMutationError = Schema.Union([EntityBadRequest, EntityNotFound, DbError]);
 const PlannedGlobalEntity = Schema.Struct({
-	recorded: Schema.Boolean,
 	externalId: Schema.String,
-	receipt: MutationReceiptIdentity,
 	entitySchemaSlug: EntitySchemaSlug,
 	prepared: Schema.NullOr(PreparedEntityMutation),
 	entitySchemaPluginId: Schema.NullOr(Schema.String),
@@ -191,10 +180,6 @@ export const GlobalEntityUpsertResults = Schema.Array(
 		}),
 	]),
 );
-const GlobalEntityItemReceipt = Schema.Union([
-	EntityEnsureResult,
-	Schema.Struct({ status: Schema.Literal("skipped") }),
-]);
 export type GlobalEntityUpsertResults = typeof GlobalEntityUpsertResults.Type;
 export type GlobalEntityUpsertCursor = {
 	readonly accepted: null | PendingEntityMutation;
@@ -230,57 +215,8 @@ const commandEntityId = (lifecycle: DomainLifecycleCommand) =>
 	EntityId.make(
 		`ent_${sha256Base64Url(stableStringify([lifecycle.causation.executionId, lifecycle.itemIdentity]))}`,
 	);
-const createReceiptInput = (input: CreateEntityInput, updateExisting?: boolean) => ({
-	scope: input.scope,
-	name: input.name.trim(),
-	properties: input.properties,
-	entitySchema: input.entitySchema,
-	externalId: input.externalId ?? null,
-	providerId: input.providerId ?? null,
-	writeContext: input.lifecycle.writeContext,
-	populatedAt: input.populatedAt?.toISOString() ?? null,
-	...(input.scope === "user" ? { userId: input.userId } : {}),
-	...(updateExisting === undefined ? {} : { updateExisting }),
-});
-const createReceipt = (input: CreateEntityInput, updateExisting?: boolean) =>
-	mutationReceiptIdentity({
-		command: input.lifecycle,
-		input: createReceiptInput(input, updateExisting),
-		scopeUserId: input.scope === "user" ? input.userId : null,
-		commandKind: updateExisting === undefined ? "entity:create" : "entity:upsert",
-		ownerUserId: mutationReceiptOwner(
-			input.lifecycle,
-			input.scope === "user" ? input.userId : null,
-		),
-	});
-const globalUpsertReceipt = (
-	items: ReadonlyArray<UpsertGlobalEntityItem>,
-	providerId: SandboxProviderId,
-	lifecycle: DomainLifecycleCommand,
-	options?: UpsertGlobalEntitiesOptions,
-) =>
-	mutationReceiptIdentity({
-		scopeUserId: null,
-		command: lifecycle,
-		commandKind: "entity:upsert-global-batch",
-		ownerUserId: mutationReceiptOwner(lifecycle, null),
-		input: {
-			providerId,
-			writeContext: lifecycle.writeContext,
-			maximumTotal: options?.maximumTotal ?? null,
-			items: items.map((item) => ({
-				...item,
-				name: item.name.trim(),
-				populatedAt: item.populatedAt?.toISOString() ?? null,
-			})),
-		},
-	});
 const cascadeEventChanged = () =>
 	new DbError({ message: "Event changed while cascade deletion was prepared" });
-const receiptConflict = (error: DbError | MutationReceiptIdentityConflict) =>
-	error instanceof MutationReceiptIdentityConflict
-		? bad("mutation-conflict", "Command identity was reused with different entity input")
-		: error;
 const preparedWriteCheck = (input: PreparedMutation): DomainWriteCheck => ({
 	command: input.lifecycle,
 	scopeUserId: input.scopeUserId,
@@ -293,28 +229,22 @@ const ensureScopeOf = (item: EnsureUserEntityItem) => ({
 const batchRepresentatives = Effect.fnUntraced(function* <T>(
 	items: ReadonlyArray<T>,
 	identityKey: (item: T) => string,
-	receiptOf: (item: T) => MutationReceiptIdentity,
+	inputOf: (item: T) => unknown,
 ) {
 	const byIdentity = new Map<string, number>();
-	const byReceipt = new Map<string, number>();
 	const representatives: number[] = [];
 	for (const [index, item] of items.entries()) {
 		const key = identityKey(item);
-		const receipt = receiptOf(item);
-		const first = byIdentity.get(key) ?? byReceipt.get(receipt.id);
+		const first = byIdentity.get(key);
 		if (first === undefined) {
 			byIdentity.set(key, index);
-			byReceipt.set(receipt.id, index);
 			representatives.push(index);
 			continue;
 		}
 		const firstItem = items[first];
-		const firstReceipt = firstItem === undefined ? null : receiptOf(firstItem);
 		if (
 			firstItem === undefined ||
-			identityKey(firstItem) !== key ||
-			firstReceipt?.id !== receipt.id ||
-			firstReceipt.inputFingerprint !== receipt.inputFingerprint
+			stableStringify(inputOf(firstItem)) !== stableStringify(inputOf(item))
 		) {
 			return yield* bad(
 				"mutation-conflict",
@@ -335,26 +265,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const planner = yield* LifecyclePlanner;
 			const repository = yield* EntitiesRepository;
 			const writeChecks = yield* DomainWriteChecks;
-			const receipts = yield* MutationReceipts.make;
 			const admission = yield* AccountAdmission.make;
+			const keys = yield* IdempotencyKeys.make;
 			const eventsRepository = yield* EventsRepository;
 			const attachments = yield* EntityUserDataAttachments;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
-			const lookupEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
-				receipts.lookup(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
-			const peekEntityReceipt = (identity: ReturnType<typeof mutationReceiptIdentity>) =>
-				receipts.peek(identity, EntitySnapshotResult).pipe(Effect.mapError(receiptConflict));
-			const { lookupReceipts, insertReceipts } = makeReceiptBatches(receipts);
 			const execution = yield* LifecycleExecution;
-			const replayCreateStep = Effect.fn("EntitiesService.replayCreateStep")(function* (
-				input: CreateEntityInput,
-			) {
-				const replay = yield* peekEntityReceipt(createReceipt(input));
-				return replay
-					? { result: replay.result, dispatch: replay.dispatch, _tag: "Committed" as const }
-					: null;
-			});
-
 			const assertOwner = session.requireRoot.pipe(Effect.mapError(enclosingTransaction));
 			const assertActiveTransaction = session.requireTransaction.pipe(
 				Effect.mapError(
@@ -423,21 +339,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 									true,
 								)
 								.pipe(Effect.mapError(writeFailure));
-							const identity = mutationReceiptIdentity({
-								command: input.lifecycle,
-								ownerUserId: input.userId,
-								scopeUserId: input.userId,
-								commandKind: "entity:reference",
-								input: { entityId: input.entityId, writeContext: input.lifecycle.writeContext },
-							});
-							const replay = yield* lookupEntityReceipt(identity);
-							if (replay) {
-								return {
-									result: replay.result,
-									dispatch: replay.dispatch,
-									_tag: "Committed" as const,
-								};
-							}
 							const entity = yield* repository.getByIdForUser(input);
 							if (!entity) {
 								return yield* new EntityNotFound({
@@ -445,7 +346,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								});
 							}
 							const result = yield* Schema.decodeEffect(EntitySnapshotResult)({ entity });
-							yield* receipts.insert({ result, identity, dispatch: [] });
+							yield* keys.recordImportItem(input.lifecycle, input.userId, "unchanged");
 							return { result, dispatch: [], _tag: "Committed" as const };
 						}),
 						mutationUserIds(input.lifecycle, input.userId),
@@ -601,10 +502,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return yield* Effect.void;
 			});
 			const planMutationInTransaction = Effect.fnUntraced(function* (
-				input: Omit<PreparedMutation, "receipt" | "requestId"> & {
-					receiptKind: string;
-					receiptInput: unknown;
-				},
+				input: Omit<PreparedMutation, "requestId">,
 			) {
 				yield* writeChecks
 					.check(
@@ -655,20 +553,12 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				if (planned.trigger?.blockedReason) {
 					return { _tag: "Blocked" as const };
 				}
-				const { receiptKind: _kind, receiptInput: _input, ...preparedInput } = input;
 				const pending: PendingEntityMutation = {
-					...preparedInput,
+					...input,
 					request,
 					lifecycle,
 					policies: planned.policies,
 					requestId: planned.trigger?.id ?? null,
-					receipt: mutationReceiptIdentity({
-						command: lifecycle,
-						input: input.receiptInput,
-						commandKind: input.receiptKind,
-						scopeUserId: input.scopeUserId,
-						ownerUserId: mutationReceiptOwner(lifecycle, input.scopeUserId),
-					}),
 				};
 				return pending;
 			});
@@ -760,8 +650,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				return { ...prepared, draft: final.draft } satisfies PreparedMutation;
 			});
 			const persistence = {
+				keys,
 				planner,
-				receipts,
+				admission,
 				repository,
 				validateDraft,
 				assetReferences,
@@ -777,17 +668,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			};
 			const persistSnapshots = makePersistMutation({
 				...persistence,
-				resultCodec: EntitySnapshotResult,
 				resultOf: (entity) => ({ entity }),
 			});
-			const persistDeletes = makePersistMutation({
-				...persistence,
-				resultOf: () => null,
-				resultCodec: EntityDeleteResult,
-			});
+			const persistDeletes = makePersistMutation({ ...persistence, resultOf: () => null });
 			const persistEnsures = makePersistMutation({
 				...persistence,
-				resultCodec: EntityEnsureResult,
 				resultOf: (entity, wasInserted) => ({ wasInserted, entityId: entity.id }),
 			});
 			const verifyWrites = (checks: ReadonlyArray<DomainWriteCheck>) =>
@@ -899,8 +784,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 			const planCreate = Effect.fnUntraced(function* (
 				input: CreateEntityInput,
 				updateExisting?: boolean,
-				receiptKind: string = updateExisting === undefined ? "entity:create" : "entity:upsert",
-				receiptInput: unknown = createReceiptInput(input, updateExisting),
 				deferPlanning?: boolean,
 			) {
 				if (
@@ -959,9 +842,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				}
 				const preparedInput = {
 					...validated,
-					receiptKind,
 					scopeUserId,
-					receiptInput,
 					lifecycle: input.lifecycle,
 					entityId: existing?.id ?? commandEntityId(input.lifecycle),
 					before: existing && !replay ? yield* snapshot(existing) : null,
@@ -985,48 +866,27 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						input.scope === "user" ? input.userId : null,
 					)
 					.pipe(Effect.mapError(writeFailure));
-				const identity = createReceipt(input, updateExisting);
-				const replay = yield* peekEntityReceipt(identity);
-				if (replay) {
-					const batch = yield* transaction(
-						entityBatchPlans({ identity: ["batch"], command: input.lifecycle }),
-						mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
-					);
-					return {
-						_tag: "Committed",
-						result: replay.result,
-						dispatch: [...replay.dispatch, ...batch],
-					} satisfies LifecycleCommittedStep<EntitySnapshotResult>;
-				}
-				const planned = yield* planCreate(input, updateExisting, undefined, undefined, true);
+				const planned = yield* planCreate(input, updateExisting, true);
 				if (planned.existing) {
 					const before = yield* snapshot(planned.existing);
 					const result = { entity: planned.existing };
 					return yield* transaction(
 						Effect.gen(function* () {
-							const recorded = yield* lookupEntityReceipt(identity);
-							if (recorded) {
-								const batch = yield* entityBatchPlans({
-									identity: ["batch"],
-									command: input.lifecycle,
-								});
-								return {
-									result: recorded.result,
-									_tag: "Committed" as const,
-									dispatch: [...recorded.dispatch, ...batch],
-								};
-							}
 							const current = yield* repository.getMutationEntity(planned.existing.id, true);
 							if (!current || !same(yield* snapshot(current.entity), before)) {
 								return yield* bad("mutation-conflict", "Entity changed before no-op was recorded");
 							}
 							const batchScope = { identity: ["batch"], command: input.lifecycle };
-							const decision = yield* planner.prepareBatch({
+							yield* planner.prepareBatch({
 								...batchScope,
 								resource: "entity",
 								scopes: [input.scope === "user" ? input.userId : null],
 							});
-							yield* receipts.insert({ result, identity, dispatch: [], batchId: decision.id });
+							yield* keys.recordImportItem(
+								input.lifecycle,
+								input.scope === "user" ? input.userId : null,
+								"unchanged",
+							);
 							yield* planner.planBatch({ ...batchScope, resource: "entity" });
 							return { result, dispatch: [], _tag: "Committed" as const };
 						}),
@@ -1089,7 +949,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					return {
 						item,
 						scopeUserId,
-						receipt: createReceipt(item, item.updateExisting),
 						check: { scopeUserId, command: item.lifecycle, owner: item.entitySchema.owner },
 						identity: {
 							...item,
@@ -1101,7 +960,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				const representatives = yield* batchRepresentatives(
 					items,
 					({ identity }) => providerEntityMutationLockKey(identity),
-					({ receipt }) => receipt,
+					({ item }) => ({ ...item, name: item.name.trim() }),
 				);
 				yield* repository.lockSchemaCatalog(
 					items.flatMap(({ item, scopeUserId }) => mutationUserIds(item.lifecycle, scopeUserId)),
@@ -1124,28 +983,22 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							}),
 						),
 				);
-				const recorded = yield* lookupReceipts(
-					unique.map(({ receipt }) => receipt),
-					EntitySnapshotResult,
-				).pipe(Effect.mapError(receiptConflict));
-				const pending = yield* Effect.forEach(
-					unique.filter((_, position) => !recorded[position]),
-					(entry) =>
-						validateDraft(
-							{
-								name: entry.item.name,
-								properties: entry.item.properties,
-								externalId: entry.item.externalId,
-								providerId: entry.item.providerId,
-								entitySchemaSlug: entry.item.entitySchema.slug,
-								populatedAt: entry.item.populatedAt?.toISOString() ?? null,
-							},
-							entry.scopeUserId,
-							entry.item.entitySchema.owner,
-							entry.item.lifecycle,
-							false,
-							entry.pin,
-						).pipe(Effect.map((validated) => ({ ...entry, validated }))),
+				const pending = yield* Effect.forEach(unique, (entry) =>
+					validateDraft(
+						{
+							name: entry.item.name,
+							properties: entry.item.properties,
+							externalId: entry.item.externalId,
+							providerId: entry.item.providerId,
+							entitySchemaSlug: entry.item.entitySchema.slug,
+							populatedAt: entry.item.populatedAt?.toISOString() ?? null,
+						},
+						entry.scopeUserId,
+						entry.item.entitySchema.owner,
+						entry.item.lifecycle,
+						false,
+						entry.pin,
+					).pipe(Effect.map((validated) => ({ ...entry, validated }))),
 				);
 				yield* repository.lockProviderEntityMutations(pending.map(({ identity }) => identity));
 				const found = yield* repository.findEntitiesByExternalIds(
@@ -1159,13 +1012,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				yield* repository.lockMutationKeys(entityIds);
 				const rows = yield* repository.getMutationEntities(entityIds, true);
 				const settled = new Map<number, CommittedLifecycleWork<EntitySnapshotResult>>();
-				for (const [position, entry] of unique.entries()) {
-					const replay = recorded[position];
-					if (replay) {
-						settled.set(entry.index, { result: replay.result, dispatch: replay.dispatch });
-					}
-				}
-				const records: MutationReceiptRecord[] = [];
 				const persisted: PersistItem[] = [];
 				for (const entry of pending) {
 					const foundId = foundIdOf(entry);
@@ -1184,22 +1030,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}
 					const replay = existing?.id === commandEntityId(entry.lifecycle);
 					if (existing && !replay && !entry.item.updateExisting && existing.populatedAt !== null) {
-						const result = { entity: existing };
-						records.push({
-							result,
-							dispatch: [],
-							batchId: decision.id,
-							batchIndex: entry.index,
-							identity: entry.receipt,
-						});
-						settled.set(entry.index, { result, dispatch: [] });
+						settled.set(entry.index, { dispatch: [], result: { entity: existing } });
 						continue;
 					}
 					const before = existing && !replay ? yield* snapshot(existing) : null;
 					const prepared: PreparedMutation = {
 						before,
 						requestId: null,
-						receipt: entry.receipt,
 						lifecycle: entry.lifecycle,
 						draft: entry.validated.draft,
 						scopeUserId: entry.scopeUserId,
@@ -1223,7 +1060,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					}
 					settled.set(item.batchIndex, work);
 				}
-				yield* insertReceipts([...records, ...saved.records]);
 				const results: EntitySnapshotResult[] = [];
 				const itemDispatch: LifecycleDispatchPlan[] = [];
 				for (const [index, representative] of representatives.entries()) {
@@ -1277,47 +1113,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						)
 						.pipe(Effect.mapError(writeFailure));
 				}
-				const receiptInput = {
-					scope: input.scope,
-					name: input.name.trim(),
-					entityId: input.entityId,
-					properties: input.properties,
-					writeContext: input.lifecycle.writeContext,
-					...(input.populatedAt === undefined
-						? {}
-						: { populatedAt: input.populatedAt?.toISOString() ?? null }),
-					...(input.expected === undefined ? {} : { expected: input.expected }),
-					...(input.requireUserOwned === undefined
-						? {}
-						: { requireUserOwned: input.requireUserOwned }),
-					...(input.scope === "user" ? { userId: input.userId } : {}),
-				};
-				for (const scopeUserId of input.scope === "user" ? [null, input.userId] : [null]) {
-					const recorded = yield* receipts
-						.peek(
-							mutationReceiptIdentity({
-								scopeUserId,
-								input: receiptInput,
-								command: input.lifecycle,
-								commandKind: "entity:update",
-								ownerUserId: mutationReceiptOwner(input.lifecycle, scopeUserId),
-							}),
-							EntitySnapshotResult,
-						)
-						.pipe(Effect.mapError(receiptConflict));
-					if (recorded) {
-						const batch = yield* transaction(
-							entityBatchPlans({ identity: ["batch"], command: input.lifecycle }),
-							mutationUserIds(input.lifecycle, input.scope === "user" ? input.userId : null),
-						);
-						return {
-							entity: recorded.result.entity,
-							warnings: yield* execution
-								.dispatch([...recorded.dispatch, ...batch])
-								.pipe(Effect.catchTag("LifecyclePersistenceError", Effect.die)),
-						};
-					}
-				}
 				const current = yield* repository.getMutationEntity(input.entityId);
 				if (
 					!current ||
@@ -1362,11 +1157,9 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				const pendingInput = {
 					...validated,
 					before,
-					receiptInput,
 					entityId: input.entityId,
 					lifecycle: input.lifecycle,
 					scopeUserId: current.userId,
-					receiptKind: "entity:update",
 					operation: "update" as const,
 				};
 				const { entity, warnings } = yield* saveInline(
@@ -1421,16 +1214,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						before: null,
 						scopeUserId: userId,
 						operation: "create",
-						receiptKind: "entity:create",
 						entityId: commandEntityId(lifecycle),
-						receiptInput: createReceiptInput({
-							userId,
-							lifecycle,
-							scope: "user",
-							name: input.name,
-							entitySchema: reference,
-							properties: input.properties,
-						}),
 					};
 				} else {
 					const { entityId, expected } = input.target;
@@ -1472,17 +1256,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						lifecycle,
 						scopeUserId: userId,
 						operation: "update",
-						receiptKind: "entity:update",
-						receiptInput: {
-							userId,
-							entityId,
-							expected,
-							scope: "user",
-							requireUserOwned: true,
-							name: input.name.trim(),
-							properties: input.properties,
-							writeContext: lifecycle.writeContext,
-						},
 					};
 				}
 				const prepared = yield* acceptedMutation(
@@ -1563,27 +1336,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								.pipe(Effect.mapError(writeFailure));
 						}
 					}
-					const aggregateReceipt = mutationReceiptIdentity({
-						scopeUserId: null,
-						command: lifecycle,
-						commandKind: "entity:delete-batch",
-						ownerUserId: mutationReceiptOwner(lifecycle, null),
-						input: {
-							entityIds: orderedIds,
-							target: target ?? null,
-							writeContext: lifecycle.writeContext,
-						},
-					});
-					const aggregateResult = Schema.Struct({ deletedCount: Schema.Finite });
-					const existingBatch = yield* receipts
-						.peek(aggregateReceipt, aggregateResult)
-						.pipe(Effect.mapError(receiptConflict));
-					if (existingBatch) {
-						return {
-							deletedCount: existingBatch.result.deletedCount,
-							warnings: yield* execution.dispatch(existingBatch.dispatch),
-						};
-					}
 					const eventIdentities =
 						yield* eventsRepository.listEventIdentitiesForEntities(orderedIds);
 					if (target?.preserveHistory === true && eventIdentities.length > 0) {
@@ -1620,31 +1372,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					const prepared = yield* Effect.forEach(orderedIds, (entityId) =>
 						Effect.gen(function* () {
 							const command = itemCommand(lifecycle, entityId);
-							const receiptInput = {
-								entityId,
-								target: target ?? null,
-								requestedIds: orderedIds,
-								writeContext: lifecycle.writeContext,
-							};
-							for (const scopeUserId of lifecycle.causation.initiator.kind === "user"
-								? [null, lifecycle.causation.initiator.id]
-								: [null]) {
-								const replay = yield* receipts
-									.peek(
-										mutationReceiptIdentity({
-											command,
-											scopeUserId,
-											input: receiptInput,
-											commandKind: "entity:delete",
-											ownerUserId: mutationReceiptOwner(command, scopeUserId),
-										}),
-										EntityDeleteResult,
-									)
-									.pipe(Effect.mapError(receiptConflict));
-								if (replay) {
-									return { replay, scopeUserId, prepared: null };
-								}
-							}
 							const current = yield* repository.getMutationEntity(entityId);
 							if (!current) {
 								return null;
@@ -1672,17 +1399,14 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							const pending = yield* planMutation({
 								before,
 								entityId,
-								receiptInput,
 								lifecycle: command,
 								operation: "delete",
 								draft: validated.draft,
 								scopeUserId: current.userId,
-								receiptKind: "entity:delete",
 								entitySchemaPluginId: validated.entitySchemaPluginId,
 								entitySchemaFingerprint: validated.entitySchemaFingerprint,
 							});
 							return {
-								replay: null,
 								scopeUserId: current.userId,
 								prepared: yield* acceptedMutation(yield* applyMutationPolicies(pending)),
 							};
@@ -1696,32 +1420,11 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								scopeUserId = writeContext.pluginRevision.ownerId;
 							}
 							const settled = prepared.filter((item) => item !== null);
-							const pending = settled.flatMap((item, index) =>
-								item.replay ? [] : [{ index, input: item.prepared }],
-							);
+							const pending = settled.map((item, index) => ({ index, input: item.prepared }));
 							const pins = yield* verifyWrites([
 								{ scopeUserId, command: lifecycle, owner: principalOwner(lifecycle.writeContext) },
 								...pending.map(({ input }) => preparedWriteCheck(input)),
 							]);
-							const previous = yield* receipts
-								.lookup(aggregateReceipt, aggregateResult)
-								.pipe(Effect.mapError(receiptConflict));
-							if (previous) {
-								return { dispatch: previous.dispatch, deletedCount: previous.result.deletedCount };
-							}
-							const recorded = yield* lookupReceipts(
-								pending.map(({ input }) => input.receipt),
-								EntityDeleteResult,
-							).pipe(
-								Effect.mapError((error) =>
-									error instanceof MutationReceiptIdentityConflict
-										? bad(
-												"mutation-conflict",
-												"Command identity was reused with a different entity payload",
-											)
-										: error,
-								),
-							);
 							yield* events.captureEventGroups({ items: preparedEvents, entityIds: orderedIds });
 							yield* repository.lockMutationKeys(orderedIds);
 							const rows = yield* repository.getMutationEntities(orderedIds, true);
@@ -1756,49 +1459,21 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								...eventBatchScope,
 								resource: "event",
 							});
-							const persisted = pending.flatMap(({ index, input }, position) =>
-								recorded[position]
-									? []
-									: [{ input, batchIndex: index, pin: pins(preparedWriteCheck(input)) }],
-							);
+							const persisted = pending.map(({ index, input }) => ({
+								input,
+								batchIndex: index,
+								pin: pins(preparedWriteCheck(input)),
+							}));
 							yield* attachments.removeEntities(persisted.map(({ input }) => input.entityId));
 							const written = yield* persistDeletes.persistMany(persisted, decision, rows);
-							yield* insertReceipts(written.records);
-							const results = new Map<number, CommittedLifecycleWork<null>>();
-							for (const [position, { index }] of pending.entries()) {
-								const replay = recorded[position];
-								if (replay) {
-									results.set(index, { result: replay.result, dispatch: replay.dispatch });
-								}
-							}
-							for (const [position, { batchIndex }] of persisted.entries()) {
-								const work = written.results[position];
-								if (work) {
-									results.set(batchIndex, work);
-								}
-							}
-							const saved = yield* Effect.forEach(settled, (item, index) => {
-								const work = item.replay
-									? { result: item.replay.result, dispatch: item.replay.dispatch }
-									: results.get(index);
-								return work
-									? Effect.succeed(work)
-									: Effect.die("Entity delete is missing its result");
-							});
 							const batch = yield* entityBatchPlans(batchScope);
 							const dispatch = [
 								...eventSaved.flatMap((item) => item.dispatch),
 								...eventBatch,
-								...saved.flatMap((item) => item.dispatch),
+								...written.results.flatMap((item) => item.dispatch),
 								...batch,
 							];
-							const deletedCount = saved.length;
-							yield* receipts.insert({
-								dispatch,
-								result: { deletedCount },
-								identity: aggregateReceipt,
-							});
-							return { dispatch, deletedCount };
+							return { dispatch, deletedCount: written.results.length };
 						}),
 						[
 							...mutationUserIds(lifecycle, null),
@@ -1834,92 +1509,42 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						.check(lifecycle, item.entitySchema.owner, userId)
 						.pipe(Effect.mapError(writeFailure));
 				}
-				const aggregateReceipt = mutationReceiptIdentity({
-					command: lifecycle,
-					scopeUserId: userId,
-					commandKind: "entity:ensure-batch",
-					ownerUserId: mutationReceiptOwner(lifecycle, userId),
-					input: {
-						writeContext: lifecycle.writeContext,
-						items: items.map((item) => ({ ...item, name: item.name.trim() })),
-					},
-				});
-				const aggregateResult = Schema.Array(
-					Schema.Struct({
-						entityId: EntityId,
-						wasInserted: Schema.Boolean,
-						dispatch: Schema.Array(LifecycleDispatchPlan),
-					}),
-				);
-				const recordedBatch = yield* receipts
-					.peek(aggregateReceipt, aggregateResult)
-					.pipe(Effect.mapError(receiptConflict));
-				if (recordedBatch) {
-					return recordedBatch.result;
-				}
 				const entries = items.map((item) => {
 					const command = itemCommand(
 						lifecycle,
 						definitionKey("entity", item.entitySchema.owner, item.entitySchema.slug),
 					);
-					const receiptInput = {
-						...item,
-						userId,
-						name: item.name.trim(),
-						writeContext: lifecycle.writeContext,
-					};
-					return {
-						item,
-						command,
-						receiptInput,
-						receipt: mutationReceiptIdentity({
-							command,
-							scopeUserId: userId,
-							input: receiptInput,
-							commandKind: "entity:ensure",
-							ownerUserId: mutationReceiptOwner(command, userId),
-						}),
-					};
+					return { item, command };
 				});
 				const representatives = yield* batchRepresentatives(
 					entries,
 					({ item }) => definitionKey("entity", item.entitySchema.owner, item.entitySchema.slug),
-					({ receipt }) => receipt,
+					({ item }) => ({ ...item, name: item.name.trim() }),
 				);
-				const prepared = yield* Effect.forEach(
-					entries,
-					({ item, command, receipt, receiptInput }) =>
-						Effect.gen(function* () {
-							const recorded = yield* receipts
-								.peek(receipt, EntityEnsureResult)
-								.pipe(Effect.mapError(receiptConflict));
-							if (recorded) {
-								return { item, receipt, recorded, existing: null, prepared: null };
-							}
-							const existing = yield* repository.findUserEntityWithoutProvenance({
-								userId,
-								entitySchemaSlug: item.entitySchema.slug,
-								entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
-							});
-							if (existing) {
-								return { item, receipt, existing, prepared: null, recorded: null };
-							}
-							const planned = yield* planCreate(
-								{ ...item, userId, scope: "user", lifecycle: command },
-								undefined,
-								"entity:ensure",
-								receiptInput,
-							);
-							return {
-								item,
-								receipt,
-								existing,
-								recorded: null,
-								prepared: planned.pending
-									? yield* acceptedMutation(yield* applyMutationPolicies(planned.pending))
-									: null,
-							};
-						}),
+				const prepared = yield* Effect.forEach(entries, ({ item, command }) =>
+					Effect.gen(function* () {
+						const existing = yield* repository.findUserEntityWithoutProvenance({
+							userId,
+							entitySchemaSlug: item.entitySchema.slug,
+							entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
+						});
+						if (existing) {
+							return { item, existing, prepared: null };
+						}
+						const planned = yield* planCreate({
+							...item,
+							userId,
+							scope: "user",
+							lifecycle: command,
+						});
+						return {
+							item,
+							existing,
+							prepared: planned.pending
+								? yield* acceptedMutation(yield* applyMutationPolicies(planned.pending))
+								: null,
+						};
+					}),
 				);
 				const committed = yield* transaction(
 					Effect.gen(function* () {
@@ -1930,12 +1555,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								owner: item.entitySchema.owner,
 							})),
 						);
-						const previous = yield* receipts
-							.lookup(aggregateReceipt, aggregateResult)
-							.pipe(Effect.mapError(receiptConflict));
-						if (previous) {
-							return previous.result;
-						}
 						const batchScope = { command: lifecycle, identity: ["ensure"] };
 						const decision = yield* planner.prepareBatch({
 							...batchScope,
@@ -1945,10 +1564,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						const unique = prepared.flatMap((entry, index) =>
 							representatives[index] === index ? [{ ...entry, index }] : [],
 						);
-						const prior = yield* lookupReceipts(
-							unique.map(({ receipt }) => receipt),
-							EntityEnsureResult,
-						).pipe(Effect.mapError(receiptConflict));
 						yield* repository.lockUserEntityEnsureScopes({
 							userId,
 							entitySchemas: items.map((item) => item.entitySchema),
@@ -1961,31 +1576,15 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								dispatch: ReadonlyArray<LifecycleDispatchPlan>;
 							}
 						>();
-						const pending = unique.filter((entry, position) => {
-							const recorded = entry.recorded ?? prior[position];
-							if (recorded) {
-								settled.set(entry.index, { ...recorded.result, dispatch: recorded.dispatch });
-							}
-							return !recorded;
-						});
 						const existing = yield* repository.findUserEntitiesWithoutProvenance({
 							userId,
-							scopes: pending.map(({ item }) => ensureScopeOf(item)),
+							scopes: unique.map(({ item }) => ensureScopeOf(item)),
 						});
-						const records: MutationReceiptRecord[] = [];
 						const persisted: PersistItem[] = [];
-						for (const entry of pending) {
+						for (const entry of unique) {
 							const found = existing.get(ensureScopeKey(ensureScopeOf(entry.item)));
 							if (found) {
-								const result = { wasInserted: false, entityId: found.id };
-								records.push({
-									result,
-									dispatch: [],
-									batchId: decision.id,
-									batchIndex: entry.index,
-									identity: entry.receipt,
-								});
-								settled.set(entry.index, { ...result, dispatch: [] });
+								settled.set(entry.index, { dispatch: [], wasInserted: false, entityId: found.id });
 								continue;
 							}
 							if (!entry.prepared) {
@@ -2008,9 +1607,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							}
 							settled.set(batchIndex, { ...work.result, dispatch: work.dispatch });
 						}
-						yield* insertReceipts([...records, ...written.records]);
 						const batch = yield* entityBatchPlans(batchScope);
-						const result = yield* Effect.forEach(representatives, (representative, index) => {
+						return yield* Effect.forEach(representatives, (representative, index) => {
 							const saved = settled.get(representative);
 							if (!saved) {
 								return Effect.die("Ensured entity is missing its result");
@@ -2024,12 +1622,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								],
 							});
 						});
-						yield* receipts.insert({
-							result,
-							identity: aggregateReceipt,
-							dispatch: result.flatMap((item) => item.dispatch),
-						});
-						return result;
 					}),
 					mutationUserIds(lifecycle, userId),
 				);
@@ -2059,7 +1651,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				planned: PendingGlobalEntityUpsert["planned"],
 				providerId: SandboxProviderId,
 				lifecycle: DomainLifecycleCommand,
-				aggregateReceipt: ReturnType<typeof mutationReceiptIdentity>,
 				options?: UpsertGlobalEntitiesOptions,
 			) {
 				const scopeOf = (item: PendingGlobalEntityUpsert["planned"][number]) => ({
@@ -2083,16 +1674,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								owner: definitionOwner(item.entitySchemaPluginId),
 							})),
 						);
-						const previous = yield* receipts
-							.lookup(aggregateReceipt, GlobalEntityUpsertResults)
-							.pipe(Effect.mapError(receiptConflict));
-						if (previous) {
-							return {
-								result: previous.result,
-								_tag: "Committed" as const,
-								dispatch: previous.dispatch,
-							};
-						}
 						const batchScope = { command: lifecycle, identity: ["global-upsert"] };
 						const decision = yield* planner.prepareBatch({
 							...batchScope,
@@ -2102,45 +1683,16 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						const representatives = yield* batchRepresentatives(
 							planned,
 							(item) => providerEntityMutationLockKey(identityOf(item)),
-							({ receipt }) => receipt,
+							(item) => ({ externalId: item.externalId, draft: item.prepared?.draft ?? null }),
 						);
 						const unique = planned.flatMap((item, index) =>
 							representatives[index] === index ? [{ ...item, index }] : [],
-						);
-						const recorded = yield* lookupReceipts(
-							unique.map(({ receipt }) => receipt),
-							GlobalEntityItemReceipt,
-						).pipe(
-							Effect.mapError((error) =>
-								error instanceof MutationReceiptIdentityConflict
-									? bad(
-											"mutation-conflict",
-											"Command identity was reused with different global upsert input",
-										)
-									: error,
-							),
 						);
 						const settled = new Map<
 							number,
 							GlobalEntityUpsertResults[number] & { dispatch: ReadonlyArray<LifecycleDispatchPlan> }
 						>();
-						const pending = unique.filter((item, position) => {
-							const prior = recorded[position];
-							if (prior) {
-								settled.set(
-									item.index,
-									"status" in prior.result
-										? { status: "skipped", dispatch: prior.dispatch }
-										: {
-												status: "upserted",
-												dispatch: prior.dispatch,
-												entityId: prior.result.entityId,
-												wasInserted: prior.result.wasInserted,
-											},
-								);
-							}
-							return !prior;
-						});
+						const pending = unique;
 						yield* repository.lockProviderEntityMutations(pending.map(identityOf));
 						yield* repository.lockGlobalEntityProvenanceScopes(planned.map(scopeOf));
 						const found = yield* repository.findEntitiesByExternalIds(pending.map(identityOf));
@@ -2158,20 +1710,16 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								? new Map<string, number>()
 								: yield* repository.countGlobalEntitiesByProvenanceScopes(creating.map(scopeOf));
 						const ordinals = new Map<string, number>();
-						const records: MutationReceiptRecord[] = [];
 						const persisted: PersistItem[] = [];
 						for (const item of pending) {
 							const existingId = existingIdOf(item);
 							if (existingId !== null) {
-								const result = { wasInserted: false, entityId: existingId };
-								records.push({
-									result,
+								settled.set(item.index, {
 									dispatch: [],
-									batchId: decision.id,
-									batchIndex: item.index,
-									identity: item.receipt,
+									wasInserted: false,
+									status: "upserted",
+									entityId: existingId,
 								});
-								settled.set(item.index, { ...result, dispatch: [], status: "upserted" });
 								continue;
 							}
 							if (options?.maximumTotal !== undefined) {
@@ -2179,13 +1727,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								const ordinal = ordinals.get(scope) ?? 0;
 								ordinals.set(scope, ordinal + 1);
 								if ((totals.get(scope) ?? 0) + ordinal >= options.maximumTotal) {
-									records.push({
-										dispatch: [],
-										batchId: decision.id,
-										batchIndex: item.index,
-										identity: item.receipt,
-										result: { status: "skipped" },
-									});
 									settled.set(item.index, { dispatch: [], status: "skipped" });
 									continue;
 								}
@@ -2215,7 +1756,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								wasInserted: work.result.wasInserted,
 							});
 						}
-						yield* insertReceipts([...records, ...written.records]);
 						const items = yield* Effect.forEach(representatives, (representative, index) => {
 							const item = settled.get(representative);
 							if (!item) {
@@ -2233,7 +1773,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 								? { status: item.status }
 								: { status: item.status, entityId: item.entityId, wasInserted: item.wasInserted },
 						);
-						yield* receipts.insert({ result, dispatch, identity: aggregateReceipt });
 						return {
 							result,
 							dispatch,
@@ -2261,13 +1800,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						.check(lifecycle, item.entitySchema.owner, null)
 						.pipe(Effect.mapError(writeFailure));
 				}
-				const aggregateReceipt = globalUpsertReceipt(items, providerId, lifecycle, options);
-				const replay = yield* receipts
-					.peek(aggregateReceipt, GlobalEntityUpsertResults)
-					.pipe(Effect.mapError(receiptConflict));
-				if (replay) {
-					return { result: replay.result, dispatch: replay.dispatch, _tag: "Committed" as const };
-				}
 				if (
 					options?.maximumTotal !== undefined &&
 					(!Number.isInteger(options.maximumTotal) || options.maximumTotal < 0)
@@ -2281,24 +1813,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						lifecycle,
 						stableStringify([item.entitySchema, providerId, item.externalId]),
 					);
-					const receiptInput = {
-						providerId,
-						writeContext: lifecycle.writeContext,
-						item: { ...item, name: item.name.trim() },
-						maximumTotal: options?.maximumTotal ?? null,
-					};
-					return {
-						item,
-						command,
-						receiptInput,
-						receipt: mutationReceiptIdentity({
-							command,
-							scopeUserId: null,
-							input: receiptInput,
-							commandKind: "entity:upsert-global",
-							ownerUserId: mutationReceiptOwner(command, null),
-						}),
-					};
+					return { item, command };
 				});
 				yield* batchRepresentatives(
 					entries,
@@ -2310,7 +1825,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							entitySchemaSlug: item.entitySchema.slug,
 							entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
 						}),
-					({ receipt }) => receipt,
+					({ item }) => ({ ...item, name: item.name.trim() }),
 				);
 				const planned = [...cursor.planned];
 				let accepted = cursor.accepted;
@@ -2319,39 +1834,16 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					if (!entry) {
 						return yield* Effect.die("Global entity upsert cursor is out of range");
 					}
-					const { item, command, receipt, receiptInput } = entry;
-					const itemReplay = yield* receipts
-						.peek(receipt, GlobalEntityItemReceipt)
-						.pipe(
-							Effect.mapError((error) =>
-								error instanceof MutationReceiptIdentityConflict
-									? bad(
-											"mutation-conflict",
-											"Command identity was reused with different global upsert input",
-										)
-									: error,
-							),
-						);
-					if (itemReplay) {
-						planned.push({
-							receipt,
-							recorded: true,
-							prepared: null,
-							externalId: item.externalId,
-							entitySchemaSlug: item.entitySchema.slug,
-							entitySchemaPluginId: definitionOwnerPluginId(item.entitySchema.owner),
-						});
-						continue;
-					}
+					const { item, command } = entry;
 					let pending = accepted;
 					accepted = null;
 					if (!pending) {
-						const result = yield* planCreate(
-							{ ...item, providerId, scope: "global", lifecycle: command },
-							undefined,
-							"entity:upsert-global",
-							receiptInput,
-						);
+						const result = yield* planCreate({
+							...item,
+							providerId,
+							scope: "global",
+							lifecycle: command,
+						});
 						if (result.pending?.policies.length) {
 							return {
 								_tag: "PoliciesRequired",
@@ -2366,21 +1858,13 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 					const prepared = pending ? yield* acceptedMutation(pending) : null;
 					const definition = yield* entitySchema(null, item.entitySchema);
 					planned.push({
-						receipt,
 						prepared,
-						recorded: false,
 						externalId: item.externalId,
 						entitySchemaSlug: item.entitySchema.slug,
 						entitySchemaPluginId: definition.pluginId ?? null,
 					});
 				}
-				return yield* commitGlobalEntities(
-					planned,
-					providerId,
-					lifecycle,
-					aggregateReceipt,
-					options,
-				);
+				return yield* commitGlobalEntities(planned, providerId, lifecycle, options);
 			});
 			const applyGlobalEntityPolicies = (cursor: PendingGlobalEntityUpsert) =>
 				applyMutationPolicies(cursor.pending).pipe(
@@ -2420,7 +1904,6 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				commitMutation,
 				prepareUserSave,
 				getByIdAnyScope,
-				replayCreateStep,
 				prepareCreateStep,
 				commitUserEntities,
 				ensureUserEntities,

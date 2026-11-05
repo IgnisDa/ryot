@@ -13,10 +13,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/imports";
 import { Effect, Schema } from "effect";
 
-import { projectEntityIngestionReceipt } from "#modules/entities/mutation-outcomes";
-import { projectEventIngestionReceipt } from "#modules/events/mutation-receipts";
-import { MutationReceipts } from "#modules/mutations/receipts";
-import { projectRelationshipIngestionReceipt } from "#modules/relationships/mutation-pipeline";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { DatabaseSession } from "#platform/db/session";
 
 import { IngestionCaptures } from "./capture-service";
@@ -26,7 +23,6 @@ import {
 	summarizeIngestionOutcomes,
 } from "./outcomes";
 import { ImportsRepository } from "./repository";
-import { ImportRunError } from "./runtime/workflow-errors";
 
 export const IngestionOperation = Schema.Struct({
 	unit: Schema.NonEmptyString,
@@ -42,12 +38,12 @@ export const reconcileIngestionBatch = Effect.fn("imports.reconcileIngestionBatc
 	batch: IngestionBatch,
 	operations: ReadonlyArray<IngestionOperation>,
 ) {
-	const receipts = yield* MutationReceipts.make;
+	const keys = yield* IdempotencyKeys.make;
 	const repository = yield* ImportsRepository;
 	const database = yield* DatabaseSession;
-	const committed = yield* receipts.getCommittedItems({
-		...scope,
-		rootExecutionId: scope.runId,
+	const committed = yield* keys.importItems({
+		runId: scope.runId,
+		userId: scope.userId,
 		itemIdentities: operations.map((operation) => operation.itemIdentity),
 	});
 	const outcomes: Array<{
@@ -57,23 +53,12 @@ export const reconcileIngestionBatch = Effect.fn("imports.reconcileIngestionBatc
 	}> = [];
 	for (const operation of operations) {
 		const recorded = yield* repository.getOutcome(scope, operation.operationId);
-		const receipt = committed.find((value) => value.itemIdentity === operation.itemIdentity);
-		if (!receipt) {
-			if (recorded) {
-				outcomes.push(recorded);
-			}
-			continue;
+		const item = committed.find((value) => value.itemIdentity === operation.itemIdentity);
+		if (item) {
+			outcomes.push({ ...operation, result: item.result });
+		} else if (recorded) {
+			outcomes.push(recorded);
 		}
-		const result =
-			(yield* projectEntityIngestionReceipt(receipt.commandKind, receipt.result)) ??
-			(yield* projectRelationshipIngestionReceipt(receipt.commandKind, receipt.result)) ??
-			(yield* projectEventIngestionReceipt(receipt.commandKind, receipt.result));
-		if (result === null) {
-			return yield* new ImportRunError({
-				message: `Ingestion write owner '${receipt.commandKind}' has no result projection`,
-			});
-		}
-		outcomes.push({ ...operation, result });
 	}
 	const summary = summarizeIngestionOutcomes(outcomes);
 	yield* database.transaction(
@@ -140,7 +125,7 @@ export const genericIngestionBatchResult = Effect.fn("imports.genericIngestionBa
 		chunk: typeof genericImportChunkSchema.Type,
 	) {
 		const repository = yield* ImportsRepository;
-		const receipts = yield* MutationReceipts.make;
+		const keys = yield* IdempotencyKeys.make;
 		const operations = genericIngestionOperations(chunk, scope.runId).filter((operation) =>
 			chunk.items.some((item) =>
 				item.events.some(
@@ -149,18 +134,16 @@ export const genericIngestionBatchResult = Effect.fn("imports.genericIngestionBa
 				),
 			),
 		);
-		const committed = yield* receipts.getCommittedItems({
-			...scope,
-			rootExecutionId: scope.runId,
+		const committed = yield* keys.importItems({
+			runId: scope.runId,
+			userId: scope.userId,
 			itemIdentities: operations.map((operation) => operation.itemIdentity),
 		});
 		const confirmed: Array<(typeof genericImportApplyResultSchema.Type)["confirmed"][number]> = [];
 		for (const operation of operations) {
 			const recorded = yield* repository.getOutcome(scope, operation.operationId);
-			const receipt = committed.find((value) => value.itemIdentity === operation.itemIdentity);
-			const result = receipt
-				? yield* projectEventIngestionReceipt(receipt.commandKind, receipt.result)
-				: recorded?.result;
+			const item = committed.find((value) => value.itemIdentity === operation.itemIdentity);
+			const result = item ? item.result : recorded?.result;
 			if (
 				result === "created" ||
 				result === "updated" ||
@@ -171,7 +154,7 @@ export const genericIngestionBatchResult = Effect.fn("imports.genericIngestionBa
 					result,
 					operationId: operation.operationId,
 					attribution: operation.attribution,
-					reason: receipt ? null : (recorded?.reason ?? null),
+					reason: item ? null : (recorded?.reason ?? null),
 				});
 			}
 		}

@@ -68,11 +68,11 @@ const PendingMembershipDetails = Schema.Struct({
 	change: Schema.Literals(["add", "remove"]),
 });
 
-export const PendingCollectionMembership = Schema.Struct({
+const PendingCollectionMembership = Schema.Struct({
 	membership: PendingMembershipDetails,
 	mutations: PendingRelationshipMutations,
 });
-export type PendingCollectionMembership = typeof PendingCollectionMembership.Type;
+type PendingCollectionMembership = typeof PendingCollectionMembership.Type;
 
 export const CollectionMembershipWritten = Schema.Struct({
 	...MembershipResponse.fields,

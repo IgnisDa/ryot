@@ -1236,7 +1236,7 @@ layer(
 	);
 
 	test.effect(
-		"keeps operation identity independent of batch identity and requires committed receipt evidence",
+		"keeps operation identity independent of batch identity and requires committed item evidence",
 		() =>
 			Effect.gen(function* () {
 				const scope = yield* runningRun();
@@ -1246,7 +1246,6 @@ layer(
 					reason: null,
 					unit: "plays",
 					recordKind: "event",
-					receiptId: "receipt",
 					result: "created" as const,
 					operationId: "record-7:event-0",
 					inputFingerprint: "operation-input",
@@ -1256,28 +1255,6 @@ layer(
 						sourceIdentifier: "source-id",
 					},
 				};
-				expect(
-					(yield* Effect.exit(session.transaction(repository.recordOutcome(scope, outcome))))._tag,
-				).toBe("Failure");
-				yield* session.run((db) =>
-					db
-						.insert(tables.mutationReceipt)
-						.values({
-							result: {},
-							dispatch: {},
-							id: "receipt",
-							receiptType: "item",
-							ownerUserId: userId,
-							scopeUserId: userId,
-							executionId: "child",
-							mutationScope: "user",
-							commandKind: "event:create",
-							rootExecutionId: scope.runId,
-							itemIdentity: outcome.operationId,
-							inputFingerprint: outcome.inputFingerprint,
-							accountGeneration: scope.accountGeneration,
-						}),
-				);
 				expect(yield* session.transaction(repository.recordOutcome(scope, outcome))).toBe(true);
 				expect(yield* session.transaction(repository.recordOutcome(scope, outcome))).toBe(false);
 				expect(

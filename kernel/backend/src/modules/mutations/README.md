@@ -1,6 +1,7 @@
 # Mutation admission and workflow ownership
 
-`MutationReceipts` owns persistence and account-generation admission. It does not import concrete workflows or the workflow engine.
+`AccountAdmission` owns account-generation admission and `IdempotencyKeys` owns request keys. Neither
+imports concrete workflows or the workflow engine.
 
 Account admission is one `for share` read of the user row, done once per transaction. Account
 retirement stamps `retiring_account_generation` on that row under its exclusive lock, so a waiting
@@ -18,14 +19,20 @@ The workflow engine records which account an execution works for (see
 User retirement interrupts every active execution the engine lists for the account, including children,
 which inherit their parent's account.
 
-## Receipt retention
+## Idempotency keys
 
-HTTP and sandbox submissions keyed by `idempotencyKey` carry `submittedAt`. A submission whose
-`submittedAt` is more than seven days from the server clock, in either direction, fails with
-`SubmissionExpired` (410); the client must retry with a new key. A replay of an accepted submission is
-therefore only possible within 14 days of its receipt.
+Only plugin operation invokes, reminder creates and entity editor saves and deletes take an
+`idempotencyKey`. Every other write is safe to retry through its natural keys. A key row stores the
+request fingerprint and response, and is written in the same transaction as the write. A retry with
+the same key and fingerprint returns the stored response without dispatching hooks again; a different
+fingerprint is a conflict.
 
-The frequent cron deletes receipts recorded more than 14 days ago in bounded batches. It keeps
-`batch-candidate` pins, receipts of a batch that still has candidates, and receipts whose execution or
-root execution belongs to a workflow tree that has not expired. Workflow trees reject expired execution
-IDs, so their receipts are no longer needed after expiry.
+Keyed requests carry `submittedAt`. A submission whose `submittedAt` is more than seven days from the
+server clock, in either direction, fails with `SubmissionExpired` (410); the client must retry with a
+new key. A replay is therefore only possible within 14 days of the original write.
+
+Import runs also record each committed item's result in this table, keyed by run and item identity,
+so reconciliation can project committed items.
+
+The frequent cron deletes keys created more than 14 days ago in bounded batches. Account retirement
+deletes the account's keys.

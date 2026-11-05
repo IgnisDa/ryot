@@ -11,12 +11,12 @@ import { and, desc, eq, inArray, isNotNull, isNull, lt, notExists, or } from "dr
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ImportsRepository } from "#modules/imports/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { DatabaseSession } from "#platform/db/session";
 import * as authSchema from "#schema/tables/auth";
 import * as automationSchema from "#schema/tables/automations";
 import * as backupSchema from "#schema/tables/backups";
 import * as coreSchema from "#schema/tables/core";
+import { idempotencyKey } from "#schema/tables/mutations";
 import * as uploadSchema from "#schema/tables/uploads";
 import * as lifecycleSchema from "#schema/tables/user-lifecycle";
 
@@ -73,7 +73,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const receipts = yield* MutationReceipts.make;
 			const imports = yield* ImportsRepository;
 			const deleteUserData = Effect.fn("UserLifecycleRepository.deleteUserData")(function* (
 				userId: UserId,
@@ -88,15 +87,8 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 								.where(eq(authSchema.user.id, userId))
 								.for("update"),
 						);
-						const privatePluginRows = yield* database.run((db) =>
-							db
-								.select({ id: coreSchema.plugin.id })
-								.from(coreSchema.plugin)
-								.where(eq(coreSchema.plugin.ownerId, userId)),
-						);
-						yield* receipts.retireUserPins(
-							userId,
-							privatePluginRows.map(({ id }) => id),
+						yield* database.run((db) =>
+							db.delete(idempotencyKey).where(eq(idempotencyKey.userId, userId)),
 						);
 						yield* imports.purgePayloadReservations({ userId });
 						yield* database.run((db) =>

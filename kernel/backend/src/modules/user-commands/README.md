@@ -2,7 +2,7 @@
 
 A user command commits one user-owned entity create or update, its declared relationships, and its
 event creates, updates, and deletes as one database transaction. Event-backed completion records use
-the same boundary. Lifecycle planning and the command replay receipt commit with those writes;
+the same boundary. Lifecycle planning commits with those writes;
 after-hook dispatch starts after commit. A validation, policy, stale-baseline, or persistence failure
 does not leave partial entity, relationship, or event source writes.
 
@@ -11,8 +11,8 @@ does not leave partial entity, relationship, or event source writes.
 `UserCommands.commit` prepares the entity and relationships, prepares event items in pages, and runs
 event policies, all before the commit transaction, so no database transaction is held over sandbox
 execution. Durable callers run the whole command inside one activity. The commit rechecks references
-and schema fingerprints, persists the entity, relationships, and event changes, and records the result
-and dispatch plan atomically.
+and schema fingerprints, persists the entity, relationships, and event changes, and plans dispatch
+atomically.
 
 The commit holds its entity reference locks until it ends, so commands that write events under the
 same entity serialize on its row. It does only the work its changes need: an unchanged entity update
@@ -24,7 +24,7 @@ rows, so it runs each locked domain write check once per writer, owner, and scop
 Asset uploads and storage are separate from the command transaction. A command may refer to managed
 assets; the write boundary validates and locks those references while committing metadata.
 
-Every command item derives its receipt identity as `<command itemIdentity>:<item itemIdentity>`.
+Every command item derives its identity as `<command itemIdentity>:<item itemIdentity>`.
 Event creates and changes carry a required `itemIdentity`; the entity and each relationship may
 carry one and otherwise use `entity` and `relationship:<index>`.
 
@@ -40,8 +40,8 @@ setting item identities to its operation IDs; it does not create a parallel even
 ## Replay and optimistic baselines
 
 Plugin callers can pass `idempotencyKey` to `operations.invoke`. Keep the same key and exact immutable
-input when retrying. The operation receipt pins and replays the original execution result; reusing a
-key with different input conflicts. Bridge `requestId` values correlate individual transport attempts
+input when retrying. The operation's key returns the original execution result; reusing a key with
+different input conflicts. Without a key, a retried command derives the same entity and event IDs. Bridge `requestId` values correlate individual transport attempts
 and are not write identities.
 
 Entity updates carry an expected name, properties, and `updatedAt`. Event updates and deletes may

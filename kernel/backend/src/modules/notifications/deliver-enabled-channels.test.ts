@@ -14,7 +14,6 @@ import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -93,7 +92,6 @@ const recordingTransports = Layer.effectContext(
 const dependencies = Layer.mergeAll(
 	NotificationDeliveryRepository.layer,
 	NotificationsRepository.layer,
-	MutationReceipts.layer,
 	JobQueue.layer,
 	Layer.succeed(NotificationSourcePolicy, { authorize: () => Effect.succeed(true) }),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));

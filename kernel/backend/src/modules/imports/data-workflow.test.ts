@@ -43,8 +43,8 @@ import {
 import { IngestionExecution } from "./execution-service";
 import {
 	ingestionTestDatabase,
+	ingestionTestItem,
 	ingestionTestNow,
-	ingestionTestReceipt,
 	ingestionTestRun,
 	ingestionTestScope,
 } from "./ingestion.test-support";
@@ -112,7 +112,7 @@ const event = (key: string, entityKey = "subject"): DataGraphRecord => ({
 });
 const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	let run = ingestionTestRun();
-	const receipts: ReturnType<typeof ingestionTestReceipt>[] = [];
+	const items: ReturnType<typeof ingestionTestItem>[] = [];
 	const outcomes = new Map<string, IngestionOutcome>();
 	const projections: IngestionBatch[] = [];
 	const starts: Parameters<ImportsRepository["Service"]["startBatch"]>[] = [];
@@ -133,7 +133,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 	};
 	const dependencies = Layer.mergeAll(
 		workflowAccountsTestLayer,
-		ingestionTestDatabase(() => receipts),
+		ingestionTestDatabase(() => items),
 		Layer.succeed(
 			WorkflowInstance,
 			WorkflowInstance.initial(ProcessDataImportSegmentWorkflow, "segment-owner"),
@@ -171,13 +171,9 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 							outcomes: [{ index: 0, reason: "filtered", status: "skipped_by_policy" as const }],
 						};
 					}
-					if (!receipts.some((receipt) => receipt.itemIdentity === lifecycle.itemIdentity)) {
-						receipts.push(
-							ingestionTestReceipt(lifecycle.itemIdentity, "event:create", {
-								eventId: key,
-								processed: [],
-							}),
-						);
+					const item = ingestionTestItem(lifecycle.itemIdentity, "created");
+					if (!items.some(({ key: stored }) => stored === item.key)) {
+						items.push(item);
 					}
 					if (cancelAfterWrite) {
 						run = { ...run, status: "cancelling" };
@@ -249,7 +245,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 			subject: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("record") },
 		},
 	}).pipe(Effect.provideContext(context));
-	return { starts, execute, outcomes, receipts, submitted, projections };
+	return { items, starts, execute, outcomes, submitted, projections };
 });
 
 it.effect(
@@ -265,9 +261,15 @@ it.effect(
 				[ingestionTestScope, "segment"],
 				[ingestionTestScope, "segment"],
 			]);
-			expect(test.receipts.map((receipt) => receipt.itemIdentity)).toEqual([
-				ingestionItemIdentity(ingestionTestScope.runId, "data:event:written"),
-				ingestionItemIdentity(ingestionTestScope.runId, "data:event:independent"),
+			expect(test.items).toEqual([
+				ingestionTestItem(
+					ingestionItemIdentity(ingestionTestScope.runId, "data:event:written"),
+					"created",
+				),
+				ingestionTestItem(
+					ingestionItemIdentity(ingestionTestScope.runId, "data:event:independent"),
+					"created",
+				),
 			]);
 			expect(test.submitted[0]?.payload[0]?.properties).toEqual({
 				related: { entity: "related-id" },
@@ -288,13 +290,13 @@ it.effect(
 );
 
 it.effect(
-	"stops future Data records after cancellation and projects the just-committed receipt",
+	"stops future Data records after cancellation and projects the just-committed item",
 	() =>
 		Effect.gen(function* () {
 			const test = yield* fixture(true);
 			yield* test.execute;
 			expect(test.submitted).toHaveLength(1);
-			expect(test.receipts).toHaveLength(1);
+			expect(test.items).toHaveLength(1);
 			const projection = test.projections[0];
 			assert(projection);
 			expect(projection.state).toBe("applied");

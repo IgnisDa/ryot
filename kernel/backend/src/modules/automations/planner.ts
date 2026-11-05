@@ -14,12 +14,14 @@ import { AutomationHookSlug, PluginId, type UserId } from "@ryot-app/contract/sc
 import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { and, asc, count, eq, gt, inArray, isNull, sql } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
 
 import { lifecycleBatchTriggers } from "#modules/automations/lifecycle/batch";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
+	type LifecycleBatchChange,
 	type LifecycleBatchInput,
 	type LifecycleDispatchPlan,
 	type LifecyclePlannedPolicy,
@@ -29,16 +31,11 @@ import {
 	LifecycleWork,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
-import {
-	MutationReceiptIdentityConflict,
-	mutationReceiptOwner,
-	MutationReceipts,
-} from "#modules/mutations/receipts";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { type BatchHookPin, BatchHookSnapshot } from "./batch-hook-pin";
+import type { BatchHookPin } from "./batch-hook-pin";
 import { AutomationPlannerResolver, matchesTarget } from "./planner-resolver";
 import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
@@ -72,10 +69,25 @@ const normalizeExclusions = (policies: ReadonlyArray<AutomationHookIdentity>) =>
 		).values(),
 	].sort((a, b) => compareText(a.pluginId, b.pluginId) || compareText(a.hookSlug, b.hookSlug));
 
-const mapBatchConflict = (error: DbError | MutationReceiptIdentityConflict) =>
-	error instanceof MutationReceiptIdentityConflict
-		? new DbError({ message: `Conflicting batch command identity: ${error.receiptId}` })
-		: error;
+type OpenBatch = {
+	maxItems: number;
+	readonly candidates: ReadonlyArray<BatchHookPin>;
+	dispatch: null | ReadonlyArray<LifecycleDispatchPlan>;
+	readonly changes: Array<LifecycleBatchChange & { readonly index: number }>;
+};
+
+// A batch opens and seals inside one transaction, so its state lives and dies with that transaction.
+const openBatches = new WeakMap<object, Map<string, OpenBatch>>();
+
+const batchId = (input: LifecycleBatchInput) =>
+	sha256Base64Url(
+		stableStringify([
+			input.resource,
+			input.identity,
+			input.command.itemIdentity,
+			input.command.causation.executionId,
+		]),
+	);
 
 const carryJobs = (
 	plans: ReadonlyArray<LifecycleDispatchPlan>,
@@ -104,7 +116,6 @@ export const LifecyclePlannerLive = Layer.effect(
 		const resolver = yield* AutomationPlannerResolver;
 		const triggers = yield* AutomationTriggerRepository;
 		const runs = yield* AutomationRunRepository;
-		const receipts = yield* MutationReceipts.make;
 		const work = yield* LifecycleWork;
 		const { automations: limits } = yield* AppConfig;
 		const orderedRuns = Effect.fn(function* (values: ReadonlyArray<AutomationRun>) {
@@ -162,10 +173,11 @@ export const LifecyclePlannerLive = Layer.effect(
 			stored: AutomationTrigger,
 			admit: Admission,
 		) {
-			const persistedTrigger = yield* triggers.insert({
-				...trigger,
-				blockedReason: stored.blockedReason,
-			});
+			// A retried write recomputes its trigger's timestamps and snapshots; the first attempt's row stands.
+			const persistedTrigger =
+				trigger.payload?.resource === "signal"
+					? yield* triggers.insert({ ...trigger, blockedReason: stored.blockedReason })
+					: stored;
 			const existing = yield* runs.listByTrigger(trigger.id);
 			if (existing.some((run) => run.id !== lifecycleRunId(run))) {
 				return yield* new DbError({ message: `Automation run identity conflict: ${trigger.id}` });
@@ -426,17 +438,26 @@ export const LifecyclePlannerLive = Layer.effect(
 		});
 		const plan = (input: Parameters<typeof planWith>[0]) =>
 			planWith(input, (trigger) => work.admit([trigger]));
-		const batchIdentity = (input: LifecycleBatchInput) =>
-			receipts.batchIdentity({ ...input, ownerUserId: mutationReceiptOwner(input.command, null) });
+		const transactionBatches = session.requireTransaction.pipe(
+			Effect.mapError(() => new DbError({ message: "Batch planning requires a transaction" })),
+			Effect.andThen(
+				session.run((db) =>
+					Effect.sync(() => {
+						const batches = openBatches.get(db) ?? new Map<string, OpenBatch>();
+						openBatches.set(db, batches);
+						return batches;
+					}),
+				),
+			),
+		);
 		const prepareBatch = Effect.fn("LifecyclePlanner.prepareBatch")(function* (
 			input: LifecycleBatchInput & { scopes: ReadonlyArray<null | UserId> },
 		) {
-			const identity = batchIdentity(input);
-			const existing = yield* receipts
-				.lookupBatch(identity)
-				.pipe(Effect.mapError(mapBatchConflict));
+			const id = batchId(input);
+			const batches = yield* transactionBatches;
+			const existing = batches.get(id);
 			if (existing) {
-				return { id: identity.id, hasCandidates: existing.candidateCount > 0 };
+				return { id, hasCandidates: existing.candidates.length > 0 };
 			}
 			const scopes = [...new Set(input.scopes)].sort((a, b) => (a ?? "").localeCompare(b ?? ""));
 			yield* resolver.lockCatalog(scopes);
@@ -447,34 +468,37 @@ export const LifecyclePlannerLive = Layer.effect(
 					source: input.command.causation.source,
 				}),
 			)).flat();
-			const decision = yield* receipts
-				.beginBatch({
-					identity,
-					maxItems: limits.batchMaxItems,
-					pins: candidates.map((candidate) => ({
-						payload: candidate.payload,
-						references: candidate.references,
-						id: `receipt_${sha256Base64Url(stableStringify([identity.id, candidate.references.scopeUserId, candidate.references.pluginId, candidate.payload.hook.slug]))}`,
-					})),
-				})
-				.pipe(Effect.mapError(mapBatchConflict));
-			return { id: identity.id, hasCandidates: decision.candidateCount > 0 };
+			batches.set(id, { candidates, changes: [], dispatch: null, maxItems: limits.batchMaxItems });
+			return { id, hasCandidates: candidates.length > 0 };
+		});
+		const recordBatchChange = Effect.fn("LifecyclePlanner.recordBatchChange")(function* (
+			id: string,
+			change: LifecycleBatchChange & { readonly index: number },
+		) {
+			const batch = (yield* transactionBatches).get(id);
+			if (!batch) {
+				return yield* new DbError({ message: `Missing batch decision ${id}` });
+			}
+			if (batch.candidates.length > 0) {
+				batch.changes.push(change);
+			}
+			return undefined;
 		});
 		const planBatch = Effect.fn("LifecyclePlanner.planBatch")(function* (
 			input: LifecycleBatchInput,
 		) {
-			const identity = batchIdentity(input);
-			const contents = yield* receipts
-				.batchContents(identity, BatchHookSnapshot)
-				.pipe(Effect.mapError(mapBatchConflict));
-			if (contents.sealed) {
+			const id = batchId(input);
+			const contents = (yield* transactionBatches).get(id);
+			if (!contents) {
+				return yield* new DbError({ message: `Missing batch decision ${id}` });
+			}
+			if (contents.dispatch) {
 				return contents.dispatch;
 			}
-			const candidates = contents.pins;
-			const changes = contents.evidence.flatMap(({ payload, scopeUserId }) =>
-				payload.resource === input.resource && payload.operation !== "batch"
-					? [{ payload, scopeUserId }]
-					: [],
+			const { candidates } = contents;
+			const changes = sortBy(contents.changes, (change) => change.index).flatMap(
+				({ payload, scopeUserId }) =>
+					payload.resource === input.resource ? [{ payload, scopeUserId }] : [],
 			);
 			const changeTriggers = yield* Effect.forEach(changes, ({ payload, scopeUserId }, index) =>
 				Effect.map(
@@ -507,11 +531,11 @@ export const LifecyclePlannerLive = Layer.effect(
 			const dispatch = planned.flatMap((item) =>
 				item.trigger === null ? [] : [toLifecycleDispatchPlan(item)],
 			);
-			yield* receipts.sealBatch(identity, dispatch);
+			contents.dispatch = dispatch;
 			return dispatch;
 		});
 		// Admission and derivation run once for the whole list; their job IDs and derived plans join the first
-		// trigger's plans, since a chunk's receipts replay together.
+		// trigger's plans.
 		const planChanges = (
 			changes: ReadonlyArray<AutomationTrigger>,
 		): Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError> =>
@@ -533,6 +557,6 @@ export const LifecyclePlannerLive = Layer.effect(
 			});
 		const planChange = (input: { trigger: AutomationTrigger }) =>
 			Effect.map(planChanges([input.trigger]), (plans) => plans.flat());
-		return { plan, planBatch, planChange, planChanges, prepareBatch };
+		return { plan, planBatch, planChange, planChanges, prepareBatch, recordBatchChange };
 	}),
 );

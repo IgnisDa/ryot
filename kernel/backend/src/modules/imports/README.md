@@ -16,13 +16,13 @@ property references. Provider entities use normal provider resolution; custom en
 user-owned. Writes are append-only, use the normal lifecycle hooks, and commit incrementally, so
 failed records do not roll back earlier committed records.
 
-Each generic record's intents use receipt identities `<record>:<operationId>`, where `<record>` is
+Each generic record's intents use item identities `<record>:<operationId>`, where `<record>` is
 the ingestion identity of the subject entity's operation. Validation selects one write path per
 record. A standalone record writes its entities, relationships, and collections step by step, then
 creates its events through standalone event creation. A record that contains declared event-group
 schemas writes its non-subject entities first, then commits its user-owned subject, relationships,
 and complete event group as one user command whose command identity is `<record>`; the per-item
-identities in that command produce the same per-intent receipt identities. Event preparation can
+identities in that command produce the same per-intent item identities. Event preparation can
 span pages, but the record commits atomically.
 Independent Data JSON event records still follow standalone event rules; they cannot create an empty
 anchor and rely on a later record to repair it.
@@ -117,7 +117,7 @@ Record batches use `pending -> applying -> applied`. One conditional update star
 batch; replay leaves applying and applied batches unchanged. Generic batch registration and start
 share a transaction. Data segment preparation registers a pending batch before child admission;
 the child starts the batch before writing records. Cancellation prevents new starts.
-Interruption selects only started batch owners, then reconciliation projects committed receipts
+Interruption selects only started batch owners, then reconciliation projects committed item results
 into immutable applied summaries. Pending batches remain distinct from started work.
 
 ## Partial results

@@ -68,8 +68,8 @@ installation job. Guarded lifecycle completion sets readiness and initialization
 
 A bootstrap entry that declares entities runs no script. The user bootstrap and the installation job
 hand it to the `PluginBootstrapEntities` port, which boot binds to the entity service. It ensures
-the entities with kernel authority, under a receipt keyed by the installation and entry, dated at the
-installation's creation so a retry replays the same command. The ensure returns the hook dispatch plans its
+the entities with kernel authority, under an execution ID keyed by the installation and entry, dated
+at the installation's creation so a retry derives the same entities. The ensure returns the hook dispatch plans its
 writes made, and the caller dispatches them after the ensure commits.
 
 ## System plugin synchronization

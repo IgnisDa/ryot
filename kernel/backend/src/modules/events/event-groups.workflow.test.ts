@@ -10,7 +10,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Effect, Exit, Layer, Schema } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -281,22 +281,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 							.orderBy(tables.eventStream.id),
 					),
 				).toEqual(freshnessBefore);
-				expect(
-					yield* database.run((db) =>
-						db
-							.select()
-							.from(tables.mutationReceipt)
-							.where(
-								and(
-									eq(tables.mutationReceipt.receiptType, "item"),
-									eq(
-										tables.mutationReceipt.rootExecutionId,
-										failedCommand.causation.rootExecutionId,
-									),
-								),
-							),
-					),
-				).toEqual([]);
 			}),
 		testTimeout,
 	);

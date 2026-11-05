@@ -23,7 +23,7 @@ import {
 	eventGroupWorkflowLayer,
 } from "#modules/events/event-groups.test-support";
 import { EventsService } from "#modules/events/service";
-import { MutationReceipts } from "#modules/mutations/receipts";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -204,19 +204,14 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 		},
 		runId,
 	).pipe(Effect.provideContext(yield* Layer.build(importLayer)));
-	const receiptIdentities = [
+	const operationIdentities = [
 		"session",
 		"anchor",
 		"link",
 		...Array.from({ length: memberCount }, (_, index) => `member-${index}`),
 	].map((id) => genericImportOperationIdentity(runId, item, id));
-	const committed = Effect.flatMap(MutationReceipts.make, (receipts) =>
-		receipts.getCommittedItems({
-			accountGeneration,
-			rootExecutionId: runId,
-			userId: fixture.userId,
-			itemIdentities: receiptIdentities,
-		}),
+	const committed = Effect.flatMap(IdempotencyKeys.make, (keys) =>
+		keys.importItems({ runId, userId: fixture.userId, itemIdentities: operationIdentities }),
 	);
 	return { ...fixture, apply, outcomes, committed };
 });
@@ -232,7 +227,7 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"atomically imports the subject, relationships, and complete group and replays original receipts",
+		"atomically imports the subject, relationships, and complete group and replays original items",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* recordFixture(101);
@@ -259,7 +254,7 @@ layer(
 	);
 
 	test.effect(
-		"rolls back a grouped import's subject, relationships, events, and record receipts together",
+		"rolls back a grouped import's subject, relationships, events, and record items together",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* recordFixture(0);
