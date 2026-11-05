@@ -49,6 +49,8 @@ export const startPostgresContainerEffect = (input: { label: string; maxConnecti
 						"-c",
 						`max_connections=${input.maxConnections ?? 400}`,
 						"-c",
+						"max_locks_per_transaction=1024",
+						"-c",
 						"log_lock_waits=on",
 						"-c",
 						"deadlock_timeout=100ms",
