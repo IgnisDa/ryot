@@ -1647,32 +1647,32 @@ supervisorTest(
 
 				yield* harness.emit(run.generation, yield* inlineBatch(run, 3, 1));
 				yield* Queue.take(settlements);
-				yield* TestClock.adjust("30 seconds");
+				yield* TestClock.adjust("28 seconds");
 				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({
 					seq: 3,
 					result: { status: "success", value: { defer: true } },
 				});
 				expect(yield* registration.scriptBudget).toEqual({
-					settledMs: 35_000,
+					settledMs: 33_000,
 					remainingMs: 26_000,
 				});
 
-				for (let index = 0; index < 8; index++) {
+				for (let index = 0; index < 9; index++) {
 					yield* harness.emit(run.generation, yield* inlineBatch(run, 4 + index, 1 + index));
 					const settlement = yield* Queue.take(settlements);
-					yield* TestClock.adjust("29 seconds");
+					yield* TestClock.adjust("27 seconds");
 					yield* Deferred.succeed(settlement, undefined);
 					expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 4 + index });
 				}
 				expect(yield* registration.scriptBudget).toEqual({
-					settledMs: 267_000,
+					settledMs: 276_000,
 					remainingMs: 26_000,
 				});
-				yield* harness.emit(run.generation, yield* inlineBatch(run, 12, 9));
+				yield* harness.emit(run.generation, yield* inlineBatch(run, 13, 10));
 				const lastSettlement = yield* Queue.take(settlements);
-				yield* TestClock.adjust("28 seconds");
+				yield* TestClock.adjust("19 seconds");
 				yield* Deferred.succeed(lastSettlement, undefined);
-				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 12 });
+				expect(yield* Queue.take(connection.nextHostResult)).toMatchObject({ seq: 13 });
 				expect(connection.sent.filter((frame) => frame.type === "cancel")).toEqual([]);
 				yield* TestClock.adjust("1 second");
 				expect(yield* Queue.take(connection.nextCancel)).toMatchObject({ handle: run.handle });
