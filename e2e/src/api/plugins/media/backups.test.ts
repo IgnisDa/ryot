@@ -11,7 +11,7 @@ import {
 	restoreBackup,
 } from "~/fixtures/kernel/backups";
 import { getEntity, getGlobalEntityByProvenance } from "~/fixtures/kernel/entities";
-import { listEventsForEntity, waitForCreateEvents } from "~/fixtures/kernel/events";
+import { listEventsForEntity } from "~/fixtures/kernel/events";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
 import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
@@ -44,18 +44,15 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			},
 		];
 		const occurredAt = ["2026-02-03T04:05:06.000Z", "2026-02-04T00:00:00.000Z"];
-		const result = yield* waitForCreateEvents(
-			source.client,
-			yield* source.client.call((c) =>
-				c.events.create({
-					payload: facts.map((properties, index) => ({
-						properties,
-						entityId: fixture.entityId,
-						eventSchemaSlug: fixture.progressEventSchemaSlug,
-						occurredAt: requirePresent(occurredAt[index], "Missing source event timestamp"),
-					})),
-				}),
-			),
+		const result = yield* source.client.call((c) =>
+			c.events.create({
+				payload: facts.map((properties, index) => ({
+					properties,
+					entityId: fixture.entityId,
+					eventSchemaSlug: fixture.progressEventSchemaSlug,
+					occurredAt: requirePresent(occurredAt[index], "Missing source event timestamp"),
+				})),
+			}),
 		);
 		expect(result.failure).toBeNull();
 		expect(result.outcomes.map(({ status }) => status)).toEqual(["written", "written"]);

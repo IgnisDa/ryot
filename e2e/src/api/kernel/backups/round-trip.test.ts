@@ -67,7 +67,6 @@ import {
 	uninstallTestPlugin,
 	updatePluginState,
 	updateUserSettingsPreferences,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { installBackupReferencePlugin, readBackupSection } from "~/fixtures/kernel/backups";
 import { compilePluginPackage } from "~/fixtures/kernel/compiled-package";
@@ -130,20 +129,17 @@ describe("backup export and restore round trip", () => {
 						groups: [{ quantity: 12.5, entityIds: [shared.id] }],
 					},
 				};
-				const created = yield* waitForCreateEvents(
-					source.client,
-					yield* source.client.call((c) =>
-						c.events.create({
-							payload: [
-								{
-									properties,
-									entityId: owned.id,
-									occurredAt: "2026-02-03T04:05:06.000Z",
-									eventSchemaSlug: fixture.eventSchemaSlug,
-								},
-							],
-						}),
-					),
+				const created = yield* source.client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								properties,
+								entityId: owned.id,
+								occurredAt: "2026-02-03T04:05:06.000Z",
+								eventSchemaSlug: fixture.eventSchemaSlug,
+							},
+						],
+					}),
 				);
 				expect(created.failure).toBeNull();
 				const backup = yield* exportAndDownloadBackup(source.client);
@@ -270,20 +266,17 @@ describe("backup export and restore round trip", () => {
 							],
 						},
 					};
-					const written = yield* waitForCreateEvents(
-						source.client,
-						yield* source.client.call((c) =>
-							c.events.create({
-								payload: [
-									{
-										occurredAt,
-										properties,
-										entityId: record.id,
-										eventSchemaSlug: fixture.eventSchemaSlug,
-									},
-								],
-							}),
-						),
+					const written = yield* source.client.call((c) =>
+						c.events.create({
+							payload: [
+								{
+									occurredAt,
+									properties,
+									entityId: record.id,
+									eventSchemaSlug: fixture.eventSchemaSlug,
+								},
+							],
+						}),
 					);
 					expect(written.failure).toBeNull();
 					const outcome = written.outcomes[0];
@@ -682,26 +675,23 @@ describe("backup export and restore round trip", () => {
 				context: { note: "latest" },
 				labels: ["newer", "ordered"],
 			};
-			const createdEvents = yield* waitForCreateEvents(
-				source.client,
-				yield* source.client.call((c) =>
-					c.events.create({
-						payload: [
-							{
-								entityId: firstEntity.id,
-								occurredAt: olderOccurredAt,
-								properties: olderProperties,
-								eventSchemaSlug: eventSchema.id,
-							},
-							{
-								entityId: firstEntity.id,
-								occurredAt: newerOccurredAt,
-								properties: newerProperties,
-								eventSchemaSlug: eventSchema.id,
-							},
-						],
-					}),
-				),
+			const createdEvents = yield* source.client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: firstEntity.id,
+							occurredAt: olderOccurredAt,
+							properties: olderProperties,
+							eventSchemaSlug: eventSchema.id,
+						},
+						{
+							entityId: firstEntity.id,
+							occurredAt: newerOccurredAt,
+							properties: newerProperties,
+							eventSchemaSlug: eventSchema.id,
+						},
+					],
+				}),
 			);
 			expect(createdEvents.failure).toBeNull();
 			const olderOutcome = createdEvents.outcomes.find(({ index }) => index === 0);

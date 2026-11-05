@@ -6,7 +6,6 @@ import {
 	createEventTestFixture,
 	createRuleEventFixture,
 	listEventsForEntity,
-	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media";
@@ -28,7 +27,7 @@ describe("Events bulk POST", () => {
 				}),
 			);
 
-			expect((yield* waitForCreateEvents(apiClient, result)).count).toBe(3);
+			expect(result.count).toBe(3);
 		}),
 	);
 
@@ -38,7 +37,7 @@ describe("Events bulk POST", () => {
 
 			const result = yield* apiClient.call((c) => c.events.create({ payload: [] }));
 
-			expect((yield* waitForCreateEvents(apiClient, result)).count).toBe(0);
+			expect(result.count).toBe(0);
 		}),
 	);
 
@@ -52,14 +51,14 @@ describe("Events bulk POST", () => {
 					payload: [{ entityId, eventSchemaSlug, properties: { status: "draft" } }],
 				}),
 			);
-			expect((yield* waitForCreateEvents(apiClient, optionalResult)).count).toBe(1);
+			expect(optionalResult.count).toBe(1);
 
 			const rejectedResult = yield* apiClient.call((c) =>
 				c.events.create({
 					payload: [{ entityId, eventSchemaSlug, properties: { status: "completed" } }],
 				}),
 			);
-			expect(yield* waitForCreateEvents(apiClient, rejectedResult)).toMatchObject({
+			expect(rejectedResult).toMatchObject({
 				count: 0,
 				failure: { index: 0, reason: { code: "invalid-properties" } },
 				outcomes: [{ index: 0, status: "failed", reason: { code: "invalid-properties" } }],
@@ -72,7 +71,7 @@ describe("Events bulk POST", () => {
 					],
 				}),
 			);
-			expect((yield* waitForCreateEvents(apiClient, acceptedResult)).count).toBe(1);
+			expect(acceptedResult.count).toBe(1);
 
 			const events = yield* waitForEventCount(apiClient, entityId, 2);
 			expect(events.map((event) => event.properties)).toEqual([
@@ -120,7 +119,7 @@ describe("Events bulk POST", () => {
 				}),
 			);
 
-			expect((yield* waitForCreateEvents(apiClient, createResult)).count).toBe(2);
+			expect(createResult.count).toBe(2);
 
 			yield* waitForEventCount(apiClient, entityId, 3);
 

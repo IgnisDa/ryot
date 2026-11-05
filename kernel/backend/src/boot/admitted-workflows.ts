@@ -3,7 +3,6 @@ import { Layer } from "effect";
 import { PolicyBatchWorkflow } from "#modules/automations/lifecycle/policy-batch";
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import { BackgroundWorkWorkflow } from "#modules/background-work/service";
-import { CollectionMembershipWorkflow } from "#modules/collections/collection-membership-workflow";
 import {
 	TranslateEntityAttemptWorkflow,
 	TranslateEntityWorkflow,
@@ -14,7 +13,6 @@ import {
 	ProviderEntityPopulationWorkflow,
 	ProviderRelatedPagesWorkflow,
 } from "#modules/entities/providers/provider-entity-population-workflow";
-import { EventCreateWorkflow } from "#modules/events/event-create-workflow";
 import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
 	ProcessDataImportSegmentWorkflow,
@@ -35,7 +33,6 @@ import {
 export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
 	Object.freeze([
-		EventCreateWorkflow,
 		EntityImportWorkflow,
 		ProviderEntityPopulationWorkflow,
 		ProviderEntityPopulationAttemptWorkflow,
@@ -53,7 +50,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ScriptExecutionWorkflow,
 		BackgroundWorkWorkflow,
 		SandboxDurableHostServiceWorkflow,
-		CollectionMembershipWorkflow,
 		UserCommandWorkflow,
 		UserEntityPreparationWorkflow,
 		UserRelationshipPreparationWorkflow,

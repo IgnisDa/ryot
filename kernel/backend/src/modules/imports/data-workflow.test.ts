@@ -156,8 +156,9 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		Layer.mock(RelationshipsService)({}),
 		Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
 		Layer.mock(EventsService)({
-			create: (input, lifecycle) =>
+			create: (input) =>
 				Effect.sync(() => {
+					const lifecycle = input.command;
 					submitted.push(input);
 					const key =
 						["skipped", "independent"].find((value) => lifecycle.itemIdentity.includes(value)) ??

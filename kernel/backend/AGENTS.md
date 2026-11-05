@@ -14,6 +14,6 @@
 - Keep batch locks, receipts, and lookups set-based. Historical restore persistence belongs only to backups.
 - Repositories own canonical lock ordering. Provider callers retain input order for results, receipt indexes, and lifecycle dispatch.
 - One durable owner implements each business operation. Activities never dispatch workflows/queues; workflow bodies do. Use deterministic child execution IDs and idempotent owners.
-- Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`; never call `LifecycleExecution.after` or `executePolicy` inside activities.
+- Register activities/workflows through `makeActivity` and `implementWorkflow` in `src/platform/workflow/scope.ts`. Lifecycle execution inside an activity runs as request work, outside the workflow journal.
 - Redis infrastructure owns backend keys and codecs; sandbox recovery keys remain sandbox-owned.
 - Assert typed failures with `assertExitFails`. Database tests connect only through `#testing/database` URLs and isolate schemas/databases; Redis tests use the shared setup URL with namespaced keys; never skip because setup is absent.

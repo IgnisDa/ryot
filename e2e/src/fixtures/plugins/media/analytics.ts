@@ -8,7 +8,6 @@ import { analyticsFixtureSelection } from "~/fixtures/kernel/analytics-location"
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
-import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { assertCondition } from "~/support/assertions";
 
@@ -113,7 +112,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		},
 	] satisfies ContractPayload<"events", "create">;
 	const created = yield* client.call((c) => c.events.create({ payload: sourceEvents }));
-	const written = yield* waitForCreateEvents(client, created);
+	const written = created;
 	const sourceEventIds = written.outcomes.map((outcome) => {
 		assertCondition(outcome.status === "written", "Expected every analytics source event to save");
 		return outcome.eventId;

@@ -30,7 +30,6 @@ import {
 	listEventSchemas,
 	listEventsForEntity,
 	restoreBackup,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { readBackupSection } from "~/fixtures/kernel/backups";
 import { clearEntityUserData, mergeEntityUserData } from "~/fixtures/kernel/entity-user-data";
@@ -149,26 +148,23 @@ describe("Media consumption basis retention", () => {
 				sourceRun: sourceRunB,
 				consumptionBasis: { total: 200, unit: "pages", property: "pages" },
 			};
-			const created = yield* waitForCreateEvents(
-				client,
-				yield* client.call((c) =>
-					c.events.create({
-						payload: [
-							{
-								occurredAt,
-								entityId: source.entityId,
-								properties: sourceProperties,
-								eventSchemaSlug: source.completeEventSchemaSlug,
-							},
-							{
-								occurredAt,
-								entityId: target.entityId,
-								properties: targetProperties,
-								eventSchemaSlug: target.completeEventSchemaSlug,
-							},
-						],
-					}),
-				),
+			const created = yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							occurredAt,
+							entityId: source.entityId,
+							properties: sourceProperties,
+							eventSchemaSlug: source.completeEventSchemaSlug,
+						},
+						{
+							occurredAt,
+							entityId: target.entityId,
+							properties: targetProperties,
+							eventSchemaSlug: target.completeEventSchemaSlug,
+						},
+					],
+				}),
 			);
 			expect(created.failure).toBeNull();
 			expect(created.outcomes.map(({ status }) => status)).toEqual(["written", "written"]);
@@ -241,18 +237,15 @@ describe("Media consumption basis retention", () => {
 			const firstEpisode = requirePresent(show.episodes[0], "First episode is missing");
 			const secondEpisode = requirePresent(show.episodes[1], "Second episode is missing");
 			const episodes = [firstEpisode, secondEpisode];
-			const completions = yield* waitForCreateEvents(
-				client,
-				yield* client.call((c) =>
-					c.events.create({
-						payload: episodes.map((episode, index) => ({
-							properties: {},
-							entityId: episode.id,
-							eventSchemaSlug: complete.id,
-							occurredAt: `2026-01-0${index + 1}T12:00:00.000Z`,
-						})),
-					}),
-				),
+			const completions = yield* client.call((c) =>
+				c.events.create({
+					payload: episodes.map((episode, index) => ({
+						properties: {},
+						entityId: episode.id,
+						eventSchemaSlug: complete.id,
+						occurredAt: `2026-01-0${index + 1}T12:00:00.000Z`,
+					})),
+				}),
 			);
 			expect(completions.failure).toBeNull();
 			yield* settledHistoryCorrection(client, userId);
@@ -289,24 +282,21 @@ describe("Media consumption basis retention", () => {
 			expect((yield* waitForReport(client, reference)).current.types).toEqual([]);
 
 			const freshSourceRun = `after-clear-${yield* randomUuid}`;
-			const freshCompletion = yield* waitForCreateEvents(
-				client,
-				yield* client.call((c) =>
-					c.events.create({
-						payload: [
-							{
-								entityId: firstEpisode.id,
-								eventSchemaSlug: complete.id,
-								occurredAt: "2026-01-03T12:00:00.000Z",
-								properties: {
-									sourceRun: freshSourceRun,
-									calendarDate: "2026-01-03",
-									consumptionBasis: { total: 20, unit: "minutes", property: "runtime" },
-								},
+			const freshCompletion = yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: firstEpisode.id,
+							eventSchemaSlug: complete.id,
+							occurredAt: "2026-01-03T12:00:00.000Z",
+							properties: {
+								sourceRun: freshSourceRun,
+								calendarDate: "2026-01-03",
+								consumptionBasis: { total: 20, unit: "minutes", property: "runtime" },
 							},
-						],
-					}),
-				),
+						},
+					],
+				}),
 			);
 			expect(freshCompletion.failure).toBeNull();
 			yield* settledHistoryCorrection(client, userId);
@@ -386,13 +376,8 @@ describe("Media consumption restore", () => {
 						},
 					},
 				];
-				const created = yield* waitForCreateEvents(
-					source.client,
-					yield* source.client.call((c) =>
-						c.events.create({
-							payload: eventFacts.map((fact) => ({ entityId: book.id, ...fact })),
-						}),
-					),
+				const created = yield* source.client.call((c) =>
+					c.events.create({ payload: eventFacts.map((fact) => ({ entityId: book.id, ...fact })) }),
 				);
 				expect(created.failure).toBeNull();
 				expect(created.outcomes.map(({ status }) => status)).toEqual([

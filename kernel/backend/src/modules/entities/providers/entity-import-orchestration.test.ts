@@ -16,11 +16,12 @@ import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Cause, Effect, Fiber, Metric } from "effect";
+import { Cause, Context, Effect, Fiber, Layer, Metric } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
@@ -44,6 +45,15 @@ const importCommand = (executionId: string, userId: UserId) => ({
 	writeContext: null,
 });
 const pluginId = PluginId.make("fixture-owner");
+
+const provideEvents = (create?: EventsService["Service"]["create"]) =>
+	Effect.provideServiceEffect(
+		EventsService,
+		Effect.map(
+			Layer.build(Layer.mock(EventsService)(create ? { create } : {})),
+			Context.get(EventsService),
+		),
+	);
 
 const importWithoutMembership = (entitySchemaSlug: string) => {
 	const executionId = `${entitySchemaSlug}-import`;
@@ -100,6 +110,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 			}),
 		),
 		Effect.provideService(WorkflowInstance, instance),
+		provideEvents(),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
 			processRelatedPage: () => Effect.die("unused"),
@@ -155,13 +166,17 @@ const importWithEntryEvent = (
 				execute: (workflow, options) =>
 					Effect.sync(() => {
 						calls.push({ options, name: workflow._tag });
-						return workflow._tag === "EventCreateWorkflow"
-							? { count: 1, outcomes: [], warnings: [], ...createEventsResult }
-							: entity;
+						return entity;
 					}),
 			}),
 		),
 		Effect.provideService(WorkflowInstance, instance),
+		provideEvents((input) =>
+			Effect.sync(() => {
+				calls.push({ name: "EventCreate", options: { payload: input } });
+				return { count: 1, outcomes: [], warnings: [], ...createEventsResult };
+			}),
+		),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
 			processRelatedPage: () => Effect.die("unused"),
@@ -188,7 +203,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				expect(calls.map(({ name }) => name)).toEqual([
 					"ProviderEntityPopulationWorkflow",
 					"provider-import-completion",
-					"EventCreateWorkflow",
+					"EventCreate",
 				]);
 				expect(calls[2]?.options).toMatchObject({
 					payload: {
@@ -279,6 +294,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 					makeWorkflowActivityEngine(instance, { execute: () => Effect.succeed(entity) }),
 				),
 				Effect.provideService(WorkflowInstance, instance),
+				provideEvents(),
 				Effect.provideService(EntityImportWorkflowOperations, {
 					processSandbox: () => Effect.die("unused"),
 					processRelatedPage: () => Effect.die("unused"),
@@ -333,6 +349,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 						}),
 					),
 					Effect.provideService(WorkflowInstance, instance),
+					provideEvents(),
 					Effect.provideService(EntityImportWorkflowOperations, {
 						processSandbox: () => Effect.die("unused"),
 						processRelatedPage: () => Effect.die("unused"),

@@ -8,12 +8,9 @@ import {
 	type AutomationWarning,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
-	type CreateEventItem,
 	EventBadRequest,
 	type EventCreateItemError,
-	type EventCreateOperation,
 	EventNotFound,
-	EventOperationNotFound,
 	EventStale,
 	type EventUpdatePatch,
 	type UpdateEventItem,
@@ -27,20 +24,7 @@ import type {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import {
-	Array as Arr,
-	Cause,
-	Clock,
-	Context,
-	DateTime,
-	Duration,
-	Effect,
-	Layer,
-	Option,
-	Redacted,
-	Schema,
-} from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Array as Arr, Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -67,28 +51,14 @@ import {
 	writerPropertiesSchema,
 } from "#modules/entities/write-context";
 import { MutationReceiptIdentityConflict, MutationReceipts } from "#modules/mutations/receipts";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	type CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
 import { principalOwner } from "#modules/scripts/authorization/principal";
-import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import {
-	awaitWorkflowSettled,
-	WorkflowExecutionNotifications,
-} from "#platform/workflow/execution-notifications";
-import {
-	createWorkflowJobId,
-	deriveJobIdSecret,
-	resolveWorkflowJob,
-	type WorkflowJob,
-} from "#platform/workflow/job-id";
-import { toWorkflowRunResult } from "#platform/workflow/result";
 
-import { enqueueEventCreate, EventCreateWorkflow } from "./event-create-workflow";
-import { makeDirectEventCreate } from "./event-create-workflow-live";
+import { makeEventCreate } from "./event-create";
 import {
 	capturedEventReferences,
 	resolveEventCreateItemScopes,
@@ -97,7 +67,6 @@ import {
 import type { CapturedEventReferences } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
 import {
-	eventCreateBatchInput,
 	eventMutationBatchReceiptIdentity,
 	EventMutationBatchReceiptResult,
 	eventMutationReceiptIdentity,
@@ -254,13 +223,6 @@ export class EventsService extends Context.Service<EventsService>()(
 	"@ryot-app/kernel-backend/modules/events/service/EventsService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
-			const notifications = yield* WorkflowExecutionNotifications;
-			const config = yield* AppConfig;
-			const operationSecret = deriveJobIdSecret(
-				Redacted.value(config.server.adminAccessToken),
-				"events-operation-id",
-			);
 			const repository = yield* EventsRepository;
 			const entities = yield* EntitiesRepository;
 			const eventSchemas = yield* EventSchemaReader;
@@ -462,19 +424,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				lock = true,
 			) => findReceipt(input, command, mutation, lock).pipe(Effect.mapError(eventReceiptError));
 			const execution = yield* LifecycleExecution;
-			const createDirect = yield* makeDirectEventCreate;
-			const verifyCreateBatchInput = (
-				input: { userId: UserId; payload: ReadonlyArray<CreateEventItem> },
-				command: DomainLifecycleCommand,
-			) =>
-				receipts
-					.peekBatch(
-						receipts.batchIdentity({
-							...eventCreateBatchInput({ ...input, command }),
-							ownerUserId: input.userId,
-						}),
-					)
-					.pipe(Effect.mapError(eventReceiptError));
+			const create = yield* makeEventCreate;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
 				groups
 					.transaction(eventSchemas.lockCatalog(userIds).pipe(Effect.andThen(work)))
@@ -500,98 +450,6 @@ export class EventsService extends Context.Service<EventsService>()(
 					() => new LifecyclePersistenceError({ code: "active-transaction-required" }),
 				),
 			);
-			const create = Effect.fn("EventsService.create")(function* (
-				input: {
-					readonly userId: UserId;
-					readonly itemIdentities?: ReadonlyArray<string>;
-					readonly payload: ReadonlyArray<CreateEventItem>;
-				},
-				command: DomainLifecycleCommand,
-			) {
-				if (input.payload.length === 0) {
-					return { count: 0, outcomes: [], warnings: [], failure: null };
-				}
-				yield* verifyCreateBatchInput(input, command);
-				const result = yield* enqueueEventCreate({ ...input, command }).pipe(
-					Effect.provideService(WorkflowEngine, engine),
-					Effect.provideService(DatabaseSession, session),
-				);
-				yield* verifyCreateBatchInput(input, command);
-				return result;
-			});
-			const operationState = Effect.fn("EventsService.operationState")(function* (
-				userId: UserId,
-				job: Required<WorkflowJob>,
-			): Effect.fn.Return<Schema.Schema.Type<typeof EventCreateOperation>, DbError> {
-				const { itemCount, executionId } = job;
-				const operationId = createWorkflowJobId(operationSecret, job, userId);
-				const result = toWorkflowRunResult(
-					Option.getOrUndefined(yield* engine.poll(EventCreateWorkflow, executionId)),
-					{ onSuccess: (value) => ({ result: value }) },
-				);
-				if (result.status === "failed") {
-					return { operationId, status: "failed", reason: "unexpected-error" };
-				}
-				const progress = yield* repository.getCreateProgress(userId, executionId);
-				if (result.status === "completed" && !progress.requiredPending) {
-					return { operationId, status: "completed", result: result.result };
-				}
-				return progress.writtenCount > 0
-					? {
-							operationId,
-							writtenCount: progress.writtenCount,
-							status: "committed-follow-up-pending",
-							writesPending: result.status !== "completed" && progress.writtenCount < itemCount,
-						}
-					: { operationId, writtenCount: 0, status: "accepted", writesPending: true };
-			});
-			const createHttp = Effect.fn("EventsService.createHttp")(function* (
-				input: { readonly userId: UserId; readonly payload: ReadonlyArray<CreateEventItem> },
-				command: DomainLifecycleCommand,
-			) {
-				if (input.payload.length === 0) {
-					return { count: 0, outcomes: [], warnings: [], failure: null };
-				}
-				yield* verifyCreateBatchInput(input, command);
-				const direct = yield* createDirect({ ...input, command });
-				if (Option.isSome(direct)) {
-					return direct.value;
-				}
-				const started = yield* Clock.currentTimeMillis;
-				const job = { itemCount: input.payload.length, executionId: command.causation.executionId };
-				yield* dispatchAdmittedWorkflow(engine, EventCreateWorkflow, command.accountGeneration, {
-					discard: true,
-					executionId: job.executionId,
-					payload: { ...input, command },
-				}).pipe(Effect.uninterruptible);
-				const remaining = Math.max(0, 35_000 - ((yield* Clock.currentTimeMillis) - started));
-				const state = yield* awaitWorkflowSettled({
-					backstop: "500 millis",
-					timeout: Duration.millis(remaining),
-					read: operationState(input.userId, job),
-					isSettled: (value) => value.status === "completed" || value.status === "failed",
-					identities: [{ executionId: job.executionId, workflowName: EventCreateWorkflow._tag }],
-				}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
-				yield* verifyCreateBatchInput(input, command);
-				if (state.status === "completed") {
-					return state.result;
-				}
-				if (state.status === "failed") {
-					return yield* new DbError({ message: "Event creation failed" });
-				}
-				return state;
-			});
-			const getCreateOperation = Effect.fn("EventsService.getCreateOperation")(function* (
-				userId: UserId,
-				operationId: string,
-			) {
-				const identity = resolveWorkflowJob(operationSecret, userId, operationId);
-				if (identity?.itemCount === undefined) {
-					return yield* new EventOperationNotFound({ reason: { code: "operation-not-found" } });
-				}
-				return yield* operationState(userId, { ...identity, itemCount: identity.itemCount });
-			});
-
 			const lookupEditReceipt = (
 				input: EventIdentityInput,
 				command: DomainLifecycleCommand,
@@ -2035,14 +1893,12 @@ export class EventsService extends Context.Service<EventsService>()(
 			return {
 				edit,
 				create,
-				createHttp,
 				updateBatch,
 				deleteBatch,
 				prepareDelete,
 				prepareUpdate,
 				moveReferences,
 				delete: deleteOne,
-				getCreateOperation,
 				captureEventGroups,
 				prepareMoveReferences,
 				persistPreparedDelete,

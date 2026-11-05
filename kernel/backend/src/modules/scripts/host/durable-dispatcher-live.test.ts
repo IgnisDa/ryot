@@ -44,6 +44,7 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { NotificationsService } from "#modules/notifications/service";
 import {
@@ -207,6 +208,7 @@ const dispatcherLayer = (options: {
 				Layer.succeed(WorkflowEngine, options.engine),
 				Layer.mock(SandboxSubmissionCommands)({ commandFor: () => Effect.die("unused") }),
 				Layer.succeed(WorkflowInstance, options.instance),
+				Layer.mock(EventsService)({}),
 				Layer.succeed(NotificationsService, {
 					test: () => Effect.die("unused"),
 					create: () => Effect.die("unused"),

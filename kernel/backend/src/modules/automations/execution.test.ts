@@ -5,10 +5,10 @@ import { AutomationRunId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Cause, Effect, Exit, Fiber, Layer, Option, Ref, Schema } from "effect";
+import { Effect, Exit, Fiber, Layer, Option, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { DurableDeferred, Workflow } from "effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	AutomationPolicyExecutionError,
@@ -22,11 +22,7 @@ import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection
 import { DatabaseSession, DatabaseSessionStateError } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
-import {
-	databaseLayer,
-	makeWorkflowActivityEngine,
-	workflowEngineTestLayer,
-} from "#testing/effect";
+import { databaseLayer, workflowEngineTestLayer } from "#testing/effect";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import {
@@ -574,14 +570,6 @@ layer(
 	);
 });
 
-const expectActivityDefect = (exit: Exit.Exit<unknown, unknown>, operation: string) => {
-	expect(
-		Exit.isFailure(exit)
-			? exit.cause.reasons.filter(Cause.isDieReason).map(({ defect }) => defect)
-			: [],
-	).toEqual([`LifecycleExecution.${operation} must run in a workflow body, not an activity`]);
-};
-
 const GuardChildWorkflow = Workflow.make("LifecycleGuardChildWorkflow", {
 	success: Schema.Finite,
 	payload: { executionId: Schema.String },
@@ -614,32 +602,6 @@ const guardWorkflowsLayer = Layer.unwrap(
 ).pipe(Layer.provideMerge(executionLayer));
 
 layer(guardWorkflowsLayer)((test) => {
-	test.effect(
-		"rejects lifecycle execution inside activities",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* LifecycleExecution;
-				const instance = WorkflowInstance.initial(GuardChildWorkflow, "guard-activity");
-				const inActivity = <A, E>(name: string, execute: Effect.Effect<A, E>) =>
-					Effect.exit(makeActivity({ name, execute: Effect.ignore(execute) })).pipe(
-						Effect.provideService(WorkflowInstance, instance),
-						Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-					);
-				expectActivityDefect(
-					yield* inActivity("after", service.after({ runs: [run("hook")], triggerId: trigger.id })),
-					"after",
-				);
-				expectActivityDefect(
-					yield* inActivity(
-						"policy",
-						service.executePolicy({ acceptedPatches: [], runId: AutomationRunId.make("policy") }),
-					),
-					"executePolicy",
-				);
-			}),
-		testTimeout,
-	);
-
 	test.effect(
 		"allows lifecycle execution in workflow bodies started from an activity",
 		() =>

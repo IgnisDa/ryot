@@ -45,7 +45,6 @@ import {
 	searchProviderEntities,
 	signInWithPassword,
 	updateUserSettingsPreferences,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import {
@@ -477,7 +476,7 @@ describe("shared demo access acceptance", () => {
 					],
 				}),
 			);
-			expect((yield* waitForCreateEvents(demoClient, eventResult)).count).toBe(1);
+			expect(eventResult.count).toBe(1);
 
 			const mergeError = yield* Effect.flip(
 				mergeEntityUserData(demoClient, { mergeFrom: mergeFrom.id, mergeInto: mergeInto.id }),

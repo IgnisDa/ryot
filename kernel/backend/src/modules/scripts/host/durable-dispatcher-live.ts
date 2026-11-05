@@ -1,5 +1,9 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { AutomationWarning } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	CreateEventsResponse,
+	EventCreateItemError,
+} from "@ryot-app/contract/modules/events/schemas";
 import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
@@ -21,11 +25,9 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { runLifecycleWriteStepWith } from "#modules/automations/lifecycle/write-step";
 import { GlobalEntityUpsertResults, PendingGlobalEntityUpsert } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
-import {
-	EventCreateWorkflow,
-	EventCreateWorkflowPayload,
-} from "#modules/events/event-create-workflow";
+import { EventCreateInput } from "#modules/events/event-create";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
+import { EventsService } from "#modules/events/service";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { NotificationsService } from "#modules/notifications/service";
 import { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
@@ -145,6 +147,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 		const implementations = yield* ScriptHostImplementations;
 		const lifecycleExecution = yield* LifecycleExecution;
 		const notifications = yield* NotificationsService;
+		const events = yield* EventsService;
 
 		const writeLifecycleItems = Effect.fnUntraced(function* <Item, Result>(
 			options: LifecycleItemWrite<Item, Result> & {
@@ -265,9 +268,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 						name: `prepare-sandbox-create-events-${request.index}`,
 						execute: prepareSandboxCreateEvents(request, scope, submissions),
 					});
-					const eventPayload = yield* Schema.decodeEffect(EventCreateWorkflowPayload)(
-						prepared,
-					).pipe(
+					const eventPayload = yield* Schema.decodeEffect(EventCreateInput)(prepared).pipe(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({
@@ -276,15 +277,12 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 								}),
 						),
 					);
-					const result = yield* dispatchAdmittedWorkflow(
-						engine,
-						EventCreateWorkflow,
-						eventPayload.command.accountGeneration,
-						{
-							payload: eventPayload,
-							executionId: EventCreateWorkflow.idempotencyKey(eventPayload),
-						},
-					).pipe(Effect.exit);
+					const result = yield* makeActivity({
+						success: CreateEventsResponse,
+						execute: events.create(eventPayload),
+						name: `create-sandbox-events-${request.index}`,
+						error: Schema.Union([DbError, EventCreateItemError]),
+					}).pipe(Effect.exit);
 					if (result._tag === "Failure") {
 						return yield* failureOrRethrow(result.cause);
 					}

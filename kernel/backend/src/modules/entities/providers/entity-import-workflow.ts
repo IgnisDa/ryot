@@ -1,4 +1,5 @@
 import { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import type { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Effect, type Exit, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
@@ -6,7 +7,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { childLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { enqueueEventCreate } from "#modules/events/event-create-workflow";
+import { EventsService } from "#modules/events/service";
 import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	type ProviderImportPhase,
@@ -15,7 +16,7 @@ import {
 	recordProviderImportBodyStarted,
 	recordProviderImportPhaseAttempt,
 } from "#platform/observability/runtime-metrics";
-import { implementWorkflow } from "#platform/workflow/scope";
+import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
@@ -66,14 +67,24 @@ const recordEntryEvent = (
 	entityId: ListedEntity["id"],
 	eventSchemaSlug: EventSchemaSlug,
 ) =>
-	enqueueEventCreate({
-		userId: payload.entityScope.userId,
-		payload: [{ entityId, properties: {}, eventSchemaSlug }],
-		command: { ...childLifecycleCommand(payload.command, "entry-event"), writeContext: null },
-	}).pipe(
-		Effect.mapError(
-			(error) => new EntityImportError({ stage: "entry-event", message: error.message }),
-		),
+	Effect.flatMap(EventsService, (events) =>
+		makeActivity({
+			name: "entry-event",
+			error: EntityImportError,
+			success: CreateEventsResponse,
+			execute: events
+				.create({
+					userId: payload.entityScope.userId,
+					payload: [{ entityId, properties: {}, eventSchemaSlug }],
+					command: { ...childLifecycleCommand(payload.command, "entry-event"), writeContext: null },
+				})
+				.pipe(
+					Effect.mapError(
+						(error) => new EntityImportError({ stage: "entry-event", message: error.message }),
+					),
+				),
+		}),
+	).pipe(
 		Effect.flatMap((result) =>
 			result.failure === null
 				? Effect.void

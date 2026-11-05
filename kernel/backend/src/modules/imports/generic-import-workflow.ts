@@ -1,6 +1,9 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { AutomationWarning as AutomationWarningValue } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { CreateEventItem } from "@ryot-app/contract/modules/events/schemas";
+import {
+	type CreateEventItem,
+	CreateEventsResponse,
+} from "@ryot-app/contract/modules/events/schemas";
 import {
 	type IngestionScope,
 	IngestionSummary,
@@ -44,8 +47,11 @@ import {
 	mapCommittedResult,
 	runLifecycleWriteStep,
 } from "#modules/automations/lifecycle/write-step";
-import { CollectionMembershipWorkflow } from "#modules/collections/collection-membership-workflow";
-import { CollectionEntityResult, CollectionsService } from "#modules/collections/service";
+import {
+	CollectionEntityResult,
+	CollectionMembershipWritten,
+	CollectionsService,
+} from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
@@ -1059,34 +1065,27 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				outcome._tag === "failed" ? failureReasonByStage[outcome.stage].code : null;
 			const warnings = [...outcome.warnings];
 			if (outcome._tag === "ready") {
-				const engine = yield* WorkflowEngine;
+				const collections = yield* CollectionsService;
 				for (const membership of outcome.collectionMemberships) {
-					const collectionExecutionId = stableStringify([
-						scope.runId,
-						"membership",
-						membership.operationId,
-					]);
-					const collectionResult = yield* dispatchAdmittedWorkflow(
-						engine,
-						CollectionMembershipWorkflow,
-						payload.command.accountGeneration,
-						{
-							executionId: collectionExecutionId,
-							payload: {
+					const collectionResult = yield* makeActivity({
+						error: ImportRunError,
+						success: CollectionMembershipWritten,
+						name: `write-collection-membership-${membership.operationId}`,
+						execute: collections
+							.writeMembership({
 								properties: {},
 								operation: "add",
 								userId: payload.userId,
 								entityId: membership.entityId,
-								executionId: collectionExecutionId,
 								collectionId: membership.collectionId,
 								command: genericImportOperationCommand(
 									payload.command,
 									item,
 									membership.operationId,
 								),
-							},
-						},
-					).pipe(Effect.result);
+							})
+							.pipe(Effect.mapError(toWorkflowError)),
+					}).pipe(Effect.result);
 					if (collectionResult._tag === "Failure" && !message) {
 						message = unknownToMessage(collectionResult.failure);
 						failureCode ??= "membership-event-failed";
@@ -1102,24 +1101,27 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 				}
 				if (outcome.events.length > 0) {
 					const events = yield* EventsService;
-					const eventResult = yield* events
-						.create(
-							{
+					const eventResult = yield* makeActivity({
+						error: ImportRunError,
+						success: CreateEventsResponse,
+						name: `create-import-events-${item.itemIndex}`,
+						execute: events
+							.create({
 								userId: payload.userId,
 								payload: outcome.events,
 								itemIdentities: item.events.map((intent) =>
 									genericImportOperationIdentity(scope.runId, item, intent.operationId),
 								),
-							},
-							{
-								...payload.command,
-								itemIdentity: stableStringify([
-									"ingestion-event-group",
-									item.events.map((intent) => intent.operationId),
-								]),
-							},
-						)
-						.pipe(Effect.mapError(toWorkflowError));
+								command: {
+									...payload.command,
+									itemIdentity: stableStringify([
+										"ingestion-event-group",
+										item.events.map((intent) => intent.operationId),
+									]),
+								},
+							})
+							.pipe(Effect.mapError(toWorkflowError)),
+					});
 					warnings.push(...eventResult.warnings);
 					message ??= eventResult.failure?.reason.code ?? null;
 					if (eventResult.failure) {

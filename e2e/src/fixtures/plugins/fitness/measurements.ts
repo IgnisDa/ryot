@@ -17,7 +17,6 @@ import { Effect } from "effect";
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
-import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import {
 	invokeEncodedOperation,
 	invokeOperation,
@@ -80,21 +79,18 @@ export const createMeasurementReadingFixture = (client: Client) =>
 			entitySchema: entrySchema.reference,
 			properties: { comment: "Morning", occurredAt: "2026-04-27T08:00:00.000Z" },
 		});
-		yield* waitForCreateEvents(
-			client,
-			yield* client.call((c) =>
-				c.events.create({
-					payload: [
-						{
-							entityId: metric.id,
-							sessionEntityId: entry.id,
-							properties: { value: 75.5 },
-							eventSchemaSlug: readingSchema.id,
-							occurredAt: "2026-04-27T08:00:00Z",
-						},
-					],
-				}),
-			),
+		yield* client.call((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: metric.id,
+						sessionEntityId: entry.id,
+						properties: { value: 75.5 },
+						eventSchemaSlug: readingSchema.id,
+						occurredAt: "2026-04-27T08:00:00Z",
+					},
+				],
+			}),
 		);
 
 		return { entryId: entry.id, metricId: metric.id };

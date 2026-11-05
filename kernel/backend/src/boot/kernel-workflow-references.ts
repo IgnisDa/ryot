@@ -1,8 +1,12 @@
-import { SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
+import { DbError, SandboxRunError, unknownToMessage } from "@ryot-app/contract/errors";
 import {
 	type ExecutionLane,
 	LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
+import {
+	CreateEventsResponse,
+	EventCreateItemError,
+} from "@ryot-app/contract/modules/events/schemas";
 import {
 	KERNEL_ENTITY_IMPORT_WORKFLOW,
 	KERNEL_EVENT_CREATE_WORKFLOW,
@@ -40,10 +44,8 @@ import {
 } from "#modules/entities/providers/provider-entity-population-workflow";
 import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import {
-	EventCreateWorkflow,
-	EventCreateWorkflowPayload,
-} from "#modules/events/event-create-workflow";
+import { EventCreateInput } from "#modules/events/event-create";
+import { EventsService } from "#modules/events/service";
 import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
@@ -61,6 +63,7 @@ import {
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { makeActivity } from "#platform/workflow/scope";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
 const PROVIDER_ENTITY_POPULATION_CONCURRENCY = 4;
@@ -132,6 +135,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
 		const imports = yield* ImportsRepository;
+		const events = yield* EventsService;
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
 		const artifacts = yield* ExecutionFileStore;
@@ -649,7 +653,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						occurredAt,
 						"api",
 					);
-					const payload = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)({
+					const payload = yield* Schema.decodeUnknownEffect(EventCreateInput)({
 						userId,
 						command,
 						payload: isObjectRecord(input) ? Reflect.get(input, "payload") : undefined,
@@ -669,12 +673,12 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							? [command.causation.integrationId]
 							: [],
 					});
-					const result = yield* dispatchAdmittedWorkflow(
-						engine,
-						EventCreateWorkflow,
-						command.accountGeneration,
-						{ payload, executionId },
-					).pipe(
+					const result = yield* makeActivity({
+						success: CreateEventsResponse,
+						execute: events.create(payload),
+						name: `kernel-event-create-${executionId}`,
+						error: Schema.Union([DbError, EventCreateItemError]),
+					}).pipe(
 						Effect.mapError(
 							(error) =>
 								new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),

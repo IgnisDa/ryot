@@ -4,7 +4,6 @@ import { Effect } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createEntity, getEntity } from "~/fixtures/kernel/entities";
-import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { requirePresent } from "~/support/assertions";
 
 import { findFitnessEntitySchema } from "./exercises";
@@ -63,6 +62,6 @@ export const seedExerciseWorkout = (
 				],
 			}),
 		);
-		const created = yield* waitForCreateEvents(client, response, input.timeoutMs);
+		const created = response;
 		return { workoutId: workout.id, created: { count: created.count - 1 } };
 	});

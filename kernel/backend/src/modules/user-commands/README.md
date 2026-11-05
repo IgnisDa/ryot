@@ -64,7 +64,7 @@ null to return to the record's own creation order. Logical ordering does not rew
 
 ## Standalone event creation
 
-The external event-create workflow is intentionally different: it prepares and evaluates items
-independently, commits accepted records in chunks of up to 50, and returns per-item written, skipped,
-or failed outcomes. Earlier accepted chunks remain committed when a later item fails. It is not the
-atomic entity-plus-relationships-plus-events command described above.
+`EventsService.create` is intentionally different: it prepares items independently, commits the
+accepted ones in one transaction, and returns per-item written, skipped, or failed outcomes. A policy
+rejection or commit conflict commits none of them. It is not the atomic
+entity-plus-relationships-plus-events command described above.

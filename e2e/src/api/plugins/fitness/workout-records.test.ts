@@ -16,7 +16,6 @@ import {
 	executeRyotQLRecipe,
 	listEventsForEntity,
 	pollUntil,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
@@ -525,11 +524,7 @@ describe("Workout records E2E", () => {
 						})).filter((_, reps) => reps !== 0 && reps !== 51),
 					}),
 				);
-				const created = yield* waitForCreateEvents(
-					client,
-					createResult,
-					LARGE_WORKOUT_BUDGET.eventsMs,
-				);
+				const created = createResult;
 				expect(created).toMatchObject({ count: 99, failure: null });
 				expect(created.count + earlierCreated.sets.length + laterCreated.sets.length).toBe(101);
 				const lastEventId = requireWorkoutSetEventId(created, 98);
@@ -733,7 +728,7 @@ describe("Workout records E2E", () => {
 					],
 				}),
 			);
-			const result = yield* waitForCreateEvents(client, createResult);
+			const result = createResult;
 
 			expect(result.count).toBe(0);
 			expect(result.outcomes).toMatchObject([{ index: 0, status: "skipped_by_policy" }]);

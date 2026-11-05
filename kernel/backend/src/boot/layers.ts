@@ -39,10 +39,6 @@ import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackgroundWorkWorkflowLive } from "#modules/background-work/workflow";
 import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
-import {
-	CollectionMembershipWorkflowDefinitionsLive,
-	CollectionMembershipWorkflowOperationsLive,
-} from "#modules/collections/collection-membership-workflow-live";
 import { CollectionsServiceLive } from "#modules/collections/layer";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntityEditorServiceLive } from "#modules/entities/editor/layer";
@@ -72,11 +68,7 @@ import {
 } from "#modules/entities/providers/layer";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { InterestServicesLive } from "#modules/entities/watches/layer";
-import {
-	EventCreateWorkflowDefinitionsProvidedLive,
-	EventsServiceLive,
-	EventStreamWorkServiceLive,
-} from "#modules/events/layer";
+import { EventsServiceLive, EventStreamWorkServiceLive } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
@@ -342,14 +334,12 @@ const ServicesWithTestSupportLive = Layer.merge(
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
-	CollectionMembershipWorkflowDefinitionsLive,
 	AutomationRunWorkflowDefinitionsLive,
 	PolicyBatchWorkflowProvidedLive,
 	UserCommandWorkflowDefinitionsProvidedLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
-	EventCreateWorkflowDefinitionsProvidedLive,
 	BackgroundWorkWorkflowLive.pipe(
 		Layer.provide(Layer.merge(BackgroundWorkExecutorLive, ProjectionFinalizerLive)),
 	),
@@ -446,7 +436,6 @@ export const MigrationInfrastructureLive = Layer.mergeAll(
 // Workflow operations cross feature boundaries; boot composes their owning Layers.
 const RuntimeWorkflowOperationsLive = Layer.mergeAll(
 	SandboxDurableHostServicesLive,
-	CollectionMembershipWorkflowOperationsLive,
 	AutomationRunOperationsLive,
 	EntityImportWorkflowOperationsProvidedLive,
 	Layer.provide(

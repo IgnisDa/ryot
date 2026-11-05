@@ -10,7 +10,6 @@ import {
 	listRelationshipSchemas,
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
-	waitForCreateEvents,
 	waitForEventCount,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
@@ -177,20 +176,17 @@ describe("Event automations", () => {
 				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 101 } },
 			);
 
-			yield* waitForCreateEvents(
-				client,
-				yield* client.call((c) =>
-					c.events.create({
-						payload: [
-							{
-								entityId,
-								occurredAt: isoMinuteAt(100),
-								properties: { animeEpisode: 101 },
-								eventSchemaSlug: progressEventSchemaSlug,
-							},
-						],
-					}),
-				),
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId,
+							occurredAt: isoMinuteAt(100),
+							properties: { animeEpisode: 101 },
+							eventSchemaSlug: progressEventSchemaSlug,
+						},
+					],
+				}),
 			);
 
 			const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");

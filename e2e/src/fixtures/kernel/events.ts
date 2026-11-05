@@ -1,7 +1,3 @@
-import type {
-	CreateEventsResponse,
-	EventCreatePending,
-} from "@ryot-app/contract/modules/events/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
@@ -75,30 +71,6 @@ export const waitForEventCount = (client: Client, entityId: string, expectedCoun
 			return events.length >= expectedCount ? events : null;
 		}),
 	);
-
-export const waitForCreateEvents = (
-	client: Client,
-	response: CreateEventsResponse | typeof EventCreatePending.Type,
-	timeoutMs?: number,
-) =>
-	"count" in response
-		? Effect.succeed(response)
-		: pollUntil(
-				`event operation ${response.operationId}`,
-				client
-					.call((c) =>
-						c.events.getCreateOperation({ params: { operationId: response.operationId } }),
-					)
-					.pipe(
-						Effect.map((result) => {
-							if (result.status === "failed") {
-								throw new Error("Event operation failed");
-							}
-							return result.status === "completed" ? result.result : null;
-						}),
-					),
-				timeoutMs,
-			);
 
 export const ratedItemEntitySchema = {
 	...testPluginEntitySchema({ slug: "item", name: "Rated item" }),

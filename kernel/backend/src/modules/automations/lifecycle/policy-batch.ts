@@ -9,7 +9,7 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { Effect, Schema } from "effect";
+import { Cause, Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
 
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
@@ -99,7 +99,7 @@ export const planPolicyBatch = Effect.fn("planPolicyBatch")(function* (
 });
 
 /** The result of a batch no policy has changed. */
-export const unchangedPolicyBatch = (
+const unchangedPolicyBatch = (
 	input: typeof PolicyBatchPayload.Type,
 	triggerId: null | AutomationTrigger["id"],
 ): PolicyBatchResult => ({
@@ -328,7 +328,7 @@ const applyPolicies = Effect.fnUntraced(function* <R1, R2>(
 
 /**
  * Runs a planned batch's policies outside a workflow, for a command whose source write has not begun; a failure
- * leaves the remaining queued policies skipped.
+ * leaves the remaining queued policies skipped. An interruption keeps them queued so a retry runs them.
  */
 export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
 	input: typeof PolicyBatchPayload.Type,
@@ -341,12 +341,16 @@ export const runPolicyBatchDirect = Effect.fn("PolicyBatchDirect")(function* (
 		execution.executeBatchPolicy,
 		(_name, execute) => execute,
 	).pipe(
-		Effect.onError(() =>
-			plan.trigger === null
+		Effect.onError((cause) =>
+			plan.trigger === null || Cause.hasInterruptsOnly(cause)
 				? Effect.void
 				: execution
 						.skipQueuedPolicies({ triggerId: plan.trigger.id })
-						.pipe(Effect.catchCause((cause) => Effect.logError("Policy batch skip failed", cause))),
+						.pipe(
+							Effect.catchCause((skipCause) =>
+								Effect.logError("Policy batch skip failed", skipCause),
+							),
+						),
 		),
 	);
 });

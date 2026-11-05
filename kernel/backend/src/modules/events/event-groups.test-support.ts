@@ -27,7 +27,7 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommandWorkflowDefinitionsLive } from "#modules/user-commands/workflow";
 import { workflowEngineTestLayer } from "#testing/effect";
 
-import { EventCreateWorkflowDefinitionsLive } from "./event-create-workflow-live";
+import { type EventCreateInput, makeEventCreate } from "./event-create";
 import { EventMutations } from "./mutations";
 
 export const eventGroupDeclaration: PluginEventGroup = {
@@ -50,7 +50,6 @@ const propertiesSchema: AppSchema = {
 };
 export const eventGroupWorkflowLayer = Layer.mergeAll(
 	UserCommandWorkflowDefinitionsLive,
-	EventCreateWorkflowDefinitionsLive,
 	PolicyBatchWorkflowLive,
 	EntityUserDataService.layer.pipe(
 		Layer.provideMerge(Layer.merge(EntityUserDataGraphRepository.layer, MutationReceipts.layer)),
@@ -64,6 +63,9 @@ export const eventGroupWorkflowLayer = Layer.mergeAll(
 	),
 	Layer.provideMerge(workflowEngineTestLayer),
 );
+export const createGroupEvents = (input: EventCreateInput) =>
+	Effect.flatMap(makeEventCreate, (create) => create(input));
+
 export const eventGroupFixture = Effect.fnUntraced(function* () {
 	const source = revisionPackage(`group-${yield* randomUuid}`, "fixture", "subject");
 	const installed = yield* installRevisionPackage(

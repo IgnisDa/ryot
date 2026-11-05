@@ -202,12 +202,10 @@ export class DirectPolicyAttempts extends Context.Service<
 	);
 }
 
-const requireWorkflowBody = (operation: string) =>
-	Effect.flatMap(ActivityBody, (inActivity) =>
-		inActivity
-			? Effect.die(`LifecycleExecution.${operation} must run in a workflow body, not an activity`)
-			: Effect.void,
-	);
+// An activity body runs as request work: policies and hooks run directly, outside the workflow.
+const workflowBody = Effect.flatMap(ActivityBody, (inActivity) =>
+	inActivity ? Effect.succeedNone : Effect.serviceOption(WorkflowInstance),
+);
 
 export const OUTSIDE_WORKFLOW_BACKSTOP = Duration.millis(500);
 
@@ -231,7 +229,7 @@ export const LifecycleExecutionLive = Layer.effect(
 				Effect.provideService(WorkflowEngine, engine),
 			);
 		const startDeadline = Effect.fnUntraced(function* (name: string) {
-			const instance = yield* Effect.serviceOption(WorkflowInstance);
+			const instance = yield* workflowBody;
 			return Option.isSome(instance)
 				? yield* inWorkflow(
 						instance.value,
@@ -243,7 +241,7 @@ export const LifecycleExecutionLive = Layer.effect(
 		// here or it was claimed in this workflow's tree. Parent replays read run states instead of
 		// submitting again; a run claimed by another tree, such as the reconciler's, cannot wake this one.
 		const awaitsClaimed = (payload: AutomationRunWorkflowPayload) =>
-			Effect.flatMap(Effect.serviceOption(WorkflowInstance), (instance) =>
+			Effect.flatMap(workflowBody, (instance) =>
 				Option.isNone(instance)
 					? Effect.succeed(true)
 					: operations
@@ -373,7 +371,7 @@ export const LifecycleExecutionLive = Layer.effect(
 			}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
 		});
 		const settleRequired = (name: string, required: ReadonlyArray<RequiredRun>, deadline: number) =>
-			Effect.flatMap(Effect.serviceOption(WorkflowInstance), (instance) =>
+			Effect.flatMap(workflowBody, (instance) =>
 				Option.isSome(instance)
 					? inWorkflow(instance.value, awaitInWorkflow(name, required, deadline))
 					: awaitOutside(required, deadline),
@@ -387,7 +385,7 @@ export const LifecycleExecutionLive = Layer.effect(
 				Effect.map((result) => ({ result, _tag: "completed" as const })),
 				Effect.catchTag("DirectScriptDeferred", () => Effect.succeed(null)),
 			);
-			const instance = yield* Effect.serviceOption(WorkflowInstance);
+			const instance = yield* workflowBody;
 			const settled = Option.isNone(instance)
 				? yield* direct
 				: yield* inWorkflow(
@@ -420,7 +418,6 @@ export const LifecycleExecutionLive = Layer.effect(
 			runs,
 			triggerId,
 		}: Parameters<LifecycleExecution["Service"]["after"]>[0]) {
-			yield* requireWorkflowBody("after");
 			const eligible = runs.filter(
 				(run) => run.triggerId === triggerId && run.status !== "skipped",
 			);
@@ -467,7 +464,6 @@ export const LifecycleExecutionLive = Layer.effect(
 							() => new LifecyclePersistenceError({ code: "postcommit-requires-root" }),
 						),
 					);
-					yield* requireWorkflowBody("dispatch");
 					yield* work.dispatch([...new Set(plans.flatMap((plan) => plan.backgroundJobIds))]);
 					const warnings: AutomationWarning[] = [];
 					for (const plan of plans) {
@@ -484,64 +480,48 @@ export const LifecycleExecutionLive = Layer.effect(
 				acceptedBatchPatches,
 				activeItemIdentities,
 			}) =>
-				requireWorkflowBody("executeBatchPolicy").pipe(
-					Effect.andThen(
-						Effect.gen(function* () {
-							const payload = {
-								runId,
-								attemptNumber: 1,
-								acceptedReferences,
-								acceptedPatches: [],
-								acceptedBatchPatches,
-								activeItemIdentities,
-							};
-							const settlement = yield* runPolicy(`policy-${runId}`, payload);
-							const output =
-								settlement?._tag === "completed" &&
-								settlement.result.attempt?.status === "succeeded"
-									? settlement.result.policyOutput
-									: null;
-							return output !== null && "items" in output
-								? output
-								: yield* new AutomationPolicyExecutionError({
-										runId,
-										code: "policy-execution-failed",
-									});
-						}),
-					),
+				Effect.gen(function* () {
+					const payload = {
+						runId,
+						attemptNumber: 1,
+						acceptedReferences,
+						acceptedPatches: [],
+						acceptedBatchPatches,
+						activeItemIdentities,
+					};
+					const settlement = yield* runPolicy(`policy-${runId}`, payload);
+					const output =
+						settlement?._tag === "completed" && settlement.result.attempt?.status === "succeeded"
+							? settlement.result.policyOutput
+							: null;
+					return output !== null && "items" in output
+						? output
+						: yield* new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" });
+				}).pipe(
 					Effect.mapError(
 						() => new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
 					),
 				),
 			executePolicy: ({ runId, acceptedPatches }) =>
-				requireWorkflowBody("executePolicy").pipe(
-					Effect.andThen(
-						Effect.gen(function* () {
-							const settlement = yield* runPolicy(`policy-${runId}`, {
-								runId,
-								acceptedPatches,
-								attemptNumber: 1,
-							});
-							return settlement?._tag === "completed" &&
-								settlement.result.attempt?.status === "succeeded" &&
-								settlement.result.policyOutput !== null &&
-								"action" in settlement.result.policyOutput
-								? settlement.result.policyOutput
-								: yield* new AutomationPolicyExecutionError({
-										runId,
-										code: "policy-execution-failed",
-									});
-						}).pipe(
-							Effect.mapError(
-								() =>
-									new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
-							),
-							Effect.catchCauseIf(
-								(cause) => !Cause.hasInterruptsOnly(cause),
-								() =>
-									new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
-							),
-						),
+				Effect.gen(function* () {
+					const settlement = yield* runPolicy(`policy-${runId}`, {
+						runId,
+						acceptedPatches,
+						attemptNumber: 1,
+					});
+					return settlement?._tag === "completed" &&
+						settlement.result.attempt?.status === "succeeded" &&
+						settlement.result.policyOutput !== null &&
+						"action" in settlement.result.policyOutput
+						? settlement.result.policyOutput
+						: yield* new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" });
+				}).pipe(
+					Effect.mapError(
+						() => new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
+					),
+					Effect.catchCauseIf(
+						(cause) => !Cause.hasInterruptsOnly(cause),
+						() => new AutomationPolicyExecutionError({ runId, code: "policy-execution-failed" }),
 					),
 				),
 		});

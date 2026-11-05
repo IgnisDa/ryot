@@ -106,28 +106,19 @@ layer(BunServices.layer)((test) => {
 	);
 
 	test.effect(
-		"keeps event workflow and repository primitives behind EventsService",
+		"keeps event create and repository primitives behind EventsService",
 		() =>
 			Effect.gen(function* () {
-				const [collectionsService, collectionsMembershipWorkflow, eventScriptHost] =
-					yield* Effect.all([
-						readModule("../../collections/service.ts"),
-						readModule("../../collections/collection-membership-workflow-live.ts"),
-						readModule("../../events/script-host.ts"),
-					]);
+				const sources = yield* Effect.all([
+					readModule("../../collections/service.ts"),
+					readModule("../../events/script-host.ts"),
+				]);
 
-				for (const source of [collectionsService, eventScriptHost]) {
-					expect(source).not.toContain("#modules/events/event-create-workflow");
+				for (const source of sources) {
+					expect(source).not.toContain("#modules/events/event-create");
 					expect(source).not.toContain("#modules/events/repository");
 					expect(source).not.toContain("EventsRepository");
 				}
-
-				expect(collectionsService).not.toContain("EventCreateWorkflow");
-				expect(
-					collectionsMembershipWorkflow.match(
-						/dispatchAdmittedWorkflow\(\s*engine,\s*EventCreateWorkflow,/g,
-					)?.length ?? 0,
-				).toBe(1);
 			}),
 		testTimeout,
 	);

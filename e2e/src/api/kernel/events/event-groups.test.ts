@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEventGroupFixture, eventGroupPayload } from "~/fixtures/kernel/event-groups";
-import { listEventsForEntity, waitForCreateEvents } from "~/fixtures/kernel/events";
+import { listEventsForEntity } from "~/fixtures/kernel/events";
 import { assertCondition, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -16,7 +16,7 @@ describe("declared event groups over HTTP", () => {
 				const payload = eventGroupPayload(fixture);
 				for (const item of payload) {
 					const response = yield* client.call((c) => c.events.create({ payload: [item] }));
-					expect(yield* waitForCreateEvents(client, response)).toMatchObject({
+					expect(response).toMatchObject({
 						count: 0,
 						failure: { index: 0, reason: { code: "mutation-conflict" } },
 						outcomes: [{ index: 0, status: "failed", reason: { code: "mutation-conflict" } }],
@@ -24,7 +24,7 @@ describe("declared event groups over HTTP", () => {
 				}
 				expect(yield* listEventsForEntity(client, fixture.subject.id, undefined, 100)).toEqual([]);
 				const response = yield* client.call((c) => c.events.create({ payload }));
-				const created = yield* waitForCreateEvents(client, response);
+				const created = response;
 				expect(created).toMatchObject({ count: 2, failure: null });
 				const before = yield* listEventsForEntity(client, fixture.subject.id, undefined, 100);
 				expect(before).toHaveLength(2);
@@ -39,7 +39,7 @@ describe("declared event groups over HTTP", () => {
 				const appended = yield* client.call((c) =>
 					c.events.create({ payload: [requirePresent(payload[1], "Expected a member draft")] }),
 				);
-				const appendResult = yield* waitForCreateEvents(client, appended);
+				const appendResult = appended;
 				expect(appendResult.count).toBe(1);
 				const appendedMember = requirePresent(
 					appendResult.outcomes[0],
@@ -82,16 +82,16 @@ describe("declared event groups over HTTP", () => {
 			const firstResponse = yield* client.call((c) =>
 				c.events.create({ payload: eventGroupPayload(first) }),
 			);
-			expect((yield* waitForCreateEvents(client, firstResponse)).count).toBe(2);
+			expect(firstResponse.count).toBe(2);
 			const secondPayload = eventGroupPayload(second, first.session.id);
 			const member = requirePresent(secondPayload[1], "Expected the second plugin's member draft");
 			const borrowed = yield* client.call((c) => c.events.create({ payload: [member] }));
-			expect(yield* waitForCreateEvents(client, borrowed)).toMatchObject({
+			expect(borrowed).toMatchObject({
 				count: 0,
 				failure: { index: 0, reason: { code: "mutation-conflict" } },
 			});
 			const secondResponse = yield* client.call((c) => c.events.create({ payload: secondPayload }));
-			expect((yield* waitForCreateEvents(client, secondResponse)).count).toBe(2);
+			expect(secondResponse.count).toBe(2);
 			const firstEvents = yield* listEventsForEntity(client, first.subject.id, undefined, 100);
 			const secondEvents = yield* listEventsForEntity(client, second.subject.id, undefined, 100);
 			expect(firstEvents).toHaveLength(2);
@@ -120,7 +120,7 @@ describe("declared event groups over HTTP", () => {
 			const otherCreate = yield* otherClient.call((c) =>
 				c.events.create({ payload: eventGroupPayload(first) }),
 			);
-			expect(yield* waitForCreateEvents(otherClient, otherCreate)).toMatchObject({
+			expect(otherCreate).toMatchObject({
 				count: 0,
 				failure: { index: 0, reason: { code: "entity-not-found", entityId: first.subject.id } },
 			});
@@ -144,7 +144,7 @@ describe("declared event groups over HTTP", () => {
 						const response = yield* client.call((c) =>
 							c.events.create({ payload: eventGroupPayload(fixture) }),
 						);
-						return yield* waitForCreateEvents(client, response);
+						return response;
 					}),
 				{ concurrency: 2 },
 			);

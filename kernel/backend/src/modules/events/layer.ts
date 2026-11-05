@@ -6,7 +6,6 @@ import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 
-import { EventCreateWorkflowDefinitionsLive } from "./event-create-workflow-live";
 import { EventMutations } from "./mutations";
 import { EventProjectionRepository } from "./projection-repository";
 import { EventsRepository } from "./repository";
@@ -34,18 +33,6 @@ export const EventMutationsLive = EventMutations.layer.pipe(
 			DomainWriteChecksLive,
 			EventSchemaReaderLive,
 			LifecycleServicesLive,
-		),
-	),
-);
-
-export const EventCreateWorkflowDefinitionsProvidedLive = EventCreateWorkflowDefinitionsLive.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			EntitiesRepositoryLive,
-			DomainWriteChecksLive,
-			EventSchemaReaderLive,
-			EventsRepository.layer,
-			EventMutationsLive,
 		),
 	),
 );

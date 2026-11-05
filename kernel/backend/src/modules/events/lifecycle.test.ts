@@ -24,27 +24,17 @@ import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq, sql } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema, Scope } from "effect";
+import { eq, sql } from "drizzle-orm";
+import { Context, DateTime, Effect, Layer, Redacted, Ref, Schema } from "effect";
 import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { Client } from "pg";
 
 import {
 	insertManagedAsset,
 	managedAssetProperty,
 } from "#lib/domain/managed-asset-writes.test-support";
-import { AuthService } from "#modules/accounts/auth/service";
-import {
-	runUserLifecycleJob,
-	UserLifecycleJobOperations,
-	UserLifecycleJobOperationsLive,
-} from "#modules/accounts/lifecycle/job";
-import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
-import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
-import { UserBootstrap } from "#modules/accounts/provisioning/bootstrap";
-import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import {
 	noHooksFixture,
 	withLifecycleBatchPlanning,
@@ -53,40 +43,24 @@ import {
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import {
-	PolicyBatchPayload,
-	PolicyBatchWorkflow,
-	runPolicyBatchWorkflow,
-} from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
-import type { DomainWriteChecks } from "#modules/entities/write-context";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
-import { MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
-import { pinReferences, seedPinTargets } from "#modules/mutations/receipts.test-support";
-import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
-import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
-import { ingestionRetirementTestLayer } from "#modules/plugins/packages/ingestion-retirement.test-support";
+import { MutationReceipts } from "#modules/mutations/receipts";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
-import { JobQueue } from "#platform/jobs/queue";
-import { WorkflowAccounts } from "#platform/workflow/account";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";
 import {
 	makeAppConfigLayer,
 	makeConfigProviderLayer,
-	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
 	workflowAccountsTestLayer,
-	workflowAccountsTestService,
 } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { EventCreateWorkflow, EventCreateWorkflowPayload } from "./event-create-workflow";
-import { runEventCreateWorkflow } from "./event-create-workflow-live";
-import { eventCreateBatchInput } from "./mutation-receipts";
+import { type EventCreateInput, makeEventCreate } from "./event-create";
 import { EventMutations } from "./mutations";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
@@ -344,55 +318,22 @@ const engine = makeWorkflowEngine({
 		Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
 });
 const runCreate = (
-	input: Parameters<typeof runEventCreateWorkflow>[0],
-	executionId: string,
-	instance = WorkflowInstance.initial(EventCreateWorkflow, executionId),
-	activityEngine?: WorkflowEngine["Service"],
+	input: EventCreateInput,
 	dependencies: {
 		schemas?: EventSchemaReader["Service"];
 		repository?: EventsRepository["Service"];
 	} = {},
-) => {
-	const original = activityEngine ?? makeWorkflowActivityEngine(instance);
-	return Effect.gen(function* () {
+) =>
+	Effect.gen(function* () {
 		const repository = dependencies.repository ?? (yield* EventsRepository);
 		const schemas = dependencies.schemas ?? (yield* EventSchemaReader);
-		const context =
-			yield* Effect.context<Effect.Services<ReturnType<typeof runPolicyBatchWorkflow>>>();
-		const capturedContext = activityEngine
-			? context.pipe(Context.add(WorkflowEngine, activityEngine))
-			: context;
-		const batchCapableEngine = makeWorkflowEngine({
-			...original,
-			execute: (workflow, options) =>
-				workflow._tag === PolicyBatchWorkflow._tag
-					? Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
-							Effect.orDie,
-							Effect.flatMap((payload) => {
-								const childInstance = WorkflowInstance.initial(
-									PolicyBatchWorkflow,
-									options.executionId,
-								);
-								return runPolicyBatchWorkflow(payload).pipe(
-									Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(childInstance)),
-									Effect.provideService(WorkflowInstance, childInstance),
-									Effect.provide(capturedContext),
-								);
-							}),
-						)
-					: Effect.die(`Unexpected workflow: ${workflow._tag}`),
-		});
-		return yield* runEventCreateWorkflow(input, executionId).pipe(
+		const create = yield* makeEventCreate.pipe(
 			Effect.provideServiceEffect(EventMutations, EventMutations.make),
 			Effect.provideService(EventsRepository, repository),
 			Effect.provideService(EventSchemaReader, schemas),
-			Effect.provideService(WorkflowEngine, batchCapableEngine),
 		);
-	}).pipe(
-		Effect.provideService(WorkflowEngine, original),
-		Effect.provideService(WorkflowInstance, instance),
-	);
-};
+		return yield* create(input);
+	});
 const lifecycleDatabaseLayer = (
 	noHooks = false,
 	options: {
@@ -541,18 +482,15 @@ const lifecycleDatabaseLayer = (
 	).pipe(Layer.provide(isolatedDatabaseLayer("event_test")));
 
 const createRatings = (id: string, count: number) =>
-	runCreate(
-		{
-			userId,
-			command: command(id),
-			payload: Array.from({ length: count }, (_, rating) => ({
-				entityId,
-				eventSchemaSlug,
-				properties: { rating },
-			})),
-		},
-		id,
-	).pipe(
+	runCreate({
+		userId,
+		command: command(id),
+		payload: Array.from({ length: count }, (_, rating) => ({
+			entityId,
+			eventSchemaSlug,
+			properties: { rating },
+		})),
+	}).pipe(
 		Effect.provideService(
 			LifecycleExecution,
 			withLifecycleDispatch({
@@ -566,189 +504,10 @@ const createRatings = (id: string, count: number) =>
 describe("Event lifecycle PostgreSQL", () => {
 	layer(Layer.merge(lifecycleDatabaseLayer(), workflowLayer))("event lifecycle harness", (test) => {
 		test.effect(
-			"seals cancelled prefixes and terminal failures but not suspended event batches",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const repository = yield* EventsRepository;
-					const underlying = yield* LifecyclePlanner;
-					const recordingPlanner = LifecyclePlanner.of({
-						...underlying,
-						planBatch: (input) =>
-							Effect.gen(function* () {
-								const identity = receipts.batchIdentity({
-									...input,
-									ownerUserId:
-										input.command.causation.initiator.kind === "user"
-											? input.command.causation.initiator.id
-											: null,
-								});
-								const planned = yield* underlying.planBatch(input);
-								yield* receipts.sealBatch(identity, planned);
-								return planned;
-							}),
-						prepareBatch: (input) => {
-							const identity = receipts.batchIdentity({
-								...input,
-								ownerUserId:
-									input.command.causation.initiator.kind === "user"
-										? input.command.causation.initiator.id
-										: null,
-							});
-							return receipts
-								.beginBatch({ identity, pins: [], maxItems: 200 })
-								.pipe(
-									Effect.mapBoth({
-										onSuccess: (decision) => ({
-											id: identity.id,
-											hasCandidates: decision.candidateCount > 0,
-										}),
-										onFailure: (error) =>
-											error instanceof DbError
-												? error
-												: new DbError({ message: "Conflicting batch command" }),
-									}),
-								);
-						},
-					});
-					const batchInput = (id: string, system = false) => {
-						const lifecycle = command(id);
-						return {
-							userId,
-							payload: [
-								{ entityId, eventSchemaSlug, properties: { rating: 1 } },
-								{ entityId, eventSchemaSlug, properties: { rating: 2 } },
-							],
-							command: system
-								? {
-										...lifecycle,
-										causation: {
-											...lifecycle.causation,
-											initiator: { id: null, kind: "system" as const },
-										},
-									}
-								: lifecycle,
-						};
-					};
-					const interrupted = (id: string, explicit: boolean, system = false) =>
-						Effect.gen(function* () {
-							const input = batchInput(id, system);
-							const instance = WorkflowInstance.initial(EventCreateWorkflow, id);
-							const exit = yield* runCreate(input, id, instance).pipe(
-								Effect.provideService(LifecyclePlanner, recordingPlanner),
-								Effect.provideService(
-									LifecycleExecution,
-									withLifecycleDispatch({
-										after: () => Effect.interrupt,
-										skipQueuedPolicies: () => Effect.void,
-										executePolicy: () => Effect.die("Unexpected policy"),
-									}),
-								),
-								Effect.exit,
-							);
-							instance.interrupted = explicit;
-							instance.suspended = !explicit;
-							instance.abandoned = !explicit;
-							yield* Scope.close(instance.scope, exit);
-							const decision = receipts.batchIdentity({
-								...eventCreateBatchInput(input),
-								ownerUserId: system ? null : userId,
-							});
-							return yield* session.transaction(receipts.lookupBatch(decision));
-						});
-					const suspended = yield* interrupted("event-suspension-prefix", false);
-					expect(suspended?.sealed).toBe(false);
-					const resumed = yield* runCreate(
-						batchInput("event-suspension-prefix"),
-						"event-suspension-prefix",
-					).pipe(Effect.provideService(LifecyclePlanner, recordingPlanner));
-					expect(resumed.count).toBe(2);
-					const resumedBatch = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.automationTrigger)
-							.where(
-								sql`${tables.automationTrigger.executionId} = ${"event-suspension-prefix"} and ${tables.automationTrigger.category} = 'change' and ${tables.automationTrigger.operation} = 'batch'`,
-							),
-					);
-					expect(resumedBatch[0]?.payload).toMatchObject({ items: [{}, {}] });
-					const cancelled = yield* interrupted("event-cancelled-prefix", true);
-					expect(cancelled?.sealed).toBe(true);
-					expect(cancelled?.dispatch).toHaveLength(1);
-					const systemCancelled = yield* interrupted("system-event-cancelled-prefix", true, true);
-					expect(systemCancelled?.sealed).toBe(true);
-					expect(systemCancelled?.dispatch).toHaveLength(1);
-					const invalid = batchInput("invalid-first-event");
-					const invalidInput = {
-						...invalid,
-						payload: [{ properties: {}, eventSchemaSlug, entityId: EntityId.make(" ") }],
-					};
-					const emptyDecision = receipts.batchIdentity({
-						...eventCreateBatchInput(invalidInput),
-						ownerUserId: userId,
-					});
-					yield* seedPinTargets();
-					const candidateId = `receipt-candidate-${emptyDecision.id}`;
-					yield* session.transaction(
-						receipts.beginBatch({
-							maxItems: 200,
-							identity: emptyDecision,
-							pins: [
-								{ id: candidateId, payload: { hook: "batch" }, references: pinReferences(userId) },
-							],
-						}),
-					);
-					const failed = yield* runCreate(invalidInput, "invalid-first-event").pipe(
-						Effect.provideService(LifecyclePlanner, recordingPlanner),
-					);
-					expect(failed).toMatchObject({ count: 0, failure: { index: 0 } });
-					expect((yield* session.transaction(receipts.lookupBatch(emptyDecision)))?.sealed).toBe(
-						true,
-					);
-					expect(
-						yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.mutationReceipt)
-								.where(sql`${tables.mutationReceipt.id} = ${candidateId}`),
-						),
-					).toEqual([]);
-					expect(
-						yield* repository.getCreateProgress(userId, "event-cancelled-prefix"),
-					).toMatchObject({ writtenCount: 2 });
-					const batch = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.automationTrigger)
-							.where(
-								sql`${tables.automationTrigger.executionId} = ${"event-cancelled-prefix"} and ${tables.automationTrigger.category} = 'change' and ${tables.automationTrigger.operation} = 'batch'`,
-							),
-					);
-					expect(batch).toHaveLength(1);
-					expect(batch[0]?.payload).toMatchObject({
-						items: [{ operation: "create" }, { operation: "create" }],
-					});
-					expect(
-						yield* session.run((db) =>
-							db
-								.select({ status: tables.automationRun.status })
-								.from(tables.automationRun)
-								.where(sql`${tables.automationRun.triggerId} = ${batch[0]?.id}`),
-						),
-					).toEqual([{ status: "queued" }]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(Layer.merge(lifecycleDatabaseLayer(), workflowLayer))("event lifecycle harness", (test) => {
-		test.effect(
 			"replays committed event delivery after dispatch fails and keeps progress after history removal",
 			() =>
 				Effect.gen(function* () {
 					const { observer } = yield* LifecycleDatabase;
-					const repository = yield* EventsRepository;
 					let dispatched = 0;
 					const triggerIds: string[] = [];
 					const payload = {
@@ -757,7 +516,7 @@ describe("Event lifecycle PostgreSQL", () => {
 						payload: [{ entityId, properties: {}, eventSchemaSlug }],
 					};
 					const run = () =>
-						runCreate(payload, payload.command.causation.executionId).pipe(
+						runCreate(payload).pipe(
 							Effect.provideService(
 								LifecycleExecution,
 								withLifecycleDispatch({
@@ -777,14 +536,15 @@ describe("Event lifecycle PostgreSQL", () => {
 						);
 					expect((yield* Effect.exit(run()))._tag).toBe("Failure");
 					expect(
-						(yield* repository.getCreateProgress(userId, payload.command.causation.executionId))
-							.writtenCount,
-					).toBe(1);
+						(yield* Effect.promise(() =>
+							observer.query("SELECT count(*)::int AS count FROM event"),
+						)).rows,
+					).toEqual([{ count: 1 }]);
 					expect(
 						(yield* Effect.promise(() =>
 							observer.query("SELECT count(*)::int AS count FROM automation_run"),
 						)).rows,
-					).toEqual([{ count: 1 }]);
+					).toEqual([{ count: 2 }]);
 					expect((yield* run()).count).toBe(1);
 					expect(dispatched).toBeGreaterThan(1);
 					expect(triggerIds[1]).toBe(triggerIds[0]);
@@ -795,9 +555,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					).toEqual([{ count: 1 }]);
 					yield* Effect.promise(() => observer.query("DELETE FROM automation_run"));
 					yield* Effect.promise(() => observer.query("DELETE FROM automation_trigger"));
-					expect(
-						yield* repository.getCreateProgress(userId, payload.command.causation.executionId),
-					).toEqual({ writtenCount: 1, requiredPending: false });
+					expect((yield* run()).count).toBe(1);
 				}),
 			testTimeout,
 		);
@@ -809,18 +567,14 @@ describe("Event lifecycle PostgreSQL", () => {
 			() =>
 				Effect.gen(function* () {
 					const { observer, failChangePlanning } = yield* LifecycleDatabase;
-					const run = (id: string, fail: boolean) => {
-						let dispatched = 0;
-						return failChangePlanning(fail).pipe(
+					const run = (id: string, fail: boolean) =>
+						failChangePlanning(fail).pipe(
 							Effect.andThen(
-								runCreate(
-									{
-										userId,
-										command: command(id),
-										payload: [{ entityId, properties: {}, eventSchemaSlug }],
-									},
-									id,
-								),
+								runCreate({
+									userId,
+									command: command(id),
+									payload: [{ entityId, properties: {}, eventSchemaSlug }],
+								}),
 							),
 							Effect.provideService(
 								LifecycleExecution,
@@ -829,21 +583,17 @@ describe("Event lifecycle PostgreSQL", () => {
 									executePolicy: () => Effect.die("Unexpected policy"),
 									after: () =>
 										Effect.gen(function* () {
-											dispatched += 1;
 											const result = yield* Effect.promise(() =>
 												observer.query(
 													`SELECT (SELECT count(*) FROM event)::int AS events, (SELECT count(*) FROM automation_trigger WHERE category='change')::int AS changes, (SELECT count(*) FROM automation_run)::int AS runs`,
 												),
 											);
-											expect(result.rows).toEqual([
-												{ events: 1, runs: dispatched, changes: dispatched },
-											]);
+											expect(result.rows).toEqual([{ runs: 2, events: 1, changes: 2 }]);
 											return [];
 										}),
 								}),
 							),
 						);
-					};
 					assertExitFails(
 						yield* Effect.exit(run("failed", true)),
 						new DbError({ message: "planning failed after run insertion" }),
@@ -1511,21 +1261,16 @@ describe("Event lifecycle PostgreSQL", () => {
 		"event lifecycle harness",
 		(test) => {
 			test.effect(
-				"keeps no-policy event source work within one transaction",
+				"creates a no-policy event in one transaction",
 				() =>
 					Effect.gen(function* () {
 						const session = yield* DatabaseSession;
-						const measuring = Context.Reference<boolean>("test/EventSourceMeasurement", {
-							defaultValue: () => false,
-						});
 						const transactionCount = yield* Ref.make(0);
 						const measuredSession = DatabaseSession.of({
 							...session,
 							transaction: (work) =>
-								Effect.flatMap(measuring, (active) =>
-									(active ? Ref.update(transactionCount, (value) => value + 1) : Effect.void).pipe(
-										Effect.andThen(session.transaction(work)),
-									),
+								Ref.update(transactionCount, (value) => value + 1).pipe(
+									Effect.andThen(session.transaction(work)),
 								),
 						});
 						const repository = yield* EventsRepository.make.pipe(
@@ -1534,29 +1279,12 @@ describe("Event lifecycle PostgreSQL", () => {
 						const noHooks = yield* Layer.build(
 							planner(yield* Ref.make(false), true, yield* Ref.make<ReadonlyArray<string>>([]), 0),
 						).pipe(Effect.provideService(DatabaseSession, measuredSession));
-						const measuredEngine = makeWorkflowEngine({
-							activityExecute: (activity) =>
-								Effect.map(
-									Effect.exit(
-										activity.execute.pipe(
-											Effect.provideService(measuring, activity.name.startsWith("commit-events-")),
-										),
-									),
-									(exit) => new Workflow.Complete({ exit }),
-								),
-						});
 						const input = {
 							userId,
 							command: command("source-operation-fixture"),
 							payload: [{ entityId, eventSchemaSlug, properties: { rating: 1 } }],
 						};
-						const result = yield* runCreate(
-							input,
-							"source-operation-fixture",
-							WorkflowInstance.initial(EventCreateWorkflow, "source-operation-fixture"),
-							measuredEngine,
-							{ repository },
-						).pipe(
+						const result = yield* runCreate(input, { repository }).pipe(
 							Effect.provide(noHooks),
 							Effect.provideService(DatabaseSession, measuredSession),
 						);
@@ -1568,288 +1296,12 @@ describe("Event lifecycle PostgreSQL", () => {
 			);
 		},
 	);
-	layer(
-		Layer.provideMerge(
-			Layer.merge(lifecycleDatabaseLayer(true), workflowLayer),
-			BunCrypto.layerSecureRandom,
-		),
-	)("event lifecycle harness", (test) => {
-		test.effect(
-			"retires a suspended event owner before reset deletes receipts and fences its replay after same-ID recreation",
-			() =>
-				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
-					const receipts = yield* MutationReceipts.make;
-					const payload = {
-						userId,
-						command: command("reset-suspended-events"),
-						payload: [
-							{ entityId, eventSchemaSlug, properties: { rating: 1 } },
-							{ entityId, eventSchemaSlug, properties: { rating: 2 } },
-						],
-					};
-					const ownerExecutionId = yield* EventCreateWorkflow.executionId(payload);
-					const ownerInstance = WorkflowInstance.initial(EventCreateWorkflow, ownerExecutionId);
-					const suspended = yield* Ref.make(false);
-					const retired = yield* Ref.make<ReadonlyArray<string>>([]);
-					const underlying = yield* LifecycleExecution;
-					const gatedExecution = LifecycleExecution.of({
-						...underlying,
-						dispatch: () =>
-							Effect.gen(function* () {
-								if (!(yield* Ref.get(suspended))) {
-									yield* Ref.set(suspended, true);
-									return yield* Workflow.suspend(ownerInstance);
-								}
-								return [];
-							}),
-					});
-					const sourceContext = (yield* Effect.context<
-						| DatabaseSession
-						| EventsRepository
-						| LifecyclePlanner
-						| DomainWriteChecks
-						| EventSchemaReader
-						| EntitiesRepository
-						| LifecycleExecution
-					>()).pipe(Context.add(LifecycleExecution, gatedExecution));
-					const baseEngine = yield* WorkflowEngine;
-					const policyBatchContext = yield* Effect.context<
-						Effect.Services<ReturnType<typeof runPolicyBatchWorkflow>>
-					>().pipe(
-						Effect.provideService(WorkflowEngine, baseEngine),
-						Effect.provideService(WorkflowInstance, ownerInstance),
-						Effect.map((context) => context.pipe(Context.add(LifecycleExecution, gatedExecution))),
-					);
-					let recordingEngine: WorkflowEngine["Service"];
-					recordingEngine = makeWorkflowEngine({
-						poll: () => Effect.succeedNone,
-						activityExecute: (activity) =>
-							Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
-						interrupt: (workflow, executionId) =>
-							Effect.gen(function* () {
-								expect(workflow._tag).toBe(EventCreateWorkflow._tag);
-								expect(executionId).toBe(ownerExecutionId);
-								expect(
-									yield* session.run((db) =>
-										db
-											.select()
-											.from(tables.mutationReceipt)
-											.where(eq(tables.mutationReceipt.ownerUserId, userId)),
-									),
-								).not.toHaveLength(0);
-								expect(
-									yield* session.run((db) =>
-										db.select().from(tables.user).where(eq(tables.user.id, userId)),
-									),
-								).toHaveLength(1);
-								yield* Ref.update(retired, (ids) => [...ids, executionId]);
-							}).pipe(Effect.orDie),
-						execute: (workflow, options) =>
-							workflow._tag === PolicyBatchWorkflow._tag
-								? Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
-										Effect.orDie,
-										Effect.flatMap((batch) => {
-											const childInstance = WorkflowInstance.initial(
-												PolicyBatchWorkflow,
-												options.executionId,
-											);
-											return runPolicyBatchWorkflow(batch).pipe(
-												Effect.provideService(
-													WorkflowEngine,
-													makeWorkflowActivityEngine(childInstance),
-												),
-												Effect.provideService(WorkflowInstance, childInstance),
-												Effect.provide(
-													policyBatchContext.pipe(Context.add(WorkflowEngine, recordingEngine)),
-												),
-											);
-										}),
-									)
-								: Effect.gen(function* () {
-										if (workflow._tag !== EventCreateWorkflow._tag) {
-											return yield* Effect.die(`Unexpected workflow: ${workflow._tag}`);
-										}
-										const decoded = yield* Schema.decodeUnknownEffect(EventCreateWorkflowPayload)(
-											options.payload,
-										);
-										const instance =
-											options.executionId === ownerExecutionId
-												? ownerInstance
-												: WorkflowInstance.initial(EventCreateWorkflow, options.executionId);
-										return yield* runEventCreateWorkflow(decoded, options.executionId).pipe(
-											Effect.provideServiceEffect(EventMutations, EventMutations.make),
-											Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
-											Effect.provide(
-												sourceContext.pipe(
-													Context.add(WorkflowEngine, recordingEngine),
-													Context.add(WorkflowInstance, instance),
-												),
-											),
-										);
-									}),
-					});
-					const events = yield* EventsService.make.pipe(
-						Effect.provideServiceEffect(EventMutations, EventMutations.make),
-						Effect.provideService(WorkflowEngine, recordingEngine),
-						Effect.provideService(LifecycleExecution, gatedExecution),
-					);
-					const first = yield* Workflow.intoResult(events.create(payload, payload.command)).pipe(
-						Effect.provideService(WorkflowInstance, ownerInstance),
-					);
-					expect(first._tag).toBe("Suspended");
-					expect(ownerExecutionId).not.toBe(payload.command.causation.executionId);
-					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(2);
-					const [item] = yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.mutationReceipt)
-							.where(
-								and(
-									eq(tables.mutationReceipt.receiptType, "item"),
-									eq(tables.mutationReceipt.commandKind, "event:create"),
-								),
-							),
-					);
-					assert(item);
-					const identity = yield* Schema.decodeEffect(MutationReceiptIdentity)(item);
-					const auth = Context.get(
-						yield* Layer.build(
-							Layer.mock(AuthService)({
-								purgeApiKeyCaches: () => Effect.void,
-								deleteUserSessions: () => Effect.void,
-								revokeUserOAuthTokens: () => Effect.void,
-								revokePasswordResetLinks: () => Effect.void,
-								handler: () => Promise.reject(new Error("unused")),
-								requestPasswordResetLink: (email) =>
-									Effect.succeed({ email, resetUrl: "https://example.test/reset" }),
-								updateAuthUserDisabled: (id, data) =>
-									session
-										.run((db) => db.update(tables.user).set(data).where(eq(tables.user.id, id)))
-										.pipe(Effect.asVoid),
-								createAuthUser: (input) =>
-									session
-										.run((db) => db.insert(tables.user).values(input).returning())
-										.pipe(
-											Effect.map((rows) => {
-												const row = rows[0];
-												assert(row);
-												return row;
-											}),
-										),
-							}),
-						),
-						AuthService,
-					);
-					const repository = yield* UserLifecycleRepository.make.pipe(
-						Effect.provideService(ImportsRepository, yield* ImportsRepository),
-					);
-					const lifecycle = yield* UserLifecycleService.make.pipe(
-						Effect.provideService(AuthService, auth),
-						Effect.provideService(UserLifecycleRepository, repository),
-						Effect.provideService(JobQueue, yield* JobQueue.make),
-					);
-					const { operationId } = yield* lifecycle.resetUser(userId);
-					expect(yield* receipts.peek(identity, Schema.Unknown).pipe(Effect.flip)).toMatchObject({
-						message: "Mutation command account is being retired",
-					});
-					const storage = Context.get(
-						yield* Layer.build(
-							Layer.mock(ObjectStorageService)({ deleteObject: () => Effect.void }),
-						),
-						ObjectStorageService,
-					);
-					const operations = Context.get(
-						yield* Layer.build(
-							UserLifecycleJobOperationsLive.pipe(Layer.provide(ingestionRetirementTestLayer)),
-						).pipe(
-							Effect.provideService(
-								AdmittedWorkflowCatalogue,
-								Object.freeze([EventCreateWorkflow]),
-							),
-							Effect.provideService(
-								WorkflowAccounts,
-								WorkflowAccounts.of({
-									...workflowAccountsTestService,
-									listActive: () =>
-										Effect.succeed([
-											{ executionId: ownerExecutionId, workflowName: EventCreateWorkflow._tag },
-										]),
-								}),
-							),
-							Effect.provideService(AuthService, auth),
-							Effect.provideService(UserLifecycleRepository, repository),
-							Effect.provideService(ObjectStorageService, storage),
-							Effect.provideService(WorkflowEngine, recordingEngine),
-							Effect.provideService(
-								UserBootstrap,
-								UserBootstrap.of({
-									perform: () => Effect.succeed([]),
-									listIncomplete: () => Effect.succeed([]),
-								}),
-							),
-							Effect.provideService(
-								PluginBootstrapEntities,
-								PluginBootstrapEntities.of({
-									dispatch: () => Effect.void,
-									ensure: () => Effect.succeed([]),
-								}),
-							),
-						),
-						UserLifecycleJobOperations,
-					);
-					yield* runUserLifecycleJob({ operationId }, { attempt: 1, id: "lifecycle-job" }).pipe(
-						Effect.provideService(UserLifecycleJobOperations, operations),
-						Effect.provideService(UserLifecycleService, lifecycle),
-						Effect.provideService(WorkflowEngine, recordingEngine),
-					);
-					expect(yield* Ref.get(retired)).toEqual([ownerExecutionId]);
-					expect((yield* repository.getInternalById(operationId))?.operation.status).toBe(
-						"completed",
-					);
-					expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
-					expect(
-						yield* session.run((db) =>
-							db
-								.select()
-								.from(tables.mutationReceipt)
-								.where(eq(tables.mutationReceipt.receiptType, "item")),
-						),
-					).toEqual([]);
-					const accountGeneration = yield* receipts.currentAccount(userId);
-					expect(accountGeneration.token).not.toBe(payload.command.accountGeneration?.token);
-					expect(yield* receipts.peek(identity, Schema.Unknown).pipe(Effect.flip)).toMatchObject({
-						message: "Mutation command belongs to a retired account",
-					});
-					expect(
-						yield* runEventCreateWorkflow(payload, ownerExecutionId).pipe(
-							Effect.provideServiceEffect(EventMutations, EventMutations.make),
-							Effect.provideService(WorkflowEngine, recordingEngine),
-							Effect.provideService(
-								WorkflowInstance,
-								WorkflowInstance.initial(EventCreateWorkflow, ownerExecutionId),
-							),
-							Effect.flip,
-						),
-					).toMatchObject({ message: "Mutation command belongs to a retired account" });
-					expect(yield* session.run((db) => db.select().from(tables.event))).toEqual([]);
-					const fresh = {
-						...payload,
-						payload: payload.payload.slice(0, 1),
-						command: { ...command("reset-fresh-events"), accountGeneration },
-					};
-					expect((yield* events.create(fresh, fresh.command)).count).toBe(1);
-					expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
-				}),
-			testTimeout,
-		);
-	});
 
 	layer(Layer.merge(lifecycleDatabaseLayer(true), workflowLayer))(
-		"direct HTTP event harness",
+		"event lifecycle harness",
 		(test) => {
 			test.effect(
-				"creates a no-policy HTTP event in one transaction and replays its receipt",
+				"creates a no-policy event in one transaction and replays its receipt",
 				() =>
 					Effect.gen(function* () {
 						const service = yield* EventsService;
@@ -1859,10 +1311,9 @@ describe("Event lifecycle PostgreSQL", () => {
 							userId,
 							payload: [{ entityId, eventSchemaSlug, properties: { rating: 4 } }],
 						};
-						const created = yield* service.createHttp(input, lifecycle);
-						assert("count" in created);
+						const created = yield* service.create({ ...input, command: lifecycle });
 						expect(created).toMatchObject({ count: 1, failure: null });
-						expect(yield* service.createHttp(input, lifecycle)).toEqual(created);
+						expect(yield* service.create({ ...input, command: lifecycle })).toEqual(created);
 						expect(yield* session.run((db) => db.select().from(tables.event))).toHaveLength(1);
 						expect(
 							yield* session.run((db) =>
@@ -1887,15 +1338,12 @@ describe("Event lifecycle PostgreSQL", () => {
 					Effect.gen(function* () {
 						const lifecycle = command("imported-event-receipt");
 						assert(lifecycle.accountGeneration);
-						const result = yield* runCreate(
-							{
-								userId,
-								command: lifecycle,
-								itemIdentities: [lifecycle.itemIdentity],
-								payload: [{ entityId, eventSchemaSlug, properties: { rating: 2 } }],
-							},
-							lifecycle.causation.executionId,
-						);
+						const result = yield* runCreate({
+							userId,
+							command: lifecycle,
+							itemIdentities: [lifecycle.itemIdentity],
+							payload: [{ entityId, eventSchemaSlug, properties: { rating: 2 } }],
+						});
 						expect(result.count).toBe(1);
 						const committed = yield* (yield* MutationReceipts.make).getCommittedItems({
 							userId,

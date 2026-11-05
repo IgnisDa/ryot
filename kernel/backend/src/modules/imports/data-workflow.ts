@@ -1,5 +1,6 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { IngestionBatch, type IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
@@ -721,22 +722,27 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 							yield* requiredReference(entityIds, item.record.sessionEntityKey, "entity"),
 						)
 					: undefined;
-				const result = yield* events.create(
-					{
-						userId: input.userId,
-						itemIdentities: [command.itemIdentity],
-						payload: [
-							{
-								entityId,
-								properties,
-								sessionEntityId,
-								occurredAt: item.record.occurredAt,
-								eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
-							},
-						],
-					},
-					command,
-				);
+				const result = yield* makeActivity({
+					error: ImportRunError,
+					success: CreateEventsResponse,
+					name: `create-data-event-${index}`,
+					execute: events
+						.create({
+							command,
+							userId: input.userId,
+							itemIdentities: [command.itemIdentity],
+							payload: [
+								{
+									entityId,
+									properties,
+									sessionEntityId,
+									occurredAt: item.record.occurredAt,
+									eventSchemaSlug: EventSchemaSlug.make(item.record.eventSchemaSlug),
+								},
+							],
+						})
+						.pipe(Effect.mapError(toWorkflowError)),
+				});
 				if (result.failure) {
 					return yield* new DataImportRecordError({
 						message: result.failure.reason.code,

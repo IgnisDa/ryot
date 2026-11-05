@@ -21,11 +21,7 @@ import {
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
-import {
-	createAuthenticatedClient,
-	executeRyotQLRecipe,
-	waitForCreateEvents,
-} from "~/fixtures/kernel";
+import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import { getApiClient } from "~/fixtures/kernel/contract-client";
 import { invokeOperation } from "~/fixtures/kernel/operations";
@@ -138,12 +134,9 @@ describe("Media history correction liveness", () => {
 						})),
 					}),
 				);
-			const responses = yield* Effect.all([create(movies.slice(0, 60)), create(movies.slice(60))], {
+			yield* Effect.all([create(movies.slice(0, 60)), create(movies.slice(60))], {
 				concurrency: 2,
 			});
-			for (const response of responses) {
-				yield* waitForCreateEvents(client, response);
-			}
 			yield* settledHistoryCorrection(client, userId);
 			const reference = yield* mediaReferenceForEntity(client, movies[0]?.entityId ?? "");
 			yield* Effect.forEach(
@@ -212,7 +205,7 @@ describe("Media history correction liveness", () => {
 				entitySchemaSlug: "movie",
 			});
 			const reference = yield* mediaReferenceForEntity(client, movie.entityId);
-			const created = yield* client.call((c) =>
+			yield* client.call((c) =>
 				c.events.create({
 					payload: Array.from({ length: 30 }, (_, index) => ({
 						entityId: movie.entityId,
@@ -222,7 +215,6 @@ describe("Media history correction liveness", () => {
 					})),
 				}),
 			);
-			yield* waitForCreateEvents(client, created);
 			yield* settledHistoryCorrection(client, userId);
 			const automatic = yield* completionsFor(client, movie.entityId);
 			expect(automatic).toHaveLength(30);

@@ -11,7 +11,7 @@ import { Clock, Effect, Result } from "effect";
 
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { getEntity } from "~/fixtures/kernel/entities";
-import { listEventsForEntity, waitForCreateEvents } from "~/fixtures/kernel/events";
+import { listEventsForEntity } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createExerciseEntityFixture } from "~/fixtures/plugins/fitness/exercises";
 import {
@@ -117,7 +117,7 @@ it.live("rejects direct orphan sets and empty occurrences without partial writes
 				],
 			}),
 		);
-		expect(yield* waitForCreateEvents(client, orphan)).toMatchObject({
+		expect(orphan).toMatchObject({
 			count: 0,
 			failure: { index: 0, reason: { code: "mutation-conflict" } },
 			outcomes: [{ index: 0, status: "failed", reason: { code: "mutation-conflict" } }],
@@ -136,7 +136,7 @@ it.live("rejects direct orphan sets and empty occurrences without partial writes
 				],
 			}),
 		);
-		expect(yield* waitForCreateEvents(client, emptyOccurrence)).toMatchObject({
+		expect(emptyOccurrence).toMatchObject({
 			count: 0,
 			failure: { index: 0, reason: { code: "mutation-conflict" } },
 			outcomes: [{ index: 0, status: "failed", reason: { code: "mutation-conflict" } }],

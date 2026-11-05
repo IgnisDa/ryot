@@ -12,7 +12,6 @@ import {
 	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
-import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
@@ -83,7 +82,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			})),
 		)) satisfies ContractPayload<"events", "create">;
 		const created = yield* client.call((c) => c.events.create({ payload: batch }));
-		const written = yield* waitForCreateEvents(client, created);
+		const written = created;
 		expect(written.failure).toBeNull();
 		expect(written.count).toBe(101);
 		expect(written.outcomes).toHaveLength(101);

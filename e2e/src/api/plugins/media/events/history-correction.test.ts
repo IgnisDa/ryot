@@ -2,11 +2,7 @@ import { mediaActivityLogContextRecipe } from "@ryot-app/media-plugin/shared/act
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
-import {
-	createAuthenticatedClient,
-	executeRyotQLRecipe,
-	waitForCreateEvents,
-} from "~/fixtures/kernel";
+import { createAuthenticatedClient, executeRyotQLRecipe } from "~/fixtures/kernel";
 import {
 	createBuiltinMediaLifecycleFixture,
 	logMediaActivity,
@@ -69,7 +65,7 @@ describe("Media history correction", () => {
 			const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 				entitySchemaSlug: "movie",
 			});
-			const response = yield* client.call((c) =>
+			yield* client.call((c) =>
 				c.events.create({
 					payload: [
 						{
@@ -87,7 +83,6 @@ describe("Media history correction", () => {
 					],
 				}),
 			);
-			yield* waitForCreateEvents(client, response);
 			yield* settledHistoryCorrection(client, userId);
 			const events = yield* historyEventsFor(client, movie.entityId);
 			const progress = requirePresent(
@@ -118,7 +113,7 @@ describe("Media history correction", () => {
 				const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 					entitySchemaSlug: "movie",
 				});
-				const response = yield* client.call((c) =>
+				yield* client.call((c) =>
 					c.events.create({
 						payload: [100, 50].map((progressPercent) => ({
 							entityId: movie.entityId,
@@ -128,7 +123,6 @@ describe("Media history correction", () => {
 						})),
 					}),
 				);
-				yield* waitForCreateEvents(client, response);
 				yield* settledHistoryCorrection(client, userId);
 				expect(
 					(yield* historyEventsFor(client, movie.entityId)).filter(
@@ -152,7 +146,7 @@ describe("Media history correction", () => {
 				const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 					entitySchemaSlug: "movie",
 				});
-				const created = yield* client.call((c) =>
+				yield* client.call((c) =>
 					c.events.create({
 						payload: [
 							{
@@ -164,7 +158,6 @@ describe("Media history correction", () => {
 						],
 					}),
 				);
-				yield* waitForCreateEvents(client, created);
 				yield* settledHistoryCorrection(client, userId);
 				const progress = requirePresent(
 					(yield* historyEventsFor(client, movie.entityId)).find(
@@ -297,7 +290,7 @@ describe("Media history correction", () => {
 				const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 					entitySchemaSlug: "movie",
 				});
-				const created = yield* client.call((c) =>
+				yield* client.call((c) =>
 					c.events.create({
 						payload: [
 							{
@@ -309,7 +302,6 @@ describe("Media history correction", () => {
 						],
 					}),
 				);
-				yield* waitForCreateEvents(client, created);
 				yield* settledHistoryCorrection(client, userId);
 				const events = yield* historyEventsFor(client, movie.entityId);
 				const progress = requirePresent(
@@ -334,7 +326,7 @@ describe("Media history correction", () => {
 						(row) => row.eventSchemaSlug === "complete",
 					),
 				).toEqual([]);
-				const responses = yield* Effect.forEach(
+				yield* Effect.forEach(
 					[3, 4],
 					(day) =>
 						client.call((c) =>
@@ -351,9 +343,6 @@ describe("Media history correction", () => {
 						),
 					{ concurrency: 2 },
 				);
-				for (const response of responses) {
-					yield* waitForCreateEvents(client, response);
-				}
 				yield* settledHistoryCorrection(client, userId);
 				expect(
 					(yield* historyEventsFor(client, movie.entityId)).filter(

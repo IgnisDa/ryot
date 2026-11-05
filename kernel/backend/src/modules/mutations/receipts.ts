@@ -705,58 +705,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 				);
 				return rows.length;
 			});
-			const countWrittenEvents = Effect.fn("MutationReceipts.countWrittenEvents")(function* (
-				ownerUserId: UserId,
-				executionId: string,
-			) {
-				const rows = yield* session.run((db) =>
-					db
-						.select({ id: mutationReceipt.id, dispatch: mutationReceipt.dispatch })
-						.from(mutationReceipt)
-						.where(
-							and(
-								eq(mutationReceipt.executionId, executionId),
-								eq(mutationReceipt.ownerUserId, ownerUserId),
-								eq(mutationReceipt.commandKind, "event:create"),
-								eq(mutationReceipt.receiptType, "item"),
-							),
-						)
-						.orderBy(asc(mutationReceipt.itemIdentity)),
-				);
-				const batches = yield* session.run((db) =>
-					db
-						.select({ id: mutationReceipt.id, dispatch: mutationReceipt.dispatch })
-						.from(mutationReceipt)
-						.where(
-							and(
-								eq(mutationReceipt.executionId, executionId),
-								eq(mutationReceipt.ownerUserId, ownerUserId),
-								eq(mutationReceipt.commandKind, "batch:event"),
-								eq(mutationReceipt.receiptType, "batch-decision"),
-							),
-						)
-						.orderBy(asc(mutationReceipt.id)),
-				);
-				const batchDispatch = (yield* Effect.forEach(batches, (batch) =>
-					decodeStoredSchema(
-						batch.dispatch,
-						Schema.Array(LifecycleDispatchPlan),
-						`Invalid event batch dispatch ${batch.id}`,
-					),
-				)).flat();
-				return yield* Effect.forEach(rows, (row) =>
-					decodeStoredSchema(
-						row.dispatch,
-						Schema.Array(LifecycleDispatchPlan),
-						`Invalid dispatch ${row.id}`,
-					),
-				).pipe(
-					Effect.map((dispatch) => ({
-						writtenCount: rows.length,
-						dispatch: [...dispatch.flat(), ...batchDispatch],
-					})),
-				);
-			});
 			return {
 				lookup,
 				insert,
@@ -773,7 +721,6 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 				currentAccount,
 				retireUserPins,
 				getCommittedItems,
-				countWrittenEvents,
 				peek: <Result>(identity: MutationReceiptIdentity, result: Schema.Codec<Result, unknown>) =>
 					inTransaction(
 						requireCurrentGeneration(identity).pipe(Effect.andThen(readItem(identity, result))),

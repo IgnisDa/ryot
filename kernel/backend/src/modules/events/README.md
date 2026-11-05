@@ -28,8 +28,7 @@ visible through its parent event's ownership.
 
 A created event's ID is `event_<position>_<hash>`. The hash is derived from the command's execution ID
 and item identity, so replays reproduce the same ID. `position` is the item's zero-padded base-36
-index within its command, width 4, counted across workflow chunks. Backup restore keeps the IDs it is
-given.
+index within its command, width 4. Backup restore keeps the IDs it is given.
 
 Within one command, ascending `(occurredAt, createdAt, id)` equals submission order and descending
 order is its exact reverse; ties on `occurredAt` and `createdAt` are broken by `position`. Separate

@@ -23,11 +23,6 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import {
-	PolicyBatchPayload,
-	PolicyBatchWorkflow,
-	runPolicyBatchWorkflow,
-} from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -37,11 +32,7 @@ import {
 	ProviderEntityPopulationAttemptWorkflow,
 	runProviderEntityPopulationAttemptWorkflow,
 } from "#modules/entities/providers/provider-entity-population-workflow";
-import {
-	EventCreateWorkflow,
-	type EventCreateWorkflowPayload,
-} from "#modules/events/event-create-workflow";
-import { runEventCreateWorkflow } from "#modules/events/event-create-workflow-live";
+import { type EventCreateInput, makeEventCreate } from "#modules/events/event-create";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService } from "#modules/events/service";
@@ -66,7 +57,6 @@ import * as tables from "#schema/tables/combined";
 import {
 	makeRedisService,
 	makeWorkflowActivityEngine,
-	makeWorkflowEngine,
 	workflowAccountsTestService,
 } from "#testing/effect";
 
@@ -214,48 +204,18 @@ const nextCommand = (
 const createEvents = (
 	command: DomainLifecycleCommand,
 	userId: UserId,
-	payload: EventCreateWorkflowPayload["payload"],
-	executionId: string,
-) => {
-	const instance = WorkflowInstance.initial(EventCreateWorkflow, executionId);
-	const original = makeWorkflowActivityEngine(instance);
-	return Effect.gen(function* () {
+	payload: EventCreateInput["payload"],
+) =>
+	Effect.gen(function* () {
 		const repository = yield* EventsRepository.make;
 		const schemas = yield* EventSchemaReader.make;
-		const capturedContext =
-			yield* Effect.context<Effect.Services<ReturnType<typeof runPolicyBatchWorkflow>>>();
-		const engine = makeWorkflowEngine({
-			...original,
-			execute: (workflow, options) =>
-				workflow._tag === PolicyBatchWorkflow._tag
-					? Schema.decodeUnknownEffect(PolicyBatchPayload)(options.payload).pipe(
-							Effect.orDie,
-							Effect.flatMap((batch) => {
-								const childInstance = WorkflowInstance.initial(
-									PolicyBatchWorkflow,
-									options.executionId,
-								);
-								return runPolicyBatchWorkflow(batch).pipe(
-									Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(childInstance)),
-									Effect.provideService(WorkflowInstance, childInstance),
-									Effect.provide(capturedContext),
-								);
-							}),
-						)
-					: Effect.die(`Unexpected workflow: ${workflow._tag}`),
-		});
-		return yield* runEventCreateWorkflow({ userId, command, payload }, executionId).pipe(
+		const create = yield* makeEventCreate.pipe(
 			Effect.provideServiceEffect(EventMutations, EventMutations.make),
 			Effect.provideService(EventsRepository, repository),
 			Effect.provideService(EventSchemaReader, schemas),
-			Effect.provideService(WorkflowEngine, engine),
 		);
-	}).pipe(
-		Effect.provideService(WorkflowEngine, original),
-		Effect.provideService(WorkflowInstance, instance),
-		Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
-	);
-};
+		return yield* create({ userId, command, payload });
+	});
 
 layer(
 	EnrichmentRequests.layer.pipe(
@@ -678,45 +638,30 @@ layer(
 				});
 				const localEvent = EventSchemaSlug.make("tasted");
 				expect(
-					(yield* createEvents(
-						nextCommand(first.command, "own-event"),
-						firstUser,
-						[
-							{
-								entityId: own.entity.id,
-								eventSchemaSlug: localEvent,
-								properties: { title: "Own event" },
-							},
-						],
-						"own-event-workflow",
-					)).count,
+					(yield* createEvents(nextCommand(first.command, "own-event"), firstUser, [
+						{
+							entityId: own.entity.id,
+							eventSchemaSlug: localEvent,
+							properties: { title: "Own event" },
+						},
+					])).count,
 				).toBe(1);
 				expect(
-					(yield* createEvents(
-						nextCommand(second.command, "foreign-event"),
-						firstUser,
-						[
-							{
-								entityId: foreign.entity.id,
-								eventSchemaSlug: localEvent,
-								properties: { title: "Foreign event" },
-							},
-						],
-						"foreign-event-workflow",
-					)).count,
-				).toBe(1);
-				const denied = yield* createEvents(
-					nextCommand(first.command, "wrong-event"),
-					firstUser,
-					[
+					(yield* createEvents(nextCommand(second.command, "foreign-event"), firstUser, [
 						{
 							entityId: foreign.entity.id,
 							eventSchemaSlug: localEvent,
-							properties: { title: "Wrong" },
+							properties: { title: "Foreign event" },
 						},
-					],
-					"wrong-event-workflow",
-				);
+					])).count,
+				).toBe(1);
+				const denied = yield* createEvents(nextCommand(first.command, "wrong-event"), firstUser, [
+					{
+						entityId: foreign.entity.id,
+						eventSchemaSlug: localEvent,
+						properties: { title: "Wrong" },
+					},
+				]);
 				expect(denied.count).toBe(0);
 				const [row] = yield* session.run((db) =>
 					db.select().from(tables.event).where(eq(tables.event.entityId, foreign.entity.id)),
@@ -833,7 +778,6 @@ layer(
 							},
 						},
 					],
-					"collection-event-workflow",
 				);
 				expect(
 					(yield* entities.deleteByIds([item.entity.id], nextCommand(command, "delete-item")))
@@ -910,18 +854,13 @@ layer(
 					kernelCollectionLifecycleCommand(nextCommand(command, "membership")),
 				);
 				assert(link.relationship);
-				const tasted = yield* createEvents(
-					nextCommand(command, "tasted-event"),
-					firstUser,
-					[
-						{
-							entityId: from.id,
-							properties: { title: "Tasted" },
-							eventSchemaSlug: EventSchemaSlug.make("tasted"),
-						},
-					],
-					"merge-tasted-workflow",
-				);
+				const tasted = yield* createEvents(nextCommand(command, "tasted-event"), firstUser, [
+					{
+						entityId: from.id,
+						properties: { title: "Tasted" },
+						eventSchemaSlug: EventSchemaSlug.make("tasted"),
+					},
+				]);
 				const added = yield* createEvents(
 					kernelCollectionLifecycleCommand(nextCommand(command, "collection-event")),
 					firstUser,
@@ -938,7 +877,6 @@ layer(
 							},
 						},
 					],
-					"merge-collection-event-workflow",
 				);
 				expect([tasted.count, added.count]).toEqual([1, 1]);
 				const payload = { mergeFrom: from.id, mergeInto: into.id, entitySchemaSlug: bottle };
@@ -1637,12 +1575,9 @@ layer(
 					lifecycle: nextCommand(command, "own-entity"),
 				});
 				const eventSchemaSlug = EventSchemaSlug.make("opened");
-				const denied = yield* createEvents(
-					nextCommand(command, "added-event"),
-					firstUser,
-					[{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } }],
-					"added-event-workflow",
-				);
+				const denied = yield* createEvents(nextCommand(command, "added-event"), firstUser, [
+					{ eventSchemaSlug, entityId: own.entity.id, properties: { title: "Opened" } },
+				]);
 				expect(denied.count).toBe(0);
 				expect(denied.failure).toEqual({
 					index: 0,
@@ -1738,7 +1673,6 @@ layer(
 							eventSchemaSlug: EventSchemaSlug.make("tasted"),
 						},
 					],
-					"foreign-session-workflow",
 				);
 				expect(denied.count).toBe(0);
 				expect(denied.failure).toEqual({
@@ -2205,7 +2139,6 @@ layer(relationshipDatabaseLayer())((test) => {
 						entity === "collection" ? kernelCollectionLifecycleCommand(eventCommand) : eventCommand,
 						userId,
 						[{ eventSchemaSlug, entityId: created.entity.id, properties: { text: identity } }],
-						`${identity}-workflow`,
 					);
 					const [row] = yield* session.run((db) =>
 						db.select().from(tables.event).where(eq(tables.event.entityId, created.entity.id)),

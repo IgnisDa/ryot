@@ -4,11 +4,7 @@ import { ConsumedItem, ConsumptionBasis } from "@ryot-app/media-plugin/shared/co
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
-import {
-	createAuthenticatedClient,
-	listEventSchemas,
-	waitForCreateEvents,
-} from "~/fixtures/kernel";
+import { createAuthenticatedClient, listEventSchemas } from "~/fixtures/kernel";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
 import {
 	createBuiltinMediaLifecycleFixture,
@@ -76,7 +72,7 @@ describe("Media consumption projection and reporting", () => {
 						],
 					}),
 				);
-				const written = yield* waitForCreateEvents(client, created);
+				const written = created;
 				expect(written.failure).toBeNull();
 				expect(written.outcomes.map((outcome) => outcome.status)).toEqual([
 					"written",
@@ -191,7 +187,7 @@ describe("Media consumption projection and reporting", () => {
 						],
 					}),
 				);
-				const written = yield* waitForCreateEvents(client, created);
+				const written = created;
 				expect(written.failure).toBeNull();
 				expect(written.outcomes.map((outcome) => outcome.status)).toEqual(["written", "written"]);
 				yield* settledHistoryCorrection(client, userId);
@@ -260,7 +256,7 @@ describe("Media consumption projection and reporting", () => {
 						],
 					}),
 				);
-				const unknownWritten = yield* waitForCreateEvents(client, unknownFinish);
+				const unknownWritten = unknownFinish;
 				expect(unknownWritten.failure).toBeNull();
 				expect(unknownWritten.outcomes.map((outcome) => outcome.status)).toEqual(["written"]);
 				yield* settledHistoryCorrection(client, userId);
@@ -337,7 +333,7 @@ describe("Media consumption projection and reporting", () => {
 					})),
 				}),
 			);
-			const written = yield* waitForCreateEvents(client, created);
+			const written = created;
 			expect(written.failure).toBeNull();
 			expect(written.outcomes.map((outcome) => outcome.status)).toEqual(["written", "written"]);
 			yield* settledHistoryCorrection(client, userId);
@@ -415,7 +411,7 @@ describe("Media consumption projection and reporting", () => {
 						})),
 					}),
 				);
-				const written = yield* waitForCreateEvents(client, created);
+				const written = created;
 				expect(written.failure).toBeNull();
 				expect(written.outcomes.map((outcome) => outcome.status)).toEqual(["written", "written"]);
 				yield* settledHistoryCorrection(client, userId);

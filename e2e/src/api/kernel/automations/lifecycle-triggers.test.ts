@@ -37,7 +37,6 @@ import {
 	startDataJsonImport,
 	type TestPluginScript,
 	uninstallTestPlugin,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -569,10 +568,7 @@ const eventRequestPayload = (input: EventInput): EventCreateRequestPayload => {
 };
 
 const createEvents = (client: Client, payload: CreateEventsPayload) =>
-	Effect.flatMap(
-		client.call((c) => c.events.create({ payload })),
-		(response) => waitForCreateEvents(client, response),
-	);
+	client.call((c) => c.events.create({ payload }));
 
 const requireWrittenEventId = (result: CreateEventsResult, index = 0) => {
 	const outcome = requirePresent(

@@ -24,8 +24,9 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { EventsService } from "#modules/events/service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -34,9 +35,10 @@ import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-su
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { makeWorkflowEngine } from "#testing/effect";
+import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
 
@@ -188,6 +190,8 @@ const populationReferencesLayer = (
 	);
 
 type ExecuteOptions = ExecuteArgs[1];
+
+const parentInstance = WorkflowInstance.initial(ScriptExecutionWorkflow, "parent-execution");
 type ExecuteArgs = Parameters<WorkflowEngine["Service"]["execute"]>;
 
 class RecordedWorkflowDispatches extends Context.Service<
@@ -205,19 +209,30 @@ const recordingEngineLayer = (
 		dispatchNumber: number,
 	) => Effect.Effect<unknown, SandboxRunError>,
 ) =>
-	Layer.effectContext(
+	Layer.unwrap(
 		Effect.gen(function* () {
-			const dispatches = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
-			return Context.make(
-				WorkflowEngine,
-				makeWorkflowEngine({
-					execute: (workflow, options) =>
-						Ref.updateAndGet(dispatches, (all) => [...all, options]).pipe(
-							Effect.flatMap((all) => respond(workflow, options, all.length)),
-						),
+			const dispatches = yield* Ref.make<
+				ReadonlyArray<Pick<ExecuteOptions, "payload" | "executionId">>
+			>([]);
+			return Layer.mergeAll(
+				Layer.succeed(
+					WorkflowEngine,
+					makeWorkflowActivityEngine(parentInstance, {
+						execute: (workflow, options) =>
+							Ref.updateAndGet(dispatches, (all) => [...all, options]).pipe(
+								Effect.flatMap((all) => respond(workflow, options, all.length)),
+							),
+					}),
+				),
+				Layer.succeed(WorkflowInstance, parentInstance),
+				Layer.mock(EventsService)({
+					create: (input) =>
+						Ref.update(dispatches, (all) => [
+							...all,
+							{ payload: input, executionId: input.command.causation.executionId },
+						]).pipe(Effect.as({ count: 0, outcomes: [], warnings: [], failure: null })),
 				}),
-			).pipe(
-				Context.add(RecordedWorkflowDispatches, {
+				Layer.succeed(RecordedWorkflowDispatches, {
 					payloads: Effect.map(Ref.get(dispatches), (all) => all.map(({ payload }) => payload)),
 					executionIds: Effect.map(Ref.get(dispatches), (all) =>
 						all.map(({ executionId }) => executionId),
@@ -227,7 +242,11 @@ const recordingEngineLayer = (
 		}),
 	);
 
-const unusedEngineLayer = Layer.succeed(WorkflowEngine, makeWorkflowEngine());
+const unusedEngineLayer = Layer.mergeAll(
+	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
+	Layer.succeed(WorkflowInstance, parentInstance),
+	Layer.mock(EventsService)({}),
+);
 
 layer(
 	KernelWorkflowReferencesLive.pipe(
@@ -298,11 +317,7 @@ layer(
 
 layer(
 	referencesLayer(unownedRepositories).pipe(
-		Layer.provideMerge(
-			recordingEngineLayer((workflow) =>
-				Effect.succeed(workflow._tag === "EventCreateWorkflow" ? [] : { id: "entity-1" }),
-			),
-		),
+		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
 	),
 )((test) => {
 	test.effect(

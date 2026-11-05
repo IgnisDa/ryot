@@ -5,7 +5,6 @@ import {
 	AutomationExecutionId,
 	EntityId,
 	EntitySchemaSlug,
-	EventId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
@@ -275,71 +274,6 @@ layer(
 					_tag: "MutationReceiptIdentityConflict",
 				});
 				expect(yield* session.run((db) => db.select().from(tables.entity))).toEqual([]);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"counts only committed event-item receipts and ignores decision rows",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const receipts = yield* MutationReceipts;
-				yield* session.run((db) =>
-					db
-						.insert(tables.user)
-						.values({ id: owner, name: "Owner", email: "receipt-progress@example.test" })
-						.onConflictDoNothing(),
-				);
-				const eventCommand = { ...command, itemIdentity: "event:0" };
-				const eventReceipt = mutationReceiptIdentity({
-					ownerUserId: owner,
-					scopeUserId: owner,
-					command: eventCommand,
-					input: { properties: {} },
-					commandKind: "event:create",
-				});
-				const batchId = receipts.batchIdentity({
-					command,
-					resource: "event",
-					ownerUserId: owner,
-					identity: ["events"],
-				});
-				yield* session.transaction(
-					Effect.gen(function* () {
-						const decision = yield* receipts.beginBatch({
-							pins: [],
-							maxItems: 2,
-							identity: batchId,
-						});
-						expect(decision.candidateCount).toBe(0);
-						yield* receipts.insert({
-							dispatch: [],
-							batchIndex: 0,
-							batchId: batchId.id,
-							identity: eventReceipt,
-							result: { eventId: EventId.make("event-0") },
-						});
-						yield* receipts.insert({
-							result: null,
-							dispatch: [],
-							batchIndex: 1,
-							batchId: batchId.id,
-							identity: mutationReceiptIdentity({
-								input: {},
-								ownerUserId: owner,
-								scopeUserId: owner,
-								commandKind: "event:noop",
-								command: { ...command, itemIdentity: "skipped:1" },
-							}),
-						});
-						yield* receipts.sealBatch(batchId, []);
-					}),
-				);
-				expect(yield* receipts.countWrittenEvents(owner, command.causation.executionId)).toEqual({
-					dispatch: [],
-					writtenCount: 1,
-				});
 			}),
 		testTimeout,
 	);

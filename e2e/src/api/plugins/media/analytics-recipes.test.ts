@@ -18,7 +18,6 @@ import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createCollection } from "~/fixtures/kernel/collections";
 import { seedEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
-import { waitForCreateEvents } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
@@ -107,7 +106,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 					],
 				}),
 			);
-			const written = yield* waitForCreateEvents(client, created);
+			const written = created;
 			expect(written.failure).toBeNull();
 			expect(written.outcomes.map(({ status }) => status)).toEqual(["written"]);
 
@@ -259,7 +258,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 					})),
 			);
 			const created = yield* client.call((c) => c.events.create({ payload: batch }));
-			const written = yield* waitForCreateEvents(client, created);
+			const written = created;
 			expect(written.failure).toBeNull();
 			expect(written.outcomes).toHaveLength(batch.length);
 			const additionalIds = written.outcomes.map((outcome) => {
@@ -409,7 +408,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 					})),
 			);
 			const created = yield* client.call((c) => c.events.create({ payload: sourceEvents }));
-			const written = yield* waitForCreateEvents(client, created);
+			const written = created;
 			expect(written.outcomes.map(({ status }) => status)).toEqual(
 				sourceEvents.map(() => "written"),
 			);

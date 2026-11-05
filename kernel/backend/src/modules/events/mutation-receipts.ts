@@ -14,7 +14,7 @@ import {
 	MutationReceiptIdentityConflict,
 } from "#modules/mutations/receipts";
 
-import type { EventCreateWorkflowPayload } from "./event-create-workflow";
+import type { EventCreateInput } from "./event-create";
 import type { EventIdentityInput, UpdateEventEntityReferencesInput } from "./repository";
 
 export const EventCreateReceiptResult = Schema.Struct({
@@ -49,7 +49,7 @@ export const eventCreateBatchInput = (input: {
 });
 
 export const eventCreateWriteCommand = (
-	payload: EventCreateWorkflowPayload,
+	payload: EventCreateInput,
 	index: number,
 ): DomainLifecycleCommand => {
 	const command = payload.writeCommand ?? payload.command;
@@ -60,7 +60,7 @@ export const eventCreateWriteCommand = (
 };
 
 export const eventCreateReceiptIdentity = (
-	input: EventCreateWorkflowPayload,
+	input: EventCreateInput,
 	index: number,
 	submittedItem: CreateEventItem,
 ) =>

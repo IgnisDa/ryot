@@ -7,7 +7,6 @@ import {
 	createEventTestFixture,
 	listEventSchemas,
 	requireEventSchemaBySlug,
-	waitForCreateEvents,
 	waitForEventCount,
 } from "~/fixtures/kernel";
 import { createExerciseEntityFixture, findFitnessEntitySchema } from "~/fixtures/plugins/fitness";
@@ -35,7 +34,7 @@ describe("POST /events with global entities", () => {
 			);
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
 
-			expect((yield* waitForCreateEvents(client, createResult)).count).toBe(1);
+			expect(createResult.count).toBe(1);
 			expect(
 				membership.data.entity?.type === "rows" ? membership.data.entity.items : [],
 			).toHaveLength(1);
@@ -66,7 +65,7 @@ describe("POST /events with global entities", () => {
 					],
 				}),
 			);
-			expect(yield* waitForCreateEvents(client, result)).toEqual<unknown>(
+			expect(result).toEqual<unknown>(
 				objectContaining({
 					count: 2,
 					failure: objectContaining({
@@ -118,7 +117,7 @@ describe("media membership event exclusions", () => {
 					],
 				}),
 			);
-			expect((yield* waitForCreateEvents(client, result)).count).toBe(1);
+			expect(result.count).toBe(1);
 			yield* waitForEventCount(client, entity.id, 1);
 
 			const membership = yield* queryInMediaLibraryRelationship(client, entity.id, schema.slug);
@@ -136,7 +135,7 @@ describe("media membership event exclusions", () => {
 			const result = yield* client.call((c) =>
 				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 4 } }] }),
 			);
-			expect((yield* waitForCreateEvents(client, result)).count).toBe(1);
+			expect(result.count).toBe(1);
 			yield* waitForEventCount(client, entityId, 1);
 
 			const membership = yield* queryInMediaLibraryRelationship(client, entityId, entitySchemaSlug);

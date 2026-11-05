@@ -21,7 +21,6 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
 import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
-import { MutationReceipts } from "#modules/mutations/receipts";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -141,7 +140,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					() => new DbError({ message: "Event writes require an active transaction" }),
 				),
 			);
-			const receipts = yield* MutationReceipts.make;
 			const eventStreams = yield* EventStreamRepository.make;
 			const touchScopes = Effect.fn("EventsRepository.touchScopes")(function* (
 				rows: ReadonlyArray<{
@@ -773,28 +771,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				}
 				return snapshots;
 			});
-			const getCreateProgress = Effect.fn("EventsRepository.getCreateProgress")(function* (
-				userId: UserId,
-				executionId: string,
-			) {
-				const progress = yield* receipts.countWrittenEvents(userId, executionId);
-				const requiredIds = progress.dispatch.flatMap(({ runs }) =>
-					runs.flatMap((run) => (run.delivery === "required" ? [run.id] : [])),
-				);
-				const rows = requiredIds.length
-					? yield* session.run((db) =>
-							db
-								.select({ status: schema.automationRun.status })
-								.from(schema.automationRun)
-								.where(inArray(schema.automationRun.id, requiredIds)),
-						)
-					: [];
-				return {
-					writtenCount: progress.writtenCount,
-					requiredPending: rows.some((row) => row.status === "queued" || row.status === "running"),
-				};
-			});
-
 			return {
 				deleteEvent,
 				createEvent,
@@ -805,7 +781,6 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				getEventSnapshot,
 				getScopeRevision,
 				getEventSnapshots,
-				getCreateProgress,
 				deletePreparedEvent,
 				updatePreparedEvent,
 				listSessionEventIds,

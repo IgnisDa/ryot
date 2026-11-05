@@ -69,7 +69,7 @@ after its child sets succeed. Child sets keep their initial
 
 `EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. After population and the
 `provider-entity-import` completion hooks, an import with an entry event creates that event for the
-importing user through `EventCreateWorkflow`, keyed by a child item identity of the import command so
+importing user in the `entry-event` activity, keyed by a child item identity of the import command so
 replays create it once. A failed or refused event fails the import at the `entry-event` stage; the
 imported entity stays. Entity interest requests
 `base` for visible and `full` for foreground interest (see the entity-interest README). The kernel

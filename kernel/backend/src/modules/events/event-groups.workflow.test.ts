@@ -21,8 +21,11 @@ import { UserCommandWorkflow } from "#modules/user-commands/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
-import { EventCreateWorkflow } from "./event-create-workflow";
-import { eventGroupFixture, eventGroupWorkflowLayer } from "./event-groups.test-support";
+import {
+	createGroupEvents,
+	eventGroupFixture,
+	eventGroupWorkflowLayer,
+} from "./event-groups.test-support";
 import { EventsService } from "./service";
 
 const compound = Effect.fnUntraced(function* (memberCount?: number) {
@@ -79,7 +82,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 			Effect.gen(function* () {
 				const fixture = yield* compound();
 				const create = (slug: "anchor" | "member") =>
-					EventCreateWorkflow.execute({
+					createGroupEvents({
 						userId: fixture.userId,
 						command: {
 							...fixture.command,
@@ -303,7 +306,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* compound();
-				const second = yield* EventCreateWorkflow.execute({
+				const second = yield* createGroupEvents({
 					userId: fixture.userId,
 					command: {
 						...fixture.command,
@@ -387,7 +390,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 			Effect.gen(function* () {
 				const fixture = yield* compound();
 				const other = yield* eventGroupFixture();
-				const result = yield* EventCreateWorkflow.execute({
+				const result = yield* createGroupEvents({
 					userId: other.userId,
 					command: other.command,
 					payload: [

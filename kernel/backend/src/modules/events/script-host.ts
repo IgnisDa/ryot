@@ -157,7 +157,7 @@ export const makeEventScriptHost = Effect.gen(function* () {
 				"createEvents",
 			);
 			return yield* events
-				.create({ payload, userId: UserId.make(userSandboxRunUserId(input)) }, command)
+				.create({ payload, command, userId: UserId.make(userSandboxRunUserId(input)) })
 				.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 		});
 	const requestEventStreamWork = (

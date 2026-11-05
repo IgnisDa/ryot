@@ -23,7 +23,6 @@ import {
 	executeRyotQLRecipe,
 	listEventsForEntity,
 	pollUntil,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { invokeOperation } from "~/fixtures/kernel/operations";
 import {
@@ -88,7 +87,7 @@ describe("Media history correction recovery", () => {
 				entitySchemaSlug: "movie",
 			});
 			const reference = yield* mediaReferenceForEntity(client, movie.entityId);
-			const created = yield* client.call((c) =>
+			yield* client.call((c) =>
 				c.events.create({
 					payload: Array.from({ length: 20 }, (_, index) => ({
 						entityId: movie.entityId,
@@ -98,7 +97,6 @@ describe("Media history correction recovery", () => {
 					})),
 				}),
 			);
-			yield* waitForCreateEvents(client, created);
 			yield* pollUntil(
 				"committed history continuation",
 				executeRyotQLRecipe(client, checkpointRecipe({ reference, entityId: movie.entityId })).pipe(

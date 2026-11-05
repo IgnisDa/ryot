@@ -25,12 +25,13 @@ import {
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type {
 	LifecycleCommittedStep,
 	LifecyclePreparedStep,
 } from "#modules/automations/lifecycle/write-step";
+import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
@@ -39,7 +40,7 @@ import {
 	type DomainLifecycleCommand,
 	kernelCollectionLifecycleCommand,
 } from "#modules/entities/write-context";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { EventsService } from "#modules/events/service";
 import {
 	PendingRelationshipMutations,
 	RelationshipSingleResult,
@@ -47,10 +48,6 @@ import {
 import { RelationshipsService } from "#modules/relationships/service";
 import { trimToNull } from "#platform/validation";
 
-import {
-	CollectionMembershipWorkflow,
-	type CollectionMembershipWorkflowPayload,
-} from "./collection-membership-workflow";
 import { collectionMembershipSchema, prepareCollectionFields } from "./fields";
 import { CollectionsRepository } from "./repository";
 import { toCollectionResponse } from "./service-support";
@@ -76,6 +73,21 @@ export const PendingCollectionMembership = Schema.Struct({
 	mutations: PendingRelationshipMutations,
 });
 export type PendingCollectionMembership = typeof PendingCollectionMembership.Type;
+
+export const CollectionMembershipWritten = Schema.Struct({
+	...MembershipResponse.fields,
+	operation: RelationshipSingleResult.fields.operation,
+});
+
+type MembershipInput = {
+	readonly userId: UserId;
+	readonly entityId: EntityId;
+	readonly properties?: unknown;
+	readonly collectionId: EntityId;
+	readonly operation: "add" | "remove";
+	readonly command: DomainLifecycleCommand;
+	readonly mode?: CreateMembershipBody["mode"];
+};
 
 export const CollectionEntityResult = Schema.Struct(Struct.pick(ListedEntity.fields, ["id"]));
 export type CollectionEntityResult = typeof CollectionEntityResult.Type;
@@ -153,8 +165,9 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 	"@ryot-app/kernel-backend/modules/collections/service/CollectionsService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
 			const entities = yield* EntitiesService;
+			const events = yield* EventsService;
+			const execution = yield* LifecycleExecution;
 			const repository = yield* CollectionsRepository;
 			const relationships = yield* RelationshipsService;
 			const relationshipSchemasRepository = yield* RelationshipSchemaReader;
@@ -546,36 +559,98 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				);
 			});
 
-			const dispatchMembership = (
-				user: CurrentUserValue,
-				payload: Omit<CollectionMembershipWorkflowPayload, "userId" | "command" | "executionId">,
-				command: DomainLifecycleCommand,
-			) => {
-				const executionId = command.causation.executionId;
-				return dispatchAdmittedWorkflow(
-					engine,
-					CollectionMembershipWorkflow,
-					command.accountGeneration,
-					{ executionId, payload: { ...payload, command, executionId, userId: user.id } },
+			const writeMembership = Effect.fn("CollectionsService.writeMembership")(function* (
+				input: MembershipInput,
+			) {
+				const command = kernelCollectionLifecycleCommand(input.command);
+				const target = {
+					command,
+					userId: input.userId,
+					entityId: input.entityId,
+					collectionId: input.collectionId,
+				};
+				const { result, warnings } = yield* runLifecycleWriteInline(execution, {
+					commit: commitMembership,
+					applyPolicies: applyMembershipPolicies,
+					prepare:
+						input.operation === "add"
+							? prepareMembership({ ...target, mode: input.mode, properties: input.properties })
+							: prepareRemoval(target),
+				});
+				if (!result.eventSchemaSlug) {
+					return { warnings, memberOf: result.memberOf, operation: result.operation };
+				}
+				const created = yield* events
+					.create({
+						userId: input.userId,
+						command: childCollectionLifecycleCommand(command, `event:${result.memberOf.id}`),
+						payload: [
+							{
+								entityId: input.collectionId,
+								occurredAt: result.occurredAt,
+								eventSchemaSlug: result.eventSchemaSlug,
+								properties: {
+									entityId: result.entityId,
+									relationshipId: result.memberOf.id,
+									entitySchemaSlug: result.entitySchemaSlug,
+									relationshipProperties: result.memberOf.properties,
+								},
+							},
+						],
+					})
+					.pipe(Effect.result);
+				const failure =
+					created._tag === "Failure" ? created.failure : created.success.failure?.reason;
+				if (failure === undefined) {
+					return {
+						memberOf: result.memberOf,
+						operation: result.operation,
+						warnings: [
+							...warnings,
+							...(created._tag === "Success" ? created.success.warnings : []),
+						],
+					};
+				}
+				const relationshipId = result.memberOf.id;
+				const childCommand = childCollectionLifecycleCommand(
+					command,
+					`compensation:${relationshipId}`,
 				);
-			};
+				const compensation = yield* runLifecycleWriteInline(execution, {
+					commit: commitCompensation,
+					applyPolicies: applyCompensationPolicies,
+					prepare:
+						input.operation === "add"
+							? prepareCompensation(input.userId, relationshipId, childCommand)
+							: prepareRestoration({
+									...target,
+									command: childCommand,
+									properties: result.memberOf.properties,
+								}),
+				});
+				if (compensation.warnings.length > 0) {
+					yield* Effect.logWarning("collection membership compensation warnings", {
+						warnings: compensation.warnings,
+					});
+				}
+				yield* Effect.logWarning("collection membership event failed", { failure });
+				return yield* new CollectionBadRequest({ reason: { code: "membership-event-failed" } });
+			});
 
 			const addToCollection = Effect.fn("CollectionsService.addToCollection")(function* (
 				user: CurrentUserValue,
 				payload: CreateMembershipBody,
 				command: DomainLifecycleCommand,
 			) {
-				return yield* dispatchMembership(
-					user,
-					{
-						operation: "add",
-						mode: payload.mode,
-						entityId: payload.entityId,
-						properties: payload.properties,
-						collectionId: payload.collectionId,
-					},
+				return yield* writeMembership({
 					command,
-				);
+					userId: user.id,
+					operation: "add",
+					mode: payload.mode,
+					entityId: payload.entityId,
+					properties: payload.properties,
+					collectionId: payload.collectionId,
+				});
 			});
 
 			const removeFromCollection = Effect.fn("CollectionsService.removeFromCollection")(function* (
@@ -583,11 +658,13 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 				payload: DeleteMembershipBody,
 				command: DomainLifecycleCommand,
 			) {
-				const { memberOf, warnings } = yield* dispatchMembership(
-					user,
-					{ operation: "remove", entityId: payload.entityId, collectionId: payload.collectionId },
+				const { memberOf, warnings } = yield* writeMembership({
 					command,
-				);
+					userId: user.id,
+					operation: "remove",
+					entityId: payload.entityId,
+					collectionId: payload.collectionId,
+				});
 				return { memberOf, warnings };
 			});
 
@@ -646,17 +723,10 @@ export class CollectionsService extends Context.Service<CollectionsService>()(
 			return {
 				create,
 				update,
-				prepareRemoval,
+				writeMembership,
 				addToCollection,
-				commitMembership,
-				prepareMembership,
-				commitCompensation,
-				prepareRestoration,
-				prepareCompensation,
 				removeFromCollection,
-				applyMembershipPolicies,
 				delete: deleteCollection,
-				applyCompensationPolicies,
 				prepareGetOrCreateCollection,
 				applyCollectionPolicies: (pending: PendingEntityMutation) =>
 					entities

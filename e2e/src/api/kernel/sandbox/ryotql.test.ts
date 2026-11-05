@@ -27,7 +27,6 @@ import {
 	requireRyotQLValue,
 	systemRyotqlProbeSandboxSource,
 	uninstallTestPlugin,
-	waitForCreateEvents,
 } from "~/fixtures/kernel";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -101,11 +100,8 @@ describe("sandbox RyotQL reads", () => {
 				client,
 				pluginId,
 			);
-			yield* waitForCreateEvents(
-				client,
-				yield* client.call((c) =>
-					c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
-				),
+			yield* client.call((c) =>
+				c.events.create({ payload: [{ entityId, eventSchemaSlug, properties: { rating: 5 } }] }),
 			);
 			const { jobId } = yield* enqueueSandboxScript(userId, {
 				scriptId,

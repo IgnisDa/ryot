@@ -30,9 +30,9 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 					}),
 					writeContext: null,
 				};
-				return yield* service.createHttp({ payload, userId: user.id }, command).pipe(
+				return yield* service.create({ payload, command, userId: user.id }).pipe(
 					Effect.catchTag("EventCreateItemError", (error) =>
-						Effect.logError("event creation escaped item failure handling", error).pipe(
+						Effect.logError("event creation conflicted with its recorded command", error).pipe(
 							Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
 						),
 					),
@@ -44,21 +44,6 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 							),
 					),
 				);
-			}),
-		)
-		.handle("getCreateOperation", ({ params }) =>
-			Effect.gen(function* () {
-				const user = yield* CurrentUser;
-				const service = yield* EventsService;
-				return yield* service
-					.getCreateOperation(user.id, params.operationId)
-					.pipe(
-						Effect.catchTag("DbError", (error) =>
-							Effect.logError("event operation lookup failed", error).pipe(
-								Effect.andThen(new EventsInternalError({ reason: { code: "unexpected-error" } })),
-							),
-						),
-					);
 			}),
 		)
 		.handle("update", ({ params, payload }) =>
