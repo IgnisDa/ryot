@@ -413,6 +413,7 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 							request: {
 								input: request.input,
 								packageId: request.packageId,
+								submittedAt: request.submittedAt,
 								operationSlug: request.operationSlug,
 								idempotencyKey: request.idempotencyKey,
 							},

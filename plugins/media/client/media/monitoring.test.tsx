@@ -37,6 +37,7 @@ function Header(props: { readonly media: MediaEntitySummaryValue }) {
 
 const monitoringRequest = (enable: boolean) => ({
 	packageId: "ryot/media",
+	submittedAt: anyOf(String),
 	idempotencyKey: anyOf(String),
 	input: { entityIds: ["media-1"] },
 	label: enable ? "Started monitoring" : "Stopped monitoring",

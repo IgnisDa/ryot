@@ -15,7 +15,6 @@ import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
 import { sandboxEntitySchemaSlugListSchema } from "./entities";
 import { EVENT_MUTATION_SANDBOX_LIMITS } from "./limits";
 import { nonEmptyString, sandboxIdSchema } from "./primitives";
-import { optionalSubmissionOptions, submissionOptionsSchema } from "./writes";
 
 export const eventSchemaRecordSchema = strictStruct({
 	id: Schema.String,
@@ -79,7 +78,6 @@ export const updateEventsArgsSchema = Schema.Tuple([
 	Schema.Array(updateEventItemSchema).pipe(
 		Schema.check(Schema.isMaxLength(EVENT_MUTATION_SANDBOX_LIMITS.items)),
 	),
-	optionalSubmissionOptions,
 ]);
 export const deleteEventsArgsSchema = Schema.Tuple([
 	Schema.Array(sandboxIdSchema).pipe(
@@ -88,7 +86,6 @@ export const deleteEventsArgsSchema = Schema.Tuple([
 	Schema.optional(
 		Schema.UndefinedOr(
 			strictStruct({
-				...submissionOptionsSchema.fields,
 				expected: Schema.optional(Schema.Record(Schema.String, EventWritePrecondition)),
 			}),
 		),
@@ -102,10 +99,7 @@ export const updateEventsResultSchema = hostResultSchema(updateEventsResultDataS
 export const deleteEventsResultSchema = hostResultSchema(deleteEventsResultDataSchema);
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
-export const createEventsArgsSchema = Schema.Tuple([
-	Schema.Array(createEventItemSchema),
-	optionalSubmissionOptions,
-]);
+export const createEventsArgsSchema = Schema.Tuple([Schema.Array(createEventItemSchema)]);
 export const requestEventStreamWorkArgsSchema = Schema.Tuple([
 	EventStreamWorkRequest,
 	EventStreamProcessorReference,

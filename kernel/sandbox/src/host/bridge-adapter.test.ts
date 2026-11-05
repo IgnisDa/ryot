@@ -573,27 +573,26 @@ describe("bindSandboxHostFunctions", () => {
 	);
 
 	it.effect(
-		"validates user entity deletions and forwards submission options",
+		"validates user entity deletions",
 		() =>
 			Effect.gen(function* () {
 				const calls: unknown[] = [];
 				const bound = bindSandboxHostFunctions(
 					makeImplementations({
-						deleteUserEntity: (runInput, item, options) => {
-							calls.push({ item, options, runInput });
+						deleteUserEntity: (runInput, item) => {
+							calls.push({ item, runInput });
 							return Effect.succeed({ entityId: item.entityId });
 						},
 					}),
 					input,
 				);
 				const item = { entityId: "entity", entitySchemaSlug: "media-library" };
-				const options = { idempotencyKey: "submission", submittedAt: "2026-10-15T00:00:00Z" };
-				expect(yield* bound.deleteUserEntity([item, options])).toEqual({
+				expect(yield* bound.deleteUserEntity([item])).toEqual({
 					success: true,
 					data: { entityId: "entity" },
 				});
-				expect(calls).toEqual([{ item, options, runInput: input }]);
-				expect(yield* bound.deleteUserEntity([{ ...item, userId: "other" }, options])).toEqual({
+				expect(calls).toEqual([{ item, runInput: input }]);
+				expect(yield* bound.deleteUserEntity([{ ...item, userId: "other" }])).toEqual({
 					success: false,
 					error: "0.userId: Expected no excess property",
 				});
@@ -639,8 +638,8 @@ describe("bindSandboxHostFunctions", () => {
 				const calls: unknown[] = [];
 				const bound = bindSandboxHostFunctions(
 					makeImplementations({
-						updateUserEntity: (runInput, item, options) => {
-							calls.push({ item, options, runInput });
+						updateUserEntity: (runInput, item) => {
+							calls.push({ item, runInput });
 							return Effect.fail({
 								message: "changed",
 								data: { message: "changed", code: "mutation-conflict" },
@@ -655,14 +654,13 @@ describe("bindSandboxHostFunctions", () => {
 					entityId: "entity",
 					expected: { properties: {}, name: "Original", updatedAt: "2026-10-15T00:00:00Z" },
 				};
-				const options = { idempotencyKey: "submission", submittedAt: "2026-10-15T00:00:00Z" };
-				expect(yield* bound.updateUserEntity([item, options])).toEqual({
+				expect(yield* bound.updateUserEntity([item])).toEqual({
 					success: false,
 					error: "changed",
 					data: { message: "changed", code: "mutation-conflict" },
 				});
-				expect(calls).toEqual([{ item, options, runInput: input }]);
-				expect(yield* bound.updateUserEntity([{ ...item, userId: "other" }, options])).toEqual({
+				expect(calls).toEqual([{ item, runInput: input }]);
+				expect(yield* bound.updateUserEntity([{ ...item, userId: "other" }])).toEqual({
 					success: false,
 					error: "0.userId: Expected no excess property",
 				});

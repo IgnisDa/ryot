@@ -23,7 +23,7 @@ export default defineOperation({
 	manifest,
 	input: MeasurementReadingLogInput,
 	output: MeasurementReadingLogOutput,
-	run: ({ values, comment, occurredAt, submittedAt, submissionId }, host) =>
+	run: ({ values, comment, occurredAt }, host) =>
 		Effect.gen(function* () {
 			yield* requireMeasurementMetrics(
 				values.map(({ metricId }) => metricId),
@@ -31,7 +31,6 @@ export default defineOperation({
 			);
 			const { entityId: entryId } = yield* host.createUserEntity(
 				measurementEntryEntity(occurredAt, comment),
-				{ submittedAt, idempotencyKey: `${submissionId}:entry` },
 			);
 			return yield* host
 				.createEvents(
@@ -42,7 +41,6 @@ export default defineOperation({
 						eventSchemaSlug: "measurement-reading",
 						properties: measurementReadingProperties(value),
 					})),
-					{ submittedAt, idempotencyKey: submissionId },
 				)
 				.pipe(
 					Effect.map(({ count }) => ({

@@ -32,7 +32,6 @@ import {
 	type LifecycleHostInput,
 	userLifecycleSource,
 } from "#modules/scripts/host/lifecycle-host";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { EventsService } from "./service";
@@ -57,10 +56,7 @@ export const toSandboxCreateEventsResult = (result: CreateEventsResponse) =>
 		),
 	);
 
-export const eventLifecycleHostSteps = (
-	events: EventsService["Service"],
-	submissions: SandboxSubmissionCommands["Service"],
-) => {
+export const eventLifecycleHostSteps = (events: EventsService["Service"]) => {
 	return {
 		updateEvents: {
 			commit: (input: LifecycleHostInput<"UpdateEvents">) =>
@@ -73,7 +69,6 @@ export const eventLifecycleHostSteps = (
 			validate: (
 				rawInput: ScriptRunInput,
 				items: ReadonlyArray<unknown>,
-				options?: Parameters<AdditionalScriptHostImplementationMap["updateEvents"]>[2],
 			): Effect.Effect<LifecycleHostInput<"UpdateEvents">, SandboxHostError> =>
 				sandboxHostEffect(
 					Effect.gen(function* () {
@@ -84,10 +79,10 @@ export const eventLifecycleHostSteps = (
 							);
 						}
 						const decoded = yield* Schema.decodeUnknownEffect(Schema.Array(UpdateEventItem))(items);
-						const command = yield* submissions.commandFor(
+						const command = yield* sandboxLifecycleCommand(
 							input,
-							yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateEvents"),
-							options,
+							userLifecycleSource(input),
+							"updateEvents",
 						);
 						return {
 							command,
@@ -120,10 +115,10 @@ export const eventLifecycleHostSteps = (
 							);
 						}
 						const decoded = yield* Schema.decodeEffect(Schema.Array(EventId))(eventIds);
-						const command = yield* submissions.commandFor(
+						const command = yield* sandboxLifecycleCommand(
 							input,
-							yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "deleteEvents"),
-							options,
+							userLifecycleSource(input),
+							"deleteEvents",
 						);
 						return {
 							command,
@@ -144,7 +139,7 @@ export const makeEventScriptHost = Effect.gen(function* () {
 	const events = yield* EventsService;
 	const eventStreamWork = yield* EventStreamWorkService;
 	const sandboxRepository = yield* SandboxRepository;
-	const lifecycle = eventLifecycleHostSteps(events, yield* SandboxSubmissionCommands);
+	const lifecycle = eventLifecycleHostSteps(events);
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
 		Effect.gen(function* () {
@@ -212,29 +207,20 @@ export const makeEventScriptHost = Effect.gen(function* () {
 
 	return {
 		requestEventStreamWork,
-		createEvents: (rawInput, body, options) =>
-			options !== undefined
-				? sandboxHostEffect(Effect.fail("Idempotent createEvents requires durable event dispatch"))
-				: requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
-						Effect.flatMap((input) =>
-							decodeCreateEventsPayload(body).pipe(
-								Effect.flatMap((payload) => createEvents(input, payload)),
-							),
-						),
-						sandboxHostEffect,
+		createEvents: (rawInput, body) =>
+			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
+				Effect.flatMap((input) =>
+					decodeCreateEventsPayload(body).pipe(
+						Effect.flatMap((payload) => createEvents(input, payload)),
 					),
-		updateEvents: (
-			rawInput,
-			items,
-			options?: Parameters<AdditionalScriptHostImplementationMap["updateEvents"]>[2],
-		) =>
+				),
+				sandboxHostEffect,
+			),
+		updateEvents: (rawInput, items) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					const [decoded, submission] = yield* Schema.decodeEffect(updateEventsArgsSchema)([
-						items,
-						options,
-					]);
-					const input = yield* lifecycle.updateEvents.validate(rawInput, decoded, submission);
+					const [decoded] = yield* Schema.decodeEffect(updateEventsArgsSchema)([items]);
+					const input = yield* lifecycle.updateEvents.validate(rawInput, decoded);
 					return yield* lifecycle.updateEvents.commit(input);
 				}),
 			),
@@ -245,11 +231,11 @@ export const makeEventScriptHost = Effect.gen(function* () {
 		) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
-					const [decoded, submission] = yield* Schema.decodeEffect(deleteEventsArgsSchema)([
+					const [decoded, decodedOptions] = yield* Schema.decodeEffect(deleteEventsArgsSchema)([
 						eventIds,
 						options,
 					]);
-					const input = yield* lifecycle.deleteEvents.validate(rawInput, decoded, submission);
+					const input = yield* lifecycle.deleteEvents.validate(rawInput, decoded, decodedOptions);
 					return yield* lifecycle.deleteEvents.commit(input);
 				}),
 			),

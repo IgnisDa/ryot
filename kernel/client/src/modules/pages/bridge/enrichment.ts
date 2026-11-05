@@ -30,7 +30,6 @@ export class PluginEnrichment extends Context.Service<PluginEnrichment>()(
 							action: request.action,
 							pluginId: request.pluginId,
 							operation: request.operation,
-							idempotencyKey: request.idempotencyKey,
 						},
 					})
 					.pipe(

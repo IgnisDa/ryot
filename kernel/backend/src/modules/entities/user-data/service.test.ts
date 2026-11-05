@@ -89,6 +89,7 @@ const command = {
 		executionId: AutomationExecutionId.make("entity-user-data-execution"),
 	}),
 	writeContext: null,
+	accountGeneration: null,
 };
 
 type PersistedRelationship = Effect.Success<

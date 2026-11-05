@@ -291,6 +291,23 @@ export const makeCollectionOrderPersistence = (session: DatabaseSession["Service
 				new DbError({ message: `Collection rank allocation failed: ${error.reason.code}` }),
 		),
 	);
+	const isAt = Effect.fnUntraced(function* (
+		scope: Scope,
+		entityId: EntityId,
+		rank: number,
+		destination: ReorderMembershipBody["destination"],
+	) {
+		const { left, right } = yield* neighbors(scope, destination, entityId);
+		return (left === null || rank > left.rank) && (right === null || rank < right.rank);
+	});
+	const isMemberAt = Effect.fn("RelationshipsRepository.isCollectionMemberAt")(function* (
+		scope: Scope,
+		entityId: EntityId,
+		destination: ReorderMembershipBody["destination"],
+	) {
+		const member = yield* findMember(scope, entityId);
+		return member ? yield* isAt(scope, entityId, member.rank, destination) : false;
+	});
 	const move = Effect.fn("RelationshipsRepository.moveCollectionMember")(function* (
 		scope: Scope,
 		entityId: EntityId,
@@ -308,11 +325,7 @@ export const makeCollectionOrderPersistence = (session: DatabaseSession["Service
 		) {
 			return undefined;
 		}
-		const { left, right } = yield* neighbors(scope, destination, entityId);
-		if (
-			(left === null || member.rank > left.rank) &&
-			(right === null || member.rank < right.rank)
-		) {
+		if (yield* isAt(scope, entityId, member.rank, destination)) {
 			return undefined;
 		}
 		const rank = yield* allocate(scope, destination, entityId);
@@ -326,5 +339,5 @@ export const makeCollectionOrderPersistence = (session: DatabaseSession["Service
 		);
 		return undefined;
 	});
-	return { lock, move, prepareCreates };
+	return { lock, move, isMemberAt, prepareCreates };
 };

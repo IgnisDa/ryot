@@ -45,16 +45,10 @@ export const createKindChangingExerciseFixture = Effect.fn("createKindChangingEx
 			}),
 		);
 		const refresh = Effect.fn("refreshRecordedExerciseKind")(function* (kind: ExerciseKind) {
-			const idempotencyKey = yield* randomUuid;
 			const accepted = yield* client.call((contract) =>
 				contract.entities.requestEnrichment({
 					params: { entityId: seeded.id },
-					payload: {
-						idempotencyKey,
-						action: "refresh",
-						operation: "population",
-						pluginId: provider.pluginId,
-					},
+					payload: { action: "refresh", operation: "population", pluginId: provider.pluginId },
 				}),
 			);
 			assertCondition(accepted.enrichmentRequestId !== null, "Expected provider refresh admission");

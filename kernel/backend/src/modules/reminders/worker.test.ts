@@ -238,11 +238,7 @@ layer(services)((test) => {
 				);
 				assertExitFails(
 					yield* (yield* RemindersService)
-						.cancel(input.user, ReminderId.make(input.row.id), {
-							revision: input.row.revision,
-							idempotencyKey: "retired-cancel",
-							submittedAt: input.body.submittedAt,
-						})
+						.cancel(input.user, ReminderId.make(input.row.id), { revision: input.row.revision })
 						.pipe(Effect.exit),
 					new DbError({ message: "Mutation command belongs to a retired account" }),
 				);
@@ -586,8 +582,6 @@ layer(services)((test) => {
 							message: "Changed",
 							timezone: body.timezone,
 							revision: stored.revision,
-							idempotencyKey: "late-edit",
-							submittedAt: body.submittedAt,
 							dueAt: DateTime.formatIso(
 								DateTime.addDuration(DateTime.makeUnsafe(body.dueAt), "1 day"),
 							),
@@ -629,16 +623,10 @@ layer(services)((test) => {
 						revision: 1,
 						dueAt: futureDueAt,
 						timezone: body.timezone,
-						idempotencyKey: "race-edit",
-						submittedAt: body.submittedAt,
 						message: "Edited before admission",
 					});
 				} else {
-					yield* service.cancel(user, created.id, {
-						revision: 1,
-						idempotencyKey: "race-cancel",
-						submittedAt: body.submittedAt,
-					});
+					yield* service.cancel(user, created.id, { revision: 1 });
 				}
 				yield* Deferred.succeed(release, undefined);
 				yield* Fiber.join(fiber);
@@ -759,11 +747,7 @@ layer(services)((test) => {
 				const notification = yield* (yield* NotificationAdmissions).admit(input);
 				const before = yield* (yield* WorkerEvidence).sends;
 				expect(
-					(yield* service.cancel(user, created.id, {
-						idempotencyKey: "cancel",
-						submittedAt: body.submittedAt,
-						revision: processing.revision,
-					})).sendStarted,
+					(yield* service.cancel(user, created.id, { revision: processing.revision })).sendStarted,
 				).toBe(false);
 				yield* deliverEnabledChannels({
 					notificationId: notification.id,

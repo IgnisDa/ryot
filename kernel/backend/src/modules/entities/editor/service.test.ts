@@ -28,6 +28,7 @@ import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/plann
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {
@@ -234,8 +235,8 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 
 const makeEditor = Effect.fnUntraced(function* (
 	overrides: {
+		readonly keys?: Partial<IdempotencyKeys["Service"]>;
 		readonly entities?: Partial<EntitiesService["Service"]>;
-		readonly receipts?: Partial<MutationReceipts["Service"]>;
 		readonly execution?: Partial<LifecycleExecution["Service"]>;
 		readonly relationships?: Partial<RelationshipsService["Service"]>;
 		readonly relationshipsRepository?: Partial<RelationshipsRepository["Service"]>;
@@ -248,9 +249,9 @@ const makeEditor = Effect.fnUntraced(function* (
 	};
 	const relationships = { ...(yield* RelationshipsService), ...overrides.relationships };
 	const repository = { ...(yield* RelationshipsRepository), ...overrides.relationshipsRepository };
-	const receipts = { ...(yield* MutationReceipts), ...overrides.receipts };
+	const keys = { ...(yield* IdempotencyKeys), ...overrides.keys };
 	return yield* EntityEditorService.make.pipe(
-		Effect.provideService(MutationReceipts, receipts),
+		Effect.provideService(IdempotencyKeys, keys),
 		Effect.provideService(LifecycleExecution, execution),
 		Effect.provideService(EntitiesService, entities),
 		Effect.provideService(RelationshipsService, relationships),
@@ -348,11 +349,12 @@ const tablesState = Effect.gen(function* () {
 	const entityRows = yield* session.run((db) => db.select().from(tables.entity));
 	const relationshipRows = yield* session.run((db) => db.select().from(tables.relationship));
 	const receipts = yield* session.run((db) => db.select().from(tables.mutationReceipt));
+	const keys = yield* session.run((db) => db.select().from(tables.idempotencyKey));
 	return {
 		entityRows,
 		relationshipRows,
+		editorKeys: keys.filter(({ key }) => key.startsWith("entity-editor:save:")),
 		entityReceipts: receipts.filter(({ commandKind }) => commandKind.startsWith("entity:")),
-		editorReceipts: receipts.filter(({ commandKind }) => commandKind === "entity-editor:save"),
 	};
 });
 
@@ -381,7 +383,9 @@ const editorCase = (
 ) => layer(freshLayer())(name, (test) => test.effect(name, () => body, testTimeout));
 
 const freshLayer = () =>
-	MutationReceipts.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
+	Layer.mergeAll(MutationReceipts.layer, IdempotencyKeys.layer).pipe(
+		Layer.provideMerge(relationshipDatabaseLayer()),
+	);
 
 describe("EntityEditorService", () => {
 	editorCase(
@@ -417,7 +421,7 @@ describe("EntityEditorService", () => {
 				{ targetEntityId: "part-a", properties: { role: "main" } },
 				{ targetEntityId: "part-b", properties: { role: "side" } },
 			]);
-			expect(state.editorReceipts).toHaveLength(1);
+			expect(state.editorKeys).toHaveLength(1);
 
 			const replay = yield* submitEdit(editor, "create-with-relationships", input);
 			expect(replay.output).toEqual(first.output);
@@ -425,8 +429,7 @@ describe("EntityEditorService", () => {
 			expect(after.entityRows).toHaveLength(state.entityRows.length);
 			expect(after.relationshipRows).toHaveLength(state.relationshipRows.length);
 			const calls = yield* log.calls;
-			expect(calls).toHaveLength(2);
-			expect(calls[1]).toEqual(calls[0]);
+			expect(calls).toHaveLength(1);
 			expect(calls[0]?.length).toBeGreaterThan(0);
 
 			const conflict = yield* submitEdit(editor, "create-with-relationships", {
@@ -537,7 +540,7 @@ describe("EntityEditorService", () => {
 				}),
 			);
 			expect(result.output).toEqual({ kind: "stale" });
-			expect((yield* tablesState).editorReceipts).toHaveLength(0);
+			expect((yield* tablesState).editorKeys).toHaveLength(0);
 		}),
 	);
 
@@ -847,7 +850,7 @@ describe("EntityEditorService", () => {
 			const after = yield* tablesState;
 			expect(after.entityRows).toEqual(before.entityRows);
 			expect(after.relationshipRows).toEqual(before.relationshipRows);
-			expect(after.editorReceipts).toEqual([]);
+			expect(after.editorKeys).toEqual([]);
 			expect(after.entityReceipts).toEqual(before.entityReceipts);
 			expect(yield* log.calls).toEqual([]);
 		}),
@@ -907,7 +910,7 @@ describe("EntityEditorService", () => {
 				const after = yield* tablesState;
 				expect(after.entityRows).toEqual(before.entityRows);
 				expect(after.relationshipRows).toEqual(before.relationshipRows);
-				expect(after.editorReceipts).toEqual([]);
+				expect(after.editorKeys).toEqual([]);
 			}
 		}),
 	);
@@ -938,7 +941,7 @@ describe("EntityEditorService", () => {
 				);
 				expect(result.output).toMatchObject({ kind: "invalid" });
 			}
-			expect((yield* tablesState).editorReceipts).toEqual([]);
+			expect((yield* tablesState).editorKeys).toEqual([]);
 		}),
 	);
 
@@ -991,44 +994,7 @@ describe("EntityEditorService", () => {
 			const after = yield* tablesState;
 			expect(after.entityRows).toEqual(before.entityRows);
 			expect(after.relationshipRows).toHaveLength(before.relationshipRows.length + 1);
-			expect(after.editorReceipts).toEqual([]);
-		}),
-	);
-
-	editorCase(
-		"re-dispatches the stored list when a commit is replayed after a crash",
-		Effect.gen(function* () {
-			const { owner, insert } = yield* setup();
-			yield* insert("crash-part", part, userId);
-			const log = yield* dispatched;
-			const crashing = yield* Ref.make(true);
-			const editor = yield* makeEditor({
-				execution: {
-					dispatch: (plans) =>
-						Ref.getAndSet(crashing, false).pipe(
-							Effect.flatMap((crash) =>
-								crash
-									? log.dispatch(plans).pipe(Effect.andThen(new DbError({ message: "crashed" })))
-									: log.dispatch(plans),
-							),
-						),
-				},
-			});
-			const input = submission(owner, {
-				target: { kind: "create" },
-				relationships: [{ targets: [target("crash-part")], relationshipSchemaSlug: "item-part" }],
-			});
-			expect(yield* submitEdit(editor, "crash-replay", input).pipe(Effect.flip)).toMatchObject({
-				message: "crashed",
-			});
-			const committed = yield* tablesState;
-			expect(committed.editorReceipts).toHaveLength(1);
-			const replay = yield* submitEdit(editor, "crash-replay", input);
-			expect(replay.output.kind).toBe("saved");
-			const calls = yield* log.calls;
-			expect(calls).toHaveLength(2);
-			expect(calls[1]).toEqual(calls[0]);
-			expect((yield* tablesState).entityRows).toEqual(committed.entityRows);
+			expect(after.editorKeys).toEqual([]);
 		}),
 	);
 
@@ -1188,12 +1154,12 @@ describe("EntityEditorService", () => {
 				});
 			}
 
-			const receipts = yield* MutationReceipts;
+			const keys = yield* IdempotencyKeys;
 			const uninstalling = yield* makeEditor({
-				receipts: {
-					lookup: (identity, result) =>
+				keys: {
+					lockedRead: (identity, result) =>
 						setInstallation({ health: "incompatible" }).pipe(
-							Effect.andThen(receipts.lookup(identity, result)),
+							Effect.andThen(keys.lockedRead(identity, result)),
 						),
 				},
 			});
@@ -1220,7 +1186,7 @@ describe("EntityEditorService", () => {
 			expect(late.output).toMatchObject({ kind: "invalid" });
 			const state = yield* tablesState;
 			expect(state.entityRows.filter(({ name }) => name === "Item")).toEqual([]);
-			expect(state.editorReceipts).toEqual([]);
+			expect(state.editorKeys).toEqual([]);
 		}),
 	);
 
@@ -1296,7 +1262,7 @@ describe("EntityEditorService", () => {
 			const theirs = yield* submitAs(otherUser, request(systemOwner));
 			assert(mine.output.kind === "saved" && theirs.output.kind === "saved");
 			expect(theirs.output.entityId).not.toBe(mine.output.entityId);
-			expect((yield* tablesState).editorReceipts).toHaveLength(3);
+			expect((yield* tablesState).editorKeys).toHaveLength(3);
 
 			expect(
 				(yield* submitAs(userId, {

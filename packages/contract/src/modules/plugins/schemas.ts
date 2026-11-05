@@ -2,7 +2,7 @@ import { Schema } from "effect";
 
 import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
-import { strictStruct } from "../../schema/utils";
+import { IsoUtcString, strictStruct } from "../../schema/utils";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../scripts/schemas";
 import { SavedViewReference } from "./references";
 
@@ -245,9 +245,18 @@ export const PluginInstallResult = Schema.Struct({
 
 export const PluginInvokeBody = Schema.Struct({
 	payload: JsonValue,
+	submittedAt: Schema.optional(IsoUtcString),
 	contentHash: Schema.optional(Schema.String),
 	idempotencyKey: Schema.optional(Schema.NonEmptyString),
-});
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(body) =>
+				(body.idempotencyKey === undefined) === (body.submittedAt === undefined) ||
+				"An idempotency key and its submission time must be sent together",
+		),
+	),
+);
 
 export type PluginInvokeBody = Schema.Schema.Type<typeof PluginInvokeBody>;
 

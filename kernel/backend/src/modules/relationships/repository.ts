@@ -776,6 +776,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				lockCollectionOrders: collectionOrder.lock,
 				moveCollectionMember: collectionOrder.move,
 				listUserRelationshipsForEntitiesWithProvenance,
+				isCollectionMemberAt: collectionOrder.isMemberAt,
 			};
 		}),
 	},

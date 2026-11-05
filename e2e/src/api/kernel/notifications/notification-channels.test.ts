@@ -358,16 +358,10 @@ describe("notification delivery", () => {
 		}),
 	);
 
-	it.live("retains channel-test submissions and reports no-channel work as Not sent", () =>
+	it.live("reports channel-test work with no enabled channels as Not sent", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const payload: ContractPayload<"notifications", "testChannels"> = {
-				idempotencyKey: yield* randomUuid,
-				submittedAt: DateTime.formatIso(yield* DateTime.now),
-			};
-			const first = yield* client.call((c) => c.notifications.testChannels({ payload }));
-			const replay = yield* client.call((c) => c.notifications.testChannels({ payload }));
-			expect(first.id).toBe(replay.id);
+			const first = yield* client.call((c) => c.notifications.testChannels());
 			const outcome = yield* executeRyotQLRecipe(
 				client,
 				notificationOutcomeRecipe({ id: first.id }),
@@ -377,18 +371,6 @@ describe("notification delivery", () => {
 				outcome: "not-sent",
 				reason: "no-enabled-channels",
 			});
-			const changedSubmittedAt = DateTime.formatIso(
-				DateTime.add(yield* DateTime.now, { seconds: 1 }),
-			);
-			const conflict = yield* client
-				.call((c) =>
-					c.notifications.testChannels({
-						payload: { ...payload, submittedAt: changedSubmittedAt },
-					}),
-				)
-				.pipe(Effect.flip);
-			assertTaggedError(conflict, "NotificationAdmissionConflictError");
-			expect(conflict.reason.code).toBe("source-content-conflict");
 		}),
 	);
 

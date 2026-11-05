@@ -23,7 +23,6 @@ import { STALE_RECORD_MESSAGE } from "./media-activity-edits";
 import updateDefinition, { manifest as updateManifest } from "./media-activity-update.sandbox";
 
 type DeleteOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["deleteEvents"]>[1]>;
-type UpdateOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["updateEvents"]>[1]>;
 
 type StoredEvent = {
 	readonly id: string;
@@ -75,15 +74,12 @@ const recordingHost = (input: {
 		readonly ids: readonly string[];
 		readonly options: undefined | DeleteOptions;
 	}[] = [];
-	const updates: {
-		readonly items: readonly UpdateEventItem[];
-		readonly options: undefined | UpdateOptions;
-	}[] = [];
+	const updates: { readonly items: readonly UpdateEventItem[] }[] = [];
 	const host = defineSandboxTestHost(updateManifest, {
-		updateEvents: (items, options) =>
+		updateEvents: (items) =>
 			Effect.suspend(() => {
 				calls.push("update");
-				updates.push({ items, options });
+				updates.push({ items });
 				return input.updateEvents?.() ?? Effect.succeed({ count: items.length });
 			}),
 		deleteEvents: (ids, options) =>
@@ -196,7 +192,6 @@ describe("media activity update", () => {
 				).toEqual({ count: 1, status: "saved" });
 				expect(updates).toEqual<unknown>([
 					{
-						options: { submittedAt, idempotencyKey: "submission:write" },
 						items: [
 							{
 								eventId: "event-1",
@@ -484,9 +479,9 @@ describe("media activity delete", () => {
 				expect(yield* remove({ eventIds: ids }, host)).toEqual({ count: 250, status: "saved" });
 				expect(calls).toEqual(["validate", "validate", "validate", "delete", "delete", "delete"]);
 				expect(deletes).toEqual([
-					{ ids: ids.slice(0, 100), options: { submittedAt, idempotencyKey: "submission:0" } },
-					{ ids: ids.slice(100, 200), options: { submittedAt, idempotencyKey: "submission:1" } },
-					{ ids: ids.slice(200), options: { submittedAt, idempotencyKey: "submission:2" } },
+					{ options: {}, ids: ids.slice(0, 100) },
+					{ options: {}, ids: ids.slice(100, 200) },
+					{ options: {}, ids: ids.slice(200) },
 				]);
 			}),
 		testTimeout,
@@ -564,8 +559,6 @@ describe("media activity delete", () => {
 					execution,
 				);
 				expect(deletes[0]?.options).toEqual<unknown>({
-					submittedAt,
-					idempotencyKey: "submission:0",
 					expected: { "event-1": { ...expected, kind: "fields" } },
 				});
 				const batch = yield* Effect.result(
@@ -596,51 +589,6 @@ describe("media activity delete", () => {
 				expect(yield* rejection(remove({ eventIds: ["event-1"] }, host))).toBe(
 					"Event schema is owned by another plugin",
 				);
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"finishes a partial commit when retried with the same submission",
-		() =>
-			Effect.gen(function* () {
-				const ids = eventIds(200);
-				const committed = new Map<string, number>();
-				let failSecondChunk = true;
-				const { host, deletes } = recordingHost({
-					events: movieCompletions(ids),
-					deleteEvents: (chunk, options) => {
-						const key = options?.idempotencyKey ?? "";
-						const replay = committed.get(key);
-						if (replay !== undefined) {
-							return Effect.succeed({ count: replay });
-						}
-						if (key.endsWith(":1") && failSecondChunk) {
-							failSecondChunk = false;
-							return Effect.fail({ message: "Connection reset" });
-						}
-						committed.set(key, chunk.length);
-						return Effect.succeed({ count: chunk.length });
-					},
-				});
-				expect(yield* remove({ eventIds: ids }, host)).toEqual({
-					count: 100,
-					status: "incomplete",
-				});
-				expect(yield* remove({ eventIds: ids }, host)).toEqual({ count: 200, status: "saved" });
-				expect(deletes.map(({ options }) => options?.idempotencyKey)).toEqual([
-					"submission:0",
-					"submission:1",
-					"submission:0",
-					"submission:1",
-				]);
-				expect(deletes[2]?.ids).toEqual(deletes[0]?.ids);
-				expect(deletes[3]?.ids).toEqual(deletes[1]?.ids);
-				yield* remove({ eventIds: ids, submissionId: "another" }, host);
-				expect(deletes.slice(4).map(({ options }) => options?.idempotencyKey)).toEqual([
-					"another:0",
-					"another:1",
-				]);
 			}),
 		testTimeout,
 	);

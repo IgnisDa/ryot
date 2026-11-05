@@ -290,7 +290,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						action: request.action,
 						entityId: entityId.success,
 						operation: request.operation,
-						idempotencyKey: request.idempotencyKey,
 					}),
 				),
 			);
@@ -648,6 +647,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 						input,
 						operationSlug: request.slug,
 						packageId: request.packageId,
+						submittedAt: request.submittedAt,
 						idempotencyKey: request.idempotencyKey,
 						label: normalizeBackgroundLabel(request.label),
 					});
@@ -684,6 +684,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 							...(request.idempotencyKey === undefined
 								? {}
 								: { idempotencyKey: request.idempotencyKey }),
+							...(request.submittedAt === undefined ? {} : { submittedAt: request.submittedAt }),
 						}),
 					);
 					if (!isJsonValue(value)) {

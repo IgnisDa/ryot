@@ -9,6 +9,7 @@ import {
 	UserInitializing,
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { SubmissionExpired } from "../../errors";
 import { PluginPackageSegment, UserId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import {
@@ -184,6 +185,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 					PluginConflictError.pipe(HttpApiSchema.status(409)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 					PluginRequestError.pipe(HttpApiSchema.status(400)),
+					SubmissionExpired.pipe(HttpApiSchema.status(410)),
 					AuthRateLimited.pipe(HttpApiSchema.status(429)),
 					UserInitializing.pipe(HttpApiSchema.status(503)),
 					PluginOperationRejected.pipe(HttpApiSchema.status(422)),

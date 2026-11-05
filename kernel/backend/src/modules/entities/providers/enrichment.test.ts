@@ -262,14 +262,7 @@ const retry = (
 	operation: "population" | "translation" = "population",
 ) =>
 	Effect.flatMap(EntityEnrichmentService, (service) =>
-		service.request({
-			user,
-			entityId,
-			pluginId,
-			operation,
-			action: "retry",
-			idempotencyKey: crypto.randomUUID(),
-		}),
+		service.request({ user, entityId, pluginId, operation, action: "retry" }),
 	);
 const refused = (code: EntityEnrichmentRefused["reason"]["code"]) =>
 	new EntityEnrichmentRefused({ reason: { code } });
@@ -278,7 +271,7 @@ const notFound = (entityId: EntityId) =>
 
 layer(retryLayer())((test) => {
 	test.effect(
-		"refreshes successful data and replays the same submission after completion",
+		"refreshes successful data without changing the stored entity",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* RetryFixture;
@@ -294,24 +287,14 @@ layer(retryLayer())((test) => {
 					pluginId: fixture.pluginId,
 					action: "refresh" as const,
 					operation: "population" as const,
-					idempotencyKey: "successful-refresh",
 				};
 				const before = yield* (yield* EntitiesRepository).getById(entityId);
 				const accepted = yield* service.request(input);
 				assert(accepted.enrichmentRequestId);
-				expect(yield* service.request(input)).toEqual(accepted);
-				yield* (yield* EnrichmentRequests).update(accepted.enrichmentRequestId, {
-					state: "succeeded",
-				});
-				expect(yield* service.request(input)).toEqual(accepted);
 				expect(yield* (yield* EntitiesRepository).getById(entityId)).toEqual(before);
 				expect(
 					(yield* fixture.runs).filter((id) => id === accepted.enrichmentRequestId),
 				).toHaveLength(1);
-				assertExitFails(
-					yield* Effect.exit(service.request({ ...input, action: "retry" })),
-					refused("request-mismatch"),
-				);
 			}),
 		testTimeout,
 	);

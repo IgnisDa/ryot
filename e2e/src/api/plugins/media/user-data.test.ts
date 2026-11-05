@@ -386,8 +386,7 @@ describe("Media entity user data HTTP operations", () => {
 				expect(
 					detachedEpisodeEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "review"),
 				).toBe(true);
-				const clearRequest = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
-				const cleared = yield* clearEntityUserData(client, tree.show.id, clearRequest);
+				const cleared = yield* clearEntityUserData(client, tree.show.id);
 				expect(cleared.entityId).toBe(tree.show.id);
 				expect(cleared.deletedEventsCount).toBeGreaterThan(0);
 				expect(cleared.deletedRelationshipsCount).toBeGreaterThan(0);
@@ -478,8 +477,8 @@ describe("Media entity user data HTTP operations", () => {
 							entityId === regularId && eventSchemaSlug === "complete",
 					),
 				).toBe(true);
-				const replayed = yield* clearEntityUserData(client, tree.show.id, clearRequest);
-				expect(replayed).toEqual(cleared);
+				const replayed = yield* clearEntityUserData(client, tree.show.id);
+				expect(replayed.deletedEventsCount).toBe(0);
 				expect((yield* eventsForTree(client, tree)).map(({ id }) => id).sort()).toEqual(
 					restored.map(({ id }) => id).sort(),
 				);
@@ -662,8 +661,7 @@ describe("Media entity user data HTTP operations", () => {
 				mergeFrom: EntityId.make(source.show.id),
 				mergeInto: EntityId.make(target.show.id),
 			};
-			const submission = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
-			const merged = yield* mergeEntityUserData(client, request, submission);
+			const merged = yield* mergeEntityUserData(client, request);
 			expect(merged.mergeFrom).toBe(source.show.id);
 			expect(merged.mergeInto).toBe(target.show.id);
 			yield* settledHistoryCorrection(client, userId);
@@ -768,8 +766,12 @@ describe("Media entity user data HTTP operations", () => {
 					return typeof id === "string" && targetIds.has(id);
 				}).length,
 			).toBeGreaterThanOrEqual(2);
-			const replay = yield* mergeEntityUserData(client, request, submission);
-			expect(replay).toEqual(merged);
+			const replay = yield* mergeEntityUserData(client, request);
+			expect(replay).toMatchObject({
+				movedEventsCount: 0,
+				mergeFrom: merged.mergeFrom,
+				mergeInto: merged.mergeInto,
+			});
 		}),
 	);
 
@@ -872,8 +874,7 @@ describe("Media entity user data HTTP operations", () => {
 					mergeFrom: EntityId.make(source.show.id),
 					mergeInto: EntityId.make(target.show.id),
 				};
-				const retrySubmission = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
-				const merged = yield* mergeEntityUserData(client, retryRequest, retrySubmission);
+				const merged = yield* mergeEntityUserData(client, retryRequest);
 				expect(merged.mergeFrom).toBe(source.show.id);
 				const matchingEventIds = new Set(
 					(yield* listEventsForEntity(client, matching.id, undefined, 100)).map(({ id }) => id),
@@ -959,13 +960,12 @@ describe("Media entity user data HTTP operations", () => {
 					});
 				}
 				yield* settledHistoryCorrection(client, userId);
-				const clearRequest = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
 				const [showEntity, seasonEntity, episodeEntity] = tree.entities;
 				assertCondition(
 					showEntity !== undefined && seasonEntity !== undefined && episodeEntity !== undefined,
 					"Expected a complete custom show tree",
 				);
-				yield* clearEntityUserData(client, showEntity.id, clearRequest);
+				yield* clearEntityUserData(client, showEntity.id);
 				for (const entity of tree.entities) {
 					expect(yield* listEventsForEntity(client, entity.id, undefined, 100)).toEqual([]);
 					expect(yield* mediaLibraryRows(client, entity.id, entity.schemaSlug)).toEqual([]);

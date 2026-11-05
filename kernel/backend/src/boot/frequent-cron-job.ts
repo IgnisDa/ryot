@@ -18,6 +18,7 @@ import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows"
 import { ingestionFrequentTask } from "#modules/imports/frequent-task";
 import type { ImportsService } from "#modules/imports/service";
 import { integrationsFrequentTask } from "#modules/integrations/frequent-task";
+import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { MutationReceipts } from "#modules/mutations/receipts";
 import { NotificationAdmissions } from "#modules/notifications/admission";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
@@ -128,6 +129,13 @@ const frequentCronTasks: ReadonlyArray<
 		run: () =>
 			Effect.flatMap(BackgroundWorkService, (service) => service.pruneSettled(500)).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("background work retention failed", cause)),
+			),
+	},
+	{
+		name: "idempotency-key-retention",
+		run: () =>
+			Effect.flatMap(IdempotencyKeys.make, (keys) => keys.pruneExpired(500)).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("idempotency key retention failed", cause)),
 			),
 	},
 	{

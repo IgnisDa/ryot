@@ -43,21 +43,15 @@ export default defineOperation({
 			);
 			const set = mediaReviewProperties(input);
 			return yield* host
-				.updateEvents(
-					[
-						{
-							eventId: target.id,
-							expected: writePrecondition(input.expected),
-							patch: {
-								properties: {
-									set,
-									remove: mediaReviewPatchableKeys.filter((key) => !(key in set)),
-								},
-							},
+				.updateEvents([
+					{
+						eventId: target.id,
+						expected: writePrecondition(input.expected),
+						patch: {
+							properties: { set, remove: mediaReviewPatchableKeys.filter((key) => !(key in set)) },
 						},
-					],
-					{ submittedAt: input.submittedAt, idempotencyKey: `${input.submissionId}:write` },
-				)
+					},
+				])
 				.pipe(Effect.catch(rejectHostFailure));
 		}),
 });

@@ -8,6 +8,7 @@ import {
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
+import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
@@ -75,9 +76,7 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 							: {}),
 					};
 					const inputHash = sha256Hex(stableStringify({ ...input, user: user.accountGeneration }));
-					const attempt = sha256Hex(
-						stableStringify([user.accountGeneration, input.idempotencyKey]),
-					);
+					const attempt = generateId();
 					const execution = {
 						attempt,
 						level: "full" as const,
@@ -91,13 +90,6 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 						input.operation === "population"
 							? entityPopulationExecutionId(entity.id, user.accountGeneration, execution)
 							: explicitTranslationExecutionId(entity.id, user.preferences.language ?? "", attempt);
-					const previous = yield* requests.get(executionId);
-					if (previous) {
-						if (previous.inputHash !== inputHash) {
-							return yield* refused("request-mismatch");
-						}
-						return { enrichmentRequestId: previous.id } satisfies RequestEntityEnrichmentResult;
-					}
 					const latestForOperation = yield* requests.latest(selection);
 					const latestFull =
 						input.operation === "population"

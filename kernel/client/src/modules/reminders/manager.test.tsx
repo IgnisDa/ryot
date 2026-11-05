@@ -166,8 +166,6 @@ it.live(
 				yield* Effect.promise(() => screen.findByText("Reminder cancelled."));
 				expect(requests).toHaveLength(2);
 				expect(requests[0]?.payload).toMatchObject({ revision: 9 });
-				expect(requests[0]?.payload.idempotencyKey.length).toBeGreaterThan(0);
-				expect(Number.isNaN(Date.parse(requests[0]?.payload.submittedAt ?? ""))).toBe(false);
 				expect(requests[1]).toEqual(requests[0]);
 			} finally {
 				yield* Effect.promise(view.dispose);
@@ -233,9 +231,6 @@ it.live(
 				expect(cancellations).toHaveLength(1);
 				expect(removals).toHaveLength(1);
 				expect(removals[0]?.payload.revision).toBe(10);
-				expect(removals[0]?.payload.idempotencyKey).not.toBe(
-					cancellations[0]?.payload.idempotencyKey,
-				);
 			} finally {
 				yield* Effect.promise(view.dispose);
 			}

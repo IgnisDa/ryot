@@ -895,9 +895,7 @@ describe("plugin client bridge contract", () => {
 					collectionId: "c-1",
 					expectedRevision: 3,
 					entityId: "entity-1",
-					idempotencyKey: "reorder-1",
 					destination: { kind: "end" },
-					submittedAt: "2026-10-19T00:00:00.000Z",
 				},
 			},
 		];
@@ -1132,7 +1130,6 @@ describe("plugin client bridge contract", () => {
 			action: "retry" as const,
 			operation: "population" as const,
 			type: "enrichment-request" as const,
-			idempotencyKey: "test-enrichment-key",
 		};
 		expect(Result.isSuccess(decodeClient(request))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, userId: "other" }))).toBe(true);

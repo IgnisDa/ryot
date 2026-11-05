@@ -36,7 +36,6 @@ import {
 	type SandboxHttpClassify,
 	type SandboxHttpHop,
 } from "#modules/scripts/host/runtime-host-functions";
-import type { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import { infrastructureRunError } from "../executions/run-error";
 import type {
@@ -212,7 +211,6 @@ export const dispatchSandboxHttpHop = Effect.fn("dispatchSandboxHttpHop")(functi
 export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents")(function* (
 	request: HostRequest,
 	scope: HostCallScope,
-	submissions: SandboxSubmissionCommands["Service"],
 ) {
 	const { input } = yield* loadDispatchInput(request, scope);
 	const { principal } = scope;
@@ -243,18 +241,7 @@ export const prepareSandboxCreateEvents = Effect.fn("prepareSandboxCreateEvents"
 			(error) => new SandboxRunError({ kind: "script-failure", message: error.message }),
 		),
 	);
-	const [items, options] = args;
-	if (options === undefined) {
-		return { userId, command, payload: items };
-	}
-	const writeCommand = yield* submissions
-		.commandFor(input, command, options)
-		.pipe(
-			Effect.mapError(
-				(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
-			),
-		);
-	return { userId, command, writeCommand, payload: items };
+	return { userId, command, payload: args[0] };
 });
 
 export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecycleHostInput")(
@@ -274,11 +261,11 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 				return yield* lifecycle.upsertGlobalEntities.validate(input, items, options);
 			}
 			if (capability === "changeUserRelationships") {
-				const [batches, options] = yield* decodeSandboxHostArguments(
+				const [batches] = yield* decodeSandboxHostArguments(
 					capability,
 					sandboxHostContracts[capability],
 				)(request.args.args);
-				return yield* lifecycle.changeUserRelationships.validate(input, batches, options);
+				return yield* lifecycle.changeUserRelationships.validate(input, batches);
 			}
 			if (capability === "upsertGlobalRelationships") {
 				const [groups] = yield* decodeSandboxHostArguments(
@@ -288,11 +275,11 @@ export const prepareSandboxLifecycleHostInput = Effect.fn("prepareSandboxLifecyc
 				return yield* lifecycle.upsertGlobalRelationships.validate(input, groups);
 			}
 			if (capability === "updateEvents") {
-				const [items, options] = yield* decodeSandboxHostArguments(
+				const [items] = yield* decodeSandboxHostArguments(
 					capability,
 					sandboxHostContracts[capability],
 				)(request.args.args);
-				return yield* lifecycle.updateEvents.validate(input, items, options);
+				return yield* lifecycle.updateEvents.validate(input, items);
 			}
 			if (capability === "deleteEvents") {
 				const [eventIds, options] = yield* decodeSandboxHostArguments(

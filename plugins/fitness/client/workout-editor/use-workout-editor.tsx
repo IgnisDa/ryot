@@ -73,6 +73,7 @@ const createEditorSession = (
 					input: submission,
 					refreshOnSuccess: false,
 					packageId: PLUGIN_PACKAGE_ID,
+					submittedAt: submission.submittedAt,
 					slug: workoutEditorSaveOperationSlug,
 					output: WorkoutEditorSaveOutputSchema,
 					idempotencyKey: submission.submissionId,

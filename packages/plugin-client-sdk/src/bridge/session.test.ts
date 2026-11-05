@@ -962,7 +962,6 @@ describe("plugin Effect request engine", () => {
 							action: "retry",
 							entityId: "entity-1",
 							operation: "population",
-							idempotencyKey: "test-enrichment-key",
 							packageId: PluginPackageId.make("test/foreign"),
 						}),
 					)).reason,
@@ -974,7 +973,6 @@ describe("plugin Effect request engine", () => {
 						action: "retry",
 						entityId: "entity-1",
 						operation: "translation",
-						idempotencyKey: "test-enrichment-key",
 						packageId: PluginPackageId.make("test/fixture"),
 					}),
 					{ startImmediately: true },
@@ -988,7 +986,6 @@ describe("plugin Effect request engine", () => {
 						operation: "translation",
 						requestId: "enrichment-1",
 						type: "enrichment-request",
-						idempotencyKey: "test-enrichment-key",
 					},
 				]);
 				channel.port1.postMessage({
@@ -1006,7 +1003,6 @@ describe("plugin Effect request engine", () => {
 							action: "retry",
 							entityId: "entity-1",
 							operation: "population",
-							idempotencyKey: "test-enrichment-key",
 							packageId: PluginPackageId.make("test/fixture"),
 						}),
 					),
@@ -1356,9 +1352,7 @@ describe("plugin Effect request engine", () => {
 				const input = {
 					expectedRevision: 4,
 					entityId: "entity-1",
-					idempotencyKey: "reorder-1",
 					collectionId: "collection-1",
-					submittedAt: "2026-10-19T00:00:00.000Z",
 					destination: { entityId: "entity-2", kind: "before" as const },
 				};
 				const reordered = yield* Effect.forkChild(
@@ -1421,6 +1415,7 @@ describe("plugin Effect request engine", () => {
 								idempotencyKey,
 								input: { n: 1 },
 								packageId: "test/fixture",
+								submittedAt: "2026-10-25T08:00:00.000Z",
 								inputSchema: Schema.Struct({ n: Schema.Finite }),
 							}),
 						),
@@ -1444,6 +1439,7 @@ describe("plugin Effect request engine", () => {
 						label: "Logged episode 3",
 						requestId: "background-operation-1",
 						type: "background-operation-request",
+						submittedAt: "2026-10-25T08:00:00.000Z",
 					},
 					objectContaining({ idempotencyKey: "key-2", requestId: "background-operation-2" }),
 				]);

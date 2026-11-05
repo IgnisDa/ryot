@@ -77,26 +77,20 @@ it.live(
 			const socket = yield* openInterestWebSocketScoped(first);
 			yield* socket.replaceInterest([seeded.id]);
 			expect((yield* getEntity(first.client, seeded.id)).name).toBe("Saved record");
-			const key = yield* randomUuid;
-			const submit = (client: typeof first.client, idempotencyKey: string) =>
+			const submit = (client: typeof first.client) =>
 				client.call((contract) =>
 					contract.entities.requestEnrichment({
 						params: { entityId: EntityId.make(seeded.id) },
-						payload: {
-							idempotencyKey,
-							action: "refresh",
-							operation: "population",
-							pluginId: provider.pluginId,
-						},
+						payload: { action: "refresh", operation: "population", pluginId: provider.pluginId },
 					}),
 				);
-			const accepted = yield* submit(first.client, key);
+			const accepted = yield* submit(first.client);
 			expect(accepted.enrichmentRequestId).not.toBeNull();
 			yield* pollUntil(
 				"refresh reached provider",
 				Effect.sync(() => (upstream.requests.length === 1 ? true : null)),
 			);
-			const joined = yield* submit(second.client, yield* randomUuid);
+			const joined = yield* submit(second.client);
 			expect(joined.enrichmentRequestId).not.toBeNull();
 			expect((yield* getEntity(first.client, seeded.id)).populationStatus).toEqual({
 				state: "running",
@@ -118,8 +112,7 @@ it.live(
 				expect(refreshed.providerCheckedAt).not.toBeNull();
 			}
 			expect(yield* membership()).toEqual(before);
-			expect(yield* submit(first.client, key)).toEqual(accepted);
-			yield* submit(first.client, yield* randomUuid);
+			yield* submit(first.client);
 			yield* pollUntil(
 				"cooldown request completed",
 				getEntity(first.client, seeded.id).pipe(
@@ -223,12 +216,7 @@ it.live("refreshes the current-language overlay even when canonical content is u
 		yield* auth.client.call((contract) =>
 			contract.entities.requestEnrichment({
 				params: { entityId: EntityId.make(seeded.id) },
-				payload: {
-					action: "refresh",
-					operation: "population",
-					pluginId: provider.pluginId,
-					idempotencyKey: crypto.randomUUID(),
-				},
+				payload: { action: "refresh", operation: "population", pluginId: provider.pluginId },
 			}),
 		);
 		const refreshed = yield* pollUntil(

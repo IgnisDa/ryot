@@ -18,7 +18,6 @@ import deleteDefinition from "./media-review-delete.sandbox";
 import updateDefinition, { manifest } from "./media-review-update.sandbox";
 
 type DeleteOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["deleteEvents"]>[1]>;
-type UpdateOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["updateEvents"]>[1]>;
 
 const submittedAt = "2026-03-10T09:00:00.000Z";
 
@@ -42,10 +41,7 @@ const recordingHost = (input: {
 	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 }) => {
 	const documents: RyotQLDocument[] = [];
-	const updates: {
-		readonly items: readonly UpdateEventItem[];
-		readonly options: undefined | UpdateOptions;
-	}[] = [];
+	const updates: { readonly items: readonly UpdateEventItem[] }[] = [];
 	const deletes: {
 		readonly ids: readonly string[];
 		readonly options: undefined | DeleteOptions;
@@ -62,9 +58,9 @@ const recordingHost = (input: {
 				deletes.push({ ids, options });
 				return { count: 1 };
 			}),
-		updateEvents: (items, options) =>
+		updateEvents: (items) =>
 			Effect.suspend(() => {
-				updates.push({ items, options });
+				updates.push({ items });
 				return input.updateEvents?.() ?? Effect.succeed({ count: 1 });
 			}),
 		executeRyotql: (document) =>
@@ -115,7 +111,6 @@ describe("media review edits", () => {
 				expect(yield* update({ rating: 85 }, host)).toEqual({ count: 1 });
 				expect(updates).toEqual<unknown>([
 					{
-						options: { submittedAt, idempotencyKey: "submission:write" },
 						items: [
 							{
 								eventId: "review-1",
@@ -276,9 +271,7 @@ describe("media review edits", () => {
 						execution,
 					),
 				).toEqual({ count: 1 });
-				expect(deletes).toEqual([
-					{ ids: ["review-1"], options: { submittedAt, idempotencyKey: "submission:write" } },
-				]);
+				expect(deletes).toEqual([{ ids: ["review-1"], options: undefined }]);
 			}),
 		testTimeout,
 	);

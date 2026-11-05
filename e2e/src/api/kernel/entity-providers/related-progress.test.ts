@@ -207,25 +207,13 @@ describe("related population progress", () => {
 				}),
 			);
 			retrying = true;
-			const idempotencyKey = yield* randomUuid;
-			const retries = yield* Effect.forEach(
-				[0, 1],
-				() =>
-					auth.client.call((contract) =>
-						contract.entities.requestEnrichment({
-							params: { entityId: EntityId.make(root.id) },
-							payload: {
-								idempotencyKey,
-								action: "retry",
-								operation: "population",
-								pluginId: providers.root.pluginId,
-							},
-						}),
-					),
-				{ concurrency: "unbounded" },
+			const retried = yield* auth.client.call((contract) =>
+				contract.entities.requestEnrichment({
+					params: { entityId: EntityId.make(root.id) },
+					payload: { action: "retry", operation: "population", pluginId: providers.root.pluginId },
+				}),
 			);
-			expect(retries[0]?.enrichmentRequestId).not.toBeNull();
-			expect(retries[1]).toEqual(retries[0]);
+			expect(retried.enrichmentRequestId).not.toBeNull();
 			yield* pollUntil(
 				"new attempt reached final page",
 				Effect.gen(function* () {

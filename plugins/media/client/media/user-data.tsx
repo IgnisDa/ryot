@@ -45,6 +45,7 @@ const mediaUserDataMutation = createRyotMutation<
 		refreshOnSuccess: false,
 		output: MediaUserDataOutput,
 		packageId: PLUGIN_PACKAGE_ID,
+		submittedAt: input.submittedAt,
 		inputSchema: MediaUserDataInput,
 		idempotencyKey: input.submissionId,
 		input: { ...input.input, submittedAt: input.submittedAt, submissionId: input.submissionId },

@@ -10,7 +10,6 @@ import {
 	NotificationAdmissionConflictError,
 	NotificationAdmissionUnavailableError,
 	NotificationNotFoundError,
-	TestNotificationChannelsBody,
 	UpdateNotificationChannelBody,
 } from "./schemas";
 
@@ -50,7 +49,6 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 			"testChannels",
 			"/notifications/channels/test",
 			{
-				payload: TestNotificationChannelsBody,
 				success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(202)),
 				error: [
 					SubmissionExpired,

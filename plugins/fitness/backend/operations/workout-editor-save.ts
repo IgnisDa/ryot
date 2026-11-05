@@ -573,7 +573,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	input: WorkoutEditorSaveInput,
 	host: ScriptHost,
 ) {
-	const { data, submittedAt, submissionId } = input;
+	const { data, submittedAt } = input;
 	const baseline = yield* loadBaseline(data, host);
 	const graphIssue = validateGraph(data, baseline);
 	if (graphIssue !== undefined) {
@@ -622,7 +622,6 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	for (const { items } of chunked(managed, MANAGED_ASSET_VERIFY_SANDBOX_LIMITS.locators)) {
 		yield* host.verifyManagedAssets(items);
 	}
-	const options = (step: string) => ({ submittedAt, idempotencyKey: `${submissionId}:${step}` });
 	const relationships: Array<UserCommandInput["relationships"][number]> = [];
 	if (data.kind === "workout" && exerciseIds.length > 0) {
 		const library = yield* executeRyotqlRecipe(
@@ -859,7 +858,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		},
 	}).pipe(Effect.mapError((error) => new WorkoutCommandInputError({ message: String(error) })));
 	const committed = yield* host
-		.commitUserChanges(command, options("save"))
+		.commitUserChanges(command)
 		.pipe(Effect.catchIf(isCommitConflict, conflict));
 	for (const result of committed.events) {
 		if (result.itemIdentity.startsWith("set:")) {

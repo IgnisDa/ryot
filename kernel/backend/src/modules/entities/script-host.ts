@@ -33,7 +33,6 @@ import {
 	type LifecycleHostInput,
 	userLifecycleSource,
 } from "#modules/scripts/host/lifecycle-host";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import {
@@ -130,7 +129,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 	const userData = yield* EntityUserDataService;
 	const definitions = yield* DefinitionRepository;
 	const lifecycleExecution = yield* LifecycleExecution;
-	const submissions = yield* SandboxSubmissionCommands;
 	const scripts = yield* SandboxRepository;
 	const lifecycle = entityLifecycleHostSteps(entities);
 	const findForeignEntitySchemaSlug = Effect.fn(function* (
@@ -154,7 +152,6 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 		input: UserSandboxRunInput,
 		operation: "clearUserEntityData" | "mergeUserEntityData",
 		entitySchemaSlug: string,
-		submission: Parameters<typeof submissions.commandFor>[2],
 	) {
 		if (!input.principal.pluginRevision) {
 			return yield* sandboxHostFailure(
@@ -169,12 +166,8 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 				code: "unavailable-operation",
 			});
 		}
-		return yield* submissions.commandFor(
-			input,
-			kernelCollectionLifecycleCommand(
-				yield* sandboxLifecycleCommand(input, userLifecycleSource(input), operation),
-			),
-			submission,
+		return kernelCollectionLifecycleCommand(
+			yield* sandboxLifecycleCommand(input, userLifecycleSource(input), operation),
 		);
 	});
 
@@ -192,23 +185,15 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return lifecycle.upsertGlobalEntities.value(result);
 				}),
 			),
-		clearUserEntityData: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["clearUserEntityData"]>[2],
-		) =>
+		clearUserEntityData: (rawInput, rawItem) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "clearUserEntityData");
-					const [item, submission] = yield* Schema.decodeEffect(clearUserEntityDataArgsSchema)([
-						rawItem,
-						options,
-					]);
+					const [item] = yield* Schema.decodeEffect(clearUserEntityDataArgsSchema)([rawItem]);
 					const command = yield* userDataCommand(
 						input,
 						"clearUserEntityData",
 						item.entitySchemaSlug,
-						submission,
 					);
 					const { warnings, deletedEventsCount, deletedRelationshipsCount } =
 						yield* userData.clearEntityUserDataForCommand(
@@ -223,23 +208,15 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return { deletedEventsCount, deletedRelationshipsCount };
 				}),
 			),
-		mergeUserEntityData: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["mergeUserEntityData"]>[2],
-		) =>
+		mergeUserEntityData: (rawInput, rawItem) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "mergeUserEntityData");
-					const [item, submission] = yield* Schema.decodeEffect(mergeUserEntityDataArgsSchema)([
-						rawItem,
-						options,
-					]);
+					const [item] = yield* Schema.decodeEffect(mergeUserEntityDataArgsSchema)([rawItem]);
 					const command = yield* userDataCommand(
 						input,
 						"mergeUserEntityData",
 						item.entitySchemaSlug,
-						submission,
 					);
 					const { warnings, movedEventsCount, movedRelationshipsCount } =
 						yield* userData.mergeEntityUserDataForCommand(
@@ -255,22 +232,19 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return { movedEventsCount, movedRelationshipsCount };
 				}),
 			),
-		deleteUserEntity: (rawInput, rawItem, options) =>
+		deleteUserEntity: (rawInput, rawItem) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "deleteUserEntity");
-					const [item, submission] = yield* Schema.decodeEffect(deleteUserEntityArgsSchema)([
-						rawItem,
-						options,
-					]);
+					const [item] = yield* Schema.decodeEffect(deleteUserEntityArgsSchema)([rawItem]);
 					if (!input.principal.pluginRevision) {
 						return yield* sandboxHostFailure("Entity deletion requires a pinned plugin");
 					}
 					const userId = UserId.make(userSandboxRunUserId(input));
-					const command = yield* submissions.commandFor(
+					const command = yield* sandboxLifecycleCommand(
 						input,
-						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "deleteUserEntity"),
-						submission,
+						userLifecycleSource(input),
+						"deleteUserEntity",
 					);
 					const { warnings } = yield* entities.deleteByIds(
 						[EntityId.make(item.entityId)],
@@ -287,24 +261,17 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return { entityId: item.entityId };
 				}),
 			),
-		updateUserEntity: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["updateUserEntity"]>[2],
-		) =>
+		updateUserEntity: (rawInput, rawItem) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "updateUserEntity");
-					const [item, submission] = yield* Schema.decodeEffect(updateUserEntityArgsSchema)([
-						rawItem,
-						options,
-					]);
+					const [item] = yield* Schema.decodeEffect(updateUserEntityArgsSchema)([rawItem]);
 					const revision = input.principal.pluginRevision;
 					const userId = UserId.make(userSandboxRunUserId(input));
-					const command = yield* submissions.commandFor(
+					const command = yield* sandboxLifecycleCommand(
 						input,
-						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "updateUserEntity"),
-						submission,
+						userLifecycleSource(input),
+						"updateUserEntity",
 					);
 					if (!revision) {
 						return yield* sandboxHostFailure("Entity updates require a pinned plugin");
@@ -357,18 +324,11 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 					return results.map(({ entityId, wasInserted }) => ({ entityId, wasInserted }));
 				}),
 			),
-		createUserEntity: (
-			rawInput,
-			rawItem,
-			options?: Parameters<AdditionalScriptHostImplementationMap["createUserEntity"]>[2],
-		) =>
+		createUserEntity: (rawInput, rawItem) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "createUserEntity");
-					const [item, submission] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([
-						rawItem,
-						options,
-					]);
+					const [item] = yield* Schema.decodeEffect(createUserEntityArgsSchema)([rawItem]);
 					const revision = input.principal.pluginRevision;
 					const userId = UserId.make(userSandboxRunUserId(input));
 					const owner = definitionOwner(revision?.id ?? null);
@@ -378,10 +338,10 @@ export const makeEntityScriptHost = Effect.gen(function* () {
 							operation: "createUserEntity",
 						});
 					}
-					const command = yield* submissions.commandFor(
+					const command = yield* sandboxLifecycleCommand(
 						input,
-						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "createUserEntity"),
-						submission,
+						userLifecycleSource(input),
+						"createUserEntity",
 					);
 					const { entity, warnings } = yield* entities.create({
 						userId,

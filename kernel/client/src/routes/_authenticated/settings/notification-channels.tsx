@@ -1,4 +1,3 @@
-import type { TestNotificationChannelsBody } from "@ryot-app/contract/modules/notifications/schemas";
 import {
 	useRyotInfiniteQuery,
 	useRyotMutation,
@@ -7,7 +6,7 @@ import {
 import type { NotificationChannelsResult } from "@ryot-app/ryotql-recipes/notification-channels";
 import { createFileRoute } from "@tanstack/react-router";
 import { Effect } from "effect";
-import { type ReactNode, useRef, useState } from "react";
+import { type ReactNode, useState } from "react";
 
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
@@ -91,7 +90,6 @@ function NotificationChannelsRoute() {
 	const [testDetail, setTestDetail] = useState<string | undefined>();
 	const [testSucceeded, setTestSucceeded] = useState(false);
 	const [testNotificationId, setTestNotificationId] = useState<string>();
-	const testSubmission = useRef<undefined | TestNotificationChannelsBody>(undefined);
 	const [deleteFailedId, setDeleteFailedId] = useState<string | undefined>();
 	const [pendingChannelId, setPendingChannelId] = useState<string | undefined>();
 	const listed = useRyotInfiniteQuery(notificationChannelsQuery, undefined, {
@@ -115,22 +113,14 @@ function NotificationChannelsRoute() {
 		setTestDetail(undefined);
 		setTestSucceeded(false);
 		setTestNotificationId(undefined);
-		const submission = testSubmission.current ?? {
-			idempotencyKey: crypto.randomUUID(),
-			submittedAt: new Date().toISOString(),
-		};
-		testSubmission.current = submission;
 		return Effect.runPromise(
 			Effect.gen(function* () {
-				const queued = yield* sendTestMutation.mutateEffect(submission).pipe(
+				const queued = yield* sendTestMutation.mutateEffect().pipe(
 					Effect.tap((result) => Effect.sync(() => setTestNotificationId(result.id))),
 					Effect.as(true),
 					Effect.catchCause(() => Effect.succeed(false)),
 				);
 				setTestSucceeded(queued);
-				if (queued) {
-					testSubmission.current = undefined;
-				}
 				setTestDetail(
 					queued
 						? "Test notification queued. Delivery results are shown separately."

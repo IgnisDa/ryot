@@ -102,6 +102,7 @@ export const useBackgroundSubmission = <
 					packageId: definition.packageId,
 					inputSchema: definition.inputSchema,
 					input: definition.input(submission),
+					submittedAt: submission.submittedAt,
 					idempotencyKey: submission.submissionId,
 					label: definition.label(submission.input),
 				})

@@ -597,6 +597,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				packageId: request.packageId,
 				operationSlug: request.operationSlug,
 				...(request.idempotencyKey === undefined ? {} : { idempotencyKey: request.idempotencyKey }),
+				...(request.submittedAt === undefined ? {} : { submittedAt: request.submittedAt }),
 			}),
 		);
 	}
@@ -688,7 +689,6 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 				pluginId: request.pluginId,
 				entityId: request.entityId,
 				operation: request.operation,
-				idempotencyKey: request.idempotencyKey,
 			}),
 		);
 	}

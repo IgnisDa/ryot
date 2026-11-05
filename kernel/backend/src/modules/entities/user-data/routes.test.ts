@@ -9,16 +9,13 @@ import {
 import { AppContract } from "@ryot-app/contract/contract";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { AccessClass } from "@ryot-app/contract/oauth";
-import { AutomationExecutionId, EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
-import { TestClock } from "effect/testing";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
 
@@ -53,9 +50,6 @@ const credential = (userId: UserId, accessClass: AccessClass) => ({
 		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	},
 });
-
-const executionId = (userId: UserId, action: string, idempotencyKey: string) =>
-	`entity-user-data-${sha256Hex(stableStringify([userId, action, idempotencyKey]))}`;
 
 const routesLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -126,64 +120,35 @@ const routesLayer = Layer.unwrap(
 
 layer(routesLayer)((test) => {
 	test.effect(
-		"preserves complete command identity for retries",
+		"writes clear and merge commands for the caller and refuses demo access",
 		() =>
 			Effect.gen(function* () {
 				const api = yield* client;
 				const caller = yield* RouteCaller;
-				const submittedAt = "2026-10-27T12:00:00.000Z";
-				yield* TestClock.setTime(Date.parse(submittedAt));
-				const clearRequest = {
-					params: { entityId: EntityId.make("entity") },
-					payload: { submittedAt, idempotencyKey: "clear-key" },
-				};
-				const changedSubmittedAtRequest = {
-					...clearRequest,
-					payload: { idempotencyKey: "clear-key", submittedAt: "2026-10-27T12:00:01.000Z" },
-				};
-				const mergeRequest = {
-					payload: {
-						submittedAt,
-						idempotencyKey: "merge-key",
-						mergeFrom: EntityId.make("source"),
-						mergeInto: EntityId.make("target"),
-					},
-				};
-
+				const clearRequest = { params: { entityId: EntityId.make("entity") } };
 				yield* api.entityUserData.clearEntityUserData(clearRequest);
-				yield* api.entityUserData.clearEntityUserData(clearRequest);
-				yield* api.entityUserData.mergeEntityUserData(mergeRequest);
-				yield* api.entityUserData.mergeEntityUserData(mergeRequest);
-				yield* api.entityUserData.clearEntityUserData(changedSubmittedAtRequest);
+				yield* api.entityUserData.mergeEntityUserData({
+					payload: { mergeFrom: EntityId.make("source"), mergeInto: EntityId.make("target") },
+				});
 				yield* caller.sendAs(recipient, "standard");
 				yield* api.entityUserData.clearEntityUserData(clearRequest);
-
 				const failure = yield* Effect.flip(
 					caller
 						.sendAs(recipient, "demo")
 						.pipe(Effect.andThen(api.entityUserData.clearEntityUserData(clearRequest))),
 				);
 				expect(failure).toBeInstanceOf(DemoOperationProtected);
-
 				const commands = yield* caller.recordedCommands;
-				expect(commands).toHaveLength(6);
-				expect(commands[0]?.command).toEqual(commands[1]?.command);
-				expect(commands[2]?.command).toEqual(commands[3]?.command);
-				expect(commands[4]?.command).not.toEqual(commands[0]?.command);
-				expect(commands[4]?.command.causation.executionId).toBe(
-					AutomationExecutionId.make(executionId(owner, "clear", "clear-key")),
-				);
-				expect(commands[4]?.command.occurredAt).toBe("2026-10-27T12:00:01.000Z");
-				expect(commands[5]?.command).toMatchObject({
-					occurredAt: submittedAt,
-					itemIdentity: "entity-user-data:clear",
-					causation: {
-						executionId: AutomationExecutionId.make(executionId(recipient, "clear", "clear-key")),
-						rootExecutionId: AutomationExecutionId.make(
-							executionId(recipient, "clear", "clear-key"),
-						),
-					},
-				});
+				expect(commands.map(({ command }) => command.itemIdentity)).toEqual([
+					"entity-user-data:clear",
+					"entity-user-data:merge",
+					"entity-user-data:clear",
+				]);
+				expect(commands.map(({ command }) => command.causation.initiator)).toEqual([
+					{ id: owner, kind: "user" },
+					{ id: owner, kind: "user" },
+					{ kind: "user", id: recipient },
+				]);
 			}),
 		testTimeout,
 	);

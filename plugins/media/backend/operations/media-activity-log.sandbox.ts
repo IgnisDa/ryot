@@ -293,10 +293,7 @@ const writeInChunks = (
 		for (let start = 0; start < events.length; start += EVENT_MUTATION_SANDBOX_LIMITS.items) {
 			const chunk = events.slice(start, start + EVENT_MUTATION_SANDBOX_LIMITS.items);
 			const written = yield* host
-				.createEvents(chunk, {
-					submittedAt: options.submittedAt,
-					idempotencyKey: `${options.submissionId}:${start / EVENT_MUTATION_SANDBOX_LIMITS.items}`,
-				})
+				.createEvents(chunk)
 				.pipe(Effect.catch(recoverPartialCreateEvents));
 			count += written.count;
 			if (written.count !== chunk.length) {

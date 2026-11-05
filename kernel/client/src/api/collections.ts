@@ -26,7 +26,7 @@ export const classifyCollectionFailure = (
 	if (!(error instanceof AuthenticatedApiError) || !isDeclaredFailure(error.cause)) {
 		return "transport";
 	}
-	if (error.cause instanceof CollectionConflict && error.cause.reason.code === "order-stale") {
+	if (error.cause instanceof CollectionConflict) {
 		return "collection-stale";
 	}
 	return "collection-failed";

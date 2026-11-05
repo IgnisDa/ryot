@@ -124,17 +124,15 @@ layer(services)((test) => {
 				const edit = {
 					message: "Edited",
 					dueAt: body.dueAt,
-					idempotencyKey: "edit",
 					timezone: body.timezone,
 					revision: created.revision,
-					submittedAt: body.submittedAt,
 				};
 				const edited = yield* service.edit(user, created.id, edit);
 				expect(edited.revision).toBe(2);
 				expect(yield* service.edit(user, created.id, edit)).toEqual(edited);
 				assertExitFails(
 					yield* service
-						.edit(user, created.id, { ...edit, idempotencyKey: "stale" })
+						.edit(user, created.id, { ...edit, message: "Edited again" })
 						.pipe(Effect.exit),
 					new ReminderConflict({ reason: "stale-revision" }),
 				);
@@ -144,13 +142,7 @@ layer(services)((test) => {
 					accountGeneration: { userId: UserId.make("recipient"), token: "test-account-generation" },
 				};
 				assertExitFails(
-					yield* service
-						.cancel(other, created.id, {
-							idempotencyKey: "foreign",
-							revision: edited.revision,
-							submittedAt: body.submittedAt,
-						})
-						.pipe(Effect.exit),
+					yield* service.cancel(other, created.id, { revision: edited.revision }).pipe(Effect.exit),
 					new ReminderNotFound({ id: created.id }),
 				);
 			}),
@@ -172,10 +164,12 @@ layer(services)((test) => {
 				expect(cancelled.sendStarted).toBe(false);
 				const removed = yield* service.remove(user, created.id, {
 					...submission,
-					idempotencyKey: "remove",
 					revision: cancelled.revision,
 				});
-				expect(yield* service.cancel(user, created.id, submission)).toEqual(cancelled);
+				expect(yield* service.cancel(user, created.id, submission)).toEqual({
+					...cancelled,
+					revision: removed.revision,
+				});
 				expect(yield* service.create(user, body)).toEqual(created);
 				const stored = yield* (yield* RemindersRepository).findForUser(user.id, created.id);
 				assert(stored);

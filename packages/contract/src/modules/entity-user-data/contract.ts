@@ -2,14 +2,12 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { SubmissionExpired } from "../../errors";
 import { EntityId } from "../../schema/brands";
 import {
-	ClearEntityUserDataRequest,
 	ClearEntityUserDataResponse,
 	EntityUserDataBadRequest,
 	EntityUserDataNotFound,
-	MergeEntityUserDataRequest,
+	MergeEntityUserDataBody,
 	MergeEntityUserDataResponse,
 } from "./schemas";
 
@@ -21,12 +19,10 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 			"/entity-user-data/clear/:entityId",
 			{
 				params: { entityId: EntityId },
-				payload: ClearEntityUserDataRequest,
 				success: ClearEntityUserDataResponse,
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 					EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
-					SubmissionExpired.pipe(HttpApiSchema.status(410)),
 				],
 			},
 		).annotate(OpenApi.Description, "Clear the user's state for an entity."),
@@ -36,12 +32,11 @@ export const EntityUserDataGroup = HttpApiGroup.make("entityUserData")
 			"mergeEntityUserData",
 			"/entity-user-data/merge",
 			{
-				payload: MergeEntityUserDataRequest,
+				payload: MergeEntityUserDataBody,
 				success: MergeEntityUserDataResponse,
 				error: [
 					EntityUserDataBadRequest.pipe(HttpApiSchema.status(400)),
 					EntityUserDataNotFound.pipe(HttpApiSchema.status(404)),
-					SubmissionExpired.pipe(HttpApiSchema.status(410)),
 				],
 			},
 		).annotate(OpenApi.Description, "Merge changes into the user's entity state."),

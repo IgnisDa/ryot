@@ -38,7 +38,6 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -362,10 +361,7 @@ describe("Relationship set-based mutation pipeline", () => {
 								? yield* pipeline.commitBatch(pending)
 								: yield* pipeline.commitReconciliation(pending);
 						expect(replayed).toEqual(committed);
-						const hosts = relationshipLifecycleHostSteps(
-							pipeline,
-							yield* SandboxSubmissionCommands.make,
-						);
+						const hosts = relationshipLifecycleHostSteps(pipeline);
 						const hostReplay =
 							scope === "user"
 								? yield* hosts.changeUserRelationships

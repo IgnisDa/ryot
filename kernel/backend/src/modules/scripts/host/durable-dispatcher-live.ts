@@ -34,7 +34,6 @@ import { ScriptHostImplementations } from "#modules/scripts/host/host-implementa
 import { SandboxHttpDispatcher } from "#modules/scripts/host/http-dispatcher";
 import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import { writeInlineLifecycleItems } from "#modules/scripts/host/lifecycle-host";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { makeActivity } from "#platform/workflow/scope";
 
 const lifecycleHostSuccessSchemas = {
@@ -87,7 +86,6 @@ const settlesInline = (
 export const SandboxDurableHostDispatcherLive = Layer.effect(
 	SandboxDurableHostDispatcher,
 	Effect.gen(function* () {
-		const submissions = yield* SandboxSubmissionCommands;
 		const authority = yield* SandboxExecutionAuthority;
 		const httpDispatcher = yield* SandboxHttpDispatcher;
 		const implementations = yield* ScriptHostImplementations;
@@ -156,7 +154,7 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 
 		const createEventsHostCall = (request: DispatchArguments[0], scope: HostCallScope) =>
 			Effect.gen(function* () {
-				const prepared = yield* prepareSandboxCreateEvents(request, scope, submissions);
+				const prepared = yield* prepareSandboxCreateEvents(request, scope);
 				const eventPayload = yield* Schema.decodeEffect(EventCreateInput)(prepared).pipe(
 					Effect.mapError(
 						(error) =>

@@ -1,6 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { type PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { invokeOperationRecipe, type OperationRecipe } from "@ryot-app/plugin-kit/operations";
 import { Effect, Schema } from "effect";
 
@@ -29,7 +30,9 @@ const operationTransport =
 					},
 					payload: {
 						payload: request.payload,
-						...(idempotencyKey === undefined ? {} : { idempotencyKey }),
+						...(idempotencyKey === undefined
+							? {}
+							: { idempotencyKey, submittedAt: IsoUtcString.make(new Date().toISOString()) }),
 					},
 				}),
 			)

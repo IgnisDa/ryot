@@ -59,7 +59,6 @@ import {
 	SandboxHostFunctionsLive,
 	SandboxRedisLive,
 } from "#modules/scripts/host/sandbox-host-live";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommandsLive } from "#modules/user-commands/layer";
@@ -85,12 +84,9 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 
 const makeScriptLifecycleHostSteps = Effect.gen(function* () {
 	return {
-		...eventLifecycleHostSteps(yield* EventsService, yield* SandboxSubmissionCommands),
+		...eventLifecycleHostSteps(yield* EventsService),
 		...entityLifecycleHostSteps(yield* EntitiesService),
-		...relationshipLifecycleHostSteps(
-			yield* RelationshipMutationPipeline,
-			yield* SandboxSubmissionCommands,
-		),
+		...relationshipLifecycleHostSteps(yield* RelationshipMutationPipeline),
 	};
 });
 
@@ -129,7 +125,6 @@ export const ScriptHostImplementationsLive = Layer.effect(
 	Layer.provide(EntitiesServiceRuntimeLive),
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(EntitiesRepositoryLive),
-	Layer.provide(SandboxSubmissionCommands.layer),
 	Layer.provide(PluginUserSettingsWriter.layer),
 	Layer.provide(PluginCatalogInvalidatorLive),
 	Layer.provide(PluginRuntimeResolverLive),
@@ -155,7 +150,6 @@ export const SandboxDurableHostDispatcherProvidedLive = SandboxDurableHostDispat
 		Layer.mergeAll(
 			ScriptHostImplementationsLive,
 			NotificationsServiceLive,
-			SandboxSubmissionCommands.layer,
 			PluginHttpRateLimitAuthority.layer.pipe(Layer.provide(PluginRepository.layer)),
 			ProviderHttpAdmissionService.layer,
 		),

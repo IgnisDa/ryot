@@ -68,7 +68,6 @@ import {
 	type ProviderHttpTicket,
 } from "#modules/scripts/host/http-admission";
 import { SandboxLifecycleHostFailure } from "#modules/scripts/host/lifecycle-host";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
 import { makeWorkflowActivityEngine } from "#testing/effect";
@@ -203,7 +202,6 @@ const dispatcherLayer = (options: {
 					options.httpClient ?? HttpClient.make(() => Effect.die("unused")),
 				),
 				Layer.succeed(WorkflowEngine, options.engine),
-				Layer.mock(SandboxSubmissionCommands)({ commandFor: () => Effect.die("unused") }),
 				Layer.succeed(WorkflowInstance, options.instance),
 				Layer.mock(EventsService)({}),
 				Layer.succeed(NotificationsService, {

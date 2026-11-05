@@ -3,7 +3,6 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
-import { anyOf } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, getByText, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -169,7 +168,7 @@ afterEach(() => {
 
 describe("flat media detail screen", () => {
 	it.live(
-		"refreshes successful provider data and retains the submission identity after a transport failure",
+		"refreshes successful provider data and resends the same request after a transport failure",
 		() =>
 			Effect.gen(function* () {
 				const requests: unknown[] = [];
@@ -204,7 +203,6 @@ describe("flat media detail screen", () => {
 					entityId: "media-1",
 					pluginId: "media-owner",
 					operation: "population",
-					idempotencyKey: anyOf(String),
 				});
 				expect(requests[1]).toEqual(requests[0]);
 				unmount();
@@ -347,7 +345,6 @@ describe("flat media detail screen", () => {
 								entityId: "media-1",
 								pluginId: "media-owner",
 								operation: "population",
-								idempotencyKey: anyOf(String),
 							},
 						]),
 					),
@@ -387,7 +384,6 @@ describe("flat media detail screen", () => {
 								entityId: "media-1",
 								pluginId: "media-owner",
 								operation: "translation",
-								idempotencyKey: anyOf(String),
 							},
 						]),
 					),
@@ -541,7 +537,6 @@ describe("flat media overview", () => {
 								entityId: "media-1",
 								pluginId: "media-owner",
 								operation: "population",
-								idempotencyKey: anyOf(String),
 							},
 						]),
 					),

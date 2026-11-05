@@ -5,7 +5,6 @@ import {
 	paginationItems,
 	useRyotInfiniteQuery,
 	useRyotMutation,
-	useRyotSchedule,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Badge,
@@ -91,7 +90,6 @@ export function ReminderManager(props: {
 	readonly entityId?: EntityId | undefined;
 	readonly parentEntityId?: null | EntityId | undefined;
 }) {
-	const schedule = useRyotSchedule();
 	const [tab, setTab] = useState("upcoming");
 	const [editor, setEditor] = useState<null | "new" | Reminder>(null);
 	const [notice, setNotice] = useState<null | { text: string; tone: "danger" | "success" }>(null);
@@ -130,14 +128,7 @@ export function ReminderManager(props: {
 		const key = `${action}:${row.id}`;
 		const command = submissions.current.get(key) ?? {
 			action,
-			request: {
-				params: { reminderId: row.id },
-				payload: {
-					revision: row.revision,
-					idempotencyKey: crypto.randomUUID(),
-					submittedAt: new Date(schedule.now()).toISOString(),
-				},
-			},
+			request: { params: { reminderId: row.id }, payload: { revision: row.revision } },
 		};
 		submissions.current.set(key, command);
 		void Effect.runPromise(

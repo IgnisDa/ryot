@@ -310,6 +310,7 @@ export const PluginOperationRequest = strictStruct({
 	input: JsonValue,
 	packageId: PluginPackageId,
 	operationSlug: Schema.String,
+	submittedAt: Schema.optional(Schema.String),
 	idempotencyKey: Schema.optional(Schema.NonEmptyString),
 });
 
@@ -321,6 +322,7 @@ export const PluginBridgeOperationRequest = strictStruct({
 	packageId: PluginPackageId,
 	operationSlug: Schema.String,
 	type: Schema.Literal("operation-request"),
+	submittedAt: Schema.optional(Schema.String),
 	idempotencyKey: Schema.optional(Schema.NonEmptyString),
 });
 

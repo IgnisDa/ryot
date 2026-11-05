@@ -15,7 +15,7 @@ import type {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { EntityId, type EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import {
@@ -32,11 +32,7 @@ import {
 	type PreparedEventDelete,
 	type PreparedEventMoveReferences,
 } from "#modules/events/service";
-import {
-	mutationReceiptIdentity,
-	MutationReceiptIdentityConflict,
-	MutationReceipts,
-} from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import type {
 	PreparedUserRelationshipCreate,
@@ -120,31 +116,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const admission = yield* AccountAdmission.make;
 			const planner = yield* LifecyclePlanner;
-			const receipts = yield* MutationReceipts;
-			const ClearResult = Schema.Struct({
-				entityId: EntityId,
-				deletedEventsCount: Schema.Finite,
-				deletedRelationshipsCount: Schema.Finite,
-			});
-			const MergeResult = Schema.Struct({
-				mergeFrom: EntityId,
-				mergeInto: EntityId,
-				movedEventsCount: Schema.Finite,
-				movedRelationshipsCount: Schema.Finite,
-			});
-			const lookup = <Result>(
-				identity: ReturnType<typeof mutationReceiptIdentity>,
-				result: Schema.Codec<Result, unknown>,
-				lock = true,
-			) =>
-				(lock ? receipts.lookup(identity, result) : receipts.peek(identity, result)).pipe(
-					Effect.mapError((error) =>
-						error instanceof MutationReceiptIdentityConflict
-							? new EntityUserDataBadRequest({ reason: { code: "command-identity-conflict" } })
-							: error,
-					),
-				);
 			const lifecycleExecution = yield* LifecycleExecution;
 			const eventsRepository = yield* EventsRepository;
 			const events = yield* EventsService;
@@ -269,8 +242,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				userId: UserId;
 				command: DomainLifecycleCommand;
 				recheck: Effect.Effect<void, E, R>;
-				schema: Schema.Codec<Result, unknown>;
-				identity: ReturnType<typeof mutationReceiptIdentity>;
 				states: ReadonlyArray<Effect.Success<ReturnType<typeof state>>>;
 				eventMutations: ReadonlyArray<PreparedEventDelete | PreparedEventMoveReferences>;
 				write: Effect.Effect<
@@ -285,9 +256,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			}) {
 				const committed = yield* transaction(
 					Effect.gen(function* () {
-						const prior = yield* lookup(input.identity, input.schema);
-						if (prior) {
-							return { result: prior.result, dispatch: prior.dispatch };
+						if (input.command.accountGeneration) {
+							yield* admission.admitAccount(input.command.accountGeneration);
 						}
 						yield* lockPluginIngestionShared(database, [input.userId]);
 						yield* events.captureEventGroups({
@@ -307,7 +277,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 							yield* planner.prepareBatch({
 								resource,
 								command: input.command,
-								scopes: [input.identity.scopeUserId],
+								scopes: [input.userId],
 								identity: [resource === "event" ? "events" : "relationships"],
 							});
 						}
@@ -326,7 +296,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 								identity: ["relationships"],
 							})),
 						];
-						yield* receipts.insert({ dispatch, result: written.result, identity: input.identity });
 						return { dispatch, result: written.result };
 					}),
 				);
@@ -419,20 +388,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				}
 
 				const entityId = EntityId.make(trimmedEntityId);
-				const identity = mutationReceiptIdentity({
-					command,
-					input: { entityId },
-					ownerUserId: user.id,
-					scopeUserId: user.id,
-					commandKind: "entity-user-data:clear",
-				});
-				const replay = yield* lookup(identity, ClearResult, false);
-				if (replay) {
-					return {
-						...replay.result,
-						warnings: yield* lifecycleExecution.dispatch(replay.dispatch),
-					};
-				}
 				const scope = yield* entitiesRepository.getEntityScopeForUser({
 					entityId,
 					userId: user.id,
@@ -518,10 +473,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 
 				return yield* commit({
 					command,
-					identity,
 					userId: user.id,
 					states: [captured],
-					schema: ClearResult,
 					eventMutations: preparedEvents,
 					recheck: state(stateInput).pipe(
 						Effect.flatMap((current) => assertState(captured, current)),
@@ -592,20 +545,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 
 				const mergeFrom = EntityId.make(trimmedMergeFrom);
 				const mergeInto = EntityId.make(trimmedMergeInto);
-				const identity = mutationReceiptIdentity({
-					command,
-					ownerUserId: userId,
-					scopeUserId: userId,
-					input: { mergeFrom, mergeInto },
-					commandKind: "entity-user-data:merge",
-				});
-				const replay = yield* lookup(identity, MergeResult, false);
-				if (replay) {
-					return {
-						...replay.result,
-						warnings: yield* lifecycleExecution.dispatch(replay.dispatch),
-					};
-				}
 
 				const [fromScope, intoScope] = yield* Effect.all([
 					entitiesRepository.getEntityMergeScopeForUser({ userId: userId, entityId: mergeFrom }),
@@ -821,8 +760,6 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 				return yield* commit({
 					userId,
 					command,
-					identity,
-					schema: MergeResult,
 					states: [sourceState, targetState],
 					eventMutations: [...preparedResets, ...preparedEvents],
 					recheck: Effect.gen(function* () {

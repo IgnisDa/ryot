@@ -61,14 +61,13 @@ export default defineOperation({
 	manifest,
 	input: MediaUserDataInput,
 	output: MediaUserDataOutput,
-	run: (input, host) => {
-		const options = { submittedAt: input.submittedAt, idempotencyKey: input.submissionId };
-		return input.action === "remove"
+	run: (input, host) =>
+		input.action === "remove"
 			? host
-					.clearUserEntityData(
-						{ entityId: input.entityId, entitySchemaSlug: input.entitySchemaSlug },
-						options,
-					)
+					.clearUserEntityData({
+						entityId: input.entityId,
+						entitySchemaSlug: input.entitySchemaSlug,
+					})
 					.pipe(
 						Effect.map(({ deletedEventsCount, deletedRelationshipsCount }) => ({
 							status: "saved" as const,
@@ -77,14 +76,11 @@ export default defineOperation({
 						Effect.catch(catchHostRefusal),
 					)
 			: host
-					.mergeUserEntityData(
-						{
-							mergeFrom: input.mergeFrom,
-							mergeInto: input.mergeInto,
-							entitySchemaSlug: input.entitySchemaSlug,
-						},
-						options,
-					)
+					.mergeUserEntityData({
+						mergeFrom: input.mergeFrom,
+						mergeInto: input.mergeInto,
+						entitySchemaSlug: input.entitySchemaSlug,
+					})
 					.pipe(
 						Effect.tap(() =>
 							host.requestRelationshipProjections({
@@ -97,6 +93,5 @@ export default defineOperation({
 							count: movedEventsCount + movedRelationshipsCount,
 						})),
 						Effect.catch(catchHostRefusal),
-					);
-	},
+					),
 });

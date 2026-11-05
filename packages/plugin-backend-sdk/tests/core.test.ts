@@ -96,10 +96,7 @@ describe("shared value contracts", () => {
 		"validates user entity data clearing requests and counts",
 		() =>
 			Effect.gen(function* () {
-				const args = [
-					{ entityId: "entity-1", entitySchemaSlug: "workspace" },
-					{ idempotencyKey: "clear-1", submittedAt: "2026-01-02T00:00:00.000Z" },
-				] as const;
+				const args = [{ entityId: "entity-1", entitySchemaSlug: "workspace" }] as const;
 				expect(yield* Schema.decodeEffect(clearUserEntityDataArgsSchema)(args)).toEqual(args);
 				yield* Effect.flip(
 					Schema.decodeEffect(clearUserEntityDataArgsSchema)([

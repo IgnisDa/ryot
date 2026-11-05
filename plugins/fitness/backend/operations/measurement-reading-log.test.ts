@@ -1,10 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { EventId } from "@ryot-app/contract/schema/brands";
-import type {
-	CreateEventItem,
-	DomainSandboxHostMethodMap,
-} from "@ryot-app/plugin-backend-sdk/core";
+import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -16,19 +13,14 @@ import { MeasurementMetricNotFoundError } from "./measurement-readings";
 
 const execution = { metadata: {}, sandboxScriptId: "script-test" };
 const occurredAt = "2026-04-27T08:00:00.000Z";
-type CreateEventOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["createEvents"]>[1]>;
 
-const recordingHost = (
-	creates: (readonly CreateEventItem[])[],
-	createOptions: (undefined | CreateEventOptions)[],
-) =>
+const recordingHost = (creates: (readonly CreateEventItem[])[]) =>
 	defineSandboxTestHost(manifest, {
 		executeRyotql: executeMeasurementRyotql,
 		createUserEntity: () => Effect.succeed({ entityId: "entry-test" }),
-		createEvents: (items, options) =>
+		createEvents: (items) =>
 			Effect.sync(() => {
 				creates.push(items);
-				createOptions.push(options);
 				return {
 					count: items.length,
 					outcomes: items.map((_, index) => ({
@@ -71,19 +63,19 @@ describe("measurement reading log operation", () => {
 		"reports a partial commit without claiming completion and retries with the same write identity",
 		() =>
 			Effect.gen(function* () {
-				const options: (undefined | CreateEventOptions)[] = [];
+				let creates = 0;
 				const entries: unknown[] = [];
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: executeMeasurementRyotql,
-					createUserEntity: (item, identity) =>
+					createUserEntity: (item) =>
 						Effect.sync(() => {
-							entries.push({ item, identity });
+							entries.push(item);
 							return { entityId: "entry-test" };
 						}),
-					createEvents: (items, identity) =>
+					createEvents: (items) =>
 						Effect.suspend(() => {
-							options.push(identity);
-							return options.length === 1
+							creates += 1;
+							return creates === 1
 								? Effect.fail({
 										message: "Event creation failed",
 										data: {
@@ -121,18 +113,11 @@ describe("measurement reading log operation", () => {
 					count: 2,
 					status: "saved",
 				});
-				expect(options).toEqual([
-					{ submittedAt: occurredAt, idempotencyKey: "partial-submission" },
-					{ submittedAt: occurredAt, idempotencyKey: "partial-submission" },
-				]);
 				expect(entries).toEqual(
 					Array.from({ length: 2 }, () => ({
-						identity: { submittedAt: occurredAt, idempotencyKey: "partial-submission:entry" },
-						item: {
-							name: "Measurement",
-							properties: { occurredAt },
-							entitySchemaSlug: "measurement-entry",
-						},
+						name: "Measurement",
+						properties: { occurredAt },
+						entitySchemaSlug: "measurement-entry",
 					})),
 				);
 			}),
@@ -144,7 +129,6 @@ describe("measurement reading log operation", () => {
 		() =>
 			Effect.gen(function* () {
 				const creates: (readonly CreateEventItem[])[] = [];
-				const createOptions: (undefined | CreateEventOptions)[] = [];
 
 				expect(
 					yield* runSandboxTestScript(
@@ -159,7 +143,7 @@ describe("measurement reading log operation", () => {
 								{ value: 0, metricId: "waist" },
 							],
 						},
-						recordingHost(creates, createOptions),
+						recordingHost(creates),
 						execution,
 					),
 				).toEqual({ count: 2, status: "saved" });
@@ -181,9 +165,6 @@ describe("measurement reading log operation", () => {
 						},
 					],
 				]);
-				expect(createOptions).toEqual([
-					{ submittedAt: occurredAt, idempotencyKey: "submission-test" },
-				]);
 			}),
 		testTimeout,
 	);
@@ -193,7 +174,6 @@ describe("measurement reading log operation", () => {
 		() =>
 			Effect.gen(function* () {
 				const creates: (readonly CreateEventItem[])[] = [];
-				const createOptions: (undefined | CreateEventOptions)[] = [];
 
 				yield* runSandboxTestScript(
 					logDefinition,
@@ -204,13 +184,10 @@ describe("measurement reading log operation", () => {
 						submissionId: "submission-test",
 						values: [{ value: 70, metricId: "weight" }],
 					},
-					recordingHost(creates, createOptions),
+					recordingHost(creates),
 					execution,
 				);
 				expect(creates[0]?.[0]?.properties).toEqual({ value: 70 });
-				expect(createOptions).toEqual([
-					{ submittedAt: occurredAt, idempotencyKey: "submission-test" },
-				]);
 			}),
 		testTimeout,
 	);
@@ -220,8 +197,7 @@ describe("measurement reading log operation", () => {
 		() =>
 			Effect.gen(function* () {
 				const creates: (readonly CreateEventItem[])[] = [];
-				const createOptions: (undefined | CreateEventOptions)[] = [];
-				const host = recordingHost(creates, createOptions);
+				const host = recordingHost(creates);
 
 				for (const metricId of ["missing", "exercise-1"]) {
 					const failure = yield* Effect.flip(
@@ -270,7 +246,6 @@ describe("measurement reading log operation", () => {
 				}
 
 				expect(creates).toEqual([]);
-				expect(createOptions).toEqual([]);
 			}),
 		testTimeout,
 	);

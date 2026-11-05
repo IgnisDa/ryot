@@ -11,22 +11,20 @@ import {
 	userSandboxRunUserId,
 } from "#modules/scripts/host/execution-context";
 import { userLifecycleSource } from "#modules/scripts/host/lifecycle-host";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import { UserCommands } from "./service";
 
 export const makeUserCommandScriptHost = Effect.gen(function* () {
 	const commands = yield* UserCommands;
-	const submissions = yield* SandboxSubmissionCommands;
 	return {
-		commitUserChanges: (rawInput, changes, options) =>
+		commitUserChanges: (rawInput, changes) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
 					const input = yield* requireSandboxCapabilityInput(rawInput, "commitUserChanges");
-					const command = yield* submissions.commandFor(
+					const command = yield* sandboxLifecycleCommand(
 						input,
-						yield* sandboxLifecycleCommand(input, userLifecycleSource(input), "commitUserChanges"),
-						options,
+						userLifecycleSource(input),
+						"commitUserChanges",
 					);
 					return yield* commands.commit(changes, command, UserId.make(userSandboxRunUserId(input)));
 				}),

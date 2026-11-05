@@ -1587,6 +1587,7 @@ describe("client page routes", () => {
 						label: "Logged episode 1",
 						idempotencyKey: `key-${requestId}`,
 						type: "background-operation-request",
+						submittedAt: "2026-10-19T00:00:00.000Z",
 					});
 				const replyTo = (requestId: string) =>
 					bridge.messages.find(
@@ -1650,6 +1651,7 @@ describe("client page routes", () => {
 							input: { episode: 1 },
 							idempotencyKey: "key-own",
 							packageId: "test/plugin-1",
+							submittedAt: "2026-10-19T00:00:00.000Z",
 						},
 					},
 				]);

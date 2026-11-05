@@ -5,7 +5,7 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, DateTime, Effect, Layer, Ref } from "effect";
+import { Context, Effect, Layer, Ref } from "effect";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 
@@ -52,21 +52,17 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"retains a channel test submission and returns its admitted notification",
+		"admits a channel test and returns its notification",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* NotificationsService;
-				const submittedAt = (yield* DateTime.nowAsDate).toISOString();
-				expect(yield* service.test(user, { submittedAt, idempotencyKey: "test-1" })).toEqual({
-					id: "admitted-notification",
-				});
-				expect(yield* (yield* RecordedAdmissions).inputs).toEqual([
+				expect(yield* service.test(user)).toEqual({ id: "admitted-notification" });
+				expect(yield* (yield* RecordedAdmissions).inputs).toMatchObject([
 					{
 						userId: user.id,
 						sourceRunId: null,
+						sourceSubmittedAt: null,
 						request: { kind: "test" },
-						sourceSubmittedAt: submittedAt,
-						sourceKey: "channel-test:test-1",
 						accountGeneration: user.accountGeneration,
 					},
 				]);

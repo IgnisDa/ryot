@@ -37,7 +37,7 @@ import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Option, Ref, Result } from "effect";
+import { Context, Effect, Layer, Option, Ref, Result } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
@@ -78,10 +78,7 @@ import {
 	RelationshipsRepository,
 } from "#modules/relationships/repository";
 import { RyotQLService } from "#modules/ryotql/service";
-import type {
-	AdditionalScriptHostImplementationMap,
-	ScriptRunInput,
-} from "#modules/scripts/authorization/capabilities";
+import type { ScriptRunInput } from "#modules/scripts/authorization/capabilities";
 import type {
 	PluginSchemaScope,
 	ScriptExecutionPrincipal,
@@ -90,7 +87,6 @@ import {
 	emptySchemaScope,
 	emptyScriptsDigest,
 } from "#modules/scripts/authorization/principal.test-support";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
@@ -720,7 +716,6 @@ const hostFunctionsLayer = (
 			return Layer.mergeAll(
 				BackgroundWorkService.layer,
 				RelationshipMutationPipeline.layer,
-				SandboxSubmissionCommands.layer,
 				Layer.succeed(UserCommands, { commit: () => Effect.die("Unexpected atomic command") }),
 			).pipe(Layer.provideMerge(dependencies));
 		}),
@@ -2379,7 +2374,6 @@ const runClearUserEntityData = (
 		entityId: "entity-1",
 		entitySchemaSlug: "workspace",
 	},
-	options?: Parameters<AdditionalScriptHostImplementationMap["clearUserEntityData"]>[2],
 ) =>
 	makeAdditionalScriptHostFunctions.pipe(
 		Effect.flatMap((functions) =>
@@ -2397,7 +2391,6 @@ const runClearUserEntityData = (
 					...overrides,
 				},
 				item,
-				options,
 			),
 		),
 	);
@@ -2405,7 +2398,7 @@ const runClearUserEntityData = (
 describe("clearUserEntityData", () => {
 	layer(hostFunctionsLayer({ definitions: workspaceDefinitions() }))((test) => {
 		test.effect(
-			"clears under the sandbox principal with replay command options",
+			"clears under the sandbox principal",
 			() =>
 				Effect.gen(function* () {
 					const functions = yield* makeAdditionalScriptHostFunctions;
@@ -2415,23 +2408,17 @@ describe("clearUserEntityData", () => {
 						["clearUserEntityData"],
 						{ pluginRevision: workspacePluginRevision },
 					);
-					const submittedAt = DateTime.formatIso(yield* DateTime.now);
 					expect(
-						yield* functions.clearUserEntityData(
-							input,
-							{ entityId: "entity-1", entitySchemaSlug: "workspace" },
-							{ submittedAt, idempotencyKey: "clear-workspace" },
-						),
+						yield* functions.clearUserEntityData(input, {
+							entityId: "entity-1",
+							entitySchemaSlug: "workspace",
+						}),
 					).toEqual({ deletedEventsCount: 2, deletedRelationshipsCount: 3 });
 					const [clear] = yield* (yield* HostFunctionCalls).userDataClears;
 					expect(clear).toMatchObject({
 						userId,
 						payload: { entityId: "entity-1", entitySchemaSlug: "workspace" },
-						command: {
-							kernelCollection: true,
-							occurredAt: submittedAt,
-							itemIdentity: "clearUserEntityData",
-						},
+						command: { kernelCollection: true, itemIdentity: "clearUserEntityData" },
 					});
 					expect(clear?.command.writeContext).toBe(input.principal);
 				}),

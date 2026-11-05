@@ -9,7 +9,6 @@ import {
 	USER_ENTITY_WRITE_SANDBOX_LIMITS,
 } from "./limits";
 import { globalPropertiesSchema, nonEmptyString, sandboxIdSchema } from "./primitives";
-import { optionalSubmissionOptions } from "./writes";
 
 export const sandboxEntitySchemaSlugListSchema = Schema.Array(sandboxIdSchema).pipe(
 	Schema.check(Schema.isMaxLength(USER_ENTITY_READ_SANDBOX_LIMITS.ids)),
@@ -94,15 +93,11 @@ export const ensureUserEntitiesArgsSchema = Schema.Tuple([
 ]);
 export const ensureUserEntitiesDataSchema = Schema.Array(ensureUserEntityResultSchema);
 export const ensureUserEntitiesResultSchema = hostResultSchema(ensureUserEntitiesDataSchema);
-export const createUserEntityArgsSchema = Schema.Tuple([
-	ensureUserEntityItemSchema,
-	optionalSubmissionOptions,
-]);
+export const createUserEntityArgsSchema = Schema.Tuple([ensureUserEntityItemSchema]);
 export const createUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const createUserEntityResultSchema = hostResultSchema(createUserEntityDataSchema);
 export const deleteUserEntityArgsSchema = Schema.Tuple([
 	strictStruct({ entityId: sandboxIdSchema, entitySchemaSlug: nonEmptyString }),
-	optionalSubmissionOptions,
 ]);
 export const deleteUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const deleteUserEntityResultSchema = hostResultSchema(deleteUserEntityDataSchema);
@@ -117,14 +112,12 @@ export const updateUserEntityArgsSchema = Schema.Tuple([
 			properties: ensureUserEntityItemSchema.fields.properties,
 		}),
 	}),
-	optionalSubmissionOptions,
 ]);
 export const updateUserEntityDataSchema = strictStruct({ entityId: sandboxIdSchema });
 export const entityStaleReasonSchema = EntityStale.fields.reason;
 export const updateUserEntityResultSchema = hostResultSchema(updateUserEntityDataSchema);
 export const clearUserEntityDataArgsSchema = Schema.Tuple([
 	strictStruct({ entityId: sandboxIdSchema, entitySchemaSlug: sandboxIdSchema }),
-	optionalSubmissionOptions,
 ]);
 export const clearUserEntityDataDataSchema = strictStruct({
 	deletedEventsCount: Schema.Number.pipe(
@@ -143,7 +136,6 @@ export const mergeUserEntityDataArgsSchema = Schema.Tuple([
 		mergeInto: sandboxIdSchema,
 		entitySchemaSlug: nonEmptyString,
 	}),
-	optionalSubmissionOptions,
 ]);
 export const mergeUserEntityDataDataSchema = strictStruct({
 	movedEventsCount: Schema.Finite,

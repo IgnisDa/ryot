@@ -2,14 +2,12 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type CreateNotificationChannelBody,
 	NotificationNotFoundError,
-	type TestNotificationChannelsBody,
 	type UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
-
-import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { NotificationAdmissions } from "./admission";
 import { NotificationsRepository } from "./repository";
@@ -60,18 +58,14 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				return { id: channelId };
 			});
 
-			const test = Effect.fn("NotificationsService.test")(function* (
-				user: CurrentUserValue,
-				body: TestNotificationChannelsBody,
-			) {
-				yield* requireOpenSubmission(body.submittedAt);
+			const test = Effect.fn("NotificationsService.test")(function* (user: CurrentUserValue) {
 				return yield* admissions.admit({
 					userId: user.id,
 					sourceRunId: null,
+					sourceSubmittedAt: null,
 					request: { kind: "test" },
-					sourceSubmittedAt: body.submittedAt,
 					accountGeneration: user.accountGeneration,
-					sourceKey: `channel-test:${body.idempotencyKey}`,
+					sourceKey: `channel-test:${generateId()}`,
 				});
 			});
 

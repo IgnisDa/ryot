@@ -2,7 +2,7 @@ import type { AutomationTriggerPayload } from "@ryot-app/contract/modules/automa
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
-import { check, index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin, pluginConfigRevision, pluginRevision, sandboxScript } from "./core";
@@ -52,5 +52,22 @@ export const mutationReceipt = snakeCase.table(
 			"mutation_receipt_type_check",
 			sql`${table.receiptType} in ('item', 'batch-decision', 'batch-candidate')`,
 		),
+	],
+);
+
+export const idempotencyKey = snakeCase.table(
+	"idempotency_key",
+	{
+		key: text().notNull(),
+		fingerprint: text().notNull(),
+		response: jsonb().$type<JsonValue>(),
+		createdAt: timestamptz().defaultNow().notNull(),
+		userId: text()
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		primaryKey({ columns: [table.userId, table.key] }),
+		index("idempotency_key_created_at_idx").on(table.createdAt),
 	],
 );

@@ -68,6 +68,7 @@ const request = (key: string, label = `Logged ${key}`): PluginBackgroundOperatio
 	label,
 	idempotencyKey: key,
 	operationSlug: "media-activity-log",
+	submittedAt: "2026-10-25T08:00:00.000Z",
 	packageId: PluginPackageId.make("ryot/media"),
 	input: { key, episodes: [1, 2, 3], entityId: "entity-1" },
 });
@@ -273,6 +274,7 @@ describe("background submission tray", () => {
 					idempotencyKey: "k1",
 					input: original.input,
 					packageId: original.packageId,
+					submittedAt: original.submittedAt,
 					operationSlug: original.operationSlug,
 				});
 

@@ -32,11 +32,11 @@ export const NotificationsRoutesLive = HttpApiBuilder.group(
 					return yield* service.delete(user, params.channelId).pipe(dieOnDbError);
 				}),
 			)
-			.handle("testChannels", ({ payload }) =>
+			.handle("testChannels", () =>
 				Effect.gen(function* () {
 					const user = yield* CurrentUser;
 					const service = yield* NotificationsService;
-					return yield* service.test(user, payload).pipe(dieOnDbError);
+					return yield* service.test(user).pipe(dieOnDbError);
 				}),
 			),
 );

@@ -7,6 +7,7 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import type {
 	PluginOperationBridgeErrorReason,
 	PluginOperationOutcome,
@@ -59,6 +60,9 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 							...(invocation.request.idempotencyKey === undefined
 								? {}
 								: { idempotencyKey: invocation.request.idempotencyKey }),
+							...(invocation.request.submittedAt === undefined
+								? {}
+								: { submittedAt: IsoUtcString.make(invocation.request.submittedAt) }),
 						},
 					})
 					.pipe(

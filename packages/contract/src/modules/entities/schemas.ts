@@ -82,7 +82,6 @@ export class EntityEnrichmentRefused extends Schema.TaggedError<
 			"not-provider-backed",
 			"plugin-mismatch",
 			"provider-unavailable",
-			"request-mismatch",
 			"backlog-full",
 		]),
 	}),
@@ -92,10 +91,6 @@ export const RequestEntityEnrichmentBody = strictStruct({
 	pluginId: PluginId,
 	action: Schema.Literals(["refresh", "retry"]),
 	operation: Schema.Literals(["population", "translation"]),
-	idempotencyKey: Schema.String.pipe(
-		Schema.check(Schema.isMinLength(1)),
-		Schema.check(Schema.isMaxLength(128)),
-	),
 });
 
 export const RequestEntityEnrichmentResult = Schema.Struct({

@@ -103,6 +103,7 @@ describe("useBackgroundSubmission", () => {
 						label: "Logged 72.5",
 						idempotencyKey: "key-1",
 						packageId: "test/fixture",
+						submittedAt: "2026-10-25T08:00:00.000Z",
 						input: { key: "key-1", values: [72.5], at: "2026-10-25T08:00:00.000Z" },
 					},
 				]);

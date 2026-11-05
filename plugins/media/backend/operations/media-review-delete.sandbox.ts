@@ -23,11 +23,6 @@ export default defineOperation({
 				reviewCombinations,
 				"Only reviews can be deleted here.",
 			);
-			return yield* host
-				.deleteEvents([input.eventId], {
-					submittedAt: input.submittedAt,
-					idempotencyKey: `${input.submissionId}:write`,
-				})
-				.pipe(Effect.catch(rejectHostFailure));
+			return yield* host.deleteEvents([input.eventId]).pipe(Effect.catch(rejectHostFailure));
 		}),
 });

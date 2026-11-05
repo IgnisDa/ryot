@@ -56,6 +56,7 @@ const ownedOnInput = () =>
 const ownershipRequest = (request: MediaOwnershipSetInput) => ({
 	input: request,
 	packageId: "ryot/media",
+	submittedAt: anyOf(String),
 	slug: "media-ownership-set",
 	idempotencyKey: anyOf(String),
 	label: request.owned ? "Marked as owned" : "Marked as not owned",

@@ -121,10 +121,8 @@ const reorderResponse = ReorderMembershipResponse.make({
 const reorderInput = {
 	expectedRevision: 3,
 	entityId: "entity-1",
-	idempotencyKey: "reorder-1",
 	collectionId: "collection-1",
 	destination: { kind: "end" as const },
-	submittedAt: "2026-10-19T00:00:00.000Z",
 };
 
 const makeUploadsRuntime = (
@@ -249,10 +247,7 @@ describe("kernel Ryot client", () => {
 		"classifies collection reorder conflicts",
 		() =>
 			Effect.gen(function* () {
-				for (const [code, reason] of [
-					["order-stale", "collection-stale"],
-					["command-identity-conflict", "collection-failed"],
-				] as const) {
+				for (const [code, reason] of [["order-stale", "collection-stale"]] as const) {
 					const runtime = ManagedRuntime.make(
 						Layer.mergeAll(
 							makeEntityWatchService(),

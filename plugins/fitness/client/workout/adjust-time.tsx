@@ -45,6 +45,8 @@ const correctTime = createRyotMutation<
 >(({ input, client }) =>
 	client.operations.invoke({
 		packageId: PLUGIN_PACKAGE_ID,
+		submittedAt: input.submittedAt,
+		idempotencyKey: input.submissionId,
 		slug: workoutTimeCorrectionOperationSlug,
 		output: WorkoutTimeCorrectionOutputSchema,
 		inputSchema: WorkoutTimeCorrectionInputSchema,

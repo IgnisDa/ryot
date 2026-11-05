@@ -1,7 +1,6 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { collectionMembersRecipe } from "@ryot-app/ryotql-recipes/collections";
-import { randomUuid } from "@ryot-app/testing/random";
-import { DateTime, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -58,9 +57,7 @@ describe("collection member ordering", () => {
 					entityId: firstMember.id,
 					collectionId: collection.id,
 					destination: { kind: "start" },
-					idempotencyKey: yield* randomUuid,
 					expectedRevision: first.orderRevision,
-					submittedAt: (yield* DateTime.nowAsDate).toISOString(),
 				},
 			};
 			const moved = yield* client.call((api) => api.collections.reorderMembership(request));
@@ -76,33 +73,21 @@ describe("collection member ordering", () => {
 					...request.payload,
 					entityId: lastMember.id,
 					destination: { kind: "end" },
-					idempotencyKey: yield* randomUuid,
 					expectedRevision: moved.orderRevision,
 				},
 			};
-			yield* client.call((api) => api.collections.reorderMembership(nextRequest));
-			expect(yield* client.call((api) => api.collections.reorderMembership(request))).toEqual(
-				moved,
-			);
+			const next = yield* client.call((api) => api.collections.reorderMembership(nextRequest));
+			expect(yield* client.call((api) => api.collections.reorderMembership(request))).toEqual(next);
 			expect((yield* read()).items.map((member) => member.name)).toEqual(["Alpha", "Gamma"]);
 			const conflict = yield* Effect.flip(
-				client.call((api) =>
-					api.collections.reorderMembership({
-						payload: { ...request.payload, idempotencyKey: crypto.randomUUID() },
-					}),
-				),
-			);
-			assertTaggedError(conflict, "CollectionConflict");
-			expect(conflict.reason.code).toBe("order-stale");
-			const identityConflict = yield* Effect.flip(
 				client.call((api) =>
 					api.collections.reorderMembership({
 						payload: { ...request.payload, destination: { kind: "end" } },
 					}),
 				),
 			);
-			assertTaggedError(identityConflict, "CollectionConflict");
-			expect(identityConflict.reason.code).toBe("command-identity-conflict");
+			assertTaggedError(conflict, "CollectionConflict");
+			expect(conflict.reason.code).toBe("order-stale");
 			yield* client.call((api) =>
 				api.collections.createMembership({
 					payload: {
@@ -136,16 +121,13 @@ describe("collection member ordering", () => {
 				client,
 				collectionMembersRecipe({ collectionId: collection.id }),
 			);
-			const submittedAt = (yield* DateTime.nowAsDate).toISOString();
 			const requests = members
 				.slice(0, 2)
 				.map((member): ContractRequest<"collections", "reorderMembership"> => ({
 					payload: {
-						submittedAt,
 						entityId: member.id,
 						collectionId: collection.id,
 						destination: { kind: "start" },
-						idempotencyKey: crypto.randomUUID(),
 						expectedRevision: page.orderRevision,
 					},
 				}));

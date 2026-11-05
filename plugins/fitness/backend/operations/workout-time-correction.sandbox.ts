@@ -110,15 +110,10 @@ export default defineOperation({
 						})),
 				},
 			}).pipe(Effect.orDie);
-			const saved = yield* host
-				.commitUserChanges(command, {
-					submittedAt: input.submittedAt,
-					idempotencyKey: input.submissionId,
-				})
-				.pipe(
-					Effect.as(true),
-					Effect.catchIf(isCommitConflict, () => Effect.succeed(false)),
-				);
+			const saved = yield* host.commitUserChanges(command).pipe(
+				Effect.as(true),
+				Effect.catchIf(isCommitConflict, () => Effect.succeed(false)),
+			);
 			return saved
 				? ({ kind: "saved", entityId: input.entityId } as const)
 				: ({ kind: "conflict" } as const);

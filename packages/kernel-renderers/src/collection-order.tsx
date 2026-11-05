@@ -29,17 +29,10 @@ import {
 import clsx from "clsx";
 import { useEffect, useState } from "react";
 
-type Move = Omit<
-	Parameters<RyotClient["collections"]["reorderMembership"]>[0],
-	"submittedAt" | "idempotencyKey"
->;
+type Move = Parameters<RyotClient["collections"]["reorderMembership"]>[0];
 const moveMutation = createRyotMutation(
 	({ input, client }: { client: RyotClient; input: RyotSubmission<Move> }) =>
-		client.collections.reorderMembership({
-			...input.input,
-			submittedAt: input.submittedAt,
-			idempotencyKey: input.submissionId,
-		}),
+		client.collections.reorderMembership(input.input),
 );
 
 const jumps = [

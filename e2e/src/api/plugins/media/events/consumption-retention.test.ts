@@ -50,7 +50,6 @@ import { seedShow } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 import { startIsolatedHarness } from "~/support/isolated-harness";
-import { nowIso } from "~/support/time";
 
 const reportNow = Date.parse("2026-01-05T12:00:00.000Z");
 
@@ -180,10 +179,7 @@ describe("Media consumption basis retention", () => {
 				mergeFrom: EntityId.make(source.entityId),
 				mergeInto: EntityId.make(target.entityId),
 			};
-			yield* mergeEntityUserData(client, mergeRequest, {
-				submittedAt: nowIso(),
-				idempotencyKey: yield* randomUuid,
-			});
+			yield* mergeEntityUserData(client, mergeRequest);
 			yield* settledHistoryCorrection(client, userId);
 
 			const after = yield* waitForReport(client, reference);
@@ -262,8 +258,7 @@ describe("Media consumption basis retention", () => {
 				)).total,
 			).toBe(50);
 
-			const clearReceipt = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
-			const cleared = yield* clearEntityUserData(client, show.show.id, clearReceipt);
+			const cleared = yield* clearEntityUserData(client, show.show.id);
 			expect(cleared.deletedEventsCount).toBeGreaterThan(0);
 			yield* settledHistoryCorrection(client, userId);
 			const afterClear = yield* waitForReport(client, reference);
@@ -277,8 +272,8 @@ describe("Media consumption basis retention", () => {
 			expect((yield* getEntity(client, firstEpisode.id)).properties["runtime"]).toBe(20);
 			expect((yield* getEntity(client, secondEpisode.id)).properties["runtime"]).toBe(30);
 
-			const replay = yield* clearEntityUserData(client, show.show.id, clearReceipt);
-			expect(replay).toEqual(cleared);
+			const replay = yield* clearEntityUserData(client, show.show.id);
+			expect(replay.deletedEventsCount).toBe(0);
 			expect((yield* waitForReport(client, reference)).current.types).toEqual([]);
 
 			const freshSourceRun = `after-clear-${yield* randomUuid}`;

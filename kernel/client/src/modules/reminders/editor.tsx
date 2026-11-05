@@ -86,7 +86,12 @@ export function ReminderEditor(props: {
 						action: "edit",
 						request: {
 							params: { reminderId: initial.id },
-							payload: { ...submission, revision: initial.revision },
+							payload: {
+								dueAt: submission.dueAt,
+								revision: initial.revision,
+								message: submission.message,
+								timezone: submission.timezone,
+							},
 						},
 					}
 				: {

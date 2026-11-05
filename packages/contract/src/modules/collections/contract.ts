@@ -2,7 +2,6 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { SubmissionExpired } from "../../errors";
 import {
 	CollectionBadRequest,
 	CollectionConflict,
@@ -71,7 +70,6 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 				error: [
 					CollectionNotFound.pipe(HttpApiSchema.status(404)),
 					CollectionConflict.pipe(HttpApiSchema.status(409)),
-					SubmissionExpired.pipe(HttpApiSchema.status(410)),
 				],
 			},
 		).annotate(OpenApi.Description, "Moves a member in the collection's manual order"),

@@ -65,7 +65,6 @@ describe("plugin entity enrichment", () => {
 							action: "retry",
 							operation: "population",
 							pluginId: PluginId.make("plugin-2"),
-							idempotencyKey: "test-enrichment-key",
 						}),
 					).toEqual({ outcome: "failure", reason: "invalid-request" });
 					expect(calls).toEqual([]);
@@ -84,18 +83,12 @@ describe("plugin entity enrichment", () => {
 							action: "retry",
 							pluginId: contributor,
 							operation: "population",
-							idempotencyKey: "test-enrichment-key",
 						}),
 					).toEqual({ outcome: "success", enrichmentRequestId: "enrichment-job" });
 					expect(calls).toEqual([
 						{
 							params: { entityId },
-							payload: {
-								action: "retry",
-								pluginId: contributor,
-								operation: "population",
-								idempotencyKey: "test-enrichment-key",
-							},
+							payload: { action: "retry", pluginId: contributor, operation: "population" },
 						},
 					]);
 					expect(
@@ -104,17 +97,11 @@ describe("plugin entity enrichment", () => {
 							action: "retry",
 							pluginId: contributor,
 							operation: "translation",
-							idempotencyKey: "test-enrichment-key",
 						}),
 					).toEqual({ outcome: "success", enrichmentRequestId: "enrichment-job" });
 					expect(calls.at(-1)).toEqual({
 						params: { entityId },
-						payload: {
-							action: "retry",
-							pluginId: contributor,
-							operation: "translation",
-							idempotencyKey: "test-enrichment-key",
-						},
+						payload: { action: "retry", pluginId: contributor, operation: "translation" },
 					});
 
 					failures.push(
@@ -135,7 +122,6 @@ describe("plugin entity enrichment", () => {
 								action: "retry",
 								pluginId: contributor,
 								operation: "population",
-								idempotencyKey: "test-enrichment-key",
 							}),
 						).toEqual({ reason, outcome: "failure" });
 					}

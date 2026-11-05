@@ -108,17 +108,11 @@ describe("failed entity population", () => {
 						result: fakeProviderDetailsResult({ name: POPULATED_NAME }),
 					}),
 				);
-				const idempotencyKey = yield* randomUuid;
 				const retry = () =>
 					client.call((contract) =>
 						contract.entities.requestEnrichment({
 							params: { entityId: EntityId.make(seeded.id) },
-							payload: {
-								idempotencyKey,
-								action: "retry",
-								operation: "population",
-								pluginId: provider.pluginId,
-							},
+							payload: { action: "retry", operation: "population", pluginId: provider.pluginId },
 						}),
 					);
 				const accepted = yield* retry();
@@ -137,7 +131,6 @@ describe("failed entity population", () => {
 					),
 				);
 				expect(populated.name).toBe(POPULATED_NAME);
-				expect(yield* retry()).toEqual(accepted);
 			}),
 	);
 	it.live("marks a population whose details script exceeds the httpCall budget as failed", () =>

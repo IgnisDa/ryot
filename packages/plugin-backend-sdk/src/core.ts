@@ -1,4 +1,3 @@
-export { submissionOptionsSchema } from "./core/writes";
 export type { LogEntry, SpanEntry } from "./core/logging";
 export type { IntegrationRecord, ListIntegrationsOptions } from "./core/integrations";
 export { sandboxManifestSchema, executionMetadataSchema } from "./core/script-manifest";

@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "ec9c17ee-3aac-46b7-b08a-52b76a44537d",
+	"id": "281a1cca-8077-4734-bd44-25982a61392c",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -483,6 +483,19 @@
 				"n|rel|public.event_stream_work",
 				"n|type|public.event_stream_work",
 				"n|rel|public.event_stream_work_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "idempotency_key"],
+			"writes": [
+				"s|tbl|public.idempotency_key",
+				"n|tbl|public.idempotency_key",
+				"e|tbl|public.idempotency_key",
+				"n|rel|public.idempotency_key",
+				"n|type|public.idempotency_key",
+				"n|rel|public.idempotency_key_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -2349,6 +2362,21 @@
 				"n|col|public.event_stream_work.event_schema_plugin_id",
 				"n|col|public.event_stream_work.event_schema_slug",
 				"n|col|public.event_stream_work.id"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "idempotency_key", "idempotency_key_created_at_idx"],
+			"writes": [
+				"s|idx|public.idempotency_key_created_at_idx",
+				"n|idx|public.idempotency_key_created_at_idx",
+				"e|idx|public.idempotency_key_created_at_idx",
+				"n|rel|public.idempotency_key_created_at_idx"
+			],
+			"reads": [
+				"n|tbl|public.idempotency_key",
+				"n|sch|public",
+				"n|col|public.idempotency_key.created_at"
 			]
 		},
 		{
@@ -5316,6 +5344,25 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "idempotency_key"],
+			"writes": [
+				"s|fk|public.idempotency_key.idempotency_key_user_id_user_id_fkey",
+				"n|fk|public.idempotency_key.idempotency_key_user_id_user_id_fkey",
+				"e|fk|public.idempotency_key.idempotency_key_user_id_user_id_fkey",
+				"n|con|public.idempotency_key.idempotency_key_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.idempotency_key",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.idempotency_key.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "import_activity"],
 			"writes": [
 				"s|fk|public.import_activity.import_activity_run_id_import_run_id_fkey",
@@ -7495,6 +7542,12 @@
 		{
 			"schema": "public",
 			"name": "event_stream_work",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
+		{
+			"schema": "public",
+			"name": "idempotency_key",
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
@@ -12748,6 +12801,71 @@
 			"schema": "public",
 			"table": "event_stream_work",
 			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "idempotency_key",
+			"name": "key",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "idempotency_key",
+			"name": "fingerprint",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "idempotency_key",
+			"name": "response",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "idempotency_key",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "idempotency_key",
+			"name": "user_id",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -22312,6 +22430,27 @@
 		},
 		{
 			"schema": "public",
+			"table": "idempotency_key",
+			"name": "idempotency_key_created_at_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "created_at",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
 			"table": "import_run",
 			"name": "import_run_block_deadline_idx",
 			"nameExplicit": true,
@@ -25627,6 +25766,19 @@
 		},
 		{
 			"schema": "public",
+			"table": "idempotency_key",
+			"name": "idempotency_key_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "import_activity",
 			"name": "import_activity_run_id_import_run_id_fkey",
 			"nameExplicit": false,
@@ -26887,6 +27039,14 @@
 			"table": "event_stream_binding",
 			"name": "event_stream_binding_pkey",
 			"columns": ["user_id", "event_schema_plugin_id", "entity_schema_slug", "event_schema_slug"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
+			"table": "idempotency_key",
+			"name": "idempotency_key_pkey",
+			"columns": ["user_id", "key"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},

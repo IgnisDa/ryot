@@ -112,6 +112,7 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						...(payload.idempotencyKey === undefined
 							? {}
 							: { idempotencyKey: payload.idempotencyKey }),
+						...(payload.submittedAt === undefined ? {} : { submittedAt: payload.submittedAt }),
 					})
 					.pipe(dieOnDbError);
 				return { result };

@@ -4,8 +4,8 @@ import { DateTime, Duration, Effect } from "effect";
 const submissionWindow = Duration.days(7);
 
 // An accepted submission may be replayed until one window after a client clock that is itself up to
-// one window ahead, so receipts are retained for two windows.
-export const RECEIPT_RETENTION = Duration.sum(submissionWindow, submissionWindow);
+// one window ahead, so idempotency keys are retained for two windows.
+export const IDEMPOTENCY_KEY_RETENTION = Duration.sum(submissionWindow, submissionWindow);
 
 export const requireOpenSubmission = Effect.fnUntraced(function* (submittedAt: string) {
 	const now = yield* DateTime.nowAsDate;

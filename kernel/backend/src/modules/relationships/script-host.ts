@@ -25,7 +25,6 @@ import {
 	userLifecycleSource,
 	writeInlineLifecycleItems,
 } from "#modules/scripts/host/lifecycle-host";
-import { SandboxSubmissionCommands } from "#modules/scripts/host/submission-command";
 
 import {
 	type PendingRelationshipMutations,
@@ -78,11 +77,70 @@ const toReconcileGroup = (
 
 export const relationshipLifecycleHostSteps = (
 	relationships: RelationshipMutationPipeline["Service"],
-	submissions: SandboxSubmissionCommands["Service"],
 ) => {
 	const applyRelationshipHostPolicies = (pending: PendingRelationshipMutations) =>
 		relationships.applyPolicies(pending).pipe(Effect.mapError(lifecycleHostFailure));
 	return {
+		changeUserRelationships: {
+			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
+				results.map(({ created, deleted }) => ({ created, deleted })),
+			validate: (
+				rawInput: ScriptRunInput,
+				batches: LifecycleHostInput<"ChangeUserRelationships">["batches"],
+			): Effect.Effect<LifecycleHostInput<"ChangeUserRelationships">, SandboxHostError> =>
+				sandboxHostEffect(
+					Effect.gen(function* () {
+						const input = yield* requireSandboxCapabilityInput(rawInput, "changeUserRelationships");
+						const changeCount = batches.reduce(
+							(total, batch) => total + batch.creates.length + batch.deletes.length,
+							0,
+						);
+						if (changeCount > SANDBOX_LIMITS.userRelationshipWrites.changesTotal) {
+							return yield* Effect.fail(
+								`changeUserRelationships exceeds ${SANDBOX_LIMITS.userRelationshipWrites.changesTotal} changes`,
+							);
+						}
+						const command = yield* sandboxLifecycleCommand(
+							input,
+							userLifecycleSource(input),
+							"changeUserRelationships",
+						);
+						return {
+							batches,
+							command,
+							_tag: "ChangeUserRelationships",
+							userId: UserId.make(userSandboxRunUserId(input)),
+						} as const;
+					}),
+				),
+			itemWrite: (input: LifecycleHostInput<"ChangeUserRelationships">) => {
+				const batches = input.batches.map((entry) => ({
+					creates: entry.creates.map((relationship) =>
+						toSandboxRelationshipIdentity(
+							relationship,
+							input.command.writeContext?.pluginRevision?.id ?? null,
+						),
+					),
+					deletes: entry.deletes.map((relationship) =>
+						toSandboxRelationshipIdentity(
+							relationship,
+							input.command.writeContext?.pluginRevision?.id ?? null,
+						),
+					),
+				}));
+				return {
+					items: batches,
+					result: RelationshipBatchSummary,
+					applyPolicies: applyRelationshipHostPolicies,
+					commit: () => (pending: PendingRelationshipMutations) =>
+						relationships.commitBatch(pending).pipe(Effect.mapError(lifecycleHostFailure)),
+					prepare: (current: (typeof batches)[number], index: number) =>
+						relationships
+							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
+							.pipe(Effect.mapError(lifecycleHostFailure)),
+				} satisfies LifecycleItemWrite<(typeof batches)[number], RelationshipBatchSummary>;
+			},
+		},
 		upsertGlobalRelationships: {
 			value: (results: ReadonlyArray<RelationshipReconciliationSummary>) =>
 				results.map(({ deleted, upserted }) => ({ deleted, upserted })),
@@ -144,71 +202,6 @@ export const relationshipLifecycleHostSteps = (
 					}),
 				),
 		},
-		changeUserRelationships: {
-			value: (results: ReadonlyArray<RelationshipBatchSummary>) =>
-				results.map(({ created, deleted }) => ({ created, deleted })),
-			itemWrite: (input: LifecycleHostInput<"ChangeUserRelationships">) => {
-				const batches = input.batches.map((entry) => ({
-					creates: entry.creates.map((relationship) =>
-						toSandboxRelationshipIdentity(
-							relationship,
-							input.command.writeContext?.pluginRevision?.id ?? null,
-						),
-					),
-					deletes: entry.deletes.map((relationship) =>
-						toSandboxRelationshipIdentity(
-							relationship,
-							input.command.writeContext?.pluginRevision?.id ?? null,
-						),
-					),
-				}));
-				return {
-					items: batches,
-					result: RelationshipBatchSummary,
-					applyPolicies: applyRelationshipHostPolicies,
-					commit: () => (pending: PendingRelationshipMutations) =>
-						relationships.commitBatch(pending).pipe(Effect.mapError(lifecycleHostFailure)),
-					prepare: (current: (typeof batches)[number], index: number) =>
-						relationships
-							.prepareChangeUserBatch(input.userId, current, index, input.command, batches)
-							.pipe(Effect.mapError(lifecycleHostFailure)),
-				} satisfies LifecycleItemWrite<(typeof batches)[number], RelationshipBatchSummary>;
-			},
-			validate: (
-				rawInput: ScriptRunInput,
-				batches: LifecycleHostInput<"ChangeUserRelationships">["batches"],
-				options?: Parameters<AdditionalScriptHostImplementationMap["changeUserRelationships"]>[2],
-			): Effect.Effect<LifecycleHostInput<"ChangeUserRelationships">, SandboxHostError> =>
-				sandboxHostEffect(
-					Effect.gen(function* () {
-						const input = yield* requireSandboxCapabilityInput(rawInput, "changeUserRelationships");
-						const changeCount = batches.reduce(
-							(total, batch) => total + batch.creates.length + batch.deletes.length,
-							0,
-						);
-						if (changeCount > SANDBOX_LIMITS.userRelationshipWrites.changesTotal) {
-							return yield* Effect.fail(
-								`changeUserRelationships exceeds ${SANDBOX_LIMITS.userRelationshipWrites.changesTotal} changes`,
-							);
-						}
-						const command = yield* submissions.commandFor(
-							input,
-							yield* sandboxLifecycleCommand(
-								input,
-								userLifecycleSource(input),
-								"changeUserRelationships",
-							),
-							options,
-						);
-						return {
-							batches,
-							command,
-							_tag: "ChangeUserRelationships",
-							userId: UserId.make(userSandboxRunUserId(input)),
-						} as const;
-					}),
-				),
-		},
 	};
 };
 
@@ -217,12 +210,20 @@ export type RelationshipLifecycleHostSteps = ReturnType<typeof relationshipLifec
 export const makeRelationshipScriptHost = Effect.gen(function* () {
 	const lifecycleExecution = yield* LifecycleExecution;
 	const projections = yield* RelationshipProjectionService;
-	const lifecycle = relationshipLifecycleHostSteps(
-		yield* RelationshipMutationPipeline,
-		yield* SandboxSubmissionCommands,
-	);
+	const lifecycle = relationshipLifecycleHostSteps(yield* RelationshipMutationPipeline);
 
 	return {
+		changeUserRelationships: (rawInput, batches) =>
+			sandboxHostEffect(
+				Effect.gen(function* () {
+					const input = yield* lifecycle.changeUserRelationships.validate(rawInput, batches);
+					const results = yield* writeInlineLifecycleItems(lifecycleExecution, {
+						capability: "changeUserRelationships",
+						...lifecycle.changeUserRelationships.itemWrite(input),
+					});
+					return lifecycle.changeUserRelationships.value(results);
+				}),
+			),
 		upsertGlobalRelationships: (rawInput, groups) =>
 			sandboxHostEffect(
 				Effect.gen(function* () {
@@ -232,25 +233,6 @@ export const makeRelationshipScriptHost = Effect.gen(function* () {
 						...lifecycle.upsertGlobalRelationships.itemWrite(input),
 					});
 					return lifecycle.upsertGlobalRelationships.value(results);
-				}),
-			),
-		changeUserRelationships: (
-			rawInput,
-			batches,
-			options?: Parameters<AdditionalScriptHostImplementationMap["changeUserRelationships"]>[2],
-		) =>
-			sandboxHostEffect(
-				Effect.gen(function* () {
-					const input = yield* lifecycle.changeUserRelationships.validate(
-						rawInput,
-						batches,
-						options,
-					);
-					const results = yield* writeInlineLifecycleItems(lifecycleExecution, {
-						capability: "changeUserRelationships",
-						...lifecycle.changeUserRelationships.itemWrite(input),
-					});
-					return lifecycle.changeUserRelationships.value(results);
 				}),
 			),
 		requestRelationshipProjectionsForAllUsers: (rawInput, request) =>

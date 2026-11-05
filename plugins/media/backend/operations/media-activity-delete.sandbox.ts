@@ -47,20 +47,12 @@ export default defineOperation({
 					: { expected: { [onlyId]: writePrecondition(input.expected) } };
 			let count = 0;
 			for (const [index, chunk] of chunks.entries()) {
-				const written = yield* host
-					.deleteEvents(chunk, {
-						...expected,
-						submittedAt: input.submittedAt,
-						idempotencyKey: `${input.submissionId}:${index}`,
-					})
-					.pipe(
-						Effect.map((result) => ({ ...result, failed: false })),
-						Effect.catch((error) =>
-							index === 0
-								? rejectAnyHostFailure(error)
-								: Effect.succeed({ count: 0, failed: true }),
-						),
-					);
+				const written = yield* host.deleteEvents(chunk, expected).pipe(
+					Effect.map((result) => ({ ...result, failed: false })),
+					Effect.catch((error) =>
+						index === 0 ? rejectAnyHostFailure(error) : Effect.succeed({ count: 0, failed: true }),
+					),
+				);
 				if (written.failed) {
 					return { count, status: "incomplete" as const };
 				}

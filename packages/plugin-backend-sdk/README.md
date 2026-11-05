@@ -54,8 +54,8 @@ manifest.
 helpers to capabilities by canonical module/export, not import alias. Contract wire schemas own the
 capability vocabulary; kernel requirements/execution-policy records must exhaustively cover changes.
 
-`createUserEntity(item, options?)` creates one user-owned entity and returns `{ entityId }`. The item
-contains `name`, `entitySchemaSlug`, and `properties`. `updateUserEntity(item, options?)` takes
+`createUserEntity(item)` creates one user-owned entity and returns `{ entityId }`. The item
+contains `name`, `entitySchemaSlug`, and `properties`. `updateUserEntity(item)` takes
 `entityId`, `name`, `properties`, and the expected current `{ name, updatedAt, properties }`; it also
 returns `{ entityId }`. These require a user subject, owned schema, and exact user-owned target;
 the host binds ownership and normal service validation/hooks/receipts. Scripts cannot set ownership,
@@ -63,17 +63,12 @@ global scope, provider provenance, or `populatedAt`. `ensureUserEntities` is boo
 general entity creation. Runtime authorization is detailed in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
-`mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug }, options?)` moves the user's events
+`mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug })` moves the user's events
 and relationships from one user-owned entity to another of the same plugin-owned schema and returns
 `{ movedEventsCount, movedRelationshipsCount }`. It requires a user-subject execution.
 
-`createEvents(items, options?)`, `updateEvents(items, options?)`, `deleteEvents(ids, options?)`, and
-`changeUserRelationships(batches, options?)` accept the same optional submission options:
-`{ submittedAt, idempotencyKey }`. For stable retries, user-plugin writes require a key of 1–128
-characters and the original submission timestamp. The key is scoped by account generation,
-installation, script, and capability. Retry with the identical ordered data, timestamp, and key;
-reusing a key with changed committed data conflicts. The timestamp supplies the stable write-command
-time and any omitted event times. Omitting options keeps execution-scoped write identities.
+A retry of a whole operation is covered by the key its caller passes to `operations.invoke`, which replays
+the original result. Script writes carry no keys of their own.
 
 Event updates may include an `expected` precondition
 `{ kind: "fields", entityId, occurredAt, sessionEntityId, properties, absentProperties }`:

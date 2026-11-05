@@ -6,9 +6,8 @@ import {
 import { Schema } from "effect";
 
 import { hostResultSchema, type SandboxHostError } from "../wire";
-import { optionalSubmissionOptions } from "./writes";
 
-export const commitUserChangesArgsSchema = Schema.Tuple([UserCommand, optionalSubmissionOptions]);
+export const commitUserChangesArgsSchema = Schema.Tuple([UserCommand]);
 export const commitUserChangesResultSchema = hostResultSchema(UserCommandResult);
 
 const CommitConflict = Schema.Struct({ code: CommitConflictCode });

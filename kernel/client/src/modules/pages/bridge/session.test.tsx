@@ -2262,9 +2262,7 @@ describe("plugin bridge", () => {
 				const input = {
 					expectedRevision: 4,
 					entityId: "entity-1",
-					idempotencyKey: "reorder-1",
 					collectionId: "collection-1",
-					submittedAt: "2026-10-19T00:00:00.000Z",
 					destination: { entityId: "entity-2", kind: "before" as const },
 				};
 				pluginPort.postMessage({
@@ -2459,7 +2457,6 @@ describe("plugin bridge", () => {
 					action: "retry" as const,
 					operation: "translation" as const,
 					type: "enrichment-request" as const,
-					idempotencyKey: "test-enrichment-key",
 				};
 				pluginPort.postMessage({ ...request, requestId: "retry-1" });
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
@@ -2479,20 +2476,8 @@ describe("plugin bridge", () => {
 				});
 				pluginPort.postMessage({ ...request, userId: "other", requestId: "retry-3" });
 				expect(calls).toEqual([
-					{
-						action: "retry",
-						pluginId: "fixture",
-						entityId: "entity-1",
-						operation: "translation",
-						idempotencyKey: "test-enrichment-key",
-					},
-					{
-						action: "retry",
-						pluginId: "fixture",
-						entityId: "entity-1",
-						operation: "translation",
-						idempotencyKey: "test-enrichment-key",
-					},
+					{ action: "retry", pluginId: "fixture", entityId: "entity-1", operation: "translation" },
+					{ action: "retry", pluginId: "fixture", entityId: "entity-1", operation: "translation" },
 				]);
 			}),
 		testTimeout,
@@ -3613,6 +3598,7 @@ describe("bridge background submissions", () => {
 		requestId: "background-1",
 		packageId: "test/fixture",
 		type: "background-operation-request",
+		submittedAt: "2026-10-19T00:00:00.000Z",
 	};
 	const backgroundPage = {
 		view: null,

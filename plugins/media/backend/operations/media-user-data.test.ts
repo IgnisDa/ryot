@@ -1,6 +1,5 @@
 import { describe, expect } from "bun:test";
 
-import type { DomainSandboxHostMethodMap } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -10,9 +9,6 @@ import { it } from "@voila.dev/effect-bun-test";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-user-data.sandbox";
-
-type ClearOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["clearUserEntityData"]>[1]>;
-type MergeOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["mergeUserEntityData"]>[1]>;
 
 const submittedAt = "2026-10-27T09:00:00.000Z";
 const submissionId = "submission-1";
@@ -27,8 +23,8 @@ const recordingHost = (input?: {
 		SandboxHostError
 	>;
 }) => {
-	const clears: { readonly args: unknown; readonly options: undefined | ClearOptions }[] = [];
-	const merges: { readonly args: unknown; readonly options: undefined | MergeOptions }[] = [];
+	const clears: { readonly args: unknown }[] = [];
+	const merges: { readonly args: unknown }[] = [];
 	const summaryRequests: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
 		requestRelationshipProjections: (request) =>
@@ -36,17 +32,17 @@ const recordingHost = (input?: {
 				summaryRequests.push(request);
 				return { workId: "work-1" };
 			}),
-		mergeUserEntityData: (args, options) =>
+		mergeUserEntityData: (args) =>
 			Effect.suspend(() => {
-				merges.push({ args, options });
+				merges.push({ args });
 				return (
 					input?.mergeUserEntityData?.() ??
 					Effect.succeed({ movedEventsCount: 4, movedRelationshipsCount: 5 })
 				);
 			}),
-		clearUserEntityData: (args, options) =>
+		clearUserEntityData: (args) =>
 			Effect.suspend(() => {
-				clears.push({ args, options });
+				clears.push({ args });
 				return (
 					input?.clearUserEntityData?.() ??
 					Effect.succeed({ deletedEventsCount: 2, deletedRelationshipsCount: 3 })
@@ -76,19 +72,14 @@ describe("media user data operation", () => {
 						execution,
 					),
 				).toEqual({ count: 5, status: "saved" });
-				expect(clears).toEqual([
-					{
-						options: { submittedAt, idempotencyKey: submissionId },
-						args: { entityId: "media-1", entitySchemaSlug: "movie" },
-					},
-				]);
+				expect(clears).toEqual([{ args: { entityId: "media-1", entitySchemaSlug: "movie" } }]);
 				expect(merges).toEqual([]);
 			}),
 		testTimeout,
 	);
 
 	it.live(
-		"merges one media graph with its submission identity",
+		"merges one media graph",
 		() =>
 			Effect.gen(function* () {
 				const { host, clears, merges, summaryRequests } = recordingHost();
@@ -108,10 +99,7 @@ describe("media user data operation", () => {
 					),
 				).toEqual({ count: 9, status: "saved" });
 				expect(merges).toEqual([
-					{
-						options: { submittedAt, idempotencyKey: submissionId },
-						args: { mergeFrom: "source-1", mergeInto: "target-1", entitySchemaSlug: "show" },
-					},
+					{ args: { mergeFrom: "source-1", mergeInto: "target-1", entitySchemaSlug: "show" } },
 				]);
 				expect(summaryRequests).toEqual([
 					{ sourceEntityIds: ["target-1"], relationshipSchemaSlug: "in-media-library" },

@@ -20,7 +20,7 @@ import { user } from "#schema/tables/auth";
 import { mutationReceipt } from "#schema/tables/mutations";
 import { workflowExecution } from "#schema/tables/workflow-executions";
 
-import { RECEIPT_RETENTION } from "./submission-window";
+import { IDEMPOTENCY_KEY_RETENTION } from "./submission-window";
 
 export const mutationReceiptIdentity = (input: {
 	input: unknown;
@@ -639,7 +639,7 @@ export class MutationReceipts extends Context.Service<MutationReceipts>()(
 						sql`delete from ${mutationReceipt} where id in (
 						select receipt.id from ${mutationReceipt} receipt
 						where receipt.receipt_type <> 'batch-candidate'
-							and receipt.recorded_at < now() - make_interval(secs => ${Duration.toSeconds(RECEIPT_RETENTION)})
+							and receipt.recorded_at < now() - make_interval(secs => ${Duration.toSeconds(IDEMPOTENCY_KEY_RETENTION)})
 							and not exists (
 								select 1 from ${workflowExecution} execution
 								where execution.execution_id in (receipt.execution_id, receipt.root_execution_id)

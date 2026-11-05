@@ -4,7 +4,6 @@ import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { hostResultSchema, strictStruct } from "../wire";
 import { GLOBAL_WRITE_SANDBOX_LIMITS, USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS } from "./limits";
 import { globalPropertiesSchema, nonEmptyString, sandboxIdSchema } from "./primitives";
-import { optionalSubmissionOptions } from "./writes";
 
 export const globalRelationshipSelectorSchema = Schema.Union([
 	strictStruct({ type: Schema.Literal("self") }),
@@ -98,7 +97,6 @@ export const changeUserRelationshipsArgsSchema = Schema.Tuple([
 	Schema.Array(changeUserRelationshipBatchSchema).pipe(
 		Schema.check(Schema.isMaxLength(USER_RELATIONSHIP_WRITE_SANDBOX_LIMITS.batches)),
 	),
-	optionalSubmissionOptions,
 ]);
 export const changeUserRelationshipsDataSchema = Schema.Array(changeUserRelationshipResultSchema);
 export const changeUserRelationshipsResultSchema = hostResultSchema(

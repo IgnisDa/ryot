@@ -68,7 +68,6 @@ export const CreateReminderBody = Schema.Struct({
 export type CreateReminderBody = typeof CreateReminderBody.Type;
 
 export const EditReminderBody = Schema.Struct({
-	...ReminderSubmission.fields,
 	dueAt: IsoUtcString,
 	message: ReminderMessage,
 	revision: ReminderRevision,
@@ -77,10 +76,7 @@ export const EditReminderBody = Schema.Struct({
 
 export type EditReminderBody = typeof EditReminderBody.Type;
 
-export const ChangeReminderBody = Schema.Struct({
-	...ReminderSubmission.fields,
-	revision: ReminderRevision,
-});
+export const ChangeReminderBody = Schema.Struct({ revision: ReminderRevision });
 
 export type ChangeReminderBody = typeof ChangeReminderBody.Type;
 

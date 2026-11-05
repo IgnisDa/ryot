@@ -39,6 +39,7 @@ const BackgroundSubmissionIdempotencyKey = Schema.NonEmptyString.pipe(
 export const PluginBackgroundOperationRequest = strictStruct({
 	input: JsonValue,
 	packageId: PluginPackageId,
+	submittedAt: Schema.String,
 	operationSlug: Schema.String,
 	label: BackgroundSubmissionLabel,
 	idempotencyKey: BackgroundSubmissionIdempotencyKey,

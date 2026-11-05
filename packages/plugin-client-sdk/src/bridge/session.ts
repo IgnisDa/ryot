@@ -357,6 +357,7 @@ export const createPluginRuntime = (
 					...(operation.idempotencyKey === undefined
 						? {}
 						: { idempotencyKey: operation.idempotencyKey }),
+					...(operation.submittedAt === undefined ? {} : { submittedAt: operation.submittedAt }),
 				}) satisfies PluginBridgeOperationRequest,
 		);
 
@@ -369,6 +370,7 @@ export const createPluginRuntime = (
 					input: submission.input,
 					label: submission.label,
 					operationSlug: submission.slug,
+					submittedAt: submission.submittedAt,
 					type: "background-operation-request",
 					idempotencyKey: submission.idempotencyKey,
 					packageId: PluginPackageId.make(submission.packageId),

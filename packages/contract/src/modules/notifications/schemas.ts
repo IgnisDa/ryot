@@ -1,7 +1,7 @@
 import { Schema } from "effect";
 
 import { NotificationChannelId } from "../../schema/brands";
-import { Email, HttpUrl, IsoUtcString } from "../../schema/utils";
+import { Email, HttpUrl } from "../../schema/utils";
 
 const AppriseSpecifics = Schema.Struct({
 	baseUrl: HttpUrl,
@@ -77,12 +77,6 @@ export const UpdateNotificationChannelBody = Schema.Struct({
 });
 
 export type UpdateNotificationChannelBody = typeof UpdateNotificationChannelBody.Type;
-
-export const TestNotificationChannelsBody = Schema.Struct({
-	submittedAt: IsoUtcString,
-	idempotencyKey: Schema.String.pipe(Schema.check(Schema.isMinLength(1), Schema.isMaxLength(200))),
-});
-export type TestNotificationChannelsBody = typeof TestNotificationChannelsBody.Type;
 
 export class NotificationAdmissionConflictError extends Schema.TaggedError<
 	NotificationAdmissionConflictError,

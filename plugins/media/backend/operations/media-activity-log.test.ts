@@ -2,10 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { EventId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type {
-	CreateEventItem,
-	DomainSandboxHostMethodMap,
-} from "@ryot-app/plugin-backend-sdk/core";
+import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -14,8 +11,6 @@ import { it } from "@voila.dev/effect-bun-test";
 import type { MediaActivityEntry } from "../../shared/media-activity-operations";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./media-activity-log.sandbox";
-
-type CreateEventOptions = NonNullable<Parameters<DomainSandboxHostMethodMap["createEvents"]>[1]>;
 
 const submittedAt = "2026-03-10T09:00:00.000Z";
 
@@ -42,7 +37,6 @@ const recordingHost = (input: {
 	readonly createEvents?: (index: number) => undefined | ReturnType<typeof failure>;
 }) => {
 	const creates: (readonly CreateEventItem[])[] = [];
-	const options: (undefined | CreateEventOptions)[] = [];
 	const patches: Record<string, JsonValue>[] = [];
 	const logs: unknown[] = [];
 	const memberQueries: unknown[] = [];
@@ -56,10 +50,9 @@ const recordingHost = (input: {
 			input.failSettings === "read"
 				? Effect.fail({ message: "Settings unavailable" })
 				: Effect.succeed(input.settings ?? {}),
-		createEvents: (items, identity) =>
+		createEvents: (items) =>
 			Effect.suspend(() => {
 				creates.push(items);
-				options.push(identity);
 				return input.createEvents?.(creates.length - 1) ?? Effect.succeed(written(items));
 			}),
 		updateUserSettings: (patch) =>
@@ -94,7 +87,7 @@ const recordingHost = (input: {
 				};
 			}),
 	});
-	return { host, logs, creates, options, patches, memberQueries };
+	return { host, logs, creates, patches, memberQueries };
 };
 
 const failure = (count: number) =>
@@ -141,7 +134,7 @@ describe("media activity log", () => {
 		"writes one complete event at submission time with source and time spent",
 		() =>
 			Effect.gen(function* () {
-				const { host, creates, options } = recordingHost({ schemaSlug: "movie" });
+				const { host, creates } = recordingHost({ schemaSlug: "movie" });
 				expect(
 					yield* run(
 						{
@@ -166,7 +159,6 @@ describe("media activity log", () => {
 						},
 					],
 				]);
-				expect(options).toEqual([{ submittedAt, idempotencyKey: "submission:0" }]);
 			}),
 		testTimeout,
 	);
@@ -466,11 +458,6 @@ describe("media activity log", () => {
 				expect(yield* run({ entry }, first.host)).toEqual({ count: 250, status: "saved" });
 				expect(first.creates.map((chunk) => chunk.length)).toEqual([100, 100, 50]);
 				expect(first.creates.flat().map(({ entityId }) => entityId)).toEqual(ids);
-				expect(first.options).toEqual([
-					{ submittedAt, idempotencyKey: "submission:0" },
-					{ submittedAt, idempotencyKey: "submission:1" },
-					{ submittedAt, idempotencyKey: "submission:2" },
-				]);
 				const retry = recordingHost({ schemaSlug: "podcast" });
 				yield* run({ entry }, retry.host);
 				expect(retry.creates).toEqual(first.creates);

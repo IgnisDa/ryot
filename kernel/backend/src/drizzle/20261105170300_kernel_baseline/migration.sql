@@ -531,6 +531,15 @@ CREATE TABLE "event_stream_work" (
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
+CREATE TABLE "idempotency_key" (
+	"key" text,
+	"fingerprint" text NOT NULL,
+	"response" jsonb,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"user_id" text,
+	CONSTRAINT "idempotency_key_pkey" PRIMARY KEY("user_id","key")
+);
+--> statement-breakpoint
 CREATE TABLE "import_activity" (
 	"data" jsonb NOT NULL,
 	"batch_id" text GENERATED ALWAYS AS (data->>'batchId') STORED,
@@ -1476,6 +1485,7 @@ CREATE INDEX "event_stream_key_idx" ON "event_stream" ("entity_id","user_id","ev
 CREATE INDEX "event_stream_user_schema_idx" ON "event_stream" ("user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
 CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
 CREATE INDEX "event_stream_work_dirty_idx" ON "event_stream_work" ("user_id","event_schema_plugin_id","event_schema_slug","id") WHERE "completed_revision" is null or "dirty_from" is not null;--> statement-breakpoint
+CREATE INDEX "idempotency_key_created_at_idx" ON "idempotency_key" ("created_at");--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1641,6 +1651,7 @@ ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_entity_id_entity_id_fkey
 ALTER TABLE "event_stream_binding" ADD CONSTRAINT "event_stream_binding_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream_binding" ADD CONSTRAINT "event_stream_binding_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_stream_work" ADD CONSTRAINT "event_stream_work_id_event_stream_id_fkey" FOREIGN KEY ("id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "idempotency_key" ADD CONSTRAINT "idempotency_key_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_parent_id_import_activity_run_id_id_fkey" FOREIGN KEY ("run_id","parent_id") REFERENCES "import_activity"("run_id","id");--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_batch_id_import_batch_run_id_id_fkey" FOREIGN KEY ("run_id","batch_id") REFERENCES "import_batch"("run_id","id");--> statement-breakpoint

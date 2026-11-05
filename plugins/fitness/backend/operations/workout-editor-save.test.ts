@@ -193,9 +193,9 @@ const harness = (
 					Object.keys(document.queries).map((key) => [key, page(rowsFor(key))]),
 				),
 			}),
-		commitUserChanges: (command, submission) =>
+		commitUserChanges: (command) =>
 			Effect.suspend(() => {
-				calls.push({ method: "commit", args: [command, submission] });
+				calls.push({ args: [command], method: "commit" });
 				if (partial) {
 					partial = false;
 					return Effect.fail({ message: "Interrupted" });
@@ -485,10 +485,6 @@ describe("workout editor save", () => {
 						],
 					},
 				});
-				expect(calls[0]?.args[1]).toEqual({
-					idempotencyKey: "submission-1:save",
-					submittedAt: (yield* input()).submittedAt,
-				});
 			}),
 		));
 	it("creates a workout with unconfirmed historical sets at their supplied time", () =>
@@ -557,10 +553,6 @@ describe("workout editor save", () => {
 				const commits = calls.filter(({ method }) => method === "commit");
 				expect(commits).toHaveLength(2);
 				expect(commits[0]?.args).toEqual(commits[1]?.args);
-				expect(commits[0]?.args[1]).toEqual({
-					submittedAt: submitted.submittedAt,
-					idempotencyKey: "submission-1:save",
-				});
 			}),
 		));
 	it("preserves imported notes, occurrence media, set times, and active duration on a free historical edit", () =>

@@ -211,6 +211,7 @@ const operation = (entry: unknown, submissionId: unknown = anyOf(String)) => ({
 	label: anyOf(String),
 	packageId: "ryot/media",
 	slug: "media-activity-log",
+	submittedAt: anyOf(String),
 	idempotencyKey: submissionId,
 	input: { entry, submissionId, submittedAt: SUBMITTED_AT },
 });

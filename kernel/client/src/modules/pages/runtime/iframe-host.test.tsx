@@ -997,6 +997,7 @@ describe("PageIframeHost", () => {
 						packageId: "test/fixture",
 						requestId: `request-${key}`,
 						type: "background-operation-request",
+						submittedAt: "2026-10-19T00:00:00.000Z",
 					});
 				const reply = (key: string) =>
 					bridge.messages.find(

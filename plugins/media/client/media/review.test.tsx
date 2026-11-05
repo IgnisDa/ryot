@@ -91,6 +91,7 @@ it.live(
 					{
 						label: "Review",
 						packageId: "ryot/media",
+						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
 						input: { rating: 82.5, isSpoiler: true, entityId: "media-1", text: "Great ending" },
@@ -147,6 +148,7 @@ it.live(
 					{
 						label: "Review",
 						packageId: "ryot/media",
+						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
 						input: { rating: 80, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
@@ -231,6 +233,7 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 						{
 							label: "Review",
 							packageId: "ryot/media",
+							submittedAt: anyOf(String),
 							slug: "media-review-create",
 							idempotencyKey: anyOf(String),
 							input: { rating: 0, text: "Thoughts", isSpoiler: false, entityId: "media-1" },
@@ -317,6 +320,7 @@ it.live(
 					[1, 2].map(() => ({
 						label: "Review",
 						packageId: "ryot/media",
+						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
 						input: { rating: null, text: "Thoughts", isSpoiler: false, entityId: "creator-1" },

@@ -1,8 +1,5 @@
 import type { ContractSuccess } from "@ryot-app/contract/client";
-import type {
-	CreateNotificationChannelBody,
-	TestNotificationChannelsBody,
-} from "@ryot-app/contract/modules/notifications/schemas";
+import type { CreateNotificationChannelBody } from "@ryot-app/contract/modules/notifications/schemas";
 import { NotificationChannelId } from "@ryot-app/contract/schema/brands";
 import {
 	createRyotHostMutation,
@@ -97,15 +94,15 @@ export const notificationSmtpEnabledQuery = createRyotHostQuery<void, boolean, K
 );
 
 export const testNotificationChannelsMutation = createRyotHostMutation<
-	TestNotificationChannelsBody,
+	void,
 	ContractSuccess<"notifications", "testChannels">,
 	KernelHostServices,
 	AuthenticatedApiError
 >(
-	({ input, client, hostServices }) =>
+	({ client, hostServices }) =>
 		hostServices.runtime
 			.runSync(NotificationsApi)
-			.testChannels(hostServices.scope, { payload: input })
+			.testChannels(hostServices.scope)
 			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
 	{ hostServices: KernelHostServices },
 );

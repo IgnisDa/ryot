@@ -19,9 +19,6 @@ export default defineOperation({
 	output: WorkoutDeleteOutputSchema,
 	run: (input, host) =>
 		host
-			.deleteUserEntity(
-				{ entityId: input.entityId, entitySchemaSlug: "workout" },
-				{ submittedAt: input.submittedAt, idempotencyKey: input.submissionId },
-			)
+			.deleteUserEntity({ entityId: input.entityId, entitySchemaSlug: "workout" })
 			.pipe(Effect.as({ entityId: input.entityId })),
 });

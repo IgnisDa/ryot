@@ -7,7 +7,6 @@ import {
 	type ReorderMembershipBody,
 } from "@ryot-app/contract/modules/collections/schemas";
 import {
-	AutomationExecutionId,
 	EntityId,
 	PluginId,
 	RelationshipId,
@@ -24,7 +23,6 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, isNull } from "drizzle-orm";
 import { Effect, Exit, Layer } from "effect";
 
-import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { CollectionOrderingService } from "#modules/collections/ordering-service";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -39,7 +37,6 @@ import * as tables from "#schema/tables/combined";
 
 const ownerId = UserId.make("owner");
 const recipientId = UserId.make("recipient");
-const submittedAt = "2026-01-01T00:00:00.000Z";
 const collectionCreatedAt = new Date(Date.UTC(2020, 0, 1));
 const membershipCreatedAt = Array.from(
 	{ length: 1_000 },
@@ -53,19 +50,6 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	name: id === ownerId ? "Owner" : "Recipient",
 	accountGeneration: { userId: id, token: "test-account-generation" },
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-});
-
-const lifecycleCommand = (id: string, userId = ownerId) => ({
-	...rootLifecycleCommand({
-		source: "api",
-		lane: "interactive",
-		occurredAt: submittedAt,
-		itemIdentity: `collection-order:${id}`,
-		initiator: { id: userId, kind: "user" },
-		accountGeneration: { userId, token: "test-account-generation" },
-		executionId: AutomationExecutionId.make(`collection-order-command-${id}`),
-	}),
-	writeContext: null,
 });
 
 type FixtureOptions = {
@@ -185,15 +169,7 @@ const reorderInput = (
 	entityId: EntityId,
 	expectedRevision: number,
 	destination: ReorderMembershipBody["destination"],
-	idempotencyKey: string,
-): ReorderMembershipBody => ({
-	entityId,
-	destination,
-	submittedAt,
-	collectionId,
-	idempotencyKey,
-	expectedRevision,
-});
+): ReorderMembershipBody => ({ entityId, destination, collectionId, expectedRevision });
 
 const entitiesLayer = EntitiesRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer));
 const repositoriesLayer = Layer.mergeAll(
@@ -223,17 +199,10 @@ layer(orderingLayer)((test) => {
 					{ member: b, expected: [b, d, c, a], destination: { kind: "start" } },
 					{ member: d, expected: [b, c, a, d], destination: { kind: "end" } },
 				];
-				for (const [index, move] of moves.entries()) {
+				for (const move of moves) {
 					const result = yield* ordering.reorder(
 						currentUser(ownerId),
-						reorderInput(
-							fixture.collectionId,
-							move.member,
-							revision,
-							move.destination,
-							`move-${index}`,
-						),
-						lifecycleCommand(`${yield* randomUuid}-${index}`),
+						reorderInput(fixture.collectionId, move.member, revision, move.destination),
 					);
 					revision += 1;
 					expect(result).toEqual({ orderRevision: revision, collectionId: fixture.collectionId });
@@ -241,8 +210,7 @@ layer(orderingLayer)((test) => {
 				}
 				const noOp = yield* ordering.reorder(
 					currentUser(ownerId),
-					reorderInput(fixture.collectionId, d, revision, { kind: "end" }, "already-at-end"),
-					lifecycleCommand(yield* randomUuid),
+					reorderInput(fixture.collectionId, d, revision, { kind: "end" }),
 				);
 				expect(noOp.orderRevision).toBe(revision);
 				expect(yield* orderRevision(fixture.collectionId)).toBe(revision);
@@ -261,47 +229,25 @@ layer(orderingLayer)((test) => {
 	);
 
 	test.effect(
-		"replays an identical command after later moves and rejects changed same-key input",
+		"accepts a resend while the member stays at its destination and rejects it after a later move",
 		() =>
 			Effect.gen(function* () {
 				const ordering = yield* CollectionOrderingService;
 				const fixture = yield* makeFixture({ memberCount: 4 });
-				const [a, b, c] = fixture.memberIds;
-				assert(a && b && c);
+				const [a, b] = fixture.memberIds;
+				assert(a && b);
 				const revision = yield* orderRevision(fixture.collectionId);
-				const command = lifecycleCommand(yield* randomUuid);
-				const input = reorderInput(fixture.collectionId, a, revision, { kind: "end" }, "same-key");
-				const firstResult = yield* ordering.reorder(currentUser(ownerId), input, command);
-				const intervening = yield* ordering.reorder(
+				const input = reorderInput(fixture.collectionId, a, revision, { kind: "end" });
+				const firstResult = yield* ordering.reorder(currentUser(ownerId), input);
+				expect(yield* ordering.reorder(currentUser(ownerId), input)).toEqual(firstResult);
+				yield* ordering.reorder(
 					currentUser(ownerId),
-					reorderInput(
-						fixture.collectionId,
-						b,
-						firstResult.orderRevision,
-						{ kind: "end" },
-						"intervening",
-					),
-					lifecycleCommand(yield* randomUuid),
+					reorderInput(fixture.collectionId, b, firstResult.orderRevision, { kind: "end" }),
 				);
 				const laterOrder = yield* orderedMemberIds(fixture.collectionId);
-				expect(intervening.orderRevision).toBeGreaterThan(firstResult.orderRevision);
-				expect(yield* ordering.reorder(currentUser(ownerId), input, command)).toEqual(firstResult);
-				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(laterOrder);
 				assertExitFails(
-					yield* Effect.exit(
-						ordering.reorder(
-							currentUser(ownerId),
-							reorderInput(
-								fixture.collectionId,
-								a,
-								revision,
-								{ entityId: c, kind: "before" },
-								"same-key",
-							),
-							command,
-						),
-					),
-					new CollectionConflict({ reason: { code: "command-identity-conflict" } }),
+					yield* Effect.exit(ordering.reorder(currentUser(ownerId), input)),
+					new CollectionConflict({ reason: { code: "order-stale" } }),
 				);
 				expect(yield* orderedMemberIds(fixture.collectionId)).toEqual(laterOrder);
 			}),
@@ -314,15 +260,15 @@ layer(orderingLayer)((test) => {
 			Effect.gen(function* () {
 				const ordering = yield* CollectionOrderingService;
 				const fixture = yield* makeFixture({ memberCount: 4 });
-				const [a, b] = fixture.memberIds;
-				assert(a && b);
+				const [a, , c] = fixture.memberIds;
+				assert(a && c);
 				const revision = yield* orderRevision(fixture.collectionId);
 				const moves: ReadonlyArray<{
 					readonly member: EntityId;
 					readonly destination: ReorderMembershipBody["destination"];
 				}> = [
 					{ member: a, destination: { kind: "end" } },
-					{ member: b, destination: { kind: "start" } },
+					{ member: c, destination: { kind: "start" } },
 				];
 				const exits = yield* Effect.forEach(
 					moves,
@@ -330,14 +276,7 @@ layer(orderingLayer)((test) => {
 						Effect.exit(
 							ordering.reorder(
 								currentUser(ownerId),
-								reorderInput(
-									fixture.collectionId,
-									member,
-									revision,
-									destination,
-									crypto.randomUUID(),
-								),
-								lifecycleCommand(crypto.randomUUID()),
+								reorderInput(fixture.collectionId, member, revision, destination),
 							),
 						),
 					{ concurrency: 2 },
@@ -364,20 +303,12 @@ layer(orderingLayer)((test) => {
 				assert(rightMember && leftMember);
 				const changedRight = yield* ordering.reorder(
 					currentUser(ownerId),
-					reorderInput(
-						right.collectionId,
-						rightMember,
-						rightRevision,
-						{ kind: "end" },
-						"right-change",
-					),
-					lifecycleCommand(yield* randomUuid),
+					reorderInput(right.collectionId, rightMember, rightRevision, { kind: "end" }),
 				);
 				expect(changedRight.orderRevision).toBeGreaterThan(rightRevision);
 				const changedLeft = yield* ordering.reorder(
 					currentUser(ownerId),
-					reorderInput(left.collectionId, leftMember, leftRevision, { kind: "end" }, "left-change"),
-					lifecycleCommand(yield* randomUuid),
+					reorderInput(left.collectionId, leftMember, leftRevision, { kind: "end" }),
 				);
 				expect(changedLeft.orderRevision).toBeGreaterThan(leftRevision);
 			}),
@@ -400,14 +331,7 @@ layer(orderingLayer)((test) => {
 					yield* Effect.exit(
 						ordering.reorder(
 							currentUser(ownerId),
-							reorderInput(
-								fixture.collectionId,
-								missingMember,
-								revision,
-								{ kind: "end" },
-								"missing-member",
-							),
-							lifecycleCommand(yield* randomUuid),
+							reorderInput(fixture.collectionId, missingMember, revision, { kind: "end" }),
 						),
 					),
 					new CollectionNotFound({
@@ -422,14 +346,10 @@ layer(orderingLayer)((test) => {
 					yield* Effect.exit(
 						ordering.reorder(
 							currentUser(ownerId),
-							reorderInput(
-								fixture.collectionId,
-								member,
-								revision,
-								{ kind: "before", entityId: missingAnchor },
-								"missing-anchor",
-							),
-							lifecycleCommand(yield* randomUuid),
+							reorderInput(fixture.collectionId, member, revision, {
+								kind: "before",
+								entityId: missingAnchor,
+							}),
 						),
 					),
 					new CollectionNotFound({
@@ -444,14 +364,7 @@ layer(orderingLayer)((test) => {
 					yield* Effect.exit(
 						ordering.reorder(
 							currentUser(recipientId),
-							reorderInput(
-								fixture.collectionId,
-								member,
-								revision,
-								{ kind: "end" },
-								"foreign-owner",
-							),
-							lifecycleCommand(yield* randomUuid, recipientId),
+							reorderInput(fixture.collectionId, member, revision, { kind: "end" }),
 						),
 					),
 					new CollectionNotFound({
@@ -545,14 +458,10 @@ layer(orderingLayer)((test) => {
 					const member = index % 2 === 0 ? first : second;
 					const result = yield* ordering.reorder(
 						currentUser(ownerId),
-						reorderInput(
-							fixture.collectionId,
-							member,
-							revision,
-							{ kind: "after", entityId: anchor },
-							`alternation-${index}`,
-						),
-						lifecycleCommand(`${yield* randomUuid}-${index}`),
+						reorderInput(fixture.collectionId, member, revision, {
+							kind: "after",
+							entityId: anchor,
+						}),
 					);
 					revision = result.orderRevision;
 				}
@@ -588,14 +497,7 @@ layer(orderingLayer)((test) => {
 				const revision = yield* orderRevision(fixture.collectionId);
 				const result = yield* ordering.reorder(
 					currentUser(ownerId),
-					reorderInput(
-						fixture.collectionId,
-						moving,
-						revision,
-						{ kind: "after", entityId: anchor },
-						"dense-middle",
-					),
-					lifecycleCommand(yield* randomUuid),
+					reorderInput(fixture.collectionId, moving, revision, { kind: "after", entityId: anchor }),
 				);
 				const expectedOrder = [
 					...fixture.memberIds.slice(0, 311),
@@ -641,14 +543,7 @@ layer(orderingLayer)((test) => {
 					yield* Effect.exit(
 						ordering.reorder(
 							currentUser(ownerId),
-							reorderInput(
-								fixture.collectionId,
-								remaining,
-								revision,
-								{ kind: "end" },
-								"deleted-stale",
-							),
-							lifecycleCommand(yield* randomUuid),
+							reorderInput(fixture.collectionId, remaining, revision, { kind: "end" }),
 						),
 					),
 					new CollectionConflict({ reason: { code: "order-stale" } }),
@@ -674,14 +569,7 @@ layer(orderingLayer)((test) => {
 					yield* Effect.exit(
 						ordering.reorder(
 							currentUser(ownerId),
-							reorderInput(
-								fixture.collectionId,
-								remaining,
-								revision,
-								{ kind: "end" },
-								"cascade-stale",
-							),
-							lifecycleCommand(yield* randomUuid),
+							reorderInput(fixture.collectionId, remaining, revision, { kind: "end" }),
 						),
 					),
 					new CollectionConflict({ reason: { code: "order-stale" } }),

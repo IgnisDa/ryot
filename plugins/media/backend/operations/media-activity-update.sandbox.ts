@@ -162,10 +162,7 @@ export default defineOperation({
 				return yield* reject("Nothing to change on this record.");
 			}
 			const { count } = yield* host
-				.updateEvents(
-					[{ patch, eventId: target.id, expected: writePrecondition(input.expected) }],
-					{ submittedAt: input.submittedAt, idempotencyKey: `${input.submissionId}:write` },
-				)
+				.updateEvents([{ patch, eventId: target.id, expected: writePrecondition(input.expected) }])
 				.pipe(Effect.catch(rejectHostFailure));
 			return { count, status: "saved" as const };
 		}),

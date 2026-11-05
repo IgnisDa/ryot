@@ -25,7 +25,12 @@ import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { type MutationReceiptIdentity, MutationReceipts } from "#modules/mutations/receipts";
+import {
+	type IdempotencyIdentity,
+	idempotencyIdentity,
+	IdempotencyKeys,
+} from "#modules/mutations/idempotency";
+import { requireOpenSubmission } from "#modules/mutations/submission-window";
 import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -36,9 +41,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
 
-type AdmittedDispatch = DispatchInput & {
-	readonly admissionIdentity: null | MutationReceiptIdentity;
-};
+type AdmittedDispatch = DispatchInput & { readonly resultIdentity: null | IdempotencyIdentity };
 
 type IntegrationOperationScope = {
 	readonly userId: UserId;
@@ -78,7 +81,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const runtime = yield* PluginRuntimeResolver;
 			const sandbox = yield* ScriptExecutionService;
 			const integrationScopeResolver = yield* IntegrationOperationScopeResolver;
-			const receipts = yield* MutationReceipts.make;
+			const keys = yield* IdempotencyKeys.make;
 			const admission = yield* AccountAdmission.make;
 			const scripts = yield* SandboxRepository;
 			const references = yield* SandboxWorkflowReferenceRepository;
@@ -142,11 +145,15 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
 				readonly payload: JsonValue;
 				readonly contentHash?: string;
+				readonly submittedAt?: string;
 				readonly operationSlug: string;
 				readonly idempotencyKey?: string;
 				readonly packageId: PluginPackageId;
 				readonly headers: PlatformHeaders.Headers;
 			}) {
+				if (input.submittedAt !== undefined) {
+					yield* requireOpenSubmission(input.submittedAt);
+				}
 				const operation = { packageId: input.packageId, operationSlug: input.operationSlug };
 				const operationNotFound = new PluginNotFoundError({
 					reason: { code: "operation-not-found", ...operation },
@@ -215,18 +222,24 @@ export class OperationsService extends Context.Service<OperationsService>()(
 							]),
 						)}`,
 					);
-					const admissionIdentity = {
-						executionId,
-						mutationScope: "user",
-						rootExecutionId: executionId,
-						id: `operation_${executionId}`,
-						itemIdentity: input.operationSlug,
-						ownerUserId: dispatchInput.userId,
-						scopeUserId: dispatchInput.userId,
-						commandKind: "plugin-operation:admit",
-						accountGeneration: dispatchInput.accountGeneration,
-						inputFingerprint: sha256Base64Url(stableStringify(input.payload)),
-					} satisfies MutationReceiptIdentity;
+					const request = {
+						payload: input.payload,
+						pluginId: dispatchInput.pluginId,
+						operationSlug: input.operationSlug,
+						integrationId: dispatchInput.integrationId ?? null,
+					};
+					const admissionIdentity = idempotencyIdentity({
+						request,
+						key: executionId,
+						userId: dispatchInput.userId,
+						kind: "plugin-operation:admit",
+					});
+					const resultIdentity = idempotencyIdentity({
+						request,
+						key: executionId,
+						userId: dispatchInput.userId,
+						kind: "plugin-operation:result",
+					});
 					const admissionSchema = Schema.Struct({
 						scriptId: SandboxScriptId,
 						executionId: Schema.String,
@@ -235,11 +248,11 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					const existing =
 						input.idempotencyKey === undefined
 							? null
-							: yield* receipts
-									.lookup(admissionIdentity, admissionSchema)
+							: yield* keys
+									.read(admissionIdentity, admissionSchema)
 									.pipe(
 										Effect.catchTag(
-											"MutationReceiptIdentityConflict",
+											"IdempotencyConflict",
 											() =>
 												new PluginRequestError({
 													reason: {
@@ -260,10 +273,10 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					if (existing) {
 						return {
 							...dispatchInput,
-							admissionIdentity,
-							scriptId: existing.result.scriptId,
-							executionId: existing.result.executionId,
-							pluginRevision: existing.result.pluginRevision,
+							resultIdentity,
+							scriptId: existing.response.scriptId,
+							executionId: existing.response.executionId,
+							pluginRevision: existing.response.pluginRevision,
 						} satisfies AdmittedDispatch;
 					}
 					const subject = {
@@ -313,21 +326,17 @@ export class OperationsService extends Context.Service<OperationsService>()(
 							Effect.catchTag("SandboxWorkflowReferenceRegistrationError", () => operationNotFound),
 						);
 					if (input.idempotencyKey !== undefined) {
-						yield* receipts.insert({
-							dispatch: [],
-							identity: admissionIdentity,
-							result: {
-								executionId,
-								scriptId: dispatchInput.scriptId,
-								pluginRevision: pin.pluginRevision,
-							},
+						yield* keys.record(admissionIdentity, admissionSchema, {
+							executionId,
+							scriptId: dispatchInput.scriptId,
+							pluginRevision: pin.pluginRevision,
 						});
 					}
 					return {
 						...dispatchInput,
 						executionId,
 						pluginRevision: pin.pluginRevision,
-						admissionIdentity: input.idempotencyKey === undefined ? null : admissionIdentity,
+						resultIdentity: input.idempotencyKey === undefined ? null : resultIdentity,
 					} satisfies AdmittedDispatch;
 				});
 
@@ -425,36 +434,18 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						.transaction(resolveAuthorized())
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die)),
 				);
-				const resultIdentity =
-					authorized.admissionIdentity === null
-						? null
-						: {
-								...authorized.admissionIdentity,
-								commandKind: "plugin-operation:result",
-								id: `operation_result_${authorized.executionId}`,
-							};
+				const { resultIdentity } = authorized;
 				if (resultIdentity) {
-					const completed = yield* receipts
-						.peek(resultIdentity, JsonValue)
-						.pipe(Effect.catchTag("MutationReceiptIdentityConflict", Effect.die));
+					const completed = yield* keys
+						.read(resultIdentity, JsonValue)
+						.pipe(Effect.catchTag("IdempotencyConflict", Effect.die));
 					if (completed) {
-						return completed.result;
+						return completed.response;
 					}
 				}
 				const result = yield* dispatch(authorized);
 				if (resultIdentity) {
-					yield* database
-						.transaction(
-							Effect.gen(function* () {
-								const completed = yield* receipts
-									.lookup(resultIdentity, JsonValue)
-									.pipe(Effect.catchTag("MutationReceiptIdentityConflict", Effect.die));
-								if (!completed) {
-									yield* receipts.insert({ result, dispatch: [], identity: resultIdentity });
-								}
-							}),
-						)
-						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
+					yield* keys.record(resultIdentity, JsonValue, result);
 				}
 				return result;
 			});

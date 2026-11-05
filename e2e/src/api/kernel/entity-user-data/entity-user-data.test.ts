@@ -2,7 +2,7 @@ import type { ContractPayload } from "@ryot-app/contract/client";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { column, document, eq, field, literal, rows, table } from "@ryot-app/ryotql";
 import { randomUuid } from "@ryot-app/testing/random";
-import { DateTime, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
 	clearEntityUserData,
@@ -201,30 +201,13 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 		}),
 	);
 
-	it.live("rejects a submission outside the replay window", () =>
-		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
-			const libraryEntityId = yield* getMediaLibraryEntityId(client);
-			const error = yield* Effect.flip(
-				clearEntityUserData(client, libraryEntityId, {
-					idempotencyKey: yield* randomUuid,
-					submittedAt: DateTime.formatIso(DateTime.subtract(yield* DateTime.now, { days: 8 })),
-				}),
-			);
-
-			assertTaggedError(error, "SubmissionExpired");
-		}),
-	);
-
 	it.live("rejects clearing the library entity user state", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const libraryEntityId = yield* getMediaLibraryEntityId(client);
-			const payload = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
-
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityUserData.clearEntityUserData({ payload, params: { entityId: libraryEntityId } }),
+					c.entityUserData.clearEntityUserData({ params: { entityId: libraryEntityId } }),
 				),
 			);
 
@@ -236,14 +219,9 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 	it.live("rejects unauthenticated requests", () =>
 		Effect.gen(function* () {
 			const client = getApiClient();
-			const payload = { submittedAt: nowIso(), idempotencyKey: yield* randomUuid };
-
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.entityUserData.clearEntityUserData({
-						payload,
-						params: { entityId: EntityId.make("entity_1") },
-					}),
+					c.entityUserData.clearEntityUserData({ params: { entityId: EntityId.make("entity_1") } }),
 				),
 			);
 

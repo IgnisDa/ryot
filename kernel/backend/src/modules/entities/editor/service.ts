@@ -47,11 +47,8 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import {
-	mutationReceiptIdentity,
-	MutationReceiptIdentityConflict,
-	MutationReceipts,
-} from "#modules/mutations/receipts";
+import { AccountAdmission } from "#modules/mutations/account-admission";
+import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import type {
 	PreparedUserRelationshipCreate,
@@ -152,7 +149,8 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			const planner = yield* LifecyclePlanner;
-			const receipts = yield* MutationReceipts;
+			const keys = yield* IdempotencyKeys;
+			const admission = yield* AccountAdmission.make;
 			const entities = yield* EntitiesService;
 			const definitions = yield* DefinitionRepository;
 			const execution = yield* LifecycleExecution;
@@ -164,19 +162,6 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 				database
 					.transaction(entitiesRepository.lockSchemaCatalog([userId]).pipe(Effect.andThen(work)))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-			const receiptLookup = <A>(
-				identity: ReturnType<typeof mutationReceiptIdentity>,
-				result: Schema.Codec<A, unknown>,
-				lock: boolean,
-			) =>
-				(lock ? receipts.lookup(identity, result) : receipts.peek(identity, result)).pipe(
-					Effect.mapError((error) =>
-						error instanceof MutationReceiptIdentityConflict
-							? refused("Command identity was reused with a different submission")
-							: error,
-					),
-				);
-
 			const authorize = Effect.fn("EntityEditorService.authorize")(function* (
 				userId: UserId,
 				reference: EntitySchemaReference,
@@ -258,11 +243,12 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 			};
 
 			const save = Effect.fn("EntityEditorService.save")(function* (input: {
+				key: string;
 				userId: UserId;
 				lifecycle: DomainLifecycleCommand;
 				submission: EntityEditorSaveSubmission;
 			}) {
-				const { userId, submission, lifecycle: command } = input;
+				const { key, userId, submission, lifecycle: command } = input;
 				const schemaOwner = submission.entitySchema.owner;
 				if (schemaOwner.kind !== "plugin") {
 					return { warnings: noWarnings, output: invalid(notEditable) };
@@ -316,20 +302,25 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					};
 				}
 
-				const identity = mutationReceiptIdentity({
-					command,
-					ownerUserId: userId,
-					scopeUserId: userId,
-					input: { userId, submission },
-					commandKind: "entity-editor:save",
+				const identity = idempotencyIdentity({
+					key,
+					userId,
+					kind: "entity-editor:save",
+					request: { userId, submission },
 				});
-				const replay = yield* receiptLookup(identity, SaveResult, false);
+				const replay = yield* keys
+					.read(identity, SaveResult)
+					.pipe(
+						Effect.catchTag("IdempotencyConflict", () =>
+							Effect.fail(refused("Command identity was reused with a different submission")),
+						),
+					);
 				if (replay) {
 					return {
-						warnings: yield* execution.dispatch(replay.dispatch),
+						warnings: noWarnings,
 						output: {
 							kind: "saved",
-							entityId: replay.result.entityId,
+							entityId: replay.response.entityId,
 						} satisfies EntityEditorSaveOutput,
 					};
 				}
@@ -488,13 +479,18 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 				const committed = yield* transaction(
 					Effect.gen(function* () {
-						const prior = yield* receiptLookup(identity, SaveResult, true);
+						if (command.accountGeneration) {
+							yield* admission.admitAccount(command.accountGeneration);
+						}
+						const prior = yield* keys
+							.lockedRead(identity, SaveResult)
+							.pipe(
+								Effect.catchTag("IdempotencyConflict", () =>
+									Effect.fail(refused("Command identity was reused with a different submission")),
+								),
+							);
 						if (prior) {
-							return {
-								kind: "saved" as const,
-								dispatch: prior.dispatch,
-								entityId: prior.result.entityId,
-							};
+							return { dispatch: [], kind: "saved" as const, entityId: prior.response.entityId };
 						}
 						const committedAuthorization = yield* authorize(userId, submission.entitySchema, slugs);
 						if (committedAuthorization.kind === "refused") {
@@ -529,7 +525,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 							);
 						}
 						const dispatch = [...saved.dispatch, ...relationshipDispatch];
-						yield* receipts.insert({ identity, dispatch, result: { entityId: saved.entity.id } });
+						yield* keys.record(identity, SaveResult, { entityId: saved.entity.id });
 						return { dispatch, kind: "saved" as const, entityId: saved.entity.id };
 					}),
 					userId,
@@ -666,7 +662,7 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 					}),
 					writeContext: null,
 				};
-				return yield* handled({ userId, lifecycle, submission });
+				return yield* handled({ userId, lifecycle, submission, key: executionId });
 			});
 
 			return { submit };
