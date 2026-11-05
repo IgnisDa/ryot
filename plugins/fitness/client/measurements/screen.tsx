@@ -210,7 +210,7 @@ function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
 	const logTrigger = useRef<HTMLButtonElement>(null);
 	const result = useRyotQuery(summaryQuery, { range, timeZone });
 	const openDialog = (kind: MeasurementDialogState["kind"]) => {
-		if (result.data !== undefined) {
+		if (result.data !== undefined && !result.isFetching) {
 			setDialog({ kind, metrics: result.data });
 		}
 	};
@@ -235,8 +235,9 @@ function MeasurementsPageBody({ timeZone }: { readonly timeZone: TimeZone }) {
 				variant="secondary"
 				ref={addMetricTrigger}
 				className="min-h-9 px-3 py-1.5"
+				aria-disabled={result.isFetching}
 				onClick={() => openDialog("add-metric")}
-				disabled={result.data === undefined || result.isFetching || result.isError}
+				disabled={result.data === undefined || result.isError}
 			>
 				Add metric
 			</Button>

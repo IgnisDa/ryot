@@ -14,6 +14,7 @@ import {
 	pluginContributor,
 	routeLocation,
 	savedViewPageContext,
+	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -635,6 +636,7 @@ describe("measurements page", () => {
 					value: { entityId: "new-metric" },
 				});
 				page.send({ type: "page-refresh" });
+				yield* waitForMessagePortMacrotask;
 				yield* Effect.promise(() => clock.advance(250));
 				yield* Effect.promise(() =>
 					waitFor(() => {
