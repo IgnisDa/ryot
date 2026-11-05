@@ -157,12 +157,9 @@ it.live("keeps successful saved data when an explicit refresh fails", () =>
 				action: "refresh" as const,
 				pluginId: provider.pluginId,
 				operation: "population" as const,
-				idempotencyKey: yield* randomUuid,
 			},
 		};
-		const accepted = yield* auth.client.call((contract) =>
-			contract.entities.requestEnrichment(request),
-		);
+		yield* auth.client.call((contract) => contract.entities.requestEnrichment(request));
 		const failed = yield* pollUntil(
 			"explicit refresh failed",
 			getEntity(auth.client, seeded.id).pipe(
@@ -172,9 +169,6 @@ it.live("keeps successful saved data when an explicit refresh fails", () =>
 		expect(failed.name).toBe("Saved record");
 		expect(failed.populationStatus.availability).toBe("complete");
 		expect(failed.providerCheckedAt).toBeNull();
-		expect(
-			yield* auth.client.call((contract) => contract.entities.requestEnrichment(request)),
-		).toEqual(accepted);
 	}),
 );
 

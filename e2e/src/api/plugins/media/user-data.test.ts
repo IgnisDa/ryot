@@ -241,248 +241,241 @@ const customShowTree = (client: Client) =>
 	});
 
 describe("Media entity user data HTTP operations", () => {
-	it.live(
-		"clears a complete show tree, then accepts new data without replaying the old clear",
-		() =>
-			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
-				const other = yield* createAuthenticatedClient();
-				const tree = yield* seedShow(client, {
-					inLibrary: false,
-					name: `Clear source ${yield* randomUuid}`,
-					properties: { productionStatus: "Ended", description: "Show metadata survives" },
-					seasons: [
-						{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
-						{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] },
-					],
+	it.live("clears a complete show tree, then accepts new data", () =>
+		Effect.gen(function* () {
+			const { client, userId } = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const tree = yield* seedShow(client, {
+				inLibrary: false,
+				name: `Clear source ${yield* randomUuid}`,
+				properties: { productionStatus: "Ended", description: "Show metadata survives" },
+				seasons: [
+					{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
+					{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] },
+				],
+			});
+			const entities = treeEntities(tree);
+			const collection = yield* createCollection(client, {
+				name: `Clear collection ${yield* randomUuid}`,
+			});
+			for (const entity of entities) {
+				yield* client.call((contract) =>
+					contract.collections.createMembership({
+						payload: { collectionId: collection.id, entityId: EntityId.make(entity.id) },
+					}),
+				);
+				yield* insertLibraryMembership(client, {
+					mediaEntityId: entity.id,
+					properties: { owned: true },
 				});
-				const entities = treeEntities(tree);
-				const collection = yield* createCollection(client, {
-					name: `Clear collection ${yield* randomUuid}`,
-				});
-				for (const entity of entities) {
-					yield* client.call((contract) =>
-						contract.collections.createMembership({
-							payload: { collectionId: collection.id, entityId: EntityId.make(entity.id) },
-						}),
-					);
-					yield* insertLibraryMembership(client, {
-						mediaEntityId: entity.id,
-						properties: { owned: true },
-					});
-					yield* insertMediaMonitoring(client, entity.id);
-				}
-				yield* waitForEventCount(client, collection.id, entities.length);
+				yield* insertMediaMonitoring(client, entity.id);
+			}
+			yield* waitForEventCount(client, collection.id, entities.length);
 
-				const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
-					yield* Effect.all([
-						findMediaEntitySchema(client, "show"),
-						findMediaEntitySchema(client, "show-season"),
-						findMediaEntitySchema(client, "show-episode"),
-					]);
-				for (const [entity, schema] of [
-					[tree.show, showSchema],
-					[tree.seasons[0], seasonSchema],
-					[tree.episodes[0], episodeSchema],
-					[tree.episodes[1], episodeSchema],
-				] as const) {
-					assertCondition(entity !== undefined, "Expected all seeded show nodes");
-					const eventSchemas = yield* listEventSchemas(client, schema.reference);
-					yield* createEventFixture(client, {
-						entityId: entity.id,
-						occurredAt: "2026-03-01T10:00:00.000Z",
-						properties: { rating: 76, text: `Review ${entity.name}` },
-						eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "review").id,
-					});
-				}
-				const episodeEventSchemas = yield* listEventSchemas(client, episodeSchema.reference);
-				const detachedEpisodeProperties = {
-					seasonNumber: 1,
-					episodeNumber: 2,
-					description: "Detached episode metadata survives",
-				};
-				const detachedEpisode = yield* createEntity(client, {
-					entitySchema: episodeSchema.reference,
-					properties: detachedEpisodeProperties,
-					name: `Detached clear episode ${yield* randomUuid}`,
-				});
+			const [{ schema: showSchema }, { schema: seasonSchema }, { schema: episodeSchema }] =
+				yield* Effect.all([
+					findMediaEntitySchema(client, "show"),
+					findMediaEntitySchema(client, "show-season"),
+					findMediaEntitySchema(client, "show-episode"),
+				]);
+			for (const [entity, schema] of [
+				[tree.show, showSchema],
+				[tree.seasons[0], seasonSchema],
+				[tree.episodes[0], episodeSchema],
+				[tree.episodes[1], episodeSchema],
+			] as const) {
+				assertCondition(entity !== undefined, "Expected all seeded show nodes");
+				const eventSchemas = yield* listEventSchemas(client, schema.reference);
 				yield* createEventFixture(client, {
-					entityId: detachedEpisode.id,
-					sessionEntityId: tree.show.id,
-					occurredAt: "2026-03-01T11:00:00.000Z",
-					properties: { rating: 74, text: "Detached episode review" },
-					eventSchemaSlug: requireEventSchemaBySlug(episodeEventSchemas, "review").id,
+					entityId: entity.id,
+					occurredAt: "2026-03-01T10:00:00.000Z",
+					properties: { rating: 76, text: `Review ${entity.name}` },
+					eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "review").id,
 				});
+			}
+			const episodeEventSchemas = yield* listEventSchemas(client, episodeSchema.reference);
+			const detachedEpisodeProperties = {
+				seasonNumber: 1,
+				episodeNumber: 2,
+				description: "Detached episode metadata survives",
+			};
+			const detachedEpisode = yield* createEntity(client, {
+				entitySchema: episodeSchema.reference,
+				properties: detachedEpisodeProperties,
+				name: `Detached clear episode ${yield* randomUuid}`,
+			});
+			yield* createEventFixture(client, {
+				entityId: detachedEpisode.id,
+				sessionEntityId: tree.show.id,
+				occurredAt: "2026-03-01T11:00:00.000Z",
+				properties: { rating: 74, text: "Detached episode review" },
+				eventSchemaSlug: requireEventSchemaBySlug(episodeEventSchemas, "review").id,
+			});
 
-				const peer = yield* findMediaEntitySchema(client, "movie");
-				const trackedEpisode = requirePresent(tree.episodes[0], "Expected a regular episode");
-				const peerEntity = yield* seedMediaEntity({
-					userId: null,
-					properties: {},
-					providerId: null,
-					target: client.target,
-					entitySchemaSlug: peer.schema.id,
-					externalId: `clear-relationship-${yield* randomUuid}`,
-					name: `Clear relationship target ${yield* randomUuid}`,
-				});
-				const mediaRelationships = yield* listRelationshipSchemas(client, {
-					owner: showSchema.reference.owner,
-					slugs: ["media-suggestion", "media-trending"],
-				});
-				yield* createRelationship(client, {
-					properties: {},
-					sourceEntityId: EntityId.make(tree.show.id),
-					targetEntityId: EntityId.make(peerEntity.id),
-					relationshipSchema: requireRelationshipSchemaBySlug(
-						mediaRelationships,
-						"media-suggestion",
-						showSchema.reference.owner,
-					).reference,
-				});
-				yield* createRelationship(client, {
-					properties: { rank: 1, fetchedAt: nowIso() },
-					targetEntityId: EntityId.make(peerEntity.id),
-					sourceEntityId: EntityId.make(trackedEpisode.id),
-					relationshipSchema: requireRelationshipSchemaBySlug(
-						mediaRelationships,
-						"media-trending",
-						showSchema.reference.owner,
-					).reference,
-				});
+			const peer = yield* findMediaEntitySchema(client, "movie");
+			const trackedEpisode = requirePresent(tree.episodes[0], "Expected a regular episode");
+			const peerEntity = yield* seedMediaEntity({
+				userId: null,
+				properties: {},
+				providerId: null,
+				target: client.target,
+				entitySchemaSlug: peer.schema.id,
+				externalId: `clear-relationship-${yield* randomUuid}`,
+				name: `Clear relationship target ${yield* randomUuid}`,
+			});
+			const mediaRelationships = yield* listRelationshipSchemas(client, {
+				owner: showSchema.reference.owner,
+				slugs: ["media-suggestion", "media-trending"],
+			});
+			yield* createRelationship(client, {
+				properties: {},
+				sourceEntityId: EntityId.make(tree.show.id),
+				targetEntityId: EntityId.make(peerEntity.id),
+				relationshipSchema: requireRelationshipSchemaBySlug(
+					mediaRelationships,
+					"media-suggestion",
+					showSchema.reference.owner,
+				).reference,
+			});
+			yield* createRelationship(client, {
+				properties: { rank: 1, fetchedAt: nowIso() },
+				targetEntityId: EntityId.make(peerEntity.id),
+				sourceEntityId: EntityId.make(trackedEpisode.id),
+				relationshipSchema: requireRelationshipSchemaBySlug(
+					mediaRelationships,
+					"media-trending",
+					showSchema.reference.owner,
+				).reference,
+			});
 
-				const specialId = tree.episodeId(0, 1);
-				const regularId = tree.episodeId(1, 1);
-				for (const [episodeId, finishedOn] of [
-					[specialId, "2026-03-02T10:00:00.000Z"],
-					[regularId, "2026-03-03T10:00:00.000Z"],
-				] as const) {
-					yield* logMediaActivity(client, {
-						submittedAt: nowIso(),
-						submissionId: yield* randomUuid,
-						entry: {
-							kind: "episodes",
-							parentEntityId: tree.show.id,
-							episodeEntityIds: [episodeId],
-							when: { finishedOn, kind: "date" },
-						},
-					});
-				}
-				const otherReviewSchemas = yield* listEventSchemas(other.client, showSchema.reference);
-				yield* createEventFixture(other.client, {
-					entityId: tree.show.id,
-					occurredAt: "2026-03-04T10:00:00.000Z",
-					properties: { rating: 99, text: "Another user's review" },
-					eventSchemaSlug: requireEventSchemaBySlug(otherReviewSchemas, "review").id,
-				});
-				yield* settledHistoryCorrection(client, userId);
-				const before = yield* eventsForTree(client, tree);
-				const detachedEpisodeEvents = yield* listEventsForEntity(
-					client,
-					detachedEpisode.id,
-					undefined,
-					100,
-				);
-				expect(before.length).toBeGreaterThan(0);
-				expect(
-					detachedEpisodeEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "review"),
-				).toBe(true);
-				const cleared = yield* clearEntityUserData(client, tree.show.id);
-				expect(cleared.entityId).toBe(tree.show.id);
-				expect(cleared.deletedEventsCount).toBeGreaterThan(0);
-				expect(cleared.deletedRelationshipsCount).toBeGreaterThan(0);
-				for (const entity of entities) {
-					expect(yield* listEventsForEntity(client, entity.id, undefined, 100)).toEqual([]);
-					expect(yield* mediaLibraryRows(client, entity.id, entity.schemaSlug)).toEqual([]);
-					expect(
-						yield* countMediaMonitoringRelationships({
-							client,
-							entityId: entity.id,
-							entitySchemaSlug: entity.schemaSlug,
-						}),
-					).toBe(0);
-					expect(yield* collectionMemberships(client, entity.id, collection.id)).toEqual([]);
-				}
-				expect(yield* listEventsForEntity(client, detachedEpisode.id, undefined, 100)).toEqual([]);
-				expect((yield* getEntity(client, detachedEpisode.id)).properties).toEqual(
-					detachedEpisodeProperties,
-				);
-				expect(
-					yield* mediaRelationshipCount(client, {
-						sourceEntityId: tree.show.id,
-						targetEntityId: peerEntity.id,
-						relationshipSchemaSlug: "media-suggestion",
-					}),
-				).toBe(0);
-				expect(
-					yield* mediaRelationshipCount(client, {
-						targetEntityId: peerEntity.id,
-						sourceEntityId: trackedEpisode.id,
-						relationshipSchemaSlug: "media-trending",
-					}),
-				).toBe(0);
-				const treeIds = new Set<string>(entities.map(({ id }) => id));
-				expect(
-					(yield* collectionEventReferences(client, collection.id)).filter((id) => treeIds.has(id)),
-				).toEqual([]);
-				expect(
-					(yield* listEventsForEntity(other.client, tree.show.id, undefined, 100, {
-						eventSchemaSlug: "review",
-					})).map(({ properties }) => properties["text"]),
-				).toEqual(["Another user's review"]);
-				const preservedShow = yield* getEntity(client, tree.show.id);
-				expect(preservedShow.properties).toMatchObject({
-					productionStatus: "Ended",
-					description: "Show metadata survives",
-				});
-				for (const season of tree.seasons) {
-					expect(
-						yield* findRelationshipBySchema(client, {
-							targetEntityId: season.id,
-							sourceEntityId: tree.show.id,
-							owner: showSchema.reference.owner,
-							relationshipSchemaSlug: "show-to-show-season",
-						}),
-					).toMatchObject({ targetEntityId: season.id, sourceEntityId: tree.show.id });
-				}
-				for (const episode of tree.episodes) {
-					const season = tree.seasons.find(
-						({ seasonNumber }) => seasonNumber === episode.seasonNumber,
-					);
-					assertCondition(season !== undefined, "Expected the episode's season to remain linked");
-					expect(
-						yield* findRelationshipBySchema(client, {
-							sourceEntityId: season.id,
-							targetEntityId: episode.id,
-							owner: showSchema.reference.owner,
-							relationshipSchemaSlug: "show-season-to-show-episode",
-						}),
-					).toMatchObject({ sourceEntityId: season.id, targetEntityId: episode.id });
-				}
-
+			const specialId = tree.episodeId(0, 1);
+			const regularId = tree.episodeId(1, 1);
+			for (const [episodeId, finishedOn] of [
+				[specialId, "2026-03-02T10:00:00.000Z"],
+				[regularId, "2026-03-03T10:00:00.000Z"],
+			] as const) {
 				yield* logMediaActivity(client, {
 					submittedAt: nowIso(),
 					submissionId: yield* randomUuid,
 					entry: {
 						kind: "episodes",
 						parentEntityId: tree.show.id,
-						episodeEntityIds: [regularId],
-						when: { kind: "date", finishedOn: "2026-03-05T10:00:00.000Z" },
+						episodeEntityIds: [episodeId],
+						when: { finishedOn, kind: "date" },
 					},
 				});
-				yield* settledHistoryCorrection(client, userId);
-				const restored = yield* eventsForTree(client, tree);
+			}
+			const otherReviewSchemas = yield* listEventSchemas(other.client, showSchema.reference);
+			yield* createEventFixture(other.client, {
+				entityId: tree.show.id,
+				occurredAt: "2026-03-04T10:00:00.000Z",
+				properties: { rating: 99, text: "Another user's review" },
+				eventSchemaSlug: requireEventSchemaBySlug(otherReviewSchemas, "review").id,
+			});
+			yield* settledHistoryCorrection(client, userId);
+			const before = yield* eventsForTree(client, tree);
+			const detachedEpisodeEvents = yield* listEventsForEntity(
+				client,
+				detachedEpisode.id,
+				undefined,
+				100,
+			);
+			expect(before.length).toBeGreaterThan(0);
+			expect(
+				detachedEpisodeEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "review"),
+			).toBe(true);
+			const cleared = yield* clearEntityUserData(client, tree.show.id);
+			expect(cleared.entityId).toBe(tree.show.id);
+			expect(cleared.deletedEventsCount).toBeGreaterThan(0);
+			expect(cleared.deletedRelationshipsCount).toBeGreaterThan(0);
+			for (const entity of entities) {
+				expect(yield* listEventsForEntity(client, entity.id, undefined, 100)).toEqual([]);
+				expect(yield* mediaLibraryRows(client, entity.id, entity.schemaSlug)).toEqual([]);
 				expect(
-					restored.some(
-						({ entityId, eventSchemaSlug }) =>
-							entityId === regularId && eventSchemaSlug === "complete",
-					),
-				).toBe(true);
-				const replayed = yield* clearEntityUserData(client, tree.show.id);
-				expect(replayed.deletedEventsCount).toBe(0);
-				expect((yield* eventsForTree(client, tree)).map(({ id }) => id).sort()).toEqual(
-					restored.map(({ id }) => id).sort(),
+					yield* countMediaMonitoringRelationships({
+						client,
+						entityId: entity.id,
+						entitySchemaSlug: entity.schemaSlug,
+					}),
+				).toBe(0);
+				expect(yield* collectionMemberships(client, entity.id, collection.id)).toEqual([]);
+			}
+			expect(yield* listEventsForEntity(client, detachedEpisode.id, undefined, 100)).toEqual([]);
+			expect((yield* getEntity(client, detachedEpisode.id)).properties).toEqual(
+				detachedEpisodeProperties,
+			);
+			expect(
+				yield* mediaRelationshipCount(client, {
+					sourceEntityId: tree.show.id,
+					targetEntityId: peerEntity.id,
+					relationshipSchemaSlug: "media-suggestion",
+				}),
+			).toBe(0);
+			expect(
+				yield* mediaRelationshipCount(client, {
+					targetEntityId: peerEntity.id,
+					sourceEntityId: trackedEpisode.id,
+					relationshipSchemaSlug: "media-trending",
+				}),
+			).toBe(0);
+			const treeIds = new Set<string>(entities.map(({ id }) => id));
+			expect(
+				(yield* collectionEventReferences(client, collection.id)).filter((id) => treeIds.has(id)),
+			).toEqual([]);
+			expect(
+				(yield* listEventsForEntity(other.client, tree.show.id, undefined, 100, {
+					eventSchemaSlug: "review",
+				})).map(({ properties }) => properties["text"]),
+			).toEqual(["Another user's review"]);
+			const preservedShow = yield* getEntity(client, tree.show.id);
+			expect(preservedShow.properties).toMatchObject({
+				productionStatus: "Ended",
+				description: "Show metadata survives",
+			});
+			for (const season of tree.seasons) {
+				expect(
+					yield* findRelationshipBySchema(client, {
+						targetEntityId: season.id,
+						sourceEntityId: tree.show.id,
+						owner: showSchema.reference.owner,
+						relationshipSchemaSlug: "show-to-show-season",
+					}),
+				).toMatchObject({ targetEntityId: season.id, sourceEntityId: tree.show.id });
+			}
+			for (const episode of tree.episodes) {
+				const season = tree.seasons.find(
+					({ seasonNumber }) => seasonNumber === episode.seasonNumber,
 				);
-			}),
+				assertCondition(season !== undefined, "Expected the episode's season to remain linked");
+				expect(
+					yield* findRelationshipBySchema(client, {
+						sourceEntityId: season.id,
+						targetEntityId: episode.id,
+						owner: showSchema.reference.owner,
+						relationshipSchemaSlug: "show-season-to-show-episode",
+					}),
+				).toMatchObject({ sourceEntityId: season.id, targetEntityId: episode.id });
+			}
+
+			yield* logMediaActivity(client, {
+				submittedAt: nowIso(),
+				submissionId: yield* randomUuid,
+				entry: {
+					kind: "episodes",
+					parentEntityId: tree.show.id,
+					episodeEntityIds: [regularId],
+					when: { kind: "date", finishedOn: "2026-03-05T10:00:00.000Z" },
+				},
+			});
+			yield* settledHistoryCorrection(client, userId);
+			const restored = yield* eventsForTree(client, tree);
+			expect(
+				restored.some(
+					({ entityId, eventSchemaSlug }) =>
+						entityId === regularId && eventSchemaSlug === "complete",
+				),
+			).toBe(true);
+		}),
 	);
 
 	it.live("merges show history without deduping events and remaps collection evidence", () =>
@@ -832,6 +825,7 @@ describe("Media entity user data HTTP operations", () => {
 								operationSlug: "media-user-data",
 							},
 							payload: {
+								submittedAt: nowIso(),
 								idempotencyKey: operationSubmissionId,
 								payload: {
 									action: "merge",

@@ -43,12 +43,15 @@ type ReadingLogInput = RecipeEncodedInput<typeof measurementReadingLogRecipe>;
 export const logMeasurementReadings = (
 	client: Client,
 	input: Omit<ReadingLogInput, SubmissionKeys> & Partial<Pick<ReadingLogInput, SubmissionKeys>>,
-) =>
-	invokeEncodedOperation(client, measurementReadingLogRecipe, {
-		...input,
-		submissionId: input.submissionId ?? crypto.randomUUID(),
-		submittedAt: input.submittedAt ?? new Date().toISOString(),
-	});
+) => {
+	const submissionId = input.submissionId ?? crypto.randomUUID();
+	return invokeEncodedOperation(
+		client,
+		measurementReadingLogRecipe,
+		{ ...input, submissionId, submittedAt: input.submittedAt ?? new Date().toISOString() },
+		{ idempotencyKey: submissionId },
+	);
+};
 
 export const updateMeasurementReadings = (
 	client: Client,

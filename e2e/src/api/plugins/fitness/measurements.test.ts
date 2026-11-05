@@ -119,8 +119,8 @@ describe("Measurements E2E", () => {
 				const conflict = yield* Effect.flip(
 					logMeasurementReadings(client, { ...input, comment: "Changed" }),
 				);
-				assertTaggedError(conflict, "PluginInvocationError");
-				expect(conflict.reason.code).toBe("runtime-failed");
+				assertTaggedError(conflict, "PluginRequestError");
+				expect(conflict.reason.code).toBe("validation-failed");
 				expect((yield* readMeasurementLogReadings(client, { reference })).items).toEqual(
 					original.items,
 				);

@@ -73,35 +73,24 @@ describe("entity reminder commands and delivery", () => {
 			assertTaggedError(conflicting, "ReminderConflict");
 			expect(conflicting.reason).toBe("submission-content-conflict");
 			const edit = {
-				...(yield* reminderSubmission),
 				timezone: "UTC",
 				message: "Edited",
 				dueAt: payload.dueAt,
 				revision: first.revision,
 			};
 			const edited = yield* editReminder(client, first.id, edit);
-			expect(yield* editReminder(client, first.id, edit)).toEqual(edited);
 			const stale = yield* Effect.flip(
-				editReminder(client, first.id, { ...edit, ...(yield* reminderSubmission) }),
+				editReminder(client, first.id, { ...edit, message: "Stale edit" }),
 			);
 			assertTaggedError(stale, "ReminderConflict");
 			expect(stale.reason).toBe("stale-revision");
 			const foreign = yield* Effect.flip(
-				cancelReminder(other.client, first.id, {
-					...(yield* reminderSubmission),
-					revision: edited.revision,
-				}),
+				cancelReminder(other.client, first.id, { revision: edited.revision }),
 			);
 			assertTaggedError(foreign, "ReminderNotFound");
-			const cancelled = yield* cancelReminder(client, first.id, {
-				...(yield* reminderSubmission),
-				revision: edited.revision,
-			});
+			const cancelled = yield* cancelReminder(client, first.id, { revision: edited.revision });
 			expect(cancelled.sendStarted).toBe(false);
-			yield* removeReminder(client, first.id, {
-				...(yield* reminderSubmission),
-				revision: cancelled.revision,
-			});
+			yield* removeReminder(client, first.id, { revision: cancelled.revision });
 			expect((yield* listReminders(client)).items.map(({ id }) => id)).toEqual([second.id]);
 		}),
 	);
