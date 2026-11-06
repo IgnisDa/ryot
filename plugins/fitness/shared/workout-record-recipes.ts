@@ -19,7 +19,7 @@ import { EventId } from "@ryot-app/plugin-kit/schema";
 import { property, propertyDate, propertyNumber } from "./entity-selections";
 import { exerciseKindSchema } from "./exercise-kinds";
 
-export const workoutRecordPageSize = 100;
+const workoutRecordPageSize = 100;
 
 const unorderedLast = 2_147_483_647;
 

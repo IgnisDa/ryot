@@ -8,7 +8,7 @@ import { publishDerivedDataUpdated, RedisService } from "#platform/redis";
 import { FoldJob, FoldMarks, FoldRebuildJob } from "./marks";
 import { Folds } from "./service";
 
-export const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
+const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		const marks = yield* FoldMarks.make;
@@ -28,7 +28,7 @@ export const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
 	}),
 );
 
-export const FoldRebuildJobLive = registerJobHandler(FoldRebuildJob, (payload) =>
+const FoldRebuildJobLive = registerJobHandler(FoldRebuildJob, (payload) =>
 	Effect.flatMap(Folds, (folds) => folds.rebuild(payload)),
 );
 

@@ -57,7 +57,7 @@ type StoredRow = {
 	readonly kind: "event" | "subject" | "relationship";
 };
 
-export class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique symbol }>()(
+class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique symbol }>()(
 	"FoldFailed",
 	{ message: Schema.String },
 ) {}
@@ -76,7 +76,7 @@ type FoldRun = (input: ScriptExecutionInput) => Effect.Effect<SandboxExecutionRe
  * Runs fold scripts once the runtime installs its sandbox executor. Until then, and wherever nothing installs it,
  * such as migrations, every inline fold defers to a job.
  */
-export class FoldExecutor extends Context.Service<
+class FoldExecutor extends Context.Service<
 	FoldExecutor,
 	{
 		readonly run: FoldRun;

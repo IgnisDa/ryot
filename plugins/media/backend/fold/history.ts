@@ -48,12 +48,6 @@ export const MediaFoldValue = Schema.Struct({
 });
 export type MediaFoldValue = typeof MediaFoldValue.Type;
 
-export type HistorySubject = {
-	readonly id: string;
-	readonly terminal: boolean;
-	readonly episodic: boolean;
-};
-
 export type HistoryChange =
 	| { readonly kind: "delete"; readonly eventId: string; readonly itemIdentity: string }
 	| {
@@ -83,6 +77,12 @@ export type HistoryChange =
 				};
 			};
 	  };
+
+type HistorySubject = {
+	readonly id: string;
+	readonly terminal: boolean;
+	readonly episodic: boolean;
+};
 
 type Desired = {
 	readonly anchor: FoldEvent;

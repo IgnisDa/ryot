@@ -246,7 +246,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			return { mark, queue, resolve, declarations, markSubjects, entityChanged, queueResolved };
+			return { mark, resolve, declarations, markSubjects, entityChanged, queueResolved };
 		}),
 	},
 ) {

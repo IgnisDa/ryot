@@ -96,7 +96,7 @@ const snapshotSelection = {
 	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 };
 
-export type EventSource = FoldSource & {
+type EventSource = FoldSource & {
 	readonly properties?: undefined | Readonly<Record<string, unknown>>;
 };
 
