@@ -152,28 +152,44 @@ export const JobWorkerLive = Layer.effectDiscard(
 					Effect.forever,
 				);
 
-		const settle = (kind: JobKind, row: ClaimedJob, exit: Exit.Exit<void, unknown>) =>
-			session.run((db) => {
-				if (Exit.isSuccess(exit)) {
-					return db.execute(sql`delete from ${job} where ${fenced(row)}`);
-				}
-				if (Cause.hasInterruptsOnly(exit.cause)) {
-					return db.execute(
+		const remove = (row: ClaimedJob) =>
+			session.run((db) => db.execute(sql`delete from ${job} where ${fenced(row)}`));
+
+		const settle = (kind: JobKind, row: ClaimedJob, exit: Exit.Exit<void, unknown>) => {
+			if (Exit.isSuccess(exit)) {
+				return remove(row);
+			}
+			if (Cause.hasInterruptsOnly(exit.cause)) {
+				return session.run((db) =>
+					db.execute(
 						sql`update ${job} set locked_until = now(), attempts = ${job.attempts} - 1 where ${fenced(row)}`,
-					);
-				}
-				const error = errorText(exit.cause);
-				return row.attempts < row.max_attempts
-					? db.execute(
-							sql`update ${job} set status = 'queued', locked_until = null, error = ${error}, updated_at = now(),
-								run_at = now() + ${backoffMs(kind, row.attempts)} * interval '1 millisecond'
-							where ${fenced(row)}`,
+					),
+				);
+			}
+			const error = errorText(exit.cause);
+			return row.attempts < row.max_attempts
+				? session
+						.run((db) =>
+							db.execute(
+								sql`update ${job} set status = 'queued', locked_until = null, error = ${error}, updated_at = now(),
+									run_at = now() + ${backoffMs(kind, row.attempts)} * interval '1 millisecond'
+								where ${fenced(row)}`,
+							),
 						)
-					: db.execute(
+						.pipe(
+							// A job queued under this key while this one ran does the same work.
+							Effect.catchIf(
+								(failure) => failure.constraint === "job_queued_key_unique",
+								() => remove(row),
+							),
+						)
+				: session.run((db) =>
+						db.execute(
 							sql`update ${job} set status = 'failed', locked_until = null, error = ${error}, updated_at = now()
 							where ${fenced(row)}`,
-						);
-			});
+						),
+					);
+		};
 
 		const execute = (handler: JobHandler, row: ClaimedJob) =>
 			Effect.gen(function* () {

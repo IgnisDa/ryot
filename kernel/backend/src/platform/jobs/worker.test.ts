@@ -107,6 +107,33 @@ layer(testLayer, { excludeTestServices: true })((test) => {
 			}),
 	);
 
+	test.effect("drops a failed job when another is already queued under its key", () =>
+		Effect.gen(function* () {
+			const kind = makeJobKind("superseded", { payload: Payload, backoff: Duration.millis(50) });
+			const queue = yield* JobQueue;
+			const { runs, record } = yield* recorder;
+			yield* startWorker(kind, (payload, context) =>
+				record(payload, context).pipe(
+					Effect.andThen(
+						payload.value === "first"
+							? queue
+									.enqueue(kind, { value: "second" }, { key: "same" })
+									.pipe(Effect.andThen(Effect.fail("boom")))
+							: Effect.void,
+					),
+				),
+			);
+
+			yield* queue.enqueue(kind, { value: "first" }, { key: "same" });
+
+			expect((yield* nextRun(runs)).value).toBe("first");
+			expect((yield* nextRun(runs)).value).toBe("second");
+			yield* Effect.sleep(Duration.millis(300));
+			expect(yield* rowsOf(kind)).toEqual([]);
+			expect(yield* Queue.size(runs)).toBe(0);
+		}),
+	);
+
 	test.effect("reclaims a running job whose lease lapsed", () =>
 		Effect.gen(function* () {
 			const kind = makeJobKind("abandoned", { payload: Payload });
