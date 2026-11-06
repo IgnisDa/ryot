@@ -46,8 +46,7 @@ through `EventsService.create`; durable callers run them inside an activity, whe
 runs policies and hooks as request work rather than journaling them.
 
 Detailed behavior belongs to [automations](src/modules/automations/README.md),
-[mutation admission](src/modules/mutations/README.md), [events and projections](src/modules/events/README.md),
-[background work](src/modules/background-work/README.md),
+[mutation admission](src/modules/mutations/README.md), [events and folds](src/modules/events/README.md),
 [user commands](src/modules/user-commands/README.md), [imports](src/modules/imports/README.md),
 [script execution](src/modules/scripts/README.md), and [sandbox isolation](../sandbox/README.md).
 
@@ -66,9 +65,8 @@ retirement and is rejected. Unreferenced assets are retired, their object is del
 the row removed; a failed deletion is retried on the next run.
 
 Unused provider entities are collected by the [graph retention](src/modules/entities/README.md#graph-retention)
-rules. Idempotency keys and settled background work expire as described in
-[mutation admission](src/modules/mutations/README.md#idempotency-keys) and
-[background work](src/modules/background-work/README.md).
+rules. Idempotency keys expire as described in
+[mutation admission](src/modules/mutations/README.md#idempotency-keys).
 
 Redis infrastructure owns backend keys, channels, codecs, and parsing; the sandbox owns its
 `ryot:sandbox:*` recovery and quarantine keys. See the [entity-watch protocol](src/modules/entities/watches/README.md)

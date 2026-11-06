@@ -15,15 +15,15 @@ Output schemas stay where readers find them: an event schema's `projection: { pr
 a relationship schema's `projection: { propertiesSchema }`. Neither names a script any more.
 
 The fold script is read-only. It receives `{ subjectEntityId, value }`, where `value` is what it
-returned last time, and reads anything else through RyotQL inside the writing transaction. It
-returns:
+returned last time, and reads anything else through RyotQL inside the writing transaction, each read
+in a savepoint that is rolled back so its read-only mark cannot outlive it. It returns:
 
 - `value`: its own state, such as frozen inventories and suppressed occurrences.
 - `events`: one `{ eventId, properties }` for each subject event whose schema declares a projection.
 - `relationships`: one `{ relationshipId, properties }` for each of the user's links from the
   subject whose schema declares a projection.
 - `changes`: event creates, updates and deletes, in the user-command format. These are the
-  fold-owned events, such as Media's automatic completions. They skip before-policies.
+  fold-owned events, such as Media's automatic completions. They skip before-policies and after-hooks.
 
 When `changes` is not empty, the kernel applies them and runs the fold again. The second run must
 return no changes, so a fold settles in at most two runs.
@@ -35,11 +35,13 @@ of each changed event, and the transaction folds them after its work and before 
 check. A relationship write marks its source entity when the schema declares a projection. Outside
 an events transaction, marking queues a `fold` job instead.
 
-Imports and backup restore queue `fold` jobs, one per subject, because they are bulk writes. Changes
-from providers reach the fold through `requestFolds({ entityIds, allUsers? })`, which queues jobs.
-Media calls it when a show's status or inventory changes, and Fitness when a workout's start time
-moves. Installing a new plugin revision queues one `fold-rebuild` job per user, which refolds every
-subject of that plugin.
+Event creates on the background lane, including imports, queue `fold` jobs, one per subject, because they
+are bulk writes. Changes
+from providers reach the fold through `requestFolds({ entityIds })` and the owning plugin's
+`requestFoldsForAllUsers({ entityIds })`, which queue jobs. Media calls the latter when a show's status
+or inventory changes. A workout's start time moves through set events, so it needs no request.
+Installing a new plugin revision or restoring a backup queues one `fold-rebuild` job per user, which
+refolds every subject of that plugin.
 
 ## Storage and reads
 
@@ -49,9 +51,10 @@ revision and the subject's event-scope revision. A fold replaces only the rows w
 and deletes the rest of the subject's rows.
 
 RyotQL keeps `event.projection`, `relationship.projection` and `projectionStatus`. A value is visible
-while its plugin revision is the active one. Its status is `ready` once its subject row has folded,
-`pending` while a fold job is queued for the subject or the row is missing, and `failed` when the
-subject's last fold job failed.
+while its plugin revision is the active one, including while a newer fold is pending. Its status is
+`ready` once its subject row has folded, `pending` while a fold job is queued for the subject or the
+row is missing, `failed` when the subject's last fold job failed, and `none` when no projection is
+declared.
 
 ## What goes
 
@@ -63,4 +66,6 @@ history-correction state machine and its four evidence event schemas (`history-c
 
 Automatic completions stay `complete` events carrying `completionKey`. The fold detects a user's
 delete or edit from its previous value. A missing derived event becomes a suppressed occurrence,
-and an edited one becomes explicit by losing its `completionKey`.
+and an edited one becomes explicit by losing its `completionKey`. A new whole-coverage completion
+needs an episode the fold has not counted before, or the subject newly reaching a terminal status, so
+a past edit cannot complete a cycle by itself.

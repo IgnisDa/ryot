@@ -94,27 +94,11 @@ validation or commit failure leaves the entire command unchanged. File uploads a
 the history or inventory. Event creates/updates may retain logical source order with `orderAfter`;
 an update with `orderAfter: null` restores physical creation order.
 
-`requestUserWork({ key, scope, input }, scriptReference)` admits a declared script dependency as
-independent, pinned user background work and returns `{ workId }`. Keys and scopes are nonempty and
-at most 512 characters; input must fit the sandbox context bound. Identity includes account generation,
-plugin, script, and key; replay with different input or scope conflicts. The common
-`BackgroundWorkWorkflow` owns the durable job and its `background_work` row. Admission retains the
-script/config references in the transaction, then dispatches after commit.
-The user-scoped `backgroundWork` RyotQL table exposes status and scope, not execution input or pins.
-Plugins page their own work, persist checkpoints with atomic commands, and schedule continuations with
-new deterministic keys. Retry a failed job with a fresh key.
-
-`requestEventStreamWork({ entityId, eventSchemaSlug }, scriptReference)` binds the stream to the
-current processor, clears a failed claim, and admits the batch job for its user and event schema; it
-returns `{ workId }`, the stream ID. Processors receive a batch of dirty streams of one event schema
-and return one result per stream. Processor output and publication rules are described in
-[events and projections](../../kernel/backend/src/modules/events/README.md#stream-work-and-freshness).
-
-`requestRelationshipProjections({ relationshipSchemaSlug, sourceEntityIds })` marks the execution
-user's links from those sources for the schema's declared projection processor and returns
-`{ workId }`. The owning plugin's `requestRelationshipProjectionsForAllUsers` takes the same request
-and returns `{ users }`. See
-[relationship projections](../../kernel/backend/src/modules/relationships/README.md#projections).
+`requestFolds({ entityIds })` queues a fold job for each of at most 100 subjects of the execution
+user. The owning plugin's `requestFoldsForAllUsers` does the same for every user with events on those
+subjects. Fold scripts use `FoldInput`, `FoldOutput` and `FOLD_LIMITS` from
+`@ryot-app/plugin-backend-sdk/folds`. See
+[folds](../../kernel/backend/src/modules/events/README.md#folds).
 
 Before-stage policies receive one batch envelope: `automation` holds shared invocation metadata and
 projected entity references; `items` holds `{ itemIdentity, payload }` requests. Return

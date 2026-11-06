@@ -1,6 +1,6 @@
 # Entity Interest
 
-Entity interest lets authenticated clients declare which entities are visible and receive population and translation completion hints. The same socket carries user-scoped projection completion hints. Reads remain side-effect-free; pending interest drives background work.
+Entity interest lets authenticated clients declare which entities are visible and receive population and translation completion hints. The same socket carries user-scoped fold completion hints. Reads remain side-effect-free; pending interest drives background work.
 
 ## Transport
 
@@ -43,7 +43,7 @@ Priority chooses the population level. Pending interest requests `base` when vis
 
 Population and translation failures appear in their status objects. Reconciliation returns `enrichment-updated` for status refresh rather than treating missing data as proof of an active or terminal population. Translated still wins when completion hints coalesce.
 
-`derived-data-updated` is sent to every session of a user after one of that user's background jobs (user scripts and event-stream or relationship projection steps) settles, independent of entity interest, because aggregate and status reads cannot declare the entities they cover. Background-work settlement publishes the user ID on the non-durable `ryot:derived-data:updated` channel; each backend forwards it to its local sessions for that user. Each session writes at most one frame per three seconds: the first update is written immediately, and updates during the interval collapse into one frame at its end, so the final state always arrives. Clients refresh their open queries on this frame and after every reconnect, which recovers a missed publication.
+`derived-data-updated` is sent to every session of a user after one of that user's `fold` jobs finishes, independent of entity interest, because aggregate and status reads cannot declare the entities they cover. A fold inside a write publishes no hint, so other sessions see its values on their next read. The job publishes the user ID on the non-durable `ryot:derived-data:updated` channel; each backend forwards it to its local sessions for that user. Each session writes at most one frame per three seconds: the first update is written immediately, and updates during the interval collapse into one frame at its end, so the final state always arrives. Clients refresh their open queries on this frame and after every reconnect, which recovers a missed publication.
 
 ## Lifetime And Delivery
 

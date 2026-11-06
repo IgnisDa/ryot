@@ -95,7 +95,7 @@ Drain or reset retained executions when replacing this private continuation shap
 Inline sleep/admission waits share a 1,000 ms allowance per replay and a 1,000 ms per-wait threshold.
 Allowance is reserved before waiting and unused cancelled time is refunded by monotonic clock.
 Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or
-continuations cannot fit, its lane cannot reserve the whole batch, or dispatch fails. Declared result
+continuations cannot fit, its lane cannot reserve the whole batch within 500 ms, or dispatch fails. Declared result
 bounds cannot exceed 80 MiB. Settled evidence stays charged at three times encoded size until run
 end; deferred calls may already have executed and must tolerate replay.
 
@@ -116,25 +116,11 @@ be disposed within two seconds before its reservation is refunded.
   TTL is leak cleanup, not normal ownership. Logs/spans/console output are diagnostics, not journal.
 - Trusted subjects override input user IDs; relayed ingestion/automation attribution is owner-validated.
 
-### User work
+### Folds
 
-`requestUserWork` admits an independent background invocation of a declared script dependency. It
-requires a pinned user/account generation and current write authority. The caller supplies a stable
-key, a plugin-defined scope, and bounded JSON input. Identity includes account generation, plugin,
-script, and key; replay with different input or scope is refused. Continuations use fresh deterministic
-keys and stay independent of the invocation that admitted them.
-
-`BackgroundWorkWorkflow` and `background_work` own admission and status for the independent script
-execution. Admission checks the account and retains the existing script/config references
-in the caller's transaction; dispatch starts after commit and runs one job at a time per scope. Bounded
-recovery resumes each scope's running or oldest queued job and fails jobs whose workflow ended before
-settlement. Queued, running, succeeded, and failed status is
-readable through the user-scoped `backgroundWork` RyotQL table without exposing execution input or
-pins. Suspension is not failure; terminal script failures and defects are recorded. Plugins own
-progress checkpoints, scope vocabulary, bounded application steps, and retry controls. A new retry
-request uses a fresh key and does not replay the failed child's cached result. Retired account
-generations cannot admit new work. See [background work](../background-work/README.md) for ownership
-and recovery details.
+`requestFolds({ entityIds })` queues a `fold` job for each of at most 100 subjects of the execution
+user. The owning plugin's `requestFoldsForAllUsers` does the same for every user with events on those
+subjects. See [folds](../events/README.md#folds).
 
 ## Capabilities
 

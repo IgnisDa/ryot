@@ -131,13 +131,10 @@ integer volume context; a fractional context aborts rather than rounding or drop
 chapter context permits fractions. Source assertions require exactly one item event per completed
 numbered row and reject cumulative fields, derived-completion identity, or extra baselines.
 
-Show/Podcast parent completion replay retains regular coverage and cycle boundaries. Each derived
-parent completion has `completionKey`, `completionSilent: true`, an episode-only consumption basis,
-and frozen `completion-occurrence`/`completion-episode` evidence on the owner's Media Library.
-Its effective order is the closing child's order with `~parent`, matching the canonical correction
-worker. The snapshot records the supporting source event for each required episode; parent output
-has no second duration or manual-time contribution. Source copying and parent evidence each commit
-with a separate phase report. Restart skips completed phases, preserving later edits and suppression.
+Show/Podcast parent completions are not migrated as derived output. Each migrated user queues a
+`fold-rebuild` job for Media and Fitness, and the fold recreates the automatic completions of titles whose
+production status is terminal from the copied history. Source copying commits with a separate phase
+report. Restart skips completed phases, preserving later edits.
 
 Workout exercise notes live in workout `exerciseNotes`, keyed by zero-based `exerciseOrder` and separate from set `note`; templates keep exercise notes. Workout and template set durations convert legacy minutes to seconds, imperial workout and template weights and distances convert to kilograms and kilometers using each stored exercise's unit system, and rest times remain unchanged in seconds, including zero. Template measurements round to the Fitness schema scales. Missing or unsupported template unit systems and invalid template rest values abort. Each workout set stores its V1 workout exercise `lot` as `exerciseKind`; a missing or unsupported lot aborts. This historical snapshot never takes the current exercise entity's `kind`, even when a provider refresh changes that kind. The migration removes copied `pace`, `oneRm`, `volume`, and `personalBests` fields from source events and seeds their event streams. After startup, the declared Fitness processor rebuilds those values in projection storage from normalized measurements, tracking bests per exercise and kind.
 
@@ -187,7 +184,7 @@ path is synthesized.
 
 When legacy debounce rows collapse to one V2 claim, preserve the longest remaining expiry. The claim namespace includes the migrated integration ID, resolved entity ID and schema, progress kind, normalized legacy consumption provider, and subitem signature. Redis keys use the runtime's canonical persistent namespace: user, exact local Media plugin ID, and stable script slug, without revision-specific script IDs. Normalize known provider labels to the display names runtime writers use as `consumedOn` (for example `Plex` and `YouTube Music`) and resolve show/podcast markers to episode IDs; zero or multiple matching integrations, ambiguous browser-extension, removed-provider, and unresolved targets are reported omissions. A pending YouTube Music row creates `seen`; a completed row creates both `seen` and `completed`.
 
-Historical rows are copied directly and never replay current lifecycle or notification hooks. The workout-set pass normalizes recorded values. A final pass seeds an event stream for every migrated user, entity, and event schema with events, including Fitness sets and Media consumption events; it does not dispatch workflows or hooks. The migration aborts if the migration creates any automation triggers, recipients, runs, or attempts; with no runs, it cannot emit automation notifications. Notification channels and notification-subscription preferences are current user configuration, not notification history, and remain migrated.
+Historical rows are copied directly and never replay current lifecycle or notification hooks. The workout-set pass normalizes recorded values. A final pass queues one `fold-rebuild` job per migrated user for Media and Fitness; it does not dispatch workflows or hooks. The migration aborts if the migration creates any automation triggers, recipients, runs, or attempts; with no runs, it cannot emit automation notifications. Notification channels and notification-subscription preferences are current user configuration, not notification history, and remain migrated.
 
 Seen-history copying and description normalization each defer their table's non-constraint indexes and rebuild their catalog definitions in the same transaction. Primary, unique, and constraint-backed indexes remain active. Seen copying also restores its foreign keys with set-based validation before commit. An abort rolls back data, constraint, and index changes for that phase. Targeted statistics refreshes follow bulk loads before downstream joins and lifecycle validation.
 
@@ -312,8 +309,7 @@ isolated database, and restart with legacy tables present; the completed phase m
 
 For the workout-set record pass, verify on a dump with more than 1,000 sets:
 
-- Sets scan in ID order across batches and seed exactly one stream per distinct owner and exercise.
-- Equal exercises within a batch share one stream; zero and missing values survive, and warning details name the offending record.
+- Sets scan in ID order across batches; zero and missing values survive, and warning details name the offending record.
 - A malformed set (missing session, workout, user match, exercise, valid timestamps, supported kind, or valid values) aborts naming its event, user, and exercise.
-- An incomplete patch write aborts, and an empty scan writes no streams or patches.
+- An incomplete patch write aborts, and an empty scan writes no patches.
 - Patching sets never rewrites `occurred_at`, `created_at`, or `updated_at`.

@@ -25,58 +25,12 @@ Every writing transaction runs domain write checks with `lock=true` once per dis
 
 ## Projections
 
-A plugin relationship schema may declare `projection: { scriptSlug, propertiesSchema }`. Its
-processor writes derived values for user-owned links of that schema to `relationship_projection`,
-one note per relationship. Projection output never extends or replaces relationship properties, and
-backups do not export it. Install validation applies the event-projection rules: a strict, non-empty
-output schema of at most 20 fields disjoint from the relationship properties, and a same-plugin
-script limited to read-only capabilities without workflow dependencies.
+A plugin relationship schema may declare `projection: { propertiesSchema }`. The fold of the link's
+source entity writes one derived value per user-owned link to `derived_value`. Projection output never
+extends or replaces relationship properties, and backups do not export it. Install validation applies
+the event-schema rules: a strict, non-empty output schema of at most 20 fields, disjoint from the
+relationship properties.
 
-`relationship_projection_work` holds one row per user and relationship schema: processor binding,
-plugin pin, account token, step, and current job. Each note keeps `revision` and
-`projectedRevision`. A request upserts notes for the named source entities and advances their
-revision; the processor result is visible only while both are equal.
-
-Declared `inputs` mark notes from the source transaction. `LifecycleWork.admit`, bound in the entities
-module, calls `RelationshipProjectionService.admitInputs` for each change trigger: an event of a listed
-schema marks the user's links from its session entity, or its entity; a created link of the schema
-marks itself when `relationshipCreate` is set. It binds, marks and arranges the step in that
-transaction and returns the job for dispatch after commit.
-
-`requestRelationshipProjections` marks the execution user's links. The owning plugin may call
-`requestRelationshipProjectionsForAllUsers`, which repeats the request for every user holding a
-link from the named sources. Both accept at most 100 source entity IDs and admit work through the
-common background-work owner with the `relationship-projection` purpose and the read-only
-`projection` subject. The work row is the background scope, so a user's schema runs one step at a
-time.
-
-A step claims at most 100 dirty notes with their revisions and passes their relationship and
-endpoint IDs to the processor, which must return exactly one update per claimed relationship.
-Publication requires the canonical job to be running and still current, rechecks the declaration and
-processor binding. It writes only notes whose revision still matches the claim. It releases the
-work, settles the job, and admits the next step while dirty notes remain, all in one transaction.
-A changed binding is rebound instead: every note of the work advances its revision and the step is
-re-admitted. Background-work settlement publishes the user-scoped derived-data-updated hint.
-
-RyotQL exposes `relationship.projection` only when the note is current, the account generation is current and enabled, and the work's plugin
-revision and configuration pin match an active plugin with a ready installation. The gate is
-correlated to each read relationship's note, work, plugin, and installation rows and compares the
-stored `config_revision_id` column generated from the binding pin.
-`projectionStatus` is ready, pending, failed (the current job failed), or none when the schema
-declares no projection.
-
-Reconciliation on the frequent cron reads no relationships on an idle tick.
-`relationship_projection_binding` holds, per user and plugin relationship schema, a `revision`
-that every relationship insert (mutations, imports, backup restore) increments in the inserting
-transaction, plus the account generation, plugin revision, configuration revision, and
-`bound_revision` last reconciled. Only declarations whose record is missing, whose revision moved,
-or whose binding differs are selected. For each, reconciliation fills missing notes, rebinds, and
-requests work, then records the binding only if the revision still equals the value it read; a
-link inserted meanwhile leaves the declaration stale for the next tick. Declarations without links
-are recorded without creating work. Schemas whose plugin is not executable for the user are not
-selected, and a schema whose processor binding is unavailable is skipped without logging. Deleting
-a relationship, user, or plugin cascades to its notes, work, and binding record.
-
-Processors read only source relationships, endpoints, and events, so preparation needs no input
-fence: a source change dirties the affected notes, and publication's revision check discards stale
-claims.
+A write to a link of such a schema marks its source entity. RyotQL exposes `relationship.projection`
+and `relationship.projectionStatus` with the same rules as events; see
+[folds](../events/README.md#folds).

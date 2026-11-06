@@ -232,25 +232,11 @@ how its global links affect that:
 
 User-scoped links, events, and `entity-id` properties in user-owned data always keep an entity.
 
-Set `projection: { scriptSlug, propertiesSchema }` on a relationship schema to keep derived,
-per-user values next to each user-owned link, such as a library title's status. The processor is a
-read-only script of the same plugin with a strict output schema of at most 20 fields disjoint from
-the relationship properties. Declare `inputs: { eventSchemaSlugs, relationshipCreate }` when the
-values depend on the plugin's events or on the link existing: the kernel marks the links from an
-event's session entity, or its entity, whenever an event of a listed schema is created, updated or
-deleted, and marks a new link, in the same transaction and without a hook. For other changes, call
-`host.requestRelationshipProjections({ relationshipSchemaSlug, sourceEntityIds })` from a user
-execution; the owning plugin may call
-`host.requestRelationshipProjectionsForAllUsers` with the same arguments when shared data changes.
-Each processor step receives at most 100 `{ relationshipId, sourceEntityId, targetEntityId }` items
-and returns one `{ relationshipId, properties }` update per item; use
-`RelationshipProjectionStepInput`/`RelationshipProjectionStepOutput` from
-`@ryot-app/plugin-backend-sdk/relationship-projections`. RyotQL reads the values through
-`relationship.projection` and `relationship.projectionStatus`. See
-[relationship projections](../../kernel/backend/src/modules/relationships/README.md#projections).
-| `client` | Version 1 public exports, routes, entities, dependencies, and home view |
-| `savedViews` | Renderer, settings, and optional named RyotQL data sources |
-| `hooks` | Stable before/after lifecycle hooks |
+Set `projection: { propertiesSchema }` on a relationship schema to keep derived, per-user values next to
+each user-owned link, such as a library title's status. The output schema is strict, has at most 20
+fields and shares none with the relationship properties. The fold of the link's source entity returns
+them; see [folds](#folds). RyotQL reads the values through `relationship.projection` and
+`relationship.projectionStatus`.
 
 All referenced scripts, workflows, providers, and config keys must exist within the declaring package.
 Local declaration names can repeat across packages. Entity and relationship schema evolution is additive.
@@ -438,14 +424,22 @@ upserts use merge to preserve annotations. Event updates/deletes are atomic per 
 calls. Exact patch shapes, limits, and replay identities are in
 [Script Writes](../../kernel/backend/src/modules/scripts/README.md#script-writes).
 
-Event-stream processors use `EventStreamBatchInput`/`EventStreamBatchOutput` and
-`EVENT_STREAM_BATCH_LIMITS` from `@ryot-app/plugin-backend-sdk/event-streams`. Each run receives up
-to 100 dirty streams of one event schema with their checkpoints and returns one result per stream;
-read the batch with as few RyotQL queries as possible, for example one query over all its entity IDs
-ordered by entity. `requestEventStreamWork` admits the batch job for an owned event schema and
-same-revision processor with declared output properties. The common kernel background-work owner
-dispatches it; plugins do not call `executeWorkflow` for event-stream work. The kernel restricts
-updates to the declared output properties and owns publication freshness.
+### Folds
+
+Set `fold: { scriptSlug, eventSchemaSlugs }` on an entity schema to derive values from its subjects'
+events in the transaction that writes them. An event of a listed slug belongs to its session entity when
+the session's schema folds that slug, and otherwise to its own entity. Set
+`projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
+
+The fold is a read-only script of the same plugin using `FoldInput` and `FoldOutput` from
+`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value }` and returns its next
+`value`, one `events` entry per subject event with a projection, one `relationships` entry per link from
+the subject with a projection, and `changes`, which the kernel applies before running it a second time.
+That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
+can defer to a job when the sandbox is busy, so it must compute the same result however late it runs.
+For changes that do not come from the subject's events, call `host.requestFolds({ entityIds })` from a
+user execution; the owning plugin may call `host.requestFoldsForAllUsers` when shared data changes. See
+[folds](../../kernel/backend/src/modules/events/README.md#folds).
 
 Exact host-function and filesystem limits are in the
 [sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).

@@ -81,7 +81,7 @@ revision) join entities into units that are kept or deleted together. A unit is 
 - has a queued, running or retrying enrichment request, or a pending provider-import admission;
 - is the target or parent scope of a Scheduled, Processing or Needs scheduling reminder;
 - is named by an `entity-id` property of an event, a relationship, or an entity without a provider;
-- appears in the payload of queued or running background work or automation runs, or in a saved view.
+- appears in the trigger payload of a queued or running automation run, or in a saved view.
 
 Other global links are references. A dead unit stays when a reference links it to a live unit, but
 units kept this way do not keep their own references. Kept units are deferred seven days. The rest are

@@ -118,9 +118,9 @@ Processing state is one `"ready" | "pending" | "failed"` value from the shared R
 Analytics totals and derived trend buckets count the projection status of the sets they already
 aggregate, so the state describes that period or bucket; workout cards and set rows read it from
 that workout's sets. Values that exist are always shown; pending or failed state adds a note and
-never hides them. Screens show one note from the processing query, which reads the user's
-`workout-set` event streams, narrowed to one workout or exercise on its screen. Queries refresh on
-the kernel's projection page refresh when processing settles.
+never hides them. Screens show one note from the processing query, which reads the projection status of
+the user's `workout-set` events, narrowed to one workout or exercise on its screen. Queries refresh on
+the kernel's projection page refresh when a fold job finishes.
 Set queries inner join each set's occurrence by user, plugin, session, exercise, order and recorded
 kind; the kernel's unique anchor positions keep that join one-to-one, and taxonomy filters reuse the
 joined occurrence.
@@ -144,13 +144,13 @@ detachment. The client blocks merging an exercise used by the active workout/tem
 Exercise note operations require a visible exercise and a `review` event on that schema, not merely
 the shared review slug. Updates patch only text/rating. Input text is trimmed/bounded, while stored
 text remains unbounded for migrated notes. `workout-delete` removes the workout, events, and
-relationships, queues surviving exercise record recalculation, and leaves exercises/templates and
+relationships, recalculates surviving exercise records in the same write, and leaves exercises/templates and
 separately logged measurements intact. `workout-template-delete` removes the template and its
 relationships, leaving workouts started from it intact. Collection additions preserve existing
 membership properties.
 
 Mutating inputs carry the stable `SubmissionEnvelope` identity and timestamp. Writers send editable
-set properties only; projection processors own derived statistics and personal-best badges. Retried writes keep
+set properties only; the fold owns derived statistics and personal-best badges. Retried writes keep
 their complete input, timestamp, and identity unchanged.
 
 ## Storage Units
@@ -364,13 +364,9 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   valid workout `startedAt`, and uses `confirmedAt` for occurrence time when present. Otherwise it
   preserves the supplied event time. It preserves recorded exercise kind or fills it from the exercise.
   Writers use workout start for new untimed historical sets. Source schemas reject computed fields.
-- `fitness.workout-records` batches changed sets by exercise and requests event-projection work for
-  each affected exercise. The common background-work owner runs one batch of dirty exercises per
-  user; `script.workout-record-step` reads the batch with one 100-row query per round ordered by
-  exercise and set order, resuming each exercise from its own position. Each event stream retains its
-  checkpoint, dirty boundary, and freshness state separately from the canonical job status. Workers
-  compute statistics/badges per recorded kind into separate projection rows without changing source
-  events or replaying historical hooks. Workout start changes trigger
-  `fitness.workout-context-records` repairs. A projection is visible only while it matches the current
-  source revision and plugin revision/configuration/installation binding; pending or failed status is
-  noted until processing finishes.
+- `exercise` declares `fold: { scriptSlug: "fold.exercise-records", eventSchemaSlugs: ["workout-set"] }`.
+  `backend/exercise-records.sandbox.ts` reads the exercise's sets in pages ordered by set order and
+  computes statistics and badges per recorded kind into separate projection rows, without changing
+  source events or replaying historical hooks. It runs in the write that changes a set, including a
+  workout time correction, which moves its sets. A value stays visible while its plugin revision is
+  active; pending or failed status is noted until processing finishes.
