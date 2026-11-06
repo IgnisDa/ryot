@@ -27,21 +27,18 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
-import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { automationAttemptIdentity, type FinalizeAutomationAttempt } from "./attempt-repository";
 import { triggerFixture } from "./lifecycle.test-support";
-import { AutomationRunWorkflow } from "./run-workflow";
 import {
-	AutomationRunWorkflowOperations,
+	AutomationRunOperations,
 	classifyAutomationSandboxError,
 	prepareAutomationInvocation,
+	runAutomationAttempt,
 	runAutomationAttemptDirect,
-	runAutomationRunWorkflow,
-} from "./run-workflow-live";
+} from "./run-job-live";
 
 const trigger = triggerFixture();
 const accountGeneration = { userId: UserId.make("owner"), token: "test-account-generation" };
@@ -248,7 +245,7 @@ const beforeRun: AutomationRun = {
 	nextAttemptAt: null,
 };
 
-type Operations = AutomationRunWorkflowOperations["Service"];
+type Operations = AutomationRunOperations["Service"];
 
 type HarnessOptions = {
 	readonly run?: AutomationRun;
@@ -277,15 +274,15 @@ const initialState = (options: HarnessOptions): HarnessState => ({
 	attempt: initialAttempt,
 });
 
-class RunWorkflowHarness extends Context.Service<
-	RunWorkflowHarness,
+class RunJobHarness extends Context.Service<
+	RunJobHarness,
 	{
 		readonly releases: Effect.Effect<number>;
 		readonly children: Effect.Effect<ReadonlyArray<string>>;
 		readonly reset: (options: HarnessOptions) => Effect.Effect<void>;
 		readonly outcomes: Effect.Effect<ReadonlyArray<FinalizeAutomationAttempt>>;
 	}
->()("@ryot-app/kernel-backend/modules/automations/run-workflow.test/RunWorkflowHarness") {}
+>()("@ryot-app/kernel-backend/modules/automations/run-job.test/RunJobHarness") {}
 
 const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 	Layer.effectContext(
@@ -297,7 +294,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				overrides: options.overrides ?? {},
 				trigger: options.trigger ?? trigger,
 			}));
-			const operations = AutomationRunWorkflowOperations.of({
+			const operations = AutomationRunOperations.of({
 				releaseFirstClaim: () =>
 					Ref.update(state, (snapshot) => ({ ...snapshot, releases: snapshot.releases + 1 })),
 				runSandboxDirect: (input) =>
@@ -362,8 +359,8 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 						return attempt;
 					}),
 			});
-			return Context.make(AutomationRunWorkflowOperations, operations).pipe(
-				Context.add(RunWorkflowHarness, {
+			return Context.make(AutomationRunOperations, operations).pipe(
+				Context.add(RunJobHarness, {
 					outcomes: Effect.map(current, ({ outcomes }) => outcomes),
 					children: Effect.map(current, ({ children }) => children),
 					releases: Effect.map(current, ({ releases }) => releases),
@@ -373,14 +370,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 		}),
 	);
 
-const execute = (executionId: string = identity.workflowExecutionId) =>
-	Effect.suspend(() => {
-		const instance = WorkflowInstance.initial(AutomationRunWorkflow, identity.workflowExecutionId);
-		return runAutomationRunWorkflow(payload, executionId).pipe(
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-		);
-	});
+const execute = () => runAutomationAttempt(payload);
 
 it.effect(
 	"passes inline canonical input, retained metadata and exact trusted revision identities",
@@ -690,7 +680,7 @@ it.effect(
 			).pipe(Effect.flip);
 			expect(mismatch).toMatchObject({
 				kind: "invalid-input",
-				message: "Automation workflow input does not match the retained run",
+				message: "Automation input does not match the retained run",
 			});
 			const missingScript = yield* prepareAutomationInvocation(
 				{ ...run, sandboxScriptId: null },
@@ -765,31 +755,16 @@ it.effect(
 
 layer(harnessLayer())((test) => {
 	test.effect(
-		"finalizes one attempt and returns only its safe summary on terminal replay",
+		"finalizes one attempt and does nothing when its settled job runs again",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
-				const first = yield* execute();
-				const replay = yield* execute();
-				expect(replay).toEqual(first);
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				yield* execute();
 				expect(yield* harness.children).toEqual([`${identity.workflowExecutionId}-sandbox`]);
 				const outcomes = yield* harness.outcomes;
 				expect(outcomes).toHaveLength(1);
 				expect(outcomes[0]?.returnedValue).toEqual({ secretLookingResult: "not-in-completion" });
-				expect(first).toEqual({
-					policyOutput: null,
-					attempt: {
-						...identity,
-						timing: null,
-						retryable: false,
-						failureKind: null,
-						status: "succeeded",
-						runId: payload.runId,
-						startedAt: trigger.createdAt,
-						attemptNumber: payload.attemptNumber,
-						finishedAt: "2026-09-15T00:00:01.000Z",
-					},
-				});
 			}),
 		testTimeout,
 	);
@@ -808,9 +783,8 @@ layer(
 		"completes a terminalized claim without preparing or running a sandbox attempt",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
-				const result = yield* execute();
-				expect(result).toEqual({ attempt: null, policyOutput: null });
+				const harness = yield* RunJobHarness;
+				yield* execute();
 				expect(yield* harness.outcomes).toEqual([]);
 				expect(yield* harness.children).toEqual([]);
 			}),
@@ -823,18 +797,17 @@ layer(harnessLayer({ failFirstFinalize: true }))((test) => {
 		"resumes the same child after a finalization failure instead of advancing the attempt",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
+				const harness = yield* RunJobHarness;
 				assertExitFails(
 					yield* Effect.exit(execute()),
 					new DbError({ message: "handoff unavailable" }),
 				);
-				const result = yield* execute();
+				yield* execute();
 				expect(yield* harness.children).toEqual([
 					`${identity.workflowExecutionId}-sandbox`,
 					`${identity.workflowExecutionId}-sandbox`,
 				]);
-				expect(result.attempt?.attemptNumber).toBe(1);
-				expect(yield* harness.outcomes).toHaveLength(1);
+				expect((yield* harness.outcomes).map(({ attemptNumber }) => attemptNumber)).toEqual([1]);
 			}),
 		testTimeout,
 	);
@@ -863,13 +836,18 @@ layer(
 	}),
 )((test) => {
 	test.effect(
-		"records policy rejection as success and returns the output on replay",
+		"records a policy rejection as success with its output",
 		() =>
 			Effect.gen(function* () {
-				const result = yield* execute();
-				expect(result.policyOutput).toEqual({ action: "reject", reason: "Rule declined" });
-				expect(result.attempt?.status).toBe("succeeded");
-				expect(yield* execute()).toEqual(result);
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				yield* execute();
+				const outcomes = yield* harness.outcomes;
+				expect(outcomes).toHaveLength(1);
+				expect(outcomes[0]).toMatchObject({
+					status: "succeeded",
+					returnedValue: { action: "reject", reason: "Rule declined" },
+				});
 			}),
 		testTimeout,
 	);
@@ -901,7 +879,7 @@ layer(
 		"runs a direct policy attempt without a workflow and replays its settled output",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
+				const harness = yield* RunJobHarness;
 				const result = yield* runAutomationAttemptDirect(payload);
 				expect(result.policyOutput).toEqual({ action: "reject", reason: "Rule declined" });
 				expect(result.attempt?.status).toBe("succeeded");
@@ -912,7 +890,7 @@ layer(
 
 	test.effect("releases a deferred direct attempt without finalizing it", () =>
 		Effect.gen(function* () {
-			const harness = yield* RunWorkflowHarness;
+			const harness = yield* RunJobHarness;
 			yield* harness.reset({
 				run: beforeRun,
 				trigger: requestTrigger,
@@ -931,10 +909,9 @@ layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
 		"finalizes invalid policy output and sandbox timeout without waiting or creating another attempt",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
-				const failed = yield* execute();
-				expect(failed.attempt?.failureKind).toBe("invalid-output");
-				expect(failed.policyOutput).toBeNull();
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				expect((yield* harness.outcomes)[0]?.failureKind).toBe("invalid-output");
 				yield* harness.reset({
 					overrides: {
 						runSandbox: () =>
@@ -946,9 +923,10 @@ layer(harnessLayer({ run: beforeRun, trigger: requestTrigger }))((test) => {
 							),
 					},
 				});
-				const timed = yield* execute();
-				expect(timed.attempt?.failureKind).toBe("sandbox-timeout");
-				expect(yield* harness.outcomes).toHaveLength(1);
+				yield* execute();
+				const outcomes = yield* harness.outcomes;
+				expect(outcomes).toHaveLength(1);
+				expect(outcomes[0]?.failureKind).toBe("sandbox-timeout");
 			}),
 		testTimeout,
 	);
@@ -974,12 +952,11 @@ layer(
 		"records an operation rejection as a business failure with its code",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
-				const result = yield* execute();
-				expect(result.attempt?.failureKind).toBe("business-failure");
-				expect((yield* harness.outcomes)[0]?.error).toEqual({
-					code: "operation-rejected",
-					message: "Rule declined the request",
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				expect((yield* harness.outcomes)[0]).toMatchObject({
+					failureKind: "business-failure",
+					error: { code: "operation-rejected", message: "Rule declined the request" },
 				});
 			}),
 		testTimeout,
@@ -988,21 +965,19 @@ layer(
 
 layer(harnessLayer({ trigger: { ...trigger, payload: null } }))((test) => {
 	test.effect(
-		"finalizes missing retained input before dispatch and rejects a different workflow owner",
+		"finalizes missing retained input before dispatch",
 		() =>
 			Effect.gen(function* () {
-				const harness = yield* RunWorkflowHarness;
-				const result = yield* execute();
-				expect(result.attempt?.failureKind).toBe("missing-artifact");
-				expect((yield* harness.outcomes)[0]?.error).toEqual({
-					code: "missing-artifact",
-					message: "Retained automation trigger payload is unavailable",
+				const harness = yield* RunJobHarness;
+				yield* execute();
+				expect((yield* harness.outcomes)[0]).toMatchObject({
+					failureKind: "missing-artifact",
+					error: {
+						code: "missing-artifact",
+						message: "Retained automation trigger payload is unavailable",
+					},
 				});
 				expect(yield* harness.children).toEqual([]);
-				assertExitFails(
-					yield* Effect.exit(execute("other-workflow")),
-					new DbError({ message: "Automation attempt workflow identity mismatch" }),
-				);
 			}),
 		testTimeout,
 	);

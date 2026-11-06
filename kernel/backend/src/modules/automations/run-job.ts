@@ -7,12 +7,9 @@ import {
 	AutomationRunAttempt,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationRunId, EntityId } from "@ryot-app/contract/schema/brands";
-import { Effect, Schema, Struct } from "effect";
-import { Workflow } from "effect/workflow";
+import { Duration, Effect, Schema, Struct } from "effect";
 
-import type { DurableSchema } from "#boot/workflow-engine";
-
-import { automationAttemptIdentity } from "./attempt-repository";
+import { makeJobKind } from "#platform/jobs/queue";
 
 export const AutomationAttemptResult = Schema.Struct({
 	id: AutomationRunAttempt.fields.id,
@@ -34,16 +31,16 @@ export const AutomationPolicyRunOutput = Schema.Union([
 	AutomationPolicyBatchOutput,
 ]);
 
-export const AutomationRunWorkflowResult = Schema.Union([
+export const AutomationRunResult = Schema.Union([
 	Schema.Struct({
 		attempt: AutomationAttemptResult,
 		policyOutput: Schema.NullOr(AutomationPolicyRunOutput),
 	}),
 	Schema.Struct({ attempt: Schema.Null, policyOutput: Schema.Null }),
 ]);
-export type AutomationRunWorkflowResult = typeof AutomationRunWorkflowResult.Type;
+export type AutomationRunResult = typeof AutomationRunResult.Type;
 
-export const AutomationRunWorkflowPayload = Schema.Struct({
+export const AutomationRunPayload = Schema.Struct({
 	runId: AutomationRunId,
 	acceptedPatches: Schema.Array(AutomationPolicyPatch),
 	attemptNumber: AutomationRunAttempt.fields.attemptNumber,
@@ -53,20 +50,18 @@ export const AutomationRunWorkflowPayload = Schema.Struct({
 		Schema.Record(Schema.String, Schema.Array(AutomationPolicyPatch)),
 	),
 });
-export type AutomationRunWorkflowPayload = typeof AutomationRunWorkflowPayload.Type;
+export type AutomationRunPayload = typeof AutomationRunPayload.Type;
 
-export const AutomationRunWorkflow = Workflow.make("AutomationRunWorkflow", {
-	error: DbError satisfies DurableSchema,
-	success: AutomationRunWorkflowResult satisfies DurableSchema,
-	payload: AutomationRunWorkflowPayload satisfies DurableSchema,
-	idempotencyKey: ({ runId, attemptNumber }) =>
-		automationAttemptIdentity(runId, attemptNumber).workflowExecutionId,
+export const AutomationRunJob = makeJobKind("automation-run", {
+	concurrency: 16,
+	backoff: Duration.seconds(2),
+	payload: AutomationRunPayload,
 });
 
 export const settledAutomationRunResult = (
 	stage: "after" | "before",
 	attempt: AutomationRunAttempt,
-): Effect.Effect<AutomationRunWorkflowResult, DbError> =>
+): Effect.Effect<AutomationRunResult, DbError> =>
 	Effect.map(
 		stage === "before" && attempt.status === "succeeded"
 			? Schema.decodeUnknownEffect(AutomationPolicyRunOutput)(attempt.returnedValue).pipe(
@@ -79,7 +74,7 @@ export const settledAutomationRunResult = (
 	);
 
 export const AutomationRunSettlement = Schema.Union([
-	Schema.TaggedStruct("completed", { result: AutomationRunWorkflowResult }),
+	Schema.TaggedStruct("completed", { result: AutomationRunResult }),
 	Schema.TaggedStruct("pending", {}),
 ]);
 export type AutomationRunSettlement = typeof AutomationRunSettlement.Type;

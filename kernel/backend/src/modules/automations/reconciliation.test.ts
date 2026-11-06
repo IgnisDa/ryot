@@ -7,7 +7,6 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Duration, Effect, Fiber, Layer, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
-import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { databaseLayer } from "#testing/effect";
 
 import { automationAttemptIdentity, AutomationAttemptRepository } from "./attempt-repository";
@@ -24,11 +23,8 @@ import {
 	AutomationReconciliationOperations,
 	automationsFrequentTask,
 } from "./reconciliation";
+import { recordingRunJobQueueLayer, RunJobSubmissions } from "./run-job-queue.test-support";
 import { AutomationRunRepository } from "./run-repository";
-import {
-	recordingRunWorkflowEngineLayer,
-	RunWorkflowSubmissions,
-} from "./run-workflow-engine.test-support";
 
 const candidate = (id: string, attemptCount = 0) => ({
 	attemptCount,
@@ -100,11 +96,9 @@ const liveSubmissionLayer = Layer.unwrap(
 						]),
 				}),
 			),
-			Layer.provide(
-				Layer.merge(AutomationAttemptRepository.layer, WorkflowGarbageCollectionRepository.layer),
-			),
+			Layer.provide(AutomationAttemptRepository.layer),
 			Layer.provideMerge(databaseLayer),
-			Layer.provideMerge(recordingRunWorkflowEngineLayer()),
+			Layer.provideMerge(recordingRunJobQueueLayer),
 		),
 	),
 );
@@ -126,19 +120,15 @@ layer(liveSubmissionLayer)((test) => {
 					),
 				};
 				expect(yield* (yield* ReconciliationCalls).reads).toEqual([read, read]);
-				const expected = [
-					{ ...candidate("missed"), workflowName: "AutomationRunWorkflow" },
-					{ ...candidate("retry", 3), workflowName: "AutomationRunWorkflow" },
-				].map(({ workflowName, ...run }) => ({
-					workflowName,
-					discard: true,
+				const expected = [candidate("missed"), candidate("retry", 3)].map((run) => ({
+					kind: "automation-run",
+					key: automationAttemptIdentity(run.id, run.attemptCount + 1).workflowExecutionId,
 					payload: { runId: run.id, acceptedPatches: [], attemptNumber: run.attemptCount + 1 },
-					executionId: automationAttemptIdentity(run.id, run.attemptCount + 1).workflowExecutionId,
 				}));
-				const submitted = yield* yield* RunWorkflowSubmissions;
+				const submitted = yield* yield* RunJobSubmissions;
 				expect(submitted).toHaveLength(4);
 				for (const execution of expected) {
-					expect(submitted.filter((item) => item.executionId === execution.executionId)).toEqual([
+					expect(submitted.filter((item) => item.key === execution.key)).toEqual([
 						execution,
 						execution,
 					]);

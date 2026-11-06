@@ -14,7 +14,7 @@ import {
 	Schema,
 	type Scope,
 } from "effect";
-import { DurableClock, DurableDeferred } from "effect/workflow";
+import { DurableClock } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import {
@@ -22,28 +22,26 @@ import {
 	LifecycleExecution,
 } from "#modules/automations/lifecycle/execution";
 import { LifecyclePersistenceError } from "#modules/automations/lifecycle/planning";
-import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection/workflow-repository";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import { startWorkflowDeadline } from "#platform/workflow/deadline";
 import {
 	awaitWorkflowSettled,
 	WorkflowExecutionNotifications,
 } from "#platform/workflow/execution-notifications";
-import type { WorkflowIdentity } from "#platform/workflow/identity";
 import { ActivityBody, makeActivity } from "#platform/workflow/scope";
 
 import { automationAttemptIdentity, AutomationAttemptRepository } from "./attempt-repository";
-import { AutomationRunRepository } from "./run-repository";
 import {
+	AutomationRunJob,
+	type AutomationRunPayload,
+	type AutomationRunResult,
 	AutomationRunSettlement,
-	AutomationRunWorkflow,
-	type AutomationRunWorkflowPayload,
-	type AutomationRunWorkflowResult,
 	settledAutomationRunResult,
-} from "./run-workflow";
+} from "./run-job";
+import { AutomationRunRepository } from "./run-repository";
 
 const AUTOMATION_IMMEDIATE_TIMEOUT_SLACK_MS = 5_000;
 export const AUTOMATION_IMMEDIATE_TIMEOUT_MS =
@@ -72,13 +70,9 @@ export class AutomationExecutionOperations extends Context.Service<
 	AutomationExecutionOperations,
 	{
 		skipQueuedPolicies: LifecycleExecution["Service"]["skipQueuedPolicies"];
-		submit: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
-		claimedInTree: (
-			payload: AutomationRunWorkflowPayload,
-			member: WorkflowIdentity,
-		) => Effect.Effect<boolean, DbError>;
+		submit: (payload: AutomationRunPayload) => Effect.Effect<void, DbError>;
 		settle: (
-			payload: AutomationRunWorkflowPayload,
+			payload: AutomationRunPayload,
 			deadline: number,
 		) => Effect.Effect<AutomationRunSettlement, DbError>;
 		dispatchStates: (
@@ -90,23 +84,13 @@ export class AutomationExecutionOperations extends Context.Service<
 export const AutomationExecutionOperationsLive = Layer.effect(
 	AutomationExecutionOperations,
 	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
 		const runs = yield* AutomationRunRepository;
 		const attempts = yield* AutomationAttemptRepository;
-		const workflows = yield* WorkflowGarbageCollectionRepository;
+		const jobs = yield* JobQueue;
 		const session = yield* DatabaseSession;
 		const admission = yield* AccountAdmission.make;
 		return AutomationExecutionOperations.of({
 			skipQueuedPolicies: (input) => runs.skipQueuedPolicies(input),
-			claimedInTree: (payload, member) =>
-				workflows.sharesTree(
-					{
-						workflowName: AutomationRunWorkflow._tag,
-						executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-							.workflowExecutionId,
-					},
-					member,
-				),
 			dispatchStates: (runIds) =>
 				runs.listDispatchStates(runIds).pipe(
 					Effect.map((rows) => {
@@ -121,10 +105,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 						);
 					}),
 				),
-			settle: Effect.fnUntraced(function* (
-				payload: AutomationRunWorkflowPayload,
-				deadline: number,
-			) {
+			settle: Effect.fnUntraced(function* (payload: AutomationRunPayload, deadline: number) {
 				const attempt = yield* attempts.findAttempt(payload.runId, payload.attemptNumber);
 				if (!attempt?.finishedAt || Date.parse(attempt.finishedAt) >= deadline) {
 					return { _tag: "pending" } as const;
@@ -138,40 +119,41 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 					result: yield* settledAutomationRunResult(run.stage, attempt),
 				} as const;
 			}),
-			submit: Effect.fnUntraced(function* (payload: AutomationRunWorkflowPayload) {
-				const executionId = automationAttemptIdentity(
-					payload.runId,
-					payload.attemptNumber,
-				).workflowExecutionId;
-				const account = yield* session
+			submit: (payload) =>
+				session
 					.transaction(
 						Effect.gen(function* () {
 							const run = yield* runs.findById(payload.runId);
 							if (!run) {
 								return yield* runUnavailable();
 							}
-							return run.executionUserId === null
-								? null
-								: yield* admission.currentAccount(run.executionUserId);
+							if (run.executionUserId !== null) {
+								yield* admission.admitAccount(yield* admission.currentAccount(run.executionUserId));
+							}
+							return yield* jobs.enqueue(AutomationRunJob, payload, {
+								key: automationAttemptIdentity(payload.runId, payload.attemptNumber)
+									.workflowExecutionId,
+								...(run.executionUserId === null ? {} : { userId: run.executionUserId }),
+							});
 						}),
 					)
-					.pipe(Effect.catchTag("DatabaseSessionStateError", rootTransactionRequired));
-				return yield* dispatchAdmittedWorkflow(engine, AutomationRunWorkflow, account, {
-					payload,
-					executionId,
-					discard: true,
-				});
-			}),
+					.pipe(
+						Effect.asVoid,
+						Effect.catchTags({
+							SchemaError: Effect.die,
+							DatabaseSessionStateError: rootTransactionRequired,
+						}),
+					),
 		});
 	}),
 );
 
 type DirectPolicyAttempt = (
-	payload: AutomationRunWorkflowPayload,
-) => Effect.Effect<AutomationRunWorkflowResult, DbError | DirectScriptDeferred>;
+	payload: AutomationRunPayload,
+) => Effect.Effect<AutomationRunResult, DbError | DirectScriptDeferred>;
 
 /**
- * Runs a first policy attempt in the caller's fiber; `DirectScriptDeferred` hands it to `AutomationRunWorkflow`.
+ * Runs a first policy attempt in the caller's fiber; `DirectScriptDeferred` hands it to `AutomationRunJob`.
  * Migrations and the runtime share one layer graph and its memoized lifecycle services, so the runtime installs the
  * attempt once its sandbox exists; until then, and wherever nothing installs it, every attempt defers.
  */
@@ -207,9 +189,21 @@ const workflowBody = Effect.flatMap(ActivityBody, (inActivity) =>
 	inActivity ? Effect.succeedNone : Effect.serviceOption(WorkflowInstance),
 );
 
-export const OUTSIDE_WORKFLOW_BACKSTOP = Duration.millis(500);
+export const OUTSIDE_WORKFLOW_BACKSTOP = Duration.millis(100);
 
-type RequiredRun = { readonly awaited: boolean; readonly payload: AutomationRunWorkflowPayload };
+const IN_WORKFLOW_POLL_START = Duration.millis(100);
+
+const IN_WORKFLOW_POLL_LIMIT = Duration.seconds(2);
+
+type RequiredRun = { readonly awaited: boolean; readonly payload: AutomationRunPayload };
+
+const isSettled = (
+	required: ReadonlyArray<RequiredRun>,
+	settlements: ReadonlyArray<AutomationRunSettlement>,
+) =>
+	settlements.every(
+		(settlement, index) => settlement._tag === "completed" || !required[index]?.awaited,
+	);
 
 export const LifecycleExecutionLive = Layer.effect(
 	LifecycleExecution,
@@ -237,33 +231,10 @@ export const LifecycleExecutionLive = Layer.effect(
 				: (yield* Clock.currentTimeMillis) + AUTOMATION_IMMEDIATE_TIMEOUT_MS;
 		});
 		// Only an admitted submission starts a run, so a run is awaited only when its submission succeeded
-		// here or it was claimed in this workflow's tree. Parent replays read run states instead of
-		// submitting again; a run claimed by another tree, such as the reconciler's, cannot wake this one.
-		const awaitsClaimed = (payload: AutomationRunWorkflowPayload) =>
-			Effect.flatMap(workflowBody, (instance) =>
-				Option.isNone(instance)
-					? Effect.succeed(true)
-					: operations
-							.claimedInTree(payload, {
-								executionId: instance.value.executionId,
-								workflowName: instance.value.workflow._tag,
-							})
-							.pipe(
-								Effect.catchCauseIf(
-									(cause) => !Cause.hasInterruptsOnly(cause),
-									(cause) =>
-										Effect.logWarning("automation run ownership read failed", cause).pipe(
-											Effect.as(false),
-										),
-								),
-							),
-			);
-		const awaitsDispatch = (
-			state: AutomationDispatchState,
-			payload: AutomationRunWorkflowPayload,
-		) => {
+		// here or something already claimed it. Parent replays read run states instead of submitting again.
+		const awaitsDispatch = (state: AutomationDispatchState, payload: AutomationRunPayload) => {
 			if (state === "claimed") {
-				return awaitsClaimed(payload);
+				return Effect.succeed(true);
 			}
 			if (state === "closed") {
 				return Effect.succeed(false);
@@ -278,7 +249,7 @@ export const LifecycleExecutionLive = Layer.effect(
 			);
 		};
 		const dispatchRuns = Effect.fnUntraced(function* (
-			payloads: ReadonlyArray<AutomationRunWorkflowPayload>,
+			payloads: ReadonlyArray<AutomationRunPayload>,
 		) {
 			const states = yield* operations.dispatchStates(payloads.map(({ runId }) => runId)).pipe(
 				Effect.catchCauseIf(
@@ -304,44 +275,37 @@ export const LifecycleExecutionLive = Layer.effect(
 					? operations.settle(payload, deadline)
 					: Effect.succeed({ _tag: "pending" } as const),
 			);
-		// The winner of the race is journaled, so a run exiting after the deadline or a clock firing after
-		// the runs cannot change a recorded outcome.
+		// Each poll and its deadline check are journaled, so a replay cannot change a recorded outcome.
 		const awaitInWorkflow = Effect.fnUntraced(function* (
 			name: string,
 			required: ReadonlyArray<RequiredRun>,
 			deadline: number,
 		) {
-			const remaining = Duration.millis(Math.max(deadline - (yield* Clock.currentTimeMillis), 1));
-			yield* DurableDeferred.raceAll({
-				error: Schema.Never,
-				success: Schema.Void,
-				name: `hooks-${name}`,
-				effects: [
-					Effect.forEach(
-						required.filter(({ awaited }) => awaited),
-						({ payload }) =>
-							engine
-								.execute(AutomationRunWorkflow, {
-									payload,
-									executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-										.workflowExecutionId,
-								})
-								.pipe(Effect.ignore),
-						{ discard: true, concurrency: "unbounded" },
-					),
-					DurableClock.sleep({
-						duration: remaining,
-						name: `hook-wait-${name}`,
-						inMemoryThreshold: Duration.zero,
+			for (let poll = 0; ; poll += 1) {
+				const { expired, settlements } = yield* makeActivity({
+					error: DbError,
+					name: `settle-${name}-${poll}`,
+					success: Schema.Struct({
+						expired: Schema.Boolean,
+						settlements: Schema.Array(AutomationRunSettlement),
 					}),
-				],
-			});
-			return yield* makeActivity({
-				error: DbError,
-				name: `settle-${name}`,
-				execute: settleAll(required, deadline),
-				success: Schema.Array(AutomationRunSettlement),
-			});
+					execute: Effect.all({
+						settlements: settleAll(required, deadline),
+						expired: Effect.map(Clock.currentTimeMillis, (now) => now >= deadline),
+					}),
+				});
+				if (expired || isSettled(required, settlements)) {
+					return settlements;
+				}
+				yield* DurableClock.sleep({
+					name: `hook-wait-${name}-${poll}`,
+					inMemoryThreshold: IN_WORKFLOW_POLL_LIMIT,
+					duration: Duration.min(
+						Duration.times(IN_WORKFLOW_POLL_START, 2 ** Math.min(poll, 10)),
+						IN_WORKFLOW_POLL_LIMIT,
+					),
+				});
+			}
 		});
 		const awaitOutside = Effect.fnUntraced(function* (
 			required: ReadonlyArray<RequiredRun>,
@@ -349,24 +313,11 @@ export const LifecycleExecutionLive = Layer.effect(
 		) {
 			const now = yield* Clock.currentTimeMillis;
 			return yield* awaitWorkflowSettled({
+				identities: [],
 				backstop: OUTSIDE_WORKFLOW_BACKSTOP,
 				read: settleAll(required, deadline),
 				timeout: Duration.millis(Math.max(0, deadline - now)),
-				isSettled: (settlements) =>
-					settlements.every(
-						(settlement, index) => settlement._tag === "completed" || !required[index]?.awaited,
-					),
-				identities: required.flatMap(({ awaited, payload }) =>
-					awaited
-						? [
-								{
-									workflowName: AutomationRunWorkflow._tag,
-									executionId: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-										.workflowExecutionId,
-								},
-							]
-						: [],
-				),
+				isSettled: (settlements) => isSettled(required, settlements),
 			}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
 		});
 		const settleRequired = (name: string, required: ReadonlyArray<RequiredRun>, deadline: number) =>
@@ -376,10 +327,7 @@ export const LifecycleExecutionLive = Layer.effect(
 					: awaitOutside(required, deadline),
 			);
 		// In a workflow the direct attempt is journaled, so a replay never runs it again on a different path.
-		const runPolicy = Effect.fnUntraced(function* (
-			name: string,
-			payload: AutomationRunWorkflowPayload,
-		) {
+		const runPolicy = Effect.fnUntraced(function* (name: string, payload: AutomationRunPayload) {
 			const direct = attempts.attempt(payload).pipe(
 				Effect.map((result) => ({ result, _tag: "completed" as const })),
 				Effect.catchTag("DirectScriptDeferred", () => Effect.succeed(null)),
@@ -401,11 +349,16 @@ export const LifecycleExecutionLive = Layer.effect(
 			}
 			const deadline = yield* startDeadline(name);
 			const [dispatch] = yield* dispatchRuns([payload]);
-			// Executing a claimed run takes over a claim left by a direct attempt whose process died; a run another
-			// tree owns cannot join this one and settles as pending.
-			const awaited =
-				dispatch !== undefined &&
-				(dispatch.awaited || (dispatch.state === "claimed" && Option.isSome(instance)));
+			// A claim seen in a workflow may be a direct attempt whose process died, so a job takes it over.
+			if (dispatch?.state === "claimed" && Option.isSome(instance)) {
+				yield* operations.submit(payload).pipe(
+					Effect.catchCauseIf(
+						(cause) => !Cause.hasInterruptsOnly(cause),
+						(cause) => Effect.logWarning("automation run takeover failed", cause),
+					),
+				);
+			}
+			const awaited = dispatch?.awaited === true;
 			const [settlement] = yield* settleRequired(
 				name,
 				dispatch ? [{ payload, awaited }] : [],

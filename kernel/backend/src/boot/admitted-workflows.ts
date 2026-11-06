@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
 import {
 	TranslateEntityAttemptWorkflow,
 	TranslateEntityWorkflow,
@@ -31,7 +30,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		TranslateEntityWorkflow,
 		TranslateEntityAttemptWorkflow,
 		ProviderRelatedPagesWorkflow,
-		AutomationRunWorkflow,
 		ProcessImportRunWorkflow,
 		ProcessDataImportWorkflow,
 		ProcessDataImportSegmentWorkflow,

@@ -312,7 +312,7 @@ layer(
 	);
 
 	test.effect(
-		"reports tree membership and admits nothing under a missing parent",
+		"keeps a child in its first tree and admits nothing under a missing parent",
 		() =>
 			Effect.gen(function* () {
 				yield* TestClock.setTime(Date.parse("2027-06-01T00:00:00Z"));
@@ -323,12 +323,6 @@ layer(
 				yield* admit(second);
 				yield* admit(child, first);
 				expect((yield* admit(child, second)).row?.rootExecutionId).toBe(first.executionId);
-				const repository = yield* WorkflowGarbageCollectionRepository;
-				expect(yield* repository.sharesTree(child, first)).toBe(true);
-				expect(yield* repository.sharesTree(child, second)).toBe(false);
-				expect(yield* repository.sharesTree({ ...child, executionId: "unadmitted" }, first)).toBe(
-					false,
-				);
 				const orphan = { executionId: "orphan", workflowName: "ChildWorkflow" };
 				const missing = { workflowName: "RootWorkflow", executionId: "missing-parent" };
 				expect(yield* admit(orphan, missing)).toEqual({

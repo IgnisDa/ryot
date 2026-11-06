@@ -44,12 +44,12 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
-import { AutomationRunWorkflowOperationsServiceLive, LifecyclePlannerServiceLive } from "./layer";
+import { AutomationRunOperationsServiceLive, LifecyclePlannerServiceLive } from "./layer";
 import { noLifecycleWorkLayer, triggerFixture } from "./lifecycle.test-support";
 import { LifecyclePlannerLive } from "./planner";
 import { AutomationPlannerResolver } from "./planner-resolver";
+import { AutomationRunOperations } from "./run-job-live";
 import { AutomationRunRepository } from "./run-repository";
-import { AutomationRunWorkflowOperations } from "./run-workflow-live";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const nested = <A, E, R>(body: Effect.Effect<A, E, R>) =>
@@ -2053,7 +2053,7 @@ describe("automation preparation", () => {
 	layer(
 		Layer.mergeAll(
 			plannerLayer(),
-			AutomationRunWorkflowOperationsServiceLive.pipe(
+			AutomationRunOperationsServiceLive.pipe(
 				Layer.provide(
 					Layer.merge(Layer.mock(ScriptExecutionService)({}), Layer.mock(DirectScriptExecutor)({})),
 				),
@@ -2065,7 +2065,7 @@ describe("automation preparation", () => {
 			() =>
 				Effect.gen(function* () {
 					const planner = yield* LifecyclePlanner;
-					const operations = yield* AutomationRunWorkflowOperations;
+					const operations = yield* AutomationRunOperations;
 					const installed = yield* installRevisionPackage(preparationPackage("v1"));
 					const planned = yield* planner.plan({
 						trigger: yield* entityTrigger(installed.pluginId, "pinned-preparation"),

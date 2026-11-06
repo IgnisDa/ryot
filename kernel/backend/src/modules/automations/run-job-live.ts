@@ -42,7 +42,7 @@ import { executeScriptDirectly, ScriptExecutionService } from "#modules/scripts/
 import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import { registerJobHandler } from "#platform/jobs/worker";
 import { pluginRevision } from "#schema/tables/core";
 
 import {
@@ -53,15 +53,15 @@ import {
 import { AUTOMATION_IMMEDIATE_TIMEOUT_MS, DirectPolicyAttempts } from "./execution";
 import { projectAutomationAfterInput, projectAutomationPolicyInput } from "./input-projection";
 import { automationPayloadPluginId, matchesTarget } from "./planner-resolver";
-import { AutomationRunRepository } from "./run-repository";
 import {
 	automationAttemptResult,
 	AutomationPolicyRunOutput,
-	AutomationRunWorkflow,
-	type AutomationRunWorkflowPayload,
-	type AutomationRunWorkflowResult,
+	AutomationRunJob,
+	type AutomationRunPayload,
+	type AutomationRunResult,
 	settledAutomationRunResult,
-} from "./run-workflow";
+} from "./run-job";
+import { AutomationRunRepository } from "./run-repository";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
 const PreparedAutomationRun = Schema.Struct({
@@ -88,10 +88,10 @@ const ClaimedAutomationAttempt = Schema.Struct({
 	attempt: Schema.NullOr(AutomationRunAttempt),
 });
 
-const workflowMismatch = () =>
+const inputMismatch = () =>
 	new AutomationPreparationError({
 		kind: "invalid-input",
-		message: "Automation workflow input does not match the retained run",
+		message: "Automation input does not match the retained run",
 	});
 
 const projectionError = (run: AutomationRun, problem: string) =>
@@ -103,7 +103,7 @@ const projectionError = (run: AutomationRun, problem: string) =>
 export const prepareAutomationInvocation = (
 	run: AutomationRun,
 	trigger: AutomationTrigger,
-	payload: AutomationRunWorkflowPayload,
+	payload: AutomationRunPayload,
 	script: Extract<SandboxScriptManifestType, { kind: "automation" }>,
 	accountGeneration: null | AccountGeneration,
 	hookMetadata?: JsonValue,
@@ -125,13 +125,13 @@ export const prepareAutomationInvocation = (
 			});
 		}
 		if (run.id !== payload.runId || run.triggerId !== trigger.id) {
-			return yield* workflowMismatch();
+			return yield* inputMismatch();
 		}
 		let projected;
 		let policyItemIdentity: null | string = null;
 		if (run.stage === "before") {
 			if (payload.attemptNumber !== 1 || trigger.payload.category !== "request") {
-				return yield* workflowMismatch();
+				return yield* inputMismatch();
 			}
 			if (script.automationType !== "policy") {
 				return yield* projectionError(run, "has an incompatible policy declaration");
@@ -150,7 +150,7 @@ export const prepareAutomationInvocation = (
 			const subjects = new Set<string>();
 			for (const item of requests) {
 				if (!item.itemIdentity) {
-					return yield* workflowMismatch();
+					return yield* inputMismatch();
 				}
 				if (
 					payload.activeItemIdentities &&
@@ -184,7 +184,7 @@ export const prepareAutomationInvocation = (
 				}
 				const patched = applyLifecyclePolicyPatches(item.request, item.patches);
 				if (!patched.ok) {
-					return yield* workflowMismatch();
+					return yield* inputMismatch();
 				}
 				const request = projectAutomationPolicyInput(patched.request, script.inputProjection);
 				if (!request) {
@@ -235,7 +235,7 @@ export const prepareAutomationInvocation = (
 			policyItemIdentity = source.operation === "batch" ? null : trigger.id;
 		} else {
 			if (payload.acceptedPatches.length !== 0 || trigger.payload.category === "request") {
-				return yield* workflowMismatch();
+				return yield* inputMismatch();
 			}
 			if (script.automationType !== "automation") {
 				return yield* projectionError(run, "has an incompatible automation declaration");
@@ -315,16 +315,16 @@ export const prepareAutomationInvocation = (
 		);
 	});
 
-export class AutomationRunWorkflowOperations extends Context.Service<
-	AutomationRunWorkflowOperations,
+export class AutomationRunOperations extends Context.Service<
+	AutomationRunOperations,
 	{
-		releaseFirstClaim: (payload: AutomationRunWorkflowPayload) => Effect.Effect<void, DbError>;
+		releaseFirstClaim: (payload: AutomationRunPayload) => Effect.Effect<void, DbError>;
 		finalize: (input: FinalizeAutomationAttempt) => Effect.Effect<AutomationRunAttempt, DbError>;
 		claim: (
-			payload: AutomationRunWorkflowPayload,
+			payload: AutomationRunPayload,
 		) => Effect.Effect<typeof ClaimedAutomationAttempt.Type, DbError>;
 		prepare: (
-			payload: AutomationRunWorkflowPayload,
+			payload: AutomationRunPayload,
 		) => Effect.Effect<PreparedAutomationRun, DbError | AutomationPreparationError>;
 		runSandbox: (
 			input: PreparedAutomationRun & { executionId: string },
@@ -333,9 +333,7 @@ export class AutomationRunWorkflowOperations extends Context.Service<
 			input: PreparedAutomationRun & { executionId: string },
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError | DirectScriptDeferred>;
 	}
->()(
-	"@ryot-app/kernel-backend/modules/automations/run-workflow-live/AutomationRunWorkflowOperations",
-) {}
+>()("@ryot-app/kernel-backend/modules/automations/run-job-live/AutomationRunOperations") {}
 
 const missing = () =>
 	new AutomationPreparationError({
@@ -343,8 +341,8 @@ const missing = () =>
 		message: "Pinned automation script or hook declaration is unavailable",
 	});
 
-export const AutomationRunWorkflowOperationsLive = Layer.effect(
-	AutomationRunWorkflowOperations,
+export const AutomationRunOperationsLive = Layer.effect(
+	AutomationRunOperations,
 	Effect.gen(function* () {
 		const attempts = yield* AutomationAttemptRepository;
 		const entities = yield* EntitiesRepository;
@@ -355,7 +353,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 		const direct = yield* DirectScriptExecutor;
 		const session = yield* DatabaseSession;
 		const admission = yield* AccountAdmission.make;
-		return AutomationRunWorkflowOperations.of({
+		return AutomationRunOperations.of({
 			runSandbox: (input) => sandbox.executeScript(input),
 			runSandboxDirect: (input) => executeScriptDirectly(direct, input),
 			releaseFirstClaim: (payload) => attempts.releaseFirstClaim(payload.runId),
@@ -483,7 +481,7 @@ export const AutomationRunWorkflowOperationsLive = Layer.effect(
 									payload.acceptedPatches,
 								);
 								if (!patched.ok || patched.request.resource !== "event") {
-									return yield* workflowMismatch();
+									return yield* inputMismatch();
 								}
 								const draft = patched.request.draft;
 								const references = yield* entities.getByIdsForUser({
@@ -554,16 +552,16 @@ export const classifyAutomationSandboxError = (
 
 const completion = (
 	attempt: AutomationRunAttempt,
-	policyOutput: AutomationRunWorkflowResult["policyOutput"],
-): AutomationRunWorkflowResult => ({ policyOutput, attempt: automationAttemptResult(attempt) });
+	policyOutput: AutomationRunResult["policyOutput"],
+): AutomationRunResult => ({ policyOutput, attempt: automationAttemptResult(attempt) });
 
 /** Runs a prepared attempt's sandbox and classifies its result into the attempt's final state. */
 const attemptOutcome = Effect.fnUntraced(function* <E>(
-	payload: AutomationRunWorkflowPayload,
+	payload: AutomationRunPayload,
 	prepared: PreparedAutomationRun | AutomationPreparationError,
 	runSandbox: (prepared: PreparedAutomationRun) => Effect.Effect<SandboxExecutionResult, E>,
 ) {
-	let policyOutput: AutomationRunWorkflowResult["policyOutput"] = null;
+	let policyOutput: AutomationRunResult["policyOutput"] = null;
 	let outcome: FinalizeAutomationAttempt;
 	if (prepared instanceof AutomationPreparationError) {
 		outcome = {
@@ -656,56 +654,39 @@ const attemptOutcome = Effect.fnUntraced(function* <E>(
 	return { outcome, policyOutput };
 });
 
-export const runAutomationRunWorkflow = Effect.fn("AutomationRunWorkflow")(function* (
-	payload: AutomationRunWorkflowPayload,
-	executionId: string,
+/**
+ * Runs one attempt from its claim to its finalization. A retry resumes the same attempt: its claim stays
+ * running, and its sandbox execution keeps its identity, so a retry joins the first run's result.
+ */
+export const runAutomationAttempt = Effect.fn("AutomationRunJob")(function* (
+	payload: AutomationRunPayload,
 ) {
 	const identity = automationAttemptIdentity(payload.runId, payload.attemptNumber);
-	if (executionId !== identity.workflowExecutionId) {
-		return yield* new DbError({ message: "Automation attempt workflow identity mismatch" });
+	const operations = yield* AutomationRunOperations;
+	const { attempt } = yield* operations.claim(payload);
+	if (attempt?.status !== "running") {
+		return;
 	}
-	const operations = yield* AutomationRunWorkflowOperations;
-	const { stage, attempt } = yield* makeActivity({
-		error: DbError,
-		name: "claim-automation-attempt",
-		success: ClaimedAutomationAttempt,
-		execute: operations.claim(payload),
-	});
-	if (attempt === null) {
-		return { attempt: null, policyOutput: null };
-	}
-	if (attempt.status !== "running") {
-		return yield* settledAutomationRunResult(stage, attempt);
-	}
-	const prepared = yield* makeActivity({
-		success: PreparedAutomationRun,
-		name: "prepare-automation-attempt",
-		execute: operations.prepare(payload),
-		error: Schema.Union([DbError, AutomationPreparationError]),
-	}).pipe(Effect.catchTag("AutomationPreparationError", (error) => Effect.succeed(error)));
-	const { outcome, policyOutput } = yield* attemptOutcome(payload, prepared, (input) =>
+	const prepared = yield* operations
+		.prepare(payload)
+		.pipe(Effect.catchTag("AutomationPreparationError", (error) => Effect.succeed(error)));
+	const { outcome } = yield* attemptOutcome(payload, prepared, (input) =>
 		operations.runSandbox({ ...input, executionId: `${identity.workflowExecutionId}-sandbox` }),
 	);
-	const finalized = yield* makeActivity({
-		error: DbError,
-		success: AutomationRunAttempt,
-		name: "finalize-automation-attempt",
-		execute: operations.finalize(outcome),
-	});
-	return completion(finalized, policyOutput);
+	yield* operations.finalize(outcome);
 });
 
 /**
- * Runs a first policy attempt in the caller's fiber, without `AutomationRunWorkflow` or `ScriptExecutionWorkflow`.
+ * Runs a first policy attempt in the caller's fiber, without `AutomationRunJob` or `ScriptExecutionWorkflow`.
  * Fails with `DirectScriptDeferred` when the attempt needs the workflow: another owner holds the claim, or the script
  * reached a host call that only the replay loop settles. Every failure releases this call's claim, so the workflow
  * can take the attempt over under the same identity.
  */
 export const runAutomationAttemptDirect = Effect.fn("AutomationRunDirect")(function* (
-	payload: AutomationRunWorkflowPayload,
+	payload: AutomationRunPayload,
 ) {
 	const identity = automationAttemptIdentity(payload.runId, payload.attemptNumber);
-	const operations = yield* AutomationRunWorkflowOperations;
+	const operations = yield* AutomationRunOperations;
 	const { stage, attempt, claimed } = yield* operations.claim(payload);
 	if (attempt === null) {
 		return { attempt: null, policyOutput: null };
@@ -750,14 +731,11 @@ export const runAutomationAttemptDirect = Effect.fn("AutomationRunDirect")(funct
 
 export const DirectPolicyAttemptsInstalledLive = Layer.effectDiscard(
 	Effect.gen(function* () {
-		const context = yield* Effect.context<AutomationRunWorkflowOperations>();
+		const context = yield* Effect.context<AutomationRunOperations>();
 		yield* (yield* DirectPolicyAttempts).install((payload) =>
 			runAutomationAttemptDirect(payload).pipe(Effect.provideContext(context)),
 		);
 	}),
 );
 
-export const AutomationRunWorkflowDefinitionsLive = implementWorkflow(
-	AutomationRunWorkflow,
-	runAutomationRunWorkflow,
-);
+export const AutomationRunJobLive = registerJobHandler(AutomationRunJob, runAutomationAttempt);

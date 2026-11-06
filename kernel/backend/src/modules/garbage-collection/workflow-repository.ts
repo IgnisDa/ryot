@@ -22,27 +22,6 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const find = Effect.fn("WorkflowGarbageCollectionRepository.find")(function* (
-				identity: WorkflowIdentity,
-			) {
-				const [row] = yield* session.run((db) =>
-					db.select().from(table).where(identityFilter(identity)),
-				);
-				return row;
-			});
-			const sharesTree = Effect.fn("WorkflowGarbageCollectionRepository.sharesTree")(function* (
-				execution: WorkflowIdentity,
-				member: WorkflowIdentity,
-			) {
-				const executionRow = yield* find(execution);
-				const memberRow = yield* find(member);
-				return (
-					executionRow !== undefined &&
-					memberRow !== undefined &&
-					executionRow.rootWorkflowName === memberRow.rootWorkflowName &&
-					executionRow.rootExecutionId === memberRow.rootExecutionId
-				);
-			});
 			const expireTrees = Effect.fn("WorkflowGarbageCollectionRepository.expireTrees")(function* (
 				now: Date,
 				limit: number,
@@ -117,7 +96,7 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 						.where(identityFilter(identity)),
 				);
 			});
-			return { clear, sharesTree, expireTrees, listPendingCleanup };
+			return { clear, expireTrees, listPendingCleanup };
 		}),
 	},
 ) {

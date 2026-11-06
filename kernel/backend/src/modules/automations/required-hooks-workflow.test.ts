@@ -22,7 +22,6 @@ import {
 	release,
 	requiredRun,
 	runControlLayer,
-	runWorkflowLive,
 } from "./required-hooks.test-support";
 
 const trigger = triggerFixture();
@@ -61,7 +60,7 @@ it.layer(
 		Effect.scoped(
 			Effect.gen(function* () {
 				const context = yield* Layer.build(
-					Layer.mergeAll(waitingParentLive, runWorkflowLive).pipe(
+					waitingParentLive.pipe(
 						Layer.provideMerge(
 							LifecycleExecutionLive.pipe(
 								Layer.provide(Layer.merge(noLifecycleWorkLayer, DirectPolicyAttempts.layer)),
@@ -71,16 +70,15 @@ it.layer(
 						Layer.provideMerge(WorkflowExecutionNotifications.layer),
 						Layer.provideMerge(operationsLive),
 						Layer.provideMerge(postgresWorkflowEngineTestLayer),
-						Layer.provideMerge(runControlLayer(1_200)),
+						Layer.provideMerge(runControlLayer),
 					),
 				);
 				yield* behave({
 					"held-cluster": { hold: true },
 					"held-pair-first": { hold: true },
 					"held-pair-second": { hold: true },
-					"late-cluster": { lateExit: true },
 				}).pipe(Effect.provideContext(context));
-				const [single, pair, late] = yield* Effect.all(
+				const [single, pair] = yield* Effect.all(
 					[
 						Effect.forkChild(Effect.delay(release("held-cluster"), "200 millis")).pipe(
 							Effect.andThen(awaitParent("single", ["held-cluster"])),
@@ -91,11 +89,10 @@ it.layer(
 								Effect.delay(release("held-pair-second"), "300 millis"),
 							]),
 						).pipe(Effect.andThen(awaitParent("pair", ["held-pair-first", "held-pair-second"]))),
-						awaitParent("late", ["late-cluster"]),
 					],
 					{ concurrency: "unbounded" },
 				).pipe(Effect.provideContext(context));
-				expect([single.warnings, pair.warnings, late.warnings]).toEqual([[], [], []]);
+				expect([single.warnings, pair.warnings]).toEqual([[], []]);
 				expect(single.elapsedMs).toBeLessThan(1_000);
 				expect(pair.elapsedMs).toBeLessThan(1_000);
 			}),

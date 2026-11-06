@@ -8,6 +8,7 @@ import { WorkflowGarbageCollectionRepository } from "#modules/garbage-collection
 import { PluginRepositoryLive } from "#modules/plugins/packages/repository-layer";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { JobQueue } from "#platform/jobs/queue";
 
 import { AutomationAttemptRepository } from "./attempt-repository";
 import { AutomationExecutionOperationsLive, LifecycleExecutionLive } from "./execution";
@@ -17,8 +18,8 @@ import { AutomationPlannerResolver } from "./planner-resolver";
 import { AutomationReconciliation, AutomationReconciliationOperationsLive } from "./reconciliation";
 import { AutomationsRepository } from "./repository";
 import { AutomationRetention } from "./retention";
+import { AutomationRunOperationsLive } from "./run-job-live";
 import { AutomationRunRepository } from "./run-repository";
-import { AutomationRunWorkflowOperationsLive } from "./run-workflow-live";
 import { SignalEmissionService } from "./signal-service";
 import { AutomationTriggerRepository } from "./trigger-repository";
 
@@ -54,10 +55,10 @@ export const LifecyclePlannerServiceLive = LifecyclePlannerLive.pipe(
 export const LifecycleServicesLive = Layer.merge(LifecyclePlannerServiceLive, execution);
 
 export const MigrationLifecycleServicesLive = LifecycleServicesLive.pipe(
-	Layer.provide(WorkflowEngineLive),
+	Layer.provide(Layer.merge(WorkflowEngineLive, JobQueue.layer)),
 );
 
-export const AutomationRunWorkflowOperationsServiceLive = AutomationRunWorkflowOperationsLive.pipe(
+export const AutomationRunOperationsServiceLive = AutomationRunOperationsLive.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			AutomationAttemptRepository.layer,

@@ -53,21 +53,21 @@ layer(BunServices.layer)((test) => {
 					sandboxWorkflow,
 					entityImportWorkflow,
 					sandboxScriptWorkflow,
-					automationRunWorkflow,
+					automationRunJob,
 				] = yield* Effect.all([
 					readModule("./service.ts"),
 					readModule("./queues.ts"),
 					readModule("./workflow-live.ts"),
 					readModules(entityImportWorkflowModules),
 					readModule("./workflow.ts"),
-					readModule("../../automations/run-workflow-live.ts"),
+					readModule("../../automations/run-job-live.ts"),
 				]);
 
 				expect(sandboxService).toMatch(
 					/dispatchAdmittedWorkflow\(\s*engine,\s*ScriptExecutionWorkflow,/,
 				);
 				expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
-				expect(automationRunWorkflow).toContain("ScriptExecutionService");
+				expect(automationRunJob).toContain("ScriptExecutionService");
 				expect(sandboxScriptWorkflow).toMatch(
 					/processSandboxExecutionQueue\(\s*\{\s*\.\.\.payload,\s*recoveryAttempt: attempt,?\s*\}\s*\)/,
 				);

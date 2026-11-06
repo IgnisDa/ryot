@@ -25,15 +25,15 @@ import { DirectPolicyAttempts } from "#modules/automations/execution";
 import {
 	AutomationReconciliationLive,
 	AutomationRetentionLive,
-	AutomationRunWorkflowOperationsServiceLive,
+	AutomationRunOperationsServiceLive,
 	LifecycleServicesLive,
 	NotificationSubscriptionsServiceLive,
 	SignalEmissionServiceLive,
 } from "#modules/automations/layer";
 import {
-	AutomationRunWorkflowDefinitionsLive,
+	AutomationRunJobLive,
 	DirectPolicyAttemptsInstalledLive,
-} from "#modules/automations/run-workflow-live";
+} from "#modules/automations/run-job-live";
 import { BackupJobsLive, BackupServicesLive } from "#modules/backups/layer";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import { CollectionsServiceLive } from "#modules/collections/layer";
@@ -234,7 +234,7 @@ const SandboxWorkflowDependenciesLive = Layer.mergeAll(
 );
 
 const AutomationRunOperationsLive = Layer.provide(
-	AutomationRunWorkflowOperationsServiceLive,
+	AutomationRunOperationsServiceLive,
 	Layer.merge(
 		ScriptExecutionServiceLive,
 		DirectScriptExecutor.layer.pipe(
@@ -335,7 +335,6 @@ const ServicesWithTestSupportLive = Layer.merge(
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
-	AutomationRunWorkflowDefinitionsLive,
 	ProviderEntityPopulationWorkflowDefinitionsProvidedLive,
 	ProviderRelatedPagesWorkflowDefinitionsProvidedLive,
 	EntityImportWorkflowDefinitionsLive,
@@ -382,6 +381,7 @@ const RuntimeJobsLive = JobWorkerLive.pipe(
 			UserBootstrapJobProvidedLive.pipe(Layer.provide(PluginBootstrapEntitiesRuntimeLive)),
 			PluginInstallationJobLive,
 			FoldJobsLive.pipe(Layer.provide(Layer.merge(EventMutationsLive, Folds.layer))),
+			AutomationRunJobLive,
 		),
 	),
 );
