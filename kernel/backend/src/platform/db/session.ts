@@ -12,6 +12,8 @@ export const DatabaseConnectionLimit = Context.Reference<
 	undefined | Pool.Pool<PgClient.PgClient, SqlError>
 >("DatabaseSession.ConnectionLimit", { defaultValue: () => undefined });
 
+const fiberContext: Effect.Effect<Context.Context<never>> = Effect.context();
+
 export class DatabaseSessionStateError extends Schema.TaggedError<
 	DatabaseSessionStateError,
 	{ readonly brand: unique symbol }
@@ -98,8 +100,37 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()(
 						),
 					);
 				});
+			const savepoint = <A, E, R>(work: Effect.Effect<A, E, R>) =>
+				Effect.gen(function* () {
+					const current = yield* transactionExecutor;
+					if (current === null) {
+						return yield* new DatabaseSessionStateError({ reason: "transaction-required" });
+					}
+					return yield* mapDatabaseErrors(
+						current.transaction((executor) =>
+							work.pipe(Effect.provideService(transactionExecutor, executor)),
+						),
+					);
+				});
+			// A sandbox run settles host calls on fibers its caller did not start. The SQL client finds a
+			// transaction's connection in fiber context, so those fibers need the caller's entries as well as
+			// these executors; a fiber's own entries win, so it keeps the services it was given.
+			const carry = Effect.map(
+				Effect.all([transactionExecutor, connectionExecutor, fiberContext]),
+				([current, connection, caller]) =>
+					<A, E, R>(work: Effect.Effect<A, E, R>) =>
+						Effect.flatMap(fiberContext, (own) =>
+							work.pipe(
+								Effect.provideContext(current === null ? own : Context.merge(caller, own)),
+								Effect.provideService(transactionExecutor, current),
+								Effect.provideService(connectionExecutor, connection),
+							),
+						),
+			);
 			return {
 				run,
+				carry,
+				savepoint,
 				requireRoot,
 				transaction,
 				requireTransaction,

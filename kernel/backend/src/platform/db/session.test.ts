@@ -124,6 +124,47 @@ layer(limitedSessionLayer)((test) => {
 
 layer(sessionLayer)((test) => {
 	test.effect(
+		"carries a transaction to a fiber started outside it",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const handOff = yield* Deferred.make<Effect.Effect<unknown, unknown>>();
+				const handled = yield* Deferred.make<unknown>();
+				const outside = yield* Deferred.await(handOff).pipe(
+					Effect.flatten,
+					Effect.flatMap((value) => Deferred.succeed(handled, value)),
+					Effect.forkScoped,
+				);
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* session.run((db) => db.insert(entry).values({ id: "carried", value: "inside" }));
+						const carry = yield* session.carry;
+						yield* Deferred.succeed(
+							handOff,
+							carry(
+								Effect.forEach(
+									[1, 2],
+									() =>
+										session.savepoint(
+											session.run((db) => db.select().from(entry).where(eq(entry.id, "carried"))),
+										),
+									{ concurrency: 2 },
+								),
+							),
+						);
+						expect(yield* Deferred.await(handled)).toEqual([
+							[{ id: "carried", value: "inside" }],
+							[{ id: "carried", value: "inside" }],
+						]);
+					}),
+				);
+				yield* Fiber.join(outside);
+				yield* session.run((db) => db.delete(entry).where(eq(entry.id, "carried")));
+			}).pipe(Effect.scoped),
+		testTimeout,
+	);
+
+	test.effect(
 		"commits work and propagates the transaction through nested run calls",
 		() =>
 			Effect.gen(function* () {

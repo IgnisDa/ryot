@@ -17,7 +17,7 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { RedisService } from "#platform/redis";
 import { fairQueueKeys, fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
 import { implementWorkflow } from "#platform/workflow/scope";
-import { makeAppConfigLayer, workflowEngineTestLayer } from "#testing/effect";
+import { fakeDatabaseSession, makeAppConfigLayer, workflowEngineTestLayer } from "#testing/effect";
 import { testRedisServiceLayer } from "#testing/redis";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
@@ -143,6 +143,7 @@ const queueLayer = Layer.provideMerge(
 				),
 			),
 		),
+		Layer.provideMerge(fakeDatabaseSession({})),
 		Layer.provideMerge(workflowEngineTestLayer),
 		Layer.provideMerge(runtimeLayer),
 		Layer.provideMerge(controlLayer),

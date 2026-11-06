@@ -17,6 +17,7 @@ import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/princip
 import { ScriptInlineProgress } from "#modules/scripts/host/http-progress";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
 import { fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
 
@@ -150,6 +151,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const artifacts = yield* ExecutableArtifacts;
 	const sandbox = yield* SandboxExecutor;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
+	const carry = yield* Effect.flatMap(DatabaseSession, (session) => session.carry);
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
 			const redis = yield* RedisService;
@@ -210,15 +212,17 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 						capabilities: inlineCapabilities,
 						cancel: (progress) => dispatcher.cancelInline(payload.workflowExecutionId, progress),
 						settle: (requests, wait, checkpoint) =>
-							dispatcher.settleInline(
-								requests,
-								payload.context,
-								payload.principal,
-								payload.lane,
-								payload.workflowExecutionId,
-								payload.startedAt,
-								wait,
-								checkpoint,
+							carry(
+								dispatcher.settleInline(
+									requests,
+									payload.context,
+									payload.principal,
+									payload.lane,
+									payload.workflowExecutionId,
+									payload.startedAt,
+									wait,
+									checkpoint,
+								),
 							),
 					},
 				})

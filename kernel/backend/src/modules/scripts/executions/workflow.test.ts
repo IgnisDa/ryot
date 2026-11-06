@@ -43,6 +43,7 @@ import {
 } from "#modules/scripts/authorization/principal.test-support";
 import { appendWorkflowJournalWithRedis } from "#modules/scripts/replay/journal";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
+import { DatabaseSession } from "#platform/db/session";
 import { RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
 import {
@@ -277,6 +278,27 @@ layer(
 						message: "Sandbox workflow pin conflicts with automation ownership",
 					}),
 				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"joins the caller's transaction",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const pinning = yield* SandboxWorkflowPinning;
+				const payload = {
+					input: {},
+					pluginRevision,
+					executionId: "execution-2",
+					subject: automationSubject,
+					lane: "background" as const,
+					resolutionMode: "active" as const,
+					scriptId: SandboxScriptId.make("historical-script"),
+				};
+				const result = yield* session.transaction(pinning.establish(payload, "execution-2"));
+				expect(result.registrationStatus).toBe("registered");
 			}),
 		testTimeout,
 	);

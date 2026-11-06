@@ -245,100 +245,93 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 				expectedPluginId?: string,
 				retain?: (principal: ScriptExecutionPrincipal) => Effect.Effect<void, SandboxRunError>,
 			) {
-				return yield* database
-					.transaction(
-						Effect.gen(function* () {
-							const ownership = pinningOwnership(payload);
-							yield* references.lockIngestionShared(
-								ownership.userId === null ? [] : [ownership.userId],
-							);
-							const subject = payload.subject;
-							const account = accountGenerationOf(payload);
-							if (account !== null) {
-								yield* admission.admitAccount(account);
-							}
-							if (ownership.conflicts) {
-								return yield* sandboxFailure(
-									"script-failure",
-									"Sandbox workflow pin conflicts with automation ownership",
-								);
-							}
-							const resolved = yield* resolvePayload(
-								{
-									context: payload.input,
-									subject: payload.subject,
-									scriptId: payload.scriptId,
-									executionId: payload.executionId,
-									...(payload.grants ? { grants: payload.grants } : {}),
-								},
-								payload.pluginRevision || subject.type === "automation-run"
-									? "exact"
-									: payload.resolutionMode,
-							);
-							const pinned = yield* repository.getScriptPin(
-								resolved.scriptId,
-								ownership.expectedRevision,
-								subject,
-								payload.initialization,
-							);
-							if (!pinned) {
-								return yield* sandboxFailure(
-									"missing-artifact",
-									"Sandbox workflow script not found",
-								);
-							}
-							if (
-								subject.type === "automation-run" &&
-								subject.pluginId === null &&
-								pinned.pluginRevision !== null
-							) {
-								return yield* sandboxFailure(
-									"missing-artifact",
-									"Kernel automation requires a source-zero script",
-								);
-							}
-							const { userId } = ownership;
-							if (
-								pinned.pluginRevision?.scope === "user" &&
-								pinned.pluginRevision.ownerId !== userId
-							) {
-								return yield* sandboxFailure(
-									"script-failure",
-									"Sandbox workflow plugin owner does not match execution user",
-								);
-							}
-							if (expectedPluginId && pinned.pluginRevision?.id !== expectedPluginId) {
-								return yield* sandboxFailure(
-									"script-failure",
-									`Sandbox workflow script is not owned by plugin '${expectedPluginId}'`,
-								);
-							}
-							const principal = {
-								...pinned,
-								subject: payload.subject,
-							} satisfies ScriptExecutionPrincipal;
-							const initialization = "initialization" in pinned ? pinned.initialization : undefined;
-							if (retain) {
-								yield* retain(principal);
-							}
-							const registrationStatus = principal.pluginRevision
-								? (yield* references.registerInTransaction({
-										executionId,
-										scriptId: principal.scriptId,
-										contentHash: principal.contentHash,
-										pluginId: principal.pluginRevision.id,
-										...(ownership.expectedRevision
-											? { expectedRevision: ownership.expectedRevision }
-											: {}),
-										...(initialization ? { initialization } : {}),
-										...(subject.type === "automation-run" ? { allowInactive: true } : {}),
-										...(userId === null ? {} : { userId }),
-									})).status
-								: ("not-required" as const);
-							return { principal, registrationStatus };
-						}),
-					)
-					.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
+				const work = Effect.gen(function* () {
+					const ownership = pinningOwnership(payload);
+					yield* references.lockIngestionShared(
+						ownership.userId === null ? [] : [ownership.userId],
+					);
+					const subject = payload.subject;
+					const account = accountGenerationOf(payload);
+					if (account !== null) {
+						yield* admission.admitAccount(account);
+					}
+					if (ownership.conflicts) {
+						return yield* sandboxFailure(
+							"script-failure",
+							"Sandbox workflow pin conflicts with automation ownership",
+						);
+					}
+					const resolved = yield* resolvePayload(
+						{
+							context: payload.input,
+							subject: payload.subject,
+							scriptId: payload.scriptId,
+							executionId: payload.executionId,
+							...(payload.grants ? { grants: payload.grants } : {}),
+						},
+						payload.pluginRevision || subject.type === "automation-run"
+							? "exact"
+							: payload.resolutionMode,
+					);
+					const pinned = yield* repository.getScriptPin(
+						resolved.scriptId,
+						ownership.expectedRevision,
+						subject,
+						payload.initialization,
+					);
+					if (!pinned) {
+						return yield* sandboxFailure("missing-artifact", "Sandbox workflow script not found");
+					}
+					if (
+						subject.type === "automation-run" &&
+						subject.pluginId === null &&
+						pinned.pluginRevision !== null
+					) {
+						return yield* sandboxFailure(
+							"missing-artifact",
+							"Kernel automation requires a source-zero script",
+						);
+					}
+					const { userId } = ownership;
+					if (pinned.pluginRevision?.scope === "user" && pinned.pluginRevision.ownerId !== userId) {
+						return yield* sandboxFailure(
+							"script-failure",
+							"Sandbox workflow plugin owner does not match execution user",
+						);
+					}
+					if (expectedPluginId && pinned.pluginRevision?.id !== expectedPluginId) {
+						return yield* sandboxFailure(
+							"script-failure",
+							`Sandbox workflow script is not owned by plugin '${expectedPluginId}'`,
+						);
+					}
+					const principal = {
+						...pinned,
+						subject: payload.subject,
+					} satisfies ScriptExecutionPrincipal;
+					const initialization = "initialization" in pinned ? pinned.initialization : undefined;
+					if (retain) {
+						yield* retain(principal);
+					}
+					const registrationStatus = principal.pluginRevision
+						? (yield* references.registerInTransaction({
+								executionId,
+								scriptId: principal.scriptId,
+								contentHash: principal.contentHash,
+								pluginId: principal.pluginRevision.id,
+								...(ownership.expectedRevision
+									? { expectedRevision: ownership.expectedRevision }
+									: {}),
+								...(initialization ? { initialization } : {}),
+								...(subject.type === "automation-run" ? { allowInactive: true } : {}),
+								...(userId === null ? {} : { userId }),
+							})).status
+						: ("not-required" as const);
+					return { principal, registrationStatus };
+				});
+				return yield* (
+					(yield* database.isTransactionActive) ? work : database.transaction(work)
+				).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
 			});
 
 			return { establish, resolvePayload };
@@ -1163,10 +1156,12 @@ export class DirectScriptExecutor extends Context.Service<
 		Effect.gen(function* () {
 			const context =
 				yield* Effect.context<Effect.Services<ReturnType<typeof executeScriptDirect>>>();
+			const session = yield* DatabaseSession;
 			return {
 				execute: (payload: ScriptExecutionWorkflowPayloadValue, executionId: string) =>
-					executeScriptDirect(payload, executionId).pipe(
-						Effect.provideContext(context),
+					Effect.flatMap(session.carry, (carry) =>
+						carry(executeScriptDirect(payload, executionId)).pipe(Effect.provideContext(context)),
+					).pipe(
 						Effect.catchIf(
 							(error) =>
 								!(error instanceof SandboxRunError || error instanceof DirectScriptDeferred),

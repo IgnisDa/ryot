@@ -20,6 +20,7 @@ import {
 	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	aggregate,
@@ -80,7 +81,6 @@ import {
 import { DatabaseSession } from "#platform/db/session";
 import { account, user } from "#schema/tables/auth";
 import { notificationSubscription } from "#schema/tables/automations";
-import { backgroundWork } from "#schema/tables/background-work";
 import { backupRun } from "#schema/tables/backups";
 import {
 	plugin,
@@ -97,16 +97,11 @@ import {
 	definitionSavedView,
 	definitionSignalSchema,
 } from "#schema/tables/definitions";
+import { derivedValue } from "#schema/tables/derived-values";
 import { entity, relationship } from "#schema/tables/entities";
-import { eventProjection } from "#schema/tables/event-projections";
-import { eventStream, eventStreamWork } from "#schema/tables/event-streams";
 import { event } from "#schema/tables/events";
 import { migrationReport } from "#schema/tables/migration-reports";
 import { oauthConnection } from "#schema/tables/oauth-connections";
-import {
-	relationshipProjection,
-	relationshipProjectionWork,
-} from "#schema/tables/relationship-projections";
 import { entityTranslation } from "#schema/tables/translations";
 import { savedView, savedViewOverride } from "#schema/tables/views";
 import { makeConfigProviderLayer } from "#testing/effect";
@@ -338,48 +333,6 @@ const seedCatalog = Effect.gen(function* () {
 					name: "Other record",
 					id: "stream-entity-other",
 					entitySchemaSlug: "record",
-				},
-			]);
-			yield* db.insert(eventStream).values([
-				{
-					revision: 4,
-					userId: "owner",
-					id: "stream-owner",
-					eventSchemaSlug: "record-set",
-					entityId: "stream-entity-owner",
-				},
-				{
-					revision: 2,
-					userId: "other",
-					id: "stream-other",
-					eventSchemaSlug: "record-set",
-					entityId: "stream-entity-other",
-				},
-			]);
-			yield* db.insert(eventStreamWork).values([
-				{
-					userId: "owner",
-					id: "stream-owner",
-					completedRevision: 4,
-					eventSchemaSlug: "record-set",
-					eventSchemaPluginId: "stream-plugin",
-					pluginPin: { private: "owner-plugin-pin" },
-					accountToken: "owner-private-account-token",
-					pluginRevisionId: "owner-private-plugin-revision",
-					outputSchema: { fields: {}, unknownKeys: "strict" },
-					processorScriptId: "owner-private-processor-script",
-				},
-				{
-					userId: "other",
-					id: "stream-other",
-					completedRevision: null,
-					eventSchemaSlug: "record-set",
-					eventSchemaPluginId: "stream-plugin",
-					pluginPin: { private: "other-plugin-pin" },
-					accountToken: "other-private-account-token",
-					pluginRevisionId: "other-private-plugin-revision",
-					outputSchema: { fields: {}, unknownKeys: "strict" },
-					processorScriptId: "other-private-processor-script",
 				},
 			]);
 			yield* db.insert(plugin).values([
@@ -860,165 +813,33 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	);
 });
 
-layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
-	test.effect(
-		"hides projection data and readiness when its installation is unhealthy or plugin is inactive",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					db
-						.update(pluginInstallation)
-						.set({ health: "ready" })
-						.where(eq(pluginInstallation.id, "owner-system")),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(event)
-						.values({
-							occurredAt,
-							properties: {},
-							userId: "owner",
-							id: "projection-gate",
-							eventSchemaSlug: "projected",
-							entityId: "stream-entity-owner",
-							eventSchemaPluginId: "system-plugin",
-						}),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(eventStream)
-						.values({
-							revision: 1,
-							userId: "owner",
-							id: "projection-gate-stream",
-							eventSchemaSlug: "projected",
-							entityId: "stream-entity-owner",
-							eventSchemaPluginId: "system-plugin",
-						}),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(eventStreamWork)
-						.values({
-							userId: "owner",
-							completedRevision: 1,
-							id: "projection-gate-stream",
-							eventSchemaSlug: "projected",
-							outputSchema: { fields: {} },
-							processorScriptId: "processor",
-							eventSchemaPluginId: "system-plugin",
-							pluginRevisionId: "system-plugin-revision",
-							pluginPin: { configRevisionId: "system-env" },
-							accountToken: sql`(select account_generation from "user" where id = 'owner')`,
-						}),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(eventProjection)
-						.values({
-							properties: { score: 4 },
-							eventId: "projection-gate",
-							streamId: "projection-gate-stream",
-						}),
-				);
-				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
-					{ id: "projection-gate", projection: { score: 4 }, projectionStatus: "ready" },
-				]);
-				expect(yield* readRows(owner, "eventProjection", ["properties"], "eventId")).toEqual([
-					{ properties: { score: 4 } },
-				]);
-				yield* session.run((db) =>
-					db
-						.update(eventStream)
-						.set({ revision: 2 })
-						.where(eq(eventStream.id, "projection-gate-stream")),
-				);
-				expect(yield* readRows(owner, "event", ["projection", "projectionStatus"])).toEqual([
-					{ projection: null, projectionStatus: "pending" },
-				]);
-				expect(yield* readRows(owner, "eventProjection", ["properties"], "eventId")).toEqual([
-					{ properties: null },
-				]);
-				yield* session.run((db) =>
-					db
-						.update(eventStream)
-						.set({ revision: 1 })
-						.where(eq(eventStream.id, "projection-gate-stream")),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(entity)
-						.values({
-							userId: "owner",
-							name: "Moved source",
-							entitySchemaSlug: "record",
-							id: "projection-gate-moved",
-						}),
-				);
-				yield* session.run((db) =>
-					db
-						.update(event)
-						.set({ entityId: "projection-gate-moved" })
-						.where(eq(event.id, "projection-gate")),
-				);
-				expect(yield* readRows(owner, "event", ["projection"])).toEqual([{ projection: null }]);
-				expect(yield* readRows(owner, "eventProjection", ["properties"], "eventId")).toEqual([
-					{ properties: null },
-				]);
-				yield* session.run((db) =>
-					db
-						.update(event)
-						.set({ entityId: "stream-entity-owner" })
-						.where(eq(event.id, "projection-gate")),
-				);
-				yield* session.run((db) =>
-					db
-						.update(eventStreamWork)
-						.set({ accountToken: "retired" })
-						.where(eq(eventStreamWork.id, "projection-gate-stream")),
-				);
-				expect(yield* readRows(owner, "event", ["projection"])).toEqual([{ projection: null }]);
-				yield* session.run((db) =>
-					db
-						.update(eventStreamWork)
-						.set({ accountToken: sql`(select account_generation from "user" where id = 'owner')` })
-						.where(eq(eventStreamWork.id, "projection-gate-stream")),
-				);
-				yield* session.run((db) =>
-					db
-						.update(pluginInstallation)
-						.set({ health: "failed" })
-						.where(eq(pluginInstallation.id, "owner-system")),
-				);
-				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
-					{ projection: null, id: "projection-gate", projectionStatus: "none" },
-				]);
-				yield* session.run((db) =>
-					db
-						.update(pluginInstallation)
-						.set({ health: "ready" })
-						.where(eq(pluginInstallation.id, "owner-system")),
-				);
-				yield* session.run((db) =>
-					db.update(plugin).set({ status: "disabled" }).where(eq(plugin.id, "system-plugin")),
-				);
-				expect(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"])).toEqual([
-					{ projection: null, id: "projection-gate", projectionStatus: "none" },
-				]);
-			}),
-		testTimeout,
-	);
+const derived = (input: {
+	targetId: string;
+	value?: JsonValue;
+	subjectEntityId: string;
+	kind: "event" | "subject" | "relationship";
+	status?: "ready" | "failed" | "pending" | undefined;
+}) => ({
+	userId: "owner",
+	value: sql`'null'::jsonb`,
+	pluginId: "private-plugin",
+	pluginRevisionId: "private-plugin-revision",
+	...input,
 });
 
 layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
-		"shares current private projection bindings across metrics and ranked cursor pages",
+		"reads fold outputs and their status across metrics and ranked cursor pages",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const service = yield* RyotQLService;
 				const ids = ["rank-a", "rank-b", "rank-c", "rank-d", "rank-empty"];
+				const projection = {
+					propertiesSchema: {
+						fields: { score: { label: "Score", description: "Score", type: "number" as const } },
+					},
+				};
 				yield* session.run((db) =>
 					db
 						.update(pluginInstallation)
@@ -1029,19 +850,22 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 					db
 						.insert(definitionEventSchema)
 						.values({
+							projection,
 							position: 1,
 							slug: "projected",
 							name: "Projected",
 							id: "private-projected",
 							entitySchemaId: "private-entity",
 							propertiesSchema: { fields: {} },
-							projection: {
-								scriptSlug: "processor",
-								inputs: [{ scope: "entity", eventSchemaSlug: "projected" }],
-								propertiesSchema: {
-									fields: { score: { type: "number", label: "Score", description: "Score" } },
-								},
-							},
+						}),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(definitionRelationshipSchema)
+						.values({
+							...definition("projected-link", "private-plugin", 1),
+							projection,
+							propertiesSchema: { fields: {} },
 						}),
 				);
 				yield* session.run((db) =>
@@ -1056,22 +880,6 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 								entitySchemaPluginId: "private-plugin",
 							})),
 						),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(backgroundWork)
-						.values({
-							payload: {},
-							scope: "rank-d",
-							userId: "owner",
-							status: "failed",
-							id: "rank-failed",
-							key: "rank-failed",
-							accountToken: "unused",
-							inputHash: "rank-failed",
-							pluginId: "private-plugin",
-							purpose: "event-projection",
-						}),
 				);
 				for (const [index, id] of ids.slice(0, 4).entries()) {
 					yield* session.run((db) =>
@@ -1088,41 +896,25 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 					);
 					yield* session.run((db) =>
 						db
-							.insert(eventStream)
-							.values({
-								id,
-								revision: 1,
-								entityId: id,
-								userId: "owner",
-								eventSchemaSlug: "projected",
-								eventSchemaPluginId: "private-plugin",
-							}),
-					);
-					yield* session.run((db) =>
-						db
-							.insert(eventStreamWork)
-							.values({
-								id,
-								userId: "owner",
-								outputSchema: { fields: {} },
-								eventSchemaSlug: "projected",
-								processorScriptId: "processor",
-								eventSchemaPluginId: "private-plugin",
-								completedRevision: index < 2 ? 1 : null,
-								pluginRevisionId: "private-plugin-revision",
-								currentJobId: index === 3 ? "rank-failed" : null,
-								pluginPin: { configRevisionId: "private-config" },
-								accountToken: sql`(select account_generation from "user" where id = 'owner')`,
-							}),
-					);
-					yield* session.run((db) =>
-						db
-							.insert(eventProjection)
-							.values({
-								streamId: id,
-								eventId: `${id}-event`,
-								properties: { score: index < 2 ? 8 : 100 },
-							}),
+							.insert(derivedValue)
+							.values([
+								derived({
+									targetId: id,
+									kind: "subject",
+									subjectEntityId: id,
+									status: (["ready", "ready", "pending", "failed"] as const)[index],
+								}),
+								...(index < 2
+									? [
+											derived({
+												kind: "event",
+												subjectEntityId: id,
+												value: { score: 8 },
+												targetId: `${id}-event`,
+											}),
+										]
+									: []),
+							]),
 					);
 				}
 				const source = table("event", "source");
@@ -1198,162 +990,98 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 						}),
 					).items,
 				).toEqual([{ value: null, status: "none" }]);
-				for (const patch of [
-					{ pluginPin: { configRevisionId: "system-env" } },
-					{
-						pluginRevisionId: "system-plugin-revision",
-						pluginPin: { configRevisionId: "private-config" },
-					},
-					{ accountToken: "retired", pluginRevisionId: "private-plugin-revision" },
-				]) {
-					yield* session.run((db) =>
-						db.update(eventStreamWork).set(patch).where(eq(eventStreamWork.id, "rank-a")),
-					);
-					expect(
-						(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"]))[0],
-					).toEqual({ projection: null, id: "rank-a-event", projectionStatus: "pending" });
-					expect((yield* readRows(owner, "eventProjection", ["properties"], "eventId"))[0]).toEqual(
-						{ properties: null },
-					);
-					const ranked = yield* collectPages(ranking, owner);
-					expect(ranked).toEqual(yield* collectPages(rankingQuery(true), owner));
-					expect(ranked.find((row) => row["id"] === "rank-a")).toEqual({
-						total: null,
-						id: "rank-a",
-					});
-				}
-			}),
-		testTimeout,
-	);
-});
-
-layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
-	test.effect(
-		"hides relationship projections until their note and binding are current",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const fields = ["id", "projection", "projectionStatus"];
-				yield* session.run((db) =>
-					db
-						.update(pluginInstallation)
-						.set({ health: "ready" })
-						.where(eq(pluginInstallation.id, "owner-system")),
-				);
 				yield* session.run((db) =>
 					db
 						.insert(relationship)
-						.values({
-							userId: "owner",
-							id: "projected-link",
-							sourceEntityId: "stream-entity-owner",
-							targetEntityId: "stream-entity-owner",
-							relationshipSchemaSlug: "projected-link",
-							relationshipSchemaPluginId: "system-plugin",
-						}),
+						.values(
+							["projected-link", "private-link"].map((slug) => ({
+								userId: "owner",
+								id: `${slug}-row`,
+								sourceEntityId: "rank-a",
+								targetEntityId: "rank-b",
+								relationshipSchemaSlug: slug,
+								relationshipSchemaPluginId: "private-plugin",
+							})),
+						),
 				);
+				const links = () =>
+					readRows(owner, "relationship", ["id", "projection", "projectionStatus"]);
+				expect(yield* links()).toEqual([
+					{ projection: null, id: "private-link-row", projectionStatus: "none" },
+					{ projection: null, id: "projected-link-row", projectionStatus: "pending" },
+				]);
 				yield* session.run((db) =>
 					db
-						.insert(relationshipProjectionWork)
-						.values({
-							userId: "owner",
-							id: "projected-link-work",
-							outputSchema: { fields: {} },
-							processorScriptId: "processor",
-							relationshipSchemaSlug: "projected-link",
-							pluginRevisionId: "system-plugin-revision",
-							relationshipSchemaPluginId: "system-plugin",
-							pluginPin: { configRevisionId: "system-env" },
-							accountToken: sql`(select account_generation from "user" where id = 'owner')`,
-						}),
+						.insert(derivedValue)
+						.values(
+							derived({
+								value: { score: 4 },
+								kind: "relationship",
+								subjectEntityId: "rank-a",
+								targetId: "projected-link-row",
+							}),
+						),
 				);
-				yield* session.run((db) =>
-					db
-						.insert(relationshipProjection)
-						.values({
-							revision: 1,
-							projectedRevision: 1,
-							properties: { score: 4 },
-							workId: "projected-link-work",
-							relationshipId: "projected-link",
-						}),
-				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					id: "projected-link",
+				expect((yield* links())[1]).toEqual({
+					id: "projected-link-row",
 					projection: { score: 4 },
 					projectionStatus: "ready",
 				});
 				yield* session.run((db) =>
 					db
-						.update(relationshipProjectionWork)
-						.set({ accountToken: "retired" })
-						.where(eq(relationshipProjectionWork.id, "projected-link-work")),
+						.update(derivedValue)
+						.set({ status: "failed" })
+						.where(sql`${derivedValue.kind} = 'subject' and ${derivedValue.targetId} = 'rank-a'`),
 				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					projection: null,
-					id: "projected-link",
-					projectionStatus: "none",
-				});
-				yield* session.run((db) =>
-					db
-						.update(relationshipProjectionWork)
-						.set({ accountToken: sql`(select account_generation from "user" where id = 'owner')` })
-						.where(eq(relationshipProjectionWork.id, "projected-link-work")),
-				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					id: "projected-link",
+				expect((yield* links())[1]).toEqual({
+					id: "projected-link-row",
 					projection: { score: 4 },
-					projectionStatus: "ready",
+					projectionStatus: "failed",
 				});
+				expect(
+					(yield* readRows(owner, "event", ["id", "projection", "projectionStatus"]))[0],
+				).toEqual({ id: "rank-a-event", projection: { score: 8 }, projectionStatus: "failed" });
 				yield* session.run((db) =>
-					db.update(user).set({ disabledAt: occurredAt }).where(eq(user.id, "owner")),
+					db.delete(derivedValue).where(eq(derivedValue.targetId, "rank-a-event")),
 				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					projection: null,
-					id: "projected-link",
-					projectionStatus: "none",
-				});
-				yield* session.run((db) =>
-					db.update(user).set({ disabledAt: null }).where(eq(user.id, "owner")),
-				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					id: "projected-link",
-					projection: { score: 4 },
-					projectionStatus: "ready",
-				});
-				yield* session.run((db) =>
-					db
-						.update(relationshipProjection)
-						.set({ revision: 2 })
-						.where(eq(relationshipProjection.relationshipId, "projected-link")),
-				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					projection: null,
-					id: "projected-link",
-					projectionStatus: "pending",
-				});
-				yield* session.run((db) =>
-					db
-						.update(relationshipProjection)
-						.set({ projectedRevision: 2 })
-						.where(eq(relationshipProjection.relationshipId, "projected-link")),
-				);
-				yield* session.run((db) =>
-					db
-						.update(relationshipProjectionWork)
-						.set({ pluginRevisionId: "retired-revision" })
-						.where(eq(relationshipProjectionWork.id, "projected-link-work")),
-				);
-				expect(yield* readRows(owner, "relationship", fields)).toContainEqual({
-					projection: null,
-					id: "projected-link",
-					projectionStatus: "none",
-				});
+				const ranked = yield* collectPages(ranking, owner);
+				expect(ranked).toEqual(yield* collectPages(rankingQuery(true), owner));
+				expect(ranked.find((row) => row["id"] === "rank-a")).toEqual({ total: null, id: "rank-a" });
 			}),
 		testTimeout,
 	);
 });
 const other = { userId: "other", audience: "kernel" } as const;
+
+layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
+	test.effect(
+		"reads a write's own changes read-only and leaves that write's transaction usable",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				const session = yield* DatabaseSession;
+				const recipe = twoFactorStatusRecipe();
+				const settings = sql`select current_setting('statement_timeout') as timeout,
+					current_setting('jit') as jit, current_setting('transaction_read_only') as "readOnly"`;
+				const seen = yield* session.transaction(
+					Effect.gen(function* () {
+						const before = yield* session.run((db) => db.execute(settings, "objects"));
+						yield* session.run((db) =>
+							db.update(user).set({ twoFactorEnabled: true }).where(eq(user.id, "owner")),
+						);
+						const read = yield* service.executeForUser("owner", null, "kernel", recipe.document);
+						expect(yield* session.run((db) => db.execute(settings, "objects"))).toEqual(before);
+						yield* session.run((db) =>
+							db.update(user).set({ twoFactorEnabled: false }).where(eq(user.id, "owner")),
+						);
+						return Result.getOrThrow(recipe.decode(read));
+					}),
+				);
+				expect(seen).toEqual({ enabled: true, available: true });
+			}),
+		testTimeout,
+	);
+});
 
 layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 	test.effect(
@@ -2132,112 +1860,6 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 						plan: { selections: { collector: { value: "remote" } } },
 					},
 				]);
-			}),
-		testTimeout,
-	);
-});
-
-layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
-	test.effect(
-		"exposes one user-scoped background job catalog without execution authority",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					db.insert(backgroundWork).values(
-						[
-							{ userId: "owner", id: "background-owner", purpose: "user-script" as const },
-							{ userId: "other", id: "background-other", purpose: "event-projection" as const },
-						].map((job) => ({
-							id: job.id,
-							key: job.id,
-							scope: "subject",
-							inputHash: job.id,
-							userId: job.userId,
-							purpose: job.purpose,
-							pluginId: "system-plugin",
-							status: "queued" as const,
-							accountToken: "private-generation",
-							payload: { authority: "private-authority" },
-						})),
-					),
-				);
-				for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
-					expect(
-						yield* readRows({ audience, userId: "owner" }, "backgroundWork", [
-							"id",
-							"status",
-							"scope",
-						]),
-					).toEqual([{ status: "queued", scope: "subject", id: "background-owner" }]);
-					expect(yield* readRows({ audience, userId: "other" }, "backgroundWork", ["id"])).toEqual([
-						{ id: "background-other" },
-					]);
-					for (const name of [
-						"payload",
-						"accountToken",
-						"inputHash",
-						"execution",
-						"pluginPin",
-						"checkpoint",
-					]) {
-						expect(
-							Result.isFailure(
-								yield* Effect.result(
-									readRows({ audience, userId: "owner" }, "backgroundWork", [name]),
-								),
-							),
-						).toBe(true);
-					}
-					expect(
-						Result.isFailure(
-							yield* Effect.result(readRows({ audience, userId: "owner" }, "userWork", ["id"])),
-						),
-					).toBe(true);
-				}
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"scopes event streams and work to their owner in kernel and plugin audiences",
-		() =>
-			Effect.gen(function* () {
-				for (const audience of ["kernel", "plugin"] satisfies readonly RyotQLAudience[]) {
-					expect(
-						yield* readRows({ audience, userId: "owner" }, "eventStream", [
-							"id",
-							"entityId",
-							"eventSchemaSlug",
-							"eventSchemaPluginId",
-							"revision",
-						]),
-					).toEqual([
-						{
-							revision: 4,
-							id: "stream-owner",
-							eventSchemaPluginId: null,
-							eventSchemaSlug: "record-set",
-							entityId: "stream-entity-owner",
-						},
-					]);
-					expect(
-						yield* readRows({ audience, userId: "owner" }, "eventStreamWork", [
-							"id",
-							"completedRevision",
-						]),
-					).toEqual([{ id: "stream-owner", completedRevision: 4 }]);
-
-					expect(yield* readRows({ audience, userId: "other" }, "eventStream", ["id"])).toEqual([
-						{ id: "stream-other" },
-					]);
-					expect(
-						yield* readRows({ audience, userId: "other" }, "eventStreamWork", [
-							"id",
-							"completedRevision",
-						]),
-					).toEqual([{ id: "stream-other", completedRevision: null }]);
-				}
 			}),
 		testTimeout,
 	);

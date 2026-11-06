@@ -5,7 +5,7 @@ import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/module
 import type { RyotQLDocument, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { and, eq, isNull, sql } from "drizzle-orm";
-import { Context, Effect, Layer, Match } from "effect";
+import { Context, Deferred, Effect, Layer, Match, Schema } from "effect";
 
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { DatabaseSession } from "#platform/db/session";
@@ -19,11 +19,31 @@ import { validateRyotQLDocument } from "./validator";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
 
+class DiscardedSavepoint extends Schema.TaggedError<
+	DiscardedSavepoint,
+	{ readonly brand: unique symbol }
+>()("DiscardedSavepoint", {}) {}
+
 export class RyotQLService extends Context.Service<RyotQLService>()(
 	"@ryot-app/kernel-backend/modules/ryotql/service/RyotQLService",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+
+			// Only rolling back a savepoint reverts READ ONLY and local settings; releasing it would leave
+			// them on the transaction of the write that is reading its own changes.
+			const discardedSavepoint = <A, E, R>(read: Effect.Effect<A, E, R>) =>
+				Effect.gen(function* () {
+					const finished = yield* Deferred.make<A>();
+					return yield* session
+						.savepoint(
+							read.pipe(
+								Effect.flatMap((value) => Deferred.succeed(finished, value)),
+								Effect.andThen(new DiscardedSavepoint()),
+							),
+						)
+						.pipe(Effect.catchTag("DiscardedSavepoint", () => Deferred.await(finished)));
+				});
 
 			const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
 				scope: RyotQLExecutionScope,
@@ -35,93 +55,91 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validated.error });
 					return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 				}
-				return yield* session
-					.transaction(
-						session.run((transaction) =>
-							Effect.gen(function* () {
-								yield* transaction.execute(
-									sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
-								);
-								yield* transaction.execute(
-									sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true), set_config('jit', 'off', true)`,
-								);
-								let catalog: ReadonlyArray<PluginBinding> = [];
-								if (pluginIdentityReferences(validated.value).length > 0) {
-									if (scope.type === "user") {
-										catalog = yield* transaction
-											.select({
-												scope: userPlugin.scope,
-												pluginId: userPlugin.pluginId,
-												packageId: userPlugin.packageId,
-											})
-											.from(userPlugin)
-											.where(
-												and(eq(userPlugin.userId, scope.userId), eq(userPlugin.health, "ready")),
-											);
-									} else {
-										const plugins = yield* transaction
-											.select({
-												pluginId: plugin.id,
-												ownerId: plugin.ownerId,
-												packageId: plugin.packageId,
-											})
-											.from(plugin)
-											.where(
-												and(
-													eq(plugin.status, "active"),
-													scope.type === "plugin" ? isNull(plugin.ownerId) : undefined,
-												),
-											);
-										catalog = Array.from(plugins, (entry) => ({
-											...entry,
-											scope: entry.ownerId === null ? ("system" as const) : ("user" as const),
-										}));
-									}
-								}
-								const bound = yield* bindRyotQLDocument(validated.value, scope, catalog);
-								const budget =
-									resultBytes === undefined
-										? undefined
-										: { limitBytes: resultBytes, remainingBytes: resultBytes };
-								const results: Array<readonly [string, RyotQLResult]> = [];
-								for (const [name, query] of Object.entries(bound.queries)) {
-									results.push([
-										name,
-										yield* executeNamedQuery(scope, query, name, transaction, budget),
-									]);
-								}
-								return { data: Object.fromEntries(results) };
-							}),
-						),
-					)
-					.pipe(
-						Effect.catchTag(
-							"DatabaseSessionStateError",
-							() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
-						),
-						Effect.catchIf(
-							(error): error is DbError => error instanceof DbError,
-							(error) =>
-								Effect.logError("RyotQL database execution failed", error).pipe(
-									Effect.andThen(
-										Match.value(error.code).pipe(
-											Match.when("57014", () =>
-												Effect.fail(
-													new RyotQLBadRequest({
-														reason: { code: "query-timeout", limitMs: RYOTQL_STATEMENT_TIMEOUT_MS },
-													}),
-												),
+				const joined = yield* session.isTransactionActive;
+				const read = session.run((transaction) =>
+					Effect.gen(function* () {
+						yield* transaction.execute(
+							joined
+								? sql`SET TRANSACTION READ ONLY`
+								: sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
+						);
+						yield* transaction.execute(
+							sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true), set_config('jit', 'off', true)`,
+						);
+						let catalog: ReadonlyArray<PluginBinding> = [];
+						if (pluginIdentityReferences(validated.value).length > 0) {
+							if (scope.type === "user") {
+								catalog = yield* transaction
+									.select({
+										scope: userPlugin.scope,
+										pluginId: userPlugin.pluginId,
+										packageId: userPlugin.packageId,
+									})
+									.from(userPlugin)
+									.where(and(eq(userPlugin.userId, scope.userId), eq(userPlugin.health, "ready")));
+							} else {
+								const plugins = yield* transaction
+									.select({
+										pluginId: plugin.id,
+										ownerId: plugin.ownerId,
+										packageId: plugin.packageId,
+									})
+									.from(plugin)
+									.where(
+										and(
+											eq(plugin.status, "active"),
+											scope.type === "plugin" ? isNull(plugin.ownerId) : undefined,
+										),
+									);
+								catalog = Array.from(plugins, (entry) => ({
+									...entry,
+									scope: entry.ownerId === null ? ("system" as const) : ("user" as const),
+								}));
+							}
+						}
+						const bound = yield* bindRyotQLDocument(validated.value, scope, catalog);
+						const budget =
+							resultBytes === undefined
+								? undefined
+								: { limitBytes: resultBytes, remainingBytes: resultBytes };
+						const results: Array<readonly [string, RyotQLResult]> = [];
+						for (const [name, query] of Object.entries(bound.queries)) {
+							results.push([
+								name,
+								yield* executeNamedQuery(scope, query, name, transaction, budget),
+							]);
+						}
+						return { data: Object.fromEntries(results) };
+					}),
+				);
+				return yield* (joined ? discardedSavepoint(read) : session.transaction(read)).pipe(
+					Effect.catchTag(
+						"DatabaseSessionStateError",
+						() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+					),
+					Effect.catchIf(
+						(error): error is DbError => error instanceof DbError,
+						(error) =>
+							Effect.logError("RyotQL database execution failed", error).pipe(
+								Effect.andThen(
+									Match.value(error.code).pipe(
+										Match.when("57014", () =>
+											Effect.fail(
+												new RyotQLBadRequest({
+													reason: { code: "query-timeout", limitMs: RYOTQL_STATEMENT_TIMEOUT_MS },
+												}),
 											),
-											Match.orElse(() =>
-												Effect.fail(
-													new RyotQLInternalError({ reason: { code: "execution-failed" } }),
-												),
+										),
+										Match.orElse(() =>
+											Effect.fail(
+												new RyotQLInternalError({ reason: { code: "execution-failed" } }),
 											),
 										),
 									),
 								),
-						),
-					);
+							),
+					),
+				);
 			});
 
 			const executeForUser = (
