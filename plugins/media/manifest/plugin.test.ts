@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { AuthoredEntityBrowserAddAction } from "@ryot-app/contract/modules/saved-views/schemas";
 import { assert } from "@ryot-app/testing/assert";
-import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { it, layer } from "@voila.dev/effect-bun-test";
@@ -25,6 +25,7 @@ import {
 } from "../shared/media-entity-editors";
 import {
 	builtinMediaEntitySchemaSlugs,
+	mediaFoldEventSchemaSlugs,
 	mediaLibraryEligibleEntitySchemaSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
@@ -746,13 +747,6 @@ it.effect(
 				{
 					auth: "user",
 					demoAccess: "protected",
-					slug: "media-history-correction-retry",
-					description: "Retry media history correction",
-					scriptSlug: "operation.media-history-correction-retry",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
 					slug: "media-review-update",
 					description: "Update a media review",
 					scriptSlug: "operation.media-review-update",
@@ -1075,43 +1069,15 @@ it("binds deterministic episodic sessions at policy position 200", () => {
 	);
 });
 
-it("binds media history reconciliation to lifecycle changes and status signals", () => {
-	const historyHook = mediaPlugin.hooks.find(({ slug }) => slug === "media.reconcile-history");
-	assert(historyHook);
-	expect(historyHook).toEqual<unknown>(
-		objectContaining({
-			stage: "after",
-			batchMaxItems: 60,
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			scriptSlug: "automation.reconcile-media-history",
-			targets: arrayContaining(
-				["create", "update", "delete"].flatMap((operation) => [
-					{
-						operation,
-						resource: "event",
-						eventSchemaSlug: "complete",
-						entitySchemaSlug: "show-episode",
-					},
-					{ operation, resource: "event", entitySchemaSlug: "movie", eventSchemaSlug: "progress" },
-				]),
+it("folds media history on every library member schema", () => {
+	const fold = { scriptSlug: "fold.media-history", eventSchemaSlugs: mediaFoldEventSchemaSlugs };
+	expect(
+		Object.fromEntries(
+			mediaPlugin.entitySchemas.flatMap((schema) =>
+				"fold" in schema ? [[schema.slug, schema.fold] as const] : [],
 			),
-		}),
-	);
-	const statusHook = mediaPlugin.hooks.find(
-		({ slug }) => slug === "media.auto-complete-on-status-change",
-	);
-	assert(statusHook);
-	expect(statusHook).toMatchObject({
-		stage: "after",
-		delivery: "async",
-		executionScope: "user",
-		scriptSlug: "automation.reconcile-media-history",
-	});
-	expect(statusHook.targets).toEqual([
-		{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
-	]);
+		),
+	).toEqual(Object.fromEntries(mediaLibraryMemberEntitySchemaSlugs.map((slug) => [slug, fold])));
 });
 
 it("does not automatically retry external pushes or notifications", () => {
@@ -1233,18 +1199,4 @@ it("declares viewing country, upcoming controls, and one bounded where-you-consu
 			"Cinema",
 		],
 	});
-});
-
-it("reconciles media history from create, update, and delete events", () => {
-	const historyHook = mediaPlugin.hooks.find(({ slug }) => slug === "media.reconcile-history");
-	assert(historyHook);
-	expect(historyHook.targets.length).toBeGreaterThan(0);
-	for (const target of historyHook.targets) {
-		expect(target.resource).toBe("event");
-	}
-	expect([...new Set(historyHook.targets.map(({ operation }) => operation))].sort()).toEqual([
-		"create",
-		"delete",
-		"update",
-	]);
 });

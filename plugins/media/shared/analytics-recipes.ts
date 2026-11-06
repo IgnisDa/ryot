@@ -220,7 +220,7 @@ export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsIn
 	const current = periodSummary(input, resolved.current, "current");
 	const previous =
 		resolved.previous === null ? undefined : periodSummary(input, resolved.previous, "previous");
-	const stream = table("eventStream", "coverageStream");
+	const processing = table("event", "processingEvent");
 	const undated = table("event", "undatedEvent");
 	return {
 		queries: {
@@ -230,9 +230,9 @@ export const mediaAnalyticsSummaryRecipe = defineRecipe((input: MediaAnalyticsIn
 			previousReviews: previous?.reviews,
 			currentActiveDays: current.activeDays,
 			previousActiveDays: previous?.activeDays,
-			processing: selectedAggregate(stream, {
-				measures: projectionStatusMeasures(stream),
-				where: and(consumptionScope(stream, input), consumptionRows(stream)),
+			processing: selectedAggregate(processing, {
+				measures: projectionStatusMeasures(processing),
+				where: and(consumptionScope(processing, input), consumptionRows(processing)),
 			}),
 			undated: selectedAggregate(undated, {
 				measures: { count: countAll },

@@ -4,7 +4,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
-import { librarySummaryRequests, libraryTitleIds } from "../lib/library-summary-requests";
+import { refoldLibraryTitles } from "../lib/library-titles";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
 export const manifest = defineManifest({
@@ -54,15 +54,10 @@ export default defineAutomation({
 			if (source.resource !== "entity" || source.operation !== "update") {
 				return Effect.succeed(null);
 			}
-			const refreshSummaries = Effect.gen(function* () {
-				const titleIds = yield* libraryTitleIds(
-					host,
-					new Set([source.population?.scopeEntity.id ?? source.after.id]),
-				);
-				for (const request of librarySummaryRequests(titleIds)) {
-					yield* host.requestRelationshipProjectionsForAllUsers(request);
-				}
-			});
+			const refreshSummaries = refoldLibraryTitles(
+				host,
+				new Set([source.population?.scopeEntity.id ?? source.after.id]),
+			);
 			if (!source.population?.rootPreviouslyPopulated) {
 				return Effect.as(refreshSummaries, null);
 			}

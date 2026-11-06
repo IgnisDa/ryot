@@ -5,8 +5,3 @@ export class MediaSandboxError extends Schema.TaggedError<
 	MediaSandboxError,
 	{ readonly brand: unique symbol }
 >()("MediaSandboxError", { message: Schema.String }) {}
-
-export class HistoryCorrectionConflict extends Schema.TaggedError<
-	HistoryCorrectionConflict,
-	{ readonly brand: unique symbol }
->()("HistoryCorrectionConflict", {}) {}

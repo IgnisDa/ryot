@@ -25,13 +25,7 @@ const recordingHost = (input?: {
 }) => {
 	const clears: { readonly args: unknown }[] = [];
 	const merges: { readonly args: unknown }[] = [];
-	const summaryRequests: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
-		requestRelationshipProjections: (request) =>
-			Effect.sync(() => {
-				summaryRequests.push(request);
-				return { workId: "work-1" };
-			}),
 		mergeUserEntityData: (args) =>
 			Effect.suspend(() => {
 				merges.push({ args });
@@ -49,7 +43,7 @@ const recordingHost = (input?: {
 				);
 			}),
 	});
-	return { host, clears, merges, summaryRequests };
+	return { host, clears, merges };
 };
 
 describe("media user data operation", () => {
@@ -82,7 +76,7 @@ describe("media user data operation", () => {
 		"merges one media graph",
 		() =>
 			Effect.gen(function* () {
-				const { host, clears, merges, summaryRequests } = recordingHost();
+				const { host, clears, merges } = recordingHost();
 				expect(
 					yield* runSandboxTestScript(
 						definition,
@@ -100,9 +94,6 @@ describe("media user data operation", () => {
 				).toEqual({ count: 9, status: "saved" });
 				expect(merges).toEqual([
 					{ args: { mergeFrom: "source-1", mergeInto: "target-1", entitySchemaSlug: "show" } },
-				]);
-				expect(summaryRequests).toEqual([
-					{ sourceEntityIds: ["target-1"], relationshipSchemaSlug: "in-media-library" },
 				]);
 				expect(clears).toEqual([]);
 			}),

@@ -53,8 +53,6 @@ import {
 } from "./lifecycle-expressions";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
 
-export const LIBRARY_SUMMARY_SCRIPT_SLUG = "projection.library-summary";
-
 /** Output of the `in-media-library` projection; absent values are omitted. */
 export const librarySummaryPropertiesSchema = {
 	unknownKeys: "strict" as const,

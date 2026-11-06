@@ -20,6 +20,7 @@ import {
 } from "../shared/media-entity-editors";
 import {
 	builtinMediaEntitySchemaSlugs,
+	mediaFoldEventSchemaSlugs,
 	mediaGroupSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
@@ -59,7 +60,10 @@ const entitySchemas = mediaEntitySchemas().map(
 		const browse = mediaBrowse(schema);
 		const browsed = browse === undefined ? schema : Object.assign({}, schema, { browse });
 		const definition = mediaLibraryMemberEntitySchemaSlugs.some((slug) => slug === schema.slug)
-			? Object.assign({}, browsed, { userState: mediaUserStatePolicy(schema.slug) })
+			? Object.assign({}, browsed, {
+					userState: mediaUserStatePolicy(schema.slug),
+					fold: { scriptSlug: "fold.media-history", eventSchemaSlugs: mediaFoldEventSchemaSlugs },
+				})
 			: browsed;
 		const projected = [...builtinMediaEntitySchemaSlugs, "show-episode", "podcast-episode"].some(
 			(slug) => slug === schema.slug,
@@ -67,7 +71,7 @@ const entitySchemas = mediaEntitySchemas().map(
 			? Object.assign({}, definition, {
 					eventSchemas: definition.eventSchemas.map((event) =>
 						hasConsumptionProjection(event.slug)
-							? Object.assign({}, event, { projection: mediaConsumptionProjection(event.slug) })
+							? Object.assign({}, event, { projection: mediaConsumptionProjection })
 							: event,
 					),
 				})
@@ -772,13 +776,6 @@ export const mediaPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
-			slug: "media-history-correction-retry",
-			description: "Retry media history correction",
-			scriptSlug: "operation.media-history-correction-retry",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
 			slug: "media-review-update",
 			description: "Update a media review",
 			scriptSlug: "operation.media-review-update",
@@ -909,33 +906,6 @@ export const mediaPlugin = definePlugin({
 			],
 		},
 		{
-			stage: "after",
-			batchMaxItems: 60,
-			frequency: "batch",
-			delivery: "required",
-			executionScope: "user",
-			name: "Reconcile media history",
-			slug: "media.reconcile-history",
-			scriptSlug: "automation.reconcile-media-history",
-			targets: [
-				"progress",
-				"complete",
-				"item-complete",
-				"backlog",
-				"on_hold",
-				"dropped",
-				"review",
-				"list-state",
-				"add-to-media-library",
-			].flatMap((slug) =>
-				eventSlugs(slug).flatMap((qualified) =>
-					(["create", "update", "delete"] as const).map((operation) =>
-						Object.assign({}, eventHookTarget(qualified), { operation }),
-					),
-				),
-			),
-		},
-		{
 			position: 200,
 			stage: "before",
 			slug: "media.consumption",
@@ -979,17 +949,6 @@ export const mediaPlugin = definePlugin({
 				"podcast-episode:progress",
 				"podcast-episode:complete",
 			].map(eventHookTarget),
-		},
-		{
-			stage: "after",
-			delivery: "async",
-			executionScope: "user",
-			slug: "media.auto-complete-on-status-change",
-			scriptSlug: "automation.reconcile-media-history",
-			name: "Complete episodic parent on status change",
-			targets: [
-				{ operation: "emit", resource: "signal", signalSchemaSlug: "media.status.changed" },
-			],
 		},
 		...(["radarr", "sonarr", "jellyfin"] as const).map(
 			(prov) =>

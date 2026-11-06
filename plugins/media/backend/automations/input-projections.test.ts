@@ -8,7 +8,6 @@ import { manifest as entityUpdated } from "./media-entity-updated.sandbox";
 import { manifest as relationshipSync } from "./media-relationship-sync.sandbox";
 import { manifest as notification } from "./notification.sandbox";
 import { manifest as radarr } from "./radarr-push.sandbox";
-import { manifest as reconcileMediaHistory } from "./reconcile-media-history.sandbox";
 import { manifest as reviewCreated } from "./review-created.sandbox";
 import { manifest as sonarr } from "./sonarr-push.sandbox";
 
@@ -24,7 +23,6 @@ it("declares the media automation input projections", () => {
 		[episodicPolicy.slug]: episodicPolicy.inputProjection,
 		[relationshipSync.slug]: relationshipSync.inputProjection,
 		[customPublishYear.slug]: customPublishYear.inputProjection,
-		[reconcileMediaHistory.slug]: reconcileMediaHistory.inputProjection,
 	}).toEqual({
 		"policy.media-episodic-session": { event: { properties: [] } },
 		"automation.review-created": { event: { properties: [], compareProperties: [] } },
@@ -45,10 +43,6 @@ it("declares the media automation input projections", () => {
 				compareProperties: [],
 				parentEntityProperties: ["seasonNumber"],
 			},
-		},
-		"automation.reconcile-media-history": {
-			event: { compareProperties: [], properties: ["completionKey"] },
-			signal: { properties: ["entitySchemaSlug", "oldStatus", "newStatus"] },
 		},
 		"automation.media-entity-updated": {
 			entity: {

@@ -73,16 +73,7 @@ const propertiesSchema: AppSchema = {
 	},
 };
 
-export const mediaConsumptionProjection = (eventSlug: string) => ({
-	propertiesSchema,
-	scriptSlug: "script.media-consumption-step",
-	inputs: [
-		{ scope: { property: "entityId" }, eventSchemaSlug: "completion-occurrence" },
-		...consumptionEventSlugs
-			.filter((slug) => slug !== eventSlug)
-			.map((eventSchemaSlug) => ({ eventSchemaSlug, scope: "entity" as const })),
-	],
-});
+export const mediaConsumptionProjection = { propertiesSchema };
 
 export const hasConsumptionProjection = (slug: string) =>
 	consumptionEventSlugs.some((value) => value === slug);

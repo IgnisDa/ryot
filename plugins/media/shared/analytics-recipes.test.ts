@@ -102,7 +102,7 @@ describe("Media analytics recipes", () => {
 			current: { types: [], reviews: [], activeDays: 0 },
 		});
 	});
-	it("applies each period before aggregation and reads processing from streams", () => {
+	it("applies each period before aggregation and reads processing from event projections", () => {
 		const { queries } = mediaAnalyticsSummaryRecipe(input).document;
 		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-30T04:00:00.000Z");
 		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-29T00:00:00.000Z");
@@ -112,7 +112,7 @@ describe("Media analytics recipes", () => {
 		for (const name of ["currentTypes", "currentReviews", "currentActiveDays"]) {
 			expect(JSON.stringify(queries[name])).not.toContain("projectionStatus");
 		}
-		expect(queries["processing"]?.from.table).toBe("eventStream");
+		expect(queries["processing"]?.from.table).toBe("event");
 		expect(JSON.stringify(queries["undated"])).not.toContain("projection");
 		expect(queries["currentReviews"]?.output).toEqual<unknown>(
 			objectContaining({

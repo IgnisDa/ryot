@@ -1,10 +1,7 @@
 import type { PluginRelationshipSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
-import {
-	LIBRARY_SUMMARY_SCRIPT_SLUG,
-	librarySummaryPropertiesSchema,
-} from "../../shared/library-summary";
+import { librarySummaryPropertiesSchema } from "../../shared/library-summary";
 import {
 	builtinMediaEntitySchemaSlugs,
 	mediaGroupMemberSlugs,
@@ -112,22 +109,7 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 		name: "In Media Library",
 		sourceEntitySchemaSlug: null,
 		targetEntitySchemaSlug: "media-library",
-		projection: {
-			scriptSlug: LIBRARY_SUMMARY_SCRIPT_SLUG,
-			propertiesSchema: librarySummaryPropertiesSchema,
-			inputs: {
-				relationshipCreate: true,
-				eventSchemaSlugs: [
-					"progress",
-					"complete",
-					"backlog",
-					"on_hold",
-					"dropped",
-					"list-state",
-					"review",
-				],
-			},
-		},
+		projection: { propertiesSchema: librarySummaryPropertiesSchema },
 		propertiesSchema: {
 			fields: {
 				owned: {

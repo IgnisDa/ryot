@@ -48,7 +48,6 @@ export const consumptionNumber = (event: Table, ...path: string[]) =>
 	castNumber(consumptionValue(event, ...path));
 export const consumptionRows = (event: Table) =>
 	inArray(column(event, "eventSchemaSlug"), consumptionEventSlugs.map(literal));
-/** Event projections are only visible while their stream is ready. */
 export const consumptionReady = (event: Table) => isNotNull(consumptionValue(event));
 export const consumptionAmount = (event: Table, unit: ConsumptionMeasureUnit) =>
 	add(

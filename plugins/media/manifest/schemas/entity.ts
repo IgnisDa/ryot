@@ -1,7 +1,6 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import { consumedItemField, withConsumptionFacts } from "./consumption";
-import { historyCorrectionEventSchemas } from "./history-correction";
 import {
 	animePropertiesSchema,
 	audiobookPropertiesSchema,
@@ -397,10 +396,10 @@ const buildMediaGroupEntitySchema = (slug: string, name: string, icon: string) =
 export const mediaEntitySchemas = () => [
 	{
 		icon: "library",
+		eventSchemas: [],
 		slug: "media-library",
 		name: "Media Library",
 		propertiesSchema: { fields: {} },
-		eventSchemas: historyCorrectionEventSchemas,
 		userState: { deniedOperations: ["clear", "merge"] as const },
 	},
 	{

@@ -78,6 +78,17 @@ export const mediaLibraryMemberEntitySchemaSlugs = [
 	"podcast-episode",
 ] as const;
 
+export const mediaFoldEventSchemaSlugs = [
+	"progress",
+	"complete",
+	"item-complete",
+	"dropped",
+	"on_hold",
+	"backlog",
+	"list-state",
+	"review",
+] as const;
+
 export const mediaLibraryEligibleEntitySchemaSlugs = [
 	"media-library",
 	...mediaLibraryMemberEntitySchemaSlugs,

@@ -1,6 +1,6 @@
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { RELATIONSHIP_PROJECTION_LIMITS } from "@ryot-app/plugin-backend-sdk/relationship-projections";
+import { FOLD_LIMITS } from "@ryot-app/plugin-backend-sdk/folds";
 import {
 	and,
 	ascending,
@@ -13,20 +13,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
-
-export const LIBRARY_RELATIONSHIP_SCHEMA_SLUG = "in-media-library";
-
-export const librarySummaryRequests = (sourceEntityIds: ReadonlySet<string>) => {
-	const ids = [...sourceEntityIds];
-	const requests = [];
-	for (let index = 0; index < ids.length; index += RELATIONSHIP_PROJECTION_LIMITS.sourceEntities) {
-		requests.push({
-			relationshipSchemaSlug: LIBRARY_RELATIONSHIP_SCHEMA_SLUG,
-			sourceEntityIds: ids.slice(index, index + RELATIONSHIP_PROJECTION_LIMITS.sourceEntities),
-		});
-	}
-	return requests;
-};
+import { EntityId } from "@ryot-app/plugin-kit/schema";
 
 const containmentSlugs = [
 	"show-to-show-season",
@@ -86,4 +73,19 @@ export const libraryTitleIds = Effect.fn(function* (
 		pending = [...new Set(containers.values())];
 	}
 	return titles;
+});
+
+/** Refolds the library titles of `entityIds` for every user, so their summaries follow provider changes. */
+export const refoldLibraryTitles = Effect.fn(function* (
+	host: Pick<ScriptHost, "executeRyotql" | "requestFoldsForAllUsers">,
+	entityIds: ReadonlySet<string>,
+) {
+	const titles = [...(yield* libraryTitleIds(host, entityIds))];
+	for (let index = 0; index < titles.length; index += FOLD_LIMITS.requestEntities) {
+		yield* host.requestFoldsForAllUsers({
+			entityIds: titles
+				.slice(index, index + FOLD_LIMITS.requestEntities)
+				.map((id) => EntityId.make(id)),
+		});
+	}
 });

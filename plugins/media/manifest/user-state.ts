@@ -38,44 +38,19 @@ const children: Readonly<Record<string, NonNullable<PluginEntityUserStatePolicy[
 export const mediaUserStatePolicy = (slug: string): PluginEntityUserStatePolicy => ({
 	deniedOperations: [],
 	children: children[slug] ?? [],
+	evidence: ["add-entity-to-collection", "remove-entity-from-collection"].map((eventSlug) => ({
+		subjectProperty: "entityId",
+		eventSchema: {
+			owner: { kind: "kernel" as const },
+			slug: EventSchemaSlug.make(eventSlug),
+			entitySchemaSlug: EntitySchemaSlug.make("collection"),
+		},
+	})),
 	relationships: [
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("in-media-library") },
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("media-monitoring") },
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("media-suggestion") },
 		{ owner: { kind: "self" }, slug: RelationshipSchemaSlug.make("media-trending") },
 		{ owner: { kind: "kernel" }, slug: RelationshipSchemaSlug.make("member-of") },
-	],
-	evidence: [
-		...[
-			"history-correction",
-			"completion-occurrence",
-			"completion-episode",
-			"history-coverage",
-		].map((eventSchemaSlug) => ({
-			subjectProperty: "subjectEntityId",
-			transient: eventSchemaSlug === "history-correction" || eventSchemaSlug === "history-coverage",
-			eventSchema: {
-				owner: { kind: "self" as const },
-				slug: EventSchemaSlug.make(eventSchemaSlug),
-				entitySchemaSlug: EntitySchemaSlug.make("media-library"),
-			},
-		})),
-		...["subjectEntityId", "correctionSubjectEntityId"].map((subjectProperty) => ({
-			subjectProperty,
-			transient: true,
-			eventSchema: {
-				owner: { kind: "self" as const },
-				slug: EventSchemaSlug.make("consumption-dependency"),
-				entitySchemaSlug: EntitySchemaSlug.make("media-library"),
-			},
-		})),
-		...["add-entity-to-collection", "remove-entity-from-collection"].map((eventSlug) => ({
-			subjectProperty: "entityId",
-			eventSchema: {
-				owner: { kind: "kernel" as const },
-				slug: EventSchemaSlug.make(eventSlug),
-				entitySchemaSlug: EntitySchemaSlug.make("collection"),
-			},
-		})),
 	],
 });

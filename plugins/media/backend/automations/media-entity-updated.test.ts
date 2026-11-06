@@ -74,10 +74,9 @@ const execute = (
 					calls.push(request);
 					return Effect.succeed({ wasCreated: true, triggerId: `signal-${calls.length}` });
 				},
-				requestRelationshipProjectionsForAllUsers: (request) => {
-					expect(request.relationshipSchemaSlug).toBe("in-media-library");
-					summaryRequests.push(request.sourceEntityIds);
-					return Effect.succeed({ users: 1 });
+				requestFoldsForAllUsers: (request) => {
+					summaryRequests.push(request.entityIds);
+					return Effect.succeed({ queued: request.entityIds.length });
 				},
 			}),
 		),

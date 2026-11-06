@@ -3,7 +3,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { librarySummaryRequests, libraryTitleIds } from "../lib/library-summary-requests";
+import { refoldLibraryTitles } from "../lib/library-titles";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
 export const manifest = defineManifest({
@@ -28,7 +28,7 @@ export default defineAutomation({
 			if (source.resource !== "relationship" || source.operation !== "batch") {
 				return null;
 			}
-			const titleIds = yield* libraryTitleIds(
+			yield* refoldLibraryTitles(
 				host,
 				new Set(
 					source.items.map(
@@ -38,9 +38,6 @@ export default defineAutomation({
 					),
 				),
 			);
-			for (const request of librarySummaryRequests(titleIds)) {
-				yield* host.requestRelationshipProjectionsForAllUsers(request);
-			}
 			// The leader carries the group's counts, and only one chunk of a split batch holds it.
 			const leader = source.items.find((item) => item.population?.batch?.isLeader === true);
 			const population = leader?.population;
