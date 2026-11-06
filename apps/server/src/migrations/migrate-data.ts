@@ -1,12 +1,14 @@
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { UserBootstrap } from "@ryot-app/kernel-backend/modules/accounts/provisioning/bootstrap";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
 } from "@ryot-app/kernel-backend/modules/definitions/properties/runtime";
+import { FoldRebuildJob } from "@ryot-app/kernel-backend/modules/derived-values/marks";
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
 import { AccountAdmission } from "@ryot-app/kernel-backend/modules/mutations/account-admission";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
+import { JobQueue } from "@ryot-app/kernel-backend/platform/jobs/queue";
 import { Clock, Effect, Schema } from "effect";
 
 import {
@@ -22,7 +24,6 @@ import {
 	normalizeLegacyDescriptions,
 } from "./description-normalization";
 import { buildLegacyEpisodicSubEntityMigrationSql } from "./episodic-sub-entity-mapping";
-import { seedEventStreams } from "./event-streams";
 import {
 	buildExerciseMigrationSql,
 	exerciseEntityTargets,
@@ -83,7 +84,6 @@ import {
 	buildLegacySavedViewStateMigrationSql,
 	legacySavedViewTargets,
 } from "./saved-view-mapping";
-import { buildSeenEpisodicCompletionMigrationSql } from "./seen-completion-mapping";
 import { buildSeenMigrationSql } from "./seen-mapping";
 import {
 	buildReferencedGlobalEntityIdsSql,
@@ -226,9 +226,6 @@ export const migrateLegacyTables = Effect.gen(function* () {
 	const libraryEntitySchema = entitySchema(mediaPluginId, "media-library");
 	for (const slug of ["anime", "manga"]) {
 		requireEventSchema(resolution, mediaPluginId, slug, "item-complete");
-	}
-	for (const slug of ["completion-occurrence", "completion-episode"]) {
-		requireEventSchema(resolution, mediaPluginId, libraryEntitySchema.slug, slug);
 	}
 	const memberOfRelationshipSchema = relationshipSchema(null, "member-of");
 	const inLibraryRelationshipSchema = relationshipSchema(mediaPluginId, "in-media-library");
@@ -627,8 +624,6 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			);
 			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
 			reportSequence = yield* logReportRows(connection, reportSequence);
-			yield* connection.executeRaw(buildSeenEpisodicCompletionMigrationSql(mediaPluginId), []);
-			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets),
 				[],
@@ -754,10 +749,26 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				exerciseEntitySchema,
 				eventSchema: workoutSetEventSchema,
 			});
-			yield* seedEventStreams(connection);
 			yield* connection.executeRaw(buildHistoricalAutomationCheckSql(), []);
 			yield* connection.executeRaw(buildHistoricalEnrichmentCheckSql(), []);
 		}),
+	);
+	const jobs = yield* JobQueue.make;
+	yield* session.transaction(
+		Effect.forEach(
+			userIds.flatMap((id) =>
+				[mediaPluginId, fitnessPluginId].map((pluginId) => ({
+					userId: UserId.make(id),
+					pluginId: PluginId.make(pluginId),
+				})),
+			),
+			(payload) =>
+				jobs.enqueue(FoldRebuildJob, payload, {
+					userId: payload.userId,
+					key: `${payload.userId}:${payload.pluginId}`,
+				}),
+			{ discard: true },
+		),
 	);
 	reportSequence = yield* withReservedConnection((connection) =>
 		logReportRows(connection, reportSequence),
