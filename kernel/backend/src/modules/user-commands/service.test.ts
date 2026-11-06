@@ -5,29 +5,21 @@ import { DbError } from "@ryot-app/contract/errors";
 import { EntityStale } from "@ryot-app/contract/modules/entities/schemas";
 import { UserCommand } from "@ryot-app/contract/modules/mutations/user-command";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import {
-	EntityId,
-	EntitySchemaSlug,
-	EventId,
-	EventSchemaSlug,
-	PluginId,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
+import { EntityId, EntitySchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
-import { Context, DateTime, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Ref, Schema } from "effect";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { Folds } from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
-import { EventStreamRepository } from "#modules/events/stream-repository";
-import { seedStreamWork, streamState } from "#modules/events/stream-repository.test-support";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
@@ -55,67 +47,25 @@ type StagedWrites = {
 };
 class AtomicWriteObservation extends Context.Service<
 	AtomicWriteObservation,
-	{
-		readonly staged: Effect.Effect<null | StagedWrites>;
-		readonly eventLocks: Effect.Effect<
-			ReadonlyArray<Parameters<EventsRepository["Service"]["lockEventRows"]>[0]>
-		>;
-	}
+	{ readonly staged: Effect.Effect<null | StagedWrites> }
 >()("@ryot-app/kernel-backend/modules/user-commands/service.test/AtomicWriteObservation") {}
 
-const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
+const testLayer = (failAfterEvents: boolean) => {
 	const live = EventSchemaReader.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
 	const mutations = Layer.unwrap(
 		Effect.gen(function* () {
 			const staged = yield* Ref.make<null | StagedWrites>(null);
-			const eventLocks = yield* Ref.make<
-				Array<Parameters<EventsRepository["Service"]["lockEventRows"]>[0]>
-			>([]);
-			const arrivals = yield* Ref.make(0);
-			const ready = yield* Deferred.make<void>();
 			return Layer.merge(
 				Layer.effect(
 					EventMutations,
 					Effect.gen(function* () {
-						const repository = yield* EventsRepository;
-						const original = yield* EventMutations.make.pipe(
-							Effect.provideService(EventsRepository, {
-								...repository,
-								lockEventRows: Effect.fn("AtomicCommandTest.lockEventRows")(function* (
-									input: Parameters<EventsRepository["Service"]["lockEventRows"]>[0],
-								) {
-									const result = yield* repository.lockEventRows(input);
-									yield* Ref.update(eventLocks, (locks) => [...locks, input]);
-									return result;
-								}),
-							}),
-						);
+						const original = yield* EventMutations.make;
 						const session = yield* DatabaseSession;
 						return EventMutations.of({
 							...original,
-							captureGroups: Effect.fn("AtomicCommandTest.captureGroups")(function* (
-								input: Parameters<EventMutations["Service"]["captureGroups"]>[0],
-							) {
-								if (coordinateFanout) {
-									if ((yield* Ref.updateAndGet(arrivals, (count) => count + 1)) === 2) {
-										yield* Deferred.succeed(ready, undefined);
-									}
-									yield* Deferred.await(ready);
-								}
-								return yield* original.captureGroups(input);
-							}),
 							persist: Effect.fn("AtomicCommandTest.persist")(function* (
 								input: Parameters<EventMutations["Service"]["persist"]>[0],
 							) {
-								if (coordinateFanout) {
-									const eventId = input.prepared.items[0]?.source?.snapshot.id;
-									assert(eventId);
-									expect(
-										(yield* Ref.get(eventLocks)).some(
-											(lock) => lock.eventIds.length === 51 && lock.eventIds.includes(eventId),
-										),
-									).toBe(true);
-								}
 								const result = yield* original.persist(input);
 								if (!failAfterEvents) {
 									return result;
@@ -143,11 +93,8 @@ const testLayer = (failAfterEvents: boolean, coordinateFanout = false) => {
 							}),
 						});
 					}),
-				),
-				Layer.succeed(AtomicWriteObservation, {
-					staged: Ref.get(staged),
-					eventLocks: Ref.get(eventLocks),
-				}),
+				).pipe(Layer.provide(Folds.layer)),
+				Layer.succeed(AtomicWriteObservation, { staged: Ref.get(staged) }),
 			);
 		}),
 	).pipe(Layer.provideMerge(live));
@@ -825,259 +772,6 @@ layer(testLayer(true))((test) => {
 				expect(entities).toMatchObject([{ name: "Existing target" }]);
 				expect(relationships).toEqual([]);
 				expect(events).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
-
-layer(testLayer(false, true))((test) => {
-	test.effect(
-		"prelocks opposite cross-page fanout for concurrent atomic commands",
-		() =>
-			Effect.gen(function* () {
-				const source = revisionPackage("atomic", "fixture", "record");
-				const entitySchema = source.manifest.entitySchemas[0];
-				assert(entitySchema);
-				const outputSchema = {
-					unknownKeys: "strict" as const,
-					fields: {
-						total: { label: "Total", type: "number" as const, description: "Derived total" },
-					},
-				};
-				const input = yield* fixture({
-					...source,
-					manifest: {
-						...source.manifest,
-						entitySchemas: [
-							{
-								...entitySchema,
-								eventSchemas: [
-									{
-										name: "Changed",
-										slug: "changed",
-										propertiesSchema: {
-											fields: {
-												value: { type: "string", label: "Value", description: "Changed value" },
-												target: {
-													type: "string",
-													label: "Target",
-													description: "Output",
-													reference: { kind: "entity-id" },
-												},
-											},
-										},
-									},
-									{
-										name: "Summary",
-										slug: "summary",
-										propertiesSchema: { fields: {} },
-										projection: {
-											scriptSlug: "atomic.task",
-											propertiesSchema: outputSchema,
-											inputs: [
-												{ scope: "entity", eventSchemaSlug: "summary" },
-												{ eventSchemaSlug: "changed", scope: { property: "target" } },
-											],
-										},
-									},
-								],
-							},
-						],
-					},
-				});
-				const entities = yield* EntitiesRepository;
-				const [leftFirst, leftLast, rightFirst, rightLast, x, y] = yield* entities.insertEntities(
-					["Left first", "Left last", "Right first", "Right last", "X", "Y"].map((name) => ({
-						name,
-						userId,
-						properties: {},
-						populatedAt: null,
-						scope: "user" as const,
-						entitySchemaPluginId: input.pluginId,
-						id: EntityId.make(crypto.randomUUID()),
-						entitySchemaSlug: EntitySchemaSlug.make("record"),
-					})),
-				);
-				assert(leftFirst && leftLast && rightFirst && rightLast && x && y);
-				const repository = yield* EventsRepository;
-				const streams = yield* EventStreamRepository.make;
-				const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"));
-				const common = { userId, occurredAt, eventSchemaPluginId: input.pluginId };
-				const commands = yield* input.session.transaction(
-					Effect.gen(function* () {
-						for (const output of [x, y]) {
-							yield* repository.createEvent({
-								...common,
-								properties: {},
-								entityId: output.id,
-								eventSchemaName: "Summary",
-								id: EventId.make(yield* randomUuid),
-								eventSchemaSlug: EventSchemaSlug.make("summary"),
-							});
-						}
-						return yield* Effect.forEach(
-							[
-								[leftFirst, leftLast, x, y],
-								[rightFirst, rightLast, y, x],
-							] as const,
-							([first, last, firstTarget, lastTarget]) =>
-								Effect.gen(function* () {
-									const changes = [];
-									for (let index = 0; index < 51; index += 1) {
-										const event = yield* repository.createEvent({
-											...common,
-											eventSchemaName: "Changed",
-											id: EventId.make(yield* randomUuid),
-											entityId: index < 50 ? first.id : last.id,
-											eventSchemaSlug: EventSchemaSlug.make("changed"),
-											properties: {
-												value: "Original",
-												target: index < 50 ? firstTarget.id : lastTarget.id,
-											},
-										});
-										changes.push({
-											kind: "update" as const,
-											itemIdentity: `update-${index}`,
-											item: {
-												eventId: event.id,
-												patch: { properties: { remove: [], set: { value: "Saved" } } },
-											},
-										});
-									}
-									return { ...input.input, relationships: [], events: { changes, creates: [] } };
-								}),
-						);
-					}),
-				);
-				const processor = yield* (yield* PluginRuntimeResolver).findScriptAvailableToUser(
-					userId,
-					input.pluginId,
-					"atomic.task",
-				);
-				assert(processor && input.command.writeContext.pluginRevision);
-				const completed = yield* Effect.forEach([x, y], (output) =>
-					Effect.gen(function* () {
-						const key = {
-							userId,
-							entityId: output.id,
-							eventSchemaSlug: EventSchemaSlug.make("summary"),
-							eventSchemaPluginId: PluginId.make(input.pluginId),
-						};
-						const { id, revision } = yield* seedStreamWork(key).pipe(
-							Effect.provideService(EventStreamRepository, streams),
-						);
-						yield* input.session.run((db) =>
-							db
-								.update(tables.eventStreamWork)
-								.set({
-									outputSchema,
-									completedRevision: revision,
-									processorScriptId: processor.id,
-									checkpoint: { cursor: "complete" },
-									pluginRevisionId: input.revisionId,
-									pluginPin: { revisionId: input.revisionId },
-									accountToken: input.command.accountGeneration.token,
-								})
-								.where(eq(tables.eventStreamWork.id, id)),
-						);
-						return { id, revision };
-					}),
-				);
-				const retainedBefore = yield* input.session.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(
-							and(
-								eq(tables.event.eventSchemaPluginId, input.pluginId),
-								eq(tables.event.eventSchemaSlug, "summary"),
-							),
-						)
-						.orderBy(tables.event.id),
-				);
-				const sourceBefore = yield* input.session.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(
-							and(
-								eq(tables.event.eventSchemaPluginId, input.pluginId),
-								eq(tables.event.eventSchemaSlug, "changed"),
-							),
-						)
-						.orderBy(tables.event.id),
-				);
-				const results = yield* Effect.forEach(
-					commands,
-					(commandInput) =>
-						commitUserCommand({
-							userId,
-							input: commandInput,
-							command: {
-								...input.command,
-								...command(crypto.randomUUID()),
-								writeContext: input.command.writeContext,
-								accountGeneration: input.command.accountGeneration,
-							},
-						}),
-					{ concurrency: 2 },
-				);
-				expect(results.map((result) => result.events.length)).toEqual([51, 51]);
-				const globalLocks = (yield* (yield* AtomicWriteObservation).eventLocks).filter(
-					(lock) => lock.eventIds.length === 51,
-				);
-				expect(globalLocks).toHaveLength(2);
-				for (const lock of globalLocks) {
-					expect(lock.sources).toHaveLength(153);
-					expect(new Set(lock.sources?.map((draft) => draft.entityId)).size).toBe(2);
-					expect(new Set(lock.sources?.map((draft) => draft.properties?.["value"]))).toEqual(
-						new Set(["Saved", "Original"]),
-					);
-				}
-				for (const { id, revision } of completed) {
-					const current = yield* streamState(id);
-					assert(current);
-					expect(current.streamRevision).toBe(revision + 51);
-					expect(current.completedRevision).toBeNull();
-					expect(current.checkpoint).toBeNull();
-					expect(current.dirtyFrom).toBeNull();
-					expect(current.currentJobId).toBeNull();
-				}
-				const retainedAfter = yield* input.session.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(
-							and(
-								eq(tables.event.eventSchemaPluginId, input.pluginId),
-								eq(tables.event.eventSchemaSlug, "summary"),
-							),
-						)
-						.orderBy(tables.event.id),
-				);
-				expect(retainedAfter).toEqual(retainedBefore);
-				const changed = yield* input.session.run((db) =>
-					db
-						.select()
-						.from(tables.event)
-						.where(
-							and(
-								eq(tables.event.eventSchemaPluginId, input.pluginId),
-								eq(tables.event.eventSchemaSlug, "changed"),
-							),
-						)
-						.orderBy(tables.event.id),
-				);
-				expect(changed).toHaveLength(102);
-				expect(changed).toEqual(
-					sourceBefore.map((row) =>
-						Object.assign({}, row, {
-							revision: row.revision + 1,
-							properties: { ...row.properties, value: "Saved" },
-							updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe(input.command.occurredAt)),
-						}),
-					),
-				);
 			}),
 		testTimeout,
 	);

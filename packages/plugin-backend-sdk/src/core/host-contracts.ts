@@ -53,9 +53,9 @@ import {
 	listEventSchemasArgsSchema,
 	listEventSchemasDataSchema,
 	listEventSchemasResultSchema,
-	requestEventStreamWorkArgsSchema,
-	requestEventStreamWorkDataSchema,
-	requestEventStreamWorkResultSchema,
+	requestFoldsArgsSchema,
+	requestFoldsDataSchema,
+	requestFoldsResultSchema,
 	updateEventsArgsSchema,
 	updateEventsResultDataSchema,
 	updateEventsResultSchema,
@@ -80,11 +80,6 @@ import {
 	changeUserRelationshipsArgsSchema,
 	changeUserRelationshipsDataSchema,
 	changeUserRelationshipsResultSchema,
-	requestRelationshipProjectionsArgsSchema,
-	requestRelationshipProjectionsDataSchema,
-	requestRelationshipProjectionsForAllUsersDataSchema,
-	requestRelationshipProjectionsForAllUsersResultSchema,
-	requestRelationshipProjectionsResultSchema,
 	upsertGlobalRelationshipsArgsSchema,
 	upsertGlobalRelationshipsDataSchema,
 	upsertGlobalRelationshipsResultSchema,
@@ -117,11 +112,6 @@ import {
 	userPreferencesSchema,
 } from "./state";
 import { commitUserChangesArgsSchema, commitUserChangesResultSchema } from "./user-commands";
-import {
-	requestUserWorkArgsSchema,
-	requestUserWorkDataSchema,
-	requestUserWorkResultSchema,
-} from "./user-work";
 
 type GetPluginConfigArgs = Schema.Schema.Type<typeof getPluginConfigArgsSchema>[0];
 type GetConfig = <const Keys extends GetPluginConfigArgs>(
@@ -211,6 +201,11 @@ type SandboxHostMethodMapFromContracts<Contracts extends Record<string, SandboxH
 	) => Effect.Effect<Contracts[Capability]["success"]["Type"], SandboxHostError>;
 };
 export const domainSandboxHostContracts = {
+	requestFolds: {
+		args: requestFoldsArgsSchema,
+		success: requestFoldsDataSchema,
+		result: requestFoldsResultSchema,
+	},
 	executeRyotql: {
 		args: executeRyotqlArgsSchema,
 		success: executeRyotqlDataSchema,
@@ -236,10 +231,10 @@ export const domainSandboxHostContracts = {
 		args: commitUserChangesArgsSchema,
 		result: commitUserChangesResultSchema,
 	},
-	requestUserWork: {
-		args: requestUserWorkArgsSchema,
-		success: requestUserWorkDataSchema,
-		result: requestUserWorkResultSchema,
+	requestFoldsForAllUsers: {
+		args: requestFoldsArgsSchema,
+		success: requestFoldsDataSchema,
+		result: requestFoldsResultSchema,
 	},
 	listEventSchemas: {
 		args: listEventSchemasArgsSchema,
@@ -306,11 +301,6 @@ export const domainSandboxHostContracts = {
 		success: upsertGlobalEntitiesDataSchema,
 		result: upsertGlobalEntitiesResultSchema,
 	},
-	requestEventStreamWork: {
-		args: requestEventStreamWorkArgsSchema,
-		success: requestEventStreamWorkDataSchema,
-		result: requestEventStreamWorkResultSchema,
-	},
 	changeUserRelationships: {
 		args: changeUserRelationshipsArgsSchema,
 		success: changeUserRelationshipsDataSchema,
@@ -320,16 +310,6 @@ export const domainSandboxHostContracts = {
 		args: upsertGlobalRelationshipsArgsSchema,
 		success: upsertGlobalRelationshipsDataSchema,
 		result: upsertGlobalRelationshipsResultSchema,
-	},
-	requestRelationshipProjections: {
-		args: requestRelationshipProjectionsArgsSchema,
-		success: requestRelationshipProjectionsDataSchema,
-		result: requestRelationshipProjectionsResultSchema,
-	},
-	requestRelationshipProjectionsForAllUsers: {
-		args: requestRelationshipProjectionsArgsSchema,
-		success: requestRelationshipProjectionsForAllUsersDataSchema,
-		result: requestRelationshipProjectionsForAllUsersResultSchema,
 	},
 } as const;
 export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<

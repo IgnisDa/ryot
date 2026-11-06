@@ -32,8 +32,6 @@ import {
 import type { DatabaseSession } from "#platform/db/session";
 
 export const noLifecycleWorkLayer = Layer.succeed(LifecycleWork, {
-	dispatch: () => Effect.void,
-	admit: () => Effect.succeed([]),
 	derive: () => Effect.succeed([]),
 });
 
@@ -43,7 +41,6 @@ export const noHooksFixture = (): Extract<LifecyclePlanningResult, { _tag: "NoHo
 	trigger: null,
 	_tag: "NoHooks",
 	wasCreated: false,
-	backgroundJobIds: [],
 });
 
 export const withLifecycleBatchPlanning = (
@@ -165,7 +162,6 @@ export const planFixture = (id: string): LifecyclePlan => ({
 	runs: [],
 	policies: [],
 	wasCreated: true,
-	backgroundJobIds: [],
 	trigger: triggerFixture(id),
 });
 

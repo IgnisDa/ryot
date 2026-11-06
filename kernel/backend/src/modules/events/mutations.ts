@@ -25,11 +25,16 @@ import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import {
 	type LifecycleBatchInput,
+	type LifecycleDispatchPlan,
 	LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
-import type { PolicyBatchResult } from "#modules/automations/lifecycle/policy-batch";
+import {
+	type PolicyBatchResult,
+	unchangedPolicyBatch,
+} from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
+import { type ApplyFoldChanges, type FoldMode, Folds } from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { assertStableUnder, DomainWriteChecks } from "#modules/entities/write-context";
@@ -214,6 +219,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			const admission = yield* AccountAdmission.make;
 			const assets = yield* ManagedAssetReferenceLocker.make;
 			const groups = yield* EventGroupConstraints.make;
+			const folds = yield* Folds;
 			const captureGroups = Effect.fn("EventMutations.captureGroups")(function* (input: {
 				readonly userId: UserId;
 				readonly entityIds?: ReadonlyArray<EntityId>;
@@ -432,6 +438,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 			});
 			const persist = Effect.fn("EventMutations.persist")(function* (input: {
 				userId: UserId;
+				derived?: boolean;
 				sealBatch?: boolean;
 				batchIndexOffset?: number;
 				batch?: LifecycleBatchInput;
@@ -525,7 +532,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					command: input.command,
 					resource: "event" as const,
 				};
-				const preparedBatch = yield* planner.prepareBatch({ ...batch, scopes: [input.userId] });
+				const preparedBatch = input.derived
+					? null
+					: yield* planner.prepareBatch({ ...batch, scopes: [input.userId] });
 				const selections = new Map(
 					input.validated.items.flatMap((item) =>
 						item.request.resource === "event"
@@ -549,7 +558,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					[...selections.keys()].map((key, index) => [key, currentSchemas[index] ?? null]),
 				);
 				const results = [];
-				const dispatch = [];
+				const dispatch: Array<LifecycleDispatchPlan> = [];
 				const triggers: Array<AutomationTrigger> = [];
 				const checkedOwners = new Set<null | string>();
 				const assetOwners: Array<Parameters<typeof assets.lock>[0][number]> = [];
@@ -722,6 +731,10 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							};
 						}
 					}
+					results.push({ eventId, itemIdentity: row.change.itemIdentity });
+					if (preparedBatch === null) {
+						continue;
+					}
 					triggers.push(yield* lifecycleTrigger(command, input.userId, change));
 					if (row.change.kind === "create") {
 						yield* keys.recordImportItem(command, input.userId, "created");
@@ -731,7 +744,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						scopeUserId: input.userId,
 						index: (input.batchIndexOffset ?? 0) + index,
 					});
-					results.push({ eventId, itemIdentity: row.change.itemIdentity });
+				}
+				if (preparedBatch === null) {
+					return { results, dispatch };
 				}
 				const planned = yield* planner.planChanges(triggers);
 				dispatch.push(...planned.flat());
@@ -740,15 +755,28 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				}
 				return { results, dispatch };
 			});
-			return {
-				prepare,
-				persist,
-				captureGroups,
-				lockPreparedChanges,
-				transaction: groups.transaction,
-			};
+			// Fold-owned writes skip before-policies and after-hooks: they derive from changes those already saw.
+			const applyDerived: ApplyFoldChanges = Effect.fnUntraced(function* (input) {
+				const prepared = yield* prepare(input);
+				const validated = unchangedPolicyBatch(
+					{
+						resource: "event",
+						userId: input.userId,
+						command: input.command,
+						references: prepared.references,
+						items: yield* eventPolicyItems(prepared),
+						propertiesSchemas: prepared.propertiesSchemas,
+					},
+					null,
+				);
+				yield* persist({ ...input, prepared, validated, derived: true });
+			});
+			/** The events transaction: folds the subjects its writes change, then checks event groups. */
+			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, mode?: FoldMode) =>
+				groups.transaction(folds.within(work, applyDerived, mode));
+			return { prepare, persist, transaction, captureGroups, lockPreparedChanges };
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(Layer.provide(Folds.layer));
 }

@@ -2076,14 +2076,7 @@ layer(
 							Effect.succeed({
 								_tag: "Committed",
 								result: { updated: 0, deleted: 0, created: index },
-								dispatch: [
-									{
-										runs: [],
-										blockedReason: null,
-										backgroundJobIds: [],
-										triggerId: `batch-${index}`,
-									},
-								],
+								dispatch: [{ runs: [], blockedReason: null, triggerId: `batch-${index}` }],
 							}),
 					}),
 				},
@@ -2133,14 +2126,7 @@ layer(
 						Effect.succeed({
 							_tag: "Committed",
 							result: [{ status: "skipped" }],
-							dispatch: [
-								{
-									runs: [],
-									blockedReason: null,
-									backgroundJobIds: [],
-									triggerId: "upsert-trigger",
-								},
-							],
+							dispatch: [{ runs: [], blockedReason: null, triggerId: "upsert-trigger" }],
 						}),
 					validate: () =>
 						Effect.succeed({

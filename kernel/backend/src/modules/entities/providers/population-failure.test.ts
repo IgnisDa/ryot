@@ -24,7 +24,6 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";
 import { EntitiesRepository } from "#modules/entities/repository";
-import { EventStreamRepository } from "#modules/events/stream-repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	installRevisionPackage,
@@ -113,11 +112,7 @@ const requestLayer = Layer.unwrap(
 		};
 		const session = yield* DatabaseSession;
 		const sessionLayer = Layer.succeed(DatabaseSession, session);
-		const entitiesRepositoryLayer = EntitiesRepository.layer.pipe(
-			Layer.provide(
-				Layer.merge(sessionLayer, EventStreamRepository.layer.pipe(Layer.provide(sessionLayer))),
-			),
-		);
+		const entitiesRepositoryLayer = EntitiesRepository.layer.pipe(Layer.provide(sessionLayer));
 		yield* session.run((db) =>
 			db
 				.insert(tables.entity)

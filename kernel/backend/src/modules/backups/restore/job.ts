@@ -6,7 +6,7 @@ import {
 	BackupRunFailure,
 	type BackupRunFailure as BackupRunFailureValue,
 } from "@ryot-app/contract/modules/backups/schemas";
-import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { BackupRunId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Duration, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 
 import {
@@ -15,10 +15,11 @@ import {
 } from "#modules/assets/storage/managed-assets";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
+import { FoldRebuildJob } from "#modules/derived-values/marks";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { makeJobKind } from "#platform/jobs/queue";
+import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { validateArchiveStream } from "../archive/archive";
@@ -124,6 +125,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 		const managedAssets = yield* ManagedAssetsService;
 		const objectStorage = yield* ObjectStorageService;
 		const cleanliness = yield* BackupAccountCleanliness;
+		const jobs = yield* JobQueue.make;
 
 		const begin = (payload: RestoreBackupPayload) =>
 			asRestoreError(
@@ -271,6 +273,13 @@ export const RestoreBackupOperationsLive = Layer.effect(
 								definitions,
 								assetLocators,
 							);
+							for (const pluginId of new Set(pluginIdByKey.values())) {
+								yield* jobs.enqueue(
+									FoldRebuildJob,
+									{ userId: payload.userId, pluginId: PluginId.make(pluginId) },
+									{ userId: payload.userId, key: `${payload.userId}:${pluginId}` },
+								);
+							}
 							if (!(yield* repository.completeRun(payload))) {
 								return yield* internalError("Backup restore could not be completed");
 							}

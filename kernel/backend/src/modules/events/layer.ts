@@ -1,17 +1,13 @@
 import { Layer } from "effect";
 
 import { LifecycleServicesLive } from "#modules/automations/layer";
-import { BackgroundWorkService } from "#modules/background-work/service";
 import { EventSchemaReaderLive } from "#modules/definitions/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 
 import { EventMutations } from "./mutations";
-import { EventProjectionRepository } from "./projection-repository";
 import { EventsRepository } from "./repository";
 import { EventsService } from "./service";
-import { EventStreamRepository } from "./stream-repository";
-import { EventStreamWorkService } from "./stream-work";
 
 export const EventsServiceLive = EventsService.layer.pipe(
 	Layer.provide(
@@ -33,19 +29,6 @@ export const EventMutationsLive = EventMutations.layer.pipe(
 			DomainWriteChecksLive,
 			EventSchemaReaderLive,
 			LifecycleServicesLive,
-		),
-	),
-);
-
-export const EventStreamWorkServiceLive = EventStreamWorkService.layer.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			EventStreamRepository.layer,
-			EventProjectionRepository.layer,
-			BackgroundWorkService.layer,
-			EntitiesRepositoryLive,
-			DomainWriteChecksLive,
-			EventSchemaReaderLive,
 		),
 	),
 );

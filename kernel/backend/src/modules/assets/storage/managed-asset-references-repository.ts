@@ -133,14 +133,9 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 						),
 						scan(sql`${tables.event}`, tables.event.properties, owned(tables.event.userId)),
 						scan(
-							sql`${tables.eventProjection} inner join ${tables.event} on ${tables.event.id} = ${tables.eventProjection.eventId}`,
-							tables.eventProjection.properties,
-							owned(tables.event.userId),
-						),
-						scan(
-							sql`${tables.relationshipProjection} inner join ${tables.relationshipProjectionWork} on ${tables.relationshipProjectionWork.id} = ${tables.relationshipProjection.workId}`,
-							tables.relationshipProjection.properties,
-							owned(tables.relationshipProjectionWork.userId),
+							sql`${tables.derivedValue}`,
+							tables.derivedValue.value,
+							owned(tables.derivedValue.userId),
 						),
 						scan(
 							sql`${tables.pluginInstallation}`,

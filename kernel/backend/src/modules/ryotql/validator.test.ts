@@ -226,43 +226,6 @@ it("exposes only approved event fields", () => {
 	);
 });
 
-it("exposes only user-owned event streams and safe work fields", () => {
-	const eventStream = getCatalogTable("eventStream");
-	const eventStreamWork = getCatalogTable("eventStreamWork");
-
-	expect(eventStream?.name).toBe("event_stream");
-	expect(eventStream?.primaryKey).toEqual(["id"]);
-	expect(new Set(Object.keys(eventStream?.fields ?? {}))).toEqual(
-		new Set([
-			"id",
-			"entityId",
-			"revision",
-			"eventSchemaSlug",
-			"projectionStatus",
-			"eventSchemaPluginId",
-		]),
-	);
-	expect(eventStream?.visibility).toEqual({
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	});
-
-	expect(eventStreamWork?.name).toBe("event_stream_work");
-	expect(eventStreamWork?.primaryKey).toEqual(["id"]);
-	expect(new Set(Object.keys(eventStreamWork?.fields ?? {}))).toEqual(
-		new Set(["id", "completedRevision"]),
-	);
-	expect(eventStreamWork?.visibility).toEqual({
-		user: {
-			column: "id",
-			parentColumn: "id",
-			type: "parentOwned",
-			pluginReadable: true,
-			parentTable: "event_stream",
-			parentOwnerColumn: "user_id",
-		},
-	});
-});
-
 it("exposes only approved relationship fields", () => {
 	expect(new Set(Object.keys(getCatalogTable("relationship")?.fields ?? {}))).toEqual(
 		new Set([
@@ -512,11 +475,6 @@ it("rejects hidden application-table fields", () => {
 		["integrationProvider", "scriptId"],
 		["integrationProvider", "configRevisionId"],
 		["entitySchema", "isEffective"],
-		["eventStreamWork", "accountToken"],
-		["eventStreamWork", "checkpoint"],
-		["eventStreamWork", "pluginPin"],
-		["eventStreamWork", "processorScriptId"],
-		["eventStreamWork", "pluginRevisionId"],
 	] as const) {
 		const source = table(tableName, "source");
 		expect(
@@ -540,7 +498,7 @@ it("rejects hidden application-table fields", () => {
 });
 
 it("denies user-only catalog tables to plugin execution", () => {
-	for (const tableName of ["importRun", "importIssue", "eventStream", "eventStreamWork"]) {
+	for (const tableName of ["importRun", "importIssue"]) {
 		const source = table(tableName, "source");
 		expect(
 			validateRyotQLDocument(document({ rows: rows(source, { fields: [] }) }), { type: "plugin" })

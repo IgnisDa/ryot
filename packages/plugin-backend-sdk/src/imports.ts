@@ -31,8 +31,7 @@ export * from "./runtime-registry";
 export const SANDBOX_SDK_IMPORTS = [
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
-	"@ryot-app/plugin-backend-sdk/event-streams",
-	"@ryot-app/plugin-backend-sdk/relationship-projections",
+	"@ryot-app/plugin-backend-sdk/folds",
 	SANDBOX_SDK_PROVIDER_IMPORT,
 	SANDBOX_SDK_WORKFLOW_IMPORT,
 	SANDBOX_SDK_FILESYSTEM_IMPORT,

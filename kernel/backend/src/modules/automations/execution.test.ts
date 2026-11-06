@@ -450,18 +450,8 @@ layer(executionLayer)((test) => {
 					code: "automation-limit-reached" as const,
 				};
 				const plans: ReadonlyArray<LifecycleDispatchPlan> = [
-					{
-						blockedReason: null,
-						backgroundJobIds: [],
-						triggerId: trigger.id,
-						runs: [run("first-failed")],
-					},
-					{
-						blockedReason,
-						backgroundJobIds: [],
-						triggerId: trigger.id,
-						runs: [run("second-failed")],
-					},
+					{ blockedReason: null, triggerId: trigger.id, runs: [run("first-failed")] },
+					{ blockedReason, triggerId: trigger.id, runs: [run("second-failed")] },
 				];
 				const service = yield* LifecycleExecution;
 				expect(yield* outsideRecheck(yield* outside(service.dispatch(plans)))).toEqual<unknown>(

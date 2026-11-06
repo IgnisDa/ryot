@@ -2,13 +2,11 @@ import { expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
 import { EntityId, EventId, EventSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
-import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
-import { EventStreamRepository } from "#modules/events/stream-repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -18,7 +16,6 @@ import { fakeDatabaseSession } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
-import { streamState } from "./stream-repository.test-support";
 
 const restoreEventInput = (id: string) => ({
 	id: EventId.make(id),
@@ -102,7 +99,7 @@ const restorePersistenceLayer = BackupRestorePersistence.layer.pipe(
 
 layer(restorePersistenceLayer)((test) => {
 	test.effect(
-		"restores source events and seeds a stream without changing history",
+		"restores source events without changing history",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
@@ -166,35 +163,10 @@ layer(restorePersistenceLayer)((test) => {
 					},
 				]);
 
-				const listStreams = () =>
-					session.run((db) =>
-						db
-							.select({
-								userId: tables.eventStream.userId,
-								entityId: tables.eventStream.entityId,
-								revision: tables.eventStream.revision,
-								eventSchemaSlug: tables.eventStream.eventSchemaSlug,
-								eventSchemaPluginId: tables.eventStream.eventSchemaPluginId,
-							})
-							.from(tables.eventStream),
-					);
-				const streams = yield* listStreams();
-				expect(streams).toEqual([
-					{
-						revision: 1,
-						userId: "user-id",
-						entityId: "entity-id",
-						eventSchemaSlug: "review",
-						eventSchemaPluginId: null,
-					},
-				]);
-
 				yield* session.transaction(persistence.restoreEvents([]));
 				const eventsAfterEmptyRestore = yield* listEvents();
-				const streamsAfterEmptyRestore = yield* listStreams();
 				expect(eventsAfterEmptyRestore).toHaveLength(2);
 				expect(eventsAfterEmptyRestore).toEqual(events);
-				expect(streamsAfterEmptyRestore).toEqual(streams);
 			}),
 		testTimeout,
 	);
@@ -228,100 +200,41 @@ layer(
 	);
 });
 
-const eventRepositoryStreamLayer = Layer.mergeAll(
-	EventsRepository.layer,
-	EventStreamRepository.layer,
-).pipe(Layer.provideMerge(isolatedDatabaseLayer("event_repository_stream_mutations")));
-
-layer(eventRepositoryStreamLayer)((test) => {
+layer(
+	EventsRepository.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("event_repository_writes"))),
+)((test) => {
 	test.effect(
-		"requires transactions and touches streams only for committed event writes",
+		"requires an active transaction for event writes",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const repository = yield* EventsRepository;
-				const streams = yield* EventStreamRepository;
-				const userId = UserId.make("event-stream-owner");
-				const sourceEntityId = EntityId.make("event-stream-source");
-				const targetEntityId = EntityId.make("event-stream-target");
-				const eventSchemaSlug = EventSchemaSlug.make("review");
-				const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-				const sourceKey = {
-					userId,
-					eventSchemaSlug,
-					entityId: sourceEntityId,
-					eventSchemaPluginId: null,
-				};
-				const targetKey = { ...sourceKey, entityId: targetEntityId };
+				const userId = UserId.make("event-write-owner");
+				const entityId = EntityId.make("event-write-entity");
 				yield* session.run((db) =>
 					db
 						.insert(tables.user)
-						.values({ id: userId, name: "Event owner", email: "event-stream@example.test" }),
+						.values({ id: userId, name: "Event owner", email: "event-write@example.test" }),
 				);
 				yield* session.run((db) =>
-					db.insert(tables.entity).values([
-						{ name: "Source", id: sourceEntityId, entitySchemaSlug: "record" },
-						{ name: "Target", id: targetEntityId, entitySchemaSlug: "record" },
-					]),
+					db
+						.insert(tables.entity)
+						.values({ id: entityId, name: "Source", entitySchemaSlug: "record" }),
 				);
 				const event = {
 					userId,
-					occurredAt,
-					eventSchemaSlug,
-					entityId: sourceEntityId,
+					entityId,
 					eventSchemaPluginId: null,
 					properties: { rating: 5 },
 					eventSchemaName: "Review",
-					id: EventId.make("event-stream-write"),
+					id: EventId.make("event-write"),
+					eventSchemaSlug: EventSchemaSlug.make("review"),
+					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z")),
 				};
-				expect(yield* session.isTransactionActive).toBe(false);
 				const transactionError = yield* Effect.flip(repository.createEvent(event));
 				expect(transactionError).toBeInstanceOf(DbError);
 				expect(transactionError.message).toBe("Event writes require an active transaction");
-				const inserted = yield* session.transaction(
-					Effect.gen(function* () {
-						expect(yield* session.isTransactionActive).toBe(true);
-						return yield* repository.createEvent(event);
-					}),
-				);
-				expect(inserted.id).toBe(event.id);
-				const ensure = (key: typeof sourceKey) =>
-					streams.ensureStreams([key]).pipe(Effect.map(([stream]) => stream?.id ?? ""));
-				const sourceStreamId = yield* session.transaction(ensure(sourceKey));
-				const targetStreamId = yield* session.transaction(ensure(targetKey));
-				const sourceBeforeMove = yield* streamState(sourceStreamId);
-				const targetBeforeMove = yield* streamState(targetStreamId);
-				assert(sourceBeforeMove);
-				assert(targetBeforeMove);
-				expect(sourceBeforeMove.streamRevision).toBe(1);
-				expect(targetBeforeMove.streamRevision).toBe(0);
-				yield* session.transaction(repository.createEvent(event));
-				expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
-					sourceBeforeMove.streamRevision,
-				);
-
-				yield* session.transaction(
-					repository.updateEventEntityReferences({
-						userId,
-						eventId: event.id,
-						mergeFrom: sourceEntityId,
-						mergeInto: targetEntityId,
-						updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-02T00:00:00.000Z")),
-					}),
-				);
-				expect((yield* streamState(sourceStreamId))?.streamRevision).toBe(
-					sourceBeforeMove.streamRevision + 1,
-				);
-				expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
-					targetBeforeMove.streamRevision + 1,
-				);
-
-				expect(
-					yield* session.transaction(repository.deleteEvent({ userId, eventId: event.id })),
-				).toBe(event.id);
-				expect((yield* streamState(targetStreamId))?.streamRevision).toBe(
-					targetBeforeMove.streamRevision + 2,
-				);
+				expect((yield* session.transaction(repository.createEvent(event))).id).toBe(event.id);
 			}),
 		testTimeout,
 	);

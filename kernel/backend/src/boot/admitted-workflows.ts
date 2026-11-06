@@ -1,7 +1,6 @@
 import { Layer } from "effect";
 
 import { AutomationRunWorkflow } from "#modules/automations/run-workflow";
-import { BackgroundWorkWorkflow } from "#modules/background-work/service";
 import {
 	TranslateEntityAttemptWorkflow,
 	TranslateEntityWorkflow,
@@ -40,6 +39,5 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessIngestionCaptureWorkflow,
 		ProcessIntegrationRunWorkflow,
 		ScriptExecutionWorkflow,
-		BackgroundWorkWorkflow,
 	]),
 );

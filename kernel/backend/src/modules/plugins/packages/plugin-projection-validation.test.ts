@@ -1,6 +1,5 @@
 import { expect } from "bun:test";
 
-import type { PluginEventProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -9,23 +8,35 @@ import { Cause, Effect, Exit, Option } from "effect";
 import { fixtureManifest } from "../test-support";
 import { PluginValidationError, validatePluginManifestReferences } from "./validation";
 
-const manifestWithRelationshipProjection = (
-	capabilities: ReadonlyArray<"createEvents" | "executeRyotql">,
-	fields: Record<string, { label: string; type: "number"; description: string }>,
-) => {
+const score = { label: "Score", description: "Score", type: "number" as const };
+
+const manifestWithFold = (input: {
+	readonly eventSchemaSlugs?: readonly [string, ...string[]];
+	readonly capabilities?: ReadonlyArray<"createEvents" | "executeRyotql">;
+	readonly fields?: Record<string, { label: string; type: "number"; description: string }>;
+}) => {
 	const fixture = fixtureManifest();
 	const [script] = fixture.scripts;
+	const [entity, ...entities] = fixture.entitySchemas;
 	assert(script);
+	assert(entity);
 	const { automationType: _automationType, inputProjection: _inputProjection, ...common } = script;
-	const processor = {
+	const fold = {
 		...common,
+		slug: "fixture.fold",
 		kind: "script" as const,
-		slug: "fixture.projection",
-		capabilities: [...capabilities],
+		capabilities: [...(input.capabilities ?? ["executeRyotql"])],
 	};
 	return {
 		...fixture,
-		scripts: [...fixture.scripts, processor],
+		scripts: [...fixture.scripts, fold],
+		entitySchemas: [
+			{
+				...entity,
+				fold: { scriptSlug: fold.slug, eventSchemaSlugs: input.eventSchemaSlugs ?? ["changed"] },
+			},
+			...entities,
+		],
 		relationshipSchemas: [
 			{
 				name: "Link",
@@ -36,8 +47,7 @@ const manifestWithRelationshipProjection = (
 					fields: { note: { label: "Note", description: "Note", type: "number" as const } },
 				},
 				projection: {
-					scriptSlug: processor.slug,
-					propertiesSchema: { fields, unknownKeys: "strict" as const },
+					propertiesSchema: { unknownKeys: "strict" as const, fields: input.fields ?? { score } },
 				},
 			},
 		],
@@ -52,146 +62,24 @@ const issuesOf = (exit: Exit.Exit<unknown, unknown>) => {
 };
 
 it.effect(
-	"validates relationship projection processors and output schemas",
+	"validates entity folds and projection output schemas",
 	() =>
 		Effect.gen(function* () {
-			const score = { label: "Score", description: "Score", type: "number" as const };
-			yield* validatePluginManifestReferences(
-				manifestWithRelationshipProjection(["executeRyotql"], { score }),
-			);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							manifestWithRelationshipProjection(["createEvents"], { score }),
-						),
-					),
-				),
-			).toEqual([
-				"Relationship projection processor must use only read-only host capabilities and cannot start workflows",
+			yield* validatePluginManifestReferences(manifestWithFold({}));
+			const issues = (input: Parameters<typeof manifestWithFold>[0]) =>
+				Effect.map(
+					Effect.exit(validatePluginManifestReferences(manifestWithFold(input))),
+					issuesOf,
+				);
+			expect(yield* issues({ capabilities: ["createEvents"] })).toEqual([
+				"Entity fold must use only read-only host capabilities and cannot call other scripts",
 			]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							manifestWithRelationshipProjection(["executeRyotql"], { note: score }),
-						),
-					),
-				),
-			).toEqual([
+			expect(yield* issues({ eventSchemaSlugs: ["missing"] })).toEqual([
+				"Entity fold input schema missing is not declared",
+			]);
+			expect(yield* issues({ fields: { note: score } })).toEqual([
 				"Relationship projection requires a strict, non-empty output schema disjoint from source properties with at most 20 fields",
 			]);
-			const withInputs = (eventSchemaSlugs: ReadonlyArray<string>) => {
-				const fixture = manifestWithRelationshipProjection(["executeRyotql"], { score });
-				const [relationship] = fixture.relationshipSchemas;
-				assert(relationship);
-				return {
-					...fixture,
-					relationshipSchemas: [
-						{
-							...relationship,
-							projection: {
-								...relationship.projection,
-								inputs: { eventSchemaSlugs, relationshipCreate: true },
-							},
-						},
-					],
-				};
-			};
-			yield* validatePluginManifestReferences(withInputs(["changed"]));
-			expect(
-				issuesOf(yield* Effect.exit(validatePluginManifestReferences(withInputs(["missing"])))),
-			).toEqual(["Relationship projection input schema missing is not declared"]);
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"rejects event projection dependencies that cannot be invalidated through declared source references",
-	() =>
-		Effect.gen(function* () {
-			const fixture = manifestWithRelationshipProjection(["executeRyotql"], {
-				score: { label: "Score", type: "number", description: "Score" },
-			});
-			const entity = fixture.entitySchemas[0];
-			const projection = fixture.relationshipSchemas[0]?.projection;
-			assert(entity);
-			assert(projection);
-			const withInputs = (inputs: PluginEventProjection["inputs"]) => ({
-				...fixture,
-				entitySchemas: [
-					{
-						...entity,
-						eventSchemas: [
-							...entity.eventSchemas,
-							{
-								name: "Projected",
-								slug: "projected",
-								propertiesSchema: { fields: {} },
-								projection: { ...projection, inputs },
-							},
-							{
-								name: "Source",
-								slug: "source",
-								propertiesSchema: {
-									fields: {
-										note: { label: "Note", description: "Note", type: "string" as const },
-										subject: {
-											label: "Subject",
-											description: "Subject",
-											type: "string" as const,
-											reference: { kind: "entity-id" as const },
-										},
-									},
-								},
-							},
-						],
-					},
-					...fixture.entitySchemas.slice(1),
-				],
-			});
-			yield* validatePluginManifestReferences(
-				withInputs([
-					{ scope: "entity", eventSchemaSlug: "projected" },
-					{ eventSchemaSlug: "source", scope: { property: "subject" } },
-				]),
-			);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([
-								{ scope: "entity", eventSchemaSlug: "projected" },
-								{ scope: "entity", eventSchemaSlug: "projected" },
-							]),
-						),
-					),
-				),
-			).toEqual(["Event projection input paths must be unique"]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([
-								{ scope: "entity", eventSchemaSlug: "projected" },
-								{ eventSchemaSlug: "source", scope: { property: "note" } },
-							]),
-						),
-					),
-				),
-			).toEqual(["Event projection input scope note must be a declared entity reference"]);
-			expect(
-				issuesOf(
-					yield* Effect.exit(
-						validatePluginManifestReferences(
-							withInputs([
-								{ scope: "entity", eventSchemaSlug: "projected" },
-								{ scope: "entity", eventSchemaSlug: "missing" },
-							]),
-						),
-					),
-				),
-			).toEqual(["Event projection input schema missing is not declared"]);
 		}),
 	testTimeout,
 );

@@ -27,7 +27,7 @@ const mapTestSupportFailure = <A, E, R>(effect: Effect.Effect<A, E, R>) =>
 			) {
 				return error;
 			}
-			const diagnostic = unknownToMessage(error);
+			const diagnostic = unknownToMessage(error) || String(error);
 			return Match.value(error).pipe(
 				Match.when(
 					(value: unknown) => Reflect.get(Object(value), "_tag") === "BadRequest",

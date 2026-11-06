@@ -236,11 +236,6 @@ export class EntityRetentionRepository extends Context.Service<EntityRetentionRe
 						sql`referrer.provider_id is null`,
 					),
 					mentioned(
-						sql`${tables.backgroundWork} w`,
-						sql`w.payload`,
-						sql`w.status in ('queued', 'running')`,
-					),
-					mentioned(
 						sql`${tables.automationTrigger} t`,
 						sql`t.payload`,
 						sql`t.payload is not null and exists (select 1 from ${tables.automationRun} run where run.trigger_id = t.id and run.status in ('queued', 'running'))`,

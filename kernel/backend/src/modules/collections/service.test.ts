@@ -163,7 +163,6 @@ const noteCollection = {
 const membershipPlan = {
 	runs: [],
 	blockedReason: null,
-	backgroundJobIds: [],
 	triggerId: AutomationTriggerId.make("membership-trigger"),
 };
 const committedRelationship: Effect.Success<

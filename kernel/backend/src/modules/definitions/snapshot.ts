@@ -5,9 +5,9 @@ import {
 } from "@ryot-app/contract/modules/plugins/event-groups";
 import {
 	PluginEntityEditor,
+	PluginEntityFold,
 	PluginEntityUserStatePolicy,
-	PluginEventProjection,
-	PluginRelationshipProjection,
+	PluginProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
@@ -55,7 +55,7 @@ export const EventSchemaDefinition = Schema.Struct({
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
 	eventGroup: Schema.optional(PluginEventGroup),
-	projection: Schema.optional(PluginEventProjection),
+	projection: Schema.optional(PluginProjection),
 });
 
 export type EventSchemaDefinition = typeof EventSchemaDefinition.Type;
@@ -66,6 +66,7 @@ export const EntitySchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	fold: Schema.optional(PluginEntityFold),
 	editor: Schema.optional(PluginEntityEditor),
 	browse: Schema.optional(EntitySchemaBrowse),
 	occursAtProperty: Schema.optional(Schema.String),
@@ -85,10 +86,10 @@ export const RelationshipSchemaDefinition = Schema.Struct({
 	name: Schema.String,
 	slug: Schema.String,
 	propertiesSchema: AppSchema,
+	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),
-	projection: Schema.optional(PluginRelationshipProjection),
 	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 

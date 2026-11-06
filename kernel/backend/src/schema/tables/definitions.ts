@@ -7,11 +7,11 @@ import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-
 import type { SourcePlan } from "@ryot-app/contract/modules/plugins/execution";
 import type {
 	PluginEntityEditor,
+	PluginEntityFold,
 	PluginEntityUserStatePolicy,
-	PluginEventProjection,
 	PluginImportSource,
 	PluginIntegrationProvider,
-	PluginRelationshipProjection,
+	PluginProjection,
 	PluginRelationshipRetention,
 	PluginRelationshipUserWritePolicy,
 	PluginSignalAudiencePolicy,
@@ -76,6 +76,7 @@ export const definitionEntitySchema = snakeCase.table(
 		...definitionColumns(),
 		icon: text().notNull(),
 		occursAtProperty: text(),
+		fold: jsonb().$type<PluginEntityFold>(),
 		browse: jsonb().$type<EntitySchemaBrowse>(),
 		editor: jsonb().$type<PluginEntityEditor>(),
 		mergeIdentityProperties: text().array().notNull(),
@@ -96,7 +97,7 @@ export const definitionEventSchema = snakeCase.table(
 	{
 		...definitionColumns(),
 		eventGroup: jsonb().$type<PluginEventGroup>(),
-		projection: jsonb().$type<PluginEventProjection>(),
+		projection: jsonb().$type<PluginProjection>(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		entitySchemaId: text()
 			.notNull()
@@ -113,9 +114,9 @@ export const definitionRelationshipSchema = snakeCase.table(
 		...definitionColumns(),
 		sourceEntitySchemaSlug: text(),
 		targetEntitySchemaSlug: text(),
+		projection: jsonb().$type<PluginProjection>(),
 		propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 		retention: text().$type<PluginRelationshipRetention>(),
-		projection: jsonb().$type<PluginRelationshipProjection>(),
 		userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 	},
@@ -418,6 +419,7 @@ const userColumns = () => ({
 
 const entitySchemaColumns = () => ({
 	icon: text().notNull(),
+	fold: jsonb().$type<PluginEntityFold>(),
 	browse: jsonb().$type<EntitySchemaBrowse>(),
 	editor: jsonb().$type<PluginEntityEditor>(),
 	mergeIdentityProperties: text().array().notNull(),
@@ -436,15 +438,15 @@ const eventSchemaColumns = () => ({
 	entitySchemaSlug: text().notNull(),
 	packageId: text().$type<PluginPackageId>(),
 	eventGroup: jsonb().$type<PluginEventGroup>(),
-	projection: jsonb().$type<PluginEventProjection>(),
+	projection: jsonb().$type<PluginProjection>(),
 	propertiesSchema: jsonb().$type<AppSchema>().notNull(),
 });
 
 const relationshipSchemaColumns = () => ({
 	sourceEntitySchemaSlug: text(),
 	targetEntitySchemaSlug: text(),
+	projection: jsonb().$type<PluginProjection>(),
 	propertiesSchema: jsonb().$type<AppSchema>().notNull(),
-	projection: jsonb().$type<PluginRelationshipProjection>(),
 	userWritePolicy: text().$type<PluginRelationshipUserWritePolicy>(),
 });
 
@@ -478,7 +480,7 @@ export const globalEntitySchema = snakeCase
 	.view("global_entity_schema", { ...globalColumns(), ...entitySchemaColumns() })
 	.as(
 		sql`
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold
 			from definition_entity_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join (${globalPluginQuery}) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
@@ -549,12 +551,12 @@ export const userEntitySchema = snakeCase
 	.view("user_entity_schema", { ...userColumns(), ...entitySchemaColumns() })
 	.as(
 		sql`
-			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold, true as is_effective
 			from definition_entity_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, p.is_definition_effective
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold, p.is_definition_effective
 			from ${userPluginState} p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
 			where p.is_present and p.is_listed

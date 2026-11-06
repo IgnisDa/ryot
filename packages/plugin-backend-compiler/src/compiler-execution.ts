@@ -134,9 +134,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			"activity",
 			"getPluginConfig",
 			"executeWorkflow",
-			"requestUserWork",
 			"getOAuthAccessToken",
-			"requestEventStreamWork",
 			"invalidateOAuthAccessToken",
 		]);
 		const fail = (node: ts.Node, message: string) => {
@@ -557,9 +555,6 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 						yield* configAccess(node);
 					}
 					if (symbol.name === "activity") {
-						yield* executableAccess(node, "script");
-					}
-					if (symbol.name === "requestEventStreamWork" || symbol.name === "requestUserWork") {
 						yield* executableAccess(node, "script");
 					}
 					if (symbol.name === "child" || symbol.name === "executeWorkflow") {

@@ -123,7 +123,7 @@ const makeServiceLayer = (
 
 layer(makeServiceLayer())((test) => {
 	test.effect(
-		"joins projection freshness per read event and shares correlated ranking work",
+		"joins fold output per read event and shares correlated ranking work",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* RyotQLService;
@@ -160,13 +160,10 @@ layer(makeServiceLayer())((test) => {
 				});
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements.find((value) =>
-					value.includes("left join event_stream_work w on w.id = s.id"),
+					value.includes("left join derived_value p on p.user_id = e.user_id"),
 				);
 				assert(statement);
-				expect(statement).not.toContain("projectionStreams");
-				expect(
-					statement.match(/left join event_stream s on s.entity_id = e.entity_id/g),
-				).toHaveLength(1);
+				expect(statement.match(/left join derived_value p on/g)).toHaveLength(1);
 				expect(statement.match(/SUM\(/g)).toHaveLength(1);
 				expect(statement.match(/COUNT\(/g)).toHaveLength(4);
 				expect(statement.match(/SELECT \* FROM "event"/g)).toHaveLength(1);

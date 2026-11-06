@@ -380,7 +380,6 @@ const entitiesLayer = (options: TestOptions = {}) =>
 												runs: [],
 												wasCreated: true,
 												trigger: persisted,
-												backgroundJobIds: [],
 												policies:
 													trigger.kind.category === "request"
 														? (options.policies ?? []).map((_, index) => ({

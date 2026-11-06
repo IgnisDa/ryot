@@ -1,20 +1,17 @@
+import { FoldRequest } from "@ryot-app/contract/modules/events/folds";
 import {
 	CreateEventsResponse,
 	EventOrderAnchor,
 	EventPropertiesPatch,
 	EventWritePrecondition,
 } from "@ryot-app/contract/modules/events/schemas";
-import {
-	EventStreamProcessorReference,
-	EventStreamWorkRequest,
-} from "@ryot-app/contract/modules/events/stream-work";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 import { hostResultSchema, jsonValueSchema, strictStruct } from "../wire";
 import { sandboxEntitySchemaSlugListSchema } from "./entities";
 import { EVENT_MUTATION_SANDBOX_LIMITS } from "./limits";
-import { nonEmptyString, sandboxIdSchema } from "./primitives";
+import { sandboxIdSchema } from "./primitives";
 
 export const eventSchemaRecordSchema = strictStruct({
 	id: Schema.String,
@@ -100,13 +97,10 @@ export const deleteEventsResultSchema = hostResultSchema(deleteEventsResultDataS
 export const listEventSchemasDataSchema = Schema.Array(eventSchemaRecordSchema);
 export const createEventsResultSchema = hostResultSchema(createEventsResultDataSchema);
 export const createEventsArgsSchema = Schema.Tuple([Schema.Array(createEventItemSchema)]);
-export const requestEventStreamWorkArgsSchema = Schema.Tuple([
-	EventStreamWorkRequest,
-	EventStreamProcessorReference,
-]);
-export const requestEventStreamWorkDataSchema = strictStruct({ workId: nonEmptyString });
-export const requestEventStreamWorkResultSchema = hostResultSchema(
-	requestEventStreamWorkDataSchema,
-);
+export const requestFoldsArgsSchema = Schema.Tuple([FoldRequest]);
+export const requestFoldsDataSchema = strictStruct({
+	queued: Schema.Number.pipe(Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(0))),
+});
+export const requestFoldsResultSchema = hostResultSchema(requestFoldsDataSchema);
 export const listEventSchemasArgsSchema = Schema.Tuple([sandboxEntitySchemaSlugListSchema]);
 export const listEventSchemasResultSchema = hostResultSchema(listEventSchemasDataSchema);

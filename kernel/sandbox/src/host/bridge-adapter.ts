@@ -193,6 +193,11 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.createEvents,
 			implementations.createEvents,
 		),
+		requestFolds: bind(
+			"requestFolds",
+			domainSandboxHostContracts.requestFolds,
+			implementations.requestFolds,
+		),
 		getCachedValue: bind(
 			"getCachedValue",
 			coreSandboxHostContracts.getCachedValue,
@@ -285,22 +290,16 @@ export const bindSandboxHostFunctions = <Input>(
 			implementations.deleteEvents,
 			{ failure: preserveWriteFailure },
 		),
-		requestEventStreamWork: bind(
-			"requestEventStreamWork",
-			domainSandboxHostContracts.requestEventStreamWork,
-			implementations.requestEventStreamWork,
+		requestFoldsForAllUsers: bind(
+			"requestFoldsForAllUsers",
+			domainSandboxHostContracts.requestFoldsForAllUsers,
+			implementations.requestFoldsForAllUsers,
 		),
 		executeRyotql: bind(
 			"executeRyotql",
 			domainSandboxHostContracts.executeRyotql,
 			implementations.executeRyotql,
 			{ failure: preserveHttpFailureDetails },
-		),
-		requestUserWork: bind(
-			"requestUserWork",
-			domainSandboxHostContracts.requestUserWork,
-			implementations.requestUserWork,
-			{ failure: preserveWriteFailure },
 		),
 		upsertGlobalRelationships: bind(
 			"upsertGlobalRelationships",
@@ -358,11 +357,6 @@ export const bindSandboxHostFunctions = <Input>(
 			failure: preserveHttpFailureDetails,
 			normalize: (args) => normalizeOptionalNull(args, 2),
 		}),
-		requestRelationshipProjections: bind(
-			"requestRelationshipProjections",
-			domainSandboxHostContracts.requestRelationshipProjections,
-			implementations.requestRelationshipProjections,
-		),
 		listIntegrations: bind(
 			"listIntegrations",
 			domainSandboxHostContracts.listIntegrations,
@@ -374,11 +368,6 @@ export const bindSandboxHostFunctions = <Input>(
 			domainSandboxHostContracts.changeUserRelationships,
 			implementations.changeUserRelationships,
 			{ failure: preserveWriteFailure },
-		),
-		requestRelationshipProjectionsForAllUsers: bind(
-			"requestRelationshipProjectionsForAllUsers",
-			domainSandboxHostContracts.requestRelationshipProjectionsForAllUsers,
-			implementations.requestRelationshipProjectionsForAllUsers,
 		),
 	};
 };

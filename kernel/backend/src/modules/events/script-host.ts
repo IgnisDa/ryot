@@ -10,7 +10,6 @@ import {
 	updateEventsArgsSchema,
 } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
 import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Effect, Schema } from "effect";
 
@@ -20,11 +19,9 @@ import {
 	type ScriptRunInput,
 	type UserSandboxRunInput,
 } from "#modules/scripts/authorization/capabilities";
-import { isDeclaredExecutableCall } from "#modules/scripts/authorization/executable-dependencies";
 import {
 	reportSandboxLifecycleWarnings,
 	sandboxLifecycleCommand,
-	sandboxRunUserId,
 	userSandboxRunUserId,
 } from "#modules/scripts/host/execution-context";
 import {
@@ -32,10 +29,8 @@ import {
 	type LifecycleHostInput,
 	userLifecycleSource,
 } from "#modules/scripts/host/lifecycle-host";
-import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { EventsService } from "./service";
-import { EventStreamWorkService } from "./stream-work";
 
 const decodeCreateEventsPayload = Schema.decodeUnknownEffect(Schema.Array(CreateEventItem));
 
@@ -137,8 +132,6 @@ export type EventLifecycleHostSteps = ReturnType<typeof eventLifecycleHostSteps>
 
 export const makeEventScriptHost = Effect.gen(function* () {
 	const events = yield* EventsService;
-	const eventStreamWork = yield* EventStreamWorkService;
-	const sandboxRepository = yield* SandboxRepository;
 	const lifecycle = eventLifecycleHostSteps(events);
 
 	const createEvents = (input: UserSandboxRunInput, payload: ReadonlyArray<CreateEventItem>) =>
@@ -155,58 +148,7 @@ export const makeEventScriptHost = Effect.gen(function* () {
 				.create({ payload, command, userId: UserId.make(userSandboxRunUserId(input)) })
 				.pipe(Effect.flatMap(toSandboxCreateEventsResult));
 		});
-	const requestEventStreamWork = (
-		rawInput: ScriptRunInput,
-		request: Parameters<AdditionalScriptHostImplementationMap["requestEventStreamWork"]>[1],
-		reference: Parameters<AdditionalScriptHostImplementationMap["requestEventStreamWork"]>[2],
-	) =>
-		sandboxHostEffect(
-			Effect.gen(function* () {
-				const input = yield* requireSandboxCapabilityInput(rawInput, "requestEventStreamWork");
-				const userId = sandboxRunUserId(input);
-				if (userId === null) {
-					return yield* Effect.fail("requestEventStreamWork requires a user execution");
-				}
-				const accountGeneration = input.principal.subject.accountGeneration;
-				if (!accountGeneration || accountGeneration.userId !== userId) {
-					return yield* Effect.fail("requestEventStreamWork requires an active user account");
-				}
-				const pluginPin = input.principal.pluginRevision;
-				if (!pluginPin) {
-					return yield* Effect.fail("requestEventStreamWork requires a pinned plugin script");
-				}
-				const targetRequest = {
-					index: 0,
-					kind: "activity",
-					name: "event-stream-processor",
-					args: { input: null, scriptSlug: reference.scriptSlug },
-				} satisfies WorkflowDurableCallRequest;
-				if (!isDeclaredExecutableCall(input.principal.metadata, targetRequest)) {
-					return yield* Effect.fail("Event stream processor is not a declared script dependency");
-				}
-				const target = yield* sandboxRepository.resolveWorkflowCallScript(pluginPin, targetRequest);
-				if (target?.kind !== "script") {
-					return yield* Effect.fail("Event stream processor script could not be resolved");
-				}
-				const workId = yield* eventStreamWork
-					.request({
-						request,
-						pluginPin,
-						accountGeneration,
-						processorScriptId: target.scriptId,
-						command: yield* sandboxLifecycleCommand(
-							input,
-							userLifecycleSource(input),
-							"requestEventStreamWork",
-						),
-					})
-					.pipe(Effect.mapError((error) => error.message));
-				return { workId };
-			}),
-		);
-
 	return {
-		requestEventStreamWork,
 		createEvents: (rawInput, body) =>
 			requireSandboxCapabilityInput(rawInput, "createEvents").pipe(
 				Effect.flatMap((input) =>
@@ -241,6 +183,6 @@ export const makeEventScriptHost = Effect.gen(function* () {
 			),
 	} satisfies Pick<
 		AdditionalScriptHostImplementationMap,
-		"createEvents" | "deleteEvents" | "updateEvents" | "requestEventStreamWork"
+		"createEvents" | "deleteEvents" | "updateEvents"
 	>;
 });

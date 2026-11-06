@@ -291,21 +291,6 @@ const stableJson = (value: unknown): string => {
 	return nativeString(jsonStringify(value));
 };
 
-const transportArguments = (fnName: string, args: ReadonlyArray<unknown>) => {
-	if (fnName !== "requestEventStreamWork" && fnName !== "requestUserWork") {
-		return args;
-	}
-	const reference = args[1];
-	if (args.length !== 2 || !isRecord(reference) || reference["referenceKind"] !== "script") {
-		return null;
-	}
-	const scriptSlug = reference["scriptSlug"];
-	if (typeof scriptSlug !== "string" || scriptSlug.length === 0) {
-		return null;
-	}
-	return [args[0], { scriptSlug, referenceKind: "script" }];
-};
-
 const readErrorField = (error: unknown, field: "data" | "message"): unknown => {
 	try {
 		return isRecord(error) ? error[field] : undefined;
@@ -747,13 +732,9 @@ const createHost = (
 		if (budgetError) {
 			return Effect.fail(budgetError);
 		}
-		const transported = transportArguments(name, args);
-		if (!transported) {
-			return Effect.fail(createFailure(name + " requires a script reference"));
-		}
 		let jsonArgs: JsonValue;
 		try {
-			jsonArgs = jsonClone(transported, name + " arguments");
+			jsonArgs = jsonClone(args, name + " arguments");
 		} catch (error) {
 			return Effect.fail(asSandboxHostError(error));
 		}
@@ -952,17 +933,13 @@ const createDurableHost = (
 			if (budgetError) {
 				return Effect.fail(budgetError);
 			}
-			const transported = transportArguments(name, args);
-			if (!transported) {
-				return Effect.fail(createFailure(name + " requires a script reference"));
-			}
 			const requestIndex = requests.length;
 			return register(
 				{
 					name,
 					kind: "host",
 					index: requestIndex,
-					args: { capability: name, args: jsonClone(transported, name + " arguments") },
+					args: { capability: name, args: jsonClone(args, name + " arguments") },
 				},
 				requestIndex,
 			);

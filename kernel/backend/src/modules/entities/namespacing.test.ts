@@ -26,6 +26,8 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { Folds } from "#modules/derived-values/service";
+import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import {
@@ -204,7 +206,10 @@ const createEvents = (
 		const repository = yield* EventsRepository.make;
 		const schemas = yield* EventSchemaReader.make;
 		const create = yield* makeEventCreate.pipe(
-			Effect.provideServiceEffect(EventMutations, EventMutations.make),
+			Effect.provideServiceEffect(
+				EventMutations,
+				EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+			),
 			Effect.provideService(EventsRepository, repository),
 			Effect.provideService(EventSchemaReader, schemas),
 		);

@@ -18,7 +18,6 @@ import {
 	EntityId,
 	EntitySchemaSlug,
 	EventId,
-	EventSchemaSlug,
 	ImportRunId,
 	IntegrationId,
 	PluginConfigRevisionId,
@@ -44,7 +43,6 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
-import { BackgroundWorkService } from "#modules/background-work/service";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
@@ -57,7 +55,6 @@ import {
 } from "#modules/entities/write-context";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
-import { EventStreamWorkService } from "#modules/events/stream-work";
 import {
 	ingestionTestRevision,
 	ingestionTestSource,
@@ -72,7 +69,6 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
-import { RelationshipProjectionService } from "#modules/relationships/projections/service";
 import {
 	relationshipMutationLockKey,
 	RelationshipsRepository,
@@ -151,8 +147,7 @@ const hostDatabaseLayer = Layer.mergeAll(
 	seededDatabase,
 	Layer.mock(LifecyclePlanner)(
 		withLifecycleBatchPlanning({
-			plan: ({ trigger }) =>
-				Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true, backgroundJobIds: [] }),
+			plan: ({ trigger }) => Effect.succeed({ trigger, runs: [], policies: [], wasCreated: true }),
 		}),
 	),
 	Layer.mock(LifecycleExecution)({
@@ -374,18 +369,6 @@ class HostFunctionCalls extends Context.Service<
 const append = <A>(ref: Ref.Ref<ReadonlyArray<A>>, value: A) =>
 	Ref.update(ref, (all) => [...all, value]);
 
-const eventStreamWorkServiceLayer = (request: EventStreamWorkService["Service"]["request"]) =>
-	Layer.succeed(
-		EventStreamWorkService,
-		EventStreamWorkService.of({
-			request,
-			prepare: () => Effect.die("Unexpected EventStreamWorkService.prepare"),
-			process: () => Effect.die("Unexpected EventStreamWorkService.process"),
-			reconcile: () => Effect.die("Unexpected EventStreamWorkService.reconcile"),
-			admitChanges: () => Effect.die("Unexpected EventStreamWorkService.admitChanges"),
-		}),
-	);
-
 const hostFunctionsLayer = (
 	options: {
 		readonly sourceStateRunId?: string;
@@ -394,7 +377,6 @@ const hostFunctionsLayer = (
 		readonly installationUnavailable?: boolean;
 		readonly forbidRelationshipWrites?: boolean;
 		readonly entityScope?: typeof builtinEntityScope;
-		readonly eventStreamRequest?: EventStreamWorkService["Service"]["request"];
 		readonly executionSettings?: (runId: string) => ImportSourceExecutionSettings;
 		readonly pluginConfig?: PluginRuntimeResolver["Service"]["resolvePluginConfigContext"];
 		readonly liveUserSettings?: Record<string, JsonValue> | (() => Record<string, JsonValue>);
@@ -458,11 +440,6 @@ const hostFunctionsLayer = (
 							Effect.as({ warnings: [], count: eventIds.length }),
 						),
 				}),
-				eventStreamWorkServiceLayer(
-					options.eventStreamRequest ??
-						(() => Effect.die("Unexpected EventStreamWorkService.request")),
-				),
-				Layer.mock(RelationshipProjectionService)({}),
 				Layer.mock(SandboxRepository)({
 					resolveWorkflowCallScript:
 						options.resolveWorkflowCallScript ?? (() => Effect.succeed(null)),
@@ -714,7 +691,6 @@ const hostFunctionsLayer = (
 				}),
 			);
 			return Layer.mergeAll(
-				BackgroundWorkService.layer,
 				RelationshipMutationPipeline.layer,
 				Layer.succeed(UserCommands, { commit: () => Effect.die("Unexpected atomic command") }),
 			).pipe(Layer.provideMerge(dependencies));
@@ -779,94 +755,6 @@ describe("event mutation capabilities", () => {
 							},
 						},
 					]);
-				}),
-			testTimeout,
-		);
-	});
-});
-
-describe("requestEventStreamWork", () => {
-	const resolvedTargets: Array<unknown> = [];
-	const requests: Array<unknown> = [];
-	layer(
-		hostFunctionsLayer({
-			eventStreamRequest: (input) =>
-				Effect.sync(() => requests.push(input)).pipe(Effect.as("event-stream-work-id")),
-			resolveWorkflowCallScript: (pluginPin, request) =>
-				Effect.sync(() => resolvedTargets.push({ request, pluginPin })).pipe(
-					Effect.as({
-						kind: "script",
-						contentHash: "processor-hash",
-						scriptId: SandboxScriptId.make("processor-script"),
-					}),
-				),
-		}),
-	)((test) => {
-		test.effect(
-			"resolves and registers only the declared script under the trusted account",
-			() =>
-				Effect.gen(function* () {
-					const functions = yield* makeAdditionalScriptHostFunctions;
-					const userId = UserId.make("user-1");
-					const accountGeneration = testAccountGeneration(userId);
-					const subject = {
-						userId,
-						type: "user",
-						accountGeneration,
-					} satisfies SandboxExecutionSubject;
-					const input = runInput(subject, ["requestEventStreamWork"], {
-						pluginRevision: systemPluginRevision,
-						metadata: {
-							kind: "automation",
-							capabilities: ["requestEventStreamWork"],
-							executableDependencies: [{ kind: "script", slug: "stream-processor" }],
-						},
-					});
-					const request = {
-						entityId: EntityId.make("entity-1"),
-						eventSchemaSlug: EventSchemaSlug.make("event-stream"),
-					};
-					const reference = {
-						referenceKind: "script",
-						scriptSlug: "stream-processor",
-					} satisfies Parameters<typeof functions.requestEventStreamWork>[2];
-
-					expect(yield* functions.requestEventStreamWork(input, request, reference)).toEqual({
-						workId: "event-stream-work-id",
-					});
-					expect(resolvedTargets).toEqual([
-						{
-							pluginPin: systemPluginRevision,
-							request: {
-								index: 0,
-								kind: "activity",
-								name: "event-stream-processor",
-								args: { input: null, scriptSlug: "stream-processor" },
-							},
-						},
-					]);
-					expect(requests).toEqual([
-						{
-							request,
-							accountGeneration,
-							pluginPin: systemPluginRevision,
-							processorScriptId: SandboxScriptId.make("processor-script"),
-							command: objectContaining({
-								writeContext: input.principal,
-								itemIdentity: "requestEventStreamWork",
-							}),
-						},
-					]);
-
-					const undeclared = runInput(subject, ["requestEventStreamWork"], {
-						pluginRevision: systemPluginRevision,
-						metadata: { executableDependencies: [], capabilities: ["requestEventStreamWork"] },
-					});
-					const failure = yield* Effect.flip(
-						functions.requestEventStreamWork(undeclared, request, reference),
-					);
-					expect(failure.message).toContain("not a declared script dependency");
-					expect(requests).toHaveLength(1);
 				}),
 			testTimeout,
 		);

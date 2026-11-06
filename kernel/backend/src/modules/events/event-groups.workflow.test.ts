@@ -191,13 +191,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 						.where(eq(tables.event.sessionEntityId, fixture.result.entityId))
 						.orderBy(tables.event.id),
 				);
-				const freshnessBefore = yield* database.run((db) =>
-					db
-						.select()
-						.from(tables.eventStream)
-						.where(eq(tables.eventStream.entityId, fixture.subjectId))
-						.orderBy(tables.eventStream.id),
-				);
 				const root = yield* (yield* EntitiesRepository).getByIdForUser({
 					userId: fixture.userId,
 					entityId: fixture.result.entityId,
@@ -272,15 +265,6 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 							.orderBy(tables.event.id),
 					),
 				).toEqual(before);
-				expect(
-					yield* database.run((db) =>
-						db
-							.select()
-							.from(tables.eventStream)
-							.where(eq(tables.eventStream.entityId, fixture.subjectId))
-							.orderBy(tables.eventStream.id),
-					),
-				).toEqual(freshnessBefore);
 			}),
 		testTimeout,
 	);

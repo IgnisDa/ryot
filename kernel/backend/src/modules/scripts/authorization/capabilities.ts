@@ -37,6 +37,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	createEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	updateEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
 	deleteEvents: { bridge: true, subjects: ["user", "automation-run"] as const },
+	requestFolds: { bridge: true, subjects: ["user", "automation-run"] as const },
 	httpCall: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
 	getProAvailability: { bridge: true, subjects: ["user", "automation-run"] as const },
 	verifyManagedAssets: { bridge: true, subjects: ["user", "automation-run"] as const },
@@ -51,16 +52,10 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	listIntegrations: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	listEventSchemas: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	getEntitySchemas: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
-	requestRelationshipProjections: { bridge: true, subjects: ["user", "automation-run"] as const },
 	getUserPreferences: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	getCurrentIntegration: {
 		bridge: true,
 		subjects: ["user", "automation-run", "projection"] as const,
-	},
-	requestUserWork: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		subjects: ["user", "automation-run"],
 	},
 	getCachedValue: {
 		bridge: true,
@@ -70,21 +65,16 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		subjects: ["user", "automation-run", "system", "projection"] as const,
 	},
-	requestEventStreamWork: {
+	requestFoldsForAllUsers: {
 		bridge: true,
 		requiresSystemPlugin: true,
-		subjects: ["user", "automation-run"],
+		subjects: ["user", "automation-run", "system"] as const,
 	},
 	upsertGlobalRelationships: {
 		bridge: true,
 		requiresSystemPlugin: true,
 		subjects: ["system"] as const,
 		systemKinds: ["script"] as const,
-	},
-	requestRelationshipProjectionsForAllUsers: {
-		bridge: true,
-		requiresSystemPlugin: true,
-		subjects: ["user", "automation-run", "system"] as const,
 	},
 	emitSignal: {
 		bridge: true,

@@ -8,8 +8,6 @@ import type {
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import {
 	EntityId,
-	EventSchemaSlug,
-	PluginId,
 	RelationshipId,
 	type SignalSchemaSlug,
 	UserId,
@@ -20,12 +18,11 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { PortableUserProfile } from "#modules/accounts/auth/repository";
-import { EventStreamRepository } from "#modules/events/stream-repository";
+import { lockEventReferences } from "#modules/events/repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { RelationshipProjectionRepository } from "#modules/relationships/projections/repository";
 import { upsertSavedViewOverride } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as backupSchema from "#schema/tables/backups";
@@ -108,8 +105,6 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const session = yield* DatabaseSession;
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
-			const streams = yield* EventStreamRepository.make;
-			const projections = yield* RelationshipProjectionRepository.make;
 			const restoreDefaultSubscription = Effect.fn(
 				"BackupRestorePersistence.restoreDefaultSubscription",
 			)(function* (input: typeof schema.notificationSubscription.$inferInsert) {
@@ -247,13 +242,6 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					const [row] = yield* session.run((db) =>
 						db.insert(schema.relationship).values(input).returning({ id: schema.relationship.id }),
 					);
-					yield* projections.invalidate([
-						{
-							userId: input.userId ?? null,
-							relationshipSchemaSlug: input.relationshipSchemaSlug,
-							relationshipSchemaPluginId: input.relationshipSchemaPluginId ?? null,
-						},
-					]);
 					return row
 						? RelationshipId.make(row.id)
 						: yield* new DbError({ message: "Relationship restore returned no row" });
@@ -265,30 +253,17 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				if (inputs.length === 0) {
 					return;
 				}
-				yield* streams.lockSourceReferences(
+				yield* lockEventReferences(
+					session,
 					inputs.map((input) => ({
-						properties: input.properties,
-						userId: UserId.make(input.userId),
+						userId: input.userId,
+						entityId: input.entityId,
+						eventSchemaSlug: input.eventSchemaSlug,
 						sessionEntityId: input.sessionEntityId,
-						entityId: EntityId.make(input.entityId),
-						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
-						eventSchemaPluginId:
-							input.eventSchemaPluginId == null ? null : PluginId.make(input.eventSchemaPluginId),
+						eventSchemaPluginId: input.eventSchemaPluginId ?? null,
 					})),
 				);
 				yield* session.run((db) => db.insert(schema.event).values([...inputs]));
-				yield* streams.touch(
-					inputs.map((input) => ({
-						properties: input.properties,
-						occurredAt: input.occurredAt,
-						userId: UserId.make(input.userId),
-						sessionEntityId: input.sessionEntityId,
-						entityId: EntityId.make(input.entityId),
-						eventSchemaSlug: EventSchemaSlug.make(input.eventSchemaSlug),
-						eventSchemaPluginId:
-							input.eventSchemaPluginId == null ? null : PluginId.make(input.eventSchemaPluginId),
-					})),
-				);
 			});
 			const restoreTranslation = Effect.fn("BackupRestorePersistence.restoreTranslation")(
 				function* (input: RestoreTranslationInput) {

@@ -31,13 +31,9 @@
 			"types": "./src/effect.ts",
 			"default": "./src/effect.ts"
 		},
-		"./event-streams": {
-			"types": "./src/event-streams.ts",
-			"default": "./src/event-streams.ts"
-		},
-		"./relationship-projections": {
-			"types": "./src/relationship-projections.ts",
-			"default": "./src/relationship-projections.ts"
+		"./folds": {
+			"types": "./src/folds.ts",
+			"default": "./src/folds.ts"
 		},
 		"./fast-xml-parser": {
 			"types": "./src/fast-xml-parser.ts",

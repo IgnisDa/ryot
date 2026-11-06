@@ -20,12 +20,11 @@ import { and, asc, eq, getTableColumns, gt, inArray, or, sql } from "drizzle-orm
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
+import { FoldMarks, type FoldSource } from "#modules/derived-values/marks";
 import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
-
-import { EventStreamRepository, type StreamSource } from "./stream-repository";
 
 export type EventIdentityInput = {
 	readonly userId: UserId;
@@ -97,6 +96,10 @@ const snapshotSelection = {
 	entitySchemaPluginId: schema.entity.entitySchemaPluginId,
 };
 
+export type EventSource = FoldSource & {
+	readonly properties?: undefined | Readonly<Record<string, unknown>>;
+};
+
 type CreateEventInput = {
 	readonly id: EventId;
 	readonly userId: UserId;
@@ -110,25 +113,42 @@ type CreateEventInput = {
 	readonly order?: undefined | { readonly key: string; readonly createdAt: string };
 };
 
-const eventStreamKey = (row: {
+const eventSourceOf = (row: {
 	readonly userId: string;
 	readonly entityId: string;
 	readonly eventSchemaSlug: string;
 	readonly eventSchemaPluginId: null | string;
 	readonly sessionEntityId?: null | string | undefined;
-	readonly properties?: undefined | Readonly<Record<string, unknown>>;
-}): StreamSource => ({
-	properties: row.properties,
-	userId: UserId.make(row.userId),
-	sessionEntityId: row.sessionEntityId,
-	entityId: EntityId.make(row.entityId),
-	eventSchemaSlug: EventSchemaSlug.make(row.eventSchemaSlug),
-	eventSchemaPluginId:
-		row.eventSchemaPluginId === null ? null : PluginId.make(row.eventSchemaPluginId),
+}): EventSource => ({
+	userId: row.userId,
+	entityId: row.entityId,
+	eventSchemaSlug: row.eventSchemaSlug,
+	sessionEntityId: row.sessionEntityId ?? null,
+	eventSchemaPluginId: row.eventSchemaPluginId,
 });
 
-const minimumOccurredAt = (before: Date, after: Date) =>
-	new Date(Math.min(before.getTime(), after.getTime()));
+/** Locks the entity and session rows of event sources in ID order, before any event row. */
+export const lockEventReferences = (
+	session: DatabaseSession["Service"],
+	sources: ReadonlyArray<EventSource>,
+) => {
+	const ids = [
+		...new Set(
+			sources.flatMap((source) =>
+				source.sessionEntityId ? [source.entityId, source.sessionEntityId] : [source.entityId],
+			),
+		),
+	];
+	return ids.length === 0
+		? Effect.void
+		: Effect.asVoid(
+				session.run((db) =>
+					db.execute(sql`select id from entity
+						where id in (select jsonb_array_elements_text(${JSON.stringify(ids)}::jsonb))
+						order by id collate "C" for no key update`),
+				),
+			);
+};
 
 export class EventsRepository extends Context.Service<EventsRepository>()(
 	"@ryot-app/kernel-backend/modules/events/repository/EventsRepository",
@@ -140,7 +160,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					() => new DbError({ message: "Event writes require an active transaction" }),
 				),
 			);
-			const eventStreams = yield* EventStreamRepository.make;
+			const folds = yield* FoldMarks.make;
 			const touchScopes = Effect.fn("EventsRepository.touchScopes")(function* (
 				rows: ReadonlyArray<{
 					userId: string;
@@ -186,6 +206,28 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					);
 				}
 			});
+			const sourcesForEvents = Effect.fn("EventsRepository.sourcesForEvents")(function* (
+				eventIds: ReadonlyArray<EventId>,
+				sources: ReadonlyArray<EventSource> = [],
+			) {
+				const ids = [...new Set(eventIds)].sort();
+				if (ids.length === 0) {
+					return sources;
+				}
+				const rows = yield* session.run((db) =>
+					db
+						.select({
+							userId: schema.event.userId,
+							entityId: schema.event.entityId,
+							sessionEntityId: schema.event.sessionEntityId,
+							eventSchemaSlug: schema.event.eventSchemaSlug,
+							eventSchemaPluginId: schema.event.eventSchemaPluginId,
+						})
+						.from(schema.event)
+						.where(inArray(schema.event.id, ids)),
+				);
+				return [...sources, ...rows.map(eventSourceOf)];
+			});
 			const getEventForMutation = Effect.fn("EventsRepository.getEventForMutation")(function* (
 				input: EventIdentityInput,
 			) {
@@ -208,20 +250,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				return row ?? null;
 			});
-			const touchEventMutation = Effect.fn("EventsRepository.touchEventMutation")(
-				function* (input: {
-					after: StreamSource;
-					before: StreamSource;
-					afterOccurredAt: Date;
-					beforeOccurredAt: Date;
-				}) {
-					const occurredAt = minimumOccurredAt(input.beforeOccurredAt, input.afterOccurredAt);
-					yield* eventStreams.touch([
-						{ ...input.before, occurredAt },
-						{ ...input.after, occurredAt },
-					]);
-				},
-			);
+			const touchEventMutation = (input: { after: EventSource; before: EventSource }) =>
+				folds.mark([input.before, input.after]);
 			const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
 				function* (input: {
 					userId: UserId;
@@ -277,7 +307,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (inputs.length === 0) {
 					return [];
 				}
-				yield* eventStreams.lock(inputs.map(eventStreamKey));
+				yield* lockEventReferences(session, inputs.map(eventSourceOf));
 				const createdAt = yield* DateTime.nowAsDate;
 				const inserted = yield* session.run((db) =>
 					db
@@ -350,11 +380,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					yield* touchScopes(
 						fresh.map((input) => ({ ...input, sessionEntityId: input.sessionEntityId ?? null })),
 					);
-					yield* eventStreams.touch(
-						fresh.map((input) =>
-							Object.assign(eventStreamKey(input), { occurredAt: input.occurredAt }),
-						),
-					);
+					yield* folds.mark(fresh.map(eventSourceOf));
 				}
 				return created;
 			});
@@ -499,8 +525,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (!current) {
 					return null;
 				}
-				const streamKey = eventStreamKey(current);
-				yield* eventStreams.lock([streamKey]);
+				const streamKey = eventSourceOf(current);
+				yield* lockEventReferences(session, [streamKey]);
 				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.event)
@@ -515,12 +541,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				if (row) {
 					yield* touchScopes([current]);
-					yield* touchEventMutation({
-						after: streamKey,
-						before: streamKey,
-						afterOccurredAt: current.occurredAt,
-						beforeOccurredAt: current.occurredAt,
-					});
+					yield* touchEventMutation({ after: streamKey, before: streamKey });
 				}
 
 				return row ? EventId.make(row.id) : null;
@@ -534,8 +555,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (!current) {
 					return null;
 				}
-				const streamKey = eventStreamKey(current);
-				yield* eventStreams.lock([streamKey]);
+				const streamKey = eventSourceOf(current);
+				yield* lockEventReferences(session, [streamKey]);
 				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.event)
@@ -550,12 +571,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				);
 				if (row) {
 					yield* touchScopes([current]);
-					yield* touchEventMutation({
-						after: streamKey,
-						before: streamKey,
-						afterOccurredAt: current.occurredAt,
-						beforeOccurredAt: current.occurredAt,
-					});
+					yield* touchEventMutation({ after: streamKey, before: streamKey });
 				}
 
 				return row ? EventId.make(row.id) : null;
@@ -571,8 +587,8 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					) {
 						return null;
 					}
-					const beforeKey = eventStreamKey(current);
-					const afterKey = eventStreamKey({
+					const beforeKey = eventSourceOf(current);
+					const afterKey = eventSourceOf({
 						...current,
 						entityId: current.entityId === input.mergeFrom ? input.mergeInto : current.entityId,
 						sessionEntityId:
@@ -580,7 +596,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 								? input.mergeInto
 								: current.sessionEntityId,
 					});
-					yield* eventStreams.lock([beforeKey, afterKey]);
+					yield* lockEventReferences(session, [beforeKey, afterKey]);
 					const [row] = yield* session.run((db) =>
 						db.execute<{ id: string }>(
 							sql`
@@ -617,12 +633,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 										: current.sessionEntityId,
 							},
 						]);
-						yield* touchEventMutation({
-							after: afterKey,
-							before: beforeKey,
-							afterOccurredAt: current.occurredAt,
-							beforeOccurredAt: current.occurredAt,
-						});
+						yield* touchEventMutation({ after: afterKey, before: beforeKey });
 					}
 
 					return row ? EventId.make(row.id) : null;
@@ -642,15 +653,13 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (!current) {
 					return null;
 				}
-				const beforeKey = eventStreamKey(current);
-				const afterKey = eventStreamKey({
+				const beforeKey = eventSourceOf(current);
+				const afterKey = eventSourceOf({
 					...current,
 					entityId: input.draft.entityId,
-					properties: input.draft.properties,
 					sessionEntityId: input.draft.sessionEntityId,
 				});
-				const afterOccurredAt = DateTime.toDate(DateTime.makeUnsafe(input.draft.occurredAt));
-				yield* eventStreams.lock([beforeKey, afterKey]);
+				yield* lockEventReferences(session, [beforeKey, afterKey]);
 				const [row] = yield* session.run((db) =>
 					db.execute<{ id: string }>(
 						sql`
@@ -681,12 +690,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							sessionEntityId: input.draft.sessionEntityId,
 						},
 					]);
-					yield* touchEventMutation({
-						after: afterKey,
-						afterOccurredAt,
-						before: beforeKey,
-						beforeOccurredAt: current.occurredAt,
-					});
+					yield* touchEventMutation({ after: afterKey, before: beforeKey });
 				}
 
 				return row ? EventId.make(row.id) : null;
@@ -695,10 +699,10 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			const lockEventRows = Effect.fn("EventsRepository.lockEventRows")(function* (input: {
 				userId: UserId;
 				eventIds: ReadonlyArray<EventId>;
-				sources?: ReadonlyArray<StreamSource>;
+				sources?: ReadonlyArray<EventSource>;
 			}) {
 				const eventIds = [...new Set(input.eventIds)].sort();
-				yield* eventStreams.lockForEvents(eventIds, input.sources);
+				yield* lockEventReferences(session, yield* sourcesForEvents(eventIds, input.sources));
 				if (eventIds.length === 0) {
 					return [];
 				}
@@ -715,9 +719,12 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			const lockMutationReferences = Effect.fn("EventsRepository.lockMutationReferences")(
 				function* (input: {
 					eventIds: ReadonlyArray<EventId>;
-					sources?: ReadonlyArray<StreamSource>;
+					sources?: ReadonlyArray<EventSource>;
 				}) {
-					yield* eventStreams.lockSourceReferencesForEvents(input.eventIds, input.sources);
+					yield* lockEventReferences(
+						session,
+						yield* sourcesForEvents(input.eventIds, input.sources),
+					);
 				},
 			);
 

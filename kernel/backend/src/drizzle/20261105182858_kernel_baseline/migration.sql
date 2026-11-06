@@ -130,22 +130,6 @@ CREATE TABLE "automation_trigger_recipient" (
 	CONSTRAINT "automation_trigger_recipient_pkey" PRIMARY KEY("trigger_id","user_id")
 );
 --> statement-breakpoint
-CREATE TABLE "background_work" (
-	"error" text,
-	"key" text NOT NULL,
-	"scope" text NOT NULL,
-	"id" text PRIMARY KEY,
-	"input_hash" text NOT NULL,
-	"account_token" text NOT NULL,
-	"payload" jsonb NOT NULL,
-	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"status" text NOT NULL,
-	"user_id" text NOT NULL,
-	"plugin_id" text NOT NULL,
-	"purpose" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "backup_run" (
 	"artifact_key" text,
 	"expires_at" timestamp(3) with time zone,
@@ -258,6 +242,7 @@ CREATE TABLE "definition_entity_schema" (
 	"icon" text NOT NULL,
 	"occurs_at_property" text,
 	"browse" jsonb,
+	"fold" jsonb,
 	"editor" jsonb,
 	"merge_identity_properties" text[] NOT NULL,
 	"properties_schema" jsonb NOT NULL,
@@ -387,6 +372,21 @@ CREATE TABLE "definition_signal_schema" (
 	CONSTRAINT "definition_signal_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
 --> statement-breakpoint
+CREATE TABLE "derived_value" (
+	"target_id" text,
+	"plugin_revision_id" text NOT NULL,
+	"value" jsonb NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"kind" text,
+	"status" text DEFAULT 'ready' NOT NULL,
+	"user_id" text,
+	"plugin_id" text NOT NULL,
+	"subject_entity_id" text NOT NULL,
+	CONSTRAINT "derived_value_pkey" PRIMARY KEY("user_id","kind","target_id"),
+	CONSTRAINT "derived_value_kind_check" CHECK ("kind" in ('subject', 'event', 'relationship')),
+	CONSTRAINT "derived_value_status_check" CHECK ("status" in ('ready', 'pending', 'failed'))
+);
+--> statement-breakpoint
 CREATE TABLE "entity" (
 	"external_id" text,
 	"name" text NOT NULL,
@@ -474,61 +474,12 @@ CREATE TABLE "event" (
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
-CREATE TABLE "event_projection" (
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"properties" jsonb NOT NULL,
-	"stream_id" text NOT NULL,
-	"event_id" text PRIMARY KEY
-);
---> statement-breakpoint
 CREATE TABLE "event_scope" (
 	"id" text PRIMARY KEY,
 	"revision" integer DEFAULT 0 NOT NULL,
 	"event_schema_plugin_id" text,
 	"user_id" text NOT NULL,
 	"entity_id" text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "event_stream" (
-	"id" text PRIMARY KEY,
-	"event_schema_slug" text NOT NULL,
-	"revision" integer DEFAULT 0 NOT NULL,
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"event_schema_plugin_id" text,
-	"user_id" text NOT NULL,
-	"entity_id" text NOT NULL
-);
---> statement-breakpoint
-CREATE TABLE "event_stream_binding" (
-	"account_token" text,
-	"bound_revision" integer,
-	"config_revision_id" text,
-	"plugin_revision_id" text,
-	"event_schema_slug" text,
-	"entity_schema_slug" text,
-	"revision" integer DEFAULT 0 NOT NULL,
-	"user_id" text,
-	"event_schema_plugin_id" text,
-	CONSTRAINT "event_stream_binding_pkey" PRIMARY KEY("user_id","event_schema_plugin_id","entity_schema_slug","event_schema_slug")
-);
---> statement-breakpoint
-CREATE TABLE "event_stream_work" (
-	"current_job_id" text,
-	"user_id" text NOT NULL,
-	"dirty_from" timestamp(3) with time zone,
-	"completed_revision" integer,
-	"account_token" text NOT NULL,
-	"event_schema_slug" text NOT NULL,
-	"plugin_revision_id" text NOT NULL,
-	"processor_script_id" text NOT NULL,
-	"event_schema_plugin_id" text NOT NULL,
-	"plugin_pin" jsonb NOT NULL,
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"claimed_alone" boolean DEFAULT false NOT NULL,
-	"output_schema" jsonb NOT NULL,
-	"checkpoint" jsonb DEFAULT 'null',
-	"config_revision_id" text GENERATED ALWAYS AS (plugin_pin ->> 'configRevisionId') STORED,
-	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
 CREATE TABLE "idempotency_key" (
@@ -1093,43 +1044,6 @@ CREATE TABLE "relationship" (
 	CONSTRAINT "relationship_collection_rank_valid" CHECK ("relationship_schema_slug" <> 'member-of' or "relationship_schema_plugin_id" is not null or coalesce(("user_id" is not null and jsonb_typeof("properties" -> 'rank') = 'number' and ("properties" ->> 'rank')::numeric = trunc(("properties" ->> 'rank')::numeric) and abs(("properties" ->> 'rank')::numeric) < 4503599627370496), false))
 );
 --> statement-breakpoint
-CREATE TABLE "relationship_projection" (
-	"projected_revision" integer,
-	"revision" integer DEFAULT 1 NOT NULL,
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"properties" jsonb,
-	"work_id" text NOT NULL,
-	"relationship_id" text PRIMARY KEY
-);
---> statement-breakpoint
-CREATE TABLE "relationship_projection_binding" (
-	"account_token" text,
-	"bound_revision" integer,
-	"config_revision_id" text,
-	"plugin_revision_id" text,
-	"relationship_schema_slug" text,
-	"revision" integer DEFAULT 0 NOT NULL,
-	"user_id" text,
-	"relationship_schema_plugin_id" text,
-	CONSTRAINT "relationship_projection_binding_pkey" PRIMARY KEY("user_id","relationship_schema_plugin_id","relationship_schema_slug")
-);
---> statement-breakpoint
-CREATE TABLE "relationship_projection_work" (
-	"current_job_id" text,
-	"account_token" text NOT NULL,
-	"id" text PRIMARY KEY,
-	"plugin_revision_id" text NOT NULL,
-	"processor_script_id" text NOT NULL,
-	"step" integer DEFAULT 0 NOT NULL,
-	"relationship_schema_slug" text NOT NULL,
-	"plugin_pin" jsonb NOT NULL,
-	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"output_schema" jsonb NOT NULL,
-	"config_revision_id" text GENERATED ALWAYS AS (plugin_pin ->> 'configRevisionId') STORED,
-	"user_id" text NOT NULL,
-	"relationship_schema_plugin_id" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "relationship_sync_generation" (
 	"generation" text NOT NULL,
 	"started_at" timestamp(3) with time zone NOT NULL,
@@ -1415,8 +1329,6 @@ CREATE INDEX "automation_trigger_parent_trigger_idx" ON "automation_trigger" ("p
 CREATE INDEX "automation_trigger_scope_idx" ON "automation_trigger" ("scope_user_id");--> statement-breakpoint
 CREATE INDEX "automation_trigger_retention_idx" ON "automation_trigger" ("created_at","id");--> statement-breakpoint
 CREATE INDEX "automation_trigger_recipient_user_idx" ON "automation_trigger_recipient" ("user_id","trigger_id");--> statement-breakpoint
-CREATE INDEX "background_work_scope_idx" ON "background_work" ("user_id","plugin_id","purpose","scope","created_at","id");--> statement-breakpoint
-CREATE INDEX "background_work_pending_idx" ON "background_work" ("status","updated_at","id");--> statement-breakpoint
 CREATE INDEX "backup_run_user_id_idx" ON "backup_run" ("user_id");--> statement-breakpoint
 CREATE INDEX "backup_run_status_idx" ON "backup_run" ("status");--> statement-breakpoint
 CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> statement-breakpoint
@@ -1431,6 +1343,7 @@ CREATE INDEX "definition_integration_provider_slug_idx" ON "definition_integrati
 CREATE INDEX "definition_relationship_schema_slug_idx" ON "definition_relationship_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_saved_view_slug_idx" ON "definition_saved_view" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_signal_schema_slug_idx" ON "definition_signal_schema" ("slug");--> statement-breakpoint
+CREATE INDEX "derived_value_subject_idx" ON "derived_value" ("subject_entity_id","user_id");--> statement-breakpoint
 CREATE INDEX "entity_user_schema_name_idx" ON "entity" ("user_id","entity_schema_slug","name");--> statement-breakpoint
 CREATE INDEX "entity_external_id_idx" ON "entity" ("external_id");--> statement-breakpoint
 CREATE INDEX "entity_provider_id_idx" ON "entity" ("provider_id");--> statement-breakpoint
@@ -1454,11 +1367,6 @@ CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> stat
 CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_id","event_schema_slug","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_user_schema_occurred_at_idx" ON "event" ("user_id","event_schema_plugin_id","event_schema_slug","occurred_at");--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
-CREATE INDEX "event_projection_stream_id_idx" ON "event_projection" ("stream_id");--> statement-breakpoint
-CREATE INDEX "event_stream_key_idx" ON "event_stream" ("entity_id","user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
-CREATE INDEX "event_stream_user_schema_idx" ON "event_stream" ("user_id","event_schema_plugin_id","event_schema_slug");--> statement-breakpoint
-CREATE INDEX "event_stream_work_current_job_idx" ON "event_stream_work" ("current_job_id");--> statement-breakpoint
-CREATE INDEX "event_stream_work_dirty_idx" ON "event_stream_work" ("user_id","event_schema_plugin_id","event_schema_slug","id") WHERE "completed_revision" is null or "dirty_from" is not null;--> statement-breakpoint
 CREATE INDEX "idempotency_key_created_at_idx" ON "idempotency_key" ("created_at");--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1524,8 +1432,6 @@ CREATE INDEX "relationship_source_schema_idx" ON "relationship" ("source_entity_
 CREATE INDEX "relationship_target_entity_id_idx" ON "relationship" ("target_entity_id");--> statement-breakpoint
 CREATE INDEX "relationship_properties_idx" ON "relationship" USING gin ("properties");--> statement-breakpoint
 CREATE INDEX "relationship_collection_order_idx" ON "relationship" ("target_entity_id",(case when "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null then ("properties" ->> 'rank')::double precision end),"source_entity_id") WHERE "relationship_schema_slug" = 'member-of' and "relationship_schema_plugin_id" is null;--> statement-breakpoint
-CREATE INDEX "relationship_projection_dirty_idx" ON "relationship_projection" ("work_id","relationship_id") WHERE "projected_revision" is distinct from "revision";--> statement-breakpoint
-CREATE INDEX "relationship_projection_work_current_job_idx" ON "relationship_projection_work" ("current_job_id");--> statement-breakpoint
 CREATE INDEX "reminder_due_idx" ON "reminder" ("state","due_at","id");--> statement-breakpoint
 CREATE INDEX "reminder_reconcile_idx" ON "reminder" ("state","reconcile_at","id");--> statement-breakpoint
 CREATE INDEX "reminder_owner_idx" ON "reminder" ("user_id","state","created_at","id");--> statement-breakpoint
@@ -1573,8 +1479,6 @@ ALTER TABLE "automation_run_attempt" ADD CONSTRAINT "automation_run_attempt_run_
 ALTER TABLE "automation_trigger" ADD CONSTRAINT "automation_trigger_scope_user_id_user_id_fkey" FOREIGN KEY ("scope_user_id") REFERENCES "user"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_trigger_recipient" ADD CONSTRAINT "automation_trigger_recipient_79FlgkqvTsH0_fkey" FOREIGN KEY ("trigger_id") REFERENCES "automation_trigger"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "background_work" ADD CONSTRAINT "background_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "background_work" ADD CONSTRAINT "background_work_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_run" ADD CONSTRAINT "backup_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_staging_record" ADD CONSTRAINT "backup_staging_record_run_id_backup_staging_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "backup_staging_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "backup_staging_reference" ADD CONSTRAINT "backup_staging_reference_run_id_backup_staging_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "backup_staging_run"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1594,6 +1498,9 @@ ALTER TABLE "definition_relationship_schema" ADD CONSTRAINT "definition_relation
 ALTER TABLE "definition_saved_view" ADD CONSTRAINT "definition_saved_view_bGBIhUsWSMr5_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_signal_schedule" ADD CONSTRAINT "definition_signal_schedule_RGT3p54KQeok_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_signal_schema" ADD CONSTRAINT "definition_signal_schema_kHnAff4N3xqs_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "derived_value" ADD CONSTRAINT "derived_value_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "derived_value" ADD CONSTRAINT "derived_value_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "derived_value" ADD CONSTRAINT "derived_value_subject_entity_id_entity_id_fkey" FOREIGN KEY ("subject_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_provider_id_sandbox_provider_id_fkey" FOREIGN KEY ("provider_id") REFERENCES "sandbox_provider"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "entity" ADD CONSTRAINT "entity_entity_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("entity_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
@@ -1606,17 +1513,9 @@ ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fkey" FORE
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_projection" ADD CONSTRAINT "event_projection_stream_id_event_stream_id_fkey" FOREIGN KEY ("stream_id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_projection" ADD CONSTRAINT "event_projection_event_id_event_id_fkey" FOREIGN KEY ("event_id") REFERENCES "event"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_stream" ADD CONSTRAINT "event_stream_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_stream_binding" ADD CONSTRAINT "event_stream_binding_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_stream_binding" ADD CONSTRAINT "event_stream_binding_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "event_stream_work" ADD CONSTRAINT "event_stream_work_id_event_stream_id_fkey" FOREIGN KEY ("id") REFERENCES "event_stream"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "idempotency_key" ADD CONSTRAINT "idempotency_key_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_parent_id_import_activity_run_id_id_fkey" FOREIGN KEY ("run_id","parent_id") REFERENCES "import_activity"("run_id","id");--> statement-breakpoint
@@ -1677,12 +1576,6 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FO
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_projection" ADD CONSTRAINT "relationship_projection_78lhxH1dX7UF_fkey" FOREIGN KEY ("work_id") REFERENCES "relationship_projection_work"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_projection" ADD CONSTRAINT "relationship_projection_relationship_id_relationship_id_fkey" FOREIGN KEY ("relationship_id") REFERENCES "relationship"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_projection_binding" ADD CONSTRAINT "relationship_projection_binding_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_projection_binding" ADD CONSTRAINT "relationship_projection_binding_5fd9DG3tCFhl_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_projection_work" ADD CONSTRAINT "relationship_projection_work_hez9NpadMCpN_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_Rk8B2C4LFptu_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_anchor_entity_id_entity_id_fkey" FOREIGN KEY ("anchor_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reminder" ADD CONSTRAINT "reminder_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint
@@ -1716,7 +1609,7 @@ CREATE VIEW "global_calendar_source" AS (
 ) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id
 		);--> statement-breakpoint
 CREATE VIEW "global_entity_schema" AS (
-			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties
+			select d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold
 			from definition_entity_schema d
 			left join plugin_revision r on r.id = d.plugin_revision_id
 			left join (
@@ -1772,12 +1665,12 @@ CREATE VIEW "user_calendar_source_effective" AS (
 			where p.is_listed
 		);--> statement-breakpoint
 CREATE VIEW "user_entity_schema" AS (
-			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, true as is_effective
+			select u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold, true as is_effective
 			from definition_entity_schema d
 			cross join "user" u
 			where d.plugin_revision_id is null
 			union all
-			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, p.is_definition_effective
+			select p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold, p.is_definition_effective
 			from "user_plugin_state" p
 			join definition_entity_schema d on d.plugin_revision_id = p.active_revision_id
 			where p.is_present and p.is_listed

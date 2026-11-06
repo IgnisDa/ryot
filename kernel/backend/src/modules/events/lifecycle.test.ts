@@ -45,6 +45,8 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { Folds } from "#modules/derived-values/service";
+import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -251,7 +253,6 @@ const planner = (
 								trigger,
 								runs: [],
 								wasCreated: true,
-								backgroundJobIds: [],
 								policies:
 									kind.category === "request" && kind.operation === "update"
 										? Array.from({ length: policyCount }, (_, index) => ({
@@ -329,7 +330,10 @@ const runCreate = (
 		const repository = dependencies.repository ?? (yield* EventsRepository);
 		const schemas = dependencies.schemas ?? (yield* EventSchemaReader);
 		const create = yield* makeEventCreate.pipe(
-			Effect.provideServiceEffect(EventMutations, EventMutations.make),
+			Effect.provideServiceEffect(
+				EventMutations,
+				EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+			),
 			Effect.provideService(EventsRepository, repository),
 			Effect.provideService(EventSchemaReader, schemas),
 		);
@@ -758,7 +762,10 @@ describe("Event lifecycle PostgreSQL", () => {
 					const session = yield* DatabaseSession;
 					const currentPlanner = yield* LifecyclePlanner;
 					const failingService = yield* EventsService.make.pipe(
-						Effect.provideServiceEffect(EventMutations, EventMutations.make),
+						Effect.provideServiceEffect(
+							EventMutations,
+							EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+						),
 						Effect.provideService(LifecyclePlanner, {
 							...currentPlanner,
 							plan: (input) => failChanges(input.trigger, currentPlanner.plan(input)),
@@ -1080,7 +1087,10 @@ describe("Event lifecycle PostgreSQL", () => {
 					const rejectedId = EventId.make("prepared-rejected");
 					yield* seed(rejectedId);
 					const rejectingService = yield* EventsService.make.pipe(
-						Effect.provideServiceEffect(EventMutations, EventMutations.make),
+						Effect.provideServiceEffect(
+							EventMutations,
+							EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+						),
 						Effect.provideService(
 							LifecyclePlanner,
 							withLifecycleBatchPlanning({
@@ -1144,7 +1154,10 @@ describe("Event lifecycle PostgreSQL", () => {
 						);
 					}
 					const racingService = yield* EventsService.make.pipe(
-						Effect.provideServiceEffect(EventMutations, EventMutations.make),
+						Effect.provideServiceEffect(
+							EventMutations,
+							EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+						),
 						Effect.provideService(
 							LifecyclePlanner,
 							withLifecycleBatchPlanning({

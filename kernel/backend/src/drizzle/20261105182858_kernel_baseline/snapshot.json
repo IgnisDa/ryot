@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "bf75c8aa-e304-4d2c-8983-4b330e738643",
+	"id": "17a49267-66b3-4d4a-befc-943d2d03d8bf",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -83,19 +83,6 @@
 				"n|rel|public.automation_trigger_recipient",
 				"n|type|public.automation_trigger_recipient",
 				"n|rel|public.automation_trigger_recipient_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "background_work"],
-			"writes": [
-				"s|tbl|public.background_work",
-				"n|tbl|public.background_work",
-				"e|tbl|public.background_work",
-				"n|rel|public.background_work",
-				"n|type|public.background_work",
-				"n|rel|public.background_work_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -371,6 +358,19 @@
 		},
 		{
 			"statementType": "create_table",
+			"statementTarget": ["table", "public", "derived_value"],
+			"writes": [
+				"s|tbl|public.derived_value",
+				"n|tbl|public.derived_value",
+				"e|tbl|public.derived_value",
+				"n|rel|public.derived_value",
+				"n|type|public.derived_value",
+				"n|rel|public.derived_value_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
 			"statementTarget": ["table", "public", "entity"],
 			"writes": [
 				"s|tbl|public.entity",
@@ -423,19 +423,6 @@
 		},
 		{
 			"statementType": "create_table",
-			"statementTarget": ["table", "public", "event_projection"],
-			"writes": [
-				"s|tbl|public.event_projection",
-				"n|tbl|public.event_projection",
-				"e|tbl|public.event_projection",
-				"n|rel|public.event_projection",
-				"n|type|public.event_projection",
-				"n|rel|public.event_projection_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
 			"statementTarget": ["table", "public", "event_scope"],
 			"writes": [
 				"s|tbl|public.event_scope",
@@ -444,45 +431,6 @@
 				"n|rel|public.event_scope",
 				"n|type|public.event_scope",
 				"n|rel|public.event_scope_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "event_stream"],
-			"writes": [
-				"s|tbl|public.event_stream",
-				"n|tbl|public.event_stream",
-				"e|tbl|public.event_stream",
-				"n|rel|public.event_stream",
-				"n|type|public.event_stream",
-				"n|rel|public.event_stream_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "event_stream_binding"],
-			"writes": [
-				"s|tbl|public.event_stream_binding",
-				"n|tbl|public.event_stream_binding",
-				"e|tbl|public.event_stream_binding",
-				"n|rel|public.event_stream_binding",
-				"n|type|public.event_stream_binding",
-				"n|rel|public.event_stream_binding_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "event_stream_work"],
-			"writes": [
-				"s|tbl|public.event_stream_work",
-				"n|tbl|public.event_stream_work",
-				"e|tbl|public.event_stream_work",
-				"n|rel|public.event_stream_work",
-				"n|type|public.event_stream_work",
-				"n|rel|public.event_stream_work_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -998,45 +946,6 @@
 				"n|type|public.relationship",
 				"n|rel|public.relationship_pkey",
 				"n|rel|public.relationship_identity_unique"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "relationship_projection"],
-			"writes": [
-				"s|tbl|public.relationship_projection",
-				"n|tbl|public.relationship_projection",
-				"e|tbl|public.relationship_projection",
-				"n|rel|public.relationship_projection",
-				"n|type|public.relationship_projection",
-				"n|rel|public.relationship_projection_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "relationship_projection_binding"],
-			"writes": [
-				"s|tbl|public.relationship_projection_binding",
-				"n|tbl|public.relationship_projection_binding",
-				"e|tbl|public.relationship_projection_binding",
-				"n|rel|public.relationship_projection_binding",
-				"n|type|public.relationship_projection_binding",
-				"n|rel|public.relationship_projection_binding_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "relationship_projection_work"],
-			"writes": [
-				"s|tbl|public.relationship_projection_work",
-				"n|tbl|public.relationship_projection_work",
-				"e|tbl|public.relationship_projection_work",
-				"n|rel|public.relationship_projection_work",
-				"n|type|public.relationship_projection_work",
-				"n|rel|public.relationship_projection_work_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -1618,43 +1527,6 @@
 		},
 		{
 			"statementType": "create_index",
-			"statementTarget": ["index", "public", "background_work", "background_work_scope_idx"],
-			"writes": [
-				"s|idx|public.background_work_scope_idx",
-				"n|idx|public.background_work_scope_idx",
-				"e|idx|public.background_work_scope_idx",
-				"n|rel|public.background_work_scope_idx"
-			],
-			"reads": [
-				"n|tbl|public.background_work",
-				"n|sch|public",
-				"n|col|public.background_work.user_id",
-				"n|col|public.background_work.plugin_id",
-				"n|col|public.background_work.purpose",
-				"n|col|public.background_work.scope",
-				"n|col|public.background_work.created_at",
-				"n|col|public.background_work.id"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "background_work", "background_work_pending_idx"],
-			"writes": [
-				"s|idx|public.background_work_pending_idx",
-				"n|idx|public.background_work_pending_idx",
-				"e|idx|public.background_work_pending_idx",
-				"n|rel|public.background_work_pending_idx"
-			],
-			"reads": [
-				"n|tbl|public.background_work",
-				"n|sch|public",
-				"n|col|public.background_work.status",
-				"n|col|public.background_work.updated_at",
-				"n|col|public.background_work.id"
-			]
-		},
-		{
-			"statementType": "create_index",
 			"statementTarget": ["index", "public", "backup_run", "backup_run_user_id_idx"],
 			"writes": [
 				"s|idx|public.backup_run_user_id_idx",
@@ -1900,6 +1772,22 @@
 				"n|tbl|public.definition_signal_schema",
 				"n|sch|public",
 				"n|col|public.definition_signal_schema.slug"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "derived_value", "derived_value_subject_idx"],
+			"writes": [
+				"s|idx|public.derived_value_subject_idx",
+				"n|idx|public.derived_value_subject_idx",
+				"e|idx|public.derived_value_subject_idx",
+				"n|rel|public.derived_value_subject_idx"
+			],
+			"reads": [
+				"n|tbl|public.derived_value",
+				"n|sch|public",
+				"n|col|public.derived_value.subject_entity_id",
+				"n|col|public.derived_value.user_id"
 			]
 		},
 		{
@@ -2261,94 +2149,6 @@
 				"n|col|public.event.occurred_at",
 				"n|col|public.event.created_at",
 				"n|col|public.event.id"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "event_projection", "event_projection_stream_id_idx"],
-			"writes": [
-				"s|idx|public.event_projection_stream_id_idx",
-				"n|idx|public.event_projection_stream_id_idx",
-				"e|idx|public.event_projection_stream_id_idx",
-				"n|rel|public.event_projection_stream_id_idx"
-			],
-			"reads": [
-				"n|tbl|public.event_projection",
-				"n|sch|public",
-				"n|col|public.event_projection.stream_id"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "event_stream", "event_stream_key_idx"],
-			"writes": [
-				"s|idx|public.event_stream_key_idx",
-				"n|idx|public.event_stream_key_idx",
-				"e|idx|public.event_stream_key_idx",
-				"n|rel|public.event_stream_key_idx"
-			],
-			"reads": [
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|col|public.event_stream.entity_id",
-				"n|col|public.event_stream.user_id",
-				"n|col|public.event_stream.event_schema_plugin_id",
-				"n|col|public.event_stream.event_schema_slug"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "event_stream", "event_stream_user_schema_idx"],
-			"writes": [
-				"s|idx|public.event_stream_user_schema_idx",
-				"n|idx|public.event_stream_user_schema_idx",
-				"e|idx|public.event_stream_user_schema_idx",
-				"n|rel|public.event_stream_user_schema_idx"
-			],
-			"reads": [
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|col|public.event_stream.user_id",
-				"n|col|public.event_stream.event_schema_plugin_id",
-				"n|col|public.event_stream.event_schema_slug"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": [
-				"index",
-				"public",
-				"event_stream_work",
-				"event_stream_work_current_job_idx"
-			],
-			"writes": [
-				"s|idx|public.event_stream_work_current_job_idx",
-				"n|idx|public.event_stream_work_current_job_idx",
-				"e|idx|public.event_stream_work_current_job_idx",
-				"n|rel|public.event_stream_work_current_job_idx"
-			],
-			"reads": [
-				"n|tbl|public.event_stream_work",
-				"n|sch|public",
-				"n|col|public.event_stream_work.current_job_id"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "event_stream_work", "event_stream_work_dirty_idx"],
-			"writes": [
-				"s|idx|public.event_stream_work_dirty_idx",
-				"n|idx|public.event_stream_work_dirty_idx",
-				"e|idx|public.event_stream_work_dirty_idx",
-				"n|rel|public.event_stream_work_dirty_idx"
-			],
-			"reads": [
-				"n|tbl|public.event_stream_work",
-				"n|sch|public",
-				"n|col|public.event_stream_work.user_id",
-				"n|col|public.event_stream_work.event_schema_plugin_id",
-				"n|col|public.event_stream_work.event_schema_slug",
-				"n|col|public.event_stream_work.id"
 			]
 		},
 		{
@@ -3471,47 +3271,6 @@
 		},
 		{
 			"statementType": "create_index",
-			"statementTarget": [
-				"index",
-				"public",
-				"relationship_projection",
-				"relationship_projection_dirty_idx"
-			],
-			"writes": [
-				"s|idx|public.relationship_projection_dirty_idx",
-				"n|idx|public.relationship_projection_dirty_idx",
-				"e|idx|public.relationship_projection_dirty_idx",
-				"n|rel|public.relationship_projection_dirty_idx"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection",
-				"n|sch|public",
-				"n|col|public.relationship_projection.work_id",
-				"n|col|public.relationship_projection.relationship_id"
-			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": [
-				"index",
-				"public",
-				"relationship_projection_work",
-				"relationship_projection_work_current_job_idx"
-			],
-			"writes": [
-				"s|idx|public.relationship_projection_work_current_job_idx",
-				"n|idx|public.relationship_projection_work_current_job_idx",
-				"e|idx|public.relationship_projection_work_current_job_idx",
-				"n|rel|public.relationship_projection_work_current_job_idx"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection_work",
-				"n|sch|public",
-				"n|col|public.relationship_projection_work.current_job_id"
-			]
-		},
-		{
-			"statementType": "create_index",
 			"statementTarget": ["index", "public", "reminder", "reminder_due_idx"],
 			"writes": [
 				"s|idx|public.reminder_due_idx",
@@ -4364,44 +4123,6 @@
 		},
 		{
 			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "background_work"],
-			"writes": [
-				"s|fk|public.background_work.background_work_user_id_user_id_fkey",
-				"n|fk|public.background_work.background_work_user_id_user_id_fkey",
-				"e|fk|public.background_work.background_work_user_id_user_id_fkey",
-				"n|con|public.background_work.background_work_user_id_user_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.background_work",
-				"n|sch|public",
-				"n|tbl|public.user",
-				"n|sch|public",
-				"n|col|public.background_work.user_id",
-				"n|col|public.user.id",
-				"e|uniqueness|public.user.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "background_work"],
-			"writes": [
-				"s|fk|public.background_work.background_work_plugin_id_plugin_id_fkey",
-				"n|fk|public.background_work.background_work_plugin_id_plugin_id_fkey",
-				"e|fk|public.background_work.background_work_plugin_id_plugin_id_fkey",
-				"n|con|public.background_work.background_work_plugin_id_plugin_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.background_work",
-				"n|sch|public",
-				"n|tbl|public.plugin",
-				"n|sch|public",
-				"n|col|public.background_work.plugin_id",
-				"n|col|public.plugin.id",
-				"e|uniqueness|public.plugin.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "backup_run"],
 			"writes": [
 				"s|fk|public.backup_run.backup_run_user_id_user_id_fkey",
@@ -4765,6 +4486,63 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "derived_value"],
+			"writes": [
+				"s|fk|public.derived_value.derived_value_user_id_user_id_fkey",
+				"n|fk|public.derived_value.derived_value_user_id_user_id_fkey",
+				"e|fk|public.derived_value.derived_value_user_id_user_id_fkey",
+				"n|con|public.derived_value.derived_value_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.derived_value",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.derived_value.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "derived_value"],
+			"writes": [
+				"s|fk|public.derived_value.derived_value_plugin_id_plugin_id_fkey",
+				"n|fk|public.derived_value.derived_value_plugin_id_plugin_id_fkey",
+				"e|fk|public.derived_value.derived_value_plugin_id_plugin_id_fkey",
+				"n|con|public.derived_value.derived_value_plugin_id_plugin_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.derived_value",
+				"n|sch|public",
+				"n|tbl|public.plugin",
+				"n|sch|public",
+				"n|col|public.derived_value.plugin_id",
+				"n|col|public.plugin.id",
+				"e|uniqueness|public.plugin.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "derived_value"],
+			"writes": [
+				"s|fk|public.derived_value.derived_value_subject_entity_id_entity_id_fkey",
+				"n|fk|public.derived_value.derived_value_subject_entity_id_entity_id_fkey",
+				"e|fk|public.derived_value.derived_value_subject_entity_id_entity_id_fkey",
+				"n|con|public.derived_value.derived_value_subject_entity_id_entity_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.derived_value",
+				"n|sch|public",
+				"n|tbl|public.entity",
+				"n|sch|public",
+				"n|col|public.derived_value.subject_entity_id",
+				"n|col|public.entity.id",
+				"e|uniqueness|public.entity.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "entity"],
 			"writes": [
 				"s|fk|public.entity.entity_user_id_user_id_fkey",
@@ -4993,44 +4771,6 @@
 		},
 		{
 			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_projection"],
-			"writes": [
-				"s|fk|public.event_projection.event_projection_stream_id_event_stream_id_fkey",
-				"n|fk|public.event_projection.event_projection_stream_id_event_stream_id_fkey",
-				"e|fk|public.event_projection.event_projection_stream_id_event_stream_id_fkey",
-				"n|con|public.event_projection.event_projection_stream_id_event_stream_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_projection",
-				"n|sch|public",
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|col|public.event_projection.stream_id",
-				"n|col|public.event_stream.id",
-				"e|uniqueness|public.event_stream.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_projection"],
-			"writes": [
-				"s|fk|public.event_projection.event_projection_event_id_event_id_fkey",
-				"n|fk|public.event_projection.event_projection_event_id_event_id_fkey",
-				"e|fk|public.event_projection.event_projection_event_id_event_id_fkey",
-				"n|con|public.event_projection.event_projection_event_id_event_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_projection",
-				"n|sch|public",
-				"n|tbl|public.event",
-				"n|sch|public",
-				"n|col|public.event_projection.event_id",
-				"n|col|public.event.id",
-				"e|uniqueness|public.event.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "event_scope"],
 			"writes": [
 				"s|fk|public.event_scope.event_scope_event_schema_plugin_id_plugin_id_fkey",
@@ -5084,120 +4824,6 @@
 				"n|col|public.event_scope.entity_id",
 				"n|col|public.entity.id",
 				"e|uniqueness|public.entity.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_stream"],
-			"writes": [
-				"s|fk|public.event_stream.event_stream_event_schema_plugin_id_plugin_id_fkey",
-				"n|fk|public.event_stream.event_stream_event_schema_plugin_id_plugin_id_fkey",
-				"e|fk|public.event_stream.event_stream_event_schema_plugin_id_plugin_id_fkey",
-				"n|con|public.event_stream.event_stream_event_schema_plugin_id_plugin_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|tbl|public.plugin",
-				"n|sch|public",
-				"n|col|public.event_stream.event_schema_plugin_id",
-				"n|col|public.plugin.id",
-				"e|uniqueness|public.plugin.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_stream"],
-			"writes": [
-				"s|fk|public.event_stream.event_stream_user_id_user_id_fkey",
-				"n|fk|public.event_stream.event_stream_user_id_user_id_fkey",
-				"e|fk|public.event_stream.event_stream_user_id_user_id_fkey",
-				"n|con|public.event_stream.event_stream_user_id_user_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|tbl|public.user",
-				"n|sch|public",
-				"n|col|public.event_stream.user_id",
-				"n|col|public.user.id",
-				"e|uniqueness|public.user.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_stream"],
-			"writes": [
-				"s|fk|public.event_stream.event_stream_entity_id_entity_id_fkey",
-				"n|fk|public.event_stream.event_stream_entity_id_entity_id_fkey",
-				"e|fk|public.event_stream.event_stream_entity_id_entity_id_fkey",
-				"n|con|public.event_stream.event_stream_entity_id_entity_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|tbl|public.entity",
-				"n|sch|public",
-				"n|col|public.event_stream.entity_id",
-				"n|col|public.entity.id",
-				"e|uniqueness|public.entity.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_stream_binding"],
-			"writes": [
-				"s|fk|public.event_stream_binding.event_stream_binding_user_id_user_id_fkey",
-				"n|fk|public.event_stream_binding.event_stream_binding_user_id_user_id_fkey",
-				"e|fk|public.event_stream_binding.event_stream_binding_user_id_user_id_fkey",
-				"n|con|public.event_stream_binding.event_stream_binding_user_id_user_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_stream_binding",
-				"n|sch|public",
-				"n|tbl|public.user",
-				"n|sch|public",
-				"n|col|public.event_stream_binding.user_id",
-				"n|col|public.user.id",
-				"e|uniqueness|public.user.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_stream_binding"],
-			"writes": [
-				"s|fk|public.event_stream_binding.event_stream_binding_event_schema_plugin_id_plugin_id_fkey",
-				"n|fk|public.event_stream_binding.event_stream_binding_event_schema_plugin_id_plugin_id_fkey",
-				"e|fk|public.event_stream_binding.event_stream_binding_event_schema_plugin_id_plugin_id_fkey",
-				"n|con|public.event_stream_binding.event_stream_binding_event_schema_plugin_id_plugin_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_stream_binding",
-				"n|sch|public",
-				"n|tbl|public.plugin",
-				"n|sch|public",
-				"n|col|public.event_stream_binding.event_schema_plugin_id",
-				"n|col|public.plugin.id",
-				"e|uniqueness|public.plugin.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "event_stream_work"],
-			"writes": [
-				"s|fk|public.event_stream_work.event_stream_work_id_event_stream_id_fkey",
-				"n|fk|public.event_stream_work.event_stream_work_id_event_stream_id_fkey",
-				"e|fk|public.event_stream_work.event_stream_work_id_event_stream_id_fkey",
-				"n|con|public.event_stream_work.event_stream_work_id_event_stream_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.event_stream_work",
-				"n|sch|public",
-				"n|tbl|public.event_stream",
-				"n|sch|public",
-				"n|col|public.event_stream_work.id",
-				"n|col|public.event_stream.id",
-				"e|uniqueness|public.event_stream.id"
 			]
 		},
 		{
@@ -6368,120 +5994,6 @@
 		},
 		{
 			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_projection"],
-			"writes": [
-				"s|fk|public.relationship_projection.relationship_projection_78lhxH1dX7UF_fkey",
-				"n|fk|public.relationship_projection.relationship_projection_78lhxH1dX7UF_fkey",
-				"e|fk|public.relationship_projection.relationship_projection_78lhxH1dX7UF_fkey",
-				"n|con|public.relationship_projection.relationship_projection_78lhxH1dX7UF_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection",
-				"n|sch|public",
-				"n|tbl|public.relationship_projection_work",
-				"n|sch|public",
-				"n|col|public.relationship_projection.work_id",
-				"n|col|public.relationship_projection_work.id",
-				"e|uniqueness|public.relationship_projection_work.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_projection"],
-			"writes": [
-				"s|fk|public.relationship_projection.relationship_projection_relationship_id_relationship_id_fkey",
-				"n|fk|public.relationship_projection.relationship_projection_relationship_id_relationship_id_fkey",
-				"e|fk|public.relationship_projection.relationship_projection_relationship_id_relationship_id_fkey",
-				"n|con|public.relationship_projection.relationship_projection_relationship_id_relationship_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection",
-				"n|sch|public",
-				"n|tbl|public.relationship",
-				"n|sch|public",
-				"n|col|public.relationship_projection.relationship_id",
-				"n|col|public.relationship.id",
-				"e|uniqueness|public.relationship.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_projection_binding"],
-			"writes": [
-				"s|fk|public.relationship_projection_binding.relationship_projection_binding_user_id_user_id_fkey",
-				"n|fk|public.relationship_projection_binding.relationship_projection_binding_user_id_user_id_fkey",
-				"e|fk|public.relationship_projection_binding.relationship_projection_binding_user_id_user_id_fkey",
-				"n|con|public.relationship_projection_binding.relationship_projection_binding_user_id_user_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection_binding",
-				"n|sch|public",
-				"n|tbl|public.user",
-				"n|sch|public",
-				"n|col|public.relationship_projection_binding.user_id",
-				"n|col|public.user.id",
-				"e|uniqueness|public.user.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_projection_binding"],
-			"writes": [
-				"s|fk|public.relationship_projection_binding.relationship_projection_binding_5fd9DG3tCFhl_fkey",
-				"n|fk|public.relationship_projection_binding.relationship_projection_binding_5fd9DG3tCFhl_fkey",
-				"e|fk|public.relationship_projection_binding.relationship_projection_binding_5fd9DG3tCFhl_fkey",
-				"n|con|public.relationship_projection_binding.relationship_projection_binding_5fd9DG3tCFhl_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection_binding",
-				"n|sch|public",
-				"n|tbl|public.plugin",
-				"n|sch|public",
-				"n|col|public.relationship_projection_binding.relationship_schema_plugin_id",
-				"n|col|public.plugin.id",
-				"e|uniqueness|public.plugin.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_projection_work"],
-			"writes": [
-				"s|fk|public.relationship_projection_work.relationship_projection_work_user_id_user_id_fkey",
-				"n|fk|public.relationship_projection_work.relationship_projection_work_user_id_user_id_fkey",
-				"e|fk|public.relationship_projection_work.relationship_projection_work_user_id_user_id_fkey",
-				"n|con|public.relationship_projection_work.relationship_projection_work_user_id_user_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection_work",
-				"n|sch|public",
-				"n|tbl|public.user",
-				"n|sch|public",
-				"n|col|public.relationship_projection_work.user_id",
-				"n|col|public.user.id",
-				"e|uniqueness|public.user.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_projection_work"],
-			"writes": [
-				"s|fk|public.relationship_projection_work.relationship_projection_work_hez9NpadMCpN_fkey",
-				"n|fk|public.relationship_projection_work.relationship_projection_work_hez9NpadMCpN_fkey",
-				"e|fk|public.relationship_projection_work.relationship_projection_work_hez9NpadMCpN_fkey",
-				"n|con|public.relationship_projection_work.relationship_projection_work_hez9NpadMCpN_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_projection_work",
-				"n|sch|public",
-				"n|tbl|public.plugin",
-				"n|sch|public",
-				"n|col|public.relationship_projection_work.relationship_schema_plugin_id",
-				"n|col|public.plugin.id",
-				"e|uniqueness|public.plugin.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "relationship_sync_generation"],
 			"writes": [
 				"s|fk|public.relationship_sync_generation.relationship_sync_generation_Rk8B2C4LFptu_fkey",
@@ -7134,12 +6646,6 @@
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
-		{
-			"schema": "public",
-			"name": "background_work",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
 		{ "schema": "public", "name": "backup_run", "isRlsEnabled": false, "entityType": "tables" },
 		{
 			"schema": "public",
@@ -7255,6 +6761,7 @@
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
+		{ "schema": "public", "name": "derived_value", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "entity", "isRlsEnabled": false, "entityType": "tables" },
 		{
 			"schema": "public",
@@ -7269,26 +6776,7 @@
 			"entityType": "tables"
 		},
 		{ "schema": "public", "name": "event", "isRlsEnabled": false, "entityType": "tables" },
-		{
-			"schema": "public",
-			"name": "event_projection",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
 		{ "schema": "public", "name": "event_scope", "isRlsEnabled": false, "entityType": "tables" },
-		{ "schema": "public", "name": "event_stream", "isRlsEnabled": false, "entityType": "tables" },
-		{
-			"schema": "public",
-			"name": "event_stream_binding",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
-		{
-			"schema": "public",
-			"name": "event_stream_work",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
 		{
 			"schema": "public",
 			"name": "idempotency_key",
@@ -7437,24 +6925,6 @@
 			"entityType": "tables"
 		},
 		{ "schema": "public", "name": "relationship", "isRlsEnabled": false, "entityType": "tables" },
-		{
-			"schema": "public",
-			"name": "relationship_projection",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
-		{
-			"schema": "public",
-			"name": "relationship_projection_binding",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
-		{
-			"schema": "public",
-			"name": "relationship_projection_work",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
 		{
 			"schema": "public",
 			"name": "relationship_sync_generation",
@@ -8819,175 +8289,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "background_work",
-			"name": "error",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "key",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "scope",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "input_hash",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "account_token",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "payload",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "created_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "updated_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "status",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "user_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "purpose",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
 			"table": "backup_run",
 			"name": "artifact_key",
 			"type": "text",
@@ -9939,6 +9240,19 @@
 			"schema": "public",
 			"table": "definition_entity_schema",
 			"name": "browse",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_entity_schema",
+			"name": "fold",
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -11107,6 +10421,123 @@
 		},
 		{
 			"schema": "public",
+			"table": "derived_value",
+			"name": "target_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "plugin_revision_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "value",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "updated_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "kind",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "status",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'ready'",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "plugin_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "subject_entity_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
 			"table": "entity",
 			"name": "external_id",
 			"type": "text",
@@ -12017,58 +11448,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "event_projection",
-			"name": "updated_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_projection",
-			"name": "properties",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_projection",
-			"name": "stream_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_projection",
-			"name": "event_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
 			"table": "event_scope",
 			"name": "id",
 			"type": "text",
@@ -12123,422 +11502,6 @@
 			"schema": "public",
 			"table": "event_scope",
 			"name": "entity_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "updated_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_schema_plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "user_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "entity_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "account_token",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "bound_revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "config_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "plugin_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "event_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "entity_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "user_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "event_schema_plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "current_job_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "user_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "dirty_from",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "completed_revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "account_token",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "event_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "plugin_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "processor_script_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "event_schema_plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "plugin_pin",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "updated_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "claimed_alone",
-			"type": "boolean",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "false",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "output_schema",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "checkpoint",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": "'null'",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "config_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": { "as": "plugin_pin ->> 'configRevisionId'", "type": "stored" },
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "id",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -17594,357 +16557,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "relationship_projection",
-			"name": "projected_revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "1",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "updated_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "properties",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "work_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "relationship_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "account_token",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "bound_revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "config_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "plugin_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "relationship_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "revision",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "user_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "relationship_schema_plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "current_job_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "account_token",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "plugin_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "processor_script_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "step",
-			"type": "integer",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "0",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "relationship_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "plugin_pin",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "updated_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": "now()",
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "output_schema",
-			"type": "jsonb",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "config_revision_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": { "as": "plugin_pin ->> 'configRevisionId'", "type": "stored" },
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "user_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "relationship_schema_plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
 			"table": "relationship_sync_generation",
 			"name": "generation",
 			"type": "text",
@@ -20691,85 +19303,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "background_work",
-			"name": "background_work_scope_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "plugin_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "purpose",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "scope",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "created_at",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "background_work_pending_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "status",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "updated_at",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
 			"table": "backup_run",
 			"name": "backup_run_user_id_idx",
 			"nameExplicit": true,
@@ -21079,6 +19612,34 @@
 			"columns": [
 				{
 					"value": "slug",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_subject_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "subject_entity_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "user_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -21733,161 +20294,6 @@
 			],
 			"isUnique": false,
 			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "event_projection",
-			"name": "event_projection_stream_id_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "stream_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_stream_key_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "entity_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "event_schema_plugin_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "event_schema_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_stream_user_schema_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "event_schema_plugin_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "event_schema_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "event_stream_work_current_job_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "current_job_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "event_stream_work_dirty_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "user_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "event_schema_plugin_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "event_schema_slug",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{ "value": "id", "isExpression": false, "asc": true, "nullsFirst": false, "opclass": null }
-			],
-			"isUnique": false,
-			"where": "\"completed_revision\" is null or \"dirty_from\" is not null",
 			"with": "",
 			"method": "btree",
 			"concurrently": false,
@@ -23453,55 +21859,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "relationship_projection",
-			"name": "relationship_projection_dirty_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "work_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				},
-				{
-					"value": "relationship_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": "\"projected_revision\" is distinct from \"revision\"",
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "relationship_projection_work_current_job_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "current_job_id",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": null,
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
 			"table": "reminder",
 			"name": "reminder_due_idx",
 			"nameExplicit": true,
@@ -24463,32 +22820,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "background_work",
-			"name": "background_work_user_id_user_id_fkey",
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "background_work_plugin_id_plugin_id_fkey",
-			"nameExplicit": false,
-			"columns": ["plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
 			"table": "backup_run",
 			"name": "backup_run_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -24736,6 +23067,45 @@
 		},
 		{
 			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_plugin_id_plugin_id_fkey",
+			"nameExplicit": false,
+			"columns": ["plugin_id"],
+			"schemaTo": "public",
+			"tableTo": "plugin",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_subject_entity_id_entity_id_fkey",
+			"nameExplicit": false,
+			"columns": ["subject_entity_id"],
+			"schemaTo": "public",
+			"tableTo": "entity",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "entity",
 			"name": "entity_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -24892,32 +23262,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "event_projection",
-			"name": "event_projection_stream_id_event_stream_id_fkey",
-			"nameExplicit": false,
-			"columns": ["stream_id"],
-			"schemaTo": "public",
-			"tableTo": "event_stream",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_projection",
-			"name": "event_projection_event_id_event_id_fkey",
-			"nameExplicit": false,
-			"columns": ["event_id"],
-			"schemaTo": "public",
-			"tableTo": "event",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
 			"table": "event_scope",
 			"name": "event_scope_event_schema_plugin_id_plugin_id_fkey",
 			"nameExplicit": false,
@@ -24950,84 +23294,6 @@
 			"columns": ["entity_id"],
 			"schemaTo": "public",
 			"tableTo": "entity",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_stream_event_schema_plugin_id_plugin_id_fkey",
-			"nameExplicit": false,
-			"columns": ["event_schema_plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_stream_user_id_user_id_fkey",
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_stream_entity_id_entity_id_fkey",
-			"nameExplicit": false,
-			"columns": ["entity_id"],
-			"schemaTo": "public",
-			"tableTo": "entity",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "event_stream_binding_user_id_user_id_fkey",
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "event_stream_binding_event_schema_plugin_id_plugin_id_fkey",
-			"nameExplicit": false,
-			"columns": ["event_schema_plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "event_stream_work_id_event_stream_id_fkey",
-			"nameExplicit": false,
-			"columns": ["id"],
-			"schemaTo": "public",
-			"tableTo": "event_stream",
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
@@ -25820,84 +24086,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "relationship_projection",
-			"name": "relationship_projection_78lhxH1dX7UF_fkey",
-			"nameExplicit": false,
-			"columns": ["work_id"],
-			"schemaTo": "public",
-			"tableTo": "relationship_projection_work",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "relationship_projection_relationship_id_relationship_id_fkey",
-			"nameExplicit": false,
-			"columns": ["relationship_id"],
-			"schemaTo": "public",
-			"tableTo": "relationship",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "relationship_projection_binding_user_id_user_id_fkey",
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "relationship_projection_binding_5fd9DG3tCFhl_fkey",
-			"nameExplicit": false,
-			"columns": ["relationship_schema_plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "relationship_projection_work_user_id_user_id_fkey",
-			"nameExplicit": false,
-			"columns": ["user_id"],
-			"schemaTo": "public",
-			"tableTo": "user",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "relationship_projection_work_hez9NpadMCpN_fkey",
-			"nameExplicit": false,
-			"columns": ["relationship_schema_plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
 			"table": "relationship_sync_generation",
 			"name": "relationship_sync_generation_Rk8B2C4LFptu_fkey",
 			"nameExplicit": false,
@@ -26219,17 +24407,17 @@
 		},
 		{
 			"schema": "public",
-			"table": "entity_translation",
-			"name": "entity_translation_pkey",
-			"columns": ["entity_id", "language"],
+			"table": "derived_value",
+			"name": "derived_value_pkey",
+			"columns": ["user_id", "kind", "target_id"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},
 		{
 			"schema": "public",
-			"table": "event_stream_binding",
-			"name": "event_stream_binding_pkey",
-			"columns": ["user_id", "event_schema_plugin_id", "entity_schema_slug", "event_schema_slug"],
+			"table": "entity_translation",
+			"name": "entity_translation_pkey",
+			"columns": ["entity_id", "language"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},
@@ -26294,14 +24482,6 @@
 			"table": "managed_asset",
 			"name": "managed_asset_pkey",
 			"columns": ["provider", "key"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_binding",
-			"name": "relationship_projection_binding_pkey",
-			"columns": ["user_id", "relationship_schema_plugin_id", "relationship_schema_slug"],
 			"nameExplicit": false,
 			"entityType": "pks"
 		},
@@ -26373,14 +24553,6 @@
 			"schema": "public",
 			"table": "automation_trigger",
 			"name": "automation_trigger_pkey",
-			"columns": ["id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "background_work",
-			"name": "background_work_pkey",
 			"columns": ["id"],
 			"nameExplicit": false,
 			"entityType": "pks"
@@ -26515,32 +24687,8 @@
 		},
 		{
 			"schema": "public",
-			"table": "event_projection",
-			"name": "event_projection_pkey",
-			"columns": ["event_id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
 			"table": "event_scope",
 			"name": "event_scope_pkey",
-			"columns": ["id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream",
-			"name": "event_stream_pkey",
-			"columns": ["id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "event_stream_work",
-			"name": "event_stream_work_pkey",
 			"columns": ["id"],
 			"nameExplicit": false,
 			"entityType": "pks"
@@ -26781,22 +24929,6 @@
 			"schema": "public",
 			"table": "relationship",
 			"name": "relationship_pkey",
-			"columns": ["id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection",
-			"name": "relationship_projection_pkey",
-			"columns": ["relationship_id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_projection_work",
-			"name": "relationship_projection_work_pkey",
 			"columns": ["id"],
 			"nameExplicit": false,
 			"entityType": "pks"
@@ -27389,6 +25521,20 @@
 		},
 		{
 			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_kind_check",
+			"value": "\"kind\" in ('subject', 'event', 'relationship')",
+			"entityType": "checks"
+		},
+		{
+			"schema": "public",
+			"table": "derived_value",
+			"name": "derived_value_status_check",
+			"value": "\"status\" in ('ready', 'pending', 'failed')",
+			"entityType": "checks"
+		},
+		{
+			"schema": "public",
 			"table": "entity_enrichment_request",
 			"name": "entity_enrichment_request_attempt_check",
 			"value": "\"attempt\" between 0 and 3",
@@ -27793,7 +25939,7 @@
 		{
 			"schema": "public",
 			"name": "global_entity_schema",
-			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
+			"definition": "\n\t\t\tselect d.id, r.plugin_id, g.package_id, d.plugin_revision_id, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold\n\t\t\tfrom definition_entity_schema d\n\t\t\tleft join plugin_revision r on r.id = d.plugin_revision_id\n\t\t\tleft join (\n select p.id as plugin_id, p.package_id, p.active_revision_id, p.environment_config_revision_id as config_revision_id, coalesce(c.owner_user_id is null and c.encrypted_payload is not null, false) as is_executable\n\tfrom plugin p\n\tleft join plugin_config_revision c on c.id = p.environment_config_revision_id\n\twhere p.owner_user_id is null and p.status = 'active'\n) g on g.plugin_id = r.plugin_id and g.active_revision_id = d.plugin_revision_id\n\t\t\twhere d.plugin_revision_id is null or g.plugin_id is not null\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,
@@ -27870,7 +26016,7 @@
 		{
 			"schema": "public",
 			"name": "user_entity_schema",
-			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, p.is_definition_effective\n\t\t\tfrom \"user_plugin_state\" p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_present and p.is_listed\n\t\t",
+			"definition": "\n\t\t\tselect u.id as user_id, d.id, null::text as plugin_id, null::text as package_id, d.plugin_revision_id, null::text as plugin_scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold, true as is_effective\n\t\t\tfrom definition_entity_schema d\n\t\t\tcross join \"user\" u\n\t\t\twhere d.plugin_revision_id is null\n\t\t\tunion all\n\t\t\tselect p.user_id, d.id, p.plugin_id, p.package_id, d.plugin_revision_id, p.scope, d.slug, d.name, d.position, d.icon, d.properties_schema, d.user_state, d.editor, d.browse, d.merge_identity_properties, d.fold, p.is_definition_effective\n\t\t\tfrom \"user_plugin_state\" p\n\t\t\tjoin definition_entity_schema d on d.plugin_revision_id = p.active_revision_id\n\t\t\twhere p.is_present and p.is_listed\n\t\t",
 			"with": null,
 			"withNoData": null,
 			"using": null,

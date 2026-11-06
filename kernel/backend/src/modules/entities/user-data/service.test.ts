@@ -634,13 +634,7 @@ const deletePlan = (id: string, resource: "event" | "relationship"): Effect.Effe
 		},
 	}).pipe(
 		Effect.orDie,
-		Effect.map((trigger) => ({
-			trigger,
-			runs: [],
-			policies: [],
-			wasCreated: true,
-			backgroundJobIds: [],
-		})),
+		Effect.map((trigger) => ({ trigger, runs: [], policies: [], wasCreated: true })),
 	);
 
 const eventPlans = Effect.all([
@@ -751,13 +745,7 @@ const clearPhases = recordingServiceLayer<ClearObservation>(({ record, session, 
 						(trigger) =>
 							record({ trigger, kind: "batch" }).pipe(
 								Effect.as(
-									toLifecycleDispatchPlan({
-										trigger,
-										runs: [],
-										policies: [],
-										wasCreated: true,
-										backgroundJobIds: [],
-									}),
+									toLifecycleDispatchPlan({ trigger, runs: [], policies: [], wasCreated: true }),
 								),
 							),
 					);

@@ -199,6 +199,7 @@ export class EventsService extends Context.Service<EventsService>()(
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const writeChecks = yield* DomainWriteChecks;
 			const groups = yield* EventGroupConstraints.make;
+			const mutations = yield* EventMutations;
 			const captureGroupMutations = Effect.fnUntraced(function* (
 				items: ReadonlyArray<PreparedEventMutationData>,
 				entityIds: ReadonlyArray<EntityId>,
@@ -379,7 +380,7 @@ export class EventsService extends Context.Service<EventsService>()(
 			const execution = yield* LifecycleExecution;
 			const create = yield* makeEventCreate;
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
-				groups
+				mutations
 					.transaction(eventSchemas.lockCatalog(userIds).pipe(Effect.andThen(work)))
 					.pipe(
 						Effect.catchTag("DatabaseSessionStateError", () =>
@@ -1570,7 +1571,7 @@ export class EventsService extends Context.Service<EventsService>()(
 				persistPreparedUpdate,
 				prepareEntityCascadeDelete,
 				persistPreparedMoveReferences,
-				transaction: groups.transaction,
+				transaction: mutations.transaction,
 			};
 		}),
 	},

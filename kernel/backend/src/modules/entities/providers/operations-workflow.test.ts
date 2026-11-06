@@ -103,7 +103,9 @@ let inTransaction = false;
 const database = DatabaseSession.of({
 	requireRoot: Effect.void,
 	requireTransaction: Effect.void,
+	carry: Effect.succeed((work) => work),
 	acquireUserWriteLock: () => Effect.void,
+	savepoint: (work) => mapDatabaseErrors(work),
 	isTransactionActive: Effect.sync(() => inTransaction),
 	run: (statement) =>
 		mapDatabaseErrors(statement(partialFake<EffectPgDatabase>({ execute: () => Effect.void }))),
@@ -121,13 +123,7 @@ const planner = LifecyclePlanner.of(
 			Effect.sync(() => {
 				expect(inTransaction).toBe(true);
 				planned.push(trigger);
-				return {
-					trigger,
-					policies: [],
-					wasCreated: true,
-					backgroundJobIds: [],
-					runs: [makeRun(trigger)],
-				};
+				return { trigger, policies: [], wasCreated: true, runs: [makeRun(trigger)] };
 			}),
 	}),
 );

@@ -356,21 +356,6 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 			projection: PluginProjection,
 			sourceProperties: PluginManifestValue["relationshipSchemas"][number]["propertiesSchema"],
 		) {
-			yield* assertReference(kind, projection.scriptSlug, scriptSlugs);
-			const script = manifest.scripts.find((candidate) => candidate.slug === projection.scriptSlug);
-			if (script?.kind !== "script") {
-				return yield* fail(`${kind} processor must be a script`);
-			}
-			if (
-				script.capabilities.some(
-					(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
-				) ||
-				script.executableDependencies.some((dependency) => dependency.kind === "workflow")
-			) {
-				return yield* fail(
-					`${kind} processor must use only read-only host capabilities and cannot start workflows`,
-				);
-			}
 			const fields = Object.keys(projection.propertiesSchema.fields);
 			if (
 				fields.length === 0 ||
@@ -384,43 +369,34 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 			}
 			return undefined;
 		});
+		const declaredEventSlugs = new Set(
+			manifest.entitySchemas.flatMap((schema) => schema.eventSchemas.map(({ slug }) => slug)),
+		);
 		for (const entity of manifest.entitySchemas) {
 			for (const event of entity.eventSchemas) {
 				if (event.projection) {
 					yield* assertProjection("Event projection", event.projection, event.propertiesSchema);
-					const paths = new Set<string>();
-					for (const input of event.projection.inputs ?? []) {
-						const path = identityTupleKey(
-							input.eventSchemaSlug,
-							typeof input.scope === "string"
-								? input.scope
-								: identityTupleKey("property", input.scope.property),
-						);
-						if (paths.has(path)) {
-							return yield* fail("Event projection input paths must be unique");
-						}
-						paths.add(path);
-						const sources = manifest.entitySchemas.flatMap((schema) =>
-							schema.eventSchemas.filter((source) => source.slug === input.eventSchemaSlug),
-						);
-						if (sources.length === 0) {
-							return yield* fail(
-								`Event projection input schema ${input.eventSchemaSlug} is not declared`,
-							);
-						}
-						if (typeof input.scope !== "string") {
-							const property = input.scope.property;
-							if (
-								sources.some((source) => {
-									const field = source.propertiesSchema.fields[property];
-									return field?.type !== "string" || field.reference?.kind !== "entity-id";
-								})
-							) {
-								return yield* fail(
-									`Event projection input scope ${property} must be a declared entity reference`,
-								);
-							}
-						}
+				}
+			}
+			if (entity.fold) {
+				yield* assertReference("Entity fold", entity.fold.scriptSlug, scriptSlugs);
+				const script = manifest.scripts.find(({ slug }) => slug === entity.fold?.scriptSlug);
+				if (script?.kind !== "script") {
+					return yield* fail("Entity fold must be a script");
+				}
+				if (
+					script.capabilities.some(
+						(capability) => !POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability),
+					) ||
+					script.executableDependencies.length > 0
+				) {
+					return yield* fail(
+						"Entity fold must use only read-only host capabilities and cannot call other scripts",
+					);
+				}
+				for (const slug of entity.fold.eventSchemaSlugs) {
+					if (!declaredEventSlugs.has(slug)) {
+						return yield* fail(`Entity fold input schema ${slug} is not declared`);
 					}
 				}
 			}
@@ -432,15 +408,6 @@ export const validatePluginManifestReferences = (manifest: PluginManifestValue) 
 					relationship.projection,
 					relationship.propertiesSchema,
 				);
-				for (const slug of relationship.projection.inputs?.eventSchemaSlugs ?? []) {
-					if (
-						!manifest.entitySchemas.some((schema) =>
-							schema.eventSchemas.some((event) => event.slug === slug),
-						)
-					) {
-						return yield* fail(`Relationship projection input schema ${slug} is not declared`);
-					}
-				}
 			}
 		}
 		for (const hook of manifest.hooks) {

@@ -89,26 +89,6 @@ const batchId = (input: LifecycleBatchInput) =>
 		]),
 	);
 
-const carryJobs = (
-	plans: ReadonlyArray<LifecycleDispatchPlan>,
-	triggerId: AutomationTrigger["id"],
-	backgroundJobIds: ReadonlyArray<string>,
-): ReadonlyArray<LifecycleDispatchPlan> => {
-	if (backgroundJobIds.length === 0) {
-		return plans;
-	}
-	if (!plans.some((planned) => planned.triggerId === triggerId)) {
-		return [...plans, { runs: [], triggerId, backgroundJobIds, blockedReason: null }];
-	}
-	return plans.map((planned) =>
-		planned.triggerId === triggerId
-			? { ...planned, backgroundJobIds: [...planned.backgroundJobIds, ...backgroundJobIds] }
-			: planned,
-	);
-};
-
-type Admission = (trigger: AutomationTrigger) => Effect.Effect<ReadonlyArray<string>, DbError>;
-
 export const LifecyclePlannerLive = Layer.effect(
 	LifecyclePlanner,
 	Effect.gen(function* () {
@@ -171,7 +151,6 @@ export const LifecyclePlannerLive = Layer.effect(
 		const replayExisting = Effect.fn("LifecyclePlanner.replayExisting")(function* (
 			trigger: AutomationTrigger,
 			stored: AutomationTrigger,
-			admit: Admission,
 		) {
 			// A retried write recomputes its trigger's timestamps and snapshots; the first attempt's row stands.
 			const persistedTrigger =
@@ -182,22 +161,14 @@ export const LifecyclePlannerLive = Layer.effect(
 			if (existing.some((run) => run.id !== lifecycleRunId(run))) {
 				return yield* new DbError({ message: `Automation run identity conflict: ${trigger.id}` });
 			}
-			return {
-				wasCreated: false,
-				trigger: persistedTrigger,
-				backgroundJobIds: yield* admit(trigger),
-				...(yield* orderedRuns(existing)),
-			};
+			return { wasCreated: false, trigger: persistedTrigger, ...(yield* orderedRuns(existing)) };
 		});
-		const planWith = Effect.fn("LifecyclePlanner.plan")(function* (
-			input: {
-				trigger: AutomationTrigger;
-				recipients?: ReadonlyArray<UserId>;
-				pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
-				excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
-			},
-			admit: Admission,
-		): Effect.fn.Return<LifecyclePlanningResult, DbError> {
+		const plan = Effect.fn("LifecyclePlanner.plan")(function* (input: {
+			trigger: AutomationTrigger;
+			recipients?: ReadonlyArray<UserId>;
+			pinnedBatchCandidates?: ReadonlyArray<BatchHookPin>;
+			excludedOncePerSubjectPolicies?: ReadonlyArray<AutomationHookIdentity>;
+		}): Effect.fn.Return<LifecyclePlanningResult, DbError> {
 			const suppliedTrigger = yield* decodeStoredSchema(
 				input.trigger,
 				AutomationTrigger,
@@ -264,7 +235,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			// Catalog locks remain held while matching hooks and writing the selected runs.
 			const stored = yield* triggers.findById(trigger.id);
 			if (stored) {
-				return yield* replayExisting(trigger, stored, admit);
+				return yield* replayExisting(trigger, stored);
 			}
 			if (signal && recipients.length) {
 				const enabled = yield* session.run((db) =>
@@ -359,17 +330,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const ordered = yield* orderedRuns(planned);
 			if (ordered.runs.length === 0 && trigger.payload.resource !== "signal") {
-				const backgroundJobIds = yield* admit(trigger);
-				return backgroundJobIds.length > 0
-					? { trigger, runs: [], policies: [], backgroundJobIds, wasCreated: false }
-					: {
-							runs: [],
-							policies: [],
-							trigger: null,
-							_tag: "NoHooks",
-							wasCreated: false,
-							backgroundJobIds: [],
-						};
+				return { runs: [], policies: [], trigger: null, _tag: "NoHooks", wasCreated: false };
 			}
 			yield* session.run((db) =>
 				db.execute(
@@ -378,7 +339,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			);
 			const raced = yield* triggers.findById(trigger.id);
 			if (raced) {
-				return yield* replayExisting(trigger, raced, admit);
+				return yield* replayExisting(trigger, raced);
 			}
 			const [accepted] = yield* session.run((db) =>
 				db
@@ -418,26 +379,16 @@ export const LifecyclePlannerLive = Layer.effect(
 					: null,
 			});
 			yield* triggers.insertRecipients(trigger.id, recipients);
-			const backgroundJobIds = yield* admit(trigger);
 			if (blocked) {
-				return {
-					runs: [],
-					policies: [],
-					backgroundJobIds,
-					wasCreated: true,
-					trigger: persistedTrigger,
-				};
+				return { runs: [], policies: [], wasCreated: true, trigger: persistedTrigger };
 			}
 			return {
-				backgroundJobIds,
 				wasCreated: true,
 				trigger: persistedTrigger,
 				policies: ordered.policies,
 				runs: yield* runs.insertQueued({ runs: ordered.runs, triggerPayload: payload }),
 			};
 		});
-		const plan = (input: Parameters<typeof planWith>[0]) =>
-			planWith(input, (trigger) => work.admit([trigger]));
 		const transactionBatches = session.requireTransaction.pipe(
 			Effect.mapError(() => new DbError({ message: "Batch planning requires a transaction" })),
 			Effect.andThen(
@@ -534,8 +485,7 @@ export const LifecyclePlannerLive = Layer.effect(
 			contents.dispatch = dispatch;
 			return dispatch;
 		});
-		// Admission and derivation run once for the whole list; their job IDs and derived plans join the first
-		// trigger's plans.
+		// Derivation runs once for the whole list; its plans join the first trigger's plans.
 		const planChanges = (
 			changes: ReadonlyArray<AutomationTrigger>,
 		): Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError> =>
@@ -545,15 +495,13 @@ export const LifecyclePlannerLive = Layer.effect(
 					return [];
 				}
 				const plans = yield* Effect.forEach(changes, (trigger) =>
-					Effect.map(
-						planWith({ trigger }, () => Effect.succeed([])),
-						(planned) => (planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)]),
+					Effect.map(plan({ trigger }), (planned) =>
+						planned.trigger === null ? [] : [toLifecycleDispatchPlan(planned)],
 					),
 				);
-				const backgroundJobIds = yield* work.admit(changes);
 				const derived = (yield* planChanges(yield* work.derive(changes))).flat();
 				const [leading = [], ...rest] = plans;
-				return [[...carryJobs(leading, first.id, backgroundJobIds), ...derived], ...rest];
+				return [[...leading, ...derived], ...rest];
 			});
 		const planChange = (input: { trigger: AutomationTrigger }) =>
 			Effect.map(planChanges([input.trigger]), (plans) => plans.flat());

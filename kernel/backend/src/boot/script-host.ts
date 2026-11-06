@@ -8,16 +8,16 @@ import { makeAssetsScriptHost } from "#modules/assets/script-host";
 import { DirectPolicyAttempts } from "#modules/automations/execution";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { makeSignalScriptHost } from "#modules/automations/script-host";
-import { BackgroundWorkService } from "#modules/background-work/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { makeDefinitionScriptHost } from "#modules/definitions/script-host";
+import { makeFoldScriptHost } from "#modules/derived-values/script-host";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { entityLifecycleHostSteps, makeEntityScriptHost } from "#modules/entities/script-host";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
-import { EventsServiceLive, EventStreamWorkServiceLive } from "#modules/events/layer";
+import { EventsServiceLive } from "#modules/events/layer";
 import { eventLifecycleHostSteps, makeEventScriptHost } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
 import { ImportSourceStateStore } from "#modules/imports/runtime/source-state-store";
@@ -34,10 +34,7 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
 import { makePluginScriptHost } from "#modules/plugins/script-host";
-import {
-	RelationshipMutationPipelineLive,
-	RelationshipProjectionServiceLive,
-} from "#modules/relationships/layer";
+import { RelationshipMutationPipelineLive } from "#modules/relationships/layer";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import {
 	makeRelationshipScriptHost,
@@ -47,8 +44,6 @@ import { makeRyotQLScriptHost } from "#modules/ryotql/script-host";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";
 import type { AdditionalScriptHostImplementationMap } from "#modules/scripts/authorization/capabilities";
-import { ProjectionBindingsLive } from "#modules/scripts/executions/projection-bindings";
-import { makeUserWorkScriptHost } from "#modules/scripts/executions/user-work";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import { SandboxDurableHostDispatcherLive } from "#modules/scripts/host/durable-dispatcher-live";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
@@ -71,6 +66,7 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makeDefinitionScriptHost),
 		...(yield* makeEntityScriptHost),
 		...(yield* makeEventScriptHost),
+		...(yield* makeFoldScriptHost),
 		...(yield* makeIntegrationScriptHost),
 		...(yield* makeOAuthConnectionScriptHost),
 		...(yield* makePluginScriptHost),
@@ -78,7 +74,6 @@ export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 		...(yield* makeRyotQLScriptHost),
 		...(yield* makeProKeyScriptHost),
 		...(yield* makeUserCommandScriptHost),
-		...(yield* makeUserWorkScriptHost),
 	} satisfies AdditionalScriptHostImplementationMap;
 });
 
@@ -108,11 +103,8 @@ export const ScriptHostImplementationsLive = Layer.effect(
 	Layer.provide(
 		Layer.mergeAll(
 			DomainWriteChecksLive,
-			BackgroundWorkService.layer,
 			EventsServiceLive,
 			ManagedAssetsServiceLive,
-			EventStreamWorkServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
-			RelationshipProjectionServiceLive.pipe(Layer.provide(ProjectionBindingsLive)),
 			RyotQLService.layer,
 			RelationshipMutationPipelineLive,
 			EntityUserDataServiceLive,

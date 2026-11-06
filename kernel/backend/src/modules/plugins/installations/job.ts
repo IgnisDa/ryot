@@ -5,6 +5,7 @@ import { AccountGeneration } from "@ryot-app/contract/schema/account-generation"
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
+import { FoldRebuildJob } from "#modules/derived-values/marks";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -122,6 +123,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const installations = yield* PluginInstallationRepository;
 		const bootstrapEntities = yield* PluginBootstrapEntities;
 		const admission = yield* AccountAdmission.make;
+		const jobs = yield* JobQueue;
 
 		const begin = (installationId: string, activationId: string) =>
 			asInternal(
@@ -233,17 +235,23 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 							if (installation?.userId !== userId) {
 								return false;
 							}
-							return yield* installations
-								.updateHealthForActivation({
-									userId,
-									activationId,
-									health: "ready",
-									id: installationId,
-									healthReason: null,
-								})
-								.pipe(
-									Effect.tap((updated) => (updated ? invalidator.recordUser(userId) : Effect.void)),
+							const updated = yield* installations.updateHealthForActivation({
+								userId,
+								activationId,
+								health: "ready",
+								id: installationId,
+								healthReason: null,
+							});
+							if (updated) {
+								yield* invalidator.recordUser(userId);
+								const pluginId = PluginId.make(installation.pluginId);
+								yield* jobs.enqueue(
+									FoldRebuildJob,
+									{ userId, pluginId },
+									{ userId, key: `${userId}:${pluginId}` },
 								);
+							}
+							return updated;
 						}),
 					);
 					if (changed) {

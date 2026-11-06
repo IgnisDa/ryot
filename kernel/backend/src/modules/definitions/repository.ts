@@ -125,6 +125,7 @@ const toEntitySchema = (
 	...(row.editor ? { editor: row.editor } : {}),
 	...(row.browse ? { browse: row.browse } : {}),
 	...(row.userState ? { userState: row.userState } : {}),
+	...(row.fold ? { fold: row.fold } : {}),
 	eventSchemas: Object.fromEntries(
 		eventSchemas.map((event) => [event.slug, toEventSchema({ ...event, pluginId: row.pluginId })]),
 	),
@@ -316,6 +317,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										icon: definition.icon,
 										name: definition.name,
 										slug: definition.slug,
+										fold: definition.fold ?? null,
 										editor: definition.editor ?? null,
 										browse: definition.browse ?? null,
 										userState: definition.userState ?? null,
@@ -540,6 +542,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												name: definition.name,
 												slug: definition.slug,
 												pluginRevisionId: null,
+												fold: definition.fold ?? null,
 												editor: definition.editor ?? null,
 												browse: definition.browse ?? null,
 												userState: definition.userState ?? null,
@@ -556,6 +559,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 											set: {
 												icon: sql`excluded.icon`,
 												name: sql`excluded.name`,
+												fold: sql`excluded.fold`,
 												editor: sql`excluded.editor`,
 												browse: sql`excluded.browse`,
 												position: sql`excluded.position`,

@@ -275,36 +275,16 @@ export const PluginMetadata = strictStruct({
 
 export type PluginMetadata = Schema.Schema.Type<typeof PluginMetadata>;
 
-export const PluginProjection = strictStruct({
-	scriptSlug: Schema.NonEmptyString,
-	propertiesSchema: PluginAppSchema,
-});
+export const PluginProjection = strictStruct({ propertiesSchema: PluginAppSchema });
 
 export type PluginProjection = Schema.Schema.Type<typeof PluginProjection>;
-
-export const PluginEventProjection = strictStruct({
-	...PluginProjection.fields,
-	inputs: Schema.optional(
-		Schema.NonEmptyArray(
-			strictStruct({
-				eventSchemaSlug: pluginManifestSlug,
-				scope: Schema.Union([
-					Schema.Literal("entity"),
-					strictStruct({ property: Schema.NonEmptyString }),
-				]),
-			}),
-		),
-	),
-});
-
-export type PluginEventProjection = Schema.Schema.Type<typeof PluginEventProjection>;
 
 export const PluginEventSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
 	eventGroup: Schema.optional(PluginEventGroup),
-	projection: Schema.optional(PluginEventProjection),
+	projection: Schema.optional(PluginProjection),
 });
 
 export type PluginEventSchema = Schema.Schema.Type<typeof PluginEventSchema>;
@@ -351,11 +331,19 @@ export const PluginEntityEditor = strictStruct({
 
 export type PluginEntityEditor = Schema.Schema.Type<typeof PluginEntityEditor>;
 
+export const PluginEntityFold = strictStruct({
+	scriptSlug: Schema.NonEmptyString,
+	eventSchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
+});
+
+export type PluginEntityFold = Schema.Schema.Type<typeof PluginEntityFold>;
+
 export const PluginEntitySchema = strictStruct({
 	icon: Schema.String,
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
+	fold: Schema.optional(PluginEntityFold),
 	editor: Schema.optional(PluginEntityEditor),
 	eventSchemas: Schema.Array(PluginEventSchema),
 	occursAtProperty: Schema.optional(Schema.String),
@@ -376,26 +364,14 @@ export const PluginRelationshipRetention = Schema.Literals(["root", "composition
 
 export type PluginRelationshipRetention = Schema.Schema.Type<typeof PluginRelationshipRetention>;
 
-export const PluginRelationshipProjection = strictStruct({
-	...PluginProjection.fields,
-	inputs: Schema.optional(
-		strictStruct({
-			relationshipCreate: Schema.Boolean,
-			eventSchemaSlugs: Schema.Array(pluginManifestSlug),
-		}),
-	),
-});
-
-export type PluginRelationshipProjection = Schema.Schema.Type<typeof PluginRelationshipProjection>;
-
 export const PluginRelationshipSchema = strictStruct({
 	name: Schema.String,
 	slug: pluginManifestSlug,
 	propertiesSchema: PluginAppSchema,
+	projection: Schema.optional(PluginProjection),
 	sourceEntitySchemaSlug: Schema.NullOr(Schema.String),
 	targetEntitySchemaSlug: Schema.NullOr(Schema.String),
 	retention: Schema.optional(PluginRelationshipRetention),
-	projection: Schema.optional(PluginRelationshipProjection),
 	userWritePolicy: Schema.optional(PluginRelationshipUserWritePolicy),
 });
 

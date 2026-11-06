@@ -27,7 +27,7 @@ import { Context, Effect, Layer } from "effect";
 import { chunksOf } from "effect/Array";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { EventStreamRepository } from "#modules/events/stream-repository";
+import { FoldMarks } from "#modules/derived-values/marks";
 import {
 	PluginRuntimeResolver,
 	PluginRuntimeResolverLive,
@@ -267,7 +267,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const eventStreams = yield* EventStreamRepository.make;
+			const folds = yield* FoldMarks.make;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const definitions = yield* DefinitionRepository;
 			const lockSchemaCatalog = pluginRuntime.lockCatalog;
@@ -889,7 +889,7 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 					return yield* new DbError({ message: "Entity update returned no row" });
 				}
 				if (contentChanged) {
-					yield* eventStreams.invalidateEntity(input.entityId);
+					yield* folds.entityChanged(input.entityId);
 				}
 
 				return toListedEntity(updated);

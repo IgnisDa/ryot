@@ -4,13 +4,9 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityId,
 	EntitySchemaSlug,
-	EventId,
-	EventSchemaSlug,
-	PluginId,
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { assert } from "@ryot-app/testing/assert";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -23,11 +19,7 @@ import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
-import { EventsRepository } from "#modules/events/repository";
-import { EventStreamRepository } from "#modules/events/stream-repository";
-import { seedStreamWork, streamState } from "#modules/events/stream-repository.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
@@ -327,15 +319,12 @@ layer(
 	);
 });
 
-const eventStreamRepositoriesLayer = Layer.mergeAll(
-	EntitiesRepository.layer.pipe(
-		Layer.provide(Layer.mergeAll(Layer.mock(DefinitionRepository)({}), makePluginRuntime())),
-	),
-	EventsRepository.layer,
-	EventStreamRepository.layer,
-).pipe(Layer.provideMerge(isolatedDatabaseLayer("entities_repository_stream_invalidation")));
+const entityRepositoriesLayer = EntitiesRepository.layer.pipe(
+	Layer.provide(Layer.mergeAll(Layer.mock(DefinitionRepository)({}), makePluginRuntime())),
+	Layer.provideMerge(isolatedDatabaseLayer("entities_repository_writes")),
+);
 
-layer(eventStreamRepositoriesLayer)((test) => {
+layer(entityRepositoriesLayer)((test) => {
 	test.effect(
 		"increments content generation only for canonical name or property changes",
 		() =>
@@ -385,107 +374,9 @@ layer(eventStreamRepositoriesLayer)((test) => {
 			}),
 		testTimeout,
 	);
-
-	test.effect(
-		"invalidates event streams only after entity stream data changes",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const repository = yield* EntitiesRepository;
-				const events = yield* EventsRepository;
-				const userId = UserId.make("stream-owner");
-				const entityId = EntityId.make("stream-entity");
-				const pluginId = PluginId.make("stream-plugin");
-				const key = {
-					userId,
-					entityId,
-					eventSchemaPluginId: pluginId,
-					eventSchemaSlug: EventSchemaSlug.make("progress"),
-				};
-				const occurredAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
-				yield* session.run((db) =>
-					db
-						.insert(tables.user)
-						.values({ id: userId, name: "Stream owner", email: "stream-owner@example.test" }),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.plugin)
-						.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.entity)
-						.values({ id: entityId, name: "Before", entitySchemaSlug: "record" }),
-				);
-
-				const event = {
-					userId,
-					entityId,
-					occurredAt,
-					properties: { value: 1 },
-					eventSchemaName: "Progress",
-					eventSchemaPluginId: pluginId,
-					id: EventId.make("stream-event"),
-					eventSchemaSlug: key.eventSchemaSlug,
-				};
-				expect(yield* session.isTransactionActive).toBe(false);
-				expect(yield* Effect.flip(events.createEvent(event))).toMatchObject({
-					_tag: "DbError",
-					message: "Event writes require an active transaction",
-				});
-				const created = yield* session.transaction(
-					Effect.gen(function* () {
-						expect(yield* session.isTransactionActive).toBe(true);
-						return yield* events.createEvent(event);
-					}),
-				);
-				expect(created.id).toBe(event.id);
-				const { id: streamId } = yield* seedStreamWork(key);
-				const beforeUpdate = yield* streamState(streamId);
-				assert(beforeUpdate);
-				expect(beforeUpdate.streamRevision).toBe(1);
-				yield* session.transaction(events.createEvent(event));
-				expect((yield* streamState(streamId))?.streamRevision).toBe(beforeUpdate.streamRevision);
-
-				yield* session.run((db) =>
-					db
-						.update(tables.eventStreamWork)
-						.set({ checkpoint: { cursor: "done" }, completedRevision: beforeUpdate.streamRevision })
-						.where(eq(tables.eventStreamWork.id, streamId)),
-				);
-				yield* session.transaction(
-					Effect.gen(function* () {
-						expect(yield* session.isTransactionActive).toBe(true);
-						yield* repository.updateEntity({
-							entityId,
-							name: "After",
-							populatedAt: null,
-							properties: { value: 2 },
-						});
-					}),
-				);
-				const invalidated = yield* streamState(streamId);
-				assert(invalidated);
-				expect(invalidated.streamRevision).toBe(beforeUpdate.streamRevision + 1);
-				expect(invalidated.currentJobId).toBeNull();
-				expect(invalidated.completedRevision).not.toBe(invalidated.streamRevision);
-
-				yield* session.transaction(
-					repository.updateEntity({
-						entityId,
-						name: "After",
-						populatedAt: occurredAt,
-						properties: { value: 2 },
-					}),
-				);
-				expect((yield* streamState(streamId))?.streamRevision).toBe(invalidated.streamRevision);
-			}),
-		testTimeout,
-	);
 });
 
-layer(eventStreamRepositoriesLayer)((test) => {
+layer(entityRepositoriesLayer)((test) => {
 	test.effect(
 		"stamps related population without touching populated_at",
 		() =>
@@ -690,7 +581,7 @@ layer(
 	);
 });
 
-layer(eventStreamRepositoriesLayer)((test) => {
+layer(entityRepositoriesLayer)((test) => {
 	test.effect(
 		"keeps a non-null populated_at only for flagged population root updates",
 		() =>

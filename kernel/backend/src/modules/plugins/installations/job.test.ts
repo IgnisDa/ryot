@@ -12,6 +12,7 @@ import { makeUserPluginRevision } from "#modules/scripts/authorization/principal
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import { JobQueue } from "#platform/jobs/queue";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
@@ -184,6 +185,9 @@ const workflowLayer = (input: {
 				scriptPinLookups,
 			}) =>
 				Layer.mergeAll(
+					Layer.mock(JobQueue)({
+						enqueue: (kind) => pushOrder(`enqueue:${kind.name}`).pipe(Effect.as(true)),
+					}),
 					Layer.succeed(PluginBootstrapEntities)({
 						dispatch: (plans) => pushOrder(`dispatch:${plans.join(",")}`),
 						ensure: (ensured) =>
@@ -341,7 +345,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 			Effect.gen(function* () {
 				const fake = yield* FakeInstallationWorkflow;
 				yield* runWorkflow;
-				expect(yield* fake.order).toEqual(["health:ready", "invalidate"]);
+				expect(yield* fake.order).toEqual(["health:ready", "enqueue:fold-rebuild", "invalidate"]);
 				expect(yield* fake.executions).toEqual<unknown>([
 					{
 						pluginRevision,
@@ -452,6 +456,7 @@ layer(
 					"ensure:library",
 					"dispatch:plan:library",
 					"health:ready",
+					"enqueue:fold-rebuild",
 					"invalidate",
 				]);
 				expect(ensuredEntities).toEqual<unknown>([

@@ -1,9 +1,6 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -17,16 +14,9 @@ import { DatabaseSession } from "#platform/db/session";
 import { ScriptExecutionPrincipal, type ScriptPluginRevision } from "../authorization/principal";
 import { SandboxRepository } from "../registry/repository";
 
-export type ProjectionBindingRecord = {
-	readonly accountToken: string;
-	readonly pluginPin: JsonValue;
-	readonly outputSchema: AppSchema;
-	readonly pluginRevisionId: string;
-	readonly processorScriptId: string;
-};
-
-export class ProjectionBindings extends Context.Service<
-	ProjectionBindings,
+/** Resolves a plugin's fold script for a user, under the read-only `projection` subject. */
+export class FoldScripts extends Context.Service<
+	FoldScripts,
 	{
 		resolve: (input: {
 			userId: UserId;
@@ -41,28 +31,18 @@ export class ProjectionBindings extends Context.Service<
 			DbError
 		>;
 	}
->()("@ryot-app/kernel-backend/modules/scripts/executions/projection-bindings/ProjectionBindings") {}
+>()("@ryot-app/kernel-backend/modules/scripts/executions/fold-scripts/FoldScripts") {}
 
-export const sameProjectionBinding = (
-	left: ProjectionBindingRecord,
-	right: ProjectionBindingRecord,
-) =>
-	left.accountToken === right.accountToken &&
-	left.processorScriptId === right.processorScriptId &&
-	left.pluginRevisionId === right.pluginRevisionId &&
-	stableStringify(left.pluginPin) === stableStringify(right.pluginPin) &&
-	stableStringify(left.outputSchema) === stableStringify(right.outputSchema);
-
-export const ProjectionBindingsLive = Layer.effect(
-	ProjectionBindings,
+export const FoldScriptsLive = Layer.effect(
+	FoldScripts,
 	Effect.gen(function* () {
 		const runtime = yield* PluginRuntimeResolver;
 		const scripts = yield* SandboxRepository;
 		const session = yield* DatabaseSession;
 		const admission = yield* AccountAdmission.make;
 		const findScript = findRevisionScriptForSession(session);
-		return ProjectionBindings.of({
-			resolve: Effect.fn("ProjectionBindings.resolve")(function* (input) {
+		return FoldScripts.of({
+			resolve: Effect.fn("FoldScripts.resolve")(function* (input) {
 				const plugin = yield* runtime.findPluginAvailableToUser(input.userId, input.pluginId);
 				if (!plugin) {
 					return null;
@@ -82,7 +62,7 @@ export const ProjectionBindingsLive = Layer.effect(
 				const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 					...pin,
 					subject,
-				}).pipe(Effect.mapError(() => new DbError({ message: "Invalid projection authority" })));
+				}).pipe(Effect.mapError(() => new DbError({ message: "Invalid fold authority" })));
 				return { principal, accountGeneration, pluginPin: pin.pluginRevision };
 			}),
 		});

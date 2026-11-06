@@ -9,11 +9,9 @@ import type { UploadIntentsService } from "#modules/assets/uploads/intents";
 import type { AutomationReconciliation } from "#modules/automations/reconciliation";
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
-import { BackgroundWorkService } from "#modules/background-work/service";
 import { BackupsService } from "#modules/backups/service";
 import type { EntityGraphCollector } from "#modules/entities/retention/collector";
 import { entityGraphFrequentTask } from "#modules/entities/retention/frequent-task";
-import { EventStreamWorkService } from "#modules/events/stream-work";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ingestionFrequentTask } from "#modules/imports/frequent-task";
 import type { ImportsService } from "#modules/imports/service";
@@ -26,7 +24,6 @@ import type { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { pluginCatalogFrequentTask } from "#modules/plugins/catalog/frequent-task";
 import type { PluginInstallationService } from "#modules/plugins/installations/service";
 import { pluginInstallationFrequentTask } from "#modules/plugins/installations/sweep";
-import { RelationshipProjectionService } from "#modules/relationships/projections/service";
 import { ReminderWorker } from "#modules/reminders/worker";
 import { runTasks } from "#modules/scheduler/cron-tasks";
 import { FrequentCronJob, scheduleFrequentCron } from "#modules/scheduler/frequent-cron";
@@ -50,16 +47,13 @@ const frequentCronTasks: ReadonlyArray<
 		| EntityGraphCollector
 		| SignalScheduleWorker
 		| ManagedAssetCollector
-		| BackgroundWorkService
 		| NotificationAdmissions
-		| EventStreamWorkService
 		| OAuthConnectionsService
 		| UserBootstrapScheduling
 		| AutomationReconciliation
 		| PluginCatalogInvalidator
 		| WorkflowGarbageCollector
 		| PluginInstallationService
-		| RelationshipProjectionService
 	>
 > = [
 	{
@@ -116,42 +110,10 @@ const frequentCronTasks: ReadonlyArray<
 			),
 	},
 	{
-		name: "background-work-recovery",
-		run: () =>
-			Effect.flatMap(BackgroundWorkService, (service) => service.recover()).pipe(
-				Effect.catchCause((cause) => Effect.logWarning("Background work recovery failed", cause)),
-			),
-	},
-	{
-		name: "background-work-retention",
-		run: () =>
-			Effect.flatMap(BackgroundWorkService, (service) => service.pruneSettled(500)).pipe(
-				Effect.catchCause((cause) => Effect.logWarning("background work retention failed", cause)),
-			),
-	},
-	{
 		name: "idempotency-key-retention",
 		run: () =>
 			Effect.flatMap(IdempotencyKeys.make, (keys) => keys.pruneExpired(500)).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("idempotency key retention failed", cause)),
-			),
-	},
-	{
-		name: "event-stream-work-reconcile",
-		run: () =>
-			Effect.flatMap(EventStreamWorkService, (service) => service.reconcile()).pipe(
-				Effect.catchCause(() =>
-					Effect.logWarning("event stream work reconciliation listing failed"),
-				),
-			),
-	},
-	{
-		name: "relationship-projection-reconcile",
-		run: () =>
-			Effect.flatMap(RelationshipProjectionService, (service) => service.reconcile()).pipe(
-				Effect.catchCause((cause) =>
-					Effect.logWarning("relationship projection reconciliation failed", cause),
-				),
 			),
 	},
 	{

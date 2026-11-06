@@ -55,6 +55,8 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
+import { Folds } from "#modules/derived-values/service";
+import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainWriteChecks,
@@ -428,13 +430,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 										const replayed = plans.get(trigger.id);
 										return replayed
 											? { ...replayed, wasCreated: false }
-											: {
-													runs: [],
-													policies: [],
-													trigger: existing,
-													wasCreated: false,
-													backgroundJobIds: [],
-												};
+											: { runs: [], policies: [], trigger: existing, wasCreated: false };
 									}
 									if (trigger.kind.category === "change" && options.failChange) {
 										return yield* new DbError({ message: "planning failed" });
@@ -494,7 +490,6 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											runs: [],
 											policies: [],
 											wasCreated: true,
-											backgroundJobIds: [],
 											trigger: {
 												...trigger,
 												blockedReason: {
@@ -515,7 +510,6 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											trigger,
 											policies: [],
 											wasCreated: true,
-											backgroundJobIds: [],
 											runs: afterHook
 												? [yield* hookRun(trigger, { slug: "after", stage: "after" })]
 												: [],
@@ -556,7 +550,6 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									return yield* remember({
 										runs,
 										wasCreated: true,
-										backgroundJobIds: [],
 										trigger: plannedTrigger,
 										policies: runs.map((run, index) => ({
 											runId: run.id,
@@ -814,8 +807,11 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 											...new Set(
 												(input.sources ?? []).flatMap((source) =>
 													source.sessionEntityId
-														? [source.entityId, EntityId.make(source.sessionEntityId)]
-														: [source.entityId],
+														? [
+																EntityId.make(source.entityId),
+																EntityId.make(source.sessionEntityId),
+															]
+														: [EntityId.make(source.entityId)],
 												),
 											),
 										].sort(),
@@ -842,7 +838,10 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 
 const run = (input = payload) =>
 	Effect.flatMap(makeEventCreate, (create) => create(input)).pipe(
-		Effect.provideServiceEffect(EventMutations, EventMutations.make),
+		Effect.provideServiceEffect(
+			EventMutations,
+			EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+		),
 	);
 
 layer(harnessLayer({ afterHookRatings: [1], policies: [{ position: 1, slug: "policy" }] }))(

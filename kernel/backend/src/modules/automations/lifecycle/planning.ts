@@ -61,7 +61,6 @@ export type LifecyclePlan = {
 	readonly wasCreated: boolean;
 	readonly trigger: AutomationTrigger;
 	readonly runs: ReadonlyArray<AutomationRun>;
-	readonly backgroundJobIds: ReadonlyArray<string>;
 	readonly policies: ReadonlyArray<LifecyclePlannedPolicy>;
 };
 
@@ -73,7 +72,6 @@ export type LifecyclePlanningResult =
 			readonly wasCreated: false;
 			readonly runs: readonly [];
 			readonly policies: readonly [];
-			readonly backgroundJobIds: readonly [];
 	  };
 
 export const LifecycleDispatchRun = Schema.Struct(
@@ -91,7 +89,6 @@ export type LifecycleDispatchRun = typeof LifecycleDispatchRun.Type;
 export const LifecycleDispatchPlan = Schema.Struct({
 	triggerId: AutomationTrigger.fields.id,
 	runs: Schema.Array(LifecycleDispatchRun),
-	backgroundJobIds: Schema.Array(Schema.String),
 	blockedReason: AutomationTrigger.fields.blockedReason,
 });
 export type LifecycleDispatchPlan = typeof LifecycleDispatchPlan.Type;
@@ -99,9 +96,7 @@ export type LifecycleDispatchPlan = typeof LifecycleDispatchPlan.Type;
 export const toLifecycleDispatchPlan = ({
 	runs,
 	trigger,
-	backgroundJobIds,
 }: LifecyclePlan): LifecycleDispatchPlan => ({
-	backgroundJobIds,
 	triggerId: trigger.id,
 	blockedReason: trigger.blockedReason,
 	runs: runs.flatMap((run) =>
@@ -148,10 +143,6 @@ export class LifecyclePersistenceError extends Schema.TaggedError<
 export class LifecycleWork extends Context.Service<
 	LifecycleWork,
 	{
-		dispatch: (jobIds: ReadonlyArray<string>) => Effect.Effect<void, DbError>;
-		admit: (
-			triggers: ReadonlyArray<AutomationTrigger>,
-		) => Effect.Effect<ReadonlyArray<string>, DbError>;
 		/** Writes plugins declared for changes, in their transaction, returning the triggers of those writes. */
 		derive: (
 			triggers: ReadonlyArray<AutomationTrigger>,

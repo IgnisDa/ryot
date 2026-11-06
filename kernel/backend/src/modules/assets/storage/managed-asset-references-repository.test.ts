@@ -24,6 +24,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
+import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
@@ -46,6 +47,34 @@ const signalPayload = (properties: Record<string, JsonValue>): AutomationSignalP
 	resource: "signal",
 	signalSchemaPluginId: null,
 	signalSchemaSlug: SignalSchemaSlug.make("unknown.signal"),
+});
+
+const insertDerivedValue = Effect.fn(function* (input: {
+	readonly userId: UserId;
+	readonly entityId: string;
+	readonly targetId: string;
+	readonly value: JsonValue;
+}) {
+	const session = yield* DatabaseSession;
+	const pluginId = yield* randomUuid;
+	yield* session.run((db) =>
+		db
+			.insert(tables.plugin)
+			.values({ id: pluginId, status: "inactive", packageId: testPluginPackageId() }),
+	);
+	yield* session.run((db) =>
+		db
+			.insert(tables.derivedValue)
+			.values({
+				pluginId,
+				kind: "event",
+				value: input.value,
+				userId: input.userId,
+				targetId: input.targetId,
+				pluginRevisionId: "revision",
+				subjectEntityId: input.entityId,
+			}),
+	);
 });
 
 const insertEntity = Effect.fn(function* (input: {
@@ -189,20 +218,12 @@ const insertReferenceSource = Effect.fn(function* (
 					}),
 			);
 			if (source === "projection") {
-				const streamId = yield* randomUuid;
-				yield* session.run((db) =>
-					db
-						.insert(tables.eventStream)
-						.values({
-							entityId,
-							id: streamId,
-							eventSchemaSlug: "unknown",
-							userId: ownerUserId ?? UserId.make("owner"),
-						}),
-				);
-				yield* session.run((db) =>
-					db.insert(tables.eventProjection).values({ streamId, properties, eventId: id }),
-				);
+				yield* insertDerivedValue({
+					entityId,
+					targetId: id,
+					value: properties,
+					userId: ownerUserId ?? UserId.make("owner"),
+				});
 			}
 			return;
 		}
@@ -505,7 +526,7 @@ layer(testLayer)((test) => {
 	);
 
 	test.effect(
-		"projection ownership comes from its event, not its entity or stream",
+		"derived value ownership comes from its own row, not its entity",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
@@ -520,7 +541,6 @@ layer(testLayer)((test) => {
 					entitySchemaSlug: "unknown",
 				});
 				const eventId = yield* randomUuid;
-				const streamId = yield* randomUuid;
 				yield* session.run((db) =>
 					db
 						.insert(tables.event)
@@ -532,16 +552,12 @@ layer(testLayer)((test) => {
 							eventSchemaSlug: "unknown",
 						}),
 				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.eventStream)
-						.values({ entityId, id: streamId, userId: otherUserId, eventSchemaSlug: "unknown" }),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.eventProjection)
-						.values({ eventId, streamId, properties: { image: locator } }),
-				);
+				yield* insertDerivedValue({
+					entityId,
+					targetId: eventId,
+					userId: otherUserId,
+					value: { image: locator },
+				});
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 				yield* session.run((db) =>
 					db
@@ -550,7 +566,10 @@ layer(testLayer)((test) => {
 						.where(eq(tables.entity.id, entityId)),
 				);
 				yield* session.run((db) =>
-					db.update(tables.event).set({ userId: ownerUserId }).where(eq(tables.event.id, eventId)),
+					db
+						.update(tables.derivedValue)
+						.set({ userId: ownerUserId })
+						.where(eq(tables.derivedValue.targetId, eventId)),
 				);
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 			}),
@@ -839,7 +858,6 @@ layer(testLayer)((test) => {
 					entitySchemaSlug: "projection-source",
 				});
 				const eventId = yield* randomUuid;
-				const streamId = yield* randomUuid;
 				yield* session.run((db) =>
 					db
 						.insert(tables.event)
@@ -852,19 +870,15 @@ layer(testLayer)((test) => {
 							eventSchemaSlug: "source",
 						}),
 				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.eventStream)
-						.values({ entityId, id: streamId, userId: ownerUserId, eventSchemaSlug: "source" }),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(tables.eventProjection)
-						.values({ eventId, streamId, properties: { image: locator } }),
-				);
+				yield* insertDerivedValue({
+					entityId,
+					targetId: eventId,
+					userId: ownerUserId,
+					value: { image: locator },
+				});
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([locator]);
 				yield* session.run((db) =>
-					db.delete(tables.eventProjection).where(eq(tables.eventProjection.eventId, eventId)),
+					db.delete(tables.derivedValue).where(eq(tables.derivedValue.targetId, eventId)),
 				);
 				expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual([]);
 			}),

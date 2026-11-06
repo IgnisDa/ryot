@@ -82,7 +82,7 @@ export const planPolicyBatch = Effect.fn("planPolicyBatch")(function* (
 });
 
 /** The result of a batch no policy has changed. */
-const unchangedPolicyBatch = (
+export const unchangedPolicyBatch = (
 	input: typeof PolicyBatchPayload.Type,
 	triggerId: null | AutomationTrigger["id"],
 ): PolicyBatchResult => ({

@@ -132,7 +132,7 @@ layer(services)((test) => {
 											triggerId,
 											processingAt: due,
 											formatterRunId: "source-run",
-											dispatch: { runs: [], triggerId, blockedReason: null, backgroundJobIds: [] },
+											dispatch: { runs: [], triggerId, blockedReason: null },
 										}
 									: {}),
 							});
