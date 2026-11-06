@@ -393,12 +393,8 @@ it.effect(
 	testTimeout,
 );
 
-it("binds the combined set policy before stream-based record recomputation", () => {
+it("binds the combined set policy and folds workout records on exercises", () => {
 	const setPolicy = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-set");
-	const recordsHook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.workout-records");
-	const contextRecordsHook = fitnessPlugin.hooks.find(
-		({ slug }) => slug === "fitness.workout-context-records",
-	);
 	const notificationHook = fitnessPlugin.hooks.find(({ slug }) => slug === "fitness.notification");
 
 	expect(setPolicy?.targets).toEqual(
@@ -414,30 +410,9 @@ it("binds the combined set policy before stream-based record recomputation", () 
 		stage: "before",
 		scriptSlug: "policy.workout-set",
 	});
-	expect(recordsHook).toMatchObject({
-		stage: "after",
-		delivery: "async",
-		frequency: "batch",
-		executionScope: "user",
-		scriptSlug: "automation.workout-records",
+	expect(fitnessPlugin.entitySchemas.find(({ slug }) => slug === "exercise")).toMatchObject({
+		fold: { eventSchemaSlugs: ["workout-set"], scriptSlug: "fold.exercise-records" },
 	});
-	expect(recordsHook).not.toHaveProperty("causationSources");
-	expect(recordsHook?.targets).toEqual<unknown>(
-		["create", "update", "delete"].map((operation) => ({
-			operation,
-			resource: "event",
-			entitySchemaSlug: "exercise",
-			eventSchemaSlug: "workout-set",
-		})),
-	);
-	expect(contextRecordsHook).toMatchObject({
-		stage: "after",
-		delivery: "async",
-		executionScope: "user",
-		scriptSlug: "automation.workout-records",
-		targets: [{ resource: "entity", operation: "update", entitySchemaSlug: "workout" }],
-	});
-	expect(contextRecordsHook).not.toHaveProperty("frequency");
 	expect(notificationHook?.targets).toEqual([
 		{ operation: "emit", resource: "signal", signalSchemaSlug: "workout.created" },
 	]);

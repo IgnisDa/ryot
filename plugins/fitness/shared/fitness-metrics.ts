@@ -3,7 +3,6 @@ import {
 	column,
 	conditional,
 	eq,
-	exists,
 	inArray,
 	jsonArrayCount,
 	literal,
@@ -81,28 +80,18 @@ export const workoutSetProcessing = (
 	reference: PluginIdentityReference,
 	scope: { readonly workoutId?: string | undefined; readonly exerciseId?: string | undefined } = {},
 ) => {
-	const stream = table("eventStream", "workoutSetStream");
-	const set = table("event", "workoutSetStreamSet");
-	return selectedAggregate(stream, {
-		measures: projectionStatusMeasures(stream),
+	const set = table("event", "workoutSetProcessing");
+	return selectedAggregate(set, {
+		measures: projectionStatusMeasures(set),
 		where: and(
-			schemaOwnerPredicate(stream, "eventSchemaPluginId", reference),
-			eq(column(stream, "eventSchemaSlug"), literal("workout-set")),
+			schemaOwnerPredicate(set, "eventSchemaPluginId", reference),
+			eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 			...(scope.exerciseId === undefined
 				? []
-				: [eq(column(stream, "entityId"), literal(scope.exerciseId))]),
+				: [eq(column(set, "entityId"), literal(scope.exerciseId))]),
 			...(scope.workoutId === undefined
 				? []
-				: [
-						exists(set, {
-							where: and(
-								eq(column(set, "entityId"), column(stream, "entityId")),
-								eq(column(set, "sessionEntityId"), literal(scope.workoutId)),
-								eq(column(set, "eventSchemaPluginId"), column(stream, "eventSchemaPluginId")),
-								eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-							),
-						}),
-					]),
+				: [eq(column(set, "sessionEntityId"), literal(scope.workoutId))]),
 		),
 	});
 };

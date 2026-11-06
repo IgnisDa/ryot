@@ -43,6 +43,7 @@ export const fitnessEntitySchemas = [
 		name: "Exercise",
 		mergeIdentityProperties: ["kind"],
 		propertiesSchema: exercisePropertiesSchema,
+		fold: { eventSchemaSlugs: ["workout-set"], scriptSlug: "fold.exercise-records" },
 		editor: {
 			relationships: [
 				{ slug: "exercise-targets", direction: "outgoing" as const },
@@ -66,10 +67,7 @@ export const fitnessEntitySchemas = [
 				name: "Workout Set",
 				slug: "workout-set",
 				propertiesSchema: workoutSetPropertiesSchema,
-				projection: {
-					scriptSlug: "script.workout-record-step",
-					propertiesSchema: workoutRecordPropertiesSchema,
-				},
+				projection: { propertiesSchema: workoutRecordPropertiesSchema },
 			},
 			{ name: "Review", slug: "review", propertiesSchema: exerciseReviewPropertiesSchema },
 		],
