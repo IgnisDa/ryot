@@ -55,7 +55,7 @@ import {
 } from "#modules/automations/lifecycle/planning";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import { Folds } from "#modules/derived-values/service";
+import { type FoldMode, Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
@@ -836,11 +836,11 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 		}),
 	);
 
-const run = (input = payload) =>
+const run = (input = payload, folds = unfoldedFolds) =>
 	Effect.flatMap(makeEventCreate, (create) => create(input)).pipe(
 		Effect.provideServiceEffect(
 			EventMutations,
-			EventMutations.make.pipe(Effect.provideService(Folds, unfoldedFolds)),
+			EventMutations.make.pipe(Effect.provideService(Folds, folds)),
 		),
 	);
 
@@ -1741,6 +1741,30 @@ const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 		},
 	},
 }).pipe(Effect.orDie);
+
+layer(harnessLayer({ noHooks: true }))("event create folds", (test) => {
+	test.effect("queues a background write's folds and folds an interactive write inline", () =>
+		Effect.gen(function* () {
+			const modes: Array<FoldMode | undefined> = [];
+			const folds = Folds.of({
+				...unfoldedFolds,
+				within: (work, _apply, mode) => {
+					modes.push(mode);
+					return work;
+				},
+			});
+			const background = {
+				...command,
+				causation: { ...command.causation, lane: "background" as const },
+			};
+			yield* run(payload, folds);
+			expect(modes).toEqual(["inline"]);
+			modes.length = 0;
+			yield* run({ ...payload, command: background }, folds);
+			expect(modes).toEqual(["queue"]);
+		}),
+	);
+});
 
 layer(harnessLayer({ noHooks: true }))("event create", (test) => {
 	test.effect(

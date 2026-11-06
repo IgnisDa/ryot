@@ -190,6 +190,7 @@ export const makeEventCreate = Effect.gen(function* () {
 			const indexes = new Map(changes.map((change, index) => [change.itemIdentity, index]));
 			const indexOf = (itemIdentity: string) => indexes.get(itemIdentity) ?? -1;
 			const command = input.writeCommand ?? input.command;
+			const foldMode = command.causation.lane === "background" ? "queue" : "inline";
 			const admitBatch = planner.prepareBatch({ ...batch, scopes: [input.userId] });
 
 			const record = Effect.fnUntraced(function* (
@@ -372,6 +373,7 @@ export const makeEventCreate = Effect.gen(function* () {
 						}
 						return { planned, prepared, kind: "policies" as const };
 					}),
+					foldMode,
 				)
 				.pipe(
 					Effect.catchTag("EventBadRequest", (error) =>
@@ -385,7 +387,10 @@ export const makeEventCreate = Effect.gen(function* () {
 					? yield* applyChunks(started.planned, started.prepared).pipe(
 							Effect.flatMap((chunks) =>
 								mutations
-									.transaction(Effect.andThen(admitBatch, commit(started.prepared, chunks)))
+									.transaction(
+										Effect.andThen(admitBatch, commit(started.prepared, chunks)),
+										foldMode,
+									)
 									.pipe(
 										Effect.catchTag("EventBadRequest", (error) =>
 											Effect.fail(
