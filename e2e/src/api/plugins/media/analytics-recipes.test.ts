@@ -18,6 +18,7 @@ import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createCollection } from "~/fixtures/kernel/collections";
 import { seedEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
@@ -27,7 +28,6 @@ import {
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { assertCondition, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -265,7 +265,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 				assertCondition(outcome.status === "written", "Expected each paging source to save");
 				return outcome.eventId;
 			});
-			yield* settledHistoryCorrection(client, account.userId);
+			yield* waitForEventProjections(client);
 			const repaired = yield* waitForMediaConsumptionReport(client, input);
 			expect(requireMediaConsumptionGroup(repaired, "anime")).toMatchObject({
 				titleCompletions: 0,
@@ -412,7 +412,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 			expect(written.outcomes.map(({ status }) => status)).toEqual(
 				sourceEvents.map(() => "written"),
 			);
-			yield* settledHistoryCorrection(client, fixture.account.userId);
+			yield* waitForEventProjections(client);
 			const report = yield* waitForMediaConsumptionReport(client, input);
 			expect(requireMediaConsumptionGroup(report, "book")).toMatchObject({
 				pagesRecorded: 40,

@@ -21,7 +21,11 @@ import { createEntity, getEntity } from "~/fixtures/kernel/entities";
 import { createEventFixture } from "~/fixtures/kernel/entity-graph";
 import { clearEntityUserData, mergeEntityUserData } from "~/fixtures/kernel/entity-user-data";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
-import { listEventsForEntity, waitForEventCount } from "~/fixtures/kernel/events";
+import {
+	listEventsForEntity,
+	waitForEventCount,
+	waitForEventProjections,
+} from "~/fixtures/kernel/events";
 import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
@@ -30,7 +34,6 @@ import { createRelationship, findRelationshipBySchema } from "~/fixtures/kernel/
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { logMediaActivity } from "~/fixtures/plugins/media/activity-log";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import {
 	insertLibraryMembership,
 	insertMediaMonitoring,
@@ -243,7 +246,7 @@ const customShowTree = (client: Client) =>
 describe("Media entity user data HTTP operations", () => {
 	it.live("clears a complete show tree, then accepts new data", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const tree = yield* seedShow(client, {
 				inLibrary: false,
@@ -372,7 +375,7 @@ describe("Media entity user data HTTP operations", () => {
 				properties: { rating: 99, text: "Another user's review" },
 				eventSchemaSlug: requireEventSchemaBySlug(otherReviewSchemas, "review").id,
 			});
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 			const before = yield* eventsForTree(client, tree);
 			const detachedEpisodeEvents = yield* listEventsForEntity(
 				client,
@@ -467,7 +470,7 @@ describe("Media entity user data HTTP operations", () => {
 					when: { kind: "date", finishedOn: "2026-03-05T10:00:00.000Z" },
 				},
 			});
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 			const restored = yield* eventsForTree(client, tree);
 			expect(
 				restored.some(
@@ -480,7 +483,7 @@ describe("Media entity user data HTTP operations", () => {
 
 	it.live("merges show history without deduping events and remaps collection evidence", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const inventory = [
 				{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
 				{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] },
@@ -622,7 +625,7 @@ describe("Media entity user data HTTP operations", () => {
 				properties: { rating: 81, text: "Show review" },
 				eventSchemaSlug: requireEventSchemaBySlug(showEvents, "review").id,
 			});
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 
 			const sourceBefore = yield* eventsForTree(client, source);
 			const detachedSourceBefore = yield* listEventsForEntity(
@@ -657,7 +660,7 @@ describe("Media entity user data HTTP operations", () => {
 			const merged = yield* mergeEntityUserData(client, request);
 			expect(merged.mergeFrom).toBe(source.show.id);
 			expect(merged.mergeInto).toBe(target.show.id);
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 			const targetAfter = yield* eventsForTree(client, target);
 			const targetEntityBySource = new Map<string, string>([
 				[source.show.id, target.show.id],
@@ -772,7 +775,7 @@ describe("Media entity user data HTTP operations", () => {
 		"rejects missing and ambiguous child mappings before writes, then merges after a match exists",
 		() =>
 			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient();
 				const source = yield* seedShow(client, {
 					inLibrary: false,
 					properties: { productionStatus: "Ended" },
@@ -803,7 +806,7 @@ describe("Media entity user data HTTP operations", () => {
 						when: { kind: "date", finishedOn: "2026-01-10T12:00:00.000Z" },
 					},
 				});
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 				const originalEvents = yield* listEventsForEntity(
 					client,
 					source.episodeId(1, 2),
@@ -904,7 +907,7 @@ describe("Media entity user data HTTP operations", () => {
 						when: { kind: "date", finishedOn: "2026-01-11T12:00:00.000Z" },
 					},
 				});
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 				const ambiguousBefore = yield* listEventsForEntity(
 					client,
 					ambiguousSource.episodeId(1, 2),
@@ -935,7 +938,7 @@ describe("Media entity user data HTTP operations", () => {
 		"removes user state from editor-authored custom episodes without changing metadata or links",
 		() =>
 			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient();
 				const tree = yield* customShowTree(client);
 				for (const entity of tree.entities) {
 					yield* insertLibraryMembership(client, {
@@ -953,7 +956,7 @@ describe("Media entity user data HTTP operations", () => {
 						eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "review").id,
 					});
 				}
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 				const [showEntity, seasonEntity, episodeEntity] = tree.entities;
 				assertCondition(
 					showEntity !== undefined && seasonEntity !== undefined && episodeEntity !== undefined,

@@ -1,6 +1,6 @@
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -11,10 +11,9 @@ import {
 	restoreBackup,
 } from "~/fixtures/kernel/backups";
 import { getEntity, getGlobalEntityByProvenance } from "~/fixtures/kernel/entities";
-import { listEventsForEntity } from "~/fixtures/kernel/events";
+import { listEventsForEntity, waitForEventProjections } from "~/fixtures/kernel/events";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { getMediaLibraryEntityId } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
@@ -56,7 +55,7 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 		);
 		expect(result.failure).toBeNull();
 		expect(result.outcomes.map(({ status }) => status)).toEqual(["written", "written"]);
-		yield* settledHistoryCorrection(source.client, source.userId);
+		yield* waitForEventProjections(source.client);
 		const sourceEvents = yield* listEventsForEntity(
 			source.client,
 			fixture.entityId,
@@ -82,56 +81,14 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			undefined,
 			100,
 		);
-		expect(sourceLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-			EventSchemaSlug.make("completion-occurrence"),
-			EventSchemaSlug.make("completion-occurrence"),
-			EventSchemaSlug.make("history-correction"),
-		]);
-		const correction = requirePresent(
-			sourceLibraryEvents.find(({ eventSchemaSlug }) => eventSchemaSlug === "history-correction"),
-			"Source history correction is missing",
-		);
-		expect(correction.properties).toMatchObject({
-			phase: "done",
-			subjectEntityId: fixture.entityId,
-		});
-		const occurrenceFacts = facts.map((fact, index) => ({
-			silent: true,
-			frozen: false,
-			rule: "progress",
-			key: anyOf(String),
-			status: "inactive",
-			runKey: anyOf(String),
-			entityId: fixture.entityId,
-			total: index === 0 ? 90 : 0,
-			subjectEntityId: fixture.entityId,
-			sourceEventId: requirePresent(
-				sourceProgressEvents.find(
-					({ properties }) => properties["sourceRun"] === fact["sourceRun"],
-				),
-				"Source progress event is missing",
-			).id,
-		}));
-		expect(
-			sourceLibraryEvents
-				.filter(({ eventSchemaSlug }) => eventSchemaSlug === "completion-occurrence")
-				.map(({ properties }) => properties),
-		).toEqual<unknown>(arrayContaining(occurrenceFacts));
+		expect(sourceLibraryEvents).toEqual([]);
 		const { bytes } = yield* exportAndDownloadBackup(source.client);
 		const archivedEvents = yield* readBackupSection(bytes, "events.ndjson");
-		const archivedLibraryEvents = sourceLibraryEvents.filter(
-			({ eventSchemaSlug }) => eventSchemaSlug !== "history-correction",
-		);
-		expect(archivedEvents).toHaveLength(sourceEvents.length + archivedLibraryEvents.length);
-		for (const { events, entityId } of [
-			{ events: sourceEvents, entityId: fixture.entityId },
-			{ entityId: sourceLibraryId, events: archivedLibraryEvents },
-		]) {
-			for (const event of events) {
-				expect(archivedEvents).toContainEqual<unknown>(
-					objectContaining({ ...event, entityId, sessionEntityId: event.sessionEntityId ?? null }),
-				);
-			}
+		expect(archivedEvents).toHaveLength(sourceEvents.length);
+		for (const event of sourceEvents) {
+			expect(archivedEvents).toContainEqual<unknown>(
+				objectContaining({ ...event, sessionEntityId: event.sessionEntityId ?? null }),
+			);
 		}
 		yield* deleteUserAndWait(source.userId);
 		assertCompleted((yield* restoreBackup(target.client, bytes)).run, "Media consumption restore");
@@ -163,27 +120,7 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 			undefined,
 			100,
 		);
-		expect(restoredLibraryEvents.map(({ eventSchemaSlug }) => eventSchemaSlug).sort()).toEqual([
-			EventSchemaSlug.make("completion-occurrence"),
-			EventSchemaSlug.make("completion-occurrence"),
-		]);
-		for (const [index, fact] of facts.entries()) {
-			const restoredProgress = requirePresent(
-				restoredEvents.find(({ properties }) => properties["sourceRun"] === fact["sourceRun"]),
-				"Restored progress event is missing",
-			);
-			expect(
-				restoredLibraryEvents.find(
-					({ properties }) => properties["sourceEventId"] === restoredProgress.id,
-				)?.properties,
-			).toEqual({
-				...requirePresent(occurrenceFacts[index], "Source occurrence is missing"),
-				runKey: anyOf(String),
-				entityId: restoredEntity.id,
-				subjectEntityId: restoredEntity.id,
-				sourceEventId: restoredProgress.id,
-			});
-		}
+		expect(restoredLibraryEvents).toEqual([]);
 		expect((yield* getEntity(target.client, restoredEntity.id)).properties["runtime"]).toBe(120);
 	}),
 );

@@ -1,29 +1,13 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
-import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import {
-	and,
-	ascending,
-	castText,
-	column,
-	defineRecipe,
-	eq,
-	jsonPath,
-	literal,
-	schemaOwnerPredicate,
-	selectedField,
-	selectedOptionalRow,
-	table,
-} from "@ryot-app/ryotql";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Effect, Result, Schema } from "effect";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
 	createEntity,
 	deleteUserAndWait,
-	executeRyotQLRecipe,
 	exportAndDownloadBackup,
 	findEntityIdByName,
 	getEntity,
@@ -34,6 +18,7 @@ import {
 import { readBackupSection } from "~/fixtures/kernel/backups";
 import { clearEntityUserData, mergeEntityUserData } from "~/fixtures/kernel/entity-user-data";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import { mediaReferenceForEntity } from "~/fixtures/plugins/media/activity-log";
 import {
 	mediaConsumptionMeasure,
@@ -42,10 +27,7 @@ import {
 } from "~/fixtures/plugins/media/consumption";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
-import {
-	historyEventsFor,
-	settledHistoryCorrection,
-} from "~/fixtures/plugins/media/history-correction";
+import { historyEventsFor } from "~/fixtures/plugins/media/history-correction";
 import { seedShow } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
@@ -79,52 +61,10 @@ const waitForReport = (
 		...(entityId === undefined ? {} : { entityId }),
 	});
 
-const restoredHistoryRevisionRecipe = defineRecipe(
-	(input: { entityId: string; reference: PluginIdentityReference }) => {
-		const scope = table("eventScope", "restoreScope");
-		const checkpoint = table("event", "restoreCheckpoint");
-		return {
-			map: ({ scope: current, checkpoint: saved }) =>
-				Result.succeed({ scope: current?.revision ?? 0, checkpoint: saved?.properties }),
-			queries: {
-				scope: selectedOptionalRow(scope, {
-					orderBy: [ascending(column(scope, "id"))],
-					selection: { revision: selectedField(column(scope, "revision"), Schema.Int) },
-					where: and(
-						schemaOwnerPredicate(scope, "eventSchemaPluginId", input.reference),
-						eq(column(scope, "entityId"), literal(input.entityId)),
-					),
-				}),
-				checkpoint: selectedOptionalRow(checkpoint, {
-					orderBy: [ascending(column(checkpoint, "id"))],
-					selection: {
-						properties: selectedField(
-							column(checkpoint, "properties"),
-							Schema.Struct({
-								phase: Schema.String,
-								requestKey: Schema.String,
-								sourceRevision: Schema.Int,
-							}),
-						),
-					},
-					where: and(
-						schemaOwnerPredicate(checkpoint, "eventSchemaPluginId", input.reference),
-						eq(column(checkpoint, "eventSchemaSlug"), literal("history-correction")),
-						eq(
-							castText(jsonPath(column(checkpoint, "properties"), "subjectEntityId")),
-							literal(input.entityId),
-						),
-					),
-				}),
-			},
-		};
-	},
-);
-
 describe("Media consumption basis retention", () => {
 	it.live("merges independent same-date Book completions without deduping their frozen bases", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const source = yield* createBuiltinMediaLifecycleFixture(client, {
 				entitySchemaSlug: "book",
 				properties: { pages: 100 },
@@ -167,7 +107,7 @@ describe("Media consumption basis retention", () => {
 			);
 			expect(created.failure).toBeNull();
 			expect(created.outcomes.map(({ status }) => status)).toEqual(["written", "written"]);
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 
 			const before = yield* waitForReport(client, reference);
 			const beforeBook = requireMediaConsumptionGroup(before, "book");
@@ -180,7 +120,7 @@ describe("Media consumption basis retention", () => {
 				mergeInto: EntityId.make(target.entityId),
 			};
 			yield* mergeEntityUserData(client, mergeRequest);
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 
 			const after = yield* waitForReport(client, reference);
 			const targetBook = requireMediaConsumptionGroup(after, "book");
@@ -210,7 +150,7 @@ describe("Media consumption basis retention", () => {
 
 	it.live("clears a completed show tree without leaking projections into later consumption", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const show = yield* seedShow(client, {
 				inLibrary: false,
 				properties: { productionStatus: "Ended" },
@@ -244,7 +184,7 @@ describe("Media consumption basis retention", () => {
 				}),
 			);
 			expect(completions.failure).toBeNull();
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 
 			const reference = yield* mediaReferenceForEntity(client, show.show.id);
 			const before = yield* waitForReport(client, reference);
@@ -260,7 +200,7 @@ describe("Media consumption basis retention", () => {
 
 			const cleared = yield* clearEntityUserData(client, show.show.id);
 			expect(cleared.deletedEventsCount).toBeGreaterThan(0);
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 			const afterClear = yield* waitForReport(client, reference);
 			expect(afterClear.current.types).toEqual([]);
 
@@ -294,7 +234,7 @@ describe("Media consumption basis retention", () => {
 				}),
 			);
 			expect(freshCompletion.failure).toBeNull();
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 			const freshReport = yield* waitForReport(client, reference);
 			const episodeGroup = requireMediaConsumptionGroup(freshReport, "show-episode");
 			expect((yield* mediaConsumptionMeasure(episodeGroup, "minutes")).total).toBe(20);
@@ -380,7 +320,7 @@ describe("Media consumption restore", () => {
 					"written",
 					"written",
 				]);
-				yield* settledHistoryCorrection(source.client, source.userId);
+				yield* waitForEventProjections(source.client);
 
 				const sourceReference = yield* mediaReferenceForEntity(source.client, book.id);
 				const sourceAllTime = yield* waitForReport(source.client, sourceReference);
@@ -404,16 +344,8 @@ describe("Media consumption restore", () => {
 				expect(sourceJan2.unknownDate).toBe(1);
 
 				const sourceEvents = yield* historyEventsFor(source.client, book.id);
-				const sourceRevisions = yield* executeRyotQLRecipe(
-					source.client,
-					restoredHistoryRevisionRecipe({ entityId: book.id, reference: sourceReference }),
-				);
-				expect(sourceRevisions.checkpoint).toMatchObject({ phase: "done" });
 				const { bytes } = yield* exportAndDownloadBackup(source.client);
 				const archivedEvents = yield* readBackupSection(bytes, "events.ndjson");
-				expect(
-					archivedEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "history-correction"),
-				).toBe(false);
 				const archivedBookEvents = archivedEvents.filter((event) => event["entityId"] === book.id);
 				expect(archivedBookEvents).toHaveLength(sourceEvents.length);
 				expect(
@@ -448,11 +380,6 @@ describe("Media consumption restore", () => {
 				const targetReference = yield* mediaReferenceForEntity(target.client, restoredBookId);
 				const targetAllTime = yield* waitForReport(target.client, targetReference);
 				const targetAllTimeBook = requireMediaConsumptionGroup(targetAllTime, "book");
-				const revisions = yield* executeRyotQLRecipe(
-					target.client,
-					restoredHistoryRevisionRecipe({ entityId: restoredBookId, reference: targetReference }),
-				);
-				expect(revisions).toEqual({ scope: 0, checkpoint: undefined });
 
 				const restoredEvents = yield* historyEventsFor(target.client, restoredBookId);
 				const normalizeEvents = (events: typeof sourceEvents) =>

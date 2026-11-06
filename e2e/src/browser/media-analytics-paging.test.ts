@@ -12,6 +12,7 @@ import {
 	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
@@ -19,7 +20,6 @@ import {
 	requireMediaConsumptionGroup,
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { assertCondition, requirePresent, requireString } from "~/support/assertions";
 import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
@@ -112,7 +112,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		expect(new Set(expectedSources.map(({ sourceRun }) => sourceRun)).size).toBe(102);
 		expect(new Set(expectedSources.map(({ occurredAt }) => occurredAt)).size).toBe(102);
 
-		yield* settledHistoryCorrection(client, account.userId);
+		yield* waitForEventProjections(client);
 		const input = {
 			now: fixture.now,
 			timeZone: fixture.timeZone,

@@ -12,6 +12,7 @@ import {
 	analyticsSection,
 	hasAnalyticsLocation,
 } from "~/fixtures/kernel/analytics-location";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
@@ -19,7 +20,6 @@ import {
 	requireMediaConsumptionGroup,
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { requirePresent } from "~/support/assertions";
 import {
 	activePluginIframe,
@@ -628,7 +628,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 				payload: { properties: { remove: [], set: { progressPages: 50 } } },
 			}),
 		);
-		yield* settledHistoryCorrection(fixture.account.client, fixture.account.userId);
+		yield* waitForEventProjections(fixture.account.client);
 		const now = yield* Clock.currentTimeMillis;
 		const corrected = yield* waitForMediaConsumptionReport(fixture.account.client, {
 			...input,

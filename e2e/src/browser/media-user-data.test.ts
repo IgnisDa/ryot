@@ -6,11 +6,10 @@ import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { getEntity } from "~/fixtures/kernel/entities";
 import { createEventFixture } from "~/fixtures/kernel/entity-graph";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
-import { listEventsForEntity } from "~/fixtures/kernel/events";
+import { listEventsForEntity, waitForEventProjections } from "~/fixtures/kernel/events";
 import { logMediaActivity } from "~/fixtures/plugins/media/activity-log";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import {
 	insertLibraryMembership,
 	queryInMediaLibraryRelationship,
@@ -180,7 +179,7 @@ it.live("merges data through the same-schema entity picker and opens the destina
 
 it.live("keeps an episodic mapping conflict visible without changing either show", () =>
 	Effect.gen(function* () {
-		const { email, client, userId, password } = yield* createAuthenticatedClient();
+		const { email, client, password } = yield* createAuthenticatedClient();
 		const suffix = yield* randomUuid;
 		const source = yield* seedShow(client, {
 			inLibrary: false,
@@ -212,7 +211,7 @@ it.live("keeps an episodic mapping conflict visible without changing either show
 				when: { kind: "date", finishedOn: "2026-04-03T10:00:00.000Z" },
 			},
 		});
-		yield* settledHistoryCorrection(client, userId);
+		yield* waitForEventProjections(client);
 		const sourceEvents = yield* listEventsForEntity(client, source.episodeId(1, 2), undefined, 100);
 		const sourceRootEvents = yield* listEventsForEntity(client, source.show.id, undefined, 100);
 		const targetEvents = yield* listEventsForEntity(client, target.show.id, undefined, 100);

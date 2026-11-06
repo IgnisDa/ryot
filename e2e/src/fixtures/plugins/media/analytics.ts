@@ -8,13 +8,13 @@ import { analyticsFixtureSelection } from "~/fixtures/kernel/analytics-location"
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { createEntity } from "~/fixtures/kernel/entities";
 import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { assertCondition } from "~/support/assertions";
 
 import { mediaReferenceForEntity } from "./activity-log";
 import { waitForMediaConsumptionReport } from "./consumption";
 import { findMediaEntitySchema } from "./entity-schemas";
-import { settledHistoryCorrection } from "./history-correction";
 
 const createAnalyticsMediaEntity = Effect.fn("createAnalyticsMediaEntity")(function* (
 	client: Client,
@@ -117,7 +117,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 		assertCondition(outcome.status === "written", "Expected every analytics source event to save");
 		return outcome.eventId;
 	});
-	yield* settledHistoryCorrection(client, account.userId);
+	yield* waitForEventProjections(client);
 	const now = yield* Clock.currentTimeMillis;
 	const report = yield* waitForMediaConsumptionReport(client, {
 		now,

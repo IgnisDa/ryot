@@ -45,16 +45,16 @@ import {
 import { testPluginEntitySchema } from "./test-plugin";
 
 const eventProjectionsRecipe = defineRecipe(() => {
-	const stream = table("eventStream", "settledStream");
+	const event = table("event", "settledEvent");
 	return {
 		map: ({ processing }) => Result.succeed(projectionProcessingState(processing)),
 		queries: {
-			processing: selectedAggregate(stream, { measures: projectionStatusMeasures(stream) }),
+			processing: selectedAggregate(event, { measures: projectionStatusMeasures(event) }),
 		},
 	};
 });
 
-/** Event projections settle after their writes; readers of projected values wait for them. */
+/** Writes outside an events transaction, such as imports and restores, fold in jobs; readers wait for them. */
 export const waitForEventProjections = (client: Client) =>
 	pollUntil(
 		"event projections settled",

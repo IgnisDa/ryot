@@ -26,12 +26,12 @@ import {
 	requireRows,
 	requireRyotQLText,
 } from "~/fixtures/kernel";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import {
 	createGlobalBookEntityFixture,
 	findMediaEntitySchema,
 	queryInMediaLibraryRelationship,
 } from "~/fixtures/plugins/media";
-import { settledHistoryCorrection } from "~/fixtures/plugins/media/history-correction";
 import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { nowIso } from "~/support/time";
@@ -165,7 +165,7 @@ describe("DELETE /entity-user-data/clear/:id", () => {
 				}),
 			);
 
-			yield* settledHistoryCorrection(userA.client, userA.userId);
+			yield* waitForEventProjections(userA.client);
 			const result = yield* clearEntityUserData(userA.client, entity.id);
 
 			expect(result).toEqual({

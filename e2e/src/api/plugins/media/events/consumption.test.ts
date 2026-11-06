@@ -6,6 +6,7 @@ import { Effect, Schema } from "effect";
 
 import { createAuthenticatedClient, listEventSchemas } from "~/fixtures/kernel";
 import { requireEventSchemaBySlug } from "~/fixtures/kernel/event-schemas";
+import { waitForEventProjections } from "~/fixtures/kernel/events";
 import {
 	createBuiltinMediaLifecycleFixture,
 	findMediaEntitySchema,
@@ -17,10 +18,7 @@ import {
 	requireMediaConsumptionGroup,
 	waitForMediaConsumptionReport,
 } from "~/fixtures/plugins/media/consumption";
-import {
-	historyEventsFor,
-	settledHistoryCorrection,
-} from "~/fixtures/plugins/media/history-correction";
+import { historyEventsFor } from "~/fixtures/plugins/media/history-correction";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -43,7 +41,7 @@ describe("Media consumption projection and reporting", () => {
 		"repairs exact book progress in the canonical report and preserves calendar-day attribution",
 		() =>
 			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient();
 				const book = yield* createBuiltinMediaLifecycleFixture(client, {
 					entitySchemaSlug: "book",
 					properties: { pages: 100 },
@@ -79,7 +77,7 @@ describe("Media consumption projection and reporting", () => {
 					"written",
 					"written",
 				]);
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const reference = yield* mediaReferenceForEntity(client, book.entityId);
 				const report = yield* waitForMediaConsumptionReport(client, {
@@ -119,7 +117,7 @@ describe("Media consumption projection and reporting", () => {
 					"First book progress missing",
 				);
 				yield* client.call((c) => c.events.delete({ params: { eventId: firstProgress.id } }));
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const repaired = yield* waitForMediaConsumptionReport(client, {
 					reference,
@@ -153,7 +151,7 @@ describe("Media consumption projection and reporting", () => {
 		"replays percentage estimates from each frozen runtime basis and keeps undated runs out of periods",
 		() =>
 			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient();
 				const movie = yield* createBuiltinMediaLifecycleFixture(client, {
 					entitySchemaSlug: "movie",
 					properties: { runtime: 100 },
@@ -190,7 +188,7 @@ describe("Media consumption projection and reporting", () => {
 				const written = created;
 				expect(written.failure).toBeNull();
 				expect(written.outcomes.map((outcome) => outcome.status)).toEqual(["written", "written"]);
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const reference = yield* mediaReferenceForEntity(client, movie.entityId);
 				const initial = yield* waitForMediaConsumptionReport(client, {
@@ -259,7 +257,7 @@ describe("Media consumption projection and reporting", () => {
 				const unknownWritten = unknownFinish;
 				expect(unknownWritten.failure).toBeNull();
 				expect(unknownWritten.outcomes.map((outcome) => outcome.status)).toEqual(["written"]);
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const withUnknown = yield* waitForMediaConsumptionReport(client, {
 					reference,
@@ -309,7 +307,7 @@ describe("Media consumption projection and reporting", () => {
 
 	it.live("counts independent Manga item occurrences without inferring cumulative progress", () =>
 		Effect.gen(function* () {
-			const { client, userId } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient();
 			const manga = yield* createBuiltinMediaLifecycleFixture(client, {
 				entitySchemaSlug: "manga",
 				properties: { volumes: 2, chapters: 100 },
@@ -336,7 +334,7 @@ describe("Media consumption projection and reporting", () => {
 			const written = created;
 			expect(written.failure).toBeNull();
 			expect(written.outcomes.map((outcome) => outcome.status)).toEqual(["written", "written"]);
-			yield* settledHistoryCorrection(client, userId);
+			yield* waitForEventProjections(client);
 
 			const reference = yield* mediaReferenceForEntity(client, manga.entityId);
 			const report = yield* waitForMediaConsumptionReport(client, {
@@ -380,7 +378,7 @@ describe("Media consumption projection and reporting", () => {
 		"keeps show episode duration separate from parent completions and preserves suppression",
 		() =>
 			Effect.gen(function* () {
-				const { client, userId } = yield* createAuthenticatedClient();
+				const { client } = yield* createAuthenticatedClient();
 				const show = yield* seedShow(client, {
 					properties: { productionStatus: "Ended" },
 					seasons: [
@@ -414,7 +412,7 @@ describe("Media consumption projection and reporting", () => {
 				const written = created;
 				expect(written.failure).toBeNull();
 				expect(written.outcomes.map((outcome) => outcome.status)).toEqual(["written", "written"]);
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const reference = yield* mediaReferenceForEntity(client, show.show.id);
 				const reportInput = {
@@ -443,7 +441,7 @@ describe("Media consumption projection and reporting", () => {
 					"Automatic parent completion missing",
 				);
 				yield* client.call((c) => c.events.delete({ params: { eventId: parentCompletion.id } }));
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const suppressed = yield* waitForMediaConsumptionReport(client, reportInput);
 				const suppressedEpisodes = requireMediaConsumptionGroup(suppressed, "show-episode");
@@ -474,7 +472,7 @@ describe("Media consumption projection and reporting", () => {
 						payload: { occurredAt: "2026-01-03T12:00:00.000Z" },
 					}),
 				);
-				yield* settledHistoryCorrection(client, userId);
+				yield* waitForEventProjections(client);
 
 				const edited = yield* waitForMediaConsumptionReport(client, reportInput);
 				const editedEpisodeMinutes = yield* mediaConsumptionMeasure(
