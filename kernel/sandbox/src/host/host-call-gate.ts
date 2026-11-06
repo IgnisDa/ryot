@@ -109,6 +109,16 @@ const makeTransientPool = (capacity: number) => {
 		used += bytes;
 		return permit(bytes);
 	};
+	const abandon = (waiter: (typeof waiters)[number]) =>
+		Effect.sync(() => {
+			const index = waiters.indexOf(waiter);
+			if (index === -1) {
+				used -= waiter.bytes;
+			} else {
+				waiters.splice(index, 1);
+			}
+			grant();
+		});
 	// Runs uninterruptibly except for the wait, so the caller owns the permit as soon as it returns.
 	const acquire = (
 		bytes: number,
@@ -125,22 +135,44 @@ const makeTransientPool = (capacity: number) => {
 			const waiter = { bytes, granted: yield* Deferred.make<void>() };
 			waiters.push(waiter);
 			yield* restore(Deferred.await(waiter.granted)).pipe(
-				Effect.onInterrupt(() =>
-					Effect.sync(() => {
-						const index = waiters.indexOf(waiter);
-						if (index === -1) {
-							used -= bytes;
-						} else {
-							waiters.splice(index, 1);
-						}
-						grant();
-					}),
-				),
+				Effect.onInterrupt(() => abandon(waiter)),
 			);
 			return permit(bytes);
 		});
-	return { acquire, tryAcquire, snapshot: () => ({ used, capacity, waiting: waiters.length }) };
+	// Being granted decides the result, not which side of the race finished: a permit granted as the
+	// patience ran out still belongs to this caller, and dropping it would shrink the pool for good.
+	const acquireWithin = (
+		bytes: number,
+		patience: Effect.Effect<unknown>,
+		restore: <A, E, R>(effect: Effect.Effect<A, E, R>) => Effect.Effect<A, E, R>,
+	) =>
+		Effect.gen(function* () {
+			const immediate = tryAcquire(bytes);
+			if (immediate || bytes > capacity) {
+				return immediate;
+			}
+			const waiter = { bytes, granted: yield* Deferred.make<void>() };
+			waiters.push(waiter);
+			yield* restore(Effect.raceFirst(Deferred.await(waiter.granted), patience)).pipe(
+				Effect.onInterrupt(() => abandon(waiter)),
+			);
+			if (!waiters.includes(waiter)) {
+				return permit(bytes);
+			}
+			yield* abandon(waiter);
+			return undefined;
+		});
+	return {
+		acquire,
+		tryAcquire,
+		acquireWithin,
+		snapshot: () => ({ used, capacity, waiting: waiters.length }),
+	};
 };
+
+// A lane holds few inline batches at once, each usually for milliseconds. Waiting out the holder is far
+// cheaper than deferring, but waits stay short: a caller may hold database locks while it waits.
+const INLINE_PERMIT_WAIT_MS = 500;
 
 const encoder = new TextEncoder();
 const decoder = new TextDecoder("utf-8", { fatal: true });
@@ -894,7 +926,11 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 								Effect.gen(function* () {
 									const permit =
 										frame.name === "inlineBatch"
-											? pool.tryAcquire(bytes)
+											? yield* pool.acquireWithin(
+													bytes,
+													state.shortWait.wait(INLINE_PERMIT_WAIT_MS),
+													restore,
+												)
 											: yield* pool.acquire(bytes, restore);
 									if (permit === undefined) {
 										const reply =

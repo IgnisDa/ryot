@@ -1102,18 +1102,74 @@ layer(gateLayer)((test) => {
 							replies.deliver,
 						);
 					}
-					expect(frameValue(yield* registration.dispatch(yield* reserveBatch(2)))).toEqual({
-						defer: true,
-					});
+					const before = gate.transientMemory("background").used;
+					const impatient = yield* registration
+						.dispatch(yield* reserveBatch(2))
+						.pipe(Effect.forkScoped);
+					yield* Effect.yieldNow;
+					expect(gate.transientMemory("background").waiting).toBe(1);
+					yield* TestClock.adjust("500 millis");
+					expect(frameValue(yield* Fiber.join(impatient))).toEqual({ defer: true });
 					expect(settled.count).toBe(0);
+					expect(gate.transientMemory("background")).toMatchObject({ waiting: 0, used: before });
 
+					const patient = yield* registration
+						.dispatch(yield* reserveBatch(3))
+						.pipe(Effect.forkScoped);
+					yield* Effect.yieldNow;
+					expect(gate.transientMemory("background").waiting).toBe(1);
 					for (const released of replies.written.splice(0)) {
 						released();
 					}
-					expect(frameValue(yield* registration.dispatch(yield* reserveBatch(3)))).toEqual({
+					expect(frameValue(yield* Fiber.join(patient))).toEqual({
 						results: [{ value: null, state: "success" }],
 					});
 					expect(settled.count).toBe(1);
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
+		"keeps an inline permit granted as its patience runs out",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const gate = yield* SandboxHostCallGate;
+					const settled = { count: 0 };
+					const registration = yield* gate.register(
+						makeOptions(
+							inlineInput(
+								["httpCall"],
+								(count) => Array.from({ length: count }, () => ({ value: null, state: "success" })),
+								settled,
+							),
+							{ httpCall: successHostFunction() },
+							makeFiles(),
+							"reserve",
+						),
+					);
+					const replies = holdReplies();
+					for (const seq of [0, 1]) {
+						yield* registration.dispatch(
+							yield* makeFrame(seq, "httpCall", ["GET", "https://example.com/held"], {
+								handle: "reserve",
+							}),
+							replies.deliver,
+						);
+					}
+					const racing = yield* registration
+						.dispatch(yield* reserveBatch(2))
+						.pipe(Effect.forkScoped);
+					yield* Effect.yieldNow;
+					for (const released of replies.written.splice(0)) {
+						released();
+					}
+					yield* TestClock.adjust("500 millis");
+					expect(frameValue(yield* Fiber.join(racing))).toEqual({
+						results: [{ value: null, state: "success" }],
+					});
+					expect(gate.transientMemory("background").waiting).toBe(0);
 				}),
 			),
 		testTimeout,
@@ -1214,7 +1270,10 @@ layer(gateLayer)((test) => {
 					used: SANDBOX_TRANSIENT_MEMORY.evidenceCopies * evidence,
 				});
 
-				expect(frameValue(yield* batch(4))).toEqual({ defer: true });
+				const exhausted = yield* batch(4).pipe(Effect.forkChild);
+				yield* Effect.yieldNow;
+				yield* TestClock.adjust("500 millis");
+				expect(frameValue(yield* Fiber.join(exhausted))).toEqual({ defer: true });
 				expect(settled.count).toBe(4);
 				yield* Scope.close(scope, Exit.void);
 				expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
