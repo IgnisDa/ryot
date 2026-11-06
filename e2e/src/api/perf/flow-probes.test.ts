@@ -148,7 +148,6 @@ const snapshot = Effect.gen(function* () {
 				union all select 'payload-bytes:' || workflow_name, sum(octet_length(payload::text))::float8 from workflow_execution group by 1
 				union all select 'step-bytes:' || kind || ':' || regexp_replace(name, '[0-9A-Za-z_]*[0-9][0-9A-Za-z_]*', 'N', 'g'), sum(octet_length(coalesce(exit::text, '')))::float8 from workflow_step group by 1
 				union all select 'hook:' || hook_slug, count(*)::float8 from automation_run group by 1
-				union all select 'background:' || purpose, count(*)::float8 from background_work group by 1
 				union all select 'step:' || kind || ':' || regexp_replace(name, '[0-9A-Za-z_]*[0-9][0-9A-Za-z_]*', 'N', 'g'), count(*)::float8
 					from workflow_step group by 1`,
 	);
