@@ -40,10 +40,11 @@ workflows are the first ones to go.
 Flow probes on the idle VM, medians of repeats. Baselines are step 1's figures and the closing totals in
 [`../work-reduction/log.md`](../work-reduction/log.md); the 150-set save is `workout-editor-save-10x15`.
 
-| After step     | Kernel lines | Event without hooks   | Backlog event          | Review | Signup | 150-set save | 70-episode show |
-| -------------- | -----------: | --------------------- | ---------------------- | -----: | -----: | -----------: | --------------: |
-| 1 (baseline)   |      117,500 | 97 statements         | 373 statements, 460 ms |    955 |    265 |        4,331 |          46,400 |
-| 3 (`probesS3`) |      113,838 | 56 statements, 253 ms | 327 statements, 357 ms |    803 |    211 |        3,490 |          39,947 |
+| After step      | Kernel lines | Event without hooks   | Backlog event          | Review | Signup | 150-set save | 70-episode show |
+| --------------- | -----------: | --------------------- | ---------------------- | -----: | -----: | -----------: | --------------: |
+| 1 (baseline)    |      117,500 | 97 statements         | 373 statements, 460 ms |    955 |    265 |        4,331 |          46,400 |
+| 3 (`probesS3`)  |      113,838 | 56 statements, 253 ms | 327 statements, 357 ms |    803 |    211 |        3,490 |          39,947 |
+| 4 (`probesS4d`) |      110,338 | 41 statements, 124 ms |  88 statements, 259 ms |    482 |    211 |        2,585 |          12,294 |
 
 Statement counts are net of the idle background. Suite CPU was not measured, because step 3 ran only the
 affected e2e files.
@@ -52,3 +53,10 @@ Step 3's check: signup, plugin install and an event create without hooks leave n
 flow starts a request-path workflow. Event creates and collection memberships that match after hooks still
 start `AutomationRunWorkflow`, `ScriptExecutionWorkflow` and `BackgroundWorkWorkflow` rows after commit;
 automation runs and background work become jobs in step 4.
+
+Step 4's check: the 70-episode show's test reads its completion straight after the write that covers the
+last episode, with no polling. Caller time from step 3 to step 4 fell from 32,599 ms to 13,082 ms for that
+show and from 4,457 ms to 2,686 ms for the 150-set save. No fold deferred to a job and no job failed across
+the probes. Automation runs are jobs, so no flow starts `AutomationRunWorkflow` or `BackgroundWorkWorkflow`.
+Eight of the 23 probed flows still start `ScriptExecutionWorkflow` rows; signup, plugin install and event
+creates without hooks start no workflow rows. Suite CPU was again not measured, because step 4 ran only the affected e2e files.
