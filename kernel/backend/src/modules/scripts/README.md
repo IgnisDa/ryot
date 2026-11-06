@@ -97,7 +97,10 @@ Allowance is reserved before waiting and unused cancelled time is refunded by mo
 Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or
 continuations cannot fit, its lane cannot reserve the whole batch within 500 ms, or dispatch fails. Declared result
 bounds cannot exceed 80 MiB. Settled evidence stays charged at three times encoded size until run
-end; deferred calls may already have executed and must tolerate replay.
+end; deferred calls may already have executed and must tolerate replay. A batch keeps its lane's pool
+until its host calls settle, so a script nested in one of those calls, such as a fold or a before-policy
+inside a write, runs on the other lane. Budgets too small for lane mode share one pool, so a nested script
+there defers.
 
 Only validated inline waits pause the script timeout/extend session expiry. Settlement is bounded to
 30 seconds per wait and five minutes absolute; HTTP attempts remain eight seconds. The isolate must

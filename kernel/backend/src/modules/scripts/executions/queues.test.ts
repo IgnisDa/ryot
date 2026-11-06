@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import { SandboxProviderId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
@@ -33,6 +34,7 @@ import {
 } from "./fixtures.test-support";
 import {
 	executeSandboxExecution,
+	HeldInlineBatch,
 	SandboxProjectionMissing,
 	SandboxRecoverySuspended,
 } from "./queues";
@@ -95,7 +97,13 @@ const runtimeSandboxLayer = (
 		}),
 	);
 
-type InlineSettlement = { lane: string; context: unknown; startedAt: string; executionId: string };
+type InlineSettlement = {
+	lane: string;
+	context: unknown;
+	startedAt: string;
+	executionId: string;
+	held: null | string;
+};
 
 class RecordedSettlements extends Context.Service<
 	RecordedSettlements,
@@ -110,10 +118,14 @@ const settlingDispatcherLayer = Layer.unwrap(
 				cancelInline: () => Effect.void,
 				dispatch: () => Effect.die("durable dispatch is not expected"),
 				settleInline: (requests, context, _principal, lane, executionId, startedAt) =>
-					Ref.update(settlements, (all) => [
-						...all,
-						{ lane, context, startedAt, executionId },
-					]).pipe(Effect.as(requests.map(() => ({ value: "cached", state: "success" as const })))),
+					Effect.gen(function* () {
+						const held = yield* HeldInlineBatch;
+						yield* Ref.update(settlements, (all) => [
+							...all,
+							{ lane, held, context, startedAt, executionId },
+						]);
+						return requests.map(() => ({ value: "cached", state: "success" as const }));
+					}),
 			}),
 			Layer.succeed(RecordedSettlements, { settlements: Ref.get(settlements) }),
 		);
@@ -268,6 +280,23 @@ const queuedRepositoryLayer = scriptRepositoryLayer((scriptId) => ({
 }));
 const queuedArtifactsLayer = compiledArtifactsLayer(queuedRepositoryLayer);
 
+const nestedRun = (lane: ExecutionLane, held: ExecutionLane) =>
+	executeSandboxExecution({
+		lane,
+		...queuedReplay,
+		context: {},
+		executionId: `nested-${lane}-${held}`,
+		principal: {
+			providerId: null,
+			scriptSlug: "kernel",
+			pluginRevision: null,
+			scriptId: kernelScriptId,
+			subject: { type: "system" },
+			contentHash: kernelContentHash,
+			metadata: { runtimeImports: [] },
+		},
+	}).pipe(Effect.provideService(HeldInlineBatch, held));
+
 layer(
 	Layer.mergeAll(
 		databaseLayer,
@@ -337,6 +366,29 @@ layer(
 					kernelContentHash,
 				]);
 				expect(result.value).toBe("queued-result");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"runs a script nested in an inline batch on the lane that batch does not hold",
+		() =>
+			Effect.gen(function* () {
+				const recorded = yield* RecordedRuns;
+				const before = (yield* recorded.reserved).length;
+				yield* nestedRun("interactive", "interactive");
+				yield* nestedRun("background", "background");
+				yield* nestedRun("background", "interactive");
+				expect((yield* recorded.reserved).slice(before)).toEqual([
+					"background",
+					"interactive",
+					"background",
+				]);
+				expect((yield* recorded.runs).slice(before).map(({ lane }) => lane)).toEqual([
+					"background",
+					"interactive",
+					"background",
+				]);
 			}),
 		testTimeout,
 	);
@@ -468,6 +520,7 @@ layer(
 				]);
 				expect(yield* (yield* RecordedSettlements).settlements).toEqual([
 					{
+						held: "background",
 						lane: "background",
 						context: { item: 1 },
 						executionId: inlineWorkflowId,

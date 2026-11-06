@@ -9,7 +9,7 @@ import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Duration, Effect, Exit, Layer, Option, Schema } from "effect";
+import { Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { Activity, DurableDeferred, DurableQueue } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -139,10 +139,22 @@ export class DirectScriptDeferred extends Schema.TaggedError<
 // it never waits long for one: two parked parents waiting on each other's leases would deadlock.
 const DIRECT_ADMISSION_WAIT = Duration.millis(SANDBOX_LIMITS.replay.shortWaitMs);
 
+// An inline batch keeps its lane's transient pool, which fits one batch, until its host calls settle. A script
+// nested in one of those calls could never get a batch on that lane while its parent waits for it.
+export const HeldInlineBatch = Context.Reference<null | ExecutionLane>(
+	"@ryot-app/kernel-backend/modules/scripts/executions/queues/HeldInlineBatch",
+	{ defaultValue: () => null },
+);
+
+const otherLane = (lane: ExecutionLane): ExecutionLane =>
+	lane === "interactive" ? "background" : "interactive";
+
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
 	admission: "queued" | "direct" = "queued",
 ) {
+	const held = yield* HeldInlineBatch;
+	const lane = held === payload.lane ? otherLane(held) : payload.lane;
 	yield* Effect.annotateCurrentSpan({
 		executionId: payload.executionId,
 		scriptId: payload.principal.scriptId,
@@ -163,7 +175,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			if (inspection === null) {
 				return yield* new SandboxProjectionMissing();
 			}
-			const reservation = sandbox.reserve(payload.principal, payload.lane);
+			const reservation = sandbox.reserve(payload.principal, lane);
 			const lease = yield* admission === "queued"
 				? reservation
 				: reservation.pipe(
@@ -198,8 +210,8 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 
 			const exit = yield* sandbox
 				.run({
+					lane,
 					replayJournal,
-					lane: payload.lane,
 					context: payload.context,
 					startedAt: payload.startedAt,
 					principal: payload.principal,
@@ -217,13 +229,13 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 									requests,
 									payload.context,
 									payload.principal,
-									payload.lane,
+									lane,
 									payload.workflowExecutionId,
 									payload.startedAt,
 									wait,
 									checkpoint,
 								),
-							),
+							).pipe(Effect.provideService(HeldInlineBatch, lane)),
 					},
 				})
 				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);
