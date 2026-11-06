@@ -70,6 +70,7 @@ import {
 	ArchiveEntityDependency,
 	type ArchiveEntitySnapshot,
 	ArchiveEvent,
+	ArchiveFoldValue,
 	type ArchiveInstallation,
 	ArchiveIntegration,
 	ArchiveNotificationSubscription,
@@ -327,6 +328,7 @@ const emptyArchiveRecords = (
 	...metadata,
 	entities: [],
 	reminders: [],
+	foldValues: [],
 	savedViews: [],
 	integrations: [],
 	relationships: [],
@@ -340,6 +342,7 @@ const archiveSectionNamespaces = {
 	"events.ndjson": "event",
 	"entities.ndjson": "entity",
 	"reminders.ndjson": "reminder",
+	"fold-values.ndjson": "fold-value",
 	"saved-views.ndjson": "saved-view",
 	"integrations.ndjson": "integration",
 	"relationships.ndjson": "relationship",
@@ -360,10 +363,27 @@ const sectionRecordId = (path: StreamedSectionPath, value: unknown) => {
 	if (path === "notification-subscriptions.ndjson") {
 		return JSON.stringify([value["signalSchemaPluginKey"], value["signalSchemaSlug"]]);
 	}
+	if (path === "fold-values.ndjson") {
+		return typeof value["entityId"] === "string" ? value["entityId"] : "";
+	}
 	return typeof value["id"] === "string" ? value["id"] : "";
 };
 
 const encodeStagedValue = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+
+// A fold value is the plugin's own, so anything in it could be an archived ID, alone or as part of a key.
+const foldValueTokens = (value: unknown, tokens = new Set<string>()) => {
+	if (typeof value === "string") {
+		for (const token of value.split(":")) {
+			tokens.add(token);
+		}
+	} else if (typeof value === "object" && value !== null) {
+		for (const item of Object.values(value)) {
+			foldValueTokens(item, tokens);
+		}
+	}
+	return tokens;
+};
 
 const validateIntegrationSettings = (
 	integration: ArchiveRecords["integrations"][number],
@@ -1332,6 +1352,18 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							}
 						}),
 					);
+					yield* forEachReferencePage("fold-values.ndjson", (rows) =>
+						Effect.forEach(
+							rows,
+							(row) =>
+								Schema.decodeUnknownEffect(ArchiveFoldValue)(row.value).pipe(
+									Effect.map((value) =>
+										add("fold-value", value.entityId, "entity", value.entityId),
+									),
+								),
+							{ discard: true },
+						),
+					);
 					yield* forEachReferencePage("reminders.ndjson", (rows) =>
 						Effect.forEach(
 							rows,
@@ -1509,6 +1541,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										pluginIdByKey,
 										definitions,
 										required,
+									);
+									break;
+								}
+								case "fold-values.ndjson": {
+									yield* Effect.forEach(rows, (row) =>
+										Schema.decodeUnknownEffect(ArchiveFoldValue)(row.value),
 									);
 									break;
 								}
@@ -2410,6 +2448,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										}
 										break;
 									}
+									case "fold-values.ndjson":
+									case "calendar-source-overrides.ndjson": {
+										for (const row of rows) {
+											mappings.push({ id: row.id, destinationId: row.id });
+										}
+										break;
+									}
 									case "integrations.ndjson":
 										break;
 									case "relationships.ndjson": {
@@ -2464,12 +2509,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 												destinationId: target.id,
 												inserted: target.inserted,
 											});
-										}
-										break;
-									}
-									case "calendar-source-overrides.ndjson": {
-										for (const row of rows) {
-											mappings.push({ id: row.id, destinationId: row.id });
 										}
 										break;
 									}
@@ -2712,6 +2751,38 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				return yield* Effect.void;
 			});
 
+			const restoreFoldValues = Effect.fn("BackupRestoreWriter.restoreFoldValues")(function* (
+				userId: UserId,
+				runId: BackupRunId,
+				values: ReadonlyArray<ArchiveFoldValue>,
+				pluginIdByKey: ReadonlyMap<string, string>,
+			) {
+				for (const value of values) {
+					const pluginId = pluginIdByKey.get(value.pluginKey);
+					if (pluginId === undefined) {
+						continue;
+					}
+					const tokens = [...foldValueTokens(value.value)];
+					const entityIds = yield* staging.resolveMappings(runId, "entity", [
+						value.entityId,
+						...tokens,
+					]);
+					const eventIds = yield* staging.resolveMappings(runId, "event", tokens);
+					const entityId = entityIds.get(value.entityId);
+					if (entityId === undefined) {
+						return yield* badRequest("Backup fold value entity mapping is incomplete");
+					}
+					yield* persistence.restoreFoldValue({
+						userId,
+						pluginId,
+						value: value.value,
+						entityId: EntityId.make(entityId),
+						ids: Object.fromEntries([...entityIds, ...eventIds]),
+					});
+				}
+				return yield* Effect.void;
+			});
+
 			const restoreArchive = Effect.fn("BackupRestoreWriter.restoreArchive")(function* (
 				userId: UserId,
 				runId: BackupRunId,
@@ -2762,6 +2833,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									);
 									records = emptyArchiveRecords(metadata, { reminders: values });
 									break;
+								}
+								case "fold-values.ndjson": {
+									const values = yield* Effect.forEach(rows, (row) =>
+										Schema.decodeUnknownEffect(ArchiveFoldValue)(row.value),
+									);
+									return yield* restoreFoldValues(userId, runId, values, pluginIdByKey);
 								}
 								case "saved-views.ndjson": {
 									const values = yield* Effect.forEach(rows, (row) =>
@@ -2815,7 +2892,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								definitions,
 								restoredMetadata.installationIdByKey,
 							);
-							yield* restoreRecordBatch(
+							return yield* restoreRecordBatch(
 								userId,
 								records,
 								events,

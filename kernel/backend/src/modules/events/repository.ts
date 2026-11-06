@@ -795,6 +795,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				listUserEventsForBackup,
 				listUserDataEventReferences,
 				updateEventEntityReferences,
+				absorbFoldValues: folds.absorb,
 				listEventIdentitiesForEntities,
 			};
 		}),

@@ -13,6 +13,7 @@ export const STREAMED_SECTION_PATHS = [
 	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
 	"reminders.ndjson",
+	"fold-values.ndjson",
 ] as const;
 
 export type StreamedSectionPath = (typeof STREAMED_SECTION_PATHS)[number];

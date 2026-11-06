@@ -432,8 +432,9 @@ the session's schema folds that slug, and otherwise to its own entity. Set
 `projection: { propertiesSchema }` on an event or relationship schema to receive a value per record.
 
 The fold is a read-only script of the same plugin using `FoldInput` and `FoldOutput` from
-`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value }` and returns its next
-`value`, one `events` entry per subject event with a projection, one `relationships` entry per link from
+`@ryot-app/plugin-backend-sdk/folds`. It receives `{ subjectEntityId, value, absorbed }` and returns its
+next `value`. `absorbed` lists the values of subjects merged or restored into this one, each with `ids`
+mapping the entity and event IDs it holds to their new ones; carry over whatever must survive. It also returns one `events` entry per subject event with a projection, one `relationships` entry per link from
 the subject with a projection, and `changes`, which the kernel applies before running it a second time.
 That second run must return no changes. Fold-owned events skip before-policies and after-hooks. A fold
 can defer to a job when the sandbox is busy, so it must compute the same result however late it runs.

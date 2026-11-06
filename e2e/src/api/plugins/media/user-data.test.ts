@@ -34,6 +34,7 @@ import { createRelationship, findRelationshipBySchema } from "~/fixtures/kernel/
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { logMediaActivity } from "~/fixtures/plugins/media/activity-log";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
+import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
 import {
 	insertLibraryMembership,
 	insertMediaMonitoring,
@@ -478,6 +479,45 @@ describe("Media entity user data HTTP operations", () => {
 						entityId === regularId && eventSchemaSlug === "complete",
 				),
 			).toBe(true);
+		}),
+	);
+
+	it.live("keeps a completion deleted on the source deleted after a merge", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const seed = () => createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "movie" });
+			const source = yield* seed();
+			const target = yield* seed();
+			yield* client.call((c) =>
+				c.events.create({
+					payload: [
+						{
+							entityId: source.entityId,
+							properties: { progressPercent: 100 },
+							occurredAt: "2026-01-01T12:00:00.000Z",
+							eventSchemaSlug: source.progressEventSchemaSlug,
+						},
+					],
+				}),
+			);
+			const completions = (entityId: string) =>
+				listEventsForEntity(client, entityId, undefined, 100).pipe(
+					Effect.map((events) =>
+						events.filter(({ eventSchemaSlug }) => eventSchemaSlug === "complete"),
+					),
+				);
+			const [completion] = yield* completions(source.entityId);
+			yield* client.call((c) =>
+				c.events.delete({
+					params: { eventId: requirePresent(completion, "Missing completion").id },
+				}),
+			);
+			yield* mergeEntityUserData(client, {
+				mergeFrom: EntityId.make(source.entityId),
+				mergeInto: EntityId.make(target.entityId),
+			});
+			yield* waitForEventProjections(client);
+			expect(yield* completions(target.entityId)).toEqual([]);
 		}),
 	);
 

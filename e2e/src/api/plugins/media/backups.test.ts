@@ -12,11 +12,76 @@ import {
 } from "~/fixtures/kernel/backups";
 import { getEntity, getGlobalEntityByProvenance } from "~/fixtures/kernel/entities";
 import { listEventsForEntity, waitForEventProjections } from "~/fixtures/kernel/events";
+import { pollUntil } from "~/fixtures/kernel/polling";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
 import { getMediaLibraryEntityId } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
+
+it.live("restores a deleted automatic completion as deleted and keeps a remaining one single", () =>
+	Effect.gen(function* () {
+		const source = yield* createAuthenticatedClient();
+		const target = yield* createAuthenticatedClient();
+		const seed = () =>
+			Effect.gen(function* () {
+				const fixture = yield* createBuiltinMediaLifecycleFixture(source.client, {
+					entitySchemaSlug: "movie",
+				});
+				yield* source.client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId: fixture.entityId,
+								properties: { progressPercent: 100 },
+								occurredAt: "2026-01-01T12:00:00.000Z",
+								eventSchemaSlug: fixture.progressEventSchemaSlug,
+							},
+						],
+					}),
+				);
+				return yield* getEntity(source.client, fixture.entityId);
+			});
+		const kept = yield* seed();
+		const deleted = yield* seed();
+		const completion = requirePresent(
+			(yield* listEventsForEntity(source.client, deleted.id, undefined, 100)).find(
+				({ eventSchemaSlug }) => eventSchemaSlug === "complete",
+			),
+			"Missing automatic completion",
+		);
+		yield* source.client.call((c) => c.events.delete({ params: { eventId: completion.id } }));
+		const { bytes } = yield* exportAndDownloadBackup(source.client);
+		yield* deleteUserAndWait(source.userId);
+		assertCompleted((yield* restoreBackup(target.client, bytes)).run, "Media fold value restore");
+		const restoredEvents = (entity: typeof kept) =>
+			Effect.gen(function* () {
+				const restored = yield* getGlobalEntityByProvenance(target.client, {
+					entitySchemaSlug: entity.entitySchemaSlug,
+					providerId: requirePresent(entity.providerId, "Missing Media provider"),
+					externalId: requirePresent(entity.externalId, "Missing Media external ID"),
+				});
+				return yield* listEventsForEntity(target.client, restored.id, undefined, 100);
+			});
+		const completionsOf = (events: Effect.Success<ReturnType<typeof restoredEvents>>) =>
+			events.filter(({ eventSchemaSlug }) => eventSchemaSlug === "complete");
+		// The restored completion takes its source's new ID as its key once the rebuild folds it.
+		yield* pollUntil(
+			"restored completion rekeyed",
+			Effect.map(restoredEvents(kept), (events) => {
+				const progress = events.find(({ eventSchemaSlug }) => eventSchemaSlug === "progress");
+				return completionsOf(events).some(
+					({ properties }) => properties["completionKey"] === `progress:${progress?.id}`,
+				)
+					? true
+					: null;
+			}),
+		);
+		yield* waitForEventProjections(target.client);
+		expect(completionsOf(yield* restoredEvents(kept))).toHaveLength(1);
+		expect(completionsOf(yield* restoredEvents(deleted))).toEqual([]);
+	}),
+);
 
 it.live("retains Media consumption basis, calendar dates, undated progress and source runs", () =>
 	Effect.gen(function* () {

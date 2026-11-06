@@ -97,15 +97,16 @@ destination row without overwriting its metadata. Normal foreground enrichment s
 population with the existing admission, concurrency, and retry controls; restore creates no refresh
 fan-out. Snapshot metadata is applied only to rows allocated by this restore.
 
-Event archives contain source rows and their schema-backed properties, not derived events or projection
-checkpoints. Restore remaps typed references and marks affected streams for normal reconciliation
-instead of trusting archived calculations.
+Event archives contain source rows and their schema-backed properties, including the events folds
+wrote. Restore remaps typed references and queues a `fold-rebuild` job for each restored plugin, in the
+data transaction, instead of trusting archived calculations; completed restore does not mean completed
+folds. Unavailable plugins, configuration and artifacts do not gain authority or become ready through
+restore.
 
-Restore seeds and touches the restored streams in the data transaction, so their runtime claims are
-cleared and their revisions advance; completed restore does not mean completed projections. The
-frequent reconciler admits processor work for those streams and for relationship schemas whose links
-lack notes. Unavailable plugins, configuration, artifacts, and disabled account generations do not
-gain authority or become ready through restore.
+`fold-values.ndjson` carries each subject's fold value, which only the plugin can read. Restore stores it
+as an `absorbed` row with a map of every archived entity and event ID it found in the value, alone or
+as a segment of a colon-separated string. The rebuild hands both to the fold, so what the plugin remembers
+beyond its events survives, and a merge moves a value the same way.
 
 After the complete event stream is inserted, restore checks declared event-group consistency with
 set-based SQL. It does not load account history into memory or recapture immutable recorded properties

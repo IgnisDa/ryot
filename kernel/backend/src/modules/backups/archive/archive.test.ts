@@ -59,6 +59,7 @@ const savedViewQuery = document({
 const records: ArchiveRecords = {
 	entities: [],
 	reminders: [],
+	foldValues: [],
 	integrations: [],
 	relationships: [],
 	privatePlugins: [],

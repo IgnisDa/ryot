@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "948d1998-31d9-4b29-8f93-fe614fb718c1",
+	"id": "b0dd89b5-52de-4533-9cd0-3c53f38bc3f5",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -25348,7 +25348,7 @@
 			"schema": "public",
 			"table": "derived_value",
 			"name": "derived_value_kind_check",
-			"value": "\"kind\" in ('subject', 'event', 'relationship')",
+			"value": "\"kind\" in ('subject', 'event', 'relationship', 'absorbed')",
 			"entityType": "checks"
 		},
 		{

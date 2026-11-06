@@ -7,7 +7,17 @@ import { EventMutationChange } from "./mutations";
 
 export const FOLD_LIMITS = { changes: 500, valueBytes: 262_144, requestEntities: 100 };
 
-export const FoldInput = strictStruct({ value: JsonValue, subjectEntityId: EntityId });
+/** The value of a subject that merged or restored into this one, with the IDs it holds and what they became. */
+export const FoldAbsorbed = strictStruct({
+	value: JsonValue,
+	ids: Schema.Record(Schema.String, Schema.String),
+});
+
+export const FoldInput = strictStruct({
+	value: JsonValue,
+	subjectEntityId: EntityId,
+	absorbed: Schema.Array(FoldAbsorbed),
+});
 
 export const FoldOutput = strictStruct({
 	value: JsonValue,

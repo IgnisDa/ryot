@@ -410,9 +410,9 @@ monitoring memberships combine, with destination property values and ranks winni
 source-only values retained. Recorded show children match by season/episode number; podcast children
 also require a matching trimmed, case-insensitive title. Missing or ambiguous matches reject the
 whole operation with the affected identities and instructions to refresh or correct metadata before
-trying again. Automatic completions move with their history. The fold's frozen inventories and
-suppressed occurrences stay with the source title, so history that moves can complete again on the
-destination, including an occurrence the user deleted on the source. Both actions use the
+trying again. Automatic completions move with their history, and the fold's frozen inventories and
+suppressed occurrences move with them, so an occurrence the user deleted on the source stays deleted on
+the destination. Both actions use the
 kernel's [entity user-data owner](../../kernel/backend/src/modules/entities/user-data/README.md),
 immutable submission identities, and atomic stale-state checks.
 
@@ -719,9 +719,9 @@ Progress-derived completions copy their source's basis, calendar date, time spen
 coverage-derived parent completions have only the parent episode basis and closing date evidence. Each
 occurrence carries a `key` fixed when it is created from its source event; the completion stores it as
 `completionKey`, which identifies derived output. Editing a completion makes it explicit, and deleting
-it suppresses its occurrence. Source facts introduce no new typed entity references. Backups omit the
-fold's value, so a restored title refolds with no suppressions or frozen inventories: restored
-completions stay, and an occurrence the user had deleted can complete again.
+it suppresses its occurrence. Source facts introduce no new typed entity references. Backups carry the
+fold's value, so a restored title keeps its suppressions and frozen inventories; a restored completion
+takes its source's new ID as its key when the title refolds.
 
 Migration ordering and identity: use one deterministic `sourceRun` per original source occurrence
 (for example `seen:<source-id>`), shared by its baseline and explicit completion. Do not deduplicate

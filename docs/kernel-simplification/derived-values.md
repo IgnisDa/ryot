@@ -14,8 +14,9 @@ the show and a sessionless special to itself.
 Output schemas stay where readers find them: an event schema's `projection: { propertiesSchema }` and
 a relationship schema's `projection: { propertiesSchema }`. Neither names a script any more.
 
-The fold script is read-only. It receives `{ subjectEntityId, value }`, where `value` is what it
-returned last time, and reads anything else through RyotQL inside the writing transaction, each read
+The fold script is read-only. It receives `{ subjectEntityId, value, absorbed }`, where `value` is what
+it returned last time and `absorbed` lists the values of subjects merged or restored into this one, each
+with a map of the IDs it holds. It reads anything else through RyotQL inside the writing transaction, each read
 in a savepoint that is rolled back so its read-only mark cannot outlive it. It returns:
 
 - `value`: its own state, such as frozen inventories and suppressed occurrences.

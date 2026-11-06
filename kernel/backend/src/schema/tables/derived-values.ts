@@ -14,7 +14,7 @@ export const derivedValue = snakeCase.table(
 		pluginRevisionId: text().notNull(),
 		value: jsonb().$type<JsonValue>().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
-		kind: text().$type<"event" | "subject" | "relationship">().notNull(),
+		kind: text().$type<"event" | "subject" | "absorbed" | "relationship">().notNull(),
 		status: text().$type<"ready" | "failed" | "pending">().notNull().default("ready"),
 		userId: text()
 			.notNull()
@@ -29,7 +29,10 @@ export const derivedValue = snakeCase.table(
 	(table) => [
 		primaryKey({ columns: [table.userId, table.kind, table.targetId] }),
 		index("derived_value_subject_idx").on(table.subjectEntityId, table.userId),
-		check("derived_value_kind_check", sql`${table.kind} in ('subject', 'event', 'relationship')`),
+		check(
+			"derived_value_kind_check",
+			sql`${table.kind} in ('subject', 'event', 'relationship', 'absorbed')`,
+		),
 		check("derived_value_status_check", sql`${table.status} in ('ready', 'pending', 'failed')`),
 	],
 );

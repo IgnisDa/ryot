@@ -421,6 +421,46 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 					);
 				},
 			);
+			const listFoldValues = Effect.fn("BackupExportRepository.listFoldValues")(function* (
+				userId: UserId,
+				page: { readonly limit: number; readonly after: string | undefined },
+			) {
+				return yield* session.run((db) =>
+					db
+						.select({
+							value: schema.derivedValue.value,
+							pluginId: schema.derivedValue.pluginId,
+							entityId: schema.derivedValue.subjectEntityId,
+						})
+						.from(schema.derivedValue)
+						.where(
+							and(
+								eq(schema.derivedValue.userId, userId),
+								eq(schema.derivedValue.kind, "subject"),
+								exists(
+									db
+										.select({ id: schema.event.id })
+										.from(schema.event)
+										.where(
+											and(
+												eq(schema.event.userId, userId),
+												or(
+													eq(schema.event.entityId, schema.derivedValue.subjectEntityId),
+													eq(schema.event.sessionEntityId, schema.derivedValue.subjectEntityId),
+												),
+											),
+										),
+								),
+								page.after === undefined
+									? undefined
+									: gt(schema.derivedValue.subjectEntityId, page.after),
+							),
+						)
+						.orderBy(asc(schema.derivedValue.subjectEntityId))
+						.limit(page.limit),
+				);
+			});
+
 			const listCalendarSourceOverrides = Effect.fn(
 				"BackupExportRepository.listCalendarSourceOverrides",
 			)(function* (
@@ -527,6 +567,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 			});
 			return {
 				listReminders,
+				listFoldValues,
 				addDependencyIds,
 				assertMetadataBounds,
 				inspectRestoreTarget,

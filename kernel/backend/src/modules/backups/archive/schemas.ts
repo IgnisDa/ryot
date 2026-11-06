@@ -59,6 +59,7 @@ export const ARCHIVE_SECTION_PATHS = [
 	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
 	"reminders.ndjson",
+	"fold-values.ndjson",
 ] as const;
 
 export type ArchiveSectionPath = (typeof ARCHIVE_SECTION_PATHS)[number];
@@ -347,6 +348,13 @@ export const ArchiveSavedView = Schema.Union([
 ]);
 export type ArchiveSavedView = typeof ArchiveSavedView.Type;
 
+export const ArchiveFoldValue = strictStruct({
+	value: JsonValue,
+	entityId: Schema.String,
+	pluginKey: Schema.String,
+});
+export type ArchiveFoldValue = typeof ArchiveFoldValue.Type;
+
 export const ArchiveCalendarSourceOverride = strictStruct({
 	slug: Schema.String,
 	isHidden: Schema.Boolean,
@@ -440,6 +448,7 @@ export const ARCHIVE_CODECS = {
 	"profile.json": ArchiveProfile,
 	"reminders.ndjson": ArchiveReminder,
 	"entities.ndjson": ArchiveUserEntity,
+	"fold-values.ndjson": ArchiveFoldValue,
 	"saved-views.ndjson": ArchiveSavedView,
 	"integrations.ndjson": ArchiveIntegration,
 	"installations.ndjson": ArchiveInstallation,
@@ -454,6 +463,7 @@ export type ArchiveRecords = {
 	readonly profile: ArchiveProfile;
 	readonly reminders: ReadonlyArray<ArchiveReminder>;
 	readonly entities: ReadonlyArray<ArchiveUserEntity>;
+	readonly foldValues: ReadonlyArray<ArchiveFoldValue>;
 	readonly savedViews: ReadonlyArray<ArchiveSavedView>;
 	readonly integrations: ReadonlyArray<ArchiveIntegration>;
 	readonly installations: ReadonlyArray<ArchiveInstallation>;

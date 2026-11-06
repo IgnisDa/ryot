@@ -246,7 +246,33 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			return { mark, resolve, declarations, markSubjects, entityChanged, queueResolved };
+			/** Hands each source subject's value to its destination's next fold, which marks the destination. */
+			const absorb = Effect.fn("FoldMarks.absorb")(function* (input: {
+				readonly userId: UserId;
+				readonly ids: ReadonlyMap<string, string>;
+				readonly references: ReadonlyArray<{ readonly from: EntityId; readonly into: EntityId }>;
+			}) {
+				yield* requireTransaction;
+				const ids = Object.fromEntries(input.ids);
+				for (const { from, into } of input.references) {
+					yield* session.run((db) =>
+						db.execute(sql`
+							insert into derived_value (user_id, kind, target_id, subject_entity_id, plugin_id, plugin_revision_id, value)
+							select user_id, 'absorbed', target_id, ${into}, plugin_id, plugin_revision_id,
+								jsonb_build_object('value', value, 'ids', ${JSON.stringify(ids)}::jsonb)
+							from derived_value
+							where user_id = ${input.userId} and kind = 'subject' and subject_entity_id = ${from}
+							on conflict (user_id, kind, target_id) do update set value = excluded.value,
+								subject_entity_id = excluded.subject_entity_id
+						`),
+					);
+				}
+				yield* markSubjects(
+					input.references.map(({ into }) => ({ entityId: into, userId: input.userId })),
+				);
+			});
+
+			return { mark, absorb, resolve, declarations, markSubjects, entityChanged, queueResolved };
 		}),
 	},
 ) {

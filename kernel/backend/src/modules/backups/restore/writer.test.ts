@@ -447,6 +447,7 @@ const provenanceRecords = (
 	} = {},
 ): ArchiveRecords => ({
 	reminders: [],
+	foldValues: [],
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
@@ -971,6 +972,7 @@ const restoreArchivedEvents = (
 	Effect.gen(function* () {
 		const records: ArchiveRecords = {
 			reminders: [],
+			foldValues: [],
 			savedViews: [],
 			integrations: [],
 			installations: [],
@@ -1527,6 +1529,7 @@ describe("account backup restore in PostgreSQL", () => {
 					const timestamp = "2026-09-16T00:00:00.000Z";
 					const records: ArchiveRecords = {
 						reminders: [],
+						foldValues: [],
 						savedViews: [],
 						integrations: [],
 						privatePlugins: [],
@@ -2519,6 +2522,7 @@ const assetRestoreLayer = (assetOwnerUserId: string) =>
 const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	entities: [],
 	reminders: [],
+	foldValues: [],
 	savedViews: [],
 	integrations: [],
 	installations: [],

@@ -66,6 +66,7 @@ export const archiveFixtureSections = (
 		ARCHIVE_CODECS["notification-subscriptions.ndjson"],
 	),
 	encodeSection("reminders.ndjson", records.reminders, ARCHIVE_CODECS["reminders.ndjson"]),
+	encodeSection("fold-values.ndjson", records.foldValues, ARCHIVE_CODECS["fold-values.ndjson"]),
 ];
 
 export const archiveFixtureMetadata = (records: ArchiveRecords): ArchiveMetadata => ({
@@ -99,10 +100,12 @@ export const collectFixtureRecords = Effect.fn(function* (archive: ArchiveFixtur
 		archive.sections["notification-subscriptions.ndjson"],
 	);
 	const reminders = yield* collectSection(archive.sections["reminders.ndjson"]);
+	const foldValues = yield* collectSection(archive.sections["fold-values.ndjson"]);
 	return {
 		...archive.records,
 		entities,
 		reminders,
+		foldValues,
 		savedViews,
 		integrations,
 		relationships,
@@ -186,10 +189,17 @@ export const collectExportFixtureRecords = Effect.fn(function* (
 		"reminders.ndjson",
 		ARCHIVE_CODECS["reminders.ndjson"],
 	);
+	const foldValues = yield* collectExportSection(
+		snapshot,
+		fs,
+		"fold-values.ndjson",
+		ARCHIVE_CODECS["fold-values.ndjson"],
+	);
 	return {
 		...snapshot.records,
 		entities,
 		reminders,
+		foldValues,
 		savedViews,
 		integrations,
 		relationships,

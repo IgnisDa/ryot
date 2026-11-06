@@ -48,6 +48,51 @@ export const MediaFoldValue = Schema.Struct({
 });
 export type MediaFoldValue = typeof MediaFoldValue.Type;
 
+/**
+ * Takes on the occurrences of subjects merged or restored into this one, so what a user suppressed and the
+ * inventories frozen there carry over. Their outputs are compared afresh, because their IDs changed.
+ */
+export const absorbFoldValues = (
+	previous: MediaFoldValue,
+	absorbed: ReadonlyArray<{
+		readonly value: MediaFoldValue;
+		readonly ids: Readonly<Record<string, string>>;
+	}>,
+) => {
+	const occurrences = new Map(previous.occurrences.map((value) => [value.key, value]));
+	const coverageSources = new Set(previous.coverageSources ?? []);
+	const renamedKeys = new Map<string, string>();
+	for (const { ids, value } of absorbed) {
+		const id = (token: string) => ids[token] ?? token;
+		const list = (tokens: ReadonlyArray<string>) => tokens.map(id);
+		for (const occurrence of value.occurrences) {
+			const key = occurrence.key.split(":").map(id).join(":");
+			renamedKeys.set(occurrence.key, key);
+			if (!occurrences.has(key)) {
+				occurrences.set(key, {
+					...occurrence,
+					key,
+					written: null,
+					sourceEventId: id(occurrence.sourceEventId),
+					...(occurrence.sources ? { sources: list(occurrence.sources) } : {}),
+					...(occurrence.inventory ? { inventory: list(occurrence.inventory) } : {}),
+				});
+			}
+		}
+		for (const source of value.coverageSources ?? []) {
+			coverageSources.add(id(source));
+		}
+	}
+	return {
+		renamedKeys,
+		value: {
+			...previous,
+			occurrences: [...occurrences.values()],
+			...(coverageSources.size > 0 ? { coverageSources: [...coverageSources].sort() } : {}),
+		} satisfies MediaFoldValue,
+	};
+};
+
 export type HistoryChange =
 	| { readonly kind: "delete"; readonly eventId: string; readonly itemIdentity: string }
 	| {
@@ -147,6 +192,8 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	readonly subject: HistorySubject;
 	readonly previous: MediaFoldValue;
 	readonly events: ReadonlyArray<FoldEvent>;
+	/** Completions restored under a key whose source has since changed ID still answer to that occurrence. */
+	readonly renamedKeys?: ReadonlyMap<string, string>;
 	readonly inventory: Effect.Effect<ReadonlyArray<string>, E, R>;
 }) {
 	const changes: Array<HistoryChange> = [];
@@ -156,7 +203,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 	for (const event of sorted) {
 		const key = completionKeyOf(event);
 		if (key !== undefined) {
-			outputs.set(key, event);
+			outputs.set(input.renamedKeys?.get(key) ?? key, event);
 		}
 	}
 	const overridden = new Set<string>();

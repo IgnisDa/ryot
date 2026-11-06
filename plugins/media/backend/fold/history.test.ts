@@ -5,7 +5,13 @@ import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { deriveHistory, type FoldEvent, type HistoryChange, type MediaFoldValue } from "./history";
+import {
+	absorbFoldValues,
+	deriveHistory,
+	type FoldEvent,
+	type HistoryChange,
+	type MediaFoldValue,
+} from "./history";
 
 const basis = { total: 120, unit: "minutes", property: "runtime" };
 
@@ -86,10 +92,16 @@ const fold = (
 	previous: MediaFoldValue = { occurrences: [] },
 	subject: Subject = movie,
 	inventory: ReadonlyArray<string> = [],
+	renamedKeys?: ReadonlyMap<string, string>,
 ) =>
 	Effect.gen(function* () {
 		const input = { subject, inventory: Effect.succeed(inventory) };
-		const first = yield* deriveHistory({ ...input, events, previous });
+		const first = yield* deriveHistory({
+			...input,
+			events,
+			previous,
+			...(renamedKeys ? { renamedKeys } : {}),
+		});
 		const settled = apply(events, first.changes);
 		const second = yield* deriveHistory({ ...input, events: settled, previous: first.value });
 		expect(second.changes).toEqual([]);
@@ -338,5 +350,129 @@ describe("media history fold", () => {
 				expect(settled.changes).toEqual([]);
 			}),
 		testTimeout,
+	);
+});
+
+describe("absorbFoldValues", () => {
+	const suppressed: MediaFoldValue = {
+		occurrences: [
+			{
+				total: 120,
+				written: null,
+				silent: false,
+				rule: "progress",
+				status: "suppressed",
+				key: "progress:old-event",
+				sourceEventId: "old-event",
+			},
+			{
+				written: null,
+				silent: false,
+				status: "active",
+				rule: "coverage",
+				key: "coverage:old-event",
+				sourceEventId: "old-event",
+				sources: ["old-event", "kept-event"],
+				inventory: ["old-episode", "kept-episode"],
+			},
+		],
+		coverageSources: ["old-event"],
+	};
+	const ids = { "old-event": "new-event", "old-episode": "new-episode" };
+
+	it("rewrites the IDs an absorbed value holds and clears what it wrote", () => {
+		const { value: absorbed, renamedKeys } = absorbFoldValues({ occurrences: [] }, [
+			{ ids, value: suppressed },
+		]);
+		expect(renamedKeys.get("progress:old-event")).toBe("progress:new-event");
+		expect(absorbed.coverageSources).toEqual(["new-event"]);
+		expect(absorbed.occurrences).toEqual([
+			{
+				total: 120,
+				written: null,
+				silent: false,
+				rule: "progress",
+				status: "suppressed",
+				key: "progress:new-event",
+				sourceEventId: "new-event",
+			},
+			{
+				written: null,
+				silent: false,
+				status: "active",
+				rule: "coverage",
+				key: "coverage:new-event",
+				sourceEventId: "new-event",
+				sources: ["new-event", "kept-event"],
+				inventory: ["new-episode", "kept-episode"],
+			},
+		]);
+	});
+
+	it("keeps the destination's own occurrence when both hold a key", () => {
+		const own: MediaFoldValue = {
+			occurrences: [
+				{
+					written: null,
+					silent: true,
+					rule: "progress",
+					status: "inactive",
+					key: "progress:new-event",
+					sourceEventId: "new-event",
+				},
+			],
+		};
+		const { value: absorbed } = absorbFoldValues(own, [{ ids, value: suppressed }]);
+		expect(absorbed.occurrences.find(({ key }) => key === "progress:new-event")?.status).toBe(
+			"inactive",
+		);
+	});
+
+	it.effect("does not complete a suppressed occurrence again after its source was restored", () =>
+		Effect.gen(function* () {
+			const restored = event("new-event", {
+				eventSchemaSlug: "progress",
+				properties: { consumptionBasis: basis, progressPercent: 100 },
+			});
+			const { events, changes } = yield* fold(
+				[restored],
+				absorbFoldValues({ occurrences: [] }, [{ ids, value: suppressed }]).value,
+			);
+			expect(changes).toEqual([]);
+			expect(completions(events)).toEqual([]);
+		}),
+	);
+
+	it.effect("repairs a restored completion that still names its source's old key", () =>
+		Effect.gen(function* () {
+			const restored = event("new-event", {
+				eventSchemaSlug: "progress",
+				properties: { consumptionBasis: basis, progressPercent: 100 },
+			});
+			const completion = event("completion", {
+				eventSchemaSlug: "complete",
+				properties: { consumptionBasis: basis, completionKey: "progress:old-event" },
+			});
+			const active: MediaFoldValue = {
+				occurrences: [
+					{
+						total: 120,
+						silent: false,
+						rule: "progress",
+						status: "active",
+						key: "progress:old-event",
+						sourceEventId: "old-event",
+						written: null,
+					},
+				],
+			};
+			const { value, renamedKeys } = absorbFoldValues({ occurrences: [] }, [
+				{ ids, value: active },
+			]);
+			const { events } = yield* fold([restored, completion], value, movie, [], renamedKeys);
+			expect(
+				completions(events).map(({ id, properties }) => [id, properties["completionKey"]]),
+			).toEqual([["completion", "progress:new-event"]]);
+		}),
 	);
 });

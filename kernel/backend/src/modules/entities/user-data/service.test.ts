@@ -124,7 +124,7 @@ const makeEntitiesRepository = (overrides: MockOverrides<typeof mockEntitiesRepo
 const mockEventsRepository = Layer.mock(EventsRepository);
 
 const makeEventsRepository = (overrides: MockOverrides<typeof mockEventsRepository> = {}) =>
-	mockEventsRepository({ ...overrides });
+	mockEventsRepository({ absorbFoldValues: () => Effect.void, ...overrides });
 
 const mockEventsService = Layer.mock(EventsService);
 

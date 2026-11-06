@@ -209,6 +209,7 @@ const validatePluginKeys = (
 		...records,
 		entities: [],
 		reminders: [],
+		foldValues: [],
 		savedViews: [],
 		integrations: [],
 		relationships: [],
@@ -951,6 +952,10 @@ const validateExtracted = (
 		"events.ndjson": createSectionReader("events.ndjson", ARCHIVE_CODECS["events.ndjson"]),
 		"entities.ndjson": createSectionReader("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
 		"reminders.ndjson": createSectionReader("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
+		"fold-values.ndjson": createSectionReader(
+			"fold-values.ndjson",
+			ARCHIVE_CODECS["fold-values.ndjson"],
+		),
 		"saved-views.ndjson": createSectionReader(
 			"saved-views.ndjson",
 			ARCHIVE_CODECS["saved-views.ndjson"],

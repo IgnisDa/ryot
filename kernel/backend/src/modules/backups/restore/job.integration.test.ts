@@ -206,6 +206,7 @@ const dependencies = Layer.unwrap(
 										profile,
 										entities: [],
 										reminders: [],
+										foldValues: [],
 										savedViews: [],
 										integrations: [],
 										installations: [],

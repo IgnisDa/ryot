@@ -79,6 +79,7 @@ type ExportCursors = {
 	views: string | undefined;
 	entities: string | undefined;
 	reminders: string | undefined;
+	foldValues: string | undefined;
 	dependencies: string | undefined;
 	integrations: string | undefined;
 	relationships: string | undefined;
@@ -92,6 +93,7 @@ const emptyCursors = (): ExportCursors => ({
 	entities: undefined,
 	calendar: undefined,
 	reminders: undefined,
+	foldValues: undefined,
 	dependencies: undefined,
 	integrations: undefined,
 	relationships: undefined,
@@ -486,6 +488,16 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					userId,
 					{ limit: exportPageSize, after: cursors.calendar },
 				);
+				const storedFoldValues = yield* exportRepository.listFoldValues(userId, {
+					limit: exportPageSize,
+					after: cursors.foldValues,
+				});
+				const foldValueRecords = storedFoldValues.flatMap((row) => {
+					const pluginKey = pluginKeyById.get(row.pluginId);
+					return pluginKey === undefined
+						? []
+						: [{ pluginKey, value: row.value, entityId: row.entityId }];
+				});
 				const reminderRecords: ArchiveReminder[] = yield* Effect.forEach(storedReminders, (row) =>
 					Schema.decodeUnknownEffect(ARCHIVE_CODECS["reminders.ndjson"])({
 						id: row.id,
@@ -831,6 +843,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					entityDependencies,
 					savedViews: viewRecords,
 					reminders: reminderRecords,
+					foldValues: foldValueRecords,
 					integrations: integrationRecords,
 					installations: installationRecords,
 					relationships: relationshipRecords,
@@ -846,6 +859,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							storedIntegrations.length +
 							storedViews.length +
 							storedReminders.length +
+							storedFoldValues.length +
 							storedSubscriptions.length +
 							storedOverrides.length +
 							storedCalendarOverrides.length >
@@ -857,6 +871,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						calendar: storedCalendarOverrides.at(-1) ?? cursors.calendar,
 						viewOverrides: storedOverrides.at(-1) ?? cursors.viewOverrides,
 						dependencies: dependencyRows.at(-1)?.id ?? cursors.dependencies,
+						foldValues: storedFoldValues.at(-1)?.entityId ?? cursors.foldValues,
 						integrations: storedIntegrations.at(-1)?.id ?? cursors.integrations,
 						relationships: storedRelationships.at(-1)?.id ?? cursors.relationships,
 						subscriptions: storedSubscriptions.at(-1)?.id ?? cursors.subscriptions,
@@ -1384,6 +1399,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					notificationSubscriptions,
 					savedViews: exportedViews,
 					entities: exportedEntities,
+					foldValues: data.foldValues,
 					integrations: restoredIntegrations,
 					privatePlugins: data.privatePlugins,
 					relationships: exportedRelationships,
@@ -1561,6 +1577,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					const spools = {
 						entities: spool("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
 						reminders: spool("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
+						foldValues: spool("fold-values.ndjson", ARCHIVE_CODECS["fold-values.ndjson"]),
 						savedViews: spool("saved-views.ndjson", ARCHIVE_CODECS["saved-views.ndjson"]),
 						integrations: spool("integrations.ndjson", ARCHIVE_CODECS["integrations.ndjson"]),
 						relationships: spool("relationships.ndjson", ARCHIVE_CODECS["relationships.ndjson"]),
@@ -1654,6 +1671,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						yield* spools.savedViews.append(page.records.savedViews);
 						yield* spools.integrations.append(page.records.integrations);
 						yield* spools.reminders.append(page.records.reminders);
+						yield* spools.foldValues.append(page.records.foldValues);
 						yield* spools.calendarSourceOverrides.append(page.records.calendarSourceOverrides);
 						yield* spools.notificationSubscriptions.append(page.records.notificationSubscriptions);
 						yield* retainSummary(page);

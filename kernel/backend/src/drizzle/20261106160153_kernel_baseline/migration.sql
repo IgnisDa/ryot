@@ -383,7 +383,7 @@ CREATE TABLE "derived_value" (
 	"plugin_id" text NOT NULL,
 	"subject_entity_id" text NOT NULL,
 	CONSTRAINT "derived_value_pkey" PRIMARY KEY("user_id","kind","target_id"),
-	CONSTRAINT "derived_value_kind_check" CHECK ("kind" in ('subject', 'event', 'relationship')),
+	CONSTRAINT "derived_value_kind_check" CHECK ("kind" in ('subject', 'event', 'relationship', 'absorbed')),
 	CONSTRAINT "derived_value_status_check" CHECK ("status" in ('ready', 'pending', 'failed'))
 );
 --> statement-breakpoint

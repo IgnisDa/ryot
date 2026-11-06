@@ -175,6 +175,31 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				yield* session.run((db) => db.insert(schema.reminder).values(input));
 			});
 
+			const restoreFoldValue = Effect.fn("BackupRestorePersistence.restoreFoldValue")(
+				function* (input: {
+					readonly userId: UserId;
+					readonly pluginId: string;
+					readonly value: JsonValue;
+					readonly entityId: EntityId;
+					readonly ids: Readonly<Record<string, string>>;
+				}) {
+					yield* session.requireTransaction;
+					yield* session.run((db) =>
+						db
+							.insert(schema.derivedValue)
+							.values({
+								kind: "absorbed",
+								userId: input.userId,
+								pluginRevisionId: "",
+								targetId: input.entityId,
+								pluginId: input.pluginId,
+								subjectEntityId: input.entityId,
+								value: { ids: input.ids, value: input.value },
+							}),
+					);
+				},
+			);
+
 			const restoreEntity = Effect.fn("BackupRestorePersistence.restoreEntity")(function* (
 				input: RestoreEntityInput,
 			) {
@@ -627,6 +652,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				restoreEvents,
 				restoreForUser,
 				restoreReminder,
+				restoreFoldValue,
 				activateRestored,
 				reserveDependency,
 				restoreCustomView,

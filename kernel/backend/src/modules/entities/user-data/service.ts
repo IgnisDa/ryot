@@ -775,6 +775,7 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 						yield* assertState(targetState, yield* state(targetInput));
 					}),
 					write: Effect.gen(function* () {
+						yield* eventsRepository.absorbFoldValues({ userId, references, ids: referenceMap });
 						yield* attachments.move({
 							userId,
 							references: referenceMap,

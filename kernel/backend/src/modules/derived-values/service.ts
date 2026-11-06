@@ -1,6 +1,6 @@
 import { DbError, unknownToMessage } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { FOLD_LIMITS, FoldOutput } from "@ryot-app/contract/modules/events/folds";
+import { FOLD_LIMITS, FoldAbsorbed, FoldOutput } from "@ryot-app/contract/modules/events/folds";
 import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
@@ -54,7 +54,7 @@ type StoredRow = {
 	readonly value: JsonValue;
 	readonly pluginRevisionId: string;
 	readonly status: "ready" | "failed" | "pending";
-	readonly kind: "event" | "subject" | "relationship";
+	readonly kind: "event" | "subject" | "absorbed" | "relationship";
 };
 
 class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique symbol }>()(
@@ -239,6 +239,13 @@ export class Folds extends Context.Service<Folds>()(
 					),
 				);
 				const previous = stored.find((row) => row.kind === "subject");
+				const absorbed = yield* Effect.forEach(
+					stored.filter((row) => row.kind === "absorbed"),
+					(row) =>
+						Schema.decodeUnknownEffect(FoldAbsorbed)(row.value).pipe(
+							Effect.mapError(() => failure("Absorbed fold value is invalid")),
+						),
+				);
 				const result = yield* Effect.flatMap(random.uuidV4(), (id) =>
 					executor.run({
 						lane,
@@ -246,7 +253,7 @@ export class Folds extends Context.Service<Folds>()(
 						pluginRevision: binding.pluginPin,
 						subject: binding.principal.subject,
 						scriptId: binding.principal.scriptId,
-						input: { value: previous?.value ?? null, subjectEntityId: subject.entityId },
+						input: { absorbed, value: previous?.value ?? null, subjectEntityId: subject.entityId },
 					}),
 				).pipe(
 					// A busy sandbox lane is brief, and waiting it out here keeps the fold in its write.

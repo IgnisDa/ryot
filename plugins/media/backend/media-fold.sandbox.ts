@@ -10,7 +10,7 @@ import {
 } from "../shared/library-summary";
 import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "../shared/lifecycle-expressions";
 import { consumptionContributions } from "./fold/consumption";
-import { deriveHistory, MediaFoldValue } from "./fold/history";
+import { absorbFoldValues, deriveHistory, MediaFoldValue } from "./fold/history";
 import {
 	mediaFoldEventsRecipe,
 	mediaFoldInventoryRecipe,
@@ -48,13 +48,20 @@ export default defineScript({
 				({ parentSchemaSlug }) => parentSchemaSlug === subject.entitySchemaSlug,
 			);
 			const productionStatus = subject.properties["productionStatus"];
-			const previous =
+			const { value: previous, renamedKeys } = absorbFoldValues(
 				input.value === null
 					? { occurrences: [] }
-					: yield* Schema.decodeUnknownEffect(MediaFoldValue)(input.value);
+					: yield* Schema.decodeUnknownEffect(MediaFoldValue)(input.value),
+				yield* Effect.forEach(input.absorbed, ({ ids, value }) =>
+					Schema.decodeUnknownEffect(MediaFoldValue)(value).pipe(
+						Effect.map((decoded) => ({ ids, value: decoded })),
+					),
+				),
+			);
 			const derived = yield* deriveHistory({
 				events,
 				previous,
+				renamedKeys,
 				subject: {
 					id: subjectEntityId,
 					episodic: config !== undefined,
