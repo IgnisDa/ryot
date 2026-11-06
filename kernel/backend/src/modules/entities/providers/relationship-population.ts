@@ -19,9 +19,9 @@ import { Effect } from "effect";
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -84,41 +84,6 @@ const populationBatch = (population: AutomationPopulationContext, id: string) =>
 	},
 });
 
-export const claimRelatedGroupGeneration = Effect.fn("claimRelatedGroupGeneration")(
-	function* (input: {
-		startedAt: Date;
-		generation: string;
-		pluginId: PluginId;
-		primaryEntityId: EntityId;
-		definitions: EntityRelationshipDefinitions;
-		beforeWrite?: Effect.Effect<void, SandboxRunError>;
-		group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">;
-	}) {
-		const session = yield* DatabaseSession;
-		const repository = yield* RelationshipsRepository;
-		const relationshipSchema = yield* findRelationshipSchema(
-			input.definitions,
-			input.pluginId,
-			input.group.relationshipSchemaSlug,
-		);
-		yield* session.transaction(
-			Effect.andThen(
-				input.beforeWrite ?? Effect.void,
-				repository.claimRelationshipSyncGeneration(
-					{
-						direction: input.group.direction,
-						anchorEntityId: input.primaryEntityId,
-						relationshipSchemaSlug: relationshipSchema.id,
-						relationshipSchemaPluginId: relationshipSchema.pluginId,
-					},
-					input.generation,
-					input.startedAt,
-				),
-			),
-		);
-	},
-);
-
 export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(function* (
 	input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
 		generation: string;
@@ -133,7 +98,7 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 	},
 ) {
 	const session = yield* DatabaseSession;
-	const repository = yield* RelationshipsRepository;
+	const entitiesRepository = yield* EntitiesRepository;
 	const relationshipSchema = yield* findRelationshipSchema(
 		input.definitions,
 		input.pluginId,
@@ -148,16 +113,12 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 		session.transaction(
 			Effect.gen(function* () {
 				yield* input.beforeWrite ?? Effect.void;
-				const holds = yield* repository.holdsRelationshipSyncGeneration(
-					{
-						direction: input.group.direction,
-						anchorEntityId: input.primaryEntityId,
-						relationshipSchemaSlug: relationshipSchema.id,
-						relationshipSchemaPluginId: relationshipSchema.pluginId,
-					},
-					input.generation,
-				);
-				if (!holds) {
+				if (
+					!(yield* entitiesRepository.holdsRelatedPopulationGeneration(
+						input.primaryEntityId,
+						input.generation,
+					))
+				) {
 					return { result: [], dispatch: [], superseded: true };
 				}
 				const work = yield* persistPlannedRelationshipPage({
@@ -204,7 +165,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	const session = yield* DatabaseSession;
 	const reads = makeProviderExecutionReads(session);
 	const entities = yield* EntitiesService;
-	const relationships = yield* RelationshipsRepository;
+	const entitiesRepository = yield* EntitiesRepository;
 	const relationshipSchema = yield* findRelationshipSchema(
 		input.definitions,
 		input.pluginId,
@@ -313,17 +274,16 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 		paging,
 		`page:${paging.pageIndex}`,
 	);
-	const groupKey = {
-		direction: input.group.direction,
-		anchorEntityId: input.primaryEntityId,
-		relationshipSchemaSlug: relationshipSchema.id,
-		relationshipSchemaPluginId: relationshipSchema.pluginId,
-	};
 	const committed = yield* retryOnDeadlock(
 		session.transaction(
 			Effect.gen(function* () {
 				yield* input.beforeWrite ?? Effect.void;
-				if (!(yield* relationships.holdsRelationshipSyncGeneration(groupKey, paging.generation))) {
+				if (
+					!(yield* entitiesRepository.holdsRelatedPopulationGeneration(
+						input.primaryEntityId,
+						paging.generation,
+					))
+				) {
 					return { result: [], superseded: true, entityDispatch: [], relationshipDispatch: [] };
 				}
 				const upserts = yield* entities.persistPlannedProviderUpserts({

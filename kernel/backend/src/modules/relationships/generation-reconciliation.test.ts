@@ -18,7 +18,6 @@ import {
 	relationshipsServiceWith,
 	sourceEntityId,
 } from "./lifecycle.test-support";
-import { RelationshipsRepository } from "./repository";
 
 const t1 = EntityId.make("generation-t1");
 const t2 = EntityId.make("generation-t2");
@@ -231,38 +230,6 @@ layer(relationshipDatabaseLayer())((test) => {
 				const deletePlans = (yield* Ref.get(planned)).filter((entry) => entry.endsWith("delete"));
 				expect(deletePlans).toEqual(["change:delete"]);
 				expect((yield* rows).map(({ target }) => target)).toEqual([t1]);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"holds a group generation only for its latest claimant",
-		() =>
-			Effect.gen(function* () {
-				const session = yield* DatabaseSession;
-				const repository = yield* RelationshipsRepository;
-				const key = {
-					anchorEntityId: sourceEntityId,
-					direction: "outgoing" as const,
-					relationshipSchemaPluginId: null,
-					relationshipSchemaSlug: baseInput.relationshipSchemaSlug,
-				};
-				const holds = (generation: string) =>
-					session.transaction(repository.holdsRelationshipSyncGeneration(key, generation));
-				const claim = (generation: string) =>
-					session.transaction(
-						repository.claimRelationshipSyncGeneration(key, generation, new Date()),
-					);
-
-				expect(yield* holds("g1")).toBe(false);
-				yield* claim("g1");
-				expect(yield* holds("g1")).toBe(true);
-				yield* claim("g2");
-				expect(yield* holds("g1")).toBe(false);
-				expect(yield* holds("g2")).toBe(true);
-				expect(
-					yield* session.run((db) => db.select().from(tables.relationshipSyncGeneration)),
-				).toHaveLength(1);
 			}),
 		testTimeout,
 	);

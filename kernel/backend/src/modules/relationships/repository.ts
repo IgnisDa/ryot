@@ -215,33 +215,6 @@ const relationshipReconciliationLockKey = (input: RelationshipReconciliationList
 		input.type === "anchored" ? input.anchorEntityId : null,
 	]);
 
-export type RelationshipSyncGroupKey = {
-	anchorEntityId: EntityId;
-	direction: "incoming" | "outgoing";
-	relationshipSchemaPluginId: null | string;
-	relationshipSchemaSlug: RelationshipSchemaSlug;
-};
-
-const relationshipSyncGroupLockKey = (key: RelationshipSyncGroupKey) =>
-	JSON.stringify([
-		"relationship-sync-generation",
-		key.anchorEntityId,
-		key.direction,
-		key.relationshipSchemaSlug,
-		key.relationshipSchemaPluginId ?? "kernel",
-	]);
-
-const relationshipSyncGroupWhere = (key: RelationshipSyncGroupKey) =>
-	and(
-		eq(schema.relationshipSyncGeneration.anchorEntityId, key.anchorEntityId),
-		eq(schema.relationshipSyncGeneration.direction, key.direction),
-		eq(schema.relationshipSyncGeneration.relationshipSchemaSlug, key.relationshipSchemaSlug),
-		pluginIdWhere(
-			schema.relationshipSyncGeneration.relationshipSchemaPluginId,
-			key.relationshipSchemaPluginId,
-		),
-	);
-
 export class RelationshipsRepository extends Context.Service<RelationshipsRepository>()(
 	"@ryot-app/kernel-backend/modules/relationships/repository/RelationshipsRepository",
 	{
@@ -717,46 +690,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 					),
 				);
 			});
-			const claimRelationshipSyncGeneration = Effect.fn(
-				"RelationshipsRepository.claimRelationshipSyncGeneration",
-			)(function* (key: RelationshipSyncGroupKey, generation: string, startedAt: Date) {
-				yield* session.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock(hashtextextended(${relationshipSyncGroupLockKey(key)}, 0))`,
-					),
-				);
-				yield* session.run((db) =>
-					db
-						.insert(schema.relationshipSyncGeneration)
-						.values({ ...key, startedAt, generation })
-						.onConflictDoUpdate({
-							set: { startedAt, generation },
-							target: [
-								schema.relationshipSyncGeneration.anchorEntityId,
-								schema.relationshipSyncGeneration.relationshipSchemaSlug,
-								schema.relationshipSyncGeneration.relationshipSchemaPluginId,
-								schema.relationshipSyncGeneration.direction,
-							],
-						}),
-				);
-			});
-			const holdsRelationshipSyncGeneration = Effect.fn(
-				"RelationshipsRepository.holdsRelationshipSyncGeneration",
-			)(function* (key: RelationshipSyncGroupKey, generation: string) {
-				yield* session.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock(hashtextextended(${relationshipSyncGroupLockKey(key)}, 0))`,
-					),
-				);
-				const [row] = yield* session.run((db) =>
-					db
-						.select({ generation: schema.relationshipSyncGeneration.generation })
-						.from(schema.relationshipSyncGeneration)
-						.where(relationshipSyncGroupWhere(key))
-						.limit(1),
-				);
-				return row?.generation === generation;
-			});
 			const listGlobalRelationships = (input: GlobalRelationshipListInput) =>
 				listRelationshipsForReconciliation({ ...input, scope: "global" });
 
@@ -779,8 +712,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				listUserEditorRelationships,
 				listUserRelationshipsForEntity,
 				listUserRelationshipsForBackup,
-				holdsRelationshipSyncGeneration,
-				claimRelationshipSyncGeneration,
 				listRelationshipsForReconciliation,
 				listRelationshipsOutsideGeneration,
 				lockCollectionOrders: collectionOrder.lock,

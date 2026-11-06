@@ -128,27 +128,3 @@ export const relationship = snakeCase.table(
 			.nullsNotDistinct(),
 	],
 );
-
-export const relationshipSyncGeneration = snakeCase.table(
-	"relationship_sync_generation",
-	{
-		generation: text().notNull(),
-		startedAt: timestamptz().notNull(),
-		relationshipSchemaSlug: text().notNull(),
-		direction: text({ enum: ["incoming", "outgoing"] }).notNull(),
-		relationshipSchemaPluginId: text().references(() => plugin.id, { onDelete: "restrict" }),
-		anchorEntityId: text()
-			.notNull()
-			.references(() => entity.id, { onDelete: "cascade" }),
-	},
-	(table) => [
-		unique("relationship_sync_generation_group_unique")
-			.on(
-				table.anchorEntityId,
-				table.relationshipSchemaSlug,
-				table.relationshipSchemaPluginId,
-				table.direction,
-			)
-			.nullsNotDistinct(),
-	],
-);

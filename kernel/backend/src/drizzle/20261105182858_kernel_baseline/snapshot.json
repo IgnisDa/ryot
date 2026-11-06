@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "17a49267-66b3-4d4a-befc-943d2d03d8bf",
+	"id": "948d1998-31d9-4b29-8f93-fe614fb718c1",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -946,19 +946,6 @@
 				"n|type|public.relationship",
 				"n|rel|public.relationship_pkey",
 				"n|rel|public.relationship_identity_unique"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "relationship_sync_generation"],
-			"writes": [
-				"s|tbl|public.relationship_sync_generation",
-				"n|tbl|public.relationship_sync_generation",
-				"e|tbl|public.relationship_sync_generation",
-				"n|rel|public.relationship_sync_generation",
-				"n|type|public.relationship_sync_generation",
-				"n|rel|public.relationship_sync_generation_group_unique"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -5994,44 +5981,6 @@
 		},
 		{
 			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_sync_generation"],
-			"writes": [
-				"s|fk|public.relationship_sync_generation.relationship_sync_generation_Rk8B2C4LFptu_fkey",
-				"n|fk|public.relationship_sync_generation.relationship_sync_generation_Rk8B2C4LFptu_fkey",
-				"e|fk|public.relationship_sync_generation.relationship_sync_generation_Rk8B2C4LFptu_fkey",
-				"n|con|public.relationship_sync_generation.relationship_sync_generation_Rk8B2C4LFptu_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_sync_generation",
-				"n|sch|public",
-				"n|tbl|public.plugin",
-				"n|sch|public",
-				"n|col|public.relationship_sync_generation.relationship_schema_plugin_id",
-				"n|col|public.plugin.id",
-				"e|uniqueness|public.plugin.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
-			"statementTarget": ["table", "public", "relationship_sync_generation"],
-			"writes": [
-				"s|fk|public.relationship_sync_generation.relationship_sync_generation_anchor_entity_id_entity_id_fkey",
-				"n|fk|public.relationship_sync_generation.relationship_sync_generation_anchor_entity_id_entity_id_fkey",
-				"e|fk|public.relationship_sync_generation.relationship_sync_generation_anchor_entity_id_entity_id_fkey",
-				"n|con|public.relationship_sync_generation.relationship_sync_generation_anchor_entity_id_entity_id_fkey"
-			],
-			"reads": [
-				"n|tbl|public.relationship_sync_generation",
-				"n|sch|public",
-				"n|tbl|public.entity",
-				"n|sch|public",
-				"n|col|public.relationship_sync_generation.anchor_entity_id",
-				"n|col|public.entity.id",
-				"e|uniqueness|public.entity.id"
-			]
-		},
-		{
-			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "reminder"],
 			"writes": [
 				"s|fk|public.reminder.reminder_entity_id_entity_id_fkey",
@@ -6925,12 +6874,6 @@
 			"entityType": "tables"
 		},
 		{ "schema": "public", "name": "relationship", "isRlsEnabled": false, "entityType": "tables" },
-		{
-			"schema": "public",
-			"name": "relationship_sync_generation",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
 		{ "schema": "public", "name": "reminder", "isRlsEnabled": false, "entityType": "tables" },
 		{
 			"schema": "public",
@@ -9239,7 +9182,7 @@
 		{
 			"schema": "public",
 			"table": "definition_entity_schema",
-			"name": "browse",
+			"name": "fold",
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -9252,7 +9195,7 @@
 		{
 			"schema": "public",
 			"table": "definition_entity_schema",
-			"name": "fold",
+			"name": "browse",
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
@@ -9928,6 +9871,19 @@
 		{
 			"schema": "public",
 			"table": "definition_relationship_schema",
+			"name": "projection",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_relationship_schema",
 			"name": "properties_schema",
 			"type": "jsonb",
 			"typeSchema": null,
@@ -9943,19 +9899,6 @@
 			"table": "definition_relationship_schema",
 			"name": "retention",
 			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "definition_relationship_schema",
-			"name": "projection",
-			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,
 			"dimensions": 0,
@@ -16546,84 +16489,6 @@
 			"schema": "public",
 			"table": "relationship",
 			"name": "target_entity_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "generation",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "started_at",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "relationship_schema_slug",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "direction",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "relationship_schema_plugin_id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "anchor_entity_id",
 			"type": "text",
 			"typeSchema": null,
 			"notNull": true,
@@ -24086,32 +23951,6 @@
 		},
 		{
 			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "relationship_sync_generation_Rk8B2C4LFptu_fkey",
-			"nameExplicit": false,
-			"columns": ["relationship_schema_plugin_id"],
-			"schemaTo": "public",
-			"tableTo": "plugin",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "RESTRICT",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "relationship_sync_generation_anchor_entity_id_entity_id_fkey",
-			"nameExplicit": false,
-			"columns": ["anchor_entity_id"],
-			"schemaTo": "public",
-			"tableTo": "entity",
-			"columnsTo": ["id"],
-			"onUpdate": "NO ACTION",
-			"onDelete": "CASCADE",
-			"entityType": "fks"
-		},
-		{
-			"schema": "public",
 			"table": "reminder",
 			"name": "reminder_entity_id_entity_id_fkey",
 			"nameExplicit": false,
@@ -25293,20 +25132,6 @@
 				"target_entity_id",
 				"relationship_schema_slug",
 				"relationship_schema_plugin_id"
-			],
-			"nullsNotDistinct": true,
-			"entityType": "uniques"
-		},
-		{
-			"schema": "public",
-			"table": "relationship_sync_generation",
-			"name": "relationship_sync_generation_group_unique",
-			"nameExplicit": true,
-			"columns": [
-				"anchor_entity_id",
-				"relationship_schema_slug",
-				"relationship_schema_plugin_id",
-				"direction"
 			],
 			"nullsNotDistinct": true,
 			"entityType": "uniques"

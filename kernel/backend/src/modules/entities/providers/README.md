@@ -86,13 +86,13 @@ keys stay within the workflow store's limit. All callers share population admiss
 
 Every related-entity group and related-page result declares `coverage`: `complete`, `more` with a
 continuation, or `source-limited` with a reason. A group whose coverage is `more` is written in pages. The
-first page is written after the base stamp like any other group; the group's current generation
-(the population execution ID) is claimed first in `relationship_sync_generation`, and every written
-relationship is stamped with it in `relationship.sync_generation`. `ProviderRelatedPagesWorkflow`
+first page is written after the base stamp like any other group; every written relationship is stamped
+in `relationship.sync_generation` with the entity's current generation, the population execution ID
+held in `entity.related_population_generation`. `ProviderRelatedPagesWorkflow`
 (execution ID `related-<entityId>-<groupIndex>-<generation>`) runs under the same plugin pin and user
 scope. The full population owner awaits it. Base imports do not start related work and return at
-the base boundary. Single-page groups also claim and check a generation, so they supersede older
-paged work for the same group.
+the base boundary. Every group shares the entity's generation, so a newer population supersedes older
+paged work for the whole entity.
 
 The workflow runs the provider's `related` script once per page, each in its own sandbox execution,
 and writes each page in one transaction:
@@ -102,9 +102,9 @@ and writes each page in one transaction:
   unchanged only has its stamp written, directly, with no lifecycle request or change evidence.
 - The page index is part of the item, batch and activity identity, so replay after a crash derives
   the same entity IDs. The sweep has its own identity.
-- Every page write and the sweep take a transaction advisory lock on the group key and return an
-  explicit superseded outcome unless the stored generation is still their own. A newer population of the same group
-  therefore supersedes an older one without interleaved writes.
+- Every page write and the sweep lock the entity row and return an explicit superseded outcome unless
+  the stored generation is still their own. A newer population therefore supersedes an older one
+  without interleaved writes.
 - After a page declares complete coverage, an authoritative group is swept: relationships whose stamp
   differs from the generation are deleted through the normal planned-reconciliation delete path
   (triggers, change evidence). Additive groups are never swept.
@@ -114,8 +114,8 @@ and writes each page in one transaction:
   every group's outcome, so one failed group does not prevent successful sibling groups from
   finishing. Enqueue and page failures are not swallowed.
 - Each committed related page and sweep publishes `enrichment-updated`, including partial results
-  from a population that later fails. The final related stamp checks every group generation again
-  under transaction locks before it publishes the related-level update.
+  from a population that later fails. The final related stamp checks the generation again under the
+  entity row lock before it publishes the related-level update.
 
 A `details` result that declares more coverage for a provider with no `related` script fails the
 population before anything is written.

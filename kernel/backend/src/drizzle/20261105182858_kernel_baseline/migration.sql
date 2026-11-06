@@ -241,8 +241,8 @@ CREATE TABLE "definition_entity_schema" (
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
 	"occurs_at_property" text,
-	"browse" jsonb,
 	"fold" jsonb,
+	"browse" jsonb,
 	"editor" jsonb,
 	"merge_identity_properties" text[] NOT NULL,
 	"properties_schema" jsonb NOT NULL,
@@ -319,9 +319,9 @@ CREATE TABLE "definition_relationship_schema" (
 	"id" text PRIMARY KEY,
 	"source_entity_schema_slug" text,
 	"target_entity_schema_slug" text,
+	"projection" jsonb,
 	"properties_schema" jsonb NOT NULL,
 	"retention" text,
-	"projection" jsonb,
 	"user_write_policy" text,
 	"plugin_revision_id" text,
 	CONSTRAINT "definition_relationship_schema_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
@@ -1044,16 +1044,6 @@ CREATE TABLE "relationship" (
 	CONSTRAINT "relationship_collection_rank_valid" CHECK ("relationship_schema_slug" <> 'member-of' or "relationship_schema_plugin_id" is not null or coalesce(("user_id" is not null and jsonb_typeof("properties" -> 'rank') = 'number' and ("properties" ->> 'rank')::numeric = trunc(("properties" ->> 'rank')::numeric) and abs(("properties" ->> 'rank')::numeric) < 4503599627370496), false))
 );
 --> statement-breakpoint
-CREATE TABLE "relationship_sync_generation" (
-	"generation" text NOT NULL,
-	"started_at" timestamp(3) with time zone NOT NULL,
-	"relationship_schema_slug" text NOT NULL,
-	"direction" text NOT NULL,
-	"relationship_schema_plugin_id" text,
-	"anchor_entity_id" text NOT NULL,
-	CONSTRAINT "relationship_sync_generation_group_unique" UNIQUE NULLS NOT DISTINCT("anchor_entity_id","relationship_schema_slug","relationship_schema_plugin_id","direction")
-);
---> statement-breakpoint
 CREATE TABLE "reminder" (
 	"message" text,
 	"timezone" text,
@@ -1576,8 +1566,6 @@ ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FO
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_target_entity_id_entity_id_fkey" FOREIGN KEY ("target_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_Rk8B2C4LFptu_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
-ALTER TABLE "relationship_sync_generation" ADD CONSTRAINT "relationship_sync_generation_anchor_entity_id_entity_id_fkey" FOREIGN KEY ("anchor_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "reminder" ADD CONSTRAINT "reminder_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "reminder" ADD CONSTRAINT "reminder_parent_entity_id_entity_id_fkey" FOREIGN KEY ("parent_entity_id") REFERENCES "entity"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "reminder" ADD CONSTRAINT "reminder_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

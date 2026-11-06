@@ -321,8 +321,6 @@ const populationLayer = (options: {
 						),
 				}),
 				Layer.mock(RelationshipsRepository)({
-					claimRelationshipSyncGeneration: () => Effect.void,
-					holdsRelationshipSyncGeneration: () => Effect.succeed(true),
 					listRelationshipsForReconciliation: () => Effect.succeed([]),
 				}),
 				Layer.mock(RelationshipsService)({

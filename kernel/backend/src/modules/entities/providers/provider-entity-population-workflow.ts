@@ -12,7 +12,6 @@ import {
 	type EntitySchemaSlug,
 	PluginId,
 	PluginRevisionId,
-	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
@@ -26,7 +25,6 @@ import {
 import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Cause, DateTime, Effect, Result, Schedule, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -45,7 +43,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import { RelationshipsRepository } from "#modules/relationships/repository";
 import { retryOnDeadlock } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { redisKeys, RedisService } from "#platform/redis";
@@ -53,11 +50,7 @@ import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { ChildEntitySetWriteResult, writeChildEntitySet } from "./population";
-import {
-	claimRelatedGroupGeneration,
-	sweepRelatedEntityGroup,
-	syncRelatedEntityGroup,
-} from "./relationship-population";
+import { sweepRelatedEntityGroup, syncRelatedEntityGroup } from "./relationship-population";
 import {
 	type EntityImportPayload,
 	entityImportPayloadFields,
@@ -591,32 +584,6 @@ export const ProviderRelatedPagesWorkflow = Workflow.make("ProviderRelatedPagesW
 	success: Schema.Literals(["complete", "superseded"]) satisfies DurableSchema,
 });
 
-const claimRelatedGroupGenerationScope = Effect.fn("claimRelatedGroupGenerationScope")(function* (
-	payload: PopulationWritePayload,
-	definitions: EntityRelationshipDefinitions,
-	entityId: EntityId,
-	group: ProviderDetailsRelatedEntityGroup,
-	index: number,
-	generation: string,
-) {
-	yield* makeActivity({
-		error: SandboxRunError satisfies DurableSchema,
-		name: `claim-related-group-generation:${index}:${group.relationshipSchemaSlug}`,
-		execute: claimRelatedGroupGeneration({
-			group,
-			generation,
-			definitions,
-			primaryEntityId: entityId,
-			pluginId: payload.pluginId,
-			startedAt: DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt)),
-			beforeWrite: (yield* EnrichmentRequests).guardPopulation(
-				payload.requestId,
-				payload.requestAttempt,
-			),
-		}).pipe(mapDbErrorToSandbox),
-	});
-});
-
 const logSupersededRelatedGroup = (
 	entityId: EntityId,
 	group: Pick<ProviderDetailsRelatedEntityGroup, "direction" | "relationshipSchemaSlug">,
@@ -691,15 +658,12 @@ const supersededPopulation = () =>
 
 const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(function* (
 	payload: PopulationWritePayload,
-	definitions: EntityRelationshipDefinitions,
 	entityId: EntityId,
-	groups: ReadonlyArray<ProviderDetailsRelatedEntityGroup>,
 	generation: string,
 ) {
 	const session = yield* DatabaseSession;
 	const checks = yield* DomainWriteChecks;
 	const repository = yield* EntitiesRepository;
-	const relationships = yield* RelationshipsRepository;
 	const scope = getEntityWriteScope(payload);
 	yield* makeActivity({
 		name: "stamp-related-populated-at",
@@ -714,33 +678,6 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 						scope.scope === "user" ? scope.userId : null,
 						true,
 					);
-					const ordered = sortBy(groups, (group) =>
-						stableStringify([group.relationshipSchemaSlug, group.direction]),
-					);
-					for (const group of ordered) {
-						const definition =
-							definitions.relationshipSchemas[
-								definitionKey(
-									"relationship",
-									definitionOwner(payload.pluginId),
-									group.relationshipSchemaSlug,
-								)
-							];
-						if (
-							!definition ||
-							!(yield* relationships.holdsRelationshipSyncGeneration(
-								{
-									anchorEntityId: entityId,
-									direction: group.direction,
-									relationshipSchemaPluginId: definition.pluginId ?? null,
-									relationshipSchemaSlug: RelationshipSchemaSlug.make(definition.slug),
-								},
-								generation,
-							))
-						) {
-							return yield* supersededPopulation();
-						}
-					}
 					yield* repository.lockMutationKeys([entityId]);
 					if (!(yield* repository.holdsRelatedPopulationGeneration(entityId, generation))) {
 						return yield* supersededPopulation();
@@ -822,14 +759,6 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 					message: `Provider inventory ${group.relationshipSchemaSlug} is source-limited: ${group.coverage.reason}`,
 				});
 			}
-			yield* claimRelatedGroupGenerationScope(
-				payload,
-				definitions,
-				entity.id,
-				group,
-				index,
-				executionId,
-			);
 			const firstPage = yield* syncRelatedEntityGroupScope(
 				payload,
 				definitions,
@@ -877,7 +806,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 			return yield* outcome.failure;
 		}
 	}
-	yield* stampRelatedPopulatedAt(payload, definitions, entity.id, relatedEntityGroups, executionId);
+	yield* stampRelatedPopulatedAt(payload, entity.id, executionId);
 	yield* publishPrimaryEntity(entity.id, "enrichment-updated", "publish-related-populated");
 	return stamped.result.entity;
 });

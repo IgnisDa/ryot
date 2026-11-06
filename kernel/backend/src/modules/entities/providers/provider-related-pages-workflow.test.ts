@@ -394,8 +394,7 @@ layer(
 			() =>
 				Effect.gen(function* () {
 					const h = yield* harness(`root-generation-${paged}`);
-					const anchor = yield* seedRoot(h);
-					const session = yield* DatabaseSession;
+					yield* seedRoot(h);
 					const aReady = yield* Deferred.make<void>();
 					const resumeA = yield* Deferred.make<void>();
 					const bReady = yield* Deferred.make<void>();
@@ -442,20 +441,6 @@ layer(
 						relatedPopulatedAt: null,
 						relatedPopulationGeneration: "newer-root",
 					});
-					if (paged) {
-						const [generation] = yield* session.run((db) =>
-							db
-								.select({ value: tables.relationshipSyncGeneration.generation })
-								.from(tables.relationshipSyncGeneration)
-								.where(
-									and(
-										eq(tables.relationshipSyncGeneration.anchorEntityId, anchor.id),
-										eq(tables.relationshipSyncGeneration.relationshipSchemaSlug, "credits"),
-									),
-								),
-						);
-						expect(generation?.value).toBe("older-root");
-					}
 					yield* Deferred.succeed(resumeA, undefined);
 					const olderResult = yield* Fiber.join(older);
 					assert(Result.isFailure(olderResult));
@@ -582,7 +567,7 @@ layer(
 	);
 
 	test.effect(
-		"rechecks completed group generations before stamping the related level",
+		"rechecks the population generation before stamping the related level",
 		() =>
 			Effect.gen(function* () {
 				const h = yield* harness("superseded-final");
@@ -601,11 +586,9 @@ layer(
 							: session
 									.run((db) =>
 										db
-											.update(tables.relationshipSyncGeneration)
-											.set({ generation: "newer-owner" })
-											.where(
-												eq(tables.relationshipSyncGeneration.relationshipSchemaSlug, "credits"),
-											),
+											.update(tables.entity)
+											.set({ relatedPopulationGeneration: "newer-owner" })
+											.where(eq(tables.entity.relatedPopulationGeneration, "superseded-full")),
 									)
 									.pipe(Effect.orDie, Effect.as(page([], { status: "complete" }))),
 					)
