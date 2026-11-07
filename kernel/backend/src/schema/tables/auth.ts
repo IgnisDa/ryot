@@ -23,16 +23,13 @@ export const user = snakeCase.table(
 		name: text().notNull(),
 		id: text().primaryKey(),
 		disabledAt: timestamptz(),
+		retiringAt: timestamptz(),
 		twoFactorEnabled: boolean(),
 		updatedAt: updatedAtColumn(),
 		email: text().notNull().unique(),
-		retiringAccountGeneration: text(),
 		bootstrapCompletedAt: timestamptz(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		emailVerified: boolean().default(false).notNull(),
-		accountGeneration: text()
-			.default(sql`gen_random_uuid()::text`)
-			.notNull(),
 		preferences: jsonb().$type<UserPreferences>().default(defaultUserPreferences).notNull(),
 	},
 	(table) => [

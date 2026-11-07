@@ -1,7 +1,6 @@
 import type { InternalError } from "@ryot-app/contract/errors";
 import { internalError } from "@ryot-app/contract/errors";
 import { PluginUserBootstrapEntity } from "@ryot-app/contract/modules/plugins/manifest";
-import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
@@ -29,7 +28,7 @@ type PluginInstallationPayload = typeof PluginInstallationPayload.Type;
 
 const PluginInstallationBootstrap = Schema.Struct({
 	userId: UserId,
-	accountGeneration: AccountGeneration,
+	accountUserId: UserId,
 	entries: Schema.Array(
 		Schema.Union([
 			Schema.Struct({
@@ -82,17 +81,17 @@ type PluginInstallationJobOperationsValue = {
 		readonly userId: UserId;
 		readonly entrySlug: string;
 		readonly activationId: string;
+		readonly accountUserId: UserId;
 		readonly installationId: string;
 		readonly scriptId: SandboxScriptId;
-		readonly accountGeneration: AccountGeneration;
 		readonly pluginRevision: ScriptPluginRevision;
 	}) => Effect.Effect<void, InternalError>;
 	ensureBootstrapEntities: (input: {
 		readonly userId: UserId;
 		readonly entrySlug: string;
 		readonly activationId: string;
+		readonly accountUserId: UserId;
 		readonly installationId: string;
-		readonly accountGeneration: AccountGeneration;
 		readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
 	}) => Effect.Effect<PluginBootstrapDispatch, InternalError>;
 };
@@ -141,10 +140,10 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 										return null;
 									}
 									const entries: Array<PluginInstallationBootstrap["entries"][number]> = [];
-									const accountGeneration = yield* admission.currentAccount(resolved.userId);
+									const accountUserId = yield* admission.currentAccount(resolved.userId);
 									const installation = yield* installations.findById(installationId);
 									if (installation?.isInitialized) {
-										return { entries, accountGeneration, userId: resolved.userId };
+										return { entries, accountUserId, userId: resolved.userId };
 									}
 									for (const entry of resolved.entries) {
 										if (entry.entities) {
@@ -160,7 +159,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 										const pin = yield* sandboxRepository.getScriptPin(
 											entry.scriptId,
 											undefined,
-											{ type: "user", accountGeneration, userId: resolved.userId },
+											{ type: "user", userId: resolved.userId },
 											initialization,
 										);
 										if (!pin?.pluginRevision) {
@@ -187,7 +186,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 											pluginRevision: pin.pluginRevision,
 										});
 									}
-									return { entries, accountGeneration, userId: resolved.userId };
+									return { entries, accountUserId, userId: resolved.userId };
 								}),
 							),
 						),
@@ -271,14 +270,10 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 						lane: "background",
 						scriptId: input.scriptId,
 						pluginRevision: input.pluginRevision,
+						subject: { type: "user", userId: input.userId },
 						initialization: {
 							activationId: input.activationId,
 							installationId: input.installationId,
-						},
-						subject: {
-							type: "user",
-							userId: input.userId,
-							accountGeneration: input.accountGeneration,
 						},
 						executionId: pluginInstallationBootstrapExecutionId(
 							input.installationId,
@@ -304,9 +299,9 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 						userId: input.userId,
 						entities: input.entities,
 						entrySlug: input.entrySlug,
+						accountUserId: input.accountUserId,
 						installedAt: installation.createdAt,
 						installationId: input.installationId,
-						accountGeneration: input.accountGeneration,
 						pluginId: PluginId.make(installation.pluginId),
 						executionId: pluginInstallationBootstrapExecutionId(
 							input.installationId,
@@ -356,14 +351,14 @@ export const runPluginInstallationJob = Effect.fn("PluginInstallationJob")(
 			return;
 		}
 
-		const { userId, entries, accountGeneration } = started.success;
+		const { userId, entries, accountUserId } = started.success;
 		for (const [index, entry] of entries.entries()) {
 			const executed = yield* (
 				"entities" in entry
 					? operations
 							.ensureBootstrapEntities({
 								userId,
-								accountGeneration,
+								accountUserId,
 								entrySlug: entry.slug,
 								entities: entry.entities,
 								activationId: payload.activationId,
@@ -386,7 +381,7 @@ export const runPluginInstallationJob = Effect.fn("PluginInstallationJob")(
 							)
 					: operations.runBootstrapEntry({
 							userId,
-							accountGeneration,
+							accountUserId,
 							entrySlug: entry.slug,
 							scriptId: entry.scriptId,
 							activationId: payload.activationId,

@@ -10,6 +10,7 @@ import type { AutomationReconciliation } from "#modules/automations/reconciliati
 import { automationsFrequentTask } from "#modules/automations/reconciliation";
 import { AutomationRetention } from "#modules/automations/retention";
 import { BackupsService } from "#modules/backups/service";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import type { EntityGraphCollector } from "#modules/entities/retention/collector";
 import { entityGraphFrequentTask } from "#modules/entities/retention/frequent-task";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
@@ -28,10 +29,12 @@ import { ReminderWorker } from "#modules/reminders/worker";
 import { runTasks } from "#modules/scheduler/cron-tasks";
 import { FrequentCronJob, scheduleFrequentCron } from "#modules/scheduler/frequent-cron";
 import type { CronTask } from "#modules/scheduler/types";
+import { pruneSandboxJournals } from "#modules/scripts/replay/journal-store";
 import { SignalScheduleWorker } from "#modules/signal-schedules/worker";
-import type { DatabaseSession } from "#platform/db/session";
+import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 import { registerJobHandler } from "#platform/jobs/worker";
+import { TransientValues } from "#platform/transient-values";
 
 const frequentCronTasks: ReadonlyArray<
 	CronTask<
@@ -41,7 +44,9 @@ const frequentCronTasks: ReadonlyArray<
 		| WorkflowEngine
 		| ImportsService
 		| ReminderWorker
+		| TransientValues
 		| DatabaseSession
+		| EnrichmentRequests
 		| AutomationRetention
 		| UploadIntentsService
 		| EntityGraphCollector
@@ -64,6 +69,31 @@ const frequentCronTasks: ReadonlyArray<
 				yield* service.cleanupExpiredArtifacts(100);
 			}).pipe(
 				Effect.catchCause((cause) => Effect.logWarning("backup cleanup listing failed", cause)),
+			),
+	},
+	{
+		name: "transient-value-retention",
+		run: () =>
+			Effect.flatMap(TransientValues, (values) => values.prune(1_000)).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("transient value retention failed", cause)),
+			),
+	},
+	{
+		name: "sandbox-journal-retention",
+		run: () =>
+			Effect.flatMap(DatabaseSession, (session) => pruneSandboxJournals(session, 1_000)).pipe(
+				Effect.catchCause((cause) => Effect.logWarning("sandbox journal retention failed", cause)),
+			),
+	},
+	{
+		name: "enrichment-request-settlement",
+		run: () =>
+			Effect.flatMap(EnrichmentRequests, (requests) =>
+				requests.failOrphaned(100).pipe(Effect.andThen(requests.prune())),
+			).pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("enrichment request settlement failed", cause),
+				),
 			),
 	},
 	{

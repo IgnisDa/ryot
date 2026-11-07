@@ -76,6 +76,7 @@ export const definitionEntitySchema = snakeCase.table(
 		...definitionColumns(),
 		icon: text().notNull(),
 		occursAtProperty: text(),
+		refreshIntervalDays: integer(),
 		fold: jsonb().$type<PluginEntityFold>(),
 		browse: jsonb().$type<EntitySchemaBrowse>(),
 		editor: jsonb().$type<PluginEntityEditor>(),
@@ -90,6 +91,13 @@ export const definitionEntitySchema = snakeCase.table(
 			.nullsNotDistinct(),
 		index("definition_entity_schema_slug_idx").on(table.slug),
 	],
+);
+
+/** An instance admin's replacement for a schema's declared refresh interval; outlives plugin revisions. */
+export const entitySchemaRefreshOverride = snakeCase.table(
+	"entity_schema_refresh_override",
+	{ slug: text().notNull(), pluginId: text().notNull(), refreshIntervalDays: integer().notNull() },
+	(table) => [primaryKey({ columns: [table.pluginId, table.slug] })],
 );
 
 export const definitionEventSchema = snakeCase.table(

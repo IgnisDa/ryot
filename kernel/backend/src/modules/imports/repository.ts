@@ -71,13 +71,7 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 });
 
 const owned = (scope: IngestionScope) =>
-	and(
-		eq(schema.importRun.id, scope.runId),
-		eq(schema.importRun.userId, scope.userId),
-		eq(schema.importRun.userId, scope.accountGeneration.userId),
-		eq(schema.importRun.accountGeneration, scope.accountGeneration.token),
-		sql`${schema.importRun.accountGeneration} = (select account_generation from "user" where id = ${scope.userId})`,
-	);
+	and(eq(schema.importRun.id, scope.runId), eq(schema.importRun.userId, scope.userId));
 
 const preparedReleaseEncryptionPurpose = "ryot/ingestion/prepared-release";
 
@@ -197,7 +191,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							integrationId: input.integrationId,
 							integrationLot: input.integrationLot,
 							pluginInstallationId: input.pluginInstallationId,
-							accountGeneration: sql`(select account_generation from "user" where id = ${input.userId})`,
 						})
 						.returning(),
 				);
@@ -268,7 +261,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					integrationId: null | IntegrationId;
 					payload: IngestionCapture["payload"];
 					inputSummary: Record<string, unknown>;
-					accountGeneration: IngestionScope["accountGeneration"];
 				}) {
 					yield* assertAdmissionOwner({
 						userId: input.userId,
@@ -340,14 +332,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 								source: dataJsonSource,
 								inputSummary: input.inputSummary,
 								integrationId: input.integrationId,
-								accountGeneration: input.accountGeneration.token,
 								integrationLot: input.integrationId === null ? null : "sink",
 							}),
 					);
 					if (!input.payload) {
 						return yield* new DbError({ message: "Data ingestion payload is missing" });
 					}
-					const scope = { runId, userId: input.userId, accountGeneration: input.accountGeneration };
+					const scope = { runId, userId: input.userId };
 					yield* reservePayload(scope, {
 						ordinal: 0,
 						checkpoint: null,
@@ -616,11 +607,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				function* (input: { userId: UserId; runId?: ImportRunId }) {
 					return yield* database.run((db) =>
 						db
-							.select({
-								runId: schema.importRun.id,
-								reservation: schema.importPayloadReservation,
-								accountGeneration: schema.importRun.accountGeneration,
-							})
+							.select({ runId: schema.importRun.id, reservation: schema.importPayloadReservation })
 							.from(schema.importPayloadReservation)
 							.innerJoin(
 								schema.importRun,
@@ -654,7 +641,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			});
 			const getStagingOwner = Effect.fn("ImportsRepository.getStagingOwner")(function* (
 				userId: UserId,
-				accountGeneration: IngestionScope["accountGeneration"],
 				executionId: string,
 			) {
 				const [run] = yield* database.run((db) =>
@@ -664,18 +650,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.where(
 							and(
 								eq(schema.importRun.userId, userId),
-								eq(schema.importRun.accountGeneration, accountGeneration.token),
 								sql`${schema.importRun.pins}->>'executionId' = ${executionId}`,
 							),
 						)
 						.limit(1),
 				);
 				return run
-					? yield* getIngestionRunControl({
-							userId,
-							accountGeneration,
-							runId: ImportRunId.make(run.id),
-						})
+					? yield* getIngestionRunControl({ userId, runId: ImportRunId.make(run.id) })
 					: null;
 			});
 			const startPayloadWrite = Effect.fn("ImportsRepository.startPayloadWrite")(function* (
@@ -734,7 +715,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 								and(
 									eq(schema.importPayloadReservation.runId, scope.runId),
 									eq(schema.importPayloadReservation.id, id),
-									sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${scope.runId} and ${schema.importRun.userId} = ${scope.userId} and ${schema.importRun.accountGeneration} = ${scope.accountGeneration.token})`,
+									sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${scope.runId} and ${schema.importRun.userId} = ${scope.userId})`,
 								),
 							),
 					);
@@ -786,7 +767,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				pluginInstallationId: null | string;
 				inputSummary: Record<string, unknown>;
 				blockReasons: ReadonlyArray<IngestionBlockReason>;
-				accountGeneration: IngestionScope["accountGeneration"];
 			}) {
 				yield* database.requireTransaction;
 				yield* database.acquireUserWriteLock(input.userId);
@@ -795,20 +775,12 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					db
 						.select({ id: schema.user.id })
 						.from(schema.user)
-						.where(
-							and(
-								eq(schema.user.id, input.userId),
-								eq(schema.user.id, input.accountGeneration.userId),
-								eq(schema.user.accountGeneration, input.accountGeneration.token),
-							),
-						)
+						.where(and(eq(schema.user.id, input.userId), eq(schema.user.id, input.userId)))
 						.for("update")
 						.limit(1),
 				);
 				if (!owner) {
-					return yield* new DbError({
-						message: "Blocked ingestion account generation has retired",
-					});
+					return yield* new DbError({ message: "Blocked ingestion account has retired" });
 				}
 				const blockReasons = yield* Schema.decodeEffect(Schema.Array(IngestionBlockReason))(
 					input.blockReasons,
@@ -822,7 +794,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							status: "blocked",
 							integrationLot: "sink",
 							createdAt: input.acceptedAt,
-							accountGeneration: input.accountGeneration.token,
 							blockDeadline: DateTime.toDateUtc(
 								DateTime.addDuration(
 									DateTime.fromDateUnsafe(input.acceptedAt),
@@ -941,7 +912,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 										and(
 											eq(schema.importRun.integrationId, input.integrationId),
 											eq(schema.importRun.userId, input.scope.userId),
-											eq(schema.importRun.accountGeneration, input.scope.accountGeneration.token),
 											inArray(schema.importRun.status, ["running", "cancelling"]),
 										),
 									)
@@ -1254,7 +1224,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 								integrationId: schema.importRun.integrationId,
 								blockDeadline: schema.importRun.blockDeadline,
 								collectionSealed: schema.importRun.collectionSealed,
-								accountGeneration: schema.importRun.accountGeneration,
 								pluginInstallationId: schema.importRun.pluginInstallationId,
 							})
 							.from(schema.importRun)
@@ -1271,7 +1240,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						startedAt: run.startedAt?.toISOString() ?? null,
 						finishedAt: run.finishedAt?.toISOString() ?? null,
 						blockDeadline: run.blockDeadline?.toISOString() ?? null,
-						accountGeneration: { userId: run.userId, token: run.accountGeneration },
 					});
 				},
 			);
@@ -1623,18 +1591,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							source: schema.importRun.source,
 							status: schema.importRun.status,
 							acceptedAt: schema.importRun.createdAt,
-							accountGeneration: schema.importRun.accountGeneration,
 							pluginInstallationId: schema.importRun.pluginInstallationId,
 							admitted: sql<boolean>`${schema.importRun.plan} is not null and ${schema.importRun.pins} is not null`,
 						})
 						.from(schema.importRun)
-						.innerJoin(
-							schema.user,
-							and(
-								eq(schema.user.id, schema.importRun.userId),
-								eq(schema.user.accountGeneration, schema.importRun.accountGeneration),
-							),
-						)
+						.innerJoin(schema.user, eq(schema.user.id, schema.importRun.userId))
 						.where(
 							or(
 								and(
@@ -1683,13 +1644,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					db
 						.select({ run: schema.importRun })
 						.from(schema.importRun)
-						.innerJoin(
-							schema.user,
-							and(
-								eq(schema.user.id, schema.importRun.userId),
-								eq(schema.user.accountGeneration, schema.importRun.accountGeneration),
-							),
-						)
+						.innerJoin(schema.user, eq(schema.user.id, schema.importRun.userId))
 						.where(
 							and(
 								isNotNull(schema.importRun.integrationId),
@@ -1831,7 +1786,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							id: schema.importRun.id,
 							status: schema.importRun.status,
 							integrationId: schema.importRun.integrationId,
-							accountGeneration: schema.importRun.accountGeneration,
 							pluginInstallationId: schema.importRun.pluginInstallationId,
 						})
 						.from(schema.importRun)

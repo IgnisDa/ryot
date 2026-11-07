@@ -40,14 +40,7 @@ const collectorDatabaseLayer = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		yield* session.run((db) =>
-			db
-				.insert(tables.user)
-				.values({
-					id: "owner",
-					name: "Owner",
-					email: "owner@example.test",
-					accountGeneration: "test-account-generation",
-				}),
+			db.insert(tables.user).values({ id: "owner", name: "Owner", email: "owner@example.test" }),
 		);
 	}),
 ).pipe(

@@ -1736,10 +1736,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							resource: "entity" as const,
 							identity: ["children", "entity"],
 							command: {
+								accountUserId: owner,
 								itemIdentity: "population",
 								occurredAt: "2026-09-15T00:00:00.000Z",
 								causation: triggerFixture("unused").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
 						};
 						const chunked = yield* nested(
@@ -1797,10 +1797,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							resource: "entity",
 							identity: ["item-records", "entity"],
 							command: {
+								accountUserId: owner,
 								itemIdentity: "item-records",
 								occurredAt: "2026-09-15T00:00:00.000Z",
 								causation: triggerFixture("item-records").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
 						};
 						const installed = yield* installRevisionPackage(
@@ -1885,10 +1885,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							resource: "entity",
 							identity: ["mixed-limits", "entity"],
 							command: {
+								accountUserId: owner,
 								itemIdentity: "mixed-limits",
 								occurredAt: "2026-09-15T00:00:00.000Z",
 								causation: triggerFixture("mixed-limits").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
 						};
 						const ids = Array.from({ length: 11 }, (_, index) => `mixed-${index}`);
@@ -1985,10 +1985,10 @@ describe("LifecyclePlanner PostgreSQL", () => {
 							resource: "event",
 							identity: ["fixture-only", "events"],
 							command: {
+								accountUserId: owner,
 								itemIdentity: "fixture-only",
 								occurredAt: "2026-09-15T00:00:00.000Z",
 								causation: triggerFixture("fixture-only").causation,
-								accountGeneration: { userId: owner, token: "test-account-generation" },
 							},
 						};
 						const ids = Array.from({ length: 60 }, (_, index) => `fixture-${index}`);

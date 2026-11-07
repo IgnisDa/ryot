@@ -51,6 +51,7 @@ const rootCase = (
 		const payload = {
 			...ingestionTestScope,
 			integrationId,
+			accountUserId: ingestionTestScope.userId,
 			runId: options.runId ?? ingestionTestScope.runId,
 		};
 		let run = ingestionTestRun({ status, integrationId, collectionSealed: true });

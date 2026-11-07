@@ -650,46 +650,6 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 
 				return rows.map(toRelationship);
 			});
-			const listRelationshipsOutsideGeneration = Effect.fn(
-				"RelationshipsRepository.listRelationshipsOutsideGeneration",
-			)(function* (input: RelationshipReconciliationListInput, generation: string) {
-				yield* session.run((db) =>
-					db.execute(
-						sql`select pg_advisory_xact_lock(hashtextextended(${relationshipReconciliationLockKey(input)}, 0))`,
-					),
-				);
-				const rows = yield* session.run((db) =>
-					db
-						.select(relationshipSnapshotSelection)
-						.from(schema.relationship)
-						.where(
-							and(
-								relationshipReconciliationWhere(input),
-								sql`${schema.relationship.syncGeneration} is distinct from ${generation}`,
-							),
-						)
-						.orderBy(asc(schema.relationship.id))
-						.for("update"),
-				);
-				return rows.map(toRelationship);
-			});
-			const stampRelationshipGeneration = Effect.fn(
-				"RelationshipsRepository.stampRelationshipGeneration",
-			)(function* (inputs: ReadonlyArray<RelationshipIdentityInput>, generation: string) {
-				yield* Effect.forEach(chunksOf(inputs, STATEMENT_CHUNK_SIZE), (chunk) =>
-					session.run((db) =>
-						db
-							.update(schema.relationship)
-							.set({ syncGeneration: generation, updatedAt: schema.relationship.updatedAt })
-							.where(
-								and(
-									or(...chunk.map(relationshipIdentityWhere)),
-									sql`${schema.relationship.syncGeneration} is distinct from ${generation}`,
-								),
-							),
-					),
-				);
-			});
 			const listGlobalRelationships = (input: GlobalRelationshipListInput) =>
 				listRelationshipsForReconciliation({ ...input, scope: "global" });
 
@@ -708,12 +668,10 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 				deleteUserRelationshipById,
 				findRelationshipProperties,
 				listEnabledOwnersForSubject,
-				stampRelationshipGeneration,
 				listUserEditorRelationships,
 				listUserRelationshipsForEntity,
 				listUserRelationshipsForBackup,
 				listRelationshipsForReconciliation,
-				listRelationshipsOutsideGeneration,
 				lockCollectionOrders: collectionOrder.lock,
 				moveCollectionMember: collectionOrder.move,
 				listUserRelationshipsForEntitiesWithProvenance,

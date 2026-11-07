@@ -44,11 +44,7 @@ export class IngestionRetirement extends Context.Service<IngestionRetirement>()(
 					if (input.policy.kind === "quarantine" && run.status !== "cancelling") {
 						continue;
 					}
-					const scope = {
-						userId: input.userId,
-						runId: ImportRunId.make(run.id),
-						accountGeneration: { userId: input.userId, token: run.accountGeneration },
-					};
+					const scope = { userId: input.userId, runId: ImportRunId.make(run.id) };
 					const name =
 						run.integrationId === null
 							? "ProcessImportRunWorkflow"

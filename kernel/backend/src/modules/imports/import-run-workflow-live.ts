@@ -22,9 +22,7 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 			userId: payload.userId,
 		});
 		if (payload.dataJson) {
-			yield* admitWorkflow(payload.command.accountGeneration).pipe(
-				Effect.mapError(toWorkflowError),
-			);
+			yield* admitWorkflow(payload.command.accountUserId).pipe(Effect.mapError(toWorkflowError));
 			yield* runDataImportWorkflow(payload, executionId);
 		} else {
 			yield* runPluginImportWorkflow(payload, executionId);

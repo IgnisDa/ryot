@@ -208,7 +208,6 @@ const enrichmentWorkState = (
 		and (${operation} <> 'translation' or request.language = ${context.language})
 		and (${operation} <> 'translation' or request.source_content_generation = ${sql.raw(`${context.sqlAlias}.content_generation`)})
 		and request.requester_user_id is not distinct from ${context.userId ?? null}
-		and request.requester_generation is not distinct from (select account_generation from "user" where id = ${context.userId ?? null})
 		order by request.sequence desc limit 1), 'idle')`;
 };
 

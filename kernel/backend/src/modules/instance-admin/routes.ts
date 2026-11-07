@@ -58,6 +58,12 @@ export const InstanceAdminRoutesLive = HttpApiBuilder.group(
 					);
 				}),
 			)
+			.handle("setEntitySchemaRefreshInterval", ({ payload }) =>
+				Effect.gen(function* () {
+					const service = yield* InstanceAdminService;
+					return yield* mapPersistenceFailure(service.setEntitySchemaRefreshInterval(payload));
+				}),
+			)
 			.handle("deleteUser", ({ params }) =>
 				Effect.gen(function* () {
 					const service = yield* InstanceAdminService;

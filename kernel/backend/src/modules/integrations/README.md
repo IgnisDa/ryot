@@ -9,7 +9,7 @@ submission key. Only yank admission is idle-gated.
 Sync first commits yank admission, then journals a database-clock cutoff. It pages the persisted
 blocked, pending, and cancelling integration runs through that cutoff in creation-time then ID order.
 New yank runs and recovery runs share this worklist; unreleasable owners do not stop cursor progress.
-Release retains expiry, cancellation, account-generation, readiness, and pinned-input checks. Child
+Release retains expiry, cancellation, account, readiness, and pinned-input checks. Child
 workflows retain each run's original execution ID.
 
 Yank admission excludes disabled accounts and rechecks the account under its transaction lock.

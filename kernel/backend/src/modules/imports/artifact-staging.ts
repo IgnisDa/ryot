@@ -23,14 +23,10 @@ export const IngestionArtifactStagingLive = Layer.effect(
 						return null;
 					}
 					const userId = sandboxSubjectUserId(subject);
-					if (!userId || !subject.accountGeneration) {
+					if (!userId) {
 						return null;
 					}
-					const run = yield* repository.getStagingOwner(
-						userId,
-						subject.accountGeneration,
-						ownerExecutionId,
-					);
+					const run = yield* repository.getStagingOwner(userId, ownerExecutionId);
 					if (!run) {
 						return null;
 					}
@@ -50,11 +46,7 @@ export const IngestionArtifactStagingLive = Layer.effect(
 							message: "Staged artifact execution pins changed",
 						});
 					}
-					const scope = {
-						userId,
-						runId: ImportRunId.make(run.id),
-						accountGeneration: subject.accountGeneration,
-					};
+					const scope = { userId, runId: ImportRunId.make(run.id) };
 					const workflowExecutionId = input.workflowExecutionId;
 					return Effect.fn("imports.stageHarvestedArtifacts")(function* (
 						outputs: ReadonlyArray<Uint8Array>,

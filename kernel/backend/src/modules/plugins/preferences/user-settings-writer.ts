@@ -3,7 +3,6 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -136,8 +135,8 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 				(input: {
 					readonly userId: UserId;
 					readonly pluginId: string;
+					readonly accountUserId: UserId;
 					readonly pluginRevisionId: string;
-					readonly accountGeneration: AccountGeneration;
 					readonly values: Readonly<Record<string, JsonValue>>;
 				}) =>
 					transaction(
@@ -145,12 +144,12 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 						Effect.gen(function* () {
 							yield* plugins.lockIngestionShared([input.userId]);
 							yield* database.acquireUserWriteLock(input.userId);
-							if (input.accountGeneration.userId !== input.userId) {
+							if (input.accountUserId !== input.userId) {
 								return yield* new DbError({
 									message: "Plugin user settings account does not match the execution user",
 								});
 							}
-							yield* admission.admitAccount(input.accountGeneration);
+							yield* admission.admitAccount(input.accountUserId);
 							const pinned = yield* installations.findUserSettingsForRevision({
 								userId: input.userId,
 								pluginId: input.pluginId,

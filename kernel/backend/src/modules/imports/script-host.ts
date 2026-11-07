@@ -25,7 +25,7 @@ export const makeAdmittedExecutionStateLoader = Effect.gen(function* () {
 			return yield* Effect.fail("Admitted ingestion execution settings are unavailable");
 		}
 		const state = yield* sourceStates
-			.load({ runId, userId: subject.userId, accountGeneration: subject.accountGeneration })
+			.load({ runId, userId: subject.userId })
 			.pipe(Effect.mapError(() => "Admitted ingestion execution settings are unavailable"));
 		const plugin = input.principal.pluginRevision;
 		if (

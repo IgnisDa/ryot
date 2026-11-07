@@ -82,11 +82,11 @@ export const command = (id: string, actorUserId: UserId = userId) => ({
 	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: actorUserId,
 		itemIdentity: "relationship",
 		occurredAt: "2026-09-15T00:00:00.000Z",
 		executionId: AutomationExecutionId.make(id),
 		initiator: { kind: "user", id: actorUserId },
-		accountGeneration: { userId: actorUserId, token: "test-account-generation" },
 	}),
 	writeContext: null,
 });
@@ -422,12 +422,7 @@ export const relationshipDatabaseLayer = (
 						Effect.gen(function* () {
 							yield* db
 								.insert(tables.user)
-								.values({
-									id: userId,
-									name: "Owner",
-									email: "relationship@example.test",
-									accountGeneration: "test-account-generation",
-								});
+								.values({ id: userId, name: "Owner", email: "relationship@example.test" });
 							yield* db.insert(tables.entity).values([
 								{ name: "Source", properties: {}, id: sourceEntityId, entitySchemaSlug: "fixture" },
 								{ name: "Target", properties: {}, id: targetEntityId, entitySchemaSlug: "fixture" },

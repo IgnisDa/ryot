@@ -110,15 +110,15 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 					executionId,
 					lane: "background",
 					source: "scheduler",
+					accountUserId: userId,
 					itemIdentity: executionId,
 					occurredAt: now.toISOString(),
 					initiator: { id: userId, kind: "user" },
-					accountGeneration: { userId, token: target.accountGeneration },
 				});
 				return yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* admission.admitAccount({ userId, token: target.accountGeneration });
+							yield* admission.admitAccount(userId);
 							const plan = yield* signals.planSignal({
 								properties: candidate.properties,
 								principal: { userId, kind: "user" },

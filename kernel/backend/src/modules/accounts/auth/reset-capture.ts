@@ -1,5 +1,5 @@
 import { badRequest, type DbError, internalError } from "@ryot-app/contract/errors";
-import { Deferred, Effect, Schema } from "effect";
+import { Deferred, Effect, Schema, type Scope } from "effect";
 import type { SecureRandom } from "effect/crypto";
 
 const captureHeader = "x-ryot-reset-capture-id";
@@ -8,19 +8,16 @@ export type ResetCaptureTransport = {
 	readonly reserve: (email: string, id: string) => Effect.Effect<boolean, DbError>;
 	readonly release: (email: string, id: string) => Effect.Effect<unknown, DbError>;
 	readonly deliver: (email: string, id: string, message: string) => Effect.Effect<unknown, DbError>;
+	readonly listen: (
+		id: string,
+		listener: (message: string) => void,
+	) => Effect.Effect<void, never, Scope.Scope>;
 	readonly track: (
 		email: string,
 		id: string,
 		userId: string,
 		token: string,
 	) => Effect.Effect<{ readonly tracked: boolean; readonly previous: null | string }, DbError>;
-	readonly subscriber: () => {
-		readonly quit: () => Effect.Effect<unknown, DbError>;
-		readonly subscribe: (id: string) => Effect.Effect<unknown, DbError>;
-		readonly unsubscribe: (id: string) => Effect.Effect<unknown, DbError>;
-		readonly onMessage: (listener: (id: string, message: string) => void) => void;
-		readonly offMessage: (listener: (id: string, message: string) => void) => void;
-	};
 };
 
 const ResetLinkMessage = Schema.fromJsonString(
@@ -87,29 +84,13 @@ export const captureResetLink = Effect.fn("AuthService.captureResetLink")(functi
 				}),
 				(reservationId) => args.transport.release(args.email, reservationId).pipe(Effect.ignore),
 			);
-			const subscriber = yield* Effect.acquireRelease(
-				Effect.sync(() => args.transport.subscriber()),
-				(active) =>
-					Effect.all(
-						[active.unsubscribe(id).pipe(Effect.ignore), active.quit().pipe(Effect.ignore)],
-						{ discard: true },
-					),
-			);
 			const received = yield* Deferred.make<{ email: string; resetUrl: string }>();
-			const listener = (channel: string, message: string) => {
-				if (channel !== id) {
-					return;
-				}
+			yield* args.transport.listen(id, (message) => {
 				const decoded = Schema.decodeOption(ResetLinkMessage)(message);
 				if (decoded._tag === "Some" && decoded.value.email === args.email) {
 					Effect.runSyncWith(runtime)(Deferred.succeed(received, decoded.value));
 				}
-			};
-			subscriber.onMessage(listener);
-			yield* Effect.addFinalizer(() => Effect.sync(() => subscriber.offMessage(listener)));
-			yield* subscriber
-				.subscribe(id)
-				.pipe(Effect.mapError(() => internalError("Reset link subscription failed")));
+			});
 			const request = new Request(`${args.frontendUrl}/api/auth/request-password-reset`, {
 				method: "POST",
 				headers: { [captureHeader]: id, "content-type": "application/json" },

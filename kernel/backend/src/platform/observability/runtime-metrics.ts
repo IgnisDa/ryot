@@ -1,4 +1,3 @@
-import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SandboxMetricKind } from "@ryot-app/sandbox/host/metrics";
 import { Effect, Metric } from "effect";
 
@@ -60,31 +59,6 @@ const sandboxWorkflowJournalEntries = Metric.histogram("ryot.sandbox.workflow_jo
 	description: "Journal entries observed when a sandbox workflow replay finished",
 });
 
-const durableQueueWaitDuration = Metric.histogram("ryot.durable_queue.wait_duration", {
-	attributes: { unit: MILLISECONDS },
-	boundaries: [...PHASE_DURATION_BOUNDARIES],
-	description: "Time a durable queue item waited from offer to its first take, by lane",
-});
-
-const durableQueueDispatches = Metric.counter("ryot.durable_queue.dispatches", {
-	incremental: true,
-	attributes: { unit: "{dispatch}" },
-	description: "Durable queue items handed to a worker, by lane",
-});
-
-const httpAdmissionTickets = Metric.counter("ryot.http_admission.tickets", {
-	incremental: true,
-	attributes: { unit: "{ticket}" },
-	description:
-		"Matched HTTP admission tickets granted, whose grant expired, or refused as overloaded",
-});
-
-const httpAdmissionTicketWait = Metric.histogram("ryot.http_admission.ticket_wait", {
-	attributes: { unit: MILLISECONDS },
-	boundaries: [...PHASE_DURATION_BOUNDARIES],
-	description: "Time a matched HTTP admission ticket waited from registration to its grant",
-});
-
 // Import workflow bodies replay from the start after every suspension or restart, so these three
 // metrics count process-local body attempts, never logical imports. Logical import state lives in
 // durable workflow persistence.
@@ -108,47 +82,6 @@ const providerImportBodyOutcomes = Metric.counter("ryot.provider_import.body_out
 	description:
 		"Provider import workflow body executions that returned or failed; a body re-entered after a restart records again",
 });
-
-export const recordDurableQueueDispatch = (input: {
-	readonly lane: ExecutionLane;
-	readonly waitMs: number | undefined;
-}) => {
-	const attributes = { lane: input.lane };
-	return Effect.all(
-		[
-			Metric.update(Metric.withAttributes(durableQueueDispatches, attributes), 1),
-			input.waitMs === undefined
-				? Effect.void
-				: Metric.update(Metric.withAttributes(durableQueueWaitDuration, attributes), input.waitMs),
-		],
-		{ discard: true },
-	);
-};
-
-/** Labelled by lane, policy key and outcome only; tickets never carry user, tenant or plugin. */
-export const recordHttpAdmissionTicket = (input: {
-	readonly policy: string;
-	readonly waitedMs?: number;
-	readonly lane: ExecutionLane;
-	readonly outcome: "granted" | "expired" | "overloaded";
-}) => {
-	const attributes = { lane: input.lane, policy: input.policy, outcome: input.outcome };
-	return Effect.all(
-		[
-			Metric.update(Metric.withAttributes(httpAdmissionTickets, attributes), 1),
-			input.waitedMs === undefined
-				? Effect.void
-				: Metric.update(
-						Metric.withAttributes(httpAdmissionTicketWait, {
-							lane: input.lane,
-							policy: input.policy,
-						}),
-						input.waitedMs,
-					),
-		],
-		{ discard: true },
-	);
-};
 
 export const recordSandboxWorkflowReplayFinished = (input: {
 	readonly durationMs: number;

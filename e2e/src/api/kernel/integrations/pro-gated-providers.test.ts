@@ -85,7 +85,6 @@ beforeAll(() =>
 							dbUrl: infrastructure.dbUrl,
 							s3BucketName: S3_BUCKET_NAME,
 							frontendUrl: sharedFrontendUrl,
-							redisUrl: infrastructure.redisUrl,
 							s3Endpoint: infrastructure.s3Endpoint,
 						}),
 						`Pro-gated ${label}`,

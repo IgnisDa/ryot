@@ -23,8 +23,7 @@ import {
 	SandboxScriptManifest,
 	type SandboxScriptManifest as SandboxScriptManifestType,
 } from "@ryot-app/contract/modules/scripts/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import { EntityId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
+import { EntityId, SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
@@ -105,7 +104,7 @@ export const prepareAutomationInvocation = (
 	trigger: AutomationTrigger,
 	payload: AutomationRunPayload,
 	script: Extract<SandboxScriptManifestType, { kind: "automation" }>,
-	accountGeneration: null | AccountGeneration,
+	accountUserId: null | UserId,
 	hookMetadata?: JsonValue,
 	hookTargets: PluginHook["targets"] = [],
 	batchFrequency: "item" | "once-per-subject" = "item",
@@ -299,8 +298,8 @@ export const prepareAutomationInvocation = (
 			lane: automationRunLane({ delivery: run.delivery, causation: trigger.causation }),
 			subject: {
 				runId: run.id,
+				accountUserId,
 				stage: run.stage,
-				accountGeneration,
 				triggerId: trigger.id,
 				delivery: run.delivery,
 				type: "automation-run",
@@ -384,7 +383,7 @@ export const AutomationRunOperationsLive = Layer.effect(
 							if (!initial) {
 								return yield* missing();
 							}
-							const accountGeneration =
+							const accountUserId =
 								initial.executionUserId === null
 									? null
 									: yield* admission.currentAccount(initial.executionUserId);
@@ -517,7 +516,7 @@ export const AutomationRunOperationsLive = Layer.effect(
 								trigger,
 								payload,
 								script,
-								accountGeneration,
+								accountUserId,
 								hookMetadata,
 								hookTargets,
 								batchFrequency,
@@ -671,7 +670,7 @@ export const runAutomationAttempt = Effect.fn("AutomationRunJob")(function* (
 		.prepare(payload)
 		.pipe(Effect.catchTag("AutomationPreparationError", (error) => Effect.succeed(error)));
 	const { outcome } = yield* attemptOutcome(payload, prepared, (input) =>
-		operations.runSandbox({ ...input, executionId: `${identity.workflowExecutionId}-sandbox` }),
+		operations.runSandbox({ ...input, executionId: `${identity.executionId}-sandbox` }),
 	);
 	yield* operations.finalize(outcome);
 });
@@ -703,7 +702,7 @@ export const runAutomationAttemptDirect = Effect.fn("AutomationRunDirect")(funct
 			.pipe(Effect.catchTag("AutomationPreparationError", (error) => Effect.succeed(error)));
 		const { outcome, policyOutput } = yield* attemptOutcome(payload, prepared, (input) =>
 			operations
-				.runSandboxDirect({ ...input, executionId: `${identity.workflowExecutionId}-direct` })
+				.runSandboxDirect({ ...input, executionId: `${identity.executionId}-direct` })
 				.pipe(
 					Effect.timeoutOrElse({
 						duration: Duration.millis(AUTOMATION_IMMEDIATE_TIMEOUT_MS),

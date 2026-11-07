@@ -107,7 +107,7 @@ every write: it validates against the active persisted schema, caps the stored d
 locks asset references, and invalidates the user's catalog after commit. Installation-owned saves and
 resets replace the document under the exclusive ingestion lock. The `updateUserSettings` sandbox call
 merges top-level keys under the shared ingestion lock and the user write lock, after admitting the
-subject's account generation. It resolves the installation from the plugin and execution user,
+subject's account. It resolves the installation from the plugin and execution user,
 accepts only keys in the pinned revision's schema, and rejects uninstalled, inactive, or incompatible
 installations at write time. Each patch invalidates the catalog; the four-call execution cap bounds
 that cost. RyotQL exposes stored choices to the kernel preferences UI. Sandbox reads resolve the

@@ -529,13 +529,7 @@ layer(
 				yield* database.run((db) =>
 					db
 						.insert(tables.reminder)
-						.values({
-							userId,
-							id: reminderId,
-							state: "cancelled",
-							removedAt: new Date(0),
-							accountGeneration: "generation",
-						}),
+						.values({ userId, id: reminderId, state: "cancelled", removedAt: new Date(0) }),
 				);
 				expect((yield* reads.inspectRestoreTarget(userId))?.hasReminders).toBe(true);
 			}),

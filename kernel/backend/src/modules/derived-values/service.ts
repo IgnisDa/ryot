@@ -332,14 +332,11 @@ export class Folds extends Context.Service<Folds>()(
 				if (output.changes.length === 0) {
 					return null;
 				}
-				const actor = lifecycleActor({
-					userId: subject.userId,
-					accountGeneration: binding.accountGeneration,
-				});
+				const actor = lifecycleActor({ userId: subject.userId });
 				const command: DomainLifecycleCommand = {
 					writeContext: binding.principal,
+					accountUserId: actor.accountUserId,
 					itemIdentity: `fold:${subject.entityId}`,
-					accountGeneration: actor.accountGeneration,
 					occurredAt: DateTime.formatIso(yield* DateTime.now),
 					causation: rootLifecycleCausation({
 						lane,

@@ -355,6 +355,7 @@ describe("media history fold", () => {
 
 describe("absorbFoldValues", () => {
 	const suppressed: MediaFoldValue = {
+		coverageSources: ["old-event"],
 		occurrences: [
 			{
 				total: 120,
@@ -376,12 +377,11 @@ describe("absorbFoldValues", () => {
 				inventory: ["old-episode", "kept-episode"],
 			},
 		],
-		coverageSources: ["old-event"],
 	};
 	const ids = { "old-event": "new-event", "old-episode": "new-episode" };
 
 	it("rewrites the IDs an absorbed value holds and clears what it wrote", () => {
-		const { value: absorbed, renamedKeys } = absorbFoldValues({ occurrences: [] }, [
+		const { renamedKeys, value: absorbed } = absorbFoldValues({ occurrences: [] }, [
 			{ ids, value: suppressed },
 		]);
 		expect(renamedKeys.get("progress:old-event")).toBe("progress:new-event");
@@ -413,8 +413,8 @@ describe("absorbFoldValues", () => {
 		const own: MediaFoldValue = {
 			occurrences: [
 				{
-					written: null,
 					silent: true,
+					written: null,
 					rule: "progress",
 					status: "inactive",
 					key: "progress:new-event",
@@ -432,7 +432,7 @@ describe("absorbFoldValues", () => {
 		Effect.gen(function* () {
 			const restored = event("new-event", {
 				eventSchemaSlug: "progress",
-				properties: { consumptionBasis: basis, progressPercent: 100 },
+				properties: { progressPercent: 100, consumptionBasis: basis },
 			});
 			const { events, changes } = yield* fold(
 				[restored],
@@ -447,7 +447,7 @@ describe("absorbFoldValues", () => {
 		Effect.gen(function* () {
 			const restored = event("new-event", {
 				eventSchemaSlug: "progress",
-				properties: { consumptionBasis: basis, progressPercent: 100 },
+				properties: { progressPercent: 100, consumptionBasis: basis },
 			});
 			const completion = event("completion", {
 				eventSchemaSlug: "complete",
@@ -458,11 +458,11 @@ describe("absorbFoldValues", () => {
 					{
 						total: 120,
 						silent: false,
+						written: null,
 						rule: "progress",
 						status: "active",
 						key: "progress:old-event",
 						sourceEventId: "old-event",
-						written: null,
 					},
 				],
 			};

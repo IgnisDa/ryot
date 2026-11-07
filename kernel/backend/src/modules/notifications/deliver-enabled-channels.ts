@@ -23,13 +23,9 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 		const channels = yield* NotificationsRepository;
 		const config = yield* AppConfig;
 		const sources = yield* NotificationSourcePolicy;
-		yield* session.transaction(admission.admitAccount(payload.accountGeneration));
+		yield* session.transaction(admission.admitAccount(payload.accountUserId));
 		const notification = yield* repository.find(payload.notificationId);
-		if (
-			!notification ||
-			notification.userId !== payload.accountGeneration.userId ||
-			notification.accountGeneration !== payload.accountGeneration.token
-		) {
+		if (!notification || notification.userId !== payload.accountUserId) {
 			return yield* new DbError({ message: "Notification does not match its admitted account" });
 		}
 		const selected = yield* repository.deliveries(notification.id);
@@ -41,7 +37,7 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 						return;
 					}
 					const current = yield* channels.findForUser({
-						userId: payload.accountGeneration.userId,
+						userId: payload.accountUserId,
 						channelId: NotificationChannelId.make(selectedChannel.channelId),
 					});
 					const message =
@@ -58,10 +54,10 @@ export const deliverEnabledChannels = Effect.fn("deliverEnabledChannels")(
 					const now = yield* DateTime.nowAsDate;
 					const claimed = yield* session.transaction(
 						Effect.gen(function* () {
-							yield* admission.admitAccount(payload.accountGeneration);
+							yield* admission.admitAccount(payload.accountUserId);
 							const sourceAuthorized = yield* sources.authorize({
 								runId: notification.sourceRunId,
-								accountGeneration: payload.accountGeneration,
+								accountUserId: payload.accountUserId,
 							});
 							return yield* repository.claim({
 								now,

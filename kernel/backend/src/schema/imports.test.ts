@@ -74,9 +74,7 @@ const seedRun = Effect.fn(function* () {
 		db.insert(user).values({ id: runId, name: "Owner", email: `${runId}@example.test` }),
 	);
 	yield* session.run((db) =>
-		db
-			.insert(importRun)
-			.values({ id: runId, userId: runId, source: "data-json", accountGeneration: "generation" }),
+		db.insert(importRun).values({ id: runId, userId: runId, source: "data-json" }),
 	);
 	return runId;
 });

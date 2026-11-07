@@ -47,7 +47,6 @@ export const notification = snakeCase.table(
 		settledAt: timestamptz(),
 		sourceKey: text().notNull(),
 		inputDigest: text().notNull(),
-		accountGeneration: text().notNull(),
 		outcome: text().$type<NotificationOutcome>(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		reason: text().$type<NotificationDeliveryReason>(),
@@ -58,11 +57,7 @@ export const notification = snakeCase.table(
 			.references(() => user.id, { onDelete: "cascade" }),
 	},
 	(table) => [
-		uniqueIndex("notification_source_idx").on(
-			table.userId,
-			table.accountGeneration,
-			table.sourceKey,
-		),
+		uniqueIndex("notification_source_idx").on(table.userId, table.sourceKey),
 		index("notification_owner_idx").on(table.userId, table.createdAt.desc(), table.id),
 		index("notification_source_run_idx").on(table.sourceRunId),
 		check(

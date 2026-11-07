@@ -15,21 +15,16 @@ import { AccountAdmission } from "./account-admission";
 
 layer(isolatedDatabaseLayer("account_admission_test"))((test) => {
 	test.effect(
-		"admits an account once per transaction and refuses a replaced or retiring generation",
+		"admits an account once per transaction and refuses a retiring or deleted account",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
 				const admission = yield* AccountAdmission.make;
-				const account = { token: "admitted", userId: UserId.make("admitted-account") };
+				const account = UserId.make("admitted-account");
 				yield* session.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: account.userId,
-							name: account.userId,
-							accountGeneration: account.token,
-							email: `${account.userId}@example.test`,
-						}),
+						.values({ id: account, name: account, email: `${account}@example.test` }),
 				);
 				const spans: Array<Tracer.Span> = [];
 				yield* session
@@ -40,19 +35,16 @@ layer(isolatedDatabaseLayer("account_admission_test"))((test) => {
 				expect(
 					recordedStatements(spans).filter((text) => text.includes('from "user"')),
 				).toHaveLength(1);
-				const refusal = (token: string) =>
-					session.transaction(admission.admitAccount({ ...account, token })).pipe(
-						Effect.flip,
-						Effect.map((error) => error.message),
-					);
-				expect(yield* refusal("replaced")).toBe("Mutation command belongs to a retired account");
-				yield* session.run((db) =>
-					db
-						.update(tables.user)
-						.set({ retiringAccountGeneration: account.token })
-						.where(eq(tables.user.id, account.userId)),
+				const refusal = session.transaction(admission.admitAccount(account)).pipe(
+					Effect.flip,
+					Effect.map((error) => error.message),
 				);
-				expect(yield* refusal(account.token)).toBe("Mutation command account is being retired");
+				yield* session.run((db) =>
+					db.update(tables.user).set({ retiringAt: new Date() }).where(eq(tables.user.id, account)),
+				);
+				expect(yield* refusal).toBe("Mutation command account is being retired");
+				yield* session.run((db) => db.delete(tables.user).where(eq(tables.user.id, account)));
+				expect(yield* refusal).toBe("Mutation command belongs to a retired account");
 			}),
 		testTimeout,
 	);

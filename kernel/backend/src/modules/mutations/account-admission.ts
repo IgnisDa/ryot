@@ -1,16 +1,16 @@
 import { DbError } from "@ryot-app/contract/errors";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { stableStringify } from "@ryot-app/ts-utils/json";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { CurrentJobId } from "#platform/jobs/worker";
 import { user } from "#schema/tables/auth";
+import { job } from "#schema/tables/jobs";
 
 const mutationOwner = (command: LifecycleCommand, scopeUserId: null | UserId) =>
-	command.accountGeneration?.userId ??
+	command.accountUserId ??
 	(command.causation.source !== "automation" && command.causation.initiator.kind === "user"
 		? command.causation.initiator.id
 		: scopeUserId);
@@ -30,32 +30,37 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 			const requireTransaction = session.requireTransaction.pipe(
 				Effect.mapError(() => new DbError({ message: "Account admission requires a transaction" })),
 			);
-			const admitAccount = Effect.fn("AccountAdmission.admitAccount")(function* (
-				account: AccountGeneration,
-			) {
+			const admitAccount = Effect.fn("AccountAdmission.admitAccount")(function* (userId: UserId) {
 				yield* requireTransaction;
+				const jobId = yield* CurrentJobId;
 				yield* session.run((db) =>
 					Effect.gen(function* () {
-						const key = stableStringify([account.userId, account.token]);
 						const admitted = admittedAccounts.get(db) ?? new Set<string>();
-						if (admitted.has(key)) {
+						if (admitted.has(userId)) {
 							return yield* Effect.void;
 						}
-						// Retirement stamps this row under its exclusive lock, so the lock wait re-reads it.
+						// Retirement stamps this row under its exclusive lock, so the lock wait re-reads it, and
+						// deletes the account's jobs in the transaction that holds it.
 						const [current] = yield* db
-							.select({ token: user.accountGeneration, retiring: user.retiringAccountGeneration })
+							.select({
+								retiringAt: user.retiringAt,
+								jobAlive:
+									jobId === null
+										? sql<boolean>`true`
+										: sql<boolean>`exists (select 1 from ${job} where ${job.id} = ${jobId})`,
+							})
 							.from(user)
-							.where(eq(user.id, account.userId))
-							.for("share");
-						if (!current || current.token !== account.token) {
+							.where(eq(user.id, userId))
+							.for("share", { of: user });
+						if (!current?.jobAlive) {
 							return yield* new DbError({
 								message: "Mutation command belongs to a retired account",
 							});
 						}
-						if (current.retiring === account.token) {
+						if (current.retiringAt !== null) {
 							return yield* new DbError({ message: "Mutation command account is being retired" });
 						}
-						admitted.add(key);
+						admitted.add(userId);
 						admittedAccounts.set(db, admitted);
 						return yield* Effect.void;
 					}),
@@ -65,14 +70,14 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 				command: LifecycleCommand,
 				scopeUserId: null | UserId,
 			) {
-				const account = command.accountGeneration;
+				const account = command.accountUserId;
 				const owner = mutationOwner(command, scopeUserId);
 				if (account === null) {
 					return owner === null && scopeUserId === null
 						? undefined
-						: yield* new DbError({ message: "Mutation command account generation is missing" });
+						: yield* new DbError({ message: "Mutation command account is missing" });
 				}
-				if (scopeUserId !== null && scopeUserId !== account.userId) {
+				if (scopeUserId !== null && scopeUserId !== account) {
 					return yield* new DbError({
 						message: "Mutation command account identity does not match its scope",
 					});
@@ -83,13 +88,12 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 				userId: UserId,
 			) {
 				const [current] = yield* session.run((db) =>
-					db.select({ token: user.accountGeneration }).from(user).where(eq(user.id, userId)),
+					db.select({ token: user.id }).from(user).where(eq(user.id, userId)),
 				);
 				if (!current) {
 					return yield* new DbError({ message: "Mutation command account is unavailable" });
 				}
-				const account = { userId, token: current.token };
-				const admit = admitAccount(account);
+				const admit = admitAccount(userId);
 				yield* Effect.flatMap(session.isTransactionActive, (active) =>
 					active
 						? admit
@@ -103,7 +107,7 @@ export class AccountAdmission extends Context.Service<AccountAdmission>()(
 									),
 								),
 				);
-				return account;
+				return userId;
 			});
 			return { admitAccount, admitCommand, currentAccount };
 		}),

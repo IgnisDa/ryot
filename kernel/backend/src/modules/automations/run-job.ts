@@ -20,8 +20,8 @@ export const AutomationAttemptResult = Schema.Struct({
 	startedAt: AutomationRunAttempt.fields.startedAt,
 	finishedAt: AutomationRunAttempt.fields.finishedAt,
 	failureKind: AutomationRunAttempt.fields.failureKind,
+	executionId: AutomationRunAttempt.fields.executionId,
 	attemptNumber: AutomationRunAttempt.fields.attemptNumber,
-	workflowExecutionId: AutomationRunAttempt.fields.workflowExecutionId,
 });
 export type AutomationAttemptResult = typeof AutomationAttemptResult.Type;
 export const automationAttemptResult = (attempt: AutomationRunAttempt): AutomationAttemptResult =>

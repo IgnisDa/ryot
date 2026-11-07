@@ -182,7 +182,6 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 								type: "user",
 								userId: scope.userId,
 								integrationRunId: scope.runId,
-								accountGeneration: scope.accountGeneration,
 								integrationId: run.integrationId ?? undefined,
 							},
 						})
@@ -311,10 +310,10 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 						scope,
 						expectedPins: pins,
 						scriptId: script.id,
+						accountUserId: scope.userId,
 						executionId: pins.executionId,
 						executingUserId: scope.userId,
 						pluginId: evaluated.provider.pluginId,
-						accountGeneration: scope.accountGeneration,
 						preparedRelease: {
 							plan,
 							requiresProKey: evaluated.provider.requiresProKey ?? false,
@@ -357,7 +356,7 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 				webhook: IntegrationWebhookDelivery,
 				failureReason?: ImportRunFailureReason,
 			) {
-				const accountGeneration = yield* admission.currentAccount(integration.userId);
+				yield* admission.currentAccount(integration.userId);
 				const acceptedAt = yield* DateTime.nowAsDate;
 				const evaluated =
 					integration.pluginInstallationId && !failureReason
@@ -373,10 +372,9 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 						: null;
 				const runId = yield* database.transaction(
 					Effect.gen(function* () {
-						yield* admission.admitAccount(accountGeneration);
+						yield* admission.admitAccount(integration.userId);
 						const createdRunId = yield* repository.createBlockedRun({
 							acceptedAt,
-							accountGeneration,
 							userId: integration.userId,
 							source: integration.provider,
 							integrationId: integration.id,
@@ -392,13 +390,13 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 							yield* repository.rejectBlocked({
 								failureReason,
 								finishedAt: acceptedAt,
-								scope: { accountGeneration, runId: createdRunId, userId: integration.userId },
+								scope: { runId: createdRunId, userId: integration.userId },
 							});
 						}
 						return createdRunId;
 					}),
 				);
-				const scope = { runId, accountGeneration, userId: integration.userId };
+				const scope = { runId, userId: integration.userId };
 				if (failureReason) {
 					return scope;
 				}
@@ -467,11 +465,8 @@ export class IntegrationIngestion extends Context.Service<IntegrationIngestion>(
 									{
 										runId: ImportRunId.make(run.id),
 										userId: UserId.make(run.userId),
+										accountUserId: UserId.make(run.userId),
 										integrationId: IntegrationId.make(run.integrationId),
-										accountGeneration: {
-											token: run.accountGeneration,
-											userId: UserId.make(run.userId),
-										},
 									},
 								]
 							: [],

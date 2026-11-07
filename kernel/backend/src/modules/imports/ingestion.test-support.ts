@@ -19,7 +19,6 @@ import { fakeDatabaseSession } from "#testing/effect";
 export const ingestionTestScope = {
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 export const ingestionTestNow = "2026-01-01T00:00:00.000Z";
 export const ingestionTestRun = (overrides: Partial<IngestionRun> = {}): IngestionRun => ({
@@ -41,7 +40,6 @@ export const ingestionTestRun = (overrides: Partial<IngestionRun> = {}): Ingesti
 	userId: ingestionTestScope.userId,
 	pluginInstallationId: "installation-1",
 	plan: { selection: {}, operation: "fixture" },
-	accountGeneration: ingestionTestScope.accountGeneration,
 	pins: {
 		scriptId: "script-1",
 		executionId: "run-1-import",
@@ -91,7 +89,7 @@ export const ingestionTestDatabase = (
 						where: () => {
 							const rows = Effect.sync(() => {
 								if (table === user) {
-									return [{ token: ingestionTestScope.accountGeneration.token }];
+									return [{ jobAlive: true, retiringAt: null }];
 								}
 								return table === idempotencyKey ? [...read()] : [];
 							});

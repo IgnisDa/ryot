@@ -197,7 +197,7 @@ export const TestSupportOperationalPressure = Schema.Struct({
 	locks: Schema.Struct({ waitingAdvisoryLocks: Schema.Finite }),
 	sandbox: Schema.Struct({ totalExecutions: Schema.Finite, activeExecutions: Schema.Finite }),
 	database: Schema.Struct({ deadlocks: Schema.Finite, lockWaitingConnections: Schema.Finite }),
-	redis: Schema.Struct({
+	journal: Schema.Struct({
 		projectionCount: Schema.Finite,
 		projectionErrors: Schema.Finite,
 		maxJournalEntries: Schema.Finite,

@@ -76,7 +76,6 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	image: null,
 	name: "User",
 	email: `${id}@example.test`,
-	accountGeneration: { userId: id, token: "test-account-generation" },
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 });
 
@@ -331,7 +330,6 @@ const startRun = Effect.fn(function* (
 				integrationLot: "yank",
 				userId: integration.userId,
 				source: integration.provider,
-				accountGeneration: "test-account-generation",
 				pluginInstallationId: integration.pluginInstallationId,
 			}),
 	);
@@ -955,11 +953,7 @@ describe("OAuth connections", () => {
 			const settled = yield* (yield* ImportsRepository.make).settleIngestion({
 				status: "failed",
 				finishedAt: yield* DateTime.nowAsDate,
-				scope: {
-					userId: owner,
-					runId: admittedRun.integrationRunId,
-					accountGeneration: currentUser(owner).accountGeneration,
-				},
+				scope: { userId: owner, runId: admittedRun.integrationRunId },
 			});
 			assert(settled);
 			const freshRunId = yield* startRun(admittedRun.integrationId);

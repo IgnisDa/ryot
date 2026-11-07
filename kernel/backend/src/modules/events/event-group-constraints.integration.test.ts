@@ -422,7 +422,7 @@ layer(Layer.provideMerge(relationshipDatabaseLayer(), BunCrypto.layerSecureRando
 				yield* seed(input);
 				const otherUser = `user-${yield* randomUuid}`;
 				yield* run(
-					sql`insert into "user"(id, name, email, account_generation) values (${otherUser}, 'Other user', ${`${otherUser}@example.test`}, 'fixture')`,
+					sql`insert into "user"(id, name, email) values (${otherUser}, 'Other user', ${`${otherUser}@example.test`})`,
 				);
 				yield* run(sql`insert into event(id, user_id, entity_id, session_entity_id, event_schema_slug, occurred_at, properties)
 			values (${`${input.memberId}-other`}, ${otherUser}, ${input.subjectId}, ${input.sessionId}, 'member', now(), '{"position":0,"kind":"primary"}'),

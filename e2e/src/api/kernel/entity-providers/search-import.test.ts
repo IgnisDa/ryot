@@ -15,7 +15,7 @@ import {
 	installTestProviders,
 	listEventSlugs,
 	pollProviderEntityImportResult,
-	populateRelatedThroughForegroundInterest,
+	populateRelatedInteractively,
 	searchProviderEntities,
 	testPluginEntitySchema,
 	testProviderEntitySchema,
@@ -301,7 +301,7 @@ describe("GET /entity-providers/imports/{jobId}", () => {
 				);
 				expect(unrelated._tag).toBe("Failure");
 
-				yield* populateRelatedThroughForegroundInterest({ client: providerClient }, result.data.id);
+				yield* populateRelatedInteractively({ client: providerClient }, result.data.id);
 
 				const relatedEntity = yield* getVisibleEntityByProvenance(providerClient, {
 					entitySchemaSlug: "company",

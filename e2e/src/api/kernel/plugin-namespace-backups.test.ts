@@ -48,7 +48,7 @@ import {
 	namespaceSubscriptionsRecipe,
 	pluginNamespacePackages,
 	pollProviderEntityImportResult,
-	populateRelatedThroughForegroundInterest,
+	populateRelatedInteractively,
 	restoreBackup,
 	workspaceSavedViewRecordsRecipe,
 } from "~/fixtures/kernel";
@@ -313,7 +313,7 @@ describe("plugin namespace backups", () => {
 					});
 					const imported = yield* pollProviderEntityImportResult(source.client, jobId);
 					assertCompleted(imported, "source provider graph");
-					yield* populateRelatedThroughForegroundInterest(source, imported.data.id);
+					yield* populateRelatedInteractively(source, imported.data.id);
 					sourceRoots.push(imported.data.id);
 					yield* installNotificationRule(source.client, {
 						slug: SignalSchemaSlug.make("tasted"),

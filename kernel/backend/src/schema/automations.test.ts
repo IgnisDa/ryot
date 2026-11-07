@@ -205,7 +205,7 @@ describe("automation database constraints", () => {
 								attemptNumber: 1,
 								retryable: false,
 								status: "running",
-								workflowExecutionId: "attempt-workflow",
+								executionId: "attempt-workflow",
 							} satisfies typeof tables.automationRunAttempt.$inferInsert;
 							yield* db.insert(tables.automationRunAttempt).values(attempt);
 							expect(
@@ -218,7 +218,7 @@ describe("automation database constraints", () => {
 													...attempt,
 													id: "parallel",
 													attemptNumber: 2,
-													workflowExecutionId: "parallel-workflow",
+													executionId: "parallel-workflow",
 												}),
 										),
 									),
@@ -229,14 +229,14 @@ describe("automation database constraints", () => {
 								.set({ status: "failed", finishedAt: time })
 								.where(eq(tables.automationRunAttempt.id, attempt.id));
 							for (const row of [
-								{ ...attempt, id: "duplicate-number", workflowExecutionId: "other-workflow" },
+								{ ...attempt, id: "duplicate-number", executionId: "other-workflow" },
 								{ ...attempt, attemptNumber: 2, id: "duplicate-workflow" },
 								{
 									...attempt,
 									attemptNumber: 2,
 									id: "unfinished-terminal",
 									status: "succeeded" as const,
-									workflowExecutionId: "next-workflow",
+									executionId: "next-workflow",
 								},
 							]) {
 								expect(
@@ -253,7 +253,7 @@ describe("automation database constraints", () => {
 									...attempt,
 									id: "second",
 									attemptNumber: 2,
-									workflowExecutionId: "next-workflow",
+									executionId: "next-workflow",
 								});
 							yield* db.delete(tables.user).where(eq(tables.user.id, "owner"));
 							expect(yield* db.select().from(tables.automationRunAttempt)).toEqual([]);

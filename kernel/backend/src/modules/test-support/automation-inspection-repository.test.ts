@@ -138,7 +138,7 @@ const seed = Effect.gen(function* () {
 					attemptNumber: 1,
 					retryable: false,
 					status: "failed",
-					workflowExecutionId: "workflow",
+					executionId: "workflow",
 					logs: [{ level: "info", message: "raw" }],
 					historyLogs: [{ level: "info", message: "redacted" }],
 				});

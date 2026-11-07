@@ -61,7 +61,6 @@ const runRetirement = Effect.fnUntraced(function* (calls: Array<string>) {
 				emailVerified: true,
 				id: UserId.make("owner"),
 				email: "owner@example.test",
-				accountGeneration: "original",
 			},
 		},
 	};

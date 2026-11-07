@@ -29,6 +29,7 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()(
 	{
 		make: Effect.gen(function* () {
 			const root = yield* PgDrizzle.makeWithDefaults();
+			const sqlClient = yield* PgClient.PgClient;
 			const connectionExecutor = Context.Reference<null | PgDrizzle.EffectPgDatabase>(
 				"DatabaseSession.ConnectionExecutor",
 				{ defaultValue: () => null },
@@ -127,9 +128,21 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()(
 							),
 						),
 			);
+			// Work the caller's rollback must not undo, or whose locks its transaction must not hold, takes its own
+			// connection. The SQL client also finds a transaction in fiber context, so that entry has to go as well.
+			const detached = <A, E>(work: Effect.Effect<A, E>) =>
+				work.pipe(
+					Effect.provideService(transactionExecutor, null),
+					Effect.provideService(connectionExecutor, null),
+					Effect.provideService(DatabaseConnectionLimit, undefined),
+					Effect.updateContext((context: Context.Context<never>) =>
+						Context.omit(sqlClient.transactionService)(context),
+					),
+				);
 			return {
 				run,
 				carry,
+				detached,
 				savepoint,
 				requireRoot,
 				transaction,

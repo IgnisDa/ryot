@@ -48,7 +48,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				maxBytes: number,
 				temporaryPath: null | string,
 			) =>
-				dispatchAdmittedWorkflow(engine, ProcessIngestionCaptureWorkflow, scope.accountGeneration, {
+				dispatchAdmittedWorkflow(engine, ProcessIngestionCaptureWorkflow, scope.userId, {
 					executionId: captureWriteExecutionId(scope, id),
 					payload: { id, scope, maxBytes, temporaryPath },
 				});
@@ -91,7 +91,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 									? Buffer.from(input.bytes).toString("base64")
 									: null,
 						});
-						yield* admission.admitAccount(input.scope.accountGeneration);
+						yield* admission.admitAccount(input.scope.userId);
 						return reservation;
 					}),
 				);
@@ -251,14 +251,10 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				input: { runId?: IngestionScope["runId"]; userId: IngestionScope["userId"] },
 				policy: PluginIngestionRetirementPolicy = { kind: "removal" },
 			) {
-				for (const { runId, reservation, accountGeneration } of yield* database.transaction(
+				for (const { runId, reservation } of yield* database.transaction(
 					repository.stopPayloadWrites(input),
 				)) {
-					const scope = {
-						userId: input.userId,
-						runId: ImportRunId.make(runId),
-						accountGeneration: { userId: input.userId, token: accountGeneration },
-					};
+					const scope = { userId: input.userId, runId: ImportRunId.make(runId) };
 					if (!reservation.writeStarted) {
 						continue;
 					}
@@ -322,20 +318,12 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				userId: IngestionScope["userId"];
 			}) {
 				yield* stopWrites(input);
-				for (const {
-					runId,
-					reservation,
-					accountGeneration,
-				} of yield* repository.listPayloadReservations(input)) {
+				for (const { runId, reservation } of yield* repository.listPayloadReservations(input)) {
 					if (!reservation.released) {
 						yield* payloads.remove(reservation.payload);
 					}
 					yield* repository.releasePayloadReservation(
-						{
-							userId: input.userId,
-							runId: ImportRunId.make(runId),
-							accountGeneration: { userId: input.userId, token: accountGeneration },
-						},
+						{ userId: input.userId, runId: ImportRunId.make(runId) },
 						reservation.id,
 					);
 				}

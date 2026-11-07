@@ -1919,7 +1919,7 @@ it("restricts notification delivery reads to kernel users", () => {
 
 it("keeps notification internals out of kernel fields and wildcards", () => {
 	for (const [tableName, fieldName] of [
-		["notification", "accountGeneration"],
+		["notification", "accountUserId"],
 		["notification", "sourceKey"],
 		["notification", "inputDigest"],
 		["notification", "request"],

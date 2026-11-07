@@ -80,7 +80,6 @@ layer(services)((test) => {
 								createdAt,
 								source: "data-json",
 								integrationLot: "sink",
-								accountGeneration: "test-account-generation",
 								blockDeadline:
 									record.status === "blocked"
 										? DateTime.toDateUtc(DateTime.add(DateTime.makeUnsafe(createdAt), { days: 7 }))

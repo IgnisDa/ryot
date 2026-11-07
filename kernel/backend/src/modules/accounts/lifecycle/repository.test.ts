@@ -49,7 +49,6 @@ const activeOperation = {
 			disabledAt: null,
 			emailVerified: true,
 			email: "user@example.com",
-			accountGeneration: "test-account-generation",
 		},
 	},
 };
@@ -95,8 +94,8 @@ layer(
 				const prepared = yield* repository.loadPreparationForUpdate(UserId.make("user-1"), "reset");
 				expect(prepared?.active?.operation.id).toBe("operation-1");
 				expect(yield* (yield* RecordedDatabaseEvents).events).toEqual([
-					"lock",
 					"account-lock",
+					"lock",
 					"active",
 				]);
 			}),
@@ -211,7 +210,7 @@ describe("user lifecycle persistence cleanup", () => {
 									status: "succeeded",
 									id: "owner-attempt",
 									runId: "owner-shared-run",
-									workflowExecutionId: "owner-attempt-workflow",
+									executionId: "owner-attempt-workflow",
 								},
 								{
 									startedAt: now,
@@ -221,7 +220,7 @@ describe("user lifecycle persistence cleanup", () => {
 									status: "succeeded",
 									id: "recipient-attempt",
 									runId: "recipient-shared-run",
-									workflowExecutionId: "recipient-attempt-workflow",
+									executionId: "recipient-attempt-workflow",
 								},
 							]);
 							const encryptionKeys = yield* db.select().from(tables.pluginConfigEncryptionKey);
@@ -243,7 +242,6 @@ describe("user lifecycle persistence cleanup", () => {
 									entityId: reminderEntity.id,
 									message: "Reminder message",
 									entityTitle: "Reminder target",
-									accountGeneration: "test-account-generation",
 									originalSchedule: {
 										dueAt: null,
 										timezone: null,
@@ -261,7 +259,6 @@ describe("user lifecycle persistence cleanup", () => {
 									id: ownerNotificationId,
 									sourceKey: "lifecycle-cleanup",
 									inputDigest: "lifecycle-cleanup-digest",
-									accountGeneration: "test-account-generation",
 									request: { kind: "message", message: "Notification message" },
 								} satisfies typeof tables.notification.$inferInsert);
 							yield* db

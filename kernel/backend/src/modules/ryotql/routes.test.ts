@@ -30,8 +30,8 @@ const user = {
 	name: "User",
 	id: UserId.make("user-1"),
 	email: "user@example.com",
+	accountUserId: UserId.make("user-1"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
 type CredentialKind = "oauth" | "api-key";

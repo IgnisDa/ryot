@@ -104,23 +104,11 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 									transaction.execute(sql.raw(statement)),
 								);
 								yield* transaction.insert(tables.user).values([
-									{
-										id: "owner",
-										name: "Owner",
-										email: "owner@example.test",
-										accountGeneration: "test-account-generation",
-									},
+									{ id: "owner", name: "Owner", email: "owner@example.test" },
 									{ id: "recipient", name: "Recipient", email: "recipient@example.test" },
 								]);
 								const baseManifest = fixtureManifest();
-								const subject = {
-									type: "user" as const,
-									userId: UserId.make("owner"),
-									accountGeneration: {
-										userId: UserId.make("owner"),
-										token: "test-account-generation",
-									},
-								};
+								const subject = { type: "user" as const, userId: UserId.make("owner") };
 								const manifest: PluginManifest = {
 									...baseManifest,
 									workflows: [{ slug: "fixture-flow", scriptSlug: "fixture.workflow" }],
@@ -309,7 +297,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 										status: "running",
 										startedAt: timestamp,
 										runId: "retained-run",
-										workflowExecutionId: "workflow-1",
+										executionId: "workflow-1",
 									});
 								const duplicate = yield* failedAttempt(
 									transaction
@@ -321,7 +309,7 @@ describe("immutable revisions in PostgreSQL (isolated schema)", () => {
 											status: "running",
 											startedAt: timestamp,
 											runId: "retained-run",
-											workflowExecutionId: "workflow-2",
+											executionId: "workflow-2",
 										}),
 								);
 								expect(Result.isFailure(duplicate)).toBe(true);

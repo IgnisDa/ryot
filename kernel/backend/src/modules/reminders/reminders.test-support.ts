@@ -18,7 +18,6 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		image: null,
 		name: "Owner",
 		email: `${id}@example.test`,
-		accountGeneration: { userId: id, token: "generation" },
 		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 	} satisfies CurrentUserValue;
 	const entityId = EntityId.make(yield* randomUuid);
@@ -26,14 +25,7 @@ export const reminderTestInput = Effect.fnUntraced(function* () {
 		Effect.gen(function* () {
 			yield* (yield* DefinitionRepository).replaceKernelDefinitions(kernelDefinitionSource());
 			yield* session.run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id,
-						name: user.name,
-						email: user.email,
-						accountGeneration: user.accountGeneration.token,
-					}),
+				db.insert(tables.user).values({ id, name: user.name, email: user.email }),
 			);
 			yield* session.run((db) =>
 				db

@@ -47,7 +47,6 @@ for (const mode of ["removal", "quarantine"] as const) {
 										status: "cancelling" as const,
 										integrationId: "integration-1",
 										pluginInstallationId: "installation-1",
-										accountGeneration: ingestionTestScope.accountGeneration.token,
 									},
 								];
 								return mode === "quarantine"
@@ -59,7 +58,6 @@ for (const mode of ["removal", "quarantine"] as const) {
 												status: "completed" as const,
 												integrationId: "integration-1",
 												pluginInstallationId: "installation-1",
-												accountGeneration: ingestionTestScope.accountGeneration.token,
 											},
 										]
 									: runs;

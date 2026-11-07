@@ -12,6 +12,7 @@ import {
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
+import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 
 import { automationLifecycleCausation } from "#modules/automations/lifecycle/command";
@@ -70,7 +71,6 @@ const installGlobalHooks = Effect.fn(function* () {
 				id: UserId.make("owner"),
 				name: "Plugin installer",
 				email: "executor-ownership@example.test",
-				accountGeneration: "test-account-generation",
 			}),
 	);
 	const fixture = revisionPackage("executor-ownership", "v1", "ownership-fixture");
@@ -182,7 +182,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				const session = yield* DatabaseSession;
 				const input = yield* installGlobalHooks();
 				const { sourceEntityId: ownedSourceEntityId, targetEntityId: ownedTargetEntityId } = input;
-				const singleCommand = { ...automationCommand("system-item"), accountGeneration: null };
+				const singleCommand = { ...automationCommand("system-item"), accountUserId: null };
 				const created = yield* service.create(input, singleCommand);
 				expect(created.relationship).toMatchObject({ wasInserted: true, properties: { rank: 1 } });
 				const group = {
@@ -205,7 +205,7 @@ layer(relationshipDatabaseLayer())((test) => {
 						},
 					],
 				};
-				const batchCommand = { ...automationCommand("system-batch"), accountGeneration: null };
+				const batchCommand = { ...automationCommand("system-batch"), accountUserId: null };
 				const reconciled = yield* service.reconcileGlobal([group], batchCommand);
 				expect(reconciled).toEqual([
 					{ created: 1, updated: 1, deleted: 0, upserted: 2, warnings: [] },
@@ -238,10 +238,7 @@ layer(relationshipDatabaseLayer())((test) => {
 			Effect.gen(function* () {
 				const service = yield* RelationshipsService;
 				const session = yield* DatabaseSession;
-				const executing = {
-					...automationCommand("user-batch"),
-					accountGeneration: { userId, token: "test-account-generation" },
-				};
+				const executing = { ...automationCommand("user-batch"), accountUserId: userId };
 				const group = {
 					relationshipSchema: globalInput.relationshipSchema,
 					relationships: [{ sourceEntityId, targetEntityId, properties: { rank: 1 } }],
@@ -255,27 +252,23 @@ layer(relationshipDatabaseLayer())((test) => {
 					{ created: 1, updated: 0, deleted: 0, upserted: 1, warnings: [] },
 				]);
 				const missing = yield* Effect.flip(
-					service.create(baseInput, {
-						...automationCommand("missing-user"),
-						accountGeneration: null,
-					}),
+					service.create(baseInput, { ...automationCommand("missing-user"), accountUserId: null }),
 				);
-				expect(missing).toMatchObject({
-					message: "Mutation command account generation is missing",
-				});
+				expect(missing).toMatchObject({ message: "Mutation command account is missing" });
+				yield* session.run((db) =>
+					db.update(tables.user).set({ retiringAt: new Date() }).where(eq(tables.user.id, userId)),
+				);
 				const retired = yield* Effect.flip(
 					service.reconcileGlobal([group], {
 						...automationCommand("retired-user"),
-						accountGeneration: { userId, token: "retired-token" },
+						accountUserId: userId,
 					}),
 				);
-				expect(retired).toMatchObject({ message: "Mutation command belongs to a retired account" });
+				expect(retired).toMatchObject({ message: "Mutation command account is being retired" });
 				const missingRoot = yield* Effect.flip(
-					service.create(globalInput, { ...command("missing-root"), accountGeneration: null }),
+					service.create(globalInput, { ...command("missing-root"), accountUserId: null }),
 				);
-				expect(missingRoot).toMatchObject({
-					message: "Mutation command account generation is missing",
-				});
+				expect(missingRoot).toMatchObject({ message: "Mutation command account is missing" });
 				expect(yield* session.run((db) => db.select().from(tables.relationship))).toHaveLength(1);
 			}),
 		testTimeout,

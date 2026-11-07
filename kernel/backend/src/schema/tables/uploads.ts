@@ -33,3 +33,9 @@ export const managedAsset = snakeCase.table(
 			.where(sql`${table.retiredAt} is not null`),
 	],
 );
+
+export const uploadIntent = snakeCase.table(
+	"upload_intent",
+	{ id: text().primaryKey(), metadata: text().notNull(), deadline: timestamptz().notNull() },
+	(table) => [index("upload_intent_deadline_idx").on(table.deadline)],
+);

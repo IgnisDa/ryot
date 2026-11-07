@@ -3,7 +3,6 @@ import {
 	type NotificationOutcome,
 	NotificationRequest,
 } from "@ryot-app/contract/modules/notifications/delivery";
-import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 
@@ -14,17 +13,17 @@ export const NOTIFICATION_ABANDONED_AFTER_MS = 60_000;
 
 export const NotificationAdmission = Schema.Struct({
 	userId: UserId,
+	accountUserId: UserId,
 	sourceKey: Schema.String,
 	request: NotificationRequest,
-	accountGeneration: AccountGeneration,
 	sourceRunId: Schema.NullOr(Schema.String),
 	sourceSubmittedAt: Schema.NullOr(Schema.String),
 });
 export type NotificationAdmission = typeof NotificationAdmission.Type;
 
 export const NotificationDeliveryPayload = Schema.Struct({
+	accountUserId: UserId,
 	notificationId: Schema.String,
-	accountGeneration: AccountGeneration,
 });
 export type NotificationDeliveryPayload = typeof NotificationDeliveryPayload.Type;
 

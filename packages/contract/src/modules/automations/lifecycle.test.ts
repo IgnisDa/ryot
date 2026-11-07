@@ -200,7 +200,7 @@ describe("lifecycle payload boundaries", () => {
 					startedAt: timestamp,
 					finishedAt: timestamp,
 					artifactsPrunedAt: timestamp,
-					workflowExecutionId: "attempt-workflow-1",
+					executionId: "attempt-workflow-1",
 					failureKind: "external-uncertain-outcome",
 					timing: { totalMs: 10.25, executionMs: 8.125 },
 				};

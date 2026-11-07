@@ -41,7 +41,7 @@ import {
 } from "./run-job-live";
 
 const trigger = triggerFixture();
-const accountGeneration = { userId: UserId.make("owner"), token: "test-account-generation" };
+const accountUserId = UserId.make("owner");
 const run = AutomationPluginAfterRun.make({
 	stage: "after",
 	attemptCount: 0,
@@ -177,7 +177,7 @@ it.effect(
 				batch,
 				payload,
 				script,
-				accountGeneration,
+				accountUserId,
 				undefined,
 				capturedTargets,
 			);
@@ -204,7 +204,7 @@ it.effect(
 				batch,
 				payload,
 				script,
-				accountGeneration,
+				accountUserId,
 				undefined,
 				[localTarget],
 			);
@@ -224,7 +224,7 @@ it.effect(
 					batch,
 					payload,
 					script,
-					accountGeneration,
+					accountUserId,
 					undefined,
 					capturedTargets,
 				),
@@ -318,9 +318,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 									chosen.trigger,
 									input,
 									chosen.run.stage === "before" ? policyScript : afterScript,
-									chosen.run.executionUserId === null
-										? null
-										: { token: "test-account-generation", userId: chosen.run.executionUserId },
+									chosen.run.executionUserId,
 									{ pinned: true },
 								),
 					),
@@ -381,7 +379,7 @@ it.effect(
 				trigger,
 				payload,
 				afterScript,
-				accountGeneration,
+				accountUserId,
 				{ retained: "metadata" },
 			);
 			expect(prepared).toEqual<unknown>({
@@ -410,8 +408,8 @@ it.effect(
 					executionUserId: "owner",
 					causation: trigger.causation,
 					pluginRevisionId: "revision-old",
+					accountUserId: UserId.make("owner"),
 					pluginConfigRevisionId: "config-old",
-					accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 				},
 			});
 			const kernel = yield* prepareAutomationInvocation(
@@ -430,9 +428,9 @@ it.effect(
 			expect(kernel.subject).toEqual<unknown>({
 				...prepared.subject,
 				pluginId: null,
+				accountUserId: null,
 				executionUserId: null,
 				pluginRevisionId: null,
-				accountGeneration: null,
 				pluginConfigRevisionId: null,
 			});
 		}),
@@ -458,8 +456,8 @@ it.effect(
 				null,
 			);
 			expect(system.subject).toMatchObject({
+				accountUserId: null,
 				executionUserId: null,
-				accountGeneration: null,
 				causation: attributed.causation,
 			});
 			const user = yield* prepareAutomationInvocation(
@@ -467,14 +465,14 @@ it.effect(
 				attributed,
 				payload,
 				afterScript,
-				accountGeneration,
+				accountUserId,
 			);
 			expect(user.subject).toMatchObject({
-				accountGeneration,
+				accountUserId,
 				causation: attributed.causation,
 				executionUserId: run.executionUserId,
 			});
-			for (const account of [null, { token: "token", userId: UserId.make("importer") }]) {
+			for (const account of [null, UserId.make("importer")]) {
 				const error = yield* Effect.flip(
 					prepareAutomationInvocation(run, attributed, payload, afterScript, account),
 				);
@@ -494,7 +492,7 @@ it.effect(
 				requestTrigger,
 				{ ...payload, acceptedPatches: [patch] },
 				policyScript,
-				accountGeneration,
+				accountUserId,
 			);
 			assert("items" in prepared.input);
 			const item = prepared.input.items[0];
@@ -511,7 +509,7 @@ it.effect(
 					requestTrigger,
 					{ ...payload, attemptNumber: 2 },
 					policyScript,
-					accountGeneration,
+					accountUserId,
 				),
 			);
 			expect(exit._tag).toBe("Failure");
@@ -533,7 +531,7 @@ it.effect(
 					interactive,
 					payload,
 					afterScript,
-					accountGeneration,
+					accountUserId,
 				);
 			const required = yield* after("required");
 			const async = yield* after("async");
@@ -542,7 +540,7 @@ it.effect(
 				{ ...requestTrigger, causation: interactive.causation },
 				payload,
 				policyScript,
-				accountGeneration,
+				accountUserId,
 			);
 			expect([before.lane, required.lane, async.lane]).toEqual([
 				"interactive",
@@ -580,7 +578,7 @@ it.effect(
 				batchTrigger,
 				{ ...payload, acceptedBatchPatches: {}, activeItemIdentities: itemIdentities },
 				policyScript,
-				accountGeneration,
+				accountUserId,
 				hookMetadata,
 			);
 			assert("items" in prepared.input);
@@ -650,7 +648,7 @@ it.effect(
 						event: { properties: [], entityProperties: [], sessionEntityProperties: ["marker"] },
 					},
 				},
-				accountGeneration,
+				accountUserId,
 			);
 			assert("items" in prepared.input);
 			expect(prepared.input.automation.references?.[EntityId.make("replacement")]).toEqual<unknown>(
@@ -676,7 +674,7 @@ it.effect(
 				requestTrigger,
 				{ ...payload, attemptNumber: 2 },
 				policyScript,
-				accountGeneration,
+				accountUserId,
 			).pipe(Effect.flip);
 			expect(mismatch).toMatchObject({
 				kind: "invalid-input",
@@ -687,7 +685,7 @@ it.effect(
 				trigger,
 				payload,
 				afterScript,
-				accountGeneration,
+				accountUserId,
 			).pipe(Effect.flip);
 			expect(missingScript).toMatchObject({
 				kind: "missing-artifact",
@@ -704,7 +702,7 @@ it.effect(
 						entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
 					},
 				},
-				accountGeneration,
+				accountUserId,
 			).pipe(Effect.flip);
 			expect(invalidProjection).toMatchObject({
 				kind: "invalid-input",
@@ -743,7 +741,7 @@ it.effect(
 				oversizedTrigger,
 				payload,
 				{ ...afterScript, inputProjection: { signal: { properties: ["oversized"] } } },
-				accountGeneration,
+				accountUserId,
 			).pipe(Effect.flip);
 			expect(oversized).toMatchObject({
 				kind: "invalid-input",
@@ -761,7 +759,7 @@ layer(harnessLayer())((test) => {
 				const harness = yield* RunJobHarness;
 				yield* execute();
 				yield* execute();
-				expect(yield* harness.children).toEqual([`${identity.workflowExecutionId}-sandbox`]);
+				expect(yield* harness.children).toEqual([`${identity.executionId}-sandbox`]);
 				const outcomes = yield* harness.outcomes;
 				expect(outcomes).toHaveLength(1);
 				expect(outcomes[0]?.returnedValue).toEqual({ secretLookingResult: "not-in-completion" });
@@ -804,8 +802,8 @@ layer(harnessLayer({ failFirstFinalize: true }))((test) => {
 				);
 				yield* execute();
 				expect(yield* harness.children).toEqual([
-					`${identity.workflowExecutionId}-sandbox`,
-					`${identity.workflowExecutionId}-sandbox`,
+					`${identity.executionId}-sandbox`,
+					`${identity.executionId}-sandbox`,
 				]);
 				expect((yield* harness.outcomes).map(({ attemptNumber }) => attemptNumber)).toEqual([1]);
 			}),

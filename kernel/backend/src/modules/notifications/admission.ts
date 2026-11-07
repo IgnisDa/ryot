@@ -24,7 +24,7 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 			const admit = Effect.fn("NotificationAdmissions.admit")(function* (
 				input: NotificationAdmission,
 			) {
-				if (input.userId !== input.accountGeneration.userId) {
+				if (input.userId !== input.accountUserId) {
 					return yield* new DbError({
 						message: "Notification recipient does not match its account authority",
 					});
@@ -33,11 +33,11 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 				const id = yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* admission.admitAccount(input.accountGeneration);
+							yield* admission.admitAccount(input.accountUserId);
 							if (
 								!(yield* sources.authorize({
 									runId: input.sourceRunId,
-									accountGeneration: input.accountGeneration,
+									accountUserId: input.accountUserId,
 								}))
 							) {
 								return yield* new DbError({
@@ -56,7 +56,7 @@ export class NotificationAdmissions extends Context.Service<NotificationAdmissio
 							if (selected.length > 0) {
 								yield* jobs.enqueue(
 									NotificationDeliveryJob,
-									{ notificationId: source.id, accountGeneration: input.accountGeneration },
+									{ notificationId: source.id, accountUserId: input.accountUserId },
 									{ userId: input.userId },
 								);
 							}

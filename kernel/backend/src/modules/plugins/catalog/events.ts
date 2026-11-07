@@ -6,12 +6,13 @@ import {
 } from "@ryot-app/contract/modules/plugins/contract";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { eq, inArray, isNull } from "drizzle-orm";
-import { Cause, Context, Effect, FiberSet, Layer, Queue, Result, Stream } from "effect";
+import { Context, Effect, FiberSet, Layer, Queue, Result, Stream } from "effect";
 
+import { Broadcast, broadcastStatement } from "#platform/broadcast";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
 import * as schema from "#schema/tables/combined";
 
+const catalogTopic = "plugin-catalog";
 const encoder = new TextEncoder();
 const connected = encoder.encode(`event: ${PLUGIN_CATALOG_CONNECTED_EVENT}\ndata:\n\n`);
 const invalidated = encoder.encode(`event: ${PLUGIN_CATALOG_INVALIDATED_EVENT}\ndata:\n\n`);
@@ -110,7 +111,6 @@ const logPublishFailure = Effect.catchCause((cause) =>
 export const PluginCatalogInvalidatorLive = Layer.effect(
 	PluginCatalogInvalidator,
 	Effect.gen(function* () {
-		const redis = yield* RedisService;
 		const session = yield* DatabaseSession;
 		const record = (userId: null | UserId) =>
 			Effect.gen(function* () {
@@ -118,12 +118,14 @@ export const PluginCatalogInvalidatorLive = Layer.effect(
 				yield* session.run((db) => db.insert(schema.pluginCatalogChange).values({ userId }));
 			});
 		const publish = (userId: null | UserId) =>
-			userId === null
-				? redis.publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated")
-				: Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(
-						Effect.orDie,
-						Effect.flatMap((message) => redis.publish(redisKeys.pluginCatalogUserChannel, message)),
-					);
+			(userId === null
+				? Effect.succeed("")
+				: Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(Effect.orDie)
+			).pipe(
+				Effect.flatMap((message) =>
+					session.run((db) => db.execute(broadcastStatement(catalogTopic, message))),
+				),
+			);
 		const deliver = Effect.fn("PluginCatalogInvalidator.deliver")(function* (
 			userId: null | UserId,
 			limit: number,
@@ -187,25 +189,14 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 	"@ryot-app/kernel-backend/modules/plugins/catalog/events/PluginInvalidationSubscriber",
 	{
 		make: Effect.gen(function* () {
-			const redis = yield* RedisService;
+			const broadcast = yield* Broadcast;
 			const hub = yield* PluginCatalogHub;
 			const runFork = yield* FiberSet.makeRuntime();
-			const subscriber = redis.client.duplicate();
-			yield* Effect.addFinalizer(() =>
-				Effect.sync(() => subscriber.removeAllListeners()).pipe(
-					Effect.andThen(Effect.promise(() => subscriber.quit()).pipe(Effect.ignoreCause)),
-				),
-			);
-			const channels = [redisKeys.pluginCatalogUserChannel, redisKeys.pluginCatalogChannel];
 			const dispatch = Effect.fn("PluginInvalidationSubscriber.dispatch")(function* (
-				incoming: string,
 				message: string,
 			) {
-				if (incoming === redisKeys.pluginCatalogChannel) {
+				if (message === "") {
 					yield* hub.broadcastAll();
-					return;
-				}
-				if (incoming !== redisKeys.pluginCatalogUserChannel) {
 					return;
 				}
 				const decoded = decodePluginCatalogInvalidatedMessage(message);
@@ -213,25 +204,13 @@ export class PluginInvalidationSubscriber extends Context.Service<PluginInvalida
 					yield* hub.broadcast(decoded.success.userId);
 				}
 			});
-			const subscribeAndBroadcast = Effect.promise(() => subscriber.subscribe(...channels)).pipe(
-				Effect.andThen(hub.broadcastAll()),
-			);
-			const recover = subscribeAndBroadcast.pipe(
-				Effect.catchCauseIf(
-					(cause) => !Cause.hasInterruptsOnly(cause),
-					(cause) => Effect.logError("plugin invalidation subscription failed", cause),
-				),
-			);
-			subscriber.on("message", (incoming, message) =>
-				runFork(
-					dispatch(incoming, message).pipe(
-						Effect.catchCauseIf((cause) => !Cause.hasInterruptsOnly(cause), Effect.logError),
-					),
-				),
-			);
-			subscriber.on("ready", () => runFork(recover));
-			yield* subscribeAndBroadcast;
-			return { recover, dispatch, subscribed: true as const };
+			yield* broadcast.subscribe(catalogTopic, (message) => {
+				runFork(dispatch(message));
+			});
+			yield* broadcast.onReconnect(() => {
+				runFork(hub.broadcastAll());
+			});
+			return { dispatch, subscribed: true as const };
 		}),
 	},
 ) {

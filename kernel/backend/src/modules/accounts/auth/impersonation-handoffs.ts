@@ -17,7 +17,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { AppConfig } from "#platform/config/service";
 import { makeOpaqueTickets } from "#platform/http/opaque-tickets";
-import { redisKeys, RedisService } from "#platform/redis";
+import { TransientValues } from "#platform/transient-values";
 
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
 import { AuthRepository } from "./repository";
@@ -34,15 +34,15 @@ export class ImpersonationHandoffs extends Context.Service<ImpersonationHandoffs
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const redis = yield* RedisService;
+			const values = yield* TransientValues;
 			const repository = yield* AuthRepository;
 			const lifecycle = yield* LifecycleWriteGuard;
 			const tickets = makeOpaqueTickets({
-				redis,
-				key: redisKeys.impersonationHandoff,
+				values,
 				codec: Schema.fromJsonString(Handoff),
 				ttlSeconds: IMPERSONATION_HANDOFF_TTL_SECONDS,
 				invalid: () => new ImpersonationHandoffInvalid(),
+				key: (ticketHash) => `auth:impersonation:${ticketHash}`,
 				unavailable: () =>
 					new InstanceAdminInternalFailure({ reason: { code: "impersonation-unavailable" } }),
 			});

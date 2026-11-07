@@ -48,7 +48,7 @@ export default defineScript({
 				({ parentSchemaSlug }) => parentSchemaSlug === subject.entitySchemaSlug,
 			);
 			const productionStatus = subject.properties["productionStatus"];
-			const { value: previous, renamedKeys } = absorbFoldValues(
+			const { renamedKeys, value: previous } = absorbFoldValues(
 				input.value === null
 					? { occurrences: [] }
 					: yield* Schema.decodeUnknownEffect(MediaFoldValue)(input.value),

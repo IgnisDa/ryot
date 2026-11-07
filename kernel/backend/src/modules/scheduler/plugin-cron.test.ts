@@ -636,16 +636,9 @@ layer(
 							input: {},
 							lane: "background",
 							resolutionMode: "exact",
+							subject: { type: "user", userId: "user-1" },
 							scriptId: SandboxScriptId.make("installation-1-script-id"),
 							executionId: "private-plugin-cron-14-installation-1-12-private-cron-60000",
-							subject: {
-								type: "user",
-								userId: "user-1",
-								accountGeneration: {
-									userId: UserId.make("user-1"),
-									token: "test-account-generation",
-								},
-							},
 						},
 					},
 					{
@@ -654,16 +647,9 @@ layer(
 							input: {},
 							lane: "background",
 							resolutionMode: "exact",
+							subject: { type: "user", userId: "user-2" },
 							scriptId: SandboxScriptId.make("installation-2-script-id"),
 							executionId: "private-plugin-cron-14-installation-2-12-private-cron-60000",
-							subject: {
-								type: "user",
-								userId: "user-2",
-								accountGeneration: {
-									userId: UserId.make("user-2"),
-									token: "test-account-generation",
-								},
-							},
 						},
 					},
 				]);

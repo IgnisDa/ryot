@@ -10,8 +10,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { partialFake } from "@ryot-app/testing/fakes";
-import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
+import { anyOf } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -26,8 +25,7 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
 import type { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
-import { fakeDatabaseSession, makeRedisService } from "#testing/effect";
+import { fakeDatabaseSession } from "#testing/effect";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 import { OperationalGateService } from "./operational-gate-service";
@@ -102,20 +100,14 @@ class FakeWorkflowLoad extends Context.Service<
 	"@ryot-app/kernel-backend/modules/test-support/operational-gate-service.test/FakeWorkflowLoad",
 ) {}
 
-const workflowLoadLayer = (
-	options: { redis?: RedisService["Service"]; database?: Layer.Layer<DatabaseSession> } = {},
-) =>
+const workflowLoadLayer = (options: { database?: Layer.Layer<DatabaseSession> } = {}) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const enqueued = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const updates = yield* Ref.make<ReadonlyArray<unknown>>([]);
 			const polledExecutionIds = yield* Ref.make<ReadonlyArray<string>>([]);
 			const terminal = yield* Ref.make(false);
-			const scope = {
-				runId,
-				userId: executingUserId,
-				accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-			};
+			const scope = { runId, userId: executingUserId, accountUserId: executingUserId };
 			return OperationalGateService.layer.pipe(
 				Layer.provide(
 					Layer.effect(
@@ -178,7 +170,6 @@ const workflowLoadLayer = (
 							findPluginAvailableToUser: (_userId, pluginId) =>
 								Effect.succeed(pluginId === availablePlugin.id ? availablePlugin : null),
 						}),
-						Layer.succeed(RedisService, options.redis ?? makeRedisService()),
 						Layer.succeed(FakeWorkflowLoad, {
 							updates: Ref.get(updates),
 							enqueued: Ref.get(enqueued),
@@ -205,10 +196,10 @@ layer(workflowLoadLayer())((test) => {
 						executingUserId,
 						lane: "background",
 						pluginId: availablePlugin.id,
+						accountUserId: executingUserId,
 						workflowSlug: gateInput.workflowSlug,
 						executionId: `${runId}-workflow-load-0`,
 						pluginInstallationId: availablePlugin.installationId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 						input: {
 							items: [
 								{
@@ -218,11 +209,8 @@ layer(workflowLoadLayer())((test) => {
 									externalId: `${gateInput.identifierPrefix}-0`,
 									command: {
 										occurredAt: anyOf(String),
+										accountUserId: executingUserId,
 										itemIdentity: '["workflow-load",0]',
-										accountGeneration: {
-											userId: executingUserId,
-											token: "test-account-generation",
-										},
 										causation: {
 											depth: 0,
 											source: "import",
@@ -245,100 +233,39 @@ layer(workflowLoadLayer())((test) => {
 	);
 });
 
-const journalReads: string[] = [];
-const projections = new Map<string, ReadonlyArray<string>>([
-	[redisKeys.sandboxWorkflowJournal("missing-first"), ["m:1", "c:1:0"]],
-	[redisKeys.sandboxWorkflowJournal("stray"), ["m:0", "c:0:0", "other"]],
-	[redisKeys.sandboxWorkflowJournal("hole"), ["m:0", "c:0:0", "m:2", "c:2:0"]],
-	[redisKeys.sandboxWorkflowJournal("valid"), ["m:0", "c:0:0", "m:1", "c:1:0", "c:1:1"]],
-	[`${redisKeys.sandboxWorkflowJournal("valid")}:unrelated`, ["m:0", "m:1", "m:2", "m:3"]],
-	[redisKeys.sandboxWorkflowJournal("longest"), ["m:0", "c:0:0", "m:1", "c:1:0", "m:2", "c:2:0"]],
-]);
-
 layer(
 	workflowLoadLayer({
 		database: fakeDatabaseSession({
 			execute: () =>
 				Effect.succeed([{ deadlocks: 0, waiting_advisory_locks: 0, lock_waiting_connections: 0 }]),
-		}),
-		redis: makeRedisService({
-			client: partialFake<RedisService["Service"]["client"]>({
-				hkeys: (key: string) => {
-					journalReads.push(key);
-					return Promise.resolve(projections.get(key) ?? []);
-				},
+			select: () => ({
+				from: () => ({
+					where: () => ({
+						groupBy: () =>
+							Effect.succeed([
+								{ entries: 2, lastIndex: 1 },
+								{ entries: 3, lastIndex: 2 },
+								{ entries: 2, lastIndex: 3 },
+								{ entries: 1, lastIndex: 1 },
+							]),
+					}),
+				}),
 			}),
 		}),
 	}),
 )((test) => {
 	test.effect(
-		"reads exact journal keys and counts contiguous entries and detects holes and stray fields",
+		"counts contiguous journal entries and detects holes",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* OperationalGateService;
-				const pressure = yield* service.samplePressure([
-					"valid",
-					"longest",
-					"hole",
-					"missing-first",
-					"stray",
-					"absent",
-				]);
+				const pressure = yield* service.samplePressure(["valid", "longest", "hole", "late"]);
 
-				expect(pressure.redis).toEqual({
-					projectionCount: 5,
-					projectionErrors: 3,
+				expect(pressure.journal).toEqual({
+					projectionCount: 4,
+					projectionErrors: 2,
 					maxJournalEntries: 3,
 				});
-				expect(journalReads).toEqual([
-					"ryot:sandbox:workflow:valid:journal",
-					"ryot:sandbox:workflow:longest:journal",
-					"ryot:sandbox:workflow:hole:journal",
-					"ryot:sandbox:workflow:missing-first:journal",
-					"ryot:sandbox:workflow:stray:journal",
-					"ryot:sandbox:workflow:absent:journal",
-				]);
-			}),
-		testTimeout,
-	);
-});
-
-layer(workflowLoadLayer())((test) => {
-	test.effect(
-		"polls every execution and updates bookkeeping only after all finish",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* OperationalGateService;
-				const fake = yield* FakeWorkflowLoad;
-				const input = { runId, itemCount: 2, executionIds: ["execution-0", "execution-1"] };
-
-				expect(yield* service.getWorkflowLoadResult(input)).toEqual({
-					runId,
-					executions: [
-						{ status: "pending", executionId: "execution-0" },
-						{ status: "pending", executionId: "execution-1" },
-					],
-				});
-				expect(yield* fake.polledExecutionIds).toEqual(["execution-0", "execution-1"]);
-				expect(yield* fake.updates).toEqual([]);
-
-				yield* fake.completeExecutions;
-				yield* service.getWorkflowLoadResult(input);
-				expect(yield* fake.polledExecutionIds).toEqual([
-					"execution-0",
-					"execution-1",
-					"execution-0",
-					"execution-1",
-				]);
-				expect(yield* fake.updates).toEqual([
-					objectContaining({
-						completed: 2,
-						exactTotal: 2,
-						state: "completed",
-						unit: "workflow executions",
-					}),
-					objectContaining({ status: "completed", scope: objectContaining({ runId }) }),
-				]);
 			}),
 		testTimeout,
 	);

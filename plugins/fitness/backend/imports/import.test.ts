@@ -34,9 +34,9 @@ import { runFitnessStage } from "./shared";
 afterEach(() => installSandboxTestFilesystem(undefined));
 
 const command: LifecycleCommand = {
+	accountUserId: UserId.make("user-1"),
 	occurredAt: "2026-09-16T00:00:00.000Z",
 	itemIdentity: '["import-run","run-1"]',
-	accountGeneration: { token: "generation", userId: UserId.make("user-1") },
 	causation: {
 		depth: 0,
 		source: "import",

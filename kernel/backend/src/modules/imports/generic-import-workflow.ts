@@ -329,12 +329,12 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 	const resolved = yield* operations
 		.processProviderResolve(
 			{
+				accountUserId: userId,
 				providerId: provider.id,
 				value: descriptor.value,
 				lane: command.causation.lane,
 				writeContext: command.writeContext,
 				identifierType: descriptor.identifierType,
-				accountGeneration: command.accountGeneration,
 				userId: provider.pluginScope === "user" ? userId : null,
 			},
 			`${executionId}-resolve`,
@@ -378,9 +378,9 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 						.preRegisterProviderImport(
 							{
 								userId,
+								accountUserId: userId,
 								providerId: provider.id,
 								pluginId: provider.pluginId,
-								accountGeneration: command.accountGeneration,
 							},
 							executionId,
 						)
@@ -399,7 +399,7 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 	const providerEntity = yield* dispatchAdmittedWorkflow(
 		engine,
 		EntityImportWorkflow,
-		command.accountGeneration,
+		command.accountUserId,
 		{
 			executionId,
 			payload: {
@@ -904,15 +904,11 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 )(
 	function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
 		const keys = yield* IdempotencyKeys.make;
-		yield* admitWorkflow(payload.command.accountGeneration).pipe(Effect.mapError(toWorkflowError));
-		if (!payload.command.accountGeneration) {
-			return yield* new ImportRunError({ message: "Ingestion account generation is missing" });
+		yield* admitWorkflow(payload.command.accountUserId).pipe(Effect.mapError(toWorkflowError));
+		if (!payload.command.accountUserId) {
+			return yield* new ImportRunError({ message: "Ingestion account is missing" });
 		}
-		const scope: IngestionScope = {
-			runId: payload.runId,
-			userId: payload.userId,
-			accountGeneration: payload.command.accountGeneration,
-		};
+		const scope: IngestionScope = { runId: payload.runId, userId: payload.userId };
 		const repository = yield* ImportsRepository;
 		const database = yield* DatabaseSession;
 		const captures = yield* IngestionCaptures;

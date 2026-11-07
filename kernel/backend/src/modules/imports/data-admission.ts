@@ -4,7 +4,6 @@ import {
 	DataJsonImportBody,
 	dataJsonSource,
 } from "@ryot-app/contract/modules/imports/data-json";
-import type { IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import {
 	type CreateImportRunBody,
 	ImportConflictError,
@@ -60,7 +59,6 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 					uploadTokenHash?: string;
 					submissionKey: null | string;
 					integrationId: null | IntegrationId;
-					accountGeneration: IngestionScope["accountGeneration"];
 				}) {
 					if (new TextEncoder().encode(input.rawBody).byteLength > maximumDocumentBytes) {
 						return yield* new ImportRequestError({
@@ -75,22 +73,16 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 						),
 					);
 					const digest = sha256(stableStringify(document));
-					const accountGeneration = input.accountGeneration;
-					const scope = {
-						accountGeneration,
-						userId: input.userId,
-						runId: ImportRunId.make(yield* random.uuidV4()),
-					};
+					const scope = { userId: input.userId, runId: ImportRunId.make(yield* random.uuidV4()) };
 					const bytes = new TextEncoder().encode(stableStringify(document));
 					const payload = yield* payloads.describe({ scope, bytes, id: "admitted-data" });
 					const admitted = yield* database
 						.transaction(
 							Effect.gen(function* () {
-								yield* admission.admitAccount(accountGeneration);
+								yield* admission.admitAccount(input.userId);
 								return yield* repository.admitDataSubmission({
 									digest,
 									payload,
-									accountGeneration,
 									runId: scope.runId,
 									userId: input.userId,
 									submissionKey: input.submissionKey,
@@ -154,33 +146,24 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 				runId: ImportRunId,
 			) {
 				const run = yield* repository
-					.getIngestionRunControl({
-						runId,
-						userId: user.id,
-						accountGeneration: user.accountGeneration,
-					})
+					.getIngestionRunControl({ runId, userId: user.id })
 					.pipe(Effect.orDie);
 				if (run?.status === "pending") {
 					const command = rootLifecycleCommand({
 						source: "import",
 						lane: "background",
 						importRunId: runId,
+						accountUserId: user.id,
 						initiator: { id: user.id, kind: "user" },
-						accountGeneration: user.accountGeneration,
 						occurredAt: IsoUtcString.make(run.acceptedAt),
 						executionId: AutomationExecutionId.make(runId),
 						itemIdentity: stableStringify(["import-run", runId]),
 					});
-					yield* dispatchAdmittedWorkflow(
-						engine,
-						ProcessImportRunWorkflow,
-						user.accountGeneration,
-						{
-							discard: true,
-							executionId: runId,
-							payload: { runId, command, dataJson: true, userId: user.id },
-						},
-					).pipe(Effect.catch((cause) => Effect.logError("data import dispatch failed", cause)));
+					yield* dispatchAdmittedWorkflow(engine, ProcessImportRunWorkflow, user.id, {
+						discard: true,
+						executionId: runId,
+						payload: { runId, command, dataJson: true, userId: user.id },
+					}).pipe(Effect.catch((cause) => Effect.logError("data import dispatch failed", cause)));
 				}
 				return { id: runId };
 			});
@@ -260,7 +243,6 @@ export class DataImportAdmission extends Context.Service<DataImportAdmission>()(
 							userId: user.id,
 							uploadTokenHash,
 							integrationId: null,
-							accountGeneration: user.accountGeneration,
 							submissionKey: input.submissionKey ?? null,
 						});
 						return yield* dispatchUpload(user, admitted.runId);

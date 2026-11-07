@@ -1,7 +1,6 @@
 import { Schema } from "effect";
 
 import { SandboxFailureKind } from "../../errors";
-import { AccountGeneration } from "../../schema/account-generation";
 import {
 	ImportRunId,
 	IntegrationId,
@@ -127,29 +126,24 @@ export type EnqueueSandboxBody = Schema.Schema.Type<typeof EnqueueSandboxBody>;
 export const EnqueueResponse = Schema.Struct({ jobId: Schema.String });
 
 const automationRunSubjectFields = {
+	accountUserId: Schema.NullOr(UserId),
 	type: Schema.Literal("automation-run"),
 	runId: AutomationInvocationFields.runId,
 	stage: Schema.Literals(["before", "after"]),
 	triggerId: AutomationInvocationFields.triggerId,
 	causation: AutomationInvocationFields.causation,
-	accountGeneration: Schema.NullOr(AccountGeneration),
 	delivery: Schema.Literals(["policy", "required", "async"]),
 	executionUserId: AutomationInvocationFields.executionUserId,
 };
 
 export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
-	strictStruct({
-		userId: UserId,
-		type: Schema.Literal("projection"),
-		accountGeneration: AccountGeneration,
-	}),
+	strictStruct({ userId: UserId, type: Schema.Literal("projection") }),
 	// Only trusted kernel dispatch sets integration and import run IDs, so scripts cannot widen
 	// credential or snapshot scope by supplying an ID.
 	strictStruct({
 		userId: UserId,
 		type: Schema.Literal("user"),
-		accountGeneration: AccountGeneration,
 		importRunId: Schema.optional(ImportRunId),
 		integrationId: Schema.optional(IntegrationId),
 		integrationRunId: Schema.optional(ImportRunId),
@@ -168,21 +162,12 @@ export const SandboxExecutionSubject = Schema.Union([
 	}),
 ]).pipe(
 	Schema.check(
-		Schema.makeFilter((subject) => {
-			if (subject.type === "system") {
-				return true;
-			}
-			const userId =
-				subject.type === "user" || subject.type === "projection"
-					? subject.userId
-					: subject.executionUserId;
-			return (
-				(userId === null
-					? subject.accountGeneration === null
-					: subject.accountGeneration?.userId === userId) ||
-				"Sandbox account generation must match its execution user"
-			);
-		}),
+		Schema.makeFilter(
+			(subject) =>
+				subject.type !== "automation-run" ||
+				subject.accountUserId === subject.executionUserId ||
+				"Sandbox account must match its execution user",
+		),
 	),
 );
 

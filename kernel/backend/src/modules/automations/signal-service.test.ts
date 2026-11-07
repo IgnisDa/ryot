@@ -52,10 +52,10 @@ const command = (itemIdentity = "signal") => ({
 		itemIdentity,
 		source: "api",
 		lane: "interactive",
+		accountUserId: owner,
 		occurredAt: "2026-09-15T00:00:00.000Z",
 		initiator: { id: owner, kind: "user" },
 		executionId: AutomationExecutionId.make("emit"),
-		accountGeneration: { userId: owner, token: "test-account-generation" },
 	}),
 	writeContext: null,
 });

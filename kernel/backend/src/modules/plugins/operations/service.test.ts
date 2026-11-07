@@ -256,10 +256,7 @@ const makeLayer = (input: {
 										name: "User",
 										id: input.currentUserId,
 										email: "user@example.com",
-										accountGeneration: {
-											userId: input.currentUserId,
-											token: "test-account-generation",
-										},
+										accountUserId: input.currentUserId,
 										preferences: {
 											language: null,
 											reportingTimeZone: UTC,
@@ -720,11 +717,7 @@ layer(
 					objectContaining({
 						lane: "interactive",
 						scriptId: "install-private-user-1-script",
-						subject: {
-							type: "user",
-							userId: USER_ONE,
-							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-						},
+						subject: { type: "user", userId: USER_ONE },
 					}),
 				]);
 			}),
@@ -740,13 +733,7 @@ layer(makeLayer({ currentUserId: USER_ONE, available: [systemUserOperation] }))(
 				const fake = yield* FakeOperationDependencies;
 				expect(yield* invoke({ packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
 				expect(yield* fake.captured).toEqual([
-					objectContaining({
-						subject: {
-							type: "user",
-							userId: USER_ONE,
-							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-						},
-					}),
+					objectContaining({ subject: { type: "user", userId: USER_ONE } }),
 				]);
 				expect(yield* fake.events).toEqual(["lock", "dispatch"]);
 			}),
@@ -867,14 +854,7 @@ layer(
 					yield* invoke({ packageId: SYSTEM_PACKAGE_ID, payload: { integrationId: "int-1" } }),
 				).toBe("ok");
 				expect(yield* fake.captured).toEqual([
-					objectContaining({
-						subject: {
-							type: "user",
-							userId: USER_ONE,
-							integrationId: "int-1",
-							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-						},
-					}),
+					objectContaining({ subject: { type: "user", userId: USER_ONE, integrationId: "int-1" } }),
 				]);
 			}),
 		testTimeout,
@@ -1017,12 +997,7 @@ layer(
 				expect(yield* fake.captured).toEqual([
 					objectContaining({
 						scriptId: "install-private-user-1-script",
-						subject: {
-							type: "user",
-							userId: USER_ONE,
-							integrationId: "int-1",
-							accountGeneration: { userId: USER_ONE, token: "test-account-generation" },
-						},
+						subject: { type: "user", userId: USER_ONE, integrationId: "int-1" },
 					}),
 				]);
 				expect(yield* fake.packageLookups).toEqual([`${USER_ONE}:${PRIVATE_PACKAGE_ID}`]);

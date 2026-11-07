@@ -82,6 +82,12 @@ export type StartUserImpersonationResponse = typeof StartUserImpersonationRespon
 
 export const UserLifecycleRequestResponse = Schema.Struct({ operationId: Schema.String });
 
+const SetEntitySchemaRefreshIntervalBody = Schema.Struct({
+	slug: Schema.NonEmptyString,
+	pluginId: Schema.NonEmptyString,
+	refreshIntervalDays: Schema.NullOr(Schema.Int.check(Schema.isGreaterThan(0))),
+});
+
 export const InstanceAdminGroup = HttpApiGroup.make("instanceAdmin")
 	.annotate(OpenApi.Description, "Provides administrative management operations")
 	.add(
@@ -130,6 +136,18 @@ export const InstanceAdminGroup = HttpApiGroup.make("instanceAdmin")
 		})
 			.middleware(AdminMiddleware)
 			.annotate(OpenApi.Description, "Enables or disables a user account"),
+	)
+	.add(
+		HttpApiEndpoint.put(
+			"setEntitySchemaRefreshInterval",
+			"/instance-admin/entity-schemas/refresh-interval",
+			{ error: [internalFailure], payload: SetEntitySchemaRefreshIntervalBody },
+		)
+			.middleware(AdminMiddleware)
+			.annotate(
+				OpenApi.Description,
+				"Overrides how often an entity schema's entities refresh from their provider, or restores what the plugin declares",
+			),
 	)
 	.add(
 		HttpApiEndpoint.delete("deleteUser", "/instance-admin/users/:userId", {

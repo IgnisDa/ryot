@@ -10,7 +10,6 @@ import {
 	type LifecycleCommand,
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	AutomationExecutionId,
 	ImportRunId,
@@ -41,17 +40,13 @@ export const populationLifecycleCommand = (
 });
 
 export const lifecycleActor = (
-	user: null | {
-		userId: UserId;
-		accountGeneration: AccountGeneration;
-		integrationId?: AutomationCausation["integrationId"];
-	},
-): { initiator: AutomationInitiator } & Pick<LifecycleCommand, "accountGeneration"> => {
+	user: null | { userId: UserId; integrationId?: AutomationCausation["integrationId"] },
+): { initiator: AutomationInitiator } & Pick<LifecycleCommand, "accountUserId"> => {
 	if (user === null) {
-		return { accountGeneration: null, initiator: { id: null, kind: "system" } };
+		return { accountUserId: null, initiator: { id: null, kind: "system" } };
 	}
 	return {
-		accountGeneration: user.accountGeneration,
+		accountUserId: user.userId,
 		initiator:
 			user.integrationId === undefined
 				? { kind: "user", id: user.userId }
@@ -105,12 +100,12 @@ export const rootLifecycleCausation = (input: {
 
 export const rootLifecycleCommand = (
 	input: Parameters<typeof rootLifecycleCausation>[0] &
-		Pick<LifecycleCommand, "occurredAt" | "itemIdentity" | "accountGeneration">,
+		Pick<LifecycleCommand, "occurredAt" | "itemIdentity" | "accountUserId">,
 ): LifecycleCommand => ({
 	occurredAt: input.occurredAt,
 	itemIdentity: input.itemIdentity,
+	accountUserId: input.accountUserId,
 	causation: rootLifecycleCausation(input),
-	accountGeneration: input.accountGeneration,
 });
 
 const decodeTriggerKind = Schema.decodeUnknownEffect(AutomationTriggerKind);

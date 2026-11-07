@@ -71,7 +71,6 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 const collectionId = EntityId.make("collection-id");
 const entityId = EntityId.make("entity-id");
@@ -358,8 +357,8 @@ const command = (
 		source: "api",
 		occurredAt: now,
 		lane: "interactive",
+		accountUserId: user.id,
 		initiator: { id: user.id, kind: "user" },
-		accountGeneration: user.accountGeneration,
 		executionId: AutomationExecutionId.make(executionId),
 	}),
 	writeContext: null,
@@ -369,9 +368,9 @@ const sandboxWriteContext = {
 	providerId: null,
 	scriptSlug: "collection",
 	contentHash: "collection-hash",
+	subject: { type: "user", userId: user.id },
 	metadata: { kind: "workflow", runtimeImports: [] },
 	scriptId: SandboxScriptId.make("collection-script"),
-	subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
 	pluginRevision: {
 		scope: "user",
 		ownerId: user.id,

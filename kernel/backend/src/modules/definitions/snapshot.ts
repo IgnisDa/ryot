@@ -70,6 +70,7 @@ export const EntitySchemaDefinition = Schema.Struct({
 	editor: Schema.optional(PluginEntityEditor),
 	browse: Schema.optional(EntitySchemaBrowse),
 	occursAtProperty: Schema.optional(Schema.String),
+	refreshIntervalDays: Schema.optional(Schema.Int),
 	eventSchemas: Schema.Array(EventSchemaDefinition),
 	mergeIdentityProperties: Schema.Array(Schema.String),
 	userState: Schema.optional(PluginEntityUserStatePolicy),

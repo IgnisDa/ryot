@@ -95,8 +95,8 @@ const command = rootLifecycleCommand({
 	lane: "background",
 	itemIdentity: "root",
 	importRunId: ingestionTestScope.runId,
+	accountUserId: ingestionTestScope.userId,
 	occurredAt: IsoUtcString.make(ingestionTestNow),
-	accountGeneration: ingestionTestScope.accountGeneration,
 	initiator: { kind: "user", id: ingestionTestScope.userId },
 	executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 });
@@ -327,9 +327,9 @@ it.effect(
 				itemIdentity: "root",
 				source: "integration",
 				importRunId: ingestionTestScope.runId,
+				accountUserId: ingestionTestScope.userId,
 				occurredAt: IsoUtcString.make(ingestionTestNow),
 				initiator: { id: integrationId, kind: "integration" },
-				accountGeneration: ingestionTestScope.accountGeneration,
 				executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 			});
 			const dependencies = Layer.mergeAll(

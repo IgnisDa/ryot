@@ -128,7 +128,6 @@ const startApi = (extraEnv: Record<string, string | undefined>) =>
 			label: "Demo access acceptance",
 			dbUrl: activeInfrastructure.dbUrl,
 			port: Number(new URL(apiOrigin).port),
-			redisUrl: activeInfrastructure.redisUrl,
 			s3Endpoint: activeInfrastructure.s3Endpoint,
 		});
 		apiProcess = yield* startApiProcess(env, "Demo access acceptance");

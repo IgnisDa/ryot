@@ -114,7 +114,6 @@ layer(services)((test) => {
 								entityId: body.entityId,
 								entityTitle: "Original title",
 								message: `Exact message\n${state}`,
-								accountGeneration: user.accountGeneration.token,
 								outcome: state === "settled" ? "partial" : null,
 								dueAt: state === "needs-scheduling" ? null : due,
 								reason: state === "cancelled" ? "cancelled" : null,
@@ -223,7 +222,6 @@ layer(services)((test) => {
 				expect(parent.id).not.toBe(parentEntityId);
 				for (const row of restored) {
 					expect(row.entityId).toBe(target.id);
-					expect(row.accountGeneration).toBe("test-account-generation");
 					expect(row.id.startsWith("source-")).toBe(false);
 					expect(row.dispatch).toBeNull();
 					expect(row.formatterRunId).toBeNull();

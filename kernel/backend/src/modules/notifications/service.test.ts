@@ -20,7 +20,6 @@ const user = {
 	id: UserId.make("owner"),
 	email: "user@example.com",
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("owner"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
 class RecordedAdmissions extends Context.Service<
@@ -61,9 +60,9 @@ layer(
 					{
 						userId: user.id,
 						sourceRunId: null,
+						accountUserId: user.id,
 						sourceSubmittedAt: null,
 						request: { kind: "test" },
-						accountGeneration: user.accountGeneration,
 					},
 				]);
 			}),
@@ -76,16 +75,16 @@ layer(
 				const service = yield* NotificationsService;
 				yield* service.sendMessage({
 					sourceRunId: "run-1",
+					accountUserId: user.id,
 					sourceKey: "run-1-host-3-notification",
 					message: "  Subscription run completed  ",
-					accountGeneration: user.accountGeneration,
 				});
 				expect((yield* (yield* RecordedAdmissions).inputs).at(-1)).toEqual({
 					userId: user.id,
 					sourceRunId: "run-1",
+					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					sourceKey: "run-1-host-3-notification",
-					accountGeneration: user.accountGeneration,
 					request: { kind: "message", message: "Subscription run completed" },
 				});
 			}),

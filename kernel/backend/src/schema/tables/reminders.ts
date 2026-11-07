@@ -28,7 +28,6 @@ export const reminder = snakeCase.table(
 		settledAt: timestamptz(),
 		reconcileAt: timestamptz(),
 		processingAt: timestamptz(),
-		accountGeneration: text().notNull(),
 		reason: text().$type<ReminderReason>(),
 		revision: integer().notNull().default(1),
 		outcome: text().$type<NotificationOutcome>(),

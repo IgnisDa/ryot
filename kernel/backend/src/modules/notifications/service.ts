@@ -4,8 +4,7 @@ import {
 	NotificationNotFoundError,
 	type UpdateNotificationChannelBody,
 } from "@ryot-app/contract/modules/notifications/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import type { NotificationChannelId } from "@ryot-app/contract/schema/brands";
+import type { NotificationChannelId, UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
@@ -62,9 +61,9 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				return yield* admissions.admit({
 					userId: user.id,
 					sourceRunId: null,
+					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					request: { kind: "test" },
-					accountGeneration: user.accountGeneration,
 					sourceKey: `channel-test:${generateId()}`,
 				});
 			});
@@ -73,14 +72,14 @@ export class NotificationsService extends Context.Service<NotificationsService>(
 				message: string;
 				sourceKey: string;
 				sourceRunId: string;
-				accountGeneration: AccountGeneration;
+				accountUserId: UserId;
 			}) {
 				return yield* admissions.admit({
 					sourceSubmittedAt: null,
 					sourceKey: input.sourceKey,
+					userId: input.accountUserId,
 					sourceRunId: input.sourceRunId,
-					userId: input.accountGeneration.userId,
-					accountGeneration: input.accountGeneration,
+					accountUserId: input.accountUserId,
 					request: { kind: "message", message: input.message.trim() },
 				});
 			});

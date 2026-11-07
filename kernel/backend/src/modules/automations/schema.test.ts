@@ -172,7 +172,7 @@ it("defines automation run attempts with unique execution identities", () => {
 	});
 	expect(config.uniqueConstraints.map((entry) => entry.getName())).toEqual([
 		"automation_run_attempt_number_unique",
-		"automation_run_attempt_workflow_unique",
+		"automation_run_attempt_execution_unique",
 	]);
 	expect(config.indexes.map((entry) => entry.config.name)).toContain(
 		"automation_run_attempt_one_running",

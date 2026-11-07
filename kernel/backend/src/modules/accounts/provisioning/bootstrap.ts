@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -25,9 +24,9 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 
 			const perform = Effect.fn("UserBootstrap.perform")(function* (
 				userId: string,
-				accountGeneration: AccountGeneration,
+				accountUserId: UserId,
 			) {
-				if (userId !== accountGeneration.userId) {
+				if (userId !== accountUserId) {
 					return yield* new DbError({
 						message: "Bootstrap account identity does not match its user",
 					});
@@ -36,20 +35,20 @@ export class UserBootstrap extends Context.Service<UserBootstrap>()(
 				const user = UserId.make(userId);
 				const shouldSkip = yield* session.transaction(
 					Effect.gen(function* () {
-						yield* admission.admitAccount(accountGeneration);
 						const state = yield* accounts.lockBootstrapState(userId);
+						yield* admission.admitAccount(accountUserId);
 						return state?.bootstrapCompletedAt !== null;
 					}),
 				);
 				if (shouldSkip) {
 					return [];
 				}
-				yield* pluginInstallations.provisionSystemInstallations(accountGeneration);
-				const plans = yield* pluginBootstrap.dispatchAll(user, accountGeneration);
+				yield* pluginInstallations.provisionSystemInstallations(accountUserId);
+				const plans = yield* pluginBootstrap.dispatchAll(user, accountUserId);
 				yield* session.transaction(
 					Effect.gen(function* () {
-						yield* admission.admitAccount(accountGeneration);
 						const state = yield* accounts.lockBootstrapState(userId);
+						yield* admission.admitAccount(accountUserId);
 						if (state?.bootstrapCompletedAt !== null) {
 							return;
 						}

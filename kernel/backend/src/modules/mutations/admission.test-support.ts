@@ -28,7 +28,7 @@ export const mutationAdmissionTestLayer = Layer.unwrap(
 					where: (condition: Parameters<PgDialect["sqlToQuery"]>[0]) => {
 						const rows = (() => {
 							if (table === user) {
-								return Effect.succeed([{ token: "test-account-generation" }]);
+								return Effect.succeed([{ jobAlive: true, retiringAt: null }]);
 							}
 							if (table !== idempotencyKey) {
 								return Effect.succeed([]);

@@ -124,12 +124,7 @@ layer(databaseLayer)((test) => {
 				yield* session.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: unicodeUser,
-							name: "Unicode",
-							email: "unicode@example.test",
-							accountGeneration: "unicode-account",
-						}),
+						.values({ id: unicodeUser, name: "Unicode", email: "unicode@example.test" }),
 				);
 				yield* session.run((db) =>
 					db

@@ -1,4 +1,3 @@
-import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { Duration, Effect, Schema } from "effect";
 
@@ -8,10 +7,7 @@ import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
 
 import { UserBootstrap } from "./bootstrap";
 
-const UserBootstrapPayload = Schema.Struct({
-	userId: UserId,
-	accountGeneration: AccountGeneration,
-});
+const UserBootstrapPayload = Schema.Struct({ userId: UserId, accountUserId: UserId });
 type UserBootstrapPayload = typeof UserBootstrapPayload.Type;
 
 export const UserBootstrapJob = makeJobKind("user-bootstrap", {
@@ -23,11 +19,11 @@ export const UserBootstrapJob = makeJobKind("user-bootstrap", {
 
 export const bootstrapUser = Effect.fn("bootstrapUser")(function* (
 	userId: UserId,
-	accountGeneration: AccountGeneration,
+	accountUserId: UserId,
 ) {
 	const bootstrap = yield* UserBootstrap;
 	const bootstrapEntities = yield* PluginBootstrapEntities;
-	const plans = yield* bootstrap.perform(userId, accountGeneration);
+	const plans = yield* bootstrap.perform(userId, accountUserId);
 	yield* bootstrapEntities
 		.dispatch(plans)
 		.pipe(
@@ -40,7 +36,7 @@ export const runUserBootstrapJob = Effect.fn("UserBootstrapJob")(function* (
 	job: JobContext,
 ) {
 	yield* Effect.annotateCurrentSpan({ jobId: job.id, userId: payload.userId });
-	yield* bootstrapUser(payload.userId, payload.accountGeneration);
+	yield* bootstrapUser(payload.userId, payload.accountUserId);
 });
 
 export const UserBootstrapJobLive = registerJobHandler(UserBootstrapJob, runUserBootstrapJob);

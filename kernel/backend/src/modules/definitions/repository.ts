@@ -16,6 +16,7 @@ import {
 	type InferViewSelectModel,
 	isNull,
 	notInArray,
+	or,
 	type SQL,
 	sql,
 } from "drizzle-orm";
@@ -548,6 +549,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												userState: definition.userState ?? null,
 												propertiesSchema: definition.propertiesSchema,
 												occursAtProperty: definition.occursAtProperty ?? null,
+												refreshIntervalDays: definition.refreshIntervalDays ?? null,
 												mergeIdentityProperties: [...(definition.mergeIdentityProperties ?? [])],
 											})),
 										)
@@ -566,6 +568,7 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 												userState: sql`excluded.user_state`,
 												propertiesSchema: sql`excluded.properties_schema`,
 												occursAtProperty: sql`excluded.occurs_at_property`,
+												refreshIntervalDays: sql`excluded.refresh_interval_days`,
 												mergeIdentityProperties: sql`excluded.merge_identity_properties`,
 											},
 										})
@@ -1146,6 +1149,86 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				},
 			);
 
+			const findEntitySchemaRefreshIntervals = Effect.fn(
+				"DefinitionRepository.findEntitySchemaRefreshIntervals",
+			)(function* (
+				references: ReadonlyArray<{ readonly slug: string; readonly pluginId: string }>,
+			) {
+				if (references.length === 0) {
+					return new Map<string, number>();
+				}
+				const rows = yield* session.run((db) =>
+					db
+						.select({
+							pluginId: schema.plugin.id,
+							slug: schema.definitionEntitySchema.slug,
+							declared: schema.definitionEntitySchema.refreshIntervalDays,
+							override: schema.entitySchemaRefreshOverride.refreshIntervalDays,
+						})
+						.from(schema.plugin)
+						.innerJoin(
+							schema.definitionEntitySchema,
+							eq(schema.definitionEntitySchema.pluginRevisionId, schema.plugin.activeRevisionId),
+						)
+						.leftJoin(
+							schema.entitySchemaRefreshOverride,
+							and(
+								eq(schema.entitySchemaRefreshOverride.pluginId, schema.plugin.id),
+								eq(schema.entitySchemaRefreshOverride.slug, schema.definitionEntitySchema.slug),
+							),
+						)
+						.where(
+							or(
+								...references.map((reference) =>
+									and(
+										eq(schema.plugin.id, reference.pluginId),
+										eq(schema.definitionEntitySchema.slug, reference.slug),
+									),
+								),
+							),
+						),
+				);
+				return new Map(
+					rows.flatMap(({ slug, pluginId, declared, override }) => {
+						const days = override ?? declared;
+						return days === null ? [] : [[`${pluginId}:${slug}`, days] as const];
+					}),
+				);
+			});
+			const setEntitySchemaRefreshOverride = Effect.fn(
+				"DefinitionRepository.setEntitySchemaRefreshOverride",
+			)(function* (input: {
+				readonly slug: string;
+				readonly pluginId: string;
+				readonly refreshIntervalDays: null | number;
+			}) {
+				const { refreshIntervalDays } = input;
+				if (refreshIntervalDays === null) {
+					yield* session.run((db) =>
+						db
+							.delete(schema.entitySchemaRefreshOverride)
+							.where(
+								and(
+									eq(schema.entitySchemaRefreshOverride.slug, input.slug),
+									eq(schema.entitySchemaRefreshOverride.pluginId, input.pluginId),
+								),
+							),
+					);
+					return;
+				}
+				yield* session.run((db) =>
+					db
+						.insert(schema.entitySchemaRefreshOverride)
+						.values({ slug: input.slug, refreshIntervalDays, pluginId: input.pluginId })
+						.onConflictDoUpdate({
+							set: { refreshIntervalDays },
+							target: [
+								schema.entitySchemaRefreshOverride.pluginId,
+								schema.entitySchemaRefreshOverride.slug,
+							],
+						}),
+				);
+			});
 			const findUserEntitySchemas = Effect.fn("DefinitionRepository.findUserEntitySchemas")(
 				function* (userId: UserId, references: ReadonlyArray<DeclarationReference>) {
 					if (references.length === 0) {
@@ -1416,6 +1499,8 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 				findUserRelationshipSchemas,
 				findGlobalRelationshipSchema,
 				findGlobalRelationshipSchemas,
+				setEntitySchemaRefreshOverride,
+				findEntitySchemaRefreshIntervals,
 				readKernelSource: readKernelRows(),
 				getUserEntityRelationshipDefinitions,
 				getGlobalSnapshot: Effect.flatMap(readGlobalRows(), toSnapshot),

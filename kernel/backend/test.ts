@@ -1,6 +1,5 @@
 import { BunRuntime } from "@effect/platform-bun";
 import { postgresTestSetup } from "@ryot-app/testing/postgres-container";
-import { redisTestSetup } from "@ryot-app/testing/redis-container";
 import { runTests, testWorkers } from "@ryot-app/testing/runner";
 import { Effect } from "effect";
 
@@ -20,14 +19,10 @@ BunRuntime.runMain(
 				maxConnections: testDatabaseMaxConnections(workers),
 			});
 			const database = yield* prepareTestDatabaseRun({ workers, adminUrl });
-			const redisUrl = yield* redisTestSetup({ label: "kernel-backend" });
 			yield* runTests({
 				workers,
 				timeout: 120_000,
-				env: {
-					TEST_REDIS_URL: redisUrl,
-					[testDatabaseRunVariable]: yield* encodeTestDatabaseRun(database),
-				},
+				env: { [testDatabaseRunVariable]: yield* encodeTestDatabaseRun(database) },
 			});
 		}),
 	),

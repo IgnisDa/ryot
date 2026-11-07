@@ -14,9 +14,9 @@ import populationWorkflow from "./media-import-population.sandbox";
 import resolutionWorkflow from "./media-import-resolution.sandbox";
 
 const importCommand = (runId: string): LifecycleCommand => ({
+	accountUserId: UserId.make("user-1"),
 	occurredAt: "2026-09-16T00:00:00.000Z",
 	itemIdentity: JSON.stringify(["import-run", runId]),
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 	causation: {
 		depth: 0,
 		source: "import",

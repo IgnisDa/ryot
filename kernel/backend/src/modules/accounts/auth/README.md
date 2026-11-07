@@ -36,22 +36,25 @@ Disable, deletion, and password reset revoke browser sessions and OAuth token re
 ## Account Bootstrap
 
 Creation and the frequent cron's reconciliation of incomplete users queue one `user-bootstrap` job
-keyed by the account generation, so they coalesce while it is queued; creation does not wait for it.
+keyed by the user, so they coalesce while it is queued; creation does not wait for it.
 Reset runs the same bootstrap inside its own job, before enabling the recreated user.
-Plugin bootstrap execution identities also include that account generation. A later recreation gets a
-fresh generation, and retired generations cannot commit bootstrap work.
+
+Reset and deletion lock the user row, mark it retiring, and delete the account's jobs and workflow
+executions in the transaction that holds the lock. Account writes take a shared lock on the same row,
+so a write either commits before retirement starts or fails once it has begun; a job whose row is gone
+cannot commit work for the account.
 
 ## Impersonation
 
-Instance Admin authorizes a one-use, 60-second Redis handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
+Instance Admin authorizes a one-use, 60-second handoff to a hosted browser. Redemption creates a standard-access Better Auth session with an immutable one-hour deadline and continues the initiating client's OAuth/PKCE request. The PKCE verifier stays in that client's storage. Marked sessions authorize only impersonation clients, and those clients require marked sessions.
 
-Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and publishes an invalidation for its entity-watches sockets; sockets also enforce the deadline and periodically recheck the session. Normal user sessions are unaffected.
+Impersonation token issuance, refresh, UserInfo, and application API authentication validate the originating session. Session renewal cannot extend the deadline. Session deletion revokes its OAuth credentials and broadcasts an invalidation that closes its live-update streams. Normal user sessions are unaffected.
 
 The client replaces its previous login and shows an impersonation banner. Logout uses the existing end-session ceremony and returns to locked Instance Admin. Normal password and fresh-login checks still apply. Account changes, issued API keys, and started jobs retain their normal lifetimes.
 
-God-mode password reset capture reserves a random ID for each email, subscribes before initiating an internal Better Auth request, and carries that ID in the internal request header. The reset callback delivers only if that request's ID still owns the Redis reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
+God-mode password reset capture reserves a random ID for each email, listens before initiating an internal Better Auth request, and carries that ID in the internal request header. The link arrives through a callback of that in-process request, so capture stays local. The reset callback delivers only if that request's ID still owns the reservation. The capture scope releases its subscriber and its own reservation on success, failure, timeout, or interruption. A late Better Auth Promise cannot deliver into a later reservation.
 
-Reset links expire after 30 minutes. Redis tracks the latest delivered link per user. Before publishing a link, delivery atomically records it only while the request's ID still owns the reservation and then revokes the link it replaced; failures abort delivery. Password reset and account reset or deletion revoke the tracked link.
+Reset links expire after 30 minutes. The server tracks the latest delivered link per user. Before publishing a link, delivery atomically records it only while the request's ID still owns the reservation and then revokes the link it replaced; failures abort delivery. Password reset and account reset or deletion revoke the tracked link.
 
 ## External OIDC
 

@@ -672,8 +672,8 @@ layer(makeServiceLayer())((test) => {
 				name: "User",
 				id: UserId.make("user-1"),
 				email: "user@example.com",
+				accountUserId: UserId.make("user-1"),
 				preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-				accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 			};
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;

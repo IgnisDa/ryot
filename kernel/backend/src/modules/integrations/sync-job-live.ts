@@ -29,21 +29,16 @@ export const runIntegrationSyncJob = Effect.fn("IntegrationSyncJob")(
 			if (!released) {
 				return;
 			}
-			yield* dispatchAdmittedWorkflow(
-				engine,
-				ProcessIntegrationRunWorkflow,
-				run.accountGeneration,
-				{
-					discard: true,
-					executionId: run.runId,
-					payload: {
-						runId: run.runId,
-						userId: run.userId,
-						integrationId: run.integrationId,
-						accountGeneration: run.accountGeneration,
-					},
+			yield* dispatchAdmittedWorkflow(engine, ProcessIntegrationRunWorkflow, run.accountUserId, {
+				discard: true,
+				executionId: run.runId,
+				payload: {
+					runId: run.runId,
+					userId: run.userId,
+					integrationId: run.integrationId,
+					accountUserId: run.accountUserId,
 				},
-			).pipe(
+			}).pipe(
 				Effect.catchCause((cause) =>
 					Effect.logError("integration sync run dispatch failed", cause).pipe(
 						Effect.annotateLogs({ runId: run.runId }),

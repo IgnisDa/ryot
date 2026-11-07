@@ -33,11 +33,11 @@ import { NotificationsRepository } from "./repository";
 import { NotificationSourcePolicy } from "./source-policy";
 
 const owner = UserId.make("owner");
-const accountGeneration = { userId: owner, token: "test-account-generation" };
+const accountUserId = owner;
 const admissionInput = (sourceKey: string): NotificationAdmission => ({
 	sourceKey,
 	userId: owner,
-	accountGeneration,
+	accountUserId,
 	sourceRunId: "run-1",
 	sourceSubmittedAt: null,
 	request: { kind: "message", message: "A message" },
@@ -47,20 +47,9 @@ const freshInput = Effect.fnUntraced(function* (sourceKey: string) {
 	const session = yield* DatabaseSession;
 	const id = UserId.make(yield* randomUuid);
 	yield* session.run((db) =>
-		db
-			.insert(user)
-			.values({
-				id,
-				name: "Recipient",
-				email: `${id}@example.test`,
-				accountGeneration: accountGeneration.token,
-			}),
+		db.insert(user).values({ id, name: "Recipient", email: `${id}@example.test` }),
 	);
-	return {
-		...admissionInput(sourceKey),
-		userId: id,
-		accountGeneration: { ...accountGeneration, userId: id },
-	};
+	return { ...admissionInput(sourceKey), userId: id, accountUserId: id };
 });
 
 class DeliveryEvidence extends Context.Service<
@@ -125,9 +114,7 @@ layer(services)((test) => {
 					queued
 						.filter((row) => row.userId === submission.userId || row.userId === empty.userId)
 						.map((row) => row.payload),
-				).toEqual([
-					{ notificationId: admitted.id, accountGeneration: submission.accountGeneration },
-				]);
+				).toEqual([{ notificationId: admitted.id, accountUserId: submission.accountUserId }]);
 			}),
 		testTimeout,
 	);
@@ -183,7 +170,7 @@ layer(services)((test) => {
 				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryService, {
 						prepare: () =>
@@ -224,7 +211,7 @@ layer(services)((test) => {
 				const admitted = yield* (yield* NotificationAdmissions).admit(submission);
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				});
 				const ledger = yield* NotificationDeliveryRepository;
 				expect((yield* ledger.find(admitted.id))?.outcome).toBe("partial");
@@ -261,7 +248,7 @@ layer(services)((test) => {
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				});
 				const ledger = yield* NotificationDeliveryRepository;
 				expect((yield* (yield* DeliveryEvidence).sent).length).toBe(before);
@@ -302,7 +289,7 @@ layer(services)((test) => {
 				const before = (yield* evidence.sent).length;
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				}).pipe(
 					Effect.provideService(NotificationsRepository, {
 						...channels,
@@ -342,7 +329,7 @@ layer(services)((test) => {
 				const config = yield* AppConfig;
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				}).pipe(
 					Effect.provideService(AppConfig, {
 						...config,
@@ -399,18 +386,18 @@ layer(services)((test) => {
 					[
 						deliverEnabledChannels({
 							notificationId: admitted.id,
-							accountGeneration: submission.accountGeneration,
+							accountUserId: submission.accountUserId,
 						}),
 						deliverEnabledChannels({
 							notificationId: admitted.id,
-							accountGeneration: submission.accountGeneration,
+							accountUserId: submission.accountUserId,
 						}),
 					],
 					{ concurrency: 2 },
 				);
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				});
 				expect((yield* (yield* DeliveryEvidence).sent).slice(before)).toEqual(["ntfy"]);
 				expect((yield* ledger.find(admitted.id))?.outcome).toBe("accepted");
@@ -433,7 +420,7 @@ layer(services)((test) => {
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
 				yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryRepository, {
 						...ledger,
@@ -475,7 +462,7 @@ layer(services)((test) => {
 				const channels = yield* NotificationsRepository;
 				const ledger = yield* NotificationDeliveryRepository;
 				const submission = yield* freshInput("interrupted");
-				const account = submission.accountGeneration;
+				const account = submission.accountUserId;
 				const channel = yield* channels.createForUser({
 					isDisabled: false,
 					userId: submission.userId,
@@ -497,7 +484,7 @@ layer(services)((test) => {
 				const before = (yield* (yield* DeliveryEvidence).sent).length;
 				assertExitFails(
 					yield* runNotificationDelivery(
-						{ accountGeneration: account, notificationId: admitted.id },
+						{ accountUserId: account, notificationId: admitted.id },
 						{ id: "job", attempt: 1 },
 					).pipe(Effect.exit),
 					new DbError({ message: "Notification has an unsettled Sending claim" }),
@@ -505,11 +492,11 @@ layer(services)((test) => {
 				expect((yield* ledger.deliveries(admitted.id))[0]?.status).toBe("sending");
 				yield* TestClock.adjust("61 seconds");
 				yield* runNotificationDelivery(
-					{ accountGeneration: account, notificationId: admitted.id },
+					{ accountUserId: account, notificationId: admitted.id },
 					{ id: "job", attempt: 1 },
 				);
 				expect((yield* ledger.find(admitted.id))?.outcome).toBe("unknown");
-				yield* deliverEnabledChannels({ accountGeneration: account, notificationId: admitted.id });
+				yield* deliverEnabledChannels({ accountUserId: account, notificationId: admitted.id });
 				expect((yield* (yield* DeliveryEvidence).sent).length).toBe(before);
 				yield* session.transaction(
 					ledger.finishAttempt({
@@ -572,7 +559,7 @@ layer(services)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"rejects stale workflow payloads after account generation changes",
+		"rejects delivery once its account is being retired",
 		() =>
 			Effect.gen(function* () {
 				const admissions = yield* NotificationAdmissions;
@@ -585,18 +572,15 @@ layer(services)((test) => {
 				const admitted = yield* admissions.admit(submission);
 				const session = yield* DatabaseSession;
 				yield* session.run((db) =>
-					db
-						.update(user)
-						.set({ accountGeneration: "new-generation" })
-						.where(eq(user.id, submission.userId)),
+					db.update(user).set({ retiringAt: new Date() }).where(eq(user.id, submission.userId)),
 				);
 				const result = yield* deliverEnabledChannels({
 					notificationId: admitted.id,
-					accountGeneration: submission.accountGeneration,
+					accountUserId: submission.accountUserId,
 				}).pipe(Effect.exit);
 				assertExitFails(
 					result,
-					new DbError({ message: "Mutation command belongs to a retired account" }),
+					new DbError({ message: "Mutation command account is being retired" }),
 				);
 			}),
 		testTimeout,

@@ -30,7 +30,7 @@ export class CollectionOrderingService extends Context.Service<CollectionOrderin
 				return yield* session
 					.transaction(
 						Effect.gen(function* () {
-							yield* admission.admitAccount(user.accountGeneration);
+							yield* admission.admitAccount(user.id);
 							yield* entities.lockEntityReferencesByIds([
 								input.collectionId,
 								input.entityId,

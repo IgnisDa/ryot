@@ -17,29 +17,15 @@ import { webRequest } from "./web-request";
 const S3_ACCESS_KEY = "rustfsadmin";
 const S3_SECRET_KEY = "rustfsadmin";
 
-export type CoreTestInfrastructure = {
-	dbUrl: string;
-	redisUrl: string;
-	pgLogPath: string;
-	s3Endpoint: string;
-};
+export type CoreTestInfrastructure = { dbUrl: string; pgLogPath: string; s3Endpoint: string };
 
 export const startCoreTestInfrastructure = Effect.fn("startCoreTestInfrastructure")(
 	function* (input: { bucketName: string }) {
-		const [postgres, redis, storage] = yield* Effect.all(
+		const [postgres, storage] = yield* Effect.all(
 			[
 				Effect.acquireRelease(
 					Effect.promise(() => startPostgresContainer({ label: "e2e" })),
 					(container) => Effect.promise(() => stopPostgresContainer(container)),
-				),
-				Effect.acquireRelease(
-					Effect.promise(() =>
-						new GenericContainer("redis:alpine")
-							.withExposedPorts(6379)
-							.withWaitStrategy(Wait.forLogMessage("Ready to accept connections"))
-							.start(),
-					),
-					(container) => Effect.promise(() => container.stop()),
 				),
 				Effect.acquireRelease(
 					Effect.promise(() =>
@@ -89,7 +75,6 @@ export const startCoreTestInfrastructure = Effect.fn("startCoreTestInfrastructur
 			s3Endpoint,
 			dbUrl: postgres.url,
 			pgLogPath: postgres.logPath,
-			redisUrl: `redis://${redis.getHost()}:${redis.getMappedPort(6379)}`,
 		} satisfies CoreTestInfrastructure;
 	},
 	acquireInChildScope,
@@ -111,7 +96,6 @@ export function buildApiEnv(input: {
 	port: number;
 	dbUrl: string;
 	label: string;
-	redisUrl: string;
 	s3Endpoint: string;
 	frontendUrl: string;
 	s3BucketName: string;
@@ -132,7 +116,6 @@ export function buildApiEnv(input: {
 		SERVER_LOG_LEVEL: "all",
 		SERVER_LOG_FILE: logFile,
 		DATABASE_URL: input.dbUrl,
-		REDIS_URL: input.redisUrl,
 		PORT: input.port.toString(),
 		SANDBOX_WORKER_CONCURRENCY: "5",
 		FRONTEND_URL: input.frontendUrl,

@@ -21,7 +21,6 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
 type RunControl = Effect.Success<ReturnType<ImportsRepository["Service"]["getRunControlForUser"]>>;
@@ -78,11 +77,7 @@ layer(makeLayer({ id: runId, status: "running", executionKind: "source" }))((tes
 					id: runId,
 				});
 				expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([
-					{
-						discard: true,
-						executionId: "run-1-cancellation",
-						payload: { runId, userId: user.id, accountGeneration: user.accountGeneration },
-					},
+					{ discard: true, executionId: "run-1-cancellation", payload: { runId, userId: user.id } },
 				]);
 			}),
 		testTimeout,

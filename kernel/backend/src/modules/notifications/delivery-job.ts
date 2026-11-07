@@ -22,8 +22,8 @@ export const runNotificationDelivery = Effect.fn("NotificationDeliveryJob")(func
 ) {
 	yield* Effect.annotateCurrentSpan({
 		jobId: job.id,
+		userId: payload.accountUserId,
 		notificationId: payload.notificationId,
-		userId: payload.accountGeneration.userId,
 	});
 	yield* deliverEnabledChannels(payload);
 	const notification = yield* (yield* NotificationDeliveryRepository).find(payload.notificationId);

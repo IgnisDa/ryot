@@ -13,7 +13,7 @@ import {
 	getEntity,
 	installTestProvider,
 	namespaceInstallation,
-	openInterestWebSocketScoped,
+	openLiveUpdatesScoped,
 	pollUntil,
 	seedEntity,
 	seedEntityTranslation,
@@ -74,8 +74,8 @@ it.live(
 					relationshipSchemaSlug: "member-of",
 				});
 			const before = yield* membership();
-			const socket = yield* openInterestWebSocketScoped(first);
-			yield* socket.replaceInterest([seeded.id]);
+			const stream = yield* openLiveUpdatesScoped(first);
+			yield* stream.populate([seeded.id]);
 			expect((yield* getEntity(first.client, seeded.id)).name).toBe("Saved record");
 			const submit = (client: typeof first.client) =>
 				client.call((contract) =>

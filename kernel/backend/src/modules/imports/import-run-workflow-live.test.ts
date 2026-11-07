@@ -37,8 +37,8 @@ const command = rootLifecycleCommand({
 	lane: "background",
 	itemIdentity: "root",
 	importRunId: ingestionTestScope.runId,
+	accountUserId: ingestionTestScope.userId,
 	occurredAt: IsoUtcString.make(ingestionTestNow),
-	accountGeneration: ingestionTestScope.accountGeneration,
 	initiator: { kind: "user", id: ingestionTestScope.userId },
 	executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 });
@@ -142,18 +142,17 @@ it.effect(
 					lane: "background",
 					scriptId: "script-1",
 					executionId: "run-1-import",
+					subject: {
+						type: "user",
+						userId: ingestionTestScope.userId,
+						importRunId: ingestionTestScope.runId,
+					},
 					input: {
 						command,
 						runId: "run-1",
 						source: "fixture",
 						sourcePayloadHandle: "staged-input-handle",
 						plan: { selection: {}, operation: "fixture" },
-					},
-					subject: {
-						type: "user",
-						userId: ingestionTestScope.userId,
-						importRunId: ingestionTestScope.runId,
-						accountGeneration: ingestionTestScope.accountGeneration,
 					},
 				}),
 			]);

@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -59,7 +58,7 @@ export class RemindersRepository extends Context.Service<RemindersRepository>()(
 			});
 			const authorizeRun = Effect.fn("RemindersRepository.authorizeRun")(function* (input: {
 				runId: null | string;
-				accountGeneration: AccountGeneration;
+				accountUserId: UserId;
 			}) {
 				yield* requireTransaction;
 				const runId = input.runId;
@@ -73,8 +72,7 @@ export class RemindersRepository extends Context.Service<RemindersRepository>()(
 					row === undefined ||
 					(row.state === "processing" &&
 						row.removedAt === null &&
-						row.userId === input.accountGeneration.userId &&
-						row.accountGeneration === input.accountGeneration.token)
+						row.userId === input.accountUserId)
 				);
 			});
 			const listForEntities = Effect.fn("RemindersRepository.listForEntities")(function* (input: {

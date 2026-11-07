@@ -162,9 +162,9 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("media population operational gate", () 
 				expect(maxActiveSandboxExecutions).toBeGreaterThanOrEqual(2);
 				expect(maxWaitingAdvisoryLocks).toBe(0);
 				expect(deadlockCount).toBe(0);
-				expect(finalPressure.redis.projectionErrors).toBe(0);
-				expect(finalPressure.redis.projectionCount).toBeGreaterThanOrEqual(4);
-				expect(finalPressure.redis.maxJournalEntries).toBeGreaterThan(0);
+				expect(finalPressure.journal.projectionErrors).toBe(0);
+				expect(finalPressure.journal.projectionCount).toBeGreaterThanOrEqual(4);
+				expect(finalPressure.journal.maxJournalEntries).toBeGreaterThan(0);
 				expect(sandboxExecutionCount).toBeGreaterThanOrEqual(EXPECTED_MINIMUM_SANDBOX_EXECUTIONS);
 				return resultCounts;
 			}),

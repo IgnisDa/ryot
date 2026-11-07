@@ -1,7 +1,10 @@
 import type { MigrationReportDetail } from "@ryot-app/contract/modules/instance-admin/migration-report";
-import { encodePersistentClaimEnvelope } from "@ryot-app/kernel-backend/modules/scripts/host/runtime-host-functions";
-import { redisKeys, RedisService } from "@ryot-app/kernel-backend/platform/redis";
-import { Effect, Schema } from "effect";
+import {
+	encodePersistentClaimEnvelope,
+	sandboxPersistentCacheKey,
+} from "@ryot-app/kernel-backend/modules/scripts/host/runtime-host-functions";
+import { TransientValues } from "@ryot-app/kernel-backend/platform/transient-values";
+import { Duration, Effect, Schema } from "effect";
 import type * as SqlConnection from "effect/sql/SqlConnection";
 
 import { buildReportSql, insertAnomalyReport, withReservedConnection } from "./shared";
@@ -138,7 +141,7 @@ export const migrateIntegrationProgressCache = (input: {
 	integrations: ReadonlyArray<{ id: string; userId: string; provider: string }>;
 }) =>
 	Effect.gen(function* () {
-		const redis = yield* RedisService;
+		const values = yield* TransientValues;
 		const { claimsByIdentity, unresolvedDetails, unsupportedProviderDetails } =
 			resolveIntegrationProgressClaims(input);
 		const duplicateRows =
@@ -160,17 +163,18 @@ export const migrateIntegrationProgressCache = (input: {
 					if (ttlSeconds <= 0) {
 						return Effect.void;
 					}
-					const key = redisKeys.sandboxPersistentCache(
+					const key = sandboxPersistentCacheKey(
 						userId,
 						["plugin", input.pluginId],
 						["script", input.scriptSlug],
 						claimKey,
 					);
-					return Effect.promise(() =>
-						redis.client.set(key, persistentClaimEnvelope, "EX", ttlSeconds, "NX"),
-					).pipe(
-						Effect.tap((result) => Effect.sync(() => (keysCreated += result === null ? 0 : 1))),
-					);
+					return values
+						.setIfAbsent(key, persistentClaimEnvelope, Duration.seconds(ttlSeconds))
+						.pipe(
+							Effect.orDie,
+							Effect.tap((stored) => Effect.sync(() => (keysCreated += stored ? 1 : 0))),
+						);
 				},
 				{ concurrency: 20 },
 			);
@@ -180,7 +184,7 @@ export const migrateIntegrationProgressCache = (input: {
 			{ count: "cache_rows", message: "unexpired completed marker row(s) found" },
 			{ count: "resolved_claims", message: "distinct persistent claim(s) resolved" },
 			{ count: "duplicate_rows", message: "duplicate claim row(s) collapsed" },
-			{ count: "keys_created", message: "persistent Redis key(s) created" },
+			{ count: "keys_created", message: "persistent cache value(s) created" },
 		];
 		yield* withReservedConnection((connection) =>
 			connection.executeRaw(

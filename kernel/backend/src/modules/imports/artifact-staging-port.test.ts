@@ -33,12 +33,8 @@ const input: SandboxRunInput = {
 		scriptSlug: "collector",
 		contentHash: "collector-hash",
 		scriptId: SandboxScriptId.make("collector"),
+		subject: { type: "user", userId: ingestionTestScope.userId },
 		metadata: { kind: "operation", runtimeImports: [], capabilities: ["scratch"] },
-		subject: {
-			type: "user",
-			userId: ingestionTestScope.userId,
-			accountGeneration: ingestionTestScope.accountGeneration,
-		},
 	}),
 };
 const pins = {
@@ -61,12 +57,11 @@ const makeStagingPort = Effect.fnUntraced(function* (
 			Layer.provide(
 				Layer.mergeAll(
 					Layer.mock(ImportsRepository)({
-						getStagingOwner: (userId, accountGeneration, executionId) =>
+						getStagingOwner: (userId, executionId) =>
 							Effect.sync(() => {
-								expect({ userId, executionId, accountGeneration }).toEqual({
+								expect({ userId, executionId }).toEqual({
 									executionId: ownerExecutionId,
 									userId: ingestionTestScope.userId,
-									accountGeneration: ingestionTestScope.accountGeneration,
 								});
 								return options.owner === undefined ? owner : options.owner;
 							}),

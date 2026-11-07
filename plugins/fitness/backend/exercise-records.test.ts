@@ -46,6 +46,7 @@ it.effect(
 			});
 			const input = yield* Schema.decodeEffect(FoldInput)({
 				value: null,
+				absorbed: [],
 				subjectEntityId: "exercise-1",
 			});
 			const output = yield* definition.run(input, host);

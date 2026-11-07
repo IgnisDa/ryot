@@ -3,7 +3,6 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 
 const SystemHealthFailureReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("database-unavailable") }),
-	Schema.Struct({ code: Schema.Literal("redis-unavailable") }),
 ]);
 
 export class SystemHealthFailure extends Schema.TaggedError<

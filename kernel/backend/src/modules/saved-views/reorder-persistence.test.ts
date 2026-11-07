@@ -35,7 +35,6 @@ const user = {
 	name: "Owner",
 	id: UserId.make("owner"),
 	email: "owner@example.test",
-	accountGeneration: { token: "generation", userId: UserId.make("owner") },
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 } satisfies CurrentUserValue;
 const foreignUser = UserId.make("foreign");
@@ -149,13 +148,8 @@ const seed = Effect.gen(function* () {
 			yield* db
 				.insert(tables.user)
 				.values([
-					{ id: user.id, name: user.name, email: user.email, accountGeneration: "generation" },
-					{
-						id: foreignUser,
-						name: "Foreign",
-						email: "foreign@example.test",
-						accountGeneration: "generation",
-					},
+					{ id: user.id, name: user.name, email: user.email },
+					{ id: foreignUser, name: "Foreign", email: "foreign@example.test" },
 				])
 				.onConflictDoNothing();
 			for (const name of ["a", "b"]) {

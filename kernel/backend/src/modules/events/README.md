@@ -125,7 +125,7 @@ interactive lane, a run that finds no sandbox capacity retries twice before defe
 cannot finish inline never fails the write: the write commits and a `fold` job takes over. Fold jobs
 are coalesced per user and subject, run four at a time, and retry up to eight times, one second apart.
 The last failed attempt marks the subject failed. Each settled job publishes the user-scoped
-derived-data-updated hint (see [entity interest](../entities/watches/README.md)).
+derived-data-updated hint (see [entity interest](../../../../client/src/modules/entity-watches/README.md)).
 
 `derived_value` holds one row per target: the subject's own row (`kind = 'subject'`, holding `value`
 and `status`) and one row per event or relationship output. Each row records its subject, plugin

@@ -1,6 +1,5 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
 
@@ -13,13 +12,8 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
 
-export const userBootstrapExecutionId = (
-	userId: string,
-	pluginId: string,
-	bootstrapSlug: string,
-	accountGeneration: AccountGeneration,
-) =>
-	`user-bootstrap-${userId.length}-${userId}-${pluginId.length}-${pluginId}-${bootstrapSlug.length}-${bootstrapSlug}-${accountGeneration.token}`;
+export const userBootstrapExecutionId = (userId: string, pluginId: string, bootstrapSlug: string) =>
+	`user-bootstrap-${userId.length}-${userId}-${pluginId.length}-${pluginId}-${bootstrapSlug.length}-${bootstrapSlug}`;
 
 export const makePluginUserBootstrapDispatcher = (
 	execute: (
@@ -41,7 +35,7 @@ export const makePluginUserBootstrapDispatcher = (
 
 		const dispatchAll = Effect.fn("PluginUserBootstrapDispatcher.dispatchAll")(function* (
 			userId: UserId,
-			accountGeneration: AccountGeneration,
+			accountUserId: UserId,
 		) {
 			const installed = (yield* runtime.resolveUserInstallationBootstraps(userId)).filter(
 				({ health, isHidden }) => !isHidden && (health === "ready" || health === "installing"),
@@ -83,12 +77,7 @@ export const makePluginUserBootstrapDispatcher = (
 			};
 
 			for (const entry of entries) {
-				const executionId = userBootstrapExecutionId(
-					userId,
-					entry.pluginId,
-					entry.bootstrap.slug,
-					accountGeneration,
-				);
+				const executionId = userBootstrapExecutionId(userId, entry.pluginId, entry.bootstrap.slug);
 				const { bootstrap } = entry;
 				if ("entities" in bootstrap) {
 					const captured = initialization.get(entry.pluginId);
@@ -99,7 +88,7 @@ export const makePluginUserBootstrapDispatcher = (
 						.ensure({
 							userId,
 							executionId,
-							accountGeneration,
+							accountUserId,
 							entrySlug: bootstrap.slug,
 							entities: bootstrap.entities,
 							installedAt: captured.installedAt,
@@ -135,7 +124,7 @@ export const makePluginUserBootstrapDispatcher = (
 					context: {},
 					executionId,
 					scriptId: resolved.script.id,
-					subject: { userId, type: "user", accountGeneration },
+					subject: { userId, type: "user" },
 				}).pipe(
 					Effect.mapError(
 						(error) =>

@@ -98,7 +98,7 @@ export const makePluginScriptHost = Effect.gen(function* () {
 						pluginId: plugin.id,
 						userId: principal.subject.userId,
 						pluginRevisionId: plugin.revisionId,
-						accountGeneration: principal.subject.accountGeneration,
+						accountUserId: principal.subject.userId,
 					});
 					return { saved: true as const };
 				}),

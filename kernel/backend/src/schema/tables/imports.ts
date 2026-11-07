@@ -106,7 +106,6 @@ export const importRun = snakeCase.table(
 		finishedAt: timestamptz(),
 		blockDeadline: timestamptz(),
 		updatedAt: updatedAtColumn(),
-		accountGeneration: text().notNull(),
 		plan: jsonb().$type<IngestionPlan>(),
 		pins: jsonb().$type<IngestionPins>(),
 		integrationLot: text().$type<IntegrationLot>(),
@@ -130,7 +129,7 @@ export const importRun = snakeCase.table(
 		pluginInstallationId: text().references(() => pluginInstallation.id, { onDelete: "set null" }),
 	},
 	(table) => [
-		unique("import_run_owner_unique").on(table.id, table.userId, table.accountGeneration),
+		unique("import_run_owner_unique").on(table.id, table.userId),
 		check(
 			"import_run_prepared_release_check",
 			sql`${table.preparedRelease} is null or (${table.pins} is not null and (${table.plan} is null or ${table.plan} = ${table.preparedRelease}->'plan'))`,

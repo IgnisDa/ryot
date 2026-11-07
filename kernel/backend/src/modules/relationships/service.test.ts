@@ -300,7 +300,6 @@ describe("Relationships lifecycle owner", () => {
 								.values({
 									name: "Other",
 									id: "other-owner",
-									accountGeneration: "test-account-generation",
 									email: "other-relationship-owner@example.test",
 								}),
 						);
@@ -1533,7 +1532,6 @@ describe("Relationships lifecycle owner", () => {
 									id: otherUserId,
 									name: "Other owner",
 									email: "other-relationship@example.test",
-									accountGeneration: "test-account-generation",
 								}),
 						);
 						yield* session.run((db) =>

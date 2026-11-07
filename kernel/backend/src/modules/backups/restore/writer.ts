@@ -2080,7 +2080,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				}
 
 				if (records.reminders.length > 0) {
-					const generation = yield* admission.currentAccount(userId);
+					yield* admission.currentAccount(userId);
 					for (const row of records.reminders) {
 						const unfinished = row.state === "scheduled" || row.state === "processing";
 						const entityId = row.entityId === null ? null : context.entityIdMap.get(row.entityId);
@@ -2097,7 +2097,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							message: row.message,
 							outcome: row.outcome,
 							entityTitle: row.entityTitle,
-							accountGeneration: generation.token,
 							createdAt: parseDate(row.createdAt),
 							updatedAt: parseDate(row.updatedAt),
 							timezone: unfinished ? null : row.timezone,

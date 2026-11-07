@@ -11,10 +11,10 @@ import {
 	getVisibleEntityByProvenance,
 	installTestProviders,
 	namespaceInstallation,
-	openInterestWebSocketScoped,
+	openLiveUpdatesScoped,
 	pollProviderEntityImportResult,
 	pollUntil,
-	populateRelatedThroughForegroundInterest,
+	populateRelatedInteractively,
 	providerSandboxSource,
 	relatedPageKey,
 	replaceSandboxScriptCompiledRepresentation,
@@ -194,7 +194,7 @@ describe("paged related-entity groups", () => {
 
 				const company = yield* importStudio(externalId);
 				expect(yield* relatedMovieIds(company.id)).toEqual([]);
-				yield* populateRelatedThroughForegroundInterest(auth, company.id);
+				yield* populateRelatedInteractively(auth, company.id);
 
 				yield* pollUntil(
 					"every paged movie related",
@@ -212,8 +212,8 @@ describe("paged related-entity groups", () => {
 				);
 				yield* setEntityPopulatedAt(company.id, null);
 				const refresher = yield* createAuthenticatedClient();
-				const socket = yield* openInterestWebSocketScoped(refresher);
-				yield* socket.replaceInterest([company.id], [company.id]);
+				const stream = yield* openLiveUpdatesScoped(refresher);
+				yield* stream.populate([company.id], "interactive");
 
 				expect(
 					yield* pollUntil(

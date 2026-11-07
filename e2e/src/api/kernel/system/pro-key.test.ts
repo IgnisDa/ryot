@@ -103,7 +103,6 @@ const withScenario = <A, E, R>(
 				dbUrl: shared.dbUrl,
 				frontendUrl: apiOrigin,
 				label: `Pro key ${name}`,
-				redisUrl: shared.redisUrl,
 				s3BucketName: S3_BUCKET_NAME,
 				s3Endpoint: shared.s3Endpoint,
 				extraEnv: { SERVER_PRO_KEY_VERIFICATION_URL: verificationUrl, ...config.extraEnv },

@@ -12,7 +12,7 @@ import { UserBootstrap } from "./bootstrap";
 import { runUserBootstrapJob } from "./job";
 
 const userId = UserId.make("user-1");
-const payload = { userId, accountGeneration: { userId, token: "test-account-generation" } };
+const payload = { userId, accountUserId: userId };
 const job = { attempt: 1, id: "user-bootstrap-job" };
 
 const provideBootstrap =

@@ -37,7 +37,6 @@ import { RyotQLService } from "./service";
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
-const generation = "test-account-generation";
 const populatedAt = new Date("2026-10-26T00:00:00.000Z");
 const canonicalProperties = { kind: "one", name: "Canonical property" };
 
@@ -175,8 +174,6 @@ const appendRequest = Effect.fnUntraced(function* (
 				pluginId: fixture.pluginId,
 				entitySchemaSlug: "record",
 				providerId: fixture.providerId,
-				requesterGeneration: generation,
-				workflowName: "TestEnrichmentWorkflow",
 				...patch,
 			}),
 	);
@@ -201,7 +198,7 @@ const readEntity = Effect.fnUntraced(function* (
 
 layer(catalogLayer)((test) => {
 	test.effect(
-		"selects only the current actor's account work and never lets newer system failures override it",
+		"selects only the current actor's work and never lets newer system failures override it",
 		() =>
 			Effect.gen(function* () {
 				for (const state of ["succeeded", "failed"] as const) {
@@ -210,11 +207,6 @@ layer(catalogLayer)((test) => {
 					yield* appendRequest(entityId, `${state}-system`, {
 						state: "failed",
 						requesterUserId: null,
-						requesterGeneration: null,
-					});
-					yield* appendRequest(entityId, `${state}-retired-owner`, {
-						state: "cancelled",
-						requesterGeneration: "retired-generation",
 					});
 					const own = yield* readEntity(owner, entityId);
 					expect(own.populationStatus).toEqual({ state, availability: "complete" });
@@ -228,11 +220,6 @@ layer(catalogLayer)((test) => {
 					yield* appendRequest(entityId, `${state}-recipient`, {
 						state: "running",
 						requesterUserId: recipient,
-					});
-					yield* appendRequest(entityId, `${state}-retired-recipient`, {
-						state: "failed",
-						requesterUserId: recipient,
-						requesterGeneration: "retired-generation",
 					});
 					expect((yield* readEntity(recipient, entityId)).populationStatus).toEqual({
 						state: "running",
@@ -298,7 +285,6 @@ layer(catalogLayer)((test) => {
 					state: "failed",
 					requesterUserId: null,
 					operation: "translation",
-					requesterGeneration: null,
 					sourceContentGeneration: 2,
 				});
 				const current = yield* readEntity(owner, entityId, "es");

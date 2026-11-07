@@ -113,7 +113,7 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 				payload: TestSupportSandboxReplayProjectionBody,
 				success: Schema.Struct({ deleted: Schema.Boolean }),
 			},
-		).annotate(OpenApi.Description, "Deletes a sandbox workflow Redis replay projection"),
+		).annotate(OpenApi.Description, "Deletes a sandbox workflow replay projection"),
 	)
 	.add(
 		HttpApiEndpoint.post("startWorkflowLoadGate", "/test-support/operational-gate/workflow-load", {
@@ -211,13 +211,6 @@ export const TestSupportGroup = HttpApiGroup.make("testSupport")
 			success: TestSupportPluginCronResult,
 			payload: TestSupportTriggerPluginCronBody,
 		}).annotate(OpenApi.Description, "Triggers one active plugin cron"),
-	)
-	.add(
-		HttpApiEndpoint.post("setEntityWatchMembership", "/test-support/entity-watches-membership", {
-			success: Schema.Void,
-			error: testSupportErrors,
-			payload: Schema.Struct({ sessionId: Schema.String, entityIds: Schema.Array(EntityId) }),
-		}).annotate(OpenApi.Description, "Sets entity interest membership without reconciliation"),
 	)
 	.add(
 		HttpApiEndpoint.post("reconcileAutomations", "/test-support/automations/reconcile", {

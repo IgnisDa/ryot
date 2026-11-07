@@ -8,6 +8,7 @@ import { ManagedAssetsService } from "./storage/managed-assets";
 import { ManagedAssetsRepository } from "./storage/managed-assets-repository";
 import { ObjectStorageService } from "./storage/object-storage";
 import { UploadIntentsService } from "./uploads/intents";
+import { UploadIntentsRepository } from "./uploads/intents-repository";
 
 export const ObjectStorageServiceLive = ObjectStorageService.layer;
 
@@ -24,7 +25,13 @@ export const ManagedAssetsServiceLive = ManagedAssetsService.layer.pipe(
 export const UploadServicesLive = Layer.merge(
 	ManagedAssetsServiceLive,
 	UploadIntentsService.layer.pipe(
-		Layer.provide(Layer.merge(ManagedAssetsServiceLive, ObjectStorageServiceLive)),
+		Layer.provide(
+			Layer.mergeAll(
+				ManagedAssetsServiceLive,
+				ObjectStorageServiceLive,
+				UploadIntentsRepository.layer,
+			),
+		),
 	),
 );
 

@@ -105,15 +105,22 @@ export const makePlannedRelationshipReconciliation = (
 					properties: yield* parseProperties(relationship.properties, definition.propertiesSchema),
 				});
 			}
-			const sweepGeneration = group.generation?.kind === "sweep" ? group.generation.value : null;
-			const existing =
-				sweepGeneration === null
-					? yield* repository.listRelationshipsForReconciliation(selector)
-					: yield* repository.listRelationshipsOutsideGeneration(selector, sweepGeneration);
-			const deletions = group.generation?.kind === "page" ? [] : existing;
-			const upsertMode = group.generation?.preserveExisting
-				? ("ensure" as const)
-				: ("upsert" as const);
+			const { paging } = group;
+			const existing = yield* repository.listRelationshipsForReconciliation(selector);
+			let deletions = existing;
+			if (paging?.kind === "page") {
+				deletions = [];
+			} else if (paging?.kind === "sweep") {
+				deletions = existing.filter(
+					(relationship) =>
+						!paging.kept.has(relationship.sourceEntityId) &&
+						!paging.kept.has(relationship.targetEntityId),
+				);
+			}
+			const upsertMode =
+				paging?.kind === "page" && paging.preserveExisting
+					? ("ensure" as const)
+					: ("upsert" as const);
 			const mutations: Array<{
 				command: DomainLifecycleCommand;
 				input: RelationshipIdentityInput;
@@ -191,12 +198,6 @@ export const makePlannedRelationshipReconciliation = (
 					validated: item.validated,
 				})),
 			);
-			if (group.generation?.kind === "page") {
-				yield* repository.stampRelationshipGeneration(
-					mutations.map(({ input }) => input),
-					group.generation.value,
-				);
-			}
 			for (const [index, item] of prepared.entries()) {
 				const source = persisted[index];
 				if (!source) {

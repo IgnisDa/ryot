@@ -2,7 +2,6 @@ import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/http-api";
 
 import type { AuthorizationContext as AuthorizationContextValue } from "./oauth";
-import type { AccountGeneration } from "./schema/account-generation";
 import type { UserId } from "./schema/brands";
 import type { UserPreferences } from "./schema/user-preferences";
 
@@ -28,7 +27,6 @@ export type CurrentUserValue = {
 	readonly email: string;
 	readonly image: null | string;
 	readonly preferences: UserPreferences;
-	readonly accountGeneration: AccountGeneration;
 };
 
 export class CurrentUser extends Context.Service<CurrentUser, CurrentUserValue>()(

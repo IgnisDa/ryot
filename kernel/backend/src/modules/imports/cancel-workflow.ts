@@ -1,4 +1,3 @@
-import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
@@ -10,11 +9,7 @@ import { ImportRunExecutionController } from "./execution-controller";
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
-const CancelImportRunPayload = Schema.Struct({
-	userId: UserId,
-	runId: ImportRunId,
-	accountGeneration: AccountGeneration,
-});
+const CancelImportRunPayload = Schema.Struct({ userId: UserId, runId: ImportRunId });
 
 export const CancelImportRunWorkflow = Workflow.make("CancelImportRunWorkflow", {
 	success: Schema.Void satisfies DurableSchema,

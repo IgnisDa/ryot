@@ -37,12 +37,11 @@ import {
 	lifecycleActor,
 	rootLifecycleCommand,
 } from "#modules/automations/lifecycle/command";
+import type { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
-import {
-	type ProviderEntityPopulationPayload,
-	ProviderEntityPopulationWorkflow,
-} from "#modules/entities/providers/provider-entity-population-workflow";
+import { awaitEntityPopulation } from "#modules/entities/providers/population-await";
 import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
+import type { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventCreateInput } from "#modules/events/event-create";
 import { EventsService } from "#modules/events/service";
@@ -63,6 +62,7 @@ import {
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import type { JobQueue } from "#platform/jobs/queue";
 import { makeActivity } from "#platform/workflow/scope";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
@@ -96,7 +96,7 @@ const wireLifecycleCommand = (
 		return LifecycleCommand.make({
 			occurredAt,
 			itemIdentity,
-			accountGeneration: subject.accountGeneration,
+			accountUserId: subject.accountUserId,
 			causation: automationLifecycleCausation(subject, AutomationExecutionId.make(executionId)),
 		});
 	}
@@ -134,6 +134,9 @@ const requireOwned = <A, E, R>(lookup: Effect.Effect<A | null, E, R>, message: s
 export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
+		const populationServices = yield* Effect.context<
+			JobQueue | EnrichmentRequests | EntitiesRepository
+		>();
 		const imports = yield* ImportsRepository;
 		const events = yield* EventsService;
 		const captures = yield* IngestionCaptures;
@@ -273,47 +276,33 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								),
 							),
 						);
-						const engine = yield* WorkflowEngine;
 						const exits = yield* Effect.forEach(
 							ownedItems,
 							({ item, provider }, index) => {
 								const childExecutionId = `${executionId}-item-${index}`;
-								return dispatchAdmittedWorkflow(
-									engine,
-									ProviderEntityPopulationWorkflow,
-									subject.type === "system" ? null : subject.accountGeneration,
-									{
-										executionId: childExecutionId,
-										payload: {
-											level: "full",
-											mode: decoded.mode,
-											providerId: provider.id,
-											pluginId: callerPlugin.id,
-											externalId: item.externalId,
-											executionId: childExecutionId,
-											entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
-											entityScope:
-												callerPlugin.scope === "user" && userId !== null
-													? { userId, type: "user" }
-													: { userId, type: "global" },
-											command: lifecycleCommand(
-												callerAuthority,
-												lane,
-												childExecutionId,
-												`${KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW}:${index}`,
-												occurredAt,
-												"provider-refresh",
-											),
-										} satisfies ProviderEntityPopulationPayload,
-									},
-								).pipe(
-									Effect.mapError(
-										(error) =>
-											new SandboxRunError({
-												kind: "infrastructure",
-												message: unknownToMessage(error),
-											}),
+								return awaitEntityPopulation({
+									level: "full",
+									mode: decoded.mode,
+									providerId: provider.id,
+									pluginId: callerPlugin.id,
+									externalId: item.externalId,
+									executionId: childExecutionId,
+									entitySchemaSlug: EntitySchemaSlug.make(item.entitySchemaSlug),
+									entityScope:
+										callerPlugin.scope === "user" && userId !== null
+											? { userId, type: "user" }
+											: { userId, type: "global" },
+									command: lifecycleCommand(
+										callerAuthority,
+										lane,
+										childExecutionId,
+										`${KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW}:${index}`,
+										occurredAt,
+										"provider-refresh",
 									),
+								}).pipe(
+									Effect.provideContext(populationServices),
+									Effect.provideService(DatabaseSession, database),
 									Effect.exit,
 								);
 							},
@@ -348,17 +337,13 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							"import",
 							typeof rawRunId === "string" ? { importRunId: ImportRunId.make(rawRunId) } : {},
 						);
-						if (!command.accountGeneration || typeof rawRunId !== "string") {
+						if (!command.accountUserId || typeof rawRunId !== "string") {
 							return yield* new SandboxRunError({
 								kind: "invalid-input",
 								message: "Ingestion requires an account-scoped run",
 							});
 						}
-						const scope = {
-							userId,
-							runId: ImportRunId.make(rawRunId),
-							accountGeneration: command.accountGeneration,
-						};
+						const scope = { userId, runId: ImportRunId.make(rawRunId) };
 						const run = yield* imports
 							.getIngestionRunControl(scope)
 							.pipe(
@@ -525,7 +510,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const result = yield* dispatchAdmittedWorkflow(
 							engine,
 							ProcessGenericImportChunksWorkflow,
-							command.accountGeneration,
+							command.accountUserId,
 							{ payload, executionId },
 						).pipe(
 							Effect.mapError(
@@ -623,7 +608,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 						const result = yield* dispatchAdmittedWorkflow(
 							engine,
 							EntityImportWorkflow,
-							command.accountGeneration,
+							command.accountUserId,
 							{ payload, executionId },
 						).pipe(
 							Effect.map((entity) => ({ entity, status: "completed" as const })),

@@ -82,10 +82,10 @@ const command = {
 		source: "api",
 		occurredAt: now,
 		lane: "interactive",
+		accountUserId: userId,
 		itemIdentity: "events",
 		initiator: { id: userId, kind: "user" },
 		executionId: AutomationExecutionId.make("batch"),
-		accountGeneration: { userId, token: "test-account-generation" },
 	}),
 	writeContext: null,
 };
@@ -375,12 +375,7 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 					yield* session.run((db) =>
 						db
 							.insert(user)
-							.values({
-								id: userId,
-								name: "User",
-								email: "event-workflow@example.test",
-								accountGeneration: "test-account-generation",
-							}),
+							.values({ id: userId, name: "User", email: "event-workflow@example.test" }),
 					);
 					return DatabaseSession.of({
 						...session,
@@ -1723,12 +1718,12 @@ const revokedPrincipal = Schema.decodeEffect(ScriptExecutionPrincipal)({
 		stage: "after",
 		delivery: "required",
 		triggerId: "trigger",
+		accountUserId: userId,
 		type: "automation-run",
 		executionUserId: userId,
 		pluginId: "revoked-plugin",
 		pluginRevisionId: "revoked-revision",
 		pluginConfigRevisionId: "revoked-config",
-		accountGeneration: { userId, token: "test-account-generation" },
 		causation: {
 			depth: 0,
 			source: "api",

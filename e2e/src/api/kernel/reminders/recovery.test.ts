@@ -38,7 +38,6 @@ describe("reminder recovery after process loss", () => {
 				s3BucketName: bucketName,
 				label: "Reminder recovery",
 				dbUrl: infrastructure.dbUrl,
-				redisUrl: infrastructure.redisUrl,
 				s3Endpoint: infrastructure.s3Endpoint,
 				frontendUrl: `http://127.0.0.1:${port}`,
 			});

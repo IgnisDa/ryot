@@ -23,7 +23,6 @@ import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
-import { testRedisUrl } from "#testing/redis";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";
@@ -52,21 +51,12 @@ layer(
 				const database = yield* DatabaseSession;
 				const { url } = yield* IsolatedDatabase;
 				const userId = UserId.make("staged-owner");
-				const scope = {
-					userId,
-					runId: ImportRunId.make("staged-run"),
-					accountGeneration: { userId, token: "generation" },
-				};
+				const scope = { userId, runId: ImportRunId.make("staged-run") };
 				const ownerExecutionId = "pinned-ingestion-owner";
 				yield* database.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: userId,
-							name: "Owner",
-							email: "staged@example.test",
-							accountGeneration: "generation",
-						}),
+						.values({ id: userId, name: "Owner", email: "staged@example.test" }),
 				);
 				yield* database.run((db) =>
 					db
@@ -76,7 +66,6 @@ layer(
 							id: scope.runId,
 							status: "running",
 							source: "data-json",
-							accountGeneration: "generation",
 							pins: {
 								scriptId: "collector",
 								pluginRevisionId: null,
@@ -92,7 +81,6 @@ layer(
 					BunServices.layer,
 					makeAppConfigLayer({
 						database: { url: Redacted.make(url) },
-						redisUrl: Redacted.make(testRedisUrl()),
 						fileStorage: { localTempDir: temporary, localDir: `${directory}/permanent` },
 					}),
 					Layer.mock(S3Service)({ isConfigured: false }),
@@ -136,8 +124,8 @@ layer(
 									principal: makeUserPrincipal({
 										scriptSlug: "collector",
 										contentHash: "collector-hash",
+										subject: { userId, type: "user" },
 										scriptId: SandboxScriptId.make("collector"),
-										subject: { userId, type: "user", accountGeneration: scope.accountGeneration },
 										metadata: { kind: "operation", runtimeImports: [], capabilities: ["scratch"] },
 									}),
 								});

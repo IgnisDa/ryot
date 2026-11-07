@@ -24,7 +24,6 @@ const makeUser = (preferences: UserPreferences): CurrentUserValue => ({
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-id"),
-	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 });
 
 class FakeAuthSettings extends Context.Service<

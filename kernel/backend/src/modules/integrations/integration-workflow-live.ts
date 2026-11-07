@@ -43,12 +43,8 @@ const IntegrationRecordSchema = Schema.Struct({
 
 export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflow")(
 	function* (payload: IntegrationRunJobData, executionId: string) {
-		const scope = {
-			runId: payload.runId,
-			userId: payload.userId,
-			accountGeneration: payload.accountGeneration,
-		};
-		yield* admitWorkflow(payload.accountGeneration);
+		const scope = { runId: payload.runId, userId: payload.userId };
+		yield* admitWorkflow(payload.accountUserId);
 		const repository = yield* ImportsRepository;
 		const ingestion = yield* IntegrationIngestion;
 		const execution = yield* IngestionExecution;
@@ -118,7 +114,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			source: "integration",
 			importRunId: payload.runId,
 			integrationId: integration.id,
-			accountGeneration: payload.accountGeneration,
+			accountUserId: payload.accountUserId,
 			occurredAt: IsoUtcString.make(initial.acceptedAt),
 			executionId: AutomationExecutionId.make(executionId),
 			initiator: { id: integration.id, kind: "integration" },
@@ -162,15 +158,10 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 			}
 			if (integration.pluginInstallationId === null) {
 				const engine = yield* WorkflowEngine;
-				yield* dispatchAdmittedWorkflow(
-					engine,
-					ProcessDataImportWorkflow,
-					payload.accountGeneration,
-					{
-						executionId: `${payload.runId}-data`,
-						payload: { command, runId: payload.runId, userId: payload.userId },
-					},
-				);
+				yield* dispatchAdmittedWorkflow(engine, ProcessDataImportWorkflow, payload.accountUserId, {
+					executionId: `${payload.runId}-data`,
+					payload: { command, runId: payload.runId, userId: payload.userId },
+				});
 			} else {
 				const sandbox = yield* ScriptExecutionService;
 				const state = yield* ingestion.recoverInput(scope);
@@ -202,7 +193,6 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 							userId: payload.userId,
 							integrationId: integration.id,
 							integrationRunId: payload.runId,
-							accountGeneration: payload.accountGeneration,
 						},
 					})
 					.pipe(Effect.flatMap(Schema.decodeUnknownEffect(genericImportWorkflowResultSchema)));

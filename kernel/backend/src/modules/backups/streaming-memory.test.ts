@@ -31,7 +31,6 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { testFileDatabaseEnvironment } from "#testing/database";
 import { makeAppConfigLayer } from "#testing/effect";
-import { testRedisUrl } from "#testing/redis";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
 import { BackupExportSnapshot } from "./export/snapshot";
@@ -218,7 +217,7 @@ const seedMemoryReminders = (session: DatabaseSession["Service"]) =>
 		db.execute(sql`
 			insert into ${tables.reminder} (
 				id, user_id, state, reason, message, entity_title, entity_id,
-				parent_entity_id, replacement_id, account_generation
+				parent_entity_id, replacement_id
 			)
 			select
 				'memory-reminder-' || lpad(source.n::text, 5, '0'),
@@ -229,8 +228,7 @@ const seedMemoryReminders = (session: DatabaseSession["Service"]) =>
 				'Memory record ' || source.n,
 				'memory-entity-' || lpad(source.n::text, 5, '0'),
 				'memory-entity-' || lpad((source.n % ${memoryRecordCount} + 1)::text, 5, '0'),
-				'memory-reminder-' || lpad((source.n % ${memoryReminderCount} + 1)::text, 5, '0'),
-				'test-account-generation'
+				'memory-reminder-' || lpad((source.n % ${memoryReminderCount} + 1)::text, 5, '0')
 			from generate_series(1, ${memoryReminderCount}) as source(n)
 		`),
 	);
@@ -255,12 +253,7 @@ if (process.env["RYOT_BACKUP_MEMORY_CHILD"] !== "1") {
 								stdout: "pipe",
 								stderr: "pipe",
 								cwd: fileURLToPath(new URL("../../../", import.meta.url)),
-								env: {
-									...process.env,
-									RYOT_BACKUP_MEMORY_CHILD: "1",
-									TEST_REDIS_URL: testRedisUrl(),
-									...databaseEnvironment,
-								},
+								env: { ...process.env, RYOT_BACKUP_MEMORY_CHILD: "1", ...databaseEnvironment },
 							},
 						),
 					),

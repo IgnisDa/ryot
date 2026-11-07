@@ -545,7 +545,7 @@ layer(
 					["required", "async"].map((id) => ({
 						kind: "automation-run",
 						payload: { runId: id, attemptNumber: 1, acceptedPatches: [] },
-						key: automationAttemptIdentity(AutomationRunId.make(id), 1).workflowExecutionId,
+						key: automationAttemptIdentity(AutomationRunId.make(id), 1).executionId,
 					})),
 				);
 			}),

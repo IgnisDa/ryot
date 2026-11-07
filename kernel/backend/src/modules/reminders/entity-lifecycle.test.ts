@@ -255,10 +255,10 @@ const lifecycleCommand = (input: Effect.Success<ReturnType<typeof reminderTestIn
 	rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: input.user.id,
 		occurredAt: input.body.submittedAt,
 		itemIdentity: "detached-reminder-child-scope",
 		initiator: { kind: "user", id: input.user.id },
-		accountGeneration: input.user.accountGeneration,
 		executionId: AutomationExecutionId.make(crypto.randomUUID()),
 	});
 

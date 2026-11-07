@@ -36,18 +36,14 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 				});
 			}
 			const userId = sandboxSubjectUserId(subject);
-			if (!userId || !subject.accountGeneration) {
+			if (!userId) {
 				return yield* new SandboxRunError({
 					kind: "invalid-input",
 					message: "Staged artifact owner is unavailable",
 				});
 			}
 			const repository = yield* ImportsRepository;
-			const run = yield* repository.getStagingOwner(
-				userId,
-				subject.accountGeneration,
-				grants.artifactOwnerExecutionId,
-			);
+			const run = yield* repository.getStagingOwner(userId, grants.artifactOwnerExecutionId);
 			if (run?.status !== "running") {
 				return yield* new SandboxRunError({
 					kind: "invalid-input",
@@ -56,7 +52,7 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 			}
 			const captures = yield* IngestionCaptures;
 			const artifactPath = yield* captures.resolveStaged(
-				{ userId, runId: ImportRunId.make(run.id), accountGeneration: subject.accountGeneration },
+				{ userId, runId: ImportRunId.make(run.id) },
 				grants.artifactOwnerExecutionId,
 				input["artifactHandle"],
 			);
@@ -112,17 +108,13 @@ export const ingestionArtifactGrants = Effect.fn("imports.ingestionArtifactGrant
 		});
 	}
 	const userId = sandboxSubjectUserId(subject);
-	if (!userId || !subject.accountGeneration) {
+	if (!userId) {
 		return yield* new SandboxRunError({
 			kind: "invalid-input",
 			message: "Ingestion artifact requires an account owner",
 		});
 	}
-	const scope = {
-		userId,
-		runId: ImportRunId.make(runId),
-		accountGeneration: subject.accountGeneration,
-	};
+	const scope = { userId, runId: ImportRunId.make(runId) };
 	const repository = yield* ImportsRepository;
 	const run = yield* repository.getIngestionRunControl(scope);
 	if (run?.status !== "running" || run.pins?.executionId !== grants?.artifactOwnerExecutionId) {

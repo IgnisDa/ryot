@@ -52,14 +52,14 @@ import { EventsRepository } from "./repository";
 
 const EventWriteIdentity = Schema.Struct({
 	itemIdentity: Schema.String,
-	accountGeneration: LifecycleCommand.fields.accountGeneration,
+	accountUserId: LifecycleCommand.fields.accountUserId,
 	executionId: LifecycleCommand.fields.causation.fields.executionId,
 });
 
 export const eventWriteIdentity = (command: LifecycleCommand) => ({
 	itemIdentity: command.itemIdentity,
+	accountUserId: command.accountUserId,
 	executionId: command.causation.executionId,
-	accountGeneration: command.accountGeneration,
 });
 
 export const PreparedEventChange = Schema.Struct({
@@ -228,7 +228,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					readonly prepared: PreparedEventChanges;
 				}>;
 			}) {
-				const accounts = new Map<UserId, NonNullable<LifecycleCommand["accountGeneration"]>>();
+				const accounts = new Map<UserId, NonNullable<LifecycleCommand["accountUserId"]>>();
 				const expectedRevisions = new Map<EventId, number>();
 				for (const { prepared } of input.batches) {
 					for (const row of prepared.items) {
@@ -238,8 +238,8 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						if (row.order) {
 							expectedRevisions.set(row.order.anchorId, row.order.revision);
 						}
-						if (row.identity.accountGeneration !== null) {
-							accounts.set(row.identity.accountGeneration.userId, row.identity.accountGeneration);
+						if (row.identity.accountUserId !== null) {
+							accounts.set(row.identity.accountUserId, row.identity.accountUserId);
 						}
 					}
 				}

@@ -131,8 +131,7 @@ export const AutomationExecutionOperationsLive = Layer.effect(
 								yield* admission.admitAccount(yield* admission.currentAccount(run.executionUserId));
 							}
 							return yield* jobs.enqueue(AutomationRunJob, payload, {
-								key: automationAttemptIdentity(payload.runId, payload.attemptNumber)
-									.workflowExecutionId,
+								key: automationAttemptIdentity(payload.runId, payload.attemptNumber).executionId,
 								...(run.executionUserId === null ? {} : { userId: run.executionUserId }),
 							});
 						}),

@@ -224,7 +224,6 @@ describe("isolated import durability", () => {
 					frontendUrl: origin,
 					dbUrl: infrastructure.dbUrl,
 					s3BucketName: S3_BUCKET_NAME,
-					redisUrl: infrastructure.redisUrl,
 					s3Endpoint: infrastructure.s3Endpoint,
 					extraEnv: { [configEnvironmentKey]: configValue },
 				});

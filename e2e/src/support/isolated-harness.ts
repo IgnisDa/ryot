@@ -25,7 +25,6 @@ export const startIsolatedApiServer = Effect.fn("startIsolatedApiServer")(functi
 		label: input.label,
 		s3BucketName: bucketName,
 		dbUrl: infrastructure.dbUrl,
-		redisUrl: infrastructure.redisUrl,
 		s3Endpoint: infrastructure.s3Endpoint,
 		frontendUrl: `http://127.0.0.1:${port}`,
 		extraEnv: { ...harnessApiEnv, ...input.extraEnv },

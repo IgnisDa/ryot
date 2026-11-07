@@ -21,8 +21,7 @@ import {
 	SandboxWorkflowReferenceRepository,
 } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
-import { databaseLayer, makeRedisService, type MockOverrides } from "#testing/effect";
+import { databaseLayer, type MockOverrides } from "#testing/effect";
 
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
@@ -40,6 +39,8 @@ const failureOf = (exit: Exit.Exit<unknown, unknown>) => {
 	assert(Exit.isFailure(exit));
 	return Option.getOrThrow(Cause.findErrorOption(exit.cause));
 };
+
+const ALL_USERS_CHANNEL = "all";
 
 const mockRepository = Layer.mock(PluginRepository);
 
@@ -375,18 +376,15 @@ const makeLayer = (input?: {
 					);
 				},
 			});
-			const redisLayer = Layer.succeed(
-				RedisService,
-				makeRedisService({
-					publish: (channel, message) =>
-						input?.publishFailure === undefined
-							? recordEvent("publish").pipe(
-									Effect.andThen(append(state.published, { channel, message })),
-									Effect.as(1),
-								)
-							: Effect.die(input.publishFailure),
-				}),
-			);
+			const publish = (channel: string, message: string) =>
+				(input?.publishFailure === undefined
+					? recordEvent("publish").pipe(
+							Effect.andThen(append(state.published, { channel, message })),
+						)
+					: Effect.die(input.publishFailure)
+				).pipe(
+					Effect.catchCause((cause) => Effect.logError("plugin catalog publish failed", cause)),
+				);
 			return Layer.mergeAll(
 				repository,
 				Layer.mock(PluginInstallationRepository)({
@@ -426,30 +424,17 @@ const makeLayer = (input?: {
 				Layer.succeed(PluginRevisionActivation, {
 					activated: (pluginId) => append(state.activated, pluginId),
 				}),
-				Layer.effect(
-					PluginCatalogInvalidator,
-					Effect.gen(function* () {
-						const redis = yield* RedisService;
-						const publish = (channel: string, message: string) =>
-							redis.publish(channel, message).pipe(
-								Effect.asVoid,
-								Effect.catchCause((cause) =>
-									Effect.logError("plugin catalog publish failed", cause),
-								),
-							);
-						return {
-							recordAll: Effect.void,
-							recordUser: () => Effect.void,
-							deliverPending: () => Effect.void,
-							all: publish(redisKeys.pluginCatalogChannel, "plugin-catalog-invalidated"),
-							user: (userId: UserId) =>
-								Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(
-									Effect.orDie,
-									Effect.flatMap((message) => publish(redisKeys.pluginCatalogUserChannel, message)),
-								),
-						};
-					}),
-				).pipe(Layer.provide(redisLayer)),
+				Layer.succeed(PluginCatalogInvalidator, {
+					recordAll: Effect.void,
+					recordUser: () => Effect.void,
+					deliverPending: () => Effect.void,
+					all: publish(ALL_USERS_CHANNEL, "plugin-catalog-invalidated"),
+					user: (userId: UserId) =>
+						Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(
+							Effect.orDie,
+							Effect.flatMap((message) => publish("user", message)),
+						),
+				}),
 				Layer.succeed(FakeIngestionDependencies, {
 					events: Ref.get(state.events),
 					activated: Ref.get(state.activated),
@@ -527,7 +512,7 @@ layer(makeLayer({}))((test) => {
 				);
 				expect(plugin.manifest.hooks).toEqual(fixtureManifest().hooks);
 				expect(yield* fake.published).toHaveLength(1);
-				expect((yield* fake.published)[0]?.channel).toBe(redisKeys.pluginCatalogChannel);
+				expect((yield* fake.published)[0]?.channel).toBe(ALL_USERS_CHANNEL);
 				expect(yield* fake.activated).toEqual([plugin.id]);
 				expect((yield* fake.events).filter((event) => event.startsWith("resolve-"))).toEqual([
 					`resolve-environment:${plugin.id}`,
@@ -649,7 +634,7 @@ layer(makeLayer({}))((test) => {
 
 layer(makeLayer({ publishFailure: "lost install publication" }))((test) => {
 	test.effect(
-		"returns a committed install when Redis publication fails",
+		"returns a committed install when publication fails",
 		() =>
 			Effect.gen(function* () {
 				const fake = yield* FakeIngestionDependencies;
@@ -932,7 +917,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 				expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 				expect(yield* ingestion.listPlugins()).toEqual([]);
 				expect(yield* fake.published).toEqual<unknown>([
-					objectContaining({ channel: redisKeys.pluginCatalogChannel }),
+					objectContaining({ channel: ALL_USERS_CHANNEL }),
 				]);
 			});
 		},
@@ -971,7 +956,7 @@ layer(
 	makeLayer({ initialInstalled: [storedFixture], publishFailure: "lost uninstall publication" }),
 )((test) => {
 	test.effect(
-		"returns a committed uninstall when Redis publication fails",
+		"returns a committed uninstall when publication fails",
 		() => {
 			return Effect.gen(function* () {
 				const fake = yield* FakeIngestionDependencies;
@@ -1006,7 +991,7 @@ layer(makeLayer({ hasWorkflowReferences: true, initialInstalled: [storedFixture]
 				expect(yield* fake.events).toEqual(["lock", "deactivate", "publish"]);
 				expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 				expect(yield* fake.published).toEqual([
-					{ message: "plugin-catalog-invalidated", channel: redisKeys.pluginCatalogChannel },
+					{ channel: ALL_USERS_CHANNEL, message: "plugin-catalog-invalidated" },
 				]);
 			});
 		},
@@ -1251,7 +1236,7 @@ layer(makeLayer({ cached: true }))((test) => {
 					"publish",
 				]);
 				expect(yield* fake.published).toEqual<unknown>([
-					objectContaining({ channel: redisKeys.pluginCatalogChannel }),
+					objectContaining({ channel: ALL_USERS_CHANNEL }),
 				]);
 			}),
 		testTimeout,

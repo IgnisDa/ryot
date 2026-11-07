@@ -194,11 +194,11 @@ export const automationRunAttempt = snakeCase.table(
 	{
 		id: text().primaryKey(),
 		finishedAt: timestamptz(),
+		executionId: text().notNull(),
 		retryable: boolean().notNull(),
 		artifactsPrunedAt: timestamptz(),
 		attemptNumber: integer().notNull(),
 		startedAt: timestamptz().notNull(),
-		workflowExecutionId: text().notNull(),
 		logs: jsonb().$type<AutomationRunAttempt["logs"]>(),
 		error: jsonb().$type<AutomationRunAttempt["error"]>(),
 		timing: jsonb().$type<AutomationRunAttempt["timing"]>(),
@@ -214,7 +214,7 @@ export const automationRunAttempt = snakeCase.table(
 	},
 	(table) => [
 		unique("automation_run_attempt_number_unique").on(table.runId, table.attemptNumber),
-		unique("automation_run_attempt_workflow_unique").on(table.workflowExecutionId),
+		unique("automation_run_attempt_execution_unique").on(table.executionId),
 		uniqueIndex("automation_run_attempt_one_running")
 			.on(table.runId)
 			.where(sql`${table.status} = 'running'`),

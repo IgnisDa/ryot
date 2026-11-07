@@ -350,6 +350,7 @@ export const PluginEntitySchema = strictStruct({
 	browse: Schema.optional(AuthoredEntitySchemaBrowse),
 	userState: Schema.optional(PluginEntityUserStatePolicy),
 	mergeIdentityProperties: Schema.optional(Schema.Array(Schema.String)),
+	refreshIntervalDays: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
 });
 
 export type PluginEntitySchema = Schema.Schema.Type<typeof PluginEntitySchema>;

@@ -18,7 +18,7 @@ import {
 	executeRyotQLRecipe,
 	getApiClient,
 	getEntity,
-	openInterestWebSocketScoped,
+	openLiveUpdatesScoped,
 	pollProviderEntityImportResult,
 } from "~/fixtures/kernel";
 import { pollUntil } from "~/fixtures/kernel/polling";
@@ -387,12 +387,10 @@ describe("Fitness taxonomy E2E", () => {
 				relationshipSchema: equipmentRelationshipSchema.reference,
 			});
 
-			const socket = yield* openInterestWebSocketScoped(auth);
-			expect(yield* socket.replaceInterest([root.id], [root.id])).toMatchObject({
-				type: "applied",
-			});
+			const stream = yield* openLiveUpdatesScoped(auth);
+			yield* stream.populate([root.id], "interactive");
 			expect(
-				yield* socket.waitForEntityUpdated(root.id, "populated", { timeoutMs: 90_000 }),
+				yield* stream.waitForEntityUpdated(root.id, "populated", { timeoutMs: 90_000 }),
 			).toMatchObject({ entityId: root.id, reason: "populated" });
 
 			const populated = yield* pollUntil(

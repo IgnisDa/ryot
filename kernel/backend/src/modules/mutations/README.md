@@ -1,16 +1,17 @@
 # Mutation admission and workflow ownership
 
-`AccountAdmission` owns account-generation admission and `IdempotencyKeys` owns request keys. Neither
+`AccountAdmission` owns account admission and `IdempotencyKeys` owns request keys. Neither
 imports concrete workflows or the workflow engine.
 
 Account admission is one `for share` read of the user row, done once per transaction. Account
-retirement stamps `retiring_account_generation` on that row under its exclusive lock, so a waiting
-admission re-reads the stamp; a replaced token or a stamped generation is refused.
+retirement stamps `retiring_at` on that row under its exclusive lock and deletes the account's jobs in
+the same transaction, so a waiting admission re-reads the stamp. A stamped account, or a command
+from a job that no longer exists, is refused.
 
 The workflow engine records which account an execution works for (see
 [`platform/workflow`](../../platform/workflow/README.md)). `workflow-dispatch.ts` binds dispatch to it:
 
-- `dispatchAdmittedWorkflow` takes the workflow, an account generation (`null` for system work) and
+- `dispatchAdmittedWorkflow` takes the workflow, an account user ID (`null` for system work) and
   execution options. It derives a missing execution ID, and the engine admits the execution under that
   account in its insert. A retired account fails with `DbError`.
 - `admitWorkflow` binds the running workflow body to an account when it was admitted without one; it

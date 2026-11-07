@@ -48,7 +48,6 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	image: null,
 	email: `${id}@example.test`,
 	name: id === ownerId ? "Owner" : "Recipient",
-	accountGeneration: { userId: id, token: "test-account-generation" },
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 });
 

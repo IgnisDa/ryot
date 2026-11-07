@@ -342,7 +342,6 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						port: apiPortA,
 						dbUrl: infrastructure.dbUrl,
 						label: "Global Rate Limit API A",
-						redisUrl: infrastructure.redisUrl,
 						s3BucketName: ISOLATED_BUCKET_NAME,
 						s3Endpoint: infrastructure.s3Endpoint,
 						frontendUrl: `http://127.0.0.1:${apiPortA}`,
@@ -356,7 +355,6 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						port: apiPortB,
 						dbUrl: infrastructure.dbUrl,
 						label: "Global Rate Limit API B",
-						redisUrl: infrastructure.redisUrl,
 						s3BucketName: ISOLATED_BUCKET_NAME,
 						s3Endpoint: infrastructure.s3Endpoint,
 						frontendUrl: `http://127.0.0.1:${apiPortA}`,
@@ -370,104 +368,102 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 
 	afterAll(() => runPromise(resources.close));
 
-	it.live(
-		"shares Redis admission across processes and resumes a pending ticket after restart",
-		() =>
-			Effect.gen(function* () {
-				const http = requirePresent(httpServer, "Isolated HTTP server is not initialised");
-				const slug = `isolated-rate-limit-${yield* randomUuid}`;
-				const pluginSlug = `e2e-isolated-rate-limit-${yield* randomUuid}`;
-				const source = httpCallSandboxSource({
-					slug,
-					name: "Isolated global rate limit",
-					url: `${http.url}/provider/isolated`,
-				});
-				const entry = "backend/scripts/isolated-rate-limit.sandbox.ts";
-				const manifest = testPluginManifest({
-					pluginSlug,
-					httpRateLimits: [
-						{
-							requests: 1,
-							intervalMs: 60_000,
-							origins: [new URL(http.url).origin],
-							key: `e2e.isolated.${yield* randomUuid}`,
-						},
-					],
-					scripts: [
-						{
-							slug,
-							entry,
-							kind: "script",
-							capabilities: ["httpCall"],
-							requiredPluginConfigKeys: [],
-							name: "Isolated global rate limit",
-						},
-					],
-				});
-				const targetA = requirePresent(apiProcessA, "API A is not initialised").target;
-				const targetB = requirePresent(apiProcessB, "API B is not initialised").target;
-				const clientA = makeSession(targetA);
-				const installed = yield* installTestSupportSystemPlugin({
-					manifest,
-					target: targetA,
-					files: encodePluginSourceFiles({ [entry]: source }),
-				});
-				yield* Effect.addFinalizer(() =>
-					makeSession(targetA)
-						.adminCall((c) =>
-							c.testSupport.uninstallSystemPlugin({
-								params: { pluginId: installed.pluginId, activationId: installed.activationId },
-							}),
-						)
-						.pipe(Effect.catch(() => Effect.void)),
-				);
-				const scripts = yield* listAdminSandboxScripts(installed.activePluginRevisionId, targetA);
-				const scriptId = requirePresent(
-					scripts.find((script) => script.slug === slug)?.id,
-					"Isolated rate-limit script was not installed",
-				);
-				const [userA, userB] = yield* Effect.all([
-					createAuthenticatedClient(targetA),
-					createAuthenticatedClient(targetA),
-				]);
-				const firstJob = yield* enqueueSandboxAt(clientA, userA.userId, scriptId);
-				expectSuccessfulHttpCall(
-					requireCompletedSandboxValue(
-						yield* pollSandboxResultAt(clientA, userA.userId, firstJob.jobId),
-					),
-				);
-				expect(requestTimestamps).toHaveLength(1);
+	it.live("shares admission across processes and resumes a pending request after restart", () =>
+		Effect.gen(function* () {
+			const http = requirePresent(httpServer, "Isolated HTTP server is not initialised");
+			const slug = `isolated-rate-limit-${yield* randomUuid}`;
+			const pluginSlug = `e2e-isolated-rate-limit-${yield* randomUuid}`;
+			const source = httpCallSandboxSource({
+				slug,
+				name: "Isolated global rate limit",
+				url: `${http.url}/provider/isolated`,
+			});
+			const entry = "backend/scripts/isolated-rate-limit.sandbox.ts";
+			const manifest = testPluginManifest({
+				pluginSlug,
+				httpRateLimits: [
+					{
+						requests: 1,
+						intervalMs: 20_000,
+						origins: [new URL(http.url).origin],
+						key: `e2e.isolated.${yield* randomUuid}`,
+					},
+				],
+				scripts: [
+					{
+						slug,
+						entry,
+						kind: "script",
+						capabilities: ["httpCall"],
+						requiredPluginConfigKeys: [],
+						name: "Isolated global rate limit",
+					},
+				],
+			});
+			const targetA = requirePresent(apiProcessA, "API A is not initialised").target;
+			const targetB = requirePresent(apiProcessB, "API B is not initialised").target;
+			const clientA = makeSession(targetA);
+			const installed = yield* installTestSupportSystemPlugin({
+				manifest,
+				target: targetA,
+				files: encodePluginSourceFiles({ [entry]: source }),
+			});
+			yield* Effect.addFinalizer(() =>
+				makeSession(targetA)
+					.adminCall((c) =>
+						c.testSupport.uninstallSystemPlugin({
+							params: { pluginId: installed.pluginId, activationId: installed.activationId },
+						}),
+					)
+					.pipe(Effect.catch(() => Effect.void)),
+			);
+			const scripts = yield* listAdminSandboxScripts(installed.activePluginRevisionId, targetA);
+			const scriptId = requirePresent(
+				scripts.find((script) => script.slug === slug)?.id,
+				"Isolated rate-limit script was not installed",
+			);
+			const [userA, userB] = yield* Effect.all([
+				createAuthenticatedClient(targetA),
+				createAuthenticatedClient(targetA),
+			]);
+			const firstJob = yield* enqueueSandboxAt(clientA, userA.userId, scriptId);
+			expectSuccessfulHttpCall(
+				requireCompletedSandboxValue(
+					yield* pollSandboxResultAt(clientA, userA.userId, firstJob.jobId),
+				),
+			);
+			expect(requestTimestamps).toHaveLength(1);
 
-				yield* stopApiProcess(apiProcessA);
-				const clientB = makeSession(targetB);
-				const secondJob = yield* enqueueSandboxAt(clientB, userB.userId, scriptId);
-				yield* Effect.sleep(Duration.seconds(1));
-				expect((yield* getSandboxResultAt(clientB, userB.userId, secondJob.jobId)).status).toBe(
-					"pending",
-				);
-				expect(requestTimestamps).toHaveLength(1);
-				const pressure = yield* clientB.adminCall((c) =>
-					c.testSupport.sampleOperationalPressure({
-						payload: { executionIds: [secondJob.executionId] },
-					}),
-				);
-				expect(pressure.sandbox.activeExecutions).toBe(0);
+			yield* stopApiProcess(apiProcessA);
+			const clientB = makeSession(targetB);
+			const secondJob = yield* enqueueSandboxAt(clientB, userB.userId, scriptId);
+			yield* Effect.sleep(Duration.seconds(1));
+			expect((yield* getSandboxResultAt(clientB, userB.userId, secondJob.jobId)).status).toBe(
+				"pending",
+			);
+			expect(requestTimestamps).toHaveLength(1);
+			const pressure = yield* clientB.adminCall((c) =>
+				c.testSupport.sampleOperationalPressure({
+					payload: { executionIds: [secondJob.executionId] },
+				}),
+			);
+			expect(pressure.sandbox.activeExecutions).toBe(0);
 
-				yield* stopApiProcess(apiProcessB);
-				apiProcessA = yield* resources.run(
-					startApiProcess(apiEnvA, "Global Rate Limit API A Restart"),
-				);
-				const restartedClientA = makeSession(apiProcessA.target);
-				expectSuccessfulHttpCall(
-					requireCompletedSandboxValue(
-						yield* pollSandboxResultAt(restartedClientA, userB.userId, secondJob.jobId),
-					),
-				);
-				expect(requestTimestamps).toHaveLength(2);
-				expect(
-					requirePresent(requestTimestamps[1], "Missing request timestamp") -
-						requirePresent(requestTimestamps[0], "Missing request timestamp"),
-				).toBeGreaterThanOrEqual(58_500);
-			}),
+			yield* stopApiProcess(apiProcessB);
+			apiProcessA = yield* resources.run(
+				startApiProcess(apiEnvA, "Global Rate Limit API A Restart"),
+			);
+			const restartedClientA = makeSession(apiProcessA.target);
+			expectSuccessfulHttpCall(
+				requireCompletedSandboxValue(
+					yield* pollSandboxResultAt(restartedClientA, userB.userId, secondJob.jobId),
+				),
+			);
+			expect(requestTimestamps).toHaveLength(2);
+			expect(
+				requirePresent(requestTimestamps[1], "Missing request timestamp") -
+					requirePresent(requestTimestamps[0], "Missing request timestamp"),
+			).toBeGreaterThanOrEqual(19_500);
+		}),
 	);
 });

@@ -10,6 +10,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/execution";
 import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
 import {
+	EntityId,
 	EntitySchemaSlug,
 	ImportRunId,
 	IntegrationId,
@@ -20,12 +21,16 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
+import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { enrichmentRequestRow } from "#modules/entities/enrichment/requests.test-support";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsService } from "#modules/events/service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingestion.test-support";
@@ -38,6 +43,7 @@ import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { JobQueue } from "#platform/jobs/queue";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
@@ -215,6 +221,7 @@ const recordingEngineLayer = (
 				ReadonlyArray<Pick<ExecuteOptions, "payload" | "executionId">>
 			>([]);
 			return Layer.mergeAll(
+				unusedPopulationLayer,
 				Layer.succeed(
 					WorkflowEngine,
 					makeWorkflowActivityEngine(parentInstance, {
@@ -242,11 +249,79 @@ const recordingEngineLayer = (
 		}),
 	);
 
+const unusedPopulationLayer = Layer.mergeAll(
+	Layer.mock(JobQueue)({}),
+	Layer.mock(EnrichmentRequests)({}),
+	Layer.mock(EntitiesRepository)({}),
+);
+
 const unusedEngineLayer = Layer.mergeAll(
+	unusedPopulationLayer,
 	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 	Layer.succeed(WorkflowInstance, parentInstance),
 	Layer.mock(EventsService)({}),
 );
+
+type PopulationRequest = Parameters<EnrichmentRequests["Service"]["ensure"]>[0];
+type PopulationOutcome =
+	| { readonly state: "succeeded" }
+	| { readonly state: "failed"; readonly failureKind: "timeout" | "script-failure" };
+
+const populatedEntityId = (executionId: string) => EntityId.make(`entity-${executionId}`);
+
+const recordingPopulationLayer = (
+	respond: (executionId: string) => PopulationOutcome = () => ({ state: "succeeded" }),
+) =>
+	Layer.unwrap(
+		Effect.gen(function* () {
+			const requests = yield* Ref.make<ReadonlyArray<PopulationRequest>>([]);
+			return Layer.mergeAll(
+				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
+				Layer.succeed(WorkflowInstance, parentInstance),
+				Layer.mock(EventsService)({}),
+				Layer.mock(JobQueue)({ enqueue: () => Effect.succeed(true) }),
+				Layer.mock(EnrichmentRequests)({
+					ensure: (input) =>
+						Ref.update(requests, (all) => [...all, input]).pipe(
+							Effect.as(enrichmentRequestRow(input)),
+						),
+					get: (id) =>
+						Effect.map(Ref.get(requests), (all) => {
+							const input = all.find((request) => request.id === id);
+							if (!input) {
+								return null;
+							}
+							const outcome = respond(id);
+							return {
+								...enrichmentRequestRow(input),
+								state: outcome.state,
+								failureKind: outcome.state === "failed" ? outcome.failureKind : null,
+								entityId: outcome.state === "succeeded" ? populatedEntityId(id) : null,
+							};
+						}),
+				}),
+				Layer.mock(EntitiesRepository)({
+					getById: (entityId) =>
+						Effect.succeed({
+							id: entityId,
+							properties: {},
+							name: "Record",
+							providerId: null,
+							externalId: null,
+							populatedAt: null,
+							entitySchemaPluginId: null,
+							createdAt: "1970-01-01T00:00:00.000Z",
+							updatedAt: "1970-01-01T00:00:00.000Z",
+							entitySchemaSlug: EntitySchemaSlug.make("record"),
+						}),
+				}),
+				Layer.succeed(RecordedWorkflowDispatches, {
+					executionIds: Effect.map(Ref.get(requests), (all) => all.map(({ id }) => id)),
+					payloads: Effect.map(Ref.get(requests), (all) => all.map(({ payload }) => payload)),
+				}),
+			);
+		}),
+	);
 
 layer(
 	KernelWorkflowReferencesLive.pipe(
@@ -299,11 +374,7 @@ layer(
 					"background",
 					"capture-child",
 					"run-1-import",
-					yield* callerAuthority({
-						type: "user",
-						userId: UserId.make("user-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-					}),
+					yield* callerAuthority({ type: "user", userId: UserId.make("user-1") }),
 				);
 				expect(result).toEqual({
 					captureId: "page-1",
@@ -325,14 +396,7 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const references = yield* KernelWorkflowReferences;
-				const subject = {
-					type: "user" as const,
-					userId: UserId.make("trusted-user"),
-					accountGeneration: {
-						token: "test-account-generation",
-						userId: UserId.make("trusted-user"),
-					},
-				};
+				const subject = { type: "user" as const, userId: UserId.make("trusted-user") };
 				yield* references.execute(
 					KERNEL_ENTITY_IMPORT_WORKFLOW,
 					{
@@ -415,14 +479,7 @@ layer(
 					"interactive",
 					"entity-import-execution",
 					"parent-execution",
-					yield* callerAuthority({
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
-						},
-					}),
+					yield* callerAuthority({ type: "user", userId: UserId.make("trusted-user") }),
 				);
 
 				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
@@ -444,7 +501,6 @@ const ownedRepositories = Layer.mergeAll(
 				...ingestionTestRun(),
 				id: scope.runId,
 				userId: scope.userId,
-				accountGeneration: scope.accountGeneration,
 				pins: {
 					scriptId: "script",
 					executionId: "parent/execution",
@@ -500,14 +556,7 @@ layer(
 					"background",
 					"child-execution",
 					"parent/execution",
-					yield* callerAuthority({
-						type: "user",
-						userId: UserId.make("trusted-user"),
-						accountGeneration: {
-							token: "test-account-generation",
-							userId: UserId.make("trusted-user"),
-						},
-					}),
+					yield* callerAuthority({ type: "user", userId: UserId.make("trusted-user") }),
 				);
 
 				expect(yield* (yield* RecordedWorkflowDispatches).payloads).toEqual([
@@ -575,14 +624,7 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 						"background",
 						"entity-import-execution",
 						"parent-execution",
-						yield* callerAuthority({
-							type: "user",
-							userId: UserId.make("trusted-user"),
-							accountGeneration: {
-								token: "test-account-generation",
-								userId: UserId.make("trusted-user"),
-							},
-						}),
+						yield* callerAuthority({ type: "user", userId: UserId.make("trusted-user") }),
 					),
 				);
 
@@ -611,10 +653,6 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 							type: "user",
 							userId: UserId.make("trusted-user"),
 							integrationId: IntegrationId.make("victim-integration"),
-							accountGeneration: {
-								token: "test-account-generation",
-								userId: UserId.make("trusted-user"),
-							},
 						}),
 					),
 				);
@@ -627,15 +665,7 @@ layer(referencesLayer(unownedRepositories).pipe(Layer.provideMerge(unusedEngineL
 	);
 });
 
-layer(
-	populationReferencesLayer().pipe(
-		Layer.provideMerge(
-			recordingEngineLayer((_workflow, _options, dispatchNumber) =>
-				Effect.succeed({ id: `entity-${dispatchNumber}` }),
-			),
-		),
-	),
-)((test) => {
+layer(populationReferencesLayer().pipe(Layer.provideMerge(recordingPopulationLayer())))((test) => {
 	test.effect(
 		"dispatches bounded provider population items with deterministic child ids using a cross-plugin provider",
 		() =>
@@ -665,7 +695,10 @@ layer(
 				);
 
 				const dispatches = yield* RecordedWorkflowDispatches;
-				expect(result).toEqual([{ id: "entity-1" }, { id: "entity-2" }]);
+				expect(result).toMatchObject([
+					{ id: populatedEntityId("population-reference-item-0") },
+					{ id: populatedEntityId("population-reference-item-1") },
+				]);
 				expect(yield* dispatches.executionIds).toEqual([
 					"population-reference-item-0",
 					"population-reference-item-1",
@@ -698,14 +731,14 @@ layer(
 layer(
 	populationReferencesLayer().pipe(
 		Layer.provideMerge(
-			recordingEngineLayer((_workflow, options) => {
-				if (options.executionId.endsWith("item-0")) {
-					return new SandboxRunError({ kind: "script-failure", message: "first item failed" });
+			recordingPopulationLayer((executionId) => {
+				if (executionId.endsWith("item-0")) {
+					return { state: "failed", failureKind: "script-failure" };
 				}
-				if (options.executionId.endsWith("item-2")) {
-					return new SandboxRunError({ kind: "script-failure", message: "third item failed" });
+				if (executionId.endsWith("item-2")) {
+					return { state: "failed", failureKind: "timeout" };
 				}
-				return Effect.succeed({ id: options.executionId });
+				return { state: "succeeded" };
 			}),
 		),
 	),
@@ -734,8 +767,10 @@ layer(
 				);
 
 				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(5);
-				expect(exit.toString()).toContain("first item failed");
-				expect(exit.toString()).not.toContain("third item failed");
+				assertExitFails(
+					exit,
+					new SandboxRunError({ kind: "script-failure", message: "Provider population failed" }),
+				);
 			}),
 		testTimeout,
 	);
@@ -747,20 +782,14 @@ const populationInput = {
 };
 
 layer(
-	populationReferencesLayer(undefined, "user").pipe(
-		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "private-entity" }))),
-	),
+	populationReferencesLayer(undefined, "user").pipe(Layer.provideMerge(recordingPopulationLayer())),
 )((test) => {
 	test.effect(
 		"keeps private ownership and exact caller pins through kernel provider children",
 		() =>
 			Effect.gen(function* () {
 				const userId = UserId.make("private-owner");
-				const subject = {
-					userId,
-					type: "user",
-					accountGeneration: { userId, token: "test-account-generation" },
-				} as const;
+				const subject = { userId, type: "user" } as const;
 				const pinned = yield* populationAuthority(subject);
 				const principal = yield* Schema.decodeUnknownEffect(ScriptExecutionPrincipal)({
 					...pinned,
@@ -786,57 +815,48 @@ layer(
 	);
 });
 
-layer(
-	populationReferencesLayer(() => false).pipe(
-		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
-	),
-)((test) => {
-	test.effect(
-		"rejects unavailable user and unauthorized system provider population calls",
-		() =>
-			Effect.gen(function* () {
-				const references = yield* KernelWorkflowReferences;
-				const userExit = yield* Effect.exit(
-					references.execute(
-						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-						populationInput,
-						"interactive",
-						"user-call",
-						"parent-execution",
-						yield* populationAuthority({
-							type: "user",
-							userId: UserId.make("user-1"),
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
-							},
-						}),
-					),
-				);
-				expect(userExit.toString()).toContain("is unavailable or has no exact binding");
+layer(populationReferencesLayer(() => false).pipe(Layer.provideMerge(recordingPopulationLayer())))(
+	(test) => {
+		test.effect(
+			"rejects unavailable user and unauthorized system provider population calls",
+			() =>
+				Effect.gen(function* () {
+					const references = yield* KernelWorkflowReferences;
+					const userExit = yield* Effect.exit(
+						references.execute(
+							KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+							populationInput,
+							"interactive",
+							"user-call",
+							"parent-execution",
+							yield* populationAuthority({ type: "user", userId: UserId.make("user-1") }),
+						),
+					);
+					expect(userExit.toString()).toContain("is unavailable or has no exact binding");
 
-				const ownershipExit = yield* Effect.exit(
-					references.execute(
-						KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
-						populationInput,
-						"interactive",
-						"foreign-call",
-						"parent-execution",
-						yield* populationAuthority({ type: "system" }),
-					),
-				);
-				expect(ownershipExit.toString()).toContain(
-					"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
-				);
-				expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
-			}),
-		testTimeout,
-	);
-});
+					const ownershipExit = yield* Effect.exit(
+						references.execute(
+							KERNEL_PROVIDER_ENTITY_POPULATION_WORKFLOW,
+							populationInput,
+							"interactive",
+							"foreign-call",
+							"parent-execution",
+							yield* populationAuthority({ type: "system" }),
+						),
+					);
+					expect(ownershipExit.toString()).toContain(
+						"is unavailable or has no exact binding to entity schema 'record' owned by plugin 'provider-owner'",
+					);
+					expect(yield* (yield* RecordedWorkflowDispatches).executionIds).toHaveLength(0);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 layer(
 	populationReferencesLayer((providerId) => providerId === "owned").pipe(
-		Layer.provideMerge(recordingEngineLayer(() => Effect.succeed({ id: "entity-1" }))),
+		Layer.provideMerge(recordingPopulationLayer()),
 	),
 )((test) => {
 	test.effect(
@@ -870,15 +890,7 @@ layer(
 	);
 });
 
-layer(
-	populationReferencesLayer().pipe(
-		Layer.provideMerge(
-			recordingEngineLayer((_workflow, _options, dispatchNumber) =>
-				Effect.succeed({ id: `entity-${dispatchNumber}` }),
-			),
-		),
-	),
-)((test) => {
+layer(populationReferencesLayer().pipe(Layer.provideMerge(recordingPopulationLayer())))((test) => {
 	test.effect(
 		"accepts 1-100 provider population items and rejects batches outside those bounds",
 		() => {

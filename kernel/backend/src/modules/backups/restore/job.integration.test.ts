@@ -157,7 +157,6 @@ const dependencies = Layer.unwrap(
 							createdAt: restoredReminderDate,
 							updatedAt: restoredReminderDate,
 							id: `${userId}-restored-reminder`,
-							accountGeneration: "test-account-generation",
 							originalSchedule: {
 								dueAt: null,
 								timezone: null,
@@ -239,14 +238,7 @@ const prepare = Effect.fnUntraced(function* (scenario: Scenario) {
 	const database = yield* DatabaseSession;
 	const userId = UserId.make(yield* randomUuid);
 	yield* database.run((db) =>
-		db
-			.insert(user)
-			.values({
-				id: userId,
-				name: "Before restore",
-				email: `${userId}@example.test`,
-				accountGeneration: "test-account-generation",
-			}),
+		db.insert(user).values({ id: userId, name: "Before restore", email: `${userId}@example.test` }),
 	);
 	const repository = yield* BackupsRepository;
 	const run = yield* repository.createRun({ userId, kind: "restore" });
@@ -298,7 +290,6 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 					createdAt: restoredReminderDate,
 					updatedAt: restoredReminderDate,
 					id: `${payload.userId}-restored-reminder`,
-					accountGeneration: "test-account-generation",
 					originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
 				});
 				yield* operations.fail(payload, failure);
@@ -384,7 +375,6 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 						createdAt: restoredReminderDate,
 						updatedAt: restoredReminderDate,
 						id: `${payload.userId}-restored-reminder`,
-						accountGeneration: "test-account-generation",
 						originalSchedule: {
 							dueAt: null,
 							timezone: null,
@@ -441,7 +431,6 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 					createdAt: restoredReminderDate,
 					updatedAt: restoredReminderDate,
 					id: `${payload.userId}-restored-reminder`,
-					accountGeneration: "test-account-generation",
 					originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
 				});
 				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([
@@ -486,7 +475,6 @@ layer(Layer.provideMerge(operationsLayer, BunCrypto.layerSecureRandom))((test) =
 					createdAt: restoredReminderDate,
 					updatedAt: restoredReminderDate,
 					id: `${payload.userId}-restored-reminder`,
-					accountGeneration: "test-account-generation",
 					originalSchedule: { dueAt: null, timezone: null, mayHaveSent: true, date: "2025-01-01" },
 				});
 				expect(yield* (yield* RestoreDatabaseHarness).calls).toEqual([

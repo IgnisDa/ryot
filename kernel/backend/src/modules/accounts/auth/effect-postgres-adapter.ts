@@ -36,13 +36,12 @@ import type { Context } from "effect";
 import { Effect } from "effect";
 
 import type { DatabaseSession } from "#platform/db/session";
-import type { RedisService } from "#platform/redis";
 import * as authSchema from "#schema/tables/auth";
 
 type AuthTable = PgTable;
 type AuthRow = Record<string, unknown>;
+type AuthRuntimeContext = Context.Context<DatabaseSession>;
 type AuthAdapterFactory = ReturnType<typeof createAdapterFactory>;
-type AuthRuntimeContext = Context.Context<RedisService | DatabaseSession>;
 type DatabaseExecutor = Parameters<Parameters<DatabaseSession["Service"]["run"]>[0]>[0];
 
 const tables: Record<string, AuthTable> = {
@@ -412,9 +411,7 @@ export const effectPostgresAuthAdapter = (args: {
 								context,
 								session.transaction(
 									Effect.gen(function* () {
-										const transactionContext = yield* Effect.context<
-											RedisService | DatabaseSession
-										>();
+										const transactionContext = yield* Effect.context<DatabaseSession>();
 										const adapter = makeFactory(transactionContext, false)(options);
 										contexts.set(adapter, transactionContext);
 										return yield* Effect.promise(() => callback(adapter));
@@ -435,7 +432,7 @@ export const effectPostgresAuthAdapter = (args: {
 	// oxlint-disable-next-line effecttsgo/async-function -- Better Auth requires a Promise-returning context bridge.
 	const runInCurrentContext = async <A, E>(
 		endpointContext: null | GenericEndpointContext,
-		effect: Effect.Effect<A, E, RedisService | DatabaseSession>,
+		effect: Effect.Effect<A, E, DatabaseSession>,
 	) => {
 		if (!rootAdapter) {
 			throw new BetterAuthError("The auth adapter has not been initialized.");

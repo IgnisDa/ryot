@@ -20,10 +20,7 @@ export const makeNotificationScriptHost = Effect.gen(function* () {
 						return sandboxHostFailure("sendNotification requires a trusted durable host call");
 					}
 					const subject = input.principal.subject;
-					if (
-						subject.accountGeneration === null ||
-						subject.executionUserId !== subject.accountGeneration.userId
-					) {
+					if (subject.accountUserId === null || subject.executionUserId !== subject.accountUserId) {
 						return sandboxHostFailure(
 							"sendNotification requires trusted recipient account authority",
 						);
@@ -33,7 +30,7 @@ export const makeNotificationScriptHost = Effect.gen(function* () {
 							.sendMessage({
 								message: message.trim(),
 								sourceRunId: subject.runId,
-								accountGeneration: subject.accountGeneration,
+								accountUserId: subject.accountUserId,
 								sourceKey: `${subject.runId}-host-${input.hostCallDiscriminator}-notification`,
 							})
 							.pipe(Effect.as(null)),

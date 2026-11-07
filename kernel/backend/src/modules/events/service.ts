@@ -206,12 +206,9 @@ export class EventsService extends Context.Service<EventsService>()(
 			) {
 				const userIds = [...new Set(items.map((item) => item.input.userId))].sort();
 				for (const userId of userIds) {
-					const account = items.find((item) => item.input.userId === userId)?.command
-						.accountGeneration;
-					if (!account || account.userId !== userId) {
-						return yield* new DbError({
-							message: "Event mutation account generation is unavailable",
-						});
+					const account = items.find((item) => item.input.userId === userId)?.command.accountUserId;
+					if (account !== userId) {
+						return yield* new DbError({ message: "Event mutation account is unavailable" });
 					}
 					yield* admission.admitAccount(account);
 				}

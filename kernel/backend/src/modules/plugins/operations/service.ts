@@ -7,7 +7,6 @@ import {
 	PluginOperationRejected,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
 	type IntegrationId,
@@ -55,9 +54,9 @@ type DispatchInput = {
 	readonly pluginId: PluginId;
 	readonly executionId: string;
 	readonly operationSlug: string;
+	readonly accountUserId: UserId;
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
-	readonly accountGeneration: AccountGeneration;
 	readonly pluginRevision: ScriptPluginRevision;
 };
 export class IntegrationOperationScopeResolver extends Context.Service<
@@ -96,7 +95,6 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					subject: {
 						type: "user",
 						userId: input.userId,
-						accountGeneration: input.accountGeneration,
 						...(input.integrationId ? { integrationId: input.integrationId } : {}),
 					},
 				});
@@ -213,7 +211,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					const executionId = AutomationExecutionId.make(
 						`plugin-operation-${sha256Base64Url(
 							stableStringify([
-								dispatchInput.accountGeneration,
+								dispatchInput.accountUserId,
 								dispatchInput.pluginId,
 								resolved.plugin.installationId,
 								input.operationSlug,
@@ -282,7 +280,6 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					const subject = {
 						type: "user" as const,
 						userId: dispatchInput.userId,
-						accountGeneration: dispatchInput.accountGeneration,
 						...(dispatchInput.integrationId ? { integrationId: dispatchInput.integrationId } : {}),
 					};
 					const pin = yield* scripts
@@ -313,7 +310,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					) {
 						return yield* operationNotFound;
 					}
-					yield* admission.admitAccount(dispatchInput.accountGeneration);
+					yield* admission.admitAccount(dispatchInput.accountUserId);
 					yield* references
 						.registerInTransaction({
 							executionId,
@@ -360,9 +357,9 @@ export class OperationsService extends Context.Service<OperationsService>()(
 									{
 										userId,
 										payload: input.payload,
+										accountUserId: user.id,
 										scriptId: resolved.script.id,
 										operationSlug: input.operationSlug,
-										accountGeneration: user.accountGeneration,
 										pluginId: PluginId.make(resolved.plugin.id),
 									},
 									resolved,
@@ -389,9 +386,9 @@ export class OperationsService extends Context.Service<OperationsService>()(
 										integrationId: scope.integrationId,
 										operationSlug: input.operationSlug,
 										pluginId: PluginId.make(resolved.plugin.id),
-										accountGeneration:
+										accountUserId:
 											user.id === scope.userId
-												? user.accountGeneration
+												? user.id
 												: yield* admission.currentAccount(scope.userId),
 									},
 									resolved,
@@ -424,7 +421,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 								integrationId: owner.integrationId,
 								operationSlug: input.operationSlug,
 								pluginId: PluginId.make(resolved.plugin.id),
-								accountGeneration: yield* admission.currentAccount(owner.userId),
+								accountUserId: yield* admission.currentAccount(owner.userId),
 							},
 							resolved,
 						);

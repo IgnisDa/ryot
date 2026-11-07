@@ -257,18 +257,17 @@ const deleteOperation = {
 		accounts: [],
 		usesLocalAuth: true,
 		recreatedAccountId: "account-1",
-		locators: [
-			{ type: "local" as const, key: "permanent/local.png" },
-			{ type: "s3" as const, key: "permanent/s3.png" },
-		],
 		user: {
 			id: userId,
 			name: "User",
 			disabledAt: null,
 			emailVerified: true,
 			email: "user@example.com",
-			accountGeneration: "test-account-generation",
 		},
+		locators: [
+			{ type: "local" as const, key: "permanent/local.png" },
+			{ type: "s3" as const, key: "permanent/s3.png" },
+		],
 	},
 };
 
@@ -334,17 +333,6 @@ layer(
 const resetOperation = {
 	accessRevokedAt: new Date("2026-08-24T00:00:00.000Z"),
 	databaseCleanupCompletedAt: new Date("2026-08-24T00:00:01.000Z"),
-	operation: {
-		userId,
-		failure: null,
-		finishedAt: null,
-		id: "operation-1",
-		resetResult: null,
-		kind: "reset" as const,
-		status: "running" as const,
-		createdAt: "2026-08-24T00:00:00.000Z",
-		startedAt: "2026-08-24T00:00:01.000Z",
-	},
 	metadata: {
 		apiKeys: [],
 		locators: [],
@@ -357,8 +345,18 @@ const resetOperation = {
 			disabledAt: null,
 			emailVerified: true,
 			email: "user@example.com",
-			accountGeneration: "test-account-generation",
 		},
+	},
+	operation: {
+		userId,
+		failure: null,
+		finishedAt: null,
+		id: "operation-1",
+		resetResult: null,
+		kind: "reset" as const,
+		status: "running" as const,
+		createdAt: "2026-08-24T00:00:00.000Z",
+		startedAt: "2026-08-24T00:00:01.000Z",
 	},
 };
 

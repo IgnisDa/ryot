@@ -53,8 +53,8 @@ const command = rootLifecycleCommand({
 	lane: "background",
 	itemIdentity: "root",
 	importRunId: ingestionTestScope.runId,
+	accountUserId: ingestionTestScope.userId,
 	occurredAt: IsoUtcString.make(ingestionTestNow),
-	accountGeneration: ingestionTestScope.accountGeneration,
 	initiator: { kind: "user", id: ingestionTestScope.userId },
 	executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 });
@@ -67,11 +67,7 @@ const domainCommand = {
 		scriptId: ingestionTestSource.workflowScriptId,
 		pluginRevision: ingestionTestSource.pluginRevision,
 		metadata: { runtimeImports: [], kind: "workflow" as const },
-		subject: {
-			type: "user" as const,
-			userId: ingestionTestScope.userId,
-			accountGeneration: ingestionTestScope.accountGeneration,
-		},
+		subject: { type: "user" as const, userId: ingestionTestScope.userId },
 	},
 };
 const applyCase = (

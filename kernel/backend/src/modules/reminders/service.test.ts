@@ -137,7 +137,7 @@ layer(services)((test) => {
 				const other = {
 					...user,
 					id: UserId.make("recipient"),
-					accountGeneration: { userId: UserId.make("recipient"), token: "test-account-generation" },
+					accountUserId: UserId.make("recipient"),
 				};
 				assertExitFails(
 					yield* service.cancel(other, created.id, { revision: edited.revision }).pipe(Effect.exit),

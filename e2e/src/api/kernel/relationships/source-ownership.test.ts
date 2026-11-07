@@ -32,7 +32,7 @@ import {
 	enqueueProviderEntityImport,
 	executeRyotQLRecipe,
 	pollProviderEntityImportResult,
-	populateRelatedThroughForegroundInterest,
+	populateRelatedInteractively,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
 import {
@@ -170,7 +170,7 @@ describe("relationship source ownership", () => {
 			});
 			const imported = yield* pollProviderEntityImportResult(client, importedJob.jobId);
 			assertCompleted(imported, "source-owner provider item import");
-			yield* populateRelatedThroughForegroundInterest({ client }, imported.data.id);
+			yield* populateRelatedInteractively({ client }, imported.data.id);
 
 			const owner = { kind: "local" as const, pluginId: itemProvider.pluginId };
 			const targets = yield* executeRyotQLRecipe(

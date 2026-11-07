@@ -78,11 +78,7 @@ for (const executionKind of ["source", "integration"] as const) {
 			`persists cancellation before interrupting the ${executionKind} execution`,
 			() =>
 				Effect.gen(function* () {
-					yield* runCancelImportRunWorkflow({
-						runId,
-						userId,
-						accountGeneration: { userId, token: "generation" },
-					});
+					yield* runCancelImportRunWorkflow({ runId, userId });
 					const fake = yield* FakeCancelWorkflow;
 					expect(yield* fake.events).toEqual(["request", "interrupt"]);
 					expect(yield* fake.interrupts).toEqual([{ runId, executionKind }]);
@@ -97,11 +93,7 @@ layer(makeLayer("source", false))((test) => {
 		"does not interrupt when the cancellation request is not cancellable",
 		() =>
 			Effect.gen(function* () {
-				yield* runCancelImportRunWorkflow({
-					runId,
-					userId,
-					accountGeneration: { userId, token: "generation" },
-				});
+				yield* runCancelImportRunWorkflow({ runId, userId });
 				const fake = yield* FakeCancelWorkflow;
 				expect(yield* fake.events).toEqual(["request"]);
 				expect(yield* fake.interrupts).toEqual([]);

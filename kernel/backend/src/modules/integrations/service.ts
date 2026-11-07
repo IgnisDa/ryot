@@ -16,7 +16,6 @@ import {
 	type IntegrationRequestFailureReason,
 	type UpdateIntegrationBody,
 } from "@ryot-app/contract/modules/integrations/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type {
 	ImportRunId,
 	IntegrationId,
@@ -457,9 +456,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							reason: { provider: dataJsonSource, code: "invalid-provider-settings" },
 						});
 					}
-					const accountGeneration = yield* admission.currentAccount(integration.userId);
+					const accountUserId = yield* admission.currentAccount(integration.userId);
 					const admitted = yield* dataAdmission.admit({
-						accountGeneration,
 						rawBody: input.rawBody,
 						userId: integration.userId,
 						integrationId: integration.id,
@@ -474,7 +472,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 							return { runId: admitted.runId };
 						}
 					}
-					const scope = { accountGeneration, runId: admitted.runId, userId: integration.userId };
+					const scope = { runId: admitted.runId, userId: integration.userId };
 					const release = dataAdmission
 						.release(scope)
 						.pipe(
@@ -493,21 +491,16 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						yield* release;
 						return { runId: admitted.runId };
 					}
-					yield* dispatchAdmittedWorkflow(
-						engine,
-						ProcessIntegrationRunWorkflow,
-						accountGeneration,
-						{
-							discard: true,
-							executionId: admitted.runId,
-							payload: {
-								accountGeneration,
-								runId: admitted.runId,
-								userId: integration.userId,
-								integrationId: integration.id,
-							},
+					yield* dispatchAdmittedWorkflow(engine, ProcessIntegrationRunWorkflow, accountUserId, {
+						discard: true,
+						executionId: admitted.runId,
+						payload: {
+							accountUserId,
+							runId: admitted.runId,
+							userId: integration.userId,
+							integrationId: integration.id,
 						},
-					).pipe(
+					}).pipe(
 						Effect.catchCause((cause) => Effect.logError("Data webhook dispatch deferred", cause)),
 					);
 					return { runId: admitted.runId };
@@ -574,17 +567,17 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				if (!released) {
 					return { runId: run.id };
 				}
-				const accountGeneration = scope.accountGeneration;
+				const accountUserId = integration.userId;
 				const started = yield* dispatchAdmittedWorkflow(
 					engine,
 					ProcessIntegrationRunWorkflow,
-					accountGeneration,
+					accountUserId,
 					{
 						discard: true,
 						executionId: run.id,
 						payload: {
 							runId: run.id,
-							accountGeneration,
+							accountUserId,
 							userId: integration.userId,
 							integrationId: integration.id,
 						},
@@ -658,10 +651,8 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				}
 			});
 
-			const syncAll = Effect.fn("IntegrationsService.syncAll")(function* (
-				accountGeneration: AccountGeneration,
-			) {
-				const userId = accountGeneration.userId;
+			const syncAll = Effect.fn("IntegrationsService.syncAll")(function* (accountUserId: UserId) {
+				const userId = accountUserId;
 				const executionId = `integration-sync-${generateId()}`;
 				const started = yield* jobs
 					.enqueue(IntegrationSyncJob, { userId }, { userId, id: executionId })
@@ -689,11 +680,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				recordRunFinished: repository.recordRunFinished,
 				captureRecoveryCutoff: importRepository.captureIntegrationRecoveryCutoff,
 				releaseRecoveryRun: Effect.fnUntraced(function* (run: IntegrationSyncRun) {
-					const scope = {
-						runId: run.runId,
-						userId: run.userId,
-						accountGeneration: run.accountGeneration,
-					};
+					const scope = { runId: run.runId, userId: run.userId };
 					if (yield* ingestion.expire(scope)) {
 						return false;
 					}

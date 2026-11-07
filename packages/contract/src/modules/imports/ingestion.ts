@@ -1,17 +1,12 @@
 import { Schema } from "effect";
 
-import { AccountGeneration } from "../../schema/account-generation";
 import { ImportRunId, IntegrationId, UserId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { ImportRunFailureReason, ImportRunStatus, ingestionBlockReasonFields } from "./schemas";
 
 const Count = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
-export const IngestionScope = Schema.Struct({
-	userId: UserId,
-	runId: ImportRunId,
-	accountGeneration: AccountGeneration,
-});
+export const IngestionScope = Schema.Struct({ userId: UserId, runId: ImportRunId });
 export type IngestionScope = typeof IngestionScope.Type;
 
 export const IngestionReason = Schema.Struct({
@@ -134,7 +129,6 @@ export const IngestionRun = Schema.Struct({
 	collectionSealed: Schema.Boolean,
 	plan: Schema.NullOr(IngestionPlan),
 	pins: Schema.NullOr(IngestionPins),
-	accountGeneration: AccountGeneration,
 	startedAt: Schema.NullOr(Schema.String),
 	finishedAt: Schema.NullOr(Schema.String),
 	integrationId: Schema.NullOr(IntegrationId),

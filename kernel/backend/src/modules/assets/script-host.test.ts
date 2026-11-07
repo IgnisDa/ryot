@@ -46,11 +46,7 @@ it.effect(
 			);
 			const userId = UserId.make("execution-owner");
 			const locators = [{ type: "s3", key: "permanent/asset.webp" }] as const;
-			const input = makeSubjectRunInput({
-				userId,
-				type: "user",
-				accountGeneration: { userId, token: "test-account-generation" },
-			});
+			const input = makeSubjectRunInput({ userId, type: "user" });
 
 			expect(yield* host.verifyManagedAssets(input, locators)).toBeNull();
 			expect(
@@ -76,11 +72,7 @@ it.effect(
 				Effect.provideService(ManagedAssetsService, makeManagedAssetsService(calls)),
 			);
 			const userId = UserId.make("execution-owner");
-			const input = makeSubjectRunInput({
-				userId,
-				type: "user",
-				accountGeneration: { userId, token: "test-account-generation" },
-			});
+			const input = makeSubjectRunInput({ userId, type: "user" });
 			const failure = yield* host
 				.verifyManagedAssets(input, [{ type: "local", key: "foreign" }])
 				.pipe(Effect.flip);

@@ -115,16 +115,15 @@ export const eventGroupFixture = Effect.fnUntraced(function* () {
 	});
 	assert(provider);
 	const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-	const accountGeneration = yield* (yield* AccountAdmission.make).currentAccount(userId);
+	const accountUserId = yield* (yield* AccountAdmission.make).currentAccount(userId);
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, {
 		userId,
 		type: "user",
-		accountGeneration,
 	});
 	assert(pin?.pluginRevision);
 	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
 		...pin,
-		subject: { userId, type: "user", accountGeneration },
+		subject: { userId, type: "user" },
 	});
 	const entities = yield* EntitiesRepository;
 	const [subject] = yield* entities.insertEntities([
@@ -147,6 +146,6 @@ export const eventGroupFixture = Effect.fnUntraced(function* () {
 		installed,
 		subjectId: subject.id,
 		relationshipSchemaSlug,
-		command: { ...command(yield* randomUuid), accountGeneration, writeContext: principal },
+		command: { ...command(yield* randomUuid), accountUserId, writeContext: principal },
 	};
 });

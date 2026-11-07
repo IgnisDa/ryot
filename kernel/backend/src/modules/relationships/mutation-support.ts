@@ -89,11 +89,6 @@ export type ChangeUserRelationshipBatch = {
 };
 export type ReconcileGlobalRelationshipGroup = {
 	relationshipSchema: RelationshipSchemaReference;
-	/**
-	 * Paged synchronization: a "page" upserts only its relationships, stamps them with the generation
-	 * and deletes nothing; a "sweep" deletes the relationships not stamped with the generation.
-	 */
-	generation?: { value: string; kind: "page" | "sweep"; preserveExisting: boolean };
 	relationships: ReadonlyArray<{
 		properties: unknown;
 		sourceEntityId: EntityId;
@@ -102,6 +97,13 @@ export type ReconcileGlobalRelationshipGroup = {
 	selector:
 		| { type: "self" }
 		| { type: "anchored"; anchorEntityId: EntityId; direction: "incoming" | "outgoing" };
+	/**
+	 * Paged synchronization: a "page" upserts only its relationships and deletes nothing; a "sweep" deletes the
+	 * relationships whose other end is not in `kept`.
+	 */
+	paging?:
+		| { readonly kind: "page"; readonly preserveExisting: boolean }
+		| { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
 };
 
 export const RelationshipMutation = Schema.Struct({

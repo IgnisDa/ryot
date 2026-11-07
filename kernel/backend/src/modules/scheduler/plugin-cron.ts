@@ -1,6 +1,9 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
 import type { PluginCron } from "@ryot-app/contract/modules/plugins/manifest";
-import type { SandboxExecutionSubject } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	type SandboxExecutionSubject,
+	sandboxSubjectUserId,
+} from "@ryot-app/contract/modules/scripts/schemas";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Context, Cron, Duration, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -66,8 +69,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()(
 						...owned,
 						subject: {
 							type: "user",
-							userId: owned.userId,
-							accountGeneration: yield* admission.currentAccount(owned.userId),
+							userId: yield* admission.currentAccount(owned.userId),
 						} satisfies SandboxExecutionSubject,
 					}
 				);
@@ -92,7 +94,7 @@ export class PluginCronService extends Context.Service<PluginCronService>()(
 					dispatchAdmittedWorkflow(
 						engine,
 						ScriptExecutionWorkflow,
-						resolved.subject.type === "system" ? null : resolved.subject.accountGeneration,
+						sandboxSubjectUserId(resolved.subject),
 						{
 							executionId,
 							payload: {

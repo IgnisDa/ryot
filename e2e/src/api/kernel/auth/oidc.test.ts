@@ -96,7 +96,6 @@ const startApi = (label: string, port: number, extraEnv: Record<string, string> 
 			label: `API ${label}`,
 			dbUrl: infrastructure.dbUrl,
 			s3BucketName: S3_BUCKET_NAME,
-			redisUrl: infrastructure.redisUrl,
 			s3Endpoint: infrastructure.s3Endpoint,
 			frontendUrl: `http://127.0.0.1:${port}`,
 			extraEnv: {

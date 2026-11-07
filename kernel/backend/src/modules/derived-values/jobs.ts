@@ -1,9 +1,9 @@
 import { Effect, Layer } from "effect";
 
 import { EventMutations } from "#modules/events/mutations";
+import { publishDerivedDataUpdated } from "#modules/live-updates/publish";
 import { DatabaseSession } from "#platform/db/session";
 import { registerJobHandler } from "#platform/jobs/worker";
-import { publishDerivedDataUpdated, RedisService } from "#platform/redis";
 
 import { FoldJob, FoldMarks, FoldRebuildJob } from "./marks";
 import { Folds } from "./service";
@@ -14,7 +14,6 @@ const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
 		const marks = yield* FoldMarks.make;
 		const folds = yield* Folds;
 		const mutations = yield* EventMutations;
-		const redis = yield* RedisService;
 		yield* mutations
 			.transaction(marks.markSubjects([subject]), "job")
 			.pipe(
@@ -24,7 +23,7 @@ const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
 						: Effect.void,
 				),
 			);
-		yield* publishDerivedDataUpdated(redis, subject.userId);
+		yield* publishDerivedDataUpdated(subject.userId);
 	}),
 );
 

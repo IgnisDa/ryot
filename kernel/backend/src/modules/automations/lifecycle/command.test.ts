@@ -28,8 +28,8 @@ const writes = (lane: "background" | "interactive") => {
 	const { causation } = rootLifecycleCommand({
 		lane,
 		source: "api",
+		accountUserId: null,
 		itemIdentity: "entity",
-		accountGeneration: null,
 		occurredAt: "2026-09-15T00:00:00.000Z",
 		initiator: { id: null, kind: "system" },
 		executionId: AutomationExecutionId.make("root"),
@@ -52,7 +52,7 @@ describe("lifecycle commands", () => {
 	it("keeps nested child identities distinct from provider population path identities", () => {
 		const command = rootLifecycleCommand({
 			lane: "background",
-			accountGeneration: null,
+			accountUserId: null,
 			source: "provider-refresh",
 			itemIdentity: '["import",2]',
 			occurredAt: "2026-09-15T00:00:00.000Z",
@@ -124,10 +124,10 @@ describe("lifecycle commands", () => {
 					lane: "background",
 					source: "integration",
 					itemIdentity: "item-1",
+					accountUserId: UserId.make("user-1"),
 					importRunId: ImportRunId.make("import-1"),
 					initiator: { id: integrationId, kind: "integration" },
 					providerExecutionId: AutomationExecutionId.make("provider-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 				});
 
 				const trigger = yield* lifecycleTrigger(command, scopeUserId, entityPayload);

@@ -6,7 +6,6 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesServiceRuntimeLive } from "#modules/entities/layer";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepositoryLive } from "#modules/entities/repository";
-import { InterestServicesLive } from "#modules/entities/watches/layer";
 import { ImportsServiceLive, IngestionExecutionLive } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
@@ -33,7 +32,6 @@ export const TestSupportServicesLive = Layer.mergeAll(
 				AuthServiceLive,
 				EntitiesServiceRuntimeLive,
 				EntitiesRepositoryLive,
-				InterestServicesLive,
 				PluginCronServiceLive,
 				ScriptExecutionServiceLive,
 				TranslationsRepository.layer,

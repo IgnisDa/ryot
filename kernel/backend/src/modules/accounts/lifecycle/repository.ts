@@ -19,6 +19,7 @@ import * as coreSchema from "#schema/tables/core";
 import { idempotencyKey } from "#schema/tables/mutations";
 import * as uploadSchema from "#schema/tables/uploads";
 import * as lifecycleSchema from "#schema/tables/user-lifecycle";
+import { workflowExecution } from "#schema/tables/workflow-executions";
 
 const LifecycleMetadata = Schema.Struct({
 	usesLocalAuth: Schema.Boolean,
@@ -31,7 +32,6 @@ const LifecycleMetadata = Schema.Struct({
 		name: Schema.String,
 		email: Schema.String,
 		emailVerified: Schema.Boolean,
-		accountGeneration: Schema.String,
 		disabledAt: Schema.NullOr(Schema.String),
 	}),
 });
@@ -79,7 +79,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			) {
 				yield* database.transaction(
 					Effect.gen(function* () {
-						yield* database.acquireUserWriteLock(userId);
 						yield* database.run((db) =>
 							db
 								.select({ id: authSchema.user.id })
@@ -87,8 +86,13 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 								.where(eq(authSchema.user.id, userId))
 								.for("update"),
 						);
+						yield* database.acquireUserWriteLock(userId);
 						yield* database.run((db) =>
 							db.delete(idempotencyKey).where(eq(idempotencyKey.userId, userId)),
+						);
+						// Their identities are deterministic, and a reset account must be able to run them again.
+						yield* database.run((db) =>
+							db.delete(workflowExecution).where(eq(workflowExecution.accountUserId, userId)),
 						);
 						yield* imports.purgePayloadReservations({ userId });
 						yield* database.run((db) =>
@@ -226,7 +230,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 			const loadPreparationForUpdate = Effect.fn(
 				"UserLifecycleRepository.loadPreparationForUpdate",
 			)(function* (userId: UserId, kind: UserLifecycleOperationKind) {
-				yield* database.acquireUserWriteLock(userId);
 				yield* database.run((db) =>
 					db
 						.select({ id: authSchema.user.id })
@@ -234,6 +237,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						.where(eq(authSchema.user.id, userId))
 						.for("update"),
 				);
+				yield* database.acquireUserWriteLock(userId);
 				const active = yield* getActiveByUserId(userId);
 				if (active) {
 					return { active, retryable: null, metadata: active.metadata };
@@ -266,7 +270,6 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 							email: authSchema.user.email,
 							disabledAt: authSchema.user.disabledAt,
 							emailVerified: authSchema.user.emailVerified,
-							accountGeneration: authSchema.user.accountGeneration,
 						})
 						.from(authSchema.user)
 						.where(eq(authSchema.user.id, userId)),
@@ -364,10 +367,11 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						.values({ ...input, status: "pending" })
 						.returning(),
 				);
+				const retiringAt = yield* DateTime.nowAsDate;
 				yield* database.run((db) =>
 					db
 						.update(authSchema.user)
-						.set({ retiringAccountGeneration: input.metadata.user.accountGeneration })
+						.set({ retiringAt })
 						.where(eq(authSchema.user.id, input.userId)),
 				);
 				return row

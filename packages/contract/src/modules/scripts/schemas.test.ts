@@ -11,11 +11,11 @@ const subject = {
 	pluginId: null,
 	stage: "before",
 	delivery: "policy",
+	accountUserId: null,
 	executionUserId: null,
 	type: "automation-run",
 	triggerId: "trigger-1",
 	pluginRevisionId: null,
-	accountGeneration: null,
 	pluginConfigRevisionId: null,
 	causation: {
 		depth: 0,
@@ -40,15 +40,16 @@ it.effect(
 				stage: "after",
 				delivery: "required",
 				pluginId: "plugin-1",
+				accountUserId: "user-1",
 				executionUserId: "user-1",
 				pluginRevisionId: "revision-1",
 				pluginConfigRevisionId: "config-1",
-				accountGeneration: { userId: "user-1", token: "generation-1" },
 			};
 			expect(yield* decode(plugin)).toEqual<unknown>(plugin);
 			for (const key of ["pluginId", "pluginRevisionId", "pluginConfigRevisionId"] as const) {
 				yield* Effect.flip(decode({ ...plugin, [key]: null }));
 			}
+			yield* Effect.flip(decode({ ...plugin, accountUserId: "user-2" }));
 		}),
 	testTimeout,
 );
@@ -66,7 +67,6 @@ it.effect(
 					importRunId: "import-run-1",
 					integrationId: "integration-1",
 					integrationRunId: "integration-run-1",
-					accountGeneration: { userId: "user-1", token: "generation-1" },
 				}),
 			).toEqual<unknown>({
 				type: "user",
@@ -74,7 +74,6 @@ it.effect(
 				importRunId: "import-run-1",
 				integrationId: "integration-1",
 				integrationRunId: "integration-run-1",
-				accountGeneration: { userId: "user-1", token: "generation-1" },
 			});
 			for (const legacy of [
 				{ type: "system", automationRunId: "run-1" },

@@ -24,7 +24,7 @@ export class OperationalGateRepository extends Context.Service<OperationalGateRe
 					return null;
 				}
 				const userId = UserId.make(run.userId);
-				return { runId, userId, accountGeneration: { userId, token: run.accountGeneration } };
+				return { runId, userId, accountUserId: userId };
 			});
 			return { runningScope };
 		}),

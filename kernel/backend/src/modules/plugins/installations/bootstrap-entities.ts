@@ -1,6 +1,5 @@
 import type { InternalError } from "@ryot-app/contract/errors";
 import type { PluginUserBootstrapEntity } from "@ryot-app/contract/modules/plugins/manifest";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect, Schema } from "effect";
 
@@ -10,8 +9,8 @@ export type PluginBootstrapEntitiesInput = {
 	readonly installedAt: Date;
 	readonly pluginId: PluginId;
 	readonly executionId: string;
+	readonly accountUserId: UserId;
 	readonly installationId: string;
-	readonly accountGeneration: AccountGeneration;
 	readonly entities: ReadonlyArray<PluginUserBootstrapEntity>;
 };
 

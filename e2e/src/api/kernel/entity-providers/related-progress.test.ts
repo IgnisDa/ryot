@@ -13,7 +13,7 @@ import {
 	installTestProviders,
 	markEntityPopulated,
 	namespaceInstallation,
-	openInterestWebSocketScoped,
+	openLiveUpdatesScoped,
 	pollUntil,
 	providerSandboxSource,
 	relatedPageKey,
@@ -137,8 +137,8 @@ describe("related population progress", () => {
 					sourceEntityId: root.id,
 					relationshipSchemaSlug: "record-to-related",
 				});
-			const socket = yield* openInterestWebSocketScoped(auth);
-			yield* socket.replaceInterest([root.id], [root.id]);
+			const stream = yield* openLiveUpdatesScoped(auth);
+			yield* stream.populate([root.id], "interactive");
 			yield* pollUntil(
 				"last related page held upstream",
 				Effect.sync(() => (upstream.requests.some(({ path }) => path === "/page-3") ? true : null)),
@@ -162,8 +162,8 @@ describe("related population progress", () => {
 				readableIds.push(record.id);
 			}
 			yield* relationship(stale.id);
-			yield* socket.waitForEntityUpdated(root.id, "populated");
-			yield* socket.waitForEntityUpdated(root.id, "enrichment-updated");
+			yield* stream.waitForEntityUpdated(root.id, "populated");
+			yield* stream.waitForEntityUpdated(root.id, "enrichment-updated");
 
 			yield* Deferred.succeed(failedPage, undefined);
 			const failed = yield* pollUntil(

@@ -215,7 +215,7 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 					}),
 				);
 				const userId = UserId.make("user-1");
-				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				yield* dispatcher.dispatchAll(userId, userId);
 				expect(marks).toEqual([
 					{ userId, activationId: "example-id-activation", installationId: "example-installation" },
 					{ userId, activationId: "sample-id-activation", installationId: "sample-installation" },
@@ -234,59 +234,26 @@ layer(layerFor([systemInstallation("example"), systemInstallation("sample")]))((
 						return { error: null };
 					}),
 				);
-				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
-					userId: UserId.make("user-1"),
-					token: "test-account-generation",
-				});
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), UserId.make("user-1"));
 
 				expect(payloads).toEqual<unknown>([
 					{
 						context: {},
 						scriptId: "bootstrap.first-id",
-						executionId: userBootstrapExecutionId("user-1", "example-id", "first", {
-							userId: UserId.make("user-1"),
-							token: "test-account-generation",
-						}),
-						subject: {
-							type: "user",
-							userId: "user-1",
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
-							},
-						},
+						subject: { type: "user", userId: "user-1" },
+						executionId: userBootstrapExecutionId("user-1", "example-id", "first"),
 					},
 					{
 						context: {},
 						scriptId: "bootstrap.second-id",
-						executionId: userBootstrapExecutionId("user-1", "example-id", "second", {
-							userId: UserId.make("user-1"),
-							token: "test-account-generation",
-						}),
-						subject: {
-							type: "user",
-							userId: "user-1",
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
-							},
-						},
+						subject: { type: "user", userId: "user-1" },
+						executionId: userBootstrapExecutionId("user-1", "example-id", "second"),
 					},
 					{
 						context: {},
 						scriptId: "bootstrap.only-id",
-						executionId: userBootstrapExecutionId("user-1", "sample-id", "only", {
-							userId: UserId.make("user-1"),
-							token: "test-account-generation",
-						}),
-						subject: {
-							type: "user",
-							userId: "user-1",
-							accountGeneration: {
-								userId: UserId.make("user-1"),
-								token: "test-account-generation",
-							},
-						},
+						subject: { type: "user", userId: "user-1" },
+						executionId: userBootstrapExecutionId("user-1", "sample-id", "only"),
 					},
 				]);
 			});
@@ -317,7 +284,7 @@ layer(layerFor([systemInstallation("idle")]))((test) => {
 					}),
 				);
 				const userId = UserId.make("user-1");
-				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				yield* dispatcher.dispatchAll(userId, userId);
 				expect(marks).toEqual([
 					{
 						userId,
@@ -361,7 +328,7 @@ layer(layerFor([systemInstallation("idle"), systemInstallation("sample")]))((tes
 					}),
 				);
 				const userId = UserId.make("user-1");
-				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				yield* dispatcher.dispatchAll(userId, userId);
 				expect(steps).toEqual([
 					"no-entry idle-installation",
 					"execute bootstrap.only-id",
@@ -384,10 +351,7 @@ layer(layerFor([]))((test) => {
 						return { error: null };
 					}),
 				);
-				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
-					userId: UserId.make("user-1"),
-					token: "test-account-generation",
-				});
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), UserId.make("user-1"));
 
 				expect(payloads).toEqual([]);
 			});
@@ -408,36 +372,9 @@ layer(layerFor([systemInstallation("sample")]))((test) => {
 						return { error: null };
 					}),
 				);
-				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
-					userId: UserId.make("user-1"),
-					token: "test-account-generation",
-				});
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), UserId.make("user-1"));
 
 				expect(executed).toEqual(["bootstrap.only-id"]);
-			});
-		},
-		testTimeout,
-	);
-
-	test.effect(
-		"reruns bootstrap scripts after a reset with a new durable identity",
-		() => {
-			const executionIds: string[] = [];
-			return Effect.gen(function* () {
-				const dispatcher = yield* makePluginUserBootstrapDispatcher((payload) =>
-					Effect.sync(() => {
-						executionIds.push(payload.executionId);
-						return { error: null };
-					}),
-				);
-				const userId = UserId.make("user-1");
-				const accountGeneration = { userId, token: "test-account-generation" };
-				yield* dispatcher.dispatchAll(userId, accountGeneration);
-				const recreatedGeneration = { userId, token: "recreated-account-generation" };
-				yield* dispatcher.dispatchAll(userId, recreatedGeneration);
-				yield* dispatcher.dispatchAll(userId, recreatedGeneration);
-				expect(executionIds[1]).not.toBe(executionIds[0]);
-				expect(executionIds[2]).toBe(executionIds[1]);
 			});
 		},
 		testTimeout,
@@ -485,7 +422,7 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 					}),
 				);
 				const userId = UserId.make("user-1");
-				yield* dispatcher.dispatchAll(userId, { userId, token: "test-account-generation" });
+				yield* dispatcher.dispatchAll(userId, userId);
 				expect(marks).toEqual([]);
 			}),
 		testTimeout,
@@ -515,18 +452,12 @@ layer(layerFor([systemInstallation("example")]))((test) => {
 					}),
 				);
 				const first = yield* Effect.exit(
-					dispatcher.dispatchAll(UserId.make("user-1"), {
-						userId: UserId.make("user-1"),
-						token: "test-account-generation",
-					}),
+					dispatcher.dispatchAll(UserId.make("user-1"), UserId.make("user-1")),
 				);
 				expect(first._tag).toBe("Failure");
 				expect(marks).toEqual([]);
 
-				yield* dispatcher.dispatchAll(UserId.make("user-1"), {
-					userId: UserId.make("user-1"),
-					token: "test-account-generation",
-				});
+				yield* dispatcher.dispatchAll(UserId.make("user-1"), UserId.make("user-1"));
 				expect(executionIds[0]).toBe(executionIds[1]);
 				expect(marks).toEqual([
 					{
@@ -578,24 +509,19 @@ layer(layerFor([systemInstallation("seeded")]))((test) => {
 					}),
 				);
 				const userId = UserId.make("user-1");
-				const accountGeneration = { userId, token: "test-account-generation" };
+				const accountUserId = userId;
 				ensuredEntities.length = 0;
-				expect(yield* dispatcher.dispatchAll(userId, accountGeneration)).toEqual(["plan:library"]);
+				expect(yield* dispatcher.dispatchAll(userId, accountUserId)).toEqual(["plan:library"]);
 				expect(ensuredEntities).toEqual<unknown>([
 					{
 						userId,
 						installedAt,
-						accountGeneration,
+						accountUserId,
 						entrySlug: "library",
 						pluginId: "seeded-id",
 						installationId: "seeded-installation",
+						executionId: userBootstrapExecutionId(userId, "seeded-id", "library"),
 						entities: [{ properties: {}, name: "Library", entitySchemaSlug: "library" }],
-						executionId: userBootstrapExecutionId(
-							userId,
-							"seeded-id",
-							"library",
-							accountGeneration,
-						),
 					},
 				]);
 				expect(marks).toEqual<unknown>([
@@ -615,7 +541,7 @@ layer(Layer.merge(revisionDatabaseLayer, recordedBootstrapEntities))((test) => {
 				const repository = yield* PluginRepository;
 				const installations = yield* PluginInstallationRepository;
 				const userId = UserId.make("owner");
-				const accountGeneration = { userId, token: "test-account-generation" };
+				const accountUserId = userId;
 				const [alpha, beta, idle] = yield* session.transaction(
 					Effect.gen(function* () {
 						yield* repository.lockIngestion();
@@ -645,11 +571,11 @@ layer(Layer.merge(revisionDatabaseLayer, recordedBootstrapEntities))((test) => {
 						return { error: null };
 					}),
 				);
-				yield* dispatcher.dispatchAll(userId, accountGeneration);
+				yield* dispatcher.dispatchAll(userId, accountUserId);
 				expect(executionIds).toEqual([
-					userBootstrapExecutionId(userId, alpha, "seed", accountGeneration),
-					userBootstrapExecutionId(userId, beta, "first", accountGeneration),
-					userBootstrapExecutionId(userId, beta, "second", accountGeneration),
+					userBootstrapExecutionId(userId, alpha, "seed"),
+					userBootstrapExecutionId(userId, beta, "first"),
+					userBootstrapExecutionId(userId, beta, "second"),
 				]);
 				const rows = yield* session.run((db) =>
 					db

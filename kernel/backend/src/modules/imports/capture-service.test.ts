@@ -75,6 +75,8 @@ const fixture = Effect.fnUntraced(function* (
 			getCapture: () => Effect.sync(() => capture),
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getPayloadReservation: () => Effect.sync(() => reservation ?? null),
+			listPayloadReservations: () =>
+				Effect.sync(() => (reservation ? [{ reservation, runId: run.id }] : [])),
 			clearPayloadRecovery: () =>
 				Effect.sync(() => {
 					assert(reservation);
@@ -87,12 +89,6 @@ const fixture = Effect.fnUntraced(function* (
 					}
 					return true;
 				}),
-			listPayloadReservations: () =>
-				Effect.sync(() =>
-					reservation
-						? [{ reservation, runId: run.id, accountGeneration: run.accountGeneration.token }]
-						: [],
-				),
 			releasePayloadReservation: () =>
 				Effect.sync(() => {
 					assert(reservation);
@@ -105,9 +101,7 @@ const fixture = Effect.fnUntraced(function* (
 						reservation = { ...reservation, retiring: true };
 					}
 					yield* Deferred.succeed(retiring, undefined);
-					return reservation
-						? [{ reservation, runId: run.id, accountGeneration: run.accountGeneration.token }]
-						: [];
+					return reservation ? [{ reservation, runId: run.id }] : [];
 				}),
 			publishCapture: (_scope, data) =>
 				Effect.gen(function* () {

@@ -9,7 +9,6 @@ import {
 	type UpdatePrivatePluginBody,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { type PluginArchivePackage, readPluginArchiveStream } from "@ryot-app/plugin-archive";
@@ -377,15 +376,13 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 
 			const provisionSystemInstallations = Effect.fn(
 				"PluginInstallationService.provisionSystemInstallations",
-			)((accountGeneration: AccountGeneration) =>
+			)((accountUserId: UserId) =>
 				database
 					.transaction(
 						admission
-							.admitAccount(accountGeneration)
+							.admitAccount(accountUserId)
 							.pipe(
-								Effect.andThen(
-									installations.provisionSystemInstallationsForUser(accountGeneration.userId),
-								),
+								Effect.andThen(installations.provisionSystemInstallationsForUser(accountUserId)),
 							),
 					)
 					.pipe(

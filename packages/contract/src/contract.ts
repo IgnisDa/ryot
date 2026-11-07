@@ -9,12 +9,12 @@ import { CollectionsGroup } from "./modules/collections/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
 import { EntityProvidersGroup } from "./modules/entity-providers/contract";
 import { EntityUserDataGroup } from "./modules/entity-user-data/contract";
-import { EntityWatchesGroup } from "./modules/entity-watches/contract";
 import { EventsGroup } from "./modules/events/contract";
 import { ImportDownloadsGroup, ImportsGroup } from "./modules/imports/contract";
 import { InstanceAdminGroup } from "./modules/instance-admin/contract";
 import { ServerLogDownloadsGroup, ServerLogsGroup } from "./modules/instance-admin/logs";
 import { IntegrationsGroup } from "./modules/integrations/contract";
+import { LiveUpdatesGroup } from "./modules/live-updates/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { OAuthConnectionsGroup } from "./modules/oauth-connections/contract";
 import { PageBundlesGroup, PagesGroup } from "./modules/pages/contract";
@@ -45,11 +45,11 @@ export type AppGroups =
 	| typeof PageBundlesGroup
 	| typeof TestSupportGroup
 	| typeof AdminRyotQLGroup
+	| typeof LiveUpdatesGroup
 	| typeof LocalUploadsGroup
 	| typeof IntegrationsGroup
 	| typeof RelationshipsGroup
 	| typeof InstanceAdminGroup
-	| typeof EntityWatchesGroup
 	| typeof NotificationsGroup
 	| typeof EntityUserDataGroup
 	| typeof BackupDownloadsGroup
@@ -88,7 +88,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(OAuthConnectionsGroup)
 	.add(RyotQLGroup)
 	.add(AdminRyotQLGroup)
-	.add(EntityWatchesGroup)
+	.add(LiveUpdatesGroup)
 	.add(NotificationsGroup)
 	.add(PluginsGroup)
 	.annotate(OpenApi.Title, "Ryot API")

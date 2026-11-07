@@ -1,6 +1,17 @@
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
-import { column, document, eq, field, join, literal, rows, table } from "@ryot-app/ryotql";
+import {
+	and,
+	column,
+	document,
+	eq,
+	field,
+	inArray,
+	join,
+	literal,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Schema } from "effect";
@@ -85,10 +96,16 @@ describe("private plugins", () => {
 					client,
 					document({
 						installations: rows(installation, {
-							where: eq(column(plugin, "scope"), literal("system")),
 							joins: [
 								join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
 							],
+							where: and(
+								eq(column(plugin, "scope"), literal("system")),
+								inArray(column(plugin, "packageId"), [
+									literal("ryot/media"),
+									literal("ryot/fitness"),
+								]),
+							),
 							fields: [
 								field("health", column(installation, "health")),
 								field("packageId", column(plugin, "packageId")),
@@ -98,9 +115,7 @@ describe("private plugins", () => {
 						}),
 					}),
 				);
-				return requireRows(result.data.installations, "installations").items.filter((item) =>
-					["ryot/media", "ryot/fitness"].includes(requireRyotQLText(item, "packageId")),
-				);
+				return requireRows(result.data.installations, "installations").items;
 			});
 			const items = yield* pollUntil(
 				"ready system installations for 'ryot/fitness' and 'ryot/media'",

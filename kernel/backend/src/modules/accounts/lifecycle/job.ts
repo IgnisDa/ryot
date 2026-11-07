@@ -186,8 +186,8 @@ export const UserLifecycleJobOperationsLive = Layer.effect(
 		const bootstrapResetUser = (userId: UserId) =>
 			asInternal(
 				Effect.gen(function* () {
-					const accountGeneration = yield* admission.currentAccount(userId);
-					yield* bootstrapUser(userId, accountGeneration).pipe(
+					const accountUserId = yield* admission.currentAccount(userId);
+					yield* bootstrapUser(userId, accountUserId).pipe(
 						Effect.provideService(UserBootstrap, bootstrap),
 						Effect.provideService(PluginBootstrapEntities, bootstrapEntities),
 					);

@@ -62,15 +62,14 @@ BEGIN
 	})}
 
 	INSERT INTO "reminder" (
-		id, user_id, account_generation, entity_id, entity_title, message,
+		id, user_id, entity_id, entity_title, message,
 		state, original_schedule, created_at, updated_at
 	)
 	SELECT 'reminder_' || md5(membership.id::text || ':entity-reminder'), membership.user_id,
-		owner.account_generation, target.id, target.name, membership.information ->> 'text',
+		target.id, target.name, membership.information ->> 'text',
 		'needs-scheduling', jsonb_build_object('date', membership.information ->> 'reminder',
 			'dueAt', NULL, 'timezone', NULL, 'mayHaveSent', false), membership.created_on, membership.last_updated_on
 	FROM (${memberships}) membership
-	JOIN "user" owner ON owner.id = membership.user_id
 	JOIN "entity" target ON target.id = membership.entity_id
 	WHERE membership.information IS NOT NULL;
 	GET DIAGNOSTICS inserted_count = ROW_COUNT;

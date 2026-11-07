@@ -26,7 +26,7 @@ older value defers the row until the owner refreshes the data.
 The worker queries as the recipient, so the query's own visibility rules decide the audience. For
 each new occurrence it plans the signal with a deterministic execution ID and records
 `(user, plugin, schedule, occurrence)` in `signal_schedule_delivery` in the same transaction, after
-admitting the account generation. Dispatch starts after commit. A recorded occurrence is never
+admitting the account. Dispatch starts after commit. A recorded occurrence is never
 planned again, even if its date later moves, until retention deletes the row after 30 days. Scans
 use pages of 50 targets (ten pages per run) and 100 occurrences (five pages per target); a failing
 target is logged and retried on the next run.

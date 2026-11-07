@@ -29,7 +29,7 @@ describe("PluginsGroup", () => {
 	});
 
 	it.effect(
-		"exports payload-free event names separately from the Redis message",
+		"exports payload-free event names separately from the broadcast message",
 		() =>
 			Effect.gen(function* () {
 				expect(PLUGIN_CATALOG_CONNECTED_EVENT).toBe("connected");
@@ -46,7 +46,7 @@ describe("PluginsGroup", () => {
 		testTimeout,
 	);
 
-	it("rejects invalid Redis messages and excess fields", () => {
+	it("rejects invalid broadcast messages and excess fields", () => {
 		for (const message of [
 			"not-json",
 			"{}",

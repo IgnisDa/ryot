@@ -26,7 +26,6 @@ import { RelationshipSchemaReader } from "#modules/definitions/relationship-sche
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { InterestService } from "#modules/entities/watches/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
 import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
@@ -37,8 +36,7 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { RedisService } from "#platform/redis";
-import { databaseLayer, makeRedisService, type MockOverrides } from "#testing/effect";
+import { databaseLayer, type MockOverrides } from "#testing/effect";
 
 import { AutomationInspectionRepository } from "./automation-inspection-repository";
 import { TestSupportService } from "./service";
@@ -54,7 +52,6 @@ const scriptId = SandboxScriptId.make("script-id");
 
 const mockAuth = Layer.mock(AuthService);
 const mockEntities = Layer.mock(EntitiesService);
-const mockInterest = Layer.mock(InterestService);
 const mockPluginIngestion = Layer.mock(PluginIngestionService);
 const mockPluginInstallations = Layer.mock(PluginInstallationService);
 const mockPluginRepository = Layer.mock(PluginRepository);
@@ -68,7 +65,6 @@ const makeServiceLayer = (
 	overrides: {
 		sandbox?: MockOverrides<typeof mockSandbox>;
 		entities?: MockOverrides<typeof mockEntities>;
-		interest?: MockOverrides<typeof mockInterest>;
 		pluginCrons?: MockOverrides<typeof mockPluginCrons>;
 		translations?: MockOverrides<typeof mockTranslations>;
 		relationships?: MockOverrides<typeof mockRelationships>;
@@ -93,7 +89,6 @@ const makeServiceLayer = (
 				}),
 				mockEntitiesRepository({ ...overrides.entitiesRepository }),
 				mockAuth({ handler: () => Promise.reject(new Error("unused")) }),
-				Layer.succeed(RedisService, makeRedisService()),
 				mockEntities({ ...overrides.entities }),
 				mockSandbox({ ...overrides.sandbox }),
 				mockPluginCrons({
@@ -104,7 +99,6 @@ const makeServiceLayer = (
 				mockPluginIngestion({ ...overrides.pluginIngestion }),
 				mockPluginInstallations({ ...overrides.pluginInstallations }),
 				mockPluginRepository({ ...overrides.pluginRepository }),
-				mockInterest({ ...overrides.interest }),
 				mockTranslations({ ...overrides.translations }),
 				mockRelationships({ ...overrides.relationships }),
 				mockRelationshipSchemas({ ...overrides.relationshipSchemas }),
@@ -395,29 +389,6 @@ layer(entityUpdates.layer)((test) => {
 				expect((yield* entityUpdates.recorded).at(-1)).toEqual({
 					stampedEntityId: entityId,
 					relatedPopulatedAt: populatedAtDate,
-				});
-			}),
-		testTimeout,
-	);
-});
-
-const interestMemberships = recordingServiceLayer<unknown>((record) => ({
-	interest: { setEntityWatchMembership: (input) => record(input).pipe(Effect.as(undefined)) },
-}));
-
-layer(interestMemberships.layer)((test) => {
-	test.effect(
-		"delegates session membership without reconciliation",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* TestSupportService;
-				yield* service.setEntityWatchMembership({
-					sessionId: "session-1",
-					entityIds: [EntityId.make("entity-1")],
-				});
-				expect((yield* interestMemberships.recorded).at(-1)).toEqual({
-					sessionId: "session-1",
-					entityIds: ["entity-1"],
 				});
 			}),
 		testTimeout,

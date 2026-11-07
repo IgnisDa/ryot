@@ -74,11 +74,11 @@ CREATE TABLE "automation_run" (
 CREATE TABLE "automation_run_attempt" (
 	"id" text PRIMARY KEY,
 	"finished_at" timestamp(3) with time zone,
+	"execution_id" text NOT NULL CONSTRAINT "automation_run_attempt_execution_unique" UNIQUE,
 	"retryable" boolean NOT NULL,
 	"artifacts_pruned_at" timestamp(3) with time zone,
 	"attempt_number" integer NOT NULL,
 	"started_at" timestamp(3) with time zone NOT NULL,
-	"workflow_execution_id" text NOT NULL CONSTRAINT "automation_run_attempt_workflow_unique" UNIQUE,
 	"logs" jsonb,
 	"error" jsonb,
 	"timing" jsonb,
@@ -241,6 +241,7 @@ CREATE TABLE "definition_entity_schema" (
 	"id" text PRIMARY KEY,
 	"icon" text NOT NULL,
 	"occurs_at_property" text,
+	"refresh_interval_days" integer,
 	"fold" jsonb,
 	"browse" jsonb,
 	"editor" jsonb,
@@ -417,22 +418,16 @@ CREATE TABLE "entity_enrichment_request" (
 	"id" text PRIMARY KEY,
 	"plugin_id" text NOT NULL,
 	"completed_at" timestamp(3) with time zone,
-	"requester_generation" text,
 	"sequence" serial,
 	"base_checked_at" timestamp(3) with time zone,
 	"external_id" text NOT NULL,
-	"next_attempt_at" timestamp(3) with time zone,
-	"workflow_name" text NOT NULL,
 	"entity_schema_slug" text NOT NULL,
 	"source_content_generation" integer,
-	"registration_released_at" timestamp(3) with time zone,
 	"level" text,
 	"attempt" integer DEFAULT 0 NOT NULL,
 	"payload" jsonb NOT NULL,
 	"failure_kind" text,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"observed_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"dispatch_root" boolean DEFAULT false NOT NULL,
 	"population_mode" text,
 	"operation" text NOT NULL,
 	"entity_id" text,
@@ -442,8 +437,14 @@ CREATE TABLE "entity_enrichment_request" (
 	"provider_id" text NOT NULL,
 	CONSTRAINT "entity_enrichment_request_attempt_check" CHECK ("attempt" between 0 and 3),
 	CONSTRAINT "entity_enrichment_request_state_check" CHECK ("state" in ('queued', 'running', 'retrying', 'succeeded', 'failed', 'cancelled')),
-	CONSTRAINT "entity_enrichment_request_requester_check" CHECK (("requester_user_id" is null) = ("requester_generation" is null)),
 	CONSTRAINT "entity_enrichment_request_operation_check" CHECK (("operation" = 'population' and "level" in ('base', 'full') and "language" is null) or ("operation" = 'translation' and "level" is null and "language" is not null))
+);
+--> statement-breakpoint
+CREATE TABLE "entity_schema_refresh_override" (
+	"slug" text,
+	"plugin_id" text,
+	"refresh_interval_days" integer NOT NULL,
+	CONSTRAINT "entity_schema_refresh_override_pkey" PRIMARY KEY("plugin_id","slug")
 );
 --> statement-breakpoint
 CREATE TABLE "entity_translation" (
@@ -568,7 +569,6 @@ CREATE TABLE "import_run" (
 	"finished_at" timestamp(3) with time zone,
 	"block_deadline" timestamp(3) with time zone,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"account_generation" text NOT NULL,
 	"plan" jsonb,
 	"pins" jsonb,
 	"integration_lot" text,
@@ -585,7 +585,7 @@ CREATE TABLE "import_run" (
 	"block_reasons" jsonb DEFAULT '[]' NOT NULL,
 	"id" text PRIMARY KEY,
 	"plugin_installation_id" text,
-	CONSTRAINT "import_run_owner_unique" UNIQUE("id","user_id","account_generation"),
+	CONSTRAINT "import_run_owner_unique" UNIQUE("id","user_id"),
 	CONSTRAINT "import_run_prepared_release_check" CHECK ("prepared_release" is null or ("pins" is not null and ("plan" is null or "plan" = "prepared_release"->'plan'))),
 	CONSTRAINT "import_run_block_check" CHECK ("status" <> 'blocked' or ("integration_lot" = 'sink' and "block_deadline" = "created_at" + interval '168 hours')),
 	CONSTRAINT "import_run_expiry_check" CHECK (("status" = 'expired') = ("expiry_reason" is not null)),
@@ -634,7 +634,7 @@ CREATE TABLE "job" (
 	"priority" integer NOT NULL,
 	"max_attempts" integer NOT NULL,
 	"run_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"payload" jsonb NOT NULL,
+	"payload" json NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"status" text NOT NULL,
@@ -696,7 +696,6 @@ CREATE TABLE "notification" (
 	"settled_at" timestamp(3) with time zone,
 	"source_key" text NOT NULL,
 	"input_digest" text NOT NULL,
-	"account_generation" text NOT NULL,
 	"outcome" text,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"reason" text,
@@ -1029,8 +1028,12 @@ CREATE TABLE "provider_import_admission" (
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "provider_rate_limit" (
+	"key" text PRIMARY KEY,
+	"next_allowed_at" timestamp(3) with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "relationship" (
-	"sync_generation" text,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"relationship_schema_slug" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
@@ -1057,7 +1060,6 @@ CREATE TABLE "reminder" (
 	"settled_at" timestamp(3) with time zone,
 	"reconcile_at" timestamp(3) with time zone,
 	"processing_at" timestamp(3) with time zone,
-	"account_generation" text NOT NULL,
 	"reason" text,
 	"revision" integer DEFAULT 1 NOT NULL,
 	"outcome" text,
@@ -1076,6 +1078,15 @@ CREATE TABLE "reminder" (
 	CONSTRAINT "reminder_processing_check" CHECK ("state" <> 'processing' or ("processing_at" is not null and "formatter_run_id" is not null and "trigger_id" is not null and "dispatch" is not null and "reconcile_at" is not null)),
 	CONSTRAINT "reminder_outcome_check" CHECK (("state" = 'settled' and "outcome" in ('accepted', 'partial', 'failed', 'unknown', 'not-sent') and "outcome" is not null and "settled_at" is not null) or ("state" <> 'settled' and "outcome" is null)),
 	CONSTRAINT "reminder_content_check" CHECK (("removed_at" is null and "message" is not null and length(btrim("message")) between 1 and 4000 and "entity_title" is not null) or ("removed_at" is not null and "state" in ('settled', 'cancelled') and "message" is null and "entity_title" is null and "original_schedule" is null))
+);
+--> statement-breakpoint
+CREATE TABLE "sandbox_journal_entry" (
+	"pin" text NOT NULL,
+	"body" bytea NOT NULL,
+	"execution_id" text,
+	"entry_index" integer,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "sandbox_journal_entry_pkey" PRIMARY KEY("execution_id","entry_index")
 );
 --> statement-breakpoint
 CREATE TABLE "sandbox_provider" (
@@ -1163,6 +1174,12 @@ CREATE TABLE "signal_schedule_delivery" (
 	CONSTRAINT "signal_schedule_delivery_pkey" PRIMARY KEY("user_id","plugin_id","schedule_slug","occurrence_key")
 );
 --> statement-breakpoint
+CREATE TABLE "transient_value" (
+	"value" text NOT NULL,
+	"key" text PRIMARY KEY,
+	"expires_at" timestamp(3) with time zone
+);
+--> statement-breakpoint
 CREATE TABLE "two_factor" (
 	"id" text PRIMARY KEY,
 	"secret" text NOT NULL,
@@ -1173,19 +1190,24 @@ CREATE TABLE "two_factor" (
 	"user_id" text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "upload_intent" (
+	"id" text PRIMARY KEY,
+	"metadata" text NOT NULL,
+	"deadline" timestamp(3) with time zone NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "user" (
 	"image" text,
 	"name" text NOT NULL,
 	"id" text PRIMARY KEY,
 	"disabled_at" timestamp(3) with time zone,
+	"retiring_at" timestamp(3) with time zone,
 	"two_factor_enabled" boolean,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email" text NOT NULL UNIQUE,
-	"retiring_account_generation" text,
 	"bootstrap_completed_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
-	"account_generation" text DEFAULT gen_random_uuid() NOT NULL,
 	"preferences" jsonb DEFAULT '{"language":null,"reportingTimeZone":"UTC","disableIntegrations":false}' NOT NULL,
 	CONSTRAINT "user_preferences_check" CHECK (
 		jsonb_typeof("preferences") = 'object'
@@ -1260,7 +1282,6 @@ CREATE TABLE "workflow_execution" (
 	"owner" text,
 	"result" json,
 	"payload" json,
-	"account_token" text,
 	"account_user_id" text,
 	"cleared_at" timestamp(3) with time zone,
 	"expired_at" timestamp(3) with time zone,
@@ -1276,7 +1297,6 @@ CREATE TABLE "workflow_execution" (
 	CONSTRAINT "workflow_execution_pkey" PRIMARY KEY("workflow_name","execution_id"),
 	CONSTRAINT "workflow_execution_status_check" CHECK ("status" in ('active', 'succeeded', 'failed')),
 	CONSTRAINT "workflow_execution_suspension_check" CHECK ("suspension" is null or "suspension" in ('failed', 'waiting')),
-	CONSTRAINT "workflow_execution_account_check" CHECK (("account_user_id" is null) = ("account_token" is null)),
 	CONSTRAINT "workflow_execution_completion_check" CHECK (("status" = 'active') = ("completed_at" is null))
 );
 --> statement-breakpoint
@@ -1378,7 +1398,7 @@ CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_i
 CREATE INDEX "managed_asset_check_after_idx" ON "managed_asset" ("check_after") WHERE "retired_at" is null;--> statement-breakpoint
 CREATE INDEX "managed_asset_retired_at_idx" ON "managed_asset" ("retired_at") WHERE "retired_at" is not null;--> statement-breakpoint
 CREATE INDEX "migration_report_detail_report_seq_seq_idx" ON "migration_report_detail" ("report_seq","seq");--> statement-breakpoint
-CREATE UNIQUE INDEX "notification_source_idx" ON "notification" ("user_id","account_generation","source_key");--> statement-breakpoint
+CREATE UNIQUE INDEX "notification_source_idx" ON "notification" ("user_id","source_key");--> statement-breakpoint
 CREATE INDEX "notification_owner_idx" ON "notification" ("user_id","created_at" DESC NULLS LAST,"id");--> statement-breakpoint
 CREATE INDEX "notification_source_run_idx" ON "notification" ("source_run_id");--> statement-breakpoint
 CREATE INDEX "notification_channel_user_id_created_at_idx" ON "notification_channel" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1428,6 +1448,7 @@ CREATE INDEX "reminder_owner_idx" ON "reminder" ("user_id","state","created_at",
 CREATE INDEX "reminder_entity_idx" ON "reminder" ("entity_id","user_id");--> statement-breakpoint
 CREATE INDEX "reminder_parent_idx" ON "reminder" ("parent_entity_id","user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "reminder_formatter_idx" ON "reminder" ("formatter_run_id");--> statement-breakpoint
+CREATE INDEX "sandbox_journal_entry_created_at_idx" ON "sandbox_journal_entry" ("created_at");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_plugin_id_idx" ON "sandbox_provider" ("plugin_id");--> statement-breakpoint
 CREATE INDEX "sandbox_provider_root_entity_schema_slug_idx" ON "sandbox_provider" ("root_entity_schema_slug");--> statement-breakpoint
 CREATE INDEX "sandbox_script_provider_id_idx" ON "sandbox_script" ("provider_id");--> statement-breakpoint
@@ -1442,6 +1463,8 @@ CREATE UNIQUE INDEX "saved_view_override_kernel_unique" ON "saved_view_override"
 CREATE UNIQUE INDEX "saved_view_override_plugin_unique" ON "saved_view_override" ("user_id","plugin_id","slug") WHERE "plugin_id" is not null;--> statement-breakpoint
 CREATE INDEX "session_userId_idx" ON "session" ("user_id");--> statement-breakpoint
 CREATE INDEX "signal_schedule_delivery_created_at_idx" ON "signal_schedule_delivery" ("created_at");--> statement-breakpoint
+CREATE INDEX "transient_value_expires_at_idx" ON "transient_value" ("expires_at");--> statement-breakpoint
+CREATE INDEX "upload_intent_deadline_idx" ON "upload_intent" ("deadline");--> statement-breakpoint
 CREATE INDEX "user_lifecycle_operation_user_id_idx" ON "user_lifecycle_operation" ("user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifecycle_operation" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "user_plugin_state_plugin_user_idx" ON "user_plugin_state" ("plugin_id","user_id");--> statement-breakpoint

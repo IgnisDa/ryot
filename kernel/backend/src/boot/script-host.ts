@@ -52,7 +52,7 @@ import { makeRuntimeSandboxApiFunctions } from "#modules/scripts/host/runtime-ho
 import {
 	SandboxHostCallScopeLive,
 	SandboxHostFunctionsLive,
-	SandboxRedisLive,
+	SandboxStateStoreLive,
 } from "#modules/scripts/host/sandbox-host-live";
 import { makeProKeyScriptHost } from "#modules/scripts/pro-key-script-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -133,7 +133,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 export const RuntimeSandboxExecutorLive = SandboxExecutor.layer.pipe(
 	Layer.provide(SandboxHostFunctionsLive.pipe(Layer.provide(ScriptHostImplementationsLive))),
 	Layer.provide(SandboxHostCallScopeLive),
-	Layer.provide(SandboxRedisLive),
+	Layer.provide(SandboxStateStoreLive),
 	Layer.provide(SandboxExecutionAuthorityLive.pipe(Layer.provide(SandboxRepository.layer))),
 );
 

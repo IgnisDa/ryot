@@ -23,12 +23,12 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 	payload: ImportRunJobData,
 	executionId: string,
 ) {
-	const accountGeneration = payload.command.accountGeneration;
-	if (!accountGeneration) {
-		return yield* new ImportRunError({ message: "Import account generation is missing" });
+	const accountUserId = payload.command.accountUserId;
+	if (!accountUserId) {
+		return yield* new ImportRunError({ message: "Import account is missing" });
 	}
-	const scope = { accountGeneration, runId: payload.runId, userId: payload.userId };
-	yield* admitWorkflow(accountGeneration).pipe(Effect.mapError(toWorkflowError));
+	const scope = { runId: payload.runId, userId: payload.userId };
+	yield* admitWorkflow(accountUserId).pipe(Effect.mapError(toWorkflowError));
 	const sandbox = yield* ScriptExecutionService;
 	const sourceStates = yield* ImportSourceStateStore;
 	const repository = yield* ImportsRepository;
@@ -132,12 +132,7 @@ export const runPluginImportWorkflow = Effect.fn("runPluginImportWorkflow")(func
 			executionId: owner,
 			scriptId: state.workflowScriptId,
 			pluginRevision: state.pluginRevision,
-			subject: {
-				type: "user",
-				accountGeneration,
-				userId: payload.userId,
-				importRunId: payload.runId,
-			},
+			subject: { type: "user", userId: payload.userId, importRunId: payload.runId },
 		});
 		const current = yield* repository.getIngestionRunControl(scope);
 		if (current?.status === "cancelling") {

@@ -13,7 +13,7 @@ import { ingestionTestRun, ingestionTestScope } from "./ingestion.test-support";
 import { ImportsRepository } from "./repository";
 
 it.effect(
-	"grants a staged handle only to its pinned owner and account generation",
+	"grants a staged handle only to its pinned owner",
 	() =>
 		Effect.gen(function* () {
 			const reads: unknown[] = [];
@@ -21,13 +21,9 @@ it.effect(
 			const ownerExecutionId = run.pins?.executionId ?? "";
 			const dependencies = Layer.mergeAll(
 				Layer.mock(ImportsRepository)({
-					getStagingOwner: (userId, generation, owner) =>
+					getStagingOwner: (userId, owner) =>
 						Effect.succeed(
-							userId === ingestionTestScope.userId &&
-								generation.token === ingestionTestScope.accountGeneration.token &&
-								owner === ownerExecutionId
-								? run
-								: null,
+							userId === ingestionTestScope.userId && owner === ownerExecutionId ? run : null,
 						),
 				}),
 				Layer.mock(IngestionCaptures)({
@@ -43,11 +39,7 @@ it.effect(
 			);
 			yield* Effect.gen(function* () {
 				const input = { artifactHandle: "staged-output" };
-				const subject = {
-					type: "user" as const,
-					userId: ingestionTestScope.userId,
-					accountGeneration: ingestionTestScope.accountGeneration,
-				};
+				const subject = { type: "user" as const, userId: ingestionTestScope.userId };
 				const grants = {
 					artifactOwnerExecutionId: ownerExecutionId,
 					namedArtifactPaths: { original: "/tmp/original" },
@@ -59,18 +51,14 @@ it.effect(
 				expect(reads).toEqual([
 					{ owner: ownerExecutionId, scope: ingestionTestScope, handle: input.artifactHandle },
 				]);
-				for (const [candidateSubject, candidateGrants] of [
-					[subject, { ...grants, artifactOwnerExecutionId: "another-owner" }],
-					[
-						{ ...subject, accountGeneration: { ...subject.accountGeneration, token: "retired" } },
-						grants,
-					],
-				] as const) {
-					expect(
-						(yield* Effect.exit(ingestionArtifactGrants(input, candidateSubject, candidateGrants)))
-							._tag,
-					).toBe("Failure");
-				}
+				expect(
+					(yield* Effect.exit(
+						ingestionArtifactGrants(input, subject, {
+							...grants,
+							artifactOwnerExecutionId: "another-owner",
+						}),
+					))._tag,
+				).toBe("Failure");
 				expect(
 					(yield* Effect.exit(ingestionArtifactGrants(input, { type: "system" }, grants)))._tag,
 				).toBe("Failure");
@@ -111,11 +99,7 @@ it.effect(
 				const input = {
 					ingestionArtifact: { captureId: "page-1", runId: ingestionTestScope.runId },
 				};
-				const subject = {
-					type: "user" as const,
-					userId: ingestionTestScope.userId,
-					accountGeneration: ingestionTestScope.accountGeneration,
-				};
+				const subject = { type: "user" as const, userId: ingestionTestScope.userId };
 				const grants = { artifactOwnerExecutionId: "run-1-import" };
 				expect(yield* ingestionArtifactGrants(input, subject, grants)).toEqual({
 					...grants,
@@ -181,12 +165,7 @@ it.effect(
 			const dependencies = Layer.mergeAll(
 				Layer.mock(ImportsRepository)({
 					getIngestionRunControl: (scope) =>
-						Effect.succeed(
-							scope.userId === ingestionTestScope.userId &&
-								scope.accountGeneration.token === ingestionTestScope.accountGeneration.token
-								? ingestionTestRun()
-								: null,
-						),
+						Effect.succeed(scope.userId === ingestionTestScope.userId ? ingestionTestRun() : null),
 					getCapture: (_scope, id) =>
 						Effect.succeed(
 							id === "missing"
@@ -211,11 +190,7 @@ it.effect(
 				Layer.mock(ExecutionFileStore)({}),
 			);
 			yield* Effect.gen(function* () {
-				const subject = {
-					type: "user" as const,
-					userId: ingestionTestScope.userId,
-					accountGeneration: ingestionTestScope.accountGeneration,
-				};
+				const subject = { type: "user" as const, userId: ingestionTestScope.userId };
 				const grants = { artifactOwnerExecutionId: "run-1-import" };
 				for (const id of ["missing", "admitted"]) {
 					assertExitFails(
@@ -235,19 +210,6 @@ it.effect(
 						}),
 					);
 				}
-				const foreignGeneration = {
-					...subject,
-					accountGeneration: { ...subject.accountGeneration, token: "another-generation" },
-				};
-				expect(
-					(yield* ingestionArtifactGrants(
-						{
-							ingestionArtifacts: { captures: { left: "page-1" }, runId: ingestionTestScope.runId },
-						},
-						foreignGeneration,
-						grants,
-					).pipe(Effect.exit))._tag,
-				).toBe("Failure");
 				expect(reads).toEqual([]);
 			}).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
 		}),

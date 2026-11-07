@@ -287,7 +287,6 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 							image: schema.user.image,
 							disabledAt: schema.user.disabledAt,
 							preferences: schema.user.preferences,
-							accountGeneration: schema.user.accountGeneration,
 							bootstrapCompletedAt: schema.user.bootstrapCompletedAt,
 						})
 						.from(schema.user)

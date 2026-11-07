@@ -59,7 +59,7 @@ export const requiredRun = (
 		hookSlug: AutomationHookSlug.make(id),
 	});
 export const executionIdOf = (runId: string) =>
-	automationAttemptIdentity(AutomationRunId.make(runId), 1).workflowExecutionId;
+	automationAttemptIdentity(AutomationRunId.make(runId), 1).executionId;
 
 export class RunControl extends Context.Service<
 	RunControl,

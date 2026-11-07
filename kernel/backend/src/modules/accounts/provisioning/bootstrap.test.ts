@@ -41,9 +41,7 @@ class FakeBootstrapDependencies extends Context.Service<
 ) {}
 
 const performBootstrap = (inputUserId: UserId) =>
-	Effect.flatMap(UserBootstrap, (bootstrap) =>
-		bootstrap.perform(inputUserId, { userId: inputUserId, token: "test-account-generation" }),
-	);
+	Effect.flatMap(UserBootstrap, (bootstrap) => bootstrap.perform(inputUserId, inputUserId));
 
 const bootstrapLayer = (options?: {
 	bootstrapCompletedAt?: Date;
@@ -76,8 +74,8 @@ const bootstrapLayer = (options?: {
 									where: () =>
 										Object.assign(Effect.succeed(userRows), {
 											for: () =>
-												fields && "token" in fields
-													? Effect.succeed([{ token: "test-account-generation" }])
+												fields && "jobAlive" in fields
+													? Effect.succeed([{ jobAlive: true, retiringAt: null }])
 													: Effect.succeed(userRows),
 										}),
 								};
@@ -99,10 +97,8 @@ const bootstrapLayer = (options?: {
 								}),
 						}),
 						Layer.mock(PluginInstallationService)({
-							provisionSystemInstallations: (accountGeneration) =>
-								append(order)("provision").pipe(
-									Effect.andThen(append(provisioned)(accountGeneration.userId)),
-								),
+							provisionSystemInstallations: (accountUserId) =>
+								append(order)("provision").pipe(Effect.andThen(append(provisioned)(accountUserId))),
 						}),
 						Layer.mock(NotificationSubscriptionsService)({
 							ensureDefaultRules: append(defaultRules),

@@ -42,7 +42,6 @@ const user: CurrentUserValue = {
 	name: "User",
 	email: "user@example.test",
 	id: ingestionTestScope.userId,
-	accountGeneration: ingestionTestScope.accountGeneration,
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 const source: RegisteredImportSource = {

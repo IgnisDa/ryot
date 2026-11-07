@@ -277,7 +277,6 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 								integrationId: run.integrationId,
 								userId: ingestionTestScope.userId,
 								integrationRunId: ingestionTestScope.runId,
-								accountGeneration: ingestionTestScope.accountGeneration,
 							});
 							executions.push(input.executionId);
 							if (failConfirmation) {

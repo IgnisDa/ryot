@@ -15,7 +15,7 @@ import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
 export const captureWriteExecutionId = (scope: IngestionScope, id: string) =>
-	`${scope.runId}-capture-${ingestionPayloadDigest(stableStringify([scope, id]))}`;
+	`${scope.runId}-capture-${ingestionPayloadDigest(stableStringify([scope.userId, id]))}`;
 
 const CaptureWritePayload = Schema.Struct({
 	scope: IngestionScope,
@@ -32,7 +32,7 @@ export const ProcessIngestionCaptureWorkflow = Workflow.make("ProcessIngestionCa
 
 export const runIngestionCaptureWrite = Effect.fn("ProcessIngestionCaptureWorkflow")(
 	function* (input: typeof CaptureWritePayload.Type) {
-		yield* admitWorkflow(input.scope.accountGeneration);
+		yield* admitWorkflow(input.scope.userId);
 		const repository = yield* ImportsRepository;
 		const database = yield* DatabaseSession;
 		const payloads = yield* IngestionPayloads;

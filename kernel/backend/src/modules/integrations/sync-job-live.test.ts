@@ -25,8 +25,8 @@ const run = (input: {
 }): IntegrationSyncRun => ({
 	userId: UserId.make(input.userId),
 	runId: ImportRunId.make(input.runId),
+	accountUserId: UserId.make(input.userId),
 	integrationId: IntegrationId.make(input.integrationId),
-	accountGeneration: { token: "test-account-generation", userId: UserId.make(input.userId) },
 });
 
 type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
@@ -175,10 +175,7 @@ layer(makeSyncLayer({ recovery: runs, execute: (options) => Effect.succeed(optio
 								runId: "run-1",
 								userId: "user-1",
 								integrationId: "integration-1",
-								accountGeneration: {
-									userId: UserId.make("user-1"),
-									token: "test-account-generation",
-								},
+								accountUserId: UserId.make("user-1"),
 							},
 						},
 						{
@@ -188,10 +185,7 @@ layer(makeSyncLayer({ recovery: runs, execute: (options) => Effect.succeed(optio
 								runId: "run-2",
 								userId: "user-2",
 								integrationId: "integration-2",
-								accountGeneration: {
-									userId: UserId.make("user-2"),
-									token: "test-account-generation",
-								},
+								accountUserId: UserId.make("user-2"),
 							},
 						},
 					]);

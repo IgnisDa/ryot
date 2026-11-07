@@ -1,4 +1,3 @@
-import { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { Schema } from "effect";
 
@@ -14,8 +13,8 @@ export type IntegrationWebhookDelivery = typeof IntegrationWebhookDelivery.Type;
 export const IntegrationRunJobData = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
+	accountUserId: UserId,
 	integrationId: IntegrationId,
-	accountGeneration: AccountGeneration,
 });
 
 export type IntegrationRunJobData = typeof IntegrationRunJobData.Type;
@@ -23,8 +22,8 @@ export type IntegrationRunJobData = typeof IntegrationRunJobData.Type;
 export const IntegrationSyncRun = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
+	accountUserId: UserId,
 	integrationId: IntegrationId,
-	accountGeneration: AccountGeneration,
 });
 
 export type IntegrationSyncRun = typeof IntegrationSyncRun.Type;

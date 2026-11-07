@@ -2,7 +2,7 @@
 
 `NotificationsService` owns channel commands and routes test and automation messages through
 `NotificationAdmissions`. Both sandbox entry paths supply the trusted run, host-call identity and
-recipient account generation. Channel tests retain a submission key and return the admitted
+recipient account. Channel tests retain a submission key and return the admitted
 notification ID; an HTTP success acknowledges queueing, not provider delivery.
 
 ## Admission and locking
@@ -12,7 +12,7 @@ writer for notifications and channel attempts. Admission inserts the notificatio
 channels, queues one `notification-delivery` [job](../../platform/jobs/README.md) in the same
 transaction.
 
-Transactions lock the account generation first, then any source-policy fence, then the notification
+Transactions admit the account first, then any source-policy fence, then the notification
 source advisory lock or notification row, then the channel row and delivery row. No transaction spans rendering or external I/O.
 Account retirement takes the conflicting exclusive account lock; deleting the account cascades both
 ledger tables. A delivery job rechecks the account before each claim, so it cannot send for a retired account.

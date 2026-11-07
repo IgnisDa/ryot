@@ -145,12 +145,6 @@ export const TestSupportRoutesLive = HttpApiBuilder.group(AppContract, "testSupp
 				return yield* svc.triggerPluginCron(payload);
 			}).pipe(mapTestSupportFailure),
 		)
-		.handle("setEntityWatchMembership", ({ payload }) =>
-			Effect.gen(function* () {
-				const svc = yield* TestSupportService;
-				yield* svc.setEntityWatchMembership(payload);
-			}).pipe(mapTestSupportFailure),
-		)
 		.handle("reconcileAutomations", () =>
 			Effect.gen(function* () {
 				const reconciliation = yield* AutomationReconciliation;

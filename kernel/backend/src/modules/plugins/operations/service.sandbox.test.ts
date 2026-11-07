@@ -114,7 +114,7 @@ const fakeLayer = Layer.unwrap(
 							name: "User",
 							id: realSandboxUserId,
 							email: "user@example.com",
-							accountGeneration: { userId: realSandboxUserId, token: "test-account-generation" },
+							accountUserId: realSandboxUserId,
 							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 						},
 					}),

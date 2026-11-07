@@ -1,11 +1,7 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { DbError } from "@ryot-app/contract/errors";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
-import type {
-	IngestionPins,
-	IngestionPlan,
-	IngestionScope,
-} from "@ryot-app/contract/modules/imports/ingestion";
+import type { IngestionPins, IngestionPlan } from "@ryot-app/contract/modules/imports/ingestion";
 import {
 	type CreateImportRunBody,
 	ImportConflictError,
@@ -66,7 +62,6 @@ export type CreateManualImportRunInput = {
 	source: ImportRunSource;
 	pluginInstallationId: null | string;
 	inputSummary: Record<string, unknown>;
-	accountGeneration: IngestionScope["accountGeneration"];
 };
 
 type CreateImportRunResult = { readonly id: string };
@@ -113,7 +108,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				return yield* database
 					.transaction(
 						Effect.gen(function* () {
-							yield* admission.admitAccount(input.accountGeneration);
+							yield* admission.admitAccount(input.userId);
 							return yield* repository.createManualRun(input);
 						}),
 					)
@@ -137,7 +132,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				input: DispatchImportRunInput,
 			) {
 				const { user, runId, uploadIntentIds } = input;
-				const scope = { runId, userId: user.id, accountGeneration: user.accountGeneration };
+				const scope = { runId, userId: user.id };
 				const run = yield* repository.getIngestionRunControl(scope).pipe(Effect.orDie);
 				if (!run) {
 					return yield* new ImportRequestError({ reason: { field: null, code: "invalid-input" } });
@@ -147,8 +142,8 @@ export class ImportsService extends Context.Service<ImportsService>()(
 					source: "import",
 					lane: "background",
 					importRunId: runId,
+					accountUserId: user.id,
 					initiator: { id: user.id, kind: "user" },
-					accountGeneration: user.accountGeneration,
 					occurredAt: IsoUtcString.make(run.acceptedAt),
 					executionId: AutomationExecutionId.make(runId),
 					itemIdentity: stableStringify(["import-run", runId]),
@@ -167,11 +162,11 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				const pin = yield* workflowPinning
 					.preRegister({
 						scope,
+						accountUserId: user.id,
 						executingUserId: user.id,
 						executionId: sandboxExecutionId,
 						scriptId: input.workflowScriptId,
 						pluginId: input.registered.pluginId,
-						accountGeneration: user.accountGeneration,
 						expectedPins: { ...input.pins, executionId: sandboxExecutionId },
 					})
 					.pipe(Effect.result);
@@ -237,7 +232,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				const started = yield* dispatchAdmittedWorkflow(
 					engine,
 					ProcessImportRunWorkflow,
-					command.accountGeneration,
+					command.accountUserId,
 					{ discard: true, executionId: runId, payload: { runId, command, userId: user.id } },
 				).pipe(Effect.result);
 				if (Result.isFailure(started)) {
@@ -264,7 +259,6 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				const created = yield* createManualRun({
 					userId: user.id,
 					source: body.source.slug,
-					accountGeneration: user.accountGeneration,
 					pluginInstallationId: registered.installationId,
 					inputSummary: buildImportInputSummary(body.source.slug, {}),
 				}).pipe(Effect.result);
@@ -351,7 +345,6 @@ export class ImportsService extends Context.Service<ImportsService>()(
 						inputSummary,
 						userId: user.id,
 						source: body.source.slug,
-						accountGeneration: user.accountGeneration,
 						pluginInstallationId: registered.installationId,
 					});
 					return yield* dispatchImportRun({
@@ -464,9 +457,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 						reason: { runId, status: run.status, code: "run-not-terminal" },
 					});
 				}
-				yield* execution
-					.deleteReport({ runId, userId: user.id, accountGeneration: user.accountGeneration })
-					.pipe(Effect.orDie);
+				yield* execution.deleteReport({ runId, userId: user.id }).pipe(Effect.orDie);
 				return { id: runId };
 			});
 
@@ -477,11 +468,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 					if (!user) {
 						return yield* new ImportNotFoundError({ reason: { runId, code: "run-not-found" } });
 					}
-					const scope = {
-						runId,
-						userId,
-						accountGeneration: { userId, token: user.accountGeneration },
-					};
+					const scope = { runId, userId };
 					return createIssuesExport({
 						runId,
 						source: run.source,
@@ -549,11 +536,7 @@ export class ImportsService extends Context.Service<ImportsService>()(
 			const recoverRuns = Effect.fn("ImportsService.recoverRuns")(function* () {
 				for (const run of yield* repository.listRecoveryRuns(100)) {
 					const runId = ImportRunId.make(run.id);
-					const scope = {
-						runId,
-						userId: UserId.make(run.userId),
-						accountGeneration: { token: run.accountGeneration, userId: UserId.make(run.userId) },
-					};
+					const scope = { runId, userId: UserId.make(run.userId) };
 					if (!run.admitted && (run.status === "pending" || run.status === "cancelling")) {
 						yield* execution.abortAdmission(scope);
 						continue;
@@ -566,27 +549,22 @@ export class ImportsService extends Context.Service<ImportsService>()(
 						source: "import",
 						lane: "background",
 						importRunId: runId,
-						accountGeneration: scope.accountGeneration,
+						accountUserId: scope.userId,
 						initiator: { kind: "user", id: scope.userId },
 						executionId: AutomationExecutionId.make(runId),
 						itemIdentity: stableStringify(["import-run", runId]),
 						occurredAt: IsoUtcString.make(run.acceptedAt.toISOString()),
 					});
-					yield* dispatchAdmittedWorkflow(
-						engine,
-						ProcessImportRunWorkflow,
-						scope.accountGeneration,
-						{
-							discard: true,
-							executionId: runId,
-							payload: {
-								runId,
-								command,
-								userId: scope.userId,
-								dataJson: run.pluginInstallationId === null && run.source === dataJsonSource,
-							},
+					yield* dispatchAdmittedWorkflow(engine, ProcessImportRunWorkflow, scope.userId, {
+						discard: true,
+						executionId: runId,
+						payload: {
+							runId,
+							command,
+							userId: scope.userId,
+							dataJson: run.pluginInstallationId === null && run.source === dataJsonSource,
 						},
-					);
+					});
 				}
 			});
 

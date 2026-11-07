@@ -50,7 +50,7 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 				session.transaction(work).pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const lockCandidate = Effect.fnUntraced(function* (captured: ReminderRecord) {
 				const userId = UserId.make(captured.userId);
-				yield* admission.admitAccount({ userId, token: captured.accountGeneration });
+				yield* admission.admitAccount(userId);
 				yield* plugins.lockIngestionShared([userId]);
 				yield* entities.lockUserDataReferences(
 					[captured.entityId, captured.parentEntityId]
@@ -108,9 +108,9 @@ export class ReminderWorker extends Context.Service<ReminderWorker>()(
 							lane: "background",
 							source: "scheduler",
 							itemIdentity: row.id,
+							accountUserId: userId,
 							occurredAt: now.toISOString(),
 							initiator: { id: userId, kind: "user" },
-							accountGeneration: { userId, token: row.accountGeneration },
 							executionId: AutomationExecutionId.make(`reminder-due:${row.id}`),
 						});
 						const plan = yield* signals.planSignal({

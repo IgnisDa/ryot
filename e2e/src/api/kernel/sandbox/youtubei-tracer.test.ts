@@ -104,7 +104,7 @@ describe("Youtubei durable tracer", () => {
 			yield* pollUntil(
 				"Youtubei tracer first durable request",
 				sampleOperationalPressure([executionId]).pipe(
-					Effect.map((pressure) => (pressure.redis.maxJournalEntries >= 1 ? true : null)),
+					Effect.map((pressure) => (pressure.journal.maxJournalEntries >= 1 ? true : null)),
 				),
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);

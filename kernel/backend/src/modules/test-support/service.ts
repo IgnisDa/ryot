@@ -22,6 +22,7 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
+import { eq } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -33,7 +34,6 @@ import { RelationshipSchemaReader } from "#modules/definitions/relationship-sche
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
-import { InterestService } from "#modules/entities/watches/service";
 import { PluginInstallationService } from "#modules/plugins/installations/service";
 import { PluginIngestionService } from "#modules/plugins/packages/ingestion-service";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -41,7 +41,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
 
 import { AutomationInspectionRepository } from "./automation-inspection-repository";
 
@@ -77,7 +77,7 @@ const systemApiCommand = Effect.fnUntraced(function* (itemIdentity: string) {
 			itemIdentity,
 			source: "api",
 			lane: "interactive",
-			accountGeneration: null,
+			accountUserId: null,
 			initiator: { id: null, kind: "system" },
 			occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 		}),
@@ -121,11 +121,9 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 		make: Effect.gen(function* () {
 			const automationInspection = yield* AutomationInspectionRepository;
 			const auth = yield* AuthService;
-			const redis = yield* RedisService;
 			const entities = yield* EntitiesService;
 			const session = yield* DatabaseSession;
 			const entityRepository = yield* EntitiesRepository;
-			const interest = yield* InterestService;
 			const pluginCrons = yield* PluginCronService;
 			const sandbox = yield* ScriptExecutionService;
 			const translations = yield* TranslationsRepository;
@@ -350,7 +348,6 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 				listAutomationRuns: automationInspection.listRuns,
 				listAutomationTriggers: automationInspection.listTriggers,
 				listAutomationAttempts: automationInspection.listAttempts,
-				setEntityWatchMembership: interest.setEntityWatchMembership,
 				listAutomationRecipients: automationInspection.listRecipients,
 				uninstallSystemPlugin: (pluginId: PluginId, activationId: string) =>
 					pluginIngestion.uninstallPlugin(pluginId, activationId),
@@ -359,9 +356,14 @@ export class TestSupportService extends Context.Service<TestSupportService>()(
 					return sandbox.enqueue(executingUserId, payload, lane);
 				},
 				deleteSandboxReplayProjection: (executionId: string) =>
-					redis
-						.del(redisKeys.sandboxWorkflowJournal(executionId))
-						.pipe(Effect.map((deleted) => ({ deleted: deleted > 0 }))),
+					session
+						.run((db) =>
+							db
+								.delete(sandboxJournalEntry)
+								.where(eq(sandboxJournalEntry.executionId, executionId))
+								.returning({ entryIndex: sandboxJournalEntry.entryIndex }),
+						)
+						.pipe(Effect.map((deleted) => ({ deleted: deleted.length > 0 }))),
 			};
 		}),
 	},

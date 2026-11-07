@@ -128,8 +128,8 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 	});
 	assert(provider);
 	const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-	const accountGeneration = yield* (yield* AccountAdmission.make).currentAccount(userId);
-	const subject = { userId, accountGeneration, type: "user" as const };
+	const accountUserId = yield* (yield* AccountAdmission.make).currentAccount(userId);
+	const subject = { userId, type: "user" as const };
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
 	assert(pin?.pluginRevision);
 	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
@@ -179,7 +179,7 @@ const fixture = Effect.fn("AtomicCommandTest.fixture")(function* (
 		session,
 		pluginId: installed.pluginId,
 		revisionId: installed.revisionId,
-		command: { ...command(yield* randomUuid), accountGeneration, writeContext: principal },
+		command: { ...command(yield* randomUuid), accountUserId, writeContext: principal },
 	};
 });
 
@@ -248,7 +248,7 @@ layer(testLayer(false))((test) => {
 							...fixtureInput.command,
 							...command(crypto.randomUUID()),
 							writeContext: fixtureInput.command.writeContext,
-							accountGeneration: fixtureInput.command.accountGeneration,
+							accountUserId: fixtureInput.command.accountUserId,
 						},
 					});
 				const derived = yield* execute({
@@ -333,7 +333,7 @@ layer(testLayer(false))((test) => {
 						...input.command,
 						...command(crypto.randomUUID()),
 						writeContext: input.command.writeContext,
-						accountGeneration: input.command.accountGeneration,
+						accountUserId: input.command.accountUserId,
 					});
 					let changes: UserCommand["events"]["changes"] = [];
 					if (mutation === "update") {
@@ -449,7 +449,7 @@ layer(testLayer(false))((test) => {
 						...matching.command,
 						...command(yield* randomUuid),
 						writeContext: matching.command.writeContext,
-						accountGeneration: matching.command.accountGeneration,
+						accountUserId: matching.command.accountUserId,
 					},
 				});
 				expect(matchingResult.events).toHaveLength(1);
@@ -507,7 +507,7 @@ layer(testLayer(false))((test) => {
 							...input.command,
 							...command(yield* randomUuid),
 							writeContext: input.command.writeContext,
-							accountGeneration: input.command.accountGeneration,
+							accountUserId: input.command.accountUserId,
 						},
 					});
 
@@ -555,7 +555,7 @@ layer(testLayer(false))((test) => {
 									...input.command,
 									...command(yield* randomUuid),
 									writeContext: input.command.writeContext,
-									accountGeneration: input.command.accountGeneration,
+									accountUserId: input.command.accountUserId,
 								},
 							}),
 						),
@@ -663,7 +663,7 @@ layer(testLayer(false))((test) => {
 								...input.command,
 								...command(yield* randomUuid),
 								writeContext: input.command.writeContext,
-								accountGeneration: input.command.accountGeneration,
+								accountUserId: input.command.accountUserId,
 							},
 						});
 					});

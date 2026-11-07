@@ -41,13 +41,7 @@ layer(testLayer)((test) => {
 							.values({ id: "other", name: "Other", email: "other@example.test" });
 						yield* db
 							.insert(importRun)
-							.values({
-								id: "run",
-								userId: "owner",
-								status: "running",
-								source: "data-json",
-								accountGeneration: "test-account-generation",
-							});
+							.values({ id: "run", userId: "owner", status: "running", source: "data-json" });
 						yield* db
 							.insert(importCapture)
 							.values({

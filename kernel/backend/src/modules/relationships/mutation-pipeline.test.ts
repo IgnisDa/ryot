@@ -92,12 +92,7 @@ const insertForeignEntity = Effect.gen(function* () {
 	yield* session.run((db) =>
 		db
 			.insert(tables.user)
-			.values({
-				id: otherUserId,
-				name: "Other owner",
-				email: "other-relationship@example.test",
-				accountGeneration: "test-account-generation",
-			}),
+			.values({ id: otherUserId, name: "Other owner", email: "other-relationship@example.test" }),
 	);
 	const [foreign] = yield* insertEntities(["foreign-private-entity"], otherUserId);
 	assert(foreign);

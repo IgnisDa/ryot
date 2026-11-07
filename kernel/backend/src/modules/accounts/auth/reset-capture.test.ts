@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
-import { DbError } from "@ryot-app/contract/errors";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber } from "effect";
@@ -16,12 +15,10 @@ const userId = "user-1";
 
 const harness = () => {
 	const pending = new Map<string, string>();
-	const listeners = new Set<(id: string, message: string) => void>();
-	const subscriptions = new Set<string>();
+	const listeners = new Map<string, (message: string) => void>();
 	const tracked = new Map<string, string>();
 	const revoked: Array<string> = [];
 	let closed = 0;
-	let failSubscription = false;
 	const transport: ResetCaptureTransport = {
 		release: (address, id) =>
 			Effect.sync(() => {
@@ -42,11 +39,20 @@ const harness = () => {
 				if (pending.get(address) !== id) {
 					return;
 				}
-				for (const listener of listeners) {
-					listener(id, message);
-				}
+				listeners.get(id)?.(message);
 				pending.delete(address);
 			}),
+		listen: (id, listener) =>
+			Effect.acquireRelease(
+				Effect.sync(() => {
+					listeners.set(id, listener);
+				}),
+				() =>
+					Effect.sync(() => {
+						listeners.delete(id);
+						closed += 1;
+					}),
+			),
 		track: (address, id, owner, token) =>
 			Effect.sync(() => {
 				if (pending.get(address) !== id) {
@@ -56,28 +62,6 @@ const harness = () => {
 				tracked.set(owner, token);
 				return { previous, tracked: true };
 			}),
-		subscriber: () => ({
-			quit: () =>
-				Effect.sync(() => {
-					closed += 1;
-				}),
-			onMessage: (listener) => {
-				listeners.add(listener);
-			},
-			offMessage: (listener) => {
-				listeners.delete(listener);
-			},
-			unsubscribe: (id) =>
-				Effect.sync(() => {
-					subscriptions.delete(id);
-				}),
-			subscribe: (id) =>
-				failSubscription
-					? Effect.fail(new DbError({ message: "subscription failed" }))
-					: Effect.sync(() => {
-							subscriptions.add(id);
-						}),
-		}),
 	};
 	return {
 		pending,
@@ -85,11 +69,7 @@ const harness = () => {
 		revoked,
 		transport,
 		listeners,
-		subscriptions,
 		closed: () => closed,
-		failSubscription: () => {
-			failSubscription = true;
-		},
 		revokeToken: (token: string) =>
 			Effect.sync(() => {
 				revoked.push(token);
@@ -115,13 +95,13 @@ const capture = (
 
 layer(BunCrypto.layerSecureRandom)((test) => {
 	test.effect(
-		"subscribes before initiation and releases resources after capture",
+		"listens before initiation and releases resources after capture",
 		() =>
 			Effect.gen(function* () {
 				const state = harness();
 				const runtime = yield* Effect.context();
 				const result = yield* capture(state.transport, (request) => {
-					expect(state.subscriptions.size).toBe(1);
+					expect(state.listeners.size).toBe(1);
 					return Effect.runPromiseWith(runtime)(
 						deliverResetLink({
 							email,
@@ -137,31 +117,15 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				expect(result.resetUrl).toBe(`${frontendUrl}/reset-password?token=token`);
 				expect(state.pending.size).toBe(0);
 				expect(state.listeners.size).toBe(0);
-				expect(state.subscriptions.size).toBe(0);
 				expect(state.closed()).toBe(1);
 			}),
 		testTimeout,
 	);
 
 	test.effect(
-		"reports subscription and initiation failures separately",
+		"reports an initiation failure",
 		() =>
 			Effect.gen(function* () {
-				const failedSubscribe = harness();
-				failedSubscribe.failSubscription();
-				let initiated = false;
-				const subscribeError = yield* Effect.flip(
-					capture(failedSubscribe.transport, () => {
-						initiated = true;
-						return Promise.resolve(new Response(null));
-					}),
-				);
-				expect(subscribeError.message).toContain("subscription");
-				expect(initiated).toBe(false);
-				expect(failedSubscribe.pending.size).toBe(0);
-				expect(failedSubscribe.listeners.size).toBe(0);
-				expect(failedSubscribe.closed()).toBe(1);
-
 				const failedInitiate = harness();
 				const error = yield* Effect.flip(
 					capture(failedInitiate.transport, () => Promise.reject(new Error("no reset"))),
@@ -286,7 +250,6 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				yield* Deferred.succeed(finish, undefined);
 				expect(state.pending.size).toBe(0);
 				expect(state.listeners.size).toBe(0);
-				expect(state.subscriptions.size).toBe(0);
 				expect(state.closed()).toBe(2);
 			}),
 		testTimeout,
@@ -323,7 +286,6 @@ layer(BunCrypto.layerSecureRandom)((test) => {
 				yield* Fiber.interrupt(captureFiber);
 				expect(state.pending.get(email)).toBe("replacement-id");
 				expect(state.listeners.size).toBe(0);
-				expect(state.subscriptions.size).toBe(0);
 				expect(state.closed()).toBe(1);
 			}),
 		testTimeout,

@@ -50,14 +50,7 @@ const seed = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
 		yield* session.run((db) =>
-			db
-				.insert(tables.user)
-				.values({
-					id: userId,
-					name: "Owner",
-					accountGeneration: "generation",
-					email: "ingestion@example.test",
-				}),
+			db.insert(tables.user).values({ id: userId, name: "Owner", email: "ingestion@example.test" }),
 		);
 		yield* session.run((db) =>
 			db
@@ -86,14 +79,9 @@ const blockedRun = Effect.fn(function* () {
 			source: "data-json",
 			blockReasons: reasons,
 			pluginInstallationId: null,
-			accountGeneration: { userId, token: "generation" },
 		}),
 	);
-	return {
-		runId,
-		userId,
-		accountGeneration: { userId, token: "generation" },
-	} satisfies IngestionScope;
+	return { runId, userId } satisfies IngestionScope;
 });
 
 const runningRun = Effect.fn(function* () {
@@ -180,7 +168,6 @@ layer(
 			Effect.gen(function* () {
 				const database = yield* DatabaseSession;
 				const repository = yield* ImportsRepository;
-				const accountGeneration = { userId, token: "generation" };
 				const runId = yield* database.transaction(
 					Effect.gen(function* () {
 						yield* database.run((db) =>
@@ -190,7 +177,6 @@ layer(
 							userId,
 							integrationId,
 							inputSummary: {},
-							accountGeneration,
 							source: "data-json",
 							blockReasons: reasons,
 							acceptedAt: receivedAt,
@@ -198,7 +184,7 @@ layer(
 						});
 					}),
 				);
-				const scope = { runId, userId, accountGeneration } satisfies IngestionScope;
+				const scope = { runId, userId } satisfies IngestionScope;
 				const deadlineAt = DateTime.makeUnsafe(expectedDeadline);
 
 				expect(yield* repository.getIngestionRun(scope)).toMatchObject({
@@ -491,14 +477,9 @@ layer(
 					source: "data-json",
 					blockReasons: reasons,
 					pluginInstallationId: null,
-					accountGeneration: { userId, token: "generation" },
 				});
 				const accepted = yield* database.transaction(admit);
-				const acceptedScope = {
-					userId,
-					runId: accepted,
-					accountGeneration: { userId, token: "generation" },
-				};
+				const acceptedScope = { userId, runId: accepted };
 				const reservation = {
 					ordinal: 0,
 					checkpoint: null,
@@ -543,15 +524,11 @@ layer(
 						pins,
 						plan,
 						now: acceptedAt,
-						scope: { userId, runId: accepted, accountGeneration: { userId, token: "generation" } },
+						scope: { userId, runId: accepted },
 					}),
 				).toBe(false);
 				if (admission._tag === "Success") {
-					const scope = {
-						userId,
-						runId: admission.value,
-						accountGeneration: { userId, token: "generation" },
-					};
+					const scope = { userId, runId: admission.value };
 					expect(yield* repository.releaseBlocked({ pins, plan, scope, now: acceptedAt })).toBe(
 						false,
 					);
@@ -567,11 +544,7 @@ layer(
 					yield* repository.settleIngestion({
 						status: "cancelled",
 						finishedAt: acceptedAt,
-						scope: {
-							userId,
-							runId: ImportRunId.make(run.id),
-							accountGeneration: { userId, token: "generation" },
-						},
+						scope: { userId, runId: ImportRunId.make(run.id) },
 					});
 				}
 				yield* integrations.deleteForUser({
@@ -761,43 +734,19 @@ layer(
 	);
 
 	test.effect(
-		"fences other users and retired generations on reads and transitions",
+		"fences other users on reads and transitions",
 		() =>
 			Effect.gen(function* () {
 				const scope = yield* blockedRun();
 				const repository = yield* ImportsRepository;
-				for (const denied of [
-					{ ...scope, userId: UserId.make("other-user") },
-					{ ...scope, accountGeneration: { userId, token: "retired" } },
-					{
-						...scope,
-						accountGeneration: { token: "generation", userId: UserId.make("other-user") },
-					},
-				]) {
-					expect(yield* repository.getIngestionRun(denied)).toBeNull();
-					expect(yield* repository.getIngestionRunControl(denied)).toBeNull();
-					expect(
-						yield* repository.releaseBlocked({ plan, pins, scope: denied, now: acceptedAt }),
-					).toBe(false);
-					expect(yield* repository.expireBlocked({ scope: denied, now: deadline })).toBe(false);
-					expect(yield* repository.cancelIngestion(denied)).toBe(false);
-				}
-				const session = yield* DatabaseSession;
-				yield* session.run((db) =>
-					db
-						.update(tables.user)
-						.set({ accountGeneration: "replacement" })
-						.where(eq(tables.user.id, userId)),
-				);
-				expect(yield* repository.startIngestion({ scope, startedAt: acceptedAt })).toBe(false);
-				expect(yield* repository.getIngestionRun(scope)).toBeNull();
-				expect(yield* repository.getIngestionRunControl(scope)).toBeNull();
-				yield* session.run((db) =>
-					db
-						.update(tables.user)
-						.set({ accountGeneration: "generation" })
-						.where(eq(tables.user.id, userId)),
-				);
+				const denied = { ...scope, userId: UserId.make("other-user") };
+				expect(yield* repository.getIngestionRun(denied)).toBeNull();
+				expect(yield* repository.getIngestionRunControl(denied)).toBeNull();
+				expect(
+					yield* repository.releaseBlocked({ plan, pins, scope: denied, now: acceptedAt }),
+				).toBe(false);
+				expect(yield* repository.expireBlocked({ scope: denied, now: deadline })).toBe(false);
+				expect(yield* repository.cancelIngestion(denied)).toBe(false);
 			}),
 		testTimeout,
 	);
@@ -843,13 +792,7 @@ layer(
 					expect(statements).toHaveLength(1);
 					expect(statements[0]).toContain('from "import_run"');
 					expect(statements[0]).not.toMatch(/import_batch|import_activity/);
-					expect(control).toMatchObject({
-						plan,
-						pins,
-						id: scope.runId,
-						status: "running",
-						accountGeneration: scope.accountGeneration,
-					});
+					expect(control).toMatchObject({ plan, pins, id: scope.runId, status: "running" });
 					expect(control).not.toHaveProperty("summary");
 					expect(control).not.toHaveProperty("activities");
 				}
@@ -1397,8 +1340,8 @@ layer(
 					inputSummary: {},
 					digest: "document",
 					uploadTokenHash: null,
+					accountUserId: userId,
 					submissionKey: "same-data",
-					accountGeneration: { userId, token: "generation" },
 					payload: { byteSize: 10, checksum: "document", locator: "data-object" },
 				};
 				const admissions = yield* Effect.all(

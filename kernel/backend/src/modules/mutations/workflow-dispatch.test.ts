@@ -13,7 +13,7 @@ import { makeWorkflowEngine } from "#testing/effect";
 
 import { dispatchAdmittedWorkflow } from "./workflow-dispatch";
 
-const account = { token: "generation", userId: UserId.make("dispatch-owner") };
+const account = UserId.make("dispatch-owner");
 
 const workflow = Workflow.make("AdmittedWorkflow", {
 	error: Schema.Never,

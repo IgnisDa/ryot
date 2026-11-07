@@ -142,14 +142,10 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 		const repository = yield* ImportsRepository;
 		const definitionRepository = yield* DefinitionRepository;
 		const engine = yield* WorkflowEngine;
-		if (!input.command.accountGeneration) {
-			return yield* new ImportRunError({ message: "Data ingestion account generation is missing" });
+		if (!input.command.accountUserId) {
+			return yield* new ImportRunError({ message: "Data ingestion account is missing" });
 		}
-		const scope = {
-			runId: input.runId,
-			userId: input.userId,
-			accountGeneration: input.command.accountGeneration,
-		};
+		const scope = { runId: input.runId, userId: input.userId };
 		const captures = yield* IngestionCaptures;
 		const execution = yield* IngestionExecution;
 		const database = yield* DatabaseSession;
@@ -364,7 +360,7 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 				const result = yield* dispatchAdmittedWorkflow(
 					engine,
 					ProcessDataImportSegmentWorkflow,
-					input.command.accountGeneration,
+					input.command.accountUserId,
 					{
 						executionId: segmentExecutionId,
 						payload: {
@@ -459,16 +455,12 @@ export const runDataImportWorkflow = Effect.fn("runDataImportWorkflow")(
 
 export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkflow")(
 	function* (input: typeof DataImportSegmentPayload.Type) {
-		yield* admitWorkflow(input.command.accountGeneration).pipe(Effect.mapError(toWorkflowError));
+		yield* admitWorkflow(input.command.accountUserId).pipe(Effect.mapError(toWorkflowError));
 		const repository = yield* ImportsRepository;
-		if (!input.command.accountGeneration) {
-			return yield* new ImportRunError({ message: "Data ingestion account generation is missing" });
+		if (!input.command.accountUserId) {
+			return yield* new ImportRunError({ message: "Data ingestion account is missing" });
 		}
-		const scope = {
-			runId: input.runId,
-			userId: input.userId,
-			accountGeneration: input.command.accountGeneration,
-		};
+		const scope = { runId: input.runId, userId: input.userId };
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
 		const records = yield* Schema.decodeEffect(
@@ -809,9 +801,7 @@ export const runDataImportSegmentWorkflow = Effect.fn("runDataImportSegmentWorkf
 export const DataImportWorkflowDefinitionsLive = Layer.mergeAll(
 	implementWorkflow(ProcessDataImportWorkflow, (payload, executionId) =>
 		Effect.gen(function* () {
-			yield* admitWorkflow(payload.command.accountGeneration).pipe(
-				Effect.mapError(toWorkflowError),
-			);
+			yield* admitWorkflow(payload.command.accountUserId).pipe(Effect.mapError(toWorkflowError));
 			return yield* runDataImportWorkflow(payload, executionId);
 		}),
 	),

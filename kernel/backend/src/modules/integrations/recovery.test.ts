@@ -60,12 +60,7 @@ layer(
 				yield* database.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							name: "Rejected",
-							id: integration.userId,
-							email: "rejected@example.test",
-							accountGeneration: "generation",
-						}),
+						.values({ name: "Rejected", id: integration.userId, email: "rejected@example.test" }),
 				);
 				yield* database.run((db) =>
 					db
@@ -117,12 +112,7 @@ layer(
 				yield* database.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: userId,
-							name: "Recovery",
-							email: "recovery@example.test",
-							accountGeneration: "generation",
-						}),
+						.values({ id: userId, name: "Recovery", email: "recovery@example.test" }),
 				);
 				yield* database.run((db) =>
 					db
@@ -148,7 +138,6 @@ layer(
 							inputSummary: {},
 							source: "data-json",
 							pluginInstallationId: null,
-							accountGeneration: { userId, token: "generation" },
 							blockReasons: [{ key: "endpoint", code: "configuration-required" }],
 						}),
 					);
@@ -178,7 +167,7 @@ layer(
 				] as const) {
 					const runId = sorted[index];
 					assert(runId);
-					const scope = { runId, userId, accountGeneration: { userId, token: "generation" } };
+					const scope = { runId, userId };
 					yield* repository.releaseBlocked({
 						scope,
 						now: date,
@@ -234,12 +223,7 @@ layer(
 				yield* database.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: userId,
-							name: "Database time",
-							accountGeneration: "generation",
-							email: "database-time@example.test",
-						}),
+						.values({ id: userId, name: "Database time", email: "database-time@example.test" }),
 				);
 				yield* database.run((db) =>
 					db
@@ -265,7 +249,6 @@ layer(
 							acceptedAt: before,
 							source: "data-json",
 							pluginInstallationId: null,
-							accountGeneration: { userId, token: "generation" },
 							blockReasons: [{ key: "endpoint", code: "configuration-required" }],
 						}),
 					);
@@ -310,12 +293,7 @@ layer(
 				yield* database.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: userId,
-							name: "Cutoff",
-							email: "cutoff@example.test",
-							accountGeneration: "generation",
-						}),
+						.values({ id: userId, name: "Cutoff", email: "cutoff@example.test" }),
 				);
 				yield* database.run((db) =>
 					db

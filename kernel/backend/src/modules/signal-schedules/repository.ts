@@ -42,7 +42,6 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 							properties: schedule.properties,
 							preferences: schema.user.preferences,
 							requiresProKey: schedule.requiresProKey,
-							accountGeneration: schema.user.accountGeneration,
 						})
 						.from(plugin)
 						.innerJoin(schedule, eq(schedule.pluginRevisionId, plugin.activeRevisionId))

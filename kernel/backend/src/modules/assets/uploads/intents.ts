@@ -15,19 +15,23 @@ import {
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
 import { CryptoHasher } from "bun";
-import { Clock, Context, DateTime, Effect, Layer, Schema, Stream } from "effect";
+import { Clock, Context, DateTime, Duration, Effect, Layer, Schema, Stream } from "effect";
 
-import { redisKeys, RedisService } from "#platform/redis";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
+import { TransientValues } from "#platform/transient-values";
 
 import { ManagedAssetsService } from "../storage/managed-assets";
 import { ObjectStorageService } from "../storage/object-storage";
+import { UploadIntentsRepository } from "./intents-repository";
 
 const UPLOAD_TOKEN_TTL_SECONDS = 15 * 60;
 const UPLOAD_URL_EXPIRY_SECONDS = 15 * 60;
 const PROCESSING_LEASE_SECONDS = 24 * 60 * 60;
 const CLEANUP_LEASE_SECONDS = 60;
+
+const intentLockKey = (intentId: string) => `upload:lock:${intentId}`;
+const uploadTokenKey = (token: string) => `upload:token:${token}`;
 
 const uploadError = (reason: UploadFailureReason) => new UploadBadRequest({ reason });
 
@@ -147,7 +151,20 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 	"@ryot-app/kernel-backend/modules/assets/uploads/intents/UploadIntentsService",
 	{
 		make: Effect.gen(function* () {
-			const redis = yield* RedisService;
+			const intents = yield* UploadIntentsRepository;
+			const values = yield* TransientValues;
+			const acquireLease = (key: string, ttlSeconds: number) =>
+				Effect.suspend(() => {
+					const owner = generateId();
+					return values.setIfAbsent(key, owner, Duration.seconds(ttlSeconds)).pipe(
+						Effect.map((stored) => (stored ? owner : null)),
+						Effect.orDie,
+					);
+				});
+			const releaseLease = (key: string, owner: string) =>
+				values.removeIfEquals(key, owner).pipe(Effect.asVoid, Effect.orDie);
+			const setToken = (token: string, value: string, ttlSeconds: number) =>
+				values.set(uploadTokenKey(token), value, Duration.seconds(ttlSeconds)).pipe(Effect.orDie);
 			const s3Service = yield* S3Service;
 			const managedAssets = yield* ManagedAssetsService;
 			const objectStorage = yield* ObjectStorageService;
@@ -192,13 +209,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 						? { ...pending, kind: "temporary" as const, provider: "local" as const }
 						: { ...pending, provider, kind: "permanent" as const };
 				const encoded = yield* encodeIntent(metadata).pipe(Effect.orDie);
-				yield* redis.setAndIndex(
-					redisKeys.uploadIntent(intentId),
-					encoded,
-					redisKeys.uploadIntentExpiry,
-					expiresAt,
-					intentId,
-				);
+				yield* intents.put(intentId, encoded, expiresAt);
 				return {
 					intentId,
 					method: target.method,
@@ -209,8 +220,8 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 			});
 
 			const getIntent = (intentId: string) =>
-				redis
-					.get(redisKeys.uploadIntent(intentId))
+				intents
+					.get(intentId)
 					.pipe(
 						Effect.flatMap((raw) =>
 							raw
@@ -223,8 +234,8 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 
 			const completeUploadIntent = Effect.fn("UploadIntentsService.completeUploadIntent")(
 				function* (user: CurrentUserValue, intentId: string) {
-					const lockKey = redisKeys.uploadIntentLock(intentId);
-					const lease = yield* redis.acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
+					const lockKey = intentLockKey(intentId);
+					const lease = yield* acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
 					if (lease === null) {
 						return yield* uploadError({ intentId, code: "intent-busy" });
 					}
@@ -308,13 +319,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								createdAt: metadata.createdAt,
 								contentType: metadata.contentType,
 							}).pipe(Effect.orDie);
-							yield* redis.setAndRemoveFromIndex(
-								redisKeys.uploadIntent(intentId),
-								encoded,
-								redisKeys.uploadIntentExpiry,
-								intentId,
-								UPLOAD_URL_EXPIRY_SECONDS,
-							);
+							yield* intents.put(intentId, encoded, now + UPLOAD_URL_EXPIRY_SECONDS);
 							return completionResponse(locator);
 						}
 						const completion = { token: generateId(), expiresAt: now + UPLOAD_TOKEN_TTL_SECONDS };
@@ -324,18 +329,10 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 						const tokenValue = yield* Schema.encodeUnknownEffect(
 							Schema.fromJsonString(UploadTokenValue),
 						)({ intentId, userId: user.id }).pipe(Effect.orDie);
-						yield* redis.setAndIndexAndSet(
-							redisKeys.uploadIntent(intentId),
-							encoded,
-							redisKeys.uploadIntentExpiry,
-							completion.expiresAt,
-							intentId,
-							redisKeys.uploadToken(completion.token),
-							tokenValue,
-							UPLOAD_TOKEN_TTL_SECONDS,
-						);
+						yield* setToken(completion.token, tokenValue, UPLOAD_TOKEN_TTL_SECONDS);
+						yield* intents.put(intentId, encoded, completion.expiresAt);
 						return completionResponse(completion);
-					}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+					}).pipe(Effect.ensuring(releaseLease(lockKey, lease)));
 				},
 			);
 
@@ -352,13 +349,13 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					url,
 					Math.floor((yield* Clock.currentTimeMillis) / 1000),
 				);
-				const lockKey = redisKeys.uploadIntentLock(intentId);
-				const lease = yield* redis.acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
+				const lockKey = intentLockKey(intentId);
+				const lease = yield* acquireLease(lockKey, UPLOAD_URL_EXPIRY_SECONDS);
 				if (lease === null) {
 					return yield* uploadError({ intentId, code: "intent-busy" });
 				}
 				yield* Effect.gen(function* () {
-					const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+					const raw = yield* intents.get(intentId);
 					if (!raw) {
 						return yield* uploadError({ intentId, code: "intent-expired" });
 					}
@@ -397,15 +394,14 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					}
 					const renewedStream = stream.pipe(
 						Stream.mapEffect((chunk) =>
-							redis
-								.renewLease(lockKey, lease, UPLOAD_URL_EXPIRY_SECONDS)
-								.pipe(
-									Effect.flatMap((renewed) =>
-										renewed
-											? Effect.succeed(chunk)
-											: Effect.fail(uploadError({ intentId, code: "intent-expired" })),
-									),
+							values.renew(lockKey, lease, Duration.seconds(UPLOAD_URL_EXPIRY_SECONDS)).pipe(
+								Effect.orDie,
+								Effect.flatMap((renewed) =>
+									renewed
+										? Effect.succeed(chunk)
+										: Effect.fail(uploadError({ intentId, code: "intent-expired" })),
 								),
+							),
 						),
 					);
 					yield* localStorage
@@ -415,31 +411,28 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							Effect.mapError(() => uploadError({ code: "upload-failed" })),
 						);
 					return void 0;
-				}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+				}).pipe(Effect.ensuring(releaseLease(lockKey, lease)));
 				return void 0;
 			});
 
 			const removeIntentRecord = (intentId: string, metadata: typeof UploadIntentMetadata.Type) =>
 				Effect.gen(function* () {
 					if (metadata.kind === "permanent" && metadata.state === "completed") {
-						yield* redis.del(redisKeys.uploadIntent(intentId));
-						yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+						yield* intents.remove(intentId);
 						return;
 					}
 					yield* objectStorage.deleteObject({ type: metadata.provider, key: metadata.objectKey });
 					if (metadata.kind === "temporary" && metadata.state !== "pending") {
-						yield* redis.del(redisKeys.uploadToken(metadata.completion.token));
+						yield* values.remove(uploadTokenKey(metadata.completion.token)).pipe(Effect.orDie);
 					}
-					yield* redis.del(redisKeys.uploadIntent(intentId));
-					yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+					yield* intents.remove(intentId);
 				});
 
 			const removeUploadIntent = Effect.fn("UploadIntentsService.removeUploadIntent")(function* (
 				intentId: string,
 			) {
-				const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+				const raw = yield* intents.get(intentId);
 				if (!raw) {
-					yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
 					return;
 				}
 				const metadata = yield* decodeIntent(raw).pipe(
@@ -451,28 +444,28 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 			const cleanupPendingIntents = Effect.fn("UploadIntentsService.cleanupPendingIntents")(
 				function* (max: number) {
 					const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-					const intentIds = yield* redis.zrangeByScore(redisKeys.uploadIntentExpiry, now, max);
+					const intentIds = yield* intents.due(now, max);
 					yield* Effect.forEach(intentIds, (intentId) =>
 						Effect.gen(function* () {
-							const lockKey = redisKeys.uploadIntentLock(intentId);
-							const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
+							const lockKey = intentLockKey(intentId);
+							const lease = yield* acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
 							if (lease === null) {
 								return;
 							}
 							yield* Effect.gen(function* () {
-								const raw = yield* redis.get(redisKeys.uploadIntent(intentId));
+								const raw = yield* intents.get(intentId);
 								if (!raw) {
-									return yield* redis.zrem(redisKeys.uploadIntentExpiry, intentId);
+									return yield* Effect.void;
 								}
 								const metadata = yield* decodeIntent(raw).pipe(
 									Effect.mapError(() => uploadError({ intentId, code: "intent-invalid" })),
 								);
 								const deadline = intentDeadline(metadata);
 								if (deadline !== null && deadline > now) {
-									return yield* redis.zadd(redisKeys.uploadIntentExpiry, deadline, intentId);
+									return yield* intents.setDeadline(intentId, deadline);
 								}
 								return yield* removeIntentRecord(intentId, metadata);
-							}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+							}).pipe(Effect.ensuring(releaseLease(lockKey, lease)));
 						}).pipe(
 							Effect.catchCause((cause) =>
 								Effect.logWarning("upload intent cleanup failed", cause).pipe(
@@ -486,7 +479,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 
 			const claimTemporaryUpload = Effect.fn("UploadIntentsService.claimTemporaryUpload")(
 				function* (token: string, userId: UserId, claimId: string) {
-					const rawToken = yield* redis.get(redisKeys.uploadToken(token));
+					const rawToken = yield* values.get(uploadTokenKey(token)).pipe(Effect.orDie);
 					if (!rawToken) {
 						return yield* uploadError({ code: "token-invalid" });
 					}
@@ -496,8 +489,8 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 					if (tokenValue.userId !== userId) {
 						return yield* uploadError({ code: "token-forbidden" });
 					}
-					const lockKey = redisKeys.uploadIntentLock(tokenValue.intentId);
-					const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
+					const lockKey = intentLockKey(tokenValue.intentId);
+					const lease = yield* acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
 					if (lease === null) {
 						return yield* uploadError({ code: "token-busy" });
 					}
@@ -538,16 +531,8 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 								state: "claimed" as const,
 							};
 							const encoded = yield* encodeIntent(claimed).pipe(Effect.orDie);
-							yield* redis.setAndIndexAndSet(
-								redisKeys.uploadIntent(tokenValue.intentId),
-								encoded,
-								redisKeys.uploadIntentExpiry,
-								leaseExpiresAt,
-								tokenValue.intentId,
-								redisKeys.uploadToken(token),
-								rawToken,
-								PROCESSING_LEASE_SECONDS,
-							);
+							yield* setToken(token, rawToken, PROCESSING_LEASE_SECONDS);
+							yield* intents.put(tokenValue.intentId, encoded, leaseExpiresAt);
 						}
 						return {
 							resolvedPath,
@@ -556,20 +541,18 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							locator: { type: metadata.provider, key: metadata.objectKey },
 							leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(leaseExpiresAt * 1000)),
 						};
-					}).pipe(Effect.ensuring(redis.releaseLease(lockKey, lease)));
+					}).pipe(Effect.ensuring(releaseLease(lockKey, lease)));
 				},
 			);
 
 			const deleteTemporaryUpload = Effect.fn("UploadIntentsService.deleteTemporaryUpload")(
 				function* (intentId: string) {
-					const lockKey = redisKeys.uploadIntentLock(intentId);
-					const lease = yield* redis.acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
+					const lockKey = intentLockKey(intentId);
+					const lease = yield* acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
 					if (lease === null) {
 						return yield* uploadError({ intentId, code: "intent-busy" });
 					}
-					yield* removeUploadIntent(intentId).pipe(
-						Effect.ensuring(redis.releaseLease(lockKey, lease)),
-					);
+					yield* removeUploadIntent(intentId).pipe(Effect.ensuring(releaseLease(lockKey, lease)));
 					return void 0;
 				},
 			);

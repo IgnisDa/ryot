@@ -36,12 +36,7 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 				yield* database.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: userId,
-							name: "Owner",
-							accountGeneration: "generation",
-							email: "capture-restart@example.test",
-						}),
+						.values({ id: userId, name: "Owner", email: "capture-restart@example.test" }),
 				);
 				const directory = yield* fs.makeTempDirectoryScoped();
 				const working = `${directory}/working`;
@@ -62,21 +57,11 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 				).pipe(Layer.provideMerge(dependencies));
 				const bytes = new TextEncoder().encode("collector records");
 				for (const published of [false, true]) {
-					const scope = {
-						userId,
-						runId: ImportRunId.make(`restart-${published}`),
-						accountGeneration: { userId, token: "generation" },
-					};
+					const scope = { userId, runId: ImportRunId.make(`restart-${published}`) };
 					yield* database.run((db) =>
 						db
 							.insert(tables.importRun)
-							.values({
-								userId,
-								id: scope.runId,
-								status: "running",
-								source: "data-json",
-								accountGeneration: "generation",
-							}),
+							.values({ userId, id: scope.runId, status: "running", source: "data-json" }),
 					);
 					const first = yield* Layer.build(services);
 					const input = {

@@ -19,10 +19,10 @@ const command = rootLifecycleCommand({
 	source: "api",
 	lane: "interactive",
 	itemIdentity: "population",
+	accountUserId: UserId.make("user-1"),
 	occurredAt: "2026-09-15T00:00:00.000Z",
 	executionId: AutomationExecutionId.make("execution-1"),
 	initiator: { kind: "user", id: UserId.make("user-1") },
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 });
 
 const population = Schema.decodeEffect(AutomationPopulationContext)({

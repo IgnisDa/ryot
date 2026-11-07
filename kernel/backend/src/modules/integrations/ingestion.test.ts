@@ -289,8 +289,8 @@ it.effect.each(["integration-disabled", "integrations-disabled", "pro-key-requir
 			);
 			expect(test.getRun().status).toBe("failed");
 			expect(test.calls.find((call) => call.method === "reject")?.input).toMatchObject({
-				scope,
 				failureReason: { code },
+				scope: { runId: scope.runId, userId: scope.userId },
 			});
 			expect(test.calls.some((call) => call.method === "envelope")).toBe(false);
 			expect(yield* service.release(scope, integration)).toBe(false);
@@ -334,7 +334,7 @@ it.effect(
 );
 
 it.effect(
-	"durably stores the unchanged transport with its account generation while setup is blocked",
+	"durably stores the unchanged transport while setup is blocked",
 	() =>
 		Effect.gen(function* () {
 			const test = yield* runCase({ ready: false });
@@ -349,7 +349,6 @@ it.effect(
 			expect(test.calls[1]?.input).toEqual<unknown>(
 				objectContaining({
 					acceptedAt: anyOf(Date),
-					accountGeneration: ingestionTestScope.accountGeneration,
 					blockReasons: [objectContaining({ key: "token", code: "configuration-required" })],
 				}),
 			);

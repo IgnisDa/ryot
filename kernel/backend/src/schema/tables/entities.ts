@@ -75,7 +75,6 @@ export const entity = snakeCase.table(
 export const relationship = snakeCase.table(
 	"relationship",
 	{
-		syncGeneration: text(),
 		updatedAt: updatedAtColumn(),
 		relationshipSchemaSlug: text().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),

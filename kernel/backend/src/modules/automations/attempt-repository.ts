@@ -144,7 +144,7 @@ export const automationAttemptIdentity = (runId: AutomationRunId, attemptNumber:
 	const hash = sha256Base64Url(stableStringify([runId, attemptNumber]));
 	return {
 		id: AutomationRunAttemptId.make(`attempt_${hash}`),
-		workflowExecutionId: AutomationExecutionId.make(`automation_attempt_${hash}`),
+		executionId: AutomationExecutionId.make(`automation_attempt_${hash}`),
 	};
 };
 

@@ -31,7 +31,6 @@ import {
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
-const generation = (userId: UserId) => ({ userId, token: "test-account-generation" });
 
 type Invalidation = { readonly userId: UserId; readonly kind: "record" | "publish" };
 
@@ -157,8 +156,8 @@ const patch = (input: {
 	readonly userId: UserId;
 	readonly pluginId: string;
 	readonly revisionId: string;
+	readonly accountUserId?: UserId;
 	readonly values: Readonly<Record<string, JsonValue>>;
-	readonly accountGeneration?: ReturnType<typeof generation>;
 }) =>
 	Effect.flatMap(PluginUserSettingsWriter, (writer) =>
 		writer.patch({
@@ -166,7 +165,7 @@ const patch = (input: {
 			userId: input.userId,
 			pluginId: input.pluginId,
 			pluginRevisionId: input.revisionId,
-			accountGeneration: input.accountGeneration ?? generation(input.userId),
+			accountUserId: input.accountUserId ?? input.userId,
 		}),
 	);
 
@@ -424,15 +423,15 @@ describe("PluginUserSettingsWriter.patch", () => {
 		);
 
 		test.effect(
-			"rejects retired or mismatched account generations",
+			"rejects a mismatched account",
 			() =>
 				Effect.gen(function* () {
 					const plugin = yield* installSettingsPlugin("settings-generation");
-					const write = (accountGeneration: ReturnType<typeof generation>) =>
+					const write = (accountUserId: UserId) =>
 						Effect.exit(
 							patch({
 								userId: owner,
-								accountGeneration,
+								accountUserId,
 								values: { theme: "dark" },
 								pluginId: plugin.pluginId,
 								revisionId: plugin.revisionId,
@@ -440,11 +439,7 @@ describe("PluginUserSettingsWriter.patch", () => {
 						);
 
 					assertExitFails(
-						yield* write({ userId: owner, token: "retired-account-generation" }),
-						new DbError({ message: "Mutation command belongs to a retired account" }),
-					);
-					assertExitFails(
-						yield* write(generation(recipient)),
+						yield* write(recipient),
 						new DbError({
 							message: "Plugin user settings account does not match the execution user",
 						}),

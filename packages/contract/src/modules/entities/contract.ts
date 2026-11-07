@@ -4,6 +4,7 @@ import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { SubmissionExpired } from "../../errors";
 import { EntityId } from "../../schema/brands";
+import { PopulateEntitiesBody } from "../live-updates/messages";
 import { RelationshipBadRequest, RelationshipNotFound } from "../relationships/schemas";
 import { EntityEditorRefused, EntityEditorSaveRequest, EntityEditorSaveResult } from "./editor";
 import {
@@ -18,6 +19,14 @@ import {
 } from "./schemas";
 
 export const EntitiesGroup = HttpApiGroup.make("entities")
+	.add(
+		AuthenticatedMutationEndpoint.post("allowed")("populate", "/entities/populate", {
+			payload: PopulateEntitiesBody,
+		}).annotate(
+			OpenApi.Description,
+			"Queue provider work for the entities a page shows that are missing data or stale.",
+		),
+	)
 	.annotate(OpenApi.Description, "Create entities.")
 	.add(
 		AuthenticatedMutationEndpoint.post("protected")("create", "/entities", {

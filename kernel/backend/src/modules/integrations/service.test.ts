@@ -63,7 +63,6 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 };
 
 const mockProKey = (isValidated: boolean) =>
@@ -198,10 +197,7 @@ const makeServiceLayer = (options: {
 										Effect.as({
 											userId: integration.userId,
 											runId: makeRun("completed").id,
-											accountGeneration: {
-												userId: integration.userId,
-												token: "test-account-generation",
-											},
+											accountUserId: integration.userId,
 										}),
 									),
 								...dependencies.ingestion,
@@ -717,7 +713,7 @@ describe("prepareYankRuns", () => {
 });
 
 describe("releaseRecoveryRun", () => {
-	const scope = ingestionTestScope;
+	const run = { ...ingestionTestScope, accountUserId: ingestionTestScope.userId };
 	const integrationId = makeIntegration().id;
 	for (const [status, pinned] of [
 		["blocked", false],
@@ -755,10 +751,10 @@ describe("releaseRecoveryRun", () => {
 				() =>
 					Effect.gen(function* () {
 						const service = yield* IntegrationsService;
-						expect(yield* service.releaseRecoveryRun({ ...scope, integrationId })).toBe(false);
+						expect(yield* service.releaseRecoveryRun({ ...run, integrationId })).toBe(false);
 						expect(yield* (yield* FakeIntegrationDependencies).calls).toEqual([
-							{ input: scope, method: "cancel" },
-							{ method: "settle", input: { scope, status: "cancelled" } },
+							{ method: "cancel", input: ingestionTestScope },
+							{ method: "settle", input: { status: "cancelled", scope: ingestionTestScope } },
 						]);
 					}),
 				testTimeout,
@@ -781,7 +777,7 @@ describe("releaseRecoveryRun", () => {
 			() =>
 				Effect.gen(function* () {
 					expect(
-						yield* (yield* IntegrationsService).releaseRecoveryRun({ ...scope, integrationId }),
+						yield* (yield* IntegrationsService).releaseRecoveryRun({ ...run, integrationId }),
 					).toBe(true);
 				}),
 			testTimeout,
@@ -884,7 +880,7 @@ describe("handleWebhook", () => {
 		}),
 	)((test) => {
 		test.effect(
-			"passes Data submission keys and the current account generation to durable admission",
+			"passes Data submission keys and the account to durable admission",
 			() =>
 				Effect.gen(function* () {
 					yield* (yield* IntegrationsService).handleWebhook({
@@ -898,23 +894,15 @@ describe("handleWebhook", () => {
 						method: "admitData",
 						input: {
 							submissionKey: "delivery-key",
+							userId: dataIntegration.userId,
 							integrationId: dataIntegration.id,
-							accountGeneration: {
-								userId: dataIntegration.userId,
-								token: "test-account-generation",
-							},
 						},
 					});
 					expect(calls[1]).toMatchObject({
 						method: "execute",
 						input: {
 							executionId: makeRun("completed").id,
-							payload: {
-								accountGeneration: {
-									userId: dataIntegration.userId,
-									token: "test-account-generation",
-								},
-							},
+							payload: { accountUserId: dataIntegration.userId },
 						},
 					});
 				}),
@@ -1126,10 +1114,7 @@ describe("syncAll", () => {
 			() =>
 				Effect.gen(function* () {
 					const userId = UserId.make("sync-user");
-					const result = yield* (yield* IntegrationsService).syncAll({
-						userId,
-						token: "test-account-generation",
-					});
+					const result = yield* (yield* IntegrationsService).syncAll(userId);
 
 					expect(result.executionId).toMatch(/^integration-sync-/);
 					expect((yield* (yield* FakeIntegrationDependencies).calls).at(-1)).toEqual({

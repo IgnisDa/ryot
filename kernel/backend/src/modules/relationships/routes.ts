@@ -22,9 +22,9 @@ export const RelationshipsRoutesLive = HttpApiBuilder.group(
 					...rootLifecycleCommand({
 						source: "api",
 						lane: "interactive",
+						accountUserId: user.id,
 						itemIdentity: "relationship",
 						initiator: { id: user.id, kind: "user" },
-						accountGeneration: user.accountGeneration,
 						executionId: AutomationExecutionId.make(generateId()),
 						occurredAt: (yield* DateTime.nowAsDate).toISOString(),
 					}),

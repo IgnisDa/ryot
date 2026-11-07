@@ -18,10 +18,10 @@ import { classifyAuthState } from "#modules/accounts/lifecycle/auth-state";
 import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
 import { PluginUserBootstrapDispatcher } from "#modules/accounts/provisioning/plugin-dispatch";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
-import { RedisService } from "#platform/redis";
-import { fakeDatabaseSession, makeAppConfigLayer, makeRedisService } from "#testing/effect";
+import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
 import { InstanceAdminRepository } from "./repository";
 import { checkResetEligibility, InstanceAdminService } from "./service";
@@ -37,17 +37,6 @@ class FakeInstanceAdminAuth extends Context.Service<
 		readonly createdAccount: Effect.Effect<null | Record<string, unknown>>;
 	}
 >()("@ryot-app/kernel-backend/modules/instance-admin/service.test/FakeInstanceAdminAuth") {}
-
-const makeRedisMock = () =>
-	makeRedisService({
-		client: partialFake<RedisService["Service"]["client"]>({
-			del: () => Promise.resolve(0),
-			eval: () => Promise.resolve(0),
-			get: () => Promise.resolve(null),
-			set: () => Promise.resolve("OK"),
-			duplicate: () => partialFake<RedisService["Service"]["client"]>({}),
-		}),
-	});
 
 const failWith = (message: string | undefined) =>
 	message === undefined ? Effect.void : Effect.fail(new DbError({ message }));
@@ -123,7 +112,7 @@ const instanceAdminLayer = (options: {
 					InstanceAdminRepository.layer,
 					makeAppConfigLayer({ users: { disableLocalAuth: options.disableLocalAuth ?? false } }),
 					fakeAuthLayer(options.errors ?? {}),
-					Layer.succeed(RedisService, makeRedisMock()),
+					Layer.mock(DefinitionRepository)({}),
 					Layer.mock(EntitiesService)({
 						create: () =>
 							Effect.succeed(

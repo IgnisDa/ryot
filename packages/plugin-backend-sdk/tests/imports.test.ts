@@ -177,9 +177,9 @@ it.effect(
 				runId: "run-1",
 				operation: { action: "seal" },
 				command: {
+					accountUserId: "user-1",
 					occurredAt: "2026-01-01T00:00:00.000Z",
 					itemIdentity: '["integration-run","run-1"]',
-					accountGeneration: { userId: "user-1", token: "test-account-generation" },
 					causation: {
 						depth: 0,
 						parentRunId: null,

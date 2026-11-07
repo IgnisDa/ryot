@@ -174,10 +174,10 @@ const lifecycleCommand = (input: Effect.Success<ReturnType<typeof reminderTestIn
 	rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: input.user.id,
 		itemIdentity: "reminder-lifecycle",
 		occurredAt: input.body.submittedAt,
 		initiator: { kind: "user", id: input.user.id },
-		accountGeneration: input.user.accountGeneration,
 		executionId: AutomationExecutionId.make(crypto.randomUUID()),
 	});
 
@@ -199,9 +199,9 @@ const processingInput = Effect.fnUntraced(function* () {
 		admission: {
 			userId: input.user.id,
 			sourceSubmittedAt: null,
+			accountUserId: input.user.id,
 			sourceRunId: row.formatterRunId,
 			sourceKey: `${row.formatterRunId}-call`,
-			accountGeneration: input.user.accountGeneration,
 			request: { kind: "message" as const, message: "Target: A reminder" },
 		},
 	};
@@ -209,7 +209,7 @@ const processingInput = Effect.fnUntraced(function* () {
 
 layer(services)((test) => {
 	test.effect(
-		"rejects reminder mutations and delayed deliveries from a retired account generation",
+		"rejects reminder mutations and delayed deliveries from a retiring account",
 		() =>
 			Effect.gen(function* () {
 				const input = yield* processingInput();
@@ -217,28 +217,28 @@ layer(services)((test) => {
 				yield* (yield* DatabaseSession).run((db) =>
 					db
 						.update(tables.user)
-						.set({ accountGeneration: "replacement-generation" })
+						.set({ retiringAt: new Date() })
 						.where(eq(tables.user.id, input.user.id)),
 				);
 				const before = yield* (yield* WorkerEvidence).sends;
 				assertExitFails(
 					yield* deliverEnabledChannels({
+						accountUserId: input.user.id,
 						notificationId: notification.id,
-						accountGeneration: input.user.accountGeneration,
 					}).pipe(Effect.exit),
-					new DbError({ message: "Mutation command belongs to a retired account" }),
+					new DbError({ message: "Mutation command account is being retired" }),
 				);
 				assertExitFails(
 					yield* (yield* NotificationAdmissions)
 						.admit({ ...input.admission, sourceKey: "delayed-retired-call" })
 						.pipe(Effect.exit),
-					new DbError({ message: "Mutation command belongs to a retired account" }),
+					new DbError({ message: "Mutation command account is being retired" }),
 				);
 				assertExitFails(
 					yield* (yield* RemindersService)
 						.cancel(input.user, ReminderId.make(input.row.id), { revision: input.row.revision })
 						.pipe(Effect.exit),
-					new DbError({ message: "Mutation command belongs to a retired account" }),
+					new DbError({ message: "Mutation command account is being retired" }),
 				);
 				expect(yield* (yield* WorkerEvidence).sends).toBe(before);
 			}),
@@ -280,8 +280,8 @@ layer(services)((test) => {
 				const resume = yield* Deferred.make<void>();
 				const sends = yield* Ref.make(0);
 				const send = yield* deliverEnabledChannels({
+					accountUserId: input.user.id,
 					notificationId: notification.id,
-					accountGeneration: input.user.accountGeneration,
 				}).pipe(
 					Effect.provideService(NotificationDeliveryService, {
 						prepare: () =>
@@ -317,10 +317,7 @@ layer(services)((test) => {
 				const sending = yield* Deferred.make<void>();
 				const accepted = yield* Deferred.make<void>();
 				const sends = yield* Ref.make(0);
-				const payload = {
-					notificationId: notification.id,
-					accountGeneration: input.user.accountGeneration,
-				};
+				const payload = { accountUserId: input.user.id, notificationId: notification.id };
 				const transport = {
 					prepare: () =>
 						Effect.succeed({
@@ -464,10 +461,10 @@ layer(services)((test) => {
 				assert(processing?.formatterRunId);
 				yield* (yield* NotificationAdmissions).admit({
 					userId: user.id,
+					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					sourceKey: "no-channels",
 					sourceRunId: processing.formatterRunId,
-					accountGeneration: user.accountGeneration,
 					request: { kind: "message", message: "Reminder" },
 				});
 				yield* TestClock.adjust("2 minutes");
@@ -537,9 +534,9 @@ layer(services)((test) => {
 							.admit({
 								userId: user.id,
 								sourceKey: "delayed",
+								accountUserId: user.id,
 								sourceSubmittedAt: null,
 								sourceRunId: row.formatterRunId,
-								accountGeneration: user.accountGeneration,
 								request: { kind: "message", message: "Late" },
 							})
 							.pipe(Effect.exit),
@@ -691,18 +688,15 @@ layer(services)((test) => {
 				assert(processing?.formatterRunId);
 				const input = {
 					userId: user.id,
+					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					sourceRunId: processing.formatterRunId,
-					accountGeneration: user.accountGeneration,
 					sourceKey: `${processing.formatterRunId}-call`,
 					request: { kind: "message" as const, message: "Target: A reminder" },
 				};
 				const notification = yield* (yield* NotificationAdmissions).admit(input);
 				expect((yield* repository.findForUser(user.id, created.id))?.state).toBe("processing");
-				yield* deliverEnabledChannels({
-					notificationId: notification.id,
-					accountGeneration: user.accountGeneration,
-				});
+				yield* deliverEnabledChannels({ accountUserId: user.id, notificationId: notification.id });
 				yield* TestClock.adjust("2 minutes");
 				yield* (yield* ReminderWorker).run();
 				expect(yield* repository.findForUser(user.id, created.id)).toMatchObject({
@@ -736,10 +730,10 @@ layer(services)((test) => {
 				assert(processing?.formatterRunId);
 				const input = {
 					userId: user.id,
+					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					sourceKey: "before-cancel",
 					sourceRunId: processing.formatterRunId,
-					accountGeneration: user.accountGeneration,
 					request: { kind: "message" as const, message: "Target: A reminder" },
 				};
 				const notification = yield* (yield* NotificationAdmissions).admit(input);
@@ -747,10 +741,7 @@ layer(services)((test) => {
 				expect(
 					(yield* service.cancel(user, created.id, { revision: processing.revision })).sendStarted,
 				).toBe(false);
-				yield* deliverEnabledChannels({
-					notificationId: notification.id,
-					accountGeneration: user.accountGeneration,
-				});
+				yield* deliverEnabledChannels({ accountUserId: user.id, notificationId: notification.id });
 				expect(yield* (yield* WorkerEvidence).sends).toBe(before);
 				expect(
 					yield* (yield* NotificationDeliveryRepository).deliveries(notification.id),
@@ -780,10 +771,10 @@ layer(services)((test) => {
 				assert(processing?.formatterRunId);
 				const notification = yield* (yield* NotificationAdmissions).admit({
 					userId: user.id,
+					accountUserId: user.id,
 					sourceSubmittedAt: null,
 					sourceKey: "interrupted",
 					sourceRunId: processing.formatterRunId,
-					accountGeneration: user.accountGeneration,
 					request: { kind: "message", message: "Target: A reminder" },
 				});
 				const ledger = yield* NotificationDeliveryRepository;
@@ -805,10 +796,7 @@ layer(services)((test) => {
 					state: "settled",
 					outcome: "unknown",
 				});
-				yield* deliverEnabledChannels({
-					notificationId: notification.id,
-					accountGeneration: user.accountGeneration,
-				});
+				yield* deliverEnabledChannels({ accountUserId: user.id, notificationId: notification.id });
 				expect(yield* (yield* WorkerEvidence).sends).toBe(before);
 			}),
 		testTimeout,

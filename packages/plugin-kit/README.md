@@ -93,6 +93,11 @@ properties to `details` or preserve omitted old property keys when provider data
 `base`, return entity fields and child entities and skip fetching related data; the kernel ignores any
 `relatedEntityGroups` returned at `base`. At `full`, return related groups as well.
 
+An entity schema may declare `refreshIntervalDays`, a positive integer. When a page shows an entity of
+that schema whose data is older than the interval, the kernel refreshes it from the provider, trying
+at most once per day. Without it, data refreshes only on request or through monitoring. Instance
+Admin can override the interval per schema.
+
 ### Paged related groups
 
 Every `details` related-entity group and `related` result declares `coverage`:

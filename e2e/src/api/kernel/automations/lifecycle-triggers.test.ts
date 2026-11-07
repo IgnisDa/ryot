@@ -1168,7 +1168,7 @@ describe("automation lifecycle triggers", () => {
 			yield* pollUntil(
 				"lifecycle replay journal projection",
 				sampleOperationalPressure([executionId]).pipe(
-					Effect.map((pressure) => (pressure.redis.maxJournalEntries >= 1 ? true : null)),
+					Effect.map((pressure) => (pressure.journal.maxJournalEntries >= 1 ? true : null)),
 				),
 			);
 			expect((yield* deleteSandboxReplayProjection(executionId)).deleted).toBe(true);

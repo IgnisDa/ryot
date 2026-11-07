@@ -96,9 +96,9 @@ const command = (id: string) => ({
 		occurredAt: now,
 		lane: "interactive",
 		itemIdentity: "event",
+		accountUserId: userId,
 		initiator: { id: userId, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
-		accountGeneration: { userId, token: "test-account-generation" },
 	}),
 	writeContext: null,
 });
@@ -160,10 +160,9 @@ const isolatedDatabase = Effect.gen(function* () {
 		(client) => Effect.promise(() => client.end()),
 	);
 	yield* Effect.promise(() =>
-		observer.query(
-			`INSERT INTO "user" (id,name,email,account_generation) VALUES ($1,'Owner','event@example.test','test-account-generation');`,
-			[userId],
-		),
+		observer.query(`INSERT INTO "user" (id,name,email) VALUES ($1,'Owner','event@example.test');`, [
+			userId,
+		]),
 	);
 	yield* Effect.promise(() =>
 		observer.query(
@@ -828,12 +827,7 @@ describe("Event lifecycle PostgreSQL", () => {
 					yield* session.run((db) =>
 						db
 							.insert(tables.user)
-							.values({
-								name: "Other",
-								id: "not-owner",
-								email: "not-owner-event@example.test",
-								accountGeneration: "test-account-generation",
-							}),
+							.values({ name: "Other", id: "not-owner", email: "not-owner-event@example.test" }),
 					);
 					assertExitFails(
 						yield* Effect.exit(
@@ -859,12 +853,9 @@ describe("Event lifecycle PostgreSQL", () => {
 									lane: "interactive",
 									...command("not-owner"),
 									source: "api",
+									accountUserId: UserId.make("not-owner"),
 									executionId: AutomationExecutionId.make("not-owner"),
 									initiator: { kind: "user", id: UserId.make("not-owner") },
-									accountGeneration: {
-										userId: UserId.make("not-owner"),
-										token: "test-account-generation",
-									},
 								}),
 								writeContext: null,
 							},

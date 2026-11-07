@@ -17,12 +17,8 @@ export class UserBootstrapScheduling extends Context.Service<UserBootstrapSchedu
 			const admission = yield* AccountAdmission.make;
 			const schedule = Effect.fn("UserBootstrapScheduling.schedule")(
 				function* (userId: UserId) {
-					const accountGeneration = yield* admission.currentAccount(userId);
-					yield* jobs.enqueue(
-						UserBootstrapJob,
-						{ userId, accountGeneration },
-						{ userId, key: accountGeneration.token },
-					);
+					const accountUserId = yield* admission.currentAccount(userId);
+					yield* jobs.enqueue(UserBootstrapJob, { userId, accountUserId }, { userId, key: userId });
 				},
 				Effect.mapError(() => internalError("User bootstrap account is unavailable")),
 			);

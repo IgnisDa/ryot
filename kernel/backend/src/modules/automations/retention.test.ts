@@ -177,7 +177,7 @@ describe("AutomationRetention", () => {
 									status: "running",
 									runId: "running-run",
 									id: "running-attempt",
-									workflowExecutionId: "running-workflow",
+									executionId: "running-workflow",
 								},
 								{
 									logs: [],
@@ -189,8 +189,8 @@ describe("AutomationRetention", () => {
 									status: "succeeded",
 									runId: "recent-run",
 									id: "recent-attempt",
+									executionId: "recent-workflow",
 									returnedValue: { retained: false },
-									workflowExecutionId: "recent-workflow",
 								},
 								{
 									logs: [],
@@ -203,7 +203,7 @@ describe("AutomationRetention", () => {
 									runId: "retryable-run",
 									id: "retryable-attempt",
 									failureKind: "sandbox-timeout",
-									workflowExecutionId: "retryable-workflow",
+									executionId: "retryable-workflow",
 									error: { code: "retry", message: "retry" },
 								},
 							]);

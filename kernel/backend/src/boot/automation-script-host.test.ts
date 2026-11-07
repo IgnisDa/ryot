@@ -97,10 +97,7 @@ const runInput = (
 			pluginRevisionId: null,
 			causation: parentCausation,
 			pluginConfigRevisionId: null,
-			accountGeneration:
-				executionUserId === null
-					? null
-					: { userId: executionUserId, token: "test-account-generation" },
+			accountUserId: executionUserId,
 		},
 	},
 });
@@ -161,9 +158,9 @@ layer(automationHostLayer)((test) => {
 				expect(yield* (yield* AutomationHostCalls).signalCommands).toEqual<unknown>([
 					{
 						occurredAt,
+						accountUserId: userId,
 						itemIdentity: "emitSignal:part-1",
 						writeContext: runInput().principal,
-						accountGeneration: { userId, token: "test-account-generation" },
 						causation: {
 							...causation,
 							depth: 3,
@@ -186,7 +183,7 @@ layer(automationHostLayer)((test) => {
 			Effect.gen(function* () {
 				const input = runInput(null, { ...causation, initiator: { id: userId, kind: "user" } });
 				const command = yield* sandboxLifecycleCommand(input, "api", "emitSignal:part-1");
-				expect(command.accountGeneration).toBeNull();
+				expect(command.accountUserId).toBeNull();
 				expect(command.causation).toEqual<unknown>({
 					...causation,
 					depth: 3,
@@ -221,10 +218,7 @@ layer(automationHostLayer)((test) => {
 					},
 				);
 				expect(yield* (yield* AutomationHostCalls).signalCommands).toMatchObject([
-					{
-						causation: { initiator: { id: userId, kind: "user" } },
-						accountGeneration: { userId: executor, token: "test-account-generation" },
-					},
+					{ accountUserId: executor, causation: { initiator: { id: userId, kind: "user" } } },
 				]);
 			}),
 		testTimeout,
@@ -240,12 +234,12 @@ layer(automationHostLayer)((test) => {
 				const input = runInput();
 				const subject = input.principal.subject;
 				assert(subject.type === "automation-run");
-				for (const accountGeneration of [null, { token: "token", userId: UserId.make("other") }]) {
+				for (const accountUserId of [null, UserId.make("other")]) {
 					const error = yield* Effect.flip(
 						host.emitSignal(
 							{
 								...input,
-								principal: { ...input.principal, subject: { ...subject, accountGeneration } },
+								principal: { ...input.principal, subject: { ...subject, accountUserId } },
 							},
 							{
 								discriminator: "part-1",
@@ -274,14 +268,14 @@ layer(automationHostLayer)((test) => {
 					{
 						message: "Ready",
 						sourceRunId: runId,
+						accountUserId: userId,
 						sourceKey: "run-1-host-4-notification",
-						accountGeneration: { userId, token: "test-account-generation" },
 					},
 					{
 						message: "Ready",
 						sourceRunId: runId,
+						accountUserId: userId,
 						sourceKey: "run-1-host-4-notification",
-						accountGeneration: { userId, token: "test-account-generation" },
 					},
 				]);
 			}),

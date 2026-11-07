@@ -43,8 +43,8 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	const fixture = yield* eventGroupFixture();
 	const revision = fixture.command.writeContext.pluginRevision;
 	assert(revision);
-	const accountGeneration = fixture.command.accountGeneration;
-	assert(accountGeneration);
+	const accountUserId = fixture.command.accountUserId;
+	assert(accountUserId);
 	const active = yield* (yield* PluginRuntimeResolver).findPluginAvailableToUser(
 		fixture.userId,
 		revision.id,
@@ -53,8 +53,8 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	const runId = ImportRunId.make(yield* randomUuid);
 	const command = {
 		...rootLifecycleCommand({
+			accountUserId,
 			source: "import",
-			accountGeneration,
 			lane: "background",
 			importRunId: runId,
 			itemIdentity: "record",
@@ -128,7 +128,7 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	};
 	const outcomes = new Map<string, IngestionOutcome>();
 	const issues = new Map<string, IngestionIssue>();
-	const scope = { runId, accountGeneration, userId: fixture.userId };
+	const scope = { runId, userId: fixture.userId };
 	const importLayer = Layer.mergeAll(
 		Layer.mock(EventsService)({}),
 		Layer.mock(ImportSourceStateStore)({

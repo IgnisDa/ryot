@@ -4,7 +4,6 @@ import type {
 	IngestionPlan,
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect } from "effect";
 
@@ -18,10 +17,10 @@ export type ImportWorkflowPinningValue = {
 		readonly pluginId: string;
 		readonly executionId: string;
 		readonly scope: IngestionScope;
+		readonly accountUserId: UserId;
 		readonly executingUserId: UserId;
 		readonly scriptId: SandboxScriptId;
 		readonly expectedPins: IngestionPins;
-		readonly accountGeneration: AccountGeneration;
 		readonly preparedRelease?: {
 			readonly plan: IngestionPlan;
 			readonly requiresProKey: boolean;

@@ -173,7 +173,7 @@ export class RemindersService extends Context.Service<RemindersService>()(
 							identity,
 							ReminderCommandResult,
 							Effect.gen(function* () {
-								yield* admission.admitAccount(user.accountGeneration);
+								yield* admission.admitAccount(user.id);
 								yield* plugins.lockIngestionShared([user.id]);
 								const dueAt = yield* validateSchedule(input);
 								if (input.replaces !== null) {
@@ -230,7 +230,6 @@ export class RemindersService extends Context.Service<RemindersService>()(
 									entityTitle: target.name,
 									timezone: input.timezone,
 									parentEntityId: input.parentEntityId,
-									accountGeneration: user.accountGeneration.token,
 								});
 								return { id, revision: 1, sendStarted: false };
 							}),
@@ -251,7 +250,7 @@ export class RemindersService extends Context.Service<RemindersService>()(
 				const input = { ...body, message: body.message.trim() };
 				return yield* transaction(
 					Effect.gen(function* () {
-						yield* admission.admitAccount(user.accountGeneration);
+						yield* admission.admitAccount(user.id);
 						yield* plugins.lockIngestionShared([user.id]);
 						const existing = yield* repository.findForUser(user.id, id);
 						if (
@@ -288,7 +287,7 @@ export class RemindersService extends Context.Service<RemindersService>()(
 			) {
 				return yield* transaction(
 					Effect.gen(function* () {
-						yield* admission.admitAccount(user.accountGeneration);
+						yield* admission.admitAccount(user.id);
 						yield* plugins.lockIngestionShared([user.id]);
 						const existing = yield* repository.findForUser(user.id, id);
 						if (

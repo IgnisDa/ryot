@@ -13,8 +13,8 @@ import { type MediaSourceInput, MediaSourceRecord } from "./collection-schemas";
 export const resetMediaFilesystem = () => installSandboxTestFilesystem(undefined);
 export const mediaImportTestCommand = (integrationId?: string): LifecycleCommand => ({
 	itemIdentity: "run",
+	accountUserId: UserId.make("user"),
 	occurredAt: "2026-01-01T00:00:00.000Z",
-	accountGeneration: { token: "generation", userId: UserId.make("user") },
 	causation: {
 		depth: 0,
 		parentRunId: null,

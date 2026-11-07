@@ -34,8 +34,8 @@ export class ImportRunCancellationService extends Context.Service<ImportRunCance
 					yield* engine
 						.execute(CancelImportRunWorkflow, {
 							discard: true,
+							payload: { runId, userId: user.id },
 							executionId: `${runId}-cancellation`,
-							payload: { runId, userId: user.id, accountGeneration: user.accountGeneration },
 						})
 						.pipe(Effect.orDie);
 				}

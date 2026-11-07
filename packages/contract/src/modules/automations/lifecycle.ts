@@ -1,6 +1,5 @@
 import { Schema } from "effect";
 
-import { AccountGeneration } from "../../schema/account-generation";
 import {
 	AutomationExecutionId,
 	AutomationHookSlug,
@@ -208,7 +207,7 @@ export const LifecycleCommand = strictStruct({
 	itemIdentity: nonEmpty,
 	occurredAt: IsoUtcString,
 	causation: AutomationCausation,
-	accountGeneration: Schema.NullOr(AccountGeneration),
+	accountUserId: Schema.NullOr(UserId),
 	population: Schema.optional(AutomationPopulationContext),
 }).pipe(
 	Schema.check(
@@ -217,8 +216,8 @@ export const LifecycleCommand = strictStruct({
 				// Automation ownership comes from its trusted execution subject, not its initiator.
 				command.causation.source === "automation" ||
 				command.causation.initiator.kind !== "user" ||
-				command.accountGeneration?.userId === command.causation.initiator.id ||
-				"User lifecycle commands require their account generation",
+				command.accountUserId === command.causation.initiator.id ||
+				"User lifecycle commands require their account",
 		),
 	),
 );
@@ -679,9 +678,9 @@ export const AutomationRunAttempt = strictStruct({
 	startedAt: IsoUtcString,
 	retryable: Schema.Boolean,
 	id: AutomationRunAttemptId,
+	executionId: AutomationExecutionId,
 	returnedValue: Schema.NullOr(JsonValue),
 	finishedAt: Schema.NullOr(IsoUtcString),
-	workflowExecutionId: AutomationExecutionId,
 	timing: Schema.NullOr(AutomationRunTiming),
 	artifactsPrunedAt: Schema.NullOr(IsoUtcString),
 	failureKind: Schema.NullOr(AutomationFailureKind),

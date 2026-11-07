@@ -12,10 +12,6 @@ import { UserBootstrap } from "./bootstrap";
 import { UserBootstrapScheduling } from "./scheduling";
 
 const userId = UserId.make("user-1");
-const accountFor = (accountUserId: UserId) => ({
-	userId: accountUserId,
-	token: "test-account-generation",
-});
 
 type Enqueued = { readonly payload: unknown; readonly options: unknown };
 
@@ -47,8 +43,8 @@ const recordingJobQueue = (fail: (payload: unknown) => boolean = () => false) =>
 	);
 
 const bootstrapJob = (jobUserId: UserId) => ({
-	options: { userId: jobUserId, key: accountFor(jobUserId).token },
-	payload: { userId: jobUserId, accountGeneration: accountFor(jobUserId) },
+	options: { key: jobUserId, userId: jobUserId },
+	payload: { userId: jobUserId, accountUserId: jobUserId },
 });
 
 layer(
@@ -58,7 +54,7 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"queues the bootstrap under the account generation key",
+		"queues the bootstrap keyed by its user",
 		() =>
 			Effect.gen(function* () {
 				yield* (yield* UserBootstrapScheduling).schedule(userId);

@@ -14,14 +14,15 @@ import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assert } from "@ryot-app/testing/assert";
-import { derivedFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Clock, Context, Effect, Exit, Layer, Option, Ref } from "effect";
-import Redis from "ioredis";
 
-import { RedisService } from "#platform/redis";
-import { makeAppConfigLayer, makeRedisService } from "#testing/effect";
+import { DatabaseSession } from "#platform/db/session";
+import { TransientValues } from "#platform/transient-values";
+import { transientValue } from "#schema/tables/transient-values";
+import { makeAppConfigLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { ImpersonationHandoffInvalid, ImpersonationHandoffs } from "./impersonation-handoffs";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
@@ -37,7 +38,6 @@ const targetUser: HandoffTarget = {
 	name: "Target",
 	disabledAt: null,
 	email: "target@example.com",
-	accountGeneration: "test-account-generation",
 	bootstrapCompletedAt: new Date("2026-09-01T00:00:00.000Z"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
@@ -57,9 +57,7 @@ class HandoffTestState extends Context.Service<
 	HandoffTestState,
 	{
 		readonly userReads: Effect.Effect<ReadonlyArray<string>>;
-		readonly values: Effect.Effect<ReadonlyMap<string, string>>;
 		readonly lifecycleReads: Effect.Effect<ReadonlyArray<string>>;
-		readonly expiries: Effect.Effect<ReadonlyMap<string, number>>;
 		readonly setUser: (user: null | HandoffTarget) => Effect.Effect<void>;
 		readonly setLifecycleActive: (active: boolean) => Effect.Effect<void>;
 	}
@@ -74,28 +72,6 @@ const makeLayer = () =>
 			const lifecycleActive = yield* Ref.make(false);
 			const userReads = yield* Ref.make<ReadonlyArray<string>>([]);
 			const lifecycleReads = yield* Ref.make<ReadonlyArray<string>>([]);
-			const values = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
-			const expiries = yield* Ref.make<ReadonlyMap<string, number>>(new Map());
-			const runPromise = Effect.runPromiseWith(yield* Effect.context());
-			const client: RedisService["Service"]["client"] = derivedFake(Redis.prototype, {
-				eval: (_script: string, _keyCount: number, key: string) =>
-					runPromise(
-						Ref.modify(values, (current) => {
-							const next = new Map(current);
-							next.delete(key);
-							return [current.get(key) ?? null, next];
-						}),
-					),
-				set: (key: string, value: string, _expiryMode: "EX", ttlSeconds: number) =>
-					runPromise(
-						Ref.update(values, (current) => new Map(current).set(key, value)).pipe(
-							Effect.andThen(
-								Ref.update(expiries, (current) => new Map(current).set(key, ttlSeconds)),
-							),
-							Effect.as("OK"),
-						),
-					),
-			});
 			const repository = Layer.mock(AuthRepository)({
 				findUserById: (userId) =>
 					Ref.update(userReads, (reads) => [...reads, userId]).pipe(Effect.andThen(Ref.get(user))),
@@ -111,15 +87,13 @@ const makeLayer = () =>
 				Layer.provideMerge(
 					Layer.mergeAll(
 						makeAppConfigLayer({ frontendUrl: "https://frontend.example" }),
-						Layer.succeed(RedisService, makeRedisService({ client })),
+						TransientValues.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("handoffs"))),
 						repository,
 						lifecycle,
 					),
 				),
 				Layer.merge(
 					Layer.succeed(HandoffTestState, {
-						values: Ref.get(values),
-						expiries: Ref.get(expiries),
 						userReads: Ref.get(userReads),
 						lifecycleReads: Ref.get(lifecycleReads),
 						setUser: (value) => Ref.set(user, value),
@@ -217,10 +191,12 @@ layer(makeLayer())((test) => {
 				const created = yield* service.create(userId, authorizationValue);
 
 				expect(created.expiresAt).toBe(now + IMPERSONATION_HANDOFF_TTL_SECONDS * 1_000);
-				const [key] = (yield* state.values).keys();
-				assert(key !== undefined);
-				expect((yield* state.expiries).get(key)).toBe(IMPERSONATION_HANDOFF_TTL_SECONDS);
-				expect(key).not.toContain(created.ticket);
+				const stored = yield* (yield* DatabaseSession).run((db) =>
+					db.select().from(transientValue),
+				);
+				expect(stored).toHaveLength(1);
+				expect(stored[0]?.key).not.toContain(created.ticket);
+				expect(stored[0]?.expiresAt?.getTime()).toBeGreaterThan(now);
 
 				const consumed = yield* service.consume(created.ticket);
 				const url = new URL(consumed.authorizationUrl);
@@ -279,7 +255,9 @@ layer(makeLayer())((test) => {
 					new InstanceAdminRequestFailure({ reason: { code: "user-disabled" } }),
 				);
 				expect(yield* state.userReads).toEqual([targetUser.id, targetUser.id]);
-				expect(yield* state.values).toHaveLength(0);
+				expect(
+					yield* (yield* DatabaseSession).run((db) => db.select().from(transientValue)),
+				).toEqual([]);
 			}),
 		testTimeout,
 	);

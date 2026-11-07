@@ -11,6 +11,7 @@ import { SecureRandom } from "effect/crypto";
 import { AuthService } from "#modules/accounts/auth/service";
 import { classifyAuthState } from "#modules/accounts/lifecycle/auth-state";
 import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
+import { DefinitionRepository } from "#modules/definitions/repository";
 import { AppConfig } from "#platform/config/service";
 
 import { InstanceAdminRepository } from "./repository";
@@ -27,6 +28,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 	"@ryot-app/kernel-backend/modules/instance-admin/service/InstanceAdminService",
 	{
 		make: Effect.gen(function* () {
+			const definitions = yield* DefinitionRepository;
 			const random = yield* SecureRandom.SecureRandom;
 			const config = yield* AppConfig;
 			const repository = yield* InstanceAdminRepository;
@@ -135,6 +137,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				startUserImpersonation,
 				resetUser: lifecycle.resetUser,
 				deleteUser: lifecycle.deleteUser,
+				setEntitySchemaRefreshInterval: definitions.setEntitySchemaRefreshOverride,
 			};
 		}),
 	},

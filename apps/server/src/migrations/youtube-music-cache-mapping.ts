@@ -1,6 +1,9 @@
-import { encodePersistentClaimEnvelope } from "@ryot-app/kernel-backend/modules/scripts/host/runtime-host-functions";
-import { redisKeys, RedisService } from "@ryot-app/kernel-backend/platform/redis";
-import { Effect, Schema } from "effect";
+import {
+	encodePersistentClaimEnvelope,
+	sandboxPersistentCacheKey,
+} from "@ryot-app/kernel-backend/modules/scripts/host/runtime-host-functions";
+import { TransientValues } from "@ryot-app/kernel-backend/platform/transient-values";
+import { Duration, Effect, Schema } from "effect";
 
 import { buildReportSql, quoteSqlString, withReservedConnection } from "./shared";
 
@@ -45,7 +48,7 @@ export const migrateYoutubeMusicCache = (input: {
 	installationIds: ReadonlyArray<string>;
 }) =>
 	Effect.gen(function* () {
-		const redis = yield* RedisService;
+		const values = yield* TransientValues;
 		const [rawCacheRows, rawIntegrationRows] = yield* withReservedConnection((connection) =>
 			Effect.gen(function* () {
 				const cacheRows = yield* connection.execute(cacheRowsSql, [], undefined);
@@ -67,13 +70,13 @@ export const migrateYoutubeMusicCache = (input: {
 				owner: null,
 			}).pipe(Effect.orDie);
 			const integrationIdsByUserId = Map.groupBy(integrationRows, ({ userId }) => userId);
-			const redisWrites = cacheRows.flatMap((row) =>
+			const cacheWrites = cacheRows.flatMap((row) =>
 				(integrationIdsByUserId.get(row.userId) ?? []).flatMap(({ id: integrationId }) => {
 					const key = `${integrationId}:${row.songId}:${row.listenedOn}`;
 					const keys = [
 						{
 							expiresAtMs: row.expiresAtMs,
-							key: redisKeys.sandboxPersistentCache(
+							key: sandboxPersistentCacheKey(
 								row.userId,
 								["plugin", input.pluginId],
 								["script", input.scriptSlug],
@@ -84,7 +87,7 @@ export const migrateYoutubeMusicCache = (input: {
 					if (row.completed) {
 						keys.push({
 							expiresAtMs: row.expiresAtMs,
-							key: redisKeys.sandboxPersistentCache(
+							key: sandboxPersistentCacheKey(
 								row.userId,
 								["plugin", input.pluginId],
 								["script", input.scriptSlug],
@@ -97,17 +100,18 @@ export const migrateYoutubeMusicCache = (input: {
 			);
 
 			yield* Effect.forEach(
-				redisWrites,
+				cacheWrites,
 				({ key, expiresAtMs }) => {
 					const ttlSeconds = Math.ceil((expiresAtMs - Date.now()) / 1000);
 					if (ttlSeconds <= 0) {
 						return Effect.void;
 					}
-					return Effect.promise(() =>
-						redis.client.set(key, persistentClaimEnvelope, "EX", ttlSeconds, "NX"),
-					).pipe(
-						Effect.tap((result) => Effect.sync(() => (keysCreated += result === null ? 0 : 1))),
-					);
+					return values
+						.setIfAbsent(key, persistentClaimEnvelope, Duration.seconds(ttlSeconds))
+						.pipe(
+							Effect.orDie,
+							Effect.tap((stored) => Effect.sync(() => (keysCreated += stored ? 1 : 0))),
+						);
 				},
 				{ concurrency: 20 },
 			);
@@ -118,7 +122,7 @@ export const migrateYoutubeMusicCache = (input: {
 				`DO $$ DECLARE started_at timestamptz := clock_timestamp(); cache_rows int := ${cacheRows.length}; keys_created int := ${keysCreated}; BEGIN
 				${buildReportSql("application_cache -> YouTube Music persistent cache", [
 					{ count: "cache_rows", message: "unexpired cache row(s) found" },
-					{ count: "keys_created", message: "persistent Redis key(s) created" },
+					{ count: "keys_created", message: "persistent cache value(s) created" },
 				])}
 			END $$;`,
 				[],

@@ -10,19 +10,14 @@ import { inArray } from "drizzle-orm";
 import { Cause, Deferred, Effect, Exit, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
 import * as authSchema from "#schema/tables/auth";
-import { makeRedisService } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 
 const authOptions = {} satisfies BetterAuthOptions;
 
-const testLayer = Layer.mergeAll(
-	isolatedDatabaseLayer("auth_adapter_test"),
-	Layer.succeed(RedisService, makeRedisService()),
-);
+const testLayer = Layer.mergeAll(isolatedDatabaseLayer("auth_adapter_test"));
 
 const runBetterAuthTransaction = <A>(adapter: DBAdapter, work: () => Promise<A>) =>
 	Promise.resolve(runWithTransaction(adapter, work));
@@ -33,7 +28,7 @@ layer(testLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const runtime = yield* Effect.context<RedisService | DatabaseSession>();
+				const runtime = yield* Effect.context<DatabaseSession>();
 				const database = effectPostgresAuthAdapter({ session, context: runtime });
 				const adapter = database.adapter(authOptions);
 				const rollbackEmail = "rollback@auth-adapter.test";

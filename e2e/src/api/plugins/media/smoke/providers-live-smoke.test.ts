@@ -6,7 +6,7 @@ import {
 	createAuthenticatedClient,
 	enqueueProviderEntityImport,
 	getEntity,
-	openInterestWebSocketScoped,
+	openLiveUpdatesScoped,
 	pollEntityUntilTranslationAvailability,
 	pollProviderEntityImportResult,
 	searchProviderEntities,
@@ -76,10 +76,10 @@ describe.skipIf(!RUN_LIVE)("live provider smoke (real external APIs)", () => {
 			const beforeInterest = yield* getEntity(client, movie.id);
 			expect(beforeInterest.translationStatus.availability).toBe("missing");
 
-			const socket = yield* openInterestWebSocketScoped(auth);
-			yield* socket.replaceInterest([movie.id]);
+			const stream = yield* openLiveUpdatesScoped(auth);
+			yield* stream.populate([movie.id]);
 
-			const event = yield* socket.waitForEntityUpdated(movie.id, "translated", {
+			const event = yield* stream.waitForEntityUpdated(movie.id, "translated", {
 				timeoutMs: 90_000,
 			});
 			expect(event.reason).toBe("translated");

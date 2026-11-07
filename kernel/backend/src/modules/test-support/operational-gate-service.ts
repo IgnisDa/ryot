@@ -7,7 +7,7 @@ import { AutomationExecutionId, type ImportRunId } from "@ryot-app/contract/sche
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -17,7 +17,7 @@ import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
 
 import { OperationalGateRepository } from "./operational-gate-repository";
 
@@ -34,7 +34,6 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
-			const redis = yield* RedisService;
 			const imports = yield* ImportsService;
 			const repository = yield* ImportsRepository;
 			const ingestion = yield* IngestionExecution;
@@ -47,7 +46,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 			const startWorkflowLoad = Effect.fn("OperationalGateService.startWorkflowLoad")(function* (
 				input: TestSupportStartWorkflowLoadGateBody,
 			) {
-				const accountGeneration = yield* admission.currentAccount(input.executingUserId);
+				const accountUserId = yield* admission.currentAccount(input.executingUserId);
 				const installation = yield* pluginRuntime.findPluginAvailableToUser(
 					input.executingUserId,
 					input.pluginId,
@@ -61,7 +60,6 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					});
 				}
 				const run = yield* imports.createManualRun({
-					accountGeneration,
 					source: input.source,
 					userId: input.executingUserId,
 					pluginInstallationId: installation.installationId,
@@ -70,7 +68,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 				const startedAt = yield* DateTime.nowAsDate;
 				const occurredAt = IsoUtcString.make(startedAt.toISOString());
 				const rootExecutionId = AutomationExecutionId.make(`${run.id}-workflow-load`);
-				const scope = { runId: run.id, accountGeneration, userId: input.executingUserId };
+				const scope = { runId: run.id, accountUserId, userId: input.executingUserId };
 				yield* session.transaction(
 					Effect.gen(function* () {
 						yield* repository.pinIngestion({
@@ -94,7 +92,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					externalId: `${input.identifierPrefix}-${index}`,
 					command: {
 						occurredAt,
-						accountGeneration,
+						accountUserId,
 						itemIdentity: JSON.stringify(["workflow-load", index]),
 						causation: {
 							depth: 0,
@@ -156,7 +154,7 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					yield* sandbox
 						.enqueuePluginWorkflow({
 							executionId,
-							accountGeneration,
+							accountUserId,
 							lane: "background",
 							pluginId: installation.id,
 							input: { items: packedItems },
@@ -253,38 +251,30 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 					return yield* Effect.die(new Error("Operational pressure query returned no row"));
 				}
 
-				let projectionCount = 0;
-				let projectionErrors = 0;
-				let maxJournalEntries = 0;
-				for (const executionId of executionIds) {
-					const fields = new Set(
-						yield* Effect.promise(() =>
-							redis.client.hkeys(redisKeys.sandboxWorkflowJournal(executionId)),
-						),
-					);
-					if (fields.size === 0) {
-						continue;
-					}
-					projectionCount += 1;
-					let entries = 0;
-					while (fields.has(`m:${entries}`)) {
-						entries += 1;
-					}
-					const stray = [...fields].some((field) => {
-						const index = /^(?:m:(\d+)|c:(\d+):\d+)$/.exec(field);
-						return index === null || Number(index[1] ?? index[2]) >= entries;
-					});
-					if (stray) {
-						projectionErrors += 1;
-					} else {
-						maxJournalEntries = Math.max(maxJournalEntries, entries);
-					}
-				}
+				const journals = yield* session.run((db) =>
+					db
+						.select({
+							entries: sql<number>`count(*)::int`,
+							lastIndex: sql<number>`max(${sandboxJournalEntry.entryIndex})::int`,
+						})
+						.from(sandboxJournalEntry)
+						.where(inArray(sandboxJournalEntry.executionId, [...executionIds]))
+						.groupBy(sandboxJournalEntry.executionId),
+				);
+				const projectionErrors = journals.filter(
+					({ entries, lastIndex }) => lastIndex !== entries - 1,
+				).length;
+				const maxJournalEntries = Math.max(
+					0,
+					...journals
+						.filter(({ entries, lastIndex }) => lastIndex === entries - 1)
+						.map(({ entries }) => entries),
+				);
 
 				return {
 					sandbox: supervisor.snapshot(),
-					redis: { projectionCount, projectionErrors, maxJournalEntries },
 					locks: { waitingAdvisoryLocks: pressure.waiting_advisory_locks },
+					journal: { projectionErrors, maxJournalEntries, projectionCount: journals.length },
 					database: {
 						deadlocks: pressure.deadlocks,
 						lockWaitingConnections: pressure.lock_waiting_connections,

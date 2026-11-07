@@ -2,7 +2,6 @@ import { expect } from "bun:test";
 
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
@@ -352,54 +351,38 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 						initialization,
 						lane: "background",
 						scriptId: "first-id",
+						subject: { userId, type: "user" },
 						executionId: pluginInstallationBootstrapExecutionId(
 							installationId,
 							activationId,
 							"first",
 						),
-						subject: {
-							userId,
-							type: "user",
-							accountGeneration: { userId, token: "test-account-generation" },
-						},
 					},
 					{
 						pluginRevision,
 						initialization,
 						lane: "background",
 						scriptId: "second-id",
+						subject: { userId, type: "user" },
 						executionId: pluginInstallationBootstrapExecutionId(
 							installationId,
 							activationId,
 							"second",
 						),
-						subject: {
-							userId,
-							type: "user",
-							accountGeneration: { userId, token: "test-account-generation" },
-						},
 					},
 				]);
 				expect(yield* fake.scriptPinLookups).toEqual([
 					{
 						initialization,
 						expectedRevision: undefined,
+						subject: { userId, type: "user" },
 						scriptId: SandboxScriptId.make("first-id"),
-						subject: {
-							userId,
-							type: "user",
-							accountGeneration: { userId, token: "test-account-generation" },
-						},
 					},
 					{
 						initialization,
 						expectedRevision: undefined,
+						subject: { userId, type: "user" },
 						scriptId: SandboxScriptId.make("second-id"),
-						subject: {
-							userId,
-							type: "user",
-							accountGeneration: { userId, token: "test-account-generation" },
-						},
 					},
 				]);
 				expect(yield* fake.registrations).toEqual([
@@ -466,8 +449,8 @@ layer(
 						installationId,
 						entrySlug: "library",
 						pluginId: "plugin-1",
+						accountUserId: userId,
 						entities: [libraryEntity],
-						accountGeneration: objectContaining({ userId }),
 						executionId: pluginInstallationBootstrapExecutionId(
 							installationId,
 							activationId,

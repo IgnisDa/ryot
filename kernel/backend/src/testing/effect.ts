@@ -16,13 +16,14 @@ import {
 	DatabaseSessionStateError,
 	userWriteLockStatement,
 } from "#platform/db/session";
-import type { RedisService } from "#platform/redis";
 import { WorkflowAccounts } from "#platform/workflow/account";
 import { testPgClientLayer } from "#testing/database";
 
 export type MockOverrides<T> = T extends (...args: infer TArgs) => unknown
 	? Omit<TArgs[0], "_tag">
 	: never;
+
+export const testExecutionId = (label: string) => `${label}-${crypto.randomUUID()}`;
 
 export const databaseLayer = Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
 	Layer.provideMerge(testPgClientLayer()),
@@ -53,6 +54,7 @@ export const fakeDatabaseSession = (
 		run,
 		requireRoot,
 		requireTransaction,
+		detached: (work) => work,
 		isTransactionActive: active,
 		carry: Effect.succeed((work) => work),
 		acquireUserWriteLock: (userId) => Effect.asVoid(run(userWriteLockStatement(userId))),
@@ -105,28 +107,6 @@ export const workflowEngineTestLayer = Layer.merge(
 	workflowAccountsTestLayer,
 );
 
-export const makeRedisService = (
-	overrides: Partial<RedisService["Service"]> = {},
-): RedisService["Service"] =>
-	partialFake<RedisService["Service"]>({
-		del: () => Effect.die("unused"),
-		get: () => Effect.die("unused"),
-		set: () => Effect.die("unused"),
-		zadd: () => Effect.die("unused"),
-		zrem: () => Effect.die("unused"),
-		claim: () => Effect.die("unused"),
-		publish: () => Effect.die("unused"),
-		renewLease: () => Effect.die("unused"),
-		setAndIndex: () => Effect.die("unused"),
-		acquireLease: () => Effect.die("unused"),
-		releaseLease: () => Effect.die("unused"),
-		zrangeByScore: () => Effect.die("unused"),
-		setAndIndexAndSet: () => Effect.die("unused"),
-		setAndIndexAndDelete: () => Effect.die("unused"),
-		setAndRemoveFromIndex: () => Effect.die("unused"),
-		...overrides,
-	});
-
 type ConfigLeafValue = Option.Option<unknown> | ReadonlyArray<unknown> | Redacted.Redacted<unknown>;
 
 type DeepPartial<T> = T extends ConfigLeafValue
@@ -143,7 +123,6 @@ export const makeAppConfigLayer = (
 		nodeEnv: "test",
 		timezone: "Etc/GMT",
 		disableTelemetry: false,
-		redisUrl: Redacted.make("unused"),
 		frontendUrl: "http://localhost:3000",
 		database: { connectionTimeoutMs: 10_000, url: Redacted.make("unused") },
 		fileStorage: { s3: Option.none(), localDir: "./storage", localTempDir: "./work" },
@@ -225,7 +204,6 @@ export const makeConfigProviderLayer = (values: Readonly<Record<string, unknown>
 
 export const makeRequiredConfigLayer = (values: Readonly<Record<string, unknown>> = {}) =>
 	makeConfigProviderLayer({
-		REDIS_URL: "unused",
 		DATABASE_URL: "unused",
 		SERVER_ADMIN_ACCESS_TOKEN: "unused",
 		...values,

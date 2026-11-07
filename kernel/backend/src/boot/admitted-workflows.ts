@@ -1,15 +1,6 @@
 import { Layer } from "effect";
 
-import {
-	TranslateEntityAttemptWorkflow,
-	TranslateEntityWorkflow,
-} from "#modules/entities/localization/entity-translation-workflow";
 import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
-import {
-	ProviderEntityPopulationAttemptWorkflow,
-	ProviderEntityPopulationWorkflow,
-	ProviderRelatedPagesWorkflow,
-} from "#modules/entities/providers/provider-entity-population-workflow";
 import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
 	ProcessDataImportSegmentWorkflow,
@@ -25,11 +16,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
 	Object.freeze([
 		EntityImportWorkflow,
-		ProviderEntityPopulationWorkflow,
-		ProviderEntityPopulationAttemptWorkflow,
-		TranslateEntityWorkflow,
-		TranslateEntityAttemptWorkflow,
-		ProviderRelatedPagesWorkflow,
 		ProcessImportRunWorkflow,
 		ProcessDataImportWorkflow,
 		ProcessDataImportSegmentWorkflow,

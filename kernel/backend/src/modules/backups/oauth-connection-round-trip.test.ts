@@ -48,12 +48,12 @@ import { SystemPlugins } from "#modules/plugins/packages/system";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";
-import { RedisService } from "#platform/redis";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { LocalStorageService } from "#platform/storage/local-storage";
 import { S3Service } from "#platform/storage/s3";
+import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#testing/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
 import { collectFixtureRecords } from "./archive/archive.test-support";
@@ -71,7 +71,6 @@ const currentUser: CurrentUserValue = {
 	image: null,
 	name: "Owner",
 	email: "owner@example.test",
-	accountGeneration: { userId: owner, token: "test-account-generation" },
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 };
 
@@ -100,8 +99,8 @@ const mockProKey = (isValidated: boolean) =>
 const infrastructure = Layer.mergeAll(
 	LifecycleWriteGuard.layer,
 	S3Service.layer,
+	TransientValues.layer,
 	LocalStorageService.layer.pipe(Layer.provideMerge(HmacSigner.layer)),
-	Layer.succeed(RedisService, makeRedisService()),
 ).pipe(Layer.provideMerge(Layer.merge(configLayer, BunServices.layer)));
 
 const roundTripLayer = Layer.mergeAll(

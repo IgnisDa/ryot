@@ -76,7 +76,7 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 				input: NotificationAdmission,
 			) {
 				yield* requireTransaction;
-				const id = `notification_${sha256Base64Url(stableStringify([input.userId, input.accountGeneration.token, input.sourceKey]))}`;
+				const id = `notification_${sha256Base64Url(stableStringify([input.userId, input.userId, input.sourceKey]))}`;
 				yield* session.run((db) =>
 					db.execute(sql`select pg_advisory_xact_lock(hashtext(${`notification-source:${id}`}))`),
 				);
@@ -118,7 +118,6 @@ export class NotificationDeliveryRepository extends Context.Service<Notification
 							settledAt: noChannels ? input.now : null,
 							state: noChannels ? "settled" : "admitted",
 							reason: noChannels ? "no-enabled-channels" : null,
-							accountGeneration: input.admission.accountGeneration.token,
 						}),
 				);
 				if (!noChannels) {

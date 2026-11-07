@@ -1,56 +1,20 @@
 import { expect } from "bun:test";
 
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Layer, Ref } from "effect";
+import { Effect, Layer } from "effect";
 
 import { ReusableCapabilityGrantStore } from "#modules/pages/bundles/reusable-capability-grants";
-import { RedisService } from "#platform/redis";
-import { makeRedisService } from "#testing/effect";
+import { TransientValues } from "#platform/transient-values";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { ClientArtifactGrantService } from "./grant-service";
 
-const without = (key: string) => (all: ReadonlyMap<string, string>) => {
-	const next = new Map(all);
-	next.delete(key);
-	return next;
-};
-
-class FakeRedisStore extends Context.Service<
-	FakeRedisStore,
-	{ readonly delete: (key: string) => Effect.Effect<void> }
->()("@ryot-app/kernel-backend/modules/pages/bundles/grant-service.test/FakeRedisStore") {}
-
-const fakeRedisLayer = Layer.effectContext(
-	Effect.gen(function* () {
-		const data = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
-		const run = Effect.runPromiseWith(yield* Effect.context());
-		const redis = makeRedisService({
-			get: (key) => Effect.map(Ref.get(data), (all) => all.get(key) ?? null),
-			set: (key, value) => Ref.update(data, (all) => new Map(all).set(key, value)),
-			releaseLease: (key, value) =>
-				Ref.update(data, (all) => (all.get(key) === value ? without(key)(all) : all)),
-			client: partialFake<RedisService["Service"]["client"]>({
-				ttl: (key: string) => run(Effect.map(Ref.get(data), (all) => (all.has(key) ? 900 : -2))),
-				set: (key: string, value: string) =>
-					run(
-						Ref.modify(data, (all) =>
-							all.has(key) ? [null, all] : ["OK", new Map(all).set(key, value)],
-						),
-					),
-			}),
-		});
-		return Context.make(RedisService, redis).pipe(
-			Context.add(FakeRedisStore, { delete: (key) => Ref.update(data, without(key)) }),
-		);
-	}),
-);
-
 const grantServiceLayer = ClientArtifactGrantService.layer.pipe(
 	Layer.provide(ReusableCapabilityGrantStore.layer),
-	Layer.provideMerge(fakeRedisLayer),
+	Layer.provideMerge(TransientValues.layer),
+	Layer.provideMerge(isolatedDatabaseLayer("artifact_grants")),
 );
 
 layer(grantServiceLayer)((test) => {
@@ -70,7 +34,7 @@ layer(grantServiceLayer)((test) => {
 					artifactHash: "artifact-A",
 				});
 				expect(yield* grants.resolve("bad")).toBeNull();
-				yield* (yield* FakeRedisStore).delete(`ryot:client-artifacts:grant:${first.grantId}`);
+				yield* (yield* TransientValues).remove(`ryot:client-artifacts:grant:${first.grantId}`);
 				expect(yield* grants.resolve(first.token)).toBeNull();
 				expect((yield* grants.issue(user, "artifact-A")).token).not.toBe(first.token);
 			});
