@@ -88,7 +88,6 @@ export default Effect.gen(function* () {
 					port: apiPort,
 					s3BucketName: S3_BUCKET_NAME,
 					dbUrl: coreInfrastructure.dbUrl,
-					redisUrl: coreInfrastructure.redisUrl,
 					s3Endpoint: coreInfrastructure.s3Endpoint,
 					extraEnv: { ...harnessApiEnv, SERVER_LOG_FILE: path.join(logDirectory, "ryot.log") },
 				});

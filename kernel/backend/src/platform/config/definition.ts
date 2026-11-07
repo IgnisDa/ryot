@@ -360,13 +360,6 @@ export const appConfigDefinition = defineConfig(
 			defaultValue: "Etc/GMT",
 			description: "IANA timezone used for plugin cron schedules",
 		}),
-		redisUrl: stringField({
-			secret: true,
-			label: "Redis URL",
-			envKey: "REDIS_URL",
-			validation: { required: true },
-			description: "Redis connection string",
-		}),
 		nodeEnv: stringField({
 			hidden: true,
 			envKey: "NODE_ENV",

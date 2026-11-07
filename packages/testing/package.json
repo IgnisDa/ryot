@@ -19,10 +19,6 @@
 			"types": "./src/postgres-container.ts",
 			"default": "./src/postgres-container.ts"
 		},
-		"./redis-container": {
-			"types": "./src/redis-container.ts",
-			"default": "./src/redis-container.ts"
-		},
 		"./effect-assertions": {
 			"types": "./src/effect-assertions.ts",
 			"default": "./src/effect-assertions.ts"

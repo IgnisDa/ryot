@@ -14,17 +14,6 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
 
-  ryot-redis:
-    image: redis:alpine
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    healthcheck:
-      retries: 5
-      timeout: 5s
-      interval: 2s
-      test: ["CMD", "redis-cli", "ping"]
-
   ryot-s3:
     image: rustfs/rustfs
     volumes:

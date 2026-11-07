@@ -7,11 +7,6 @@ Promise-returning `startPostgresContainer` and `stopPostgresContainer` exports s
 fixture; `postgresTestSetup` provisions scoped infrastructure for the native Bun runner. An explicit
 `TEST_DATABASE_URL` uses the supplied database without starting a container.
 
-`@ryot-app/testing/redis-container` owns the shared Redis test container: `redisTestSetup` starts
-one scoped Testcontainers Redis for a suite. An
-explicit `TEST_REDIS_URL` uses the supplied instance without starting a container; tests namespace
-their keys, so a shared instance needs no flush.
-
 ## Test Runner
 
 `bun run test` runs workspace tests without e2e. Use filtered root-level Turbo runs for affected
@@ -26,7 +21,7 @@ Callable narrowing assertions use `@ryot-app/testing/assert`. Plain tuple-based 
 
 `runTests` owns the child runner in an Effect Scope. Backend, sandbox, and e2e setup runs in the
 parent process so isolated test files cannot stop shared infrastructure. Test failures propagate
-after scoped teardown. Worker processes inherit provisioned database and Redis URLs. `testWorkers`
+after scoped teardown. Worker processes inherit the provisioned database URL. `testWorkers`
 resolves the worker count the same way Bun does (the last `--parallel`, else the caller's default)
 so setup can size shared infrastructure before the runner starts.
 

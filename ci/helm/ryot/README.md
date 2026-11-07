@@ -1,6 +1,6 @@
 # Ryot Helm Chart
 
-Deploys [Ryot](https://github.com/IgnisDa/ryot) on Kubernetes with bundled PostgreSQL and Redis by default.
+Deploys [Ryot](https://github.com/IgnisDa/ryot) on Kubernetes with bundled PostgreSQL by default.
 
 ## Install
 
@@ -27,7 +27,7 @@ helm install ryot ./ci/helm/ryot \
   --set config.frontendUrl="https://ryot.your-domain.com"
 ```
 
-The chart creates one Ryot `Deployment`, a `Service`, optional `Ingress`, `ConfigMap`, and `Secret`. Bundled PostgreSQL and Redis each use a single-node `StatefulSet` and headless `Service`. No `ServiceAccount` is created.
+The chart creates one Ryot `Deployment`, a `Service`, optional `Ingress`, `ConfigMap`, and `Secret`. Bundled PostgreSQL uses a single-node `StatefulSet` and headless `Service`. No `ServiceAccount` is created.
 
 ## Runtime requirements
 
@@ -89,24 +89,6 @@ Set `postgres.enabled=false`, then choose one mode in precedence order. Full Pos
 
 Each component accepts either `value` or `existingSecret` plus `existingSecretKey`. Secret-backed components use `secretKeyRef`; inline passwords go into the chart-managed secret. Percent-encode reserved URL characters in all composed components.
 
-## Redis
-
-`redis.enabled=true` deploys Redis and constructs `REDIS_URL`. Authentication is optional for the cluster-internal default; set `redis.auth.password` or `redis.auth.existingSecret` to enable it.
-
-Redis persistence is disabled by default because Redis holds sessions, workflow state, and caches. Enable `redis.persistence.enabled` when that state must survive pod replacement; `size` and `mountPath` are then required.
-
-For external Redis, disable the bundled instance and provide an inline URL or existing secret:
-
-```yaml
-redis:
-  enabled: false
-externalRedis:
-  existingSecret: my-ryot-redis
-  existingSecretKey: redis-url
-```
-
-An inline `externalRedis.url` is stored in the chart-managed secret.
-
 ## Secrets
 
 Sensitive values are sourced from chart-managed or existing Kubernetes secrets, never the `ConfigMap`:
@@ -116,7 +98,6 @@ Sensitive values are sourced from chart-managed or existing Kubernetes secrets, 
 | `SERVER_ADMIN_ACCESS_TOKEN` | `secret.adminAccessToken.value`   | `secret.adminAccessToken.existingSecret` |
 | `SERVER_PRO_KEY`            | `secret.proKey.value`             | `secret.proKey.existingSecret`           |
 | `DATABASE_URL`              | bundled or `externalDatabase.url` | `externalDatabase.existingSecret`        |
-| `REDIS_URL`                 | bundled or `externalRedis.url`    | `externalRedis.existingSecret`           |
 | Provider credentials        | `secretEnv`                       | `secretEnvFrom`                          |
 
 Provider tokens and client secrets must use `secretEnv` or `secretEnvFrom`, not `config.extraEnv`. The latter is rendered into a `ConfigMap` and is only for non-sensitive settings. See the [Ryot configuration docs](https://docs.ryot.io/configuration.html).
@@ -159,7 +140,7 @@ Keep the original bundled PostgreSQL password unless it has first been rotated i
 
 ## Validation
 
-The chart rejects missing image or service settings, inconsistent secret references, incomplete external database or Redis settings, invalid persistence settings, and incomplete ingress hosts.
+The chart rejects missing image or service settings, inconsistent secret references, incomplete external database settings, invalid persistence settings, and incomplete ingress hosts.
 
 ```bash
 helm lint ci/helm/ryot \
@@ -183,11 +164,11 @@ Post-install test pods verify `/api/system/health` through the service and valid
 helm test <release-name>
 ```
 
-The health endpoint checks PostgreSQL and Redis, and is also the default liveness and readiness target.
+The health endpoint checks PostgreSQL, and is also the default liveness and readiness target.
 
 ## Troubleshooting
 
-Use `helm template --debug` for render failures. For a deployment, inspect `kubectl get pods`, `kubectl describe pod <pod>`, application logs, and `helm test <release-name> --logs`. Health failures usually mean that Ryot cannot reach PostgreSQL or Redis; verify service names, secret keys, URL encoding, and credentials. If a bundled PostgreSQL password mismatch blocks an upgrade, follow the rotation instructions in the error instead of deleting persistent data.
+Use `helm template --debug` for render failures. For a deployment, inspect `kubectl get pods`, `kubectl describe pod <pod>`, application logs, and `helm test <release-name> --logs`. Health failures usually mean that Ryot cannot reach PostgreSQL; verify service names, secret keys, URL encoding, and credentials. If a bundled PostgreSQL password mismatch blocks an upgrade, follow the rotation instructions in the error instead of deleting persistent data.
 
 ## Values
 

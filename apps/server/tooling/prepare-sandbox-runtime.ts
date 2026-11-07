@@ -84,15 +84,13 @@ const SandboxSmokeConfigProviderLive = Layer.effectContext(
 		const root = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-native-sandbox-smoke-" });
 		const workDirectory = path.join(root, "work");
 		yield* fs.makeDirectory(workDirectory, { recursive: true });
-		const [redisUrlKey, localTempDirKey, adminAccessTokenKey, databaseUrlKey] = yield* Effect.all([
-			configEnvironmentKey(appConfigDefinition.fields.redisUrl),
+		const [localTempDirKey, adminAccessTokenKey, databaseUrlKey] = yield* Effect.all([
 			configEnvironmentKey(appConfigDefinition.fields.fileStorage.fields.localTempDir),
 			configEnvironmentKey(appConfigDefinition.fields.server.fields.adminAccessToken),
 			configEnvironmentKey(appConfigDefinition.fields.database.fields.url),
 		]);
 		const values = {
 			[localTempDirKey]: workDirectory,
-			[redisUrlKey]: "redis://127.0.0.1:6379",
 			[adminAccessTokenKey]: "sandbox-smoke-build-placeholder",
 			[databaseUrlKey]: "postgres://sandbox-smoke:sandbox-smoke@127.0.0.1:5432/sandbox-smoke",
 		};
@@ -281,14 +279,7 @@ const smoke = Effect.gen(function* () {
 				...(trust === "system"
 					? { kernelScript: true, pluginRevision: null, subject: { type: "system" } }
 					: {
-							subject: {
-								type: "user",
-								userId: ownerId,
-								accountGeneration: {
-									userId: ownerId,
-									token: "production-runtime-smoke-account-generation",
-								},
-							},
+							subject: { type: "user", userId: ownerId },
 							pluginRevision: {
 								ownerId,
 								scope: "user",

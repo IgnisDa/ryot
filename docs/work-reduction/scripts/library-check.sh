@@ -23,7 +23,6 @@ start_containers() {
 		-v wr-legacy-pg-data:/var/lib/postgresql -e POSTGRES_DB=postgres -e POSTGRES_USER=postgres \
 		-e POSTGRES_PASSWORD=postgres postgres:18-alpine \
 		-c shared_preload_libraries=pg_stat_statements -c pg_stat_statements.track=top >/dev/null
-	docker run -d --name wr-legacy-redis --memory=128m --oom-score-adj=1000 -p 127.0.0.1:56379:6379 redis:alpine >/dev/null
 	docker run -d --name wr-legacy-s3 --memory=256m --oom-score-adj=1000 -p 127.0.0.1:59000:9000 \
 		-v wr-legacy-s3-data:/data rustfs/rustfs >/dev/null
 }
@@ -50,7 +49,7 @@ migrate_current() {
 case "${1:-}" in
 setup)
 	dump="$2"
-	docker rm -fv wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null 2>&1
+	docker rm -fv wr-legacy-pg wr-legacy-s3 >/dev/null 2>&1
 	docker volume rm wr-legacy-pg-data wr-legacy-s3-data >/dev/null 2>&1
 	start_containers
 	wait_for_postgres
@@ -63,7 +62,6 @@ setup)
 	cat > "$state/env.sh" <<ENV
 PORT=3999
 SERVER_LOG_LEVEL=Info
-REDIS_URL=redis://127.0.0.1:56379
 DATABASE_URL=postgres://postgres:postgres@127.0.0.1:55432/postgres
 SERVER_DISABLE_NOTIFICATIONS=true
 FRONTEND_URL=http://127.0.0.1:3999
@@ -76,12 +74,12 @@ ENV
 	migrate_current
 	;;
 update)
-	docker start wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null
+	docker start wr-legacy-pg wr-legacy-s3 >/dev/null
 	wait_for_postgres
 	migrate_current
 	;;
 serve)
-	docker start wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null
+	docker start wr-legacy-pg wr-legacy-s3 >/dev/null
 	wait_for_postgres
 	load_env
 	(cd "$root/apps/server" && exec nohup bun --no-env-file run src/main.ts) > "$state/server.log" 2>&1 < /dev/null &
@@ -131,11 +129,11 @@ plans)
 stop)
 	[ -f "$state/server.pid" ] && kill "$(cat "$state/server.pid")" 2>/dev/null
 	rm -f "$state/server.pid"
-	docker stop wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null
+	docker stop wr-legacy-pg wr-legacy-s3 >/dev/null
 	;;
 destroy)
 	[ -f "$state/server.pid" ] && kill "$(cat "$state/server.pid")" 2>/dev/null
-	docker rm -fv wr-legacy-pg wr-legacy-redis wr-legacy-s3 >/dev/null 2>&1
+	docker rm -fv wr-legacy-pg wr-legacy-s3 >/dev/null 2>&1
 	docker volume rm wr-legacy-pg-data wr-legacy-s3-data >/dev/null 2>&1
 	rm -rf "$state"
 	;;

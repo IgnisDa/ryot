@@ -9,7 +9,7 @@ export DEBIAN_FRONTEND=noninteractive HOME=/root
 apt-get update
 apt-get install -y --no-install-recommends \
 	ca-certificates curl git unzip xz-utils rsync jq build-essential python3 pkg-config sudo \
-	docker.io sysstat htop postgresql-client redis-tools
+	docker.io sysstat htop postgresql-client
 systemctl enable --now docker
 # Unattended upgrades re-execute systemd, which restarts running measurement units.
 systemctl disable --now apt-daily.timer apt-daily-upgrade.timer unattended-upgrades.service

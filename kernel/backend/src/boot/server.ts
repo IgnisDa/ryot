@@ -27,8 +27,6 @@ import { CollectionsRoutesLive } from "#modules/collections/routes";
 import { EntityProvidersRoutesLive } from "#modules/entities/providers/routes";
 import { EntitiesRoutesLive } from "#modules/entities/routes";
 import { EntityUserDataRoutesLive } from "#modules/entities/user-data/routes";
-import { InterestRoutesLive } from "#modules/entities/watches/routes";
-import { InterestSocketRouteLive } from "#modules/entities/watches/socket-route";
 import { EventsRoutesLive } from "#modules/events/routes";
 import { ImportDownloadsRoutesLive, ImportsRoutesLive } from "#modules/imports/routes";
 import {
@@ -37,6 +35,7 @@ import {
 	ServerLogsRoutesLive,
 } from "#modules/instance-admin/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
+import { LiveUpdatesRoutesLive } from "#modules/live-updates/routes";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
 import { PageBundlesRoutesLive } from "#modules/pages/bundles/routes";
@@ -126,7 +125,7 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(
 		Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive, OAuthConnectionsRoutesLive),
 	),
-	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, InterestRoutesLive)),
+	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, LiveUpdatesRoutesLive)),
 	Layer.provide(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
 );
 
@@ -136,12 +135,7 @@ const DecodeErrorsAsBadRequestLive = HttpRouter.middleware(decodeErrorsAsBadRequ
 	global: true,
 });
 
-const ApiWithScalarLive = Layer.mergeAll(
-	ApiLive,
-	ScalarLive,
-	InterestSocketRouteLive,
-	DecodeErrorsAsBadRequestLive,
-);
+const ApiWithScalarLive = Layer.mergeAll(ApiLive, ScalarLive, DecodeErrorsAsBadRequestLive);
 
 export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, R, SE, SR>(
 	router: HttpRouter.HttpRouter,
@@ -224,12 +218,7 @@ const RootRoutesLive = HttpRouter.use((router) =>
 
 const BunServerLive = Layer.unwrap(
 	Effect.map(AppConfig, (config) =>
-		BunHttpServer.layer({
-			idleTimeout: 60,
-			port: config.port,
-			hostname: "0.0.0.0",
-			websocket: { idleTimeout: 60, maxPayloadLength: 1024 * 1024 },
-		}),
+		BunHttpServer.layer({ idleTimeout: 60, port: config.port, hostname: "0.0.0.0" }),
 	),
 );
 
