@@ -41,7 +41,7 @@ Of 33 workflow definitions, 11 are deleted, 15 become rows in one job table, and
 
 ## Tables
 
-The kernel has 93 tables and 19 views. About 63 tables and none of the views are needed. Nearly all the
+The kernel has 93 tables and 19 views. About 66 tables and none of the views are needed. Nearly all the
 cuts are in execution bookkeeping, derived state, imports and plugin state. The product's own data (auth,
 entities, events, relationships, definitions) stays as it is.
 
@@ -55,10 +55,10 @@ entities, events, relationships, definitions) stays as it is.
 | Execution            |  11 |     4 | Keep `workflow_execution` and `workflow_step`, for plugin workflows and imports. Add `job` and `idempotency_key`. Delete `workflow_runner`, `background_work`, `automation_run`, `automation_run_attempt`, `automation_trigger`, `automation_trigger_recipient`, `mutation_receipt`, `signal_schedule_delivery` and `user_lifecycle_operation` |
 | Derived state        |   9 |     1 | Event streams, stream bindings and stream work, relationship projections, their bindings and work, `event_projection` and `relationship_sync_generation` become one `derived_value` table: subject, kind, plugin revision, value and source revision. `entity_enrichment_request` becomes a job                                                |
 | Imports              |  11 |     5 | Keep `import_run` (with a cursor), `import_issue`, `import_activity` and `integration`. `import_batch`, `import_capture`, `import_payload_reservation` and `data_import_submission` merge into one `import_item`. `integration_auto_disable_claim` becomes a column, and `provider_import_admission` a coalesced job                           |
-| Backups              |   4 |     1 | The three staging tables go if a restore runs in one transaction. The backup memory test decides it                                                                                                                                                                                                                                            |
+| Backups              |   4 |     4 | Keep the three staging tables. In the backup memory test restore staging adds no memory, but holding staged records and mappings in memory would grow with the archive                                                                                                                                                                         |
 | Notifications        |   4 |     3 | `notification_delivery` becomes a job                                                                                                                                                                                                                                                                                                          |
 | V1 migration reports |   2 |     2 | Keep                                                                                                                                                                                                                                                                                                                                           |
-| **Total**            |  93 |    63 | And 0 views instead of 19                                                                                                                                                                                                                                                                                                                      |
+| **Total**            |  93 |    66 | And 0 views instead of 19                                                                                                                                                                                                                                                                                                                      |
 
 `mutation_receipt` shows the pattern. It has 24 columns, pinning the plugin revision, config revision,
 script, account generation, input fingerprint, dispatch and evidence on every item, and the `full11` run

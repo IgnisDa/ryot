@@ -1,11 +1,11 @@
 # Kernel simplification
 
-Status: steps 1 to 6 of the [order of work](order-of-work.md) are done. This plan supersedes the
+Status: steps 1 to 7 of the [order of work](order-of-work.md) are done. This plan supersedes the
 replica decision in [`../work-reduction/redesign.md`](../work-reduction/redesign.md) ("cross-process
 ownership and wake-ups stay"). Its measurements and VM tooling in [`../work-reduction/`](../work-reduction/)
 remain the baseline.
 
-About a third of the kernel's concepts serve no user feature. Removing them takes tables from 93 to 63 and
+About a third of the kernel's concepts serve no user feature. Removing them takes tables from 93 to 66 and
 views from 19 to 0. Of 33 workflows, 2 stay durable, 15 become rows in one job table and 11 are deleted.
 Of 11 cross-cutting mechanisms, only plugin revision pins stay, and Redis leaves the stack. For reference,
 not as a commitment, that should bring the kernel backend from 117,500 non-test lines toward 60,000. Domain

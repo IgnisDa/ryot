@@ -44,9 +44,10 @@ Flow probes on the idle VM, medians of repeats. Baselines are step 1's figures a
 | --------------- | -----------: | --------------------- | ---------------------- | -----: | -----: | -----------: | --------------: |
 | 1 (baseline)    |      117,500 | 97 statements         | 373 statements, 460 ms |    955 |    265 |        4,331 |          46,400 |
 | 3 (`probesS3`)  |      113,838 | 56 statements, 253 ms | 327 statements, 357 ms |    803 |    211 |        3,490 |          39,947 |
-| 4 (`probesS4d`) |      110,338 | 41 statements, 124 ms |  88 statements, 259 ms |    482 |    211 |        2,585 |          12,294 |
-| 5 (`probesS5`)  |      106,092 | 41 statements, 112 ms |  91 statements, 235 ms |    514 |    220 |        2,646 |          13,115 |
-| 6 (`probesS6`)  |      105,855 | 40 statements, 104 ms |  90 statements, 248 ms |    514 |    217 |        2,639 |          13,122 |
+| 4 (`probesS4d`) |      110,338 | 41 statements, 124 ms | 88 statements, 259 ms  |    482 |    211 |        2,585 |          12,294 |
+| 5 (`probesS5`)  |      106,092 | 41 statements, 112 ms | 91 statements, 235 ms  |    514 |    220 |        2,646 |          13,115 |
+| 6 (`probesS6`)  |      105,855 | 40 statements, 104 ms | 90 statements, 248 ms  |    514 |    217 |        2,639 |          13,122 |
+| 7 (`probesS7`)  |      106,099 | 41 statements, 113 ms | 91 statements, 249 ms  |    505 |    192 |        2,654 |          13,262 |
 
 Statement counts are net of the idle background. Suite CPU was not measured, because step 3 ran only the
 affected e2e files.
@@ -85,10 +86,30 @@ imports are `entity-import` jobs. Cancelling an import run sets `cancelling`, wh
 each record, and then interrupts the root. Each Data segment or plugin chunk runs under a step scope, and its
 applied batch is the cursor: a replay skips it and its steps are forgotten. Import tables went from 11 to 5:
 `import_run`, `import_item`, `import_issue`, `import_activity` and `integration`. A data submission key
-moved to `idempotency_key`, and the auto-disable claim to a column on `import_run`. All tables went from 91 to
-85. The probed flows do not import, so their figures held.
+moved to `idempotency_key`, and the auto-disable claim to a column on `import_run`. All tables went from 91 to 85. The probed flows do not import, so their figures held.
 
 Suite CPU was 6,731 s in `fullS6` against 6,683 s in `fullS5d`, and wall time 1,923 s against 1,892 s.
 `fullS6` failed 1 of 810 API tests and 3 of 138 browser tests. All four passed when their files were rerun on
 an idle VM. The API failure is the HTTP slot spacing test, which measured 139 ms between arrivals against
 a 140 ms floor for a 150 ms limit.
+
+Step 7's check: the baseline has no views. `DefinitionCatalog` reads a user's installations in one statement
+and derives listing, effectiveness and executability in memory, caching immutable revision definitions by ID
+and the kernel definitions until they are replaced. SQL readers, RyotQL among them, receive the catalog as
+common table expressions named like the old views. The revision manifest is a column of `plugin_revision`,
+and `user_plugin_state`, `plugin_uninstall_receipt` and `plugin_catalog_change` are gone, so plugin tables
+went from 9 to 5 and all tables from 85 to 81. Retrying an uninstall replays it until the package is
+installed again, and is then refused as not found. Plugin flows fell: a private install from 163 to 138
+statements, a system change from 184 to 119 and signup from 217 to 192. Event flows held. Kernel lines rose
+by 244, because resolving the catalog takes more TypeScript than the view definitions it replaces.
+
+The backup memory test kept the three restore staging tables. Peak memory was 132 MB at the start, 225 MB
+after export and 325 MB after archive validation, and staging, preflight and the restore transaction added
+nothing, against a 512 MiB limit. Holding the staged records and their mappings in memory instead would grow
+with the archive, which the limits allow to reach millions of records.
+
+Suite CPU was 6,702 s in `fullS7` against 6,731 s in `fullS6`, and wall time 1,923 s in both. `fullS7` failed 2
+of 823 API tests and 5 of 138 browser tests. One API failure was the private uninstall retry, whose test now
+expects the refusal; the other was the HTTP slot spacing test. The browser failures and the slot spacing test
+passed when their files were rerun on an idle VM, except the workout template test, which failed again
+alongside the other browser files and passed twice when run alone.
