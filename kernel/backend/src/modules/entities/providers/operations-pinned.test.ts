@@ -28,11 +28,11 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
-import { EntityImportWorkflow } from "./entity-import-workflow";
 import { makeProviderExecutionReads } from "./execution-reads";
 import {
 	EntityImportWorkflowOperations,
@@ -188,7 +188,7 @@ for (const scope of ["system", "user"] as const) {
 							revisionId: upgraded.revisionId,
 						}),
 					).toBeUndefined();
-					const instance = WorkflowInstance.initial(EntityImportWorkflow, `retained-${scope}`);
+					const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, `retained-${scope}`);
 					yield* Effect.gen(function* () {
 						const service = yield* EntityImportWorkflowOperations;
 						yield* service.processSandbox(payload, "details", "base");

@@ -31,7 +31,7 @@ export const EntityImportServiceLive = EntityImportService.layer.pipe(
 		Layer.mergeAll(EntitiesRepositoryLive, PluginRuntimeResolverLive, EventSchemaReaderLive),
 	),
 	Layer.provide(
-		ProviderImportAdmission.liveLayer.pipe(
+		ProviderImportAdmission.layer.pipe(
 			Layer.provide(
 				Layer.mergeAll(
 					ScriptExecutionServiceLive,

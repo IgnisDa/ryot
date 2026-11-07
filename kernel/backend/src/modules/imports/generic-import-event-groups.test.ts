@@ -27,6 +27,8 @@ import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
 
 import { IngestionCaptures } from "./capture-service";
@@ -221,6 +223,8 @@ layer(
 		Layer.mergeAll(
 			Layer.provideMerge(SandboxRepository.layer, eventGroupWorkflowLayer),
 			Layer.mock(CollectionsService)({}),
+			Layer.mock(JobQueue)({}),
+			Layer.mock(TransientValues)({}),
 			Layer.mock(EntityImportWorkflowOperations)({}),
 		),
 		BunCrypto.layerSecureRandom,

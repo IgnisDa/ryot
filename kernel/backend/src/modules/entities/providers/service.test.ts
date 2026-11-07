@@ -17,25 +17,31 @@ import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Cause, Context, Effect, Exit, Fiber, Layer, Option, Queue, Ref } from "effect";
+import { eq } from "drizzle-orm";
+import { Cause, Context, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 import { TestClock } from "effect/testing";
-import { Workflow } from "effect/workflow";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { DatabaseSession } from "#platform/db/session";
+import { TransientValues } from "#platform/transient-values";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { createWorkflowJobId, deriveJobIdSecret } from "#platform/workflow/job-id";
+import { job } from "#schema/tables/jobs";
 import {
 	databaseLayer,
 	makeAppConfigLayer,
-	makeWorkflowEngine,
 	type MockOverrides,
 } from "#testing/effect";
 
+import { admissionDatabaseLayer } from "./admission.test-support";
 import { ProviderImportAdmission } from "./admission";
-import { EntityImportWorkflow } from "./entity-import-workflow";
+import {
+	entityImportIdentity,
+	EntityImportJob,
+	storeEntityImportOutcome,
+} from "./entity-import-job";
 import { EntityImportService } from "./service";
 
 const user: CurrentUserValue = {
@@ -83,15 +89,13 @@ type SubmitInput = Parameters<Admission["submit"]>[0];
 class FakeAdmission extends Context.Service<
 	FakeAdmission,
 	{
-		readonly statusRead: Effect.Effect<void>;
 		readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>>;
 	}
 >()("@ryot-app/kernel-backend/modules/entities/providers/service.test/FakeAdmission") {}
 
-const makeServiceLayer = (
+const serviceLayerOver = <E>(
+	database: Layer.Layer<DatabaseSession, E>,
 	options: {
-		readonly status?: Admission["status"];
-		readonly engine?: WorkflowEngine["Service"];
 		readonly activeProvider?: null | typeof provider;
 		readonly entryEventSchemaSlugs?: ReadonlyArray<string>;
 		readonly entitiesRepo?: Layer.Layer<EntitiesRepository>;
@@ -101,11 +105,9 @@ const makeServiceLayer = (
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const submitted = yield* Ref.make<ReadonlyArray<SubmitInput>>([]);
-			const statusReads = yield* Queue.unbounded<void>();
-			const { submit, status } = options;
+			const { submit } = options;
 			const dependencies = Layer.mergeAll(
 				makeAppConfigLayer(),
-				Layer.succeed(WorkflowEngine, options.engine ?? makeWorkflowEngine()),
 				options.entitiesRepo ?? makeEntitiesRepository(),
 				Layer.mock(EventSchemaReader)({
 					getScopeForUser: (input) =>
@@ -132,7 +134,6 @@ const makeServiceLayer = (
 				}),
 				Layer.succeed(FakeAdmission, {
 					submitted: Ref.get(submitted),
-					statusRead: Queue.take(statusReads).pipe(Effect.asVoid),
 				}),
 			);
 			const admission = Layer.mock(ProviderImportAdmission)({
@@ -140,20 +141,20 @@ const makeServiceLayer = (
 					submit: (input) =>
 						Ref.update(submitted, (all) => [...all, input]).pipe(Effect.as(submit(input))),
 				}),
-				...(status && {
-					status: (input) =>
-						status(input).pipe(Effect.tap(() => Queue.offer(statusReads, undefined))),
-				}),
 				cancel: () => Effect.void,
 			});
 			return EntityImportService.layer.pipe(
 				Layer.provideMerge(admission),
 				Layer.provideMerge(WorkflowExecutionNotifications.layer),
+				Layer.provideMerge(TransientValues.layer),
 				Layer.provideMerge(dependencies),
-				Layer.provideMerge(databaseLayer),
+				Layer.provideMerge(database),
 			);
 		}),
 	);
+
+const makeServiceLayer = (options: Parameters<typeof serviceLayerOver>[1] = {}) =>
+	serviceLayerOver(databaseLayer, options);
 
 const queued = (input: SubmitInput) => ({
 	status: "queued" as const,
@@ -435,95 +436,42 @@ layer(makeServiceLayer())((test) => {
 	);
 });
 
-const importResultLayer = (
-	admitted: null | "queued" | "running" | Admission["status"],
-	poll: ReturnType<typeof makeWorkflowEngine>["poll"],
-) =>
-	makeServiceLayer({
-		engine: makeWorkflowEngine({ poll }),
-		status: typeof admitted === "function" ? admitted : () => Effect.succeed(admitted),
-	});
+const importResultLayer = serviceLayerOver(admissionDatabaseLayer);
 
-const importResultJobId = createWorkflowJobId(
-	deriveJobIdSecret("test-admin-token"),
-	{ executionId: "exec-abc" },
-	user.id,
-);
-const importIdentity = { executionId: "exec-abc", workflowName: EntityImportWorkflow._tag };
-const importResult = Effect.flatMap(EntityImportService, (service) =>
-	service.getImportResult(user, importResultJobId),
-);
+const importResultFor = (executionId: string) => {
+	const jobId = createWorkflowJobId(deriveJobIdSecret("test-admin-token"), { executionId }, user.id);
+	return {
+		jobId,
+		result: Effect.flatMap(EntityImportService, (service) => service.getImportResult(user, jobId)),
+	};
+};
 
-layer(
-	importResultLayer(
-		(() => {
-			let reads = 0;
-			return () => Effect.sync(() => (reads++ === 0 ? "queued" : null));
-		})(),
-		() => Effect.succeedNone,
-	),
-)((test) => {
-	test.effect(
-		"returns a queued cancellation when cancelImport wakes its result wait",
-		() =>
-			Effect.gen(function* () {
-				const admission = yield* FakeAdmission;
-				const fiber = yield* Effect.forkChild(importResult);
-				yield* admission.statusRead;
-				const service = yield* EntityImportService;
-				yield* service.cancelImport(user, importResultJobId);
-				expect(yield* Fiber.join(fiber)).toEqual({ status: "cancelled" });
+const seedImportJob = (id: string, status: "queued" | "running" | "failed", error?: string) =>
+	Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) =>
+			db.insert(job).values({
+				id,
+				status,
+				payload: {},
+				attempts: 0,
+				priority: 0,
+				maxAttempts: 3,
+				error: error ?? null,
+				kind: EntityImportJob.name,
 			}),
-		testTimeout,
+		),
 	);
-});
 
-layer(importResultLayer("running", () => Effect.succeedNone))((test) => {
-	test.effect(
-		"returns running status after its notification wait times out",
-		() =>
-			Effect.gen(function* () {
-				const admission = yield* FakeAdmission;
-				const fiber = yield* Effect.forkChild(importResult);
-				yield* admission.statusRead;
-				yield* TestClock.adjust("20 seconds");
-				expect(yield* Fiber.join(fiber)).toEqual({ status: "running" });
-			}),
-		testTimeout,
+const removeImportJob = (id: string) =>
+	Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) => db.delete(job).where(eq(job.id, id))),
 	);
-});
 
-layer(
-	importResultLayer(
-		"running",
-		(() => {
-			let polls = 0;
-			return (_workflow, executionId) =>
-				executionId === "exec-abc" && polls++ > 0
-					? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(importedEntity) }))
-					: Effect.succeedNone;
-		})(),
-	),
-)((test) => {
-	test.effect(
-		"returns workflow completion after a matching notification",
-		() =>
-			Effect.gen(function* () {
-				const admission = yield* FakeAdmission;
-				const notifications = yield* WorkflowExecutionNotifications;
-				const fiber = yield* Effect.forkChild(importResult);
-				yield* admission.statusRead;
-				yield* notifications.publish(importIdentity);
-				expect(yield* Fiber.join(fiber)).toEqual<unknown>({
-					status: "completed",
-					data: importedEntity,
-				});
-			}),
-		testTimeout,
-	);
-});
+// A wait only hears a notification published after it starts listening.
+const letWaitStart = Effect.promise(() => Bun.sleep(100));
 
 const importedEntity = {
+	entitySchemaPluginId: null,
 	externalId,
 	providerId,
 	properties: {},
@@ -535,50 +483,97 @@ const importedEntity = {
 	entitySchemaSlug: EntitySchemaSlug.make("item"),
 };
 
-layer(
-	importResultLayer("running", (workflow, executionId) =>
-		workflow._tag === EntityImportWorkflow._tag && executionId === "exec-abc"
-			? Effect.succeedSome(new Workflow.Complete({ exit: Exit.succeed(importedEntity) }))
-			: Effect.succeedNone,
-	),
-)((test) => {
+layer(importResultLayer)((test) => {
 	test.effect(
-		"returns terminal workflow results without waiting for a notification",
+		"reports a queued import cancelled once cancelImport wakes its wait",
 		() =>
 			Effect.gen(function* () {
-				expect(yield* importResult).toEqual<unknown>({ status: "completed", data: importedEntity });
+				const { jobId, result } = importResultFor("cancelled-import");
+				yield* seedImportJob("cancelled-import", "queued");
+				const fiber = yield* Effect.forkChild(result);
+				yield* letWaitStart;
+				yield* removeImportJob("cancelled-import");
+				const service = yield* EntityImportService;
+				yield* service.cancelImport(user, jobId);
+				expect(yield* Fiber.join(fiber)).toEqual({ status: "cancelled" });
 			}),
 		testTimeout,
 	);
-});
 
-layer(
-	importResultLayer("running", (workflow, executionId) =>
-		workflow._tag === EntityImportWorkflow._tag && executionId === "exec-abc"
-			? Effect.succeedSome(
-					new Workflow.Complete({
-						exit: Exit.fail({ message: "failed", stage: "population" as const }),
-					}),
-				)
-			: Effect.succeedNone,
-	),
-)((test) => {
 	test.effect(
-		"returns a terminal workflow failure without waiting for a notification",
+		"reports a running import after its wait times out",
 		() =>
 			Effect.gen(function* () {
-				expect(yield* importResult).toMatchObject({ status: "failed" });
+				const { result } = importResultFor("running-import");
+				yield* seedImportJob("running-import", "running");
+				const fiber = yield* Effect.forkChild(result);
+				yield* letWaitStart;
+				yield* TestClock.adjust("20 seconds");
+				expect(yield* Fiber.join(fiber)).toEqual({ status: "running" });
+				yield* removeImportJob("running-import");
 			}),
 		testTimeout,
 	);
-});
 
-layer(importResultLayer(null, () => Effect.succeedNone))((test) => {
 	test.effect(
-		"reports an import cancelled before admission as cancelled",
+		"reports completion after a matching notification",
 		() =>
 			Effect.gen(function* () {
-				expect(yield* importResult).toEqual({ status: "cancelled" });
+				const { result } = importResultFor("woken-import");
+				yield* seedImportJob("woken-import", "running");
+				const notifications = yield* WorkflowExecutionNotifications;
+				const fiber = yield* Effect.forkChild(result);
+				yield* letWaitStart;
+				yield* storeEntityImportOutcome("woken-import", {
+					_tag: "completed",
+					entity: importedEntity,
+				});
+				yield* removeImportJob("woken-import");
+				yield* notifications.publish(entityImportIdentity("woken-import"));
+				expect(yield* Fiber.join(fiber)).toEqual<unknown>({
+					status: "completed",
+					data: importedEntity,
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"returns a stored failure with its stage without waiting",
+		() =>
+			Effect.gen(function* () {
+				yield* storeEntityImportOutcome("failed-import", {
+					_tag: "failed",
+					message: "refused",
+					stage: "entry-event",
+				});
+				expect(yield* importResultFor("failed-import").result).toEqual({
+					status: "failed",
+					reason: { code: "import-failed", stage: "entry-event" },
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports a job that ran out of attempts as failed",
+		() =>
+			Effect.gen(function* () {
+				yield* seedImportJob("exhausted-import", "failed", "boom");
+				expect(yield* importResultFor("exhausted-import").result).toEqual({
+					status: "failed",
+					reason: { code: "import-failed", stage: "population" },
+				});
+				yield* removeImportJob("exhausted-import");
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports an import with neither a job nor an outcome as cancelled",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* importResultFor("gone-import").result).toEqual({ status: "cancelled" });
 			}),
 		testTimeout,
 	);

@@ -44,6 +44,7 @@ import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
 import { KernelWorkflowReferencesLive } from "./kernel-workflow-references";
@@ -208,6 +209,22 @@ class RecordedWorkflowDispatches extends Context.Service<
 	}
 >()("@ryot-app/kernel-backend/boot/kernel-workflow-references.test/RecordedWorkflowDispatches") {}
 
+const completedEntityImport = JSON.stringify({
+	_tag: "completed",
+	entity: {
+		properties: {},
+		id: "entity-1",
+		name: "Record",
+		providerId: null,
+		externalId: null,
+		populatedAt: null,
+		entitySchemaPluginId: null,
+		entitySchemaSlug: "record",
+		createdAt: "1970-01-01T00:00:00.000Z",
+		updatedAt: "1970-01-01T00:00:00.000Z",
+	},
+});
+
 const recordingEngineLayer = (
 	respond: (
 		workflow: ExecuteArgs[0],
@@ -221,7 +238,18 @@ const recordingEngineLayer = (
 				ReadonlyArray<Pick<ExecuteOptions, "payload" | "executionId">>
 			>([]);
 			return Layer.mergeAll(
-				unusedPopulationLayer,
+				Layer.mock(EnrichmentRequests)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(JobQueue)({
+					enqueue: (_kind, payload, options) =>
+						Ref.update(dispatches, (all) => [
+							...all,
+							{ payload, executionId: options?.id ?? "" },
+						]).pipe(Effect.as(true)),
+				}),
+				Layer.mock(TransientValues)({
+					get: () => Effect.succeed(completedEntityImport),
+				}),
 				Layer.succeed(
 					WorkflowEngine,
 					makeWorkflowActivityEngine(parentInstance, {
@@ -249,6 +277,8 @@ const recordingEngineLayer = (
 		}),
 	);
 
+const transientValuesLayer = Layer.mock(TransientValues)({});
+
 const unusedPopulationLayer = Layer.mergeAll(
 	Layer.mock(JobQueue)({}),
 	Layer.mock(EnrichmentRequests)({}),
@@ -257,6 +287,7 @@ const unusedPopulationLayer = Layer.mergeAll(
 
 const unusedEngineLayer = Layer.mergeAll(
 	unusedPopulationLayer,
+	transientValuesLayer,
 	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 	Layer.succeed(WorkflowInstance, parentInstance),
 	Layer.mock(EventsService)({}),
@@ -276,6 +307,7 @@ const recordingPopulationLayer = (
 		Effect.gen(function* () {
 			const requests = yield* Ref.make<ReadonlyArray<PopulationRequest>>([]);
 			return Layer.mergeAll(
+				transientValuesLayer,
 				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 				Layer.succeed(WorkflowInstance, parentInstance),
 				Layer.mock(EventsService)({}),
@@ -464,7 +496,7 @@ layer(
 	),
 )((test) => {
 	test.effect(
-		"resolves plugin provider slugs before dispatching entity imports",
+		"resolves plugin provider slugs before queueing entity imports",
 		() =>
 			Effect.gen(function* () {
 				const references = yield* KernelWorkflowReferences;

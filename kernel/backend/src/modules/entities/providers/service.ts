@@ -17,14 +17,15 @@ import {
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
-import { Context, DateTime, Effect, Layer, Option, Redacted } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Context, DateTime, Effect, Layer, Redacted } from "effect";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
+import { TransientValues } from "#platform/transient-values";
 import { trimToNull } from "#platform/validation";
 import {
 	awaitWorkflowSettled,
@@ -37,20 +38,20 @@ import {
 } from "#platform/workflow/job-id";
 
 import { PROVIDER_IMPORT_USER_BACKLOG_LIMIT, ProviderImportAdmission } from "./admission";
-import { EntityImportWorkflow } from "./entity-import-workflow";
-import { toEntityImportRunResult } from "./result-workflow";
+import { entityImportIdentity, readEntityImport } from "./entity-import-job";
 
 export class EntityImportService extends Context.Service<EntityImportService>()(
 	"@ryot-app/kernel-backend/modules/entities/providers/service/EntityImportService",
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const engine = yield* WorkflowEngine;
 			const repository = yield* EntitiesRepository;
 			const eventSchemas = yield* EventSchemaReader;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const admission = yield* ProviderImportAdmission;
 			const notifications = yield* WorkflowExecutionNotifications;
+			const session = yield* DatabaseSession;
+			const transient = yield* TransientValues;
 			const jobIdSecret = deriveJobIdSecret(Redacted.value(config.server.adminAccessToken));
 
 			const importEntity = Effect.fn("EntityImportService.import")(function* (
@@ -167,17 +168,22 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				return job;
 			});
 
-			const readResult = Effect.fnUntraced(function* (user: CurrentUserValue, executionId: string) {
-				const admitted = yield* admission.status({ id: executionId, userId: user.id });
-				if (admitted === "queued") {
-					return { status: "queued" } satisfies ImportEntityRunResult;
+			const readResult = Effect.fnUntraced(function* (executionId: string) {
+				const state = yield* readEntityImport(executionId).pipe(
+					Effect.provideService(DatabaseSession, session),
+					Effect.provideService(TransientValues, transient),
+				);
+				switch (state._tag) {
+					case "completed":
+						return { data: state.entity, status: "completed" } satisfies ImportEntityRunResult;
+					case "failed":
+						return {
+							status: "failed",
+							reason: { stage: state.stage, code: "import-failed" },
+						} satisfies ImportEntityRunResult;
+					default:
+						return { status: state._tag } satisfies ImportEntityRunResult;
 				}
-				const result = Option.getOrUndefined(yield* engine.poll(EntityImportWorkflow, executionId));
-				// A signed job with neither a ledger row nor a workflow was cancelled before admission.
-				if (result === undefined && admitted === null) {
-					return { status: "cancelled" } satisfies ImportEntityRunResult;
-				}
-				return toEntityImportRunResult(result);
 			});
 
 			const getImportResult = Effect.fn("EntityImportService.getImportResult")(function* (
@@ -188,8 +194,8 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 				return yield* awaitWorkflowSettled({
 					timeout: "20 seconds",
 					backstop: "20 seconds",
-					read: readResult(user, executionId),
-					identities: [{ executionId, workflowName: EntityImportWorkflow._tag }],
+					read: readResult(executionId),
+					identities: [entityImportIdentity(executionId)],
 					isSettled: (result) => result.status !== "queued" && result.status !== "running",
 				}).pipe(Effect.provideService(WorkflowExecutionNotifications, notifications));
 			});
@@ -200,7 +206,7 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 			) {
 				const { executionId } = yield* resolveJob(user, jobId);
 				yield* admission.cancel({ id: executionId, userId: user.id });
-				yield* notifications.publish({ executionId, workflowName: EntityImportWorkflow._tag });
+				yield* notifications.publish(entityImportIdentity(executionId));
 				return { jobId };
 			});
 

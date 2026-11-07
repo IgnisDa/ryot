@@ -1016,18 +1016,6 @@ CREATE TABLE "plugin_uninstall_receipt" (
 	"owner_user_id" text
 );
 --> statement-breakpoint
-CREATE TABLE "provider_import_admission" (
-	"admitted_at" timestamp(3) with time zone,
-	"payload" jsonb NOT NULL,
-	"external_id" text NOT NULL,
-	"provider_id" text NOT NULL,
-	"id" text PRIMARY KEY,
-	"entity_schema_slug" text NOT NULL,
-	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"status" text NOT NULL,
-	"user_id" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "provider_rate_limit" (
 	"key" text PRIMARY KEY,
 	"next_allowed_at" timestamp(3) with time zone NOT NULL
@@ -1433,8 +1421,6 @@ CREATE INDEX "plugin_config_revision_owner_idx" ON "plugin_config_revision" ("ow
 CREATE INDEX "plugin_config_revision_package_idx" ON "plugin_config_revision" ("plugin_revision_id");--> statement-breakpoint
 CREATE INDEX "plugin_installation_user_id_idx" ON "plugin_installation" ("user_id");--> statement-breakpoint
 CREATE INDEX "plugin_installation_plugin_id_idx" ON "plugin_installation" ("plugin_id");--> statement-breakpoint
-CREATE INDEX "provider_import_admission_status_created_at_idx" ON "provider_import_admission" ("status","created_at");--> statement-breakpoint
-CREATE UNIQUE INDEX "provider_import_admission_identity_unique" ON "provider_import_admission" ("user_id","provider_id","entity_schema_slug","external_id");--> statement-breakpoint
 CREATE INDEX "relationship_schema_slug_idx" ON "relationship" ("relationship_schema_slug");--> statement-breakpoint
 CREATE INDEX "relationship_schema_plugin_id_idx" ON "relationship" ("relationship_schema_plugin_id");--> statement-breakpoint
 CREATE INDEX "relationship_user_schema_idx" ON "relationship" ("user_id","relationship_schema_plugin_id","relationship_schema_slug");--> statement-breakpoint
@@ -1584,7 +1570,6 @@ ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_owner_package_fk" 
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_package_fk" FOREIGN KEY ("client_artifact_hash","package_id") REFERENCES "client_artifact"("hash","package_id");--> statement-breakpoint
 ALTER TABLE "plugin_revision_manifest" ADD CONSTRAINT "plugin_revision_manifest_aTR5v120ANTP_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_uninstall_receipt" ADD CONSTRAINT "plugin_uninstall_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "provider_import_admission" ADD CONSTRAINT "provider_import_admission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint

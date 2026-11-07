@@ -30,6 +30,8 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
+import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
@@ -149,6 +151,8 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 			read: () => Effect.succeed(Buffer.from(stableStringify(records))),
 		}),
 		Layer.mock(EntitiesService)({}),
+		Layer.mock(JobQueue)({}),
+		Layer.mock(TransientValues)({}),
 		Layer.mock(LifecycleExecution)({}),
 		Layer.mock(PluginRuntimeResolver)({}),
 		Layer.mock(EntityImportWorkflowOperations)({}),

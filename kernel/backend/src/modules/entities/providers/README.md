@@ -10,31 +10,29 @@ revision or another provider when an operation is absent.
 
 ## Import admission
 
-`POST /entity-providers/imports` does not start a workflow. It writes a `queued` row to
-`provider_import_admission`, and a dispatch loop on every replica promotes rows to `running` while
-fewer than `SANDBOX_IMPORT_CONCURRENCY` run across the installation. The next row goes to the user
-with the fewest running imports, oldest request first, so a large batch never starves another
-user's request. Only API submissions are admitted. Imports that sandbox scripts or bulk import jobs start are
-awaited by work that is already running, so they bypass the ledger; waiting for a slot there could
-deadlock once every slot holds a parent.
+`POST /entity-providers/imports` queues an `entity-import` job, and at most
+`SANDBOX_IMPORT_CONCURRENCY` of them run in each process. A job's priority is how many imports its
+user already holds, so a large batch queues behind that user's earlier imports and level with another
+user's first. Imports that sandbox scripts or bulk import jobs wait on share these slots at a fixed
+lower priority: a bulk import is not waiting on a screen.
 
-- A repeated request for a queued or running import returns the existing job. Once it finishes,
-  the row is gone and the same request starts a new job.
+- A repeated request for a queued or running import returns the existing job. Once it finishes, the
+  same request starts a new job.
 - Each user may hold 50 queued or running imports. Further requests get a `429`
   `import-backlog-full` with `retryAfterSeconds`; nothing is queued in memory.
-- Admission runs in one short transaction under an installation-wide advisory lock. The workflow
-  starts after it commits, and no transaction spans a workflow, sandbox, or network wait.
-- Each loop pass settles rows whose workflow has finished, restarts `running` rows whose workflow
-  never started (a restart between admission and start), and admits into free slots. Every step is
-  idempotent, so replicas and restarts need no coordination.
+- Admission runs in one short transaction. The job row commits with it, and no transaction spans a
+  sandbox or network wait.
 - An optional `entryEventSchemaSlug` must name an event schema of the provider's root entity schema,
-  otherwise the request fails with `invalid-import-input`. It travels in the workflow payload, so a
+  otherwise the request fails with `invalid-import-input`. It travels in the job payload, so a
   repeated request joins the existing job with that job's entry event.
-- `DELETE /entity-providers/imports/:jobId` removes a queued row, or interrupts the workflow of a
-  running one; the result then reads `cancelled`.
-- The result endpoint reads `queued` from the ledger and `running`, `completed`, `failed`, or
-  `cancelled` from the workflow. Queued and running results wait for a workflow notification or up
-  to 20 seconds, then read the ledger and workflow again.
+- `DELETE /entity-providers/imports/:jobId` stores a cancelled outcome and removes the job. An attempt
+  already running carries on until its next write, which finds the job gone and is refused. The
+  first stored outcome stands, so that attempt cannot replace the cancellation.
+- A finished import stores its entity or failure for seven days. The result endpoint reads the job
+  row while it exists, then the stored outcome. Queued and running results wait for a notification or
+  up to 20 seconds, then read again.
+- A workflow waiting on an import queues the job once from an activity and then reads its state in
+  durable steps, so the workflow holds no worker while the import runs.
 
 ## Population
 
@@ -67,11 +65,10 @@ Refresh preserves the base timestamp during its initial upsert and writes its ne
 after its child sets succeed. Child sets keep their initial
 (non-refresh) semantics during an upgrade.
 
-`EntityImportWorkflow` (and so `kernel:entity-import`) requests `base`. After population and the
+The `entity-import` job (and so `kernel:entity-import`) requests `base`. After population and the
 `provider-entity-import` completion hooks, an import with an entry event creates that event for the
-importing user in the `entry-event` activity, keyed by a child item identity of the import command so
-replays create it once. A failed or refused event fails the import at the `entry-event` stage; the
-imported entity stays. `POST /entities/populate` requests `base` for background and `full` for
+importing user. A stored marker keeps a retried attempt from creating it again. A failed or refused
+event fails the import at the `entry-event` stage; the imported entity stays. `POST /entities/populate` requests `base` for background and `full` for
 interactive entities (see the [entity interest README](../../../../../client/src/modules/entity-watches/README.md)). The kernel
 provider-population reference and explicit enrichment commands request `full`; the monitoring sweep refreshes.
 Relationship lifecycle hooks of an imported entity (such as plugin monitoring association

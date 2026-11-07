@@ -227,7 +227,7 @@ export class EntityRetentionRepository extends Context.Service<EntityRetentionRe
 					touching(sql`r.user_id is not null`),
 					touching(schemaIn(sql`r`, catalog.root)),
 					sql`exists (select 1 from ${tables.entityEnrichmentRequest} q where q.entity_id = ${id} and q.state in ('queued', 'running', 'retrying'))`,
-					sql`exists (select 1 from ${tables.providerImportAdmission} a where a.provider_id = entity.provider_id and a.external_id = entity.external_id and a.entity_schema_slug = entity.entity_schema_slug)`,
+					sql`exists (select 1 from ${tables.job} a where a.kind = 'entity-import' and a.status <> 'failed' and a.payload->>'providerId' = entity.provider_id and a.payload->>'externalId' = entity.external_id and a.payload->>'entitySchemaSlug' = entity.entity_schema_slug)`,
 					...typedReference(sql`${tables.event} e`, sql`e.properties`),
 					...typedReference(sql`${tables.relationship} r`, sql`r.properties`),
 					...typedReference(

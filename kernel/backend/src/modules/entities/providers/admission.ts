@@ -1,133 +1,44 @@
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, Duration, Effect, FiberMap, Layer, Option, Queue, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { and, count, eq, inArray } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
 
 import { DomainWriteChecks } from "#modules/entities/write-context";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { AccountAdmission } from "#modules/mutations/account-admission";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
+import { job } from "#schema/tables/jobs";
 
-import { ProviderImportAdmissionRepository } from "./admission-repository";
 import { preRegisterProviderDetails } from "./details-principal";
-import { EntityImportWorkflow } from "./entity-import-workflow";
-import { ProviderEntityImportWorkflowPayload } from "./schemas";
+import { EntityImportJob, storeEntityImportOutcome } from "./entity-import-job";
+import type { ProviderEntityImportWorkflowPayload } from "./schemas";
 
-/** Queued plus running root imports one user may hold; later submissions are rejected as retryable. */
+/** Queued plus running imports one user may hold; later submissions are rejected as retryable. */
 export const PROVIDER_IMPORT_USER_BACKLOG_LIMIT = 50;
 
-const BUSY_INTERVAL = Duration.seconds(1);
-const IDLE_INTERVAL = Duration.seconds(30);
-
-const encodePayload = Schema.encodeEffect(ProviderEntityImportWorkflowPayload);
-const decodePayload = Schema.decodeUnknownEffect(ProviderEntityImportWorkflowPayload);
+const importsOf = (userId: UserId) =>
+	and(
+		eq(job.userId, userId),
+		eq(job.kind, EntityImportJob.name),
+		inArray(job.status, ["queued", "running"]),
+	);
 
 export class ProviderImportAdmission extends Context.Service<ProviderImportAdmission>()(
 	"@ryot-app/kernel-backend/modules/entities/providers/admission/ProviderImportAdmission",
 	{
 		make: Effect.gen(function* () {
-			const config = yield* AppConfig;
 			const session = yield* DatabaseSession;
-			const engine = yield* WorkflowEngine;
-			const repository = yield* ProviderImportAdmissionRepository;
+			const jobs = yield* JobQueue;
 			const sandbox = yield* ScriptExecutionService;
 			const runtime = yield* PluginRuntimeResolver;
 			const checks = yield* DomainWriteChecks;
-			const notifications = yield* WorkflowExecutionNotifications;
-			const completionWaiters = yield* FiberMap.make<string, void>();
-			const limit = config.sandbox.importConcurrency;
-			const wakeups = yield* Queue.sliding<void>(1);
-			const wake = Queue.offer(wakeups, undefined).pipe(Effect.asVoid);
-
-			const start = (row: { id: string; payload: unknown }) =>
-				decodePayload(row.payload).pipe(
-					Effect.flatMap((payload) =>
-						dispatchAdmittedWorkflow(engine, EntityImportWorkflow, payload.command.accountUserId, {
-							payload,
-							discard: true,
-							executionId: row.id,
-						}),
-					),
-				);
-
-			const watchCompletion = Effect.fn("ProviderImportAdmission.watchCompletion")(function* (row: {
-				id: string;
-				payload: unknown;
-			}) {
-				yield* FiberMap.run(
-					completionWaiters,
-					row.id,
-					Effect.scoped(
-						Effect.gen(function* () {
-							const awaitHint = yield* notifications.listen({
-								executionId: row.id,
-								workflowName: EntityImportWorkflow._tag,
-							});
-							const result = yield* engine.poll(EntityImportWorkflow, row.id);
-							if (Option.isNone(result) || result.value._tag !== "Complete") {
-								yield* awaitHint;
-							}
-							yield* wake;
-						}),
-					).pipe(
-						Effect.catchCauseIf(
-							(cause) => !Cause.hasInterruptsOnly(cause),
-							(cause) => Effect.logError("provider import completion watch failed", cause),
-						),
-					),
-					{ onlyIfMissing: true },
-				);
-			});
-
-			/**
-			 * Settles finished imports, restarts admitted imports whose workflow never started, and admits
-			 * queued imports into free slots. Every step is idempotent, so each replica may run it.
-			 */
-			const reconcile = Effect.gen(function* () {
-				const running = yield* repository.listRunning();
-				const runningIds = new Set(running.map(({ id }) => id));
-				for (const [id] of Array.from(completionWaiters)) {
-					if (!runningIds.has(id)) {
-						yield* FiberMap.remove(completionWaiters, id);
-					}
-				}
-				const finished: string[] = [];
-				for (const row of running) {
-					yield* watchCompletion(row);
-					const result = yield* engine.poll(EntityImportWorkflow, row.id);
-					if (Option.isNone(result)) {
-						yield* start(row);
-					} else if (result.value._tag === "Complete") {
-						finished.push(row.id);
-					}
-				}
-				const admitted = yield* session.transaction(repository.admit({ limit, finished }));
-				for (const id of finished) {
-					yield* FiberMap.remove(completionWaiters, id);
-				}
-				for (const row of admitted) {
-					yield* notifications.publish({
-						executionId: row.id,
-						workflowName: EntityImportWorkflow._tag,
-					});
-					yield* start(row);
-					yield* watchCompletion(row);
-				}
-				return yield* repository.hasPending();
-			});
-
-			const run = Effect.gen(function* () {
-				const busy = yield* reconcile.pipe(
-					Effect.catchCause((cause) =>
-						Effect.logError("provider import admission failed", cause).pipe(Effect.as(true)),
-					),
-				);
-				yield* Queue.take(wakeups).pipe(Effect.timeoutOption(busy ? BUSY_INTERVAL : IDLE_INTERVAL));
-			}).pipe(Effect.forever);
+			const admission = yield* AccountAdmission.make;
+			const transient = yield* TransientValues;
 
 			const submit = Effect.fn("ProviderImportAdmission.submit")(function* (input: {
 				userId: UserId;
@@ -138,20 +49,23 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						message: "Provider import account authority is unavailable",
 					});
 				}
+				const executionId = input.payload.executionId;
 				const pin = yield* preRegisterProviderDetails(
 					{ sandbox, pluginRuntime: runtime },
 					{
+						executionId,
 						userId: input.userId,
 						accountUserId: input.userId,
 						pluginId: input.payload.pluginId,
 						providerId: input.payload.providerId,
-						executionId: input.payload.executionId,
 					},
 				).pipe(Effect.mapError((error) => new DbError({ message: error.message })));
 				const outcome = yield* session
 					.transaction(
 						Effect.gen(function* () {
 							yield* runtime.lockCatalog([input.userId]);
+							yield* session.acquireUserWriteLock(input.userId);
+							yield* admission.admitAccount(input.userId);
 							const provider = yield* checks.checkProvider(
 								input.payload.providerId,
 								definitionOwner(input.payload.pluginId),
@@ -176,64 +90,71 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 									true,
 								)
 								.pipe(Effect.mapError((error) => new DbError({ message: error.message })));
-							const encoded = yield* encodePayload(payload).pipe(Effect.orDie);
-							const admitted = yield* repository.enqueue({
-								payload: encoded,
-								userId: input.userId,
-								id: payload.executionId,
-								externalId: payload.externalId,
-								providerId: payload.providerId,
-								entitySchemaSlug: payload.entitySchemaSlug,
-								backlogLimit: PROVIDER_IMPORT_USER_BACKLOG_LIMIT,
-							});
-							if (
-								admitted.status !== "queued" &&
-								!(admitted.status === "duplicate" && admitted.id === payload.executionId)
-							) {
-								yield* sandbox.releaseWorkflowRegistration(payload.executionId);
+							const key = stableStringify([
+								input.userId,
+								payload.providerId,
+								payload.entitySchemaSlug,
+								payload.externalId,
+							]);
+							const [existing] = yield* session.run((db) =>
+								db
+									.select({ id: job.id })
+									.from(job)
+									.where(and(importsOf(input.userId), eq(job.key, key))),
+							);
+							if (existing) {
+								return { id: existing.id, status: "duplicate" as const };
 							}
-							return admitted;
+							const [active] = yield* session.run((db) =>
+								db.select({ total: count() }).from(job).where(importsOf(input.userId)),
+							);
+							const total = active?.total ?? 0;
+							if (total >= PROVIDER_IMPORT_USER_BACKLOG_LIMIT) {
+								return { status: "backlog-full" as const };
+							}
+							// A user's next import queues behind their earlier ones and level with everyone else's first.
+							yield* jobs
+								.enqueue(EntityImportJob, payload, {
+									key,
+									id: executionId,
+									priority: total,
+									userId: input.userId,
+								})
+								.pipe(Effect.catchTag("SchemaError", Effect.die));
+							return { id: executionId, status: "queued" as const };
 						}),
 					)
 					.pipe(
-						Effect.onError(() =>
-							sandbox.releaseWorkflowRegistration(input.payload.executionId).pipe(Effect.orDie),
-						),
+						Effect.onError(() => sandbox.releaseWorkflowRegistration(executionId).pipe(Effect.orDie)),
 					);
-				if (outcome.status === "queued") {
-					yield* wake;
+				if (outcome.status !== "queued") {
+					yield* sandbox.releaseWorkflowRegistration(executionId);
 				}
 				return outcome;
 			});
 
-			const status = (input: { id: string; userId: UserId }) =>
-				repository.find(input).pipe(Effect.map((row) => row?.status ?? null));
-
-			/** A queued import is removed before it starts; an admitted one is interrupted. */
+			/** Removes the job. A running attempt carries on until its next write, which finds the job gone. */
 			const cancel = Effect.fn("ProviderImportAdmission.cancel")(function* (input: {
 				id: string;
 				userId: UserId;
 			}) {
-				const removed = yield* repository.cancelQueued(input);
-				if (removed) {
+				yield* storeEntityImportOutcome(input.id, { _tag: "cancelled" }).pipe(
+					Effect.provideService(TransientValues, transient),
+				);
+				const removed = yield* session.run((db) =>
+					db
+						.delete(job)
+						.where(and(eq(job.id, input.id), importsOf(input.userId)))
+						.returning({ id: job.id }),
+				);
+				if (removed.length > 0) {
 					yield* sandbox.releaseWorkflowRegistration(input.id);
 				}
-				const admitted = removed ? null : yield* repository.find(input);
-				if (admitted) {
-					yield* engine.interrupt(EntityImportWorkflow, input.id);
-				}
-				yield* wake;
 			});
 
-			return { run, cancel, status, submit, reconcile };
+			return { cancel, submit };
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(ProviderImportAdmissionRepository.layer),
-	);
-
-	static readonly liveLayer = Layer.effectDiscard(
-		Effect.flatMap(this, (admission) => Effect.forkScoped(admission.run)),
-	).pipe(Layer.provideMerge(this.layer));
+	static readonly layer = Layer.effect(this, this.make);
 }

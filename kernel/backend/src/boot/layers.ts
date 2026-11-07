@@ -50,7 +50,7 @@ import {
 } from "#modules/entities/layer";
 import { TranslationsServiceLive } from "#modules/entities/localization/layer";
 import { EntityTranslationJobLive } from "#modules/entities/localization/translation-job";
-import { EntityImportWorkflowDefinitionsLive } from "#modules/entities/providers/entity-import-workflow";
+import { EntityImportJobLive } from "#modules/entities/providers/entity-import-job";
 import {
 	EntityEnrichmentServiceLive,
 	EntityImportServiceLive,
@@ -323,9 +323,6 @@ const ServicesWithTestSupportLive = Layer.merge(
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
-	EntityImportWorkflowDefinitionsLive.pipe(
-		Layer.provide(Layer.merge(EnrichmentRequests.layer, EntitiesRepositoryLive)),
-	),
 	ImportWorkflowDefinitionsLive,
 	CancelImportRunWorkflowDefinitionsLive.pipe(
 		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
@@ -367,6 +364,15 @@ const RuntimeJobsLive = JobWorkerLive.pipe(
 				Layer.provide(Layer.merge(ExecutableArtifacts.layer, SandboxWorkflowDependenciesLive)),
 			),
 			EntityPopulationJobProvidedLive,
+			EntityImportJobLive.pipe(
+				Layer.provide(
+					Layer.mergeAll(
+						EnrichmentRequests.layer,
+						EntitiesRepositoryLive,
+						ScriptExecutionServiceLive,
+					),
+				),
+			),
 			EntityTranslationJobLive.pipe(
 				Layer.provide(
 					Layer.mergeAll(

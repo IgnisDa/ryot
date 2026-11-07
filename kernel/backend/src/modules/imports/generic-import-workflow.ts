@@ -39,7 +39,6 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 import { Workflow } from "effect/workflow";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import {
@@ -54,14 +53,14 @@ import {
 } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
-import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
+import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	PendingRelationshipMutations,
@@ -395,24 +394,15 @@ export const resolveProviderEntity = Effect.fn("imports.resolveProviderEntity")(
 						),
 				}
 			: command;
-	const engine = yield* WorkflowEngine;
-	const providerEntity = yield* dispatchAdmittedWorkflow(
-		engine,
-		EntityImportWorkflow,
-		command.accountUserId,
-		{
-			executionId,
-			payload: {
-				executionId,
-				command: importCommand,
-				providerId: provider.id,
-				pluginId: provider.pluginId,
-				externalId: resolved.externalId,
-				entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
-				entityScope: { userId, type: provider.pluginScope === "system" ? "global" : "user" },
-			},
-		},
-	).pipe(
+	const providerEntity = yield* awaitEntityImport({
+		executionId,
+		command: importCommand,
+		providerId: provider.id,
+		pluginId: provider.pluginId,
+		externalId: resolved.externalId,
+		entitySchemaSlug: EntitySchemaSlug.make(intent.entitySchemaSlug),
+		entityScope: { userId, type: provider.pluginScope === "system" ? "global" : "user" },
+	}).pipe(
 		Effect.mapError(
 			(error) =>
 				new GenericImportProviderError({ message: error.message, stage: "provider_details" }),

@@ -38,11 +38,11 @@ import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { makeWorkflowActivityEngine } from "#testing/effect";
 
-import { EntityImportWorkflow } from "./entity-import-workflow";
 import { RecordedLogAnnotations, recordLogAnnotationsLayer } from "./log-annotations.test-support";
 import {
 	EntityImportWorkflowOperations,
@@ -198,7 +198,7 @@ layer(
 					initiator: { kind: "integration", id: IntegrationId.make("integration-1") },
 				}),
 			];
-			const instance = WorkflowInstance.initial(EntityImportWorkflow, "provider-completion-test");
+			const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, "provider-completion-test");
 
 			return Effect.gen(function* () {
 				const operations = yield* EntityImportWorkflowOperations;
@@ -214,7 +214,6 @@ layer(
 							executionId: `provider-completion-${index}`,
 						},
 						entity,
-						`provider-completion-${index}`,
 					);
 				}
 

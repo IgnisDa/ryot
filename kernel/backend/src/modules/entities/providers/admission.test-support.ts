@@ -10,8 +10,6 @@ import { applyBaselineMigration, baselineMigrationStatements } from "#testing/ba
 import { testDatabaseUrl } from "#testing/database";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
 
-import { ProviderImportAdmissionRepository } from "./admission-repository";
-
 export const alice = UserId.make("alice");
 export const bob = UserId.make("bob");
 
@@ -51,7 +49,7 @@ export const admissionDatabaseLayer = Layer.unwrap(
 			}),
 		);
 		return Layer.mergeAll(
-			schema.pipe(Layer.provideMerge(ProviderImportAdmissionRepository.layer)),
+			schema,
 			makeConfigProviderLayer(),
 		).pipe(Layer.provideMerge(DatabaseSession.layer), Layer.provide(config));
 	}),

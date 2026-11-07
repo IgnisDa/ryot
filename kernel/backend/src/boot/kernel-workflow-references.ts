@@ -38,7 +38,7 @@ import {
 	rootLifecycleCommand,
 } from "#modules/automations/lifecycle/command";
 import type { EnrichmentRequests } from "#modules/entities/enrichment/requests";
-import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
+import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { awaitEntityPopulation } from "#modules/entities/providers/population-await";
 import { ProviderEntityImportWorkflowPayload } from "#modules/entities/providers/schemas";
 import type { EntitiesRepository } from "#modules/entities/repository";
@@ -63,6 +63,7 @@ import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workf
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import type { JobQueue } from "#platform/jobs/queue";
+import type { TransientValues } from "#platform/transient-values";
 import { makeActivity } from "#platform/workflow/scope";
 
 const PROVIDER_ENTITY_POPULATION_MAX_ITEMS = 100;
@@ -135,7 +136,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 	KernelWorkflowReferences,
 	Effect.gen(function* () {
 		const populationServices = yield* Effect.context<
-			JobQueue | EnrichmentRequests | EntitiesRepository
+			JobQueue | TransientValues | EnrichmentRequests | EntitiesRepository
 		>();
 		const imports = yield* ImportsRepository;
 		const events = yield* EventsService;
@@ -605,12 +606,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								? [command.causation.integrationId]
 								: [],
 						});
-						const result = yield* dispatchAdmittedWorkflow(
-							engine,
-							EntityImportWorkflow,
-							command.accountUserId,
-							{ payload, executionId },
-						).pipe(
+						const result = yield* awaitEntityImport(payload).pipe(
 							Effect.map((entity) => ({ entity, status: "completed" as const })),
 							Effect.catchTag("EntityImportError", (error) =>
 								Effect.succeed({
@@ -619,9 +615,8 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 									status: "failed" as const,
 								}),
 							),
-							Effect.mapError(
-								(error) => new SandboxRunError({ kind: "infrastructure", message: error.message }),
-							),
+							Effect.provideContext(populationServices),
+							Effect.provideService(DatabaseSession, database),
 						);
 						return yield* Schema.decodeUnknownEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError(

@@ -31,6 +31,8 @@ import type { ScriptPluginRevision } from "#modules/scripts/authorization/princi
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommands } from "#modules/user-commands/service";
+import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
@@ -86,6 +88,8 @@ const applyCase = (
 		const dependencies = Layer.mergeAll(
 			workflowAccountsTestLayer,
 			ingestionTestDatabase(),
+			Layer.mock(JobQueue)({}),
+			Layer.mock(TransientValues)({}),
 			Layer.mock(LifecycleExecution)({}),
 			Layer.mock(EventsService)({}),
 			Layer.mock(UserCommands)({}),

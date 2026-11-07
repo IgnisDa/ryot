@@ -9,7 +9,7 @@ import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowE
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
-import { LifecycleDispatchPlan, LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -62,8 +62,7 @@ type EntityImportWorkflowOperationsValue = {
 	completeProviderEntityImport: (
 		payload: ProviderEntityImportWorkflowPayload,
 		importedEntity: ListedEntity,
-		executionId: string,
-	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	) => Effect.Effect<void, SandboxRunError>;
 	preRegisterProviderImport: (
 		input: {
 			readonly userId: UserId;
@@ -295,7 +294,6 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		const completeProviderEntityImport = (
 			payload: ProviderEntityImportWorkflowPayload,
 			importedEntity: ListedEntity,
-			executionId: string,
 		) =>
 			Effect.gen(function* () {
 				if (
@@ -319,30 +317,25 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					resource: "provider-entity-import" as const,
 					entitySchemaPluginId: importedEntity.entitySchemaPluginId,
 				};
-				const plan = yield* makeActivity({
-					error: SandboxRunError,
-					success: Schema.Array(LifecycleDispatchPlan),
-					name: `plan-provider-import-completion-${executionId}`,
-					execute: session
-						.transaction(
-							Effect.gen(function* () {
-								yield* writes.check(
+				const plan = yield* session
+					.transaction(
+						Effect.gen(function* () {
+							yield* writes.check(
+								payload.command,
+								definitionOwner(importedEntity.entitySchemaPluginId),
+								payload.entityScope.type === "user" ? payload.entityScope.userId : null,
+								true,
+							);
+							return yield* planner.planChange({
+								trigger: yield* lifecycleTrigger(
 									payload.command,
-									definitionOwner(importedEntity.entitySchemaPluginId),
-									payload.entityScope.type === "user" ? payload.entityScope.userId : null,
-									true,
-								);
-								return yield* planner.planChange({
-									trigger: yield* lifecycleTrigger(
-										payload.command,
-										payload.entityScope.userId,
-										completion,
-									),
-								});
-							}),
-						)
-						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
-				});
+									payload.entityScope.userId,
+									completion,
+								),
+							});
+						}),
+					)
+					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 				const warnings = yield* execution
 					.dispatch(plan)
 					.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));

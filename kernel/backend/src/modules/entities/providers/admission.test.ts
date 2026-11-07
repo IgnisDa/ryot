@@ -3,7 +3,6 @@ import { describe, expect } from "bun:test";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
-	EntityId,
 	EntitySchemaSlug,
 	PluginId,
 	type UserId,
@@ -12,8 +11,8 @@ import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Exit, Layer, Option, Queue, Ref } from "effect";
-import { Workflow } from "effect/workflow";
+import { asc, eq } from "drizzle-orm";
+import { Context, Effect, Layer } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -30,82 +29,15 @@ import {
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
-import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
+import { job } from "#schema/tables/jobs";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
-import { ProviderImportAdmission } from "./admission";
+import { PROVIDER_IMPORT_USER_BACKLOG_LIMIT, ProviderImportAdmission } from "./admission";
 import { admissionDatabaseLayer, alice, bob } from "./admission.test-support";
-import { EntityImportWorkflow } from "./entity-import-workflow";
-
-const listedEntity = {
-	name: "Sample",
-	properties: {},
-	providerId: null,
-	populatedAt: null,
-	externalId: "ext-1",
-	id: EntityId.make("entity-1"),
-	createdAt: "2026-01-01T00:00:00.000Z",
-	updatedAt: "2026-01-01T00:00:00.000Z",
-	entitySchemaSlug: EntitySchemaSlug.make("item"),
-	entitySchemaPluginId: PluginId.make("fixture-result-owner"),
-};
-
-/** Records starts and interrupts; a started workflow stays suspended until the test settles it. */
-class FakeImportWorkflows extends Context.Service<
-	FakeImportWorkflows,
-	{
-		readonly nextStarted: Effect.Effect<string>;
-		readonly started: Effect.Effect<ReadonlyArray<string>>;
-		readonly interrupted: Effect.Effect<ReadonlyArray<string>>;
-		readonly forget: (executionId: string) => Effect.Effect<void>;
-		readonly settle: (
-			executionId: string,
-			result: Workflow.Result<unknown, unknown>,
-		) => Effect.Effect<void>;
-	}
->()("@ryot-app/kernel-backend/modules/entities/providers/admission.test/FakeImportWorkflows") {}
-
-const recordingEngineLayer = Layer.effectContext(
-	Effect.gen(function* () {
-		const started = yield* Ref.make<ReadonlyArray<string>>([]);
-		const interrupted = yield* Ref.make<ReadonlyArray<string>>([]);
-		const startEvents = yield* Queue.unbounded<string>();
-		const results = yield* Ref.make<ReadonlyMap<string, Workflow.Result<unknown, unknown>>>(
-			new Map(),
-		);
-		const setResult = (executionId: string, result: Workflow.Result<unknown, unknown>) =>
-			Ref.update(results, (current) => new Map(current).set(executionId, result));
-		return Context.make(
-			WorkflowEngine,
-			makeWorkflowEngine({
-				interrupt: (_workflow, executionId) =>
-					Ref.update(interrupted, (all) => [...all, executionId]),
-				poll: (_workflow, executionId) =>
-					Ref.get(results).pipe(
-						Effect.map((current) => Option.fromUndefinedOr(current.get(executionId))),
-					),
-				execute: (_workflow, options) =>
-					Ref.update(started, (all) => [...all, options.executionId]).pipe(
-						Effect.andThen(setResult(options.executionId, new Workflow.Suspended())),
-						Effect.andThen(Queue.offer(startEvents, options.executionId)),
-					),
-			}),
-		).pipe(
-			Context.add(FakeImportWorkflows, {
-				settle: setResult,
-				started: Ref.get(started),
-				interrupted: Ref.get(interrupted),
-				nextStarted: Queue.take(startEvents),
-				forget: (executionId) =>
-					Ref.update(results, (current) => {
-						const next = new Map(current);
-						next.delete(executionId);
-						return next;
-					}),
-			}),
-		);
-	}),
-);
+import { EntityImportJob } from "./entity-import-job";
 
 const catalogueDependencies = Layer.mergeAll(
 	ClientArtifactsRepository.layer,
@@ -151,14 +83,20 @@ const fixturesLayer = Layer.effect(
 ).pipe(Layer.provideMerge(catalogueLayer));
 
 const admissionLayer = ProviderImportAdmission.layer.pipe(
-	Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
+	Layer.provide(
+		Layer.mergeAll(
+			ScriptExecutionServiceLive,
+			DomainWriteChecksLive,
+			JobQueue.layer,
+			TransientValues.layer,
+		),
+	),
 	Layer.provide(makeAppConfigLayer()),
-	Layer.provideMerge(recordingEngineLayer),
-	Layer.provideMerge(WorkflowExecutionNotifications.layer),
+	Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 	Layer.provideMerge(fixturesLayer),
 );
 
-const submit = (executionId: string, userId: UserId) =>
+const submit = (executionId: string, userId: UserId, externalId: string = executionId) =>
 	Effect.gen(function* () {
 		const admission = yield* ProviderImportAdmission;
 		const provider = (yield* AdmissionProviders).get(userId);
@@ -167,7 +105,7 @@ const submit = (executionId: string, userId: UserId) =>
 			userId,
 			payload: {
 				executionId,
-				externalId: executionId,
+				externalId,
 				providerId: provider.id,
 				entityScope: { userId, type: "user" },
 				pluginId: PluginId.make(provider.pluginId),
@@ -188,149 +126,93 @@ const submit = (executionId: string, userId: UserId) =>
 		});
 	});
 
-const reconcile = Effect.flatMap(ProviderImportAdmission, (admission) => admission.reconcile);
-
-const status = (id: string, userId: UserId) =>
-	Effect.flatMap(ProviderImportAdmission, (admission) => admission.status({ id, userId }));
+const importJobs = Effect.flatMap(DatabaseSession, (session) =>
+	session.run((db) =>
+		db
+			.select({ id: job.id, priority: job.priority, status: job.status })
+			.from(job)
+			.where(eq(job.kind, EntityImportJob.name))
+			.orderBy(asc(job.priority), asc(job.id)),
+	),
+);
 
 describe("provider import admission", () => {
 	layer(admissionLayer)((test) => {
 		test.effect(
-			"completion wakes admission before the recovery interval advances",
+			"queues each user's imports behind their own and level with another user's first",
+			() =>
+				Effect.gen(function* () {
+					expect(yield* submit("a1", alice)).toEqual({ id: "a1", status: "queued" });
+					expect(yield* submit("a2", alice)).toEqual({ id: "a2", status: "queued" });
+					expect(yield* submit("b1", bob)).toEqual({ id: "b1", status: "queued" });
+
+					expect(yield* importJobs).toEqual([
+						{ id: "a1", priority: 0, status: "queued" },
+						{ id: "b1", priority: 0, status: "queued" },
+						{ id: "a2", priority: 1, status: "queued" },
+					]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(admissionLayer)((test) => {
+		test.effect(
+			"answers a repeated request with the import already queued or running",
+			() =>
+				Effect.gen(function* () {
+					yield* submit("first", alice, "same-external");
+					expect(yield* submit("repeat", alice, "same-external")).toEqual({
+						id: "first",
+						status: "duplicate",
+					});
+
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						db.update(job).set({ status: "running" }).where(eq(job.id, "first")),
+					);
+					expect(yield* submit("again", alice, "same-external")).toEqual({
+						id: "first",
+						status: "duplicate",
+					});
+					expect((yield* importJobs).map(({ id }) => id)).toEqual(["first"]);
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(admissionLayer)((test) => {
+		test.effect(
+			"refuses a user's import past the backlog limit without touching another user",
+			() =>
+				Effect.gen(function* () {
+					yield* Effect.forEach(
+						Array.from({ length: PROVIDER_IMPORT_USER_BACKLOG_LIMIT }, (_, index) => `a${index}`),
+						(id) => submit(id, alice),
+						{ discard: true },
+					);
+
+					expect(yield* submit("over", alice)).toEqual({ status: "backlog-full" });
+					expect(yield* submit("b1", bob)).toEqual({ id: "b1", status: "queued" });
+				}),
+			testTimeout,
+		);
+	});
+
+	layer(admissionLayer)((test) => {
+		test.effect(
+			"removes only the owner's import on cancel",
 			() =>
 				Effect.gen(function* () {
 					const admission = yield* ProviderImportAdmission;
-					const workflows = yield* FakeImportWorkflows;
-					const notifications = yield* WorkflowExecutionNotifications;
-					yield* submit("wake-a1", alice);
-					yield* submit("wake-a2", alice);
-					yield* submit("wake-a3", alice);
-					yield* Effect.forkChild(admission.run);
-					expect(new Set([yield* workflows.nextStarted, yield* workflows.nextStarted])).toEqual(
-						new Set(["wake-a1", "wake-a2"]),
-					);
-					expect(yield* status("wake-a3", alice)).toBe("queued");
-					yield* workflows.settle(
-						"wake-a1",
-						new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),
-					);
-					yield* notifications.publish({
-						executionId: "wake-a1",
-						workflowName: EntityImportWorkflow._tag,
-					});
-					expect(yield* workflows.nextStarted).toBe("wake-a3");
-					expect(yield* status("wake-a1", alice)).toBeNull();
-					expect(yield* status("wake-a3", alice)).toBe("running");
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(admissionLayer)((test) => {
-		test.effect(
-			"publishes admission only after its running state commits",
-			() =>
-				Effect.gen(function* () {
-					const notifications = yield* WorkflowExecutionNotifications;
-					const hint = yield* notifications.listen({
-						executionId: "admission-hint",
-						workflowName: EntityImportWorkflow._tag,
-					});
-					yield* submit("admission-hint", alice);
-					yield* reconcile;
-					yield* hint;
-					expect(yield* status("admission-hint", alice)).toBe("running");
-				}),
-			testTimeout,
-		);
-	});
-	layer(admissionLayer)((test) => {
-		test.effect(
-			"starts admitted imports and admits the next one when a slot frees",
-			() =>
-				Effect.gen(function* () {
-					const workflows = yield* FakeImportWorkflows;
 					yield* submit("a1", alice);
 					yield* submit("a2", alice);
-					yield* submit("a3", alice);
 
-					yield* reconcile;
-					expect(yield* workflows.started).toEqual(["a1", "a2"]);
-					expect(yield* status("a3", alice)).toBe("queued");
-
-					yield* workflows.settle(
-						"a1",
-						new Workflow.Complete({ exit: Exit.succeed(listedEntity) }),
-					);
-					yield* reconcile;
-					expect(yield* workflows.started).toEqual(["a1", "a2", "a3"]);
-					expect(yield* status("a1", alice)).toBeNull();
-					expect(yield* status("a3", alice)).toBe("running");
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(admissionLayer)((test) => {
-		test.effect(
-			"restarts an admitted import whose workflow never started",
-			() =>
-				Effect.gen(function* () {
-					const workflows = yield* FakeImportWorkflows;
-					yield* submit("a1", alice);
-					yield* reconcile;
-					// A restart between admission and the workflow start loses the start.
-					yield* workflows.forget("a1");
-
-					yield* reconcile;
-					expect(yield* workflows.started).toEqual(["a1", "a1"]);
-					expect(yield* status("a1", alice)).toBe("running");
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(admissionLayer)((test) => {
-		test.effect(
-			"releases the slot of an import that failed",
-			() =>
-				Effect.gen(function* () {
-					const workflows = yield* FakeImportWorkflows;
-					yield* submit("a1", alice);
-					yield* submit("a2", alice);
-					yield* submit("b1", bob);
-					yield* reconcile;
-					expect(yield* workflows.started).toEqual(["a1", "b1"]);
-
-					yield* workflows.settle(
-						"a1",
-						new Workflow.Complete({ exit: Exit.fail("provider failed") }),
-					);
-					yield* reconcile;
-					expect(yield* workflows.started).toEqual(["a1", "b1", "a2"]);
-				}),
-			testTimeout,
-		);
-	});
-
-	layer(admissionLayer)((test) => {
-		test.effect(
-			"removes a queued import on cancel and interrupts an admitted one",
-			() =>
-				Effect.gen(function* () {
-					const workflows = yield* FakeImportWorkflows;
-					const admission = yield* ProviderImportAdmission;
-					yield* submit("a1", alice);
-					yield* submit("a2", alice);
-					yield* submit("a3", alice);
-					yield* reconcile;
-
-					yield* admission.cancel({ id: "a3", userId: alice });
-					expect(yield* status("a3", alice)).toBeNull();
-					expect(yield* workflows.interrupted).toEqual([]);
+					yield* admission.cancel({ id: "a1", userId: bob });
+					expect((yield* importJobs).map(({ id }) => id)).toEqual(["a1", "a2"]);
 
 					yield* admission.cancel({ id: "a1", userId: alice });
-					expect(yield* workflows.interrupted).toEqual(["a1"]);
+					expect((yield* importJobs).map(({ id }) => id)).toEqual(["a2"]);
 				}),
 			testTimeout,
 		);

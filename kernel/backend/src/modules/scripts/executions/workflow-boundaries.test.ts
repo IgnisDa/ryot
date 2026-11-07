@@ -47,14 +47,12 @@ layer(BunServices.layer)((test) => {
 					sandboxService,
 					durableQueues,
 					sandboxWorkflow,
-					entityImportWorkflow,
 					sandboxScriptWorkflow,
 					automationRunJob,
 				] = yield* Effect.all([
 					readModule("./service.ts"),
 					readModule("./queues.ts"),
 					readModule("./workflow-live.ts"),
-					readModule("../../entities/providers/entity-import-workflow.ts"),
 					readModule("./workflow.ts"),
 					readModule("../../automations/run-job-live.ts"),
 				]);
@@ -68,7 +66,6 @@ layer(BunServices.layer)((test) => {
 					/processSandboxExecutionQueue\(\s*\{\s*\.\.\.payload,\s*recoveryAttempt: attempt,?\s*\}\s*\)/,
 				);
 				expect(sandboxWorkflow).toContain("ScriptExecutionWorkflow");
-				expect(entityImportWorkflow).toContain("awaitEntityPopulation(");
 			}),
 		testTimeout,
 	);

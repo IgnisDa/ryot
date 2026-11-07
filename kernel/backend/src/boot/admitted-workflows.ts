@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { EntityImportWorkflow } from "#modules/entities/providers/entity-import-workflow";
 import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
 	ProcessDataImportSegmentWorkflow,
@@ -15,7 +14,6 @@ import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
 	Object.freeze([
-		EntityImportWorkflow,
 		ProcessImportRunWorkflow,
 		ProcessDataImportWorkflow,
 		ProcessDataImportSegmentWorkflow,

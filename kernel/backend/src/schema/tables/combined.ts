@@ -19,7 +19,6 @@ export * from "./user-lifecycle";
 export * from "./sandbox-journal";
 export * from "./client-artifacts";
 export * from "./transient-values";
-export * from "./provider-imports";
 export * from "./migration-reports";
 export * from "./oauth-connections";
 export * from "./workflow-executions";
