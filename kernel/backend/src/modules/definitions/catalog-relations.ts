@@ -13,13 +13,12 @@ import type {
 	CatalogSandboxProvider,
 	CatalogSandboxProviderOperation,
 	DefinitionCatalog,
-	GlobalPlugin,
 	PluginScope,
 	UserCatalog,
 	UserPlugin,
 } from "./catalog";
 
-export const catalogRelationNames = [
+const catalogRelationNames = [
 	"user_plugin",
 	"user_entity_schema",
 	"user_event_schema",
@@ -37,7 +36,6 @@ export type CatalogRelationName = (typeof catalogRelationNames)[number];
 
 const referencePattern = new RegExp(`\\b(${catalogRelationNames.join("|")})\\b`, "g");
 
-/** The catalog relations a statement reads, found by name. */
 export const referencedCatalogRelations = (statement: string): ReadonlySet<string> =>
 	new Set(Array.from(statement.matchAll(referencePattern), ([name]) => name));
 
@@ -57,7 +55,6 @@ const json = <T>(key: string, column: string) =>
 const textArray = (key: string, column: string) =>
 	sql<ReadonlyArray<string>>`array(select jsonb_array_elements_text(k.row -> ${key}))`.as(column);
 
-/** A user's present plugins as rows, the shape `user_plugin` exposes. */
 export const userPluginQuery = (plugins: ReadonlyArray<UserPlugin>) =>
 	new QueryBuilder()
 		.select({
@@ -78,18 +75,6 @@ export const userPluginQuery = (plugins: ReadonlyArray<UserPlugin>) =>
 		})
 		.from(elements(plugins));
 
-/** Active system plugins as rows. */
-export const globalPluginQuery = (plugins: ReadonlyArray<GlobalPlugin>) =>
-	new QueryBuilder()
-		.select({
-			pluginId: text("pluginId", "plugin_id"),
-			isExecutable: flag("isExecutable", "is_executable"),
-			packageId: literal<PluginPackageId>("packageId", "package_id"),
-			activeRevisionId: text("activeRevisionId", "active_revision_id"),
-			configRevisionId: optionalText("configRevisionId", "config_revision_id"),
-		})
-		.from(elements(plugins));
-
 const executable = () => ({
 	id: text("id", "id"),
 	slug: text("slug", "slug"),
@@ -105,7 +90,6 @@ const executable = () => ({
 	pluginRevisionId: optionalText("pluginRevisionId", "plugin_revision_id"),
 });
 
-/** A user's executable import sources, the shape `user_import_source` exposes. */
 export const importSourceQuery = (rows: ReadonlyArray<CatalogImportSource>) =>
 	new QueryBuilder()
 		.select({
@@ -122,7 +106,6 @@ export const importSourceQuery = (rows: ReadonlyArray<CatalogImportSource>) =>
 		})
 		.from(elements(rows));
 
-/** A user's executable integration providers, the shape `user_integration_provider` exposes. */
 export const integrationProviderQuery = (rows: ReadonlyArray<CatalogIntegrationProvider>) =>
 	new QueryBuilder()
 		.select({
@@ -140,8 +123,7 @@ export const integrationProviderQuery = (rows: ReadonlyArray<CatalogIntegrationP
 		})
 		.from(elements(rows));
 
-/** A user's executable sandbox providers, the shape `user_sandbox_provider` exposes. */
-export const sandboxProviderQuery = (rows: ReadonlyArray<CatalogSandboxProvider>) =>
+const sandboxProviderQuery = (rows: ReadonlyArray<CatalogSandboxProvider>) =>
 	new QueryBuilder()
 		.select({
 			id: text("id", "id"),
@@ -163,10 +145,7 @@ export const sandboxProviderQuery = (rows: ReadonlyArray<CatalogSandboxProvider>
 		})
 		.from(elements(rows));
 
-/** The operations of a user's sandbox providers, the shape `user_sandbox_provider_operation` exposes. */
-export const sandboxProviderOperationQuery = (
-	rows: ReadonlyArray<CatalogSandboxProviderOperation>,
-) =>
+const sandboxProviderOperationQuery = (rows: ReadonlyArray<CatalogSandboxProviderOperation>) =>
 	new QueryBuilder()
 		.select({
 			userId: text("userId", "user_id"),
@@ -362,7 +341,6 @@ const catalogRelations = (
 	return relations;
 };
 
-/** Prefixes a statement with the catalog relations it reads, so it can name them as tables. */
 export const withCatalogRelations = (
 	relations: ReadonlyArray<readonly [CatalogRelationName, SQL]>,
 	statement: SQL,

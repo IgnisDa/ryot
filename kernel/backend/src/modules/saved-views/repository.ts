@@ -175,7 +175,6 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 			const session = yield* DatabaseSession;
 			const catalogs = yield* DefinitionCatalog;
 
-			/** Custom views, and the built-in views the user's catalog lists with their overrides applied. */
 			const listEffective = Effect.fn("SavedViewsRepository.listEffective")(function* (
 				userId: UserId,
 			) {

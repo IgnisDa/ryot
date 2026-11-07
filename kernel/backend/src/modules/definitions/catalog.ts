@@ -25,28 +25,12 @@ export type CatalogSignalSchema = Owner & Effective & SignalSchemaRow;
 
 export type CatalogIntegrationProvider = Executable & IntegrationProviderRow;
 export type CatalogRelationshipSchema = Owner & Effective & RelationshipSchemaRow;
-export type InstallationHealth = (typeof schema.pluginInstallation.$inferSelect)["health"];
-export type GlobalCatalog = DefinitionCatalogRows & {
-	readonly plugins: ReadonlyArray<GlobalPlugin>;
-};
-/** Every user's catalog: kernel rows apply to all users, and each user's catalog holds only plugin rows. */
-export type AllUsersCatalog = {
-	readonly kernel: UserCatalog;
-	readonly users: ReadonlyArray<UserCatalog>;
-};
 export type CatalogCalendarSource = Effective &
 	CalendarSourceRow & {
 		readonly pluginId: string;
 		readonly pluginScope: PluginScope;
 		readonly packageId: PluginPackageId;
 	};
-export type GlobalPlugin = {
-	readonly pluginId: string;
-	readonly isExecutable: boolean;
-	readonly activeRevisionId: string;
-	readonly packageId: PluginPackageId;
-	readonly configRevisionId: null | string;
-};
 export type CatalogSandboxProvider = typeof schema.sandboxProvider.$inferSelect & {
 	readonly userId: string;
 	readonly installationId: string;
@@ -68,16 +52,6 @@ export type UserCatalog = DefinitionCatalogRows & {
 	readonly importSources: ReadonlyArray<CatalogImportSource>;
 	readonly integrationProviders: ReadonlyArray<CatalogIntegrationProvider>;
 };
-
-export type DefinitionCatalogRows = {
-	readonly savedViews: ReadonlyArray<CatalogSavedView>;
-	readonly eventSchemas: ReadonlyArray<CatalogEventSchema>;
-	readonly entitySchemas: ReadonlyArray<CatalogEntitySchema>;
-	readonly signalSchemas: ReadonlyArray<CatalogSignalSchema>;
-	readonly calendarSources: ReadonlyArray<CatalogCalendarSource>;
-	readonly relationshipSchemas: ReadonlyArray<CatalogRelationshipSchema>;
-};
-/** One user's installation of a present plugin, with the availability the catalog derives from it. */
 export type UserPlugin = {
 	readonly userId: string;
 	readonly pluginId: string;
@@ -94,31 +68,20 @@ export type UserPlugin = {
 	readonly isDefinitionEffective: boolean;
 	readonly configRevisionId: null | string;
 };
-/** The immutable definitions one plugin revision declares, or the kernel's when `revisionId` is null. */
-export type RevisionCatalog = {
-	readonly sections: RevisionSections;
-	readonly providers: ReadonlyArray<ProviderRow>;
-	readonly savedViews: ReadonlyArray<SavedViewRow>;
-	readonly eventSchemas: ReadonlyArray<EventSchemaRow>;
-	readonly entitySchemas: ReadonlyArray<EntitySchemaRow>;
-	readonly signalSchemas: ReadonlyArray<SignalSchemaRow>;
-	readonly importSources: ReadonlyArray<ImportSourceRow>;
-	readonly calendarSources: ReadonlyArray<CalendarSourceRow>;
-	readonly providerOperations: ReadonlyArray<ProviderOperationRow>;
-	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaRow>;
-	readonly integrationProviders: ReadonlyArray<IntegrationProviderRow>;
-};
 type Effective = { readonly isEffective: boolean };
 type ProviderRow = typeof schema.definitionProvider.$inferSelect;
 type SavedViewRow = typeof schema.definitionSavedView.$inferSelect;
 
 type EntitySchemaRow = typeof schema.definitionEntitySchema.$inferSelect;
-
 type SignalSchemaRow = typeof schema.definitionSignalSchema.$inferSelect;
-
 type CalendarSourceRow = typeof schema.definitionCalendarSource.$inferSelect;
-
+type InstallationHealth = (typeof schema.pluginInstallation.$inferSelect)["health"];
 type RelationshipSchemaRow = typeof schema.definitionRelationshipSchema.$inferSelect;
+type GlobalCatalog = DefinitionCatalogRows & { readonly plugins: ReadonlyArray<GlobalPlugin> };
+
+/** Every user's catalog: kernel rows apply to all users, and each user's catalog holds only plugin rows. */
+type AllUsersCatalog = { readonly kernel: UserCatalog; readonly users: ReadonlyArray<UserCatalog> };
+
 type RevisionSections = Pick<
 	typeof schema.pluginRevision.$inferSelect,
 	"hooks" | "scripts" | "signalSchemas"
@@ -135,7 +98,6 @@ type Executable = Owner & {
 	readonly installationId: null | string;
 	readonly configRevisionId: null | string;
 };
-
 type EventSchemaRow = typeof schema.definitionEventSchema.$inferSelect & {
 	readonly entitySchemaSlug: string;
 	readonly pluginRevisionId: null | string;
@@ -151,6 +113,14 @@ type IntegrationProviderRow = {
 	readonly pluginRevisionId: null | string;
 } & Omit<typeof schema.definitionIntegrationProvider.$inferSelect, "pluginRevisionId">;
 
+type GlobalPlugin = {
+	readonly pluginId: string;
+	readonly isExecutable: boolean;
+	readonly activeRevisionId: string;
+	readonly packageId: PluginPackageId;
+	readonly configRevisionId: null | string;
+};
+
 type ProviderOperationRow = typeof schema.definitionProviderOperation.$inferSelect & {
 	readonly script: null | {
 		readonly id: string;
@@ -159,6 +129,29 @@ type ProviderOperationRow = typeof schema.definitionProviderOperation.$inferSele
 		readonly providerOperation: null | string;
 		readonly searchOptionsSchema: null | AppSchema;
 	};
+};
+
+type DefinitionCatalogRows = {
+	readonly savedViews: ReadonlyArray<CatalogSavedView>;
+	readonly eventSchemas: ReadonlyArray<CatalogEventSchema>;
+	readonly entitySchemas: ReadonlyArray<CatalogEntitySchema>;
+	readonly signalSchemas: ReadonlyArray<CatalogSignalSchema>;
+	readonly calendarSources: ReadonlyArray<CatalogCalendarSource>;
+	readonly relationshipSchemas: ReadonlyArray<CatalogRelationshipSchema>;
+};
+
+type RevisionCatalog = {
+	readonly sections: RevisionSections;
+	readonly providers: ReadonlyArray<ProviderRow>;
+	readonly savedViews: ReadonlyArray<SavedViewRow>;
+	readonly eventSchemas: ReadonlyArray<EventSchemaRow>;
+	readonly entitySchemas: ReadonlyArray<EntitySchemaRow>;
+	readonly signalSchemas: ReadonlyArray<SignalSchemaRow>;
+	readonly importSources: ReadonlyArray<ImportSourceRow>;
+	readonly calendarSources: ReadonlyArray<CalendarSourceRow>;
+	readonly providerOperations: ReadonlyArray<ProviderOperationRow>;
+	readonly relationshipSchemas: ReadonlyArray<RelationshipSchemaRow>;
+	readonly integrationProviders: ReadonlyArray<IntegrationProviderRow>;
 };
 
 const kernelOwner: Owner = { pluginId: null, packageId: null, pluginScope: null };
@@ -347,8 +340,7 @@ const pluginOwner = (plugin: Pick<UserPlugin, "scope" | "pluginId" | "packageId"
 	packageId: plugin.packageId,
 });
 
-/** Applies the precedence and effectiveness rules that the `user_*` catalog relations expose. */
-export const resolveUserCatalog = (
+const resolveUserCatalog = (
 	userId: string,
 	plugins: ReadonlyArray<UserPlugin>,
 	kernel: RevisionCatalog,
