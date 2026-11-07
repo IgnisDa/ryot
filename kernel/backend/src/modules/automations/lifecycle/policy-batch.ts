@@ -81,7 +81,6 @@ export const planPolicyBatch = Effect.fn("planPolicyBatch")(function* (
 	return { runs: planned.runs, trigger: planned.trigger, policies: planned.policies };
 });
 
-/** The result of a batch no policy has changed. */
 export const unchangedPolicyBatch = (
 	input: typeof PolicyBatchPayload.Type,
 	triggerId: null | AutomationTrigger["id"],
@@ -99,7 +98,6 @@ export const unchangedPolicyBatch = (
 
 type PolicyBatchPlan = Effect.Success<ReturnType<typeof planPolicyBatch>>;
 
-/** Runs a planned batch's policies in order and applies their decisions. */
 const applyPolicies = Effect.fnUntraced(function* (
 	input: typeof PolicyBatchPayload.Type,
 	plan: PolicyBatchPlan,

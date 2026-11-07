@@ -198,7 +198,6 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				return queued;
 			});
 
-			/** Queues a fold job for each subject, for changes that need not settle in their own write. */
 			const queue = Effect.fn("FoldMarks.queue")(function* (subjects: ReadonlyArray<FoldSubject>) {
 				return yield* queueResolved(yield* resolve({ sources: [], subjects: [...subjects] }));
 			});

@@ -106,7 +106,6 @@ export const DataImportAdmissionLive = DataImportAdmission.layer.pipe(
 	),
 );
 
-/** What a data import needs beyond what its calling root already has. */
 export const DataImportServicesLive = Layer.mergeAll(
 	IngestionCaptures.layer,
 	DefinitionRepository.layer,

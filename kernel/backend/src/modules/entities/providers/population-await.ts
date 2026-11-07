@@ -14,7 +14,6 @@ import type { ProviderEntityPopulationPayload } from "./population-job";
 
 const MAX_WAIT_MS = 15_000;
 
-/** The request's populated entity, or null while it is still running. */
 export const readEntityPopulation = Effect.fn("readEntityPopulation")(function* (
 	requestId: string,
 ) {

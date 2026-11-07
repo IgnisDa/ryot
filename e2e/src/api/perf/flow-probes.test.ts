@@ -354,7 +354,6 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 						),
 					);
 				}
-				// A private plugin compiled and uploaded, then installed and settled until it leaves `installing`.
 				for (let index = 0; index < 3; index++) {
 					const uploadToken = yield* probe(
 						"plugin-upload-private",
@@ -379,7 +378,6 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 							),
 					);
 				}
-				// One ended show with every episode logged at once, as in the overlapping-chains liveness test.
 				const show = yield* seedShow(client, {
 					properties: { productionStatus: "Ended" },
 					seasons: [
@@ -405,7 +403,6 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 						},
 					}),
 				);
-				// History correction fans out per subject, as in the 60-subject liveness test.
 				const movies = yield* Effect.forEach(
 					Array.from({ length: 20 }),
 					() => createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "movie" }),

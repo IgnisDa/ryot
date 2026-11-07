@@ -13,7 +13,6 @@ import { DatabaseSession } from "#platform/db/session";
 import { ScriptExecutionPrincipal, type ScriptPluginRevision } from "../authorization/principal";
 import { SandboxRepository } from "../registry/repository";
 
-/** Resolves a plugin's fold script for a user, under the read-only `projection` subject. */
 export class FoldScripts extends Context.Service<
 	FoldScripts,
 	{

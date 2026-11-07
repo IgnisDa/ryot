@@ -771,7 +771,6 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 				yield* persist({ ...input, prepared, validated, derived: true });
 			});
-			/** The events transaction: folds the subjects its writes change, then checks event groups. */
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, mode?: FoldMode) =>
 				groups.transaction(folds.within(work, applyDerived, mode));
 			return { prepare, persist, transaction, captureGroups, lockPreparedChanges };

@@ -82,7 +82,6 @@ export class Broadcast extends Context.Service<Broadcast>()(
 					pg`select pg_notify(${broadcastChannel}, ${encodeFrame(topic, message)})`.pipe(
 						Effect.asVoid,
 					),
-				/** Calls `listener` for this process's lifetime scope, for each message on `topic`. */
 				subscribe: (topic: string, listener: Listener) =>
 					Effect.suspend(() => {
 						const listeners = topics.get(topic) ?? new Set<Listener>();

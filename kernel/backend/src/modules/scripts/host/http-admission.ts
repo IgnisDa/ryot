@@ -52,7 +52,6 @@ export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAd
 							),
 						)
 						.pipe(Effect.asVoid, unavailable),
-				/** Holds every request to this provider back, as its `Retry-After` asked. */
 				block: (declaration: ProviderHttpAdmissionDeclaration, delayMs: number) =>
 					session
 						.detached(
@@ -66,7 +65,6 @@ export class ProviderHttpAdmissionService extends Context.Service<ProviderHttpAd
 							),
 						)
 						.pipe(Effect.asVoid, unavailable),
-				/** Takes the next free slot and says how long to wait for it. */
 				reserve: (declaration: ProviderHttpAdmissionDeclaration) =>
 					session
 						.detached(

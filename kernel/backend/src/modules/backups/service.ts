@@ -65,7 +65,6 @@ export class BackupsService extends Context.Service<BackupsService>()(
 
 			const assertAccountIsClean = (userId: UserId) => cleanliness.assertAccountIsClean(userId);
 
-			// The run and its job commit together, so every pending run has a job to start it.
 			const startRun = (
 				userId: UserId,
 				kind: "export" | "restore",

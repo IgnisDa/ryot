@@ -30,7 +30,6 @@ export const LIVE_UPDATES_CONNECTED_EVENT = "connected";
 
 export const MAX_INTEREST_ENTITY_IDS = 500;
 export const MAX_FOREGROUND_ENTITY_IDS = 50;
-/** One request's ask: a list asks in the background, a detail page interactively. */
 export const MAX_POPULATE_ENTITY_IDS = 100;
 
 export const PopulateEntitiesBody = Schema.Struct({

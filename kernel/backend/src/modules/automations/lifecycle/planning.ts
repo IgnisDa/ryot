@@ -143,7 +143,6 @@ export class LifecyclePersistenceError extends Schema.TaggedError<
 export class LifecycleWork extends Context.Service<
 	LifecycleWork,
 	{
-		/** Writes plugins declared for changes, in their transaction, returning the triggers of those writes. */
 		derive: (
 			triggers: ReadonlyArray<AutomationTrigger>,
 		) => Effect.Effect<ReadonlyArray<AutomationTrigger>, DbError>;
@@ -156,11 +155,9 @@ export class LifecyclePlanner extends Context.Service<
 		planBatch: (
 			input: LifecycleBatchInput,
 		) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
-		/** Plans a committed change and the writes it derives, returning every dispatch plan. */
 		planChange: (input: {
 			trigger: AutomationTrigger;
 		}) => Effect.Effect<ReadonlyArray<LifecycleDispatchPlan>, DbError>;
-		/** Adds one committed item to a prepared batch, for its hooks to see when the batch is planned. */
 		recordBatchChange: (
 			id: string,
 			change: LifecycleBatchChange & { readonly index: number },

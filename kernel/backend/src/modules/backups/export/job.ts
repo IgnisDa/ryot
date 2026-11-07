@@ -286,8 +286,6 @@ export const ExportBackupOperationsLive = Layer.effect(
 	}),
 );
 
-// A failed step settles the run itself; only a lost process makes the job retry, and the steps are
-// idempotent so the retry resumes the run.
 export const runExportBackupJob = Effect.fn("ExportBackupJob")(
 	function* (payload: ExportBackupPayload, job: JobContext) {
 		yield* Effect.annotateCurrentSpan({

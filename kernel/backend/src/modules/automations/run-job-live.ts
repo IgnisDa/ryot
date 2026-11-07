@@ -554,7 +554,6 @@ const completion = (
 	policyOutput: AutomationRunResult["policyOutput"],
 ): AutomationRunResult => ({ policyOutput, attempt: automationAttemptResult(attempt) });
 
-/** Runs a prepared attempt's sandbox and classifies its result into the attempt's final state. */
 const attemptOutcome = Effect.fnUntraced(function* <E>(
 	payload: AutomationRunPayload,
 	prepared: PreparedAutomationRun | AutomationPreparationError,

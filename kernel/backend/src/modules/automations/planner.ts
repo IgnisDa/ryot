@@ -485,7 +485,6 @@ export const LifecyclePlannerLive = Layer.effect(
 			contents.dispatch = dispatch;
 			return dispatch;
 		});
-		// Derivation runs once for the whole list; its plans join the first trigger's plans.
 		const planChanges = (
 			changes: ReadonlyArray<AutomationTrigger>,
 		): Effect.Effect<ReadonlyArray<ReadonlyArray<LifecycleDispatchPlan>>, DbError> =>

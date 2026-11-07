@@ -111,7 +111,6 @@ const replayDeferred = Effect.fnUntraced(function* (payload: SandboxExecutionQue
 	return { id, deferred: replayOutcome(`sandbox-replay/${id}`) };
 });
 
-/** Hands a replay to a job and suspends the workflow until it reports back. */
 export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQueue")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {

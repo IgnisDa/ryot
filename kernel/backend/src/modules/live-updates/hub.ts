@@ -46,7 +46,6 @@ type LiveStream = {
 	readonly queue: Queue.Queue<Uint8Array>;
 };
 
-/** Forwards what this process hears to the open streams of the users it concerns. */
 export class LiveUpdates extends Context.Service<LiveUpdates>()(
 	"@ryot-app/kernel-backend/modules/live-updates/hub/LiveUpdates",
 	{

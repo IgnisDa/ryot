@@ -198,7 +198,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			});
 		}).pipe(FiberMap.run(clocks, clockKey(identity, name), { onlyIfMissing: true }), Effect.asVoid);
 
-	// Builds the in-memory activation of an execution this process owns, from its stored row.
 	const activate = Effect.fnUntraced(function* (
 		row: ExecutionRow,
 		steps: ReadonlyArray<StepRow>,

@@ -6,7 +6,6 @@ import { uploadIntent as table } from "#schema/tables/uploads";
 
 const dateFromSeconds = (seconds: number) => new Date(seconds * 1000);
 
-/** Upload intent records, with the time cleanup should next look at each one. */
 export class UploadIntentsRepository extends Context.Service<UploadIntentsRepository>()(
 	"@ryot-app/kernel-backend/modules/assets/uploads/intents-repository/UploadIntentsRepository",
 	{

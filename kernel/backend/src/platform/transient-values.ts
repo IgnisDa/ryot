@@ -48,7 +48,6 @@ export class TransientValues extends Context.Service<TransientValues>()(
 				);
 			});
 
-			/** Stores the value unless a live one holds the key, and says whether it did. */
 			const setIfAbsent = Effect.fn("TransientValues.setIfAbsent")(function* (
 				key: string,
 				value: string,

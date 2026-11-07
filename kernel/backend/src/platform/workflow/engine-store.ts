@@ -391,7 +391,6 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				return yield* decode(Identity)(rows);
 			});
 
-			// Claims one execution for a wake when it has no live owner.
 			const claim = Effect.fnUntraced(function* (identity: WorkflowIdentity, owner: string) {
 				const rows = yield* run(
 					db.execute(

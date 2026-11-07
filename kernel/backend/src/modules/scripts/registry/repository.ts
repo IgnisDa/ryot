@@ -45,7 +45,6 @@ export const isWorkflowCallTargetKind = (
 	((request.kind === "child" || request.kind === "workflow-child") && kind === "workflow") ||
 	(request.kind === "activity" && kind === "script");
 
-// The script, by slug and content, belongs to the pinned plugin revision.
 export const pinnedRevisionScript = (revisionId: string) =>
 	sql`exists (select 1 from ${schema.sandboxScript} s where s.plugin_revision_id = ${revisionId}
 		and s.slug = ${schema.sandboxScript.slug} and s.content_hash = ${schema.sandboxScript.contentHash})`;

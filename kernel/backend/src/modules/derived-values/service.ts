@@ -475,7 +475,6 @@ export class Folds extends Context.Service<Folds>()(
 				);
 			});
 
-			/** Subjects of a user's events from one plugin, in pages, for rebuilding after an upgrade or restore. */
 			const subjectsOfPlugin = Effect.fn("Folds.subjectsOfPlugin")(function* (input: {
 				userId: UserId;
 				pluginId: PluginId;
