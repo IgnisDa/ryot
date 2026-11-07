@@ -51,7 +51,7 @@ const listPlugins = (client: Client) =>
 
 describe("private plugins", () => {
 	it.live(
-		"retries an uninstall without targeting a private plugin reinstalled under the same package identity",
+		"refuses a committed uninstall once a private plugin is reinstalled under the same package identity",
 		() =>
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient();
@@ -73,12 +73,15 @@ describe("private plugins", () => {
 				yield* Effect.addFinalizer(() =>
 					uninstall(currentInstallationId, currentActivationId).pipe(Effect.ignore),
 				);
-				const removed = yield* uninstall(first.installationId, first.activationId);
+				yield* uninstall(first.installationId, first.activationId);
 				const replacement = yield* install();
 				currentActivationId = replacement.activationId;
 				currentInstallationId = replacement.installationId;
 				expect(replacement.activationId).not.toBe(first.activationId);
-				expect(yield* uninstall(first.installationId, first.activationId)).toEqual(removed);
+				assertTaggedError(
+					yield* Effect.flip(uninstall(first.installationId, first.activationId)),
+					"PluginNotFoundError",
+				);
 				expect(
 					(yield* listPlugins(client)).find((entry) => entry.packageId === packageId)?.activationId,
 				).toBe(replacement.activationId);
