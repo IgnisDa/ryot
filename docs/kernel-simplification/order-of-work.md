@@ -45,6 +45,7 @@ Flow probes on the idle VM, medians of repeats. Baselines are step 1's figures a
 | 1 (baseline)    |      117,500 | 97 statements         | 373 statements, 460 ms |    955 |    265 |        4,331 |          46,400 |
 | 3 (`probesS3`)  |      113,838 | 56 statements, 253 ms | 327 statements, 357 ms |    803 |    211 |        3,490 |          39,947 |
 | 4 (`probesS4d`) |      110,338 | 41 statements, 124 ms |  88 statements, 259 ms |    482 |    211 |        2,585 |          12,294 |
+| 5 (`probesS5`)  |      106,092 | 41 statements, 112 ms |  91 statements, 235 ms |    514 |    220 |        2,646 |          13,115 |
 
 Statement counts are net of the idle background. Suite CPU was not measured, because step 3 ran only the
 affected e2e files.
@@ -60,3 +61,19 @@ show and from 4,457 ms to 2,686 ms for the 150-set save. No fold deferred to a j
 the probes. Automation runs are jobs, so no flow starts `AutomationRunWorkflow` or `BackgroundWorkWorkflow`.
 Eight of the 23 probed flows still start `ScriptExecutionWorkflow` rows; signup, plugin install and event
 creates without hooks start no workflow rows. Suite CPU was again not measured, because step 4 ran only the affected e2e files.
+
+Step 5's check: the server starts with no Redis configured, and the e2e stack no longer runs it; neither the
+process samples nor the container samples of the full run name it. Statements rose a little, because work
+that Redis did now runs in PostgreSQL: sandbox replays are job rows, each with its claim, its wake-up and its
+foreign key checks, which adds about 800 statements to the 70-episode show. Caller time held at 13,048 ms for
+that show and fell to 2,421 ms for the 150-set save. Tables went from 86 to 91: `provider_rate_limit`,
+`sandbox_journal_entry`, `transient_value` and `upload_intent` replace Redis keyspaces, and
+`entity_schema_refresh_override` holds an instance admin's replacement for a schema's refresh interval. Provider population,
+related pages and translation still run their scripts in `ScriptExecutionWorkflow`, because a script that
+falls back from a direct run repeats HTTP calls that already finished.
+
+Suite CPU, from `vmstat`, fell from 9,383 s in `full23` to 6,683 s in `fullS5d`, and wall time from 2,642 s to
+1,892 s, still above the 20-minute target. `fullS5d` passed all 810 API tests and failed 5 of 138 browser tests.
+All 13 tests in those files passed when rerun on an idle VM, so the failures come from running six browser
+workers on four CPUs. The desktop impersonation test also fails intermittently on an idle VM, and did in
+`full23`.
