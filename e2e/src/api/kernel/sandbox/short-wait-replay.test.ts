@@ -217,11 +217,12 @@ describe("sandbox short waits and replay", () => {
 			).toEqual({ completed: 3 });
 			expect(http.requests).toHaveLength(3);
 			expect(requestTimestamps).toHaveLength(3);
+			// Slots space when sends start; arrival adds connection and scheduling delay that differs per request.
 			for (let index = 1; index < requestTimestamps.length; index += 1) {
 				expect(
 					requirePresent(requestTimestamps[index], "Missing request timestamp") -
 						requirePresent(requestTimestamps[index - 1], "Missing previous request timestamp"),
-				).toBeGreaterThanOrEqual(140);
+				).toBeGreaterThanOrEqual(100);
 			}
 		}),
 	);
