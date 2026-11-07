@@ -30,7 +30,6 @@ import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	automationLifecycleCausation,
@@ -49,11 +48,10 @@ import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
 	ProcessGenericImportChunksPayload,
-	ProcessGenericImportChunksWorkflow,
+	GenericImportChunks,
 } from "#modules/imports/generic-import-workflow";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	samePluginPin,
@@ -139,6 +137,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 			JobQueue | TransientValues | EnrichmentRequests | EntitiesRepository
 		>();
 		const imports = yield* ImportsRepository;
+		const chunks = yield* GenericImportChunks;
 		const events = yield* EventsService;
 		const captures = yield* IngestionCaptures;
 		const database = yield* DatabaseSession;
@@ -325,7 +324,6 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							message: `Kernel workflow '${workflowSlug}' is not available for system executions`,
 						});
 					}
-					const engine = yield* WorkflowEngine;
 					if (workflowSlug === KERNEL_PROCESS_IMPORT_CHUNKS_WORKFLOW) {
 						const rawInput = isObjectRecord(input) ? input : {};
 						const rawRunId = Reflect.get(rawInput, "runId");
@@ -508,12 +506,7 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							importRunIds: [ImportRunId.make(payload.runId)],
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
-						const result = yield* dispatchAdmittedWorkflow(
-							engine,
-							ProcessGenericImportChunksWorkflow,
-							command.accountUserId,
-							{ payload, executionId },
-						).pipe(
+						const result = yield* chunks.apply(payload).pipe(
 							Effect.mapError(
 								(error) =>
 									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),

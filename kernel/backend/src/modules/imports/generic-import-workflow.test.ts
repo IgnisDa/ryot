@@ -29,6 +29,7 @@ import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommands } from "#modules/user-commands/service";
 import { JobQueue } from "#platform/jobs/queue";
@@ -37,8 +38,7 @@ import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import {
-	ProcessGenericImportChunksWorkflow,
-	runProcessGenericImportChunksWorkflow,
+	runGenericImportChunk,
 } from "./generic-import-workflow";
 import {
 	ingestionTestDatabase,
@@ -120,7 +120,7 @@ const applyCase = (
 			Layer.mock(EntityImportWorkflowOperations)({}),
 			Layer.succeed(
 				WorkflowInstance,
-				WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, "batch-owner"),
+				WorkflowInstance.initial(ScriptExecutionWorkflow, "batch-owner"),
 			),
 			Layer.succeed(
 				WorkflowEngine,
@@ -134,7 +134,7 @@ const applyCase = (
 			}),
 			Layer.mock(ImportsRepository)({
 				getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
-				listBatches: () => Effect.sync(() => [...batches.values()].map((data) => ({ data }))),
+				getBatch: (_scope, id) => Effect.sync(() => batches.get(id) ?? null),
 				getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
 				startBatch: (...input) =>
 					Effect.sync(() => {
@@ -203,10 +203,10 @@ const applyCase = (
 				writeContext: { ...domainCommand.writeContext, pluginRevision },
 			},
 		};
-		const first = yield* runProcessGenericImportChunksWorkflow(payload, "batch-owner").pipe(
+		const first = yield* runGenericImportChunk(payload).pipe(
 			Effect.provideContext(yield* Layer.build(dependencies)),
 		);
-		const replay = yield* runProcessGenericImportChunksWorkflow(payload, "batch-owner").pipe(
+		const replay = yield* runGenericImportChunk(payload).pipe(
 			Effect.provideContext(yield* Layer.build(dependencies)),
 		);
 		return { first, replay, issues, starts, batches, outcomes, registrations, definitionReads };

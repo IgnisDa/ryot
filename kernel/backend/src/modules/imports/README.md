@@ -61,8 +61,7 @@ Every import run has one durable root selected by its persisted `executionKind`:
   finalization and optional continuous-error handling.
 
 Both roots use the import run ID as their workflow execution ID and idempotency key. The sandbox
-import workflow uses `${runId}-import`, and other descendants derive their IDs from their parent.
-These durable IDs let any server instance
+import workflow uses `${runId}-import`. These durable IDs let any server instance
 address the correct root without retaining a process-local workflow handle.
 
 `dispatchImportRun` is the only post-admission dispatch path for manual imports. It pins the import
@@ -78,9 +77,8 @@ The cancellation endpoint verifies ownership and rejects completed or failed run
    its next check, and returns without waiting for cleanup.
 
 The run is checked for the flag before each record, so a server that dies between the two steps
-loses only the promptness. A repeated request interrupts again. The root then interrupts its
-descendants and releases retained resources before conditionally changing `cancelling` to
-`cancelled`.
+loses only the promptness. A repeated request interrupts again. The root then interrupts a plugin's
+script and releases retained resources before conditionally changing `cancelling` to `cancelled`.
 
 A cancellation received before the root starts is handled by the root's initial state transition:
 it observes `cancelling`, performs cancellation cleanup, and never starts source work. A request for
@@ -115,10 +113,18 @@ the run while interruption and cleanup are in progress.
 
 Record batches use `pending -> applying -> applied`. One conditional update starts a pending
 batch; replay leaves applying and applied batches unchanged. Generic batch registration and start
-share a transaction. Data segment preparation registers a pending batch before child admission;
-the child starts the batch before writing records. Cancellation prevents new starts.
-Interruption selects only started batch owners, then reconciliation projects committed item results
-into immutable applied summaries. Pending batches remain distinct from started work.
+share a transaction. A Data segment registers a pending batch and starts it before writing records.
+Cancellation prevents new starts. Settlement interrupts a plugin's script when a chunk has started,
+then reconciliation projects committed item results into immutable applied summaries. Pending
+batches remain distinct from started work.
+
+## Chunks
+
+An import writes in chunks, in the execution that produces them: a Data segment in the run's root, a
+plugin's chunk in the script that sent it. Each chunk's steps run in a step scope named after its
+batch. An applied batch is the cursor: a replay skips it, and its steps are then forgotten, so
+resuming a long import loads only the chunk in progress. A Data segment also stores what later
+segments need from it, such as the IDs of the entities it wrote, on its batch.
 
 ## Partial results
 
@@ -141,7 +147,7 @@ failure, and cancellation release these resources through durable activities:
 - Delete claimed temporary uploads.
 - Remove generated sandbox artifacts after their consumers release them.
 
-Cancellation interrupts descendants before the root finishes this cleanup. Best-effort cleanup is
+Cancellation interrupts the plugin's script before the root finishes this cleanup. Best-effort cleanup is
 idempotent, and artifact expiry remains a leak safeguard rather than the normal lifecycle. This work
 can leave a run in `cancelling` briefly after the request succeeds.
 

@@ -80,9 +80,7 @@ layer(BunServices.layer)((test) => {
 					/name: `start-integration-ingestion:\$\{attempt\}`,\s*execute: repository\s*\.startIntegrationIngestion\(/,
 				);
 				expect(integrationWorkflow).toContain("finalize-integration-run");
-				expect(integrationWorkflow).toMatch(
-					/dispatchAdmittedWorkflow\(\s*engine,\s*ProcessDataImportWorkflow,/,
-				);
+				expect(integrationWorkflow).toContain("yield* runDataImportWorkflow(");
 				expect(integrationWorkflow).toMatch(/sandbox\s*\.executeWorkflow\(\{/);
 				expect(integrationWorkflow).toContain('yield* settle("completed")');
 				expect(integrationWorkflow).toContain('Effect.andThen(settle("failed"))');

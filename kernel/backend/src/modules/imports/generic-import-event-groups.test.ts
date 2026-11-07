@@ -25,6 +25,7 @@ import {
 import { EventsService } from "#modules/events/service";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
@@ -33,8 +34,7 @@ import * as tables from "#schema/tables/combined";
 
 import { IngestionCaptures } from "./capture-service";
 import {
-	ProcessGenericImportChunksWorkflow,
-	runProcessGenericImportChunksWorkflow,
+	runGenericImportChunk,
 } from "./generic-import-workflow";
 import { ingestionTestRun, ingestionTestSource } from "./ingestion.test-support";
 import { genericImportOperationIdentity } from "./outcomes";
@@ -147,7 +147,7 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 			read: () => Effect.succeed(Buffer.from(JSON.stringify({ failures: [], items: [item] }))),
 		}),
 		Layer.mock(ImportsRepository)({
-			listBatches: () => Effect.succeed([]),
+			getBatch: () => Effect.succeed(null),
 			startBatch: () => Effect.succeed(true),
 			projectBatch: () => Effect.succeed(true),
 			registerBatch: () => Effect.succeed(true),
@@ -189,23 +189,20 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 		}),
 		Layer.succeed(
 			WorkflowInstance,
-			WorkflowInstance.initial(ProcessGenericImportChunksWorkflow, runId),
+			WorkflowInstance.initial(ScriptExecutionWorkflow, runId),
 		),
 	);
-	const apply = runProcessGenericImportChunksWorkflow(
-		{
-			...scope,
-			command,
-			ordinal: 0,
-			batchId: "batch",
-			executionId: runId,
-			captureId: "capture",
-			inputFingerprint: "fingerprint",
-			artifactReferenceExecutionId: runId,
-			artifactOwnerExecutionId: "import-owner",
-		},
-		runId,
-	).pipe(Effect.provideContext(yield* Layer.build(importLayer)));
+	const apply = runGenericImportChunk({
+		...scope,
+		command,
+		ordinal: 0,
+		batchId: "batch",
+		executionId: runId,
+		captureId: "capture",
+		inputFingerprint: "fingerprint",
+		artifactReferenceExecutionId: runId,
+		artifactOwnerExecutionId: "import-owner",
+	}).pipe(Effect.provideContext(yield* Layer.build(importLayer)));
 	const operationIdentities = [
 		"session",
 		"anchor",

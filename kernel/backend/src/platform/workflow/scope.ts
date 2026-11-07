@@ -13,6 +13,33 @@ export const makeActivity: typeof Activity.make = (options) =>
 		execute: options.execute.pipe(Effect.provideService(ActivityBody, true)),
 	});
 
+/** Prefixes the name of every activity run under it, so they can be forgotten together. */
+export const WorkflowStepScope = Context.Reference<string>("ryot/WorkflowStepScope", {
+	defaultValue: () => "",
+});
+
+const ForgetWorkflowSteps = Context.Reference<(prefix: string) => Effect.Effect<void>>(
+	"ryot/ForgetWorkflowSteps",
+	{ defaultValue: () => () => Effect.void },
+);
+
+export const provideForgetWorkflowSteps = (forget: (prefix: string) => Effect.Effect<void>) =>
+	Effect.provideService(ForgetWorkflowSteps, forget);
+
+const stepPrefix = (scope: string) => `${scope}/`;
+
+export const inWorkflowStepScope =
+	(scope: string) =>
+	<A, E, R>(effect: Effect.Effect<A, E, R>) =>
+		Effect.provideService(effect, WorkflowStepScope, stepPrefix(scope));
+
+/**
+ * Forgets a finished scope's activities, so a long execution replays only its current chunk. Its caller must have
+ * stored whatever lets a replay skip the scope, because running it again would repeat those activities.
+ */
+export const forgetWorkflowSteps = (scope: string) =>
+	Effect.flatMap(ForgetWorkflowSteps, (forget) => forget(stepPrefix(scope)));
+
 /** JSON persistence of one workflow's payload and result, typed where the workflow is implemented. */
 export interface WorkflowCodecs {
 	readonly decodePayload: (json: unknown) => Effect.Effect<object, Schema.SchemaError>;
@@ -62,7 +89,10 @@ export const implementWorkflow = <
 	workflow
 		.annotate(WorkflowCodecs, makeWorkflowCodecs(workflow))
 		.toLayer((payload, executionId) =>
-			execute(payload, executionId).pipe(Effect.provideService(ActivityBody, false)),
+			execute(payload, executionId).pipe(
+				Effect.provideService(ActivityBody, false),
+				Effect.provideService(WorkflowStepScope, ""),
+			),
 		);
 
 export const asIndependentWorkflowRoot = <A, E>(effect: Effect.Effect<A, E>) =>

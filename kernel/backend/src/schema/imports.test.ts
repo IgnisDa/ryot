@@ -65,7 +65,7 @@ const issue = {
 	operationId: outcome.operationId,
 	reason: { key: null, code: "provider-unavailable" },
 } satisfies typeof importIssue.$inferSelect.data;
-const execution = { operationIds: [], executionId: "execution", workflowName: "workflow" };
+const execution = { operationIds: [] };
 
 const seedRun = Effect.fn(function* () {
 	const session = yield* DatabaseSession;
@@ -105,6 +105,7 @@ layer(isolatedDatabaseLayer("ingestion_identity"))((test) => {
 				expect(storedBatch).toEqual({
 					runId,
 					data: batch,
+					result: null,
 					...execution,
 					ordinal: 0,
 					id: "batch",
@@ -171,11 +172,9 @@ layer(isolatedDatabaseLayer("ingestion_identity"))((test) => {
 							sql`${stableStringify(data)}::jsonb || jsonb_build_object(${key}::text, null)`,
 						]) {
 							const columns =
-								table === "import_batch"
-									? sql`, execution_id, workflow_name, operation_ids`
-									: sql``;
+								table === "import_batch" ? sql`, operation_ids` : sql``;
 							const values =
-								table === "import_batch" ? sql`, 'execution', 'workflow', ARRAY[]::text[]` : sql``;
+								table === "import_batch" ? sql`, ARRAY[]::text[]` : sql``;
 							const error = yield* Effect.flip(
 								session.run((db) =>
 									db.execute(sql`

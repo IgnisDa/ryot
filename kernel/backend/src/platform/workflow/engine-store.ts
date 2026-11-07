@@ -208,6 +208,19 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				return yield* decode(StepRow)(rows);
 			});
 
+			const forgetActivities = Effect.fnUntraced(function* (
+				identity: WorkflowIdentity,
+				prefix: string,
+			) {
+				yield* run(
+					db.execute(
+						sql`delete from ${step}
+						where workflow_name = ${identity.workflowName} and execution_id = ${identity.executionId}
+						and kind = 'activity' and starts_with(name, ${prefix})`,
+					),
+				);
+			});
+
 			// Writes a step unless its tree expired. The first write of a key wins. A write for an
 			// execution another live process owns notifies that owner in the same statement.
 			const writeStep = Effect.fnUntraced(function* (input: {
@@ -406,6 +419,7 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				find,
 				admit,
 				adopt,
+				forgetActivities,
 				claim,
 				steps,
 				notify,

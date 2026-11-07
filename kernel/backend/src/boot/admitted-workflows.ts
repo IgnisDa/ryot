@@ -1,10 +1,5 @@
 import { Layer } from "effect";
 
-import {
-	ProcessDataImportSegmentWorkflow,
-	ProcessDataImportWorkflow,
-} from "#modules/imports/data-workflow";
-import { ProcessGenericImportChunksWorkflow } from "#modules/imports/generic-import-workflow";
 import { ProcessImportRunWorkflow } from "#modules/imports/import-run-workflow";
 import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
@@ -14,9 +9,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
 	Object.freeze([
 		ProcessImportRunWorkflow,
-		ProcessDataImportWorkflow,
-		ProcessDataImportSegmentWorkflow,
-		ProcessGenericImportChunksWorkflow,
 		ProcessIntegrationRunWorkflow,
 		ScriptExecutionWorkflow,
 	]),

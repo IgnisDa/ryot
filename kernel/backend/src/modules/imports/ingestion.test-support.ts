@@ -9,9 +9,19 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer } from "effect";
 
+import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
+import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
+import { EntitiesRepository } from "#modules/entities/repository";
+import { EntitiesService } from "#modules/entities/service";
+import { EventsService } from "#modules/events/service";
 import { importItemKey, type ImportItemResult } from "#modules/mutations/idempotency";
+import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { RelationshipsService } from "#modules/relationships/service";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
+import { JobQueue } from "#platform/jobs/queue";
+import { TransientValues } from "#platform/transient-values";
 import { user } from "#schema/tables/auth";
 import { idempotencyKey } from "#schema/tables/mutations";
 import { fakeDatabaseSession } from "#testing/effect";
@@ -20,6 +30,19 @@ export const ingestionTestScope = {
 	userId: UserId.make("user-1"),
 	runId: ImportRunId.make("run-1"),
 };
+/** Stands in for what a root needs to run a data import, in tests of its other paths. */
+export const unusedDataImportServices = Layer.mergeAll(
+	Layer.mock(EntitiesService)({}),
+	Layer.mock(EntitiesRepository)({}),
+	Layer.mock(EventsService)({}),
+	Layer.mock(RelationshipsService)({}),
+	Layer.mock(ManagedAssetsService)({}),
+	Layer.mock(LifecycleExecution)({}),
+	Layer.mock(PluginRuntimeResolver)({}),
+	Layer.mock(EntityImportWorkflowOperations)({}),
+	Layer.mock(JobQueue)({}),
+	Layer.mock(TransientValues)({}),
+);
 export const ingestionTestNow = "2026-01-01T00:00:00.000Z";
 export const ingestionTestRun = (overrides: Partial<IngestionRun> = {}): IngestionRun => ({
 	summary: [],

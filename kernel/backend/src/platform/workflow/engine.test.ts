@@ -26,7 +26,12 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
 import { PostgresWorkflowEngine } from "./engine";
 import { WorkflowExecutionNotifications } from "./execution-notifications";
-import { implementWorkflow, makeActivity } from "./scope";
+import {
+	forgetWorkflowSteps,
+	implementWorkflow,
+	inWorkflowStepScope,
+	makeActivity,
+} from "./scope";
 
 const activityRuns = new Map<string, number>();
 const finalizerExits = new Map<string, Array<Exit.Exit<unknown, unknown>>>();
@@ -103,6 +108,20 @@ const TwinSleeper = Workflow.make("EngineConformanceTwinSleeper", {
 });
 
 const Jobless = Workflow.make("EngineConformanceJobless", {
+	success: Schema.String,
+	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
+const Scoped = Workflow.make("EngineConformanceScoped", {
+	success: Schema.String,
+	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
+const ScopedParent = Workflow.make("EngineConformanceScopedParent", {
 	success: Schema.String,
 	suspendedRetrySchedule: retry,
 	payload: { id: Schema.String },
@@ -207,8 +226,35 @@ const joblessLive = implementWorkflow(Jobless, () =>
 	}),
 );
 
+const scopedLive = Layer.mergeAll(
+	implementWorkflow(Scoped, ({ id }) =>
+		Effect.gen(function* () {
+			const count = (name: string) =>
+				makeActivity({
+					name,
+					success: Schema.Int,
+					execute: Effect.sync(() => {
+						const key = `${id}:${name}`;
+						const next = (activityRuns.get(key) ?? 0) + 1;
+						activityRuns.set(key, next);
+						return next;
+					}),
+				});
+			yield* count("kept");
+			const forgotten = inWorkflowStepScope("chunk")(count("forgotten"));
+			yield* forgotten;
+			yield* forgetWorkflowSteps("chunk");
+			yield* count("kept");
+			return `${yield* forgotten}`;
+		}),
+	),
+	implementWorkflow(ScopedParent, ({ id }) =>
+		Waiting.execute({ id: `${id}-child` }).pipe(inWorkflowStepScope("chunk")),
+	),
+);
+
 const postgresEngine = () =>
-	Layer.mergeAll(workflowsLive, adopterLive, joblessLive, twinLive).pipe(
+	Layer.mergeAll(workflowsLive, adopterLive, joblessLive, twinLive, scopedLive).pipe(
 		Layer.provideMerge(
 			PostgresWorkflowEngine.pipe(Layer.provide(WorkflowExecutionNotifications.layer)),
 		),
@@ -360,6 +406,36 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 						and execution_id = ${yield* Counted.executionId({ id: countedId })}`,
 				).toEqual([{ root: executionId }]);
 			}).pipe(withEngine(postgresEngine())),
+		);
+
+		test.effect("postgres: forgets only the activities of a finished step scope", () =>
+			Effect.gen(function* () {
+				const id = yield* randomUuid;
+				const executionId = yield* Scoped.executionId({ id });
+				yield* Scoped.execute({ id }, { discard: true });
+				expect(yield* complete(Scoped.poll(executionId))).toEqual(Exit.succeed("2"));
+				expect(activityRuns.get(`${id}:kept`)).toBe(1);
+				expect(activityRuns.get(`${id}:forgotten`)).toBe(2);
+			}).pipe(withEngine(postgresEngine())),
+		);
+
+		test.effect("postgres: a child's steps stay outside its parent's step scope", () =>
+			Effect.gen(function* () {
+				const id = yield* randomUuid;
+				const childId = `${id}-child`;
+				const childExecutionId = yield* Waiting.executionId({ id: childId });
+				yield* Effect.scoped(
+					Effect.gen(function* () {
+						yield* ScopedParent.execute({ id }, { discard: true });
+						yield* untilResult(Waiting.poll(childExecutionId), "Suspended");
+					}).pipe(withEngine(postgresEngine())),
+				);
+				yield* Effect.gen(function* () {
+					yield* signal(Signal, Waiting, childExecutionId, "go");
+					expect(yield* complete(Waiting.poll(childExecutionId))).toEqual(Exit.succeed("go:1"));
+					expect(activityRuns.get(childId)).toBe(1);
+				}).pipe(withEngine(postgresEngine()));
+			}),
 		);
 
 		test.effect("postgres: a new process resumes a released execution from its stored steps", () =>

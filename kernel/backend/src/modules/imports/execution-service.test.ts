@@ -8,13 +8,11 @@ import { TestClock } from "effect/testing";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { makeWorkflowEngine } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import { IngestionExecution } from "./execution-service";
-import { ProcessGenericImportChunksWorkflow } from "./generic-import-workflow";
 import {
 	ingestionTestDatabase,
 	ingestionTestRun,
@@ -52,7 +50,6 @@ for (const mode of ["removal", "quarantine"] as const) {
 				const dependencies = Layer.mergeAll(
 					WorkflowExecutionNotifications.layer,
 					ingestionTestDatabase(),
-					Layer.succeed(AdmittedWorkflowCatalogue, [ProcessGenericImportChunksWorkflow]),
 					Layer.succeed(
 						WorkflowEngine,
 						makeWorkflowEngine({
@@ -75,7 +72,7 @@ for (const mode of ["removal", "quarantine"] as const) {
 					),
 					Layer.mock(ImportsRepository)({
 						getIngestionRunControl: () => Effect.sync(() => run),
-						listBatches: () => Effect.succeed([{ data: batch }]),
+						listBatches: () => Effect.succeed([{ data: batch, result: null }]),
 						releaseIngestionPins: () =>
 							Effect.sync(() => {
 								events.push("clear-pins");
@@ -88,13 +85,7 @@ for (const mode of ["removal", "quarantine"] as const) {
 								events.push("close-activities");
 								return "cancelled" as const;
 							}),
-						listBatchExecutions: () =>
-							Effect.succeed([
-								{
-									executionId: "batch-owner",
-									workflowName: ProcessGenericImportChunksWorkflow._tag,
-								},
-							]),
+						hasStartedBatch: () => Effect.succeed(true),
 						settleIngestion: (input) =>
 							Effect.sync(() => {
 								if (mode === "quarantine") {
@@ -173,6 +164,7 @@ for (const mode of ["removal", "quarantine"] as const) {
 							"confirm",
 							"close-activities",
 							"cancelled",
+							"waiting",
 						]);
 						expect(run.pins).not.toBeNull();
 					}

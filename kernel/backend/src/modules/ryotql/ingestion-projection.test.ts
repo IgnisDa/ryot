@@ -61,9 +61,7 @@ layer(testLayer)((test) => {
 								.insert(importBatch)
 								.values({
 									runId: "run",
-									executionId: id,
 									operationIds: [],
-									workflowName: "test-batch",
 									data: {
 										id,
 										ordinal,

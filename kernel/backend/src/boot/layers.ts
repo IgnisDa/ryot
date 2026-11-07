@@ -65,13 +65,13 @@ import { EventMutationsLive, EventsServiceLive } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
+import { GenericImportChunks } from "#modules/imports/generic-import-workflow";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
 import {
-	DataImportWorkflowDefinitionsProvidedLive,
+	GenericImportChunksProvidedLive,
 	ImportsServiceLive,
 	IngestionArtifactStagingProvidedLive,
 	IngestionRetirementLive,
-	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
 import { InstanceAdminServiceLive } from "#modules/instance-admin/layer";
@@ -196,6 +196,7 @@ const ApplicationInfrastructureLive = Layer.mergeAll(
 	WorkflowEngineLive,
 	JobQueue.layer,
 	JobHandlers.layer,
+	GenericImportChunks.layer,
 ).pipe(Layer.provideMerge(CoreInfrastructureDependenciesLive));
 
 // Content lifecycle services cross the plugin/definition boundary during writes.
@@ -324,8 +325,7 @@ const ServicesWithTestSupportLive = Layer.merge(
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ImportWorkflowDefinitionsLive,
-	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
-	DataImportWorkflowDefinitionsProvidedLive,
+	GenericImportChunksProvidedLive,
 	Layer.provide(
 		IntegrationWorkflowDefinitionsLive,
 		Layer.mergeAll(

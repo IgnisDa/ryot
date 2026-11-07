@@ -14,15 +14,15 @@ import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Layer, Schema } from "effect";
 import { DurableClock, Workflow } from "effect/workflow";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
+import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { SignalEmissionService } from "#modules/automations/signal-service";
-import { ProcessDataImportWorkflow } from "#modules/imports/data-workflow";
+import { runDataImportWorkflow } from "#modules/imports/data-workflow";
 import { IngestionExecution } from "#modules/imports/execution-service";
-import { IngestionExecutionLive } from "#modules/imports/layer";
+import { DataImportServicesLive, IngestionExecutionLive } from "#modules/imports/layer";
 import { ImportsRepository } from "#modules/imports/repository";
-import { admitWorkflow, dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
+import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
@@ -157,11 +157,7 @@ export const runIntegrationRunWorkflow = Effect.fn("ProcessIntegrationRunWorkflo
 				return yield* Effect.void;
 			}
 			if (integration.pluginInstallationId === null) {
-				const engine = yield* WorkflowEngine;
-				yield* dispatchAdmittedWorkflow(engine, ProcessDataImportWorkflow, payload.accountUserId, {
-					executionId: `${payload.runId}-data`,
-					payload: { command, runId: payload.runId, userId: payload.userId },
-				});
+				yield* runDataImportWorkflow({ command, runId: payload.runId, userId: payload.userId });
 			} else {
 				const sandbox = yield* ScriptExecutionService;
 				const state = yield* ingestion.recoverInput(scope);
@@ -281,6 +277,6 @@ export const IntegrationWorkflowDefinitionsLive = implementWorkflow(
 	runIntegrationRunWorkflow,
 ).pipe(
 	Layer.provide(
-		Layer.mergeAll(IntegrationIngestionLive, IngestionExecutionLive, ImportsRepository.layer),
+		Layer.mergeAll(IntegrationIngestionLive, IngestionExecutionLive, DataImportServicesLive),
 	),
 );

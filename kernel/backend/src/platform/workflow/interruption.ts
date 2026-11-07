@@ -37,6 +37,18 @@ export const isWorkflowSettled = Effect.fn("workflow.isSettled")(function* (
 	return Option.isSome(result) && result.value._tag === "Complete";
 });
 
+// Reads an execution known only by name, whose workflow may not be registered in this process.
+export const isExecutionSettled = (identity: WorkflowIdentity) =>
+	isWorkflowSettled(
+		Workflow.make(identity.workflowName, {
+			error: Schema.Unknown,
+			success: Schema.Unknown,
+			payload: Schema.Struct({}),
+			idempotencyKey: () => identity.executionId,
+		}),
+		identity.executionId,
+	);
+
 export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(function* (
 	workflow: Workflow.Any,
 	executionId: string,

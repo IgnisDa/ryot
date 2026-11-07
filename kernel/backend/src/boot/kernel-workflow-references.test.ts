@@ -43,6 +43,7 @@ import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
+import { GenericImportChunks } from "#modules/imports/generic-import-workflow";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowActivityEngine } from "#testing/effect";
@@ -250,6 +251,19 @@ const recordingEngineLayer = (
 				Layer.mock(TransientValues)({
 					get: () => Effect.succeed(completedEntityImport),
 				}),
+				Layer.mock(GenericImportChunks)({
+					apply: (payload) =>
+						Ref.update(dispatches, (all) => [
+							...all,
+							{ payload, executionId: payload.executionId },
+						]).pipe(
+							Effect.as({
+								issues: [],
+								summary: [],
+								confirmed: [],
+							}),
+						),
+				}),
 				Layer.succeed(
 					WorkflowEngine,
 					makeWorkflowActivityEngine(parentInstance, {
@@ -288,6 +302,7 @@ const unusedPopulationLayer = Layer.mergeAll(
 const unusedEngineLayer = Layer.mergeAll(
 	unusedPopulationLayer,
 	transientValuesLayer,
+	Layer.mock(GenericImportChunks)({}),
 	Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 	Layer.succeed(WorkflowInstance, parentInstance),
 	Layer.mock(EventsService)({}),
@@ -308,6 +323,7 @@ const recordingPopulationLayer = (
 			const requests = yield* Ref.make<ReadonlyArray<PopulationRequest>>([]);
 			return Layer.mergeAll(
 				transientValuesLayer,
+				Layer.mock(GenericImportChunks)({}),
 				Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(parentInstance)),
 				Layer.succeed(WorkflowInstance, parentInstance),
 				Layer.mock(EventsService)({}),

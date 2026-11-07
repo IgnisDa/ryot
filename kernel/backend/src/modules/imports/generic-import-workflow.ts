@@ -28,7 +28,6 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import {
-	genericImportApplyResultSchema,
 	genericImportChunkOperationIds,
 	genericImportChunkSchema,
 	genericImportItemIntents,
@@ -37,10 +36,9 @@ import {
 import { providerResolveResultSchema } from "@ryot-app/plugin-backend-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Effect, Schema } from "effect";
-import { Workflow } from "effect/workflow";
+import { Context, Effect, Layer, Option, Ref, Schema, type Scope } from "effect";
+import type { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import type { DurableSchema } from "#boot/workflow-engine";
 import {
 	type LifecyclePreparedStep,
 	mapCommittedResult,
@@ -60,7 +58,6 @@ import { EntitiesService, PendingEntityMutation } from "#modules/entities/servic
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import {
 	PendingRelationshipMutations,
@@ -75,7 +72,7 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { UserCommandFailure, UserCommands } from "#modules/user-commands/service";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
-import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
+import { forgetWorkflowSteps, inWorkflowStepScope, makeActivity } from "#platform/workflow/scope";
 
 import {
 	genericIngestionBatchResult,
@@ -129,16 +126,6 @@ export const failureReasonByStage = {
 	provider_resolution: { code: "provider-resolution-failed" },
 	input_transformation: { code: "input-transformation-failed" },
 } as const satisfies Record<ImportRunFailureStage, ImportRunFailureReason>;
-
-export const ProcessGenericImportChunksWorkflow = Workflow.make(
-	"ProcessGenericImportChunksWorkflow",
-	{
-		error: ImportRunError satisfies DurableSchema,
-		idempotencyKey: ({ executionId }) => executionId,
-		success: genericImportApplyResultSchema satisfies DurableSchema,
-		payload: ProcessGenericImportChunksPayload satisfies DurableSchema,
-	},
-);
 
 export const GenericImportEntity = Schema.Struct({
 	entityId: EntityId,
@@ -879,8 +866,8 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: ScriptPluginRevision) =>
 	makeActivity({
 		name: "resolve-generic-import-definitions",
-		error: ImportRunError satisfies DurableSchema,
-		success: DefinitionSnapshot satisfies DurableSchema,
+		error: ImportRunError,
+		success: DefinitionSnapshot,
 		execute: Effect.flatMap(DefinitionRepository, (definitions) =>
 			definitions.getSnapshotForContext(
 				{ pluginId: pluginRevision.id, pluginRevisionId: pluginRevision.revisionId },
@@ -889,12 +876,9 @@ const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: ScriptP
 		).pipe(Effect.mapError(toWorkflowError)),
 	});
 
-export const runProcessGenericImportChunksWorkflow = Effect.fn(
-	"ProcessGenericImportChunksWorkflow",
-)(
-	function* (payload: typeof ProcessGenericImportChunksPayload.Type, executionId: string) {
+export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
+	function* (payload: typeof ProcessGenericImportChunksPayload.Type) {
 		const keys = yield* IdempotencyKeys.make;
-		yield* admitWorkflow(payload.command.accountUserId).pipe(Effect.mapError(toWorkflowError));
 		if (!payload.command.accountUserId) {
 			return yield* new ImportRunError({ message: "Ingestion account is missing" });
 		}
@@ -902,8 +886,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 		const repository = yield* ImportsRepository;
 		const database = yield* DatabaseSession;
 		const captures = yield* IngestionCaptures;
-		const batches = yield* repository.listBatches(scope);
-		const previous = batches.find(({ data }) => data.id === payload.batchId)?.data;
+		const previous = yield* repository.getBatch(scope, payload.batchId);
 		if (
 			previous &&
 			(previous.captureId !== payload.captureId ||
@@ -938,10 +921,7 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			execute: database
 				.transaction(
 					Effect.gen(function* () {
-						yield* repository.registerBatch(scope, batch, genericImportChunkOperationIds(chunk), {
-							executionId,
-							workflowName: ProcessGenericImportChunksWorkflow._tag,
-						});
+						yield* repository.registerBatch(scope, batch, genericImportChunkOperationIds(chunk));
 						yield* repository.startBatch(scope, batch.id);
 					}),
 				)
@@ -1149,12 +1129,62 @@ export const runProcessGenericImportChunksWorkflow = Effect.fn(
 			name: "project-ingestion-batch",
 			execute: reconcileGenericIngestionBatch(scope, batch).pipe(Effect.mapError(toWorkflowError)),
 		});
-		return yield* genericIngestionBatchResult(scope, { ...batch, summary }, chunk);
+		const result = yield* genericIngestionBatchResult(scope, { ...batch, summary }, chunk);
+		yield* forgetWorkflowSteps(payload.batchId);
+		return result;
 	},
-	(effect) => effect.pipe(Effect.mapError(toWorkflowError)),
+	(effect, payload) =>
+		effect.pipe(inWorkflowStepScope(payload.batchId), Effect.mapError(toWorkflowError)),
 );
 
-export const ProcessGenericImportChunksWorkflowDefinitionsLive = implementWorkflow(
-	ProcessGenericImportChunksWorkflow,
-	runProcessGenericImportChunksWorkflow,
+type GenericImportChunkRun = (
+	payload: typeof ProcessGenericImportChunksPayload.Type,
+) => Effect.Effect<
+	Effect.Success<ReturnType<typeof runGenericImportChunk>>,
+	ImportRunError,
+	WorkflowEngine | WorkflowInstance
+>;
+
+/**
+ * Applies a chunk in the plugin script's workflow that sent it. Chunks write through services that themselves need
+ * scripts, so the runtime installs this once those exist.
+ */
+export class GenericImportChunks extends Context.Service<
+	GenericImportChunks,
+	{
+		readonly apply: GenericImportChunkRun;
+		readonly install: (run: GenericImportChunkRun) => Effect.Effect<void, never, Scope.Scope>;
+	}
+>()("@ryot-app/kernel-backend/modules/imports/generic-import-workflow/GenericImportChunks") {
+	static readonly layer = Layer.effect(
+		this,
+		Effect.gen(function* () {
+			const installed = yield* Ref.make(Option.none<GenericImportChunkRun>());
+			return {
+				install: (run) =>
+					Effect.acquireRelease(Ref.set(installed, Option.some(run)), () =>
+						Ref.set(installed, Option.none()),
+					),
+				apply: (payload) =>
+					Effect.flatMap(Ref.get(installed), (run) =>
+						Option.isNone(run) ? Effect.die("Import chunks are not installed") : run.value(payload),
+					),
+			};
+		}),
+	);
+}
+
+export const GenericImportChunksInstalledLive = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const services =
+			yield* Effect.context<
+				Exclude<
+					Effect.Services<ReturnType<typeof runGenericImportChunk>>,
+					WorkflowEngine | WorkflowInstance
+				>
+			>();
+		yield* (yield* GenericImportChunks).install((payload) =>
+			runGenericImportChunk(payload).pipe(Effect.provideContext(services)),
+		);
+	}),
 );

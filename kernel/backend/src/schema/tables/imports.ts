@@ -14,6 +14,7 @@ import type {
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
@@ -266,8 +267,7 @@ export const importPayloadReservation = snakeCase.table(
 export const importBatch = snakeCase.table(
 	"import_batch",
 	{
-		executionId: text().notNull(),
-		workflowName: text().notNull(),
+		result: jsonb().$type<JsonValue>(),
 		operationIds: text().array().notNull(),
 		data: jsonb().$type<IngestionBatch>().notNull(),
 		id: text()

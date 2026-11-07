@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "17caede0-3a60-4de4-8fa4-0a5f372a110d",
+  "id": "ac02e74e-e03c-4324-b891-9a36c075a17f",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -13527,23 +13527,10 @@
     {
       "schema": "public",
       "table": "import_batch",
-      "name": "execution_id",
-      "type": "text",
+      "name": "result",
+      "type": "jsonb",
       "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "workflow_name",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
       "generated": null,

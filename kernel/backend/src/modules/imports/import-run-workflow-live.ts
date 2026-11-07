@@ -1,6 +1,5 @@
 import { Effect, Layer } from "effect";
 
-import { DefinitionRepository } from "#modules/definitions/repository";
 import { admitWorkflow } from "#modules/mutations/workflow-dispatch";
 import { implementWorkflow } from "#platform/workflow/scope";
 
@@ -8,9 +7,8 @@ import { IngestionCaptures } from "./capture-service";
 import { runDataImportWorkflow } from "./data-workflow";
 import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import type { ImportRunJobData } from "./jobs";
-import { IngestionExecutionLive } from "./layer";
+import { DataImportServicesLive, IngestionExecutionLive } from "./layer";
 import { runPluginImportWorkflow } from "./plugin-import-workflow";
-import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { toWorkflowError } from "./runtime/workflow-errors";
 
@@ -23,7 +21,7 @@ export const runProcessImportRunWorkflow = Effect.fn("ProcessImportRunWorkflow")
 		});
 		if (payload.dataJson) {
 			yield* admitWorkflow(payload.command.accountUserId).pipe(Effect.mapError(toWorkflowError));
-			yield* runDataImportWorkflow(payload, executionId);
+			yield* runDataImportWorkflow(payload);
 		} else {
 			yield* runPluginImportWorkflow(payload, executionId);
 		}
@@ -40,7 +38,7 @@ const ProcessImportRunWorkflowLive = implementWorkflow(
 );
 
 export const ImportWorkflowDefinitionsLive = ProcessImportRunWorkflowLive.pipe(
+	Layer.provide(DataImportServicesLive),
 	Layer.provide(ImportSourceStateStore.layer),
-	Layer.provide(Layer.mergeAll(ImportsRepository.layer, DefinitionRepository.layer)),
 	Layer.provide(Layer.mergeAll(IngestionExecutionLive, IngestionCaptures.layer)),
 );

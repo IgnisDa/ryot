@@ -25,6 +25,7 @@ import {
 	PluginId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Context, DateTime, Duration, Effect, Layer, Schema, Struct } from "effect";
@@ -981,7 +982,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				scope: IngestionScope,
 				batch: IngestionBatch,
 				operationIds: ReadonlyArray<string>,
-				execution: Pick<typeof schema.importBatch.$inferInsert, "executionId" | "workflowName">,
 			) {
 				const data = yield* Schema.decodeEffect(IngestionBatch)(batch);
 				yield* lockProjection(scope);
@@ -997,8 +997,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				if (existing) {
 					if (
 						stableStringify(existing.operationIds) !== stableStringify([...operationIds].sort()) ||
-						existing.workflowName !== execution.workflowName ||
-						existing.executionId !== execution.executionId ||
 						existing.data.inputFingerprint !== data.inputFingerprint ||
 						existing.captureId !== data.captureId ||
 						existing.ordinal !== data.ordinal
@@ -1040,7 +1038,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.values({
 							data,
 							operationIds: [...operationIds].sort(),
-							...execution,
 							runId: scope.runId,
 						}),
 				);
@@ -1101,6 +1098,18 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						),
 				);
 				return true;
+			});
+			const storeBatchResult = Effect.fn("ImportsRepository.storeBatchResult")(function* (
+				scope: IngestionScope,
+				id: string,
+				result: JsonValue,
+			) {
+				yield* database.run((db) =>
+					db
+						.update(schema.importBatch)
+						.set({ result })
+						.where(and(eq(schema.importBatch.runId, scope.runId), eq(schema.importBatch.id, id))),
+				);
 			});
 			const writeActivity = Effect.fn("ImportsRepository.writeActivity")(function* (
 				scope: IngestionScope,
@@ -1442,12 +1451,25 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				return yield* database.run((db) =>
 					db
-						.select({ data: schema.importBatch.data })
+						.select({ data: schema.importBatch.data, result: schema.importBatch.result })
 						.from(schema.importBatch)
 						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importBatch.runId))
 						.where(owned(scope))
 						.orderBy(asc(schema.importBatch.ordinal)),
 				);
+			});
+			const getBatch = Effect.fn("ImportsRepository.getBatch")(function* (
+				scope: IngestionScope,
+				id: string,
+			) {
+				const [row] = yield* database.run((db) =>
+					db
+						.select({ data: schema.importBatch.data })
+						.from(schema.importBatch)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importBatch.runId))
+						.where(and(owned(scope), eq(schema.importBatch.id, id))),
+				);
+				return row?.data ?? null;
 			});
 			const isIngestionApplied = Effect.fn("ImportsRepository.isIngestionApplied")(function* (
 				scope: IngestionScope,
@@ -1572,19 +1594,18 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.limit(1000),
 				);
 			});
-			const listBatchExecutions = Effect.fn("ImportsRepository.listBatchExecutions")(function* (
+			const hasStartedBatch = Effect.fn("ImportsRepository.hasStartedBatch")(function* (
 				scope: IngestionScope,
 			) {
-				return yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
-						.select({
-							executionId: schema.importBatch.executionId,
-							workflowName: schema.importBatch.workflowName,
-						})
+						.select({ id: schema.importBatch.id })
 						.from(schema.importBatch)
 						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importBatch.runId))
-						.where(and(owned(scope), sql`${schema.importBatch.data}->>'state' <> 'pending'`)),
+						.where(and(owned(scope), sql`${schema.importBatch.data}->>'state' <> 'pending'`))
+						.limit(1),
 				);
+				return rows.length > 0;
 			});
 			const listRecoveryRuns = Effect.fn("ImportsRepository.listRecoveryRuns")(function* (
 				limit: number,
@@ -1943,6 +1964,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				getRunById,
 				getCapture,
 				startBatch,
+				getBatch,
 				listBatches,
 				putActivity,
 				recordIssue,
@@ -1978,7 +2000,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				isIngestionApplied,
 				updateInputSummary,
 				getIntegrationInput,
-				listBatchExecutions,
+				hasStartedBatch,
+				storeBatchResult,
 				claimAdmissionAbort,
 				admitDataSubmission,
 				findDataUploadRetry,

@@ -39,10 +39,6 @@ const pins = {
 	executionId: "source-owner",
 	pluginConfigRevisionId: null,
 };
-const batchOwner = {
-	executionId: "batch-owner",
-	workflowName: "ProcessGenericImportChunksWorkflow",
-};
 const plan = { selection: {}, operation: "collect" };
 const reasons = [{ key: "endpoint", code: "configuration-required" as const }];
 
@@ -765,7 +761,7 @@ layer(
 								yield* repository.publishCapture(scope, capture);
 								for (let ordinal = 0; ordinal < size; ordinal++) {
 									const item = { ...batch, ordinal, id: `control-batch-${ordinal}` };
-									yield* repository.registerBatch(scope, item, [], batchOwner);
+									yield* repository.registerBatch(scope, item, []);
 									yield* repository.startBatch(scope, item.id);
 									yield* repository.projectBatch(scope, { ...item, summary, state: "applied" });
 									yield* repository.putActivity(scope, {
@@ -901,7 +897,7 @@ layer(
 					],
 				});
 				yield* session.transaction(
-					repository.registerBatch(scope, batch, operationIds, batchOwner),
+					repository.registerBatch(scope, batch, operationIds),
 				);
 				const [stored] = yield* session.run((db) =>
 					db
@@ -917,7 +913,6 @@ layer(
 							scope,
 							{ ...batch, ordinal: 1, id: "batch-1" },
 							["support-entity"],
-							batchOwner,
 						),
 					),
 				);
@@ -934,15 +929,15 @@ layer(
 				const repository = yield* ImportsRepository;
 				const session = yield* DatabaseSession;
 				yield* session.transaction(repository.publishCapture(scope, capture));
-				yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner));
-				expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
+				yield* session.transaction(repository.registerBatch(scope, batch, []));
+				expect(yield* repository.hasStartedBatch(scope)).toBe(false);
 				for (const changed of [
 					{ ...batch, ordinal: 1 },
 					{ ...batch, captureId: "changed-capture" },
 				]) {
 					assertExitFails(
 						yield* Effect.exit(
-							session.transaction(repository.registerBatch(scope, changed, [], batchOwner)),
+							session.transaction(repository.registerBatch(scope, changed, [])),
 						),
 						new DbError({ message: "Batch identity conflict" }),
 					);
@@ -964,14 +959,14 @@ layer(
 				);
 				expect(updates).toHaveLength(1);
 				expect(yield* repository.listBatches(scope)).toEqual([
-					{ data: { ...batch, state: "applying" } },
+					{ result: null, data: { ...batch, state: "applying" } },
 				]);
-				expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
+				expect(yield* repository.hasStartedBatch(scope)).toBe(true);
 				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
 				expect(yield* session.transaction(repository.startBatch(scope, "missing"))).toBe(false);
 				yield* session.transaction(repository.projectBatch(scope, { ...batch, state: "applied" }));
 				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
-				expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
+				expect(yield* repository.hasStartedBatch(scope)).toBe(true);
 			}),
 		testTimeout,
 	);
@@ -984,14 +979,14 @@ layer(
 				const repository = yield* ImportsRepository;
 				const session = yield* DatabaseSession;
 				yield* session.transaction(repository.publishCapture(scope, capture));
-				yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner));
+				yield* session.transaction(repository.registerBatch(scope, batch, []));
 				expect(yield* repository.cancelIngestion(scope)).toBe(true);
 				const exit = yield* Effect.exit(
 					session.transaction(repository.startBatch(scope, batch.id)),
 				);
 				assertExitFails(exit, new DbError({ message: "Ingestion owner is not active" }));
-				expect(yield* repository.listBatches(scope)).toEqual([{ data: batch }]);
-				expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
+				expect(yield* repository.listBatches(scope)).toEqual([{ data: batch, result: null }]);
+				expect(yield* repository.hasStartedBatch(scope)).toBe(false);
 			}),
 		testTimeout,
 	);
@@ -1008,7 +1003,7 @@ layer(
 				const exit = yield* Effect.exit(
 					session.transaction(
 						Effect.gen(function* () {
-							yield* repository.registerBatch(scope, batch, [], batchOwner);
+							yield* repository.registerBatch(scope, batch, []);
 							expect(yield* repository.startBatch(scope, batch.id)).toBe(true);
 							return yield* error;
 						}),
@@ -1016,7 +1011,7 @@ layer(
 				);
 				assertExitFails(exit, error);
 				expect(yield* repository.listBatches(scope)).toEqual([]);
-				expect(yield* repository.listBatchExecutions(scope)).toEqual([]);
+				expect(yield* repository.hasStartedBatch(scope)).toBe(false);
 			}),
 		testTimeout,
 	);
@@ -1029,9 +1024,9 @@ layer(
 				const repository = yield* ImportsRepository;
 				const session = yield* DatabaseSession;
 				yield* session.transaction(repository.publishCapture(scope, capture));
-				yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner));
+				yield* session.transaction(repository.registerBatch(scope, batch, []));
 				expect(
-					yield* session.transaction(repository.registerBatch(scope, batch, [], batchOwner)),
+					yield* session.transaction(repository.registerBatch(scope, batch, [])),
 				).toBe(false);
 				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(true);
 				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
@@ -1042,14 +1037,13 @@ layer(
 								scope,
 								{ ...batch, inputFingerprint: "changed" },
 								[],
-								batchOwner,
 							),
 						),
 					))._tag,
 				).toBe("Failure");
 				expect(yield* repository.releaseCapture(scope, capture.id)).toBe(false);
 				expect(yield* repository.cancelIngestion(scope)).toBe(true);
-				expect(yield* repository.listBatchExecutions(scope)).toEqual([batchOwner]);
+				expect(yield* repository.hasStartedBatch(scope)).toBe(true);
 				expect(
 					(yield* Effect.exit(
 						session.transaction(
@@ -1160,7 +1154,7 @@ layer(
 				yield* session.transaction(repository.publishCapture(scope, capture));
 				expect(
 					(yield* Effect.exit(
-						session.transaction(repository.registerBatch(other, batch, [], batchOwner)),
+						session.transaction(repository.registerBatch(other, batch, [])),
 					))._tag,
 				).toBe("Failure");
 				expect(yield* repository.getIngestionRun(scope)).toMatchObject({
@@ -1242,7 +1236,7 @@ layer(
 				expect(yield* repository.pageCaptures(scope, null, 100)).toEqual([{ data: sourceCapture }]);
 				expect(yield* repository.isIngestionApplied(scope)).toBe(false);
 				const preparedBatch = { ...batch, captureId: prepared.id };
-				yield* session.transaction(repository.registerBatch(scope, preparedBatch, [], batchOwner));
+				yield* session.transaction(repository.registerBatch(scope, preparedBatch, []));
 				yield* session.transaction(
 					repository.projectBatch(scope, { ...preparedBatch, state: "applied" }),
 				);

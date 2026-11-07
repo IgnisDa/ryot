@@ -15,7 +15,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { it } from "@voila.dev/effect-bun-test";
-import { Effect, Layer, Schema } from "effect";
+import { Effect, Layer } from "effect";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
@@ -28,6 +28,7 @@ import { EntityImportWorkflowOperations } from "#modules/entities/providers/oper
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
+import { ProcessIntegrationRunWorkflow } from "#modules/integrations/integration-workflow";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { RelationshipsService } from "#modules/relationships/service";
 import { JobQueue } from "#platform/jobs/queue";
@@ -35,11 +36,9 @@ import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
-import { type DataGraphRecord, DataGraphRecordSchema } from "./data-graph";
+import type { DataGraphRecord } from "./data-graph";
 import {
-	ProcessDataImportSegmentWorkflow,
-	ProcessDataImportWorkflow,
-	runDataImportSegmentWorkflow,
+	runDataImportSegment,
 	runDataImportWorkflow,
 } from "./data-workflow";
 import { IngestionExecution } from "./execution-service";
@@ -50,6 +49,7 @@ import {
 	ingestionTestRun,
 	ingestionTestScope,
 } from "./ingestion.test-support";
+import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { ingestionItemIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 
@@ -138,7 +138,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		ingestionTestDatabase(() => items),
 		Layer.succeed(
 			WorkflowInstance,
-			WorkflowInstance.initial(ProcessDataImportSegmentWorkflow, "segment-owner"),
+			WorkflowInstance.initial(ProcessImportRunWorkflow, "segment-owner"),
 		),
 		Layer.succeed(
 			WorkflowEngine,
@@ -204,6 +204,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					projections.push(value);
 					return true;
 				}),
+			storeBatchResult: () => Effect.void,
 			recordOutcome: (_scope, outcome) =>
 				Effect.sync(() => {
 					outcomes.set(outcome.operationId, outcome);
@@ -234,14 +235,13 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 		}),
 	);
 	const context = yield* Layer.build(dependencies);
-	const execute = runDataImportSegmentWorkflow({
+	const execute = runDataImportSegment({
 		batch,
 		snapshot,
 		command: { ...command, writeContext: null },
 		...ingestionTestScope,
 		relationshipIds: {},
 		failedKeys: ["failed"],
-		executionId: "segment-owner",
 		entityIds: { subject: "subject-id", related: "related-id" },
 		startingCounters: { totalItems: 54, failedItems: 1, importedItems: 49, processedItems: 50 },
 		entitySchemasByKey: {
@@ -316,12 +316,13 @@ it.effect(
 );
 
 it.effect(
-	"registers integration Data planning failures under the actual child owner and leaves root settlement to the integration",
+	"continues from applied segments without settling an integration's run",
 	() =>
 		Effect.gen(function* () {
+			const entityKeys = Array.from({ length: 50 }, (_, index) => `entity-${index}`);
 			const captured = new Map<string, Parameters<IngestionCaptures["Service"]["publish"]>[0]>();
-			const owners: { executionId: string; workflowName: string }[] = [];
-			const segments: (typeof ProcessDataImportSegmentWorkflow.payloadSchema.Type)[] = [];
+			const registered: string[] = [];
+			const submitted: Parameters<EventsService["Service"]["create"]>[0][] = [];
 			const outcomes = new Map<string, IngestionOutcome>();
 			let sealed = false;
 			const integrationId = IntegrationId.make("integration");
@@ -336,47 +337,65 @@ it.effect(
 				initiator: { id: integrationId, kind: "integration" },
 				executionId: AutomationExecutionId.make(ingestionTestScope.runId),
 			});
+			const document = stableStringify({
+				relationships: [],
+				events: [
+					{
+						key: "event",
+						entityKey: "entity-49",
+						eventSchemaSlug: "recorded",
+						occurredAt: ingestionTestNow,
+						properties: { related: { entity: "entity-0" } },
+					},
+				],
+				entities: [
+					{
+						key: "unknown",
+						kind: "custom",
+						properties: {},
+						name: "Unknown",
+						entitySchema: { slug: "unavailable", owner: { kind: "kernel" } },
+					},
+					...entityKeys.map((key) => ({
+						key,
+						name: key,
+						kind: "custom",
+						properties: {},
+						entitySchema: { slug: "record", owner: { kind: "kernel" } },
+					})),
+				],
+			});
 			const dependencies = Layer.mergeAll(
 				workflowAccountsTestLayer,
 				ingestionTestDatabase(),
 				Layer.succeed(
 					WorkflowInstance,
-					WorkflowInstance.initial(ProcessDataImportWorkflow, "data-owner"),
+					WorkflowInstance.initial(ProcessIntegrationRunWorkflow, "integration-root"),
 				),
 				Layer.succeed(
 					WorkflowEngine,
 					makeWorkflowEngine({
 						activityExecute: (activity) =>
 							Effect.map(Effect.exit(activity.execute), (exit) => new Workflow.Complete({ exit })),
-						execute: (_workflow, options) =>
-							Effect.gen(function* () {
-								const payload = yield* Schema.decodeUnknownEffect(
-									ProcessDataImportSegmentWorkflow.payloadSchema,
-								)(options.payload);
-								segments.push(payload);
-								const capture = captured.get(payload.batch.captureId);
-								assert(capture);
-								const records = yield* Schema.decodeEffect(
-									Schema.fromJsonString(Schema.Array(DataGraphRecordSchema)),
-								)(new TextDecoder().decode(capture.bytes));
-								return {
-									failedKeys: [],
-									relationshipIds: {},
-									entityIds: Object.fromEntries(
-										records
-											.filter((item) => item.kind === "entity")
-											.map((item) => [item.record.key, `id:${item.record.key}`]),
-									),
-									counters: {
-										...payload.startingCounters,
-										importedItems: payload.startingCounters.importedItems + records.length,
-										processedItems: payload.startingCounters.processedItems + records.length,
-									},
-								};
-							}),
 					}),
 				),
 				Layer.mock(IngestionExecution)({}),
+				Layer.mock(EntitiesService)({}),
+				Layer.mock(LifecycleExecution)({}),
+				Layer.mock(PluginRuntimeResolver)({}),
+				Layer.mock(EntityImportWorkflowOperations)({}),
+				Layer.mock(JobQueue)({}),
+				Layer.mock(TransientValues)({}),
+				Layer.mock(EntitiesRepository)({}),
+				Layer.mock(RelationshipsService)({}),
+				Layer.mock(ManagedAssetsService)({ verifyManagedAssetOwnership: () => Effect.succeed([]) }),
+				Layer.mock(EventsService)({
+					create: (input) =>
+						Effect.sync(() => {
+							submitted.push(input);
+							return { count: 1, outcomes: [], warnings: [], failure: null };
+						}),
+				}),
 				Layer.mock(DefinitionRepository)({ getUserSnapshot: () => Effect.succeed(snapshot) }),
 				Layer.mock(IngestionCaptures)({
 					publish: (input) =>
@@ -391,52 +410,44 @@ it.effect(
 								},
 							};
 						}),
-					read: () =>
-						Effect.succeed(
-							Buffer.from(
-								stableStringify({
-									relationships: [],
-									events: [
-										{
-											key: "event",
-											entityKey: "entity-50",
-											eventSchemaSlug: "recorded",
-											occurredAt: ingestionTestNow,
-											properties: { related: { entity: "entity-0" } },
-										},
-									],
-									entities: [
-										{
-											key: "unknown",
-											kind: "custom",
-											properties: {},
-											name: "Unknown",
-											entitySchema: { slug: "unavailable", owner: { kind: "kernel" } },
-										},
-										...Array.from({ length: 51 }, (_, index) => ({
-											kind: "custom",
-											properties: {},
-											key: `entity-${index}`,
-											name: `Entity ${index}`,
-											entitySchema: { slug: "record", owner: { kind: "kernel" } },
-										})),
-									],
-								}),
-							),
+					read: (_scope, id) =>
+						Effect.sync(() =>
+							Buffer.from(captured.get(id)?.bytes ?? new TextEncoder().encode(document)),
 						),
 				}),
 				Layer.mock(ImportsRepository)({
 					recordIssue: () => Effect.succeed(true),
 					projectBatch: () => Effect.succeed(true),
+					startBatch: () => Effect.succeed(true),
+					storeBatchResult: () => Effect.void,
 					getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 					sealCollection: () =>
 						Effect.sync(() => {
 							sealed = true;
 						}),
 					getIngestionRunControl: () => Effect.succeed(ingestionTestRun({ integrationId })),
-					registerBatch: (_scope, _batch, _operations, owner) =>
+					listBatches: () =>
+						Effect.succeed([
+							{
+								data: {
+									ordinal: 1,
+									summary: [],
+									state: "applied" as const,
+									id: "data-segment:0",
+									captureId: "data-segment:0",
+									inputFingerprint: "data-segment:0",
+								},
+								result: {
+									failedKeys: [],
+									relationshipIds: {},
+									entityIds: Object.fromEntries(entityKeys.map((key) => [key, `id:${key}`])),
+									counters: { totalItems: 52, failedItems: 1, importedItems: 50, processedItems: 51 },
+								},
+							},
+						]),
+					registerBatch: (_scope, batch) =>
 						Effect.sync(() => {
-							owners.push(owner);
+							registered.push(batch.id);
 							return true;
 						}),
 					recordOutcome: (_scope, outcome) =>
@@ -452,27 +463,15 @@ it.effect(
 						}),
 				}),
 			);
-			yield* runDataImportWorkflow(
-				{ ...ingestionTestScope, command: integrationCommand },
-				"data-owner",
-			).pipe(Effect.provideContext(yield* Layer.build(dependencies)));
-			expect(owners).toEqual([
-				{ executionId: "data-owner", workflowName: ProcessDataImportWorkflow._tag },
-				{
-					executionId: "data-owner-segment-0",
-					workflowName: ProcessDataImportSegmentWorkflow._tag,
-				},
-				{
-					executionId: "data-owner-segment-1",
-					workflowName: ProcessDataImportSegmentWorkflow._tag,
-				},
-			]);
-			expect(segments).toHaveLength(2);
-			expect(segments[0]?.startingCounters.processedItems).toBe(1);
-			expect(segments[1]?.startingCounters.processedItems).toBe(51);
-			expect(segments[1]?.entityIds).toEqual({ "entity-0": "id:entity-0" });
-			expect(segments[1]?.entitySchemasByKey).toEqual<unknown>({
-				"entity-50": { slug: "record", owner: { kind: "kernel" } },
+			yield* runDataImportWorkflow({ ...ingestionTestScope, command: integrationCommand }).pipe(
+				Effect.scoped,
+				Effect.provideContext(yield* Layer.build(dependencies)),
+			);
+			expect(registered).toEqual(["data-plan:0", "data-segment:1"]);
+			expect(submitted).toHaveLength(1);
+			expect(submitted[0]?.payload[0]).toMatchObject({
+				entityId: "id:entity-49",
+				properties: { related: { entity: "id:entity-0" } },
 			});
 			expect(sealed).toBe(true);
 			expect(outcomes.get("data-plan:0:unknown")?.result).toBe("unsuccessful");

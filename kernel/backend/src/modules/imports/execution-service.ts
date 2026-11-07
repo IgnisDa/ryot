@@ -1,5 +1,6 @@
 import type {
 	IngestionBatch,
+	IngestionRun,
 	IngestionScope,
 	IngestionSummary,
 } from "@ryot-app/contract/modules/imports/ingestion";
@@ -7,11 +8,11 @@ import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/
 import { Context, DateTime, Effect, Layer, Option } from "effect";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
-import { AdmittedWorkflowCatalogue } from "#modules/mutations/workflow-catalogue";
 import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
+import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
-import { interruptWorkflowAndWait, isWorkflowSettled } from "#platform/workflow/interruption";
+import { interruptWorkflowAndWait, isExecutionSettled } from "#platform/workflow/interruption";
 
 import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
@@ -28,7 +29,15 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 			const database = yield* DatabaseSession;
 			const engine = yield* WorkflowEngine;
 			const notifications = yield* WorkflowExecutionNotifications;
-			const catalogue = yield* AdmittedWorkflowCatalogue;
+			// A plugin's chunks are written by its script, which only exists once a chunk has started.
+			const chunkWriter = Effect.fnUntraced(function* (
+				scope: IngestionScope,
+				run: Pick<IngestionRun, "pins" | "pluginInstallationId">,
+			) {
+				return run.pins && run.pluginInstallationId !== null && (yield* repository.hasStartedBatch(scope))
+					? run.pins.executionId
+					: null;
+			});
 			const canCleanup = Effect.fn("IngestionExecution.canCleanup")(function* (
 				scope: IngestionScope,
 			) {
@@ -38,6 +47,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				}
 				const instance = yield* Effect.serviceOption(WorkflowInstance);
 				const currentExecutionId = Option.isSome(instance) ? instance.value.executionId : null;
+				const writer = yield* chunkWriter(scope, run);
 				const owners = [
 					{
 						executionId: scope.runId,
@@ -46,18 +56,12 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 								? "ProcessImportRunWorkflow"
 								: "ProcessIntegrationRunWorkflow",
 					},
-					...(yield* repository.listBatchExecutions(scope)),
+					...(writer ? [{ executionId: writer, workflowName: ScriptExecutionWorkflow._tag }] : []),
 				];
 				for (const owner of owners) {
-					if (owner.executionId === currentExecutionId) {
-						continue;
-					}
-					const workflow = catalogue.find((entry) => entry._tag === owner.workflowName);
 					if (
-						!workflow ||
-						!(yield* isWorkflowSettled(workflow, owner.executionId).pipe(
-							Effect.provideService(WorkflowEngine, engine),
-						))
+						owner.executionId !== currentExecutionId &&
+						!(yield* isExecutionSettled(owner).pipe(Effect.provideService(WorkflowEngine, engine)))
 					) {
 						return false;
 					}
@@ -119,19 +123,13 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 						: input.status;
 				if (run.status === "cancelling" || requestedStatus !== "completed") {
 					yield* captures.stopWrites(input.scope);
-					for (const owner of yield* repository.listBatchExecutions(input.scope)) {
-						if (owner.executionId === input.scope.runId) {
-							continue;
-						}
-						const workflow = catalogue.find((value) => value._tag === owner.workflowName);
-						if (!workflow) {
-							return yield* new ImportRunError({
-								message: "Ingestion batch owner is not registered",
-							});
-						}
+					const writer = yield* chunkWriter(input.scope, run);
+					if (writer) {
 						yield* policy.kind === "quarantine"
-							? engine.interrupt(workflow, owner.executionId)
-							: interruptWorkflowAndWait(workflow, owner.executionId, { requireReply: true }).pipe(
+							? engine.interrupt(ScriptExecutionWorkflow, writer)
+							: interruptWorkflowAndWait(ScriptExecutionWorkflow, writer, {
+									requireReply: true,
+								}).pipe(
 									Effect.provideService(WorkflowEngine, engine),
 									Effect.provideService(WorkflowExecutionNotifications, notifications),
 								);

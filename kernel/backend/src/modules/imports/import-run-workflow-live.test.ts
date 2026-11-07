@@ -28,6 +28,7 @@ import {
 	ingestionTestRun,
 	ingestionTestScope,
 	ingestionTestSource,
+	unusedDataImportServices,
 } from "./ingestion.test-support";
 import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -55,6 +56,7 @@ const rootCase = (
 		const instance = WorkflowInstance.initial(ProcessImportRunWorkflow, ingestionTestScope.runId);
 		instance.suspended = failure === "suspend";
 		const dependencies = Layer.mergeAll(
+			unusedDataImportServices,
 			workflowAccountsTestLayer,
 			ingestionTestDatabase(),
 			makeAppConfigLayer({ fileStorage: { localTempDir: tmpdir() } }),

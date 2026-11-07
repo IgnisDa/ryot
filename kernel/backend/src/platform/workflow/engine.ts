@@ -42,7 +42,7 @@ import {
 } from "./engine-store";
 import { WorkflowExecutionNotifications } from "./execution-notifications";
 import { WorkflowExecutionExpired, type WorkflowIdentity } from "./identity";
-import { WorkflowCodecs } from "./scope";
+import { provideForgetWorkflowSteps, WorkflowCodecs, WorkflowStepScope } from "./scope";
 
 const LEASE = Duration.seconds(10);
 const RENEW_EVERY = Duration.seconds(3);
@@ -354,6 +354,20 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				Effect.provideService(WorkflowAdmissionAccount, undefined),
 				// A body woken by a job outlives it; the execution's own account check guards its writes.
 				Effect.provideService(CurrentJobId, null),
+				provideForgetWorkflowSteps((prefix) =>
+					store.forgetActivities(activation.identity, prefix).pipe(
+						Effect.orDie,
+						Effect.andThen(
+							Effect.sync(() => {
+								for (const key of activation.activities.keys()) {
+									if (key.startsWith(prefix)) {
+										activation.activities.delete(key);
+									}
+								}
+							}),
+						),
+					),
+				),
 				(effect) => deferredState.trackRun(instance, effect),
 				Effect.tap((result) => settle(activation, result)),
 				Effect.onExit((exit) => {
@@ -637,7 +651,8 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			const instance = yield* WorkflowInstance;
 			const identity = { executionId: instance.executionId, workflowName: instance.workflow._tag };
 			const activation = activations.get(keyOf(identity));
-			const key = activityKey(activity.name, attempt);
+			const name = (yield* WorkflowStepScope) + activity.name;
+			const key = activityKey(name, attempt);
 			const stored = activation?.activities.get(key);
 			if (stored) {
 				return stored;
@@ -664,8 +679,8 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				owner,
 				attempt,
 				identity,
+				name,
 				kind: "activity",
-				name: activity.name,
 				exit: yield* encodeActivityResult(result),
 			});
 			if (written.rootExpired) {

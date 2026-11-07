@@ -28,6 +28,10 @@ replays rebuild finalizers and compensations. A run reads persisted steps only w
 loaded by a process that did not start it. A run that completes one of its own deferreds without
 awaiting it is not woken; it reads the result from its cache if it awaits it later.
 
+Long executions run each chunk of work under `inWorkflowStepScope`, then call `forgetWorkflowSteps` once
+something durable lets a replay skip that chunk. The chunk's activities leave storage and memory, so
+loading the execution stays bounded by the current chunk. Scopes stop at workflow boundaries.
+
 ## Ownership
 
 Each process owns the executions it starts and renews one lease for all of them. A sweep claims

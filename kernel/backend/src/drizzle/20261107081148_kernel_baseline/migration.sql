@@ -503,8 +503,7 @@ CREATE TABLE "import_activity" (
 );
 --> statement-breakpoint
 CREATE TABLE "import_batch" (
-	"execution_id" text NOT NULL,
-	"workflow_name" text NOT NULL,
+	"result" jsonb,
 	"operation_ids" text[] NOT NULL,
 	"data" jsonb NOT NULL,
 	"id" text GENERATED ALWAYS AS (data->>'id') STORED,

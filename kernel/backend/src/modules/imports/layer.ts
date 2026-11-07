@@ -19,9 +19,8 @@ import { UserCommandsLive } from "#modules/user-commands/layer";
 import { IngestionArtifactStagingLive } from "./artifact-staging";
 import { IngestionCaptures } from "./capture-service";
 import { DataImportAdmission } from "./data-admission";
-import { DataImportWorkflowDefinitionsLive } from "./data-workflow";
 import { IngestionExecution } from "./execution-service";
-import { ProcessGenericImportChunksWorkflowDefinitionsLive } from "./generic-import-workflow";
+import { GenericImportChunksInstalledLive } from "./generic-import-workflow";
 import { ImportsRepository } from "./repository";
 import { IngestionRetirement } from "./retirement-service";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
@@ -107,18 +106,14 @@ export const DataImportAdmissionLive = DataImportAdmission.layer.pipe(
 	),
 );
 
-export const DataImportWorkflowDefinitionsProvidedLive = DataImportWorkflowDefinitionsLive.pipe(
-	Layer.provide(
-		Layer.mergeAll(
-			DefinitionRepository.layer,
-			EntitiesRepositoryLive,
-			ImportsRepository.layer,
-			PluginRuntimeResolverLive,
-			UploadServicesLive,
-			IngestionCaptures.layer,
-			IngestionExecutionLive,
-		),
-	),
+/** What a data import needs beyond what its calling root already has. */
+export const DataImportServicesLive = Layer.mergeAll(
+	IngestionCaptures.layer,
+	DefinitionRepository.layer,
+	EntitiesRepositoryLive,
+	ImportsRepository.layer,
+	PluginRuntimeResolverLive,
+	UploadServicesLive,
 );
 
 export const ImportsServiceLive = ImportsService.layer.pipe(
@@ -138,8 +133,8 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 	),
 );
 
-export const ProcessGenericImportChunksWorkflowDefinitionsProvidedLive =
-	ProcessGenericImportChunksWorkflowDefinitionsLive.pipe(
+export const GenericImportChunksProvidedLive =
+	GenericImportChunksInstalledLive.pipe(
 		Layer.provide(
 			Layer.mergeAll(
 				DefinitionRepository.layer,

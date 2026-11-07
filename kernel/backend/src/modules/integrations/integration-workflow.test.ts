@@ -19,7 +19,10 @@ import {
 	ingestionTestRun,
 	ingestionTestScope,
 	ingestionTestSource,
+	unusedDataImportServices,
 } from "#modules/imports/ingestion.test-support";
+import { DefinitionRepository } from "#modules/definitions/repository";
+import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ImportsRepository } from "#modules/imports/repository";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -64,6 +67,9 @@ const rootCase = (
 		const instance = WorkflowInstance.initial(ProcessIntegrationRunWorkflow, payload.runId);
 		instance.suspended = failure === "suspend";
 		const dependencies = Layer.mergeAll(
+			unusedDataImportServices,
+			Layer.mock(DefinitionRepository)({}),
+			Layer.mock(IngestionCaptures)({}),
 			mutationAdmissionTestLayer,
 			workflowAccountsTestLayer,
 			Layer.succeed(WorkflowInstance, instance),
