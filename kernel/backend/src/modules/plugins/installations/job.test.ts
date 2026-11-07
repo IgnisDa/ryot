@@ -140,9 +140,6 @@ const workflowLayer = (input: {
 			const pushOrder = (entry: string) => Ref.update(order, (all) => [...all, entry]);
 			return Context.make(PluginCatalogInvalidator, {
 				all: Effect.void,
-				recordAll: Effect.void,
-				recordUser: () => Effect.void,
-				deliverPending: () => Effect.void,
 				user: () => pushOrder("invalidate"),
 			}).pipe(
 				Context.add(FakeInstallationWorkflow, {
@@ -344,7 +341,7 @@ layer(workflowLayer({ bootstrap: resolved() }))((test) => {
 			Effect.gen(function* () {
 				const fake = yield* FakeInstallationWorkflow;
 				yield* runWorkflow;
-				expect(yield* fake.order).toEqual(["health:ready", "enqueue:fold-rebuild", "invalidate"]);
+				expect(yield* fake.order).toEqual(["health:ready", "invalidate", "enqueue:fold-rebuild"]);
 				expect(yield* fake.executions).toEqual<unknown>([
 					{
 						pluginRevision,
@@ -439,8 +436,8 @@ layer(
 					"ensure:library",
 					"dispatch:plan:library",
 					"health:ready",
-					"enqueue:fold-rebuild",
 					"invalidate",
+					"enqueue:fold-rebuild",
 				]);
 				expect(ensuredEntities).toEqual<unknown>([
 					{

@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/modules/plugins/contract";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
-import { PluginId, type PluginPackageId, type UserId } from "@ryot-app/contract/schema/brands";
+import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
@@ -179,19 +179,11 @@ class IngestionFakeState extends Context.Service<
 		readonly events: Ref.Ref<ReadonlyArray<string>>;
 		readonly activated: Ref.Ref<ReadonlyArray<string>>;
 		readonly deactivated: Ref.Ref<ReadonlyArray<string>>;
+		readonly uninstalled: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 		readonly installed: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 		readonly integrationFences: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly persisted: Ref.Ref<ReadonlyArray<NormalizedPlugin>>;
 		readonly published: Ref.Ref<ReadonlyArray<PublishedMessage>>;
-		readonly receipts: Ref.Ref<
-			ReadonlyArray<{
-				pluginId: string;
-				activationId: string;
-				ownerId: null | string;
-				packageId: PluginPackageId;
-				installationId: null | string;
-			}>
-		>;
 	}
 >()(
 	"@ryot-app/kernel-backend/modules/plugins/packages/ingestion-service.test/IngestionFakeState",
@@ -270,20 +262,12 @@ const makeLayer = (input?: {
 				events: yield* Ref.make<ReadonlyArray<string>>([]),
 				activated: yield* Ref.make<ReadonlyArray<string>>([]),
 				deactivated: yield* Ref.make<ReadonlyArray<string>>([]),
+				uninstalled: yield* Ref.make<ReadonlyArray<StoredPlugin>>([]),
 				integrationFences: yield* Ref.make<ReadonlyArray<unknown>>([]),
 				persisted: yield* Ref.make<ReadonlyArray<NormalizedPlugin>>([]),
 				published: yield* Ref.make<ReadonlyArray<PublishedMessage>>([]),
 				hasEntityReferences: yield* Ref.make(input?.hasEntityReferences ?? false),
 				installed: yield* Ref.make<ReadonlyArray<StoredPlugin>>(input?.initialInstalled ?? []),
-				receipts: yield* Ref.make<
-					ReadonlyArray<{
-						pluginId: string;
-						activationId: string;
-						ownerId: null | string;
-						packageId: PluginPackageId;
-						installationId: null | string;
-					}>
-				>([]),
 			};
 		}),
 	);
@@ -318,30 +302,30 @@ const makeLayer = (input?: {
 						Ref.get(state.installed),
 						(all) => all.find((plugin) => plugin.id === id) ?? null,
 					),
-				findUninstallReceipt: (activationId) =>
-					Effect.map(
-						Ref.get(state.receipts),
-						(all) => all.find((receipt) => receipt.activationId === activationId) ?? null,
-					),
+				findUninstalledActivation: (activationId) =>
+					Effect.map(Ref.get(state.uninstalled), (all) => {
+						const plugin = all.find((candidate) => candidate.activationId === activationId);
+						return plugin ? { pluginId: plugin.id, ownerId: null, installationId: null } : null;
+					}),
 				findActiveSystemPluginByPackageId: (packageId) =>
 					Effect.map(
 						Ref.get(state.installed),
 						(all) => all.find((plugin) => plugin.packageId === packageId) ?? null,
 					),
-				recordUninstallReceipt: (receipt) =>
-					append(state.receipts, {
-						pluginId: receipt.pluginId,
-						packageId: receipt.packageId,
-						ownerId: receipt.ownerId ?? null,
-						activationId: receipt.activationId,
-						installationId: receipt.installationId ?? null,
-					}),
 				deactivate: (pluginId) =>
 					input?.contendedLock
 						? Ref.set(state.active, false).pipe(Effect.andThen(recordEvent("deactivated")))
 						: Effect.all([
 								recordEvent("deactivate"),
 								append(state.deactivated, pluginId),
+								Ref.get(state.installed).pipe(
+									Effect.flatMap((all) =>
+										Ref.update(state.uninstalled, (uninstalled) => [
+											...uninstalled,
+											...all.filter(({ id }) => id === pluginId),
+										]),
+									),
+								),
 								Ref.update(state.installed, (all) => all.filter(({ id }) => id !== pluginId)),
 							]).pipe(Effect.asVoid),
 				findByContentHash: ({ contentHash }) => {
@@ -425,9 +409,6 @@ const makeLayer = (input?: {
 					activated: (pluginId) => append(state.activated, pluginId),
 				}),
 				Layer.succeed(PluginCatalogInvalidator, {
-					recordAll: Effect.void,
-					recordUser: () => Effect.void,
-					deliverPending: () => Effect.void,
 					all: publish(ALL_USERS_CHANNEL, "plugin-catalog-invalidated"),
 					user: (userId: UserId) =>
 						Effect.fromResult(encodePluginCatalogInvalidatedMessage({ userId })).pipe(
@@ -442,7 +423,12 @@ const makeLayer = (input?: {
 					published: Ref.get(state.published),
 					deactivated: Ref.get(state.deactivated),
 					integrationFences: Ref.get(state.integrationFences),
-					replaceInstalled: (plugin) => Ref.set(state.installed, [plugin]),
+					replaceInstalled: (plugin) =>
+						Ref.set(state.installed, [plugin]).pipe(
+							Effect.andThen(
+								Ref.update(state.uninstalled, (all) => all.filter(({ id }) => id !== plugin.id)),
+							),
+						),
 					setEntityReferences: (hasReferences) => Ref.set(state.hasEntityReferences, hasReferences),
 					contention: {
 						beginRound: Effect.flatMap(makeContentionRound, (round) => Ref.set(state.round, round)),
@@ -541,8 +527,7 @@ layer(
 				const events = yield* fake.events;
 				expect(events).toContain("quarantine:transaction");
 				expect(events).toContain("retire:root");
-				expect(events.indexOf("quarantine:transaction")).toBeLessThan(events.indexOf("publish"));
-				expect(events.indexOf("publish")).toBeLessThan(events.indexOf("retire:root"));
+				expect(events.indexOf("quarantine:transaction")).toBeLessThan(events.indexOf("retire:root"));
 			}),
 		testTimeout,
 	);
@@ -925,7 +910,7 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 	);
 
 	test.effect(
-		"returns the committed uninstall for a retry without removing a replacement",
+		"replays a committed uninstall and refuses it once a replacement exists",
 		() =>
 			Effect.gen(function* () {
 				const fake = yield* FakeIngestionDependencies;
@@ -934,12 +919,16 @@ layer(makeLayer({ initialInstalled: [storedFixture] }))((test) => {
 					storedFixture.id,
 					storedFixture.activationId,
 				);
-				const replacement = { ...storedFixture, activationId: "replacement-activation" };
-				yield* fake.replaceInstalled(replacement);
-
 				expect(
 					yield* ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
 				).toEqual(first);
+				const replacement = { ...storedFixture, activationId: "replacement-activation" };
+				yield* fake.replaceInstalled(replacement);
+
+				const retried = yield* Effect.exit(
+					ingestion.uninstallPlugin(storedFixture.id, storedFixture.activationId),
+				);
+				expect(failureOf(retried)).toMatchObject({ _tag: "PluginNotFoundError" });
 				expect(yield* ingestion.listPlugins()).toHaveLength(1);
 				expect(yield* fake.deactivated).toEqual([storedFixture.id]);
 				const wrong = yield* Effect.exit(

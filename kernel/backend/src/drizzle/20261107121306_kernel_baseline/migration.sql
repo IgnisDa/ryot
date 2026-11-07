@@ -500,20 +500,20 @@ CREATE TABLE "import_issue" (
 );
 --> statement-breakpoint
 CREATE TABLE "import_item" (
-	"result" jsonb,
-	"recovery_bytes" text,
 	"id" text,
+	"recovery_bytes" text,
 	"operation_ids" text[],
+	"result" jsonb,
 	"data" jsonb NOT NULL,
-	"kind" text,
 	"released" boolean DEFAULT false NOT NULL,
 	"retiring" boolean DEFAULT false NOT NULL,
 	"published" boolean DEFAULT false NOT NULL,
 	"write_started" boolean DEFAULT false NOT NULL,
 	"capture_released" boolean DEFAULT false NOT NULL,
 	"capture_id" text GENERATED ALWAYS AS (data->>'captureId') STORED,
-	"run_id" text,
 	"ordinal" integer GENERATED ALWAYS AS ((data->>'ordinal')::integer) STORED,
+	"kind" text,
+	"run_id" text,
 	"phase" text GENERATED ALWAYS AS (data->>'phase') STORED,
 	CONSTRAINT "import_item_pkey" PRIMARY KEY("run_id","kind","id"),
 	CONSTRAINT "import_item_kind_check" CHECK ("kind" in ('payload', 'batch', 'outcome', 'result')),
@@ -528,8 +528,8 @@ CREATE TABLE "import_run" (
 	"started_at" timestamp(3) with time zone,
 	"finished_at" timestamp(3) with time zone,
 	"block_deadline" timestamp(3) with time zone,
-	"auto_disabled_at" timestamp(3) with time zone,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"auto_disabled_at" timestamp(3) with time zone,
 	"plan" jsonb,
 	"pins" jsonb,
 	"integration_lot" text,
@@ -867,12 +867,6 @@ CREATE TABLE "plugin" (
 	CONSTRAINT "plugin_environment_config_scope_check" CHECK ("owner_user_id" is null or "environment_config_revision_id" is null)
 );
 --> statement-breakpoint
-CREATE TABLE "plugin_catalog_change" (
-	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"user_id" text,
-	"id" text PRIMARY KEY
-);
---> statement-breakpoint
 CREATE TABLE "plugin_config_encryption_key" (
 	"id" text NOT NULL,
 	"key" bytea NOT NULL,
@@ -933,6 +927,7 @@ CREATE TABLE "plugin_revision" (
 	"plugin_id" text NOT NULL,
 	"content_hash" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"manifest" jsonb NOT NULL,
 	"client" jsonb,
 	"package_id" text NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
@@ -955,20 +950,8 @@ CREATE TABLE "plugin_revision" (
 	"relationship_schemas" jsonb NOT NULL,
 	"integration_providers" jsonb NOT NULL,
 	CONSTRAINT "plugin_revision_plugin_content_unique" UNIQUE("plugin_id","content_hash"),
-	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id")
-);
---> statement-breakpoint
-CREATE TABLE "plugin_revision_manifest" (
-	"manifest" jsonb NOT NULL,
-	"plugin_revision_id" text PRIMARY KEY
-);
---> statement-breakpoint
-CREATE TABLE "plugin_uninstall_receipt" (
-	"installation_id" text,
-	"plugin_id" text NOT NULL,
-	"activation_id" text PRIMARY KEY,
-	"package_id" text NOT NULL,
-	"owner_user_id" text
+	CONSTRAINT "plugin_revision_id_plugin_unique" UNIQUE("id","plugin_id"),
+	CONSTRAINT "plugin_revision_manifest_sections_check" CHECK ("name" is not distinct from ("manifest" -> 'metadata' ->> 'name') and "icon" is not distinct from ("manifest" -> 'metadata' ->> 'icon') and "description" is not distinct from ("manifest" -> 'metadata' ->> 'description') and "version" is not distinct from ("manifest" -> 'metadata' ->> 'version') and "package_id" is not distinct from ("manifest" -> 'metadata' ->> 'packageId') and "client" is not distinct from ("manifest" -> 'client') and "hooks" is not distinct from ("manifest" -> 'hooks') and "crons" is not distinct from ("manifest" -> 'crons') and "scripts" is not distinct from ("manifest" -> 'scripts') and "workflows" is not distinct from ("manifest" -> 'workflows') and "providers" is not distinct from ("manifest" -> 'providers') and "oauth_providers" is not distinct from ("manifest" -> 'oauthProviders') and "operations" is not distinct from ("manifest" -> 'operations') and "config_schema" is not distinct from ("manifest" -> 'configSchema') and "signal_schemas" is not distinct from ("manifest" -> 'signalSchemas') and "entity_schemas" is not distinct from ("manifest" -> 'entitySchemas') and "user_bootstrap" is not distinct from ("manifest" -> 'userBootstrap') and "memberships" is not distinct from ("manifest" -> 'memberships') and "user_settings_schema" is not distinct from ("manifest" -> 'userSettingsSchema') and "http_rate_limits" is not distinct from ("manifest" -> 'httpRateLimits') and "relationship_schemas" is not distinct from ("manifest" -> 'relationshipSchemas') and "integration_providers" is not distinct from ("manifest" -> 'integrationProviders'))
 );
 --> statement-breakpoint
 CREATE TABLE "provider_rate_limit" (
@@ -1370,7 +1353,6 @@ CREATE INDEX "oauth_refresh_token_userId_idx" ON "oauth_refresh_token" ("user_id
 CREATE INDEX "oauth_refresh_token_authorizationCodeId_idx" ON "oauth_refresh_token" ("authorization_code_id");--> statement-breakpoint
 CREATE INDEX "plugin_owner_id_idx" ON "plugin" ("owner_user_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "plugin_owner_package_id_unique" ON "plugin" ("package_id",(case when "owner_user_id" is null then '0' else '1' || "owner_user_id" end));--> statement-breakpoint
-CREATE INDEX "plugin_catalog_change_user_id_idx" ON "plugin_catalog_change" ("user_id");--> statement-breakpoint
 CREATE INDEX "plugin_config_revision_installation_idx" ON "plugin_config_revision" ("plugin_installation_id");--> statement-breakpoint
 CREATE INDEX "plugin_config_revision_owner_idx" ON "plugin_config_revision" ("owner_user_id");--> statement-breakpoint
 CREATE INDEX "plugin_config_revision_package_idx" ON "plugin_config_revision" ("plugin_revision_id");--> statement-breakpoint
@@ -1506,7 +1488,6 @@ ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_user_id_us
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_active_revision_owner_fk" FOREIGN KEY ("active_revision_id","id") REFERENCES "plugin_revision"("id","plugin_id");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_environment_config_revision_fk" FOREIGN KEY ("environment_config_revision_id","active_revision_id") REFERENCES "plugin_config_revision"("id","plugin_revision_id");--> statement-breakpoint
-ALTER TABLE "plugin_catalog_change" ADD CONSTRAINT "plugin_catalog_change_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_MfinRSKKKQP6_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_config_revision" ADD CONSTRAINT "plugin_config_revision_bpJawOzD6ygG_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE SET NULL;--> statement-breakpoint
@@ -1515,8 +1496,6 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1J
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_owner_package_fk" FOREIGN KEY ("plugin_id","package_id") REFERENCES "plugin"("id","package_id") ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_package_fk" FOREIGN KEY ("client_artifact_hash","package_id") REFERENCES "client_artifact"("hash","package_id");--> statement-breakpoint
-ALTER TABLE "plugin_revision_manifest" ADD CONSTRAINT "plugin_revision_manifest_aTR5v120ANTP_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "plugin_uninstall_receipt" ADD CONSTRAINT "plugin_uninstall_receipt_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_source_entity_id_entity_id_fkey" FOREIGN KEY ("source_entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint

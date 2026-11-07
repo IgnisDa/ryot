@@ -35,7 +35,7 @@ export const quarantinePackageConflicts = Effect.fn("quarantinePackageConflicts"
 ) {
 	const quarantined = yield* installations.quarantinePackageIdentityConflicts(packageId);
 	for (const installation of quarantined) {
-		yield* invalidator.recordUser(UserId.make(installation.userId));
+		yield* invalidator.user(UserId.make(installation.userId));
 	}
 	return quarantined;
 });

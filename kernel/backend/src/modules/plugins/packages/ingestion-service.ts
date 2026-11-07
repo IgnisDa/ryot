@@ -159,7 +159,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							if (environmentResolution === "immediate") {
 								yield* repository.resolveEnvironmentConfig(authoritative);
 							}
-							yield* invalidator.recordAll;
+							yield* invalidator.all;
 							const quarantined = yield* quarantinePackageConflicts(
 								installations,
 								invalidator,
@@ -169,7 +169,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						}),
 					);
 					if (committed) {
-						yield* invalidator.all;
 						yield* retireQuarantinedInstallations(retirement, committed.quarantined);
 						return committed.authoritative;
 					}
@@ -234,7 +233,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						if (environmentResolution === "immediate") {
 							yield* repository.resolveEnvironmentConfig(entry);
 						}
-						yield* invalidator.recordAll;
+						yield* invalidator.all;
 						const quarantined = yield* quarantinePackageConflicts(
 							installations,
 							invalidator,
@@ -243,7 +242,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						return { entry, quarantined };
 					}),
 				);
-				yield* invalidator.all;
 				yield* retireQuarantinedInstallations(retirement, stored.quarantined);
 				return stored.entry;
 			});
@@ -309,7 +307,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 				const localPluginId = PluginId.make(pluginId);
 				const removed = yield* inTransaction(
 					Effect.gen(function* () {
-						const receipt = yield* repository.findUninstallReceipt(activationId);
+						const receipt = yield* repository.findUninstalledActivation(activationId);
 						if (receipt?.ownerId === null && receipt.pluginId === pluginId) {
 							return receipt.pluginId;
 						}
@@ -364,18 +362,10 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							});
 						}
 						yield* repository.deactivate(plugin.id);
-						yield* repository.recordUninstallReceipt({
-							activationId,
-							ownerId: null,
-							pluginId: plugin.id,
-							installationId: null,
-							packageId: plugin.packageId,
-						});
-						yield* invalidator.recordAll;
+						yield* invalidator.all;
 						return plugin.id;
 					}),
 				);
-				yield* invalidator.all;
 				return { pluginId: PluginId.make(removed) };
 			});
 

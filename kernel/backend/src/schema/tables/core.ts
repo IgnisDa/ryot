@@ -95,14 +95,6 @@ export const plugin = snakeCase.table(
 	],
 );
 
-export const pluginUninstallReceipt = snakeCase.table("plugin_uninstall_receipt", {
-	installationId: text(),
-	pluginId: text().notNull(),
-	activationId: text().primaryKey(),
-	packageId: text().$type<PluginPackageId>().notNull(),
-	ownerId: text("owner_user_id").references(() => user.id, { onDelete: "cascade" }),
-});
-
 export const pluginRevision = snakeCase.table(
 	"plugin_revision",
 	{
@@ -114,6 +106,7 @@ export const pluginRevision = snakeCase.table(
 		pluginId: text().notNull(),
 		contentHash: text().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
+		manifest: jsonb().$type<PluginManifest>().notNull(),
 		client: jsonb().$type<PluginManifest["client"]>(),
 		packageId: text().$type<PluginPackageId>().notNull(),
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
@@ -139,6 +132,10 @@ export const pluginRevision = snakeCase.table(
 		integrationProviders: jsonb().$type<PluginManifest["integrationProviders"]>().notNull(),
 	},
 	(table): PgTableExtraConfigValue[] => [
+		check(
+			"plugin_revision_manifest_sections_check",
+			sql`${table.name} is not distinct from (${table.manifest} -> 'metadata' ->> 'name') and ${table.icon} is not distinct from (${table.manifest} -> 'metadata' ->> 'icon') and ${table.description} is not distinct from (${table.manifest} -> 'metadata' ->> 'description') and ${table.version} is not distinct from (${table.manifest} -> 'metadata' ->> 'version') and ${table.packageId} is not distinct from (${table.manifest} -> 'metadata' ->> 'packageId') and ${table.client} is not distinct from (${table.manifest} -> 'client') and ${table.hooks} is not distinct from (${table.manifest} -> 'hooks') and ${table.crons} is not distinct from (${table.manifest} -> 'crons') and ${table.scripts} is not distinct from (${table.manifest} -> 'scripts') and ${table.workflows} is not distinct from (${table.manifest} -> 'workflows') and ${table.providers} is not distinct from (${table.manifest} -> 'providers') and ${table.oauthProviders} is not distinct from (${table.manifest} -> 'oauthProviders') and ${table.operations} is not distinct from (${table.manifest} -> 'operations') and ${table.configSchema} is not distinct from (${table.manifest} -> 'configSchema') and ${table.signalSchemas} is not distinct from (${table.manifest} -> 'signalSchemas') and ${table.entitySchemas} is not distinct from (${table.manifest} -> 'entitySchemas') and ${table.userBootstrap} is not distinct from (${table.manifest} -> 'userBootstrap') and ${table.memberships} is not distinct from (${table.manifest} -> 'memberships') and ${table.userSettingsSchema} is not distinct from (${table.manifest} -> 'userSettingsSchema') and ${table.httpRateLimits} is not distinct from (${table.manifest} -> 'httpRateLimits') and ${table.relationshipSchemas} is not distinct from (${table.manifest} -> 'relationshipSchemas') and ${table.integrationProviders} is not distinct from (${table.manifest} -> 'integrationProviders')`,
+		),
 		unique("plugin_revision_plugin_content_unique").on(table.pluginId, table.contentHash),
 		unique("plugin_revision_id_plugin_unique").on(table.id, table.pluginId),
 		foreignKey({
@@ -155,13 +152,6 @@ export const pluginRevision = snakeCase.table(
 		}),
 	],
 );
-
-export const pluginRevisionManifest = snakeCase.table("plugin_revision_manifest", {
-	manifest: jsonb().$type<PluginManifest>().notNull(),
-	pluginRevisionId: text()
-		.primaryKey()
-		.references(() => pluginRevision.id, { onDelete: "cascade" }),
-});
 
 export const pluginInstallation = snakeCase.table(
 	"plugin_installation",

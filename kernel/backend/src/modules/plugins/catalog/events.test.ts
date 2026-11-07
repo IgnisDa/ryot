@@ -4,12 +4,11 @@ import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/module
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Deferred, Duration, Effect, Fiber, Layer, Option, Queue, Stream } from "effect";
+import { Duration, Effect, Fiber, Layer, Option, Queue, Stream } from "effect";
 import { TestClock } from "effect/testing";
 
 import { Broadcast } from "#platform/broadcast";
 import { DatabaseSession } from "#platform/db/session";
-import * as schema from "#schema/tables/combined";
 import { awaitBroadcastListening } from "#testing/broadcast";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -131,26 +130,18 @@ layer(deliveryLayer, { excludeTestServices: true })((test) => {
 					const invalidator = yield* PluginCatalogInvalidator;
 					const database = yield* DatabaseSession;
 					const { first, second } = yield* streams;
-					const userId = UserId.make("user-1");
-					yield* database.run((db) =>
-						db.insert(schema.user).values({ id: userId, name: "Test", email: "test@example.com" }),
-					);
 
-					yield* database.transaction(invalidator.recordUser(userId));
-					yield* invalidator.user(userId);
+					yield* database.transaction(invalidator.user(UserId.make("user-1")));
 
 					expect(yield* nextFrame(first)).toBe(invalidatedFrame);
 					expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
-					expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
-						[],
-					);
 				}),
 			),
 		testTimeout,
 	);
 
 	test.effect(
-		"recovers a committed invalidation after its request is interrupted",
+		"sends nothing when the transaction rolls back",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
@@ -158,46 +149,17 @@ layer(deliveryLayer, { excludeTestServices: true })((test) => {
 					const invalidator = yield* PluginCatalogInvalidator;
 					const database = yield* DatabaseSession;
 					const { first, second } = yield* streams;
-					const committed = yield* Deferred.make<void>();
-					const request = yield* database
-						.transaction(invalidator.recordAll)
-						.pipe(
-							Effect.andThen(Deferred.succeed(committed, undefined)),
-							Effect.andThen(Effect.never),
-							Effect.forkChild,
-						);
-					yield* Deferred.await(committed);
-					yield* Fiber.interrupt(request);
-					expect(
-						yield* database.run((db) => db.select().from(schema.pluginCatalogChange)),
-					).toHaveLength(1);
+					const rolledBack = yield* Effect.exit(
+						database.transaction(invalidator.all.pipe(Effect.andThen(Effect.fail("abort")))),
+					);
+					expect(rolledBack._tag).toBe("Failure");
 
-					yield* invalidator.deliverPending(100);
+					yield* database.transaction(invalidator.user(UserId.make("user-1")));
 
 					expect(yield* nextFrame(first)).toBe(invalidatedFrame);
-					expect(yield* nextFrame(second)).toBe(invalidatedFrame);
-					expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
-						[],
-					);
+					expect(Option.isNone(yield* Queue.poll(second))).toBe(true);
 				}),
 			),
-		testTimeout,
-	);
-
-	test.effect(
-		"records nothing when the transaction rolls back",
-		() =>
-			Effect.gen(function* () {
-				const invalidator = yield* PluginCatalogInvalidator;
-				const database = yield* DatabaseSession;
-				const rolledBack = yield* Effect.exit(
-					database.transaction(invalidator.recordAll.pipe(Effect.andThen(Effect.fail("abort")))),
-				);
-				expect(rolledBack._tag).toBe("Failure");
-				expect(yield* database.run((db) => db.select().from(schema.pluginCatalogChange))).toEqual(
-					[],
-				);
-			}),
 		testTimeout,
 	);
 

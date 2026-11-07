@@ -4,11 +4,10 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
 import { sql } from "drizzle-orm";
 import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
-import { Effect } from "effect";
 
 import { pluginSandboxAuthority } from "#modules/scripts/authorization/plugin-authority";
 import { pluginRevisionSections } from "#platform/db/immutable-revisions";
-import { pluginRevision, pluginRevisionManifest } from "#schema/tables/core";
+import { pluginRevision } from "#schema/tables/core";
 
 export const fixturePackageRoot = (kind: "valid" | "diagnostic" = "valid") =>
 	new URL(`./test-fixtures/${kind}`, import.meta.url).pathname;
@@ -124,30 +123,23 @@ export const insertPluginRevision = (
 		readonly clientConfigSchema?: AppSchema;
 	},
 ) =>
-	db.transaction((tx) =>
-		Effect.gen(function* () {
-			yield* tx
-				.insert(pluginRevision)
-				.select((qb) =>
-					qb
-						.select({
-							...pluginRevisionSections(sql`source.manifest`),
-							id: sql`${revision.id}`.as("id"),
-							pluginId: sql`${revision.pluginId}`.as("plugin_id"),
-							contentHash: sql`${revision.contentHash}`.as("content_hash"),
-							sandboxAuthority:
-								sql`${JSON.stringify(pluginSandboxAuthority(revision.manifest))}::jsonb`.as(
-									"sandbox_authority",
-								),
-							clientConfigSchema:
-								sql`${JSON.stringify(revision.clientConfigSchema ?? { fields: {} })}::jsonb`.as(
-									"client_config_schema",
-								),
-						})
-						.from(sql`(select ${JSON.stringify(revision.manifest)}::jsonb as manifest) as source`),
-				);
-			yield* tx
-				.insert(pluginRevisionManifest)
-				.values({ manifest: revision.manifest, pluginRevisionId: revision.id });
-		}),
-	);
+	db
+		.insert(pluginRevision)
+		.select((qb) =>
+			qb
+				.select({
+					...pluginRevisionSections(sql`source.manifest`),
+					id: sql`${revision.id}`.as("id"),
+					pluginId: sql`${revision.pluginId}`.as("plugin_id"),
+					contentHash: sql`${revision.contentHash}`.as("content_hash"),
+					sandboxAuthority:
+						sql`${JSON.stringify(pluginSandboxAuthority(revision.manifest))}::jsonb`.as(
+							"sandbox_authority",
+						),
+					clientConfigSchema:
+						sql`${JSON.stringify(revision.clientConfigSchema ?? { fields: {} })}::jsonb`.as(
+							"client_config_schema",
+						),
+				})
+				.from(sql`(select ${JSON.stringify(revision.manifest)}::jsonb as manifest) as source`),
+		);

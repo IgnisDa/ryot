@@ -32,7 +32,7 @@ import {
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
 
-type Invalidation = { readonly userId: UserId; readonly kind: "record" | "publish" };
+type Invalidation = { readonly userId: UserId; readonly kind: "publish" };
 
 class RecordedInvalidations extends Context.Service<
 	RecordedInvalidations,
@@ -48,10 +48,7 @@ const recordedInvalidationsLayer = Layer.effectContext(
 			Ref.update(recorded, (all) => [...all, { kind, userId }]);
 		return Context.make(PluginCatalogInvalidator, {
 			all: Effect.void,
-			recordAll: Effect.void,
 			user: record("publish"),
-			recordUser: record("record"),
-			deliverPending: () => Effect.void,
 		}).pipe(Context.add(RecordedInvalidations, { all: Ref.get(recorded) }));
 	}),
 );
@@ -193,7 +190,6 @@ describe("PluginUserSettingsWriter.patch", () => {
 					expect(yield* storedSettings(recipientFirst.id)).toEqual({});
 					expect(yield* storedSettings(second.installation.id)).toEqual({});
 					expect((yield* (yield* RecordedInvalidations).all).slice(before)).toEqual([
-						{ userId: owner, kind: "record" },
 						{ userId: owner, kind: "publish" },
 					]);
 

@@ -167,7 +167,7 @@ describe("plugin repository revisions", () => {
 	});
 	layer(revisionDatabaseLayer)((test) => {
 		test.effect(
-			"rotates activation on reinstall and retains the committed uninstall receipt",
+			"rotates activation on reinstall and finds an uninstalled activation until then",
 			() =>
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
@@ -180,28 +180,18 @@ describe("plugin repository revisions", () => {
 					const id = yield* session.transaction(repository.persist(pluginPackage, identity));
 					const first = yield* repository.findActiveSystemPluginById(id);
 					assert(first);
-					yield* session.transaction(
-						Effect.gen(function* () {
-							yield* repository.deactivate(id);
-							yield* repository.recordUninstallReceipt({
-								pluginId: id,
-								ownerId: null,
-								installationId: null,
-								activationId: first.activationId,
-								packageId: first.manifest.metadata.packageId,
-							});
-						}),
-					);
-					expect(yield* repository.findUninstallReceipt(first.activationId)).toMatchObject({
+					expect(yield* repository.findUninstalledActivation(first.activationId)).toBeNull();
+					yield* session.transaction(repository.deactivate(id));
+					expect(yield* repository.findUninstalledActivation(first.activationId)).toEqual({
+						ownerId: null,
 						pluginId: id,
+						installationId: null,
 					});
 					expect(yield* session.transaction(repository.persist(pluginPackage, identity))).toBe(id);
 					const replacement = yield* repository.findActiveSystemPluginById(id);
 					assert(replacement);
 					expect(replacement.activationId).not.toBe(first.activationId);
-					expect(yield* repository.findUninstallReceipt(first.activationId)).toMatchObject({
-						pluginId: id,
-					});
+					expect(yield* repository.findUninstalledActivation(first.activationId)).toBeNull();
 					const installation = yield* installations.upsertState({
 						config: {},
 						pluginId: id,

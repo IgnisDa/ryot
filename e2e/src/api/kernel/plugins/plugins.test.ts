@@ -55,7 +55,7 @@ const uninstallSystemPlugin = (pluginId: PluginId, activationId: string) =>
 
 describe("plugins", () => {
 	it.live(
-		"retries a committed uninstall without removing a replacement under the same package identity",
+		"replays a committed uninstall and refuses it once a replacement exists under the same package identity",
 		() =>
 			Effect.gen(function* () {
 				const pluginSlug = `e2e-uninstall-retry-${yield* randomUuid}`;
@@ -75,7 +75,10 @@ describe("plugins", () => {
 				current = replacement;
 				expect(replacement.pluginId).toBe(first.pluginId);
 				expect(replacement.activationId).not.toBe(first.activationId);
-				expect(yield* uninstallSystemPlugin(first.pluginId, first.activationId)).toEqual(removed);
+				assertTaggedError(
+					yield* Effect.flip(uninstallSystemPlugin(first.pluginId, first.activationId)),
+					"PluginNotFoundError",
+				);
 				expect(
 					(yield* listAdminSystemPlugins()).some(
 						({ packageId }) => packageId === pluginPackage.manifest.metadata.packageId,

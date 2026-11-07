@@ -200,7 +200,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 				Effect.gen(function* () {
 					const installation = yield* installations.findById(installationId);
 					if (installation) {
-						const changed = yield* database.transaction(
+						yield* database.transaction(
 							installations
 								.updateHealthForActivation({
 									healthReason,
@@ -212,14 +212,11 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 								.pipe(
 									Effect.tap((updated) =>
 										updated
-											? invalidator.recordUser(UserId.make(installation.userId))
+											? invalidator.user(UserId.make(installation.userId))
 											: Effect.void,
 									),
 								),
 						);
-						if (changed) {
-							yield* invalidator.user(UserId.make(installation.userId));
-						}
 					}
 				}),
 				"Plugin installation failure could not be recorded",
@@ -228,7 +225,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 		const complete = (installationId: string, activationId: string, userId: UserId) =>
 			asInternal(
 				Effect.gen(function* () {
-					const changed = yield* database.transaction(
+					yield* database.transaction(
 						Effect.gen(function* () {
 							const installation = yield* installations.findById(installationId);
 							if (installation?.userId !== userId) {
@@ -242,7 +239,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 								healthReason: null,
 							});
 							if (updated) {
-								yield* invalidator.recordUser(userId);
+								yield* invalidator.user(userId);
 								const pluginId = PluginId.make(installation.pluginId);
 								yield* jobs.enqueue(
 									FoldRebuildJob,
@@ -253,9 +250,6 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 							return updated;
 						}),
 					);
-					if (changed) {
-						yield* invalidator.user(userId);
-					}
 				}),
 				"Plugin installation completion could not be recorded",
 			);

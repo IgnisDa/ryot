@@ -140,7 +140,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 			const invalidator = yield* PluginCatalogInvalidator;
 			const transaction = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
 				database
-					.transaction(work.pipe(Effect.tap(() => invalidator.recordUser(userId))))
+					.transaction(work.pipe(Effect.tap(() => invalidator.user(userId))))
 					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const installations = yield* PluginInstallationRepository;
 			const userSettings = yield* PluginUserSettingsWriter;
@@ -412,9 +412,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						return conflicts;
 					}),
 				);
-				for (const installation of quarantined) {
-					yield* invalidator.user(UserId.make(installation.userId));
-				}
 				yield* retireQuarantinedInstallations(ingestionRetirement, quarantined);
 			});
 
@@ -424,10 +421,9 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				yield* database.transaction(
 					installations
 						.provisionSystemInstallationsForAllUsers()
-						.pipe(Effect.andThen(invalidator.recordAll)),
+						.pipe(Effect.andThen(invalidator.all)),
 				);
 				yield* reconcilePrivateConflicts();
-				yield* invalidator.all;
 			});
 
 			const dispatchPendingInstallationLifecycle = Effect.fn(
@@ -513,7 +509,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 				if (!updated) {
 					return yield* new PluginNotFoundError({ reason: { pluginId, code: "plugin-not-found" } });
 				}
-				yield* invalidator.user(userId);
 				return payload;
 			});
 
@@ -621,7 +616,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}
 								return { state: existingState, activationId: active.activationId };
 							}),
-						).pipe(Effect.tap(() => invalidator.user(input.userId))),
+						),
 					);
 					yield* dispatchInstallationLifecycle(installed.state, installed.activationId);
 					return {
@@ -777,7 +772,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 											},
 										);
 									}),
-								).pipe(Effect.tap(() => invalidator.user(input.userId))),
+								),
 							);
 							if ("lifecycle" in updated && updated.lifecycle) {
 								yield* dispatchRecoveryLifecycle(updated.lifecycle);
@@ -866,7 +861,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					return yield* transaction(
 						userId,
 						updateInstallationUnlocked(userId, installationId, payload),
-					).pipe(Effect.tap(() => invalidator.user(userId)));
+					);
 				}
 				const normalized = yield* validateRetainedRecovery(userId, selected);
 				const config = yield* validateConfigPatch(
@@ -920,7 +915,6 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						}),
 					),
 				);
-				yield* invalidator.user(userId);
 				if (updated.lifecycle) {
 					yield* dispatchRecoveryLifecycle(updated.lifecycle);
 				}
@@ -987,7 +981,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 						.transaction(
 							Effect.gen(function* () {
 								yield* repository.lockIngestionForUser(userId);
-								const receipt = yield* repository.findUninstallReceipt(activationId);
+								const receipt = yield* repository.findUninstalledActivation(activationId);
 								yield* database.acquireUserWriteLock(userId);
 								if (receipt?.ownerId === userId && receipt.installationId === installationId) {
 									return {
@@ -1051,7 +1045,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									removed.result.pluginId,
 									userId,
 								);
-								const receipt = yield* repository.findUninstallReceipt(activationId);
+								const receipt = yield* repository.findUninstalledActivation(activationId);
 								if (
 									receipt?.ownerId === userId &&
 									receipt.installationId === removed.result.id &&
@@ -1066,19 +1060,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								}
 								yield* installations.remove(removed.result.id);
 								yield* repository.deactivate(current.id);
-								yield* repository.recordUninstallReceipt({
-									activationId,
-									ownerId: userId,
-									pluginId: current.id,
-									packageId: current.packageId,
-									installationId: removed.result.id,
-								});
-								yield* invalidator.recordUser(userId);
+								yield* invalidator.user(userId);
 								return yield* Effect.void;
 							}),
 						)
 						.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-					yield* invalidator.user(userId);
 				}
 				return removed.result;
 			});

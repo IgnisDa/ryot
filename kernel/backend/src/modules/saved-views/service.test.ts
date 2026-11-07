@@ -169,10 +169,7 @@ const makeLayer = (options: {
 						}),
 						Layer.succeed(PluginCatalogInvalidator, {
 							all: Effect.void,
-							recordAll: Effect.void,
-							recordUser: () => Effect.void,
 							user: () => record("invalidate"),
-							deliverPending: () => Effect.void,
 						}),
 						Layer.mock(PluginRepository)({ lockIngestionShared: () => Effect.void }),
 						Layer.mock(PluginRuntimeResolver)({

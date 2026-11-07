@@ -22,7 +22,6 @@ import { NotificationAdmissions } from "#modules/notifications/admission";
 import { oauthConnectionsFrequentTask } from "#modules/oauth-connections/frequent-task";
 import type { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import type { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
-import { pluginCatalogFrequentTask } from "#modules/plugins/catalog/frequent-task";
 import type { PluginInstallationService } from "#modules/plugins/installations/service";
 import { pluginInstallationFrequentTask } from "#modules/plugins/installations/sweep";
 import { ReminderWorker } from "#modules/reminders/worker";
@@ -163,7 +162,6 @@ const frequentCronTasks: ReadonlyArray<
 	managedAssetsFrequentTask,
 	entityGraphFrequentTask,
 	userBootstrapFrequentTask,
-	pluginCatalogFrequentTask,
 	pluginInstallationFrequentTask,
 ];
 

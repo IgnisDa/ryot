@@ -223,15 +223,6 @@ class InstallationFakeState extends Context.Service<
 		readonly recordings: Ref.Ref<Recordings>;
 		readonly ingestionLocked: Ref.Ref<boolean>;
 		readonly systemPlugins: Ref.Ref<ReadonlyArray<StoredPlugin>>;
-		readonly receipts: Ref.Ref<
-			ReadonlyArray<{
-				pluginId: string;
-				activationId: string;
-				ownerId: null | string;
-				packageId: PluginPackageId;
-				installationId: null | string;
-			}>
-		>;
 	}
 >()("@ryot-app/kernel-backend/modules/plugins/installations/service.test/InstallationFakeState") {}
 
@@ -267,15 +258,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				ingestionLocked: yield* Ref.make(false),
 				recordings: yield* Ref.make(emptyRecordings),
 				systemPlugins: yield* Ref.make<ReadonlyArray<StoredPlugin>>(options.systemPlugins ?? []),
-				receipts: yield* Ref.make<
-					ReadonlyArray<{
-						pluginId: string;
-						activationId: string;
-						ownerId: null | string;
-						packageId: PluginPackageId;
-						installationId: null | string;
-					}>
-				>([]),
 			};
 		}),
 	);
@@ -319,7 +301,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 	const dependenciesLayer = Layer.unwrap(
 		Effect.gen(function* () {
 			const database = yield* DatabaseSession;
-			const { receipts, recordings, systemPlugins, ingestionLocked } = yield* InstallationFakeState;
+			const { recordings, systemPlugins, ingestionLocked } = yield* InstallationFakeState;
 			const lockIngestion = () => {
 				const packageId = options.systemPackageIdAddedOnLock;
 				return Ref.set(ingestionLocked, true).pipe(
@@ -366,9 +348,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 					),
 				}),
 				Layer.succeed(PluginCatalogInvalidator, {
-					recordAll: Effect.void,
-					recordUser: () => Effect.void,
-					deliverPending: () => Effect.void,
 					all: record(recordings, "invalidatedAll", undefined),
 					user: (ownerId) => record(recordings, "invalidatedUsers", ownerId),
 				}),
@@ -397,11 +376,22 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 							Ref.get(systemPlugins),
 							(plugins) => plugins.find((plugin) => plugin.id === id) ?? null,
 						),
-					findUninstallReceipt: (activationId) =>
-						Effect.map(
-							Ref.get(receipts),
-							(all) => all.find((receipt) => receipt.activationId === activationId) ?? null,
-						),
+					findUninstalledActivation: (activationId) =>
+						Effect.map(Ref.get(recordings), (current) => {
+							const plugin = privatePlugins.find(
+								(candidate) =>
+									candidate.activationId === activationId && current.deactivated.includes(candidate.id),
+							);
+							return plugin
+								? {
+										pluginId: plugin.id,
+										ownerId: plugin.ownerId,
+										installationId:
+											installations.find((installation) => installation.pluginId === plugin.id)?.id ??
+											null,
+									}
+								: null;
+						}),
 					findActiveSystemPluginByPackageId: (packageId) =>
 						Effect.map(
 							Ref.get(systemPlugins),
@@ -423,17 +413,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 									(plugin) => plugin.id === pluginId && plugin.contentHash === contentHash,
 								),
 						),
-					recordUninstallReceipt: (receipt) =>
-						Ref.update(receipts, (all) => [
-							...all,
-							{
-								pluginId: receipt.pluginId,
-								packageId: receipt.packageId,
-								ownerId: receipt.ownerId ?? null,
-								activationId: receipt.activationId,
-								installationId: receipt.installationId ?? null,
-							},
-						]),
 					findPrivateByIdForUser: (pluginId) =>
 						Effect.gen(function* () {
 							if (

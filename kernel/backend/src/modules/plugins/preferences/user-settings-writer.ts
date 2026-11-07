@@ -50,10 +50,9 @@ export class PluginUserSettingsWriter extends Context.Service<PluginUserSettings
 			const admission = yield* AccountAdmission.make;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const transaction = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
-				database.transaction(work.pipe(Effect.tap(() => invalidator.recordUser(userId)))).pipe(
-					Effect.catchTag("DatabaseSessionStateError", Effect.die),
-					Effect.tap(() => invalidator.user(userId)),
-				);
+				database
+					.transaction(work.pipe(Effect.tap(() => invalidator.user(userId))))
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			const persist = Effect.fn("PluginUserSettingsWriter.persist")(function* (input: {
 				readonly userId: UserId;
 				readonly installationId: string;

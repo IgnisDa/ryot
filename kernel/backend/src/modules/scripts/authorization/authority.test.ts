@@ -168,14 +168,10 @@ describe("sandbox execution authority", () => {
 					const [revision] = yield* session.run((db) =>
 						db
 							.select({
-								manifest: tables.pluginRevisionManifest.manifest,
+								manifest: tables.pluginRevision.manifest,
 								sandboxAuthority: tables.pluginRevision.sandboxAuthority,
 							})
 							.from(tables.pluginRevision)
-							.innerJoin(
-								tables.pluginRevisionManifest,
-								eq(tables.pluginRevisionManifest.pluginRevisionId, tables.pluginRevision.id),
-							)
 							.where(eq(tables.pluginRevision.id, installed.revisionId))
 							.limit(1),
 					);

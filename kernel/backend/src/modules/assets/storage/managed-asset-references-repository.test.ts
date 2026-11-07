@@ -785,25 +785,15 @@ layer(testLayer)((test) => {
 				];
 				for (const [schema, assetBearing] of cases) {
 					const id = yield* randomUuid;
-					yield* session.transaction(
-						Effect.gen(function* () {
-							const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-								schema,
-							);
-							const configSchema = sql`${encoded}::jsonb`;
-							yield* session.run((db) =>
-								db
-									.insert(tables.pluginRevision)
-									.values({ ...revision, id, configSchema, contentHash: id }),
-							);
-							yield* session.run((db) =>
-								db.insert(tables.pluginRevisionManifest).values({
-									pluginRevisionId: id,
-									manifest: sql`(select jsonb_set(${tables.pluginRevisionManifest.manifest}, '{configSchema}', ${configSchema})
-								from ${tables.pluginRevisionManifest}
-								where ${tables.pluginRevisionManifest.pluginRevisionId} = ${revisionId})`,
-								}),
-							);
+					const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(schema);
+					const configSchema = sql`${encoded}::jsonb`;
+					yield* session.run((db) =>
+						db.insert(tables.pluginRevision).values({
+							...revision,
+							id,
+							configSchema,
+							contentHash: id,
+							manifest: sql`jsonb_set(${JSON.stringify(revision.manifest)}::jsonb, '{configSchema}', ${configSchema})`,
 						}),
 					);
 					const configId = yield* insertEncryptedConfig(id, ownerUserId);

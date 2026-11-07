@@ -120,13 +120,7 @@ const testLayer = Layer.unwrap(
 					}),
 					Layer.succeed(PluginCatalogInvalidator, {
 						all: Effect.void,
-						recordAll: Effect.void,
 						user: () => record("invalidate"),
-						deliverPending: () => Effect.void,
-						recordUser: (userId) =>
-							session
-								.run((db) => db.insert(tables.pluginCatalogChange).values({ userId }))
-								.pipe(Effect.asVoid, Effect.orDie),
 					}),
 					Layer.succeed(ReorderEvents, { events: Ref.get(events) }),
 				),
@@ -142,7 +136,6 @@ const seed = Effect.gen(function* () {
 			yield* db.delete(tables.savedViewOverride);
 			yield* db.delete(tables.savedView);
 			yield* db.delete(tables.definitionSavedView);
-			yield* db.delete(tables.pluginCatalogChange);
 			yield* db.delete(tables.pluginInstallation);
 			yield* db.delete(tables.plugin);
 			yield* db
@@ -185,7 +178,6 @@ const stored = Effect.gen(function* () {
 	return yield* session.run((db) =>
 		Effect.gen(function* () {
 			return {
-				changes: yield* db.select().from(tables.pluginCatalogChange),
 				custom: yield* db.select().from(tables.savedView).orderBy(asc(tables.savedView.id)),
 				overrides: yield* db
 					.select()
@@ -232,7 +224,6 @@ layer(testLayer)((test) => {
 					{ revision: 1, slug: "same", sortOrder: 1, pluginId: null, isHidden: false },
 					{ revision: 2, sortOrder: 2, pluginId: null, isHidden: true, slug: "trailing" },
 				]);
-				expect(after.changes).toHaveLength(1);
 				expect((yield* events.events).slice(beforeEvents.length)).toEqual(["invalidate"]);
 			}),
 		testTimeout,
@@ -597,7 +588,7 @@ layer(testLayer)((test) => {
 						references: [custom(`custom-${(size - 1).toString().padStart(2, "0")}`)],
 					});
 					const statements = yield* (yield* StatementLog).lastTransaction;
-					expect(statements).toHaveLength(6);
+					expect(statements).toHaveLength(5);
 					expect(statements[0]).toContain("pg_advisory_xact_lock_shared");
 					expect(statements[1]).toContain("pg_advisory_xact_lock(hashtext(");
 					expect(
@@ -618,7 +609,7 @@ layer(testLayer)((test) => {
 					const before = yield* stored;
 					yield* service.reorder(user, { installationId, references: result.references });
 					const unchangedStatements = yield* (yield* StatementLog).lastTransaction;
-					expect(unchangedStatements).toHaveLength(4);
+					expect(unchangedStatements).toHaveLength(3);
 					expect(
 						unchangedStatements.filter((statement) =>
 							/^(insert into "saved_view_override"|update "saved_view"|delete from "saved_view_override")/.test(
@@ -629,7 +620,6 @@ layer(testLayer)((test) => {
 					const after = yield* stored;
 					expect(after.custom).toEqual(before.custom);
 					expect(after.overrides).toEqual(before.overrides);
-					expect(after.changes).toHaveLength(2);
 					const current = yield* (yield* SavedViewsRepository).listReorderScope(
 						user.id,
 						installationId ?? null,

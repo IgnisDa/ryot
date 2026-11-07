@@ -52,7 +52,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 							yield* pluginRepository.lockIngestionShared([userId]);
 							yield* session.acquireUserWriteLock(userId);
 							const result = yield* work;
-							yield* invalidator.recordUser(userId);
+							yield* invalidator.user(userId);
 							return result;
 						}),
 					)
@@ -170,7 +170,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						}),
 					),
 				);
-				yield* invalidator.user(user.id);
 				return created;
 			});
 			const update = Effect.fn(function* (
@@ -254,7 +253,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						}),
 					),
 				);
-				yield* invalidator.user(user.id);
 				return result;
 			});
 			const deleteView = Effect.fn(function* (
@@ -279,7 +277,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						}),
 					),
 				);
-				yield* invalidator.user(user.id);
 				return result;
 			});
 			const clone = Effect.fn(function* (user: CurrentUserValue, reference: SavedViewReference) {
@@ -323,7 +320,6 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						}),
 					),
 				);
-				yield* invalidator.user(user.id);
 				return result;
 			});
 			const hasCustomInstallationReferences = (userId: UserId, pluginInstallationId: string) =>

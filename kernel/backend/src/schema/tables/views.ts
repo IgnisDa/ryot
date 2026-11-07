@@ -39,18 +39,6 @@ export const clientPageComposition = snakeCase.table("client_page_composition", 
 	manifest: jsonb().$type<ClientPageCompositionManifest>().notNull(),
 });
 
-export const pluginCatalogChange = snakeCase.table(
-	"plugin_catalog_change",
-	{
-		createdAt: timestamptz().defaultNow().notNull(),
-		userId: text().references(() => user.id, { onDelete: "cascade" }),
-		id: text()
-			.primaryKey()
-			.$defaultFn(() => /* @__PURE__ */ generateId()),
-	},
-	(table) => [index("plugin_catalog_change_user_id_idx").on(table.userId)],
-);
-
 export const savedView = snakeCase.table(
 	"saved_view",
 	{

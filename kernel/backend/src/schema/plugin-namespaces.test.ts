@@ -126,20 +126,6 @@ describe("plugin namespaces in the generated migration baseline", () => {
 					assert(changedRevisionSection.failure instanceof DbError);
 					expect(changedRevisionSection.failure.code).toBe("P0001");
 
-					const changedRevisionManifest = yield* Effect.result(
-						session.run((db) =>
-							db.transaction((tx) =>
-								tx
-									.update(tables.pluginRevisionManifest)
-									.set({ manifest: otherPackage.manifest })
-									.where(eq(tables.pluginRevisionManifest.pluginRevisionId, system.revisionId)),
-							),
-						),
-					);
-					assert(Result.isFailure(changedRevisionManifest));
-					assert(changedRevisionManifest.failure instanceof DbError);
-					expect(changedRevisionManifest.failure.code).toBe("P0001");
-
 					const mismatchedActiveRevision = yield* Effect.result(
 						session.run((db) =>
 							db.transaction((tx) =>
