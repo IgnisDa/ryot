@@ -44,7 +44,7 @@ otherwise the server's memory. Plugins get the smaller of 1,536 MiB and half of 
 `SANDBOX_MEMORY_BUDGET_MIB`, which may not exceed half. A plugin that uses too much memory fails
 only its own task. The supplied deployments do not set CPU, memory, or process/thread ceilings.
 The sandbox budget is an admission bound, not a limit on total application memory; leave room
-for the backend, PostgreSQL, Redis, and other services.
+for the backend, PostgreSQL, and other services.
 
 ## Imports
 
@@ -74,9 +74,9 @@ supplied by clients.
 ## Railway
 
 1. Create an empty Railway project.
-2. Add PostgreSQL and Redis services.
+2. Add a PostgreSQL service.
 3. Add a Docker image service for `ignisda/ryot`.
-4. Reference `DATABASE_URL` and `REDIS_URL` from the database services.
+4. Reference `DATABASE_URL` from the database service.
 5. Set `SERVER_ADMIN_ACCESS_TOKEN` to a long random value.
 6. Generate a domain and set `FRONTEND_URL` to its public origin.
 7. Optional: set the [health-check](https://docs.railway.app/deploy/healthchecks) path to
@@ -84,15 +84,13 @@ supplied by clients.
 
 ## Dokku
 
-This example requires a Dokku global domain, PostgreSQL, Redis, and Let's Encrypt plugins.
+This example requires a Dokku global domain, PostgreSQL, and Let's Encrypt plugins.
 Replace `ryot` if you need a different app name.
 
 ```bash
 dokku apps:create ryot
 dokku postgres:create ryot-service
 dokku postgres:link ryot-service ryot
-dokku redis:create ryot-cache
-dokku redis:link ryot-cache ryot
 dokku ports:set ryot http:80:8000
 dokku config:set --no-restart ryot SERVER_ADMIN_ACCESS_TOKEN="$(openssl rand -hex 16)"
 dokku domains:add ryot "ryot.$(cat /home/dokku/VHOST)"
@@ -121,20 +119,13 @@ dokku git:from-image ryot ignisda/ryot:latest
    fly postgres attach --app ryot ryot-db
    ```
 
-4. Create Redis and set its connection string.
-
-   ```bash
-   flyctl redis create
-   fly secrets set REDIS_URL='<the connection string printed above>'
-   ```
-
-5. Set the required admin token and public frontend URL.
+4. Set the required admin token and public frontend URL.
 
    ```bash
    fly secrets set SERVER_ADMIN_ACCESS_TOKEN="$(openssl rand -hex 16)" FRONTEND_URL='https://<app>.fly.dev'
    ```
 
-6. Optional: configure S3-compatible permanent storage.
+5. Optional: configure S3-compatible permanent storage.
    ```bash
    fly secrets set \
      FILE_STORAGE_S3_URL='https://s3.example.com' \
@@ -146,8 +137,8 @@ dokku git:from-image ryot ignisda/ryot:latest
 
 ## Kubernetes (Helm)
 
-The OCI Helm chart requires Helm 3.8 or later. It includes PostgreSQL and Redis by default, but
-can use external services.
+The OCI Helm chart requires Helm 3.8 or later. It includes PostgreSQL by default, but
+can use an external database.
 
 The chart's CPU and memory requests reserve scheduling capacity only. The setuid launcher
 requires `allowPrivilegeEscalation: true`, so Kubernetes Restricted pod-security policy is not
@@ -162,7 +153,7 @@ helm install ryot oci://ghcr.io/ignisda/charts/ryot \
 
 See the chart's
 <a :href="`${variables.filePath}/ci/helm/ryot/README.md`" target="_blank">README</a>
-for details on database and Redis modes, ingress and secrets, and
+for details on database modes, ingress and secrets, and
 <a :href="`${variables.filePath}/ci/helm/ryot/VALUES.md`" target="_blank">VALUES.md</a>
 for the full list of configurable values.
 

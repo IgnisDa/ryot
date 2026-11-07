@@ -22,21 +22,13 @@ but the upgrade needs a few extra steps. Please read this whole section before y
 
 ### Update your docker-compose file
 
-`v11` needs [Redis](https://redis.io) alongside PostgreSQL, and a volume for the files you
-upload if you do not use S3. The changes look like this:
+`v11` needs a volume for the files you upload if you do not use S3. The changes look like this:
 
 ```diff
  services:
    ryot-db:
      image: postgres:18-alpine
      # ...unchanged
-
-+  ryot-redis:
-+    image: redis:8-alpine
-+    restart: unless-stopped
-+    container_name: ryot-redis
-+    volumes:
-+      - redis_storage:/data
 
    ryot:
 -    image: ignisda/ryot:v10
@@ -48,7 +40,6 @@ upload if you do not use S3. The changes look like this:
        - "8000:8000"
      environment:
        - TZ=Europe/Amsterdam
-+      - REDIS_URL=redis://ryot-redis:6379
        - FRONTEND_URL=https://ryot.your-domain.com
        - DATABASE_URL=postgres://postgres:postgres@ryot-db:5432/postgres
        - SERVER_ADMIN_ACCESS_TOKEN=28ebb3ae554fa9867ba0
@@ -57,7 +48,6 @@ upload if you do not use S3. The changes look like this:
 
  volumes:
 +  ryot_storage:
-+  redis_storage:
    postgres_storage:
 ```
 

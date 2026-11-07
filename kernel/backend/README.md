@@ -68,14 +68,16 @@ Unused provider entities are collected by the [graph retention](src/modules/enti
 rules. Idempotency keys expire as described in
 [mutation admission](src/modules/mutations/README.md#idempotency-keys).
 
-Redis infrastructure owns backend keys, channels, codecs, and parsing; the sandbox owns its
-`ryot:sandbox:*` recovery and quarantine keys. See the [entity-watch protocol](src/modules/entities/watches/README.md)
-and [authentication/proxy rules](src/modules/accounts/auth/README.md) for those boundaries.
+PostgreSQL is the only backing service. `platform/jobs` runs queued background work,
+`platform/broadcast` tells every process about a change through `pg_notify` once its transaction
+commits, and `platform/transient-values` holds expiring values such as tickets, grants, and script
+caches. Broadcasts are not durable, so listeners recover on reconnect. See the
+[live-updates protocol](../client/src/modules/entity-watches/README.md) and
+[authentication/proxy rules](src/modules/accounts/auth/README.md).
 
 ## Tests
 
-`test.ts` provisions one PostgreSQL and one Redis for the run, reusing `TEST_DATABASE_URL`
-and `TEST_REDIS_URL` when supplied. It runs four workers unless `--parallel=N` says otherwise.
+`test.ts` provisions one PostgreSQL for the run, reusing `TEST_DATABASE_URL` when supplied. It runs four workers unless `--parallel=N` says otherwise.
 
 PostgreSQL connections are bounded by construction. The launcher migrates one template database and
 sizes a started container's `max_connections` from the worker count; a supplied server must already
@@ -88,7 +90,7 @@ drops its previous file's role when it starts the next one, and the launcher dro
 the end of the run. Unnamed `layer(...)((test) => ...)` blocks are all built before a suite's first
 test and kept until it ends; give repeated per-test harnesses a name so each one owns its lifetime.
 
-Database suites isolate schemas or databases and Redis suites namespace keys. Missing setup never
+Database suites isolate schemas or databases. Missing setup never
 causes silent skips.
 
 Use `assertExitFails` from `@ryot-app/testing/effect-assertions` for typed failures: structural

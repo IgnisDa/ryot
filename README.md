@@ -87,7 +87,7 @@ Upgrading from an earlier major release? Follow the
 - Self-hosted with full data ownership
 - TypeScript on [Bun](https://bun.sh), with an [Effect](https://effect.website)
   backend and a [React](https://react.dev) client
-- PostgreSQL for persistent data and Redis for background work
+- PostgreSQL for persistent data and background work
 - A plugin-based core that can support new tracking domains
 - Web, iOS, and Android clients, with mobile support through
   [Capacitor](https://capacitorjs.com)

@@ -11,7 +11,6 @@ Ryot serves the final configuration loaded at the `/api/system/config` endpoint 
 | Variable                    | Purpose                                                                     |
 | --------------------------- | --------------------------------------------------------------------------- |
 | `DATABASE_URL`              | Required PostgreSQL connection string.                                      |
-| `REDIS_URL`                 | Required Redis connection string.                                           |
 | `SERVER_ADMIN_ACCESS_TOKEN` | Required bearer token for instance-admin administration. Use a long secret. |
 | `FRONTEND_URL`              | Public frontend origin. It controls authentication and trusted origins.     |
 | `TZ`                        | IANA time zone for plugin cron schedules. Default: `Etc/GMT`.               |

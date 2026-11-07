@@ -26,7 +26,7 @@ Live smoke may require credentials and tests stable provider properties, not exa
 
 ## Harness
 
-`global-setup.ts` builds required artifacts, provisions PostgreSQL, Redis, and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit. The shared server uses an isolated log directory; `E2E_SERVER_LOG_FILE` lets scoped fixtures add retained log files without changing the active log.
+`global-setup.ts` builds required artifacts, provisions PostgreSQL and object storage, then starts one shared backend serving the SPA and `/api` from one origin. It publishes that backend through `E2E_API_URL`, `E2E_FRONTEND_URL`, and `E2E_ADMIN_ACCESS_TOKEN`, which worker processes inherit. The shared server uses an isolated log directory; `E2E_SERVER_LOG_FILE` lets scoped fixtures add retained log files without changing the active log.
 Each isolated test file decodes this configuration into a shared target. Isolated servers return their own target and never change the worker environment. Pass that target to session constructors and target-only setup helpers. Sessions bind their HTTP calls, companion upload/download/WebSocket URLs, and `adminCall` authority to the same target; installed plugin fixtures retain it for updates and strict cleanup. API and frontend URLs remain separate for OAuth and replica cases. Cross-server backups explicitly download through the source session and upload through the destination session.
 Each acquired container, storage client, and API process registers a Scope finalizer before later setup runs. Startup failure or interruption closes acquired resources; normal teardown stops API processes before their infrastructure. Testcontainers' Ryuk reaper removes containers if the test process exits unexpectedly. Server and PostgreSQL logs are retained after teardown.
 On macOS, setup holds a `caffeinate` idle-sleep assertion until teardown or runner exit so wall-clock deadlines and OAuth tokens remain valid during the run.
@@ -47,7 +47,7 @@ E2E enforces the normal Effect async, HTTP, JSON, and platform rules. Keep local
 
 Provider fixtures install offline scripts through the real admin plugin endpoint. Best-effort teardown stops on persistent references; tests that assert removal must delete references and use strict uninstall. Admin setup uses typed `testSupport` operations. Resolve plugin-owned definitions by plugin plus local slug because local slugs are not globally unique.
 
-The SSE catalog and entity-watches WebSocket fixtures validate transport headers/frames and support OAuth or API keys. The WebSocket fixture owns ticket authentication, revision acknowledgements, heartbeat replies, completion buffering, and scoped close; protocol details belong in [`kernel/backend/src/modules/entities/watches/README.md`](../kernel/backend/src/modules/entities/watches/README.md).
+The SSE catalog and live-updates fixtures validate transport headers/frames and support OAuth or API keys. The live-updates fixture asks for population through the populate endpoint, buffers `entity-updated` frames for later waits, and closes its stream with the test scope; the protocol is described in [`kernel/client/src/modules/entity-watches/README.md`](../kernel/client/src/modules/entity-watches/README.md).
 
 ## Assertions
 
@@ -64,5 +64,5 @@ Assert the transport tag or category, module-owned kebab-case reason code, and s
 
 The shared harness uses at most six workers (no more than the available parallelism), sandbox worker concurrency 5 with a 2,304 MiB sandbox memory budget (memory admission reserves each run's worst case, and the derived default admits about two runs), an API database pool of 100, and PostgreSQL `max_connections=400`. Keep production Effect Cluster expiry behavior so recovery regressions remain visible. Do not raise worker, sandbox, or pool settings without fresh load evidence.
 
-Watch app-pool waits, cross-suite timeouts, connection ceilings, lock waits, Redis projection errors,
+Watch app-pool waits, cross-suite timeouts, connection ceilings, lock waits,
 stalled progress, and overlapping sandbox work.

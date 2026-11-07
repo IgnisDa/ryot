@@ -16,7 +16,6 @@ Prerequisites: [Bun](https://bun.sh), [Rust](https://rustup.rs) (the toolchain p
 3. Set these environment variables in `apps/server/.env`:
 
    ```txt
-   REDIS_URL=redis://localhost:6379
    FILE_STORAGE_S3_BUCKET_NAME=ryot
    FRONTEND_URL=http://localhost:3005
    FILE_STORAGE_S3_URL=http://localhost:9000

@@ -8,7 +8,6 @@
 |---|---|---|---|---|---|
 | `port` | `PORT` | HTTP port the server listens on | No | No | `8000` |
 | `timezone` | `TZ` | IANA timezone used for plugin cron schedules | No | No | `Etc/GMT` |
-| `redisUrl` | `REDIS_URL` | Redis connection string | Yes | Yes | — |
 | `disableTelemetry` | `DISABLE_TELEMETRY` | Disable anonymous usage analytics reported by the client | No | No | `false` |
 | `frontendUrl` | `FRONTEND_URL` | Exact origin users browse to; defines OAuth issuer and callbacks. HTTPS strongly recommended | Yes | No | `https://app.ryot.io` |
 
@@ -50,10 +49,10 @@
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |
 |---|---|---|---|---|---|
-| `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Global sandbox execution concurrency across trust and snapshot tiers; each process opens up to 4 + 2 × this many PostgreSQL connections, so keep it within available database and memory headroom | No | No | `2` |
 | `sandbox.memoryBudgetMiB` | `SANDBOX_MEMORY_BUDGET_MIB` | Aggregate memory reservation budget for sandbox processes and execution buffers; derived as the smaller of 1536 MiB and half of effective memory when unset | No | No | — |
 | `sandbox.perUserSidecars` | `SANDBOX_PER_USER_SIDECARS` | Run each plugin owner's user-tier scripts in their own sidecar processes instead of shared ones; use when mutually untrusted users share an instance | No | No | `false` |
 | `sandbox.importConcurrency` | `SANDBOX_IMPORT_CONCURRENCY` | Maximum provider imports running at once across all instances; the rest wait in a queue. Keep it equal to the total SANDBOX_WORKER_CONCURRENCY of all instances | No | No | `2` |
+| `sandbox.workerConcurrency` | `SANDBOX_WORKER_CONCURRENCY` | Global sandbox execution concurrency across trust and snapshot tiers; each process opens up to 4 + 2 × this many PostgreSQL connections, so keep it within available database and memory headroom | No | No | `2` |
 
 ### PostgreSQL connection settings
 
