@@ -1,23 +1,12 @@
-import { PgClient } from "@effect/sql-pg";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
-import {
-	Cause,
-	Context,
-	Duration,
-	Effect,
-	Exit,
-	FiberSet,
-	Layer,
-	Queue,
-	Schema,
-	Stream,
-} from "effect";
+import { Cause, Context, Duration, Effect, Exit, FiberSet, Layer, Queue, Schema } from "effect";
 
+import { Broadcast } from "#platform/broadcast";
 import { DatabaseSession } from "#platform/db/session";
 import { job } from "#schema/tables/jobs";
 
-import { type JobKind, type JobPayloadSchema, jobWakeChannel } from "./queue";
+import { type JobKind, type JobPayloadSchema, jobWakeTopic } from "./queue";
 
 export type JobContext = { readonly id: string; readonly attempt: number };
 
@@ -25,6 +14,12 @@ type JobHandler = {
 	readonly kind: JobKind;
 	readonly run: (payload: unknown, context: JobContext) => Effect.Effect<void, unknown>;
 };
+
+/** The job this fiber runs for, so a write can tell that account retirement removed it. */
+export const CurrentJobId = Context.Reference<null | string>(
+	"@ryot-app/kernel-backend/platform/jobs/worker/CurrentJobId",
+	{ defaultValue: () => null },
+);
 
 export class JobHandlers extends Context.Service<JobHandlers>()(
 	"@ryot-app/kernel-backend/platform/jobs/worker/JobHandlers",
@@ -101,7 +96,7 @@ const errorText = (cause: Cause.Cause<unknown>) => Cause.pretty(cause).slice(0, 
 
 export const JobWorkerLive = Layer.effectDiscard(
 	Effect.gen(function* () {
-		const pg = yield* PgClient.PgClient;
+		const broadcast = yield* Broadcast;
 		const session = yield* DatabaseSession;
 		const handlers = yield* JobHandlers;
 		const wake = yield* Queue.sliding<void>(1);
@@ -196,7 +191,9 @@ export const JobWorkerLive = Layer.effectDiscard(
 				const exit = yield* (
 					row.attempts > row.max_attempts
 						? Effect.fail(new JobAttemptsExhausted({}))
-						: handler.run(row.payload, { id: row.id, attempt: row.attempts })
+						: handler
+								.run(row.payload, { id: row.id, attempt: row.attempts })
+								.pipe(Effect.provideService(CurrentJobId, row.id))
 				).pipe(Effect.raceFirst(renew(handler.kind, row)), Effect.exit);
 				if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) {
 					yield* Effect.logWarning("job failed", exit.cause).pipe(
@@ -238,11 +235,9 @@ export const JobWorkerLive = Layer.effectDiscard(
 			return nextWake;
 		});
 
-		const notifications = yield* pg.listen(jobWakeChannel).pipe(Effect.orDie);
-		yield* Stream.fromQueue(notifications).pipe(
-			Stream.runForEach(() => signal),
-			Effect.forkScoped,
-		);
+		const wakeNow = () => Queue.offerUnsafe(wake, undefined);
+		yield* broadcast.subscribe(jobWakeTopic, wakeNow);
+		yield* broadcast.onReconnect(wakeNow);
 
 		yield* round.pipe(
 			Effect.catchCause((cause) =>

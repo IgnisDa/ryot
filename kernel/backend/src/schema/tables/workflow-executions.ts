@@ -19,8 +19,7 @@ export const workflowExecution = snakeCase.table(
 		// `json` keeps the encoded text, so replayed results match their originals byte for byte.
 		result: json(),
 		payload: json(),
-		// The account generation the execution works for; account retirement interrupts it.
-		accountToken: text(),
+		// The account the execution works for; account retirement interrupts it.
 		accountUserId: text(),
 		clearedAt: timestamptz(),
 		expiredAt: timestamptz(),
@@ -55,10 +54,6 @@ export const workflowExecution = snakeCase.table(
 		check(
 			"workflow_execution_suspension_check",
 			sql`${table.suspension} is null or ${table.suspension} in ('failed', 'waiting')`,
-		),
-		check(
-			"workflow_execution_account_check",
-			sql`(${table.accountUserId} is null) = (${table.accountToken} is null)`,
 		),
 		check(
 			"workflow_execution_completion_check",

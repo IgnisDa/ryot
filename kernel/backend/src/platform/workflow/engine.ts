@@ -1,6 +1,6 @@
 import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import {
 	Cause,
@@ -29,6 +29,8 @@ import {
 	WorkflowEngine,
 	WorkflowInstance,
 } from "effect/workflow/WorkflowEngine";
+
+import { CurrentJobId } from "#platform/jobs/worker";
 
 import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
 import {
@@ -112,6 +114,7 @@ type Registration = {
 
 type Activation = {
 	interrupted: boolean;
+	account: null | UserId;
 	readonly payload: object;
 	readonly execute: Execute;
 	interruptedUnsafe: boolean;
@@ -119,7 +122,6 @@ type Activation = {
 	readonly workflow: Workflow.Any;
 	// Parent of every run's scope; scopes of suspended runs stay open until the execution ends.
 	readonly scope: Scope.Closeable;
-	account: null | AccountGeneration;
 	readonly identity: WorkflowIdentity;
 	instance: WorkflowInstance["Service"];
 	resumeRequested: WakeMode | undefined;
@@ -136,26 +138,12 @@ const expired = (identity: WorkflowIdentity) => Effect.die(new WorkflowExecution
 
 const rejected = (message: string) => Effect.die(new WorkflowAccountRejected({ message }));
 
-const accountOf = (row: ExecutionRow): null | AccountGeneration =>
-	row.accountUserId === null || row.accountToken === null
-		? null
-		: { token: row.accountToken, userId: row.accountUserId };
-
-const sameAccount = (left: null | AccountGeneration, right: null | AccountGeneration) =>
-	left?.userId === right?.userId && left?.token === right?.token;
-
 const isUnwakeable = (result: Result, mode: WakeMode) =>
 	result._tag === "Complete" || (mode === "automatic" && result.failed === true);
 
 export const makePostgresWorkflowEngine = Effect.gen(function* () {
 	const scope = yield* Effect.scope;
 	const store = yield* WorkflowEngineStore;
-	const retirement = (account: AccountGeneration) =>
-		Effect.map(store.accountRetired(account), (retired) =>
-			retired
-				? "Mutation command belongs to a retired account"
-				: "Mutation command account is being retired",
-		);
 	const notifications = yield* WorkflowExecutionNotifications;
 	const pg = yield* PgClient.PgClient;
 	const owner = `runner-${yield* (yield* SecureRandom.SecureRandom).uuidV4()}`;
@@ -234,10 +222,10 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			deferreds: new Map(),
 			activities: new Map(),
 			execute: entry.execute,
-			account: accountOf(row),
 			workflow: entry.workflow,
 			interruptedUnsafe: false,
 			scope: Scope.makeUnsafe(),
+			account: row.accountUserId,
 			resumeRequested: undefined,
 			done: Deferred.makeUnsafe(),
 			loadedSuspension: row.suspension,
@@ -364,6 +352,8 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				Workflow.intoResult,
 				Effect.provideService(WorkflowEngine, engine),
 				Effect.provideService(WorkflowAdmissionAccount, undefined),
+				// A body woken by a job outlives it; the execution's own account check guards its writes.
+				Effect.provideService(CurrentJobId, null),
 				(effect) => deferredState.trackRun(instance, effect),
 				Effect.tap((result) => settle(activation, result)),
 				Effect.onExit((exit) => {
@@ -475,9 +465,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			const payload = yield* codecs.encodePayload(options.payload).pipe(Effect.orDie);
 			const admitted = yield* store.admit({ owner, parent, account, payload, identity });
 			if (admitted.rejected) {
-				return yield* rejected(
-					account ? yield* retirement(account) : "Mutation command belongs to a retired account",
-				);
+				return yield* rejected("Mutation command belongs to a retired account");
 			}
 			let row = admitted.row;
 			const parentRow = parent && !admitted.inserted ? yield* store.find(parent) : undefined;
@@ -496,11 +484,11 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 					new DbError({ message: "Workflow execution belongs to another root" }),
 				);
 			}
-			if (account && !admitted.inserted && !sameAccount(accountOf(row), account)) {
-				if (accountOf(row) !== null || !(yield* store.adopt(identity, account))) {
-					return yield* rejected("Workflow belongs to another account generation");
+			if (account && !admitted.inserted && row.accountUserId !== account) {
+				if (row.accountUserId !== null || !(yield* store.adopt(identity, account))) {
+					return yield* rejected("Workflow belongs to another account");
 				}
-				row = { ...row, accountToken: account.token, accountUserId: account.userId };
+				row = { ...row, accountUserId: account };
 			}
 			if (row.status !== "active") {
 				if (options.discard) {
@@ -525,9 +513,9 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			}
 			yield* resume(identity, "explicit");
 		} else {
-			if (account && !sameAccount(activation.account, account)) {
+			if (account && activation.account !== account) {
 				if (activation.account !== null || !(yield* store.adopt(identity, account))) {
-					return yield* rejected("Workflow belongs to another account generation");
+					return yield* rejected("Workflow belongs to another account");
 				}
 				activation.account = account;
 			}
@@ -705,6 +693,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 
 		deferredDone,
 
+		// A suspending sibling interrupts this run; a clock written but never armed would never fire.
 		scheduleClock: Effect.fnUntraced(function* (workflow, options) {
 			const identity = { workflowName: workflow._tag, executionId: options.executionId };
 			const fireAt = DateTime.toDate(
@@ -726,7 +715,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				return yield* unadmitted;
 			}
 			return yield* written.written ? armClock(identity, options.clock.name, fireAt) : Effect.void;
-		}),
+		}, Effect.uninterruptible),
 	});
 
 	// Wakes from other processes: a step or child result was written for an execution we own.
@@ -787,15 +776,15 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			const instance = yield* WorkflowInstance;
 			const identity = { executionId: instance.executionId, workflowName: instance.workflow._tag };
 			const activation = activations.get(keyOf(identity));
-			if (account === null || !activation || sameAccount(activation.account, account)) {
+			if (account === null || !activation || activation.account === account) {
 				return yield* Effect.void;
 			}
 			if (activation.account !== null || !(yield* store.adopt(identity, account))) {
 				return yield* new DbError({
 					message:
 						activation.account === null
-							? yield* retirement(account)
-							: "Workflow belongs to another account generation",
+							? "Mutation command belongs to a retired account"
+							: "Workflow belongs to another account",
 				});
 			}
 			activation.account = account;

@@ -5,6 +5,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Duration, Effect, Layer, Queue, Schema } from "effect";
 
+import { Broadcast } from "#platform/broadcast";
 import { DatabaseSession } from "#platform/db/session";
 import { job } from "#schema/tables/jobs";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -14,7 +15,9 @@ import { type JobContext, JobHandlers, JobWorkerLive, registerJobHandler } from 
 
 const Payload = Schema.Struct({ value: Schema.String });
 
-const testLayer = JobQueue.layer.pipe(Layer.provideMerge(isolatedDatabaseLayer("jobs")));
+const testLayer = Layer.mergeAll(JobQueue.layer, Layer.effect(Broadcast, Broadcast.make)).pipe(
+	Layer.provideMerge(isolatedDatabaseLayer("jobs")),
+);
 
 type Run = JobContext & { readonly value: string };
 
@@ -59,6 +62,31 @@ layer(testLayer, { excludeTestServices: true })((test) => {
 			expect(run).toMatchObject({ value: "a", attempt: 1 });
 			yield* Effect.sleep(Duration.millis(200));
 			expect(yield* rowsOf(kind)).toEqual([]);
+		}),
+	);
+
+	test.effect("carries a NUL character in a job payload", () =>
+		Effect.gen(function* () {
+			const kind = makeJobKind("nul-payload", { payload: Payload });
+			const queue = yield* JobQueue;
+			const { runs, record } = yield* recorder;
+			yield* startWorker(kind, record);
+
+			yield* queue.enqueue(kind, { value: "a\u0000b" });
+
+			expect((yield* nextRun(runs)).value).toBe("a\u0000b");
+		}),
+	);
+
+	test.effect("queues a job under an explicit ID once however often it is asked", () =>
+		Effect.gen(function* () {
+			const kind = makeJobKind("explicit-id", { payload: Payload });
+			const queue = yield* JobQueue;
+
+			expect(yield* queue.enqueue(kind, { value: "first" }, { id: "explicit" })).toBe(true);
+			expect(yield* queue.enqueue(kind, { value: "again" }, { id: "explicit" })).toBe(false);
+
+			expect((yield* rowsOf(kind)).map((row) => row.payload)).toEqual([{ value: "first" }]);
 		}),
 	);
 

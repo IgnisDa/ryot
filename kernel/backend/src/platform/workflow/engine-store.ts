@@ -1,4 +1,3 @@
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { type SQL, sql } from "drizzle-orm";
 import * as PgDrizzle from "drizzle-orm/effect-postgres";
@@ -43,7 +42,6 @@ const ExecutionRow = Schema.Struct({
 	accountUserId: Schema.NullOr(UserId),
 	result: Schema.NullOr(Schema.Unknown),
 	payload: Schema.NullOr(Schema.Unknown),
-	accountToken: Schema.NullOr(Schema.String),
 	parentExecutionId: Schema.NullOr(Schema.String),
 	parentWorkflowName: Schema.NullOr(Schema.String),
 	status: Schema.Literals(["active", "failed", "succeeded"]),
@@ -74,9 +72,8 @@ export type StepWrite = typeof StepWrite.Type;
 const Admission = Schema.Struct({ inserted: Schema.Boolean, rejected: Schema.Boolean });
 
 // Retirement stamps the user row under its exclusive lock, so a `for share` wait re-reads the stamp.
-const admitsAccount = (userId: SQL, token: SQL) =>
-	sql`exists (select 1 from ${user} u where u.id = ${userId} and u.account_generation = ${token}
-		and u.retiring_account_generation is distinct from ${token} for share)`;
+const admitsAccount = (userId: SQL) =>
+	sql`exists (select 1 from ${user} u where u.id = ${userId} and u.retiring_at is null for share)`;
 
 const decode =
 	<S extends Schema.Top>(schema: S) =>
@@ -89,7 +86,7 @@ const executionColumns = sql`e.owner, e.result, e.payload, e.status, e.suspensio
 	e.execution_id as "executionId", e.workflow_name as "workflowName",
 	e.parent_execution_id as "parentExecutionId", e.parent_workflow_name as "parentWorkflowName",
 	e.root_execution_id as "rootExecutionId", e.root_workflow_name as "rootWorkflowName",
-	e.account_user_id as "accountUserId", e.account_token as "accountToken",
+	e.account_user_id as "accountUserId",
 	${liveOwner} as "leaseLive",
 	exists (select 1 from ${execution} r where r.workflow_name = e.root_workflow_name
 		and r.execution_id = e.root_execution_id and r.expired_at is not null) as "rootExpired"`;
@@ -122,8 +119,8 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				readonly owner: string;
 				readonly payload: unknown;
 				readonly identity: WorkflowIdentity;
+				readonly account: null | UserId | undefined;
 				readonly parent: undefined | WorkflowIdentity;
-				readonly account: null | undefined | AccountGeneration;
 			}) {
 				const { parent, account, identity } = input;
 				const parentName = parent?.workflowName ?? null;
@@ -132,29 +129,28 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				const rows = yield* run(
 					db.execute(
 						sql`with parent as (
-							select p.root_workflow_name, p.root_execution_id, p.account_user_id, p.account_token,
+							select p.root_workflow_name, p.root_execution_id, p.account_user_id,
 								r.expired_at is not null as root_expired
 							from ${execution} p
 							join ${execution} r on r.workflow_name = p.root_workflow_name and r.execution_id = p.root_execution_id
 							where p.workflow_name = ${parentName} and p.execution_id = ${parentId}
 							for key share of r
 						), chosen as (
-							select case when ${inherit} then parent.account_user_id else ${account?.userId ?? null}::text end as user_id,
-								case when ${inherit} then parent.account_token else ${account?.token ?? null}::text end as token
+							select case when ${inherit} then parent.account_user_id else ${account ?? null}::text end as user_id
 							from (select 1) seed left join parent on true
 						), fenced as (
-							select chosen.user_id is not null and not ${admitsAccount(sql`chosen.user_id`, sql`chosen.token`)} as rejected
+							select chosen.user_id is not null and not ${admitsAccount(sql`chosen.user_id`)} as rejected
 							from chosen
 						), inserted as (
 							insert into ${execution} (workflow_name, execution_id, status, payload, owner,
 								parent_workflow_name, parent_execution_id, root_workflow_name, root_execution_id,
-								account_user_id, account_token)
+								account_user_id)
 							select ${identity.workflowName}, ${identity.executionId}, 'active', ${yield* encodeJson(input.payload)}::json,
 								${input.owner},
 								${parentName}, ${parentId},
 								coalesce(parent.root_workflow_name, ${identity.workflowName}),
 								coalesce(parent.root_execution_id, ${identity.executionId}),
-								chosen.user_id, chosen.token
+								chosen.user_id
 							from (select 1) seed
 							left join parent on true
 							cross join chosen
@@ -177,31 +173,17 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 			});
 
 			// Binds an execution without an account to one, under the same fence as admission.
-			const adopt = Effect.fnUntraced(function* (
-				identity: WorkflowIdentity,
-				account: AccountGeneration,
-			) {
+			const adopt = Effect.fnUntraced(function* (identity: WorkflowIdentity, account: UserId) {
 				const rows = yield* run(
 					db.execute(
-						sql`update ${execution} set account_user_id = ${account.userId}, account_token = ${account.token}
+						sql`update ${execution} set account_user_id = ${account}
 						where workflow_name = ${identity.workflowName} and execution_id = ${identity.executionId}
-							and account_user_id is null and ${admitsAccount(sql`${account.userId}`, sql`${account.token}`)}
+							and account_user_id is null and ${admitsAccount(sql`${account}`)}
 						returning 1`,
 						"objects",
 					),
 				);
 				return rows.length > 0;
-			});
-
-			// Explains a fenced admission: the generation is gone, or it is being retired.
-			const accountRetired = Effect.fnUntraced(function* (account: AccountGeneration) {
-				const rows = yield* run(
-					db.execute(
-						sql`select 1 from ${user} where id = ${account.userId} and account_generation = ${account.token}`,
-						"objects",
-					),
-				);
-				return rows.length === 0;
 			});
 
 			const listAccountExecutions = Effect.fnUntraced(function* (userId: UserId) {
@@ -435,7 +417,6 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				heartbeat,
 				clearClocks,
 				claimOrphans,
-				accountRetired,
 				listAccountExecutions,
 			};
 		}),

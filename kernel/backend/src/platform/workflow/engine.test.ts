@@ -20,6 +20,7 @@ import {
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import { layerMemory, type WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
+import { CurrentJobId } from "#platform/jobs/worker";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
@@ -91,7 +92,21 @@ const Adopter = Workflow.make("EngineConformanceAdopter", {
 	success: Schema.String,
 	suspendedRetrySchedule: retry,
 	idempotencyKey: ({ id }) => id,
-	payload: { userId: UserId, id: Schema.String, token: Schema.String },
+	payload: { userId: UserId, id: Schema.String },
+});
+
+const TwinSleeper = Workflow.make("EngineConformanceTwinSleeper", {
+	success: Schema.String,
+	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
+const Jobless = Workflow.make("EngineConformanceJobless", {
+	success: Schema.String,
+	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
 });
 
 const workflowsLive = Layer.mergeAll(
@@ -162,15 +177,38 @@ const workflowsLive = Layer.mergeAll(
 	),
 );
 
-const adopterLive = implementWorkflow(Adopter, ({ token, userId }) =>
+const adopterLive = implementWorkflow(Adopter, ({ userId }) =>
 	Effect.gen(function* () {
-		yield* (yield* WorkflowAccounts).adopt({ token, userId }).pipe(Effect.orDie);
+		yield* (yield* WorkflowAccounts).adopt(userId).pipe(Effect.orDie);
 		return yield* DurableDeferred.await(Signal);
 	}),
 );
 
+const twinLive = implementWorkflow(TwinSleeper, () =>
+	Effect.forEach(
+		["a", "b"],
+		(item, offset) =>
+			Effect.gen(function* () {
+				for (let round = 0; round < 3; round += 1) {
+					yield* DurableClock.sleep({
+						name: `${item}:${round}`,
+						inMemoryThreshold: Duration.zero,
+						duration: Duration.millis(200 * (round + 1) + offset * 20),
+					});
+				}
+			}),
+		{ discard: true, concurrency: 2 },
+	).pipe(Effect.as("both woke")),
+);
+
+const joblessLive = implementWorkflow(Jobless, () =>
+	Effect.gen(function* () {
+		return (yield* CurrentJobId) ?? "no job";
+	}),
+);
+
 const postgresEngine = () =>
-	Layer.merge(workflowsLive, adopterLive).pipe(
+	Layer.mergeAll(workflowsLive, adopterLive, joblessLive, twinLive).pipe(
 		Layer.provideMerge(
 			PostgresWorkflowEngine.pipe(Layer.provide(WorkflowExecutionNotifications.layer)),
 		),
@@ -226,20 +264,19 @@ const signal = (
 
 const isolatedDatabase = isolatedDatabaseLayer("workflow_engine");
 
-const insertUser = (token: string) =>
-	Effect.gen(function* () {
-		const sql = yield* PgClient.PgClient;
-		const userId = UserId.make(yield* randomUuid);
-		yield* sql`insert into "user" (id, name, email, account_generation)
-			values (${userId}, ${"Engine account"}, ${`${userId}@example.test`}, ${token})`;
-		return { token, userId };
-	}).pipe(Effect.orDie);
+const insertUser = Effect.gen(function* () {
+	const sql = yield* PgClient.PgClient;
+	const userId = UserId.make(yield* randomUuid);
+	yield* sql`insert into "user" (id, name, email)
+			values (${userId}, ${"Engine account"}, ${`${userId}@example.test`})`;
+	return userId;
+}).pipe(Effect.orDie);
 
 const accountColumns = (workflow: Workflow.Any, executionId: string) =>
 	Effect.gen(function* () {
 		const sql = yield* PgClient.PgClient;
-		return yield* sql<{ accountToken: null | string; accountUserId: null | string }>`
-			select account_user_id as "accountUserId", account_token as "accountToken"
+		return yield* sql<{ accountUserId: null | string }>`
+			select account_user_id as "accountUserId"
 			from workflow_execution where workflow_name = ${workflow._tag} and execution_id = ${executionId}`;
 	}).pipe(Effect.orDie);
 
@@ -365,7 +402,7 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 
 		test.effect("postgres: records the admitting account for an execution and its children", () =>
 			Effect.gen(function* () {
-				const account = yield* insertUser("current");
+				const account = yield* insertUser;
 				const id = yield* randomUuid;
 				const executionId = yield* Parent.executionId({ id });
 				const childId = yield* Child.executionId({ id: `${id}-child` });
@@ -373,11 +410,11 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 					Effect.provideService(WorkflowAdmissionAccount, account),
 				);
 				yield* untilResult(Child.poll(childId), "Suspended");
-				const owned = { accountToken: "current", accountUserId: account.userId };
+				const owned = { accountUserId: account };
 				expect(yield* accountColumns(Parent, executionId)).toEqual([owned]);
 				expect(yield* accountColumns(Child, childId)).toEqual([owned]);
 				expect(
-					[...(yield* (yield* WorkflowAccounts).listActive(account.userId))].sort((left, right) =>
+					[...(yield* (yield* WorkflowAccounts).listActive(account))].sort((left, right) =>
 						left.workflowName.localeCompare(right.workflowName),
 					),
 				).toEqual([
@@ -387,43 +424,60 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 			}).pipe(withEngine(postgresEngine())),
 		);
 
-		test.effect("postgres: refuses admission for a replaced or retiring account", () =>
+		test.effect("postgres: wakes a run for each of two concurrent durable sleeps", () =>
+			Effect.gen(function* () {
+				const id = yield* randomUuid;
+				yield* TwinSleeper.execute({ id }, { discard: true });
+				expect(yield* complete(TwinSleeper.poll(yield* TwinSleeper.executionId({ id })))).toEqual(
+					Exit.succeed("both woke"),
+				);
+			}).pipe(withEngine(postgresEngine())),
+		);
+
+		test.effect("postgres: runs a workflow started by a job outside that job", () =>
+			Effect.gen(function* () {
+				const id = yield* randomUuid;
+				yield* Jobless.execute({ id }, { discard: true }).pipe(
+					Effect.provideService(CurrentJobId, "job-1"),
+				);
+				expect(yield* complete(Jobless.poll(yield* Jobless.executionId({ id })))).toEqual(
+					Exit.succeed("no job"),
+				);
+			}).pipe(withEngine(postgresEngine())),
+		);
+
+		test.effect("postgres: refuses admission for a retiring account", () =>
 			Effect.gen(function* () {
 				const sql = yield* PgClient.PgClient;
-				const account = yield* insertUser("current");
+				const account = yield* insertUser;
 				const id = yield* randomUuid;
-				const admit = (token: string) =>
-					rejection(
-						Waiting.execute({ id }, { discard: true }).pipe(
-							Effect.provideService(WorkflowAdmissionAccount, { ...account, token }),
-						),
-					);
-				expect(yield* admit("replaced")).toBe("Mutation command belongs to a retired account");
-				yield* sql`update "user" set retiring_account_generation = 'current'
-					where id = ${account.userId}`.pipe(Effect.orDie);
-				expect(yield* admit("current")).toBe("Mutation command account is being retired");
+				const admit = rejection(
+					Waiting.execute({ id }, { discard: true }).pipe(
+						Effect.provideService(WorkflowAdmissionAccount, account),
+					),
+				);
+				yield* sql`update "user" set retiring_at = now() where id = ${account}`.pipe(Effect.orDie);
+				expect(yield* admit).toBe("Mutation command belongs to a retired account");
 				expect(yield* Waiting.poll(yield* Waiting.executionId({ id }))).toEqual(Option.none());
 			}).pipe(withEngine(postgresEngine())),
 		);
 
 		test.effect("postgres: binds an unowned execution to one account only", () =>
 			Effect.gen(function* () {
-				const account = yield* insertUser("current");
-				const other = yield* insertUser("other");
+				const account = yield* insertUser;
+				const other = yield* insertUser;
 				const id = yield* randomUuid;
-				const executionId = yield* Adopter.executionId({ id, ...account });
-				yield* Adopter.execute({ id, ...account }, { discard: true });
+				const executionId = yield* Adopter.executionId({ id, userId: account });
+				yield* Adopter.execute({ id, userId: account }, { discard: true });
 				yield* untilResult(Adopter.poll(executionId), "Suspended");
-				expect(yield* accountColumns(Adopter, executionId)).toEqual([
-					{ accountToken: "current", accountUserId: account.userId },
-				]);
+				expect(yield* accountColumns(Adopter, executionId)).toEqual([{ accountUserId: account }]);
 				expect(
 					yield* rejection(
-						Adopter.execute({ id, ...account }, { discard: true }).pipe(
+						Adopter.execute({ id, userId: account }, { discard: true }).pipe(
 							Effect.provideService(WorkflowAdmissionAccount, other),
 						),
 					),
-				).toBe("Workflow belongs to another account generation");
+				).toBe("Workflow belongs to another account");
 			}).pipe(withEngine(postgresEngine())),
 		);
 

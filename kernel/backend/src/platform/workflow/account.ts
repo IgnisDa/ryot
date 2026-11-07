@@ -1,5 +1,4 @@
 import type { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, type Effect, Schema } from "effect";
 import type { WorkflowInstance } from "effect/workflow/WorkflowEngine";
@@ -7,7 +6,7 @@ import type { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 import type { WorkflowIdentity } from "./identity";
 
 // The account an execution admitted from here works for. `undefined` inherits the parent's.
-export const WorkflowAdmissionAccount = Context.Reference<null | undefined | AccountGeneration>(
+export const WorkflowAdmissionAccount = Context.Reference<null | UserId | undefined>(
 	"@ryot-app/kernel-backend/platform/workflow/account/WorkflowAdmissionAccount",
 	{ defaultValue: () => undefined },
 );
@@ -23,8 +22,6 @@ export class WorkflowAccounts extends Context.Service<
 	{
 		readonly listActive: (userId: UserId) => Effect.Effect<ReadonlyArray<WorkflowIdentity>>;
 		// Binds the running execution to an account, unless it already works for that account.
-		readonly adopt: (
-			account: null | AccountGeneration,
-		) => Effect.Effect<void, DbError, WorkflowInstance>;
+		readonly adopt: (account: null | UserId) => Effect.Effect<void, DbError, WorkflowInstance>;
 	}
 >()("@ryot-app/kernel-backend/platform/workflow/account/WorkflowAccounts") {}

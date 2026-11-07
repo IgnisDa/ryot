@@ -2,7 +2,7 @@
 
 `PostgresWorkflowEngine` (`engine.ts`) implements Effect's `WorkflowEngine` on tables owned by
 `WorkflowEngineStore` (`engine-store.ts`). Workflow code uses `Workflow`, `Activity`,
-`DurableDeferred`, `DurableClock` and `DurableQueue` unchanged. Every workflow is registered through
+`DurableDeferred` and `DurableClock` unchanged. Every workflow is registered through
 `implementWorkflow`, which attaches the JSON codecs the engine persists payloads and results with.
 
 ## Storage
@@ -39,20 +39,10 @@ listens on one connection and wakes the executions it owns. Completion publishes
 
 ## Accounts
 
-An execution may work for one account generation, stored on its row (`account.ts`). A caller names it
+An execution may work for one account, stored on its row (`account.ts`). A caller names it
 by providing `WorkflowAdmissionAccount` around `execute`; otherwise a child inherits its parent's.
-Admission checks the generation in its insert statement: the user row must hold that token and not be
-stamped as retiring for it, read `FOR SHARE` so a concurrent retirement is seen. A fenced admission dies
+Admission checks the account in its insert statement: the user row must exist and not be stamped as
+retiring, read `FOR SHARE` so a concurrent retirement is seen. A fenced admission dies
 with `WorkflowAccountRejected`, since Effect's `execute` has no admission error. `WorkflowAccounts`
 binds a running execution admitted without an account to one, and lists an account's active
 executions so retirement can interrupt them.
-
-## Fair queue
-
-`fairQueueStoreLayer` (`fair-queue-store.ts`) backs `DurableQueue` with Redis. Each process caps its
-claims at a total, of which a share may be background. Interactive work is claimed first, but waiting
-background work with none running takes the next claim after four interactive ones. Within a lane, claims rotate across tenants, then
-across plugins within a tenant. Each item carries an urgency, and a flow yields `awaited` items
-before `continuation` items, and both before `fresh` ones, FIFO within each. For sandbox runs,
-`awaited` is a policy or required hook that a write waits on under a deadline, and `continuation` is a
-replay or a recovery attempt.

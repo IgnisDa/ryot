@@ -9,7 +9,7 @@ succeeds.
 A kind is declared with `makeJobKind`: a name, a payload schema, and its concurrency, attempts, lease
 and backoff. `JobQueue.enqueue` inserts the row through `DatabaseSession`, so it joins the caller's
 transaction: the job exists exactly when the write that queued it commits. It also sends `pg_notify` on
-`ryot_job`, which PostgreSQL delivers at that commit.
+`ryot_broadcast`, which PostgreSQL delivers at that commit.
 
 A job may carry a key. At most one queued job exists per kind and key, so a second enqueue with the same
 key returns `false` and changes nothing. A running job does not block a new queued one, because the
@@ -18,7 +18,7 @@ running one may have read its input before the change that queued the next.
 ## Running
 
 Features register a handler per kind with `registerJobHandler`; the worker needs every handler layer
-built before it starts. The worker listens on `ryot_job` and checks, per kind, whether a job is due and
+built before it starts. The worker listens on `ryot_broadcast` and checks, per kind, whether a job is due and
 when the next one will be. It claims due jobs of each kind up to that kind's concurrency, with
 `FOR UPDATE SKIP LOCKED` in priority, `run_at`, ID order, so any number of processes can share the
 table. Without notifications it rechecks when the next delayed job or lease falls due, and at least once

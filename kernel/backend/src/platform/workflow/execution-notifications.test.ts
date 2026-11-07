@@ -1,58 +1,22 @@
 import { expect } from "bun:test";
 
-import { BunCrypto } from "@effect/platform-bun";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Exit, Fiber, Layer, Option, Redacted, Ref, Schema, Scope } from "effect";
+import { sql } from "drizzle-orm";
+import { Context, type Duration, Effect, Fiber, Layer, Option, Ref } from "effect";
 import { TestClock } from "effect/testing";
 
-import { makeAppConfigLayer } from "#testing/effect";
-import { testRedisServiceLayer, testRedisUrl } from "#testing/redis";
+import { Broadcast } from "#platform/broadcast";
+import { DatabaseSession } from "#platform/db/session";
+import { awaitBroadcastListening } from "#testing/broadcast";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { encodeWorkflowExecutionNotificationMessage, redisKeys, RedisService } from "../redis";
 import { awaitWorkflowSettled, WorkflowExecutionNotifications } from "./execution-notifications";
 
 const firstIdentity = { executionId: "b", workflowName: "workflow:a" };
 const collidingIdentity = { executionId: "a:b", workflowName: "workflow" };
-const makeLiveContext = () =>
-	Layer.build(
-		WorkflowExecutionNotifications.liveLayer.pipe(
-			Layer.provide(
-				RedisService.layer.pipe(
-					Layer.provide(makeAppConfigLayer({ redisUrl: Redacted.make(testRedisUrl()) })),
-				),
-			),
-		),
-	);
-const makeNamedRedisService = (redis: RedisService["Service"], connectionName: string) =>
-	Effect.acquireRelease(
-		Effect.sync(() =>
-			redis.client.duplicate({ connectionName, lazyConnect: true, retryStrategy: () => 100 }),
-		),
-		(client) => Effect.sync(() => client.disconnect()),
-	).pipe(Effect.map((client) => ({ ...redis, client })));
-const namedPubsubClientLines = (
-	client: RedisService["Service"]["client"],
-	connectionName: string,
-) =>
-	Effect.promise(() => client.call("CLIENT", "LIST", "TYPE", "PUBSUB")).pipe(
-		Effect.flatMap(Schema.decodeUnknownEffect(Schema.String)),
-		Effect.map((response) =>
-			response.split("\n").filter((line) => line.split(" ").includes(`name=${connectionName}`)),
-		),
-	);
-const namedPubsubClientId = (client: RedisService["Service"]["client"], connectionName: string) =>
-	Effect.gen(function* () {
-		const lines = yield* namedPubsubClientLines(client, connectionName);
-		expect(lines).toHaveLength(1);
-		const id = lines[0]
-			?.split(" ")
-			.find((field) => field.startsWith("id="))
-			?.slice(3);
-		return yield* Schema.decodeUnknownEffect(Schema.String)(id);
-	});
-
 layer(WorkflowExecutionNotifications.layer.pipe(Layer.provideMerge(TestClock.layer())))((test) => {
 	test.effect(
 		"wakes every matching listener without crossing identity boundaries",
@@ -140,109 +104,69 @@ layer(WorkflowExecutionNotifications.layer.pipe(Layer.provideMerge(TestClock.lay
 	);
 });
 
-layer(BunCrypto.layerSecureRandom)((test) => {
+const liveInstance = Layer.fresh(
+	WorkflowExecutionNotifications.liveLayer.pipe(
+		Layer.provideMerge(Layer.effect(Broadcast, Broadcast.make)),
+	),
+);
+
+const heard = (waiter: Effect.Effect<void>, within: Duration.Input) =>
+	Effect.timeoutOption(waiter, within).pipe(Effect.map(Option.isSome));
+
+layer(isolatedDatabaseLayer("workflow_notifications"), { excludeTestServices: true })((test) => {
 	test.effect(
-		"delivers notifications between live instances through Redis",
+		"delivers notifications between live instances",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const first = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
-					const second = Context.get(yield* makeLiveContext(), WorkflowExecutionNotifications);
-					const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
+					const first = yield* Layer.build(liveInstance);
+					const second = yield* Layer.build(liveInstance);
+					yield* awaitBroadcastListening.pipe(Effect.provideContext(second));
 					const identity = {
 						executionId: yield* randomUuid,
 						workflowName: "CrossInstanceWorkflow",
 					};
-					const waiter = yield* second.listen(identity);
-
-					yield* Effect.promise(() =>
-						publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, "malformed"),
+					const waiter = yield* Context.get(second, WorkflowExecutionNotifications).listen(
+						identity,
 					);
-					expect(
-						Option.isNone(
-							yield* Effect.timeoutOption(waiter, "100 millis").pipe(TestClock.withLive),
-						),
-					).toBe(true);
-					yield* first.publish(identity);
-					expect(
-						Option.isSome(
-							yield* Effect.timeoutOption(waiter, "5 seconds").pipe(TestClock.withLive),
-						),
-					).toBe(true);
+
+					yield* Context.get(first, Broadcast).publish("workflow-execution", "malformed");
+					expect(yield* heard(waiter, "100 millis")).toBe(false);
+					yield* Context.get(first, WorkflowExecutionNotifications).publish(identity);
+					expect(yield* heard(waiter, "5 seconds")).toBe(true);
 				}),
 			),
 		testTimeout,
 	);
 
 	test.effect(
-		"resubscribes after the Redis subscriber reconnects",
+		"wakes every listener and hears new notifications after the connection comes back",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
-					const connectionName = `workflow-notifications-${yield* randomUuid}`;
-					const namedRedis = yield* makeNamedRedisService(publisher, connectionName);
-					const context = yield* Layer.build(
-						WorkflowExecutionNotifications.liveLayer.pipe(
-							Layer.provide(Layer.succeed(RedisService, namedRedis)),
-						),
-					);
+					const context = yield* Layer.build(liveInstance);
+					yield* awaitBroadcastListening.pipe(Effect.provideContext(context));
 					const notifications = Context.get(context, WorkflowExecutionNotifications);
-					const identity = { executionId: yield* randomUuid, workflowName: "ReconnectWorkflow" };
-					const recoveryWaiter = yield* notifications.listen(identity);
-					const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
-
-					yield* Effect.promise(() => publisher.client.call("CLIENT", "KILL", "ID", subscriberId));
-					expect(
-						Option.isSome(
-							yield* Effect.timeoutOption(recoveryWaiter, "5 seconds").pipe(TestClock.withLive),
-						),
-					).toBe(true);
-
-					const freshIdentity = {
+					const recoveryWaiter = yield* notifications.listen({
 						executionId: yield* randomUuid,
-						workflowName: "ReconnectedWorkflow",
-					};
-					const freshWaiter = yield* notifications.listen(freshIdentity);
-					const message = yield* encodeWorkflowExecutionNotificationMessage(freshIdentity);
-					yield* Effect.promise(() =>
-						publisher.client.publish(redisKeys.workflowExecutionNotificationChannel, message),
-					);
-					expect(
-						Option.isSome(
-							yield* Effect.timeoutOption(freshWaiter, "5 seconds").pipe(TestClock.withLive),
-						),
-					).toBe(true);
-				}),
-			),
-		testTimeout,
-	);
+						workflowName: "ReconnectWorkflow",
+					});
 
-	test.effect(
-		"does not reconnect a subscriber after its layer scope closes",
-		() =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const publisher = Context.get(yield* Layer.build(testRedisServiceLayer), RedisService);
-					const connectionName = `workflow-notifications-${yield* randomUuid}`;
-					const subscriberScope = yield* Scope.make();
-					yield* Effect.addFinalizer(() => Scope.close(subscriberScope, Exit.void));
-					const namedRedis = yield* makeNamedRedisService(publisher, connectionName).pipe(
-						Effect.provideService(Scope.Scope, subscriberScope),
-					);
-					yield* Layer.build(
-						WorkflowExecutionNotifications.liveLayer.pipe(
-							Layer.provide(Layer.succeed(RedisService, namedRedis)),
+					yield* (yield* DatabaseSession).run((db) =>
+						db.execute(
+							sql`select pg_terminate_backend(pid) from pg_stat_activity
+							where datname = current_database() and pid <> pg_backend_pid() and query ilike 'listen%'`,
 						),
-					).pipe(Effect.provideService(Scope.Scope, subscriberScope));
-					const subscriberId = yield* namedPubsubClientId(publisher.client, connectionName);
+					);
+					expect(yield* heard(recoveryWaiter, "10 seconds")).toBe(true);
 
-					yield* Effect.promise(() => publisher.client.call("CLIENT", "KILL", "ID", subscriberId));
-					yield* Effect.sleep("20 millis").pipe(TestClock.withLive);
-					yield* Scope.close(subscriberScope, Exit.void);
-					expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);
-					yield* Effect.sleep("300 millis").pipe(TestClock.withLive);
-					expect(yield* namedPubsubClientLines(publisher.client, connectionName)).toEqual([]);
+					const fresh = { executionId: yield* randomUuid, workflowName: "ReconnectedWorkflow" };
+					const freshWaiter = yield* notifications.listen(fresh);
+					yield* Context.get(context, Broadcast).publish(
+						"workflow-execution",
+						stableStringify(fresh),
+					);
+					expect(yield* heard(freshWaiter, "5 seconds")).toBe(true);
 				}),
 			),
 		testTimeout,

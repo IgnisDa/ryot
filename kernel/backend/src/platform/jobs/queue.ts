@@ -2,10 +2,11 @@ import type { DbError } from "@ryot-app/contract/errors";
 import { sql } from "drizzle-orm";
 import { Context, Duration, Effect, Layer, Schema } from "effect";
 
+import { broadcastStatement } from "#platform/broadcast";
 import { DatabaseSession } from "#platform/db/session";
 import { job } from "#schema/tables/jobs";
 
-export const jobWakeChannel = "ryot_job";
+export const jobWakeTopic = "job";
 
 export type JobPayloadSchema = Schema.Top & Schema.ConstraintCodec<unknown, unknown>;
 
@@ -74,18 +75,14 @@ export class JobQueue extends Context.Service<JobQueue>()(
 							id: options.id ?? crypto.randomUUID(),
 							...(options.runAt === undefined ? {} : { runAt: options.runAt }),
 						})
-						.onConflictDoNothing({
-							target: [job.kind, job.key],
-							where: sql`${job.status} = 'queued' and ${job.key} is not null`,
-						})
+						// A queued job under the same key, or one already holding this ID, does the same work.
+						.onConflictDoNothing()
 						.returning({ id: job.id }),
 				);
 				if (inserted.length === 0) {
 					return false;
 				}
-				yield* session.run((db) =>
-					db.execute(sql`select pg_notify(${jobWakeChannel}, ${kind.name})`),
-				);
+				yield* session.run((db) => db.execute(broadcastStatement(jobWakeTopic, kind.name)));
 				return true;
 			});
 			const pruneFailed = Effect.fn("JobQueue.pruneFailed")(function* (limit: number) {

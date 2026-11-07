@@ -1,6 +1,6 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
-import { check, index, integer, jsonb, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core";
+import { check, index, integer, json, snakeCase, text, uniqueIndex } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { timestamptz } from "./timestamps";
@@ -17,7 +17,8 @@ export const job = snakeCase.table(
 		priority: integer().notNull(),
 		maxAttempts: integer().notNull(),
 		runAt: timestamptz().defaultNow().notNull(),
-		payload: jsonb().$type<JsonValue>().notNull(),
+		// Not jsonb, which refuses the NUL escapes a raw webhook body in a script input may hold.
+		payload: json().$type<JsonValue>().notNull(),
 		createdAt: timestamptz().defaultNow().notNull(),
 		updatedAt: timestamptz().defaultNow().notNull(),
 		status: text().$type<"failed" | "queued" | "running">().notNull(),

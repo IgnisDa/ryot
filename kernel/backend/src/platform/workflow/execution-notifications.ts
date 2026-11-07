@@ -1,13 +1,15 @@
 import type { Duration } from "effect";
-import { Cause, Context, Deferred, Effect, FiberSet, Layer, Option } from "effect";
+import { Cause, Context, Deferred, Effect, FiberSet, Layer, Option, Schema } from "effect";
 
-import {
-	decodeWorkflowExecutionNotificationMessage,
-	encodeWorkflowExecutionNotificationMessage,
-	redisKeys,
-	RedisService,
-} from "../redis";
+import { Broadcast } from "../broadcast";
 import type { WorkflowIdentity } from "./identity";
+
+const notificationTopic = "workflow-execution";
+const NotificationMessage = Schema.fromJsonString(
+	Schema.Struct({ executionId: Schema.String, workflowName: Schema.String }),
+);
+const encodeNotification = Schema.encodeEffect(NotificationMessage);
+const decodeNotification = Schema.decodeOption(NotificationMessage);
 
 const identityKey = (identity: WorkflowIdentity) =>
 	JSON.stringify([identity.workflowName, identity.executionId]);
@@ -75,46 +77,22 @@ export class WorkflowExecutionNotifications extends Context.Service<WorkflowExec
 	static readonly liveLayer = Layer.effect(
 		this,
 		Effect.gen(function* () {
-			const redis = yield* RedisService;
+			const broadcast = yield* Broadcast;
 			const hub = makeHub();
 			const runFork = yield* FiberSet.makeRuntime();
-			const subscriber = redis.client.duplicate();
-			yield* Effect.addFinalizer(() =>
-				Effect.sync(() => {
-					subscriber.removeAllListeners();
-					subscriber.disconnect();
-				}),
-			);
-
-			const dispatch = (message: string) => {
-				const decoded = decodeWorkflowExecutionNotificationMessage(message);
-				return decoded._tag === "Some" ? hub.publish(decoded.value) : Effect.void;
-			};
-			const subscribe = Effect.promise(() =>
-				subscriber.subscribe(redisKeys.workflowExecutionNotificationChannel),
-			);
-			const recover = subscribe.pipe(
-				Effect.andThen(hub.wakeAll),
-				logFailure("workflow execution notification subscription failed"),
-			);
-			let initialized = false;
-
-			subscriber.on("message", (_channel, message) =>
-				runFork(
-					dispatch(message).pipe(logFailure("workflow execution notification dispatch failed")),
-				),
-			);
-			subscriber.on("error", (error) =>
-				runFork(Effect.logError("workflow execution notification subscriber error", error)),
-			);
-			subscriber.on("ready", () => {
-				if (initialized) {
-					runFork(recover);
+			yield* broadcast.subscribe(notificationTopic, (message) => {
+				const decoded = decodeNotification(message);
+				if (Option.isSome(decoded)) {
+					runFork(
+						hub
+							.publish(decoded.value)
+							.pipe(logFailure("workflow execution notification dispatch failed")),
+					);
 				}
 			});
-			yield* subscribe;
-			initialized = true;
-
+			yield* broadcast.onReconnect(() => {
+				runFork(hub.wakeAll);
+			});
 			return {
 				listen: hub.listen,
 				publish: (identity: WorkflowIdentity) =>
@@ -122,10 +100,8 @@ export class WorkflowExecutionNotifications extends Context.Service<WorkflowExec
 						Effect.andThen(
 							Effect.sync(() =>
 								runFork(
-									encodeWorkflowExecutionNotificationMessage(identity).pipe(
-										Effect.flatMap((message) =>
-											redis.publish(redisKeys.workflowExecutionNotificationChannel, message),
-										),
+									encodeNotification(identity).pipe(
+										Effect.flatMap((message) => broadcast.publish(notificationTopic, message)),
 										logFailure("workflow execution notification publish failed"),
 									),
 								),
