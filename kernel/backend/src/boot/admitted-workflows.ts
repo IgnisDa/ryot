@@ -1,6 +1,5 @@
 import { Layer } from "effect";
 
-import { ProcessIngestionCaptureWorkflow } from "#modules/imports/capture-write-workflow";
 import {
 	ProcessDataImportSegmentWorkflow,
 	ProcessDataImportWorkflow,
@@ -18,7 +17,6 @@ export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 		ProcessDataImportWorkflow,
 		ProcessDataImportSegmentWorkflow,
 		ProcessGenericImportChunksWorkflow,
-		ProcessIngestionCaptureWorkflow,
 		ProcessIntegrationRunWorkflow,
 		ScriptExecutionWorkflow,
 	]),

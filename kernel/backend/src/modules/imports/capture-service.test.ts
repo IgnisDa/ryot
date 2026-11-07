@@ -9,20 +9,16 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Layer } from "effect";
-import { TestClock } from "effect/testing";
-import { layerMemory, WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import {
 	ingestionPayloadDigest,
 	IngestionPayloadError,
 	IngestionPayloads,
 } from "#modules/assets/storage/ingestion-payloads";
-import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import type { importPayloadReservation } from "#schema/tables/imports";
 import { makeAppConfigLayer, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
-import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";
 import {
 	ingestionTestDatabase,
 	ingestionTestRun,
@@ -41,7 +37,6 @@ const fixture = Effect.fnUntraced(function* (
 	const bytes = new TextEncoder().encode("captured records");
 	const started = yield* Deferred.make<void>();
 	const continueWrite = yield* Deferred.make<void>();
-	const retiring = yield* Deferred.make<void>();
 	const events: string[] = [];
 	const payload = {
 		locator: "owned-object",
@@ -67,7 +62,6 @@ const fixture = Effect.fnUntraced(function* (
 	}
 	const dependencies = Layer.mergeAll(
 		workflowAccountsTestLayer,
-		WorkflowExecutionNotifications.layer,
 		ingestionTestDatabase(),
 		BunFileSystem.layer,
 		makeAppConfigLayer(),
@@ -96,11 +90,10 @@ const fixture = Effect.fnUntraced(function* (
 					reservation = { ...reservation, released: true, recoveryBytes: null };
 				}),
 			stopPayloadWrites: () =>
-				Effect.gen(function* () {
+				Effect.sync(() => {
 					if (reservation) {
 						reservation = { ...reservation, retiring: true };
 					}
-					yield* Deferred.succeed(retiring, undefined);
 					return reservation ? [{ reservation, runId: run.id }] : [];
 				}),
 			publishCapture: (_scope, data) =>
@@ -172,25 +165,8 @@ const fixture = Effect.fnUntraced(function* (
 				}),
 		}),
 	);
-	const captureEngine = Layer.effect(
-		WorkflowEngine,
-		Effect.map(WorkflowEngine, (engine) =>
-			mode === "quarantine"
-				? WorkflowEngine.of({
-						...engine,
-						interrupt: (_workflow, executionId) =>
-							Effect.sync(() => {
-								events.push(`interrupt:${executionId}`);
-							}),
-					})
-				: engine,
-		),
-	).pipe(Layer.provide(layerMemory));
 	const context = yield* Layer.build(
-		Layer.mergeAll(
-			Layer.effect(IngestionCaptures, IngestionCaptures.make),
-			IngestionCaptureWorkflowDefinitionsLive,
-		).pipe(Layer.provideMerge(dependencies), Layer.provide(captureEngine)),
+		Layer.effect(IngestionCaptures, IngestionCaptures.make).pipe(Layer.provideMerge(dependencies)),
 	);
 	yield* Effect.addFinalizer(() => Deferred.succeed(continueWrite, undefined));
 	return {
@@ -198,7 +174,6 @@ const fixture = Effect.fnUntraced(function* (
 		events,
 		context,
 		started,
-		retiring,
 		continueWrite,
 		state: () => ({ run, stored, capture, reservation }),
 		status: (status: IngestionRun["status"]) => {
@@ -284,7 +259,7 @@ it.effect(
 );
 
 it.effect(
-	"quarantine requests interruption without waiting, retains in-flight bytes, and rejects fresh capture retries with typed ownership",
+	"quarantine retains in-flight bytes and rejects fresh capture retries with typed ownership",
 	() =>
 		Effect.gen(function* () {
 			const test = yield* fixture("quarantine");
@@ -310,8 +285,7 @@ it.effect(
 			} as const;
 			yield* Effect.gen(function* () {
 				const service = yield* IngestionCaptures;
-				yield* service.stopWrites(ingestionTestScope, { reason, kind: "quarantine" });
-				expect(yield* service.canCleanup(ingestionTestScope)).toBe(false);
+				yield* service.stopWrites(ingestionTestScope);
 				expect(test.state().reservation).toMatchObject({ retiring: true, released: false });
 				expect(test.state().reservation?.recoveryBytes).not.toBeNull();
 				for (const retry of [
@@ -354,7 +328,7 @@ it.effect(
 );
 
 it.effect(
-	"joins a publication started by an admission request before retiring its object locator",
+	"removes bytes a publication stores after retirement has released its reservation",
 	() =>
 		Effect.gen(function* () {
 			const test = yield* fixture("retirement");
@@ -375,16 +349,12 @@ it.effect(
 			const retirement = yield* Effect.flatMap(IngestionCaptures, (service) =>
 				service.retire(ingestionTestScope),
 			).pipe(Effect.provideContext(test.context), Effect.forkChild);
-			yield* Deferred.await(test.retiring);
-			yield* Effect.yieldNow;
-			expect(test.events).not.toContain("delete");
-			yield* Deferred.succeed(test.continueWrite, undefined);
-			yield* TestClock.adjust("1 second");
 			yield* Fiber.join(retirement);
-			expect((yield* Fiber.await(publication))._tag).toBe("Failure");
-			expect(test.events.indexOf("delete")).toBeGreaterThan(test.events.indexOf("write"));
-			expect(test.state().stored).toBeNull();
 			expect(test.state().reservation?.released).toBe(true);
+			yield* Deferred.succeed(test.continueWrite, undefined);
+			expect((yield* Fiber.await(publication))._tag).toBe("Failure");
+			expect(test.events.indexOf("write")).toBeGreaterThan(test.events.indexOf("release"));
+			expect(test.state().stored).toBeNull();
 		}),
 	testTimeout,
 );

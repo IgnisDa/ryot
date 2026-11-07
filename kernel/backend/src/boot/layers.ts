@@ -63,7 +63,6 @@ import { EntitiesRepositoryLive } from "#modules/entities/repository";
 import { EntityUserDataServiceLive } from "#modules/entities/user-data/layer";
 import { EventMutationsLive, EventsServiceLive } from "#modules/events/layer";
 import { WorkflowGarbageCollector } from "#modules/garbage-collection/workflows";
-import { CancelImportRunWorkflowDefinitionsLive } from "#modules/imports/cancel-workflow";
 import { ImportRunCancellationService } from "#modules/imports/cancellation-service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import { ImportWorkflowDefinitionsLive } from "#modules/imports/import-run-workflow-live";
@@ -71,7 +70,6 @@ import {
 	DataImportWorkflowDefinitionsProvidedLive,
 	ImportsServiceLive,
 	IngestionArtifactStagingProvidedLive,
-	IngestionCaptureWorkflowDefinitionsProvidedLive,
 	IngestionRetirementLive,
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 } from "#modules/imports/layer";
@@ -262,7 +260,9 @@ const ServicesLive = Layer.mergeAll(
 	EventsServiceLive,
 	InstanceAdminServiceLive,
 	ImportsServiceLive,
-	ImportRunCancellationService.layer.pipe(Layer.provide(ImportsRepository.layer)),
+	ImportRunCancellationService.layer.pipe(
+		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
+	),
 	IntegrationsServiceLive,
 	LiveUpdates.layer,
 	NotificationDeliveryServiceLive,
@@ -324,12 +324,8 @@ const ServicesWithTestSupportLive = Layer.merge(
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
 	ImportWorkflowDefinitionsLive,
-	CancelImportRunWorkflowDefinitionsLive.pipe(
-		Layer.provide(Layer.merge(ImportsRepository.layer, ImportRunExecutionControllerLive)),
-	),
 	ProcessGenericImportChunksWorkflowDefinitionsProvidedLive,
 	DataImportWorkflowDefinitionsProvidedLive,
-	IngestionCaptureWorkflowDefinitionsProvidedLive,
 	Layer.provide(
 		IntegrationWorkflowDefinitionsLive,
 		Layer.mergeAll(

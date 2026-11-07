@@ -6,7 +6,6 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Redacted } from "effect";
-import { WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
 import { DatabaseSession } from "#platform/db/session";
@@ -17,16 +16,12 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer, workflowAccountsTestLayer } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import {
-	captureWriteExecutionId,
-	ProcessIngestionCaptureWorkflow,
-	runIngestionCaptureWrite,
-} from "./capture-write-workflow";
+import { IngestionCaptures } from "./capture-service";
 import { ImportsRepository } from "./repository";
 
 layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")))((test) => {
 	test.effect(
-		"restarts publication from reserved or permanent bytes after temporary files are deleted",
+		"restarts publication from reserved or permanent bytes",
 		() =>
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
@@ -39,14 +34,13 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 						.values({ id: userId, name: "Owner", email: "capture-restart@example.test" }),
 				);
 				const directory = yield* fs.makeTempDirectoryScoped();
-				const working = `${directory}/working`;
-				yield* fs.makeDirectory(working);
+				yield* fs.makeDirectory(`${directory}/working`);
 				const dependencies = Layer.mergeAll(
 					BunServices.layer,
 					workflowAccountsTestLayer,
 					makeAppConfigLayer({
 						database: { url: Redacted.make(url) },
-						fileStorage: { localTempDir: working, localDir: `${directory}/permanent` },
+						fileStorage: { localTempDir: `${directory}/working`, localDir: `${directory}/permanent` },
 					}),
 					Layer.mock(S3Service)({ isConfigured: false }),
 					Layer.mock(HmacSigner)({}),
@@ -55,6 +49,9 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 					ImportsRepository.layer.pipe(Layer.provideMerge(DatabaseSession.layer)),
 					IngestionPayloads.layer.pipe(Layer.provide(LocalStorageService.layer)),
 				).pipe(Layer.provideMerge(dependencies));
+				const captureServices = Layer.effect(IngestionCaptures, IngestionCaptures.make).pipe(
+					Layer.provideMerge(services),
+				);
 				const bytes = new TextEncoder().encode("collector records");
 				for (const published of [false, true]) {
 					const scope = { userId, runId: ImportRunId.make(`restart-${published}`) };
@@ -66,11 +63,13 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 					const first = yield* Layer.build(services);
 					const input = {
 						scope,
+						ordinal: 64,
 						id: "page-1",
 						maxBytes: 1024,
-						temporaryPath: `${working}/collector`,
+						state: "sealed" as const,
+						checkpoint: { page: 1 },
+						phase: "collection" as const,
 					};
-					yield* fs.writeFile(input.temporaryPath, bytes);
 					const payload = yield* Effect.gen(function* () {
 						const payloads = yield* IngestionPayloads;
 						const repository = yield* ImportsRepository;
@@ -93,22 +92,13 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 						}
 						return proposed;
 					}).pipe(Effect.provideContext(first));
-					yield* fs.remove(working, { recursive: true });
-					yield* fs.makeDirectory(working);
 					for (let activation = 0; activation < 2; activation++) {
-						const restarted = yield* Layer.build(services);
-						const capture = yield* runIngestionCaptureWrite(input).pipe(
-							Effect.provideService(
-								WorkflowInstance,
-								WorkflowInstance.initial(
-									ProcessIngestionCaptureWorkflow,
-									captureWriteExecutionId(scope, input.id),
-								),
-							),
-							Effect.provideContext(restarted),
-						);
-						expect(capture.payload).toEqual(payload);
-						expect(capture.checkpoint).toEqual({ page: 1 });
+						const restarted = yield* Layer.build(captureServices);
+						const capture = yield* Effect.flatMap(IngestionCaptures, (service) =>
+							service.resume(input),
+						).pipe(Effect.provideContext(restarted));
+						expect(capture?.payload).toEqual(payload);
+						expect(capture?.checkpoint).toEqual({ page: 1 });
 						const stored = yield* Effect.flatMap(IngestionPayloads, (storage) =>
 							storage.read(payload, input.maxBytes),
 						).pipe(Effect.provideContext(restarted));

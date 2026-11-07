@@ -62,7 +62,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 						return false;
 					}
 				}
-				return yield* captures.canCleanup(scope);
+				return true;
 			});
 			const cleanup = Effect.fn("IngestionExecution.cleanup")(function* (scope: IngestionScope) {
 				const run = yield* repository.getIngestionRunControl(scope);
@@ -118,7 +118,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 						? "failed"
 						: input.status;
 				if (run.status === "cancelling" || requestedStatus !== "completed") {
-					yield* captures.stopWrites(input.scope, policy);
+					yield* captures.stopWrites(input.scope);
 					for (const owner of yield* repository.listBatchExecutions(input.scope)) {
 						if (owner.executionId === input.scope.runId) {
 							continue;

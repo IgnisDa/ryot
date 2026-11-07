@@ -1,17 +1,14 @@
 import { expect } from "bun:test";
 
-import { BunCrypto } from "@effect/platform-bun";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
-
-import { fakeDatabaseSession, makeWorkflowEngine } from "#testing/effect";
 
 import { ImportRunCancellationService } from "./cancellation-service";
+import { ImportRunExecutionController } from "./execution-controller";
 import { ImportsRepository } from "./repository";
 
 const runId = ImportRunId.make("run-1");
@@ -25,82 +22,89 @@ const user: CurrentUserValue = {
 
 type RunControl = Effect.Success<ReturnType<ImportsRepository["Service"]["getRunControlForUser"]>>;
 
-class FakeCancellationDispatch extends Context.Service<
-	FakeCancellationDispatch,
-	{ readonly executions: Effect.Effect<ReadonlyArray<unknown>> }
->()(
-	"@ryot-app/kernel-backend/modules/imports/cancellation-service.test/FakeCancellationDispatch",
-) {}
+class FakeCancellation extends Context.Service<
+	FakeCancellation,
+	{ readonly events: Effect.Effect<ReadonlyArray<unknown>> }
+>()("@ryot-app/kernel-backend/modules/imports/cancellation-service.test/FakeCancellation") {}
 
 const makeLayer = (run: RunControl) =>
-	Layer.provideMerge(
-		ImportRunCancellationService.layer.pipe(
-			Layer.provideMerge(
-				Layer.unwrap(
-					Effect.gen(function* () {
-						const executions = yield* Ref.make<ReadonlyArray<unknown>>([]);
-						const repository = ImportsRepository.layer.pipe(
-							Layer.provide(
-								fakeDatabaseSession({
-									select: () => ({
-										from: () => ({
-											where: () => ({ limit: () => Effect.succeed(run === null ? [] : [run]) }),
+	ImportRunCancellationService.layer.pipe(
+		Layer.provideMerge(
+			Layer.unwrap(
+				Effect.gen(function* () {
+					const events = yield* Ref.make<ReadonlyArray<unknown>>([]);
+					let status = run?.status;
+					return Layer.mergeAll(
+						Layer.succeed(FakeCancellation, { events: Ref.get(events) }),
+						Layer.succeed(ImportRunExecutionController, {
+							interrupt: (input) => Ref.update(events, (all) => [...all, input]),
+						}),
+						Layer.mock(ImportsRepository)({
+							getRunControlForUser: () =>
+								Effect.sync(() => (run && status ? { ...run, status } : run)),
+							cancelIngestion: () =>
+								Ref.update(events, (all) => [...all, "requested"]).pipe(
+									Effect.andThen(
+										Effect.sync(() => {
+											status = "cancelling";
+											return true;
 										}),
-									}),
-								}),
-							),
-						);
-						return Layer.mergeAll(
-							repository,
-							Layer.succeed(FakeCancellationDispatch, { executions: Ref.get(executions) }),
-							Layer.succeed(
-								WorkflowEngine,
-								makeWorkflowEngine({
-									execute: (_workflow, options) =>
-										Ref.update(executions, (all) => [...all, options]),
-								}),
-							),
-						);
-					}),
-				),
+									),
+								),
+						}),
+					);
+				}),
 			),
 		),
-		BunCrypto.layerSecureRandom,
 	);
 
-layer(makeLayer({ id: runId, status: "running", executionKind: "source" }))((test) => {
+for (const executionKind of ["source", "integration"] as const) {
+	layer(makeLayer({ executionKind, id: runId, status: "running" }))((test) => {
+		test.effect(
+			`marks the run cancelling before interrupting the ${executionKind} execution`,
+			() =>
+				Effect.gen(function* () {
+					expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
+						id: runId,
+					});
+					expect(yield* (yield* FakeCancellation).events).toEqual([
+						"requested",
+						{ runId, executionKind },
+					]);
+				}),
+			testTimeout,
+		);
+	});
+}
+
+layer(makeLayer({ id: runId, status: "cancelling", executionKind: "integration" }))((test) => {
 	test.effect(
-		"dispatches cancellation with a deterministic execution ID",
+		"interrupts again when a cancellation is repeated, in case the first never arrived",
 		() =>
 			Effect.gen(function* () {
-				expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
-					id: runId,
-				});
-				expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([
-					{ discard: true, executionId: "run-1-cancellation", payload: { runId, userId: user.id } },
+				yield* (yield* ImportRunCancellationService).cancelRun(user, runId);
+				expect(yield* (yield* FakeCancellation).events).toEqual([
+					"requested",
+					{ runId, executionKind: "integration" },
 				]);
 			}),
 		testTimeout,
 	);
 });
 
-for (const status of ["cancelling", "cancelled"] as const) {
-	layer(makeLayer({ status, id: runId, executionKind: "integration" }))((test) => {
-		test.effect(
-			`accepts a repeated cancellation for a ${status} run`,
-			() =>
-				Effect.gen(function* () {
-					expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
-						id: runId,
-					});
-					expect(yield* (yield* FakeCancellationDispatch).executions).toHaveLength(
-						status === "cancelling" ? 1 : 0,
-					);
-				}),
-			testTimeout,
-		);
-	});
-}
+layer(makeLayer({ id: runId, status: "cancelled", executionKind: "integration" }))((test) => {
+	test.effect(
+		"accepts a repeated cancellation for a cancelled run",
+		() =>
+			Effect.gen(function* () {
+				expect(yield* (yield* ImportRunCancellationService).cancelRun(user, runId)).toEqual({
+					id: runId,
+				});
+				expect(yield* (yield* FakeCancellation).events).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
 
 for (const status of ["completed", "failed"] as const) {
 	layer(makeLayer({ status, id: runId, executionKind: "source" }))((test) => {
@@ -112,7 +116,7 @@ for (const status of ["completed", "failed"] as const) {
 						(yield* ImportRunCancellationService).cancelRun(user, runId),
 					);
 					expect(error).toMatchObject({ reason: { runId, status, code: "run-not-cancellable" } });
-					expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([]);
+					expect(yield* (yield* FakeCancellation).events).toEqual([]);
 				}),
 			testTimeout,
 		);
@@ -129,7 +133,7 @@ layer(makeLayer(null))((test) => {
 					const error = yield* Effect.flip(service.cancelRun(requestUser, runId));
 					expect(error).toMatchObject({ reason: { runId, code: "run-not-found" } });
 				}
-				expect(yield* (yield* FakeCancellationDispatch).executions).toEqual([]);
+				expect(yield* (yield* FakeCancellation).events).toEqual([]);
 			}),
 		testTimeout,
 	);

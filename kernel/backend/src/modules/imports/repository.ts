@@ -726,7 +726,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				id: string,
 			) {
 				yield* lockProjection(scope, ["pending", "blocked", "running"]);
-				yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
 						.update(schema.importPayloadReservation)
 						.set({ recoveryBytes: null })
@@ -734,9 +734,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							and(
 								eq(schema.importPayloadReservation.runId, scope.runId),
 								eq(schema.importPayloadReservation.id, id),
+								eq(schema.importPayloadReservation.retiring, false),
 							),
-						),
+						)
+						.returning({ id: schema.importPayloadReservation.id }),
 				);
+				if (rows.length === 0) {
+					return yield* new DbError({ message: "Ingestion payload owner is retiring" });
+				}
+				return yield* Effect.void;
 			});
 			const purgePayloadReservations = Effect.fn("ImportsRepository.purgePayloadReservations")(
 				function* (input: { userId: UserId; runId?: ImportRunId; integrationId?: IntegrationId }) {

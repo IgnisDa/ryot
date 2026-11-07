@@ -2,23 +2,16 @@ import type { IngestionRun, IngestionScope } from "@ryot-app/contract/modules/im
 import { ImportRunId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, FileSystem, Layer, Option } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
+import { Context, Effect, FileSystem, Layer } from "effect";
 
 import {
 	ingestionPayloadDigest,
 	IngestionPayloads,
 } from "#modules/assets/storage/ingestion-payloads";
 import { AccountAdmission } from "#modules/mutations/account-admission";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
-import type { PluginIngestionRetirementPolicy } from "#modules/plugins/packages/ingestion-retirement";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
-import { interruptWorkflowAndWait } from "#platform/workflow/interruption";
-import { ActivityBody } from "#platform/workflow/scope";
 
-import { captureWriteExecutionId, ProcessIngestionCaptureWorkflow } from "./capture-write-workflow";
 import { ImportsRepository } from "./repository";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
@@ -35,23 +28,89 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const engine = yield* WorkflowEngine;
-			const notifications = yield* WorkflowExecutionNotifications;
 			const fs = yield* FileSystem.FileSystem;
 			const database = yield* DatabaseSession;
 			const payloads = yield* IngestionPayloads;
 			const repository = yield* ImportsRepository;
 			const admission = yield* AccountAdmission.make;
-			const execute = (
-				scope: IngestionScope,
-				id: string,
-				maxBytes: number,
-				temporaryPath: null | string,
-			) =>
-				dispatchAdmittedWorkflow(engine, ProcessIngestionCaptureWorkflow, scope.userId, {
-					executionId: captureWriteExecutionId(scope, id),
-					payload: { id, scope, maxBytes, temporaryPath },
-				});
+			/**
+			 * Publishes a reserved payload. A retirement stops the publication; if it has already released the reservation
+			 * then nothing else will remove the bytes this write just stored.
+			 */
+			const write = Effect.fn("IngestionCaptures.write")(
+				function* (scope: IngestionScope, id: string, maxBytes: number, bytes: null | Uint8Array) {
+					const run = yield* repository.getIngestionRunControl(scope);
+					if (!run || !["pending", "blocked", "running"].includes(run.status)) {
+						return yield* inactiveCaptureOwner(run);
+					}
+					const reservation = yield* repository.getPayloadReservation(scope, id);
+					if (!reservation || reservation.released || reservation.ordinal === null) {
+						return yield* new ImportRunError({
+							message: "Ingestion payload reservation is unavailable",
+						});
+					}
+					const existing = yield* repository.getCapture(scope, id);
+					if (existing?.payload) {
+						yield* payloads.read(existing.payload, maxBytes);
+						return existing;
+					}
+					const capture = {
+						id: reservation.id,
+						ordinal: reservation.ordinal,
+						payload: reservation.payload,
+						state: reservation.captureState,
+						phase: reservation.capturePhase,
+						checkpoint: reservation.checkpoint,
+					};
+					return yield* Effect.uninterruptible(
+						Effect.gen(function* () {
+							yield* database.transaction(
+								Effect.gen(function* () {
+									yield* repository.startPayloadWrite(scope, id);
+									yield* admission.admitAccount(scope.userId);
+								}),
+							);
+							yield* payloads.read(reservation.payload, maxBytes).pipe(
+								Effect.catchTag("IngestionPayloadError", (error) =>
+									Effect.gen(function* () {
+										if (error.kind !== "unavailable") {
+											return yield* error;
+										}
+										const available =
+											reservation.recoveryBytes !== null
+												? Buffer.from(reservation.recoveryBytes, "base64")
+												: bytes;
+										if (available === null) {
+											yield* payloads.read(reservation.payload, maxBytes);
+											return;
+										}
+										yield* payloads.write({ maxBytes, bytes: available, payload: reservation.payload });
+									}),
+								),
+							);
+							yield* database
+								.transaction(
+									Effect.gen(function* () {
+										yield* repository.publishCapture(scope, capture);
+										yield* repository.clearPayloadRecovery(scope, capture.id);
+									}),
+								)
+								.pipe(
+									Effect.tapError(() =>
+										repository.getPayloadReservation(scope, id).pipe(
+											Effect.flatMap((current) =>
+												current?.released ? payloads.remove(reservation.payload) : Effect.void,
+											),
+											Effect.ignore,
+										),
+									),
+								);
+							return capture;
+						}),
+					);
+				},
+				(effect) => effect.pipe(Effect.mapError(toWorkflowError)),
+			);
 			const publish = Effect.fn("IngestionCaptures.publish")(function* (input: {
 				id: string;
 				ordinal: number;
@@ -63,11 +122,6 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				state: "sealed" | "captured";
 				phase: "collection" | "application";
 			}) {
-				if (yield* ActivityBody) {
-					return yield* new ImportRunError({
-						message: "Ingestion publication must be dispatched by its workflow body",
-					});
-				}
 				const run = yield* repository.getIngestionRunControl(input.scope);
 				if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 					return yield* inactiveCaptureOwner(run);
@@ -95,21 +149,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 						return reservation;
 					}),
 				);
-				return yield* Effect.scoped(
-					Effect.gen(function* () {
-						let temporaryPath: null | string = null;
-						if (
-							reserved.recoveryBytes === null &&
-							!(yield* repository.getCapture(input.scope, input.id))
-						) {
-							temporaryPath = yield* fs.makeTempFileScoped({
-								directory: yield* fs.realPath(config.fileStorage.localTempDir),
-							});
-							yield* fs.writeFile(temporaryPath, input.bytes);
-						}
-						return yield* execute(input.scope, input.id, input.maxBytes, temporaryPath);
-					}),
-				).pipe(Effect.mapError(toWorkflowError));
+				return yield* write(input.scope, reserved.id, input.maxBytes, input.bytes);
 			});
 			const read = Effect.fn("IngestionCaptures.read")(function* (
 				scope: IngestionScope,
@@ -128,11 +168,6 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 			const resume = Effect.fn("IngestionCaptures.resume")(function* (
 				input: Omit<Parameters<typeof publish>[0], "bytes" | "inputFingerprint">,
 			) {
-				if (yield* ActivityBody) {
-					return yield* new ImportRunError({
-						message: "Ingestion publication must be dispatched by its workflow body",
-					});
-				}
 				const run = yield* repository.getIngestionRunControl(input.scope);
 				if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 					return yield* inactiveCaptureOwner(run);
@@ -153,7 +188,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 						message: "Ingestion payload reservation identity changed",
 					});
 				}
-				return yield* execute(input.scope, input.id, input.maxBytes, null).pipe(
+				return yield* write(input.scope, input.id, input.maxBytes, null).pipe(
 					Effect.tap(
 						Effect.fnUntraced(function* (capture) {
 							if (!capture.payload) {
@@ -247,43 +282,11 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				yield* fs.writeFile(path, bytes);
 				return path;
 			});
-			const stopWrites = Effect.fn("IngestionCaptures.stopWrites")(function* (
-				input: { runId?: IngestionScope["runId"]; userId: IngestionScope["userId"] },
-				policy: PluginIngestionRetirementPolicy = { kind: "removal" },
-			) {
-				for (const { runId, reservation } of yield* database.transaction(
-					repository.stopPayloadWrites(input),
-				)) {
-					const scope = { userId: input.userId, runId: ImportRunId.make(runId) };
-					if (!reservation.writeStarted) {
-						continue;
-					}
-					const executionId = captureWriteExecutionId(scope, reservation.id);
-					yield* policy.kind === "quarantine"
-						? engine.interrupt(ProcessIngestionCaptureWorkflow, executionId)
-						: interruptWorkflowAndWait(ProcessIngestionCaptureWorkflow, executionId, {
-								requireReply: true,
-							}).pipe(
-								Effect.provideService(WorkflowEngine, engine),
-								Effect.provideService(WorkflowExecutionNotifications, notifications),
-							);
-				}
-			});
-			const canCleanup = Effect.fn("IngestionCaptures.canCleanup")(function* (
-				scope: IngestionScope,
-			) {
-				for (const { reservation } of yield* repository.listPayloadReservations(scope)) {
-					if (reservation.writeStarted && !reservation.released) {
-						const result = yield* engine.poll(
-							ProcessIngestionCaptureWorkflow,
-							captureWriteExecutionId(scope, reservation.id),
-						);
-						if (Option.isNone(result) || result.value._tag !== "Complete") {
-							return false;
-						}
-					}
-				}
-				return true;
+			const stopWrites = Effect.fn("IngestionCaptures.stopWrites")(function* (input: {
+				runId?: IngestionScope["runId"];
+				userId: IngestionScope["userId"];
+			}) {
+				yield* database.transaction(repository.stopPayloadWrites(input));
 			});
 			const cleanup = Effect.fn("IngestionCaptures.cleanup")(function* (scope: IngestionScope) {
 				const run = yield* repository.getIngestionRunControl(scope);
@@ -329,11 +332,6 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				}
 			});
 			const recover = Effect.fn("IngestionCaptures.recover")(function* (scope: IngestionScope) {
-				if (yield* ActivityBody) {
-					return yield* new ImportRunError({
-						message: "Ingestion recovery must be dispatched by its workflow body",
-					});
-				}
 				const run = yield* repository.getIngestionRunControl(scope);
 				if (!run || !["pending", "blocked", "running"].includes(run.status)) {
 					return yield* inactiveCaptureOwner(run);
@@ -344,7 +342,7 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 						reservation.ordinal !== null &&
 						reservation.recoveryBytes !== null
 					) {
-						yield* execute(scope, reservation.id, 4 * 1024 * 1024, null);
+						yield* write(scope, reservation.id, 4 * 1024 * 1024, null);
 					}
 				}
 				return yield* Effect.void;
@@ -357,7 +355,6 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 				publish,
 				cleanup,
 				recover,
-				canCleanup,
 				stopWrites,
 				readStaged,
 				materialize,

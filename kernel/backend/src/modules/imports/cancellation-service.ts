@@ -5,16 +5,15 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
-import { CancelImportRunWorkflow } from "./cancel-workflow";
+import { ImportRunExecutionController } from "./execution-controller";
 import { ImportsRepository } from "./repository";
 
 export class ImportRunCancellationService extends Context.Service<ImportRunCancellationService>()(
 	"@ryot-app/kernel-backend/modules/imports/cancellation-service/ImportRunCancellationService",
 	{
 		make: Effect.gen(function* () {
-			const engine = yield* WorkflowEngine;
+			const controller = yield* ImportRunExecutionController;
 			const repository = yield* ImportsRepository;
 
 			const cancelRun = Effect.fn("ImportRunCancellationService.cancelRun")(function* (
@@ -31,13 +30,13 @@ export class ImportRunCancellationService extends Context.Service<ImportRunCance
 					});
 				}
 				if (run.status !== "cancelled") {
-					yield* engine
-						.execute(CancelImportRunWorkflow, {
-							discard: true,
-							payload: { runId, userId: user.id },
-							executionId: `${runId}-cancellation`,
-						})
-						.pipe(Effect.orDie);
+					yield* repository.cancelIngestion({ runId, userId: user.id }).pipe(Effect.orDie);
+					const current = yield* repository.getRunControlForUser({ runId, userId: user.id });
+					if (current?.status === "cancelling") {
+						yield* controller
+							.interrupt({ runId, executionKind: current.executionKind })
+							.pipe(Effect.orDie);
+					}
 				}
 				return { id: runId };
 			});

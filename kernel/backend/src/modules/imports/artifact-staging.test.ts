@@ -25,7 +25,6 @@ import { makeAppConfigLayer } from "#testing/effect";
 import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { IngestionCaptures } from "./capture-service";
-import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";
 import { IngestionArtifactStagingProvidedLive } from "./layer";
 import { ImportsRepository } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
@@ -175,7 +174,7 @@ layer(
 						return capture.id;
 					}).pipe(Effect.mapError((error) => new ImportRunError({ message: String(error) }))),
 				);
-				const workflows = Layer.merge(caller, IngestionCaptureWorkflowDefinitionsLive).pipe(
+				const workflows = caller.pipe(
 					Layer.provideMerge(staging),
 				);
 				const waitSuspended = (captureCount: number) =>

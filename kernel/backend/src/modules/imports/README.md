@@ -62,7 +62,7 @@ Every import run has one durable root selected by its persisted `executionKind`:
 
 Both roots use the import run ID as their workflow execution ID and idempotency key. The sandbox
 import workflow uses `${runId}-import`, and other descendants derive their IDs from their parent.
-`CancelImportRunWorkflow` uses `${runId}-cancellation`. These durable IDs let any server instance
+These durable IDs let any server instance
 address the correct root without retaining a process-local workflow handle.
 
 `dispatchImportRun` is the only post-admission dispatch path for manual imports. It pins the import
@@ -71,20 +71,20 @@ its rollback; after the run is admitted, terminal workflow handling owns status 
 
 ## Cancellation
 
-The cancellation endpoint verifies ownership and rejects completed or failed runs. It then starts
-the cancellation workflow and returns without waiting for all cleanup to finish. The cancellation
-workflow:
+The cancellation endpoint verifies ownership and rejects completed or failed runs. It then:
 
-1. Conditionally changes `pending` or `running` to `cancelling`.
-2. Reads the persisted execution kind.
-3. Interrupts the manual or integration root by its import run ID.
-4. Lets that root interrupt its sandbox and generic-import descendants.
-5. Lets the root release retained resources before conditionally changing `cancelling` to
-   `cancelled`.
+1. Conditionally changes `pending` or `running` to `cancelling`. This flag is what cancels the run.
+2. Interrupts the manual or integration root by its import run ID, so it stops without waiting for
+   its next check, and returns without waiting for cleanup.
+
+The run is checked for the flag before each record, so a server that dies between the two steps
+loses only the promptness. A repeated request interrupts again. The root then interrupts its
+descendants and releases retained resources before conditionally changing `cancelling` to
+`cancelled`.
 
 A cancellation received before the root starts is handled by the root's initial state transition:
-it observes `cancelling`, performs cancellation cleanup, and never starts source work. A repeated
-request for a `cancelling` or `cancelled` run is idempotent.
+it observes `cancelling`, performs cancellation cleanup, and never starts source work. A request for
+a `cancelled` run changes nothing.
 
 ## State machine and races
 

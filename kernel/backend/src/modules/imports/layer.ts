@@ -18,7 +18,6 @@ import { UserCommandsLive } from "#modules/user-commands/layer";
 
 import { IngestionArtifactStagingLive } from "./artifact-staging";
 import { IngestionCaptures } from "./capture-service";
-import { IngestionCaptureWorkflowDefinitionsLive } from "./capture-write-workflow";
 import { DataImportAdmission } from "./data-admission";
 import { DataImportWorkflowDefinitionsLive } from "./data-workflow";
 import { IngestionExecution } from "./execution-service";
@@ -32,11 +31,6 @@ import { ImportWorkflowPinning } from "./workflow-pinning";
 export const IngestionArtifactStagingProvidedLive = IngestionArtifactStagingLive.pipe(
 	Layer.provide(Layer.mergeAll(ImportsRepository.layer, IngestionCaptures.layer)),
 );
-
-export const IngestionCaptureWorkflowDefinitionsProvidedLive =
-	IngestionCaptureWorkflowDefinitionsLive.pipe(
-		Layer.provide(Layer.mergeAll(ImportsRepository.layer, IngestionPayloads.layer)),
-	);
 
 export const ImportWorkflowPinningLive = Layer.effect(
 	ImportWorkflowPinning,
