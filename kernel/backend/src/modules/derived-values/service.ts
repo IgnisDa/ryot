@@ -16,7 +16,7 @@ import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
-import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
+import { DirectScriptDeferred, type SandboxAdmission } from "#modules/scripts/executions/queues";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import {
 	executeScriptDirectly,
@@ -71,7 +71,10 @@ const REBUILD_PAGE = 500;
 
 const failure = (message: string) => new FoldFailed({ message });
 
-type FoldRun = (input: ScriptExecutionInput) => Effect.Effect<SandboxExecutionResult, unknown>;
+type FoldRun = (
+	input: ScriptExecutionInput,
+	admission: SandboxAdmission,
+) => Effect.Effect<SandboxExecutionResult, unknown>;
 
 /**
  * Runs fold scripts once the runtime installs its sandbox executor. Until then, and wherever nothing installs it,
@@ -93,11 +96,11 @@ class FoldExecutor extends Context.Service<
 					Effect.acquireRelease(Ref.set(installed, Option.some(run)), () =>
 						Ref.set(installed, Option.none()),
 					),
-				run: (input: ScriptExecutionInput) =>
+				run: (input: ScriptExecutionInput, admission: SandboxAdmission) =>
 					Effect.flatMap(Ref.get(installed), (run) =>
 						Option.isNone(run)
 							? Effect.fail(failure("Fold executor is not installed"))
-							: run.value(input),
+							: run.value(input, admission),
 					),
 			};
 		}),
@@ -107,7 +110,9 @@ class FoldExecutor extends Context.Service<
 export const FoldExecutorInstalledLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const direct = yield* DirectScriptExecutor;
-		yield* (yield* FoldExecutor).install((input) => executeScriptDirectly(direct, input));
+		yield* (yield* FoldExecutor).install((input, admission) =>
+			executeScriptDirectly(direct, input, admission),
+		);
 	}),
 ).pipe(Layer.provide(FoldExecutor.layer));
 
@@ -267,14 +272,23 @@ export class Folds extends Context.Service<Folds>()(
 						),
 				);
 				const result = yield* Effect.flatMap(random.uuidV4(), (id) =>
-					executor.run({
-						lane,
-						executionId: `fold-${id}`,
-						pluginRevision: binding.pluginPin,
-						subject: binding.principal.subject,
-						scriptId: binding.principal.scriptId,
-						input: { absorbed, value: previous?.value ?? null, subjectEntityId: subject.entityId },
-					}),
+					executor.run(
+						{
+							lane,
+							executionId: `fold-${id}`,
+							pluginRevision: binding.pluginPin,
+							subject: binding.principal.subject,
+							scriptId: binding.principal.scriptId,
+							input: {
+								absorbed,
+								value: previous?.value ?? null,
+								subjectEntityId: subject.entityId,
+							},
+						},
+						// Only a fold job runs in the background, and it is never nested in a parked script's host call,
+						// so it can wait for a sandbox lease instead of failing after the short direct wait.
+						lane === "background" ? "queued" : "direct",
+					),
 				).pipe(
 					// A busy sandbox lane is brief, and waiting it out here keeps the fold in its write.
 					Effect.retry({

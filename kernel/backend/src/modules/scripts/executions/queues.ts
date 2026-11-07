@@ -156,6 +156,8 @@ export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* 
 		: Option.none<SandboxReplayResult>();
 });
 
+export type SandboxAdmission = "queued" | "direct";
+
 export type SandboxExecutionResolutionMode = "exact" | "active";
 
 /** A direct run reached work that only `ScriptExecutionWorkflow`'s queue and replay loop can wait for. */
@@ -180,7 +182,7 @@ const otherLane = (lane: ExecutionLane): ExecutionLane =>
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
-	admission: "queued" | "direct" = "queued",
+	admission: SandboxAdmission = "queued",
 ) {
 	const held = yield* HeldInlineBatch;
 	const lane = held === payload.lane ? otherLane(held) : payload.lane;
