@@ -182,7 +182,7 @@ layer(
 						const engine = yield* WorkflowEngine;
 						for (;;) {
 							const result = yield* engine.poll(CollectorCaller, scope.runId);
-							const captures = yield* database.run((db) => db.select().from(tables.importCapture));
+							const captures = yield* database.run((db) => db.select().from(tables.importItem).where(eq(tables.importItem.published, true)));
 							if (
 								Option.isSome(result) &&
 								result.value._tag === "Suspended" &&
@@ -212,7 +212,7 @@ layer(
 				);
 				expect(collections).toBe(1);
 				expect(handle).toMatch(/^staged-/);
-				expect(yield* database.run((db) => db.select().from(tables.importCapture))).toHaveLength(0);
+				expect(yield* database.run((db) => db.select().from(tables.importItem).where(eq(tables.importItem.published, true)))).toHaveLength(0);
 				yield* fs.remove(temporary, { recursive: true });
 				yield* fs.makeDirectory(temporary);
 				yield* activation(
@@ -229,7 +229,7 @@ layer(
 				);
 				expect(collections).toBe(1);
 				expect(callerCompletions).toBe(0);
-				expect(yield* database.run((db) => db.select().from(tables.importCapture))).toHaveLength(1);
+				expect(yield* database.run((db) => db.select().from(tables.importItem).where(eq(tables.importItem.published, true)))).toHaveLength(1);
 				yield* fs.remove(temporary, { recursive: true });
 				yield* fs.makeDirectory(temporary);
 				yield* activation(
@@ -255,9 +255,9 @@ layer(
 				);
 				expect(collections).toBe(1);
 				expect(callerCompletions).toBe(1);
-				expect(yield* database.run((db) => db.select().from(tables.importCapture))).toHaveLength(1);
+				expect(yield* database.run((db) => db.select().from(tables.importItem).where(eq(tables.importItem.published, true)))).toHaveLength(1);
 				const reservations = yield* database.run((db) =>
-					db.select().from(tables.importPayloadReservation),
+					db.select().from(tables.importItem).where(eq(tables.importItem.kind, "payload")),
 				);
 				expect(reservations.filter((row) => row.ordinal === null)).toHaveLength(1);
 				expect(reservations.filter((row) => row.ordinal === 64)).toHaveLength(1);
@@ -272,10 +272,7 @@ layer(
 						Effect.flatMap((context) =>
 							Effect.gen(function* () {
 								const captures = yield* IngestionCaptures;
-								const repository = yield* ImportsRepository;
-								const session = yield* DatabaseSession;
 								yield* captures.cleanup(scope);
-								yield* session.transaction(repository.purgePayloadReservations(scope));
 								expect(
 									(yield* Effect.exit(
 										captures.stage({
@@ -293,8 +290,10 @@ layer(
 					),
 				);
 				expect(
-					yield* database.run((db) => db.select().from(tables.importPayloadReservation)),
-				).toHaveLength(0);
+					yield* database.run((db) =>
+						db.select({ id: tables.importItem.id }).from(tables.importItem).where(eq(tables.importItem.released, false)),
+					),
+				).toEqual([]);
 			}),
 		testTimeout,
 	);

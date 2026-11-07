@@ -1324,6 +1324,12 @@ describe("Event lifecycle PostgreSQL", () => {
 				() =>
 					Effect.gen(function* () {
 						const importRunId = ImportRunId.make("imported-event-run");
+						yield* (yield* DatabaseSession).run((db) =>
+							db
+								.insert(tables.importRun)
+								.values({ userId, id: importRunId, source: "fixture" })
+								.onConflictDoNothing(),
+						);
 						const base = command("imported-event-item");
 						const lifecycle = { ...base, causation: { ...base.causation, importRunId } };
 						const result = yield* runCreate({

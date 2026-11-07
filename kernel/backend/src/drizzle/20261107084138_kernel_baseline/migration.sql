@@ -208,15 +208,6 @@ CREATE TABLE "client_page_composition" (
 	"manifest" jsonb NOT NULL
 );
 --> statement-breakpoint
-CREATE TABLE "data_import_submission" (
-	"key" text NOT NULL,
-	"run_id" text NOT NULL,
-	"digest" text NOT NULL,
-	"upload_token_hashes" text[] DEFAULT '{}'::text[] NOT NULL,
-	"integration_id" text,
-	"user_id" text NOT NULL
-);
---> statement-breakpoint
 CREATE TABLE "definition_calendar_source" (
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
@@ -494,37 +485,11 @@ CREATE TABLE "idempotency_key" (
 --> statement-breakpoint
 CREATE TABLE "import_activity" (
 	"data" jsonb NOT NULL,
-	"batch_id" text GENERATED ALWAYS AS (data->>'batchId') STORED,
 	"parent_id" text GENERATED ALWAYS AS (data->>'parentId') STORED,
 	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
 	"run_id" text,
 	CONSTRAINT "import_activity_pkey" PRIMARY KEY("run_id","id"),
 	CONSTRAINT "import_activity_parent_check" CHECK ("id" is distinct from "parent_id")
-);
---> statement-breakpoint
-CREATE TABLE "import_batch" (
-	"result" jsonb,
-	"operation_ids" text[] NOT NULL,
-	"data" jsonb NOT NULL,
-	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
-	"capture_id" text GENERATED ALWAYS AS (data->>'captureId') STORED NOT NULL,
-	"run_id" text,
-	"ordinal" integer GENERATED ALWAYS AS ((data->>'ordinal')::integer) STORED NOT NULL,
-	CONSTRAINT "import_batch_pkey" PRIMARY KEY("run_id","id"),
-	CONSTRAINT "import_batch_ordinal_unique" UNIQUE("run_id","ordinal"),
-	CONSTRAINT "import_batch_ordinal_check" CHECK ("ordinal" >= 0)
-);
---> statement-breakpoint
-CREATE TABLE "import_capture" (
-	"data" jsonb NOT NULL,
-	"id" text GENERATED ALWAYS AS (data->>'id') STORED,
-	"run_id" text,
-	"ordinal" integer GENERATED ALWAYS AS ((data->>'ordinal')::integer) STORED NOT NULL,
-	"phase" text GENERATED ALWAYS AS (data->>'phase') STORED NOT NULL,
-	CONSTRAINT "import_capture_pkey" PRIMARY KEY("run_id","id"),
-	CONSTRAINT "import_capture_ordinal_unique" UNIQUE("run_id","phase","ordinal"),
-	CONSTRAINT "import_capture_phase_check" CHECK ("phase" in ('collection', 'application')),
-	CONSTRAINT "import_capture_ordinal_check" CHECK ("ordinal" >= 0)
 );
 --> statement-breakpoint
 CREATE TABLE "import_issue" (
@@ -534,39 +499,36 @@ CREATE TABLE "import_issue" (
 	CONSTRAINT "import_issue_pkey" PRIMARY KEY("run_id","id")
 );
 --> statement-breakpoint
-CREATE TABLE "import_outcome" (
-	"data" jsonb NOT NULL,
-	"operation_id" text GENERATED ALWAYS AS (data->>'operationId') STORED,
-	"run_id" text,
-	CONSTRAINT "import_outcome_pkey" PRIMARY KEY("run_id","operation_id")
-);
---> statement-breakpoint
-CREATE TABLE "import_payload_reservation" (
-	"ordinal" integer,
-	"id" text,
+CREATE TABLE "import_item" (
+	"result" jsonb,
 	"recovery_bytes" text,
-	"staging_execution_id" text,
-	"input_fingerprint" text NOT NULL,
+	"id" text,
+	"operation_ids" text[],
+	"data" jsonb NOT NULL,
+	"kind" text,
 	"released" boolean DEFAULT false NOT NULL,
 	"retiring" boolean DEFAULT false NOT NULL,
+	"published" boolean DEFAULT false NOT NULL,
 	"write_started" boolean DEFAULT false NOT NULL,
-	"payload" jsonb NOT NULL,
-	"capture_state" text NOT NULL,
-	"capture_phase" text NOT NULL,
-	"checkpoint" jsonb NOT NULL,
+	"capture_released" boolean DEFAULT false NOT NULL,
+	"capture_id" text GENERATED ALWAYS AS (data->>'captureId') STORED,
 	"run_id" text,
-	CONSTRAINT "import_payload_reservation_pkey" PRIMARY KEY("run_id","id"),
-	CONSTRAINT "import_payload_reservation_ordinal_unique" UNIQUE("run_id","capture_phase","ordinal"),
-	CONSTRAINT "import_payload_reservation_phase_check" CHECK ("capture_phase" in ('collection', 'application')),
-	CONSTRAINT "import_payload_reservation_ordinal_check" CHECK ("ordinal" >= 0),
-	CONSTRAINT "import_payload_reservation_staging_check" CHECK (("ordinal" is null) = ("staging_execution_id" is not null)),
-	CONSTRAINT "import_payload_reservation_recovery_check" CHECK ("recovery_bytes" is null or length("recovery_bytes") <= 5592408)
+	"ordinal" integer GENERATED ALWAYS AS ((data->>'ordinal')::integer) STORED,
+	"phase" text GENERATED ALWAYS AS (data->>'phase') STORED,
+	CONSTRAINT "import_item_pkey" PRIMARY KEY("run_id","kind","id"),
+	CONSTRAINT "import_item_kind_check" CHECK ("kind" in ('payload', 'batch', 'outcome', 'result')),
+	CONSTRAINT "import_item_ordinal_check" CHECK ("ordinal" >= 0),
+	CONSTRAINT "import_item_phase_check" CHECK ("kind" <> 'payload' or "phase" in ('collection', 'application')),
+	CONSTRAINT "import_item_batch_check" CHECK ("kind" <> 'batch' or ("ordinal" is not null and "capture_id" is not null and "operation_ids" is not null)),
+	CONSTRAINT "import_item_staging_check" CHECK ("kind" <> 'payload' or ("ordinal" is null) = (data->>'stagingExecutionId' is not null)),
+	CONSTRAINT "import_item_recovery_check" CHECK ("recovery_bytes" is null or length("recovery_bytes") <= 5592408)
 );
 --> statement-breakpoint
 CREATE TABLE "import_run" (
 	"started_at" timestamp(3) with time zone,
 	"finished_at" timestamp(3) with time zone,
 	"block_deadline" timestamp(3) with time zone,
+	"auto_disabled_at" timestamp(3) with time zone,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"plan" jsonb,
 	"pins" jsonb,
@@ -615,12 +577,6 @@ CREATE TABLE "integration" (
 	CONSTRAINT "integration_run_owner_unique" UNIQUE("id","user_id"),
 	CONSTRAINT "integration_owner_check" CHECK (("plugin_installation_id" is null and "provider" = 'data-json' and "lot" = 'sink') or ("plugin_installation_id" is not null and "provider" <> 'data-json')),
 	CONSTRAINT "integration_webhook_token_lot_check" CHECK (("lot" = 'sink') = ("webhook_token" is not null))
-);
---> statement-breakpoint
-CREATE TABLE "integration_auto_disable_claim" (
-	"import_run_id" text PRIMARY KEY,
-	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"integration_id" text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "job" (
@@ -1332,7 +1288,6 @@ CREATE INDEX "backup_run_expires_at_idx" ON "backup_run" ("expires_at");--> stat
 CREATE UNIQUE INDEX "backup_run_user_active_unique" ON "backup_run" ("user_id") WHERE "status" in ('pending', 'running');--> statement-breakpoint
 CREATE INDEX "backup_staging_record_run_section_id_idx" ON "backup_staging_record" ("run_id","section","id");--> statement-breakpoint
 CREATE INDEX "backup_staging_reference_run_target_idx" ON "backup_staging_reference" ("run_id","target_namespace","target_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "data_import_submission_identity_unique" ON "data_import_submission" ("user_id",coalesce("integration_id", ''),"key");--> statement-breakpoint
 CREATE INDEX "definition_calendar_source_slug_idx" ON "definition_calendar_source" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_entity_schema_slug_idx" ON "definition_entity_schema" ("slug");--> statement-breakpoint
 CREATE INDEX "definition_import_source_slug_idx" ON "definition_import_source" ("slug");--> statement-breakpoint
@@ -1365,6 +1320,8 @@ CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_
 CREATE INDEX "event_user_schema_occurred_at_idx" ON "event" ("user_id","event_schema_plugin_id","event_schema_slug","occurred_at");--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "idempotency_key_created_at_idx" ON "idempotency_key" ("created_at");--> statement-breakpoint
+CREATE UNIQUE INDEX "import_item_payload_ordinal_unique" ON "import_item" ("run_id","phase","ordinal") WHERE "kind" = 'payload';--> statement-breakpoint
+CREATE UNIQUE INDEX "import_item_batch_ordinal_unique" ON "import_item" ("run_id","ordinal") WHERE "kind" = 'batch';--> statement-breakpoint
 CREATE INDEX "import_run_block_deadline_idx" ON "import_run" ("block_deadline") WHERE "status" = 'blocked';--> statement-breakpoint
 CREATE INDEX "import_run_user_id_created_at_idx" ON "import_run" ("user_id","created_at" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "import_run_integration_id_created_at_idx" ON "import_run" ("integration_id","created_at" DESC NULLS LAST);--> statement-breakpoint
@@ -1376,7 +1333,6 @@ CREATE INDEX "integration_plugin_installation_id_idx" ON "integration" ("plugin_
 CREATE INDEX "integration_lot_is_disabled_idx" ON "integration" ("lot","is_disabled");--> statement-breakpoint
 CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider","is_disabled");--> statement-breakpoint
 CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhook_token");--> statement-breakpoint
-CREATE INDEX "integration_auto_disable_claim_integration_id_idx" ON "integration_auto_disable_claim" ("integration_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "job_queued_key_unique" ON "job" ("kind","key") WHERE "status" = 'queued' and "key" is not null;--> statement-breakpoint
 CREATE INDEX "job_claim_idx" ON "job" ("kind","priority","run_at","id") WHERE "status" = 'queued';--> statement-breakpoint
 CREATE INDEX "job_running_idx" ON "job" ("locked_until") WHERE "status" = 'running';--> statement-breakpoint
@@ -1483,8 +1439,6 @@ ALTER TABLE "backup_staging_reference" ADD CONSTRAINT "backup_staging_reference_
 ALTER TABLE "backup_staging_run" ADD CONSTRAINT "backup_staging_run_backup_run_id_backup_run_id_fkey" FOREIGN KEY ("backup_run_id") REFERENCES "backup_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "calendar_source_override" ADD CONSTRAINT "calendar_source_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "client_artifact_file" ADD CONSTRAINT "client_artifact_file_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
-ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "data_import_submission" ADD CONSTRAINT "data_import_submission_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_calendar_source" ADD CONSTRAINT "definition_calendar_source_zr3mUgmh593q_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_entity_schema" ADD CONSTRAINT "definition_entity_schema_cgKz3LGPs2D1_fkey" FOREIGN KEY ("plugin_revision_id") REFERENCES "plugin_revision"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "definition_event_schema" ADD CONSTRAINT "definition_event_schema_teyj1WWBsLDW_fkey" FOREIGN KEY ("entity_schema_id") REFERENCES "definition_entity_schema"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1517,20 +1471,14 @@ ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_entity_id_entity_id_fkey" 
 ALTER TABLE "idempotency_key" ADD CONSTRAINT "idempotency_key_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_parent_id_import_activity_run_id_id_fkey" FOREIGN KEY ("run_id","parent_id") REFERENCES "import_activity"("run_id","id");--> statement-breakpoint
-ALTER TABLE "import_activity" ADD CONSTRAINT "import_activity_run_id_batch_id_import_batch_run_id_id_fkey" FOREIGN KEY ("run_id","batch_id") REFERENCES "import_batch"("run_id","id");--> statement-breakpoint
-ALTER TABLE "import_batch" ADD CONSTRAINT "import_batch_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "import_batch" ADD CONSTRAINT "import_batch_run_id_capture_id_import_capture_run_id_id_fkey" FOREIGN KEY ("run_id","capture_id") REFERENCES "import_capture"("run_id","id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "import_capture" ADD CONSTRAINT "import_capture_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_issue" ADD CONSTRAINT "import_issue_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "import_outcome" ADD CONSTRAINT "import_outcome_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "import_payload_reservation" ADD CONSTRAINT "import_payload_reservation_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE RESTRICT;--> statement-breakpoint
+ALTER TABLE "import_item" ADD CONSTRAINT "import_item_run_id_import_run_id_fkey" FOREIGN KEY ("run_id") REFERENCES "import_run"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_integration_id_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_plugin_installation_id_plugin_installation_id_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "import_run" ADD CONSTRAINT "import_run_integration_id_user_id_integration_id_user_id_fkey" FOREIGN KEY ("integration_id","user_id") REFERENCES "integration"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "integration" ADD CONSTRAINT "integration_Q1xPD5Jsz3qI_fkey" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
-ALTER TABLE "integration_auto_disable_claim" ADD CONSTRAINT "integration_auto_disable_claim_TMe6DSsXf5GU_fkey" FOREIGN KEY ("integration_id") REFERENCES "integration"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "job" ADD CONSTRAINT "job_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "kernel_script" ADD CONSTRAINT "kernel_script_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "managed_asset" ADD CONSTRAINT "managed_asset_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

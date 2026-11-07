@@ -43,10 +43,10 @@ kernel can't see in advance. Today nine request schemas carry a key.
   in their own transactions, so a retry that reaches the script again relies on natural keys: the script's
   execution ID and each host call's index derive the same entity and event IDs. This replaces per-item
   receipts.
-- The integration data webhook keeps its key on `data_import_submission`, which already records the
-  delivery with its import run.
-- Until step 6, import runs record each committed item's result in `idempotency_key`, keyed by run and
-  item identity, so reconciliation can project committed items.
+- A data import's submission key, including the integration data webhook's, is a row here whose response
+  names its import run and the uploads that claimed it.
+- Import runs record each committed item's result on `import_item`, in the same transaction as the write,
+  so reconciliation can project committed items.
 - A replay returns the stored response and does not dispatch after-hooks again.
 - Keyed requests keep `submittedAt` and the 7-day submission window from
   `kernel/backend/src/modules/mutations/submission-window.ts`, so a draft resent after its key expires is

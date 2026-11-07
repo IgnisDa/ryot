@@ -10,8 +10,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import {
 	importActivity,
-	importBatch,
-	importCapture,
+	importItem,
 	importIssue,
 	importRun,
 } from "#schema/tables/imports";
@@ -43,24 +42,30 @@ layer(testLayer)((test) => {
 							.insert(importRun)
 							.values({ id: "run", userId: "owner", status: "running", source: "data-json" });
 						yield* db
-							.insert(importCapture)
+							.insert(importItem)
 							.values({
 								runId: "run",
+								id: "capture",
+								kind: "payload",
+								published: true,
 								data: {
 									ordinal: 0,
-									id: "capture",
-									payload: null,
 									state: "sealed",
 									checkpoint: null,
 									phase: "collection",
+									stagingExecutionId: null,
+									inputFingerprint: "capture",
+									payload: { byteSize: 0, checksum: "capture", locator: "capture" },
 								},
 							});
 						for (const ordinal of [0, 1]) {
 							const id = `batch-${ordinal}`;
 							yield* db
-								.insert(importBatch)
+								.insert(importItem)
 								.values({
+									id,
 									runId: "run",
+									kind: "batch",
 									operationIds: [],
 									data: {
 										id,

@@ -415,7 +415,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 						if (!disabled) {
 							return yield* repository.hasAutoDisableClaim(importRunId);
 						}
-						yield* repository.insertAutoDisableClaim({ importRunId, integrationId });
+						yield* repository.insertAutoDisableClaim({ importRunId });
 						return true;
 					}),
 				);

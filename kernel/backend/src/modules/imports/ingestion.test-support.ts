@@ -15,7 +15,7 @@ import { EntityImportWorkflowOperations } from "#modules/entities/providers/oper
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
-import { importItemKey, type ImportItemResult } from "#modules/mutations/idempotency";
+import type { ImportItemResult } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
@@ -23,7 +23,7 @@ import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.tes
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { user } from "#schema/tables/auth";
-import { idempotencyKey } from "#schema/tables/mutations";
+import { importItem } from "#schema/tables/imports";
 import { fakeDatabaseSession } from "#testing/effect";
 
 export const ingestionTestScope = {
@@ -95,8 +95,8 @@ export const ingestionTestSource = {
 };
 
 export const ingestionTestItem = (itemIdentity: string, response: ImportItemResult) => ({
-	response,
-	key: importItemKey(ingestionTestScope.runId, itemIdentity),
+	data: response,
+	id: itemIdentity,
 });
 
 export const ingestionTestDatabase = (
@@ -114,7 +114,7 @@ export const ingestionTestDatabase = (
 								if (table === user) {
 									return [{ jobAlive: true, retiringAt: null }];
 								}
-								return table === idempotencyKey ? [...read()] : [];
+								return table === importItem ? [...read()] : [];
 							});
 							return Object.assign(rows, { for: () => rows, limit: () => rows });
 						},

@@ -91,7 +91,7 @@ layer(
 	makeLayer((record) => ({
 		hasAutoDisableClaim: () => Effect.succeed(false),
 		disableForUserIfEnabled: () => record("disable").pipe(Effect.as(true)),
-		insertAutoDisableClaim: (input) => record(`claim:${input.importRunId}:${input.integrationId}`),
+		insertAutoDisableClaim: (input) => record(`claim:${input.importRunId}`),
 	})),
 )((test) => {
 	test.effect(
@@ -102,7 +102,7 @@ layer(
 				expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
 				expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual([
 					"disable",
-					"claim:run-1:integration-1",
+					"claim:run-1",
 				]);
 			}),
 		testTimeout,

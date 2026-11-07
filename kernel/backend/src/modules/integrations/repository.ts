@@ -12,11 +12,10 @@ import {
 	IntegrationWebhookToken,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, asc, desc, eq, gt, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
-import { ImportsRepository } from "#modules/imports/repository";
 import { PluginRevisionActivation } from "#modules/plugins/packages/revision-activation";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -105,7 +104,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
 			const auth = yield* AuthRepository;
-			const imports = yield* ImportsRepository.make;
 			const hasAnyForUser = Effect.fn("IntegrationsRepository.hasAnyForUser")(function* (
 				userId: UserId,
 			) {
@@ -569,21 +567,25 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 
 			const hasAutoDisableClaim = Effect.fn("IntegrationsRepository.hasAutoDisableClaim")(
 				function* (importRunId: ImportRunId) {
-					const [row] = yield* database.run((db) =>
+					const rows = yield* database.run((db) =>
 						db
-							.select({ importRunId: schema.integrationAutoDisableClaim.importRunId })
-							.from(schema.integrationAutoDisableClaim)
-							.where(eq(schema.integrationAutoDisableClaim.importRunId, importRunId))
-							.limit(1),
+							.select({ id: schema.importRun.id })
+							.from(schema.importRun)
+							.where(
+								and(eq(schema.importRun.id, importRunId), isNotNull(schema.importRun.autoDisabledAt)),
+							),
 					);
-					return row !== undefined;
+					return rows.length > 0;
 				},
 			);
 
 			const insertAutoDisableClaim = Effect.fn("IntegrationsRepository.insertAutoDisableClaim")(
-				function* (input: { importRunId: ImportRunId; integrationId: IntegrationId }) {
+				function* (input: { importRunId: ImportRunId }) {
 					yield* database.run((db) =>
-						db.insert(schema.integrationAutoDisableClaim).values(input).onConflictDoNothing(),
+						db
+							.update(schema.importRun)
+							.set({ autoDisabledAt: sql`now()`, updatedAt: sql`${schema.importRun.updatedAt}` })
+							.where(eq(schema.importRun.id, input.importRunId)),
 					);
 				},
 			);
@@ -596,7 +598,6 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 					.transaction(
 						Effect.gen(function* () {
 							yield* database.acquireUserWriteLock(input.userId);
-							yield* imports.purgePayloadReservations(input);
 							const rows = yield* database.run((db) =>
 								db
 									.delete(schema.integration)
@@ -604,7 +605,7 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 										and(
 											ownedIntegrationWhere(input),
 											eq(schema.integration.retiring, true),
-											sql`not exists (select 1 from ${schema.importRun} where ${schema.importRun.integrationId} = ${input.integrationId} and (${schema.importRun.status} in ('pending', 'blocked', 'running', 'cancelling') or ${schema.importRun.pins} is not null or exists (select 1 from ${schema.importPayloadReservation} where ${schema.importPayloadReservation.runId} = ${schema.importRun.id} and not ${schema.importPayloadReservation.released})))`,
+											sql`not exists (select 1 from ${schema.importRun} where ${schema.importRun.integrationId} = ${input.integrationId} and (${schema.importRun.status} in ('pending', 'blocked', 'running', 'cancelling') or ${schema.importRun.pins} is not null or exists (select 1 from ${schema.importItem} where ${schema.importItem.kind} = 'payload' and ${schema.importItem.runId} = ${schema.importRun.id} and not ${schema.importItem.released})))`,
 										),
 									)
 									.returning({ id: schema.integration.id }),

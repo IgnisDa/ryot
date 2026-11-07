@@ -18,8 +18,8 @@ export const ingestionSummarySql = (alias: string) => sql`(
    sum((item->'counts'->>'unchanged')::bigint) AS unchanged,
    sum((item->'counts'->>'skipped')::bigint) AS skipped,
    sum((item->'counts'->>'unsuccessful')::bigint) AS unsuccessful
-  FROM import_batch batch CROSS JOIN LATERAL jsonb_array_elements(batch.data->'summary') item
-  WHERE batch.run_id = ${sql.raw(alias)}.id
+  FROM import_item batch CROSS JOIN LATERAL jsonb_array_elements(batch.data->'summary') item
+  WHERE batch.kind = 'batch' AND batch.run_id = ${sql.raw(alias)}.id
   GROUP BY item->>'recordKind', item->>'unit'
  ) outcomes
 )`;

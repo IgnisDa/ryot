@@ -2,7 +2,7 @@
   "type": "base",
   "version": "9",
   "dialect": "postgres",
-  "id": "ac02e74e-e03c-4324-b891-9a36c075a17f",
+  "id": "773c192f-1147-4a05-ac47-77aa98b0e569",
   "prevIds": [
     "00000000-0000-0000-0000-000000000000"
   ],
@@ -273,24 +273,6 @@
         "n|type|public.client_page_composition",
         "n|rel|public.client_page_composition_pkey",
         "n|rel|public.client_page_composition_composition_hash_key"
-      ],
-      "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "create_table",
-      "statementTarget": [
-        "table",
-        "public",
-        "data_import_submission"
-      ],
-      "writes": [
-        "s|tbl|public.data_import_submission",
-        "n|tbl|public.data_import_submission",
-        "e|tbl|public.data_import_submission",
-        "n|rel|public.data_import_submission",
-        "n|type|public.data_import_submission"
       ],
       "reads": [
         "n|sch|public"
@@ -690,46 +672,6 @@
       "statementTarget": [
         "table",
         "public",
-        "import_batch"
-      ],
-      "writes": [
-        "s|tbl|public.import_batch",
-        "n|tbl|public.import_batch",
-        "e|tbl|public.import_batch",
-        "n|rel|public.import_batch",
-        "n|type|public.import_batch",
-        "n|rel|public.import_batch_pkey",
-        "n|rel|public.import_batch_ordinal_unique"
-      ],
-      "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "create_table",
-      "statementTarget": [
-        "table",
-        "public",
-        "import_capture"
-      ],
-      "writes": [
-        "s|tbl|public.import_capture",
-        "n|tbl|public.import_capture",
-        "e|tbl|public.import_capture",
-        "n|rel|public.import_capture",
-        "n|type|public.import_capture",
-        "n|rel|public.import_capture_pkey",
-        "n|rel|public.import_capture_ordinal_unique"
-      ],
-      "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "create_table",
-      "statementTarget": [
-        "table",
-        "public",
         "import_issue"
       ],
       "writes": [
@@ -749,35 +691,15 @@
       "statementTarget": [
         "table",
         "public",
-        "import_outcome"
+        "import_item"
       ],
       "writes": [
-        "s|tbl|public.import_outcome",
-        "n|tbl|public.import_outcome",
-        "e|tbl|public.import_outcome",
-        "n|rel|public.import_outcome",
-        "n|type|public.import_outcome",
-        "n|rel|public.import_outcome_pkey"
-      ],
-      "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "create_table",
-      "statementTarget": [
-        "table",
-        "public",
-        "import_payload_reservation"
-      ],
-      "writes": [
-        "s|tbl|public.import_payload_reservation",
-        "n|tbl|public.import_payload_reservation",
-        "e|tbl|public.import_payload_reservation",
-        "n|rel|public.import_payload_reservation",
-        "n|type|public.import_payload_reservation",
-        "n|rel|public.import_payload_reservation_pkey",
-        "n|rel|public.import_payload_reservation_ordinal_unique"
+        "s|tbl|public.import_item",
+        "n|tbl|public.import_item",
+        "e|tbl|public.import_item",
+        "n|rel|public.import_item",
+        "n|type|public.import_item",
+        "n|rel|public.import_item_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -819,25 +741,6 @@
         "n|rel|public.integration_pkey",
         "n|rel|public.integration_oauth_owner_unique",
         "n|rel|public.integration_run_owner_unique"
-      ],
-      "reads": [
-        "n|sch|public"
-      ]
-    },
-    {
-      "statementType": "create_table",
-      "statementTarget": [
-        "table",
-        "public",
-        "integration_auto_disable_claim"
-      ],
-      "writes": [
-        "s|tbl|public.integration_auto_disable_claim",
-        "n|tbl|public.integration_auto_disable_claim",
-        "e|tbl|public.integration_auto_disable_claim",
-        "n|rel|public.integration_auto_disable_claim",
-        "n|type|public.integration_auto_disable_claim",
-        "n|rel|public.integration_auto_disable_claim_pkey"
       ],
       "reads": [
         "n|sch|public"
@@ -2316,27 +2219,6 @@
       "statementTarget": [
         "index",
         "public",
-        "data_import_submission",
-        "data_import_submission_identity_unique"
-      ],
-      "writes": [
-        "s|idx|public.data_import_submission_identity_unique",
-        "n|idx|public.data_import_submission_identity_unique",
-        "e|idx|public.data_import_submission_identity_unique",
-        "n|rel|public.data_import_submission_identity_unique"
-      ],
-      "reads": [
-        "n|tbl|public.data_import_submission",
-        "n|sch|public",
-        "n|col|public.data_import_submission.user_id",
-        "n|col|public.data_import_submission.key"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
         "definition_calendar_source",
         "definition_calendar_source_slug_idx"
       ],
@@ -3000,6 +2882,49 @@
       "statementTarget": [
         "index",
         "public",
+        "import_item",
+        "import_item_payload_ordinal_unique"
+      ],
+      "writes": [
+        "s|idx|public.import_item_payload_ordinal_unique",
+        "n|idx|public.import_item_payload_ordinal_unique",
+        "e|idx|public.import_item_payload_ordinal_unique",
+        "n|rel|public.import_item_payload_ordinal_unique"
+      ],
+      "reads": [
+        "n|tbl|public.import_item",
+        "n|sch|public",
+        "n|col|public.import_item.run_id",
+        "n|col|public.import_item.phase",
+        "n|col|public.import_item.ordinal"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
+        "import_item",
+        "import_item_batch_ordinal_unique"
+      ],
+      "writes": [
+        "s|idx|public.import_item_batch_ordinal_unique",
+        "n|idx|public.import_item_batch_ordinal_unique",
+        "e|idx|public.import_item_batch_ordinal_unique",
+        "n|rel|public.import_item_batch_ordinal_unique"
+      ],
+      "reads": [
+        "n|tbl|public.import_item",
+        "n|sch|public",
+        "n|col|public.import_item.run_id",
+        "n|col|public.import_item.ordinal"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "public",
         "import_run",
         "import_run_block_deadline_idx"
       ],
@@ -3219,26 +3144,6 @@
         "n|tbl|public.integration",
         "n|sch|public",
         "n|col|public.integration.webhook_token"
-      ]
-    },
-    {
-      "statementType": "create_index",
-      "statementTarget": [
-        "index",
-        "public",
-        "integration_auto_disable_claim",
-        "integration_auto_disable_claim_integration_id_idx"
-      ],
-      "writes": [
-        "s|idx|public.integration_auto_disable_claim_integration_id_idx",
-        "n|idx|public.integration_auto_disable_claim_integration_id_idx",
-        "e|idx|public.integration_auto_disable_claim_integration_id_idx",
-        "n|rel|public.integration_auto_disable_claim_integration_id_idx"
-      ],
-      "reads": [
-        "n|tbl|public.integration_auto_disable_claim",
-        "n|sch|public",
-        "n|col|public.integration_auto_disable_claim.integration_id"
       ]
     },
     {
@@ -5469,52 +5374,6 @@
       "statementTarget": [
         "table",
         "public",
-        "data_import_submission"
-      ],
-      "writes": [
-        "s|fk|public.data_import_submission.data_import_submission_integration_id_integration_id_fkey",
-        "n|fk|public.data_import_submission.data_import_submission_integration_id_integration_id_fkey",
-        "e|fk|public.data_import_submission.data_import_submission_integration_id_integration_id_fkey",
-        "n|con|public.data_import_submission.data_import_submission_integration_id_integration_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.data_import_submission",
-        "n|sch|public",
-        "n|tbl|public.integration",
-        "n|sch|public",
-        "n|col|public.data_import_submission.integration_id",
-        "n|col|public.integration.id",
-        "e|uniqueness|public.integration.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "data_import_submission"
-      ],
-      "writes": [
-        "s|fk|public.data_import_submission.data_import_submission_user_id_user_id_fkey",
-        "n|fk|public.data_import_submission.data_import_submission_user_id_user_id_fkey",
-        "e|fk|public.data_import_submission.data_import_submission_user_id_user_id_fkey",
-        "n|con|public.data_import_submission.data_import_submission_user_id_user_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.data_import_submission",
-        "n|sch|public",
-        "n|tbl|public.user",
-        "n|sch|public",
-        "n|col|public.data_import_submission.user_id",
-        "n|col|public.user.id",
-        "e|uniqueness|public.user.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
         "definition_calendar_source"
       ],
       "writes": [
@@ -6255,102 +6114,6 @@
       "statementTarget": [
         "table",
         "public",
-        "import_activity"
-      ],
-      "writes": [
-        "s|fk|public.import_activity.import_activity_run_id_batch_id_import_batch_run_id_id_fkey",
-        "n|fk|public.import_activity.import_activity_run_id_batch_id_import_batch_run_id_id_fkey",
-        "e|fk|public.import_activity.import_activity_run_id_batch_id_import_batch_run_id_id_fkey",
-        "n|con|public.import_activity.import_activity_run_id_batch_id_import_batch_run_id_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.import_activity",
-        "n|sch|public",
-        "n|tbl|public.import_batch",
-        "n|sch|public",
-        "n|col|public.import_activity.run_id",
-        "n|col|public.import_activity.batch_id",
-        "n|col|public.import_batch.run_id",
-        "n|col|public.import_batch.id",
-        "e|uniqueness|public.import_batch.id.run_id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "import_batch"
-      ],
-      "writes": [
-        "s|fk|public.import_batch.import_batch_run_id_import_run_id_fkey",
-        "n|fk|public.import_batch.import_batch_run_id_import_run_id_fkey",
-        "e|fk|public.import_batch.import_batch_run_id_import_run_id_fkey",
-        "n|con|public.import_batch.import_batch_run_id_import_run_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.import_batch",
-        "n|sch|public",
-        "n|tbl|public.import_run",
-        "n|sch|public",
-        "n|col|public.import_batch.run_id",
-        "n|col|public.import_run.id",
-        "e|uniqueness|public.import_run.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "import_batch"
-      ],
-      "writes": [
-        "s|fk|public.import_batch.import_batch_run_id_capture_id_import_capture_run_id_id_fkey",
-        "n|fk|public.import_batch.import_batch_run_id_capture_id_import_capture_run_id_id_fkey",
-        "e|fk|public.import_batch.import_batch_run_id_capture_id_import_capture_run_id_id_fkey",
-        "n|con|public.import_batch.import_batch_run_id_capture_id_import_capture_run_id_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.import_batch",
-        "n|sch|public",
-        "n|tbl|public.import_capture",
-        "n|sch|public",
-        "n|col|public.import_batch.run_id",
-        "n|col|public.import_batch.capture_id",
-        "n|col|public.import_capture.run_id",
-        "n|col|public.import_capture.id",
-        "e|uniqueness|public.import_capture.id.run_id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "import_capture"
-      ],
-      "writes": [
-        "s|fk|public.import_capture.import_capture_run_id_import_run_id_fkey",
-        "n|fk|public.import_capture.import_capture_run_id_import_run_id_fkey",
-        "e|fk|public.import_capture.import_capture_run_id_import_run_id_fkey",
-        "n|con|public.import_capture.import_capture_run_id_import_run_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.import_capture",
-        "n|sch|public",
-        "n|tbl|public.import_run",
-        "n|sch|public",
-        "n|col|public.import_capture.run_id",
-        "n|col|public.import_run.id",
-        "e|uniqueness|public.import_run.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
         "import_issue"
       ],
       "writes": [
@@ -6374,43 +6137,20 @@
       "statementTarget": [
         "table",
         "public",
-        "import_outcome"
+        "import_item"
       ],
       "writes": [
-        "s|fk|public.import_outcome.import_outcome_run_id_import_run_id_fkey",
-        "n|fk|public.import_outcome.import_outcome_run_id_import_run_id_fkey",
-        "e|fk|public.import_outcome.import_outcome_run_id_import_run_id_fkey",
-        "n|con|public.import_outcome.import_outcome_run_id_import_run_id_fkey"
+        "s|fk|public.import_item.import_item_run_id_import_run_id_fkey",
+        "n|fk|public.import_item.import_item_run_id_import_run_id_fkey",
+        "e|fk|public.import_item.import_item_run_id_import_run_id_fkey",
+        "n|con|public.import_item.import_item_run_id_import_run_id_fkey"
       ],
       "reads": [
-        "n|tbl|public.import_outcome",
+        "n|tbl|public.import_item",
         "n|sch|public",
         "n|tbl|public.import_run",
         "n|sch|public",
-        "n|col|public.import_outcome.run_id",
-        "n|col|public.import_run.id",
-        "e|uniqueness|public.import_run.id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "import_payload_reservation"
-      ],
-      "writes": [
-        "s|fk|public.import_payload_reservation.import_payload_reservation_run_id_import_run_id_fkey",
-        "n|fk|public.import_payload_reservation.import_payload_reservation_run_id_import_run_id_fkey",
-        "e|fk|public.import_payload_reservation.import_payload_reservation_run_id_import_run_id_fkey",
-        "n|con|public.import_payload_reservation.import_payload_reservation_run_id_import_run_id_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.import_payload_reservation",
-        "n|sch|public",
-        "n|tbl|public.import_run",
-        "n|sch|public",
-        "n|col|public.import_payload_reservation.run_id",
+        "n|col|public.import_item.run_id",
         "n|col|public.import_run.id",
         "e|uniqueness|public.import_run.id"
       ]
@@ -6555,29 +6295,6 @@
         "n|col|public.plugin_installation.id",
         "n|col|public.plugin_installation.user_id",
         "e|uniqueness|public.plugin_installation.id.user_id"
-      ]
-    },
-    {
-      "statementType": "create_fk",
-      "statementTarget": [
-        "table",
-        "public",
-        "integration_auto_disable_claim"
-      ],
-      "writes": [
-        "s|fk|public.integration_auto_disable_claim.integration_auto_disable_claim_TMe6DSsXf5GU_fkey",
-        "n|fk|public.integration_auto_disable_claim.integration_auto_disable_claim_TMe6DSsXf5GU_fkey",
-        "e|fk|public.integration_auto_disable_claim.integration_auto_disable_claim_TMe6DSsXf5GU_fkey",
-        "n|con|public.integration_auto_disable_claim.integration_auto_disable_claim_TMe6DSsXf5GU_fkey"
-      ],
-      "reads": [
-        "n|tbl|public.integration_auto_disable_claim",
-        "n|sch|public",
-        "n|tbl|public.integration",
-        "n|sch|public",
-        "n|col|public.integration_auto_disable_claim.integration_id",
-        "n|col|public.integration.id",
-        "e|uniqueness|public.integration.id"
       ]
     },
     {
@@ -8433,12 +8150,6 @@
     },
     {
       "schema": "public",
-      "name": "data_import_submission",
-      "isRlsEnabled": false,
-      "entityType": "tables"
-    },
-    {
-      "schema": "public",
       "name": "definition_calendar_source",
       "isRlsEnabled": false,
       "entityType": "tables"
@@ -8559,31 +8270,13 @@
     },
     {
       "schema": "public",
-      "name": "import_batch",
-      "isRlsEnabled": false,
-      "entityType": "tables"
-    },
-    {
-      "schema": "public",
-      "name": "import_capture",
-      "isRlsEnabled": false,
-      "entityType": "tables"
-    },
-    {
-      "schema": "public",
       "name": "import_issue",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
     {
       "schema": "public",
-      "name": "import_outcome",
-      "isRlsEnabled": false,
-      "entityType": "tables"
-    },
-    {
-      "schema": "public",
-      "name": "import_payload_reservation",
+      "name": "import_item",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -8596,12 +8289,6 @@
     {
       "schema": "public",
       "name": "integration",
-      "isRlsEnabled": false,
-      "entityType": "tables"
-    },
-    {
-      "schema": "public",
-      "name": "integration_auto_disable_claim",
       "isRlsEnabled": false,
       "entityType": "tables"
     },
@@ -10803,84 +10490,6 @@
       "table": "client_page_composition",
       "name": "manifest",
       "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "key",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "run_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "digest",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "upload_token_hashes",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": "'{}'",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "integration_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "user_id",
-      "type": "text",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
@@ -13466,22 +13075,6 @@
     {
       "schema": "public",
       "table": "import_activity",
-      "name": "batch_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'batchId'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_activity",
       "name": "parent_id",
       "type": "text",
       "typeSchema": null,
@@ -13526,7 +13119,49 @@
     },
     {
       "schema": "public",
-      "table": "import_batch",
+      "table": "import_issue",
+      "name": "data",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_issue",
+      "name": "id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "data->>'id'",
+        "type": "stored"
+      },
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_issue",
+      "name": "run_id",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
       "name": "result",
       "type": "jsonb",
       "typeSchema": null,
@@ -13539,278 +13174,7 @@
     },
     {
       "schema": "public",
-      "table": "import_batch",
-      "name": "operation_ids",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 1,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "data",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'id'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "capture_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'captureId'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "run_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "ordinal",
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "(data->>'ordinal')::integer",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "data",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'id'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "run_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "ordinal",
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "(data->>'ordinal')::integer",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "phase",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'phase'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_issue",
-      "name": "data",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_issue",
-      "name": "id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'id'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_issue",
-      "name": "run_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_outcome",
-      "name": "data",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_outcome",
-      "name": "operation_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": {
-        "as": "data->>'operationId'",
-        "type": "stored"
-      },
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_outcome",
-      "name": "run_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "ordinal",
-      "type": "integer",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
+      "table": "import_item",
       "name": "recovery_bytes",
       "type": "text",
       "typeSchema": null,
@@ -13823,21 +13187,8 @@
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "staging_execution_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": false,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "input_fingerprint",
+      "table": "import_item",
+      "name": "id",
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -13849,7 +13200,46 @@
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
+      "table": "import_item",
+      "name": "operation_ids",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 1,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
+      "name": "data",
+      "type": "jsonb",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
+      "name": "kind",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
       "name": "released",
       "type": "boolean",
       "typeSchema": null,
@@ -13862,7 +13252,7 @@
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
+      "table": "import_item",
       "name": "retiring",
       "type": "boolean",
       "typeSchema": null,
@@ -13875,7 +13265,20 @@
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
+      "table": "import_item",
+      "name": "published",
+      "type": "boolean",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "false",
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
       "name": "write_started",
       "type": "boolean",
       "typeSchema": null,
@@ -13888,59 +13291,36 @@
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "payload",
-      "type": "jsonb",
+      "table": "import_item",
+      "name": "capture_released",
+      "type": "boolean",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "false",
       "generated": null,
       "identity": null,
       "entityType": "columns"
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "capture_state",
+      "table": "import_item",
+      "name": "capture_id",
       "type": "text",
       "typeSchema": null,
-      "notNull": true,
+      "notNull": false,
       "dimensions": 0,
       "default": null,
-      "generated": null,
+      "generated": {
+        "as": "data->>'captureId'",
+        "type": "stored"
+      },
       "identity": null,
       "entityType": "columns"
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "capture_phase",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "checkpoint",
-      "type": "jsonb",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
+      "table": "import_item",
       "name": "run_id",
       "type": "text",
       "typeSchema": null,
@@ -13948,6 +13328,38 @@
       "dimensions": 0,
       "default": null,
       "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
+      "name": "ordinal",
+      "type": "integer",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "(data->>'ordinal')::integer",
+        "type": "stored"
+      },
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
+      "name": "phase",
+      "type": "text",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": {
+        "as": "data->>'phase'",
+        "type": "stored"
+      },
       "identity": null,
       "entityType": "columns"
     },
@@ -13981,6 +13393,19 @@
       "schema": "public",
       "table": "import_run",
       "name": "block_deadline",
+      "type": "timestamp(3) with time zone",
+      "typeSchema": null,
+      "notNull": false,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "entityType": "columns"
+    },
+    {
+      "schema": "public",
+      "table": "import_run",
+      "name": "auto_disabled_at",
       "type": "timestamp(3) with time zone",
       "typeSchema": null,
       "notNull": false,
@@ -14436,45 +13861,6 @@
       "schema": "public",
       "table": "integration",
       "name": "id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "integration_auto_disable_claim",
-      "name": "import_run_id",
-      "type": "text",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": null,
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "integration_auto_disable_claim",
-      "name": "created_at",
-      "type": "timestamp(3) with time zone",
-      "typeSchema": null,
-      "notNull": true,
-      "dimensions": 0,
-      "default": "now()",
-      "generated": null,
-      "identity": null,
-      "entityType": "columns"
-    },
-    {
-      "schema": "public",
-      "table": "integration_auto_disable_claim",
-      "name": "integration_id",
       "type": "text",
       "typeSchema": null,
       "notNull": true,
@@ -21295,41 +20681,6 @@
     },
     {
       "schema": "public",
-      "table": "data_import_submission",
-      "name": "data_import_submission_identity_unique",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "user_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "coalesce(\"integration_id\", '')",
-          "isExpression": true,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        },
-        {
-          "value": "key",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
       "table": "definition_calendar_source",
       "name": "definition_calendar_source_slug_idx",
       "nameExplicit": true,
@@ -22184,6 +21535,69 @@
     },
     {
       "schema": "public",
+      "table": "import_item",
+      "name": "import_item_payload_ordinal_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "phase",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"kind\" = 'payload'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
+      "name": "import_item_batch_ordinal_unique",
+      "nameExplicit": true,
+      "columns": [
+        {
+          "value": "run_id",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        },
+        {
+          "value": "ordinal",
+          "isExpression": false,
+          "asc": true,
+          "nullsFirst": false,
+          "opclass": null
+        }
+      ],
+      "isUnique": true,
+      "where": "\"kind\" = 'batch'",
+      "with": "",
+      "method": "btree",
+      "concurrently": false,
+      "entityType": "indexes"
+    },
+    {
+      "schema": "public",
       "table": "import_run",
       "name": "import_run_block_deadline_idx",
       "nameExplicit": true,
@@ -22449,27 +21863,6 @@
         }
       ],
       "isUnique": true,
-      "where": null,
-      "with": "",
-      "method": "btree",
-      "concurrently": false,
-      "entityType": "indexes"
-    },
-    {
-      "schema": "public",
-      "table": "integration_auto_disable_claim",
-      "name": "integration_auto_disable_claim_integration_id_idx",
-      "nameExplicit": true,
-      "columns": [
-        {
-          "value": "integration_id",
-          "isExpression": false,
-          "asc": true,
-          "nullsFirst": false,
-          "opclass": null
-        }
-      ],
-      "isUnique": false,
       "where": null,
       "with": "",
       "method": "btree",
@@ -24878,40 +24271,6 @@
     },
     {
       "schema": "public",
-      "table": "data_import_submission",
-      "name": "data_import_submission_integration_id_integration_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "integration_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "integration",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "data_import_submission",
-      "name": "data_import_submission_user_id_user_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "user_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "user",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
       "table": "definition_calendar_source",
       "name": "definition_calendar_source_zr3mUgmh593q_fkey",
       "nameExplicit": false,
@@ -25460,78 +24819,6 @@
     },
     {
       "schema": "public",
-      "table": "import_activity",
-      "name": "import_activity_run_id_batch_id_import_batch_run_id_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "run_id",
-        "batch_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "import_batch",
-      "columnsTo": [
-        "run_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "NO ACTION",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "import_batch_run_id_import_run_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "run_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "import_run",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "import_batch",
-      "name": "import_batch_run_id_capture_id_import_capture_run_id_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "run_id",
-        "capture_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "import_capture",
-      "columnsTo": [
-        "run_id",
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "import_capture_run_id_import_run_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "run_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "import_run",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
       "table": "import_issue",
       "name": "import_issue_run_id_import_run_id_fkey",
       "nameExplicit": false,
@@ -25549,8 +24836,8 @@
     },
     {
       "schema": "public",
-      "table": "import_outcome",
-      "name": "import_outcome_run_id_import_run_id_fkey",
+      "table": "import_item",
+      "name": "import_item_run_id_import_run_id_fkey",
       "nameExplicit": false,
       "columns": [
         "run_id"
@@ -25562,23 +24849,6 @@
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_run_id_import_run_id_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "run_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "import_run",
-      "columnsTo": [
-        "id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "RESTRICT",
       "entityType": "fks"
     },
     {
@@ -25682,23 +24952,6 @@
       "columnsTo": [
         "id",
         "user_id"
-      ],
-      "onUpdate": "NO ACTION",
-      "onDelete": "CASCADE",
-      "entityType": "fks"
-    },
-    {
-      "schema": "public",
-      "table": "integration_auto_disable_claim",
-      "name": "integration_auto_disable_claim_TMe6DSsXf5GU_fkey",
-      "nameExplicit": false,
-      "columns": [
-        "integration_id"
-      ],
-      "schemaTo": "public",
-      "tableTo": "integration",
-      "columnsTo": [
-        "id"
       ],
       "onUpdate": "NO ACTION",
       "onDelete": "CASCADE",
@@ -26890,28 +26143,6 @@
     },
     {
       "schema": "public",
-      "table": "import_batch",
-      "name": "import_batch_pkey",
-      "columns": [
-        "run_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "import_capture_pkey",
-      "columns": [
-        "run_id",
-        "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "schema": "public",
       "table": "import_issue",
       "name": "import_issue_pkey",
       "columns": [
@@ -26923,21 +26154,11 @@
     },
     {
       "schema": "public",
-      "table": "import_outcome",
-      "name": "import_outcome_pkey",
+      "table": "import_item",
+      "name": "import_item_pkey",
       "columns": [
         "run_id",
-        "operation_id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_pkey",
-      "columns": [
-        "run_id",
+        "kind",
         "id"
       ],
       "nameExplicit": false,
@@ -27250,16 +26471,6 @@
       "name": "integration_pkey",
       "columns": [
         "id"
-      ],
-      "nameExplicit": false,
-      "entityType": "pks"
-    },
-    {
-      "schema": "public",
-      "table": "integration_auto_disable_claim",
-      "name": "integration_auto_disable_claim_pkey",
-      "columns": [
-        "import_run_id"
       ],
       "nameExplicit": false,
       "entityType": "pks"
@@ -27836,44 +27047,6 @@
     },
     {
       "schema": "public",
-      "table": "import_batch",
-      "name": "import_batch_ordinal_unique",
-      "nameExplicit": true,
-      "columns": [
-        "run_id",
-        "ordinal"
-      ],
-      "nullsNotDistinct": false,
-      "entityType": "uniques"
-    },
-    {
-      "schema": "public",
-      "table": "import_capture",
-      "name": "import_capture_ordinal_unique",
-      "nameExplicit": true,
-      "columns": [
-        "run_id",
-        "phase",
-        "ordinal"
-      ],
-      "nullsNotDistinct": false,
-      "entityType": "uniques"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_ordinal_unique",
-      "nameExplicit": true,
-      "columns": [
-        "run_id",
-        "capture_phase",
-        "ordinal"
-      ],
-      "nullsNotDistinct": false,
-      "entityType": "uniques"
-    },
-    {
-      "schema": "public",
       "table": "import_run",
       "name": "import_run_owner_unique",
       "nameExplicit": true,
@@ -28315,50 +27488,43 @@
     },
     {
       "schema": "public",
-      "table": "import_batch",
-      "name": "import_batch_ordinal_check",
+      "table": "import_item",
+      "name": "import_item_kind_check",
+      "value": "\"kind\" in ('payload', 'batch', 'outcome', 'result')",
+      "entityType": "checks"
+    },
+    {
+      "schema": "public",
+      "table": "import_item",
+      "name": "import_item_ordinal_check",
       "value": "\"ordinal\" >= 0",
       "entityType": "checks"
     },
     {
       "schema": "public",
-      "table": "import_capture",
-      "name": "import_capture_phase_check",
-      "value": "\"phase\" in ('collection', 'application')",
+      "table": "import_item",
+      "name": "import_item_phase_check",
+      "value": "\"kind\" <> 'payload' or \"phase\" in ('collection', 'application')",
       "entityType": "checks"
     },
     {
       "schema": "public",
-      "table": "import_capture",
-      "name": "import_capture_ordinal_check",
-      "value": "\"ordinal\" >= 0",
+      "table": "import_item",
+      "name": "import_item_batch_check",
+      "value": "\"kind\" <> 'batch' or (\"ordinal\" is not null and \"capture_id\" is not null and \"operation_ids\" is not null)",
       "entityType": "checks"
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_phase_check",
-      "value": "\"capture_phase\" in ('collection', 'application')",
+      "table": "import_item",
+      "name": "import_item_staging_check",
+      "value": "\"kind\" <> 'payload' or (\"ordinal\" is null) = (data->>'stagingExecutionId' is not null)",
       "entityType": "checks"
     },
     {
       "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_ordinal_check",
-      "value": "\"ordinal\" >= 0",
-      "entityType": "checks"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_staging_check",
-      "value": "(\"ordinal\" is null) = (\"staging_execution_id\" is not null)",
-      "entityType": "checks"
-    },
-    {
-      "schema": "public",
-      "table": "import_payload_reservation",
-      "name": "import_payload_reservation_recovery_check",
+      "table": "import_item",
+      "name": "import_item_recovery_check",
       "value": "\"recovery_bytes\" is null or length(\"recovery_bytes\") <= 5592408",
       "entityType": "checks"
     },

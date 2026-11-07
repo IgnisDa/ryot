@@ -176,7 +176,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 						};
 					}
 					const item = ingestionTestItem(lifecycle.itemIdentity, "created");
-					if (!items.some(({ key: stored }) => stored === item.key)) {
+					if (!items.some(({ id }) => id === item.id)) {
 						items.push(item);
 					}
 					if (cancelAfterWrite) {

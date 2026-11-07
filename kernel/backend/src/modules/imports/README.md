@@ -118,6 +118,22 @@ Cancellation prevents new starts. Settlement interrupts a plugin's script when a
 then reconciliation projects committed item results into immutable applied summaries. Pending
 batches remain distinct from started work.
 
+## Storage
+
+`import_run` holds each run, `import_issue` and `import_activity` what it reports, and `import_item`
+everything else a run produces, one row per `kind`:
+
+- `payload`: an input the run stored. It is reserved before its bytes are written and published once
+  they are. A retirement stops a write from publishing and removes the bytes; a run can only be deleted
+  once its payloads are released, because nothing can find those bytes afterwards.
+- `batch`: a chunk being applied, with its state, summary and operation IDs.
+- `outcome`: what happened to one operation, when it did not simply succeed.
+- `result`: what a committed write did, recorded in that write's transaction so reconciliation can
+  count it.
+
+A submission key lives in `idempotency_key` and outlives the run it names, so retrying a submission
+whose report was deleted does not import it again.
+
 ## Chunks
 
 An import writes in chunks, in the execution that produces them: a Data segment in the run's root, a

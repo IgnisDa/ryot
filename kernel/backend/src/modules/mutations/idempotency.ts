@@ -9,6 +9,7 @@ import { and, eq, inArray, sql } from "drizzle-orm";
 import { Context, Duration, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { importItem, importRun } from "#schema/tables/imports";
 import { idempotencyKey } from "#schema/tables/mutations";
 
 import { IDEMPOTENCY_KEY_RETENTION } from "./submission-window";
@@ -48,9 +49,6 @@ const encode = <Response>(
 	);
 const ImportItemResult = Schema.Literals(["created", "updated", "unchanged"]);
 export type ImportItemResult = typeof ImportItemResult.Type;
-
-export const importItemKey = (runId: string, itemIdentity: string) =>
-	`import-item:${sha256Base64Url(stableStringify([runId, itemIdentity]))}`;
 
 export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 	"@ryot-app/kernel-backend/modules/mutations/idempotency/IdempotencyKeys",
@@ -151,12 +149,12 @@ export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 				}
 				yield* session.run((db) =>
 					db
-						.insert(idempotencyKey)
+						.insert(importItem)
 						.values({
-							userId,
-							response: result,
-							fingerprint: "import-item",
-							key: importItemKey(runId, command.itemIdentity),
+							runId,
+							data: result,
+							kind: "result",
+							id: command.itemIdentity,
 						})
 						.onConflictDoNothing(),
 				);
@@ -170,28 +168,24 @@ export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 				if (input.itemIdentities.length === 0) {
 					return [];
 				}
-				const identities = new Map(
-					input.itemIdentities.map((itemIdentity) => [
-						importItemKey(input.runId, itemIdentity),
-						itemIdentity,
-					]),
-				);
 				const rows = yield* session.run((db) =>
 					db
-						.select({ key: idempotencyKey.key, response: idempotencyKey.response })
-						.from(idempotencyKey)
+						.select({ id: importItem.id, data: importItem.data })
+						.from(importItem)
 						.where(
 							and(
-								eq(idempotencyKey.userId, input.userId),
-								inArray(idempotencyKey.key, [...identities.keys()]),
+								eq(importItem.kind, "result"),
+								eq(importItem.runId, input.runId),
+								inArray(importItem.id, [...input.itemIdentities]),
+								sql`exists (select 1 from ${importRun} where ${importRun.id} = ${input.runId} and ${importRun.userId} = ${input.userId})`,
 							),
 						),
 				);
 				return yield* Effect.forEach(rows, (row) =>
-					Schema.decodeUnknownEffect(ImportItemResult)(row.response).pipe(
+					Schema.decodeUnknownEffect(ImportItemResult)(row.data).pipe(
 						Effect.mapBoth({
-							onFailure: () => new DbError({ message: `Invalid import item ${row.key}` }),
-							onSuccess: (result) => ({ result, itemIdentity: identities.get(row.key) ?? "" }),
+							onFailure: () => new DbError({ message: `Invalid import item ${row.id}` }),
+							onSuccess: (result) => ({ result, itemIdentity: row.id }),
 						}),
 					),
 				);

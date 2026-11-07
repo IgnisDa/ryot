@@ -7,6 +7,7 @@ import {
 	IngestionCapture,
 	IngestionIssue,
 	IngestionOutcome,
+	IngestionPayload,
 	IngestionPins,
 	IngestionPlan,
 	IngestionRun,
@@ -27,7 +28,21 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
+import {
+	type AnyColumn,
+	and,
+	asc,
+	desc,
+	eq,
+	gt,
+	inArray,
+	isNotNull,
+	isNull,
+	lte,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import { Context, DateTime, Duration, Effect, Layer, Schema, Struct } from "effect";
 
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
@@ -70,6 +85,79 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 	startedAt: row.startedAt?.toISOString() ?? null,
 	finishedAt: row.finishedAt?.toISOString() ?? null,
 });
+
+const PayloadItem = Schema.Struct({
+	payload: IngestionPayload,
+	phase: IngestionCapture.fields.phase,
+	checkpoint: IngestionCapture.fields.checkpoint,
+	inputFingerprint: Schema.NonEmptyString,
+	ordinal: Schema.NullOr(IngestionCapture.fields.ordinal),
+	stagingExecutionId: Schema.NullOr(Schema.String),
+	state: Schema.Literals(["captured", "sealed"]),
+});
+
+type ImportItemRow = typeof schema.importItem.$inferSelect;
+
+/** Rows hold what this repository wrote, so a value that does not decode is a defect. */
+const decodeItem =
+	<A, I>(codec: Schema.Codec<A, I>) =>
+	(data: unknown) =>
+		Effect.orDie(Schema.decodeUnknownEffect(codec)(data));
+
+const decodePayloadItem = Effect.fnUntraced(function* (row: ImportItemRow) {
+	const data = yield* decodeItem(PayloadItem)(row.data);
+	return {
+		id: row.id,
+		runId: row.runId,
+		ordinal: data.ordinal,
+		payload: data.payload,
+		released: row.released,
+		retiring: row.retiring,
+		captureState: data.state,
+		capturePhase: data.phase,
+		checkpoint: data.checkpoint,
+		writeStarted: row.writeStarted,
+		recoveryBytes: row.recoveryBytes,
+		inputFingerprint: data.inputFingerprint,
+		stagingExecutionId: data.stagingExecutionId,
+	};
+});
+
+export type PayloadReservation = Effect.Success<ReturnType<typeof decodePayloadItem>>;
+
+const decodeCapture = Effect.fnUntraced(function* (row: ImportItemRow) {
+	const data = yield* decodeItem(PayloadItem)(row.data);
+	return yield* Schema.decodeUnknownEffect(IngestionCapture)({
+		id: row.id,
+		phase: data.phase,
+		ordinal: data.ordinal,
+		checkpoint: data.checkpoint,
+		payload: row.captureReleased ? null : data.payload,
+		state: row.captureReleased ? "released" : data.state,
+	}).pipe(Effect.orDie);
+});
+
+const decodeBatch = decodeItem(IngestionBatch);
+
+const itemsOf = (kind: ImportItemRow["kind"], runId: string) =>
+	and(eq(schema.importItem.kind, kind), eq(schema.importItem.runId, runId));
+
+const itemOf = (kind: ImportItemRow["kind"], runId: string, id: string) =>
+	and(itemsOf(kind, runId), eq(schema.importItem.id, id));
+
+const ownedPublished = (scope: IngestionScope) =>
+	and(itemsOf("payload", scope.runId), eq(schema.importItem.published, true));
+
+const unreleasedPayload = (runId: SQL | AnyColumn) =>
+	sql`exists (select 1 from ${schema.importItem} where ${schema.importItem.kind} = 'payload' and ${schema.importItem.runId} = ${runId} and not ${schema.importItem.released})`;
+
+const DataSubmission = Schema.Struct({
+	runId: Schema.String,
+	uploadTokenHashes: Schema.Array(Schema.String),
+});
+
+const dataSubmissionKey = (integrationId: null | IntegrationId, key: string) =>
+	`data-import:${stableStringify([integrationId, key])}`;
 
 const owned = (scope: IngestionScope) =>
 	and(eq(schema.importRun.id, scope.runId), eq(schema.importRun.userId, scope.userId));
@@ -269,32 +357,35 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						integrationId: input.integrationId,
 					});
 					const runId = input.runId;
-					const submissionKey = input.submissionKey;
-					if (submissionKey !== null) {
+					if (input.submissionKey !== null) {
+						const key = dataSubmissionKey(input.integrationId, input.submissionKey);
 						const [claim] = yield* database.run((db) =>
 							db
-								.insert(schema.dataImportSubmission)
+								.insert(schema.idempotencyKey)
 								.values({
-									runId,
-									key: submissionKey,
-									digest: input.digest,
+									key,
 									userId: input.userId,
-									integrationId: input.integrationId,
-									uploadTokenHashes: input.uploadTokenHash === null ? [] : [input.uploadTokenHash],
+									fingerprint: input.digest,
+									response: {
+										runId,
+										uploadTokenHashes: input.uploadTokenHash === null ? [] : [input.uploadTokenHash],
+									},
 								})
 								.onConflictDoNothing()
-								.returning(),
+								.returning({ key: schema.idempotencyKey.key }),
 						);
 						if (!claim) {
 							const [existing] = yield* database.run((db) =>
 								db
-									.select()
-									.from(schema.dataImportSubmission)
+									.select({
+										response: schema.idempotencyKey.response,
+										fingerprint: schema.idempotencyKey.fingerprint,
+									})
+									.from(schema.idempotencyKey)
 									.where(
 										and(
-											eq(schema.dataImportSubmission.userId, input.userId),
-											eq(schema.dataImportSubmission.key, submissionKey),
-											sql`coalesce(${schema.dataImportSubmission.integrationId}, '') = ${input.integrationId ?? ""}`,
+											eq(schema.idempotencyKey.userId, input.userId),
+											eq(schema.idempotencyKey.key, key),
 										),
 									)
 									.limit(1),
@@ -302,39 +393,46 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							if (!existing) {
 								return yield* new DbError({ message: "Submission claim is unavailable" });
 							}
-							if (existing.digest === input.digest && input.uploadTokenHash !== null) {
+							const submission = yield* decodeItem(DataSubmission)(existing.response);
+							const { uploadTokenHash } = input;
+							if (
+								existing.fingerprint === input.digest &&
+								uploadTokenHash !== null &&
+								!submission.uploadTokenHashes.includes(uploadTokenHash)
+							) {
 								yield* database.run((db) =>
 									db
-										.update(schema.dataImportSubmission)
+										.update(schema.idempotencyKey)
 										.set({
-											uploadTokenHashes: sql`case when ${input.uploadTokenHash} = any(${schema.dataImportSubmission.uploadTokenHashes}) then ${schema.dataImportSubmission.uploadTokenHashes} else array_append(${schema.dataImportSubmission.uploadTokenHashes}, ${input.uploadTokenHash}) end`,
+											response: {
+												...submission,
+												uploadTokenHashes: [...submission.uploadTokenHashes, uploadTokenHash],
+											},
 										})
 										.where(
 											and(
-												eq(schema.dataImportSubmission.userId, input.userId),
-												eq(schema.dataImportSubmission.runId, existing.runId),
+												eq(schema.idempotencyKey.userId, input.userId),
+												eq(schema.idempotencyKey.key, key),
 											),
 										),
 								);
 							}
 							return {
 								created: false,
-								digest: existing.digest,
-								runId: ImportRunId.make(existing.runId),
+								digest: existing.fingerprint,
+								runId: ImportRunId.make(submission.runId),
 							};
 						}
 					}
 					yield* database.run((db) =>
-						db
-							.insert(schema.importRun)
-							.values({
-								id: runId,
-								userId: input.userId,
-								source: dataJsonSource,
-								inputSummary: input.inputSummary,
-								integrationId: input.integrationId,
-								integrationLot: input.integrationId === null ? null : "sink",
-							}),
+						db.insert(schema.importRun).values({
+							id: runId,
+							userId: input.userId,
+							source: dataJsonSource,
+							inputSummary: input.inputSummary,
+							integrationId: input.integrationId,
+							integrationLot: input.integrationId === null ? null : "sink",
+						}),
 					);
 					if (!input.payload) {
 						return yield* new DbError({ message: "Data ingestion payload is missing" });
@@ -353,24 +451,27 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return { runId, created: true, digest: input.digest };
 				},
 			);
-
 			const findDataUploadRetry = Effect.fn("ImportsRepository.findDataUploadRetry")(
 				function* (input: { key: string; userId: UserId; uploadTokenHash: string }) {
 					const [row] = yield* database.run((db) =>
 						db
-							.select({ runId: schema.dataImportSubmission.runId })
-							.from(schema.dataImportSubmission)
+							.select({ response: schema.idempotencyKey.response })
+							.from(schema.idempotencyKey)
 							.where(
 								and(
-									eq(schema.dataImportSubmission.userId, input.userId),
-									eq(schema.dataImportSubmission.key, input.key),
-									isNull(schema.dataImportSubmission.integrationId),
-									sql`${input.uploadTokenHash} = any(${schema.dataImportSubmission.uploadTokenHashes})`,
+									eq(schema.idempotencyKey.userId, input.userId),
+									eq(schema.idempotencyKey.key, dataSubmissionKey(null, input.key)),
 								),
 							)
 							.limit(1),
 					);
-					return row ? ImportRunId.make(row.runId) : null;
+					if (!row) {
+						return null;
+					}
+					const submission = yield* decodeItem(DataSubmission)(row.response);
+					return submission.uploadTokenHashes.includes(input.uploadTokenHash)
+						? ImportRunId.make(submission.runId)
+						: null;
 				},
 			);
 
@@ -556,37 +657,51 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			});
 			const reservePayload = Effect.fn("ImportsRepository.reservePayload")(function* (
 				scope: IngestionScope,
-				input: { ordinal: null | number } & Omit<
-					typeof schema.importPayloadReservation.$inferInsert,
-					"runId" | "ordinal" | "released"
-				>,
+				input: {
+					id: string;
+					checkpoint: IngestionCapture["checkpoint"];
+					ordinal: null | number;
+					inputFingerprint: string;
+					payload: IngestionPayload;
+					recoveryBytes?: null | string;
+					captureState: "sealed" | "captured";
+					stagingExecutionId?: null | string;
+					capturePhase: IngestionCapture["phase"];
+				},
 			) {
 				yield* checkCaptureOwner(scope);
 				yield* lockProjection(scope, ["pending", "blocked", "running"]);
+				const data = yield* Schema.encodeUnknownEffect(PayloadItem)({
+					ordinal: input.ordinal,
+					state: input.captureState,
+					payload: input.payload,
+					phase: input.capturePhase,
+					checkpoint: input.checkpoint,
+					inputFingerprint: input.inputFingerprint,
+					stagingExecutionId: input.stagingExecutionId ?? null,
+				}).pipe(Effect.orDie);
 				const [inserted] = yield* database.run((db) =>
 					db
-						.insert(schema.importPayloadReservation)
+						.insert(schema.importItem)
 						.values({
-							...input,
+							data,
+							id: input.id,
+							kind: "payload",
 							runId: scope.runId,
-							checkpoint: sql`${stableStringify(input.checkpoint)}::jsonb`,
+							recoveryBytes: input.recoveryBytes ?? null,
 						})
 						.onConflictDoNothing()
 						.returning(),
 				);
-				const row =
+				const stored =
 					inserted ??
 					(yield* database.run((db) =>
 						db
 							.select()
-							.from(schema.importPayloadReservation)
-							.where(
-								and(
-									eq(schema.importPayloadReservation.runId, scope.runId),
-									eq(schema.importPayloadReservation.id, input.id),
-								),
-							),
+							.from(schema.importItem)
+							.where(itemOf("payload", scope.runId, input.id)),
 					))[0];
+				const row = stored ? yield* decodePayloadItem(stored) : null;
 				if (
 					!row ||
 					row.released ||
@@ -606,20 +721,24 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			});
 			const listPayloadReservations = Effect.fn("ImportsRepository.listPayloadReservations")(
 				function* (input: { userId: UserId; runId?: ImportRunId }) {
-					return yield* database.run((db) =>
+					const rows = yield* database.run((db) =>
 						db
-							.select({ runId: schema.importRun.id, reservation: schema.importPayloadReservation })
-							.from(schema.importPayloadReservation)
-							.innerJoin(
-								schema.importRun,
-								eq(schema.importRun.id, schema.importPayloadReservation.runId),
-							)
+							.select({ runId: schema.importRun.id, item: schema.importItem })
+							.from(schema.importItem)
+							.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
 							.where(
 								and(
+									eq(schema.importItem.kind, "payload"),
 									eq(schema.importRun.userId, input.userId),
 									input.runId === undefined ? undefined : eq(schema.importRun.id, input.runId),
 								),
 							),
+					);
+					return yield* Effect.forEach(rows, (row) =>
+						Effect.map(decodePayloadItem(row.item), (reservation) => ({
+							reservation,
+							runId: row.runId,
+						})),
 					);
 				},
 			);
@@ -629,16 +748,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const [row] = yield* database.run((db) =>
 					db
-						.select({ reservation: schema.importPayloadReservation })
-						.from(schema.importPayloadReservation)
-						.innerJoin(
-							schema.importRun,
-							eq(schema.importRun.id, schema.importPayloadReservation.runId),
-						)
-						.where(and(owned(scope), eq(schema.importPayloadReservation.id, id)))
+						.select({ item: schema.importItem })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(and(owned(scope), itemOf("payload", scope.runId, id)))
 						.limit(1),
 				);
-				return row?.reservation ?? null;
+				return row ? yield* decodePayloadItem(row.item) : null;
 			});
 			const getStagingOwner = Effect.fn("ImportsRepository.getStagingOwner")(function* (
 				userId: UserId,
@@ -668,17 +784,16 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				yield* lockProjection(scope, ["pending", "blocked", "running"]);
 				const rows = yield* database.run((db) =>
 					db
-						.update(schema.importPayloadReservation)
+						.update(schema.importItem)
 						.set({ writeStarted: true })
 						.where(
 							and(
-								eq(schema.importPayloadReservation.runId, scope.runId),
-								eq(schema.importPayloadReservation.id, id),
-								eq(schema.importPayloadReservation.retiring, false),
-								eq(schema.importPayloadReservation.released, false),
+								itemOf("payload", scope.runId, id),
+								eq(schema.importItem.retiring, false),
+								eq(schema.importItem.released, false),
 							),
 						)
-						.returning({ id: schema.importPayloadReservation.id }),
+						.returning({ id: schema.importItem.id }),
 				);
 				if (rows.length === 0) {
 					return yield* new DbError({ message: "Ingestion payload owner is retiring" });
@@ -693,14 +808,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				yield* database.acquireUserWriteLock(input.userId);
 				yield* database.run((db) =>
 					db
-						.update(schema.importPayloadReservation)
+						.update(schema.importItem)
 						.set({ retiring: true })
 						.where(
 							and(
-								sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${schema.importPayloadReservation.runId} and ${schema.importRun.userId} = ${input.userId})`,
-								input.runId === undefined
-									? undefined
-									: eq(schema.importPayloadReservation.runId, input.runId),
+								eq(schema.importItem.kind, "payload"),
+								sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${schema.importItem.runId} and ${schema.importRun.userId} = ${input.userId})`,
+								input.runId === undefined ? undefined : eq(schema.importItem.runId, input.runId),
 							),
 						),
 				);
@@ -710,12 +824,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				function* (scope: IngestionScope, id: string) {
 					yield* database.run((db) =>
 						db
-							.update(schema.importPayloadReservation)
+							.update(schema.importItem)
 							.set({ released: true, recoveryBytes: null })
 							.where(
 								and(
-									eq(schema.importPayloadReservation.runId, scope.runId),
-									eq(schema.importPayloadReservation.id, id),
+									itemOf("payload", scope.runId, id),
 									sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${scope.runId} and ${schema.importRun.userId} = ${scope.userId})`,
 								),
 							),
@@ -729,41 +842,24 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				yield* lockProjection(scope, ["pending", "blocked", "running"]);
 				const rows = yield* database.run((db) =>
 					db
-						.update(schema.importPayloadReservation)
+						.update(schema.importItem)
 						.set({ recoveryBytes: null })
-						.where(
-							and(
-								eq(schema.importPayloadReservation.runId, scope.runId),
-								eq(schema.importPayloadReservation.id, id),
-								eq(schema.importPayloadReservation.retiring, false),
-							),
-						)
-						.returning({ id: schema.importPayloadReservation.id }),
+						.where(and(itemOf("payload", scope.runId, id), eq(schema.importItem.retiring, false)))
+						.returning({ id: schema.importItem.id }),
 				);
 				if (rows.length === 0) {
 					return yield* new DbError({ message: "Ingestion payload owner is retiring" });
 				}
 				return yield* Effect.void;
 			});
-			const purgePayloadReservations = Effect.fn("ImportsRepository.purgePayloadReservations")(
-				function* (input: { userId: UserId; runId?: ImportRunId; integrationId?: IntegrationId }) {
-					yield* database.requireTransaction;
-					yield* database.run((db) =>
-						db
-							.delete(schema.importPayloadReservation)
-							.where(
-								and(
-									eq(schema.importPayloadReservation.released, true),
-									sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${schema.importPayloadReservation.runId} and ${schema.importRun.userId} = ${input.userId})`,
-									input.runId === undefined
-										? undefined
-										: eq(schema.importPayloadReservation.runId, input.runId),
-									input.integrationId === undefined
-										? undefined
-										: sql`exists (select 1 from ${schema.importRun} where ${schema.importRun.id} = ${schema.importPayloadReservation.runId} and ${schema.importRun.integrationId} = ${input.integrationId})`,
-								),
-							),
-					);
+			/** Whoever deletes a run must first remove its stored payloads, which nothing can find afterwards. */
+			const assertPayloadsReleased = Effect.fn("ImportsRepository.assertPayloadsReleased")(
+				function* (input: { userId: UserId; runId?: ImportRunId }) {
+					const reservations = yield* listPayloadReservations(input);
+					if (reservations.some(({ reservation }) => !reservation.released)) {
+						return yield* new DbError({ message: "Ingestion payloads are still held" });
+					}
+					return yield* Effect.void;
 				},
 			);
 			const createBlockedRun = Effect.fn("ImportsRepository.createBlockedRun")(function* (input: {
@@ -942,17 +1038,12 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				const [existing] = yield* database.run((db) =>
 					db
 						.select()
-						.from(schema.importCapture)
-						.where(
-							and(
-								eq(schema.importCapture.runId, scope.runId),
-								eq(schema.importCapture.id, data.id),
-							),
-						)
+						.from(schema.importItem)
+						.where(itemOf("payload", scope.runId, data.id))
 						.limit(1),
 				);
-				if (existing) {
-					if (stableStringify(existing.data) !== stableStringify(data)) {
+				if (existing?.published) {
+					if (stableStringify(yield* decodeCapture(existing)) !== stableStringify(data)) {
 						return yield* new DbError({ message: "Capture identity conflict" });
 					}
 					return false;
@@ -960,13 +1051,34 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				if (run.collectionSealed && data.phase === "collection") {
 					return yield* new DbError({ message: "Collection is sealed" });
 				}
-				if (data.payload === null || data.state === "released") {
+				const { payload, state } = data;
+				if (payload === null || state === "released") {
 					return yield* new DbError({
 						message: "Capture publication requires durable payload metadata",
 					});
 				}
+				const item = {
+					state,
+					payload,
+					phase: data.phase,
+					ordinal: data.ordinal,
+					stagingExecutionId: null,
+					checkpoint: data.checkpoint,
+					inputFingerprint: payload.checksum,
+				};
 				yield* database.run((db) =>
-					db.insert(schema.importCapture).values({ data, runId: scope.runId }),
+					existing
+						? db
+								.update(schema.importItem)
+								.set({ published: true })
+								.where(itemOf("payload", scope.runId, data.id))
+						: db.insert(schema.importItem).values({
+								data: item,
+								id: data.id,
+								kind: "payload",
+								published: true,
+								runId: scope.runId,
+							}),
 				);
 				return true;
 			});
@@ -986,20 +1098,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				const data = yield* Schema.decodeEffect(IngestionBatch)(batch);
 				yield* lockProjection(scope);
 				const [existing] = yield* database.run((db) =>
-					db
-						.select()
-						.from(schema.importBatch)
-						.where(
-							and(eq(schema.importBatch.runId, scope.runId), eq(schema.importBatch.id, data.id)),
-						)
-						.limit(1),
+					db.select().from(schema.importItem).where(itemOf("batch", scope.runId, data.id)).limit(1),
 				);
 				if (existing) {
+					const stored = yield* decodeBatch(existing.data);
 					if (
 						stableStringify(existing.operationIds) !== stableStringify([...operationIds].sort()) ||
-						existing.data.inputFingerprint !== data.inputFingerprint ||
-						existing.captureId !== data.captureId ||
-						existing.ordinal !== data.ordinal
+						stored.inputFingerprint !== data.inputFingerprint ||
+						stored.captureId !== data.captureId ||
+						stored.ordinal !== data.ordinal
 					) {
 						return yield* new DbError({ message: "Batch identity conflict" });
 					}
@@ -1007,6 +1114,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				}
 				if (data.state !== "pending" || data.summary.length > 0) {
 					return yield* new DbError({ message: "Batch must be registered pending" });
+				}
+				const captures = yield* database.run((db) =>
+					db
+						.select({ id: schema.importItem.id })
+						.from(schema.importItem)
+						.where(and(ownedPublished(scope), eq(schema.importItem.id, data.captureId))),
+				);
+				if (captures.length === 0) {
+					return yield* new DbError({ message: "Batch capture is not published" });
 				}
 				if (operationIds.length > 1000 || new Set(operationIds).size !== operationIds.length) {
 					return yield* new DbError({
@@ -1019,12 +1135,12 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				)}]::text[]`;
 				const overlaps = yield* database.run((db) =>
 					db
-						.select({ id: schema.importBatch.id })
-						.from(schema.importBatch)
+						.select({ id: schema.importItem.id })
+						.from(schema.importItem)
 						.where(
 							and(
-								eq(schema.importBatch.runId, scope.runId),
-								sql`${schema.importBatch.operationIds} && ${operationArray}`,
+								itemsOf("batch", scope.runId),
+								sql`${schema.importItem.operationIds} && ${operationArray}`,
 							),
 						)
 						.limit(1),
@@ -1033,13 +1149,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return yield* new DbError({ message: "Ingestion operation belongs to another batch" });
 				}
 				yield* database.run((db) =>
-					db
-						.insert(schema.importBatch)
-						.values({
-							data,
-							operationIds: [...operationIds].sort(),
-							runId: scope.runId,
-						}),
+					db.insert(schema.importItem).values({
+						data,
+						id: data.id,
+						kind: "batch",
+						runId: scope.runId,
+						operationIds: [...operationIds].sort(),
+					}),
 				);
 				return true;
 			});
@@ -1049,25 +1165,24 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const data = yield* Schema.decodeEffect(IngestionBatch)(batch);
 				yield* lockProjection(scope, ["running", "cancelling"]);
-				const [existing] = yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
-						.select()
-						.from(schema.importBatch)
-						.where(
-							and(eq(schema.importBatch.runId, scope.runId), eq(schema.importBatch.id, data.id)),
-						)
-						.limit(1),
+						.select({ id: schema.importItem.id, data: schema.importItem.data })
+						.from(schema.importItem)
+						.where(itemsOf("batch", scope.runId)),
 				);
+				const batches = yield* Effect.forEach(rows, (row) => decodeBatch(row.data));
+				const existing = batches.find(({ id }) => id === data.id);
 				if (
 					!existing ||
-					existing.data.inputFingerprint !== data.inputFingerprint ||
+					existing.inputFingerprint !== data.inputFingerprint ||
 					existing.captureId !== data.captureId ||
 					existing.ordinal !== data.ordinal
 				) {
 					return yield* new DbError({ message: "Batch identity conflict" });
 				}
-				if (existing.data.state === "applied") {
-					if (stableStringify(existing.data) !== stableStringify(data)) {
+				if (existing.state === "applied") {
+					if (stableStringify(existing) !== stableStringify(data)) {
 						return yield* new DbError({ message: "Applied batch projection conflict" });
 					}
 					return false;
@@ -1075,14 +1190,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				if (data.state !== "applied") {
 					return yield* new DbError({ message: "Only confirmed batch summaries may be projected" });
 				}
-				const summaries = yield* database.run((db) =>
-					db
-						.select({ data: schema.importBatch.data })
-						.from(schema.importBatch)
-						.where(eq(schema.importBatch.runId, scope.runId)),
-				);
 				const dimensions = new Set(
-					[...data.summary, ...summaries.flatMap((row) => row.data.summary)].map((row) =>
+					[...data.summary, ...batches.flatMap((row) => row.summary)].map((row) =>
 						stableStringify([row.recordKind, row.unit]),
 					),
 				);
@@ -1090,12 +1199,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return yield* new DbError({ message: "Ingestion summary exceeds its record-kind limit" });
 				}
 				yield* database.run((db) =>
-					db
-						.update(schema.importBatch)
-						.set({ data })
-						.where(
-							and(eq(schema.importBatch.runId, scope.runId), eq(schema.importBatch.id, data.id)),
-						),
+					db.update(schema.importItem).set({ data }).where(itemOf("batch", scope.runId, data.id)),
 				);
 				return true;
 			});
@@ -1105,10 +1209,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				result: JsonValue,
 			) {
 				yield* database.run((db) =>
-					db
-						.update(schema.importBatch)
-						.set({ result })
-						.where(and(eq(schema.importBatch.runId, scope.runId), eq(schema.importBatch.id, id))),
+					db.update(schema.importItem).set({ result }).where(itemOf("batch", scope.runId, id)),
 				);
 			});
 			const writeActivity = Effect.fn("ImportsRepository.writeActivity")(function* (
@@ -1145,6 +1246,18 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				) {
 					return yield* new DbError({ message: "Activity identity or progress conflict" });
 				}
+				const { batchId } = data;
+				if (batchId !== null) {
+					const batches = yield* database.run((db) =>
+						db
+							.select({ id: schema.importItem.id })
+							.from(schema.importItem)
+							.where(itemOf("batch", scope.runId, batchId)),
+					);
+					if (batches.length === 0) {
+						return yield* new DbError({ message: "Activity batch is unavailable" });
+					}
+				}
 				yield* database.run((db) =>
 					db
 						.insert(schema.importActivity)
@@ -1172,14 +1285,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				yield* lockProjection(scope, ["running", "cancelling"]);
 				const [existing] = yield* database.run((db) =>
 					db
-						.select()
-						.from(schema.importOutcome)
-						.where(
-							and(
-								eq(schema.importOutcome.runId, scope.runId),
-								eq(schema.importOutcome.operationId, data.operationId),
-							),
-						)
+						.select({ data: schema.importItem.data })
+						.from(schema.importItem)
+						.where(itemOf("outcome", scope.runId, data.operationId))
 						.limit(1),
 				);
 				if (existing) {
@@ -1189,7 +1297,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return false;
 				}
 				yield* database.run((db) =>
-					db.insert(schema.importOutcome).values({ data, runId: scope.runId }),
+					db
+						.insert(schema.importItem)
+						.values({ data, kind: "outcome", runId: scope.runId, id: data.operationId }),
 				);
 				return true;
 			});
@@ -1265,13 +1375,14 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				if (!run) {
 					return null;
 				}
-				const batches = yield* database.run((db) =>
+				const batchRows = yield* database.run((db) =>
 					db
-						.select()
-						.from(schema.importBatch)
-						.where(eq(schema.importBatch.runId, scope.runId))
-						.orderBy(asc(schema.importBatch.ordinal)),
+						.select({ data: schema.importItem.data })
+						.from(schema.importItem)
+						.where(itemsOf("batch", scope.runId))
+						.orderBy(asc(schema.importItem.ordinal)),
 				);
+				const batches = yield* Effect.forEach(batchRows, (row) => decodeBatch(row.data));
 				const activities = yield* database.run((db) =>
 					db
 						.select()
@@ -1281,7 +1392,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				);
 				const summary: Array<IngestionSummary[number]> = [];
 				for (const batch of batches) {
-					for (const item of batch.data.summary) {
+					for (const item of batch.summary) {
 						const existing = summary.find(
 							(entry) => entry.unit === item.unit && entry.recordKind === item.recordKind,
 						);
@@ -1359,18 +1470,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				yield* lockProjection(scope);
 				const rows = yield* database.run((db) =>
 					db
-						.update(schema.importBatch)
-						.set({
-							data: sql`jsonb_set(${schema.importBatch.data}, '{state}', '"applying"'::jsonb)`,
-						})
+						.update(schema.importItem)
+						.set({ data: sql`jsonb_set(${schema.importItem.data}, '{state}', '"applying"'::jsonb)` })
 						.where(
 							and(
-								eq(schema.importBatch.runId, scope.runId),
-								eq(schema.importBatch.id, batchId),
-								sql`${schema.importBatch.data}->>'state' = 'pending'`,
+								itemOf("batch", scope.runId, batchId),
+								sql`${schema.importItem.data}->>'state' = 'pending'`,
 							),
 						)
-						.returning({ id: schema.importBatch.id }),
+						.returning({ id: schema.importItem.id }),
 				);
 				return rows.length > 0;
 			});
@@ -1437,25 +1545,31 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			const listCaptures = Effect.fn("ImportsRepository.listCaptures")(function* (
 				scope: IngestionScope,
 			) {
-				return yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
-						.select({ data: schema.importCapture.data })
-						.from(schema.importCapture)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importCapture.runId))
-						.where(owned(scope))
-						.orderBy(asc(schema.importCapture.ordinal)),
+						.select({ item: schema.importItem })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(and(owned(scope), ownedPublished(scope)))
+						.orderBy(asc(schema.importItem.ordinal)),
+				);
+				return yield* Effect.forEach(rows, (row) =>
+					Effect.map(decodeCapture(row.item), (data) => ({ data })),
 				);
 			});
 			const listBatches = Effect.fn("ImportsRepository.listBatches")(function* (
 				scope: IngestionScope,
 			) {
-				return yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
-						.select({ data: schema.importBatch.data, result: schema.importBatch.result })
-						.from(schema.importBatch)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importBatch.runId))
-						.where(owned(scope))
-						.orderBy(asc(schema.importBatch.ordinal)),
+						.select({ data: schema.importItem.data, result: schema.importItem.result })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(and(owned(scope), itemsOf("batch", scope.runId)))
+						.orderBy(asc(schema.importItem.ordinal)),
+				);
+				return yield* Effect.forEach(rows, (row) =>
+					Effect.map(decodeBatch(row.data), (data) => ({ data, result: row.result })),
 				);
 			});
 			const getBatch = Effect.fn("ImportsRepository.getBatch")(function* (
@@ -1464,12 +1578,12 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const [row] = yield* database.run((db) =>
 					db
-						.select({ data: schema.importBatch.data })
-						.from(schema.importBatch)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importBatch.runId))
-						.where(and(owned(scope), eq(schema.importBatch.id, id))),
+						.select({ data: schema.importItem.data })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(and(owned(scope), itemOf("batch", scope.runId, id))),
 				);
-				return row?.data ?? null;
+				return row ? yield* decodeBatch(row.data) : null;
 			});
 			const isIngestionApplied = Effect.fn("ImportsRepository.isIngestionApplied")(function* (
 				scope: IngestionScope,
@@ -1482,9 +1596,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							and(
 								owned(scope),
 								eq(schema.importRun.collectionSealed, true),
-								sql`not exists (select 1 from ${schema.importPayloadReservation} r where r.run_id = ${scope.runId} and r.ordinal is not null and not r.released and not exists (select 1 from ${schema.importCapture} c where c.run_id = r.run_id and c.id = r.id))`,
-								sql`not exists (select 1 from ${schema.importBatch} b where b.run_id = ${scope.runId} and b.data->>'state' <> 'applied')`,
-								sql`not exists (select 1 from ${schema.importCapture} c where c.run_id = ${scope.runId} and c.phase = 'application' and not exists (select 1 from ${schema.importBatch} b where b.run_id = c.run_id and b.capture_id = c.id and b.data->>'state' = 'applied'))`,
+								sql`not exists (select 1 from ${schema.importItem} r where r.run_id = ${scope.runId} and r.kind = 'payload' and r.ordinal is not null and not r.released and not r.published)`,
+								sql`not exists (select 1 from ${schema.importItem} b where b.run_id = ${scope.runId} and b.kind = 'batch' and b.data->>'state' <> 'applied')`,
+								sql`not exists (select 1 from ${schema.importItem} c where c.run_id = ${scope.runId} and c.kind = 'payload' and c.published and c.phase = 'application' and not exists (select 1 from ${schema.importItem} b where b.run_id = c.run_id and b.kind = 'batch' and b.capture_id = c.id and b.data->>'state' = 'applied'))`,
 							),
 						)
 						.limit(1),
@@ -1497,53 +1611,57 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const [row] = yield* database.run((db) =>
 					db
-						.select({ data: schema.importCapture.data })
-						.from(schema.importCapture)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importCapture.runId))
-						.where(and(owned(scope), eq(schema.importCapture.id, id)))
+						.select({ item: schema.importItem })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(and(owned(scope), ownedPublished(scope), eq(schema.importItem.id, id)))
 						.limit(1),
 				);
-				return row?.data ?? null;
+				return row ? yield* decodeCapture(row.item) : null;
 			});
 			const getIntegrationInput = Effect.fn("ImportsRepository.getIntegrationInput")(function* (
 				scope: IngestionScope,
 			) {
 				const [row] = yield* database.run((db) =>
 					db
-						.select({ envelope: schema.importCapture.data, lot: schema.importRun.integrationLot })
+						.select({ item: schema.importItem, lot: schema.importRun.integrationLot })
 						.from(schema.importRun)
 						.leftJoin(
-							schema.importCapture,
-							and(
-								eq(schema.importCapture.runId, schema.importRun.id),
-								eq(schema.importCapture.id, "admitted-envelope"),
-							),
+							schema.importItem,
+							and(ownedPublished(scope), eq(schema.importItem.id, "admitted-envelope")),
 						)
 						.where(owned(scope))
 						.limit(1),
 				);
-				return row ?? null;
+				if (!row) {
+					return null;
+				}
+				return { lot: row.lot, envelope: row.item ? yield* decodeCapture(row.item) : null };
 			});
 			const pageCaptures = Effect.fn("ImportsRepository.pageCaptures")(function* (
 				scope: IngestionScope,
 				after: null | number,
 				limit: number,
 			) {
-				return yield* database.run((db) =>
+				const rows = yield* database.run((db) =>
 					db
-						.select({ data: schema.importCapture.data })
-						.from(schema.importCapture)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importCapture.runId))
+						.select({ item: schema.importItem })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
 						.where(
 							and(
 								owned(scope),
-								sql`${schema.importCapture.ordinal} >= 64`,
-								eq(schema.importCapture.phase, "collection"),
-								after === null ? undefined : sql`${schema.importCapture.ordinal} > ${after}`,
+								ownedPublished(scope),
+								sql`${schema.importItem.ordinal} >= 64`,
+								eq(schema.importItem.phase, "collection"),
+								after === null ? undefined : sql`${schema.importItem.ordinal} > ${after}`,
 							),
 						)
-						.orderBy(asc(schema.importCapture.ordinal))
+						.orderBy(asc(schema.importItem.ordinal))
 						.limit(Math.min(100, Math.max(1, limit))),
+				);
+				return yield* Effect.forEach(rows, (row) =>
+					Effect.map(decodeCapture(row.item), (data) => ({ data })),
 				);
 			});
 			const listIssues = Effect.fn("ImportsRepository.listIssues")(function* (input: {
@@ -1577,17 +1695,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.select({ data: schema.importIssue.data })
 						.from(schema.importIssue)
 						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importIssue.runId))
-						.innerJoin(
-							schema.importBatch,
-							and(
-								eq(schema.importBatch.runId, schema.importRun.id),
-								eq(schema.importBatch.id, batchId),
-							),
-						)
+						.innerJoin(schema.importItem, itemOf("batch", scope.runId, batchId))
 						.where(
 							and(
 								owned(scope),
-								sql`${schema.importIssue.id} = any(${schema.importBatch.operationIds})`,
+								sql`${schema.importIssue.id} = any(${schema.importItem.operationIds})`,
 							),
 						)
 						.orderBy(asc(schema.importIssue.id))
@@ -1599,10 +1711,16 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const rows = yield* database.run((db) =>
 					db
-						.select({ id: schema.importBatch.id })
-						.from(schema.importBatch)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importBatch.runId))
-						.where(and(owned(scope), sql`${schema.importBatch.data}->>'state' <> 'pending'`))
+						.select({ id: schema.importItem.id })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(
+							and(
+								owned(scope),
+								itemsOf("batch", scope.runId),
+								sql`${schema.importItem.data}->>'state' <> 'pending'`,
+							),
+						)
 						.limit(1),
 				);
 				return rows.length > 0;
@@ -1641,7 +1759,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 									inArray(schema.importRun.status, ["completed", "failed", "cancelled", "expired"]),
 									or(
 										isNotNull(schema.importRun.pins),
-										sql`exists (select 1 from ${schema.importPayloadReservation} where ${schema.importPayloadReservation.runId} = ${schema.importRun.id} and not ${schema.importPayloadReservation.released})`,
+										unreleasedPayload(schema.importRun.id),
 									),
 								),
 							),
@@ -1870,14 +1988,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				if (!run) {
 					return false;
 				}
-				yield* purgePayloadReservations(scope);
+				yield* assertPayloadsReleased(scope);
 				yield* database.run((db) =>
 					db
-						.delete(schema.dataImportSubmission)
+						.delete(schema.idempotencyKey)
 						.where(
 							and(
-								eq(schema.dataImportSubmission.userId, scope.userId),
-								eq(schema.dataImportSubmission.runId, scope.runId),
+								eq(schema.idempotencyKey.userId, scope.userId),
+								sql`${schema.idempotencyKey.key} like 'data-import:%'`,
+								sql`${schema.idempotencyKey.response}->>'runId' = ${scope.runId}`,
 							),
 						),
 				);
@@ -1890,13 +2009,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const [row] = yield* database.run((db) =>
 					db
-						.select({ data: schema.importOutcome.data })
-						.from(schema.importOutcome)
-						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importOutcome.runId))
-						.where(and(owned(scope), eq(schema.importOutcome.operationId, operationId)))
+						.select({ data: schema.importItem.data })
+						.from(schema.importItem)
+						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
+						.where(and(owned(scope), itemOf("outcome", scope.runId, operationId)))
 						.limit(1),
 				);
-				return row?.data ?? null;
+				return row ? yield* decodeItem(IngestionOutcome)(row.data) : null;
 			});
 			const releaseCapture = Effect.fn("ImportsRepository.releaseCapture")(function* (
 				scope: IngestionScope,
@@ -1904,18 +2023,16 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			) {
 				const rows = yield* database.run((db) =>
 					db
-						.update(schema.importCapture)
-						.set({
-							data: sql`jsonb_set(jsonb_set(${schema.importCapture.data}, '{payload}', 'null'::jsonb), '{state}', '"released"'::jsonb)`,
-						})
+						.update(schema.importItem)
+						.set({ captureReleased: true })
 						.where(
 							and(
-								eq(schema.importCapture.runId, scope.runId),
-								eq(schema.importCapture.id, captureId),
+								ownedPublished(scope),
+								eq(schema.importItem.id, captureId),
 								sql`exists (select 1 from ${schema.importRun} where ${owned(scope)} and ${schema.importRun.status} in ('completed', 'failed', 'cancelled', 'expired'))`,
 							),
 						)
-						.returning({ id: schema.importCapture.id }),
+						.returning({ id: schema.importItem.id }),
 				);
 				return rows.length > 0;
 			});
@@ -2015,7 +2132,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				getPayloadReservation,
 				getIngestionRunControl,
 				listPayloadReservations,
-				purgePayloadReservations,
+				assertPayloadsReleased,
 				startIntegrationIngestion,
 				releasePayloadReservation,
 				createIntegrationRunIfIdle,

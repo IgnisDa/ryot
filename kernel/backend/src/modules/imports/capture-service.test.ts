@@ -15,7 +15,6 @@ import {
 	IngestionPayloadError,
 	IngestionPayloads,
 } from "#modules/assets/storage/ingestion-payloads";
-import type { importPayloadReservation } from "#schema/tables/imports";
 import { makeAppConfigLayer, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
@@ -24,14 +23,14 @@ import {
 	ingestionTestRun,
 	ingestionTestScope,
 } from "./ingestion.test-support";
-import { ImportsRepository } from "./repository";
+import { ImportsRepository, type PayloadReservation } from "./repository";
 import { ImportRunError } from "./runtime/workflow-errors";
 
 const fixture = Effect.fnUntraced(function* (
 	mode: "fenced" | "failure" | "recovery" | "retirement" | "quarantine",
 ) {
 	let run = ingestionTestRun();
-	let reservation: undefined | typeof importPayloadReservation.$inferSelect;
+	let reservation: undefined | PayloadReservation;
 	let capture: null | IngestionCapture = null;
 	let stored: null | Uint8Array = null;
 	const bytes = new TextEncoder().encode("captured records");

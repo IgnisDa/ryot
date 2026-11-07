@@ -94,7 +94,7 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						yield* database.run((db) =>
 							db.delete(workflowExecution).where(eq(workflowExecution.accountUserId, userId)),
 						);
-						yield* imports.purgePayloadReservations({ userId });
+						yield* imports.assertPayloadsReleased({ userId });
 						yield* database.run((db) =>
 							Effect.gen(function* () {
 								const privatePluginIds = db

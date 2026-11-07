@@ -4,7 +4,7 @@ import { BunServices } from "@effect/platform-bun";
 import { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Effect, FileSystem, Layer, Redacted } from "effect";
 
 import { IngestionPayloads } from "#modules/assets/storage/ingestion-payloads";
@@ -107,8 +107,10 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 					const captures = yield* database.run((db) =>
 						db
 							.select()
-							.from(tables.importCapture)
-							.where(eq(tables.importCapture.runId, scope.runId)),
+							.from(tables.importItem)
+							.where(
+								and(eq(tables.importItem.runId, scope.runId), eq(tables.importItem.published, true)),
+							),
 					);
 					expect(captures).toHaveLength(1);
 				}

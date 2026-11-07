@@ -901,9 +901,9 @@ layer(
 				);
 				const [stored] = yield* session.run((db) =>
 					db
-						.select({ operationIds: tables.importBatch.operationIds })
-						.from(tables.importBatch)
-						.where(eq(tables.importBatch.id, batch.id))
+						.select({ operationIds: tables.importItem.operationIds })
+						.from(tables.importItem)
+						.where(eq(tables.importItem.id, batch.id))
 						.limit(1),
 				);
 				expect(stored?.operationIds).toEqual(["failed-play", "support-entity"]);
@@ -955,7 +955,7 @@ layer(
 						.pipe(Effect.withTracer(makeRecordingTracer(spans))),
 				).toBe(true);
 				const updates = recordedStatements(spans).filter((text) =>
-					text.startsWith('update "import_batch"'),
+					text.startsWith('update "import_item"'),
 				);
 				expect(updates).toHaveLength(1);
 				expect(yield* repository.listBatches(scope)).toEqual([
@@ -1070,22 +1070,6 @@ layer(
 				expect(yield* repository.listCaptures(scope)).toEqual([
 					{ data: { ...capture, payload: null, state: "released" } },
 				]);
-				expect(
-					yield* session.run((db) =>
-						db
-							.select()
-							.from(tables.importCapture)
-							.where(eq(tables.importCapture.runId, scope.runId)),
-					),
-				).toEqual([
-					{
-						id: capture.id,
-						runId: scope.runId,
-						phase: capture.phase,
-						ordinal: capture.ordinal,
-						data: { ...capture, payload: null, state: "released" },
-					},
-				]);
 				expect(yield* repository.getIngestionRun(scope)).toMatchObject({
 					summary,
 					status: "cancelled",
@@ -1152,11 +1136,18 @@ layer(
 					repository.putActivity(scope, { ...activity, completed: 2, exactTotal: 2 }),
 				);
 				yield* session.transaction(repository.publishCapture(scope, capture));
-				expect(
-					(yield* Effect.exit(
-						session.transaction(repository.registerBatch(other, batch, [])),
-					))._tag,
-				).toBe("Failure");
+				assertExitFails(
+					yield* Effect.exit(session.transaction(repository.registerBatch(other, batch, []))),
+					new DbError({ message: "Batch capture is not published" }),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						session.transaction(
+							repository.putActivity(scope, { ...activity, id: "for-batch", batchId: "missing" }),
+						),
+					),
+					new DbError({ message: "Activity batch is unavailable" }),
+				);
 				expect(yield* repository.getIngestionRun(scope)).toMatchObject({
 					activities: [{ ...activity, completed: 2, exactTotal: 2 }],
 				});

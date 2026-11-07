@@ -191,7 +191,7 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				yield* cleanup(scope);
 				return yield* database.transaction(
 					Effect.gen(function* () {
-						yield* repository.purgePayloadReservations(scope);
+						yield* repository.assertPayloadsReleased(scope);
 						return yield* repository.deleteIngestionReport(scope);
 					}),
 				);
