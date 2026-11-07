@@ -22,7 +22,7 @@ describe("createSettleTracker", () => {
 					tracker.stage({ entityId: "a", reason: "populated" });
 					tracker.commit();
 					yield* advanceRyotSchedule(600);
-					tracker.stage({ entityId: "b", reason: "population-failed" });
+					tracker.stage({ entityId: "b", reason: "enrichment-updated" });
 					tracker.stage({ entityId: "a", reason: "enrichment-updated" });
 					tracker.stage({ entityId: "c", reason: "enrichment-updated" });
 					tracker.commit();
@@ -43,7 +43,7 @@ describe("createSettleTracker", () => {
 					tracker.subscribe(() => {
 						notifications++;
 					});
-					tracker.stage({ entityId: "a", reason: "population-failed" });
+					tracker.stage({ entityId: "a", reason: "enrichment-updated" });
 					tracker.commit();
 					expect([...tracker.snapshot()]).toEqual([]);
 					expect(notifications).toBe(0);

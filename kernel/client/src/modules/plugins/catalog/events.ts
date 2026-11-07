@@ -2,34 +2,18 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
-import { Context, Duration, Effect, Layer, Match, Schedule, Schema } from "effect";
+import { Context, Duration, Effect, Layer, Schedule } from "effect";
 
+import {
+	EventStreamClosed,
+	type EventStreamFactory,
+	fetchEventStream,
+	openEventStream,
+} from "#/api/event-stream";
 import { serverApiUrl } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { OAuthTokenService } from "#/modules/auth/token-service";
 
-export type CatalogStreamRequest = {
-	readonly signal: AbortSignal;
-	readonly headers: Record<string, string>;
-};
-
-export type CatalogStreamFactory = (
-	url: string,
-	request: CatalogStreamRequest,
-) => Promise<CatalogStreamResponse>;
-
-type CatalogStreamResponse = {
-	readonly ok: boolean;
-	readonly status: number;
-	readonly body: null | ReadableStream<Uint8Array>;
-};
-
-class CatalogStreamClosed extends Schema.TaggedError<
-	CatalogStreamClosed,
-	{ readonly brand: unique symbol }
->()("CatalogStreamClosed", { cause: Schema.Unknown }) {}
-
-const LINE_BREAK = /\r\n|\r|\n/;
 const RECONNECT_CAP = Duration.seconds(30);
 
 const reconnectSchedule = Schedule.exponential("1 second").pipe(
@@ -37,96 +21,9 @@ const reconnectSchedule = Schedule.exponential("1 second").pipe(
 	Schedule.jittered,
 );
 
-const readCatalogStream = (body: ReadableStream<Uint8Array>, onEvent: (type: string) => void) =>
-	Effect.acquireUseRelease(
-		Effect.sync(() => body.getReader()),
-		(reader) =>
-			Effect.gen(function* () {
-				const decoder = new TextDecoder();
-				let buffer = "";
-				let data = "";
-				let eventType = "";
-
-				const dispatch = () => {
-					if (data !== "") {
-						onEvent(eventType === "" ? "message" : eventType);
-					}
-					data = "";
-					eventType = "";
-				};
-
-				const consumeLine = (line: string) => {
-					if (line === "") {
-						dispatch();
-						return;
-					}
-					if (line.startsWith(":")) {
-						return;
-					}
-					const separator = line.indexOf(":");
-					const field = separator === -1 ? line : line.slice(0, separator);
-					const raw = separator === -1 ? "" : line.slice(separator + 1);
-					const value = raw.startsWith(" ") ? raw.slice(1) : raw;
-					Match.value(field).pipe(
-						Match.when("event", () => {
-							eventType = value;
-						}),
-						Match.when("data", () => {
-							data += `${value}\n`;
-						}),
-						Match.orElse(() => undefined),
-					);
-				};
-
-				for (;;) {
-					const chunk = yield* Effect.tryPromise({
-						try: () => reader.read(),
-						catch: (cause) => new CatalogStreamClosed({ cause }),
-					});
-					if (chunk.done) {
-						break;
-					}
-					buffer += decoder.decode(chunk.value, { stream: true });
-					let match = LINE_BREAK.exec(buffer);
-					while (match !== null && !(match[0] === "\r" && match.index === buffer.length - 1)) {
-						consumeLine(buffer.slice(0, match.index));
-						buffer = buffer.slice(match.index + match[0].length);
-						match = LINE_BREAK.exec(buffer);
-					}
-				}
-			}),
-		(reader) => Effect.ignoreCause(Effect.promise(() => reader.cancel())),
-	);
-
-const openCatalogStream = (
-	open: CatalogStreamFactory,
-	url: string,
-	token: string,
-	signal: AbortSignal,
-	onEvent: (type: string) => void,
-) =>
-	Effect.gen(function* () {
-		const response = yield* Effect.tryPromise({
-			catch: (cause) => new CatalogStreamClosed({ cause }),
-			try: () =>
-				open(url, {
-					signal,
-					headers: { accept: "text/event-stream", authorization: `Bearer ${token}` },
-				}),
-		});
-		if (response.status === 401) {
-			return true;
-		}
-		if (!response.ok || response.body === null) {
-			return yield* new CatalogStreamClosed({ cause: "plugin catalog stream was rejected" });
-		}
-		yield* readCatalogStream(response.body, onEvent);
-		return false;
-	});
-
 const makePluginCatalogEventsService = (
 	tokens: OAuthTokenService["Service"],
-	open: CatalogStreamFactory,
+	open: EventStreamFactory,
 	reconnect: Schedule.Schedule<unknown>,
 ) => ({
 	subscribe: (scope: ApiScope, onCatalogChanged: () => void) => {
@@ -143,14 +40,9 @@ const makePluginCatalogEventsService = (
 				if (token === null) {
 					return yield* Effect.never;
 				}
-				// The stream signal must outlive fetch's response Promise until its reader is closed.
-				const unauthorized = yield* Effect.acquireUseRelease(
-					Effect.sync(() => new AbortController()),
-					(controller) => openCatalogStream(open, url, token, controller.signal, onEvent),
-					(controller) => Effect.sync(() => controller.abort()),
-				);
+				const unauthorized = yield* openEventStream(open, url, token, onEvent);
 				if (!unauthorized) {
-					return yield* new CatalogStreamClosed({ cause: "stream ended" });
+					return yield* new EventStreamClosed({ cause: "stream ended" });
 				}
 				return unauthorized;
 			});
@@ -173,7 +65,7 @@ export class PluginCatalogEventsService extends Context.Service<
 		Effect.gen(function* () {
 			return makePluginCatalogEventsService(
 				yield* OAuthTokenService,
-				(url, request) => fetch(url, { ...request, cache: "no-store", credentials: "omit" }),
+				fetchEventStream,
 				reconnectSchedule,
 			);
 		}),
@@ -181,7 +73,7 @@ export class PluginCatalogEventsService extends Context.Service<
 }
 
 export const makePluginCatalogEventsLayer = (
-	open: CatalogStreamFactory,
+	open: EventStreamFactory,
 	reconnect: Schedule.Schedule<unknown> = reconnectSchedule,
 ) =>
 	Layer.effect(

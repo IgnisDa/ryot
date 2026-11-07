@@ -2,11 +2,6 @@ import { App } from "@capacitor/app";
 import { Capacitor, type PluginListenerHandle } from "@capacitor/core";
 import { Context, Effect, Fiber, Layer, Schema } from "effect";
 
-export type InterestSocket = Pick<EventTarget, "addEventListener"> & {
-	close(): void;
-	send(frame: string): void;
-};
-
 type ListenNativeResume = (
 	notify: () => void,
 ) => Effect.Effect<undefined | PluginListenerHandle, NativeResumeListenerError>;
@@ -85,14 +80,12 @@ export class EntityWatchTransport extends Context.Service<
 	EntityWatchTransport,
 	{
 		readonly available: () => boolean;
-		readonly open: (url: string) => InterestSocket;
 		readonly subscribe: (changed: () => void) => () => void;
 		readonly reportOverflow: (omittedCount: number) => void;
 		readonly schedule: (delay: number, callback: () => void) => () => void;
 	}
 >()("@ryot-app/kernel-client/modules/entity-watches/transport/EntityWatchTransport") {
 	static readonly layer = Layer.succeed(this, {
-		open: (url) => new WebSocket(url),
 		available: () => document.visibilityState !== "hidden" && navigator.onLine,
 		reportOverflow: (omittedCount) =>
 			console.warn("Entity interest selection omitted IDs", { omittedCount }),

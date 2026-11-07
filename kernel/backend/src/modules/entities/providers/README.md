@@ -42,7 +42,7 @@ Provider details are fetched and validated before database work. Population writ
 not mutation requests: they plan no before-policies, so the provider's `details` script shapes them.
 Population commits the root entity,
 then its child-entity sets, then the base population timestamp in separate short transactions. It
-publishes `populated` before starting related work. Lifecycle dispatch and Redis publication happen
+publishes `populated` before starting related work. Lifecycle dispatch and live-update broadcasts happen
 after the corresponding transactions commit.
 
 ### Population levels
@@ -51,7 +51,7 @@ A population payload carries a required `level`, passed to the `details` script 
 A `full` run awaits all related groups, pages, and required sweeps before stamping
 `entity.related_populated_at` in a final transaction. A `base` run persists the root entity and child-entity sets
 only: it ignores any returned `relatedEntityGroups` (no relationship writes, no generation claims,
-no sweeps, no related-pages workflow) and stamps `populated_at` alone, so existing relationships stay
+no sweeps, no related pages) and stamps `populated_at` alone, so existing relationships stay
 untouched. Providers should skip related fetches at `base`; a provider that ignores `level` stays
 valid. Child entities have no related level: every child-set write stamps `related_populated_at`
 with the child's `populated_at` when it is still null.
@@ -71,15 +71,15 @@ after its child sets succeed. Child sets keep their initial
 `provider-entity-import` completion hooks, an import with an entry event creates that event for the
 importing user in the `entry-event` activity, keyed by a child item identity of the import command so
 replays create it once. A failed or refused event fails the import at the `entry-event` stage; the
-imported entity stays. Entity interest requests
-`base` for visible and `full` for foreground interest (see the entity-interest README). The kernel
+imported entity stays. `POST /entities/populate` requests `base` for background and `full` for
+interactive entities (see the [entity interest README](../../../../../client/src/modules/entity-watches/README.md)). The kernel
 provider-population reference and explicit enrichment commands request `full`; the monitoring sweep refreshes.
 Relationship lifecycle hooks of an imported entity (such as plugin monitoring association
 notifications) therefore run when the entity is first opened in the foreground or refreshed by a
 monitoring sweep, not at import time.
-Entity-interest and explicit request IDs come from `entityPopulationExecutionId`, which hashes the
-target, requester generation, level and submission identity into a bounded handle. Nested workflow
-keys stay within the workflow store's limit. All callers share population admission; see
+Populate and explicit request IDs come from `entityPopulationExecutionId`, which hashes the
+target, requesting account, level and submission identity into a bounded handle, so a repeated ask
+joins the queued request instead of starting another. All callers share population admission; see
 [entity enrichment](../enrichment/README.md). Automatic attempt IDs are described below.
 
 ### Paged related groups
@@ -88,20 +88,19 @@ Every related-entity group and related-page result declares `coverage`: `complet
 continuation, or `source-limited` with a reason. A group whose coverage is `more` is written in pages. The
 first page is written after the base stamp like any other group; every written relationship is stamped
 in `relationship.sync_generation` with the entity's current generation, the population execution ID
-held in `entity.related_population_generation`. `ProviderRelatedPagesWorkflow`
-(execution ID `related-<entityId>-<groupIndex>-<generation>`) runs under the same plugin pin and user
-scope. The full population owner awaits it. Base imports do not start related work and return at
-the base boundary. Every group shares the entity's generation, so a newer population supersedes older
+held in `entity.related_population_generation`. The population job pages each group itself under
+the same plugin pin and user scope. Base imports do not start related work and return at the base
+boundary. Every group shares the entity's generation, so a newer population supersedes older
 paged work for the whole entity.
 
-The workflow runs the provider's `related` script once per page, each in its own sandbox execution,
+The job runs the provider's `related` script once per page, each in its own sandbox execution,
 and writes each page in one transaction:
 
 - A page upserts only its own entries and deletes nothing. Authoritative groups replace the
   properties of existing relationships; additive groups keep them. A relationship that is otherwise
   unchanged only has its stamp written, directly, with no lifecycle request or change evidence.
-- The page index is part of the item, batch and activity identity, so replay after a crash derives
-  the same entity IDs. The sweep has its own identity.
+- The page index is part of the item and batch identity, so a retried attempt derives the same
+  entity IDs. The sweep has its own identity.
 - Every page write and the sweep lock the entity row and return an explicit superseded outcome unless
   the stored generation is still their own. A newer population therefore supersedes an older one
   without interleaved writes.
@@ -109,8 +108,8 @@ and writes each page in one transaction:
   differs from the generation are deleted through the normal planned-reconciliation delete path
   (triggers, change evidence). Additive groups are never swept.
 - A source-limited page fails with its reason before that page is written. A failed page, repeated
-  continuation, or reaching the 200-page limit fails the page workflow and skips its sweep. A
-  superseded run also skips its sweep and cannot complete the related level. The parent collects
+  continuation, or reaching the 200-page limit fails that group and skips its sweep. A
+  superseded run also skips its sweep and cannot complete the related level. The job collects
   every group's outcome, so one failed group does not prevent successful sibling groups from
   finishing. Enqueue and page failures are not swallowed.
 - Each committed related page and sweep publishes `enrichment-updated`, including partial results
@@ -120,21 +119,18 @@ and writes each page in one transaction:
 A `details` result that declares more coverage for a provider with no `related` script fails the
 population before anything is written.
 
-### Durable requests and attempts
+### Requests and attempts
 
-`ProviderEntityPopulationWorkflow` is the public parent. It records the request through
-`EnrichmentRequests` and uses that request's persisted payload for every attempt. It dispatches
-`ProviderEntityPopulationAttemptWorkflow` through workflow admission with deterministic execution
-IDs `<parentExecutionId>-attempt-<number>`. Each attempt gets a separate sandbox execution and
-mutation causation identity. The request is attached to its root entity as soon as the root upsert
-commits, including when later stages fail.
+`EnrichmentRequests` records each population request with the payload every attempt uses, and one
+`entity-population` job runs it, eight at a time per process. Each attempt gets its own sandbox
+execution and mutation causation identity, `<requestId>-attempt-<number>`. The request is attached
+to its root entity as soon as the root upsert commits, including when later stages fail.
 
-The parent records `running`, `retrying`, `succeeded`, or `failed` in durable activities. Only
-infrastructure and timeout failures without a sandbox boundary code retry, at most three total
-attempts. The first retry waits five seconds and the second waits thirty seconds. Both waits use
-`DurableClock.sleep` with a zero in-memory threshold. Boundary-code failures, invalid output,
-unknown script failures, resource limits, and external-uncertain outcomes do not retry. Workflow
-suspension is not cancellation.
+The job records `running`, `retrying`, `succeeded`, or `failed` on the request. Only infrastructure
+and timeout failures without a sandbox boundary code retry, at most three total attempts, five and
+then ten seconds apart. Boundary-code failures, invalid output, unknown script failures, resource
+limits, and external-uncertain outcomes do not retry. A successful population that asked for a
+translation queues it.
 
 Failures belong to request history, not entity columns. A related-stage failure leaves the committed
 base timestamp and successful related pages intact, but does not stamp the related level complete.
@@ -181,5 +177,5 @@ after the initial attempt. The retry wraps the complete `database.transaction` e
 finishes before a fresh transaction starts. SQL errors remain `DbError` values until retry is
 complete and are converted to the durable `SandboxRunError` contract only afterward.
 
-Do not retry individual statements and do not move sandbox, workflow, lifecycle, Redis, network, or
+Do not retry individual statements and do not move sandbox, workflow, lifecycle, network, or
 sleeping work into these transactions.

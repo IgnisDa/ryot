@@ -23,9 +23,9 @@ import {
 	RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
 import {
-	EntityUpdatedMessage,
+	EntityUpdatedFrame,
 	MAX_INTEREST_ENTITY_IDS,
-} from "@ryot-app/contract/modules/entity-watches/messages";
+} from "@ryot-app/contract/modules/live-updates/messages";
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -783,9 +783,6 @@ export const PluginBridgeEntityWatch = strictStruct({
 
 export type PluginBridgeEntityWatch = Schema.Schema.Type<typeof PluginBridgeEntityWatch>;
 
-export const PluginBridgeEntityUpdated = strictStruct({
-	...EntityUpdatedMessage.fields,
-	type: Schema.Literal("entity-updated"),
-});
+export const PluginBridgeEntityUpdated = strictStruct(EntityUpdatedFrame.fields);
 
 export type PluginBridgeEntityUpdated = Schema.Schema.Type<typeof PluginBridgeEntityUpdated>;

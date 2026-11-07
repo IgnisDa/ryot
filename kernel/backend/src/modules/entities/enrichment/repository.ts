@@ -1,17 +1,15 @@
 import { type SandboxFailureKind, SandboxRunError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
-import type { EntityId, SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
-import { and, asc, desc, eq, inArray, isNotNull, isNull, or, sql } from "drizzle-orm";
+import { type EntityId, type SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
+import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { entityEnrichmentRequest as table } from "#schema/tables/enrichment";
-import { workflowExecution } from "#schema/tables/workflow-executions";
+import { job } from "#schema/tables/jobs";
 
 export type EnrichmentRequestPatch = {
 	readonly attempt?: number;
-	readonly nextAttemptAt?: Date | null;
 	readonly failureKind?: null | SandboxFailureKind;
 	readonly state: string & (typeof table.$inferInsert)["state"];
 };
@@ -22,11 +20,10 @@ export type EnrichmentRequestInput = {
 	readonly pluginId: string;
 	readonly retryOf?: string;
 	readonly externalId: string;
-	readonly workflowName: string;
 	readonly populationPin?: string;
-	readonly dispatchRoot?: boolean;
 	readonly language: null | string;
 	readonly entitySchemaSlug: string;
+	readonly requester: null | UserId;
 	readonly entityId: null | EntityId;
 	readonly scopeUserId: null | UserId;
 	readonly level: null | "base" | "full";
@@ -34,7 +31,6 @@ export type EnrichmentRequestInput = {
 	readonly inputHash?: string | undefined;
 	readonly cooldown?: boolean | undefined;
 	readonly sourceContentGeneration?: number;
-	readonly requester: null | AccountGeneration;
 	readonly populationMode?: "ensure" | "refresh";
 	readonly operation: "population" | "translation";
 };
@@ -51,11 +47,11 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 			const account = Effect.fn("EnrichmentRequestsRepository.account")(function* (userId: UserId) {
 				const [row] = yield* session.run((db) =>
 					db
-						.select({ disabledAt: user.disabledAt, token: user.accountGeneration })
+						.select({ token: user.id, disabledAt: user.disabledAt })
 						.from(user)
 						.where(eq(user.id, userId)),
 				);
-				return row?.disabledAt === null ? { userId, token: row.token } : null;
+				return row?.disabledAt === null ? userId : null;
 			});
 			const ensure = Effect.fn("EnrichmentRequestsRepository.ensure")(function* (
 				input: EnrichmentRequestInput,
@@ -110,7 +106,7 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 						db
 							.select({
 								count: sql<number>`count(*)::int`,
-								owned: sql<number>`count(*) filter (where ${table.requesterUserId} is not distinct from ${input.requester?.userId ?? null})::int`,
+								owned: sql<number>`count(*) filter (where ${table.requesterUserId} is not distinct from ${input.requester})::int`,
 							})
 							.from(table)
 							.where(
@@ -131,14 +127,7 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				yield* session.run((db) =>
 					db
 						.insert(table)
-						.values({
-							...input,
-							joinedTo,
-							createdAt,
-							dispatchRoot: input.dispatchRoot ?? false,
-							requesterUserId: input.requester?.userId ?? null,
-							requesterGeneration: input.requester?.token ?? null,
-						})
+						.values({ ...input, joinedTo, createdAt, requesterUserId: input.requester })
 						.onConflictDoNothing(),
 				);
 				const [row] = yield* session.run((db) =>
@@ -152,58 +141,6 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 						),
 				);
 				return row ?? null;
-			});
-			const claimPopulation = Effect.fn("EnrichmentRequestsRepository.claimPopulation")(function* (
-				id: string,
-			) {
-				yield* session.requireTransaction;
-				yield* lockTarget("population-admission");
-				const row = yield* get(id);
-				if (row?.joinedTo !== null || !["queued", "running", "retrying"].includes(row.state)) {
-					return false;
-				}
-				if (row.state !== "queued") {
-					return true;
-				}
-				const [blocker] = yield* session.run((db) =>
-					db
-						.select({ id: table.id })
-						.from(table)
-						.where(
-							and(
-								eq(table.operation, "population"),
-								isNull(table.joinedTo),
-								inArray(table.state, ["queued", "running", "retrying"]),
-								eq(table.providerId, row.providerId),
-								eq(table.externalId, row.externalId),
-								eq(table.pluginId, row.pluginId),
-								eq(table.entitySchemaSlug, row.entitySchemaSlug),
-								sql`${table.scopeUserId} is not distinct from ${row.scopeUserId}`,
-								sql`${table.sequence} < ${row.sequence}`,
-							),
-						)
-						.limit(1),
-				);
-				if (blocker) {
-					return false;
-				}
-				const [running] = yield* session.run((db) =>
-					db
-						.select({ count: sql<number>`count(*)::int` })
-						.from(table)
-						.where(
-							and(
-								eq(table.operation, "population"),
-								isNull(table.joinedTo),
-								inArray(table.state, ["running", "retrying"]),
-							),
-						),
-				);
-				if ((running?.count ?? 0) >= 8) {
-					return false;
-				}
-				yield* update(id, { state: "running" });
-				return true;
 			});
 			const guardPopulation = Effect.fn("EnrichmentRequestsRepository.guardPopulation")(function* (
 				id: string,
@@ -247,23 +184,6 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 					return newer === undefined;
 				},
 			);
-			const expiredExecutionStatus = Effect.fn(
-				"EnrichmentRequestsRepository.expiredExecutionStatus",
-			)(function* (id: string, workflowName: string) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select({ status: workflowExecution.status })
-						.from(workflowExecution)
-						.where(
-							and(
-								eq(workflowExecution.executionId, id),
-								eq(workflowExecution.workflowName, workflowName),
-								isNotNull(workflowExecution.expiredAt),
-							),
-						),
-				);
-				return row?.status ?? null;
-			});
 			const update = Effect.fn("EnrichmentRequestsRepository.update")(function* (
 				id: string,
 				patch: EnrichmentRequestPatch,
@@ -274,11 +194,7 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				const [row] = yield* session.run((db) =>
 					db
 						.update(table)
-						.set({
-							...patch,
-							completedAt,
-							...(terminal ? { payload: {}, nextAttemptAt: null } : {}),
-						})
+						.set({ ...patch, completedAt, ...(terminal ? { payload: {} } : {}) })
 						.where(and(eq(table.id, id), inArray(table.state, ["queued", "running", "retrying"])))
 						.returning(),
 				);
@@ -316,9 +232,9 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 			});
 			const latest = Effect.fn("EnrichmentRequestsRepository.latest")(function* (input: {
 				language?: string;
+				requester: UserId;
 				entityId: EntityId;
 				level?: "base" | "full";
-				requester: AccountGeneration;
 				operation: "population" | "translation";
 			}) {
 				const [row] = yield* session.run((db) =>
@@ -328,8 +244,7 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 						.where(
 							and(
 								eq(table.entityId, input.entityId),
-								eq(table.requesterUserId, input.requester.userId),
-								eq(table.requesterGeneration, input.requester.token),
+								eq(table.requesterUserId, input.requester),
 								eq(table.operation, input.operation),
 								input.level === undefined ? undefined : eq(table.level, input.level),
 								input.language === undefined ? undefined : eq(table.language, input.language),
@@ -357,36 +272,42 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				}
 				return row ?? null;
 			});
-			const pending = Effect.fn("EnrichmentRequestsRepository.pending")(function* () {
-				return yield* session.run((db) =>
+			const requesterIds = Effect.fn("EnrichmentRequestsRepository.requesterIds")(function* (
+				id: string,
+			) {
+				const rows = yield* session.run((db) =>
 					db
-						.select()
+						.selectDistinct({ userId: table.requesterUserId })
 						.from(table)
-						.where(
-							or(
-								inArray(table.state, ["queued", "running", "retrying"]),
-								isNull(table.registrationReleasedAt),
-							),
-						)
-						.orderBy(asc(table.observedAt), asc(table.sequence))
-						.limit(100),
+						.where(or(eq(table.id, id), eq(table.joinedTo, id))),
 				);
+				return rows.flatMap(({ userId }) => (userId === null ? [] : [UserId.make(userId)]));
 			});
-			const observed = Effect.fn("EnrichmentRequestsRepository.observed")(function* (id: string) {
-				const observedAt = yield* DateTime.nowAsDate;
-				yield* session.run((db) => db.update(table).set({ observedAt }).where(eq(table.id, id)));
-			});
-			const released = Effect.fn("EnrichmentRequestsRepository.released")(function* (id: string) {
-				const registrationReleasedAt = yield* DateTime.nowAsDate;
-				yield* session.run((db) =>
-					db.update(table).set({ registrationReleasedAt }).where(eq(table.id, id)),
+			// A job that ran out of attempts never reached its handler to settle the request.
+			const failOrphaned = Effect.fn("EnrichmentRequestsRepository.failOrphaned")(function* (
+				limit: number,
+			) {
+				return yield* session.run((db) =>
+					db.execute<{ entity_id: null | string; requester_user_id: null | string }>(
+						sql`with orphaned as (
+							select request.id from ${table} request
+							where request.state in ('queued', 'running', 'retrying') and request.joined_to is null
+								and not exists (select 1 from ${job} j where j.key = request.id and j.status in ('queued', 'running'))
+							order by request.sequence limit ${limit}
+						)
+						update ${table} set state = 'failed', failure_kind = 'infrastructure', completed_at = now(), payload = '{}'
+						where state in ('queued', 'running', 'retrying')
+							and (id in (select id from orphaned) or joined_to in (select id from orphaned))
+						returning entity_id, requester_user_id`,
+						"objects",
+					),
 				);
 			});
 			const prune = Effect.fn("EnrichmentRequestsRepository.prune")(function* () {
 				yield* session.run((db) =>
 					db.execute(sql`delete from entity_enrichment_request where id in (
 					select older.id from entity_enrichment_request older
-					where older.completed_at < now() - interval '168 hours' and older.registration_released_at is not null
+					where older.completed_at < now() - interval '168 hours'
 					and not exists (select 1 from entity_enrichment_request follower where follower.joined_to = older.id)
 					and (older.base_checked_at is null or exists (select 1 from entity_enrichment_request checked
 						where checked.entity_id = older.entity_id and checked.base_checked_at >= older.base_checked_at and checked.sequence > older.sequence))
@@ -395,7 +316,6 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 						and newer.entity_schema_slug = older.entity_schema_slug and newer.plugin_id = older.plugin_id
 						and newer.scope_user_id is not distinct from older.scope_user_id
 						and newer.requester_user_id is not distinct from older.requester_user_id
-						and newer.requester_generation is not distinct from older.requester_generation
 						and newer.operation = older.operation and newer.level is not distinct from older.level
 						and newer.language is not distinct from older.language)
 					order by older.sequence limit 100)`),
@@ -415,18 +335,15 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 				ensure,
 				update,
 				latest,
-				pending,
 				account,
-				observed,
-				released,
 				followers,
 				lockTarget,
+				failOrphaned,
+				requesterIds,
 				attachEntity,
 				recordBaseCheck,
-				claimPopulation,
 				guardPopulation,
 				latestTranslation,
-				expiredExecutionStatus,
 			};
 		}),
 	},

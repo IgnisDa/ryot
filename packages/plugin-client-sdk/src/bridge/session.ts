@@ -1,6 +1,6 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
-import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/entity-watches/messages";
+import { MAX_INTEREST_ENTITY_IDS } from "@ryot-app/contract/modules/live-updates/messages";
 import {
 	EntitySchemaReference,
 	SavedViewReference,

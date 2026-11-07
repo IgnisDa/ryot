@@ -6,10 +6,10 @@ import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
 import { EntityProvidersApi } from "#/api/entity-providers";
-import { EntityWatchApi } from "#/api/entity-watches";
 import { ImportsApi } from "#/api/imports";
 import { InstanceAdminApi } from "#/api/instance-admin";
 import { IntegrationsApi } from "#/api/integrations";
+import { LiveUpdatesApi } from "#/api/live-updates";
 import { NotificationsApi } from "#/api/notifications";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
@@ -26,8 +26,8 @@ import { PluginManagementService } from "#/modules/plugins/management/service";
 // oxlint-disable-next-line effecttsgo/lazy-effect -- Fills service method slots of any arity
 export const unused = () => Effect.die("not used");
 
-export const makeEntityWatchApi = (overrides: Partial<EntityWatchApi["Service"]> = {}) =>
-	Layer.succeed(EntityWatchApi, { createSocketTicket: unused, ...overrides });
+export const makeLiveUpdatesApi = (overrides: Partial<LiveUpdatesApi["Service"]> = {}) =>
+	Layer.succeed(LiveUpdatesApi, { events: unused, populate: unused, ...overrides });
 
 export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Service"]> = {}) =>
 	Layer.succeed(EntityWatchService, {
@@ -192,7 +192,7 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeIntegrationsApi(),
 	makeNotificationsApi(),
 	makeOAuthConnectionsApi(),
-	makeEntityWatchApi(),
+	makeLiveUpdatesApi(),
 	makeEntityProvidersApi(),
 	makeEntityWatchService(),
 	makePluginInstallationsApi(),

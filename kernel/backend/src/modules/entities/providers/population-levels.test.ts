@@ -12,7 +12,6 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { DateTime, Effect, Exit, Layer, Schema } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
@@ -29,21 +28,11 @@ import {
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
-import { WorkflowAccounts } from "#platform/workflow/account";
 import * as tables from "#schema/tables/combined";
-import {
-	makeRedisService,
-	makeWorkflowActivityEngine,
-	workflowAccountsTestService,
-} from "#testing/effect";
 
 import type { DomainLifecycleCommand } from "../write-context";
 import { EntityImportWorkflowOperations } from "./operations-workflow";
-import {
-	ProviderEntityPopulationAttemptWorkflow,
-	runProviderEntityPopulationAttemptWorkflow,
-} from "./provider-entity-population-workflow";
+import { runPopulationAttempt } from "./population-job";
 import type { PopulationLevel } from "./schemas";
 
 const bottle = EntitySchemaSlug.make("bottle");
@@ -134,11 +123,7 @@ const setup = Effect.gen(function* () {
 	});
 	assert(provider);
 	const script = yield* runtime.resolveUserDetailsScript(owner, provider.id);
-	const subject = {
-		userId: owner,
-		type: "user" as const,
-		accountGeneration: { userId: owner, token: "test-account-generation" },
-	};
+	const subject = { userId: owner, type: "user" as const };
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
 	assert(pin?.pluginRevision);
 	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
@@ -153,8 +138,8 @@ const setup = Effect.gen(function* () {
 			source: "api",
 			lane: "interactive",
 			itemIdentity: executionId,
+			accountUserId: subject.userId,
 			initiator: { id: owner, kind: "user" },
-			accountGeneration: subject.accountGeneration,
 			executionId: AutomationExecutionId.make(executionId),
 		}),
 		writeContext: principal,
@@ -167,11 +152,7 @@ const setup = Effect.gen(function* () {
 		readonly details: Effect.Effect<unknown>;
 		readonly occurredAt?: DomainLifecycleCommand["occurredAt"];
 	}) => {
-		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationAttemptWorkflow,
-			input.executionId,
-		);
-		return runProviderEntityPopulationAttemptWorkflow(
+		return runPopulationAttempt(
 			{
 				requestAttempt: 1,
 				level: input.level,
@@ -187,10 +168,6 @@ const setup = Effect.gen(function* () {
 			},
 			input.executionId,
 		).pipe(
-			Effect.provideService(WorkflowInstance, instance),
-			Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-			Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
-			Effect.provideService(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 			Effect.provideService(EntityImportWorkflowOperations, {
 				processRelatedPage: () => Effect.die("unused"),
 				completeProviderEntityImport: () => Effect.void,
@@ -263,6 +240,7 @@ const populationDatabaseLayer = () =>
 			attachEntity: () => Effect.void,
 			guardPopulation: () => Effect.void,
 			recordBaseCheck: () => Effect.void,
+			requesterIds: () => Effect.succeed([]),
 		}),
 	);
 

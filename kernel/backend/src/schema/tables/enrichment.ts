@@ -1,7 +1,6 @@
 import type { SandboxFailureKind } from "@ryot-app/contract/errors";
 import { sql } from "drizzle-orm";
 import {
-	boolean,
 	check,
 	index,
 	integer,
@@ -37,22 +36,16 @@ export const entityEnrichmentRequest = snakeCase.table(
 		id: text().primaryKey(),
 		pluginId: text().notNull(),
 		completedAt: timestamptz(),
-		requesterGeneration: text(),
 		sequence: serial().notNull(),
 		baseCheckedAt: timestamptz(),
 		externalId: text().notNull(),
-		nextAttemptAt: timestamptz(),
-		workflowName: text().notNull(),
 		entitySchemaSlug: text().notNull(),
 		sourceContentGeneration: integer(),
-		registrationReleasedAt: timestamptz(),
 		level: text().$type<"base" | "full">(),
 		attempt: integer().notNull().default(0),
 		payload: jsonb().$type<unknown>().notNull(),
 		failureKind: text().$type<SandboxFailureKind>(),
 		createdAt: timestamptz().notNull().defaultNow(),
-		observedAt: timestamptz().notNull().defaultNow(),
-		dispatchRoot: boolean().notNull().default(false),
 		populationMode: text().$type<"ensure" | "refresh">(),
 		operation: text().$type<"population" | "translation">().notNull(),
 		entityId: text().references(() => entity.id, { onDelete: "cascade" }),
@@ -78,10 +71,6 @@ export const entityEnrichmentRequest = snakeCase.table(
 		check(
 			"entity_enrichment_request_state_check",
 			sql`${table.state} in ('queued', 'running', 'retrying', 'succeeded', 'failed', 'cancelled')`,
-		),
-		check(
-			"entity_enrichment_request_requester_check",
-			sql`(${table.requesterUserId} is null) = (${table.requesterGeneration} is null)`,
 		),
 		check(
 			"entity_enrichment_request_operation_check",

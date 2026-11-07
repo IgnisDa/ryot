@@ -1,20 +1,22 @@
 import {
-	decodeEntityWatchServerMessage,
-	encodeEntityWatchClientMessage,
-	type EntityWatchClientMessage,
+	type EntityUpdatedFrame,
 	MAX_FOREGROUND_ENTITY_IDS,
 	MAX_INTEREST_ENTITY_IDS,
-} from "@ryot-app/contract/modules/entity-watches/messages";
+	MAX_POPULATE_ENTITY_IDS,
+	type PopulateEntitiesBody,
+} from "@ryot-app/contract/modules/live-updates/messages";
 import type { EntityWatch, RyotClient } from "@ryot-app/plugin-client-sdk";
 import type { Fiber } from "effect";
-import { Context, Effect, FiberHandle, Layer, Match, PubSub, Result, Stream } from "effect";
+import { Array as Arr, Context, Effect, FiberSet, Layer, PubSub, Stream } from "effect";
 
-import { EntityWatchApi, entityWatchSocketUrl } from "#/api/entity-watches";
+import { LiveUpdatesApi } from "#/api/live-updates";
 import { type ApiScope, apiScopeKey } from "#/api/scope";
 
-import { EntityWatchTransport, type InterestSocket } from "./transport";
+import { EntityWatchTransport } from "./transport";
 
 export type WatchEntities = RyotClient["entities"]["watch"];
+
+type Priority = PopulateEntitiesBody["priority"];
 
 type Owner = {
 	interest: EntityWatch;
@@ -22,13 +24,15 @@ type Owner = {
 	readonly onUpdate: Parameters<WatchEntities>[1];
 };
 
+const ASK_DELAY_MS = 100;
+
 export class EntityWatchService extends Context.Service<EntityWatchService>()(
 	"@ryot-app/kernel-client/modules/entity-watches/service/EntityWatchService",
 	{
 		make: Effect.gen(function* () {
-			const api = yield* EntityWatchApi;
+			const api = yield* LiveUpdatesApi;
 			const io = yield* EntityWatchTransport;
-			const runTicket = yield* FiberHandle.makeRuntime<never, never, void>();
+			const run = yield* FiberSet.makeRuntime();
 			const declarations = new Map<string, Set<Owner>>();
 			const derivedData = yield* PubSub.unbounded<string>();
 			const derivedDataUpdated = (key: string) => {
@@ -102,46 +106,22 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 				let leases = 0;
 				let attempt = 0;
 				let failures = 0;
-				let revision = 0;
-				let ready = false;
 				let connectedBefore = false;
 				let disposed = false;
-				let heartbeatMs = 90_000;
 				let reportedOverflow = false;
-				let applied = new Set<string>();
-				let effective = new Set<string>();
-				let appliedForeground = new Set<string>();
-				let effectiveForeground = new Set<string>();
 				let batch: undefined | (() => void);
 				let retry: undefined | (() => void);
-				let socket: undefined | InterestSocket;
-				let deadline: undefined | (() => void);
-				const grace = new Map<string, () => void>();
-				let ticketFiber: undefined | Fiber.Fiber<void>;
-				let socketListeners: undefined | AbortController;
-				let pending: undefined | { revision: number; ids: Set<string>; foreground: Set<string> };
+				let streamFiber: undefined | Fiber.Fiber<void>;
+				let selection = new Map<string, Priority>();
+				// What the server was last asked about these entities, so unchanged pages cost no request.
+				const asked = new Map<string, Priority>();
 
 				const stop = () => {
 					attempt++;
-					ticketFiber?.interruptUnsafe();
-					ticketFiber = undefined;
+					streamFiber?.interruptUnsafe();
+					streamFiber = undefined;
 					retry?.();
 					retry = undefined;
-					deadline?.();
-					deadline = undefined;
-					const previous = socket;
-					socketListeners?.abort();
-					socketListeners = undefined;
-					socket = undefined;
-					ready = false;
-					pending = undefined;
-					if (previous) {
-						try {
-							previous.close();
-						} catch {
-							/* Already unavailable. */
-						}
-					}
 				};
 				const failed = () => {
 					stop();
@@ -150,40 +130,42 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 					}
 					retry = io.schedule(Math.min(30_000, 1000 * 2 ** Math.min(failures++, 5)), connect);
 				};
-				const send = (message: EntityWatchClientMessage) => {
-					const frame = encodeEntityWatchClientMessage(message);
-					if (Result.isFailure(frame)) {
-						failed();
-						return;
-					}
-					try {
-						socket?.send(frame.success);
-					} catch {
-						failed();
+				const ask = (priority: Priority, entityIds: ReadonlyArray<string>) => {
+					for (const chunk of Arr.chunksOf(entityIds, MAX_POPULATE_ENTITY_IDS)) {
+						run(
+							api.populate(scope, { priority, entityIds: chunk }).pipe(
+								Effect.catchCause(() =>
+									Effect.sync(() => {
+										for (const id of chunk) {
+											asked.delete(id);
+										}
+									}),
+								),
+							),
+						);
 					}
 				};
 				const flush = () => {
-					if (!ready || pending || batch || disposed) {
+					batch = undefined;
+					if (disposed || !io.available()) {
 						return;
 					}
-					const ids = new Set(effective);
-					const foreground = new Set([...effectiveForeground].filter((id) => ids.has(id)));
-					if (
-						revision &&
-						ids.size === applied.size &&
-						[...ids].every((id) => applied.has(id)) &&
-						foreground.size === appliedForeground.size &&
-						[...foreground].every((id) => appliedForeground.has(id))
-					) {
-						return;
-					}
-					pending = { ids, foreground, revision: revision + 1 };
-					send({
-						type: "replace",
-						revision: pending.revision,
-						entityIds: [...ids].sort(),
-						foregroundIds: [...foreground].sort(),
+					const unasked = [...selection].filter(([id, priority]) => {
+						const previous = asked.get(id);
+						return (
+							previous === undefined || (previous === "background" && priority === "interactive")
+						);
 					});
+					for (const [id, priority] of unasked) {
+						asked.set(id, priority);
+					}
+					const idsAt = (level: Priority) =>
+						unasked.flatMap(([id, priority]) => (priority === level ? [id] : []));
+					ask("interactive", idsAt("interactive"));
+					ask("background", idsAt("background"));
+				};
+				const schedule = () => {
+					batch ??= io.schedule(ASK_DELAY_MS, flush);
 				};
 				const refresh = () => {
 					if (disposed) {
@@ -191,69 +173,54 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 					}
 					const owners = [...(declarations.get(key) ?? [])];
 					const activeOwners = owners.filter((owner) => owner.active());
-					const ordered = [activeOwners, owners.filter((owner) => !owner.active())];
 					const selected = new Set(
-						ordered.flatMap((group) =>
+						[activeOwners, owners.filter((owner) => !owner.active())].flatMap((group) =>
 							(["foreground", "visible"] as const).flatMap((priority) =>
 								[...new Set(group.flatMap((owner) => owner.interest[priority]))].sort(),
 							),
 						),
 					);
-					const next = new Set([...selected].slice(0, MAX_INTEREST_ENTITY_IDS));
 					if (selected.size > MAX_INTEREST_ENTITY_IDS && !reportedOverflow) {
 						reportedOverflow = true;
 						io.reportOverflow(selected.size - MAX_INTEREST_ENTITY_IDS);
 					}
-					for (const [id, removal] of grace) {
-						if (next.has(id)) {
-							removal();
-							grace.delete(id);
-						}
-					}
-					for (const id of effective) {
-						if (!next.has(id) && !grace.has(id)) {
-							grace.set(
-								id,
-								io.schedule(2000, () => {
-									grace.delete(id);
-									effective.delete(id);
-									effectiveForeground.delete(id);
-									flush();
-								}),
-							);
-						}
-					}
-					for (const [id, removal] of grace) {
-						if (next.size < MAX_INTEREST_ENTITY_IDS) {
-							next.add(id);
-						} else {
-							removal();
-							grace.delete(id);
-						}
-					}
+					const ids = [...selected].slice(0, MAX_INTEREST_ENTITY_IDS);
 					const foreground = new Set(
 						[...new Set(activeOwners.flatMap((owner) => owner.interest.foreground))]
 							.sort()
-							.filter((id) => next.has(id))
 							.slice(0, MAX_FOREGROUND_ENTITY_IDS),
 					);
-					for (const id of grace.keys()) {
-						if (foreground.size < MAX_FOREGROUND_ENTITY_IDS && effectiveForeground.has(id)) {
-							foreground.add(id);
+					selection = new Map(
+						ids.map((id) => [id, foreground.has(id) ? "interactive" : "background"]),
+					);
+					for (const id of asked.keys()) {
+						if (!selection.has(id)) {
+							asked.delete(id);
 						}
 					}
-					const changed =
-						next.size !== effective.size ||
-						[...next].some((id) => !effective.has(id)) ||
-						foreground.size !== effectiveForeground.size ||
-						[...foreground].some((id) => !effectiveForeground.has(id));
-					effective = next;
-					effectiveForeground = foreground;
-					if (changed && !batch) {
-						batch = io.schedule(100, () => {
-							batch = undefined;
-							flush();
-						});
+					schedule();
+				};
+				const entityUpdated = (frame: EntityUpdatedFrame) => {
+					// A finished step may leave more for a page that is still open, such as related pages or a translation.
+					if (
+						frame.reason === "populated" ||
+						(frame.reason === "enrichment-updated" &&
+							selection.get(frame.entityId) === "interactive")
+					) {
+						asked.delete(frame.entityId);
+						schedule();
+					}
+					for (const owner of declarations.get(key) ?? []) {
+						if (
+							owner.interest.foreground.includes(frame.entityId) ||
+							owner.interest.visible.includes(frame.entityId)
+						) {
+							try {
+								owner.onUpdate({ reason: frame.reason, entityId: frame.entityId });
+							} catch {
+								/* A listener must not stop transport. */
+							}
+						}
 					}
 				};
 				function connect() {
@@ -262,124 +229,42 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 						return;
 					}
 					const current = attempt;
-					deadline = io.schedule(15_000, failed);
-					ticketFiber = runTicket(
-						api.createSocketTicket(scope).pipe(
-							Effect.map(({ ticket }) => {
-								if (disposed || current !== attempt) {
-									return;
-								}
-								const connection = io.open(entityWatchSocketUrl(scope));
-								socket = connection;
-								const isCurrent = () => !disposed && socket === connection && current === attempt;
-								socketListeners = new window.AbortController();
-								const options = { signal: socketListeners.signal };
-								connection.addEventListener(
-									"open",
-									() => {
+					const isCurrent = () => !disposed && current === attempt;
+					streamFiber = run(
+						api
+							.events(scope, {
+								onFrame: (frame) => {
+									if (!isCurrent()) {
+										return;
+									}
+									if (frame.type === "derived-data-updated") {
+										derivedDataUpdated(key);
+										return;
+									}
+									entityUpdated(frame);
+								},
+								onConnected: () => {
+									if (!isCurrent()) {
+										return;
+									}
+									failures = 0;
+									if (connectedBefore) {
+										derivedDataUpdated(key);
+									}
+									connectedBefore = true;
+									asked.clear();
+									schedule();
+								},
+							})
+							.pipe(
+								Effect.catchCause(() =>
+									Effect.sync(() => {
 										if (isCurrent()) {
-											send({ ticket, type: "authenticate" });
-										}
-									},
-									options,
-								);
-								const onFailure = () => {
-									if (isCurrent()) {
-										failed();
-									}
-								};
-								connection.addEventListener("close", onFailure, options);
-								connection.addEventListener("error", onFailure, options);
-								connection.addEventListener(
-									"message",
-									(event) => {
-										if (!isCurrent()) {
-											return;
-										}
-										const decoded = decodeEntityWatchServerMessage(
-											event instanceof MessageEvent ? event.data : undefined,
-										);
-										if (Result.isFailure(decoded) || (!ready && decoded.success.type !== "ready")) {
 											failed();
-											return;
 										}
-										Match.value(decoded.success).pipe(
-											Match.when({ type: "ready" }, (message) => {
-												if (
-													ready ||
-													message.maxEntityIds < MAX_INTEREST_ENTITY_IDS ||
-													message.heartbeatIntervalMs <= 0
-												) {
-													failed();
-													return;
-												}
-												ready = true;
-												if (connectedBefore) {
-													derivedDataUpdated(key);
-												}
-												connectedBefore = true;
-												failures = revision = 0;
-												applied = new Set();
-												appliedForeground = new Set();
-												deadline?.();
-												heartbeatMs = message.heartbeatIntervalMs * 3;
-												deadline = io.schedule(heartbeatMs, failed);
-												batch?.();
-												batch = undefined;
-												flush();
-											}),
-											Match.when({ type: "applied" }, (message) => {
-												if (pending?.revision !== message.revision) {
-													failed();
-													return;
-												}
-												applied = pending.ids;
-												appliedForeground = pending.foreground;
-												revision = pending.revision;
-												pending = undefined;
-												flush();
-											}),
-											Match.when({ type: "ping" }, ({ nonce }) => {
-												deadline?.();
-												deadline = io.schedule(heartbeatMs, failed);
-												send({ nonce, type: "pong" });
-											}),
-											Match.when({ type: "rejected" }, failed),
-											Match.when({ type: "derived-data-updated" }, () => derivedDataUpdated(key)),
-											Match.when({ type: "entity-updated" }, (message) => {
-												for (const owner of declarations.get(key) ?? []) {
-													if (!isCurrent()) {
-														return;
-													}
-													if (
-														owner.interest.foreground.includes(message.entityId) ||
-														owner.interest.visible.includes(message.entityId)
-													) {
-														try {
-															owner.onUpdate({
-																reason: message.reason,
-																entityId: message.entityId,
-															});
-														} catch {
-															/* A listener must not stop transport. */
-														}
-													}
-												}
-											}),
-											Match.exhaustive,
-										);
-									},
-									options,
-								);
-							}),
-							Effect.catchCause(() =>
-								Effect.sync(() => {
-									if (!disposed && current === attempt) {
-										failed();
-									}
-								}),
+									}),
+								),
 							),
-						),
 					);
 				}
 				const unsubscribe = io.subscribe(connect);
@@ -390,10 +275,6 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 					disposed = true;
 					stop();
 					batch?.();
-					for (const removal of grace.values()) {
-						removal();
-					}
-					grace.clear();
 					unsubscribe();
 					declarations.delete(key);
 					if (active?.release === release) {

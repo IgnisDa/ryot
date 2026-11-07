@@ -283,15 +283,10 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 				accounts: ReadonlyArray<Effect.Success<ReturnType<typeof admission.currentAccount>>>,
 			) =>
 				Effect.gen(function* () {
-					for (const account of [...accounts].sort((left, right) =>
-						left.userId.localeCompare(right.userId),
-					)) {
+					for (const account of [...accounts].sort((left, right) => left.localeCompare(right))) {
 						yield* admission.admitAccount(account);
 					}
-					yield* repository.lockSchemaCatalog([
-						...userIds,
-						...accounts.map((account) => account.userId),
-					]);
+					yield* repository.lockSchemaCatalog([...userIds, ...accounts]);
 					return yield* work;
 				});
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, userIds: ReadonlyArray<UserId>) =>
@@ -1346,8 +1341,8 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 						UserId,
 						Effect.Success<ReturnType<typeof admission.currentAccount>>
 					>();
-					if (lifecycle.accountGeneration !== null) {
-						accounts.set(lifecycle.accountGeneration.userId, lifecycle.accountGeneration);
+					if (lifecycle.accountUserId !== null) {
+						accounts.set(lifecycle.accountUserId, lifecycle.accountUserId);
 					}
 					for (const identity of eventIdentities) {
 						let account = accounts.get(identity.userId);
@@ -1356,7 +1351,7 @@ export class EntitiesService extends Context.Service<EntitiesService>()(
 							accounts.set(identity.userId, account);
 						}
 						const eventCommand = itemCommand(
-							{ ...lifecycle, accountGeneration: account },
+							{ ...lifecycle, accountUserId: account },
 							`${identity.userId}:${identity.eventId}:cascade-delete`,
 						);
 						const preparedEvent = yield* events.prepareEntityCascadeDelete(

@@ -2,25 +2,21 @@ import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { Effect, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import {
 	entityPopulationExecutionId,
 	EntityPopulationTrigger,
-	populationRequestPin,
 } from "#modules/entities/population-trigger";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 
 import { preRegisterProviderDetails } from "./details-principal";
-import {
-	ProviderEntityPopulationPayload,
-	ProviderEntityPopulationWorkflow,
-} from "./provider-entity-population-workflow";
+import { admitPopulation } from "./population-admission";
+import { ProviderEntityPopulationPayload } from "./population-job";
 
 const terminalRequest = (request: { readonly state: string }) =>
 	request.state === "succeeded" || request.state === "failed" || request.state === "cancelled";
@@ -28,19 +24,19 @@ const terminalRequest = (request: { readonly state: string }) =>
 export const EntityPopulationTriggerLive = Layer.effect(
 	EntityPopulationTrigger,
 	Effect.gen(function* () {
-		const engine = yield* WorkflowEngine;
 		const pluginRuntime = yield* PluginRuntimeResolver;
 		const sandbox = yield* ScriptExecutionService;
 		const session = yield* DatabaseSession;
 		const checks = yield* DomainWriteChecks;
 		const requests = yield* EnrichmentRequests;
+		const jobs = yield* JobQueue;
 
 		return {
 			request: (input) =>
 				Effect.gen(function* () {
 					const executionId = entityPopulationExecutionId(
 						input.entityId,
-						input.command.accountGeneration,
+						input.command.accountUserId,
 						input.execution,
 					);
 					const existingRequest = yield* requests.get(executionId);
@@ -52,7 +48,7 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								existingRequest.payload,
 							)
 						: null;
-					const executingUserId = input.userId ?? input.command.accountGeneration?.userId ?? null;
+					const executingUserId = input.userId ?? input.command.accountUserId ?? null;
 					const provider = executingUserId
 						? yield* pluginRuntime.findProviderAvailableToUser(executingUserId, input.providerId)
 						: yield* pluginRuntime.findActiveProviderById(input.providerId);
@@ -85,52 +81,29 @@ export const EntityPopulationTriggerLive = Layer.effect(
 											? { type: "user", userId: input.userId }
 											: { type: "global", userId: input.userId },
 								} satisfies ProviderEntityPopulationPayload);
-							const admitted = yield* requests.ensure({
-								payload,
-								language: null,
-								id: executionId,
-								dispatchRoot: true,
-								operation: "population",
-								entityId: input.entityId,
-								pluginId: provider.pluginId,
-								populationMode: payload.mode,
-								providerId: input.providerId,
-								externalId: input.externalId,
-								level: input.execution.level,
-								cooldown: payload.manualRefresh,
-								inputHash: input.execution.inputHash,
-								entitySchemaSlug: input.entitySchemaSlug,
-								requester: input.command.accountGeneration,
-								populationPin: populationRequestPin(command),
-								workflowName: ProviderEntityPopulationWorkflow._tag,
-								scopeUserId:
-									payload.entityScope.type === "user" ? payload.entityScope.userId : null,
-								...(input.execution.retryOf ? { retryOf: input.execution.retryOf } : {}),
-							});
-							if (terminalRequest(admitted)) {
-								return { payload: null, request: admitted };
-							}
-							const admittedPayload = yield* Schema.decodeUnknownEffect(
-								ProviderEntityPopulationPayload,
-							)(admitted.payload);
 							yield* checks.check(
-								admittedPayload.command,
+								payload.command,
 								definitionOwner(provider.pluginId),
-								admittedPayload.entityScope.type === "user"
-									? admittedPayload.entityScope.userId
-									: null,
+								payload.entityScope.type === "user" ? payload.entityScope.userId : null,
 								true,
 							);
-							return { request: admitted, payload: admittedPayload };
+							return yield* admitPopulation(payload, {
+								entityId: input.entityId,
+								...(input.execution.retryOf ? { retryOf: input.execution.retryOf } : {}),
+								...(input.execution.inputHash ? { inputHash: input.execution.inputHash } : {}),
+							}).pipe(
+								Effect.provideService(EnrichmentRequests, requests),
+								Effect.provideService(JobQueue, jobs),
+							);
 						},
 						Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 					);
 					const command = existingPayload?.command ?? input.command;
-					const retainedAdmission = yield* Ref.make<null | Effect.Success<
+					const admission = yield* Ref.make<null | Effect.Success<
 						ReturnType<typeof retainRequest>
 					>>(null);
 					if (command.writeContext === null) {
-						if (executingUserId === null || input.command.accountGeneration === null) {
+						if (executingUserId === null || input.command.accountUserId === null) {
 							return false;
 						}
 						const registrationNotNeeded = new SandboxRunError({
@@ -144,19 +117,23 @@ export const EntityPopulationTriggerLive = Layer.effect(
 								userId: executingUserId,
 								pluginId: provider.pluginId,
 								providerId: input.providerId,
-								accountGeneration: input.command.accountGeneration,
+								accountUserId: input.command.accountUserId,
 								retain: (principal) =>
 									Effect.gen(function* () {
 										const admitted = yield* retainRequest({
 											...input.command,
 											writeContext: principal,
 										});
-										yield* Ref.set(retainedAdmission, admitted);
-										if (
-											admitted.request.id !== executionId ||
-											admitted.payload === null ||
-											admitted.payload.command.writeContext?.scriptId !== principal.scriptId
-										) {
+										yield* Ref.set(admission, admitted);
+										if (admitted.id !== executionId || terminalRequest(admitted)) {
+											return yield* registrationNotNeeded;
+										}
+										const retained = yield* Schema.decodeUnknownEffect(
+											ProviderEntityPopulationPayload,
+										)(admitted.payload).pipe(
+											Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
+										);
+										if (retained.command.writeContext?.scriptId !== principal.scriptId) {
 											return yield* registrationNotNeeded;
 										}
 										return undefined;
@@ -170,26 +147,12 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					} else {
 						yield* session.transaction(
 							retainRequest(command).pipe(
-								Effect.flatMap((admitted) => Ref.set(retainedAdmission, admitted)),
+								Effect.flatMap((admitted) => Ref.set(admission, admitted)),
 							),
 						);
 					}
-					const admitted = yield* Ref.get(retainedAdmission);
-					if (!admitted?.payload) {
-						return false;
-					}
-					yield* dispatchAdmittedWorkflow(
-						engine,
-						ProviderEntityPopulationWorkflow,
-						input.command.accountGeneration,
-						{ discard: true, payload: admitted.payload, executionId: admitted.request.id },
-					).pipe(
-						Effect.asVoid,
-						Effect.tapCause((cause) =>
-							Effect.logWarning("entity population enqueue failed", cause),
-						),
-					);
-					return admitted.request.id === executionId;
+					const admitted = yield* Ref.get(admission);
+					return admitted !== null && !terminalRequest(admitted) && admitted.id === executionId;
 				}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 		};
 	}),

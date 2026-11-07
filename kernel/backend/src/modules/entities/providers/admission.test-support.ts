@@ -42,18 +42,8 @@ export const admissionDatabaseLayer = Layer.unwrap(
 								transaction.execute(sql.raw(statement)),
 							);
 							yield* transaction.insert(tables.user).values([
-								{
-									id: alice,
-									name: "Alice",
-									email: "alice@example.test",
-									accountGeneration: "test-account-generation",
-								},
-								{
-									id: bob,
-									name: "Bob",
-									email: "bob@example.test",
-									accountGeneration: "test-account-generation",
-								},
+								{ id: alice, name: "Alice", email: "alice@example.test" },
+								{ id: bob, name: "Bob", email: "bob@example.test" },
 							]);
 						}),
 					),

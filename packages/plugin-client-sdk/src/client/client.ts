@@ -18,7 +18,7 @@ import {
 	type RequestEntityEnrichmentBody,
 	RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
-import { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
+import { EntityUpdatedMessage } from "@ryot-app/contract/modules/live-updates/messages";
 import { EntityId, type PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
 import {

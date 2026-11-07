@@ -1,5 +1,5 @@
 import type { SandboxRunError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
+import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import {
 	AutomationExecutionId,
 	type EntityId,
@@ -35,10 +35,10 @@ export const populationRequestPin = (command: DomainLifecycleCommand) =>
 
 export const entityPopulationExecutionId = (
 	entityId: EntityId,
-	accountGeneration: null | AccountGeneration,
+	accountUserId: null | UserId,
 	execution: PopulationExecution,
 ) =>
-	`enrich-populate-${sha256Base64Url(stableStringify([entityId, accountGeneration, execution.level, execution.attempt ?? null]))}`;
+	`enrich-populate-${sha256Base64Url(stableStringify([entityId, accountUserId, execution.level, execution.attempt ?? null]))}`;
 
 export type PopulationRequest = {
 	entityId: EntityId;
@@ -54,22 +54,19 @@ export type PopulationRequest = {
 export const userPopulationRequest = Effect.fnUntraced(function* (
 	input: Omit<PopulationRequest, "command"> & {
 		readonly initiator: UserId;
-		readonly accountGeneration: AccountGeneration;
+		readonly lane?: ExecutionLane;
+		readonly accountUserId: UserId;
 	},
 ) {
-	const { initiator, accountGeneration, ...request } = input;
-	const executionId = entityPopulationExecutionId(
-		input.entityId,
-		accountGeneration,
-		input.execution,
-	);
+	const { initiator, accountUserId, lane = "interactive", ...request } = input;
+	const executionId = entityPopulationExecutionId(input.entityId, accountUserId, input.execution);
 	return {
 		...request,
 		command: {
 			...rootLifecycleCommand({
+				lane,
 				source: "api",
-				accountGeneration,
-				lane: "interactive",
+				accountUserId,
 				itemIdentity: executionId,
 				initiator: { kind: "user", id: initiator },
 				executionId: AutomationExecutionId.make(executionId),

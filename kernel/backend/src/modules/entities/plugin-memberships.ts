@@ -269,7 +269,7 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 						continue;
 					}
 					const command = {
-						accountGeneration: null,
+						accountUserId: null,
 						occurredAt: trigger.occurredAt,
 						itemIdentity: `${trigger.id}:membership`,
 						causation: { ...trigger.causation, parentTriggerId: trigger.id },

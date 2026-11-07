@@ -19,12 +19,13 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
+import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
-import { explicitTranslationExecutionId } from "#modules/entities/localization/entity-translation-workflow";
 import { type RequestFillInput, TranslationsService } from "#modules/entities/localization/service";
+import { explicitTranslationExecutionId } from "#modules/entities/localization/translation-request";
 import {
 	EntityPopulationTrigger,
 	userPopulationRequest,
@@ -39,11 +40,12 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
+import { JobQueue } from "#platform/jobs/queue";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#testing/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import { EntityEnrichmentService } from "./enrichment";
+import { EntityPopulationJob } from "./population-job";
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
 
 const rootSchemaSlug = EntitySchemaSlug.make("record");
@@ -53,7 +55,6 @@ const currentUser = (id: string): CurrentUserValue => ({
 	name: "Retry User",
 	id: UserId.make(id),
 	email: `${id}@example.test`,
-	accountGeneration: { userId: UserId.make(id), token: "test-account-generation" },
 	preferences: { language: "es", reportingTimeZone: UTC, disableIntegrations: false },
 });
 const owner = currentUser("owner");
@@ -105,7 +106,6 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 			);
 			assert(provider);
 			const providerId = provider.id;
-			const runs = yield* Ref.make<ReadonlyArray<string>>([]);
 			const translations = yield* Ref.make<ReadonlyArray<RequestFillInput>>([]);
 			const latest = (
 				entityId: EntityId,
@@ -117,7 +117,7 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 					.latest({
 						entityId,
 						operation,
-						requester: user.accountGeneration,
+						requester: user.id,
 						...(level ? { level } : {}),
 						...(operation === "translation" ? { language: "es" } : {}),
 					})
@@ -125,7 +125,6 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 			const fixture = (trigger: EntityPopulationTrigger["Service"]) =>
 				RetryFixture.of({
 					latest,
-					runs: Ref.get(runs),
 					translations: Ref.get(translations),
 					pluginId: PluginId.make(installed.pluginId),
 					markFailed: (entityId) =>
@@ -133,7 +132,18 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 							const row = yield* latest(entityId);
 							assert(row);
 							yield* requests.update(row.id, { state: "failed", failureKind: "script-failure" });
-						}).pipe(Effect.orDie),
+						}).pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
+					runs: session
+						.run((db) =>
+							db
+								.select({ key: tables.job.key })
+								.from(tables.job)
+								.where(eq(tables.job.kind, EntityPopulationJob.name)),
+						)
+						.pipe(
+							Effect.map((rows) => rows.flatMap((row) => (row.key === null ? [] : [row.key]))),
+							Effect.orDie,
+						),
 					reconcilerRequest: (entityId, externalId) =>
 						userPopulationRequest({
 							entityId,
@@ -141,10 +151,10 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 							providerId,
 							userId: null,
 							initiator: owner.id,
+							accountUserId: owner.id,
 							execution: { level: "full" },
 							entitySchemaSlug: rootSchemaSlug,
 							entitySchemaPluginId: installed.pluginId,
-							accountGeneration: owner.accountGeneration,
 						}).pipe(Effect.flatMap(trigger.request), Effect.asVoid, Effect.orDie),
 					seed: (input) =>
 						Effect.gen(function* () {
@@ -172,15 +182,14 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 									entityId,
 									providerId,
 									payload: {},
+									requester: owner.id,
 									id: `initial-${entityId}`,
 									sourceContentGeneration: 1,
 									externalId: input.externalId,
 									pluginId: installed.pluginId,
 									entitySchemaSlug: rootSchemaSlug,
 									scopeUserId: input.userId ?? null,
-									requester: owner.accountGeneration,
 									language: translation ? "es" : null,
-									workflowName: "TestEnrichmentWorkflow",
 									operation: input.operation ?? "population",
 									level: translation ? null : (input.level ?? "full"),
 								});
@@ -190,7 +199,7 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 								});
 							}
 							return entityId;
-						}).pipe(Effect.orDie),
+						}).pipe(Effect.provideService(DatabaseSession, session), Effect.orDie),
 				});
 			const translationLayer = Layer.mock(TranslationsService)({
 				requestFill: (input) =>
@@ -207,6 +216,7 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 							level: null,
 							payload: input,
 							scopeUserId: null,
+							requester: input.userId,
 							entityId: input.entityId,
 							operation: "translation",
 							language: input.language,
@@ -215,8 +225,6 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 							externalId: input.externalId,
 							pluginId: installed.pluginId,
 							entitySchemaSlug: rootSchemaSlug,
-							requester: input.accountGeneration,
-							workflowName: "TestTranslationWorkflow",
 							...(input.retryOf ? { retryOf: input.retryOf } : {}),
 						});
 						return admitted.id === id;
@@ -233,24 +241,11 @@ const retryLayer = (pluginOwner: null | UserId = null) =>
 				),
 				Layer.provideMerge(EntitiesRepository.layer),
 				Layer.provide(translationLayer),
-				Layer.provide(
-					Layer.succeed(
-						WorkflowEngine,
-						makeWorkflowEngine({
-							execute: (_workflow, input) =>
-								Ref.update(runs, (all) =>
-									all.includes(input.executionId) ? all : [...all, input.executionId],
-								),
-						}),
-					),
-				),
+				Layer.provide(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 			);
 		}),
 	).pipe(
-		Layer.provideMerge(EnrichmentRequests.layer),
-		Layer.provide(
-			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
-		),
+		Layer.provideMerge(Layer.merge(EnrichmentRequests.layer, JobQueue.layer)),
 		Layer.provideMerge(revisionDatabaseLayer),
 		Layer.provide(makeAppConfigLayer()),
 	);
@@ -299,7 +294,7 @@ layer(retryLayer())((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"creates one full retry under the caller's generation and preserves the failed request",
+		"creates one full retry and preserves the failed request",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* RetryFixture;
@@ -317,12 +312,7 @@ layer(retryLayer())((test) => {
 					enrichmentRequestId: null,
 				});
 				const admitted = yield* fixture.latest(entityId);
-				expect(admitted).toMatchObject({
-					level: "full",
-					state: "queued",
-					retryOf: failed.id,
-					requesterGeneration: owner.accountGeneration.token,
-				});
+				expect(admitted).toMatchObject({ level: "full", state: "queued", retryOf: failed.id });
 				expect(admitted?.id).not.toBe(failed.id);
 				expect(yield* (yield* EnrichmentRequests).get(failed.id)).toEqual(failed);
 			}),
@@ -371,12 +361,11 @@ layer(retryLayer())((test) => {
 					payload: {},
 					level: "base",
 					language: null,
+					requester: owner.id,
 					operation: "population",
 					pluginId: failedFull.pluginId,
 					id: `base-success-${entityId}`,
 					externalId: failedFull.externalId,
-					requester: owner.accountGeneration,
-					workflowName: "TestEnrichmentWorkflow",
 					entitySchemaSlug: failedFull.entitySchemaSlug,
 					providerId: SandboxProviderId.make(failedFull.providerId),
 					sourceContentGeneration: failedFull.sourceContentGeneration,
@@ -424,24 +413,6 @@ layer(retryLayer())((test) => {
 					});
 					expect(yield* fixture.runs).toEqual(before);
 				}
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"does not retry another account generation's failure",
-		() =>
-			Effect.gen(function* () {
-				const fixture = yield* RetryFixture;
-				const entityId = yield* fixture.seed({ externalId: "previous-generation" });
-				const reset = {
-					...owner,
-					accountGeneration: { userId: owner.id, token: "reset-generation" },
-				};
-				expect(yield* retry(reset, entityId, fixture.pluginId)).toEqual({
-					enrichmentRequestId: null,
-				});
-				expect(yield* fixture.latest(entityId)).toMatchObject({ state: "failed" });
 			}),
 		testTimeout,
 	);

@@ -10,10 +10,10 @@ import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
 import { EntityProvidersApi } from "#/api/entity-providers";
-import { EntityWatchApi } from "#/api/entity-watches";
 import { ImportsApi } from "#/api/imports";
 import { InstanceAdminApi } from "#/api/instance-admin";
 import { IntegrationsApi } from "#/api/integrations";
+import { LiveUpdatesApi } from "#/api/live-updates";
 import { NotificationsApi } from "#/api/notifications";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PagesApi } from "#/api/pages";
@@ -42,7 +42,7 @@ export const TransportLive = Layer.mergeAll(
 export const ApiLive = Layer.mergeAll(
 	AutomationsApi.layer,
 	PublicApi.layer,
-	EntityWatchApi.layer,
+	LiveUpdatesApi.layer,
 	RyotQLApi.layer,
 	BackupsApi.layer,
 	PagesApi.layer,

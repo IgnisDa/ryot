@@ -272,7 +272,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 					}
 					const [account] = yield* session.run((db) => {
 						const query = db
-							.select({ disabledAt: tables.user.disabledAt, token: tables.user.accountGeneration })
+							.select({ disabledAt: tables.user.disabledAt })
 							.from(tables.user)
 							.where(eq(tables.user.id, userId))
 							.limit(1);
@@ -281,8 +281,7 @@ export class DomainWriteChecks extends Context.Service<DomainWriteChecks>()(
 					if (
 						!account ||
 						(account.disabledAt !== null && !isUserBootstrapPrincipal(principal)) ||
-						principal.subject.type === "system" ||
-						account.token !== principal.subject.accountGeneration?.token
+						principal.subject.type === "system"
 					) {
 						return yield* new DbError({
 							message: "Current domain write account authority is unavailable",

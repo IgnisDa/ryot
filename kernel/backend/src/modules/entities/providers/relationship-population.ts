@@ -90,6 +90,7 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 		groupIndex: number;
 		pluginId: PluginId;
 		primaryEntityId: EntityId;
+		kept: ReadonlySet<EntityId>;
 		command: DomainLifecycleCommand;
 		population: AutomationPopulationContext;
 		definitions: EntityRelationshipDefinitions;
@@ -124,11 +125,9 @@ export const sweepRelatedEntityGroup = Effect.fn("sweepRelatedEntityGroup")(func
 				const work = yield* persistPlannedRelationshipPage({
 					...scope,
 					entries: [],
-					kind: "sweep",
-					preserveExisting: false,
-					generation: input.generation,
 					direction: input.group.direction,
 					anchorEntityId: input.primaryEntityId,
+					paging: { kind: "sweep", kept: input.kept },
 					relationshipSchemaSlug: relationshipSchema.id,
 					relationshipSchemaPluginId: relationshipSchema.pluginId,
 					command: {
@@ -284,7 +283,13 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 						paging.generation,
 					))
 				) {
-					return { result: [], superseded: true, entityDispatch: [], relationshipDispatch: [] };
+					return {
+						result: [],
+						superseded: true,
+						entityDispatch: [],
+						relatedEntityIds: [],
+						relationshipDispatch: [],
+					};
 				}
 				const upserts = yield* entities.persistPlannedProviderUpserts({
 					batch: {
@@ -336,20 +341,19 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 				const relationshipWork = yield* persistPlannedRelationshipPage({
 					...scope,
 					entries,
-					kind: "page",
 					command: relationshipCommand,
-					generation: paging.generation,
 					direction: input.group.direction,
 					anchorEntityId: input.primaryEntityId,
 					relationshipSchemaSlug: relationshipSchema.id,
 					relationshipSchemaPluginId: relationshipSchema.pluginId,
-					preserveExisting: input.group.synchronization === "additive",
+					paging: { kind: "page", preserveExisting: input.group.synchronization === "additive" },
 				});
 				return {
 					entityDispatch,
 					superseded: false,
 					result: relationshipWork.result,
 					relationshipDispatch: relationshipWork.dispatch,
+					relatedEntityIds: entries.map(({ entityId }) => entityId),
 				};
 			}),
 		),
@@ -357,6 +361,7 @@ export const syncRelatedEntityGroup = Effect.fn("syncRelatedEntityGroup")(functi
 	return {
 		result: committed.result,
 		superseded: committed.superseded,
+		relatedEntityIds: committed.relatedEntityIds,
 		dispatch: [...committed.entityDispatch, ...committed.relationshipDispatch],
 	};
 });

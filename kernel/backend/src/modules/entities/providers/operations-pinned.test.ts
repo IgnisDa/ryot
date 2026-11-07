@@ -41,7 +41,7 @@ import {
 import type { EntityImportPayload } from "./schemas";
 
 const userId = UserId.make("owner");
-const accountGeneration = { userId, token: "test-account-generation" };
+const accountUserId = userId;
 
 const providerPackage = (version: string, packageId?: Parameters<typeof revisionPackage>[3]) => {
 	const source = revisionPackage("retained", version, undefined, packageId);
@@ -123,7 +123,7 @@ for (const scope of ["system", "user"] as const) {
 					});
 					assert(foreignProvider);
 					const details = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-					const subject = { userId, accountGeneration, type: "user" as const };
+					const subject = { userId, type: "user" as const };
 					const pin = yield* registry.getScriptPin(details.id, undefined, subject);
 					assert(pin?.pluginRevision);
 					const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
@@ -139,7 +139,7 @@ for (const scope of ["system", "user"] as const) {
 						entityScope: { userId, type: scope === "user" ? "user" : "global" },
 						command: {
 							...rootLifecycleCommand({
-								accountGeneration,
+								accountUserId,
 								lane: "background",
 								source: "provider-refresh",
 								itemIdentity: "retained-provider",
@@ -203,7 +203,7 @@ for (const scope of ["system", "user"] as const) {
 						yield* service.processProviderResolve(
 							{
 								userId,
-								accountGeneration,
+								accountUserId,
 								value: "remote-id",
 								lane: "background",
 								providerId: provider.id,

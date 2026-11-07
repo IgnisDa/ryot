@@ -11,7 +11,7 @@ import {
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -37,22 +37,22 @@ import { ScriptExecutionServiceLive } from "#modules/scripts/layer";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
+import { JobQueue } from "#platform/jobs/queue";
 import * as tables from "#schema/tables/combined";
-import { makeAppConfigLayer, makeRedisService, makeWorkflowEngine } from "#testing/effect";
+import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
+import { EntityPopulationJob, ProviderEntityPopulationPayload } from "./population-job";
 import { EntityPopulationTriggerLive } from "./population-trigger-live";
-import { ProviderEntityPopulationPayload } from "./provider-entity-population-workflow";
 
 const userId = UserId.make("population-trigger-user");
-type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
+type QueuedExecution = { readonly payload: unknown; readonly executionId: string };
 
 class PopulationFixture extends Context.Service<
 	PopulationFixture,
 	{
 		readonly request: PopulationRequest;
-		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
-		readonly dispatchTransactions: Effect.Effect<ReadonlyArray<boolean>>;
+		readonly executionIds: Effect.Effect<ReadonlyArray<string>>;
+		readonly executions: Effect.Effect<ReadonlyArray<QueuedExecution>>;
 		readonly admissionTransactions: Effect.Effect<ReadonlyArray<boolean>>;
 	}
 >()(
@@ -64,7 +64,6 @@ const triggerLayer = (
 	options: {
 		readonly unavailable?: boolean;
 		readonly globalEntity?: boolean;
-		readonly enqueueFails?: boolean;
 		readonly systemSubject?: boolean;
 		readonly admissionFails?: boolean;
 		readonly staleRequestLookup?: boolean;
@@ -76,12 +75,7 @@ const triggerLayer = (
 			yield* session.run((db) =>
 				db
 					.insert(tables.user)
-					.values({
-						id: userId,
-						name: "Trigger",
-						email: "population-trigger@example.test",
-						accountGeneration: "test-account-generation",
-					}),
+					.values({ id: userId, name: "Trigger", email: "population-trigger@example.test" }),
 			);
 			const installed = yield* installRevisionPackage(
 				revisionPackage("population-trigger", "one", "record"),
@@ -121,11 +115,11 @@ const triggerLayer = (
 						})),
 					),
 			);
-			const accountGeneration = { userId, token: "test-account-generation" };
+			const accountUserId = userId;
 			const userCommand = {
 				...rootLifecycleCommand({
 					source: "api",
-					accountGeneration,
+					accountUserId,
 					lane: "interactive",
 					itemIdentity: "populate",
 					occurredAt: "2026-09-16T00:00:00.000Z",
@@ -144,7 +138,7 @@ const triggerLayer = (
 				command = {
 					...rootLifecycleCommand({
 						lane: "background",
-						accountGeneration: null,
+						accountUserId: null,
 						itemIdentity: "populate",
 						source: "provider-refresh",
 						occurredAt: "2026-09-16T00:00:00.000Z",
@@ -171,9 +165,7 @@ const triggerLayer = (
 				entitySchemaSlug: EntitySchemaSlug.make("record"),
 				userId: options.systemSubject || options.globalEntity ? null : userId,
 			};
-			const executions = yield* Ref.make<ReadonlyArray<ExecuteOptions>>([]);
 			const admissionTransactions = yield* Ref.make<ReadonlyArray<boolean>>([]);
-			const dispatchTransactions = yield* Ref.make<ReadonlyArray<boolean>>([]);
 			const requestLayer = Layer.effect(
 				EnrichmentRequests,
 				Effect.gen(function* () {
@@ -196,48 +188,67 @@ const triggerLayer = (
 					};
 				}),
 			).pipe(Layer.provide(EnrichmentRequests.layer));
-			const engine = makeWorkflowEngine({
-				execute: (_workflow, input) =>
-					Effect.gen(function* () {
-						const active = yield* session.isTransactionActive;
-						yield* Ref.update(dispatchTransactions, (all) => [...all, active]);
-						yield* Ref.update(executions, (all) => [...all, input]);
-						if (options.enqueueFails) {
-							return yield* Effect.die("enqueue failed");
-						}
-						return undefined;
-					}),
-			});
 			return EntityPopulationTriggerLive.pipe(
 				Layer.provide(Layer.merge(ScriptExecutionServiceLive, DomainWriteChecksLive)),
 				Layer.provideMerge(requestLayer),
-				Layer.provide(
-					Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
-				),
-				Layer.provideMerge(Layer.succeed(WorkflowEngine, engine)),
+				Layer.provideMerge(JobQueue.layer),
+				Layer.provideMerge(Layer.succeed(WorkflowEngine, makeWorkflowEngine())),
 				Layer.merge(
 					Layer.succeed(PopulationFixture, {
 						request,
-						executions: Ref.get(executions),
-						dispatchTransactions: Ref.get(dispatchTransactions),
 						admissionTransactions: Ref.get(admissionTransactions),
+						executionIds: session
+							.run((db) =>
+								db
+									.select({ executionId: tables.job.key })
+									.from(tables.job)
+									.where(eq(tables.job.kind, EntityPopulationJob.name))
+									.orderBy(asc(tables.job.createdAt)),
+							)
+							.pipe(
+								Effect.orDie,
+								Effect.map((rows) => rows.map(({ executionId }) => executionId ?? "")),
+							),
+						executions: session
+							.run((db) =>
+								db
+									.select({
+										executionId: tables.job.key,
+										payload: tables.entityEnrichmentRequest.payload,
+									})
+									.from(tables.job)
+									.innerJoin(
+										tables.entityEnrichmentRequest,
+										eq(tables.entityEnrichmentRequest.id, tables.job.key),
+									)
+									.where(eq(tables.job.kind, EntityPopulationJob.name))
+									.orderBy(asc(tables.job.createdAt)),
+							)
+							.pipe(
+								Effect.orDie,
+								Effect.map((rows) =>
+									rows.map(({ payload, executionId }) => ({
+										payload,
+										executionId: executionId ?? "",
+									})),
+								),
+							),
 					}),
 				),
 			);
 		}),
 	).pipe(Layer.provideMerge(revisionDatabaseLayer), Layer.provide(makeAppConfigLayer()));
 
-layer(triggerLayer("system", { enqueueFails: true, systemSubject: true }))((test) => {
+layer(triggerLayer("system", { systemSubject: true }))((test) => {
 	test.effect(
-		"keeps a deterministic system ID and exposes enqueue failure",
+		"queues a system request under a deterministic ID",
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* PopulationFixture;
-				const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
+				yield* (yield* EntityPopulationTrigger).request(fixture.request);
 				expect((yield* fixture.executions).map(({ executionId }) => executionId)).toEqual([
 					entityPopulationExecutionId(fixture.request.entityId, null, fixture.request.execution),
 				]);
-				expect(Exit.isFailure(exit)).toBe(true);
 			}),
 		testTimeout,
 	);
@@ -270,7 +281,7 @@ for (const scope of ["system", "user"] as const) {
 						expect(Exit.isFailure(exit)).toBe(true);
 						const executionId = entityPopulationExecutionId(
 							fixture.request.entityId,
-							fixture.request.command.accountGeneration,
+							fixture.request.command.accountUserId,
 							fixture.request.execution,
 						);
 						expect(yield* (yield* EnrichmentRequests).get(executionId)).toBeNull();
@@ -284,30 +295,6 @@ for (const scope of ["system", "user"] as const) {
 	);
 }
 
-layer(triggerLayer("user", { enqueueFails: true }))((test) => {
-	test.effect(
-		"retains committed population admission and registration when dispatch fails",
-		() =>
-			Effect.gen(function* () {
-				const fixture = yield* PopulationFixture;
-				const exit = yield* Effect.exit((yield* EntityPopulationTrigger).request(fixture.request));
-				expect(Exit.isFailure(exit)).toBe(true);
-				const [execution] = yield* fixture.executions;
-				assert(execution);
-				const request = yield* (yield* EnrichmentRequests).get(execution.executionId);
-				expect(request?.state).toBe("queued");
-				expect(
-					yield* Schema.decodeUnknownEffect(ProviderEntityPopulationPayload)(request?.payload),
-				).toEqual<unknown>(execution.payload);
-				const references = yield* (yield* SandboxWorkflowReferenceRepository).listReferences();
-				expect(references.map(({ executionId }) => executionId)).toEqual([execution.executionId]);
-				expect(yield* fixture.admissionTransactions).toEqual([true]);
-				expect(yield* fixture.dispatchTransactions).toEqual([false]);
-			}),
-		testTimeout,
-	);
-});
-
 layer(triggerLayer("user"))((test) => {
 	test.effect(
 		"rolls back population admission when its registration conflicts",
@@ -318,7 +305,7 @@ layer(triggerLayer("user"))((test) => {
 				const session = yield* DatabaseSession;
 				const executionId = entityPopulationExecutionId(
 					fixture.request.entityId,
-					fixture.request.command.accountGeneration,
+					fixture.request.command.accountUserId,
 					fixture.request.execution,
 				);
 				const search = yield* (yield* PluginRuntimeResolver).resolveUserSearchScript(
@@ -378,10 +365,9 @@ layer(triggerLayer("user", { staleRequestLookup: true }))((test) => {
 						command: { ...fixture.request.command, occurredAt: "2026-09-17T00:00:00.000Z" },
 					}),
 				).toBe(true);
-				expect(yield* fixture.executions).toEqual([original, original]);
+				expect(yield* fixture.executionIds).toEqual([original.executionId]);
 				expect(yield* references.listReferences()).toEqual(registrations);
 				expect(yield* fixture.admissionTransactions).toEqual([true, true]);
-				expect(yield* fixture.dispatchTransactions).toEqual([false, false]);
 			}),
 		testTimeout,
 	);
@@ -403,7 +389,7 @@ for (const state of ["succeeded", "failed", "cancelled"] as const) {
 					yield* references.release(original.executionId);
 					expect(yield* trigger.request(fixture.request)).toBe(false);
 					expect(yield* references.listReferences()).toEqual([]);
-					expect(yield* fixture.executions).toEqual([original]);
+					expect(yield* fixture.executionIds).toEqual([original.executionId]);
 					expect(yield* fixture.admissionTransactions).toEqual([true, true]);
 				}),
 			testTimeout,
@@ -535,7 +521,7 @@ layer(triggerLayer("user"))((test) => {
 						command: { ...fixture.request.command, occurredAt: "2026-09-17T00:00:00.000Z" },
 					}),
 				).toBe(true);
-				expect(yield* fixture.executions).toEqual([original, original]);
+				expect(yield* fixture.executionIds).toEqual([original.executionId]);
 				expect(yield* references.listReferences()).toEqual(registrations);
 				const persisted = yield* requests.get(original.executionId);
 				expect(persisted?.payload).toEqual(originalRequest.payload);
@@ -560,7 +546,7 @@ for (const state of ["succeeded", "failed", "cancelled"] as const) {
 					yield* requests.update(original.executionId, { state });
 					yield* references.release(original.executionId);
 					expect(yield* trigger.request(fixture.request)).toBe(false);
-					expect(yield* fixture.executions).toEqual([original]);
+					expect(yield* fixture.executionIds).toEqual([original.executionId]);
 					expect(yield* references.listReferences()).toEqual([]);
 				}),
 			testTimeout,
@@ -584,7 +570,7 @@ layer(triggerLayer("user"))((test) => {
 				const winner = yield* userPopulationRequest({
 					...fixture.request,
 					initiator: userId,
-					accountGeneration: { userId, token: "test-account-generation" },
+					accountUserId: userId,
 					execution: { level: "full", attempt: "winner", retryOf: predecessor.executionId },
 				});
 				expect(yield* trigger.request(winner)).toBe(true);
@@ -597,28 +583,26 @@ layer(triggerLayer("user"))((test) => {
 				const loser = yield* userPopulationRequest({
 					...winner,
 					initiator: userId,
+					accountUserId: userId,
 					execution: { ...winner.execution, attempt: "loser" },
-					accountGeneration: { userId, token: "test-account-generation" },
 				});
 				expect(yield* trigger.request(loser)).toBe(false);
-				expect(yield* fixture.executions).toEqual([
-					predecessor,
-					winningExecution,
-					winningExecution,
+				expect(yield* fixture.executionIds).toEqual([
+					predecessor.executionId,
+					winningExecution.executionId,
 				]);
 				expect(yield* references.listReferences()).toEqual(winningReferences);
 				const losingId = entityPopulationExecutionId(
 					loser.entityId,
-					loser.command.accountGeneration,
+					loser.command.accountUserId,
 					loser.execution,
 				);
 				expect(yield* requests.get(losingId)).toBeNull();
 				yield* requests.update(winningExecution.executionId, { state: "succeeded" });
 				expect(yield* trigger.request(loser)).toBe(false);
-				expect(yield* fixture.executions).toEqual([
-					predecessor,
-					winningExecution,
-					winningExecution,
+				expect(yield* fixture.executionIds).toEqual([
+					predecessor.executionId,
+					winningExecution.executionId,
 				]);
 				expect(yield* references.listReferences()).toEqual(winningReferences);
 				expect(yield* requests.get(losingId)).toBeNull();
@@ -634,7 +618,7 @@ layer(triggerLayer("system"))((test) => {
 			Effect.gen(function* () {
 				const fixture = yield* PopulationFixture;
 				const trigger = yield* EntityPopulationTrigger;
-				const accountGeneration = { userId, token: "test-account-generation" };
+				const accountUserId = userId;
 				const executions: ReadonlyArray<PopulationExecution> = [
 					{ level: "base" },
 					{ level: "full" },
@@ -643,7 +627,7 @@ layer(triggerLayer("system"))((test) => {
 				for (const [index, execution] of executions.entries()) {
 					const request = yield* userPopulationRequest({
 						execution,
-						accountGeneration,
+						accountUserId,
 						initiator: userId,
 						externalId: `record-${index}`,
 						userId: fixture.request.userId,
@@ -656,7 +640,7 @@ layer(triggerLayer("system"))((test) => {
 					const dispatched = (yield* fixture.executions)[index];
 					const expectedId = entityPopulationExecutionId(
 						EntityId.make(`entity-${index}`),
-						accountGeneration,
+						accountUserId,
 						execution,
 					);
 					expect(dispatched?.executionId).toBe(expectedId);

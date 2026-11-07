@@ -75,15 +75,15 @@ export const persistPlannedRelationshipSynchronization = Effect.fn(
 export const persistPlannedRelationshipPage = Effect.fn("persistPlannedRelationshipPage")(
 	function* (
 		input: ({ scope: "global" } | { scope: "user"; userId: UserId }) & {
-			generation: string;
-			kind: "page" | "sweep";
 			anchorEntityId: EntityId;
-			preserveExisting: boolean;
 			command: DomainLifecycleCommand;
 			direction: "incoming" | "outgoing";
 			relationshipSchemaPluginId: null | string;
 			entries: ReadonlyArray<RelationshipEntry>;
 			relationshipSchemaSlug: RelationshipSchemaSlug;
+			paging:
+				| { readonly kind: "page"; readonly preserveExisting: boolean }
+				| { readonly kind: "sweep"; readonly kept: ReadonlySet<string> };
 		},
 	) {
 		const relationships = yield* RelationshipsService;
@@ -94,15 +94,11 @@ export const persistPlannedRelationshipPage = Effect.fn("persistPlannedRelations
 		return yield* relationships.persistPlannedReconciliation(
 			[
 				{
+					paging: input.paging,
 					selector: {
 						type: "anchored",
 						direction: input.direction,
 						anchorEntityId: input.anchorEntityId,
-					},
-					generation: {
-						kind: input.kind,
-						value: input.generation,
-						preserveExisting: input.preserveExisting,
 					},
 					relationshipSchema: {
 						slug: input.relationshipSchemaSlug,

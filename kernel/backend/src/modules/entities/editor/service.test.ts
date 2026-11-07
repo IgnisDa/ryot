@@ -202,12 +202,7 @@ const setup = Effect.fnUntraced(function* (options: { readonly policy?: boolean 
 	yield* session.run((db) =>
 		db
 			.insert(tables.user)
-			.values({
-				id: otherUser,
-				name: "Other",
-				email: "other@example.test",
-				accountGeneration: "test-account-generation",
-			})
+			.values({ id: otherUser, name: "Other", email: "other@example.test" })
 			.onConflictDoNothing(),
 	);
 	const installed = yield* installRevisionPackage(editorPackage(options), userId);
@@ -277,7 +272,7 @@ const submitEdit = (
 ) =>
 	editor.submit({
 		userId,
-		accountGeneration: { userId, token: "test-account-generation" },
+		accountUserId: userId,
 		request: { idempotencyKey, submission: input, submittedAt: "2026-10-13T00:00:00.000Z" },
 	});
 
@@ -325,7 +320,7 @@ const submitDelete = (
 ) =>
 	editor.submit({
 		userId: user,
-		accountGeneration: { userId: user, token: "test-account-generation" },
+		accountUserId: user,
 		request: {
 			idempotencyKey,
 			submittedAt: "2026-10-13T00:00:00.000Z",
@@ -1190,14 +1185,7 @@ describe("EntityEditorService", () => {
 			const { owner, installed } = yield* setup();
 			const installations = yield* PluginInstallationRepository;
 			yield* (yield* DatabaseSession).run((db) =>
-				db
-					.insert(tables.user)
-					.values({
-						id: "owner",
-						name: "Owner",
-						email: "owner@example.test",
-						accountGeneration: "test-account-generation",
-					}),
+				db.insert(tables.user).values({ id: "owner", name: "Owner", email: "owner@example.test" }),
 			);
 			const system = yield* installRevisionPackage(editorPackage());
 			for (const user of [userId, otherUser]) {
@@ -1229,11 +1217,7 @@ describe("EntityEditorService", () => {
 				submission: submission(pluginId, { target: { kind: "create" }, ...overrides }),
 			});
 			const submitAs = (user: UserId, value: EntityEditorSaveRequest) =>
-				editor.submit({
-					userId: user,
-					request: value,
-					accountGeneration: { userId: user, token: "test-account-generation" },
-				});
+				editor.submit({ userId: user, request: value, accountUserId: user });
 
 			const first = yield* submitAs(userId, request(owner));
 			assert(first.output.kind === "saved");

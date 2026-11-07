@@ -24,7 +24,6 @@ const user = {
 	name: "Test User",
 	id: realSandboxUserId,
 	email: "user@example.com",
-	accountGeneration: { userId: realSandboxUserId, token: "test-account-generation" },
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
 } satisfies CurrentUserValue;
 

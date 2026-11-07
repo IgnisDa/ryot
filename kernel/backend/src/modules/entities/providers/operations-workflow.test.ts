@@ -102,6 +102,7 @@ const executed: Array<{ runIds: string[]; triggerId: string }> = [];
 let inTransaction = false;
 const database = DatabaseSession.of({
 	requireRoot: Effect.void,
+	detached: (work) => work,
 	requireTransaction: Effect.void,
 	carry: Effect.succeed((work) => work),
 	acquireUserWriteLock: () => Effect.void,
@@ -168,10 +169,10 @@ layer(
 				rootLifecycleCommand({
 					occurredAt: now,
 					lane: "background",
+					accountUserId: userId,
 					source: "provider-refresh",
 					itemIdentity: "provider-refresh-item",
 					initiator: { id: userId, kind: "user" },
-					accountGeneration: { userId, token: "test-account-generation" },
 					executionId: AutomationExecutionId.make("provider-refresh-command"),
 					providerExecutionId: AutomationExecutionId.make("provider-refresh-execution"),
 				}),
@@ -179,21 +180,21 @@ layer(
 					occurredAt: now,
 					source: "import",
 					lane: "background",
+					accountUserId: userId,
 					itemIdentity: "import-item",
 					initiator: { id: userId, kind: "user" },
 					importRunId: ImportRunId.make("import-1"),
 					executionId: AutomationExecutionId.make("import-command"),
-					accountGeneration: { userId, token: "test-account-generation" },
 				}),
 				rootLifecycleCommand({
 					occurredAt: now,
 					lane: "background",
 					source: "integration",
+					accountUserId: userId,
 					itemIdentity: "integration-item",
 					importRunId: ImportRunId.make("import-2"),
 					integrationId: IntegrationId.make("integration-1"),
 					executionId: AutomationExecutionId.make("integration-command"),
-					accountGeneration: { userId, token: "test-account-generation" },
 					initiator: { kind: "integration", id: IntegrationId.make("integration-1") },
 				}),
 			];

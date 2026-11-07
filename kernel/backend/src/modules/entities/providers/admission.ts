@@ -46,12 +46,11 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 			const start = (row: { id: string; payload: unknown }) =>
 				decodePayload(row.payload).pipe(
 					Effect.flatMap((payload) =>
-						dispatchAdmittedWorkflow(
-							engine,
-							EntityImportWorkflow,
-							payload.command.accountGeneration,
-							{ payload, discard: true, executionId: row.id },
-						),
+						dispatchAdmittedWorkflow(engine, EntityImportWorkflow, payload.command.accountUserId, {
+							payload,
+							discard: true,
+							executionId: row.id,
+						}),
 					),
 				);
 
@@ -134,8 +133,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 				userId: UserId;
 				payload: ProviderEntityImportWorkflowPayload;
 			}) {
-				const generation = input.payload.command.accountGeneration;
-				if (!generation || generation.userId !== input.userId) {
+				if (input.payload.command.accountUserId !== input.userId) {
 					return yield* new DbError({
 						message: "Provider import account authority is unavailable",
 					});
@@ -144,7 +142,7 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 					{ sandbox, pluginRuntime: runtime },
 					{
 						userId: input.userId,
-						accountGeneration: generation,
+						accountUserId: input.userId,
 						pluginId: input.payload.pluginId,
 						providerId: input.payload.providerId,
 						executionId: input.payload.executionId,

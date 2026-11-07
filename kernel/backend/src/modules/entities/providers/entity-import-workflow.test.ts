@@ -24,7 +24,6 @@ import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -51,21 +50,12 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
 import * as tables from "#schema/tables/combined";
-import {
-	makeRedisService,
-	makeWorkflowActivityEngine,
-	workflowAccountsTestLayer,
-} from "#testing/effect";
+import { workflowAccountsTestLayer } from "#testing/effect";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
 import { writeChildEntitySet } from "./population";
-import {
-	type ProviderEntityPopulationAttemptPayload,
-	ProviderEntityPopulationAttemptWorkflow,
-	runProviderEntityPopulationAttemptWorkflow,
-} from "./provider-entity-population-workflow";
+import { type PopulationWritePayload, runPopulationAttempt } from "./population-job";
 
 const now = IsoUtcString.make("2026-09-16T00:00:00.000Z");
 const userId = UserId.make("user-1");
@@ -81,11 +71,11 @@ const command = {
 	...rootLifecycleCommand({
 		occurredAt: now,
 		lane: "background",
+		accountUserId: userId,
 		source: "provider-refresh",
 		itemIdentity: "provider-population",
 		initiator: { id: userId, kind: "user" },
 		executionId: AutomationExecutionId.make("provider-population"),
-		accountGeneration: { userId, token: "test-account-generation" },
 		providerExecutionId: AutomationExecutionId.make("provider-workflow"),
 	}),
 	writeContext: null,
@@ -477,8 +467,8 @@ layer(providerWritesLayer({ reconciled: { result: [], dispatch: [] } }))((it) =>
 class FakeRootPopulation extends Context.Service<
 	FakeRootPopulation,
 	{
+		readonly payload: PopulationWritePayload;
 		readonly postCommitCount: Effect.Effect<number>;
-		readonly payload: ProviderEntityPopulationAttemptPayload;
 		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 	}
 >()(
@@ -491,12 +481,7 @@ const rootPopulationLayer = Layer.unwrap(
 		yield* session.run((db) =>
 			db
 				.insert(tables.user)
-				.values({
-					id: userId,
-					name: "User",
-					email: "root-population@example.test",
-					accountGeneration: "test-account-generation",
-				}),
+				.values({ id: userId, name: "User", email: "root-population@example.test" }),
 		);
 		const installed = yield* installRevisionPackage(
 			revisionPackage("root-population", "v1", rootSchemaSlug),
@@ -511,18 +496,14 @@ const rootPopulationLayer = Layer.unwrap(
 			return yield* Effect.die("Missing provider fixture");
 		}
 		const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-		const subject = {
-			userId,
-			type: "user" as const,
-			accountGeneration: { userId, token: "test-account-generation" },
-		};
+		const subject = { userId, type: "user" as const };
 		const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
 		if (!pin?.pluginRevision) {
 			return yield* Effect.die("Missing provider fixture pin");
 		}
 		const { readPinnedRows } = yield* DefinitionRepository.make;
 		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
-		const payload: ProviderEntityPopulationAttemptPayload = {
+		const payload: PopulationWritePayload = {
 			level: "full",
 			mode: "refresh",
 			requestAttempt: 1,
@@ -537,23 +518,17 @@ const rootPopulationLayer = Layer.unwrap(
 		};
 		const transaction = yield* makeTransaction<DomainLifecycleCommand>(session);
 		const postCommitCount = yield* Ref.make(0);
-		const instance = WorkflowInstance.initial(
-			ProviderEntityPopulationAttemptWorkflow,
-			"population-root",
-		);
 		return Layer.mergeAll(
 			Layer.mock(EnrichmentRequests)({
 				attachEntity: () => Effect.void,
 				guardPopulation: () => Effect.void,
 				recordBaseCheck: () => Effect.void,
+				requesterIds: () => Effect.succeed([]),
 			}),
 			transaction.database,
 			DomainWriteChecksLive.pipe(Layer.provide(transaction.database)),
 			Layer.mock(DefinitionRepository)({ ...definitionMethods, readPinnedRows }),
-			Layer.succeed(WorkflowInstance, instance),
-			Layer.succeed(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 			workflowAccountsTestLayer,
-			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
 			Layer.mock(PluginRuntimeResolver)({}),
 			Layer.mock(RelationshipsRepository)({}),
 			Layer.mock(RelationshipsService)({
@@ -639,10 +614,7 @@ layer(rootPopulationLayer)((it) => {
 			return Effect.gen(function* () {
 				const fake = yield* FakeRootPopulation;
 				const payload = fake.payload;
-				const result = yield* runProviderEntityPopulationAttemptWorkflow(
-					payload,
-					payload.executionId,
-				);
+				const result = yield* runPopulationAttempt(payload, payload.executionId);
 				const commands = yield* fake.commands;
 				expect(result.populatedAt).not.toBeNull();
 				expect(commands).toHaveLength(2);

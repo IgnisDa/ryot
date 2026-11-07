@@ -1,6 +1,6 @@
 import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
-import type { EntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
+import type { EntityUpdatedMessage } from "@ryot-app/contract/modules/live-updates/messages";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {

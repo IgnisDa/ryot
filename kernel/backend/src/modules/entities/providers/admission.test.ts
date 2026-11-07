@@ -176,11 +176,11 @@ const submit = (executionId: string, userId: UserId) =>
 					...rootLifecycleCommand({
 						source: "api",
 						lane: "interactive",
+						accountUserId: userId,
 						itemIdentity: executionId,
 						initiator: { id: userId, kind: "user" },
 						executionId: AutomationExecutionId.make(executionId),
 						occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
-						accountGeneration: { userId, token: "test-account-generation" },
 					}),
 					writeContext: null,
 				},

@@ -31,11 +31,11 @@ const command = {
 	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: userId,
 		itemIdentity: "relationship-sync",
 		initiator: { id: userId, kind: "user" },
 		occurredAt: IsoUtcString.make("2026-09-16T00:00:00.000Z"),
 		executionId: AutomationExecutionId.make("relationship-sync"),
-		accountGeneration: { userId, token: "test-account-generation" },
 	}),
 	writeContext: null,
 };

@@ -108,10 +108,10 @@ system share sheet. The temporary directory is removed after completion or failu
 obtain their bearer header inside `BackupsApi`; server-log downloads keep their admin-token header
 inside `AdminApi`.
 
-`EntityWatchService` opens no socket when a client is constructed. The authenticated layout owns
+`EntityWatchService` opens no event stream when a client is constructed. The authenticated layout owns
 the active server/user session and releases it on logout, scope change, or unmount. Plugin documents
 have one subscription outside the request table, released by the common iframe finish path. See the
-[entity-watches protocol](src/modules/entity-watches/README.md).
+[entity interest protocol](src/modules/entity-watches/README.md).
 
 ## Background Submissions
 

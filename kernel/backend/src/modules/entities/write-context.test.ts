@@ -7,7 +7,6 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 
-import { AccountAdmission } from "#modules/mutations/account-admission";
 import {
 	installRevisionPackage,
 	revisionDatabaseLayer,
@@ -33,8 +32,7 @@ const installedWriter = Effect.gen(function* () {
 			.limit(1),
 	);
 	assert(script);
-	const accountGeneration = yield* (yield* AccountAdmission.make).currentAccount(userId);
-	const subject = { userId, accountGeneration, type: "user" as const };
+	const subject = { userId, type: "user" as const };
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(
 		SandboxScriptId.make(script.id),
 		undefined,

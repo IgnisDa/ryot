@@ -2,7 +2,6 @@ import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -39,28 +38,26 @@ type ProviderResolveOperationInput = {
 	readonly lane: ExecutionLane;
 	readonly userId: null | UserId;
 	readonly identifierType: string;
+	readonly accountUserId: null | UserId;
 	readonly providerId: SandboxProviderId;
-	readonly accountGeneration: null | AccountGeneration;
 	readonly writeContext: null | ScriptExecutionPrincipal;
 };
 
 type EntityImportWorkflowOperationsValue = {
-	requireRelatedScript: (
-		payload: EntityImportPayload,
-	) => Effect.Effect<void, SandboxRunError, WorkflowEngine | WorkflowInstance>;
-	processProviderResolve: (
-		input: ProviderResolveOperationInput,
-		executionId: string,
-	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	requireRelatedScript: (payload: EntityImportPayload) => Effect.Effect<void, SandboxRunError>;
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
 		level: PopulationLevel,
-	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
 	processRelatedPage: (
 		payload: RelatedPageInput,
 		executionId: string,
 		continuation: JsonValue,
+	) => Effect.Effect<SandboxExecutionResult, SandboxRunError>;
+	processProviderResolve: (
+		input: ProviderResolveOperationInput,
+		executionId: string,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	completeProviderEntityImport: (
 		payload: ProviderEntityImportWorkflowPayload,
@@ -71,8 +68,8 @@ type EntityImportWorkflowOperationsValue = {
 		input: {
 			readonly userId: UserId;
 			readonly pluginId: string;
+			readonly accountUserId: null | UserId;
 			readonly providerId: SandboxProviderId;
-			readonly accountGeneration: null | AccountGeneration;
 		},
 		executionId: string,
 	) => Effect.Effect<ScriptExecutionPrincipal, SandboxRunError, WorkflowEngine | WorkflowInstance>;
@@ -144,11 +141,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			input: unknown,
 		) =>
 			Effect.gen(function* () {
-				const accountGeneration = payload.command.accountGeneration;
-				if (payload.entityScope.userId !== null && accountGeneration === null) {
+				const accountUserId = payload.command.accountUserId;
+				if (payload.entityScope.userId !== null && accountUserId === null) {
 					return yield* new SandboxRunError({
 						kind: "invalid-input",
-						message: "Provider account generation is missing",
+						message: "Provider account is missing",
 					});
 				}
 				const principal = payload.command.writeContext;
@@ -223,11 +220,11 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 			executionId: string,
 		) =>
 			Effect.gen(function* () {
-				const accountGeneration = input.accountGeneration;
-				if (input.userId !== null && accountGeneration === null) {
+				const accountUserId = input.accountUserId;
+				if (input.userId !== null && accountUserId === null) {
 					return yield* new SandboxRunError({
 						kind: "invalid-input",
-						message: "Provider account generation is missing",
+						message: "Provider account is missing",
 					});
 				}
 				const principal = yield* makeActivity({
@@ -254,7 +251,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 							}).pipe(Effect.mapError((error) => toSandboxRunError(error, "invalid-input")));
 						}
 						const executingUserId = input.userId;
-						if (executingUserId === null || accountGeneration === null) {
+						if (executingUserId === null || accountUserId === null) {
 							return yield* new SandboxRunError({
 								kind: "invalid-input",
 								message: "System provider resolution requires a persisted plugin principal",
@@ -275,8 +272,8 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 								.resolveUserResolveScript(executingUserId, input.providerId)
 								.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 							const pin = yield* sandbox.preRegisterPluginWorkflow({
+								accountUserId,
 								executingUserId,
-								accountGeneration,
 								scriptId: script.id,
 								pluginId: provider.pluginId,
 								executionId: `${executionId}-sandbox-resolve`,
@@ -367,15 +364,15 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 					success: ScriptExecutionPrincipal,
 					name: `pre-register-provider-import-${executionId}`,
 					execute: Effect.gen(function* () {
-						if (input.accountGeneration === null) {
+						if (input.accountUserId === null) {
 							return yield* new SandboxRunError({
 								kind: "invalid-input",
-								message: "Provider account generation is missing",
+								message: "Provider account is missing",
 							});
 						}
 						const pin = yield* preRegisterProviderDetails(
 							{ sandbox, pluginRuntime },
-							{ ...input, executionId, accountGeneration: input.accountGeneration },
+							{ ...input, executionId, accountUserId: input.accountUserId },
 						);
 						return pin.principal;
 					}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),

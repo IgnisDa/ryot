@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { SandboxRunError } from "@ryot-app/contract/errors";
+import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
 import type { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import {
 	AutomationExecutionId,
@@ -12,6 +13,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { partialFake } from "@ryot-app/testing/fakes";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -21,9 +23,12 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
+import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsService } from "#modules/events/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { makeWorkflowActivityEngine } from "#testing/effect";
+import { JobQueue } from "#platform/jobs/queue";
+import { fakeDatabaseSession, makeWorkflowActivityEngine } from "#testing/effect";
 
 import {
 	EntityImportError,
@@ -36,15 +41,51 @@ const importCommand = (executionId: string, userId: UserId) => ({
 	...rootLifecycleCommand({
 		source: "import",
 		lane: "background",
+		accountUserId: userId,
 		initiator: { id: userId, kind: "user" },
 		itemIdentity: `provider-import:${executionId}`,
 		executionId: AutomationExecutionId.make(executionId),
 		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
-		accountGeneration: { userId, token: "test-account-generation" },
 	}),
 	writeContext: null,
 });
 const pluginId = PluginId.make("fixture-owner");
+
+type Recorded = Array<{ name: string; options: Record<string, unknown> }>;
+
+/** Population as `awaitEntityPopulation` sees it: one request, then its outcome once `ready` says so. */
+const providePopulation = (
+	entity: ListedEntity,
+	calls: Recorded,
+	ready: () => boolean = () => true,
+) =>
+	Effect.provide(
+		Layer.mergeAll(
+			fakeDatabaseSession({}),
+			Layer.mock(JobQueue)({ enqueue: () => Effect.succeed(true) }),
+			Layer.mock(EntitiesRepository)({
+				getById: () => Effect.succeed({ ...entity, properties: {} }),
+			}),
+			Layer.mock(EnrichmentRequests)({
+				get: () =>
+					Effect.sync(() =>
+						partialFake<
+							NonNullable<Effect.Success<ReturnType<EnrichmentRequests["Service"]["get"]>>>
+						>({ joinedTo: null, entityId: entity.id, state: ready() ? "succeeded" : "running" }),
+					),
+				ensure: (input) =>
+					Effect.sync(() => {
+						calls.push({
+							name: "population-request",
+							options: { executionId: input.id, payload: input.payload },
+						});
+						return partialFake<Effect.Success<ReturnType<EnrichmentRequests["Service"]["ensure"]>>>(
+							{ id: input.id, joinedTo: null, state: "queued" },
+						);
+					}),
+			}),
+		),
+	);
 
 const provideEvents = (create?: EventsService["Service"]["create"]) =>
 	Effect.provideServiceEffect(
@@ -90,7 +131,7 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 		expect(result).toEqual(entity);
 		expect(calls).toEqual<unknown>([
 			objectContaining({
-				name: "ProviderEntityPopulationWorkflow",
+				name: "population-request",
 				options: objectContaining({
 					executionId: `${executionId}-provider-population`,
 					payload: objectContaining({ level: "base", mode: "ensure" }),
@@ -99,17 +140,9 @@ const importWithoutMembership = (entitySchemaSlug: string) => {
 			{ options: { executionId }, name: "provider-import-completion" },
 		]);
 	}).pipe(
-		Effect.provideService(
-			WorkflowEngine,
-			makeWorkflowActivityEngine(instance, {
-				execute: (workflow, options) =>
-					Effect.sync(() => {
-						calls.push({ options, name: workflow._tag });
-						return entity;
-					}),
-			}),
-		),
+		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Effect.provideService(WorkflowInstance, instance),
+		providePopulation(entity, calls),
 		provideEvents(),
 		Effect.provideService(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
@@ -160,17 +193,9 @@ const importWithEntryEvent = (
 		},
 		executionId,
 	).pipe(
-		Effect.provideService(
-			WorkflowEngine,
-			makeWorkflowActivityEngine(instance, {
-				execute: (workflow, options) =>
-					Effect.sync(() => {
-						calls.push({ options, name: workflow._tag });
-						return entity;
-					}),
-			}),
-		),
+		Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 		Effect.provideService(WorkflowInstance, instance),
+		providePopulation(entity, calls),
 		provideEvents((input) =>
 			Effect.sync(() => {
 				calls.push({ name: "EventCreate", options: { payload: input } });
@@ -201,7 +226,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 			return Effect.gen(function* () {
 				expect(yield* run).toEqual(entity);
 				expect(calls.map(({ name }) => name)).toEqual([
-					"ProviderEntityPopulationWorkflow",
+					"population-request",
 					"provider-import-completion",
 					"EventCreate",
 				]);
@@ -289,11 +314,9 @@ layer(mutationAdmissionTestLayer)((it) => {
 					stage: "provider-import-automation",
 				});
 			}).pipe(
-				Effect.provideService(
-					WorkflowEngine,
-					makeWorkflowActivityEngine(instance, { execute: () => Effect.succeed(entity) }),
-				),
+				Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
 				Effect.provideService(WorkflowInstance, instance),
+				providePopulation(entity, []),
 				provideEvents(),
 				Effect.provideService(EntityImportWorkflowOperations, {
 					processSandbox: () => Effect.die("unused"),
@@ -344,11 +367,11 @@ layer(mutationAdmissionTestLayer)((it) => {
 					Effect.provideService(
 						WorkflowEngine,
 						makeWorkflowActivityEngine(instance, {
-							execute: () =>
-								populationReady ? Effect.succeed(entity) : Workflow.suspend(instance),
+							scheduleClock: () => Workflow.suspend(instance),
 						}),
 					),
 					Effect.provideService(WorkflowInstance, instance),
+					providePopulation(entity, [], () => populationReady),
 					provideEvents(),
 					Effect.provideService(EntityImportWorkflowOperations, {
 						processSandbox: () => Effect.die("unused"),

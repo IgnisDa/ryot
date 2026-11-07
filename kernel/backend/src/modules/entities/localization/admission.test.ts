@@ -10,8 +10,8 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
+import { and, eq } from "drizzle-orm";
 import { DateTime, Deferred, Effect, Fiber, Layer } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { DomainWriteChecks } from "#modules/entities/write-context";
@@ -26,21 +26,18 @@ import { SandboxWorkflowPinning } from "#modules/scripts/executions/workflow";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
+import { JobQueue } from "#platform/jobs/queue";
 import * as tables from "#schema/tables/combined";
-import { makeRedisService, makeWorkflowEngine } from "#testing/effect";
 
 import { TranslationsRepository } from "./repository";
 import { type RequestFillInput, TranslationsService } from "./service";
+import { EntityTranslationJob } from "./translation-request";
 
 const dependencies = Layer.mergeAll(
 	TranslationsRepository.layer,
 	Layer.mock(DomainWriteChecks)({}),
-	EnrichmentRequests.layer.pipe(
-		Layer.provide(
-			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
-		),
-	),
+	EnrichmentRequests.layer,
+	JobQueue.layer,
 	SandboxWorkflowPinning.layer.pipe(Layer.provide(Layer.mock(SandboxPluginScriptResolver)({}))),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
@@ -106,7 +103,6 @@ const harness = Effect.fnUntraced(function* (
 	const entered = yield* Deferred.make<void>();
 	const resume = yield* Deferred.make<void>();
 	const registrationCalls: string[] = [];
-	const dispatches: string[] = [];
 	const sandbox = ScriptExecutionService.of({
 		enqueue: () => Effect.die("unused"),
 		getResult: () => Effect.die("unused"),
@@ -131,11 +127,7 @@ const harness = Effect.fnUntraced(function* (
 						resolutionMode: "exact",
 						scriptId: input.scriptId,
 						executionId: input.executionId,
-						subject: {
-							type: "user",
-							userId: input.executingUserId,
-							accountGeneration: input.accountGeneration,
-						},
+						subject: { type: "user", userId: input.executingUserId },
 					},
 					input.executionId,
 					input.pluginId,
@@ -162,19 +154,26 @@ const harness = Effect.fnUntraced(function* (
 				return { ...pin, pluginRevision: pin.principal.pluginRevision };
 			}),
 	});
-	const engine = makeWorkflowEngine({
-		execute: (_workflow, input) =>
-			Effect.gen(function* () {
-				expect(yield* session.isTransactionActive).toBe(false);
-				assert(input.executionId);
-				dispatches.push(input.executionId);
-				yield* requests.update(input.executionId, { attempt: 1, state: "running" });
-			}),
-	});
 	const translations = yield* TranslationsService.make.pipe(
 		Effect.provideService(ScriptExecutionService, sandbox),
-		Effect.provideService(WorkflowEngine, engine),
 	);
+	const dispatches = session
+		.run((db) =>
+			db
+				.select({ key: tables.job.key })
+				.from(tables.job)
+				.innerJoin(
+					tables.entityEnrichmentRequest,
+					eq(tables.entityEnrichmentRequest.id, tables.job.key),
+				)
+				.where(
+					and(
+						eq(tables.job.kind, EntityTranslationJob.name),
+						eq(tables.entityEnrichmentRequest.entityId, entityId),
+					),
+				),
+		)
+		.pipe(Effect.map((rows) => rows.map((row) => row.key)));
 	const input = {
 		userId,
 		entityId,
@@ -182,7 +181,6 @@ const harness = Effect.fnUntraced(function* (
 		lane: "interactive",
 		externalId: "record",
 		providerId: provider.id,
-		accountGeneration: account,
 		entitySchemaSlug: "record",
 		entitySchemaPluginId: installed.pluginId,
 	} satisfies RequestFillInput;
@@ -216,12 +214,12 @@ layer(dependencies)((test) => {
 							...(retryOf ? { refreshKey: "second" } : {}),
 						}),
 					).toBe(true);
-					const winner = h.dispatches[0];
+					const [winner] = yield* h.dispatches;
 					assert(winner);
-					expect(yield* h.requests.get(winner)).toMatchObject({ state: "running" });
+					expect(yield* h.requests.get(winner)).toMatchObject({ state: "queued" });
 					yield* Deferred.succeed(h.resume, undefined);
 					expect(yield* Fiber.join(first)).toBe(false);
-					expect(h.dispatches).toEqual([winner]);
+					expect(yield* h.dispatches).toEqual([winner]);
 					expect(yield* h.references).toMatchObject([{ executionId: winner }]);
 					expect(yield* h.references).toHaveLength(1);
 					if (retryOf !== undefined) {
@@ -247,7 +245,7 @@ layer(dependencies)((test) => {
 				assert(id);
 				expect(yield* h.requests.get(id)).toBeNull();
 				expect(yield* h.references).toEqual([]);
-				expect(h.dispatches).toEqual([]);
+				expect(yield* h.dispatches).toEqual([]);
 			}),
 		testTimeout,
 	);

@@ -6,7 +6,7 @@ Entity enrichment runs provider population and translation as durable work. Enti
 
 `populationStatus`, `relatedPopulationStatus`, and `translationStatus` each contain `{ availability, state }`. Availability is `missing`, `partial`, `complete`, or `none`; state is `idle`, `queued`, `running`, `retrying`, `succeeded`, `failed`, or `cancelled`.
 
-Availability describes persisted entity data and is shared for the entity. State comes from the latest applicable request for the requester and account generation; translation state also matches the requested language and canonical content generation. A missing or partial value does not imply active work. An idle state means there is no applicable active request. See [RyotQL derived fields](../../ryotql/README.md#derived-fields) for the catalog contract.
+Availability describes persisted entity data and is shared for the entity. State comes from the latest applicable request for the requester; translation state also matches the requested language and canonical content generation. A missing or partial value does not imply active work. An idle state means there is no applicable active request. See [RyotQL derived fields](../../ryotql/README.md#derived-fields) for the catalog contract.
 
 ## Provider population
 
@@ -20,25 +20,25 @@ Each `translate` script declares `translationInputs`: supported entity-schema sl
 
 Canonical `contentGeneration` increments only when entity `name` or canonical `properties` change. Translation work captures that generation, and the overlay stores it as `sourceContentGeneration`. Commit accepts an overlay only while its source generation still matches the entity, so stale translation work cannot replace an overlay for newer canonical content.
 
-A successful empty translation result is a negative-cache success, not a workflow failure. The activity state remains `succeeded`, distinct from `failed`, even though translation availability is `none`.
+A successful empty translation result is a negative-cache success, not a failure. The request state remains `succeeded`, distinct from `failed`, even though translation availability is `none`.
 
 ## Request lifecycle
 
-Admission persists the request before dispatching the root workflow. The durable request retains operation, target, requester/account generation, and captured execution data; attempt workflows retain the root request's parent and causation linkage. `enrichment-updated` is a status/progress refresh hint. It does not trigger translation progression or settle client progress; `populated` is the progression signal.
+Admission persists the request and queues its job in the same transaction. The request retains operation, target, requester, and captured execution data; each attempt keeps the request's causation linkage. `enrichment-updated` is a status/progress refresh hint. It does not trigger translation progression or settle client progress; `populated` is the progression signal.
 
-Automatic retry is bounded to three attempts total. Only `infrastructure` or `timeout` failures with no boundary code/data are retried. The two durable waits are 5 seconds and 30 seconds. Other failures are terminal for that request.
+Automatic retry is bounded to three attempts total. Only `infrastructure` or `timeout` failures with no boundary code/data are retried, 5 and then 10 seconds apart. Other failures are terminal for that request.
 
 `POST /entities/:entityId/enrichment` selects `operation: "population" | "translation"`,
 and `action: "refresh" | "retry"`. It returns `enrichmentRequestId`, or null when no work is
 admitted. A retry links to the caller's failed or cancelled request. A refresh does not require a
 failure. A resent request joins the compatible active request.
 
-Population admission is shared by imports, interest, monitoring, refresh and retry. Compatible
+Population admission is shared by imports, populate requests, monitoring, refresh and retry. Compatible
 active requests share one fetch under the same provider, external ID, schema owner, data scope,
 and revision/config pin. Requester rows retain separate account authority and outcomes. A refresh
-never joins an ensure-only request, and full work never joins base-only work. Incompatible work
-queues in target order. At most eight population owners run, with at most 1,000 active requester
-rows across the installation and 50 per user. Queue waits are durable and hold no sandbox slot.
+never joins an ensure-only request, and full work never joins base-only work. Each owning request
+queues one job, interactive before background; each process runs at most eight. At most 1,000 active
+requester rows exist across the installation and 50 per user. Queued jobs hold no sandbox slot.
 Manual refresh can reuse a successful matching refresh for one minute; failed work has no cooldown.
 
 Each provider write transaction locks and checks its active owning request. Settled or cancelled
@@ -61,15 +61,16 @@ or failures before that boundary. It is separate from request activity and gener
 Related completion remains separate: a base success is not proof that authoritative related pages
 finished. Last successful check evidence survives later failed requests and request-history pruning.
 
-Unmonitored successful data refreshes only on explicit request. Monitoring remains the automatic
-refresh source; no daily reset or stale-on-open fetch is added. Future release delivery must require
+Successful data whose schema declares a refresh interval is refreshed when a page asks for it after
+that interval, at most once per day while the provider keeps failing. Other data refreshes only on
+explicit request or through monitoring. Future release delivery must require
 a successful canonical/inventory check within its declared freshness window and completed inventory
 work when that inventory is needed. Translation and generic update times cannot satisfy that gate.
 An alert producer must refresh or defer stale candidates and define its window/catch-up policy before
 shipping; display queries can continue to show cached data. This feature sends no release alerts.
 
-Recovery examines at most 100 requests per pass and polls every 5 seconds. A suspended workflow is not terminal. Recovery records a terminal result only after the workflow completes, then releases its retained actor/script registration. Compact latest outcomes remain available after workflow execution data is garbage-collected. Superseded terminal requests are pruned after 168 hours once their registration is released.
+The job settles its request and releases its retained actor/script registration. The frequent cron fails at most 100 active requests per pass whose job no longer exists, such as one deleted with its account. Superseded terminal requests are pruned after 168 hours.
 
 ## Coordinated rollout
 
-The schema is shipped as a generated fresh baseline. Rebuild shipped and private plugin artifacts for the same release; mixed-release workflow replay is unsupported. Legacy imports follow the [server migration guide](../../../../../../apps/server/src/migrations/README.md). Restored dependencies start without a related-completion stamp and are rechecked lazily on foreground interest; see [backups](../../backups/README.md).
+The schema is shipped as a generated fresh baseline. Rebuild shipped and private plugin artifacts for the same release; mixed-release script replay is unsupported. Legacy imports follow the [server migration guide](../../../../../../apps/server/src/migrations/README.md). Restored dependencies start without a related-completion stamp and are rechecked lazily when a page asks for them interactively; see [backups](../../backups/README.md).

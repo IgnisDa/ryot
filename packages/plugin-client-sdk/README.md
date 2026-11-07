@@ -271,8 +271,7 @@ continue, such as wizards, entity-editor creation, and navigation after a save.
 
 `ryot.entities.watch({ foreground, visible }, onUpdate)` returns
 `{ update(interest), dispose() }`. The callback receives
-`{ entityId, reason }`, where `reason` is `populated`, `translated`, `population-failed`, or
-`enrichment-updated`. Progress and failure updates never start a settle highlight. Disposal is idempotent, suppresses later
+`{ entityId, reason }`, where `reason` is `populated`, `translated`, or `enrichment-updated`. Progress and failure updates never start a settle highlight. Disposal is idempotent, suppresses later
 callbacks, and makes later updates fail with `disposed`. Invalid declarations fail synchronously with
 `invalid-input`, a missing adapter fails with `unsupported-capability`, and transport failures use
 `RyotClientError("transport")`.

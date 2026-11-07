@@ -96,11 +96,11 @@ const command = (id: string) => ({
 	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: owner,
 		itemIdentity: "entity",
 		initiator: { id: owner, kind: "user" },
 		executionId: AutomationExecutionId.make(id),
 		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
-		accountGeneration: { userId: owner, token: "test-account-generation" },
 	}),
 	writeContext: null,
 });
@@ -108,8 +108,8 @@ const systemCommand = (id: string) => ({
 	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: null,
 		itemIdentity: "entity",
-		accountGeneration: null,
 		initiator: { id: null, kind: "system" },
 		executionId: AutomationExecutionId.make(id),
 		occurredAt: IsoUtcString.make("2026-09-15T00:00:00.000Z"),
@@ -538,12 +538,7 @@ const entitiesLayer = (options: TestOptions = {}) =>
 						yield* session.run((db) =>
 							db
 								.insert(tables.user)
-								.values({
-									id: owner,
-									name: "Owner",
-									email: "owner@example.test",
-									accountGeneration: "test-account-generation",
-								}),
+								.values({ id: owner, name: "Owner", email: "owner@example.test" }),
 						);
 					}),
 				);
@@ -1221,12 +1216,7 @@ describe("EntitiesService committed lifecycle", () => {
 					yield* session.run((db) =>
 						db
 							.insert(tables.user)
-							.values({
-								id: secondUser,
-								name: "Second owner",
-								email: "second@example.test",
-								accountGeneration: "second-account-generation",
-							}),
+							.values({ id: secondUser, name: "Second owner", email: "second@example.test" }),
 					);
 					const globalEntity = yield* service.createGlobal({
 						entitySchema,
@@ -2587,12 +2577,7 @@ describe("EntitiesService committed lifecycle", () => {
 					yield* session.run((db) =>
 						db
 							.insert(tables.user)
-							.values({
-								id: secondUser,
-								name: "Second",
-								email: "second-scope@example.test",
-								accountGeneration: "second-account-generation",
-							}),
+							.values({ id: secondUser, name: "Second", email: "second-scope@example.test" }),
 					);
 					const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-14T00:00:00.000Z"));
 					const row = (id: string, userId: null | UserId, entitySchemaPluginId: null | string) => ({

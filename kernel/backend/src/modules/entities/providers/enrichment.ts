@@ -12,8 +12,8 @@ import { generateId } from "better-auth";
 import { Context, Effect, Layer } from "effect";
 
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
-import { explicitTranslationExecutionId } from "#modules/entities/localization/entity-translation-workflow";
 import { TranslationsService } from "#modules/entities/localization/service";
+import { explicitTranslationExecutionId } from "#modules/entities/localization/translation-request";
 import {
 	entityPopulationExecutionId,
 	EntityPopulationTrigger,
@@ -68,14 +68,14 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 						return yield* refused("provider-unavailable");
 					}
 					const selection = {
+						requester: user.id,
 						entityId: entity.id,
 						operation: input.operation,
-						requester: user.accountGeneration,
 						...(input.operation === "translation" && user.preferences.language !== null
 							? { language: user.preferences.language }
 							: {}),
 					};
-					const inputHash = sha256Hex(stableStringify({ ...input, user: user.accountGeneration }));
+					const inputHash = sha256Hex(stableStringify({ ...input, user: user.id }));
 					const attempt = generateId();
 					const execution = {
 						attempt,
@@ -88,7 +88,7 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 					};
 					const executionId =
 						input.operation === "population"
-							? entityPopulationExecutionId(entity.id, user.accountGeneration, execution)
+							? entityPopulationExecutionId(entity.id, user.id, execution)
 							: explicitTranslationExecutionId(entity.id, user.preferences.language ?? "", attempt);
 					const latestForOperation = yield* requests.latest(selection);
 					const latestFull =
@@ -123,7 +123,6 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 							entityId: entity.id,
 							lane: "interactive",
 							entitySchemaSlug: entity.entitySchemaSlug,
-							accountGeneration: user.accountGeneration,
 							entitySchemaPluginId: entity.entitySchemaPluginId,
 						});
 						const admitted = yield* requests.get(executionId);
@@ -137,7 +136,7 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 							externalId,
 							initiator: user.id,
 							entityId: entity.id,
-							accountGeneration: user.accountGeneration,
+							accountUserId: user.id,
 							entitySchemaSlug: entity.entitySchemaSlug,
 							entitySchemaPluginId: entity.entitySchemaPluginId,
 							userId: provider.pluginScope === "system" ? null : user.id,

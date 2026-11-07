@@ -17,7 +17,7 @@ import {
 	providerSearchResultSchema,
 } from "@ryot-app/plugin-backend-sdk/provider";
 import { generateId } from "better-auth";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { Clock, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import {
@@ -25,11 +25,9 @@ import {
 	UnsupportedProviderOperationError,
 } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
-import {
-	PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS,
-	redisKeys,
-	RedisService,
-} from "#platform/redis";
+
+const SEARCH_OPTIONS_CACHE_TTL = Duration.hours(24);
+const SEARCH_OPTIONS_CACHE_ENTRIES = 256;
 
 const decodeProviderSearchResult = Schema.decodeUnknownEffect(providerSearchResultSchema);
 const providerNotFound = (providerId: SearchProviderEntitiesBody["providerId"]) =>
@@ -48,7 +46,10 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 	"@ryot-app/kernel-backend/modules/entities/providers/search-service/ProviderEntitySearchService",
 	{
 		make: Effect.gen(function* () {
-			const redis = yield* RedisService;
+			const optionsCache = new Map<
+				string,
+				{ readonly value: string; readonly expiresAt: number }
+			>();
 			const sandbox = yield* ScriptExecutionService;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 
@@ -101,8 +102,12 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 								: error,
 						),
 					);
-				const cacheKey = redisKeys.providerSearchOptions(providerId, searchOptionsScript.id);
-				const cachedSources = decodeCachedSources(yield* redis.get(cacheKey));
+				const cacheKey = `${providerId}:${searchOptionsScript.id}`;
+				const now = yield* Clock.currentTimeMillis;
+				const cached = optionsCache.get(cacheKey);
+				const cachedSources = decodeCachedSources(
+					cached !== undefined && cached.expiresAt > now ? cached.value : null,
+				);
 				if (cachedSources !== null) {
 					const materialized = materializeAppSchemaChoices(optionsSchema, cachedSources);
 					if (Result.isSuccess(materialized)) {
@@ -118,8 +123,8 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 					input: {},
 					lane: "interactive",
 					scriptId: searchOptionsScript.id,
+					subject: { type: "user", userId: user.id },
 					executionId: `provider-search-options-${generateId()}`,
-					subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
 				});
 				if (execution.error) {
 					yield* Effect.logError("provider search options execution failed", execution.error);
@@ -153,7 +158,18 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				const encoded = yield* Schema.encodeEffect(
 					Schema.fromJsonString(providerSearchOptionsResultSchema),
 				)(decoded.success).pipe(Effect.orDie);
-				yield* redis.set(cacheKey, encoded, PROVIDER_SEARCH_OPTIONS_CACHE_TTL_SECONDS);
+				// Oldest first, so the map stays bounded however many scripts ever ask.
+				optionsCache.delete(cacheKey);
+				optionsCache.set(cacheKey, {
+					value: encoded,
+					expiresAt: now + Duration.toMillis(SEARCH_OPTIONS_CACHE_TTL),
+				});
+				for (const oldest of optionsCache.keys()) {
+					if (optionsCache.size <= SEARCH_OPTIONS_CACHE_ENTRIES) {
+						break;
+					}
+					optionsCache.delete(oldest);
+				}
 				return materialized.success;
 			});
 
@@ -208,8 +224,8 @@ export class ProviderEntitySearchService extends Context.Service<ProviderEntityS
 				const execution = yield* sandbox.executeScript({
 					lane: "interactive",
 					scriptId: resolved.id,
+					subject: { type: "user", userId: user.id },
 					executionId: `provider-search-${generateId()}`,
-					subject: { type: "user", userId: user.id, accountGeneration: user.accountGeneration },
 					input: {
 						page: input.page,
 						query: input.query,

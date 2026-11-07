@@ -250,7 +250,6 @@ layer(testLayer)((test) => {
 							entityTitle: "Target",
 							parentEntityId: parent,
 							id: crypto.randomUUID(),
-							accountGeneration: "test-account-generation",
 						},
 						{
 							userId: owner,
@@ -259,7 +258,6 @@ layer(testLayer)((test) => {
 							id: crypto.randomUUID(),
 							entityId: needsScheduling,
 							state: "needs-scheduling",
-							accountGeneration: "test-account-generation",
 							originalSchedule: {
 								dueAt: null,
 								timezone: null,
@@ -276,7 +274,6 @@ layer(testLayer)((test) => {
 							message: "Completed",
 							entityTitle: "Target",
 							id: crypto.randomUUID(),
-							accountGeneration: "test-account-generation",
 						},
 						{
 							userId: owner,
@@ -286,7 +283,6 @@ layer(testLayer)((test) => {
 							message: "Cancelled",
 							entityTitle: "Target",
 							id: crypto.randomUUID(),
-							accountGeneration: "test-account-generation",
 						},
 					]),
 				);

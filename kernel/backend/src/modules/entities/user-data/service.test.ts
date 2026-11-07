@@ -74,21 +74,20 @@ const user = {
 	email: "user@example.com",
 	id: UserId.make("user-id"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-id"), token: "test-account-generation" },
 } satisfies CurrentUserValue;
 
 const command = {
 	...rootLifecycleCommand({
 		source: "api",
 		lane: "interactive",
+		accountUserId: user.id,
 		itemIdentity: "entity-user-data",
 		initiator: { id: user.id, kind: "user" },
-		accountGeneration: user.accountGeneration,
 		occurredAt: IsoUtcString.make("2026-01-01T00:00:00.000Z"),
 		executionId: AutomationExecutionId.make("entity-user-data-execution"),
 	}),
 	writeContext: null,
-	accountGeneration: null,
+	accountUserId: null,
 };
 
 type PersistedRelationship = Effect.Success<

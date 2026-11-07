@@ -23,7 +23,6 @@ import type {
 	RelationshipBadRequest,
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import {
 	AutomationExecutionId,
 	EntityId,
@@ -480,8 +479,8 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 				const committed = yield* transaction(
 					Effect.gen(function* () {
-						if (command.accountGeneration) {
-							yield* admission.admitAccount(command.accountGeneration);
+						if (command.accountUserId) {
+							yield* admission.admitAccount(command.accountUserId);
 						}
 						const prior = yield* keys
 							.lockedRead(identity, SaveResult)
@@ -661,19 +660,19 @@ export class EntityEditorService extends Context.Service<EntityEditorService>()(
 
 			const submit = Effect.fn("EntityEditorService.submit")(function* (input: {
 				userId: UserId;
+				accountUserId: UserId;
 				request: EntityEditorSaveRequest;
-				accountGeneration: AccountGeneration;
 			}) {
-				const { userId, request, accountGeneration } = input;
+				const { userId, request, accountUserId } = input;
 				const { submission } = request;
 				const executionId = AutomationExecutionId.make(
-					`entity-editor-${sha256Base64Url(stableStringify([accountGeneration, `entity-editor:${submission.action}`, submission.entitySchema, request.idempotencyKey]))}`,
+					`entity-editor-${sha256Base64Url(stableStringify([accountUserId, `entity-editor:${submission.action}`, submission.entitySchema, request.idempotencyKey]))}`,
 				);
 				const lifecycle = {
 					...rootLifecycleCommand({
 						executionId,
 						source: "api",
-						accountGeneration,
+						accountUserId,
 						lane: "interactive",
 						itemIdentity: "entity-editor",
 						occurredAt: request.submittedAt,

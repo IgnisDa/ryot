@@ -1,11 +1,10 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
-import { encodeEntityUpdatedMessage } from "@ryot-app/contract/modules/entity-watches/messages";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { Cause, Context, Effect, Layer } from "effect";
 
+import { publishEntityUpdated } from "#modules/live-updates/publish";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
-import { redisKeys, RedisService } from "#platform/redis";
 
 import {
 	type EnrichmentRequestInput,
@@ -20,33 +19,25 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 			const repository = yield* EnrichmentRequestsRepository;
 			const session = yield* DatabaseSession;
 			const admission = yield* AccountAdmission.make;
-			const redis = yield* RedisService;
 			const publish = Effect.fnUntraced(function* (
 				row: Effect.Success<ReturnType<typeof repository.get>>,
 			) {
-				if (row?.entityId) {
-					yield* redis
-						.publish(
-							redisKeys.entityUpdatedChannel,
-							encodeEntityUpdatedMessage(
-								EntityId.make(row.entityId),
-								"enrichment-updated",
-								row.requesterUserId ? UserId.make(row.requesterUserId) : undefined,
-							),
-						)
-						.pipe(
-							Effect.catchCauseIf(
-								(cause) => !Cause.hasInterruptsOnly(cause),
-								(cause) => Effect.logWarning("enrichment update publication failed", cause),
-							),
-						);
+				if (row?.entityId && row.requesterUserId) {
+					yield* publishEntityUpdated(EntityId.make(row.entityId), "enrichment-updated", [
+						UserId.make(row.requesterUserId),
+					]).pipe(
+						Effect.catchCauseIf(
+							(cause) => !Cause.hasInterruptsOnly(cause),
+							(cause) => Effect.logWarning("enrichment update publication failed", cause),
+						),
+					);
 				}
 			});
 			const ensure = Effect.fn("EnrichmentRequests.ensure")(
 				function* (input: EnrichmentRequestInput) {
 					const admit = Effect.gen(function* () {
 						if (input.requester) {
-							yield* session.acquireUserWriteLock(input.requester.userId);
+							yield* session.acquireUserWriteLock(input.requester);
 							yield* admission.admitAccount(input.requester);
 						}
 						return yield* repository.ensure(input);
@@ -65,8 +56,7 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 						row.externalId !== input.externalId ||
 						row.pluginId !== input.pluginId ||
 						row.entitySchemaSlug !== input.entitySchemaSlug ||
-						row.requesterUserId !== (input.requester?.userId ?? null) ||
-						row.requesterGeneration !== (input.requester?.token ?? null) ||
+						row.requesterUserId !== input.requester ||
 						row.operation !== input.operation ||
 						row.language !== input.language ||
 						row.scopeUserId !== input.scopeUserId ||
@@ -85,10 +75,9 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 			);
 			const update = Effect.fn("EnrichmentRequests.update")(
 				function* (id: string, patch: EnrichmentRequestPatch) {
-					const row = yield* repository.update(id, patch);
-					yield* publish(row);
+					yield* publish(yield* repository.update(id, patch));
 					for (const follower of yield* repository.followers(id)) {
-						yield* publish(follower);
+						yield* publish(yield* repository.update(follower.id, patch));
 					}
 				},
 				Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
@@ -106,14 +95,21 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 				get: repository.get,
 				prune: repository.prune,
 				latest: repository.latest,
-				pending: repository.pending,
 				account: repository.account,
-				observed: repository.observed,
-				released: repository.released,
 				lockTarget: repository.lockTarget,
+				requesterIds: repository.requesterIds,
 				recordBaseCheck: repository.recordBaseCheck,
 				latestTranslation: repository.latestTranslation,
-				expiredExecutionStatus: repository.expiredExecutionStatus,
+				failOrphaned: (limit: number) =>
+					Effect.gen(function* () {
+						for (const row of yield* repository.failOrphaned(limit)) {
+							if (row.entity_id !== null && row.requester_user_id !== null) {
+								yield* publishEntityUpdated(EntityId.make(row.entity_id), "enrichment-updated", [
+									UserId.make(row.requester_user_id),
+								]);
+							}
+						}
+					}),
 				guardPopulation: Effect.fnUntraced(
 					function* (id: string, attempt?: number) {
 						if (!(yield* repository.guardPopulation(id, attempt))) {
@@ -126,26 +122,6 @@ export class EnrichmentRequests extends Context.Service<EnrichmentRequests>()(
 					},
 					Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
 				),
-				claimPopulation: (id: string) =>
-					session
-						.transaction(
-							Effect.gen(function* () {
-								const row = yield* repository.get(id);
-								if (
-									!row ||
-									row.state === "succeeded" ||
-									row.state === "failed" ||
-									row.state === "cancelled"
-								) {
-									return yield* new SandboxRunError({
-										kind: "invalid-input",
-										message: "Provider population request is no longer active",
-									});
-								}
-								return yield* repository.claimPopulation(id);
-							}),
-						)
-						.pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure"))),
 			};
 		}),
 	},

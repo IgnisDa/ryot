@@ -22,10 +22,7 @@ export const PluginBootstrapEntitiesLive = Layer.effect(
 		const plansSchema = Schema.Array(LifecycleDispatchPlan);
 		const ensure = Effect.fn("PluginBootstrapEntities.ensure")(
 			function* (input: PluginBootstrapEntitiesInput) {
-				const { initiator } = lifecycleActor({
-					userId: input.userId,
-					accountGeneration: input.accountGeneration,
-				});
+				const { initiator } = lifecycleActor({ userId: input.userId });
 				const committed = yield* entities.commitUserEntities(
 					input.userId,
 					input.entities.map(({ entitySchemaSlug, ...entity }) => ({
@@ -41,7 +38,7 @@ export const PluginBootstrapEntitiesLive = Layer.effect(
 							initiator,
 							lane: "background",
 							source: "bootstrap",
-							accountGeneration: input.accountGeneration,
+							accountUserId: input.accountUserId,
 							executionId: AutomationExecutionId.make(input.executionId),
 							itemIdentity: `bootstrap:${input.installationId}:${input.entrySlug}`,
 							occurredAt: DateTime.formatIso(DateTime.makeUnsafe(input.installedAt)),

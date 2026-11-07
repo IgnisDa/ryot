@@ -17,31 +17,31 @@ import { layer } from "@voila.dev/effect-bun-test";
 import type { SQLWrapper } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Exit, Layer, Ref, Schema } from "effect";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { EnrichmentRequestInput } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { enrichmentRequestRow } from "#modules/entities/enrichment/requests.test-support";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
 import * as tables from "#schema/tables/combined";
-import { fakeDatabaseSession, makeWorkflowEngine } from "#testing/effect";
+import { fakeDatabaseSession } from "#testing/effect";
 
-import {
-	explicitTranslationExecutionId,
-	translateEntityExecutionId,
-	TranslateEntityWorkflowPayload,
-} from "./entity-translation-workflow";
 import { type TranslationOverlayInput, TranslationsRepository } from "./repository";
 import { TranslationsService } from "./service";
 import {
+	explicitTranslationExecutionId,
+	translateEntityExecutionId,
+	TranslationRequestPayload,
+} from "./translation-request";
+import {
 	translationExecution as execution,
 	translationPayload as payload,
-	translationRequestRow,
 } from "./translation.test-support";
 
 const overlay = {
@@ -64,7 +64,7 @@ const translationManifest = () => {
 	return manifest;
 };
 
-type ExecuteOptions = Parameters<WorkflowEngine["Service"]["execute"]>[1];
+type ExecuteOptions = { readonly executionId: string; readonly priority: number | undefined };
 class TranslationEffects extends Context.Service<
 	TranslationEffects,
 	{
@@ -75,8 +75,8 @@ class TranslationEffects extends Context.Service<
 		readonly finishRequest: Effect.Effect<void>;
 		readonly released: Effect.Effect<ReadonlyArray<string>>;
 		readonly registrations: Effect.Effect<ReadonlyArray<string>>;
+		readonly pinnedPayload: Effect.Effect<TranslationRequestPayload>;
 		readonly executions: Effect.Effect<ReadonlyArray<ExecuteOptions>>;
-		readonly pinnedPayload: Effect.Effect<TranslateEntityWorkflowPayload>;
 		readonly upserts: Effect.Effect<ReadonlyArray<TranslationOverlayInput>>;
 		readonly admissions: Effect.Effect<ReadonlyArray<EnrichmentRequestInput>>;
 		readonly installationOwners: Effect.Effect<ReadonlyArray<ReadonlyArray<unknown>>>;
@@ -191,7 +191,6 @@ const makeServiceLayer = (
 										contentHash: execution.principal.contentHash,
 										providerPluginId: principal.pluginRevision.id,
 										pluginOwnerId: principal.pluginRevision.ownerId,
-										accountGeneration: payload.accountGeneration.token,
 										configId: principal.pluginRevision.configRevisionId,
 										configOwnerUserId: principal.pluginRevision.ownerId,
 										pluginPackageId: principal.pluginRevision.packageId,
@@ -232,13 +231,7 @@ const makeServiceLayer = (
 								];
 							}
 							if (table === tables.user) {
-								return [
-									{
-										disabledAt: null,
-										token: payload.accountGeneration.token,
-										accountGeneration: payload.accountGeneration.token,
-									},
-								];
+								return [{ jobAlive: true, disabledAt: null, retiringAt: null }];
 							}
 							if (table === tables.pluginConfigRevision) {
 								return [
@@ -460,7 +453,7 @@ const makeServiceLayer = (
 										});
 									}
 									const row = {
-										...translationRequestRow(input),
+										...enrichmentRequestRow(input),
 										state: options.requestState ?? "queued",
 										id: options.reusedRetry ? "prior-retry" : input.id,
 									} satisfies typeof tables.entityEnrichmentRequest.$inferSelect;
@@ -500,17 +493,17 @@ const makeServiceLayer = (
 						DomainWriteChecksLive.pipe(Layer.provide(database)),
 						runtime,
 						sandbox,
-						Layer.succeed(
-							WorkflowEngine,
-							makeWorkflowEngine({
-								execute: (_workflow, input) =>
-									Ref.update(executions, (all) => [...all, input]).pipe(
-										Effect.andThen(
-											options.enqueueFailure ? Effect.die("enqueue failed") : Effect.void,
-										),
+						Layer.mock(JobQueue)({
+							enqueue: (_kind, _payload, enqueued) =>
+								Ref.update(executions, (all) => [
+									...all,
+									{ priority: enqueued?.priority, executionId: enqueued?.key ?? "" },
+								]).pipe(
+									Effect.andThen(
+										options.enqueueFailure ? Effect.die("enqueue failed") : Effect.succeed(true),
 									),
-							}),
-						),
+								),
+						}),
 						Layer.succeed(TranslationEffects, {
 							upgrade,
 							upserts: Ref.get(upserts),
@@ -546,20 +539,16 @@ layer(makeServiceLayer())((test) => {
 			Effect.gen(function* () {
 				const service = yield* TranslationsService;
 				yield* service.requestFill(payload);
-				expect(yield* (yield* TranslationEffects).executions).toMatchObject([
-					{
-						discard: true,
-						executionId: translateEntityExecutionId(payload),
-						payload: {
-							providerId: payload.providerId,
-							command: { writeContext: null },
-							entitySchemaPluginId: payload.entitySchemaPluginId,
-						},
-					},
+				expect(yield* (yield* TranslationEffects).executions).toEqual([
+					{ priority: 0, executionId: translateEntityExecutionId(payload) },
 				]);
 				const [admission] = yield* (yield* TranslationEffects).admissions;
+				expect(admission?.payload).toMatchObject({
+					providerId: payload.providerId,
+					command: { writeContext: null },
+					entitySchemaPluginId: payload.entitySchemaPluginId,
+				});
 				expect(admission).toMatchObject({
-					dispatchRoot: true,
 					sourceContentGeneration: 1,
 					scopeUserId: payload.userId,
 				});
@@ -704,7 +693,6 @@ layer(makeServiceLayer({ registrationFailure: true }))((test) => {
 				expect(yield* requests.get(id)).toMatchObject({
 					payload: {},
 					state: "failed",
-					dispatchRoot: false,
 					sourceContentGeneration: 1,
 					failureKind: "invalid-input",
 				});
@@ -804,7 +792,7 @@ layer(makeServiceLayer({ unsupportedSchema: true }))((test) => {
 
 layer(makeServiceLayer())((test) => {
 	test.effect(
-		"uses a new initial identity for changed canonical content and account generations",
+		"uses a new initial identity for changed canonical content",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* TranslationsService;
@@ -812,17 +800,11 @@ layer(makeServiceLayer())((test) => {
 				expect(yield* service.requestFill(payload)).toBe(true);
 				yield* effects.changeContent;
 				expect(yield* service.requestFill(payload)).toBe(true);
-				expect(
-					yield* service.requestFill({
-						...payload,
-						accountGeneration: { ...payload.accountGeneration, token: "new-generation" },
-					}),
-				).toBe(true);
 				const ids = (yield* effects.executions).map(({ executionId }) => executionId);
-				expect(new Set(ids).size).toBe(3);
+				expect(new Set(ids).size).toBe(2);
 				expect(
 					(yield* effects.admissions).map(({ sourceContentGeneration }) => sourceContentGeneration),
-				).toEqual([1, 2, 2]);
+				).toEqual([1, 2]);
 			}),
 		testTimeout,
 	);
@@ -839,7 +821,7 @@ layer(makeServiceLayer())((test) => {
 				const admission = (yield* (yield* TranslationEffects).admissions).find(
 					({ retryOf }) => retryOf === "failed-request",
 				);
-				expect(admission).toMatchObject({ dispatchRoot: true, retryOf: "failed-request" });
+				expect(admission).toMatchObject({ retryOf: "failed-request" });
 				expect(admission?.id).not.toBe(translateEntityExecutionId(payload));
 			}),
 		testTimeout,
@@ -856,7 +838,7 @@ layer(makeServiceLayer())((test) => {
 				yield* service.requestFill(payload);
 				const [admission] = yield* effects.admissions;
 				assert(admission);
-				const queued = yield* Schema.decodeUnknownEffect(TranslateEntityWorkflowPayload)(
+				const queued = yield* Schema.decodeUnknownEffect(TranslationRequestPayload)(
 					admission.payload,
 				);
 				yield* effects.upgrade;

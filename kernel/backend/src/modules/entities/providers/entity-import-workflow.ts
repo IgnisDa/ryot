@@ -3,12 +3,10 @@ import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas"
 import type { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import { Cause, Clock, Effect, type Exit, Option, Schema } from "effect";
 import { Workflow } from "effect/workflow";
-import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import type { DurableSchema } from "#boot/workflow-engine";
 import { childLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { EventsService } from "#modules/events/service";
-import { dispatchAdmittedWorkflow } from "#modules/mutations/workflow-dispatch";
 import {
 	type ProviderImportPhase,
 	recordProviderImportBodyOutcome,
@@ -19,7 +17,7 @@ import {
 import { implementWorkflow, makeActivity } from "#platform/workflow/scope";
 
 import { EntityImportWorkflowOperations } from "./operations-workflow";
-import { ProviderEntityPopulationWorkflow } from "./provider-entity-population-workflow";
+import { awaitEntityPopulation } from "./population-await";
 import { ProviderEntityImportWorkflowPayload } from "./schemas";
 
 export class EntityImportError extends Schema.TaggedError<
@@ -98,29 +96,20 @@ const runImportPhases = Effect.fn("runEntityImportPhases")(function* (
 	payload: ProviderEntityImportWorkflowPayload,
 	executionId: string,
 ) {
-	const engine = yield* WorkflowEngine;
 	const populationExecutionId = `${executionId}-provider-population`;
 	const importedEntity = yield* measureImportPhase(
 		"population",
-		dispatchAdmittedWorkflow(
-			engine,
-			ProviderEntityPopulationWorkflow,
-			payload.command.accountGeneration,
-			{
-				executionId: populationExecutionId,
-				payload: {
-					level: "base",
-					mode: "ensure",
-					command: payload.command,
-					pluginId: payload.pluginId,
-					providerId: payload.providerId,
-					externalId: payload.externalId,
-					entityScope: payload.entityScope,
-					executionId: populationExecutionId,
-					entitySchemaSlug: payload.entitySchemaSlug,
-				},
-			},
-		).pipe(
+		awaitEntityPopulation({
+			level: "base",
+			mode: "ensure",
+			command: payload.command,
+			pluginId: payload.pluginId,
+			providerId: payload.providerId,
+			externalId: payload.externalId,
+			entityScope: payload.entityScope,
+			executionId: populationExecutionId,
+			entitySchemaSlug: payload.entitySchemaSlug,
+		}).pipe(
 			Effect.mapError(
 				(error) => new EntityImportError({ stage: "population", message: error.message }),
 			),

@@ -11,6 +11,7 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
 
 import { EntityEditorService } from "./editor/service";
+import { EntityPopulation } from "./populate";
 import { EntityEnrichmentService } from "./providers/enrichment";
 import { EntitiesService } from "./service";
 
@@ -25,8 +26,8 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 						source: "api",
 						lane: "interactive",
 						itemIdentity: "entity",
+						accountUserId: user.id,
 						initiator: { id: user.id, kind: "user" },
-						accountGeneration: user.accountGeneration,
 						executionId: AutomationExecutionId.make(generateId()),
 						occurredAt: IsoUtcString.make((yield* DateTime.nowAsDate).toISOString()),
 					}),
@@ -53,8 +54,24 @@ export const EntitiesRoutesLive = HttpApiBuilder.group(AppContract, "entities", 
 				const editor = yield* EntityEditorService;
 				yield* requireOpenSubmission(payload.submittedAt);
 				return yield* editor
-					.submit({ userId: user.id, request: payload, accountGeneration: user.accountGeneration })
+					.submit({ userId: user.id, request: payload, accountUserId: user.id })
 					.pipe(dieOnDbError);
+			}),
+		)
+		.handle("populate", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const population = yield* EntityPopulation;
+				yield* population
+					.request(
+						{
+							userId: user.id,
+							accountUserId: user.id,
+							preferredLanguage: user.preferences.language,
+						},
+						payload,
+					)
+					.pipe(Effect.orDie);
 			}),
 		)
 		.handle("requestEnrichment", ({ params, payload }) =>

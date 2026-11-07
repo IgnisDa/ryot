@@ -256,8 +256,8 @@ export class EntityUserDataService extends Context.Service<EntityUserDataService
 			}) {
 				const committed = yield* transaction(
 					Effect.gen(function* () {
-						if (input.command.accountGeneration) {
-							yield* admission.admitAccount(input.command.accountGeneration);
+						if (input.command.accountUserId) {
+							yield* admission.admitAccount(input.command.accountUserId);
 						}
 						yield* lockPluginIngestionShared(database, [input.userId]);
 						yield* events.captureEventGroups({

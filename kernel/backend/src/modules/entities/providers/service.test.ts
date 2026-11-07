@@ -44,7 +44,6 @@ const user: CurrentUserValue = {
 	email: "user@example.com",
 	id: UserId.make("user-1"),
 	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 };
 
 const externalId = "ext-123";

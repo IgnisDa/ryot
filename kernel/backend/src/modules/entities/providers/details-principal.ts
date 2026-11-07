@@ -1,4 +1,3 @@
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "effect";
 
@@ -14,8 +13,8 @@ export const preRegisterProviderDetails = (
 		readonly userId: UserId;
 		readonly pluginId: string;
 		readonly executionId: string;
+		readonly accountUserId: UserId;
 		readonly providerId: SandboxProviderId;
-		readonly accountGeneration: AccountGeneration;
 		readonly retain?: Parameters<
 			ScriptExecutionService["Service"]["preRegisterPluginWorkflow"]
 		>[0]["retain"];
@@ -30,7 +29,7 @@ export const preRegisterProviderDetails = (
 					pluginId: input.pluginId,
 					executingUserId: input.userId,
 					executionId: input.executionId,
-					accountGeneration: input.accountGeneration,
+					accountUserId: input.accountUserId,
 					...(input.retain ? { retain: input.retain } : {}),
 				}),
 			),

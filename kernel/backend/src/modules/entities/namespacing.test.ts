@@ -19,7 +19,6 @@ import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, inArray } from "drizzle-orm";
 import { DateTime, Effect, Layer, Schema } from "effect";
-import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
@@ -30,10 +29,7 @@ import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
-import {
-	ProviderEntityPopulationAttemptWorkflow,
-	runProviderEntityPopulationAttemptWorkflow,
-} from "#modules/entities/providers/provider-entity-population-workflow";
+import { runPopulationAttempt } from "#modules/entities/providers/population-job";
 import { type EventCreateInput, makeEventCreate } from "#modules/events/event-create";
 import { EventMutations } from "#modules/events/mutations";
 import { EventsRepository } from "#modules/events/repository";
@@ -49,14 +45,7 @@ import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
-import { WorkflowAccounts } from "#platform/workflow/account";
 import * as tables from "#schema/tables/combined";
-import {
-	makeRedisService,
-	makeWorkflowActivityEngine,
-	workflowAccountsTestService,
-} from "#testing/effect";
 
 import { EntitiesRepository } from "./repository";
 import { EntitiesService, type UpsertEntityInput } from "./service";
@@ -145,11 +134,7 @@ const admittedCommand = Effect.fnUntraced(function* (
 	});
 	assert(provider);
 	const script = yield* runtime.resolveUserDetailsScript(userId, provider.id);
-	const subject = {
-		userId,
-		type: "user" as const,
-		accountGeneration: { userId, token: "test-account-generation" },
-	};
+	const subject = { userId, type: "user" as const };
 	const pin = yield* (yield* SandboxRepository.make).getScriptPin(script.id, undefined, subject);
 	assert(pin?.pluginRevision);
 	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
@@ -158,9 +143,9 @@ const admittedCommand = Effect.fnUntraced(function* (
 			source: "api",
 			lane: "interactive",
 			itemIdentity: "namespace",
+			accountUserId: subject.userId,
 			occurredAt: "2026-10-13T00:00:00.000Z",
 			initiator: { id: userId, kind: "user" },
-			accountGeneration: subject.accountGeneration,
 			executionId: AutomationExecutionId.make(executionId),
 		}),
 		writeContext: principal,
@@ -216,14 +201,7 @@ const createEvents = (
 		return yield* create({ userId, command, payload });
 	});
 
-layer(
-	EnrichmentRequests.layer.pipe(
-		Layer.provide(
-			Layer.succeed(RedisService, makeRedisService({ publish: () => Effect.succeed(1) })),
-		),
-		Layer.provideMerge(relationshipDatabaseLayer()),
-	),
-)((test) => {
+layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer())))((test) => {
 	test.effect(
 		"rejects foreign same-name domain writes and unrestricted relationship endpoints",
 		() =>
@@ -1140,11 +1118,7 @@ layer(
 						.set({ isHidden: true, health: "installing", isInitialized: false })
 						.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 				);
-				const subject = {
-					userId: firstUser,
-					type: "user" as const,
-					accountGeneration: { userId: firstUser, token: "test-account-generation" },
-				};
+				const subject = { userId: firstUser, type: "user" as const };
 				const repository = yield* SandboxRepository.make;
 				const pin = yield* repository.getScriptPin(script.id, undefined, subject, binding);
 				assert(pin?.pluginRevision);
@@ -1154,9 +1128,9 @@ layer(
 						lane: "background",
 						source: "bootstrap",
 						itemIdentity: "initialize",
+						accountUserId: subject.userId,
 						occurredAt: "2026-10-13T00:00:00.000Z",
 						initiator: { kind: "user", id: firstUser },
-						accountGeneration: subject.accountGeneration,
 						executionId: AutomationExecutionId.make("namespace-initialization"),
 					}),
 					writeContext: principal,
@@ -1493,15 +1467,23 @@ layer(
 				yield* session.run((db) =>
 					db
 						.update(tables.user)
-						.set({ accountGeneration: "rotated-account-generation" })
+						.set({ retiringAt: new Date() })
 						.where(eq(tables.user.id, firstUser)),
 				);
-				yield* rejected("rotated-account", "Current domain write account authority is unavailable");
+				expect(
+					yield* Effect.flip(
+						entities.create({
+							scope: "user",
+							userId: firstUser,
+							name: "retiring-account",
+							properties: { title: "retiring-account" },
+							lifecycle: nextCommand(command, "retiring-account"),
+							entitySchema: { slug: bottle, owner: definitionOwner(installed.pluginId) },
+						}),
+					),
+				).toMatchObject({ message: "Mutation command account is being retired" });
 				yield* session.run((db) =>
-					db
-						.update(tables.user)
-						.set({ accountGeneration: "test-account-generation" })
-						.where(eq(tables.user.id, firstUser)),
+					db.update(tables.user).set({ retiringAt: null }).where(eq(tables.user.id, firstUser)),
 				);
 				yield* session.run((db) =>
 					db
@@ -1522,12 +1504,7 @@ layer(
 				yield* session.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: secondUser,
-							name: "Second",
-							email: "second-namespace@example.test",
-							accountGeneration: "test-account-generation",
-						}),
+						.values({ id: secondUser, name: "Second", email: "second-namespace@example.test" }),
 				);
 				const source = namespacePackage();
 				const first = yield* installRevisionPackage(source, firstUser);
@@ -1581,11 +1558,7 @@ layer(
 					executionId: string,
 					mode: "ensure" | "refresh",
 				) => {
-					const instance = WorkflowInstance.initial(
-						ProviderEntityPopulationAttemptWorkflow,
-						executionId,
-					);
-					return runProviderEntityPopulationAttemptWorkflow(
+					return runPopulationAttempt(
 						{
 							mode,
 							executionId,
@@ -1606,13 +1579,6 @@ layer(
 							guardPopulation: () => Effect.void,
 							recordBaseCheck: () => Effect.void,
 						}),
-						Effect.provideService(WorkflowInstance, instance),
-						Effect.provideService(WorkflowEngine, makeWorkflowActivityEngine(instance)),
-						Effect.provideService(WorkflowAccounts, workflowAccountsTestService),
-						Effect.provideService(
-							RedisService,
-							makeRedisService({ publish: () => Effect.succeed(1) }),
-						),
 						Effect.provideService(EntityImportWorkflowOperations, {
 							processRelatedPage: () => Effect.die("unused"),
 							completeProviderEntityImport: () => Effect.void,
@@ -1816,12 +1782,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				yield* session.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: otherUser,
-							name: "Other",
-							email: "batch-scope@example.test",
-							accountGeneration: "test-account-generation",
-						}),
+						.values({ id: otherUser, name: "Other", email: "batch-scope@example.test" }),
 				);
 				const shared = (id: string, userId: null | UserId) => ({
 					id,
@@ -1879,12 +1840,7 @@ layer(relationshipDatabaseLayer())((test) => {
 				yield* session.run((db) =>
 					db
 						.insert(tables.user)
-						.values({
-							id: otherUser,
-							name: "Other",
-							email: "batch-event-other@example.test",
-							accountGeneration: "test-account-generation",
-						}),
+						.values({ id: otherUser, name: "Other", email: "batch-event-other@example.test" }),
 				);
 				const a = yield* installRevisionPackage(namespacePackage(), firstUser);
 				const b = yield* installRevisionPackage(namespacePackage(), firstUser);
