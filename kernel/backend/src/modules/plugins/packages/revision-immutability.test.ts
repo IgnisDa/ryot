@@ -12,7 +12,6 @@ import { Effect, Result } from "effect";
 import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
 import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
 import { DatabaseSession } from "#platform/db/session";
-import { userPluginStateStatements } from "#platform/db/user-plugin-state";
 import * as tables from "#schema/tables/combined";
 
 import {
@@ -111,12 +110,14 @@ describe("immutable plugin revisions", () => {
 					assert(revision);
 					const drifted = yield* Effect.result(
 						session.run((db) =>
-							db.insert(tables.pluginRevision).values({
-								...revision,
-								id: "drift-revision",
-								contentHash: "drift-source",
-								client: { exports: {}, homeView: null, apiVersion: CLIENT_API_VERSION },
-							}),
+							db
+								.insert(tables.pluginRevision)
+								.values({
+									...revision,
+									id: "drift-revision",
+									contentHash: "drift-source",
+									client: { exports: {}, homeView: null, apiVersion: CLIENT_API_VERSION },
+								}),
 						),
 					);
 					assert(Result.isFailure(drifted));
@@ -134,10 +135,8 @@ describe("immutable plugin revisions", () => {
 					const installed = yield* installRevisionPackage(revisionPackage("reinstall"), owner);
 					for (const statement of [
 						...immutableRevisionStatements,
-						...userPluginStateStatements,
 						...entityOccursAtStatements,
 						...immutableRevisionStatements,
-						...userPluginStateStatements,
 						...entityOccursAtStatements,
 					]) {
 						yield* session.run((db) => db.execute(sql.raw(statement)));
@@ -158,10 +157,6 @@ describe("immutable plugin revisions", () => {
 						"ryot_entity_occurs_at",
 						"ryot_entity_occurs_at_revision",
 						"ryot_plugin_revision_immutable",
-						"ryot_user_plugin_state_config_update",
-						"ryot_user_plugin_state_installation_insert",
-						"ryot_user_plugin_state_installation_update",
-						"ryot_user_plugin_state_plugin_update",
 					]);
 					const updated = yield* Effect.result(
 						session.run((db) =>

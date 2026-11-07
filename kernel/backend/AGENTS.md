@@ -10,7 +10,7 @@
 - Services own transactions. Repositories capture `DatabaseSession` and use `session.run`; raw executors stay inside its callback. Never hold a transaction across sandbox/network I/O, workflow boundaries, sleeps, or fan-out.
 - Validate schema-backed properties before writes. Keep persisted JSON and schemas aligned; store timezone-aware timestamps and emit UTC ISO dates. Auth patches validated preferences on the user row, never from session copies.
 - Retain change evidence only for matching hooks or open batches; start execution after commit.
-- Catalog reads exclude script bodies and hot manifest reads. Use persisted revision sections and definition views; cold manifest owners are enforced by `ryot/no-hot-manifest-read`.
+- Catalog reads exclude script bodies and hot manifest reads. Use persisted revision sections and `DefinitionCatalog`; cold manifest owners are enforced by `ryot/no-hot-manifest-read`.
 - Keep batch locks, admission, and lookups set-based. Historical restore persistence belongs only to backups.
 - Repositories own canonical lock ordering. Provider callers retain input order for results and lifecycle dispatch.
 - One durable owner implements each business operation. Activities never dispatch workflows/queues; workflow bodies do. Use deterministic child execution IDs and idempotent owners.

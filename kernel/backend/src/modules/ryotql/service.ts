@@ -7,10 +7,11 @@ import type { AccessClass } from "@ryot-app/contract/oauth";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Layer, Match, Schema } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { loadCatalogRelations } from "#modules/definitions/catalog-relations";
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { DatabaseSession } from "#platform/db/session";
 import { plugin } from "#schema/tables/core";
-import { userPlugin } from "#schema/tables/definitions";
 
 import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
@@ -29,6 +30,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const catalogs = yield* DefinitionCatalog;
 
 			// Only rolling back a savepoint reverts READ ONLY and local settings; releasing it would leave
 			// them on the transaction of the write that is reading its own changes.
@@ -69,14 +71,9 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						let catalog: ReadonlyArray<PluginBinding> = [];
 						if (pluginIdentityReferences(validated.value).length > 0) {
 							if (scope.type === "user") {
-								catalog = yield* transaction
-									.select({
-										scope: userPlugin.scope,
-										pluginId: userPlugin.pluginId,
-										packageId: userPlugin.packageId,
-									})
-									.from(userPlugin)
-									.where(and(eq(userPlugin.userId, scope.userId), eq(userPlugin.health, "ready")));
+								catalog = (yield* catalogs.userPlugins(scope.userId)).filter(
+									({ health }) => health === "ready",
+								);
 							} else {
 								const plugins = yield* transaction
 									.select({
@@ -106,7 +103,13 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						for (const [name, query] of Object.entries(bound.queries)) {
 							results.push([
 								name,
-								yield* executeNamedQuery(scope, query, name, transaction, budget),
+								yield* executeNamedQuery(scope, query, name, transaction, budget, (names) =>
+									loadCatalogRelations(
+										catalogs,
+										scope.type === "user" ? scope.userId : null,
+										names,
+									),
+								),
 							]);
 						}
 						return { data: Object.fromEntries(results) };
@@ -203,5 +206,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

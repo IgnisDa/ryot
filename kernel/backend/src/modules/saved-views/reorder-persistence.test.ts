@@ -228,7 +228,9 @@ layer(testLayer)((test) => {
 			}),
 		testTimeout,
 	);
+});
 
+layer(testLayer)((test) => {
 	test.effect(
 		"uses one position sequence for plugin builtins and custom views in the exact installation",
 		() =>
@@ -279,7 +281,9 @@ layer(testLayer)((test) => {
 			}),
 		testTimeout,
 	);
+});
 
+layer(testLayer)((test) => {
 	test.effect(
 		"restores plugin defaults and upserts hidden state without changing another exact owner",
 		() =>
@@ -351,7 +355,9 @@ layer(testLayer)((test) => {
 			}),
 		testTimeout,
 	);
+});
 
+layer(testLayer)((test) => {
 	test.effect(
 		"deletes visible default-restoring overrides but keeps hidden overrides and unchanged revisions",
 		() =>
@@ -473,7 +479,9 @@ layer(testLayer)((test) => {
 			testTimeout,
 		);
 	}
+});
 
+layer(testLayer)((test) => {
 	test.effect(
 		"preserves installation validation before reorder errors",
 		() =>
@@ -495,7 +503,9 @@ layer(testLayer)((test) => {
 			}),
 		testTimeout,
 	);
+});
 
+layer(testLayer)((test) => {
 	test.effect(
 		"rolls back earlier custom writes when builtin persistence fails",
 		() =>
@@ -543,17 +553,19 @@ layer(testLayer)((test) => {
 			),
 		testTimeout,
 	);
+});
 
-	test.effect(
-		"keeps read/write statement counts constant as mixed scopes grow and writes nothing for unchanged plans",
-		() =>
-			Effect.gen(function* () {
-				for (const [size, installationId] of [
-					[2, undefined],
-					[40, undefined],
-					[2, "installation-a"],
-					[40, "installation-a"],
-				] as const) {
+for (const [size, installationId] of [
+	[2, undefined],
+	[40, undefined],
+	[2, "installation-a"],
+	[40, "installation-a"],
+] as const) {
+	layer(testLayer)((test) => {
+		test.effect(
+			`keeps read/write statement counts constant for ${size} views in ${installationId ?? "the home"} scope and writes nothing for unchanged plans`,
+			() =>
+				Effect.gen(function* () {
 					yield* seed;
 					const session = yield* DatabaseSession;
 					yield* session.run((db) =>
@@ -583,19 +595,19 @@ layer(testLayer)((test) => {
 						}),
 					);
 					const service = yield* SavedViewsService;
+					yield* (yield* SavedViewsRepository).listReorderScope(user.id, installationId ?? null);
 					const result = yield* service.reorder(user, {
 						installationId,
 						references: [custom(`custom-${(size - 1).toString().padStart(2, "0")}`)],
 					});
 					const statements = yield* (yield* StatementLog).lastTransaction;
-					expect(statements).toHaveLength(5);
+					expect(statements).toHaveLength(7);
 					expect(statements[0]).toContain("pg_advisory_xact_lock_shared");
 					expect(statements[1]).toContain("pg_advisory_xact_lock(hashtext(");
 					expect(
 						statements.filter(
 							(statement) =>
-								statement.startsWith("select") &&
-								statement.includes('from "user_saved_view_effective"'),
+								statement.startsWith("select") && statement.includes('from "saved_view" '),
 						),
 					).toHaveLength(1);
 					expect(
@@ -609,7 +621,7 @@ layer(testLayer)((test) => {
 					const before = yield* stored;
 					yield* service.reorder(user, { installationId, references: result.references });
 					const unchangedStatements = yield* (yield* StatementLog).lastTransaction;
-					expect(unchangedStatements).toHaveLength(3);
+					expect(unchangedStatements).toHaveLength(5);
 					expect(
 						unchangedStatements.filter((statement) =>
 							/^(insert into "saved_view_override"|update "saved_view"|delete from "saved_view_override")/.test(
@@ -628,8 +640,8 @@ layer(testLayer)((test) => {
 						Array.from({ length: size * 2 }, (_, index) => index),
 					);
 					assert(result.references.length === size * 2);
-				}
-			}),
-		testTimeout,
-	);
-});
+				}),
+			testTimeout,
+		);
+	});
+}

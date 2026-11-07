@@ -19,6 +19,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { type SQL, sql } from "drizzle-orm";
 import { Deferred, Effect, Fiber, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { relationshipDatabaseLayer, userId } from "#modules/relationships/lifecycle.test-support";
 import { DatabaseSession } from "#platform/db/session";
@@ -33,7 +34,9 @@ const declaration: PluginEventGroup = {
 const run = (statement: SQL) =>
 	Effect.flatMap(DatabaseSession, (database) => database.run((db) => db.execute(statement)));
 const fixture = Effect.fnUntraced(function* () {
-	const definitions = yield* DefinitionRepository.make;
+	const definitions = yield* DefinitionRepository.make.pipe(
+		Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+	);
 	const propertiesSchema: AppSchema = {
 		fields: {
 			kind: { label: "Kind", type: "string", description: "Kind" },

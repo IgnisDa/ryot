@@ -7,7 +7,7 @@ import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { savedViewReferenceWhere } from "#platform/db/definition-owner";
+import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -16,6 +16,7 @@ export class PagesRepository extends Context.Service<PagesRepository>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const savedViews = yield* SavedViewsRepository;
 			const findHomeSavedView = Effect.fn("PagesRepository.findHomeSavedView")(function* (
 				userId: UserId,
 				pluginId: string,
@@ -38,18 +39,7 @@ export class PagesRepository extends Context.Service<PagesRepository>()(
 				userId: UserId,
 				reference: SavedViewReference,
 			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select()
-						.from(schema.userSavedViewEffective)
-						.where(
-							and(
-								savedViewReferenceWhere(reference),
-								eq(schema.userSavedViewEffective.userId, userId),
-							),
-						)
-						.limit(1),
-				);
+				const row = yield* savedViews.findByReference(userId, reference);
 				return row ? { view: row, viewId: SavedViewId.make(row.id) } : null;
 			});
 
@@ -95,5 +85,7 @@ export class PagesRepository extends Context.Service<PagesRepository>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(SavedViewsRepository.layer),
+	);
 }

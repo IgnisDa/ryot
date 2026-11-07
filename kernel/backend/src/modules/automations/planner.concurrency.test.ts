@@ -16,6 +16,7 @@ import { eq, sql } from "drizzle-orm";
 import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
 
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
@@ -140,7 +141,8 @@ const countStatements = (spans: ReadonlyArray<Tracer.Span>, fragment: string) =>
 const counted = (spans: ReadonlyArray<Tracer.Span>) => ({
 	exclusive: countStatements(spans, "pg_advisory_xact_lock("),
 	shared: countStatements(spans, "pg_advisory_xact_lock_shared("),
-	catalog: countStatements(spans, 'from "plugin"') + countStatements(spans, 'from "user_plugin"'),
+	catalog:
+		countStatements(spans, 'from "plugin"') + countStatements(spans, "from plugin_installation i"),
 });
 
 describe("LifecyclePlanner independent PostgreSQL transactions", () => {
@@ -162,9 +164,9 @@ describe("LifecyclePlanner independent PostgreSQL transactions", () => {
 									yield* db
 										.insert(tables.user)
 										.values({ id: "owner", name: "Owner", email: "owner@example.test" });
-									yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(
-										kernelDefinitionSource(),
-									);
+									yield* (yield* DefinitionRepository.make.pipe(
+										Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+									)).replaceKernelDefinitions(kernelDefinitionSource());
 									yield* db
 										.insert(tables.notificationSubscription)
 										.values({ userId: "owner", signalSchemaSlug: "integration.disabled" });

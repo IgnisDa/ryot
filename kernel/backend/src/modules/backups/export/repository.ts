@@ -9,13 +9,13 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
-	notExists,
 	or,
 	sql,
 } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -51,6 +51,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const catalogs = yield* DefinitionCatalog;
 			const replacementReminder = alias(schema.reminder, "replacement");
 			const assertMetadataBounds = Effect.fn("BackupExportRepository.assertMetadataBounds")(
 				function* (userId: UserId, maxBytes: number) {
@@ -388,6 +389,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 							undefined | { readonly slug: string; readonly pluginId: null | string };
 					} = { limit: 256 },
 				) {
+					const builtins = (yield* catalogs.forUser(userId)).savedViews;
 					return yield* session.run((db) =>
 						db
 							.select()
@@ -398,19 +400,14 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 									page.after === undefined
 										? undefined
 										: sql`(coalesce(${schema.savedViewOverride.pluginId}, ''), ${schema.savedViewOverride.slug}) > (${page.after.pluginId ?? ""}, ${page.after.slug})`,
-									notExists(
-										db
-											.select({ id: schema.userSavedViewEffective.id })
-											.from(schema.userSavedViewEffective)
-											.where(
-												and(
-													eq(schema.userSavedViewEffective.userId, userId),
-													eq(schema.userSavedViewEffective.isBuiltin, true),
-													eq(schema.userSavedViewEffective.slug, schema.savedViewOverride.slug),
-													sql`${schema.userSavedViewEffective.pluginId} is not distinct from ${schema.savedViewOverride.pluginId}`,
+									builtins.length === 0
+										? undefined
+										: sql`(coalesce(${schema.savedViewOverride.pluginId}, ''), ${schema.savedViewOverride.slug}) not in (${sql.join(
+												builtins.map(
+													({ slug, pluginId }) => sql`(${pluginId ?? ""}::text, ${slug}::text)`,
 												),
-											),
-									),
+												sql`, `,
+											)})`,
 								),
 							)
 							.orderBy(
@@ -580,5 +577,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

@@ -2,6 +2,7 @@ import type { CalendarSourceSlug, PluginId, UserId } from "@ryot-app/contract/sc
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -16,29 +17,16 @@ export class CalendarSourcesRepository extends Context.Service<CalendarSourcesRe
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const catalogs = yield* DefinitionCatalog;
 			const findEffective = Effect.fn("CalendarSourcesRepository.findEffective")(function* (
 				userId: UserId,
 				pluginId: PluginId,
 				slug: CalendarSourceSlug,
 			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select({
-							slug: schema.userCalendarSourceEffective.slug,
-							pluginId: schema.userCalendarSourceEffective.pluginId,
-						})
-						.from(schema.userCalendarSourceEffective)
-						.where(
-							and(
-								eq(schema.userCalendarSourceEffective.userId, userId),
-								eq(schema.userCalendarSourceEffective.pluginId, pluginId),
-								eq(schema.userCalendarSourceEffective.slug, slug),
-								eq(schema.userCalendarSourceEffective.isEffective, true),
-							),
-						)
-						.limit(1),
+				const row = (yield* catalogs.forUser(userId)).calendarSources.find(
+					(source) => source.isEffective && source.pluginId === pluginId && source.slug === slug,
 				);
-				return row ?? null;
+				return row ? { slug: row.slug, pluginId: row.pluginId } : null;
 			});
 			const setHidden = Effect.fn("CalendarSourcesRepository.setHidden")(function* (
 				source: CalendarSourceIdentity,
@@ -76,5 +64,7 @@ export class CalendarSourcesRepository extends Context.Service<CalendarSourcesRe
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

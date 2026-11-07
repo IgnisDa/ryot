@@ -4,8 +4,8 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, isNotNull, isNull, type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
-import { savedViewReferenceWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -68,8 +68,8 @@ const privateInstallation = {
 	packageId: schema.plugin.packageId,
 	userId: schema.pluginInstallation.userId,
 	health: schema.pluginInstallation.health,
-	installationId: schema.pluginInstallation.id,
 	manifest: schema.pluginRevision.manifest,
+	installationId: schema.pluginInstallation.id,
 	healthReason: schema.pluginInstallation.healthReason,
 	isInitialized: schema.pluginInstallation.isInitialized,
 	incompatibilityReason: schema.pluginInstallation.incompatibilityReason,
@@ -102,6 +102,7 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 	{
 		make: Effect.gen(function* () {
 			const database = yield* DatabaseSession;
+			const catalogs = yield* DefinitionCatalog;
 			const configs = yield* PluginConfigRevisions;
 			const hydrate = Effect.fn(function* <T extends StoredInstallationRow>(row: T) {
 				const { activeConfigRevisionId } = row;
@@ -351,24 +352,47 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 
 			const findHomeSavedView = Effect.fn("PluginInstallationRepository.findHomeSavedView")(
 				function* (userId: UserId, reference: SavedViewReference) {
-					const [row] = yield* database.run((db) =>
+					if (reference.kind === "custom") {
+						const [custom] = yield* database.run((db) =>
+							db
+								.select({
+									renderer: schema.savedView.renderer,
+									isHidden: schema.savedView.isHidden,
+								})
+								.from(schema.savedView)
+								.where(
+									and(
+										eq(schema.savedView.userId, userId),
+										eq(schema.savedView.id, reference.savedViewId),
+									),
+								)
+								.limit(1),
+						);
+						return custom ? { view: custom } : null;
+					}
+					const pluginId = reference.kind === "plugin" ? reference.pluginId : null;
+					const builtin = (yield* catalogs.forUser(userId)).savedViews.find(
+						(view) => view.slug === reference.slug && view.pluginId === pluginId,
+					);
+					if (!builtin) {
+						return null;
+					}
+					const [override] = yield* database.run((db) =>
 						db
-							.select({
-								view: {
-									renderer: schema.userSavedViewEffective.renderer,
-									isHidden: schema.userSavedViewEffective.isHidden,
-								},
-							})
-							.from(schema.userSavedViewEffective)
+							.select({ isHidden: schema.savedViewOverride.isHidden })
+							.from(schema.savedViewOverride)
 							.where(
 								and(
-									savedViewReferenceWhere(reference),
-									eq(schema.userSavedViewEffective.userId, userId),
+									eq(schema.savedViewOverride.userId, userId),
+									eq(schema.savedViewOverride.slug, reference.slug),
+									pluginId === null
+										? isNull(schema.savedViewOverride.pluginId)
+										: eq(schema.savedViewOverride.pluginId, pluginId),
 								),
 							)
 							.limit(1),
 					);
-					return row ?? null;
+					return { view: { renderer: builtin.renderer, isHidden: override?.isHidden ?? false } };
 				},
 			);
 
@@ -693,8 +717,8 @@ export class PluginInstallationRepository extends Context.Service<PluginInstalla
 						.from(schema.pluginInstallation)
 						.innerJoin(schema.plugin, eq(schema.plugin.id, schema.pluginInstallation.pluginId))
 						.innerJoin(
-schema.pluginRevision,
-eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+							schema.pluginRevision,
+							eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 						)
 						.where(
 							and(
@@ -855,6 +879,6 @@ eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(PluginConfigRevisions.layer),
+		Layer.provide(Layer.merge(PluginConfigRevisions.layer, DefinitionCatalog.layer)),
 	);
 }

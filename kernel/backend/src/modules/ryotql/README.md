@@ -104,7 +104,7 @@ Canonical `contentGeneration` advances only when entity `name` or canonical `pro
 
 `event.projectionStatus` and `eventStream.projectionStatus` use the same freshness gate; the stream field reports one status per stream, so a reader can detect pending or failed processing without visiting every event.
 
-`savedView` reads from `user_saved_view_effective`, combining custom user rows with listed built-in definitions and optional per-user order and visibility overrides. A definition change is visible without copying it into each account.
+Catalog tables read relations that `DefinitionCatalog` resolves for the statement's user and prefixes as common table expressions. `savedView` reads from `user_saved_view_effective`, combining custom user rows with listed built-in definitions and optional per-user order and visibility overrides. A definition change is visible without copying it into each account.
 
 `calendarSource` reads from `user_calendar_source_effective`: the active revision's calendar sources of the user's effective installations, keyed by `pluginId` and `slug`, with `isHidden` from the user's per-source override. It has no `id`, so queries order by explicit fields.
 

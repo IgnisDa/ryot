@@ -57,6 +57,7 @@ import {
 } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { AutomationTriggerRepository } from "#modules/automations/trigger-repository";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -270,26 +271,31 @@ const entitiesLayer = (options: TestOptions = {}) =>
 								}),
 								Layer.effect(
 									DefinitionRepository,
-									Effect.map(DefinitionRepository.make, (definitions) => ({
-										...definitions,
-										findGlobalEntitySchema: (reference) =>
-											definitions
-												.findGlobalEntitySchema(reference)
-												.pipe(
-													Effect.flatMap((definition) =>
-														definition ? activated(definition) : Effect.succeed(null),
+									Effect.map(
+										DefinitionRepository.make.pipe(
+											Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+										),
+										(definitions) => ({
+											...definitions,
+											findGlobalEntitySchema: (reference) =>
+												definitions
+													.findGlobalEntitySchema(reference)
+													.pipe(
+														Effect.flatMap((definition) =>
+															definition ? activated(definition) : Effect.succeed(null),
+														),
 													),
-												),
-										findUserEntitySchemas: (userId, references) =>
-											definitions.findUserEntitySchemas(userId, references).pipe(
-												Effect.flatMap((found) =>
-													Effect.forEach(Object.entries(found), ([key, definition]) =>
-														Effect.map(activated(definition), (value) => [key, value] as const),
+											findUserEntitySchemas: (userId, references) =>
+												definitions.findUserEntitySchemas(userId, references).pipe(
+													Effect.flatMap((found) =>
+														Effect.forEach(Object.entries(found), ([key, definition]) =>
+															Effect.map(activated(definition), (value) => [key, value] as const),
+														),
 													),
+													Effect.map(Object.fromEntries),
 												),
-												Effect.map(Object.fromEntries),
-											),
-									})),
+										}),
+									),
 								),
 							);
 				const repositories = Layer.mergeAll(
@@ -534,7 +540,9 @@ const entitiesLayer = (options: TestOptions = {}) =>
 								);
 							}),
 						);
-						yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
+						yield* (yield* DefinitionRepository.make.pipe(
+							Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+						)).replaceKernelDefinitions(source);
 						yield* session.run((db) =>
 							db
 								.insert(tables.user)
@@ -1275,7 +1283,9 @@ describe("EntitiesService committed lifecycle", () => {
 	};
 	const seedProvider = Effect.gen(function* () {
 		const session = yield* DatabaseSession;
-		const declarations = yield* DefinitionRepository.make;
+		const declarations = yield* DefinitionRepository.make.pipe(
+			Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+		);
 		const kernelSchema = yield* declarations.findGlobalEntitySchema(entitySchema);
 		assert(kernelSchema);
 		const source = revisionPackage("provider", "v1", slug).manifest;
@@ -1322,7 +1332,9 @@ describe("EntitiesService committed lifecycle", () => {
 				}),
 			),
 		);
-		yield* (yield* DefinitionRepository.make).writeRevisionDefinitions({
+		yield* (yield* DefinitionRepository.make.pipe(
+			Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+		)).writeRevisionDefinitions({
 			pluginRevisionId: "provider-revision",
 			definitions: revisionDefinitions("provider-plugin", manifest),
 		});
@@ -2222,6 +2234,12 @@ describe("EntitiesService committed lifecycle", () => {
 						const service = yield* EntitiesService;
 						const session = yield* DatabaseSession;
 						const log = yield* StatementLog;
+						yield* session.transaction(
+							service.persistPlannedProviderUpserts({
+								items: [providerItem("provider-warm", command("provider-warm"))],
+								batch: { identity: ["children"], command: command("provider-warm") },
+							}),
+						);
 						const sizes = [2, 20] as const;
 						const commitCounts = <A, E, R>(write: (size: number) => Effect.Effect<A, E, R>) =>
 							Effect.forEach(sizes, (size) =>

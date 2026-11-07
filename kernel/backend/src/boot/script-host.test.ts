@@ -42,6 +42,7 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-support";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
@@ -396,6 +397,7 @@ const hostFunctionsLayer = (
 				hostDatabaseLayer,
 				AuthRepository.layer.pipe(Layer.provide(hostDatabaseLayer)),
 				DomainWriteChecksLive.pipe(Layer.provide(hostDatabaseLayer)),
+				DefinitionCatalog.layer.pipe(Layer.provide(hostDatabaseLayer)),
 				makeAppConfigLayer(),
 				Layer.succeed(
 					ManagedAssetsService,

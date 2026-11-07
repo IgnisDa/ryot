@@ -9,9 +9,11 @@ import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { ConfigProvider, Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { loadCatalogRelations, withCatalogRelations } from "#modules/definitions/catalog-relations";
 import { OAuthConnectionsRepository } from "#modules/oauth-connections/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -741,20 +743,26 @@ layer(services)((test) => {
 					plan: { selection: {}, operation: "private-readiness.task" },
 				});
 				expect(ready.pins.pluginConfigRevisionId).toBe(configured.activeConfigRevisionId);
-				const readProjection = (yield* DatabaseSession).run((db) =>
-					db
-						.select({
-							metadata: sql`${sql.raw(ingestionReadinessMetadataSql("user_integration_provider"))}`,
-						})
-						.from(tables.userIntegrationProvider)
-						.where(
-							and(
-								eq(tables.userIntegrationProvider.slug, input.providerSlug),
-								eq(tables.userIntegrationProvider.installationId, input.installationId),
-								eq(tables.userIntegrationProvider.userId, owner),
+				const session = yield* DatabaseSession;
+				const catalog = yield* DefinitionCatalog;
+				const readProjection = Effect.gen(function* () {
+					const relations = yield* loadCatalogRelations(
+						catalog,
+						owner,
+						new Set(["user_integration_provider"]),
+					);
+					return yield* session.run((db) =>
+						db.execute<{ metadata: unknown }>(
+							withCatalogRelations(
+								relations,
+								sql`select ${sql.raw(ingestionReadinessMetadataSql("user_integration_provider"))} as metadata
+									from user_integration_provider
+									where slug = ${input.providerSlug} and installation_id = ${input.installationId}`,
 							),
+							"objects",
 						),
-				);
+					);
+				});
 				const [projection] = yield* readProjection;
 				expect(projection?.metadata).toEqual(ready.provider.readinessMetadata);
 				expect(projection?.metadata).not.toHaveProperty("configSchema");

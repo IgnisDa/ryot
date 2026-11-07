@@ -5,7 +5,6 @@ import { Effect } from "effect";
 import { collectionOrderStatements } from "#platform/db/collection-order";
 import { entityOccursAtStatements } from "#platform/db/entity-occurs-at";
 import { immutableRevisionStatements } from "#platform/db/immutable-revisions";
-import { userPluginStateStatements } from "#platform/db/user-plugin-state";
 
 export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 	const directory = new URL("../drizzle/", import.meta.url).pathname;
@@ -20,7 +19,6 @@ export const baselineMigrationStatements = Effect.fnUntraced(function* () {
 	return [
 		...migrations.flatMap((ddl) => ddl.split("--> statement-breakpoint")),
 		...immutableRevisionStatements,
-		...userPluginStateStatements,
 		...collectionOrderStatements,
 		...entityOccursAtStatements,
 	];

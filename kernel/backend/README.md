@@ -18,8 +18,10 @@ event, and relationship properties are validated before persistence. Account pre
 canonical user-row schema and atomic validated patches; Better Auth sessions neither own nor expose
 those preferences.
 
-Persisted `definition_*` tables and their global/user views define precedence and effectiveness.
-`DefinitionRepository` is the common reader; event and relationship readers add ownership-scoped
+`DefinitionCatalog` resolves precedence and effectiveness in memory from installations and persisted
+`definition_*` rows, caching only immutable revision rows and kernel definitions. SQL readers receive a
+resolved catalog as `user_*` relations prefixed to their statement. `DefinitionRepository` is the
+common reader; event and relationship readers add ownership-scoped
 projections. Definitions contain stable plugin identity and local slugs, not user/domain records.
 Signal definitions select formatters while kernel formatters remain kernel-owned. Revision rows are
 immutable, enforced by a startup-installed database trigger.

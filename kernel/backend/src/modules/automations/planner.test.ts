@@ -21,7 +21,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer, Schema, type Tracer } from "effect";
 
 import {
@@ -29,6 +29,7 @@ import {
 	LifecyclePlanner,
 	lifecycleRunId,
 } from "#modules/automations/lifecycle/planning";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -399,7 +400,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 						).toHaveLength(1);
 						expect(
 							statements.filter((text) => text.includes('from "plugin_revision"')),
-						).toHaveLength(1);
+						).toHaveLength(2);
 						expect(
 							statements.filter((text) => text.startsWith('insert into "automation_run"')),
 						).toHaveLength(1);
@@ -408,7 +409,7 @@ describe("LifecyclePlanner PostgreSQL", () => {
 								(text) => text.includes('from "automation_run"') && !text.includes("count("),
 							),
 						).toHaveLength(1);
-						const catalogs = yield* session.run((db) => db.select().from(tables.userPlugin));
+						const catalogs = yield* (yield* DefinitionCatalog).listUserPlugins(sql`true`);
 						const scripts = yield* session.run((db) =>
 							db
 								.select()

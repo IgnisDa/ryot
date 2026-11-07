@@ -208,15 +208,6 @@ type FakeInstallationOptions = {
 	>;
 };
 
-class FakeInstallationDependencies extends Context.Service<
-	FakeInstallationDependencies,
-	{ readonly [Key in keyof Recordings]: Effect.Effect<Recordings[Key]> } & {
-		readonly loadSystemPlugin: (plugin: StoredPlugin) => Effect.Effect<void>;
-	}
->()(
-	"@ryot-app/kernel-backend/modules/plugins/installations/service.test/FakeInstallationDependencies",
-) {}
-
 class InstallationFakeState extends Context.Service<
 	InstallationFakeState,
 	{
@@ -225,6 +216,15 @@ class InstallationFakeState extends Context.Service<
 		readonly systemPlugins: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 	}
 >()("@ryot-app/kernel-backend/modules/plugins/installations/service.test/InstallationFakeState") {}
+
+class FakeInstallationDependencies extends Context.Service<
+	FakeInstallationDependencies,
+	{ readonly [Key in keyof Recordings]: Effect.Effect<Recordings[Key]> } & {
+		readonly loadSystemPlugin: (plugin: StoredPlugin) => Effect.Effect<void>;
+	}
+>()(
+	"@ryot-app/kernel-backend/modules/plugins/installations/service.test/FakeInstallationDependencies",
+) {}
 
 const record = <Key extends keyof Recordings>(
 	recordings: Ref.Ref<Recordings>,
@@ -376,22 +376,6 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 							Ref.get(systemPlugins),
 							(plugins) => plugins.find((plugin) => plugin.id === id) ?? null,
 						),
-					findUninstalledActivation: (activationId) =>
-						Effect.map(Ref.get(recordings), (current) => {
-							const plugin = privatePlugins.find(
-								(candidate) =>
-									candidate.activationId === activationId && current.deactivated.includes(candidate.id),
-							);
-							return plugin
-								? {
-										pluginId: plugin.id,
-										ownerId: plugin.ownerId,
-										installationId:
-											installations.find((installation) => installation.pluginId === plugin.id)?.id ??
-											null,
-									}
-								: null;
-						}),
 					findActiveSystemPluginByPackageId: (packageId) =>
 						Effect.map(
 							Ref.get(systemPlugins),
@@ -413,6 +397,23 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 									(plugin) => plugin.id === pluginId && plugin.contentHash === contentHash,
 								),
 						),
+					findUninstalledActivation: (activationId) =>
+						Effect.map(Ref.get(recordings), (current) => {
+							const plugin = privatePlugins.find(
+								(candidate) =>
+									candidate.activationId === activationId &&
+									current.deactivated.includes(candidate.id),
+							);
+							return plugin
+								? {
+										pluginId: plugin.id,
+										ownerId: plugin.ownerId,
+										installationId:
+											installations.find((installation) => installation.pluginId === plugin.id)
+												?.id ?? null,
+									}
+								: null;
+						}),
 					findPrivateByIdForUser: (pluginId) =>
 						Effect.gen(function* () {
 							if (

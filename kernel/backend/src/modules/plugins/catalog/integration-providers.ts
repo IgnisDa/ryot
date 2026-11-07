@@ -4,6 +4,7 @@ import type { PluginIntegrationProvider } from "@ryot-app/contract/modules/plugi
 import {
 	type DeclarationReference,
 	definitionOwner,
+	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type PluginPackageId,
@@ -11,10 +12,11 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { and, eq, type SQL, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { installationSlugWhere, referenceWhere } from "#platform/db/definition-owner";
+import { type CatalogIntegrationProvider, DefinitionCatalog } from "#modules/definitions/catalog";
+import { integrationProviderQuery } from "#modules/definitions/catalog-relations";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -40,10 +42,17 @@ export type RegisteredIntegrationProvider = {
 	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
 };
 
-const provider = schema.userIntegrationProvider;
-
-const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
-	Effect.fn(function* (userId: UserId, predicate?: SQL) {
+const queryProvidersForSession = (
+	database: DatabaseSession["Service"],
+	catalogs: DefinitionCatalog["Service"],
+) =>
+	Effect.fn(function* (
+		userId: UserId,
+		filter: (provider: CatalogIntegrationProvider) => boolean = () => true,
+	) {
+		const provider = integrationProviderQuery(
+			(yield* catalogs.forUser(userId)).integrationProviders.filter(filter),
+		).as("user_integration_provider");
 		const rows = yield* database.run((db) =>
 			db
 				.select({
@@ -87,8 +96,7 @@ const queryProvidersForSession = (database: DatabaseSession["Service"]) =>
 						eq(schema.sandboxScript.id, provider.scriptId),
 						eq(schema.sandboxScript.pluginRevisionId, provider.pluginRevisionId),
 					),
-				)
-				.where(and(eq(provider.userId, userId), predicate)),
+				),
 		);
 		return rows
 			.flatMap(
@@ -163,7 +171,10 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 	"@ryot-app/kernel-backend/modules/plugins/catalog/integration-providers/IntegrationProviderCatalog",
 	{
 		make: Effect.gen(function* () {
-			const queryProviders = queryProvidersForSession(yield* DatabaseSession);
+			const queryProviders = queryProvidersForSession(
+				yield* DatabaseSession,
+				yield* DefinitionCatalog,
+			);
 			const listResolvedForUser = Effect.fn("IntegrationProviderCatalog.listResolvedForUser")(
 				(userId: UserId) => queryProviders(userId),
 			);
@@ -172,7 +183,12 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 				userId: UserId,
 				reference: DeclarationReference,
 			) {
-				const [resolved] = yield* queryProviders(userId, referenceWhere(provider, reference));
+				const [resolved] = yield* queryProviders(
+					userId,
+					(provider) =>
+						provider.slug === reference.slug &&
+						provider.pluginId === definitionOwnerPluginId(reference.owner),
+				);
 				return resolved?.provider ?? null;
 			});
 
@@ -180,7 +196,8 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 				function* (userId: UserId, providerSlug: string, installationId: string) {
 					const [resolved] = yield* queryProviders(
 						userId,
-						installationSlugWhere(provider, providerSlug, installationId),
+						(provider) =>
+							provider.slug === providerSlug && provider.installationId === installationId,
 					);
 					return resolved ?? null;
 				},
@@ -198,5 +215,7 @@ export class IntegrationProviderCatalog extends Context.Service<IntegrationProvi
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

@@ -20,6 +20,7 @@ import { and, asc, eq, getTableColumns, gt, inArray, or, sql } from "drizzle-orm
 import { Context, DateTime, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { FoldMarks, type FoldSource } from "#modules/derived-values/marks";
 import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
@@ -801,5 +802,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

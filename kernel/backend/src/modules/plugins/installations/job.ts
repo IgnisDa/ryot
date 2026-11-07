@@ -211,9 +211,7 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 								})
 								.pipe(
 									Effect.tap((updated) =>
-										updated
-											? invalidator.user(UserId.make(installation.userId))
-											: Effect.void,
+										updated ? invalidator.user(UserId.make(installation.userId)) : Effect.void,
 									),
 								),
 						);
@@ -224,8 +222,8 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 
 		const complete = (installationId: string, activationId: string, userId: UserId) =>
 			asInternal(
-				Effect.gen(function* () {
-					yield* database.transaction(
+				database
+					.transaction(
 						Effect.gen(function* () {
 							const installation = yield* installations.findById(installationId);
 							if (installation?.userId !== userId) {
@@ -249,8 +247,8 @@ export const PluginInstallationJobOperationsLive = Layer.effect(
 							}
 							return updated;
 						}),
-					);
-				}),
+					)
+					.pipe(Effect.asVoid),
 				"Plugin installation completion could not be recorded",
 			);
 

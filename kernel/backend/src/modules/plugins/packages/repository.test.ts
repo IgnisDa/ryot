@@ -16,6 +16,7 @@ import { it, layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { DateTime, Effect, Result } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import {
 	clientArtifactMatches,
 	ClientArtifactsRepository,
@@ -183,8 +184,8 @@ describe("plugin repository revisions", () => {
 					expect(yield* repository.findUninstalledActivation(first.activationId)).toBeNull();
 					yield* session.transaction(repository.deactivate(id));
 					expect(yield* repository.findUninstalledActivation(first.activationId)).toEqual({
-						ownerId: null,
 						pluginId: id,
+						ownerId: null,
 						installationId: null,
 					});
 					expect(yield* session.transaction(repository.persist(pluginPackage, identity))).toBe(id);
@@ -651,9 +652,12 @@ describe("plugin repository revisions", () => {
 					const session = yield* DatabaseSession;
 					const initialPackage = revisionPackage();
 					const first = yield* installRevisionPackage(initialPackage);
-					const old = yield* session.run((db) =>
-						db.select().from(tables.userSandboxProviderOperation),
+					const catalog = yield* DefinitionCatalog;
+					const providerOperations = Effect.map(
+						Effect.flatMap(catalog.forUser(owner), catalog.sandboxProviders),
+						({ operations }) => operations,
 					);
+					const old = yield* providerOperations;
 					yield* installRevisionPackage(
 						revisionPackage(
 							"fixture",
@@ -662,9 +666,7 @@ describe("plugin repository revisions", () => {
 							initialPackage.manifest.metadata.packageId,
 						),
 					);
-					const current = yield* session.run((db) =>
-						db.select().from(tables.userSandboxProviderOperation),
-					);
+					const current = yield* providerOperations;
 					expect(current.map(({ providerId }) => providerId)).toEqual(
 						old.map(({ providerId }) => providerId),
 					);

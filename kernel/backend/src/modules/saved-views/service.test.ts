@@ -46,6 +46,7 @@ const dataSources = document({
 });
 const baseView = {
 	dataSources,
+	revision: 0,
 	sortOrder: 0,
 	icon: "record",
 	pluginId: null,
@@ -53,6 +54,7 @@ const baseView = {
 	name: "My View",
 	isHidden: false,
 	isBuiltin: false,
+	defaultSortOrder: null,
 	pluginInstallationId: null,
 	id: SavedViewId.make("sv-id"),
 	createdAt: "2026-01-01T00:00:00.000Z",
@@ -67,7 +69,9 @@ const baseView = {
 		columns: [{ label: "Name", field: "name", displayKind: "text" }],
 	},
 } satisfies ListedSavedView & {
+	readonly revision: number;
 	readonly pluginId: null | string;
+	readonly defaultSortOrder: null | number;
 	readonly pluginInstallationId: null | string;
 };
 
@@ -81,6 +85,7 @@ const pluginView = {
 	createdAt: null,
 	updatedAt: null,
 	dataSources: null,
+	defaultSortOrder: 0,
 	isBuiltin: true as const,
 	renderer: pluginRenderer,
 	settings: { title: "Fixture" },
@@ -264,6 +269,7 @@ const calendarView = {
 	name: "Calendar",
 	icon: "calendar",
 	dataSources: null,
+	defaultSortOrder: 0,
 	isBuiltin: true as const,
 	reference: { slug: "calendar", kind: "kernel" as const },
 	renderer: { kind: "kernel" as const, name: "calendar" as const },

@@ -6,16 +6,18 @@ import type {
 import {
 	type DeclarationReference,
 	definitionOwner,
+	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	type PluginPackageId,
 	SandboxScriptId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
-import { and, eq, type SQL, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
-import { installationSlugWhere, referenceWhere } from "#platform/db/definition-owner";
+import { type CatalogImportSource, DefinitionCatalog } from "#modules/definitions/catalog";
+import { importSourceQuery } from "#modules/definitions/catalog-relations";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -36,10 +38,17 @@ export type RegisteredImportSource = PluginImportSource & {
 	readonly configContext: ReturnType<typeof pluginConfigContextFor>;
 };
 
-const view = schema.userImportSource;
-
-const querySourcesForSession = (database: DatabaseSession["Service"]) =>
-	Effect.fn(function* (userId: UserId, predicate?: SQL) {
+const querySourcesForSession = (
+	database: DatabaseSession["Service"],
+	catalogs: DefinitionCatalog["Service"],
+) =>
+	Effect.fn(function* (
+		userId: UserId,
+		filter: (source: CatalogImportSource) => boolean = () => true,
+	) {
+		const view = importSourceQuery(
+			(yield* catalogs.forUser(userId)).importSources.filter(filter),
+		).as("user_import_source");
 		const rows = yield* database.run((db) =>
 			db
 				.select({
@@ -83,8 +92,7 @@ const querySourcesForSession = (database: DatabaseSession["Service"]) =>
 						sql`${schema.pluginConfigRevision.ownerUserId} is not distinct from case when ${view.pluginScope} = 'user' then ${view.userId} else null end`,
 						sql`${schema.pluginConfigRevision.pluginInstallationId} is not distinct from case when ${view.pluginScope} = 'user' then ${view.installationId} else null end`,
 					),
-				)
-				.where(and(eq(view.userId, userId), predicate)),
+				),
 		);
 		return rows
 			.flatMap(
@@ -155,7 +163,7 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 	"@ryot-app/kernel-backend/modules/plugins/catalog/import-sources/ImportSourceCatalog",
 	{
 		make: Effect.gen(function* () {
-			const querySources = querySourcesForSession(yield* DatabaseSession);
+			const querySources = querySourcesForSession(yield* DatabaseSession, yield* DefinitionCatalog);
 			const listForUser = Effect.fn("ImportSourceCatalog.listForUser")(function* (userId: UserId) {
 				return (yield* querySources(userId)).map(({ source, script }) => ({
 					source,
@@ -167,7 +175,12 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 				userId: UserId,
 				reference: DeclarationReference,
 			) {
-				const [resolved] = yield* querySources(userId, referenceWhere(view, reference));
+				const [resolved] = yield* querySources(
+					userId,
+					(source) =>
+						source.slug === reference.slug &&
+						source.pluginId === definitionOwnerPluginId(reference.owner),
+				);
 				return resolved ?? null;
 			});
 			const resolveOwnedForUser = Effect.fn("ImportSourceCatalog.resolveOwnedForUser")(function* (
@@ -177,7 +190,7 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 			) {
 				const [resolved] = yield* querySources(
 					userId,
-					installationSlugWhere(view, sourceSlug, installationId),
+					(source) => source.slug === sourceSlug && source.installationId === installationId,
 				);
 				return resolved ?? null;
 			});
@@ -186,5 +199,7 @@ export class ImportSourceCatalog extends Context.Service<ImportSourceCatalog>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

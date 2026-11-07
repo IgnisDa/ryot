@@ -11,6 +11,7 @@ import { and, asc, eq, gt, inArray, isNotNull, isNull, or, sql } from "drizzle-o
 import { Context, Effect, Layer, Schema } from "effect";
 import { chunksOf } from "effect/Array";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { FoldMarks } from "#modules/derived-values/marks";
 import { lockSortedAdvisoryKeys, STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
@@ -680,5 +681,7 @@ export class RelationshipsRepository extends Context.Service<RelationshipsReposi
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

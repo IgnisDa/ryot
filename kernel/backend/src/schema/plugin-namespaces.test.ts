@@ -6,9 +6,10 @@ import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/br
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, eq, sql } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -212,18 +213,9 @@ describe("plugin namespaces in the generated migration baseline", () => {
 						}),
 					);
 					expect(new Set([systemA.pluginId, systemB.pluginId, privateA.pluginId]).size).toBe(3);
-					const definitions = yield* session.run((db) =>
-						db
-							.select({ pluginId: tables.userEntitySchema.pluginId })
-							.from(tables.userEntitySchema)
-							.where(
-								and(
-									eq(tables.userEntitySchema.userId, "owner"),
-									eq(tables.userEntitySchema.slug, "bottle"),
-									eq(tables.userEntitySchema.isEffective, true),
-								),
-							),
-					);
+					const definitions = (yield* (yield* DefinitionCatalog).forUser(
+						"owner",
+					)).entitySchemas.filter(({ slug, isEffective }) => slug === "bottle" && isEffective);
 					expect(
 						definitions
 							.map(({ pluginId }) => {
@@ -269,7 +261,6 @@ describe("plugin namespaces in the generated migration baseline", () => {
 			"keeps private active definitions user-specific and retained revision metadata exact",
 			() =>
 				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
 					const definitions = yield* DefinitionRepository;
 					const original = revisionPackage("whiskey", "v1", "bottle");
 					const owner = UserId.make("owner");
@@ -327,18 +318,9 @@ describe("plugin namespaces in the generated migration baseline", () => {
 					expect(pinned.entitySchemas[ownerKey]?.propertiesSchema.fields).not.toHaveProperty(
 						"label",
 					);
-					const activeRows = yield* session.run((db) =>
-						db
-							.select({ revision: tables.userEntitySchema.pluginRevisionId })
-							.from(tables.userEntitySchema)
-							.where(
-								and(
-									eq(tables.userEntitySchema.userId, owner),
-									eq(tables.userEntitySchema.pluginId, first.pluginId),
-									eq(tables.userEntitySchema.slug, "bottle"),
-								),
-							),
-					);
+					const activeRows = (yield* (yield* DefinitionCatalog).forUser(owner)).entitySchemas
+						.filter(({ slug, pluginId }) => pluginId === first.pluginId && slug === "bottle")
+						.map(({ pluginRevisionId }) => ({ revision: pluginRevisionId }));
 					expect(activeRows).toEqual([{ revision: upgraded.revisionId }]);
 				}),
 			testTimeout,

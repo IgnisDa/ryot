@@ -26,6 +26,7 @@ import {
 import { Context, Effect, Layer } from "effect";
 import { chunksOf } from "effect/Array";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { FoldMarks } from "#modules/derived-values/marks";
 import {
@@ -1090,7 +1091,9 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }
 
 export const EntitiesRepositoryLive = EntitiesRepository.layer.pipe(

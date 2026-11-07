@@ -79,8 +79,8 @@ const revisionFields = {
 	id: schema.pluginRevision.id,
 	packageId: schema.plugin.packageId,
 	pluginId: schema.pluginRevision.pluginId,
-	contentHash: schema.pluginRevision.contentHash,
 	manifest: schema.pluginRevision.manifest,
+	contentHash: schema.pluginRevision.contentHash,
 };
 
 type RevisionRow = { readonly packageId: PluginPackageId } & Pick<
@@ -663,14 +663,11 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 				if (removedExports.length > 0 || removedOperations.length > 0) {
 					const consumers = yield* database.run((db) =>
 						db
-							.select({
-								ownerId: schema.plugin.ownerId,
-								manifest: schema.pluginRevision.manifest,
-							})
+							.select({ ownerId: schema.plugin.ownerId, manifest: schema.pluginRevision.manifest })
 							.from(schema.plugin)
 							.innerJoin(
-schema.pluginRevision,
-eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
+								schema.pluginRevision,
+								eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 							)
 							.where(
 								and(eq(schema.plugin.status, "active"), not(eq(schema.plugin.id, previous.id))),
@@ -803,8 +800,8 @@ eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 						.select({
 							id: schema.pluginRevision.id,
 							packageId: schema.plugin.packageId,
-							contentHash: schema.pluginRevision.contentHash,
 							manifest: schema.pluginRevision.manifest,
+							contentHash: schema.pluginRevision.contentHash,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
 						})
 						.from(schema.plugin)
@@ -1488,7 +1485,6 @@ eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 				persistKernelScript,
 				hasEntityReferences,
 				lockIngestionForUser,
-				findUninstalledActivation,
 				resolveProviderBySlugs,
 				findPrivateByIdForUser,
 				rotatePrivateActivation,
@@ -1497,6 +1493,7 @@ eq(schema.pluginRevision.id, schema.plugin.activeRevisionId),
 				resolveEnvironmentConfig,
 				listActiveHttpRateLimits,
 				hasIntegrationReferences,
+				findUninstalledActivation,
 				deleteUnreferencedScripts,
 				hasLiveWorkflowReferences,
 				findActiveSystemPluginById,

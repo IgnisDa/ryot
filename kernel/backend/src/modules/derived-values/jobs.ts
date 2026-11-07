@@ -1,5 +1,6 @@
 import { Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventMutations } from "#modules/events/mutations";
 import { publishDerivedDataUpdated } from "#modules/live-updates/publish";
 import { DatabaseSession } from "#platform/db/session";
@@ -31,4 +32,6 @@ const FoldRebuildJobLive = registerJobHandler(FoldRebuildJob, (payload) =>
 	Effect.flatMap(Folds, (folds) => folds.rebuild(payload)),
 );
 
-export const FoldJobsLive = Layer.merge(FoldJobLive, FoldRebuildJobLive);
+export const FoldJobsLive = Layer.merge(FoldJobLive, FoldRebuildJobLive).pipe(
+	Layer.provide(DefinitionCatalog.layer),
+);

@@ -788,13 +788,15 @@ layer(testLayer)((test) => {
 					const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(schema);
 					const configSchema = sql`${encoded}::jsonb`;
 					yield* session.run((db) =>
-						db.insert(tables.pluginRevision).values({
-							...revision,
-							id,
-							configSchema,
-							contentHash: id,
-							manifest: sql`jsonb_set(${JSON.stringify(revision.manifest)}::jsonb, '{configSchema}', ${configSchema})`,
-						}),
+						db
+							.insert(tables.pluginRevision)
+							.values({
+								...revision,
+								id,
+								configSchema,
+								contentHash: id,
+								manifest: sql`jsonb_set(${JSON.stringify(revision.manifest)}::jsonb, '{configSchema}', ${configSchema})`,
+							}),
 					);
 					const configId = yield* insertEncryptedConfig(id, ownerUserId);
 					expect(yield* references.referencedLocators(ownerUserId, [locator])).toEqual(

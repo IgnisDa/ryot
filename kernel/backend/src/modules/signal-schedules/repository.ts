@@ -2,6 +2,8 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { userPluginQuery } from "#modules/definitions/catalog-relations";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
 
@@ -18,13 +20,18 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const catalogs = yield* DefinitionCatalog;
 			const schedule = schema.definitionSignalSchedule;
-			const plugin = schema.userPlugin;
 
 			const listTargets = Effect.fn("SignalScheduleRepository.listTargets")(function* (
 				after: null | SignalScheduleCursor,
 				limit: number,
 			) {
+				const plugin = userPluginQuery(
+					(yield* catalogs.listUserPlugins(
+						after === null ? sql`true` : sql`i.user_id >= ${after.userId}`,
+					)).filter(({ isListed, isDefinitionEffective }) => isListed && isDefinitionEffective),
+				).as("user_plugin");
 				return yield* session.run((db) =>
 					db
 						.select({
@@ -60,8 +67,6 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 						)
 						.where(
 							and(
-								eq(plugin.isListed, true),
-								eq(plugin.isDefinitionEffective, true),
 								after === null
 									? undefined
 									: or(
@@ -136,5 +141,7 @@ export class SignalScheduleRepository extends Context.Service<SignalScheduleRepo
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

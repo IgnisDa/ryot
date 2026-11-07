@@ -22,6 +22,7 @@ import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { AutomationRunRepository } from "#modules/automations/run-repository";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { DefinitionSource } from "#modules/definitions/snapshot";
@@ -290,6 +291,7 @@ export const relationshipDatabaseLayer = (
 				PluginConfigRevisions.layer,
 				PluginConfigEncryptionKey.layer,
 				RelationshipsRepository.layer,
+				DefinitionCatalog.layer,
 			);
 			const schemaActivated = yield* Ref.make(false);
 			const schemaState = yield* Ref.make<"active" | "updated" | "disabled">("active");
@@ -352,7 +354,7 @@ export const relationshipDatabaseLayer = (
 											}),
 									};
 								}),
-							),
+							).pipe(Layer.provide(DefinitionCatalog.layer)),
 						)
 					: Layer.merge(
 							PluginRuntimeResolver.layer.pipe(Layer.provide(dependencies)),
@@ -417,7 +419,9 @@ export const relationshipDatabaseLayer = (
 			const seed = Layer.effectDiscard(
 				Effect.gen(function* () {
 					const session = yield* DatabaseSession;
-					yield* (yield* DefinitionRepository.make).replaceKernelDefinitions(source);
+					yield* (yield* DefinitionRepository.make.pipe(
+						Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+					)).replaceKernelDefinitions(source);
 					yield* session.run((db) =>
 						Effect.gen(function* () {
 							yield* db

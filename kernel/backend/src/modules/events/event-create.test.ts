@@ -54,6 +54,7 @@ import {
 	lifecycleRunId,
 } from "#modules/automations/lifecycle/planning";
 import { applyLifecyclePolicyPatches } from "#modules/automations/lifecycle/policy-patch";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { type FoldMode, Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
@@ -772,7 +773,9 @@ const harnessLayer = (initialOptions: HarnessOptions = {}) =>
 				Layer.effect(
 					EventsRepository,
 					Effect.gen(function* () {
-						const live = yield* EventsRepository.make;
+						const live = yield* EventsRepository.make.pipe(
+							Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+						);
 						return EventsRepository.of({
 							...live,
 							createEvent: fakeCreateEvent,

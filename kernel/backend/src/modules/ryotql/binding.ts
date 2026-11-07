@@ -11,17 +11,13 @@ import {
 } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import type { InferViewSelectModel } from "drizzle-orm";
 import { Effect } from "effect";
 
-import type { userPlugin } from "#schema/tables/definitions";
+import type { UserPlugin } from "#modules/definitions/catalog";
 
 import type { RyotQLExecutionScope } from "./catalog";
 
-export type PluginBinding = Pick<
-	InferViewSelectModel<typeof userPlugin>,
-	"scope" | "pluginId" | "packageId"
->;
+export type PluginBinding = Pick<UserPlugin, "scope" | "pluginId" | "packageId">;
 
 export const definitionReadContext = (scope: RyotQLExecutionScope) => {
 	if (scope.type === "plugin") {

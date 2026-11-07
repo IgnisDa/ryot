@@ -70,6 +70,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 
+import { DefinitionCatalog, type UserCatalog } from "#modules/definitions/catalog";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { fakeDatabaseSession } from "#testing/effect";
 
@@ -91,10 +92,31 @@ class RecordedStatements extends Context.Service<
 	{ readonly statements: Effect.Effect<ReadonlyArray<string>> }
 >()("@ryot-app/kernel-backend/modules/ryotql/service.test/RecordedStatements") {}
 
+const emptyCatalog = (userId: string): UserCatalog => ({
+	userId,
+	plugins: [],
+	savedViews: [],
+	eventSchemas: [],
+	entitySchemas: [],
+	signalSchemas: [],
+	importSources: [],
+	calendarSources: [],
+	revisions: new Map(),
+	relationshipSchemas: [],
+	integrationProviders: [],
+});
+
 const makeServiceLayer = (
 	queryResult: Effect.Effect<readonly Record<string, unknown>[], DbError> = Effect.succeed([]),
 ) =>
-	RyotQLService.layer.pipe(
+	Layer.effect(RyotQLService, RyotQLService.make).pipe(
+		Layer.provide(
+			Layer.mock(DefinitionCatalog)({
+				forUser: (userId) => Effect.succeed(emptyCatalog(userId)),
+				allUsers: () => Effect.succeed({ users: [], kernel: emptyCatalog("") }),
+				sandboxProviders: () => Effect.succeed({ providers: [], operations: [] }),
+			}),
+		),
 		Layer.provideMerge(
 			Layer.unwrap(
 				Effect.gen(function* () {

@@ -15,6 +15,7 @@ import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, asc, eq, inArray, isNull, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { DatabaseSession } from "#platform/db/session";
@@ -51,15 +52,9 @@ type PlannerPlugin = {
 const scriptKey = (pluginRevisionId: string, slug: string) =>
 	JSON.stringify([pluginRevisionId, slug]);
 
-type SelectedHook = { hook: PluginHook; plugin: PlannerPlugin };
-
-const plannerPluginFields = {
-	hooks: tables.pluginRevision.hooks,
-	scripts: tables.pluginRevision.scripts,
-	signalSchemas: tables.pluginRevision.signalSchemas,
-};
-
 type ItemPayload = Exclude<LifecyclePayload, BatchPayload>;
+
+type SelectedHook = { hook: PluginHook; plugin: PlannerPlugin };
 type LifecyclePayload = NonNullable<AutomationTrigger["payload"]>;
 type BatchPayload = Extract<LifecyclePayload, { operation: "batch" }>;
 
@@ -153,6 +148,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const session = yield* DatabaseSession;
 			const repository = yield* PluginRepository;
 			const definitions = yield* DefinitionRepository;
+			const catalogs = yield* DefinitionCatalog;
 			const lockCatalogUncached = Effect.fn(function* (users: ReadonlyArray<null | UserId>) {
 				const userIds = users.filter((id) => id !== null);
 				yield* repository.lockIngestionShared(userIds);
@@ -219,46 +215,30 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 			const catalogUncached = Effect.fn(function* (
 				userId: null | UserId,
 			): Effect.fn.Return<ReadonlyArray<PlannerPlugin>, DbError> {
-				if (userId === null) {
-					return yield* session.run((db) =>
-						db
-							.select({
-								...plannerPluginFields,
-								id: tables.globalPlugin.pluginId,
-								pluginRevisionId: tables.globalPlugin.activeRevisionId,
-								pluginConfigRevisionId: tables.globalPlugin.configRevisionId,
-							})
-							.from(tables.globalPlugin)
-							.innerJoin(
-								tables.pluginRevision,
-								eq(tables.pluginRevision.id, tables.globalPlugin.activeRevisionId),
-							)
-							.where(eq(tables.globalPlugin.isExecutable, true))
-							.orderBy(asc(tables.globalPlugin.pluginId)),
-					);
-				}
-				return yield* session.run((db) =>
-					db
-						.select({
-							...plannerPluginFields,
-							id: tables.userPlugin.pluginId,
-							pluginRevisionId: tables.userPlugin.activeRevisionId,
-							pluginConfigRevisionId: tables.userPlugin.configRevisionId,
-						})
-						.from(tables.userPlugin)
-						.innerJoin(
-							tables.pluginRevision,
-							eq(tables.pluginRevision.id, tables.userPlugin.activeRevisionId),
-						)
-						.innerJoin(
-							tables.user,
-							and(eq(tables.user.id, tables.userPlugin.userId), isNull(tables.user.disabledAt)),
-						)
-						.where(
-							and(eq(tables.userPlugin.userId, userId), eq(tables.userPlugin.isExecutable, true)),
-						)
-						.orderBy(asc(tables.userPlugin.pluginId)),
+				const plugins =
+					userId === null
+						? (yield* catalogs.globalPlugins()).filter(({ isExecutable }) => isExecutable)
+						: (yield* catalogs.listUserPlugins(
+								sql`i.user_id = ${userId} and exists (select 1 from "user" u where u.id = i.user_id and u.disabled_at is null)`,
+							)).filter(({ isExecutable }) => isExecutable);
+				const revisions = yield* catalogs.revisions(
+					plugins.map(({ activeRevisionId }) => activeRevisionId),
 				);
+				return [...plugins]
+					.sort((left, right) => (left.pluginId < right.pluginId ? -1 : 1))
+					.flatMap((plugin) => {
+						const revision = revisions.get(plugin.activeRevisionId);
+						return revision
+							? [
+									{
+										...revision.sections,
+										id: plugin.pluginId,
+										pluginRevisionId: plugin.activeRevisionId,
+										pluginConfigRevisionId: plugin.configRevisionId,
+									},
+								]
+							: [];
+					});
 			});
 			// `lockCatalogUncached` holds the `plugin-config:` advisory locks and the `for share` rows on
 			// `plugin` and `plugin_installation` for the rest of the transaction, so no other transaction
@@ -570,5 +550,7 @@ export class AutomationPlannerResolver extends Context.Service<AutomationPlanner
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

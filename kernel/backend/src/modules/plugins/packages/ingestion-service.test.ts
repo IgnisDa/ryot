@@ -179,8 +179,8 @@ class IngestionFakeState extends Context.Service<
 		readonly events: Ref.Ref<ReadonlyArray<string>>;
 		readonly activated: Ref.Ref<ReadonlyArray<string>>;
 		readonly deactivated: Ref.Ref<ReadonlyArray<string>>;
-		readonly uninstalled: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 		readonly installed: Ref.Ref<ReadonlyArray<StoredPlugin>>;
+		readonly uninstalled: Ref.Ref<ReadonlyArray<StoredPlugin>>;
 		readonly integrationFences: Ref.Ref<ReadonlyArray<unknown>>;
 		readonly persisted: Ref.Ref<ReadonlyArray<NormalizedPlugin>>;
 		readonly published: Ref.Ref<ReadonlyArray<PublishedMessage>>;
@@ -302,16 +302,25 @@ const makeLayer = (input?: {
 						Ref.get(state.installed),
 						(all) => all.find((plugin) => plugin.id === id) ?? null,
 					),
-				findUninstalledActivation: (activationId) =>
-					Effect.map(Ref.get(state.uninstalled), (all) => {
-						const plugin = all.find((candidate) => candidate.activationId === activationId);
-						return plugin ? { pluginId: plugin.id, ownerId: null, installationId: null } : null;
-					}),
 				findActiveSystemPluginByPackageId: (packageId) =>
 					Effect.map(
 						Ref.get(state.installed),
 						(all) => all.find((plugin) => plugin.packageId === packageId) ?? null,
 					),
+				findUninstalledActivation: (activationId) =>
+					Effect.map(Ref.get(state.uninstalled), (all) => {
+						const plugin = all.find((candidate) => candidate.activationId === activationId);
+						return plugin ? { ownerId: null, pluginId: plugin.id, installationId: null } : null;
+					}),
+				findByContentHash: ({ contentHash }) => {
+					if (!input?.cached) {
+						return Effect.succeed(null);
+					}
+					const cached = makeStoredPlugin(input.cachedManifest ?? fixtureManifest(), contentHash);
+					return Ref.update(state.installed, (all) =>
+						upsertBy(all, cached, (plugin) => plugin.packageId === cached.packageId),
+					).pipe(Effect.as(cached));
+				},
 				deactivate: (pluginId) =>
 					input?.contendedLock
 						? Ref.set(state.active, false).pipe(Effect.andThen(recordEvent("deactivated")))
@@ -328,15 +337,6 @@ const makeLayer = (input?: {
 								),
 								Ref.update(state.installed, (all) => all.filter(({ id }) => id !== pluginId)),
 							]).pipe(Effect.asVoid),
-				findByContentHash: ({ contentHash }) => {
-					if (!input?.cached) {
-						return Effect.succeed(null);
-					}
-					const cached = makeStoredPlugin(input.cachedManifest ?? fixtureManifest(), contentHash);
-					return Ref.update(state.installed, (all) =>
-						upsertBy(all, cached, (plugin) => plugin.packageId === cached.packageId),
-					).pipe(Effect.as(cached));
-				},
 				persist: (plugin, identity) => {
 					const { packageId } = plugin.manifest.metadata;
 					const pluginId = identity.pluginId ?? `${packageId}-plugin-id`;
@@ -423,13 +423,13 @@ const makeLayer = (input?: {
 					published: Ref.get(state.published),
 					deactivated: Ref.get(state.deactivated),
 					integrationFences: Ref.get(state.integrationFences),
+					setEntityReferences: (hasReferences) => Ref.set(state.hasEntityReferences, hasReferences),
 					replaceInstalled: (plugin) =>
 						Ref.set(state.installed, [plugin]).pipe(
 							Effect.andThen(
 								Ref.update(state.uninstalled, (all) => all.filter(({ id }) => id !== plugin.id)),
 							),
 						),
-					setEntityReferences: (hasReferences) => Ref.set(state.hasEntityReferences, hasReferences),
 					contention: {
 						beginRound: Effect.flatMap(makeContentionRound, (round) => Ref.set(state.round, round)),
 						exclusiveAcquired: Effect.flatMap(currentRound, ({ acquired }) =>
@@ -527,7 +527,9 @@ layer(
 				const events = yield* fake.events;
 				expect(events).toContain("quarantine:transaction");
 				expect(events).toContain("retire:root");
-				expect(events.indexOf("quarantine:transaction")).toBeLessThan(events.indexOf("retire:root"));
+				expect(events.indexOf("quarantine:transaction")).toBeLessThan(
+					events.indexOf("retire:root"),
+				);
 			}),
 		testTimeout,
 	);

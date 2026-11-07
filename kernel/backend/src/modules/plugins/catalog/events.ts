@@ -4,7 +4,7 @@ import {
 	PLUGIN_CATALOG_CONNECTED_EVENT,
 	PLUGIN_CATALOG_INVALIDATED_EVENT,
 } from "@ryot-app/contract/modules/plugins/contract";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import type { UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, FiberSet, Layer, Queue, Result, Stream } from "effect";
 
 import { Broadcast, broadcastStatement } from "#platform/broadcast";
@@ -25,10 +25,7 @@ export class PluginCatalogInvalidator extends Context.Service<
 	PluginCatalogInvalidator,
 	PluginCatalogInvalidatorValue
 >()("@ryot-app/kernel-backend/modules/plugins/catalog/events/PluginCatalogInvalidator", {
-	make: Effect.succeed({
-		all: Effect.void,
-		user: (_userId: UserId) => Effect.void,
-	}),
+	make: Effect.succeed({ all: Effect.void, user: (_userId: UserId) => Effect.void }),
 }) {
 	static readonly layer = Layer.effect(this, this.make);
 }

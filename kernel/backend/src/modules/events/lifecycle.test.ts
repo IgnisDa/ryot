@@ -44,6 +44,7 @@ import {
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
@@ -1270,6 +1271,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								),
 						});
 						const repository = yield* EventsRepository.make.pipe(
+							Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
 							Effect.provideService(DatabaseSession, measuredSession),
 						);
 						const noHooks = yield* Layer.build(

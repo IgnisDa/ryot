@@ -29,6 +29,7 @@ import { planFixture } from "#modules/automations/lifecycle.test-support";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
@@ -501,7 +502,9 @@ const rootPopulationLayer = Layer.unwrap(
 		if (!pin?.pluginRevision) {
 			return yield* Effect.die("Missing provider fixture pin");
 		}
-		const { readPinnedRows } = yield* DefinitionRepository.make;
+		const { readPinnedRows } = yield* DefinitionRepository.make.pipe(
+			Effect.provideServiceEffect(DefinitionCatalog, DefinitionCatalog.make),
+		);
 		const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({ ...pin, subject });
 		const payload: PopulationWritePayload = {
 			level: "full",

@@ -8,6 +8,7 @@ import { makeAssetsScriptHost } from "#modules/assets/script-host";
 import { DirectPolicyAttempts } from "#modules/automations/execution";
 import { LifecycleServicesLive, SignalEmissionServiceLive } from "#modules/automations/layer";
 import { makeSignalScriptHost } from "#modules/automations/script-host";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { makeDefinitionScriptHost } from "#modules/definitions/script-host";
 import { makeFoldScriptHost } from "#modules/derived-values/script-host";
@@ -115,6 +116,7 @@ export const ScriptHostImplementationsLive = Layer.effect(
 		),
 	),
 	Layer.provide(EntitiesServiceRuntimeLive),
+	Layer.provide(DefinitionCatalog.layer),
 	Layer.provide(LifecycleServicesLive),
 	Layer.provide(EntitiesRepositoryLive),
 	Layer.provide(PluginUserSettingsWriter.layer),

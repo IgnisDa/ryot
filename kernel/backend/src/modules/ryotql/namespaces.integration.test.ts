@@ -32,9 +32,11 @@ import { assert } from "@ryot-app/testing/assert";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq as dbEq } from "drizzle-orm";
+import { eq as dbEq, sql } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { loadCatalogRelations, withCatalogRelations } from "#modules/definitions/catalog-relations";
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
@@ -281,15 +283,27 @@ layer(databaseLayer)((test) => {
 						{ owner: null, id: "kernel-event" },
 					],
 				});
-				const views = yield* session.run((db) =>
-					db
-						.select({
-							id: tables.userSavedViewEffective.id,
-							pluginId: tables.userSavedViewEffective.pluginId,
-						})
-						.from(tables.userSavedViewEffective)
-						.where(dbEq(tables.userSavedViewEffective.slug, "all-bottles")),
-				);
+				const savedViews = Effect.fn(function* (userId: string) {
+					const relations = yield* loadCatalogRelations(
+						yield* DefinitionCatalog,
+						userId,
+						new Set(["user_saved_view_effective"]),
+					);
+					return yield* session.run((db) =>
+						db.execute<{ id: string; slug: string; plugin_id: null | string }>(
+							withCatalogRelations(
+								relations,
+								sql`select id, slug, plugin_id from user_saved_view_effective`,
+							),
+							"objects",
+						),
+					);
+				});
+				const ownerViews = yield* savedViews(owner);
+				const unicodeViews = yield* savedViews(unicodeUser);
+				const views = [...ownerViews, ...unicodeViews]
+					.filter(({ slug }) => slug === "all-bottles")
+					.map(({ id, plugin_id }) => ({ id, pluginId: plugin_id }));
 				expect(views).toEqual<unknown>(
 					arrayContaining([
 						{
@@ -307,16 +321,8 @@ layer(databaseLayer)((test) => {
 					]),
 				);
 				expect(new Set(views.map(({ id }) => id)).size).toBe(views.length);
-				const [kernelView] = yield* session.run((db) =>
-					db
-						.select({ id: tables.userSavedViewEffective.id })
-						.from(tables.userSavedViewEffective)
-						.where(
-							dbEq(
-								tables.userSavedViewEffective.id,
-								builtinSavedViewId(unicodeUser, definitionOwner(null), "collections"),
-							),
-						),
+				const kernelView = unicodeViews.find(
+					({ id }) => id === builtinSavedViewId(unicodeUser, definitionOwner(null), "collections"),
 				);
 				expect(kernelView?.id).toBe(
 					builtinSavedViewId(unicodeUser, definitionOwner(null), "collections"),

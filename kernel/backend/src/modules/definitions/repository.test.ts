@@ -24,6 +24,7 @@ import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
+import { DefinitionCatalog } from "./catalog";
 import { kernelDefinitionSource } from "./kernel-source";
 import { DefinitionRepository } from "./repository";
 import { seedKernelDefinitions } from "./test-support";
@@ -46,18 +47,22 @@ const setInstallation = Effect.fn(function* (
 });
 
 const userPlugin = Effect.fn(function* (pluginId: string) {
-	const session = yield* DatabaseSession;
-	const [row] = yield* session.run((db) =>
-		db
-			.select({
-				isListed: tables.userPlugin.isListed,
-				isExecutable: tables.userPlugin.isExecutable,
-				isDefinitionEffective: tables.userPlugin.isDefinitionEffective,
-			})
-			.from(tables.userPlugin)
-			.where(and(eq(tables.userPlugin.userId, owner), eq(tables.userPlugin.pluginId, pluginId))),
+	const row = (yield* (yield* DefinitionCatalog).userPlugins(owner)).find(
+		(plugin) => plugin.pluginId === pluginId,
 	);
-	return row ?? null;
+	return row
+		? {
+				isListed: row.isListed,
+				isExecutable: row.isExecutable,
+				isDefinitionEffective: row.isDefinitionEffective,
+			}
+		: null;
+});
+
+const globalPlugin = Effect.fn(function* (pluginId: string) {
+	return (yield* (yield* DefinitionCatalog).globalPlugins()).find(
+		(plugin) => plugin.pluginId === pluginId,
+	);
 });
 
 const entitySlugs = Effect.fn(function* (options: { readonly listed: boolean }) {
@@ -616,12 +621,7 @@ describe("definition views", () => {
 					);
 					expect((yield* userPlugin(alpha.pluginId))?.isExecutable).toBe(false);
 
-					const [pinned] = yield* session.run((db) =>
-						db
-							.select({ configRevisionId: tables.globalPlugin.configRevisionId })
-							.from(tables.globalPlugin)
-							.where(eq(tables.globalPlugin.pluginId, system.pluginId)),
-					);
+					const pinned = yield* globalPlugin(system.pluginId);
 					assert(pinned?.configRevisionId);
 					yield* session.transaction(
 						Effect.gen(function* () {
@@ -637,16 +637,10 @@ describe("definition views", () => {
 							);
 						}),
 					);
-					const [unpinned] = yield* session.run((db) =>
-						db
-							.select({
-								isExecutable: tables.globalPlugin.isExecutable,
-								configRevisionId: tables.globalPlugin.configRevisionId,
-							})
-							.from(tables.globalPlugin)
-							.where(eq(tables.globalPlugin.pluginId, system.pluginId)),
-					);
-					expect(unpinned).toEqual({ isExecutable: false, configRevisionId: null });
+					expect(yield* globalPlugin(system.pluginId)).toMatchObject({
+						isExecutable: false,
+						configRevisionId: null,
+					});
 					expect((yield* userPlugin(system.pluginId))?.isExecutable).toBe(false);
 
 					const exit = yield* Effect.exit(
@@ -730,7 +724,6 @@ describe("integration provider plans", () => {
 			"stores each declared plan and none for push or planless providers",
 			() =>
 				Effect.gen(function* () {
-					const session = yield* DatabaseSession;
 					const value = revisionPackage("integrations");
 					const executableDependencies = [
 						{
@@ -771,14 +764,8 @@ describe("integration provider plans", () => {
 							],
 						},
 					});
-					const rows = yield* session.run((db) =>
-						db
-							.select({
-								slug: tables.userIntegrationProvider.slug,
-								plan: tables.userIntegrationProvider.plan,
-							})
-							.from(tables.userIntegrationProvider)
-							.where(eq(tables.userIntegrationProvider.userId, owner)),
+					const rows = (yield* (yield* DefinitionCatalog).forUser(owner)).integrationProviders.map(
+						({ slug, plan }) => ({ slug, plan }),
 					);
 					expect(rows.sort((left, right) => (left.slug < right.slug ? -1 : 1))).toEqual([
 						{ plan: null, slug: "data-json" },

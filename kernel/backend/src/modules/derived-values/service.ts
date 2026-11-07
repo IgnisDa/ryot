@@ -12,6 +12,7 @@ import { Context, DateTime, Effect, Layer, Option, Ref, Schema, type Scope } fro
 import { SecureRandom } from "effect/crypto";
 
 import { lifecycleActor, rootLifecycleCausation } from "#modules/automations/lifecycle/command";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
@@ -115,6 +116,7 @@ export class Folds extends Context.Service<Folds>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const definitions = yield* DefinitionCatalog;
 			const marks = yield* FoldMarks.make;
 			const scripts = yield* FoldScripts;
 			const executor = yield* FoldExecutor;
@@ -126,25 +128,36 @@ export class Folds extends Context.Service<Folds>()(
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
 			) {
-				const events = yield* session.run((db) =>
+				const catalog = yield* definitions.forUser(subject.userId);
+				const rows = yield* session.run((db) =>
 					db.execute<{
 						id: string;
 						entityId: string;
 						eventSchemaSlug: string;
+						entitySchemaSlug: string;
 						sessionEntityId: null | string;
-						propertiesSchema: null | PluginProjection["propertiesSchema"];
 					}>(
 						sql`select v.id, v.entity_id as "entityId", v.session_entity_id as "sessionEntityId",
-							v.event_schema_slug as "eventSchemaSlug", d.projection -> 'propertiesSchema' as "propertiesSchema"
+							v.event_schema_slug as "eventSchemaSlug", e.entity_schema_slug as "entitySchemaSlug"
 						from event v
 						join entity e on e.id = v.entity_id
-						left join user_event_schema d on d.user_id = v.user_id and d.plugin_id = v.event_schema_plugin_id
-							and d.entity_schema_slug = e.entity_schema_slug and d.slug = v.event_schema_slug and d.is_effective
 						where v.user_id = ${subject.userId} and v.event_schema_plugin_id = ${declaration.pluginId}
 							and v.event_schema_slug in (${foldValuesSql(declaration.eventSchemaSlugs)})
 							and (v.entity_id = ${subject.entityId} or v.session_entity_id = ${subject.entityId})`,
 						"objects",
 					),
+				);
+				const events = rows.map(({ entitySchemaSlug, ...row }) =>
+					Object.assign(row, {
+						propertiesSchema:
+							catalog.eventSchemas.find(
+								(schema) =>
+									schema.isEffective &&
+									schema.slug === row.eventSchemaSlug &&
+									schema.pluginId === declaration.pluginId &&
+									schema.entitySchemaSlug === entitySchemaSlug,
+							)?.projection?.propertiesSchema ?? null,
+					}),
 				);
 				const sessions = yield* declarations(subject.userId, [
 					...new Set(
@@ -170,17 +183,24 @@ export class Folds extends Context.Service<Folds>()(
 						eventTargets.set(row.id, { id: row.id, propertiesSchema: row.propertiesSchema });
 					}
 				}
-				const relationships = yield* session.run((db) =>
-					db.execute<{ id: string; propertiesSchema: PluginProjection["propertiesSchema"] }>(
-						sql`select r.id, d.projection -> 'propertiesSchema' as "propertiesSchema"
+				const relationshipRows = yield* session.run((db) =>
+					db.execute<{ id: string; slug: string }>(
+						sql`select r.id, r.relationship_schema_slug as slug
 						from relationship r
-						join user_relationship_schema d on d.user_id = r.user_id and d.plugin_id = r.relationship_schema_plugin_id
-							and d.slug = r.relationship_schema_slug and d.is_effective and d.projection is not null
 						where r.user_id = ${subject.userId} and r.source_entity_id = ${subject.entityId}
 							and r.relationship_schema_plugin_id = ${declaration.pluginId}`,
 						"objects",
 					),
 				);
+				const relationships = relationshipRows.flatMap(({ id, slug }) => {
+					const projection = catalog.relationshipSchemas.find(
+						(schema) =>
+							schema.isEffective &&
+							schema.slug === slug &&
+							schema.pluginId === declaration.pluginId,
+					)?.projection;
+					return projection ? [{ id, propertiesSchema: projection.propertiesSchema }] : [];
+				});
 				return {
 					events: eventTargets,
 					relationships: new Map(relationships.map((row) => [row.id, row])),
@@ -500,6 +520,6 @@ export class Folds extends Context.Service<Folds>()(
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.merge(FoldScriptsLive, FoldExecutor.layer)),
+		Layer.provide(Layer.mergeAll(FoldScriptsLive, FoldExecutor.layer, DefinitionCatalog.layer)),
 	);
 }

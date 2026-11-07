@@ -4,6 +4,7 @@ import { EntityId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
 import { Context, Duration, Effect, Layer, Schema } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 
@@ -79,6 +80,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const catalog = yield* DefinitionCatalog;
 			const jobs = yield* JobQueue.make;
 			const requireTransaction = session.requireTransaction.pipe(
 				Effect.mapError(() => new DbError({ message: "Folds require an active transaction" })),
@@ -91,34 +93,39 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				if (ids.length === 0) {
 					return new Map<string, FoldDeclaration>();
 				}
-				const rows = yield* session.run((db) =>
-					db.execute<{
-						entityId: string;
-						pluginId: string;
-						fold: PluginEntityFold;
-						entitySchemaSlug: string;
-						pluginRevisionId: string;
-					}>(
-						sql`select e.id as "entityId", d.plugin_id as "pluginId", d.fold,
-							d.slug as "entitySchemaSlug", d.plugin_revision_id as "pluginRevisionId"
+				const entities = yield* session.run((db) =>
+					db.execute<{ id: string; entitySchemaSlug: string; entitySchemaPluginId: string }>(
+						sql`select e.id, e.entity_schema_slug as "entitySchemaSlug",
+							e.entity_schema_plugin_id as "entitySchemaPluginId"
 						from entity e
-						join user_entity_schema d on d.user_id = ${userId} and d.slug = e.entity_schema_slug
-							and d.plugin_id is not distinct from e.entity_schema_plugin_id and d.is_effective
-						where e.id in (${valuesSql(ids)}) and d.fold is not null and d.plugin_id is not null`,
+						where e.id in (${valuesSql(ids)}) and e.entity_schema_plugin_id is not null`,
 						"objects",
 					),
 				);
+				const schemas = entities.length > 0 ? (yield* catalog.forUser(userId)).entitySchemas : [];
 				return new Map(
-					rows.map((row) => [
-						row.entityId,
-						{
-							...row.fold,
-							entityId: EntityId.make(row.entityId),
-							pluginId: PluginId.make(row.pluginId),
-							entitySchemaSlug: row.entitySchemaSlug,
-							pluginRevisionId: row.pluginRevisionId,
-						},
-					]),
+					entities.flatMap((entity) => {
+						const schema = schemas.find(
+							(row) =>
+								row.isEffective &&
+								row.slug === entity.entitySchemaSlug &&
+								row.pluginId === entity.entitySchemaPluginId,
+						);
+						return schema?.fold && schema.pluginRevisionId !== null
+							? [
+									[
+										entity.id,
+										{
+											...schema.fold,
+											entitySchemaSlug: schema.slug,
+											entityId: EntityId.make(entity.id),
+											pluginRevisionId: schema.pluginRevisionId,
+											pluginId: PluginId.make(entity.entitySchemaPluginId),
+										},
+									] as const,
+								]
+							: [];
+					}),
 				);
 			});
 
@@ -276,5 +283,7 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }

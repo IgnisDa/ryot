@@ -6,6 +6,7 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Redacted } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -37,6 +38,7 @@ export const revisionDatabaseLayer = Layer.unwrap(
 		const config = makeAppConfigLayer({ database: { url: Redacted.make(databaseUrl.href) } });
 		const dependencies = Layer.mergeAll(
 			ClientArtifactsRepository.layer,
+			DefinitionCatalog.layer,
 			DefinitionRepository.layer,
 			PluginInstallationRepository.layer,
 			PluginConfigRevisions.layer,

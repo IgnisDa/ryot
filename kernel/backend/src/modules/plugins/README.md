@@ -25,17 +25,13 @@ failure remains HTTP 502 `PluginInvocationError` with `runtime-failed`, because 
 
 ## User plugin state
 
-`user_plugin` and the plugin rows of `user_entity_schema` read `user_plugin_state`, one row per
-installation whose availability, listing, definition effectiveness, and executability are stored
-generated columns. Database triggers on `plugin_installation`, `plugin`, and `plugin_config_revision`
-maintain it (`platform/db/user-plugin-state.ts`) because its inputs are written by the installation,
-package, and configuration repositories, backup restore, raw-SQL one-time migrations, and foreign key
-cascades; only triggers observe all of them.
-
-`user_plugin.is_listed` includes hidden and installing installations, but excludes incompatible ones.
-User-scoped provider listings read `user_sandbox_provider`. Catalog operations resolve one
-`listPluginsAvailableToUser` snapshot and thread it through multi-row work rather than rereading
-different catalog states or holding process-local catalog state.
+`DefinitionCatalog` reads a user's installations, their plugins, and the configuration revisions they
+pin in one statement and derives listing, definition effectiveness, and executability in memory, so
+every writer, including backup restore and one-time migrations, is observed without triggers.
+Listed plugins include hidden and installing installations, but exclude incompatible ones.
+Catalog operations resolve one `listPluginsAvailableToUser` snapshot and thread it through multi-row
+work rather than rereading different catalog states. Catalog changes publish a transactional
+`pg_notify` that clients use to refetch.
 
 ## Plugin artifacts and revision identity
 

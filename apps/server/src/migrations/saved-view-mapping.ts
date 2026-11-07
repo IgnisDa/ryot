@@ -112,6 +112,12 @@ ${hiddenCases}
 		FROM "old_user" legacy_user
 		INNER JOIN installations ON installations.user_id = legacy_user.id
 		CROSS JOIN desired_slug
+	),
+	effective AS (
+		SELECT definition."slug", active_plugin."id" AS plugin_id, definition."sort_order"
+		FROM "definition_saved_view" definition
+		LEFT JOIN "plugin" active_plugin ON active_plugin."active_revision_id" = definition."plugin_revision_id"
+		WHERE definition."plugin_revision_id" IS NULL OR active_plugin."id" IS NOT NULL
 	)`;
 	return `
 DO $$
@@ -125,9 +131,8 @@ BEGIN
 	hidden AS (
 		SELECT desired.user_id, desired.slug, desired.plugin_id, effective."sort_order"
 		FROM desired
-		INNER JOIN "user_saved_view" effective
-			ON effective."user_id" = desired.user_id
-			AND effective."slug" = desired.slug
+		INNER JOIN effective
+			ON effective."slug" = desired.slug
 			AND effective."plugin_id" IS NOT DISTINCT FROM desired.plugin_id
 		WHERE desired.is_hidden
 	)
@@ -140,11 +145,10 @@ BEGIN
 	WITH ${desiredCtes}
 	SELECT count(*) INTO missing_count
 	FROM desired
-	LEFT JOIN "user_saved_view" effective
-		ON effective."user_id" = desired.user_id
-		AND effective."slug" = desired.slug
+	LEFT JOIN effective
+		ON effective."slug" = desired.slug
 		AND effective."plugin_id" IS NOT DISTINCT FROM desired.plugin_id
-	WHERE effective."user_id" IS NULL;
+	WHERE effective."slug" IS NULL;
 	IF missing_count > 0 THEN
 		WITH ${desiredCtes}
 		SELECT string_agg(sample.label, '; ' ORDER BY sample.label)
@@ -152,11 +156,10 @@ BEGIN
 		FROM (
 			SELECT (desired.user_id || '/' || desired.slug) AS label
 			FROM desired
-			LEFT JOIN "user_saved_view" effective
-				ON effective."user_id" = desired.user_id
-				AND effective."slug" = desired.slug
+			LEFT JOIN effective
+				ON effective."slug" = desired.slug
 				AND effective."plugin_id" IS NOT DISTINCT FROM desired.plugin_id
-			WHERE effective."user_id" IS NULL
+			WHERE effective."slug" IS NULL
 			ORDER BY desired.user_id, desired.slug LIMIT 20
 		) sample;
 		RAISE EXCEPTION 'legacy saved-view state: % expected built-in saved view(s) have no effective definition, so their hidden state cannot be migrated (sample: %). Use a build whose saved-view set covers these slugs, then start the server again.', missing_count, missing_sample;

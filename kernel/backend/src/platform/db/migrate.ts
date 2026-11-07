@@ -6,7 +6,6 @@ import { collectionOrderStatements } from "./collection-order";
 import { entityOccursAtStatements } from "./entity-occurs-at";
 import { immutableRevisionStatements } from "./immutable-revisions";
 import { DatabaseSession } from "./session";
-import { userPluginStateStatements } from "./user-plugin-state";
 
 const migrateDB = Effect.gen(function* () {
 	const session = yield* DatabaseSession;
@@ -22,7 +21,6 @@ const migrateDB = Effect.gen(function* () {
 			);
 			for (const statement of [
 				...immutableRevisionStatements,
-				...userPluginStateStatements,
 				...collectionOrderStatements,
 				...entityOccursAtStatements,
 			]) {

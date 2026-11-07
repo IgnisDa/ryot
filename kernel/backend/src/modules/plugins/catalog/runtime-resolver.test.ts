@@ -26,6 +26,8 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { and, eq, sql } from "drizzle-orm";
 import { Effect, Result } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { loadCatalogRelations, withCatalogRelations } from "#modules/definitions/catalog-relations";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { definitionLookup } from "#modules/definitions/snapshot";
 import { DatabaseSession } from "#platform/db/session";
@@ -1155,7 +1157,6 @@ describe("catalog reads across revision boundaries", () => {
 
 describe("provider eligibility", () => {
 	const eligibility = Effect.fn(function* (providerId: SandboxProviderId) {
-		const session = yield* DatabaseSession;
 		const runtime = yield* PluginRuntimeResolver;
 		const outcome = (resolved: ReturnType<typeof runtime.resolveDetailsScript>) =>
 			resolved.pipe(
@@ -1164,33 +1165,17 @@ describe("provider eligibility", () => {
 					Effect.succeed(reason),
 				),
 			);
-		const listed = yield* session.run((db) =>
-			db
-				.select({ id: tables.userSandboxProvider.id })
-				.from(tables.userSandboxProvider)
-				.where(
-					and(
-						eq(tables.userSandboxProvider.userId, owner),
-						eq(tables.userSandboxProvider.id, providerId),
-					),
-				),
+		const catalog = yield* DefinitionCatalog;
+		const { providers, operations } = yield* catalog.sandboxProviders(
+			yield* catalog.forUser(owner),
 		);
-		const operations = yield* session.run((db) =>
-			db
-				.select({ operation: tables.userSandboxProviderOperation.operation })
-				.from(tables.userSandboxProviderOperation)
-				.where(
-					and(
-						eq(tables.userSandboxProviderOperation.userId, owner),
-						eq(tables.userSandboxProviderOperation.providerId, providerId),
-					),
-				),
-		);
+		const listed = providers.filter(({ id }) => id === providerId);
+		const providerOperations = operations.filter((row) => row.providerId === providerId);
 		return {
 			listed: listed.length === 1,
-			operations: operations.map(({ operation }) => operation).sort(),
 			details: yield* outcome(runtime.resolveDetailsScript(providerId)),
 			active: (yield* runtime.findActiveProviderById(providerId)) !== null,
+			operations: providerOperations.map(({ operation }) => operation).sort(),
 			userSearch: yield* outcome(runtime.resolveUserSearchScript(owner, providerId)),
 		};
 	});
@@ -1378,19 +1363,39 @@ describe("normalized provider definitions", () => {
 
 	const providerViews = Effect.fn(function* () {
 		const session = yield* DatabaseSession;
+		const catalog = yield* DefinitionCatalog;
+		const views = yield* Effect.forEach([owner, other], (userId) =>
+			Effect.gen(function* () {
+				const relations = yield* loadCatalogRelations(
+					catalog,
+					userId,
+					new Set(["user_sandbox_provider", "user_sandbox_provider_operation"]),
+				);
+				return {
+					providers: yield* session.run((db) =>
+						db.execute<ProviderRow>(
+							withCatalogRelations(
+								relations,
+								sql`select user_id, id, plugin_id, slug, plugin_scope, root_entity_schema_slug from user_sandbox_provider`,
+							),
+							"objects",
+						),
+					),
+					operations: yield* session.run((db) =>
+						db.execute<OperationRow>(
+							withCatalogRelations(
+								relations,
+								sql`select user_id, provider_id, plugin_id, operation, options_schema from user_sandbox_provider_operation`,
+							),
+							"objects",
+						),
+					),
+				};
+			}),
+		);
 		return {
-			providers: yield* session.run((db) =>
-				db.execute<ProviderRow>(
-					sql`select user_id, id, plugin_id, slug, plugin_scope, root_entity_schema_slug from user_sandbox_provider`,
-					"objects",
-				),
-			),
-			operations: yield* session.run((db) =>
-				db.execute<OperationRow>(
-					sql`select user_id, provider_id, plugin_id, operation, options_schema from user_sandbox_provider_operation`,
-					"objects",
-				),
-			),
+			providers: views.flatMap(({ providers }) => providers),
+			operations: views.flatMap(({ operations }) => operations),
 		};
 	});
 

@@ -1,3 +1,4 @@
+import type { DbError } from "@ryot-app/contract/errors";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type {
 	AggregateMeasure,
@@ -21,6 +22,11 @@ import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { DateTime, Effect, Option, Schema } from "effect";
 
+import {
+	type CatalogRelationName,
+	referencedCatalogRelations,
+	withCatalogRelations,
+} from "#modules/definitions/catalog-relations";
 import { pinnedDefinitionSource } from "#modules/definitions/read-context";
 import { mapDatabaseErrors } from "#platform/db/errors";
 
@@ -1498,13 +1504,22 @@ type RyotQLResultBudget = { remainingBytes: number; readonly limitBytes: number 
 const boundedQuery = (query: SqlFragment, remainingBytes: number) =>
 	sql`WITH "ryotqlRows" AS MATERIALIZED (SELECT "ryotqlQuery".*, row_number() OVER () AS "ryotqlOrdinal" FROM (${query}) AS "ryotqlQuery"), "ryotqlSize" AS (SELECT coalesce(sum(octet_length(to_jsonb("ryotqlRows")::text)), 0) AS "ryotqlBytes" FROM "ryotqlRows") SELECT "ryotqlRows".*, "ryotqlSize"."ryotqlBytes" FROM "ryotqlSize" LEFT JOIN "ryotqlRows" ON "ryotqlSize"."ryotqlBytes" <= ${remainingBytes} ORDER BY "ryotqlRows"."ryotqlOrdinal"`;
 
+export type CatalogRelationLoader = (
+	names: ReadonlySet<string>,
+) => Effect.Effect<ReadonlyArray<readonly [CatalogRelationName, SqlFragment]>, DbError>;
+
 const executeSql = Effect.fn("executeRyotQLSql")(function* (
 	query: SqlFragment,
 	queryName: string,
 	db: EffectPgDatabase,
 	budget: undefined | RyotQLResultBudget,
+	catalogRelations: CatalogRelationLoader,
 ) {
-	const statementQuery = budget === undefined ? query : boundedQuery(query, budget.remainingBytes);
+	const bounded = budget === undefined ? query : boundedQuery(query, budget.remainingBytes);
+	const statementQuery = withCatalogRelations(
+		yield* catalogRelations(referencedCatalogRelations(pgDialect.sqlToQuery(bounded).sql)),
+		bounded,
+	);
 	const { sql: statement } = pgDialect.sqlToQuery(statementQuery);
 	yield* Effect.logTrace("RyotQL SQL generated").pipe(
 		Effect.annotateLogs({ queryName, sql: statement }),
@@ -1655,6 +1670,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	queryName: string,
 	db: EffectPgDatabase,
 	budget: undefined | RyotQLResultBudget,
+	catalogRelations: CatalogRelationLoader,
 ) {
 	const plan = planQuery(query, executionScope);
 	const groups = query.output.groupBy ?? [];
@@ -1670,6 +1686,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 		queryName,
 		db,
 		budget,
+		catalogRelations,
 	);
 	if (groups.length === 0) {
 		const items = rows.map((row) =>
@@ -1719,7 +1736,8 @@ const executeOutput = Effect.fnUntraced(function* (
 	query: ExpandedNamedQuery,
 	queryName: string,
 	db: EffectPgDatabase,
-	budget?: RyotQLResultBudget,
+	budget: undefined | RyotQLResultBudget,
+	catalogRelations: CatalogRelationLoader,
 ) {
 	if (query.output.type === "aggregate") {
 		return yield* executeAggregateQuery(
@@ -1728,6 +1746,7 @@ const executeOutput = Effect.fnUntraced(function* (
 			queryName,
 			db,
 			budget,
+			catalogRelations,
 		);
 	}
 	const rowsQuery = { ...query, output: query.output };
@@ -1749,6 +1768,7 @@ const executeOutput = Effect.fnUntraced(function* (
 		queryName,
 		db,
 		budget,
+		catalogRelations,
 	);
 	const { limit } = rowsQuery.output.pagination;
 	const hasMore = rows.length > limit;
@@ -1794,16 +1814,24 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	query: ExpandedNamedQuery,
 	queryName: string,
 	db: EffectPgDatabase,
-	budget?: RyotQLResultBudget,
+	budget: undefined | RyotQLResultBudget,
+	catalogRelations: CatalogRelationLoader,
 ) {
 	if (!hasClosedRootOccursAtRange(query)) {
-		return yield* executeOutput(executionScope, query, queryName, db, budget);
+		return yield* executeOutput(executionScope, query, queryName, db, budget, catalogRelations);
 	}
 	// Postgres underestimates joins through library memberships by orders of magnitude and would start
 	// there, visiting every row the date range is meant to rule out.
 	yield* db.execute(sql`SET LOCAL join_collapse_limit = 1`);
 	yield* db.execute(sql`SET LOCAL from_collapse_limit = 1`);
-	const result = yield* executeOutput(executionScope, query, queryName, db, budget);
+	const result = yield* executeOutput(
+		executionScope,
+		query,
+		queryName,
+		db,
+		budget,
+		catalogRelations,
+	);
 	yield* db.execute(sql`SET LOCAL join_collapse_limit TO DEFAULT`);
 	yield* db.execute(sql`SET LOCAL from_collapse_limit TO DEFAULT`);
 	return result;
