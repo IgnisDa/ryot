@@ -28,21 +28,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import {
-	type AnyColumn,
-	and,
-	asc,
-	desc,
-	eq,
-	gt,
-	inArray,
-	isNotNull,
-	isNull,
-	lte,
-	or,
-	type SQL,
-	sql,
-} from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNotNull, isNull, lte, or, sql } from "drizzle-orm";
 import { Context, DateTime, Duration, Effect, Layer, Schema, Struct } from "effect";
 
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
@@ -89,11 +75,11 @@ const normalizeRun = (row: ImportRunRow): ListedImportRun => ({
 const PayloadItem = Schema.Struct({
 	payload: IngestionPayload,
 	phase: IngestionCapture.fields.phase,
-	checkpoint: IngestionCapture.fields.checkpoint,
 	inputFingerprint: Schema.NonEmptyString,
-	ordinal: Schema.NullOr(IngestionCapture.fields.ordinal),
-	stagingExecutionId: Schema.NullOr(Schema.String),
+	checkpoint: IngestionCapture.fields.checkpoint,
 	state: Schema.Literals(["captured", "sealed"]),
+	stagingExecutionId: Schema.NullOr(Schema.String),
+	ordinal: Schema.NullOr(IngestionCapture.fields.ordinal),
 });
 
 type ImportItemRow = typeof schema.importItem.$inferSelect;
@@ -145,11 +131,8 @@ const itemsOf = (kind: ImportItemRow["kind"], runId: string) =>
 const itemOf = (kind: ImportItemRow["kind"], runId: string, id: string) =>
 	and(itemsOf(kind, runId), eq(schema.importItem.id, id));
 
-const ownedPublished = (scope: IngestionScope) =>
-	and(itemsOf("payload", scope.runId), eq(schema.importItem.published, true));
-
-const unreleasedPayload = (runId: SQL | AnyColumn) =>
-	sql`exists (select 1 from ${schema.importItem} where ${schema.importItem.kind} = 'payload' and ${schema.importItem.runId} = ${runId} and not ${schema.importItem.released})`;
+const publishedOf = (runId: string) =>
+	and(itemsOf("payload", runId), eq(schema.importItem.published, true));
 
 const DataSubmission = Schema.Struct({
 	runId: Schema.String,
@@ -368,7 +351,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 									fingerprint: input.digest,
 									response: {
 										runId,
-										uploadTokenHashes: input.uploadTokenHash === null ? [] : [input.uploadTokenHash],
+										uploadTokenHashes:
+											input.uploadTokenHash === null ? [] : [input.uploadTokenHash],
 									},
 								})
 								.onConflictDoNothing()
@@ -425,14 +409,16 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						}
 					}
 					yield* database.run((db) =>
-						db.insert(schema.importRun).values({
-							id: runId,
-							userId: input.userId,
-							source: dataJsonSource,
-							inputSummary: input.inputSummary,
-							integrationId: input.integrationId,
-							integrationLot: input.integrationId === null ? null : "sink",
-						}),
+						db
+							.insert(schema.importRun)
+							.values({
+								id: runId,
+								userId: input.userId,
+								source: dataJsonSource,
+								inputSummary: input.inputSummary,
+								integrationId: input.integrationId,
+								integrationLot: input.integrationId === null ? null : "sink",
+							}),
 					);
 					if (!input.payload) {
 						return yield* new DbError({ message: "Data ingestion payload is missing" });
@@ -659,22 +645,22 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				scope: IngestionScope,
 				input: {
 					id: string;
-					checkpoint: IngestionCapture["checkpoint"];
 					ordinal: null | number;
 					inputFingerprint: string;
 					payload: IngestionPayload;
 					recoveryBytes?: null | string;
-					captureState: "sealed" | "captured";
 					stagingExecutionId?: null | string;
+					captureState: "sealed" | "captured";
 					capturePhase: IngestionCapture["phase"];
+					checkpoint: IngestionCapture["checkpoint"];
 				},
 			) {
 				yield* checkCaptureOwner(scope);
 				yield* lockProjection(scope, ["pending", "blocked", "running"]);
 				const data = yield* Schema.encodeUnknownEffect(PayloadItem)({
 					ordinal: input.ordinal,
-					state: input.captureState,
 					payload: input.payload,
+					state: input.captureState,
 					phase: input.capturePhase,
 					checkpoint: input.checkpoint,
 					inputFingerprint: input.inputFingerprint,
@@ -723,7 +709,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				function* (input: { userId: UserId; runId?: ImportRunId }) {
 					const rows = yield* database.run((db) =>
 						db
-							.select({ runId: schema.importRun.id, item: schema.importItem })
+							.select({ item: schema.importItem, runId: schema.importRun.id })
 							.from(schema.importItem)
 							.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
 							.where(
@@ -818,7 +804,6 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 							),
 						),
 				);
-				return yield* listPayloadReservations(input);
 			});
 			const releasePayloadReservation = Effect.fn("ImportsRepository.releasePayloadReservation")(
 				function* (scope: IngestionScope, id: string) {
@@ -1051,7 +1036,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				if (run.collectionSealed && data.phase === "collection") {
 					return yield* new DbError({ message: "Collection is sealed" });
 				}
-				const { payload, state } = data;
+				const { state, payload } = data;
 				if (payload === null || state === "released") {
 					return yield* new DbError({
 						message: "Capture publication requires durable payload metadata",
@@ -1072,13 +1057,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 								.update(schema.importItem)
 								.set({ published: true })
 								.where(itemOf("payload", scope.runId, data.id))
-						: db.insert(schema.importItem).values({
-								data: item,
-								id: data.id,
-								kind: "payload",
-								published: true,
-								runId: scope.runId,
-							}),
+						: db
+								.insert(schema.importItem)
+								.values({
+									data: item,
+									id: data.id,
+									kind: "payload",
+									published: true,
+									runId: scope.runId,
+								}),
 				);
 				return true;
 			});
@@ -1098,7 +1085,11 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				const data = yield* Schema.decodeEffect(IngestionBatch)(batch);
 				yield* lockProjection(scope);
 				const [existing] = yield* database.run((db) =>
-					db.select().from(schema.importItem).where(itemOf("batch", scope.runId, data.id)).limit(1),
+					db
+						.select()
+						.from(schema.importItem)
+						.where(itemOf("batch", scope.runId, data.id))
+						.limit(1),
 				);
 				if (existing) {
 					const stored = yield* decodeBatch(existing.data);
@@ -1119,7 +1110,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					db
 						.select({ id: schema.importItem.id })
 						.from(schema.importItem)
-						.where(and(ownedPublished(scope), eq(schema.importItem.id, data.captureId))),
+						.where(and(publishedOf(scope.runId), eq(schema.importItem.id, data.captureId))),
 				);
 				if (captures.length === 0) {
 					return yield* new DbError({ message: "Batch capture is not published" });
@@ -1149,13 +1140,15 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return yield* new DbError({ message: "Ingestion operation belongs to another batch" });
 				}
 				yield* database.run((db) =>
-					db.insert(schema.importItem).values({
-						data,
-						id: data.id,
-						kind: "batch",
-						runId: scope.runId,
-						operationIds: [...operationIds].sort(),
-					}),
+					db
+						.insert(schema.importItem)
+						.values({
+							data,
+							id: data.id,
+							kind: "batch",
+							runId: scope.runId,
+							operationIds: [...operationIds].sort(),
+						}),
 				);
 				return true;
 			});
@@ -1199,7 +1192,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					return yield* new DbError({ message: "Ingestion summary exceeds its record-kind limit" });
 				}
 				yield* database.run((db) =>
-					db.update(schema.importItem).set({ data }).where(itemOf("batch", scope.runId, data.id)),
+					db
+						.update(schema.importItem)
+						.set({ data })
+						.where(itemOf("batch", scope.runId, data.id)),
 				);
 				return true;
 			});
@@ -1209,7 +1205,10 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				result: JsonValue,
 			) {
 				yield* database.run((db) =>
-					db.update(schema.importItem).set({ result }).where(itemOf("batch", scope.runId, id)),
+					db
+						.update(schema.importItem)
+						.set({ result })
+						.where(itemOf("batch", scope.runId, id)),
 				);
 			});
 			const writeActivity = Effect.fn("ImportsRepository.writeActivity")(function* (
@@ -1471,7 +1470,9 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				const rows = yield* database.run((db) =>
 					db
 						.update(schema.importItem)
-						.set({ data: sql`jsonb_set(${schema.importItem.data}, '{state}', '"applying"'::jsonb)` })
+						.set({
+							data: sql`jsonb_set(${schema.importItem.data}, '{state}', '"applying"'::jsonb)`,
+						})
 						.where(
 							and(
 								itemOf("batch", scope.runId, batchId),
@@ -1550,7 +1551,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.select({ item: schema.importItem })
 						.from(schema.importItem)
 						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
-						.where(and(owned(scope), ownedPublished(scope)))
+						.where(and(owned(scope), publishedOf(scope.runId)))
 						.orderBy(asc(schema.importItem.ordinal)),
 				);
 				return yield* Effect.forEach(rows, (row) =>
@@ -1614,7 +1615,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.select({ item: schema.importItem })
 						.from(schema.importItem)
 						.innerJoin(schema.importRun, eq(schema.importRun.id, schema.importItem.runId))
-						.where(and(owned(scope), ownedPublished(scope), eq(schema.importItem.id, id)))
+						.where(and(owned(scope), publishedOf(scope.runId), eq(schema.importItem.id, id)))
 						.limit(1),
 				);
 				return row ? yield* decodeCapture(row.item) : null;
@@ -1628,7 +1629,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.from(schema.importRun)
 						.leftJoin(
 							schema.importItem,
-							and(ownedPublished(scope), eq(schema.importItem.id, "admitted-envelope")),
+							and(publishedOf(scope.runId), eq(schema.importItem.id, "admitted-envelope")),
 						)
 						.where(owned(scope))
 						.limit(1),
@@ -1651,7 +1652,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.where(
 							and(
 								owned(scope),
-								ownedPublished(scope),
+								publishedOf(scope.runId),
 								sql`${schema.importItem.ordinal} >= 64`,
 								eq(schema.importItem.phase, "collection"),
 								after === null ? undefined : sql`${schema.importItem.ordinal} > ${after}`,
@@ -1759,7 +1760,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 									inArray(schema.importRun.status, ["completed", "failed", "cancelled", "expired"]),
 									or(
 										isNotNull(schema.importRun.pins),
-										unreleasedPayload(schema.importRun.id),
+										sql`exists (select 1 from ${schema.importItem} where ${schema.importItem.kind} = 'payload' and ${schema.importItem.runId} = ${schema.importRun.id} and not ${schema.importItem.released})`,
 									),
 								),
 							),
@@ -2027,7 +2028,7 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 						.set({ captureReleased: true })
 						.where(
 							and(
-								ownedPublished(scope),
+								publishedOf(scope.runId),
 								eq(schema.importItem.id, captureId),
 								sql`exists (select 1 from ${schema.importRun} where ${owned(scope)} and ${schema.importRun.status} in ('completed', 'failed', 'cancelled', 'expired'))`,
 							),
@@ -2075,13 +2076,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 			});
 
 			return {
+				getBatch,
 				retireRuns,
 				getOutcome,
 				listIssues,
 				getRunById,
 				getCapture,
 				startBatch,
-				getBatch,
 				listBatches,
 				putActivity,
 				recordIssue,
@@ -2108,17 +2109,17 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				getIngestionRun,
 				createManualRun,
 				getStagingOwner,
+				hasStartedBatch,
 				finishActivities,
 				listRecoveryRuns,
 				createBlockedRun,
+				storeBatchResult,
 				startPayloadWrite,
 				stopPayloadWrites,
 				getPreparedRelease,
 				isIngestionApplied,
 				updateInputSummary,
 				getIntegrationInput,
-				hasStartedBatch,
-				storeBatchResult,
 				claimAdmissionAbort,
 				admitDataSubmission,
 				findDataUploadRetry,
@@ -2131,8 +2132,8 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 				deleteIngestionReport,
 				getPayloadReservation,
 				getIngestionRunControl,
-				listPayloadReservations,
 				assertPayloadsReleased,
+				listPayloadReservations,
 				startIntegrationIngestion,
 				releasePayloadReservation,
 				createIntegrationRunIfIdle,

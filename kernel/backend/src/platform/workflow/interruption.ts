@@ -26,28 +26,24 @@ const completionWorkflow = (workflow: Workflow.Any, executionId: string) => {
 	return completion.annotate(WorkflowCodecs, makeWorkflowCodecs(completion));
 };
 
-export const isWorkflowSettled = Effect.fn("workflow.isSettled")(function* (
-	workflow: Workflow.Any,
-	executionId: string,
+// An execution known only by name, whose workflow may not be registered in this process.
+const namedWorkflow = (identity: WorkflowIdentity) =>
+	Workflow.make(identity.workflowName, {
+		error: Schema.Unknown,
+		success: Schema.Unknown,
+		payload: Schema.Struct({}),
+		idempotencyKey: () => identity.executionId,
+	});
+
+export const isExecutionSettled = Effect.fn("workflow.isSettled")(function* (
+	identity: WorkflowIdentity,
 ) {
 	const result = yield* (yield* WorkflowEngine).poll(
-		completionWorkflow(workflow, executionId),
-		executionId,
+		completionWorkflow(namedWorkflow(identity), identity.executionId),
+		identity.executionId,
 	);
 	return Option.isSome(result) && result.value._tag === "Complete";
 });
-
-// Reads an execution known only by name, whose workflow may not be registered in this process.
-export const isExecutionSettled = (identity: WorkflowIdentity) =>
-	isWorkflowSettled(
-		Workflow.make(identity.workflowName, {
-			error: Schema.Unknown,
-			success: Schema.Unknown,
-			payload: Schema.Struct({}),
-			idempotencyKey: () => identity.executionId,
-		}),
-		identity.executionId,
-	);
 
 export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(function* (
 	workflow: Workflow.Any,
@@ -66,14 +62,5 @@ export const interruptWorkflowAndWait = Effect.fn("workflow.interruptAndWait")(f
 	});
 });
 
-// Interrupts an execution known only by name, such as one listed for a retiring account.
 export const interruptExecutionAndWait = (identity: WorkflowIdentity) =>
-	interruptWorkflowAndWait(
-		Workflow.make(identity.workflowName, {
-			error: Schema.Unknown,
-			success: Schema.Unknown,
-			payload: Schema.Struct({}),
-			idempotencyKey: () => identity.executionId,
-		}),
-		identity.executionId,
-	);
+	interruptWorkflowAndWait(namedWorkflow(identity), identity.executionId);

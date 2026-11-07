@@ -70,6 +70,12 @@ const fixture = Effect.fnUntraced(function* (
 			getPayloadReservation: () => Effect.sync(() => reservation ?? null),
 			listPayloadReservations: () =>
 				Effect.sync(() => (reservation ? [{ reservation, runId: run.id }] : [])),
+			stopPayloadWrites: () =>
+				Effect.sync(() => {
+					if (reservation) {
+						reservation = { ...reservation, retiring: true };
+					}
+				}),
 			clearPayloadRecovery: () =>
 				Effect.sync(() => {
 					assert(reservation);
@@ -87,13 +93,6 @@ const fixture = Effect.fnUntraced(function* (
 					assert(reservation);
 					events.push("release");
 					reservation = { ...reservation, released: true, recoveryBytes: null };
-				}),
-			stopPayloadWrites: () =>
-				Effect.sync(() => {
-					if (reservation) {
-						reservation = { ...reservation, retiring: true };
-					}
-					return reservation ? [{ reservation, runId: run.id }] : [];
 				}),
 			publishCapture: (_scope, data) =>
 				Effect.gen(function* () {

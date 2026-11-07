@@ -26,12 +26,7 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
 import { PostgresWorkflowEngine } from "./engine";
 import { WorkflowExecutionNotifications } from "./execution-notifications";
-import {
-	forgetWorkflowSteps,
-	implementWorkflow,
-	inWorkflowStepScope,
-	makeActivity,
-} from "./scope";
+import { forgetWorkflowSteps, implementWorkflow, inWorkflowStepScope, makeActivity } from "./scope";
 
 const activityRuns = new Map<string, number>();
 const finalizerExits = new Map<string, Array<Exit.Exit<unknown, unknown>>>();
@@ -226,25 +221,26 @@ const joblessLive = implementWorkflow(Jobless, () =>
 	}),
 );
 
+const countRun = (id: string, name: string) =>
+	makeActivity({
+		name,
+		success: Schema.Int,
+		execute: Effect.sync(() => {
+			const key = `${id}:${name}`;
+			const next = (activityRuns.get(key) ?? 0) + 1;
+			activityRuns.set(key, next);
+			return next;
+		}),
+	});
+
 const scopedLive = Layer.mergeAll(
 	implementWorkflow(Scoped, ({ id }) =>
 		Effect.gen(function* () {
-			const count = (name: string) =>
-				makeActivity({
-					name,
-					success: Schema.Int,
-					execute: Effect.sync(() => {
-						const key = `${id}:${name}`;
-						const next = (activityRuns.get(key) ?? 0) + 1;
-						activityRuns.set(key, next);
-						return next;
-					}),
-				});
-			yield* count("kept");
-			const forgotten = inWorkflowStepScope("chunk")(count("forgotten"));
+			yield* countRun(id, "kept");
+			const forgotten = inWorkflowStepScope("chunk")(countRun(id, "forgotten"));
 			yield* forgotten;
 			yield* forgetWorkflowSteps("chunk");
-			yield* count("kept");
+			yield* countRun(id, "kept");
 			return `${yield* forgotten}`;
 		}),
 	),

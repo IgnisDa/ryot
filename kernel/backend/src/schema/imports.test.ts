@@ -73,8 +73,8 @@ const payloadItem = (runId: string, overrides: Record<string, unknown> = {}, id 
 const batchItem = (runId: string, overrides: Record<string, unknown> = {}, id = "batch") => ({
 	id,
 	runId,
-	kind: "batch" as const,
 	operationIds: [],
+	kind: "batch" as const,
 	data: { ...batch, ...overrides },
 });
 
@@ -170,9 +170,10 @@ layer(isolatedDatabaseLayer("ingestion_identity"))((test) => {
 					code: "23514",
 					constraint: "import_item_phase_check",
 				});
-				expect(
-					yield* rejected(payloadItem(runId, { ordinal: null }, "unstaged")),
-				).toMatchObject({ code: "23514", constraint: "import_item_staging_check" });
+				expect(yield* rejected(payloadItem(runId, { ordinal: null }, "unstaged"))).toMatchObject({
+					code: "23514",
+					constraint: "import_item_staging_check",
+				});
 				expect(
 					yield* rejected(payloadItem(runId, { ordinal: 9, stagingExecutionId: "s" }, "both")),
 				).toMatchObject({ code: "23514", constraint: "import_item_staging_check" });
@@ -186,14 +187,15 @@ layer(isolatedDatabaseLayer("ingestion_identity"))((test) => {
 					code: "23505",
 					constraint: "import_item_batch_ordinal_unique",
 				});
-				expect(yield* rejected(batchItem(runId, { ordinal: 2, captureId: null }, "no-capture"))).toMatchObject({
-					code: "23514",
-					constraint: "import_item_batch_check",
-				});
+				expect(
+					yield* rejected(batchItem(runId, { ordinal: 2, captureId: null }, "no-capture")),
+				).toMatchObject({ code: "23514", constraint: "import_item_batch_check" });
 				expect(
 					yield* Effect.flip(
 						session.run((db) =>
-							db.insert(importActivity).values({ runId, data: { ...activity, parentId: activity.id } }),
+							db
+								.insert(importActivity)
+								.values({ runId, data: { ...activity, parentId: activity.id } }),
 						),
 					),
 				).toMatchObject({ code: "23514", constraint: "import_activity_parent_check" });
@@ -212,10 +214,12 @@ layer(isolatedDatabaseLayer("ingestion_identity"))((test) => {
 				expect(
 					yield* Effect.flip(
 						session.run((db) =>
-							db.insert(importActivity).values({
-								runId: otherRunId,
-								data: { ...activity, id: "child", parentId: activity.id },
-							}),
+							db
+								.insert(importActivity)
+								.values({
+									runId: otherRunId,
+									data: { ...activity, id: "child", parentId: activity.id },
+								}),
 						),
 					),
 				).toMatchObject({ code: "23503" });

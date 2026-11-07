@@ -37,11 +37,9 @@ import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
 import type { DataGraphRecord } from "./data-graph";
-import {
-	runDataImportSegment,
-	runDataImportWorkflow,
-} from "./data-workflow";
+import { runDataImportSegment, runDataImportWorkflow } from "./data-workflow";
 import { IngestionExecution } from "./execution-service";
+import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import {
 	ingestionTestDatabase,
 	ingestionTestItem,
@@ -49,7 +47,6 @@ import {
 	ingestionTestRun,
 	ingestionTestScope,
 } from "./ingestion.test-support";
-import { ProcessImportRunWorkflow } from "./import-run-workflow";
 import { ingestionItemIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
 
@@ -191,6 +188,7 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 				}),
 		}),
 		Layer.mock(ImportsRepository)({
+			storeBatchResult: () => Effect.void,
 			recordIssue: () => Effect.succeed(true),
 			getIngestionRunControl: () => Effect.sync(() => run),
 			getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
@@ -204,7 +202,6 @@ const fixture = Effect.fnUntraced(function* (cancelAfterWrite?: boolean) {
 					projections.push(value);
 					return true;
 				}),
-			storeBatchResult: () => Effect.void,
 			recordOutcome: (_scope, outcome) =>
 				Effect.sync(() => {
 					outcomes.set(outcome.operationId, outcome);
@@ -398,6 +395,10 @@ it.effect(
 				}),
 				Layer.mock(DefinitionRepository)({ getUserSnapshot: () => Effect.succeed(snapshot) }),
 				Layer.mock(IngestionCaptures)({
+					read: (_scope, id) =>
+						Effect.sync(() =>
+							Buffer.from(captured.get(id)?.bytes ?? new TextEncoder().encode(document)),
+						),
 					publish: (input) =>
 						Effect.sync(() => {
 							captured.set(input.id, input);
@@ -410,41 +411,18 @@ it.effect(
 								},
 							};
 						}),
-					read: (_scope, id) =>
-						Effect.sync(() =>
-							Buffer.from(captured.get(id)?.bytes ?? new TextEncoder().encode(document)),
-						),
 				}),
 				Layer.mock(ImportsRepository)({
+					storeBatchResult: () => Effect.void,
+					startBatch: () => Effect.succeed(true),
 					recordIssue: () => Effect.succeed(true),
 					projectBatch: () => Effect.succeed(true),
-					startBatch: () => Effect.succeed(true),
-					storeBatchResult: () => Effect.void,
 					getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 					sealCollection: () =>
 						Effect.sync(() => {
 							sealed = true;
 						}),
 					getIngestionRunControl: () => Effect.succeed(ingestionTestRun({ integrationId })),
-					listBatches: () =>
-						Effect.succeed([
-							{
-								data: {
-									ordinal: 1,
-									summary: [],
-									state: "applied" as const,
-									id: "data-segment:0",
-									captureId: "data-segment:0",
-									inputFingerprint: "data-segment:0",
-								},
-								result: {
-									failedKeys: [],
-									relationshipIds: {},
-									entityIds: Object.fromEntries(entityKeys.map((key) => [key, `id:${key}`])),
-									counters: { totalItems: 52, failedItems: 1, importedItems: 50, processedItems: 51 },
-								},
-							},
-						]),
 					registerBatch: (_scope, batch) =>
 						Effect.sync(() => {
 							registered.push(batch.id);
@@ -461,6 +439,30 @@ it.effect(
 							assert(input);
 							return { ...input, payload: null };
 						}),
+					listBatches: () =>
+						Effect.succeed([
+							{
+								data: {
+									ordinal: 1,
+									summary: [],
+									id: "data-segment:0",
+									state: "applied" as const,
+									captureId: "data-segment:0",
+									inputFingerprint: "data-segment:0",
+								},
+								result: {
+									failedKeys: [],
+									relationshipIds: {},
+									entityIds: Object.fromEntries(entityKeys.map((key) => [key, `id:${key}`])),
+									counters: {
+										totalItems: 52,
+										failedItems: 1,
+										importedItems: 50,
+										processedItems: 51,
+									},
+								},
+							},
+						]),
 				}),
 			);
 			yield* runDataImportWorkflow({ ...ingestionTestScope, command: integrationCommand }).pipe(

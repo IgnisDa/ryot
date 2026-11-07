@@ -80,11 +80,13 @@ export class IngestionCaptures extends Context.Service<IngestionCaptures>()(
 											reservation.recoveryBytes !== null
 												? Buffer.from(reservation.recoveryBytes, "base64")
 												: bytes;
-										if (available === null) {
-											yield* payloads.read(reservation.payload, maxBytes);
-											return;
-										}
-										yield* payloads.write({ maxBytes, bytes: available, payload: reservation.payload });
+										return yield* available === null
+											? payloads.read(reservation.payload, maxBytes)
+											: payloads.write({
+													maxBytes,
+													bytes: available,
+													payload: reservation.payload,
+												});
 									}),
 								),
 							);

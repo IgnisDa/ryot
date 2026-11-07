@@ -787,7 +787,7 @@ layer(
 					const statements = recordedStatements(spans);
 					expect(statements).toHaveLength(1);
 					expect(statements[0]).toContain('from "import_run"');
-					expect(statements[0]).not.toMatch(/import_batch|import_activity/);
+					expect(statements[0]).not.toMatch(/import_item|import_activity/);
 					expect(control).toMatchObject({ plan, pins, id: scope.runId, status: "running" });
 					expect(control).not.toHaveProperty("summary");
 					expect(control).not.toHaveProperty("activities");
@@ -896,9 +896,7 @@ layer(
 						},
 					],
 				});
-				yield* session.transaction(
-					repository.registerBatch(scope, batch, operationIds),
-				);
+				yield* session.transaction(repository.registerBatch(scope, batch, operationIds));
 				const [stored] = yield* session.run((db) =>
 					db
 						.select({ operationIds: tables.importItem.operationIds })
@@ -909,11 +907,9 @@ layer(
 				expect(stored?.operationIds).toEqual(["failed-play", "support-entity"]);
 				const failure = yield* Effect.flip(
 					session.transaction(
-						repository.registerBatch(
-							scope,
-							{ ...batch, ordinal: 1, id: "batch-1" },
-							["support-entity"],
-						),
+						repository.registerBatch(scope, { ...batch, ordinal: 1, id: "batch-1" }, [
+							"support-entity",
+						]),
 					),
 				);
 				expect(failure.message).toBe("Ingestion operation belongs to another batch");
@@ -936,9 +932,7 @@ layer(
 					{ ...batch, captureId: "changed-capture" },
 				]) {
 					assertExitFails(
-						yield* Effect.exit(
-							session.transaction(repository.registerBatch(scope, changed, [])),
-						),
+						yield* Effect.exit(session.transaction(repository.registerBatch(scope, changed, []))),
 						new DbError({ message: "Batch identity conflict" }),
 					);
 					assertExitFails(
@@ -1025,19 +1019,13 @@ layer(
 				const session = yield* DatabaseSession;
 				yield* session.transaction(repository.publishCapture(scope, capture));
 				yield* session.transaction(repository.registerBatch(scope, batch, []));
-				expect(
-					yield* session.transaction(repository.registerBatch(scope, batch, [])),
-				).toBe(false);
+				expect(yield* session.transaction(repository.registerBatch(scope, batch, []))).toBe(false);
 				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(true);
 				expect(yield* session.transaction(repository.startBatch(scope, batch.id))).toBe(false);
 				expect(
 					(yield* Effect.exit(
 						session.transaction(
-							repository.registerBatch(
-								scope,
-								{ ...batch, inputFingerprint: "changed" },
-								[],
-							),
+							repository.registerBatch(scope, { ...batch, inputFingerprint: "changed" }, []),
 						),
 					))._tag,
 				).toBe("Failure");
@@ -1386,8 +1374,11 @@ layer(
 					payload: { byteSize: 1, locator: "owned", checksum: "checksum" },
 				};
 				yield* session.transaction(repository.reservePayload(scope, reservation));
-				const stopped = yield* session.transaction(repository.stopPayloadWrites(scope));
-				expect(stopped[0]?.reservation).toMatchObject({ retiring: true, writeStarted: false });
+				yield* session.transaction(repository.stopPayloadWrites(scope));
+				expect(yield* repository.getPayloadReservation(scope, reservation.id)).toMatchObject({
+					retiring: true,
+					writeStarted: false,
+				});
 				expect(
 					(yield* Effect.exit(
 						session.transaction(repository.startPayloadWrite(scope, reservation.id)),

@@ -59,7 +59,7 @@ const makeLayer = (run: RunControl) =>
 	);
 
 for (const executionKind of ["source", "integration"] as const) {
-	layer(makeLayer({ executionKind, id: runId, status: "running" }))((test) => {
+	layer(makeLayer({ id: runId, executionKind, status: "running" }))((test) => {
 		test.effect(
 			`marks the run cancelling before interrupting the ${executionKind} execution`,
 			() =>

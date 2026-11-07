@@ -29,14 +29,10 @@ import { TransientValues } from "#platform/transient-values";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { createWorkflowJobId, deriveJobIdSecret } from "#platform/workflow/job-id";
 import { job } from "#schema/tables/jobs";
-import {
-	databaseLayer,
-	makeAppConfigLayer,
-	type MockOverrides,
-} from "#testing/effect";
+import { databaseLayer, makeAppConfigLayer, type MockOverrides } from "#testing/effect";
 
-import { admissionDatabaseLayer } from "./admission.test-support";
 import { ProviderImportAdmission } from "./admission";
+import { admissionDatabaseLayer } from "./admission.test-support";
 import {
 	entityImportIdentity,
 	EntityImportJob,
@@ -88,9 +84,7 @@ type SubmitInput = Parameters<Admission["submit"]>[0];
 
 class FakeAdmission extends Context.Service<
 	FakeAdmission,
-	{
-		readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>>;
-	}
+	{ readonly submitted: Effect.Effect<ReadonlyArray<SubmitInput>> }
 >()("@ryot-app/kernel-backend/modules/entities/providers/service.test/FakeAdmission") {}
 
 const serviceLayerOver = <E>(
@@ -132,9 +126,7 @@ const serviceLayerOver = <E>(
 							options.activeProvider === undefined ? provider : options.activeProvider,
 						),
 				}),
-				Layer.succeed(FakeAdmission, {
-					submitted: Ref.get(submitted),
-				}),
+				Layer.succeed(FakeAdmission, { submitted: Ref.get(submitted) }),
 			);
 			const admission = Layer.mock(ProviderImportAdmission)({
 				...(submit && {
@@ -439,26 +431,32 @@ layer(makeServiceLayer())((test) => {
 const importResultLayer = serviceLayerOver(admissionDatabaseLayer);
 
 const importResultFor = (executionId: string) => {
-	const jobId = createWorkflowJobId(deriveJobIdSecret("test-admin-token"), { executionId }, user.id);
+	const jobId = createWorkflowJobId(
+		deriveJobIdSecret("test-admin-token"),
+		{ executionId },
+		user.id,
+	);
 	return {
 		jobId,
 		result: Effect.flatMap(EntityImportService, (service) => service.getImportResult(user, jobId)),
 	};
 };
 
-const seedImportJob = (id: string, status: "queued" | "running" | "failed", error?: string) =>
+const seedImportJob = (id: string, status: "queued" | "failed" | "running", error?: string) =>
 	Effect.flatMap(DatabaseSession, (session) =>
 		session.run((db) =>
-			db.insert(job).values({
-				id,
-				status,
-				payload: {},
-				attempts: 0,
-				priority: 0,
-				maxAttempts: 3,
-				error: error ?? null,
-				kind: EntityImportJob.name,
-			}),
+			db
+				.insert(job)
+				.values({
+					id,
+					status,
+					payload: {},
+					attempts: 0,
+					priority: 0,
+					maxAttempts: 3,
+					error: error ?? null,
+					kind: EntityImportJob.name,
+				}),
 		),
 	);
 
@@ -471,11 +469,11 @@ const removeImportJob = (id: string) =>
 const letWaitStart = Effect.promise(() => Bun.sleep(100));
 
 const importedEntity = {
-	entitySchemaPluginId: null,
 	externalId,
 	providerId,
 	properties: {},
 	name: "Imported",
+	entitySchemaPluginId: null,
 	id: EntityId.make("entity-imported"),
 	createdAt: "2026-10-10T00:00:00.000Z",
 	updatedAt: "2026-10-10T00:00:00.000Z",
@@ -549,7 +547,7 @@ layer(importResultLayer)((test) => {
 				});
 				expect(yield* importResultFor("failed-import").result).toEqual({
 					status: "failed",
-					reason: { code: "import-failed", stage: "entry-event" },
+					reason: { stage: "entry-event", code: "import-failed" },
 				});
 			}),
 		testTimeout,
@@ -562,7 +560,7 @@ layer(importResultLayer)((test) => {
 				yield* seedImportJob("exhausted-import", "failed", "boom");
 				expect(yield* importResultFor("exhausted-import").result).toEqual({
 					status: "failed",
-					reason: { code: "import-failed", stage: "population" },
+					reason: { stage: "population", code: "import-failed" },
 				});
 				yield* removeImportJob("exhausted-import");
 			}),

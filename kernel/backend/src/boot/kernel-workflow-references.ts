@@ -47,7 +47,7 @@ import { EventsService } from "#modules/events/service";
 import { ingestionArtifactGrants } from "#modules/imports/artifact-grants";
 import { IngestionCaptures } from "#modules/imports/capture-service";
 import {
-	ProcessGenericImportChunksPayload,
+	GenericImportChunkPayload,
 	GenericImportChunks,
 } from "#modules/imports/generic-import-workflow";
 import { ImportsRepository } from "#modules/imports/repository";
@@ -481,14 +481,12 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 								),
 							);
 						}
-						const payload = yield* Schema.decodeEffect(ProcessGenericImportChunksPayload)({
+						const payload = yield* Schema.decodeEffect(GenericImportChunkPayload)({
 							...operation,
 							userId,
-							executionId,
 							runId: scope.runId,
 							command: acceptedCommand,
 							artifactOwnerExecutionId: artifactOwner,
-							artifactReferenceExecutionId: executionId,
 							...("integrationId" in subject && subject.integrationId
 								? { integrationId: subject.integrationId }
 								: {}),
@@ -506,12 +504,17 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 							importRunIds: [ImportRunId.make(payload.runId)],
 							integrationIds: payload.integrationId ? [payload.integrationId] : [],
 						});
-						const result = yield* chunks.apply(payload).pipe(
-							Effect.mapError(
-								(error) =>
-									new SandboxRunError({ kind: "infrastructure", message: unknownToMessage(error) }),
-							),
-						);
+						const result = yield* chunks
+							.apply(payload)
+							.pipe(
+								Effect.mapError(
+									(error) =>
+										new SandboxRunError({
+											kind: "infrastructure",
+											message: unknownToMessage(error),
+										}),
+								),
+							);
 						return yield* Schema.decodeEffect(jsonValueSchema)(result).pipe(
 							Effect.mapError(
 								(error) =>

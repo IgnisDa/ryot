@@ -30,7 +30,11 @@ import { admitPopulation } from "./population-admission";
 import { readEntityPopulation } from "./population-await";
 import { ProviderEntityImportWorkflowPayload } from "./schemas";
 
-const EntityImportStage = Schema.Literals(["population", "provider-import-automation", "entry-event"]);
+const EntityImportStage = Schema.Literals([
+	"population",
+	"provider-import-automation",
+	"entry-event",
+]);
 
 export class EntityImportError extends Schema.TaggedError<
 	EntityImportError,
@@ -130,6 +134,9 @@ const measureImportPhase = <A, R>(
 		),
 	);
 
+const entryEventFailure = (message: string) =>
+	new EntityImportError({ message, stage: "entry-event" });
+
 // A retried attempt must not create the event again, and events carry no natural key to find it by.
 const recordEntryEvent = Effect.fnUntraced(function* (
 	payload: ProviderEntityImportWorkflowPayload,
@@ -138,13 +145,14 @@ const recordEntryEvent = Effect.fnUntraced(function* (
 	context: JobContext,
 ) {
 	const transient = yield* TransientValues;
-	const failure = (message: string) => new EntityImportError({ message, stage: "entry-event" });
 	const key = entryEventKey(context.id);
 	if (
 		context.attempt > 1 &&
-		(yield* transient.get(key).pipe(Effect.mapError((error) => failure(error.message)))) !== null
+		(yield* transient
+			.get(key)
+			.pipe(Effect.mapError((error) => entryEventFailure(error.message)))) !== null
 	) {
-		return;
+		return yield* Effect.void;
 	}
 	const result = yield* (yield* EventsService)
 		.create({
@@ -152,13 +160,13 @@ const recordEntryEvent = Effect.fnUntraced(function* (
 			payload: [{ entityId, properties: {}, eventSchemaSlug }],
 			command: { ...childLifecycleCommand(payload.command, "entry-event"), writeContext: null },
 		})
-		.pipe(Effect.mapError((error) => failure(error.message)));
+		.pipe(Effect.mapError((error) => entryEventFailure(error.message)));
 	if (result.failure !== null) {
-		return yield* failure(result.failure.reason.code);
+		return yield* entryEventFailure(result.failure.reason.code);
 	}
-	yield* transient
+	return yield* transient
 		.set(key, "created", OUTCOME_TTL)
-		.pipe(Effect.mapError((error) => failure(error.message)));
+		.pipe(Effect.mapError((error) => entryEventFailure(error.message)));
 });
 
 const awaitPopulation = Effect.fnUntraced(function* (payload: ProviderEntityImportWorkflowPayload) {
@@ -169,8 +177,8 @@ const awaitPopulation = Effect.fnUntraced(function* (payload: ProviderEntityImpo
 			admitPopulation({
 				level: "base",
 				mode: "ensure",
-				command: payload.command,
 				executionId: requestId,
+				command: payload.command,
 				pluginId: payload.pluginId,
 				providerId: payload.providerId,
 				externalId: payload.externalId,
@@ -305,8 +313,10 @@ export const awaitEntityImport = Effect.fn("awaitEntityImport")(function* (
 			name: `entity-import-state-${executionId}:${observation}`,
 			success: Schema.Union([EntityImportOutcome, Schema.TaggedStruct("pending", {})]),
 			execute: readEntityImport(executionId).pipe(
-				Effect.map((read) => (isSettled(read) ? read : ({ _tag: "pending" } as const))),
-				Effect.mapError(failure),
+				Effect.mapBoth({
+					onFailure: failure,
+					onSuccess: (read) => (isSettled(read) ? read : ({ _tag: "pending" } as const)),
+				}),
 			),
 		});
 		if (state._tag === "completed") {
@@ -316,7 +326,10 @@ export const awaitEntityImport = Effect.fn("awaitEntityImport")(function* (
 			return yield* new EntityImportError({ stage: state.stage, message: state.message });
 		}
 		if (state._tag === "cancelled") {
-			return yield* new EntityImportError({ stage: "population", message: "Entity import was cancelled" });
+			return yield* new EntityImportError({
+				stage: "population",
+				message: "Entity import was cancelled",
+			});
 		}
 		yield* DurableClock.sleep({
 			inMemoryThreshold: 0,

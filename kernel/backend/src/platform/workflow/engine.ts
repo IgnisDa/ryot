@@ -676,10 +676,10 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				return result;
 			}
 			const written = yield* store.writeStep({
+				name,
 				owner,
 				attempt,
 				identity,
-				name,
 				kind: "activity",
 				exit: yield* encodeActivityResult(result),
 			});

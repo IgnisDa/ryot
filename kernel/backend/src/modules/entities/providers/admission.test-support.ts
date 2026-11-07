@@ -48,9 +48,9 @@ export const admissionDatabaseLayer = Layer.unwrap(
 				);
 			}),
 		);
-		return Layer.mergeAll(
-			schema,
-			makeConfigProviderLayer(),
-		).pipe(Layer.provideMerge(DatabaseSession.layer), Layer.provide(config));
+		return Layer.mergeAll(schema, makeConfigProviderLayer()).pipe(
+			Layer.provideMerge(DatabaseSession.layer),
+			Layer.provide(config),
+		);
 	}),
 ).pipe(Layer.provideMerge(BunCrypto.layerSecureRandom));

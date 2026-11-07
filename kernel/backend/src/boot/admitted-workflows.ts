@@ -7,9 +7,5 @@ import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 
 export const AdmittedWorkflowCatalogueLive = Layer.succeed(
 	AdmittedWorkflowCatalogue,
-	Object.freeze([
-		ProcessImportRunWorkflow,
-		ProcessIntegrationRunWorkflow,
-		ScriptExecutionWorkflow,
-	]),
+	Object.freeze([ProcessImportRunWorkflow, ProcessIntegrationRunWorkflow, ScriptExecutionWorkflow]),
 );

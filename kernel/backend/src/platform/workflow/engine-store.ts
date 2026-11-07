@@ -419,7 +419,6 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				find,
 				admit,
 				adopt,
-				forgetActivities,
 				claim,
 				steps,
 				notify,
@@ -431,6 +430,7 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				heartbeat,
 				clearClocks,
 				claimOrphans,
+				forgetActivities,
 				listAccountExecutions,
 			};
 		}),

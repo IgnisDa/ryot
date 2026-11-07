@@ -100,10 +100,7 @@ layer(
 			Effect.gen(function* () {
 				const service = yield* IntegrationsService;
 				expect(yield* service.disableIfEnabled(userId, integrationId, importRunId)).toBe(true);
-				expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual([
-					"disable",
-					"claim:run-1",
-				]);
+				expect(yield* (yield* FakeAutoDisableClaims).calls).toEqual(["disable", "claim:run-1"]);
 			}),
 		testTimeout,
 	);

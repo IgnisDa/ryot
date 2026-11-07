@@ -1,11 +1,12 @@
 import { unknownToMessage } from "@ryot-app/contract/errors";
-import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
+import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import { CreateEventsResponse } from "@ryot-app/contract/modules/events/schemas";
 import { DataJsonDocument, dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
-import { IngestionBatch, type IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
+import type { IngestionBatch, IngestionScope } from "@ryot-app/contract/modules/imports/ingestion";
 import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types";
-import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
-import { EntityId, EventSchemaSlug, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import type { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
+import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
@@ -19,7 +20,7 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
-import { DomainLifecycleCommand } from "#modules/entities/write-context";
+import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsService } from "#modules/events/service";
 import {
 	PendingRelationshipMutations,
@@ -94,9 +95,9 @@ type DataImportSegmentInput = {
 	readonly batch: IngestionBatch;
 	readonly snapshot: DefinitionSnapshot;
 	readonly command: DomainLifecycleCommand;
-	readonly startingCounters: typeof DataImportCounters.Type;
 	readonly failedKeys: ReadonlyArray<string>;
 	readonly entityIds: Readonly<Record<string, string>>;
+	readonly startingCounters: typeof DataImportCounters.Type;
 	readonly relationshipIds: Readonly<Record<string, string>>;
 	readonly entitySchemasByKey: Readonly<Record<string, EntitySchemaReference>>;
 };

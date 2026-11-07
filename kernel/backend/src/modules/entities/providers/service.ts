@@ -173,17 +173,16 @@ export class EntityImportService extends Context.Service<EntityImportService>()(
 					Effect.provideService(DatabaseSession, session),
 					Effect.provideService(TransientValues, transient),
 				);
-				switch (state._tag) {
-					case "completed":
-						return { data: state.entity, status: "completed" } satisfies ImportEntityRunResult;
-					case "failed":
-						return {
-							status: "failed",
-							reason: { stage: state.stage, code: "import-failed" },
-						} satisfies ImportEntityRunResult;
-					default:
-						return { status: state._tag } satisfies ImportEntityRunResult;
+				if (state._tag === "completed") {
+					return { data: state.entity, status: "completed" } satisfies ImportEntityRunResult;
 				}
+				if (state._tag === "failed") {
+					return {
+						status: "failed",
+						reason: { stage: state.stage, code: "import-failed" },
+					} satisfies ImportEntityRunResult;
+				}
+				return { status: state._tag } satisfies ImportEntityRunResult;
 			});
 
 			const getImportResult = Effect.fn("EntityImportService.getImportResult")(function* (

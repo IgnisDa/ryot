@@ -104,8 +104,8 @@ const submit = (executionId: string, userId: UserId, externalId: string = execut
 		return yield* admission.submit({
 			userId,
 			payload: {
-				executionId,
 				externalId,
+				executionId,
 				providerId: provider.id,
 				entityScope: { userId, type: "user" },
 				pluginId: PluginId.make(provider.pluginId),
@@ -129,7 +129,7 @@ const submit = (executionId: string, userId: UserId, externalId: string = execut
 const importJobs = Effect.flatMap(DatabaseSession, (session) =>
 	session.run((db) =>
 		db
-			.select({ id: job.id, priority: job.priority, status: job.status })
+			.select({ id: job.id, status: job.status, priority: job.priority })
 			.from(job)
 			.where(eq(job.kind, EntityImportJob.name))
 			.orderBy(asc(job.priority), asc(job.id)),

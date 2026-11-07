@@ -37,9 +37,7 @@ import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowEngine, workflowAccountsTestLayer } from "#testing/effect";
 
 import { IngestionCaptures } from "./capture-service";
-import {
-	runGenericImportChunk,
-} from "./generic-import-workflow";
+import { runGenericImportChunk } from "./generic-import-workflow";
 import {
 	ingestionTestDatabase,
 	ingestionTestNow,
@@ -133,8 +131,8 @@ const applyCase = (
 				read: () => Effect.succeed(Buffer.from(JSON.stringify(chunk))),
 			}),
 			Layer.mock(ImportsRepository)({
-				getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 				getBatch: (_scope, id) => Effect.sync(() => batches.get(id) ?? null),
+				getOutcome: (_scope, id) => Effect.sync(() => outcomes.get(id) ?? null),
 				getBatchIssues: () => Effect.sync(() => [...issues.values()].map((data) => ({ data }))),
 				startBatch: (...input) =>
 					Effect.sync(() => {
@@ -194,10 +192,8 @@ const applyCase = (
 			ordinal: 0,
 			batchId: "batch",
 			captureId: "capture",
-			executionId: "batch-owner",
 			inputFingerprint: "fingerprint",
 			artifactOwnerExecutionId: "run-1-import",
-			artifactReferenceExecutionId: "batch-owner",
 			command: {
 				...domainCommand,
 				writeContext: { ...domainCommand.writeContext, pluginRevision },

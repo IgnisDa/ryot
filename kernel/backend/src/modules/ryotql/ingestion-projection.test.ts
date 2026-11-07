@@ -8,12 +8,7 @@ import { Effect, Layer, Result } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
-import {
-	importActivity,
-	importItem,
-	importIssue,
-	importRun,
-} from "#schema/tables/imports";
+import { importActivity, importIssue, importItem, importRun } from "#schema/tables/imports";
 import { makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -55,7 +50,7 @@ layer(testLayer)((test) => {
 									phase: "collection",
 									stagingExecutionId: null,
 									inputFingerprint: "capture",
-									payload: { byteSize: 0, checksum: "capture", locator: "capture" },
+									payload: { byteSize: 0, locator: "capture", checksum: "capture" },
 								},
 							});
 						for (const ordinal of [0, 1]) {

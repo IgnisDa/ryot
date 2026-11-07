@@ -40,7 +40,10 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 					workflowAccountsTestLayer,
 					makeAppConfigLayer({
 						database: { url: Redacted.make(url) },
-						fileStorage: { localTempDir: `${directory}/working`, localDir: `${directory}/permanent` },
+						fileStorage: {
+							localDir: `${directory}/permanent`,
+							localTempDir: `${directory}/working`,
+						},
 					}),
 					Layer.mock(S3Service)({ isConfigured: false }),
 					Layer.mock(HmacSigner)({}),
@@ -66,8 +69,8 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 						ordinal: 64,
 						id: "page-1",
 						maxBytes: 1024,
-						state: "sealed" as const,
 						checkpoint: { page: 1 },
+						state: "sealed" as const,
 						phase: "collection" as const,
 					};
 					const payload = yield* Effect.gen(function* () {
@@ -109,7 +112,10 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabaseLayer("capture_restart")
 							.select()
 							.from(tables.importItem)
 							.where(
-								and(eq(tables.importItem.runId, scope.runId), eq(tables.importItem.published, true)),
+								and(
+									eq(tables.importItem.runId, scope.runId),
+									eq(tables.importItem.published, true),
+								),
 							),
 					);
 					expect(captures).toHaveLength(1);

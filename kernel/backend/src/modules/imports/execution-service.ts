@@ -34,7 +34,9 @@ export class IngestionExecution extends Context.Service<IngestionExecution>()(
 				scope: IngestionScope,
 				run: Pick<IngestionRun, "pins" | "pluginInstallationId">,
 			) {
-				return run.pins && run.pluginInstallationId !== null && (yield* repository.hasStartedBatch(scope))
+				return run.pins &&
+					run.pluginInstallationId !== null &&
+					(yield* repository.hasStartedBatch(scope))
 					? run.pins.executionId
 					: null;
 			});

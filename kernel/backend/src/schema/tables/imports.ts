@@ -11,13 +11,13 @@ import type {
 	ImportRunStatus,
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type {
 	IntegrationExtraSettings,
 	IntegrationProvider,
 	IntegrationProviderSettings,
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
 import { sql } from "drizzle-orm";
 import {
@@ -103,8 +103,8 @@ export const importRun = snakeCase.table(
 		startedAt: timestamptz(),
 		finishedAt: timestamptz(),
 		blockDeadline: timestamptz(),
-		autoDisabledAt: timestamptz(),
 		updatedAt: updatedAtColumn(),
+		autoDisabledAt: timestamptz(),
 		plan: jsonb().$type<IngestionPlan>(),
 		pins: jsonb().$type<IngestionPins>(),
 		integrationLot: text().$type<IntegrationLot>(),
@@ -192,24 +192,24 @@ export const importActivity = snakeCase.table(
 export const importItem = snakeCase.table(
 	"import_item",
 	{
-		/** A batch's result for later chunks, once applied. */
-		result: jsonb().$type<JsonValue>(),
+		id: text().notNull(),
 		/** Base64 of a small payload not yet published, so a restart can write it again. */
 		recoveryBytes: text(),
-		id: text().notNull(),
 		operationIds: text().array(),
+		/** A batch's result for later chunks, once applied. */
+		result: jsonb().$type<JsonValue>(),
 		data: jsonb().$type<unknown>().notNull(),
-		kind: text().$type<"payload" | "batch" | "outcome" | "result">().notNull(),
 		released: boolean().notNull().default(false),
 		retiring: boolean().notNull().default(false),
 		published: boolean().notNull().default(false),
 		writeStarted: boolean().notNull().default(false),
 		captureReleased: boolean().notNull().default(false),
 		captureId: text().generatedAlwaysAs(sql`data->>'captureId'`),
+		ordinal: integer().generatedAlwaysAs(sql`(data->>'ordinal')::integer`),
+		kind: text().$type<"batch" | "result" | "outcome" | "payload">().notNull(),
 		runId: text()
 			.notNull()
 			.references(() => importRun.id, { onDelete: "cascade" }),
-		ordinal: integer().generatedAlwaysAs(sql`(data->>'ordinal')::integer`),
 		phase: text()
 			.$type<IngestionCapture["phase"]>()
 			.generatedAlwaysAs(sql`data->>'phase'`),
@@ -222,7 +222,10 @@ export const importItem = snakeCase.table(
 		uniqueIndex("import_item_batch_ordinal_unique")
 			.on(table.runId, table.ordinal)
 			.where(sql`${table.kind} = 'batch'`),
-		check("import_item_kind_check", sql`${table.kind} in ('payload', 'batch', 'outcome', 'result')`),
+		check(
+			"import_item_kind_check",
+			sql`${table.kind} in ('payload', 'batch', 'outcome', 'result')`,
+		),
 		check("import_item_ordinal_check", sql`${table.ordinal} >= 0`),
 		check(
 			"import_item_phase_check",

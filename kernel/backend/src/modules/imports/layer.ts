@@ -133,18 +133,17 @@ export const ImportsServiceLive = ImportsService.layer.pipe(
 	),
 );
 
-export const GenericImportChunksProvidedLive =
-	GenericImportChunksInstalledLive.pipe(
-		Layer.provide(
-			Layer.mergeAll(
-				DefinitionRepository.layer,
-				EntitiesRepositoryLive,
-				PluginRuntimeResolverLive,
-				IngestionCaptures.layer,
-				ImportsRepository.layer,
-				SandboxRepository.layer,
-				ImportSourceStateStore.layer,
-				UserCommandsLive,
-			),
+export const GenericImportChunksProvidedLive = GenericImportChunksInstalledLive.pipe(
+	Layer.provide(
+		Layer.mergeAll(
+			DefinitionRepository.layer,
+			EntitiesRepositoryLive,
+			PluginRuntimeResolverLive,
+			IngestionCaptures.layer,
+			ImportsRepository.layer,
+			SandboxRepository.layer,
+			ImportSourceStateStore.layer,
+			UserCommandsLive,
 		),
-	);
+	),
+);

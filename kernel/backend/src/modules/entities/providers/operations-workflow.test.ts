@@ -198,7 +198,10 @@ layer(
 					initiator: { kind: "integration", id: IntegrationId.make("integration-1") },
 				}),
 			];
-			const instance = WorkflowInstance.initial(ScriptExecutionWorkflow, "provider-completion-test");
+			const instance = WorkflowInstance.initial(
+				ScriptExecutionWorkflow,
+				"provider-completion-test",
+			);
 
 			return Effect.gen(function* () {
 				const operations = yield* EntityImportWorkflowOperations;

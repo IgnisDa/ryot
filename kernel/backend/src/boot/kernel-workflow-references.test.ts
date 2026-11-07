@@ -33,6 +33,7 @@ import { enrichmentRequestRow } from "#modules/entities/enrichment/requests.test
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsService } from "#modules/events/service";
 import { IngestionCaptures } from "#modules/imports/capture-service";
+import { GenericImportChunks } from "#modules/imports/generic-import-workflow";
 import { ingestionTestRevision, ingestionTestRun } from "#modules/imports/ingestion.test-support";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
@@ -43,7 +44,6 @@ import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { KernelWorkflowReferences } from "#modules/scripts/registry/kernel-workflow-references";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
-import { GenericImportChunks } from "#modules/imports/generic-import-workflow";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import { makeWorkflowActivityEngine } from "#testing/effect";
@@ -248,21 +248,13 @@ const recordingEngineLayer = (
 							{ payload, executionId: options?.id ?? "" },
 						]).pipe(Effect.as(true)),
 				}),
-				Layer.mock(TransientValues)({
-					get: () => Effect.succeed(completedEntityImport),
-				}),
+				Layer.mock(TransientValues)({ get: () => Effect.succeed(completedEntityImport) }),
 				Layer.mock(GenericImportChunks)({
 					apply: (payload) =>
 						Ref.update(dispatches, (all) => [
 							...all,
-							{ payload, executionId: payload.executionId },
-						]).pipe(
-							Effect.as({
-								issues: [],
-								summary: [],
-								confirmed: [],
-							}),
-						),
+							{ payload, executionId: payload.batchId },
+						]).pipe(Effect.as({ issues: [], summary: [], confirmed: [] })),
 				}),
 				Layer.succeed(
 					WorkflowEngine,
@@ -613,10 +605,8 @@ layer(
 						batchId: "batch",
 						captureId: "capture",
 						userId: "trusted-user",
-						executionId: "child-execution",
 						inputFingerprint: "fingerprint",
 						artifactOwnerExecutionId: "parent/execution",
-						artifactReferenceExecutionId: "child-execution",
 					}),
 				]);
 			}),

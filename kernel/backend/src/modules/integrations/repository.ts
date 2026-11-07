@@ -572,7 +572,10 @@ export class IntegrationsRepository extends Context.Service<IntegrationsReposito
 							.select({ id: schema.importRun.id })
 							.from(schema.importRun)
 							.where(
-								and(eq(schema.importRun.id, importRunId), isNotNull(schema.importRun.autoDisabledAt)),
+								and(
+									eq(schema.importRun.id, importRunId),
+									isNotNull(schema.importRun.autoDisabledAt),
+								),
 							),
 					);
 					return rows.length > 0;

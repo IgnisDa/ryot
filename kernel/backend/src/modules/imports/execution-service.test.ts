@@ -71,6 +71,7 @@ for (const mode of ["removal", "quarantine"] as const) {
 						}),
 					),
 					Layer.mock(ImportsRepository)({
+						hasStartedBatch: () => Effect.succeed(true),
 						getIngestionRunControl: () => Effect.sync(() => run),
 						listBatches: () => Effect.succeed([{ data: batch, result: null }]),
 						releaseIngestionPins: () =>
@@ -85,7 +86,6 @@ for (const mode of ["removal", "quarantine"] as const) {
 								events.push("close-activities");
 								return "cancelled" as const;
 							}),
-						hasStartedBatch: () => Effect.succeed(true),
 						settleIngestion: (input) =>
 							Effect.sync(() => {
 								if (mode === "quarantine") {

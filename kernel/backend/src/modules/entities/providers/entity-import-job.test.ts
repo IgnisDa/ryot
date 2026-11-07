@@ -18,7 +18,7 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Effect, Fiber, Layer } from "effect";
+import { Effect, Fiber, Layer, Schema } from "effect";
 import { TestClock } from "effect/testing";
 
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
@@ -56,8 +56,8 @@ const importPayload = (executionId: string, entryEvent: boolean) => ({
 	executionId,
 	externalId: "external-1",
 	providerId: SandboxProviderId.make("provider-1"),
-	entitySchemaSlug: EntitySchemaSlug.make("record"),
 	entityScope: { userId, type: "global" as const },
+	entitySchemaSlug: EntitySchemaSlug.make("record"),
 	...(entryEvent ? { entryEventSchemaSlug: EventSchemaSlug.make("planned") } : {}),
 	command: {
 		...rootLifecycleCommand({
@@ -75,8 +75,8 @@ const importPayload = (executionId: string, entryEvent: boolean) => ({
 
 type Harness = {
 	readonly ready?: () => boolean;
-	readonly completion?: () => Effect.Effect<void, SandboxRunError>;
 	readonly eventResult?: Pick<CreateEventsResponse, "failure">;
+	readonly completion?: () => Effect.Effect<void, SandboxRunError>;
 };
 
 const makeHarness = (options: Harness = {}) => {
@@ -114,7 +114,7 @@ const makeHarness = (options: Harness = {}) => {
 		Layer.mock(EventsService)({
 			create: (input) =>
 				Effect.sync(() => {
-					calls.push({ name: "entry-event", options: input });
+					calls.push({ options: input, name: "entry-event" });
 					return {
 						count: 1,
 						outcomes: [],
@@ -165,15 +165,19 @@ const makeHarness = (options: Harness = {}) => {
 		stored,
 		released,
 		run: (executionId: string, attempt = 1, entryEvent = false) =>
-			runEntityImportJob(importPayload(executionId, entryEvent), {
-				attempt,
-				id: executionId,
-			}).pipe(Effect.provide(services)),
+			Effect.flatMap(Layer.build(services), (context) =>
+				runEntityImportJob(importPayload(executionId, entryEvent), {
+					attempt,
+					id: executionId,
+				}).pipe(Effect.provideContext(context)),
+			).pipe(Effect.scoped),
 	};
 };
 
 const outcomeOf = (stored: ReadonlyMap<string, string>, executionId: string) =>
-	JSON.parse(stored.get(`entity-import-outcome/${executionId}`) ?? "null");
+	Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
+		stored.get(`entity-import-outcome/${executionId}`) ?? "null",
+	);
 
 layer(mutationAdmissionTestLayer)((it) => {
 	it.effect(
@@ -193,7 +197,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 					},
 					{ name: "completion" },
 				]);
-				expect(outcomeOf(harness.stored, "plain-import")).toMatchObject({
+				expect(yield* outcomeOf(harness.stored, "plain-import")).toMatchObject({
 					_tag: "completed",
 					entity: { id: entity.id },
 				});
@@ -214,7 +218,9 @@ layer(mutationAdmissionTestLayer)((it) => {
 				yield* Fiber.join(fiber);
 
 				expect(reads).toBe(3);
-				expect(outcomeOf(harness.stored, "slow-import")).toMatchObject({ _tag: "completed" });
+				expect(yield* outcomeOf(harness.stored, "slow-import")).toMatchObject({
+					_tag: "completed",
+				});
 			}),
 		testTimeout,
 	);
@@ -266,7 +272,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				});
 				yield* harness.run("refused-import", 1, true);
 
-				expect(outcomeOf(harness.stored, "refused-import")).toEqual({
+				expect(yield* outcomeOf(harness.stored, "refused-import")).toEqual({
 					_tag: "failed",
 					stage: "entry-event",
 					message: "invalid-properties",
@@ -288,7 +294,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				});
 				yield* harness.run("failed-import");
 
-				expect(outcomeOf(harness.stored, "failed-import")).toEqual({
+				expect(yield* outcomeOf(harness.stored, "failed-import")).toEqual({
 					_tag: "failed",
 					message: "membership hook failed",
 					stage: "provider-import-automation",
@@ -305,7 +311,7 @@ layer(mutationAdmissionTestLayer)((it) => {
 				harness.stored.set("entity-import-outcome/cancelled-import", '{"_tag":"cancelled"}');
 				yield* harness.run("cancelled-import");
 
-				expect(outcomeOf(harness.stored, "cancelled-import")).toEqual({ _tag: "cancelled" });
+				expect(yield* outcomeOf(harness.stored, "cancelled-import")).toEqual({ _tag: "cancelled" });
 			}),
 		testTimeout,
 	);

@@ -150,12 +150,7 @@ export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 				yield* session.run((db) =>
 					db
 						.insert(importItem)
-						.values({
-							runId,
-							data: result,
-							kind: "result",
-							id: command.itemIdentity,
-						})
+						.values({ runId, data: result, kind: "result", id: command.itemIdentity })
 						.onConflictDoNothing(),
 				);
 				return yield* Effect.void;
@@ -184,8 +179,8 @@ export class IdempotencyKeys extends Context.Service<IdempotencyKeys>()(
 				return yield* Effect.forEach(rows, (row) =>
 					Schema.decodeUnknownEffect(ImportItemResult)(row.data).pipe(
 						Effect.mapBoth({
-							onFailure: () => new DbError({ message: `Invalid import item ${row.id}` }),
 							onSuccess: (result) => ({ result, itemIdentity: row.id }),
+							onFailure: () => new DbError({ message: `Invalid import item ${row.id}` }),
 						}),
 					),
 				);

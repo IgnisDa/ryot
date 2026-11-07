@@ -125,7 +125,9 @@ export class ProviderImportAdmission extends Context.Service<ProviderImportAdmis
 						}),
 					)
 					.pipe(
-						Effect.onError(() => sandbox.releaseWorkflowRegistration(executionId).pipe(Effect.orDie)),
+						Effect.onError(() =>
+							sandbox.releaseWorkflowRegistration(executionId).pipe(Effect.orDie),
+						),
 					);
 				if (outcome.status !== "queued") {
 					yield* sandbox.releaseWorkflowRegistration(executionId);

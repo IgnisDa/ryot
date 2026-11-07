@@ -91,17 +91,15 @@ import { ImportsRepository } from "./repository";
 import { ImportSourceStateStore } from "./runtime/source-state-store";
 import { ImportRunError, toWorkflowError } from "./runtime/workflow-errors";
 
-export const ProcessGenericImportChunksPayload = Schema.Struct({
+export const GenericImportChunkPayload = Schema.Struct({
 	userId: UserId,
 	runId: ImportRunId,
 	ordinal: Schema.Finite,
-	executionId: Schema.String,
 	batchId: Schema.NonEmptyString,
 	command: DomainLifecycleCommand,
 	captureId: Schema.NonEmptyString,
 	artifactOwnerExecutionId: Schema.String,
 	inputFingerprint: Schema.NonEmptyString,
-	artifactReferenceExecutionId: Schema.String,
 	integrationId: Schema.optional(IntegrationId),
 }).pipe(
 	Schema.check(
@@ -865,9 +863,9 @@ const writeGenericItem = Effect.fn("imports.writeGenericItem")(function* (
 
 const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: ScriptPluginRevision) =>
 	makeActivity({
-		name: "resolve-generic-import-definitions",
 		error: ImportRunError,
 		success: DefinitionSnapshot,
+		name: "resolve-generic-import-definitions",
 		execute: Effect.flatMap(DefinitionRepository, (definitions) =>
 			definitions.getSnapshotForContext(
 				{ pluginId: pluginRevision.id, pluginRevisionId: pluginRevision.revisionId },
@@ -877,7 +875,7 @@ const resolveGenericImportDefinitions = (userId: UserId, pluginRevision: ScriptP
 	});
 
 export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
-	function* (payload: typeof ProcessGenericImportChunksPayload.Type) {
+	function* (payload: typeof GenericImportChunkPayload.Type) {
 		const keys = yield* IdempotencyKeys.make;
 		if (!payload.command.accountUserId) {
 			return yield* new ImportRunError({ message: "Ingestion account is missing" });
@@ -1138,7 +1136,7 @@ export const runGenericImportChunk = Effect.fn("runGenericImportChunk")(
 );
 
 type GenericImportChunkRun = (
-	payload: typeof ProcessGenericImportChunksPayload.Type,
+	payload: typeof GenericImportChunkPayload.Type,
 ) => Effect.Effect<
 	Effect.Success<ReturnType<typeof runGenericImportChunk>>,
 	ImportRunError,

@@ -225,10 +225,10 @@ it.effect.each(["spotify", "youtube-music"] as const)(
 				Layer.mock(ImportsRepository)({
 					getOutcome: () => Effect.succeed(null),
 					getBatchIssues: () => Effect.succeed([]),
-					listBatchExecutions: () => Effect.succeed([]),
+					hasStartedBatch: () => Effect.succeed(false),
 					finishActivities: () => Effect.succeed("cancelled"),
 					getIngestionRunControl: () => Effect.sync(() => run),
-					listBatches: () => Effect.sync(() => [{ data: batch }]),
+					listBatches: () => Effect.sync(() => [{ data: batch, result: null }]),
 					getIngestionRun: () =>
 						Effect.sync(() => ({ ...run, activities: [...activities.values()] })),
 					releaseIngestionPins: () =>

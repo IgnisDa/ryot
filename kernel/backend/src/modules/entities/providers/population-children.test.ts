@@ -239,7 +239,7 @@ class FakeProviderWrites extends Context.Service<
 		readonly stampedChildren: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
 >()(
-	"@ryot-app/kernel-backend/modules/entities/providers/entity-import-workflow.test/FakeProviderWrites",
+	"@ryot-app/kernel-backend/modules/entities/providers/population-children.test/FakeProviderWrites",
 ) {}
 
 const providerWritesLayer = (options: {
@@ -472,7 +472,7 @@ class FakeRootPopulation extends Context.Service<
 		readonly commands: Effect.Effect<ReadonlyArray<DomainLifecycleCommand>>;
 	}
 >()(
-	"@ryot-app/kernel-backend/modules/entities/providers/entity-import-workflow.test/FakeRootPopulation",
+	"@ryot-app/kernel-backend/modules/entities/providers/population-children.test/FakeRootPopulation",
 ) {}
 
 const rootPopulationLayer = Layer.unwrap(

@@ -45,6 +45,10 @@ type ProviderResolveOperationInput = {
 
 type EntityImportWorkflowOperationsValue = {
 	requireRelatedScript: (payload: EntityImportPayload) => Effect.Effect<void, SandboxRunError>;
+	completeProviderEntityImport: (
+		payload: ProviderEntityImportWorkflowPayload,
+		importedEntity: ListedEntity,
+	) => Effect.Effect<void, SandboxRunError>;
 	processSandbox: (
 		payload: EntityImportPayload,
 		executionId: string,
@@ -59,10 +63,6 @@ type EntityImportWorkflowOperationsValue = {
 		input: ProviderResolveOperationInput,
 		executionId: string,
 	) => Effect.Effect<SandboxExecutionResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
-	completeProviderEntityImport: (
-		payload: ProviderEntityImportWorkflowPayload,
-		importedEntity: ListedEntity,
-	) => Effect.Effect<void, SandboxRunError>;
 	preRegisterProviderImport: (
 		input: {
 			readonly userId: UserId;

@@ -28,15 +28,13 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { ScriptExecutionWorkflow } from "#modules/scripts/executions/workflow";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { DatabaseSession } from "#platform/db/session";
-import { importRun } from "#schema/tables/imports";
 import { JobQueue } from "#platform/jobs/queue";
 import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
+import { importRun } from "#schema/tables/imports";
 
 import { IngestionCaptures } from "./capture-service";
-import {
-	runGenericImportChunk,
-} from "./generic-import-workflow";
+import { runGenericImportChunk } from "./generic-import-workflow";
 import { ingestionTestRun, ingestionTestSource } from "./ingestion.test-support";
 import { genericImportOperationIdentity } from "./outcomes";
 import { ImportsRepository } from "./repository";
@@ -55,7 +53,7 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 	assert(active?.installationId);
 	const runId = ImportRunId.make(yield* randomUuid);
 	yield* (yield* DatabaseSession).run((db) =>
-		db.insert(importRun).values({ id: runId, userId: fixture.userId, source: "fixture" }),
+		db.insert(importRun).values({ id: runId, source: "fixture", userId: fixture.userId }),
 	);
 	const command = {
 		...rootLifecycleCommand({
@@ -191,20 +189,15 @@ const recordFixture = Effect.fnUntraced(function* (memberCount: number) {
 					}),
 				),
 		}),
-		Layer.succeed(
-			WorkflowInstance,
-			WorkflowInstance.initial(ScriptExecutionWorkflow, runId),
-		),
+		Layer.succeed(WorkflowInstance, WorkflowInstance.initial(ScriptExecutionWorkflow, runId)),
 	);
 	const apply = runGenericImportChunk({
 		...scope,
 		command,
 		ordinal: 0,
 		batchId: "batch",
-		executionId: runId,
 		captureId: "capture",
 		inputFingerprint: "fingerprint",
-		artifactReferenceExecutionId: runId,
 		artifactOwnerExecutionId: "import-owner",
 	}).pipe(Effect.provideContext(yield* Layer.build(importLayer)));
 	const operationIdentities = [
