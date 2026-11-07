@@ -1,6 +1,6 @@
 # Kernel simplification
 
-Status: steps 1 to 5 of the [order of work](order-of-work.md) are done. This plan supersedes the
+Status: steps 1 to 6 of the [order of work](order-of-work.md) are done. This plan supersedes the
 replica decision in [`../work-reduction/redesign.md`](../work-reduction/redesign.md) ("cross-process
 ownership and wake-ups stay"). Its measurements and VM tooling in [`../work-reduction/`](../work-reduction/)
 remain the baseline.
