@@ -35,25 +35,14 @@ it.effect(
 	testTimeout,
 );
 
-const declaration = { requests: 1, intervalMs: 1_000, key: "catalog.api", hash: "catalog-hash" };
+const declaration = { requests: 1, intervalMs: 1_000, key: "catalog.api" };
 const progress = {
 	attempt: 1,
 	networkAttempt: 2,
-	blockWaitAttempt: 1,
 	admissionAttempt: 2,
 	coordinationAttempt: 1,
-	registrationAttempt: 2,
 	coordinationBackoffAttempt: 0,
 	current: { hop: 1, headers: {}, method: "GET", url: "https://api.example.com/next" },
-	cleanup: {
-		declaration,
-		ticket: {
-			tenant: "user",
-			plugin: "plugin",
-			id: "execution:0:1:1",
-			lane: "background" as const,
-		},
-	},
 };
 
 const phases = httpProgressPhases(declaration);
@@ -85,16 +74,10 @@ test.each([
 	{ delayMs: 1, declaration, _tag: "ApplyingRateLimitBlock" },
 	{ declaration, delayMs: -1, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
 	{ declaration, delayMs: 3_600_001, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
-	{ rateLimit: rateLimitFailure, _tag: "WaitingForRateLimitBlock" },
-	{ blockedUntilMs: -1, rateLimit: rateLimitFailure, _tag: "WaitingForRateLimitBlock" },
+	{ _tag: "Admitting", rateLimit: { value: null, state: "success" } },
+	{ slotAtMs: 1.5, rateLimit: null, _tag: "Admitting" },
 	{
-		blockedUntilMs: 1,
-		_tag: "WaitingForRateLimitBlock",
-		rateLimit: { value: null, state: "success" },
-	},
-	{
-		blockedUntilMs: 1,
-		_tag: "WaitingForRateLimitBlock",
+		_tag: "Admitting",
 		rateLimit: {
 			...rateLimitFailure,
 			error: { ...rateLimitFailure.error, data: { ...rateLimitFailure.error.data, status: 500 } },

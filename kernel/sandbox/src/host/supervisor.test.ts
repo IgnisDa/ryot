@@ -532,7 +532,6 @@ const makePrepare =
 			let closed = false;
 			const gate: SandboxHostCallGateRegistration = {
 				journal: undefined,
-				handoff: () => undefined,
 				inlineEntries: Effect.succeed([]),
 				pendingEntries: Effect.succeed([]),
 				extend: (milliseconds) =>
@@ -1571,7 +1570,6 @@ supervisorTest(
 						metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
 					},
 					inlineDurableHost: {
-						cancel: () => Effect.void,
 						capabilities: ["getCachedValue"],
 						settle: (requests) =>
 							Effect.gen(function* () {
@@ -1715,7 +1713,6 @@ supervisorTest("admits honest maximum concurrency under per-handle bounds", () =
 					metadata: { kind: "workflow", runtimeImports: [], capabilities: ["getCachedValue"] },
 				},
 				inlineDurableHost: {
-					cancel: () => Effect.void,
 					capabilities: ["getCachedValue"],
 					settle: (requests) =>
 						Deferred.await(release).pipe(

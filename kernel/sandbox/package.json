@@ -27,7 +27,7 @@
 		"./host/quarantine": "./src/host/quarantine.ts",
 		"./host/recovery-native.test-support": "./src/host/recovery-native.test-support.ts",
 		"./host/recovery-store": "./src/host/recovery-store.ts",
-		"./host/redis": "./src/host/redis.ts",
+		"./host/state-store": "./src/host/state-store.ts",
 		"./host/run-input.test-support": "./src/host/run-input.test-support.ts",
 		"./host/short-wait": "./src/host/short-wait.ts",
 		"./host/snapshot-tier": "./src/host/snapshot-tier.ts",
@@ -48,8 +48,7 @@
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
-		"effect": "4.1.2",
-		"ioredis": "5.11.1"
+		"effect": "4.1.2"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",

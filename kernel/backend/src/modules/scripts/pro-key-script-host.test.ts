@@ -22,11 +22,7 @@ it.effect(
 			});
 			const host = yield* makeProKeyScriptHost.pipe(Effect.provideService(ProKeyService, service));
 			const userId = UserId.make("execution-owner");
-			const input = makeSubjectRunInput({
-				userId,
-				type: "user",
-				accountGeneration: { userId, token: "test-account-generation" },
-			});
+			const input = makeSubjectRunInput({ userId, type: "user" });
 
 			expect(yield* host.getProAvailability(input)).toBe(true);
 			expect(yield* Ref.get(calls)).toBe(1);
@@ -41,11 +37,7 @@ it.effect(
 			const service = ProKeyService.of({ isValidated: Effect.succeed(false) });
 			const host = yield* makeProKeyScriptHost.pipe(Effect.provideService(ProKeyService, service));
 			const userId = UserId.make("execution-owner");
-			const input = makeSubjectRunInput({
-				userId,
-				type: "user",
-				accountGeneration: { userId, token: "test-account-generation" },
-			});
+			const input = makeSubjectRunInput({ userId, type: "user" });
 
 			expect(yield* host.getProAvailability(input)).toBe(false);
 		}),

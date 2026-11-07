@@ -118,14 +118,7 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 	const slug = `pin-${yield* randomUuid}`;
 	const userId = UserId.make(`user-${slug}`);
 	yield* session.run((db) =>
-		db
-			.insert(schema.user)
-			.values({
-				id: userId,
-				name: userId,
-				email: `${userId}@example.test`,
-				accountGeneration: `generation-${userId}`,
-			}),
+		db.insert(schema.user).values({ id: userId, name: userId, email: `${userId}@example.test` }),
 	);
 	const packageId = PluginPackageId.make(`test/${yield* randomUuid}`);
 	const { pluginId, installationId } = yield* persistPackage(scope, userId, slug, "v1", packageId);
@@ -158,8 +151,7 @@ const createWorld = Effect.fn(function* (scope: Scope) {
 	} satisfies World;
 });
 
-const userSubject = (userId: UserId, token = `generation-${userId}`) =>
-	({ userId, type: "user", accountGeneration: { token, userId } }) as const;
+const userSubject = (userId: UserId) => ({ userId, type: "user" }) as const;
 
 const automationSubject = (executionUserId: null | UserId): SandboxExecutionSubject => ({
 	stage: "after",
@@ -169,12 +161,9 @@ const automationSubject = (executionUserId: null | UserId): SandboxExecutionSubj
 	pluginRevisionId: null,
 	type: "automation-run",
 	pluginConfigRevisionId: null,
+	accountUserId: executionUserId,
 	runId: AutomationRunId.make("pin-run"),
 	triggerId: AutomationTriggerId.make("pin-trigger"),
-	accountGeneration:
-		executionUserId === null
-			? null
-			: { userId: executionUserId, token: `generation-${executionUserId}` },
 	causation: {
 		depth: 0,
 		source: "api",
@@ -193,7 +182,7 @@ const subjectsFor = (world: World): ReadonlyArray<undefined | SandboxExecutionSu
 	userSubject(world.userId),
 	automationSubject(world.userId),
 	automationSubject(null),
-	userSubject(UserId.make("recipient"), "test-account-generation"),
+	userSubject(UserId.make("recipient")),
 ];
 
 const modes = [
@@ -341,7 +330,6 @@ const mutations = {
 	hidden: (world: World) => setInstallation(world, { isHidden: true }),
 	accountDisabled: (world: World) => setUser(world, { disabledAt: new Date(0) }),
 	incompatible: (world: World) => setInstallation(world, { health: "incompatible" }),
-	generationChanged: (world: World) => setUser(world, { accountGeneration: "rotated" }),
 	initialized: (world: World) => setInstallation(world, { ...initializing, isInitialized: true }),
 	needsConfiguration: (world: World) => setInstallation(world, { health: "needs-configuration" }),
 	scriptDeleted: (world: World) =>
@@ -372,11 +360,6 @@ const mutations = {
 		Effect.andThen(
 			setInstallation(world, initializing),
 			setPlugin(world, { activationId: sql`gen_random_uuid()::text` }),
-		),
-	generationChangedUninstalled: (world: World) =>
-		Effect.andThen(
-			setUser(world, { accountGeneration: "rotated" }),
-			setInstallation(world, { uninstalledAt: new Date(0) }),
 		),
 	disabledHiddenUninstalled: (world: World) =>
 		Effect.andThen(
@@ -623,16 +606,6 @@ const expectedOutcomes = {
 			details: "P-P--- P-P--- UUUUUU U-U-U- P-P--- ------",
 		},
 	},
-	generationChanged: {
-		user: {
-			task: "P-P--- P-P--- ------ ------ P-P--- ------",
-			details: "P-P--- P-P--- ------ ------ P-P--- ------",
-		},
-		system: {
-			task: "P-P--- P-P--- ------ ------ P-P--- ------",
-			details: "P-P--- P-P--- ------ ------ P-P--- ------",
-		},
-	},
 	needsConfiguration: {
 		user: {
 			task: "U-P--- U-P--- UUPU-U U-P--- U-P--- ------",
@@ -660,16 +633,6 @@ const expectedOutcomes = {
 		},
 		system: {
 			task: "P-P--- P-P--- UUUUUU U-U-U- P-P--- ------",
-			details: "P-P--- P-P--- ------ ------ P-P--- ------",
-		},
-	},
-	generationChangedUninstalled: {
-		user: {
-			task: "U-U-U- U-U-U- ------ ------ U-U-U- ------",
-			details: "U-U-U- U-U-U- ------ ------ U-U-U- ------",
-		},
-		system: {
-			task: "P-P--- P-P--- ------ ------ P-P--- ------",
 			details: "P-P--- P-P--- ------ ------ P-P--- ------",
 		},
 	},

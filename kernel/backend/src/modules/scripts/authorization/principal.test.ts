@@ -38,7 +38,7 @@ const principal = {
 		executionUserId: "user-1",
 		pluginRevisionId: "revision-1",
 		pluginConfigRevisionId: "config-1",
-		accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
+		accountUserId: UserId.make("user-1"),
 		causation: {
 			depth: 0,
 			source: "api",

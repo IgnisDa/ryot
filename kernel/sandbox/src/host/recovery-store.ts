@@ -1,6 +1,7 @@
-import { Context, Effect, Layer, Schema } from "effect";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import { SandboxRedis, sandboxRedisKeys } from "./redis";
+import { SandboxStateStore, type SandboxStateUpdate } from "./state-store";
 
 export class SandboxRecoveryStoreError extends Schema.TaggedError<
 	SandboxRecoveryStoreError,
@@ -11,12 +12,9 @@ const recoveryStoreUnavailable = () =>
 	new SandboxRecoveryStoreError({ message: "Recovery store unavailable" });
 
 const RECOVERY_LIMIT = 3;
+// An execution clears its state when it settles; this only collects one that never did.
+const RECOVERY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
-const recoveryStateSchema = Schema.Struct({
-	suspended: Schema.Boolean,
-	recoveries: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: RECOVERY_LIMIT })),
-});
-const decodeRecoveryState = Schema.decodeUnknownEffect(Schema.fromJsonString(recoveryStateSchema));
 const nonEmptyStringSchema = Schema.String.check(Schema.isNonEmpty());
 export const SandboxRecoveryIdentity = Schema.Struct({
 	instance: nonEmptyStringSchema,
@@ -27,64 +25,91 @@ export type SandboxRecoveryIdentity = typeof SandboxRecoveryIdentity.Type;
 const decodeIdentity = Schema.decodeUnknownEffect(SandboxRecoveryIdentity);
 const decodeNonEmptyString = Schema.decodeUnknownEffect(nonEmptyStringSchema);
 
-const recoveryScript = `
-local operation = ARGV[1]
-local instance = ARGV[2]
-local pin_hash = ARGV[3]
-local argument = ARGV[4]
-local function encode_state(recoveries, suspended)
-  return cjson.encode({ recoveries = recoveries, suspended = suspended })
-end
-if redis.call("EXISTS", KEYS[1]) == 0 then
-  if operation == "clear" or operation == "read" then return encode_state(0, false) end
-  redis.call("HSET", KEYS[1], "instance", instance, "pinHash", pin_hash, "recoveries", "0", "suspended", "0")
-end
-local values = redis.call("HGETALL", KEYS[1])
-local row = {}
-for index = 1, #values, 2 do
-  row[values[index]] = values[index + 1]
-end
-local recoveries = tonumber(row.recoveries)
-local suspended = row.suspended == "1"
-if row.instance ~= instance or row.pinHash ~= pin_hash then return "identity-mismatch" end
-if operation == "clear" then
-  redis.call("DEL", KEYS[1])
-  return encode_state(0, false)
-elseif operation == "collateral" then
-  local duplicate = row.latestSuspendedEvent == argument
-  for index = 1, recoveries do
-    if row["event" .. index] == argument then duplicate = true end
-  end
-  if not duplicate then
-    if recoveries < ${RECOVERY_LIMIT} then
-      recoveries = recoveries + 1
-      redis.call("HSET", KEYS[1], "recoveries", tostring(recoveries), "event" .. recoveries, argument)
-    else
-      redis.call("HSET", KEYS[1], "suspended", "1", "latestSuspendedEvent", argument)
-      suspended = true
-    end
-  end
-  return encode_state(recoveries, suspended)
-elseif operation == "resume" then
-  if row.healthyEpoch ~= argument then
-    redis.call("HSET", KEYS[1], "healthyEpoch", argument)
-    if suspended then
-      redis.call("HSET", KEYS[1], "suspended", "0")
-      suspended = false
-    end
-  end
-  return encode_state(recoveries, suspended)
-end
-return encode_state(recoveries, suspended)
-`;
+const RecoveryRow = Schema.Struct({
+	pinHash: Schema.String,
+	instance: Schema.String,
+	suspended: Schema.Boolean,
+	events: Schema.Array(Schema.String),
+	healthyEpoch: Schema.NullOr(Schema.String),
+	latestSuspendedEvent: Schema.NullOr(Schema.String),
+});
+type RecoveryRow = typeof RecoveryRow.Type;
+const decodeRow = Schema.decodeOption(Schema.fromJsonString(RecoveryRow));
+
+export const sandboxRecoveryKey = (executionId: string) =>
+	`sandbox:recovery:${encodeURIComponent(executionId)}`;
+
+const stateOf = (row: null | RecoveryRow) => ({
+	suspended: row?.suspended ?? false,
+	recoveries: row?.events.length ?? 0,
+});
+
+type Operation = "read" | "clear" | "resume" | "collateral";
+type Outcome =
+	| { readonly _tag: "corrupt" }
+	| { readonly _tag: "mismatch" }
+	| { readonly _tag: "state"; readonly state: ReturnType<typeof stateOf> };
+
+const apply = (
+	operation: Exclude<Operation, "read">,
+	row: RecoveryRow,
+	argument: string | undefined,
+): RecoveryRow => {
+	if (operation === "resume" && row.healthyEpoch !== argument) {
+		return { ...row, suspended: false, healthyEpoch: argument ?? null };
+	}
+	if (operation !== "collateral" || argument === undefined) {
+		return row;
+	}
+	if (row.latestSuspendedEvent === argument || row.events.includes(argument)) {
+		return row;
+	}
+	return row.events.length < RECOVERY_LIMIT
+		? { ...row, events: [...row.events, argument] }
+		: { ...row, suspended: true, latestSuspendedEvent: argument };
+};
+
+const bounded = <A>(effect: Effect.Effect<A, unknown>) =>
+	effect.pipe(
+		Effect.timeoutOrElse({
+			duration: "2 seconds",
+			orElse: () => Effect.fail(recoveryStoreUnavailable()),
+		}),
+		Effect.mapError(recoveryStoreUnavailable),
+	);
+
+const inspect = (
+	stored: string | undefined,
+	identity: SandboxRecoveryIdentity,
+): Outcome & { readonly row?: RecoveryRow } => {
+	if (stored === undefined) {
+		return { _tag: "state", state: stateOf(null) };
+	}
+	const decoded = decodeRow(stored);
+	if (Option.isNone(decoded)) {
+		return { _tag: "corrupt" };
+	}
+	return decoded.value.instance === identity.instance && decoded.value.pinHash === identity.pinHash
+		? { _tag: "state", row: decoded.value, state: stateOf(decoded.value) }
+		: { _tag: "mismatch" };
+};
 
 export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>()(
 	"@ryot-app/sandbox/host/recovery-store/SandboxRecoveryStore",
 	{
 		make: Effect.gen(function* () {
-			const redis = yield* SandboxRedis;
+			const store = yield* SandboxStateStore;
+			const settled = Effect.fnUntraced(function* (outcome: Outcome) {
+				if (outcome._tag === "mismatch") {
+					return yield* new SandboxRecoveryStoreError({ message: "Recovery identity mismatch" });
+				}
+				if (outcome._tag === "corrupt") {
+					return yield* new SandboxRecoveryStoreError({ message: "Recovery store is corrupt" });
+				}
+				return outcome.state;
+			});
 			const execute = Effect.fn("SandboxRecoveryStore.execute")(function* (
-				operation: "read" | "clear" | "resume" | "collateral",
+				operation: Operation,
 				input: SandboxRecoveryIdentity,
 				argument?: string,
 			) {
@@ -104,33 +129,44 @@ export class SandboxRecoveryStore extends Context.Service<SandboxRecoveryStore>(
 								),
 							)
 						: undefined;
-				const args =
-					validatedArgument === undefined
-						? [operation, identity.instance, identity.pinHash]
-						: [operation, identity.instance, identity.pinHash, validatedArgument];
-				const result = yield* Effect.tryPromise({
-					catch: recoveryStoreUnavailable,
-					try: () =>
-						redis.client.eval(
-							recoveryScript,
-							1,
-							sandboxRedisKeys.recovery(identity.executionId),
-							...args,
-						),
-				}).pipe(
-					Effect.timeoutOrElse({
-						duration: "2 seconds",
-						orElse: () => Effect.fail(recoveryStoreUnavailable()),
+				const key = sandboxRecoveryKey(identity.executionId);
+				if (operation === "read") {
+					const current = yield* bounded(store.read([key]));
+					return yield* settled(inspect(current.get(key), identity));
+				}
+				const outcome = yield* bounded(
+					store.update([key], (current): SandboxStateUpdate<Outcome> => {
+						const inspected = inspect(current.get(key), identity);
+						if (inspected._tag !== "state") {
+							return { result: inspected, writes: new Map() };
+						}
+						if (operation === "clear") {
+							return {
+								writes: new Map([[key, null]]),
+								result: { _tag: "state", state: stateOf(null) },
+							};
+						}
+						const row = apply(
+							operation,
+							inspected.row ?? {
+								events: [],
+								suspended: false,
+								healthyEpoch: null,
+								pinHash: identity.pinHash,
+								latestSuspendedEvent: null,
+								instance: identity.instance,
+							},
+							validatedArgument,
+						);
+						return {
+							result: { _tag: "state", state: stateOf(row) },
+							writes: new Map([
+								[key, { value: stableStringify(row), ttlMs: RECOVERY_RETENTION_MS }],
+							]),
+						};
 					}),
 				);
-				if (result === "identity-mismatch") {
-					return yield* new SandboxRecoveryStoreError({ message: "Recovery identity mismatch" });
-				}
-				return yield* decodeRecoveryState(result).pipe(
-					Effect.mapError(
-						() => new SandboxRecoveryStoreError({ message: "Recovery store is corrupt" }),
-					),
-				);
+				return yield* settled(outcome);
 			});
 			return {
 				read: (identity: SandboxRecoveryIdentity) => execute("read", identity),

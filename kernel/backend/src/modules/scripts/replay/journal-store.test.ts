@@ -8,12 +8,15 @@ import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, Fiber, Schema } from "effect";
+import { and, asc, eq } from "drizzle-orm";
+import { Effect, Schema } from "effect";
 
-import { redisKeys, RedisService } from "#platform/redis";
-import { testExecutionId, testRedisServiceLayer } from "#testing/redis";
+import { DatabaseSession } from "#platform/db/session";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
+import { testExecutionId } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { appendWorkflowJournalWithRedis } from "./journal";
+import { appendWorkflowJournal } from "./journal";
 import { inspectSandboxJournal, pinSandboxJournal } from "./journal-store";
 
 const entry = (index: number, value: string) => ({
@@ -27,17 +30,35 @@ const entry = (index: number, value: string) => ({
 });
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
-layer(testRedisServiceLayer)((test) => {
+const entryRow = (executionId: string, index: number) =>
+	and(eq(sandboxJournalEntry.executionId, executionId), eq(sandboxJournalEntry.entryIndex, index));
+
+const rowsOf = (executionId: string) =>
+	Effect.flatMap(DatabaseSession, (session) =>
+		session.run((db) =>
+			db
+				.select({
+					pin: sandboxJournalEntry.pin,
+					body: sandboxJournalEntry.body,
+					entryIndex: sandboxJournalEntry.entryIndex,
+				})
+				.from(sandboxJournalEntry)
+				.where(eq(sandboxJournalEntry.executionId, executionId))
+				.orderBy(asc(sandboxJournalEntry.entryIndex)),
+		),
+	);
+
+layer(isolatedDatabaseLayer("journal_store"))((test) => {
 	test.effect(
 		"journal inspection pins exact prefix bytes without returning values",
 		() =>
 			Effect.gen(function* () {
-				const redis = yield* RedisService;
+				const session = yield* DatabaseSession;
 				const executionId = testExecutionId("inspect-prefix");
 				const journal = [entry(0, "日本語 🎵"), entry(1, "second"), entry(2, "later")];
-				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
+				yield* appendWorkflowJournal(executionId, 0, journal);
 
-				const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
+				const inspection = yield* inspectSandboxJournal(session, executionId, 2);
 				assert(inspection !== null);
 				expect(inspection.bytes).toBe(utf8ByteLength(yield* encodeJson(journal.slice(0, 2))));
 				expect(inspection.entries).toEqual<unknown>(
@@ -45,7 +66,7 @@ layer(testRedisServiceLayer)((test) => {
 						Effect.map(encodeJson(value), (text) => [utf8ByteLength(text), 1, sha256Hex(text)]),
 					),
 				);
-				expect(yield* inspectSandboxJournal(redis, executionId, 0)).toEqual({
+				expect(yield* inspectSandboxJournal(session, executionId, 0)).toEqual({
 					bytes: 2,
 					entries: [],
 				});
@@ -54,50 +75,48 @@ layer(testRedisServiceLayer)((test) => {
 	);
 
 	test.effect(
-		"journal inspection bounds reply before loading values",
+		"journal inspection bounds its pins before loading values",
 		() =>
 			Effect.gen(function* () {
-				const redis = yield* RedisService;
+				const session = yield* DatabaseSession;
 				const executionId = testExecutionId("oversized-inspection");
-				const key = redisKeys.sandboxWorkflowJournal(executionId);
-				yield* Effect.acquireUseRelease(
-					Effect.promise(() =>
-						redis.client.hset(key, "m:0", `${SANDBOX_LIMITS.journalBytes}:100:${"0".repeat(64)}`),
-					),
-					() =>
-						Effect.gen(function* () {
-							const error = yield* Effect.flip(inspectSandboxJournal(redis, executionId, 1));
-							expect(error.kind).toBe("infrastructure");
-							expect(error.message).toBe(
-								"Sandbox workflow journal projection exceeds its byte limit",
-							);
-							expect(yield* inspectSandboxJournal(redis, executionId, 2)).toBeNull();
+				yield* session.run((db) =>
+					db
+						.insert(sandboxJournalEntry)
+						.values({
+							executionId,
+							entryIndex: 0,
+							body: Buffer.from("x"),
+							pin: `${SANDBOX_LIMITS.journalBytes}:100:${"0".repeat(64)}`,
 						}),
-					() => Effect.promise(() => redis.client.del(key)),
 				);
+
+				const error = yield* Effect.flip(inspectSandboxJournal(session, executionId, 1));
+				expect(error.kind).toBe("infrastructure");
+				expect(error.message).toBe("Sandbox workflow journal projection exceeds its byte limit");
+				expect(yield* inspectSandboxJournal(session, executionId, 2)).toBeNull();
 			}),
 		testTimeout,
 	);
 
 	test.effect(
-		"lazy journal reads serve pinned chunks without backend prefix",
+		"lazy journal reads serve pinned chunks and fault on changed or missing entries",
 		() =>
 			Effect.gen(function* () {
-				const redis = yield* RedisService;
+				const session = yield* DatabaseSession;
 				const executionId = testExecutionId("chunked");
-				const key = redisKeys.sandboxWorkflowJournal(executionId);
 				const large = entry(1, `${"x".repeat(MiB - 40)}${"日本語".repeat(500_000)}`);
 				const journal = [entry(0, "small"), large];
-				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, journal);
-				const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
+				yield* appendWorkflowJournal(executionId, 0, journal);
+				const inspection = yield* inspectSandboxJournal(session, executionId, 2);
 				assert(inspection !== null);
 				const largeBytes = utf8ByteLength(yield* encodeJson(large));
 				const largeChunks = Math.ceil(largeBytes / SANDBOX_JOURNAL_CHUNK_BYTES);
 				expect(largeChunks).toBeGreaterThan(2);
 				expect(inspection.entries[1]?.slice(0, 2)).toEqual([largeBytes, largeChunks]);
 
-				yield* appendWorkflowJournalWithRedis(redis, executionId, 2, [entry(2, "suffix")]);
-				const pinned = pinSandboxJournal(redis, executionId, inspection);
+				yield* appendWorkflowJournal(executionId, 2, [entry(2, "suffix")]);
+				const pinned = pinSandboxJournal(session, executionId, inspection);
 				expect(yield* readPinnedJournal(pinned)).toEqual(journal);
 				const lastChunk = yield* pinned.readChunk(1, largeChunks - 1);
 				expect(lastChunk?.byteLength).toBe(
@@ -106,19 +125,29 @@ layer(testRedisServiceLayer)((test) => {
 				expect(yield* pinned.readChunk(2, 0)).toBeNull();
 				expect(pinned.fault()).toBe("failed");
 
-				yield* Effect.promise(() => redis.client.hset(key, "c:1:1", "short"));
-				const changedChunk = pinSandboxJournal(redis, executionId, inspection);
+				yield* session.run((db) =>
+					db
+						.update(sandboxJournalEntry)
+						.set({ body: Buffer.from("short") })
+						.where(entryRow(executionId, 1)),
+				);
+				const changedChunk = pinSandboxJournal(session, executionId, inspection);
 				expect(yield* changedChunk.readChunk(0, 0)).not.toBeNull();
 				expect(yield* changedChunk.readChunk(1, 1)).toBeNull();
 				expect(changedChunk.fault()).toBe("changed");
 
-				yield* Effect.promise(() => redis.client.hset(key, "m:0", `1:1:${"0".repeat(64)}`));
-				const changedMeta = pinSandboxJournal(redis, executionId, inspection);
-				expect(yield* changedMeta.readChunk(0, 0)).toBeNull();
-				expect(changedMeta.fault()).toBe("changed");
+				yield* session.run((db) =>
+					db
+						.update(sandboxJournalEntry)
+						.set({ pin: `1:1:${"0".repeat(64)}` })
+						.where(entryRow(executionId, 0)),
+				);
+				const changedPin = pinSandboxJournal(session, executionId, inspection);
+				expect(yield* changedPin.readChunk(0, 0)).toBeNull();
+				expect(changedPin.fault()).toBe("changed");
 
-				yield* Effect.promise(() => redis.client.hdel(key, "c:1:2"));
-				const missing = pinSandboxJournal(redis, executionId, inspection);
+				yield* session.run((db) => db.delete(sandboxJournalEntry).where(entryRow(executionId, 1)));
+				const missing = pinSandboxJournal(session, executionId, inspection);
 				expect(yield* missing.readChunk(1, 2)).toBeNull();
 				expect(missing.fault()).toBe("missing");
 				expect(yield* missing.readChunk(1, 0)).toBeNull();
@@ -128,90 +157,49 @@ layer(testRedisServiceLayer)((test) => {
 	);
 
 	test.effect(
-		"journal chunk reads hold cancellation until the reply lands",
+		"journal projection rejects divergent appends without writing",
 		() =>
 			Effect.gen(function* () {
-				const started = yield* Deferred.make<void>();
-				const pending = Promise.withResolvers<unknown>();
-				const pinned = pinSandboxJournal(
-					{
-						client: {
-							eval: () => Promise.reject(new Error("unused")),
-							callBuffer: () => {
-								Deferred.doneUnsafe(started, Effect.void);
-								return pending.promise;
-							},
-						},
-					},
-					"cancelled-chunk-read",
-					{ bytes: 3, entries: [[1, 1, "0".repeat(64)]] },
-				);
-				const reader = yield* pinned.readChunk(0, 0).pipe(Effect.forkChild);
-				yield* Deferred.await(started);
-				const cancelling = yield* Fiber.interrupt(reader).pipe(Effect.forkChild);
-				yield* Effect.yieldNow;
-				expect(cancelling.pollUnsafe()).toBeUndefined();
-				pending.resolve(Buffer.from("x"));
-				yield* Fiber.join(cancelling);
-			}),
-		testTimeout,
-	);
-
-	test.effect(
-		"journal projection rejects divergent chunk appends",
-		() =>
-			Effect.gen(function* () {
-				const redis = yield* RedisService;
 				const executionId = testExecutionId("divergent");
-				const key = redisKeys.sandboxWorkflowJournal(executionId);
 				const original = entry(0, "o".repeat(MiB + 1));
-				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [original]);
-				yield* appendWorkflowJournalWithRedis(redis, executionId, 2, [entry(2, "projected")]);
-				const projected = yield* Effect.promise(() => redis.client.hgetallBuffer(key));
-				yield* appendWorkflowJournalWithRedis(redis, executionId, 0, [original]);
+				yield* appendWorkflowJournal(executionId, 0, [original]);
+				yield* appendWorkflowJournal(executionId, 2, [entry(2, "projected")]);
+				const projected = yield* rowsOf(executionId);
+				yield* appendWorkflowJournal(executionId, 0, [original]);
 
 				const error = yield* Effect.flip(
-					appendWorkflowJournalWithRedis(redis, executionId, 0, [
-						original,
-						entry(1, "new"),
-						entry(2, "different"),
-					]),
+					appendWorkflowJournal(executionId, 0, [original, entry(1, "new"), entry(2, "different")]),
 				);
 				expect(error.message).toBe("Sandbox workflow journal[2] diverged from its projected entry");
 				const conflicting = yield* Effect.flip(
-					appendWorkflowJournalWithRedis(redis, executionId, 0, [
-						entry(0, "o".repeat(MiB + 1).replace(/o$/, "p")),
-					]),
+					appendWorkflowJournal(executionId, 0, [entry(0, "o".repeat(MiB + 1).replace(/o$/, "p"))]),
 				);
 				expect(conflicting.message).toBe(
 					"Sandbox workflow journal[0] diverged from its projected entry",
 				);
-				expect(yield* Effect.promise(() => redis.client.hgetallBuffer(key))).toEqual(projected);
+				expect(yield* rowsOf(executionId)).toEqual(projected);
 			}),
 		testTimeout,
 	);
 
 	test.effect(
-		"journal inspection rejects invalid lengths and unavailable state",
+		"journal inspection rejects invalid lengths and unreadable pins",
 		() =>
 			Effect.gen(function* () {
-				const redis = yield* RedisService;
+				const session = yield* DatabaseSession;
 				const executionId = testExecutionId("invalid-inspection");
 				for (const length of [-1, 0.5, Number.NaN, SANDBOX_LIMITS.hostCalls.total + 1]) {
-					const error = yield* Effect.flip(inspectSandboxJournal(redis, executionId, length));
+					const error = yield* Effect.flip(inspectSandboxJournal(session, executionId, length));
 					expect(error.message).toBe("Sandbox workflow journal length is invalid");
 				}
-				yield* Effect.promise(() =>
-					redis.client.set(
-						redisKeys.sandboxWorkflowJournal(executionId),
-						"not-a-journal",
-						"EX",
-						60,
-					),
+				yield* session.run((db) =>
+					db
+						.insert(sandboxJournalEntry)
+						.values({ executionId, entryIndex: 0, pin: "not-a-pin", body: Buffer.from("x") }),
 				);
-				const error = yield* Effect.flip(inspectSandboxJournal(redis, executionId, 1));
+				const error = yield* Effect.flip(inspectSandboxJournal(session, executionId, 1));
 				expect(error.kind).toBe("infrastructure");
-				expect(error.message).toContain("Sandbox workflow journal command failed");
+				expect(error.message).toBe("Sandbox workflow journal inspection is invalid");
 			}),
 		testTimeout,
 	);

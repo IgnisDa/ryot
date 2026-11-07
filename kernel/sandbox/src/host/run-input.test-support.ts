@@ -14,15 +14,9 @@ import {
 import type { SandboxRunInput } from "./invocation";
 import type { SandboxPrincipal } from "./principal";
 
-export const testAccountGeneration = (userId: UserId) => ({
-	userId,
-	token: "test-account-generation" as const,
-});
-
 export const makeUserSubject = (userId = UserId.make("user-1")) => ({
 	userId,
 	type: "user" as const,
-	accountGeneration: testAccountGeneration(userId),
 });
 
 export const makeUserPrincipal = (overrides: Partial<SandboxPrincipal> = {}): SandboxPrincipal => ({
@@ -81,11 +75,10 @@ export const automationRunSubject = (
 	type: "automation-run",
 	pluginRevisionId: null,
 	pluginConfigRevisionId: null,
+	accountUserId: executionUserId,
 	runId: AutomationRunId.make("run_1"),
 	triggerId: AutomationTriggerId.make("trigger_1"),
 	delivery: stage === "before" ? "policy" : "required",
-	accountGeneration:
-		executionUserId === null ? null : { userId: executionUserId, token: "test-account-generation" },
 	causation: {
 		depth: 0,
 		source: "api",

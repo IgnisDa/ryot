@@ -41,7 +41,6 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 				const waits: number[] = [];
 				const inlineDurableHost: SandboxInlineDurableHost = {
 					capabilities: [],
-					cancel: () => Effect.void,
 					settle: (requests, wait, checkpoint) =>
 						Effect.gen(function* () {
 							for (const request of requests) {
@@ -109,7 +108,6 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
 						workflowExecutionId: "parallel-sleep-parent",
 						inlineDurableHost: {
 							capabilities: [],
-							cancel: () => Effect.void,
 							settle: (requests, wait, checkpoint) =>
 								Effect.gen(function* () {
 									const settled = yield* Effect.forEach(

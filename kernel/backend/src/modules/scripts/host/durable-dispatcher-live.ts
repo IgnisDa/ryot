@@ -32,7 +32,6 @@ import {
 import { reportSandboxLifecycleWarnings } from "#modules/scripts/host/execution-context";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { SandboxHttpDispatcher } from "#modules/scripts/host/http-dispatcher";
-import { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
 import { writeInlineLifecycleItems } from "#modules/scripts/host/lifecycle-host";
 import { makeActivity } from "#platform/workflow/scope";
 
@@ -246,18 +245,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				recordHostCall(
 					request,
 					dispatchDurableHostCall(request, payload, principal, executionId, progress),
-				),
-			cancelInline: (executionId, progress) =>
-				Effect.forEach(
-					progress,
-					(entry) =>
-						entry._tag === "Http"
-							? Effect.flatMap(
-									Schema.decodeUnknownEffect(SandboxHttpProgress)(entry.progress),
-									(decoded) => httpDispatcher.cancel(executionId, decoded),
-								).pipe(Effect.ignore)
-							: Effect.void,
-					{ discard: true },
 				),
 			settleInline: (
 				requests,

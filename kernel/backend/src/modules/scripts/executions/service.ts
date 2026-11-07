@@ -1,11 +1,11 @@
 import { badRequest, notFound, SandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import type {
-	EnqueueSandboxBody,
-	SandboxExecutionGrants,
-	SandboxExecutionSubject,
+import {
+	type EnqueueSandboxBody,
+	type SandboxExecutionGrants,
+	type SandboxExecutionSubject,
+	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { SandboxScriptId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
@@ -185,11 +185,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 							context,
 							executionId,
 							scriptId: script.id,
-							subject: {
-								type: "user",
-								userId: executingUserId,
-								accountGeneration: yield* currentAccount(executingUserId),
-							},
+							subject: { type: "user", userId: yield* currentAccount(executingUserId) },
 						},
 						"active",
 					)
@@ -197,9 +193,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 				yield* dispatchAdmittedWorkflow(
 					engine,
 					ScriptExecutionWorkflow,
-					resolvedPayload.subject.type === "system"
-						? null
-						: resolvedPayload.subject.accountGeneration,
+					sandboxSubjectUserId(resolvedPayload.subject),
 					{
 						executionId,
 						discard: true,
@@ -298,7 +292,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 					return yield* dispatchAdmittedWorkflow(
 						engine,
 						ScriptExecutionWorkflow,
-						input.subject.type === "system" ? null : input.subject.accountGeneration,
+						sandboxSubjectUserId(input.subject),
 						{
 							executionId: input.executionId,
 							payload: {
@@ -341,9 +335,9 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 			)(function* (input: {
 				pluginId: string;
 				executionId: string;
+				accountUserId: UserId;
 				executingUserId: UserId;
 				scriptId: SandboxScriptId;
-				accountGeneration: AccountGeneration;
 				retain?: (principal: ScriptExecutionPrincipal) => Effect.Effect<void, SandboxRunError>;
 			}) {
 				const pin = yield* pinning.establish(
@@ -353,11 +347,7 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 						resolutionMode: "exact",
 						scriptId: input.scriptId,
 						executionId: input.executionId,
-						subject: {
-							type: "user",
-							userId: input.executingUserId,
-							accountGeneration: input.accountGeneration,
-						},
+						subject: { type: "user", userId: input.executingUserId },
 					},
 					input.executionId,
 					input.pluginId,
@@ -382,9 +372,9 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 					lane: ExecutionLane;
 					executionId: string;
 					workflowSlug: string;
+					accountUserId: UserId;
 					executingUserId: UserId;
 					pluginInstallationId: string;
-					accountGeneration: AccountGeneration;
 				}) {
 					const contextError = sandboxContextError(input.input);
 					if (contextError) {
@@ -405,34 +395,25 @@ export class ScriptExecutionService extends Context.Service<ScriptExecutionServi
 						scriptId: script.id,
 						executionId: input.executionId,
 						resolutionMode: "active" as const,
-						subject: {
-							type: "user" as const,
-							userId: input.executingUserId,
-							accountGeneration: input.accountGeneration,
-						},
+						subject: { type: "user" as const, userId: input.executingUserId },
 					};
 					const pin = yield* pinning.establish(payload, input.executionId, input.pluginId);
 					const releaseRegistration =
 						pin.registrationStatus === "registered"
 							? workflowReferences.release(input.executionId)
 							: Effect.void;
-					yield* dispatchAdmittedWorkflow(
-						engine,
-						ScriptExecutionWorkflow,
-						input.accountGeneration,
-						{
-							discard: true,
-							executionId: input.executionId,
-							payload: {
-								...payload,
-								resolutionMode: "exact",
-								scriptId: pin.principal.scriptId,
-								...(pin.principal.pluginRevision
-									? { pluginRevision: pin.principal.pluginRevision }
-									: {}),
-							},
+					yield* dispatchAdmittedWorkflow(engine, ScriptExecutionWorkflow, input.accountUserId, {
+						discard: true,
+						executionId: input.executionId,
+						payload: {
+							...payload,
+							resolutionMode: "exact",
+							scriptId: pin.principal.scriptId,
+							...(pin.principal.pluginRevision
+								? { pluginRevision: pin.principal.pluginRevision }
+								: {}),
 						},
-					).pipe(
+					}).pipe(
 						Effect.matchCauseEffect({
 							onSuccess: Effect.succeed,
 							onFailure: (cause) =>

@@ -152,7 +152,6 @@ const inlineInput = (
 		replayJournal: emptyPinnedJournal,
 		workflowExecutionId: "memory-workflow",
 		inlineDurableHost: {
-			cancel: () => Effect.void,
 			capabilities: [...capabilities],
 			settle: (requests) =>
 				Effect.sync(() => {
@@ -192,7 +191,6 @@ layer(gateLayer)((test) => {
 						workflowExecutionId: "budget-workflow",
 						replayJournal: yield* memoryPinnedJournal([]),
 						inlineDurableHost: {
-							cancel: () => Effect.void,
 							capabilities: ["getCachedValue"],
 							settle: (requests) =>
 								Deferred.succeed(settlementStarted, undefined).pipe(
@@ -254,7 +252,6 @@ layer(gateLayer)((test) => {
 						replayJournal: yield* memoryPinnedJournal([]),
 						workflowExecutionId: "settlement-limit-workflow",
 						inlineDurableHost: {
-							cancel: () => Effect.void,
 							capabilities: ["getCachedValue"],
 							settle: () =>
 								Deferred.succeed(settlementStarted, undefined).pipe(Effect.andThen(Effect.never)),
@@ -733,7 +730,6 @@ layer(gateLayer)((test) => {
 					workflowExecutionId: "gate-workflow",
 					replayJournal: yield* memoryPinnedJournal([]),
 					inlineDurableHost: {
-						cancel: () => Effect.void,
 						capabilities: ["getCachedValue"],
 						settle: (requests) =>
 							Deferred.succeed(settlementStarted, undefined).pipe(
@@ -860,7 +856,6 @@ layer(gateLayer)((test) => {
 					workflowExecutionId: "gate-budget-workflow",
 					replayJournal: yield* memoryPinnedJournal([]),
 					inlineDurableHost: {
-						cancel: () => Effect.void,
 						capabilities: ["httpCall"],
 						settle: (requests) =>
 							Effect.sync(() => {
@@ -1473,7 +1468,6 @@ it.effect(
 							workflowExecutionId: "interactive-inline",
 							replayJournal: yield* memoryPinnedJournal([]),
 							inlineDurableHost: {
-								cancel: () => Effect.void,
 								capabilities: ["httpCall"],
 								settle: (requests) =>
 									Effect.sync(() => {
@@ -1547,7 +1541,6 @@ it.effect(
 							workflowExecutionId: "exhausted-inline",
 							replayJournal: yield* memoryPinnedJournal([]),
 							inlineDurableHost: {
-								cancel: () => Effect.void,
 								capabilities: ["httpCall"],
 								settle: (requests) =>
 									Deferred.succeed(settlementStarted, undefined).pipe(
@@ -1732,21 +1725,11 @@ it.effect(
 	testTimeout,
 );
 
-const recordingCancel = () => {
-	const cancelled: Array<number> = [];
-	const cancel = (pending: ReadonlyArray<unknown>) =>
-		Effect.sync(() => {
-			cancelled.push(pending.length);
-		});
-	return { cancel, cancelled };
-};
-
-const closeableInput = (cancel: NonNullable<SandboxRunInput["inlineDurableHost"]>["cancel"]) =>
+const closeableInput = () =>
 	makeInput(["getCachedValue"], {
 		replayJournal: emptyPinnedJournal,
 		workflowExecutionId: "close-workflow",
 		inlineDurableHost: {
-			cancel,
 			capabilities: ["getCachedValue"],
 			settle: (requests) =>
 				Effect.succeed(
@@ -1760,14 +1743,13 @@ const singleInlineBatch = (seq: number) =>
 		makeFrame(seq, "inlineBatch", { requests: [request] }),
 	);
 
-const closeLifecycle = (handoff: boolean) =>
+const closeLifecycle = () =>
 	Effect.gen(function* () {
 		const gate = yield* SandboxHostCallGate;
 		const started = yield* Deferred.make<void>();
-		const recorded = recordingCancel();
 		const registration = yield* gate.register(
 			makeOptions(
-				closeableInput(recorded.cancel),
+				closeableInput(),
 				{
 					getCachedValue: () =>
 						Deferred.succeed(started, undefined).pipe(
@@ -1793,26 +1775,21 @@ const closeLifecycle = (handoff: boolean) =>
 			.dispatch(yield* makeFrame(1, "getCachedValue", [], { handle: "closing" }))
 			.pipe(Effect.forkChild);
 		yield* Deferred.await(started);
-		if (handoff) {
-			registration.handoff();
-		}
 		yield* registration.close;
 		yield* registration.close;
 		const afterClose = yield* registration.dispatch(
 			yield* makeFrame(2, "getCachedValue", [], { handle: "closing" }),
 		);
-		return { gate, recorded, afterClose, registration, inFlight: yield* Fiber.join(inFlight) };
+		return { gate, afterClose, registration, inFlight: yield* Fiber.join(inFlight) };
 	});
 
 layer(gateLayer)((test) => {
 	test.effect(
-		"cancels in-flight work and clears evidence when closed without handoff",
+		"cancels in-flight work and clears evidence when closed",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const { gate, recorded, inFlight, afterClose, registration } =
-						yield* closeLifecycle(false);
-					expect(recorded.cancelled).toEqual([0]);
+					const { gate, inFlight, afterClose, registration } = yield* closeLifecycle();
 					expect(frameValue(inFlight)).toMatchObject({
 						success: false,
 						error: "Sandbox execution is no longer active",
@@ -1824,33 +1801,6 @@ layer(gateLayer)((test) => {
 					expect(yield* registration.inlineEntries).toEqual([]);
 					expect(yield* registration.pendingEntries).toEqual([]);
 					expect(yield* registration.scriptBudget).toMatchObject({ remainingMs: 0 });
-					expect(gate.transientMemory("background").used).toBeGreaterThan(0);
-					return gate;
-				}),
-			).pipe(
-				Effect.tap((gate) =>
-					Effect.sync(() => {
-						expect(gate.transientMemory("background")).toMatchObject({ used: 0, waiting: 0 });
-					}),
-				),
-			),
-		testTimeout,
-	);
-
-	test.effect(
-		"does not cancel after handoff but still clears evidence on close",
-		() =>
-			Effect.scoped(
-				Effect.gen(function* () {
-					const { gate, recorded, inFlight, afterClose, registration } =
-						yield* closeLifecycle(true);
-					expect(recorded.cancelled).toEqual([]);
-					expect(frameValue(inFlight)).toMatchObject({
-						success: false,
-						error: "Sandbox execution is no longer active",
-					});
-					expect(frameValue(afterClose)).toMatchObject({ success: false });
-					expect(yield* registration.inlineEntries).toEqual([]);
 					expect(gate.transientMemory("background").used).toBeGreaterThan(0);
 					return gate;
 				}),
@@ -1889,13 +1839,8 @@ layer(gateLayer)((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const gate = yield* SandboxHostCallGate;
-					const recorded = recordingCancel();
 					const registration = yield* gate.register(
-						makeOptions(
-							closeableInput(recorded.cancel),
-							{ getCachedValue: successHostFunction() },
-							makeFiles(),
-						),
+						makeOptions(closeableInput(), { getCachedValue: successHostFunction() }, makeFiles()),
 					);
 					yield* TestClock.adjust(
 						Duration.millis(SANDBOX_LIMITS.execution.timeoutMs + SANDBOX_LIMITS.sidecar.disposalMs),
@@ -1904,7 +1849,6 @@ layer(gateLayer)((test) => {
 						yield* makeFrame(0, "getCachedValue", ["edge"]),
 					);
 					expect(frameValue(atEdge)).toMatchObject({ data: "edge", success: true });
-					expect(recorded.cancelled).toEqual([]);
 					yield* TestClock.adjust("1 millis");
 					const expired = yield* registration.dispatch(
 						yield* makeFrame(1, "getCachedValue", ["late"]),
@@ -1913,7 +1857,6 @@ layer(gateLayer)((test) => {
 						success: false,
 						error: "Sandbox execution expired",
 					});
-					expect(recorded.cancelled).toEqual([0]);
 					const closed = yield* registration.dispatch(
 						yield* makeFrame(2, "getCachedValue", ["after"]),
 					);
@@ -2130,7 +2073,6 @@ layer(gateLayer)((test) => {
 						workflowExecutionId: "settle-workflow",
 						replayJournal: yield* memoryPinnedJournal([]),
 						inlineDurableHost: {
-							cancel: () => Effect.void,
 							capabilities: ["getCachedValue"],
 							settle: () => (mode === "die" ? Effect.die(new Error("boom")) : Effect.interrupt),
 						},

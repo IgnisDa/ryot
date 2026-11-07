@@ -138,8 +138,8 @@ const rethrowSandboxFailure = (fallback: SandboxFailureKind) => (error: unknown)
 				unknownToMessage(error),
 			);
 
-const accountGenerationOf = ({ subject }: ScriptExecutionWorkflowPayloadValue) =>
-	subject.type === "system" ? null : subject.accountGeneration;
+const accountOf = ({ subject }: ScriptExecutionWorkflowPayloadValue) =>
+	sandboxSubjectUserId(subject);
 
 const artifactOwnerOf = (payload: ScriptExecutionWorkflowPayloadValue, executionId: string) =>
 	payload.grants?.artifactOwnerExecutionId ?? executionId;
@@ -251,7 +251,7 @@ export class SandboxWorkflowPinning extends Context.Service<SandboxWorkflowPinni
 						ownership.userId === null ? [] : [ownership.userId],
 					);
 					const subject = payload.subject;
-					const account = accountGenerationOf(payload);
+					const account = accountOf(payload);
 					if (account !== null) {
 						yield* admission.admitAccount(account);
 					}
@@ -662,24 +662,19 @@ export const performSandboxWorkflowChild = Effect.fn("performSandboxWorkflowChil
 						? Effect.fail(
 								sandboxFailure("missing-artifact", "Child workflow script was not resolved"),
 							)
-						: dispatchAdmittedWorkflow(
-								engine,
-								ScriptExecutionWorkflow,
-								accountGenerationOf(payload),
-								{
+						: dispatchAdmittedWorkflow(engine, ScriptExecutionWorkflow, accountOf(payload), {
+								executionId: childExecutionId,
+								payload: {
+									lane: payload.lane,
+									resolutionMode: "exact",
+									subject: payload.subject,
+									input: request.args.input,
 									executionId: childExecutionId,
-									payload: {
-										lane: payload.lane,
-										resolutionMode: "exact",
-										subject: payload.subject,
-										input: request.args.input,
-										executionId: childExecutionId,
-										scriptId: SandboxScriptId.make(targetScriptId),
-										grants: { ...payload.grants, artifactOwnerExecutionId },
-										...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
-									},
+									scriptId: SandboxScriptId.make(targetScriptId),
+									grants: { ...payload.grants, artifactOwnerExecutionId },
+									...(payload.pluginRevision ? { pluginRevision: payload.pluginRevision } : {}),
 								},
-							).pipe(
+							}).pipe(
 								Effect.catchTag("DbError", (error) =>
 									Effect.fail(rethrowSandboxFailure("infrastructure")(error)),
 								),
@@ -948,23 +943,9 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				projected = 0;
 				continue;
 			}
-			const dispatcher = yield* SandboxDurableHostDispatcher;
-			const cancelPending =
-				replay.pendingInline.length === 0
-					? Effect.void
-					: makeActivity({
-							name: `cancel-sandbox-inline-${step}`,
-							execute: dispatcher.cancelInline(executionId, replay.pendingInline),
-						});
-			if (replay.pendingInline.length > 0) {
-				yield* Workflow.addFinalizer(() =>
-					originalInstance.interrupted ? cancelPending : Effect.void,
-				);
-			}
 			projectionRebuilds = 0;
 			if (replay.error) {
 				yield* recordObservedReplay(replay, step, "failed");
-				yield* cancelPending;
 				return yield* failReplay(
 					replay,
 					step,
@@ -980,10 +961,8 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				pin.principal.metadata,
 				step,
 				(state) => recordObservedReplay(replay, step, state),
-			).pipe(Effect.onError(() => cancelPending));
-			const pending = yield* validatePendingInline(replay, observed).pipe(
-				Effect.onError(() => cancelPending),
 			);
+			const pending = yield* validatePendingInline(replay, observed);
 			if (journal.entries.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
 				break;
 			}
@@ -1080,10 +1059,13 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 	const pinning = yield* SandboxWorkflowPinning;
 	const artifacts = yield* ExecutionFileStore;
 	const references = yield* SandboxWorkflowReferenceRepository;
-	const dispatcher = yield* SandboxDurableHostDispatcher;
-	const { principal } = yield* pinning
+	const pinned = yield* pinning
 		.establish(payload, executionId)
 		.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
+	// Stored metadata carries fields the sandbox refuses; a queued replay loses them when its payload is encoded.
+	const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)(pinned.principal).pipe(
+		Effect.mapError(rethrowSandboxFailure("infrastructure")),
+	);
 	yield* artifacts
 		.retain(artifactOwnerOf(payload, executionId), executionId)
 		.pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
@@ -1108,7 +1090,6 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 			"direct",
 		);
 		if (replay.pendingInline.length > 0) {
-			yield* dispatcher.cancelInline(executionId, replay.pendingInline);
 			return yield* new DirectScriptDeferred();
 		}
 		if (replay.error) {
@@ -1177,7 +1158,7 @@ export const runScriptExecutionWorkflow = Effect.fn("ScriptExecutionWorkflow")(f
 	payload: ScriptExecutionWorkflowPayloadValue,
 	executionId: string,
 ) {
-	yield* admitWorkflow(accountGenerationOf(payload)).pipe(
+	yield* admitWorkflow(accountOf(payload)).pipe(
 		Effect.mapError(rethrowSandboxFailure("infrastructure")),
 	);
 	return yield* runScriptExecutionWorkflowBody(payload, executionId, processPinnedSandbox);
@@ -1189,7 +1170,7 @@ export const executeScriptExecutionWorkflow = Effect.fn("executeScriptExecutionW
 		const value = yield* dispatchAdmittedWorkflow(
 			engine,
 			ScriptExecutionWorkflow,
-			accountGenerationOf(payload),
+			accountOf(payload),
 			{ payload, executionId: payload.executionId },
 		).pipe(
 			Effect.catchTag("DbError", (error) =>

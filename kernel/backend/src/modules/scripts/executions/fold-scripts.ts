@@ -1,5 +1,4 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { AccountGeneration } from "@ryot-app/contract/schema/account-generation";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -24,9 +23,9 @@ export class FoldScripts extends Context.Service<
 			scriptSlug: string;
 		}) => Effect.Effect<
 			null | {
+				accountUserId: UserId;
 				pluginPin: ScriptPluginRevision;
 				principal: ScriptExecutionPrincipal;
-				accountGeneration: AccountGeneration;
 			},
 			DbError
 		>;
@@ -51,8 +50,8 @@ export const FoldScriptsLive = Layer.effect(
 				if (script?.metadata.kind !== "script") {
 					return null;
 				}
-				const accountGeneration = yield* admission.currentAccount(input.userId);
-				const subject = { accountGeneration, userId: input.userId, type: "projection" as const };
+				const accountUserId = yield* admission.currentAccount(input.userId);
+				const subject = { userId: input.userId, type: "projection" as const };
 				const pin = yield* scripts
 					.getScriptPin(script.id, undefined, subject)
 					.pipe(Effect.catchTag("SandboxRunError", () => Effect.succeed(null)));
@@ -63,7 +62,7 @@ export const FoldScriptsLive = Layer.effect(
 					...pin,
 					subject,
 				}).pipe(Effect.mapError(() => new DbError({ message: "Invalid fold authority" })));
-				return { principal, accountGeneration, pluginPin: pin.pluginRevision };
+				return { principal, accountUserId, pluginPin: pin.pluginRevision };
 			}),
 		});
 	}),

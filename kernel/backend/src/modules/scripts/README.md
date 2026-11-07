@@ -44,8 +44,11 @@ other operation failure stays HTTP 502 `PluginInvocationError`, an automation ru
 
 The workflow body runs from the start on every activation. A step whose first replay attempt has a
 stored success without recovery state to clear reuses that result: the body neither projects its
-journal nor offers the replay to the queue again. Other steps take the queue path, which clears
-recovery state after the result is stored. A step's script logs and replay metric are recorded once,
+journal nor offers the replay to the queue again. Other steps take the queue path: the body queues
+one replay job for the step on its lane, keyed by the step so a re-activation does not queue it twice,
+and waits on a durable deferred that the job completes. Each process runs as many replays as
+`sandbox.workerConcurrency`, of which at most half are background. The job clears recovery state after
+the result is stored. A step's script logs and replay metric are recorded once,
 by the activation that first observes its result, usually the one resumed when the result arrives;
 the metric's duration is the run's own.
 
@@ -55,10 +58,10 @@ idempotent dispatch: durable ownership is not a single-flight guarantee.
 
 ### Journal projection
 
-PostgreSQL workflow persistence is authoritative; Redis is a reconstructible append-only projection.
-Entries contain indexed metadata (encoded length, chunks, SHA-256) and chunked JSON results. Atomic
-append accepts identical existing metadata but rejects divergent metadata without writing. Each append
-refreshes TTL.
+PostgreSQL workflow persistence is authoritative; `sandbox_journal_entry` is a reconstructible,
+append-only projection of it. Each row holds one entry's body and its pin (encoded length, chunk
+count, SHA-256). Append accepts identical existing entries but rejects divergent ones without writing.
+Entries are pruned 24 hours after they are written.
 
 Admission pins metadata for the enqueued journal length and ignores later entries without decoding
 the prefix. Each permitted chunk read rechecks pinned metadata/length and retains its permit through
@@ -81,7 +84,7 @@ hops, redirects, and short 429 delays without child workflows.
 
 Backend-only `pendingInline` metadata retains completed members and HTTP continuation, never exposing
 them through script input. Identity and byte bounds are validated; continuation reuses completed
-slots and retained tickets. Interrupt cleanup cancels the last declaration binding. The sidecar
+slots and a reserved HTTP slot. The sidecar
 extends its local journal, and the parent validates request identities/argument hashes before
 persisting returned entries ahead of the ending request.
 
@@ -108,8 +111,8 @@ be disposed within two seconds before its reservation is refunded.
 
 ## Durable Ownership
 
-- PostgreSQL owns execution, completed requests, child/activity results, and terminal output. Redis
-  loss rebuilds from the workflow journal; identity/argument hashes detect nondeterminism.
+- PostgreSQL owns execution, completed requests, child/activity results, and terminal output. A
+  missing journal projection rebuilds from the workflow journal; identity/argument hashes detect nondeterminism.
 - Idempotent service operations run as activities; workflow-owning services compose deterministic
   children. Workflow code uses neither ambient time/randomness nor ordinary host functions.
 - `Effect.fail` is expected workflow failure; a throw is an execute-phase defect.
@@ -191,7 +194,7 @@ review/collection/member-of state to move. Other plugins' events/relationships f
 All source user relationships move; scripts detach those they do not want first.
 
 Entity, event, and relationship writes accept optional `{ submittedAt, idempotencyKey }`, scoped by
-account generation, installation, script, and capability. Retries preserve ordered input/time/key;
+account, installation, script, and capability. Retries preserve ordered input/time/key;
 changed committed input conflicts. Without options, execution-scoped identities apply. Event update
 items may also include an expected entity/time/properties/session snapshot.
 
@@ -205,33 +208,19 @@ Manifest `httpRateLimits` apply deployment-wide. Origins normalize host/default 
 identical declarations coexist and conflicts reject activation. Persisted manifests are authoritative
 and policy is reread after every wait. Limits are live across plugin changes, not pinned authority.
 
-Admission uses execution/request/hop/429-attempt tickets bound to declaration hash, lane, tenant, and
-plugin. Re-registering the same binding is idempotent; conflicting bindings fail closed. Redis-time
-Lua operations share the policy hash tag. Resolution, registration, polling, and claim use one
-deterministic activity per hop; waiting adds no journal/replay entries. Unmatched resolution creates
-no ticket. Polling checks pending interruption so the workflow can suspend and apply it; finalizers
-cancel the last binding. Block/finalizer cancellation are separate activities. Corrupt ticket data
-fails that ticket; corrupt policy state fails closed without refreshing TTL.
+Each matched hop reserves the provider's next free slot from one `provider_rate_limit` row keyed by
+its declaration: the row's time advances by the declared spacing (`intervalMs / requests`), and the
+caller waits until its slot. Waits stay in memory, so waiting adds no journal or replay entries. A
+reservation is checkpointed with the inline wait, so a hand-off to the workflow keeps its slot
+instead of taking a later one; an admission re-executed without its checkpoint only takes a later
+slot. Unmatched hops take no slot. There is no lane or tenant ordering: callers are served in the
+order they reserve.
 
-The scheduling rules are:
-
-- `poll` renews demand and grants an open slot by lane, tenant ring, plugin ring, then FIFO, scanning
-  at most 16 flows before considering the polling ticket. Interactive wins except after four
-  interactive claims with background demand. Rings advance only on admitted claims, not skipped
-  flows, so plugin fan-out cannot increase tenant share.
-- Grant lease is `max(spacing, 1 second)`. Expired unclaimed grants require another poll. Wake hints
-  are bounded by spacing/60 seconds and active block time.
-- Only a successful `claim` permits network I/O. It rechecks ticket/nonce, declaration, block, and
-  spacing, then anchors spacing and retains a ten-minute tombstone for idempotent lost replies.
-  Unknown/expired/stale tickets reregister. Startup never clears spacing or blocks.
-- Ticket leases run 120 seconds from last poll or block end. Each operation removes at most 16 stale
-  tickets and requests retry if cleanup is incomplete. Pending caps are 1,024 per policy, 64 per
-  tenant/lane, and 256 for system. Overload backs off 1–30 seconds; keys expire after at least ten
-  policy intervals or ten minutes and survive active blocks.
-- Only matched HTTP 429s retry automatically: delta/date `Retry-After` or policy interval advances
-  the shared block (capped at one hour), then retries durably with a new attempt ticket. Coordination
-  failures back off 1–30 seconds, in memory during admission and durably elsewhere. Matched calls
-  fail closed while coordination is unavailable; proven unmatched calls continue.
+Only matched HTTP 429s retry automatically: delta/date `Retry-After`, or the policy interval when it
+is absent or invalid, pushes the provider's row forward (capped at one hour and never shortening a
+longer block), then the hop reserves again. Coordination failures back off 1–30 seconds, in memory
+during admission and durably elsewhere. Matched calls wait while coordination is unavailable;
+proven unmatched calls continue.
 
 Redirects are manual, at most five. 303 and POST 301/302 become bodyless GETs; credential headers are
 removed across origins and scripts cannot set Host. Every hop resolves policy before network access;
@@ -245,9 +234,9 @@ link-local, metadata, multicast, 6to4, or Teredo destinations. Connections use a
 the original Host/TLS name, ignore proxy environment, and return redirects for rechecking. Denial is
 certain failure with `data.code: "destination-denied"`.
 
-Metrics expose waits, grants, expiry, and overload by lane/policy/outcome. Logs include only bounded
+Logs include only bounded
 execution/request/hop/origin/stage/timing/status fields, never full URLs, queries, headers, bodies,
-credentials, users, tenants, plugins, or ticket identity.
+credentials, users, tenants, or plugins.
 
 ## Failures
 

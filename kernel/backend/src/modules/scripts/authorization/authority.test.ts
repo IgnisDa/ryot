@@ -65,11 +65,7 @@ const missingArtifact = () =>
 	});
 
 const owner = UserId.make("owner");
-const ownerSubject = {
-	type: "user",
-	userId: owner,
-	accountGeneration: { userId: owner, token: "test-account-generation" },
-} as const;
+const ownerSubject = { type: "user", userId: owner } as const;
 
 type ScriptPin = NonNullable<
 	Effect.Success<ReturnType<SandboxRepository["Service"]["getScriptPin"]>>
@@ -329,14 +325,7 @@ describe("sandbox execution authority", () => {
 						{ ...principal, scriptId: SandboxScriptId.make(second.id) },
 						{ ...principal, scriptId: SandboxScriptId.make("missing-script") },
 						{ ...principal, subject: { type: "system" } },
-						{
-							...principal,
-							subject: {
-								type: "user",
-								userId: UserId.make("recipient"),
-								accountGeneration: { token: "other", userId: UserId.make("recipient") },
-							},
-						},
+						{ ...principal, subject: { type: "user", userId: UserId.make("recipient") } },
 						{ ...principal, kernelScript: true as const },
 					]);
 				}),

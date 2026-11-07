@@ -1,6 +1,9 @@
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
-import { SandboxExecutionGrants } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	SandboxExecutionGrants,
+	sandboxSubjectUserId,
+} from "@ryot-app/contract/modules/scripts/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
@@ -10,7 +13,7 @@ import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
-import { Activity, DurableDeferred, DurableQueue } from "effect/workflow";
+import { Activity, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
@@ -18,8 +21,8 @@ import { ScriptInlineProgress } from "#modules/scripts/host/http-progress";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
-import { fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
+import { JobQueue, makeJobKind } from "#platform/jobs/queue";
+import { CurrentJobId, registerJobHandler } from "#platform/jobs/worker";
 
 import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
@@ -27,7 +30,7 @@ import { ExecutableArtifacts } from "../registry/executable-artifacts";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
 import { SandboxExecutionResult } from "./result";
 import { infrastructureRunError } from "./run-error";
-import { sandboxSchedulingKey } from "./scheduling-key";
+import { sandboxReplayPriority } from "./scheduling-key";
 
 const SandboxExecutionQueuePayload = Schema.Struct({
 	lane: ExecutionLane,
@@ -78,23 +81,56 @@ const SandboxExecutionQueueError = Schema.Union([
 	SandboxProjectionMissing,
 ]);
 
-export const SandboxExecutionQueue = DurableQueue.make({
-	success: SandboxReplayResult,
-	name: "SandboxExecutionQueue",
-	error: SandboxExecutionQueueError,
+const replayKey = ({ executionId, recoveryAttempt }: SandboxExecutionQueuePayload) =>
+	recoveryAttempt === undefined || recoveryAttempt === 0
+		? executionId
+		: sandboxRecoveryExecutionId(executionId, recoveryAttempt);
+
+const replayOutcome = (name: string) =>
+	DurableDeferred.make(name, { success: SandboxReplayResult, error: SandboxExecutionQueueError });
+
+const SandboxReplayJobPayload = Schema.Struct({
+	token: DurableDeferred.Token,
 	payload: SandboxExecutionQueuePayload,
-	idempotencyKey: ({ executionId, recoveryAttempt }) =>
-		recoveryAttempt === undefined || recoveryAttempt === 0
-			? executionId
-			: sandboxRecoveryExecutionId(executionId, recoveryAttempt),
 });
 
+// A replay that fails reports it through the workflow's deferred, so only a process crash uses an attempt. Running out
+// would leave the workflow waiting forever.
+const replayJob = (name: string) =>
+	makeJobKind(name, {
+		maxAttempts: 100,
+		backoff: Duration.seconds(1),
+		payload: SandboxReplayJobPayload,
+	});
+
+const SandboxReplayInteractiveJob = replayJob("sandbox-replay-interactive");
+const SandboxReplayBackgroundJob = replayJob("sandbox-replay-background");
+
+const replayDeferred = Effect.fnUntraced(function* (payload: SandboxExecutionQueuePayload) {
+	const id = yield* Activity.idempotencyKey(`sandbox-replay/${replayKey(payload)}`);
+	return { id, deferred: replayOutcome(`sandbox-replay/${id}`) };
+});
+
+/** Hands a replay to a job and suspends the workflow until it reports back. */
 export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQueue")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {
-	const result = yield* DurableQueue.process(SandboxExecutionQueue, payload).pipe(
-		Effect.mapError(toQueueError),
-	);
+	const { id, deferred } = yield* replayDeferred(payload);
+	const engine = yield* WorkflowEngine;
+	const jobs = yield* JobQueue;
+	// A settled job's row is gone, and a body that runs again must not start the replay again.
+	if (Option.isNone(yield* engine.deferredResult(deferred))) {
+		const token = yield* DurableDeferred.token(deferred);
+		const userId = sandboxSubjectUserId(payload.principal.subject);
+		yield* jobs
+			.enqueue(
+				payload.lane === "interactive" ? SandboxReplayInteractiveJob : SandboxReplayBackgroundJob,
+				{ token, payload },
+				{ id, priority: sandboxReplayPriority(payload), ...(userId === null ? {} : { userId }) },
+			)
+			.pipe(Effect.orDie);
+	}
+	const result = yield* DurableDeferred.await(deferred).pipe(Effect.mapError(toQueueError));
 	if (result.recovery !== undefined) {
 		const runtime = yield* SandboxExecutor;
 		yield* runtime.completeRecovery(result.recovery);
@@ -104,22 +140,15 @@ export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQu
 
 /**
  * The stored result of a replay whose first attempt succeeded without recovery state to clear,
- * read from the deferred `DurableQueue.process` awaits. A workflow body runs again after every
- * settled step; reading the result spares it offering the replay and projecting its journal again.
+ * read from the deferred its job reports to. A workflow body runs again after every settled step;
+ * reading the result spares it offering the replay and projecting its journal again.
  */
 export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* (
 	payload: SandboxExecutionQueuePayload,
 ) {
-	const id = yield* Activity.idempotencyKey(
-		`DurableQueue/${SandboxExecutionQueue.name}/${SandboxExecutionQueue.idempotencyKey(payload)}`,
-	);
+	const { deferred } = yield* replayDeferred(payload);
 	const engine = yield* WorkflowEngine;
-	const exit = yield* engine.deferredResult(
-		DurableDeferred.make(`${SandboxExecutionQueue.deferred.name}/${id}`, {
-			success: SandboxReplayResult,
-			error: SandboxExecutionQueueError,
-		}),
-	);
+	const exit = yield* engine.deferredResult(deferred);
 	return Option.isSome(exit) &&
 		Exit.isSuccess(exit.value) &&
 		exit.value.value.recovery === undefined
@@ -164,11 +193,12 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const sandbox = yield* SandboxExecutor;
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	const carry = yield* Effect.flatMap(DatabaseSession, (session) => session.carry);
+	const jobId = yield* CurrentJobId;
 	return yield* Effect.scoped(
 		Effect.gen(function* () {
-			const redis = yield* RedisService;
+			const session = yield* DatabaseSession;
 			const inspection = yield* inspectSandboxJournal(
-				redis,
+				session,
 				payload.workflowExecutionId,
 				payload.journalLength,
 			);
@@ -188,7 +218,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 							() => Effect.fail(new DirectScriptDeferred()),
 						),
 					);
-			const replayJournal = pinSandboxJournal(redis, payload.workflowExecutionId, inspection);
+			const replayJournal = pinSandboxJournal(session, payload.workflowExecutionId, inspection);
 
 			const artifact = yield* artifacts.get(payload.principal);
 			const inlineCapabilities = sandboxInlineDurableCapabilities(payload.principal).filter(
@@ -222,7 +252,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					...(grants ? { grants } : {}),
 					inlineDurableHost: {
 						capabilities: inlineCapabilities,
-						cancel: (progress) => dispatcher.cancelInline(payload.workflowExecutionId, progress),
 						settle: (requests, wait, checkpoint) =>
 							carry(
 								dispatcher.settleInline(
@@ -235,7 +264,11 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 									wait,
 									checkpoint,
 								),
-							).pipe(Effect.provideService(HeldInlineBatch, lane)),
+							).pipe(
+								Effect.provideService(HeldInlineBatch, lane),
+								// Host calls run on the resident sidecar's fibers, which keep the job that started it.
+								Effect.provideService(CurrentJobId, jobId),
+							),
 					},
 				})
 				.pipe(Effect.provideService(SandboxAdmissionLease, lease), Effect.exit);
@@ -286,32 +319,33 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	);
 });
 
-const makeSandboxExecutionQueueWorkerLive = (concurrency: number) =>
-	DurableQueue.worker(
-		SandboxExecutionQueue,
-		(payload) => executeSandboxExecution(payload).pipe(Effect.mapError(toQueueError)),
-		{ concurrency },
-	);
-
-export const SandboxExecutionQueueWorkerLive = Layer.unwrap(
-	Effect.map(AppConfig, (config) =>
-		makeSandboxExecutionQueueWorkerLive(config.sandbox.workerConcurrency),
-	),
-);
-
 export const sandboxLaneCapacity = (workerConcurrency: number) => ({
 	total: workerConcurrency,
 	background: Math.max(1, Math.floor(workerConcurrency / 2)),
 });
 
-export const SandboxExecutionQueueStoreLive = Layer.unwrap(
-	Effect.gen(function* () {
-		const config = yield* AppConfig;
-		return fairQueueStoreLayer({
-			prefix: "ryot:sq:",
-			flowOf: sandboxSchedulingKey,
-			pollInterval: Duration.millis(25),
-			capacity: sandboxLaneCapacity(config.sandbox.workerConcurrency),
-		});
+const runReplay = ({ token, payload }: typeof SandboxReplayJobPayload.Type) =>
+	executeSandboxExecution(payload).pipe(
+		Effect.mapError(toQueueError),
+		Effect.exit,
+		Effect.flatMap((exit) =>
+			DurableDeferred.done(replayOutcome("sandbox-replay"), { exit, token }),
+		),
+		Effect.asVoid,
+	);
+
+export const SandboxReplayJobsLive = Layer.unwrap(
+	Effect.map(AppConfig, (config) => {
+		const capacity = sandboxLaneCapacity(config.sandbox.workerConcurrency);
+		return Layer.merge(
+			registerJobHandler(
+				{ ...SandboxReplayInteractiveJob, concurrency: capacity.total },
+				runReplay,
+			),
+			registerJobHandler(
+				{ ...SandboxReplayBackgroundJob, concurrency: capacity.background },
+				runReplay,
+			),
+		);
 	}),
 );

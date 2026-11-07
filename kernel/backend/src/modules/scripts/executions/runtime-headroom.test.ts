@@ -9,7 +9,6 @@ import { SandboxSidecarAdmission } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
-import { sandboxRedisKeys } from "@ryot-app/sandbox/host/redis";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -28,7 +27,6 @@ import {
 	Redacted,
 	Schema,
 } from "effect";
-import { PersistedQueue } from "effect/persistence";
 import { Reactivity } from "effect/reactivity";
 import { Workflow } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -42,18 +40,20 @@ import {
 	SandboxHostCallScopeLive,
 	SandboxHostConfigLive,
 	SandboxHostFunctionsLive,
-	SandboxRedisLive,
+	SandboxStateStoreLive,
 } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxCompiler } from "#modules/scripts/registry/compiler";
+import { Broadcast } from "#platform/broadcast";
 import { PgClientLive } from "#platform/db/postgres";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
+import { JobQueue } from "#platform/jobs/queue";
+import { JobHandlers, JobWorkerLive } from "#platform/jobs/worker";
 import { ServerRun } from "#platform/server-run";
 import { implementWorkflow } from "#platform/workflow/scope";
+import { user } from "#schema/tables/auth";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";
 import { testDatabaseUrl } from "#testing/database";
-import { makeAppConfigLayer } from "#testing/effect";
-import { testExecutionId, testRedisUrl } from "#testing/redis";
+import { makeAppConfigLayer, testExecutionId } from "#testing/effect";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxRepository } from "../registry/repository";
@@ -61,7 +61,7 @@ import {
 	compiledArtifactsLayer,
 	unusedKernelWorkflowReferencesLayer,
 } from "./fixtures.test-support";
-import { processSandboxExecutionQueue, SandboxExecutionQueueWorkerLive } from "./queues";
+import { processSandboxExecutionQueue, SandboxReplayJobsLive } from "./queues";
 import { ScriptExecutionWorkflowPayload } from "./workflow-payload";
 
 type CompiledFixture = Effect.Success<ReturnType<SandboxCompiler["Service"]["compile"]>>;
@@ -147,7 +147,6 @@ const makeHeadroomLayer = Layer.provideMerge(
 			const appConfig = makeAppConfigLayer({
 				sandbox: { workerConcurrency: 2 },
 				fileStorage: { localTempDir: root },
-				redisUrl: Redacted.make(testRedisUrl()),
 				database: { url: Redacted.make(applicationUrl.toString()) },
 			});
 			const observerFactory = {
@@ -190,12 +189,12 @@ const makeHeadroomLayer = Layer.provideMerge(
 				),
 			).pipe(
 				Layer.provideMerge(
-					Layer.mergeAll(SandboxHostConfigLive, SandboxHostCallScopeLive, SandboxRedisLive),
+					Layer.mergeAll(SandboxHostConfigLive, SandboxHostCallScopeLive, SandboxStateStoreLive),
 				),
 				Layer.provideMerge(
 					Layer.succeed(ServerRun, { id: testExecutionId("sandbox-headroom-server") }),
 				),
-				Layer.provideMerge(RedisService.layer),
+				Layer.provideMerge(Layer.merge(JobQueue.layer, Broadcast.layer)),
 				Layer.provideMerge(BunServices.layer),
 				Layer.provideMerge(Reactivity.layer),
 				Layer.provideMerge(migration),
@@ -203,16 +202,7 @@ const makeHeadroomLayer = Layer.provideMerge(
 			const sandboxRuntime = Layer.mergeAll(SandboxExecutor.layer, SandboxCompiler.layer).pipe(
 				Layer.provide(infrastructure),
 			);
-			const workflowInfrastructure = Layer.mergeAll(
-				WorkflowEngineLive,
-				PersistedQueue.layer.pipe(
-					Layer.provide(
-						PersistedQueue.layerStoreSql({ tableName: "effect_queue" }).pipe(
-							Layer.provide(PgClientLive),
-						),
-					),
-				),
-			).pipe(Layer.provide(infrastructure));
+			const workflowInfrastructure = WorkflowEngineLive.pipe(Layer.provide(infrastructure));
 			const repository: SandboxRepository["Service"] = {
 				isPluginScript: () => Effect.succeed(false),
 				resolveWorkflowCallScript: () => Effect.succeed(null),
@@ -243,7 +233,6 @@ const makeHeadroomLayer = Layer.provideMerge(
 					const hostCallScope = yield* SandboxHostCallScope;
 					const state = yield* SandboxHeadroomControl;
 					return SandboxDurableHostDispatcher.of({
-						cancelInline: () => Effect.void,
 						dispatch: () => Effect.die("Non-inline durable dispatch is not expected"),
 						settleInline: (requests, _context, _principal, _lane, executionId) =>
 							Effect.forEach(
@@ -298,7 +287,11 @@ const makeHeadroomLayer = Layer.provideMerge(
 				fixtureServices,
 				dispatcher.pipe(Layer.provide(Layer.merge(sandboxRuntime, infrastructure))),
 			);
-			const worker = SandboxExecutionQueueWorkerLive.pipe(Layer.provideMerge(executionServices));
+			const worker = JobWorkerLive.pipe(
+				Layer.provide(SandboxReplayJobsLive),
+				Layer.provide(JobHandlers.layer),
+				Layer.provideMerge(executionServices),
+			);
 			const workflow = implementWorkflow(SandboxHeadroomReplayWorkflow, (payload) =>
 				Effect.gen(function* () {
 					const control = yield* SandboxHeadroomControl;
@@ -336,7 +329,6 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
-					const redis = yield* RedisService;
 					const engine = yield* WorkflowEngine;
 					const session = yield* DatabaseSession;
 					const compiler = yield* SandboxCompiler;
@@ -344,15 +336,13 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 					const observer = yield* SandboxHeadroomObserver;
 					const admission = yield* SandboxSidecarAdmission;
 					const ownerId = UserId.make(testExecutionId("sandbox-headroom-owner"));
+					yield* session.run((db) =>
+						db
+							.insert(user)
+							.values({ id: ownerId, name: "Owner", email: `${ownerId}@example.test` }),
+					);
 					const scriptId = SandboxScriptId.make(testExecutionId("sandbox-headroom-script"));
-					const subject: ScriptExecutionPrincipal["subject"] = {
-						type: "user",
-						userId: ownerId,
-						accountGeneration: {
-							userId: ownerId,
-							token: testExecutionId("sandbox-headroom-account"),
-						},
-					};
+					const subject: ScriptExecutionPrincipal["subject"] = { type: "user", userId: ownerId };
 					const compiled = yield* compiler.compile(headroomSource);
 					const contentHash = sha256Hex(compiled.javascript);
 					const principal: ScriptExecutionPrincipal = {
@@ -372,13 +362,6 @@ layer(makeHeadroomLayer, { excludeTestServices: true })((test) => {
 						control.fixture = { compiled, principal };
 					});
 					const workflowExecutionId = testExecutionId("sandbox-headroom-workflow");
-					yield* Effect.addFinalizer(() =>
-						redis.del(
-							...[0, 1].map((slot) =>
-								sandboxRedisKeys.recovery(`${workflowExecutionId}-replay-${slot}`),
-							),
-						),
-					);
 					yield* Effect.addFinalizer(() => Deferred.succeed(control.releaseFirstRoot, undefined));
 					const fiber = yield* Effect.forkChild(
 						engine.execute(SandboxHeadroomReplayWorkflow, {

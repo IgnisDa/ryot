@@ -1,7 +1,8 @@
 import { assert } from "@ryot-app/testing/assert";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
-import { Context, Effect, Layer, Option, Queue } from "effect";
+import { Context, Effect, Layer, Option, Queue, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
 import { MiB } from "../protocol/limits";
@@ -11,22 +12,16 @@ import { SandboxExecutionAuthority } from "./authority";
 import type { SandboxSidecarClient } from "./client";
 import { SANDBOX_LAUNCHER_PATH } from "./client";
 import { compileTestScript } from "./compile.test-support";
-import { SandboxCrashStore, sandboxProtectionKeys } from "./crash-store";
+import { SandboxCrashStore, sandboxProtectionKey } from "./crash-store";
 import { SandboxExecutor } from "./executor";
 import { ExecutionFiles } from "./file-access";
 import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostFunctions } from "./host-functions";
-import {
-	deleteRedisKeysOnExit,
-	makeSandboxHostConfigLayer,
-	testSandboxRedisLayer,
-	unusedSandboxHostFunctions,
-} from "./host.test-support";
+import { makeSandboxHostConfigLayer, unusedSandboxHostFunctions } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { SandboxRecoveryStore } from "./recovery-store";
-import { sandboxRedisKeys } from "./redis";
 import {
 	makeRunnerInput,
 	nativePlatformLayer,
@@ -34,6 +29,7 @@ import {
 	type RunnerCompiled,
 	type RunnerOptions,
 } from "./runner-native.test-support";
+import { SandboxStateStore } from "./state-store";
 import { SandboxSidecarSupervisor } from "./supervisor";
 
 type Event = Effect.Success<Connection["next"]>;
@@ -140,7 +136,7 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 		resolve: (principal) => Effect.succeed(principal.pluginRevision === null ? "system" : "user"),
 	}),
 ).pipe(
-	Layer.provideMerge(testSandboxRedisLayer),
+	Layer.provideMerge(SandboxStateStore.memoryLayer),
 	Layer.provideMerge(
 		Layer.effect(
 			NativeRecoveryEvidence,
@@ -197,10 +193,6 @@ export const trackNativeKeys = Effect.gen(function* () {
 	const identities = new Set<string>();
 	const executionIds = new Set<string>();
 	const tracked = new Map<string, ReadonlyArray<string>>();
-	yield* deleteRedisKeysOnExit(() => [
-		...[...executionIds].map(sandboxRedisKeys.recovery),
-		...[...identities].flatMap(sandboxProtectionKeys),
-	]);
 	return Effect.fnUntraced(function* (input: SandboxRunInput, trust: "user" | "system" = "user") {
 		executionIds.add(input.executionId);
 		const key = yield* encodeJson([trust, input.principal]);
@@ -215,4 +207,33 @@ export const trackNativeKeys = Effect.gen(function* () {
 		tracked.set(key, protection.identities);
 		return protection.identities;
 	});
+});
+
+const StoredProtection = Schema.fromJsonString(
+	Schema.Struct({
+		lease: Schema.Unknown,
+		probation: Schema.Boolean,
+		blockedUntilMs: Schema.Finite,
+		strikes: Schema.Array(Schema.Unknown),
+	}),
+);
+
+export const readProtection = Effect.fnUntraced(function* (identity: string) {
+	const key = sandboxProtectionKey(identity);
+	const stored = (yield* (yield* SandboxStateStore).read([key]).pipe(Effect.orDie)).get(key);
+	return stored === undefined
+		? null
+		: yield* Schema.decodeEffect(StoredProtection)(stored).pipe(Effect.orDie);
+});
+
+export const expireQuarantine = Effect.fnUntraced(function* (identity: string) {
+	const key = sandboxProtectionKey(identity);
+	const protection = yield* readProtection(identity);
+	if (protection === null) {
+		return;
+	}
+	const value = stableStringify({ ...protection, blockedUntilMs: 0 });
+	yield* (yield* SandboxStateStore)
+		.update([key], () => ({ result: undefined, writes: new Map([[key, { value }]]) }))
+		.pipe(Effect.orDie);
 });

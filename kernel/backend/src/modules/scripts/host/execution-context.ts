@@ -85,7 +85,7 @@ export const sandboxLifecycleCommand = (
 			return yield* Schema.decodeEffect(LifecycleCommand)({
 				itemIdentity,
 				occurredAt: automation.occurredAt,
-				accountGeneration: subject.accountGeneration,
+				accountUserId: subject.accountUserId,
 				...("population" in automation.payload && automation.payload.population !== undefined
 					? { population: automation.payload.population }
 					: {}),
@@ -109,7 +109,7 @@ export const sandboxLifecycleCommand = (
 		return yield* Schema.decodeEffect(LifecycleCommand)({
 			itemIdentity,
 			occurredAt: input.startedAt,
-			accountGeneration: actor.accountGeneration,
+			accountUserId: actor.accountUserId,
 			causation: rootLifecycleCausation({
 				source,
 				executionId,

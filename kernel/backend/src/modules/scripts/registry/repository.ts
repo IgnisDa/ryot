@@ -151,7 +151,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 							contentHash: schema.sandboxScript.contentHash,
 							activeRevisionId: schema.plugin.activeRevisionId,
 							providerPluginId: schema.sandboxProvider.pluginId,
-							accountGeneration: executionUser.accountGeneration,
 							installationDisabledAt: installationUser.disabledAt,
 							installationHealth: schema.pluginInstallation.health,
 							pluginRevisionId: schema.sandboxScript.pluginRevisionId,
@@ -208,11 +207,7 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 				}
 				let accountDisabled = false;
 				if (executionUserId !== null && subject !== undefined && subject.type !== "system") {
-					if (
-						row.accountId === null ||
-						subject.accountGeneration?.userId !== executionUserId ||
-						row.accountGeneration !== subject.accountGeneration.token
-					) {
+					if (row.accountId === null) {
 						return null;
 					}
 					accountDisabled = row.accountDisabledAt !== null;

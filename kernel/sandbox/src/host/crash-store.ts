@@ -1,6 +1,7 @@
-import { Context, Effect, Layer, Schema } from "effect";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, Effect, Layer, Option, Schema } from "effect";
 
-import { SandboxRedis, sandboxRedisKeys } from "./redis";
+import { SandboxStateStore, type SandboxStateWrite } from "./state-store";
 
 export class SandboxCrashStoreError extends Schema.TaggedError<
 	SandboxCrashStoreError,
@@ -10,8 +11,6 @@ export class SandboxCrashStoreError extends Schema.TaggedError<
 const crashStoreUnavailable = () =>
 	new SandboxCrashStoreError({ message: "Crash store unavailable" });
 
-const responseSchema = Schema.Literals(["allowed", "probation", "blocked", "recorded", "stale"]);
-const decodeResponse = Schema.decodeUnknownEffect(responseSchema);
 const identitySchema = Schema.Array(Schema.String.check(Schema.isNonEmpty())).check(
 	Schema.isMinLength(1),
 	Schema.isMaxLength(2),
@@ -23,100 +22,211 @@ export const CRASH_WINDOW_MS = 600_000;
 export const QUARANTINE_MS = 3_600_000;
 const CRASH_STRIKE_LIMIT = 3;
 
-export const sandboxProtectionKeys = (identity: string) => [
-	sandboxRedisKeys.crashWindow(identity),
-	sandboxRedisKeys.quarantine(identity),
-	sandboxRedisKeys.probation(identity),
-	sandboxRedisKeys.probationLease(identity),
-];
+const Protection = Schema.Struct({
+	probation: Schema.Boolean,
+	blockedUntilMs: Schema.Finite,
+	strikes: Schema.Array(Schema.Struct({ atMs: Schema.Finite, event: Schema.String })),
+	lease: Schema.NullOr(Schema.Struct({ owner: Schema.String, untilMs: Schema.Finite })),
+});
+type Protection = typeof Protection.Type;
+const decodeProtection = Schema.decodeOption(Schema.fromJsonString(Protection));
 
-const crashScript = `
-local operation = ARGV[1]
-local argument = ARGV[2]
-local now_parts = redis.call("TIME")
-local now = tonumber(now_parts[1]) * 1000 + math.floor(tonumber(now_parts[2]) / 1000)
-local probation = false
-local owned = true
-for index = 1, #KEYS, 4 do
-  local blocked = redis.call("GET", KEYS[index + 1])
-  local required = redis.call("GET", KEYS[index + 2])
-  local lease = redis.call("GET", KEYS[index + 3])
-  if operation == "acquire" and (blocked or lease) then return "blocked" end
-  if required then probation = true end
-  if lease ~= argument then owned = false end
-end
-if operation == "acquire" then
-  if not probation then return "allowed" end
-  for index = 1, #KEYS, 4 do
-    redis.call("SET", KEYS[index + 2], "1")
-    redis.call("SET", KEYS[index + 3], argument, "PX", ${PROBATION_LEASE_MS})
-  end
-  return "probation"
-elseif operation == "strike" then
-  for index = 1, #KEYS, 4 do
-    local window = KEYS[index]
-    redis.call("ZREMRANGEBYSCORE", window, "-inf", now - ${CRASH_WINDOW_MS})
-    redis.call("ZADD", window, "NX", now, argument)
-    redis.call("PEXPIRE", window, ${CRASH_WINDOW_MS})
-    if redis.call("ZCARD", window) >= ${CRASH_STRIKE_LIMIT} or redis.call("EXISTS", KEYS[index + 3]) == 1 then
-      redis.call("SET", KEYS[index + 1], "1", "PX", ${QUARANTINE_MS})
-      redis.call("SET", KEYS[index + 2], "1")
-      redis.call("DEL", KEYS[index + 3])
-    end
-  end
-  return "recorded"
-elseif operation == "survived" or operation == "release" then
-  for index = 1, #KEYS, 4 do
-    if redis.call("GET", KEYS[index + 3]) == argument then
-      redis.call("DEL", KEYS[index + 3])
-      if owned and operation == "survived" then
-        redis.call("DEL", KEYS[index], KEYS[index + 2])
-      end
-    end
-  end
-  if owned then return "recorded" else return "stale" end
-end
-`;
+const emptyProtection: Protection = {
+	lease: null,
+	strikes: [],
+	probation: false,
+	blockedUntilMs: 0,
+};
+
+export const sandboxProtectionKey = (identity: string) =>
+	`sandbox:protection:${encodeURIComponent(identity)}`;
+
+const leaseOf = (protection: Protection, nowMs: number) =>
+	protection.lease !== null && protection.lease.untilMs > nowMs ? protection.lease : null;
+
+const protectionWrite = (protection: Protection, nowMs: number): SandboxStateWrite => {
+	const lease = leaseOf(protection, nowMs);
+	const strikes = protection.strikes.filter(({ atMs }) => atMs > nowMs - CRASH_WINDOW_MS);
+	const blocked = protection.blockedUntilMs > nowMs;
+	if (!(protection.probation || blocked || lease !== null || strikes.length > 0)) {
+		return null;
+	}
+	const value = stableStringify({ ...protection, lease, strikes });
+	return protection.probation
+		? { value }
+		: {
+				value,
+				ttlMs: Math.max(
+					protection.blockedUntilMs - nowMs,
+					lease === null ? 0 : lease.untilMs - nowMs,
+					strikes.length === 0
+						? 0
+						: Math.max(...strikes.map(({ atMs }) => atMs)) + CRASH_WINDOW_MS - nowMs,
+				),
+			};
+};
+
+const protectionOf = (current: ReadonlyMap<string, string>, key: string) => {
+	const stored = current.get(key);
+	return stored === undefined
+		? emptyProtection
+		: Option.getOrElse(decodeProtection(stored), () => emptyProtection);
+};
+
+const bounded = <A>(effect: Effect.Effect<A, unknown>) =>
+	effect.pipe(
+		Effect.timeoutOrElse({
+			duration: "2 seconds",
+			orElse: () => Effect.fail(crashStoreUnavailable()),
+		}),
+		Effect.mapError(crashStoreUnavailable),
+	);
 
 export class SandboxCrashStore extends Context.Service<SandboxCrashStore>()(
 	"@ryot-app/sandbox/host/crash-store/SandboxCrashStore",
 	{
 		make: Effect.gen(function* () {
-			const redis = yield* SandboxRedis;
-			const execute = Effect.fn("SandboxCrashStore.execute")(function* (
+			const store = yield* SandboxStateStore;
+			const validated = Effect.fnUntraced(function* (
 				identities: ReadonlyArray<string>,
-				operation: "strike" | "acquire" | "release" | "survived",
 				argument: string,
 			) {
-				const validated = yield* decodeIdentities(identities).pipe(
+				const decoded = yield* decodeIdentities(identities).pipe(
 					Effect.mapError(() => new SandboxCrashStoreError({ message: "Invalid crash identity" })),
 				);
-				if (new Set(validated).size !== validated.length || argument.length === 0) {
+				if (new Set(decoded).size !== decoded.length || argument.length === 0) {
 					return yield* new SandboxCrashStoreError({ message: "Invalid crash ownership" });
 				}
-				const keys = validated.flatMap(sandboxProtectionKeys);
-				const result = yield* Effect.tryPromise({
-					catch: crashStoreUnavailable,
-					try: () => redis.client.eval(crashScript, keys.length, ...keys, operation, argument),
-				}).pipe(
-					Effect.timeoutOrElse({
-						duration: "2 seconds",
-						orElse: () => Effect.fail(crashStoreUnavailable()),
-					}),
-				);
-				return yield* decodeResponse(result).pipe(
-					Effect.mapError(() => new SandboxCrashStoreError({ message: "Crash store is corrupt" })),
+				return decoded.map((identity) => sandboxProtectionKey(identity));
+			});
+
+			const strike = Effect.fn("SandboxCrashStore.strike")(function* (
+				identities: ReadonlyArray<string>,
+				event: string,
+			) {
+				const keys = yield* validated(identities, event);
+				return yield* bounded(
+					store.update(keys, (current, nowMs) => ({
+						result: "recorded" as const,
+						writes: new Map(
+							keys.map((key) => {
+								const protection = protectionOf(current, key);
+								const live = protection.strikes.filter(
+									({ atMs }) => atMs > nowMs - CRASH_WINDOW_MS,
+								);
+								const strikes = live.some((entry) => entry.event === event)
+									? live
+									: [...live, { event, atMs: nowMs }];
+								const quarantined =
+									strikes.length >= CRASH_STRIKE_LIMIT || leaseOf(protection, nowMs) !== null;
+								return [
+									key,
+									protectionWrite(
+										quarantined
+											? {
+													...protection,
+													strikes,
+													lease: null,
+													probation: true,
+													blockedUntilMs: nowMs + QUARANTINE_MS,
+												}
+											: { ...protection, strikes },
+										nowMs,
+									),
+								];
+							}),
+						),
+					})),
 				);
 			});
+
+			const acquire = Effect.fn("SandboxCrashStore.acquire")(function* (
+				identities: ReadonlyArray<string>,
+				owner: string,
+			) {
+				const keys = yield* validated(identities, owner);
+				// Nearly every run finds nothing, and must not pay for a transaction to learn it.
+				if ((yield* bounded(store.read(keys))).size === 0) {
+					return "allowed" as const;
+				}
+				return yield* bounded(
+					store.update(keys, (current, nowMs) => {
+						const protections = keys.map((key) => [key, protectionOf(current, key)] as const);
+						if (
+							protections.some(
+								([, protection]) =>
+									protection.blockedUntilMs > nowMs || leaseOf(protection, nowMs) !== null,
+							)
+						) {
+							return { writes: new Map(), result: "blocked" as const };
+						}
+						if (!protections.some(([, protection]) => protection.probation)) {
+							return { writes: new Map(), result: "allowed" as const };
+						}
+						return {
+							result: "probation" as const,
+							writes: new Map(
+								protections.map(([key, protection]) => [
+									key,
+									protectionWrite(
+										{
+											...protection,
+											probation: true,
+											lease: { owner, untilMs: nowMs + PROBATION_LEASE_MS },
+										},
+										nowMs,
+									),
+								]),
+							),
+						};
+					}),
+				);
+			});
+
+			const settle = (
+				identities: ReadonlyArray<string>,
+				owner: string,
+				operation: "release" | "survived",
+			) =>
+				Effect.gen(function* () {
+					const keys = yield* validated(identities, owner);
+					return yield* bounded(
+						store.update(keys, (current, nowMs) => {
+							const protections = keys.map((key) => [key, protectionOf(current, key)] as const);
+							const owned = protections.every(
+								([, protection]) => leaseOf(protection, nowMs)?.owner === owner,
+							);
+							return {
+								result: owned ? ("recorded" as const) : ("stale" as const),
+								writes: new Map(
+									protections.flatMap(([key, protection]) =>
+										leaseOf(protection, nowMs)?.owner === owner
+											? [
+													[
+														key,
+														protectionWrite(
+															owned && operation === "survived"
+																? { ...protection, lease: null, strikes: [], probation: false }
+																: { ...protection, lease: null },
+															nowMs,
+														),
+													] as const,
+												]
+											: [],
+									),
+								),
+							};
+						}),
+					);
+				});
+
 			return {
-				strike: (identities: ReadonlyArray<string>, event: string) =>
-					execute(identities, "strike", event),
-				acquire: (identities: ReadonlyArray<string>, owner: string) =>
-					execute(identities, "acquire", owner),
+				strike,
+				acquire,
 				release: (identities: ReadonlyArray<string>, owner: string) =>
-					execute(identities, "release", owner),
+					settle(identities, owner, "release"),
 				survived: (identities: ReadonlyArray<string>, owner: string) =>
-					execute(identities, "survived", owner),
+					settle(identities, owner, "survived"),
 			};
 		}),
 	},

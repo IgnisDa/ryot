@@ -16,6 +16,6 @@ export const httpProgressPhases = (
 ): ReadonlyArray<SandboxHttpProgress["phase"]> => [
 	{ rateLimit: null, _tag: "Admitting" },
 	{ _tag: "Admitting", rateLimit: rateLimitFailure },
+	{ slotAtMs: 1_500, _tag: "Admitting", rateLimit: rateLimitFailure },
 	{ declaration, delayMs: 2_000, rateLimit: rateLimitFailure, _tag: "ApplyingRateLimitBlock" },
-	{ blockedUntilMs: 2_000, rateLimit: rateLimitFailure, _tag: "WaitingForRateLimitBlock" },
 ];

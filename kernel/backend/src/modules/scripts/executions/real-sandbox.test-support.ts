@@ -4,13 +4,11 @@ import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflo
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
-import { randomUuid } from "@ryot-app/testing/random";
+import { SandboxStateStore } from "@ryot-app/sandbox/host/state-store";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Context, Effect, FileSystem, Layer, Redacted, Ref } from "effect";
-import { PersistedQueue } from "effect/persistence";
+import { Context, Effect, FileSystem, Layer, Ref } from "effect";
 import { Reactivity } from "effect/reactivity";
 
-import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import {
 	emptySchemaScope,
 	makeUserPluginRevision,
@@ -21,14 +19,17 @@ import {
 	SandboxHostCallScopeLive,
 	SandboxHostConfigLive,
 	SandboxHostFunctionsLive,
-	SandboxRedisLive,
 } from "#modules/scripts/host/sandbox-host-live";
 import { SandboxCompiler } from "#modules/scripts/registry/compiler";
+import { Broadcast } from "#platform/broadcast";
+import { DatabaseSession } from "#platform/db/session";
+import { JobQueue } from "#platform/jobs/queue";
+import { JobHandlers, JobWorkerLive } from "#platform/jobs/worker";
 import { ServerRun } from "#platform/server-run";
-import { fairQueueStoreLayer } from "#platform/workflow/fair-queue-store";
 import { implementWorkflow } from "#platform/workflow/scope";
-import { makeAppConfigLayer, workflowEngineTestLayer } from "#testing/effect";
-import { testExecutionId, testRedisServiceLayer, testRedisUrl } from "#testing/redis";
+import { user } from "#schema/tables/auth";
+import { makeAppConfigLayer, testExecutionId, workflowEngineTestLayer } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
@@ -38,8 +39,7 @@ import {
 	compiledArtifactsLayer,
 	unusedKernelWorkflowReferencesLayer,
 } from "./fixtures.test-support";
-import { SandboxExecutionQueueWorkerLive, sandboxLaneCapacity } from "./queues";
-import { sandboxSchedulingKey } from "./scheduling-key";
+import { SandboxReplayJobsLive } from "./queues";
 import { ScriptExecutionService } from "./service";
 import {
 	runScriptExecutionWorkflow,
@@ -73,7 +73,6 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 			const fs = yield* FileSystem.FileSystem;
 			const temporaryRoot = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-real-sandbox-" });
 			const root = yield* fs.realPath(temporaryRoot);
-			const prefix = `ryot:test:real-sandbox:${yield* randomUuid}:`;
 			const installed = yield* Ref.make(
 				new Map<
 					string,
@@ -86,7 +85,6 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 			const appConfig = makeAppConfigLayer({
 				sandbox: { workerConcurrency: 2 },
 				fileStorage: { localTempDir: root },
-				redisUrl: Redacted.make(testRedisUrl()),
 			});
 			const infrastructure = Layer.mergeAll(
 				Layer.succeed(SandboxExecutionAuthority, {
@@ -99,12 +97,15 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 				),
 			).pipe(
 				Layer.provideMerge(
-					Layer.mergeAll(SandboxHostConfigLive, SandboxHostCallScopeLive, SandboxRedisLive),
+					Layer.mergeAll(
+						SandboxHostConfigLive,
+						SandboxHostCallScopeLive,
+						SandboxStateStore.memoryLayer,
+					),
 				),
 				Layer.provideMerge(
 					Layer.succeed(ServerRun, { id: testExecutionId("real-sandbox-server") }),
 				),
-				Layer.provideMerge(testRedisServiceLayer),
 				Layer.provideMerge(BunServices.layer),
 				Layer.provideMerge(Reactivity.layer),
 				Layer.provideMerge(appConfig),
@@ -151,7 +152,6 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 					),
 			});
 			const dispatcher = Layer.succeed(SandboxDurableHostDispatcher, {
-				cancelInline: () => Effect.void,
 				dispatch: () =>
 					options.hostResult
 						? Effect.succeed(options.hostResult)
@@ -161,18 +161,25 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 						? Effect.succeed(requests.map(() => options.hostResult ?? null))
 						: Effect.die("Inline host dispatch is not expected"),
 			});
-			const queue = PersistedQueue.layer.pipe(
-				Layer.provide(
-					fairQueueStoreLayer({
-						prefix,
-						pollInterval: "10 millis",
-						flowOf: sandboxSchedulingKey,
-						capacity: sandboxLaneCapacity(2),
-					}),
-				),
+			const database = Layer.effectDiscard(
+				Effect.flatMap(DatabaseSession, (session) =>
+					session.run((db) =>
+						db
+							.insert(user)
+							.values({
+								id: realSandboxUserId,
+								name: realSandboxUserId,
+								email: `${realSandboxUserId}@example.test`,
+							})
+							.onConflictDoNothing(),
+					),
+				).pipe(Effect.orDie),
+			).pipe(Layer.provideMerge(isolatedDatabaseLayer("real_sandbox")), Layer.provide(appConfig));
+			const jobs = Layer.mergeAll(JobQueue.layer, Layer.effect(Broadcast, Broadcast.make)).pipe(
+				Layer.provideMerge(database),
+				Layer.provide(appConfig),
 			);
 			const workflowServices = Layer.mergeAll(
-				mutationAdmissionTestLayer,
 				repository,
 				Layer.mock(SandboxPluginScriptResolver)({
 					findActiveScriptById: () => Effect.succeed(null),
@@ -185,7 +192,9 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 			);
 			const execution = implementWorkflow(ScriptExecutionWorkflow, runScriptExecutionWorkflow).pipe(
 				Layer.provideMerge(
-					SandboxExecutionQueueWorkerLive.pipe(
+					JobWorkerLive.pipe(
+						Layer.provideMerge(SandboxReplayJobsLive),
+						Layer.provideMerge(JobHandlers.layer),
 						Layer.provideMerge(compiledArtifactsLayer(repository)),
 					),
 				),
@@ -196,9 +205,9 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 						SandboxWorkflowPinning.layer,
 					),
 				),
-				Layer.provideMerge(queue),
 				Layer.provideMerge(workflowEngineTestLayer),
 				Layer.provideMerge(workflowServices),
+				Layer.provideMerge(jobs),
 				Layer.provideMerge(fileStore),
 				Layer.provideMerge(sandboxRuntime),
 				Layer.provideMerge(infrastructure),

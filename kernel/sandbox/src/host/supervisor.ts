@@ -844,7 +844,6 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 							});
 						}
 						const finished = yield* prepared.finish(result.done);
-						prepared.gate.handoff();
 						yield* prepared.gate.close;
 						return { ...result, finished };
 					}),

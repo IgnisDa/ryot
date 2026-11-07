@@ -15,11 +15,7 @@ import { ExecutionFiles } from "./file-access";
 import { decodedHostCallArgs } from "./host-call-args.test-support";
 import { SandboxHostCallGate, type SandboxHostCallGateRegistration } from "./host-call-gate";
 import { SandboxHostFunctions } from "./host-functions";
-import {
-	makeSandboxHostConfigLayer,
-	testSandboxRedisLayer,
-	unusedSandboxHostFunctions,
-} from "./host.test-support";
+import { makeSandboxHostConfigLayer, unusedSandboxHostFunctions } from "./host.test-support";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { SandboxRecoveryStore } from "./recovery-store";
 import {
@@ -27,6 +23,7 @@ import {
 	recordingSidecarClient,
 	type SidecarRecorder,
 } from "./runner-native.test-support";
+import { SandboxStateStore } from "./state-store";
 import { SandboxSidecarSupervisor } from "./supervisor";
 
 const shortDeadlineMs = 2_000;
@@ -218,7 +215,7 @@ export const nativeMemoryLayer = Layer.unwrap(
 			Layer.succeed(SandboxExecutionAuthority, { resolve: () => Effect.succeed("user") }),
 		).pipe(
 			Layer.provideMerge(SandboxSidecarAdmission.layer),
-			Layer.provideMerge(testSandboxRedisLayer),
+			Layer.provideMerge(SandboxStateStore.memoryLayer),
 			Layer.provideMerge(config),
 		);
 		return Layer.effect(SandboxExecutor, SandboxExecutor.make).pipe(

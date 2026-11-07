@@ -9,9 +9,8 @@ import { Schema } from "effect";
 import { HttpRateLimitPolicyDeclaration } from "#modules/plugins/catalog/http-rate-limits";
 
 import {
-	PROVIDER_HTTP_TICKET_LIMITS,
+	PROVIDER_HTTP_RETRY_AFTER_LIMIT_MS,
 	ProviderHttpAdmissionDeclaration,
-	ProviderHttpTicket,
 } from "./http-admission";
 import { SandboxHttpHop } from "./runtime-host-functions";
 
@@ -32,17 +31,17 @@ export const SandboxHttpRateLimitResult = Schema.Struct({
 });
 
 const SandboxHttpPhase = Schema.Union([
-	Schema.TaggedStruct("Admitting", { rateLimit: Schema.NullOr(SandboxHttpRateLimitResult) }),
+	Schema.TaggedStruct("Admitting", {
+		/** The slot this request already holds, so handing off to a workflow does not take a second one. */
+		slotAtMs: Schema.optional(Schema.Int),
+		rateLimit: Schema.NullOr(SandboxHttpRateLimitResult),
+	}),
 	Schema.TaggedStruct("ApplyingRateLimitBlock", {
 		rateLimit: SandboxHttpRateLimitResult,
 		declaration: ProviderHttpAdmissionDeclaration,
 		delayMs: Schema.Int.check(
-			Schema.isBetween({ minimum: 0, maximum: PROVIDER_HTTP_TICKET_LIMITS.retryAfterMs }),
+			Schema.isBetween({ minimum: 0, maximum: PROVIDER_HTTP_RETRY_AFTER_LIMIT_MS }),
 		),
-	}),
-	Schema.TaggedStruct("WaitingForRateLimitBlock", {
-		rateLimit: SandboxHttpRateLimitResult,
-		blockedUntilMs: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 	}),
 ]);
 
@@ -51,14 +50,9 @@ export const SandboxHttpProgress = Schema.Struct({
 	phase: SandboxHttpPhase,
 	attempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 	networkAttempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-	blockWaitAttempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 	admissionAttempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 	coordinationAttempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-	registrationAttempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
 	coordinationBackoffAttempt: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
-	cleanup: Schema.NullOr(
-		Schema.Struct({ ticket: ProviderHttpTicket, declaration: ProviderHttpAdmissionDeclaration }),
-	),
 });
 export type SandboxHttpProgress = typeof SandboxHttpProgress.Type;
 

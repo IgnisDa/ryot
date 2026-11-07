@@ -24,17 +24,15 @@ import { encodeJson } from "./host-call-args.test-support";
 import { SandboxHostCallGate } from "./host-call-gate";
 import { SandboxHostFunctions } from "./host-functions";
 import {
-	deleteRedisKeysOnExit,
 	makeSandboxHostConfigLayer,
 	testExecutionId,
-	testSandboxRedisLayer,
 	unusedSandboxHostFunctions,
 } from "./host.test-support";
 import type { SandboxRunInput } from "./invocation";
 import { emptyPinnedJournal } from "./pinned-journal.test-support";
 import type { SandboxPrincipal } from "./principal";
-import { sandboxRedisKeys } from "./redis";
 import { makeUserSubject } from "./run-input.test-support";
+import { SandboxStateStore } from "./state-store";
 
 type RecordedHostCall = {
 	readonly args: ReadonlyArray<unknown>;
@@ -59,14 +57,9 @@ class NativeServiceControl extends Context.Service<
 >()("@ryot-app/sandbox/host/executor-native.test/NativeServiceControl") {}
 
 const withRecoveryCleanup = <A, E, R>(
-	executionIds: ReadonlyArray<string>,
+	_executionIds: ReadonlyArray<string>,
 	effect: Effect.Effect<A, E, R>,
-) =>
-	Effect.scoped(
-		deleteRedisKeysOnExit(() => executionIds.map(sandboxRedisKeys.recovery)).pipe(
-			Effect.andThen(effect),
-		),
-	);
+) => Effect.scoped(effect);
 
 const makeHostImplementations = (control: NativeServiceControlValue) =>
 	unusedSandboxHostFunctions({
@@ -105,7 +98,7 @@ const nativeServiceLayer = Layer.unwrap(
 			Layer.succeed(NativeServiceTempRoot, root),
 		);
 		return Layer.mergeAll(SandboxExecutor.layer, ViteBuildService.layer).pipe(
-			Layer.provideMerge(testSandboxRedisLayer),
+			Layer.provideMerge(SandboxStateStore.memoryLayer),
 			Layer.provideMerge(dependencies),
 		);
 	}),
@@ -634,7 +627,6 @@ layer(Layer.provideMerge(nativeServiceLayer, BunCrypto.layerSecureRandom), {
 							replayJournal: emptyPinnedJournal,
 							workflowExecutionId: `${executionId}-workflow`,
 							inlineDurableHost: {
-								cancel: () => Effect.void,
 								capabilities: ["getCachedValue"],
 								settle: (requests) =>
 									Effect.sync(() => {

@@ -103,7 +103,7 @@ const config = {
 	pluginRevisionId: "revision-1",
 };
 
-type StoredAccount = { readonly disabledAt: Date | null; readonly accountGeneration: string };
+type StoredAccount = { readonly disabledAt: Date | null };
 
 type StoredInstallation = {
 	readonly id: string;
@@ -130,7 +130,6 @@ const joinedPinRow = (
 	accountDisabledAt: account?.disabledAt ?? null,
 	installationHealth: installation?.health ?? null,
 	installationIsHidden: installation?.isHidden ?? null,
-	accountGeneration: account?.accountGeneration ?? null,
 	configPluginRevisionId: storedConfig.pluginRevisionId,
 	installationDisabledAt: installation?.disabledAt ?? null,
 	configPayloadPresent: storedConfig.encryptedPayload !== "",
@@ -224,11 +223,7 @@ layer(pinRepositoryLayer)((test) => {
 				const database = yield* PinDatabase;
 				const repository = yield* SandboxRepository;
 				const userId = UserId.make("initializer-owner");
-				const subject = {
-					userId,
-					type: "user",
-					accountGeneration: { userId, token: "active-account" },
-				} as const;
+				const subject = { userId, type: "user" } as const;
 				const row = { ...pluginPinRow, pluginOwnerId: userId, activationId: "activation-1" };
 				const state = {
 					isHidden: true,
@@ -240,7 +235,7 @@ layer(pinRepositoryLayer)((test) => {
 					incompatibilityReason: null,
 					activeConfigRevisionId: "config-1",
 				};
-				const account = { disabledAt: null, accountGeneration: "active-account" };
+				const account = { disabledAt: null };
 				const ownerConfig = { ...config, ownerUserId: userId };
 				yield* database.respondWith(() => [joinedPinRow(row, account, state, ownerConfig)]);
 				const binding = { installationId: state.id, activationId: row.activationId };
@@ -292,11 +287,7 @@ layer(pinRepositoryLayer)((test) => {
 				const database = yield* PinDatabase;
 				const repository = yield* SandboxRepository;
 				const userId = UserId.make("private-owner");
-				const subject = {
-					userId,
-					type: "user",
-					accountGeneration: { userId, token: "current-account" },
-				} as const;
+				const subject = { userId, type: "user" } as const;
 				const row = {
 					...pluginPinRow,
 					slug: "plugin.job",
@@ -315,12 +306,10 @@ layer(pinRepositoryLayer)((test) => {
 				const respond =
 					(state: StoredInstallation, disabled = false, script: object = row): PinRows =>
 					() => [
-						joinedPinRow(
-							script,
-							{ accountGeneration: "current-account", disabledAt: disabled ? new Date(0) : null },
-							state,
-							{ ...config, ownerUserId: userId },
-						),
+						joinedPinRow(script, { disabledAt: disabled ? new Date(0) : null }, state, {
+							...config,
+							ownerUserId: userId,
+						}),
 					];
 				yield* database.respondWith(respond(installation));
 				const original = yield* repository.getScriptPin(

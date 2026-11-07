@@ -26,7 +26,6 @@ export type BoundHostFunction = (
 
 export type SandboxInlineDurableHost = {
 	readonly capabilities: ReadonlyArray<SandboxHostCapability>;
-	readonly cancel: (progress: ReadonlyArray<SandboxInlineProgress>) => Effect.Effect<void>;
 	readonly settle: (
 		requests: ReadonlyArray<WorkflowInlineRequest>,
 		wait: SandboxShortWait,

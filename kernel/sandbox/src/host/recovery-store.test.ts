@@ -7,35 +7,23 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
+import { testExecutionId } from "./host.test-support";
 import {
-	makeSandboxHostConfigLayer,
-	testExecutionId,
-	testSandboxRedisLayer,
-} from "./host.test-support";
-import { SandboxRecoveryStore, SandboxRecoveryStoreError } from "./recovery-store";
-import { SandboxRedis, sandboxRedisKeys } from "./redis";
+	sandboxRecoveryKey,
+	SandboxRecoveryStore,
+	SandboxRecoveryStoreError,
+} from "./recovery-store";
+import { SandboxStateStore } from "./state-store";
 
-const storeLayer = Layer.unwrap(
-	Effect.sync(() =>
-		SandboxRecoveryStore.layer.pipe(
-			Layer.provideMerge(testSandboxRedisLayer),
-			Layer.provide(makeSandboxHostConfigLayer()),
-		),
-	),
+const storeLayer = SandboxRecoveryStore.layer.pipe(
+	Layer.provideMerge(SandboxStateStore.memoryLayer),
 );
 
-const acquireIdentity = Effect.acquireRelease(
-	Effect.map(randomUuid, (uuid) => ({
-		pinHash: "a".repeat(64),
-		instance: `instance-${uuid}`,
-		executionId: testExecutionId("recovery"),
-	})),
-	({ executionId }) =>
-		Effect.gen(function* () {
-			const redis = yield* SandboxRedis;
-			yield* Effect.promise(() => redis.client.del(sandboxRedisKeys.recovery(executionId)));
-		}),
-);
+const acquireIdentity = Effect.map(randomUuid, (uuid) => ({
+	pinHash: "a".repeat(64),
+	instance: `instance-${uuid}`,
+	executionId: testExecutionId("recovery"),
+}));
 
 layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
@@ -44,14 +32,10 @@ layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const store = yield* SandboxRecoveryStore;
-					const redis = yield* SandboxRedis;
 					const identity = yield* acquireIdentity;
 					expect(yield* store.read(identity)).toEqual({ recoveries: 0, suspended: false });
-					expect(
-						yield* Effect.promise(() =>
-							redis.client.exists(sandboxRedisKeys.recovery(identity.executionId)),
-						),
-					).toBe(0);
+					const key = sandboxRecoveryKey(identity.executionId);
+					expect((yield* (yield* SandboxStateStore).read([key])).has(key)).toBe(false);
 				}),
 			),
 		testTimeout,
@@ -62,7 +46,6 @@ layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const store = yield* SandboxRecoveryStore;
-					const redis = yield* SandboxRedis;
 					const identity = yield* acquireIdentity;
 					yield* Effect.all(
 						[
@@ -87,33 +70,23 @@ layer(Layer.provideMerge(storeLayer, BunCrypto.layerSecureRandom))((test) => {
 						),
 						{ concurrency: "unbounded" },
 					);
-					expect(
-						yield* Effect.promise(() =>
-							redis.client.hlen(sandboxRedisKeys.recovery(identity.executionId)),
-						),
-					).toBe(8);
+					expect(yield* store.read(identity)).toEqual({ recoveries: 3, suspended: true });
 				}),
 			),
 		testTimeout,
 	);
 	test.effect(
-		"keeps recovery state durable across service reconstruction without a TTL",
+		"keeps recovery state across service reconstruction",
 		() =>
 			Effect.scoped(
 				Effect.gen(function* () {
 					const store = yield* SandboxRecoveryStore;
-					const redis = yield* SandboxRedis;
 					const identity = yield* acquireIdentity;
 					yield* store.collateral(identity, "event-1");
 					yield* store.collateral(identity, "event-2");
 					const reconstructedStore = yield* SandboxRecoveryStore.make;
 					const persistedState = yield* reconstructedStore.read(identity);
 					expect(persistedState).toEqual({ recoveries: 2, suspended: false });
-					expect(
-						yield* Effect.promise(() =>
-							redis.client.pttl(sandboxRedisKeys.recovery(identity.executionId)),
-						),
-					).toBe(-1);
 				}),
 			),
 		testTimeout,

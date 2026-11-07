@@ -8,11 +8,9 @@ import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workfl
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
-import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import {
@@ -29,7 +27,6 @@ import {
 	Schema,
 	type Scope,
 } from "effect";
-import { PersistedQueue } from "effect/persistence";
 import { Reactivity } from "effect/reactivity";
 import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
 import {
@@ -41,15 +38,10 @@ import {
 
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import type { SandboxHttpProgress } from "#modules/scripts/host/http-progress";
-import { RedisService } from "#platform/redis";
+import { JobQueue } from "#platform/jobs/queue";
 import { WorkflowAccounts } from "#platform/workflow/account";
 import { implementWorkflow } from "#platform/workflow/scope";
-import { user } from "#schema/tables/auth";
-import {
-	fakeDatabaseSession,
-	makeRedisService,
-	workflowAccountsTestService,
-} from "#testing/effect";
+import { fakeDatabaseSession, workflowAccountsTestService } from "#testing/effect";
 import { postgresWorkflowEngineTestLayer } from "#testing/workflow-engine";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
@@ -91,31 +83,15 @@ const httpRequest = {
 	kind: "host" as const,
 	args: { capability: "httpCall" as const, args: ["GET", "https://api.test/start"] },
 };
-const httpDeclaration = {
-	requests: 1,
-	intervalMs: 1_000,
-	key: "http:api.test",
-	hash: "checkpoint-hash",
-};
+const httpDeclaration = { requests: 1, intervalMs: 1_000, key: "http:api.test" };
 const httpProgress: SandboxHttpProgress = {
 	attempt: 1,
 	networkAttempt: 2,
-	blockWaitAttempt: 3,
 	admissionAttempt: 4,
 	coordinationAttempt: 5,
-	registrationAttempt: 6,
 	coordinationBackoffAttempt: 7,
 	phase: { rateLimit: null, _tag: "Admitting" },
 	current: { hop: 1, headers: {}, method: "GET", url: "https://api.test/redirected" },
-	cleanup: {
-		declaration: httpDeclaration,
-		ticket: {
-			lane: "interactive",
-			tenant: "checkpoint-tenant",
-			plugin: "checkpoint-plugin",
-			id: "checkpoint-http-ticket",
-		},
-	},
 };
 const httpPending: ScriptInlineProgress = {
 	_tag: "Http",
@@ -192,9 +168,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		},
 	};
 	const dependencies = Layer.mergeAll(
-		Layer.succeed(PersistedQueue.PersistedQueueFactory, {
-			make: () => Effect.die("Admission must precede queue access"),
-		}),
+		Layer.mock(JobQueue)({ enqueue: () => Effect.die("Admission must precede queue access") }),
 		Layer.succeed(
 			SandboxExecutor,
 			stubRuntimeSandboxExecutor(() => Effect.die("Sandbox must not start")),
@@ -206,32 +180,8 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		Layer.mock(SandboxWorkflowReferenceRepository)({ release: () => Effect.die("unused") }),
 		harnessOptions.dispatcher
 			? Layer.succeed(SandboxDurableHostDispatcher, harnessOptions.dispatcher)
-			: Layer.mock(SandboxDurableHostDispatcher)({
-					cancelInline: () => Effect.void,
-					dispatch: () => Effect.die("unused"),
-				}),
+			: Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
 		Layer.mock(SandboxRepository)({ resolveWorkflowCallScript: () => Effect.succeed(null) }),
-		Layer.succeed(
-			RedisService,
-			makeRedisService({
-				client: partialFake<RedisService["Service"]["client"]>({
-					callBuffer: (
-						_command: string,
-						_script: string,
-						_keys: string,
-						_key: string,
-						_ttl: string,
-						firstIndex: string,
-						...entries: Array<string | Buffer>
-					) => {
-						appends.push(
-							`${firstIndex}:${entries.filter((entry) => typeof entry === "string").length}`,
-						);
-						return Promise.resolve(1);
-					},
-				}),
-			}),
-		),
 		Layer.mock(KernelWorkflowReferences)({
 			execute: (_slug, input, _lane, childId) =>
 				Effect.gen(function* () {
@@ -249,15 +199,19 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 		}),
 		fakeDatabaseSession({
 			select: () => ({
-				from: (table: unknown) => ({
+				from: () => ({
 					where: () => {
-						const rows = Effect.succeed(
-							table === user
-								? [{ token: state.retired ? "retired-generation" : "test-account-generation" }]
-								: [],
-						);
+						const rows = Effect.succeed([]);
 						return Object.assign(rows, { for: () => rows, limit: () => rows });
 					},
+				}),
+			}),
+			insert: () => ({
+				values: (entries: ReadonlyArray<{ readonly entryIndex: number }>) => ({
+					onConflictDoNothing: () =>
+						Effect.sync(() => {
+							appends.push(`${entries[0]?.entryIndex}:${entries.length}`);
+						}),
 				}),
 			}),
 		}),
@@ -514,7 +468,6 @@ it.effect.each(retainedHttpPhases)(
 			const progress = { ...httpProgress, phase };
 			const dispatchProgress: Array<undefined | SandboxHttpProgress> = [];
 			const dispatcher = SandboxDurableHostDispatcher.of({
-				cancelInline: () => Effect.void,
 				settleInline: () => Effect.die("unused"),
 				dispatch: (_request, _payload, _principal, _id, retained) =>
 					Effect.sync(() => {
@@ -544,40 +497,6 @@ it.effect.each(retainedHttpPhases)(
 			assert(resumed._tag === "Complete");
 			expect(yield* resumed.exit).toBe("done");
 			expect(dispatchProgress).toEqual([progress]);
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"deferred_inline_http_cancels_retained_progress_once_on_parent_interruption",
-	() =>
-		Effect.gen(function* () {
-			const dispatchStarted = Deferred.makeUnsafe<void>();
-			const cancellations: Array<{
-				executionId: string;
-				progress: ReadonlyArray<SandboxInlineProgress>;
-			}> = [];
-			const dispatcher = SandboxDurableHostDispatcher.of({
-				settleInline: () => Effect.die("unused"),
-				dispatch: () =>
-					Deferred.succeed(dispatchStarted, undefined).pipe(Effect.andThen(Effect.never)),
-				cancelInline: (cancelledExecutionId, progress) =>
-					Effect.sync(() => {
-						cancellations.push({ progress, executionId: cancelledExecutionId });
-					}),
-			});
-			const h = makeHarness({ dispatcher, capabilities: ["httpCall"] });
-			const envelope: WorkflowReplayEnvelope = {
-				journalLength: 0,
-				state: "pending",
-				requests: [httpRequest],
-			};
-			const attempt = h.fresh(envelope, payload, [httpPending]);
-			const running = yield* Effect.forkChild(attempt.body);
-			yield* Deferred.await(dispatchStarted);
-			attempt.instance.interrupted = true;
-			yield* Fiber.interrupt(running);
-			expect(cancellations).toEqual([{ executionId, progress: [httpPending] }]);
 		}),
 	testTimeout,
 );
@@ -791,7 +710,7 @@ it.effect(
 		Effect.gen(function* () {
 			const h = makeHarness();
 			yield* h.fresh().body;
-			const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+			const queued = h.reads.find((name) => name.startsWith("sandbox-replay/"));
 			assert(queued !== undefined);
 			h.slots.set(
 				queued,
@@ -832,7 +751,7 @@ it.effect("logs a step's output once when the workflow resumes on its stored res
 		h.state.suspendReplay = true;
 		const suspended = yield* h.fresh().body;
 		expect(suspended._tag).toBe("Suspended");
-		const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+		const queued = h.reads.find((name) => name.startsWith("sandbox-replay/"));
 		assert(queued !== undefined);
 		h.slots.set(
 			queued,
@@ -861,7 +780,7 @@ it.effect(
 		Effect.gen(function* () {
 			const h = makeHarness();
 			yield* h.fresh().body;
-			const queued = h.reads.find((name) => name.startsWith("DurableQueue/SandboxExecutionQueue/"));
+			const queued = h.reads.find((name) => name.startsWith("sandbox-replay/"));
 			assert(queued !== undefined);
 			h.slots.set(
 				queued,
@@ -1019,7 +938,7 @@ it.effect(
 );
 
 it.effect(
-	"checks account generation before a persisted completion can be read",
+	"checks the account before a persisted completion can be read",
 	() =>
 		Effect.gen(function* () {
 			const h = makeHarness();
@@ -1029,11 +948,7 @@ it.effect(
 			const userId = UserId.make("retired-checkpoint-user");
 			const retired: ScriptExecutionWorkflowPayload = {
 				...payload,
-				subject: {
-					userId,
-					type: "user",
-					accountGeneration: { userId, token: "test-account-generation" },
-				},
+				subject: { userId, type: "user" },
 			};
 			const attempt = h.fresh(undefined, retired);
 			const exit = yield* attempt.provide(
@@ -1196,7 +1111,6 @@ it.layer(
 				const dispatcher = Layer.succeed(
 					SandboxDurableHostDispatcher,
 					SandboxDurableHostDispatcher.of({
-						cancelInline: () => Effect.void,
 						settleInline: () => Effect.die("unused"),
 						dispatch: ({ index }) =>
 							Effect.gen(function* () {

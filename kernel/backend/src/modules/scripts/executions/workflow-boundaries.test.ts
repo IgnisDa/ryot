@@ -22,19 +22,15 @@ const integrationWorkflowModules = [
 	"../../integrations/failure-workflow.ts",
 ] as const;
 
-const entityImportWorkflowModules = [
-	"../../entities/providers/entity-import-workflow.ts",
-	"../../entities/providers/provider-entity-population-workflow.ts",
-] as const;
-
 layer(BunServices.layer)((test) => {
 	test.effect(
 		"keeps provider population independent of media hierarchy literals",
 		() =>
 			Effect.gen(function* () {
-				const source = yield* readModule(
-					"../../entities/providers/provider-entity-population-workflow.ts",
-				);
+				const source = yield* readModules([
+					"../../entities/providers/population-job.ts",
+					"../../entities/providers/population.ts",
+				]);
 
 				expect(source).not.toContain("CHILD_ENTITY_SCHEMA_SLUGS");
 				expect(source).not.toContain('"show-season"');
@@ -58,7 +54,7 @@ layer(BunServices.layer)((test) => {
 					readModule("./service.ts"),
 					readModule("./queues.ts"),
 					readModule("./workflow-live.ts"),
-					readModules(entityImportWorkflowModules),
+					readModule("../../entities/providers/entity-import-workflow.ts"),
 					readModule("./workflow.ts"),
 					readModule("../../automations/run-job-live.ts"),
 				]);
@@ -66,31 +62,23 @@ layer(BunServices.layer)((test) => {
 				expect(sandboxService).toMatch(
 					/dispatchAdmittedWorkflow\(\s*engine,\s*ScriptExecutionWorkflow,/,
 				);
-				expect(durableQueues).toContain("DurableQueue.process(SandboxExecutionQueue, payload)");
+				expect(durableQueues).toMatch(/jobs\s*\.enqueue\(\s*payload\.lane === "interactive"/);
 				expect(automationRunJob).toContain("ScriptExecutionService");
 				expect(sandboxScriptWorkflow).toMatch(
 					/processSandboxExecutionQueue\(\s*\{\s*\.\.\.payload,\s*recoveryAttempt: attempt,?\s*\}\s*\)/,
 				);
 				expect(sandboxWorkflow).toContain("ScriptExecutionWorkflow");
-				expect(entityImportWorkflow).toMatch(
-					/dispatchAdmittedWorkflow\(\s*engine,\s*ProviderEntityPopulationWorkflow,/,
-				);
+				expect(entityImportWorkflow).toContain("awaitEntityPopulation(");
 			}),
 		testTimeout,
 	);
 
 	test.effect(
-		"keeps parent workflows as orchestrations instead of queue pass-through wrappers",
+		"keeps the integration workflow an orchestration instead of a queue pass-through wrapper",
 		() =>
 			Effect.gen(function* () {
-				const [entityImportWorkflow, integrationWorkflow] = yield* Effect.all([
-					readModules(entityImportWorkflowModules),
-					readModules(integrationWorkflowModules),
-				]);
+				const integrationWorkflow = yield* readModules(integrationWorkflowModules);
 
-				expect(entityImportWorkflow).toContain("validate-entity-details");
-				expect(entityImportWorkflow).toContain("upsert-root-entity");
-				expect(entityImportWorkflow).toContain("stamp-root-populated-at");
 				expect(integrationWorkflow).toMatch(
 					/name: `start-integration-ingestion:\$\{attempt\}`,\s*execute: repository\s*\.startIntegrationIngestion\(/,
 				);
@@ -124,32 +112,21 @@ layer(BunServices.layer)((test) => {
 	);
 
 	test.effect(
-		"keeps provider entity population behind the canonical workflow",
+		"keeps provider entity population behind its job",
 		() =>
 			Effect.gen(function* () {
 				const paths = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
-				const [populationWorkflow, trigger] = yield* Effect.all([
-					readModule("../../entities/providers/provider-entity-population-workflow.ts"),
+				const [populationJob, trigger] = yield* Effect.all([
+					readModule("../../entities/providers/population-job.ts"),
 					readModule("../../entities/providers/population-trigger-live.ts"),
 				]);
 
-				expect(populationWorkflow).toContain("validate-entity-details");
-				expect(populationWorkflow).toContain("upsert-root-entity");
-				expect(populationWorkflow).toContain("sync-related-entity-group:");
-				expect(populationWorkflow).toContain("write-child-entity-set:");
-				expect(populationWorkflow).toContain("stamp-root-populated-at");
-				expect(populationWorkflow).toContain("publish-primary-entity");
-				expect(populationWorkflow).toMatch(
-					/dispatchAdmittedWorkflow\(\s*engine,\s*ProviderRelatedPagesWorkflow,/,
-				);
+				expect(populationJob).toMatch(/registerJobHandler\(\s*EntityPopulationJob,/);
+				expect(trigger).toContain("admitPopulation(");
 
-				expect(trigger).toContain("ProviderEntityPopulationWorkflow");
-
-				// `runProviderEntityPopulationWorkflow` is exported only for unit tests. No production
-				// module may import it — callers must dispatch ProviderEntityPopulationWorkflow through
-				// the engine. Scan every source file (not just today's known callers) so a newly added
-				// module cannot bypass the single-owner boundary undetected.
+				// `runPopulationAttempt` is exported only for unit tests. No other production module may call it: requests
+				// reach population through its job. Scan every source file so a newly added module cannot bypass that.
 				const sourceRoot = yield* paths.fromFileUrl(new URL("../../../", import.meta.url));
 				const productionPaths = yield* fs.glob("**/*.ts", { root: sourceRoot }).pipe(
 					Effect.map((matchedPaths) =>
@@ -159,7 +136,7 @@ layer(BunServices.layer)((test) => {
 							.filter(
 								(path) =>
 									!path.endsWith(".test.ts") &&
-									!path.endsWith("/entities/providers/provider-entity-population-workflow.ts"),
+									!path.endsWith("/entities/providers/population-job.ts"),
 							),
 					),
 				);
@@ -169,8 +146,7 @@ layer(BunServices.layer)((test) => {
 
 				expect(productionSources.length).toBeGreaterThan(0);
 				for (const { path, text } of productionSources) {
-					expect(text, path).not.toContain("runProviderEntityPopulationWorkflow");
-					expect(text, path).not.toContain("runProviderRelatedPagesWorkflow");
+					expect(text, path).not.toContain("runPopulationAttempt");
 				}
 			}),
 		testTimeout,

@@ -327,8 +327,8 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 		if (
 			principal.subject.type !== "automation-run" ||
 			principal.subject.executionUserId === null ||
-			principal.subject.accountGeneration === null ||
-			principal.subject.accountGeneration.userId !== principal.subject.executionUserId
+			principal.subject.accountUserId === null ||
+			principal.subject.accountUserId !== principal.subject.executionUserId
 		) {
 			return yield* new SandboxRunError({
 				kind: "script-failure",
@@ -338,17 +338,13 @@ export const prepareSandboxSendNotification = Effect.fn("prepareSandboxSendNotif
 		return {
 			message: args[0],
 			sourceRunId: principal.subject.runId,
-			accountGeneration: principal.subject.accountGeneration,
+			accountUserId: principal.subject.accountUserId,
 			sourceKey: `${principal.subject.runId}-host-${input.hostCallDiscriminator}-notification`,
 		};
 	},
 );
 
 type SandboxDurableHostDispatcherValue = {
-	readonly cancelInline: (
-		executionId: string,
-		progress: ReadonlyArray<SandboxInlineProgress>,
-	) => Effect.Effect<void>;
 	readonly dispatch: (
 		request: HostRequest,
 		payload: PinnedScriptExecutionWorkflowPayload,

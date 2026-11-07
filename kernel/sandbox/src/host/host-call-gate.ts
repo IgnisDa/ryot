@@ -212,7 +212,6 @@ export type SandboxHostCallGateOptions = {
 };
 
 export type SandboxHostCallGateRegistration = {
-	readonly handoff: () => void;
 	readonly close: Effect.Effect<void>;
 	readonly journal: SandboxInvocationJournal;
 	readonly extend: (ms: number) => Effect.Effect<void, GateError>;
@@ -325,7 +324,6 @@ type RunState = {
 	readBytes: number;
 	readCount: number;
 	settledMs: number;
-	handedOff: boolean;
 	outstanding: number;
 	pendingExtensionMs: number;
 	readonly pinnedCount: number;
@@ -376,7 +374,6 @@ const makeRunState = Effect.fnUntraced(function* (
 		outstanding: 0,
 		scriptStartedAt,
 		isClosed: false,
-		handedOff: false,
 		pendingExtensionMs: 0,
 		seenSequences: new Set(),
 		inlineEncodedEntries: [],
@@ -828,14 +825,10 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 						decodeProgressJson(decoder.decode(bytes)),
 					),
 				).pipe(Effect.orDie);
-				const close: Effect.Effect<void> = Effect.gen(function* () {
+				const close: Effect.Effect<void> = Effect.sync(() => {
 					if (!state.isClosed) {
 						state.isClosed = true;
 						Deferred.doneUnsafe(state.closed, Effect.void);
-						const cancel = state.gateInput?.inlineDurableHost?.cancel;
-						if (!state.handedOff && cancel) {
-							yield* cancel(yield* pendingEntries);
-						}
 						clearBuffers(state);
 						if (state.outstanding === 0) {
 							Deferred.doneUnsafe(state.drained, Effect.void);
@@ -1057,18 +1050,7 @@ export class SandboxHostCallGate extends Context.Service<SandboxHostCallGate>()(
 											: Math.max(0, now - state.settlementStartedAt))),
 							),
 				}));
-				return {
-					close,
-					extend,
-					journal,
-					dispatch,
-					scriptBudget,
-					inlineEntries,
-					pendingEntries,
-					handoff: () => {
-						state.handedOff = true;
-					},
-				};
+				return { close, extend, journal, dispatch, scriptBudget, inlineEntries, pendingEntries };
 			});
 
 			return { register, transientMemory: (lane: ExecutionLane) => pools[lane].snapshot() };

@@ -167,11 +167,7 @@ layer(makeServiceLayer({ repository: installedScriptRepository }))((test) => {
 				expect(execution?.options.payload).toMatchObject({
 					scriptId,
 					resultMode: "execution",
-					subject: {
-						type: "user",
-						userId: executingUserId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					},
+					subject: { type: "user", userId: executingUserId },
 				});
 			}),
 		testTimeout,
@@ -203,11 +199,7 @@ layer(
 					scriptId,
 					input: {},
 					resolutionMode: "exact",
-					subject: {
-						type: "user",
-						userId: executingUserId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					},
+					subject: { type: "user", userId: executingUserId },
 				});
 			}),
 		testTimeout,
@@ -231,11 +223,7 @@ layer(
 					input: {},
 					lane: "interactive",
 					executionId: "script-execution",
-					subject: {
-						type: "user",
-						userId: executingUserId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					},
+					subject: { type: "user", userId: executingUserId },
 				});
 				expect(result).toEqual({
 					logs: [],
@@ -383,12 +371,8 @@ layer(
 					executionId,
 					lane: "interactive",
 					scriptId: resolvedScriptId,
+					subject: { type: "user", userId: executingUserId },
 					input: { items: [], scriptId: "attempted-override" },
-					subject: {
-						type: "user",
-						userId: executingUserId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					},
 				});
 				const execution = (yield* (yield* SandboxExecutorCalls).executions).at(-1);
 
@@ -399,12 +383,8 @@ layer(
 					payload: {
 						scriptId,
 						resolutionMode: "exact",
+						subject: { type: "user", userId: executingUserId },
 						input: { items: [], scriptId: "attempted-override" },
-						subject: {
-							type: "user",
-							userId: executingUserId,
-							accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-						},
 					},
 				});
 			}),
@@ -429,11 +409,7 @@ layer(makeServiceLayer({ repository: mockRepository({}) }))((test) => {
 						lane: "interactive",
 						input: oversizedInput,
 						executionId: "oversized-workflow",
-						subject: {
-							type: "user",
-							userId: executingUserId,
-							accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-						},
+						subject: { type: "user", userId: executingUserId },
 					}),
 				);
 
@@ -516,8 +492,8 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 					scriptId,
 					executingUserId,
 					pluginId: "fixture",
+					accountUserId: executingUserId,
 					executionId: "pre-registered-workflow",
-					accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 				});
 				yield* pins.activate(replacementRevision);
 
@@ -527,11 +503,7 @@ layer(makeServiceLayer({ repository: revisionPinRepository }))((test) => {
 					lane: "interactive",
 					executionId: "pre-registered-workflow",
 					pluginRevision: preRegistered.pluginRevision,
-					subject: {
-						type: "user",
-						userId: executingUserId,
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
-					},
+					subject: { type: "user", userId: executingUserId },
 				});
 				const startedPayload = yield* Schema.decodeUnknownEffect(ScriptExecutionWorkflowPayload)(
 					(yield* (yield* SandboxExecutorCalls).executions).at(-1)?.options.payload,
@@ -599,8 +571,8 @@ layer(makeServiceLayer(pluginWorkflowOptions))((test) => {
 						pluginId: "fixture",
 						workflowSlug: "workflow",
 						executionId: "queued-workflow",
+						accountUserId: executingUserId,
 						pluginInstallationId: "fixture-installation",
-						accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 					}),
 				).toBe("queued-workflow");
 				expect((yield* calls.executions).map(({ referenceLive }) => referenceLive)).toEqual([true]);
@@ -626,8 +598,8 @@ layer(makeServiceLayer({ ...pluginWorkflowOptions, execute: () => Effect.fail("e
 							pluginId: "fixture",
 							workflowSlug: "workflow",
 							executionId: "failed-enqueue",
+							accountUserId: executingUserId,
 							pluginInstallationId: "fixture-installation",
-							accountGeneration: { userId: executingUserId, token: "test-account-generation" },
 						}),
 					);
 					const events = yield* (yield* SandboxExecutorCalls).events;

@@ -9,7 +9,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, Fiber, Layer, Queue, Schema } from "effect";
+import { Clock, Deferred, Effect, Fiber, Layer, Queue, Schema } from "effect";
 
 import { SANDBOX_LIMITS } from "../protocol/limits";
 import { SandboxInvocationSchema, type SidecarRunFrame } from "../protocol/messages";
@@ -24,16 +24,18 @@ import { SandboxSidecarQuarantine } from "./quarantine";
 import {
 	awaitSent,
 	compileTightenedNative,
+	expireQuarantine,
 	killNativeConnection,
 	nativeInput,
 	NativeRecoveryEvidence,
 	nativeRecoveryLayer,
+	readProtection,
 	runSupervisedNative,
 	trackNativeKeys,
 } from "./recovery-native.test-support";
-import { SandboxRecoveryStore } from "./recovery-store";
-import { SandboxRedis, sandboxRedisKeys } from "./redis";
+import { sandboxRecoveryKey, SandboxRecoveryStore } from "./recovery-store";
 import { defineNativeScript } from "./runner-native.test-support";
+import { SandboxStateStore } from "./state-store";
 import { SandboxSidecarSupervisor, SidecarRecoverySuspended } from "./supervisor";
 
 const executionId = (frame: typeof SidecarRunFrame.Type) =>
@@ -117,7 +119,6 @@ const quarantineThroughCrashes = Effect.fnUntraced(function* (
 	crash: SandboxRunInput,
 	track: Effect.Success<typeof trackNativeKeys>,
 ) {
-	const redis = yield* SandboxRedis;
 	const identities = yield* track(crash);
 	for (let index = 0; index < 3; index++) {
 		const input = { ...crash, executionId: testExecutionId("crash") };
@@ -125,12 +126,9 @@ const quarantineThroughCrashes = Effect.fnUntraced(function* (
 		yield* assertNativeCrash(supervisor, input);
 	}
 	for (const identity of identities) {
-		expect(
-			yield* Effect.promise(() => redis.client.zcard(sandboxRedisKeys.crashWindow(identity))),
-		).toBe(3);
-		const ttl = yield* Effect.promise(() =>
-			redis.client.pttl(sandboxRedisKeys.quarantine(identity)),
-		);
+		const protection = yield* readProtection(identity);
+		expect(protection?.strikes).toHaveLength(3);
+		const ttl = (protection?.blockedUntilMs ?? 0) - (yield* Clock.currentTimeMillis);
 		expect(ttl).toBeGreaterThan(QUARANTINE_MS - 100_000);
 		expect(ttl).toBeLessThanOrEqual(QUARANTINE_MS);
 	}
@@ -150,7 +148,6 @@ const assertQuarantinedWithoutDispatch = Effect.fnUntraced(function* (
 
 const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 	Effect.gen(function* () {
-		const redis = yield* SandboxRedis;
 		const track = yield* trackNativeKeys;
 		const compiled = yield* compileTightenedNative(crashSource(testExecutionId("probation")));
 		const base = asPlugin(
@@ -170,7 +167,7 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 		);
 		const expire = Effect.fnUntraced(function* () {
 			for (const identity of identities) {
-				yield* Effect.promise(() => redis.client.del(sandboxRedisKeys.quarantine(identity)));
+				yield* expireQuarantine(identity);
 			}
 		});
 		yield* expire();
@@ -195,7 +192,8 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 				);
 				for (const identity of identities) {
 					expect(
-						yield* Effect.promise(() => redis.client.pttl(sandboxRedisKeys.quarantine(identity))),
+						((yield* readProtection(identity))?.blockedUntilMs ?? 0) -
+							(yield* Clock.currentTimeMillis),
 					).toBeGreaterThan(3_500_000);
 				}
 				yield* expire();
@@ -213,9 +211,7 @@ const probationRenewsOnFatalAndClearsOnSuccess = Effect.scoped(
 				);
 				expect(yield* Fiber.join(fiber)).toMatchObject({ success: true, value: "healthy" });
 				for (const identity of identities) {
-					expect(
-						yield* Effect.promise(() => redis.client.get(sandboxRedisKeys.probation(identity))),
-					).toBeNull();
+					expect((yield* readProtection(identity))?.probation ?? false).toBe(false);
 				}
 				expect(yield* runSupervisedNative(reconstructed, second)).toMatchObject({
 					success: true,
@@ -238,11 +234,7 @@ const systemJobQuarantineSparesOtherWork = Effect.scoped(
 			principal: {
 				...base.principal,
 				pluginRevision: null,
-				subject: {
-					type: "user",
-					userId: user,
-					accountGeneration: { userId: user, token: "native-system-generation" },
-				},
+				subject: { type: "user", userId: user },
 			},
 		};
 		const otherUser = UserId.make(testExecutionId("system-other"));
@@ -250,14 +242,7 @@ const systemJobQuarantineSparesOtherWork = Effect.scoped(
 			...crash,
 			context: { mode: "healthy" },
 			executionId: testExecutionId("system-other"),
-			principal: {
-				...crash.principal,
-				subject: {
-					type: "user",
-					userId: otherUser,
-					accountGeneration: { userId: otherUser, token: "native-system-generation" },
-				},
-			},
+			principal: { ...crash.principal, subject: { type: "user", userId: otherUser } },
 		};
 		const userless: SandboxRunInput = {
 			...other,
@@ -434,7 +419,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 			Effect.scoped(
 				Effect.gen(function* () {
 					const store = yield* SandboxRecoveryStore;
-					const redis = yield* SandboxRedis;
 					const track = yield* trackNativeKeys;
 					const parked = yield* Queue.unbounded<void>();
 					const release = yield* Deferred.make<void>();
@@ -461,7 +445,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 								lane: "background",
 								workflowExecutionId: "native-recovery-workflow",
 								inlineDurableHost: {
-									cancel: () => Effect.void,
 									capabilities: ["getCachedValue"],
 									settle: (requests) =>
 										Effect.sync(() => {
@@ -499,7 +482,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 								workflowExecutionId: "native-recovery-workflow",
 								replayJournal: yield* memoryPinnedJournal(prefix),
 								inlineDurableHost: {
-									cancel: () => Effect.void,
 									capabilities: ["getCachedValue"],
 									settle: (requests) => {
 										expect(requests).toMatchObject([
@@ -560,11 +542,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 							expect(interrupted).toBe(4);
 						}),
 					);
-					expect(
-						yield* Effect.promise(() =>
-							redis.client.pttl(sandboxRedisKeys.recovery(victim.executionId)),
-						),
-					).toBe(-1);
 					yield* Effect.scoped(
 						Effect.gen(function* () {
 							const reconstructed = yield* SandboxSidecarSupervisor.make;
@@ -600,11 +577,10 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 							expect(committedDispatches).toBe(1);
 							assert(result.recovery);
 							yield* reconstructed.completeRecovery(result.recovery);
-							expect(
-								yield* Effect.promise(() =>
-									redis.client.get(sandboxRedisKeys.recovery(victim.executionId)),
-								),
-							).toBeNull();
+							const recoveryKey = sandboxRecoveryKey(victim.executionId);
+							expect((yield* (yield* SandboxStateStore).read([recoveryKey])).has(recoveryKey)).toBe(
+								false,
+							);
 						}),
 					);
 					expect((yield* SandboxSidecarAdmission).snapshot().runs).toBe(0);
@@ -620,7 +596,6 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 				Effect.gen(function* () {
 					const evidence = yield* NativeRecoveryEvidence;
 					const track = yield* trackNativeKeys;
-					const redis = yield* SandboxRedis;
 					const store = yield* SandboxRecoveryStore;
 					const supervisor = yield* SandboxSidecarSupervisor.make;
 					const compiled = yield* compileTestScript(
@@ -718,11 +693,7 @@ layer(Layer.provideMerge(nativeRecoveryLayer, BunCrypto.layerSecureRandom), {
 						yield* supervisor.completeRecovery(result.recovery);
 					}
 					for (const identity of identities) {
-						expect(
-							yield* Effect.promise(() =>
-								redis.client.zcard(sandboxRedisKeys.crashWindow(identity)),
-							),
-						).toBe(0);
+						expect((yield* readProtection(identity))?.strikes ?? []).toHaveLength(0);
 					}
 				}),
 			),

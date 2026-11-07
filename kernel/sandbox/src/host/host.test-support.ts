@@ -1,12 +1,9 @@
-import { assert } from "@ryot-app/testing/assert";
 import { Effect, Layer, Option } from "effect";
-import Redis from "ioredis";
 
 import { bindSandboxHostFunctions } from "./bridge-adapter";
 import { SandboxHostCallScope, SandboxHostConfig } from "./config";
 import type { SandboxHostFunctions } from "./host-functions";
 import type { SandboxHostImplementationMap } from "./invocation";
-import { SandboxRedis } from "./redis";
 
 export const makeSandboxHostConfigLayer = (overrides: Partial<SandboxHostConfig["Service"]> = {}) =>
 	Layer.mergeAll(
@@ -21,35 +18,7 @@ export const makeSandboxHostConfigLayer = (overrides: Partial<SandboxHostConfig[
 		Layer.succeed(SandboxHostCallScope, { bound: (effect) => effect }),
 	);
 
-export const testRedisUrl = () => {
-	const url = Bun.env["TEST_REDIS_URL"];
-	assert(url, "Run Redis tests through the package test script");
-	return url;
-};
-
 export const testExecutionId = (label: string) => `${label}-${crypto.randomUUID()}`;
-
-export const testSandboxRedisLayer = Layer.effect(
-	SandboxRedis,
-	Effect.map(
-		Effect.acquireRelease(
-			Effect.sync(() => new Redis(testRedisUrl())),
-			(client) => Effect.promise(() => client.quit()),
-		),
-		(client) => ({ client }),
-	),
-);
-
-export const deleteRedisKeysOnExit = (keys: () => ReadonlyArray<string>) =>
-	Effect.gen(function* () {
-		const redis = yield* SandboxRedis;
-		yield* Effect.addFinalizer(() => {
-			const pending = keys();
-			return pending.length === 0
-				? Effect.void
-				: Effect.promise(() => redis.client.del(...pending));
-		});
-	});
 
 const unusedHostCall = () => Effect.die("Unexpected sandbox host dispatch");
 

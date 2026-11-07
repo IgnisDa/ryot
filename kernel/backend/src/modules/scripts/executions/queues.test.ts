@@ -15,12 +15,14 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
+import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { appendWorkflowJournal } from "#modules/scripts/replay/journal";
-import { redisKeys, RedisService } from "#platform/redis";
-import { databaseLayer } from "#testing/effect";
-import { testExecutionId, testRedisServiceLayer } from "#testing/redis";
+import { DatabaseSession } from "#platform/db/session";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
+import { testExecutionId } from "#testing/effect";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
@@ -46,9 +48,9 @@ const queuedReplay = {
 	startedAt: "2026-01-01T00:00:00.000Z",
 };
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+const journalEntries = (executionId: string) => eq(sandboxJournalEntry.executionId, executionId);
 
 const dispatcherLayer = Layer.succeed(SandboxDurableHostDispatcher, {
-	cancelInline: () => Effect.void,
 	dispatch: () => Effect.die("durable dispatch is not expected"),
 	settleInline: () => Effect.die("inline dispatch is not expected"),
 });
@@ -115,7 +117,6 @@ const settlingDispatcherLayer = Layer.unwrap(
 		const settlements = yield* Ref.make<ReadonlyArray<InlineSettlement>>([]);
 		return Layer.merge(
 			Layer.succeed(SandboxDurableHostDispatcher, {
-				cancelInline: () => Effect.void,
 				dispatch: () => Effect.die("durable dispatch is not expected"),
 				settleInline: (requests, context, _principal, lane, executionId, startedAt) =>
 					Effect.gen(function* () {
@@ -179,8 +180,7 @@ layer(
 	SandboxWorkflowPinning.layer.pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
-				databaseLayer,
-				testRedisServiceLayer,
+				isolatedDatabaseLayer("sandbox_queues"),
 				dispatcherLayer,
 				unusedKernelWorkflowReferencesLayer,
 				Layer.mock(SandboxWorkflowReferenceRepository)({}),
@@ -299,8 +299,7 @@ const nestedRun = (lane: ExecutionLane, held: ExecutionLane) =>
 
 layer(
 	Layer.mergeAll(
-		databaseLayer,
-		testRedisServiceLayer,
+		isolatedDatabaseLayer("sandbox_queues"),
 		dispatcherLayer,
 		unusedKernelWorkflowReferencesLayer,
 		queuedArtifactsLayer,
@@ -425,8 +424,7 @@ const inlineRequest = {
 
 layer(
 	Layer.mergeAll(
-		databaseLayer,
-		testRedisServiceLayer,
+		isolatedDatabaseLayer("sandbox_queues"),
 		settlingDispatcherLayer,
 		unusedKernelWorkflowReferencesLayer,
 		inlineArtifactsLayer,
@@ -560,19 +558,19 @@ layer(
 		"durable_replay_reports_projection_faults_over_the_script_outcome",
 		() =>
 			Effect.gen(function* () {
-				const redis = yield* RedisService;
+				const session = yield* DatabaseSession;
 				const replay = Effect.fnUntraced(function* (
 					label: string,
-					fault: (key: string) => Promise<unknown>,
+					fault: (entries: ReturnType<typeof journalEntries>) => Effect.Effect<unknown, unknown>,
 				) {
 					const workflowExecutionId = testExecutionId(label);
-					const key = redisKeys.sandboxWorkflowJournal(workflowExecutionId);
+					const entries = journalEntries(workflowExecutionId);
 					yield* appendWorkflowJournal(workflowExecutionId, 0, [
 						{ value: "small", request: { ...inlineRequest, index: 0 } },
 					]);
 					const runtime = stubRuntimeSandboxExecutor((input) =>
 						Effect.gen(function* () {
-							yield* Effect.promise(() => fault(key));
+							yield* fault(entries).pipe(Effect.orDie);
 							expect(
 								yield* input.replayJournal?.readChunk(0, 0) ?? Effect.die("unpinned"),
 							).toBeNull();
@@ -601,15 +599,17 @@ layer(
 					}).pipe(Effect.provideService(SandboxExecutor, runtime), Effect.result);
 				});
 
-				const changed = yield* replay("projection-changed", (key) =>
-					redis.client.hset(key, "c:0:0", "x".repeat(1024)),
+				const changed = yield* replay("projection-changed", (entries) =>
+					session.run((db) => db.update(sandboxJournalEntry).set({ pin: "7:1:0" }).where(entries)),
 				);
 				assert(changed._tag === "Failure" && changed.failure instanceof SandboxRunError);
 				expect(changed.failure).toMatchObject({
 					kind: "infrastructure",
 					message: "Sandbox workflow journal changed after inspection",
 				});
-				const missing = yield* replay("projection-lost", (key) => redis.client.del(key));
+				const missing = yield* replay("projection-lost", (entries) =>
+					session.run((db) => db.delete(sandboxJournalEntry).where(entries)),
+				);
 				assert(missing._tag === "Failure" && missing.failure instanceof SandboxProjectionMissing);
 			}),
 		testTimeout,
@@ -618,8 +618,7 @@ layer(
 
 layer(
 	Layer.mergeAll(
-		databaseLayer,
-		testRedisServiceLayer,
+		isolatedDatabaseLayer("sandbox_queues"),
 		dispatcherLayer,
 		unusedKernelWorkflowReferencesLayer,
 		compiledArtifactsLayer(

@@ -25,10 +25,11 @@ import { readPinnedJournal } from "@ryot-app/sandbox/host/pinned-journal.test-su
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { it, layer } from "@voila.dev/effect-bun-test";
+import type { SQL } from "drizzle-orm";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Deferred, Effect, type Exit, Layer, Metric, Ref, Schema, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 import { Workflow } from "effect/workflow";
@@ -41,18 +42,18 @@ import {
 	emptyScriptsDigest,
 	makeUserPrincipal,
 } from "#modules/scripts/authorization/principal.test-support";
-import { appendWorkflowJournalWithRedis } from "#modules/scripts/replay/journal";
+import { appendWorkflowJournal } from "#modules/scripts/replay/journal";
 import { inspectSandboxJournal, pinSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { DatabaseSession } from "#platform/db/session";
-import { RedisService } from "#platform/redis";
 import { makeActivity } from "#platform/workflow/scope";
+import { sandboxJournalEntry } from "#schema/tables/sandbox-journal";
 import {
-	makeRedisService,
 	makeWorkflowActivityEngine,
 	makeWorkflowEngine,
+	testExecutionId,
 	type WorkflowEngineOverrides,
 } from "#testing/effect";
-import { testExecutionId, testRedisClient } from "#testing/redis";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
@@ -111,11 +112,11 @@ const automationSubject = {
 	delivery: "required" as const,
 	type: "automation-run" as const,
 	runId: AutomationRunId.make("run-1"),
+	accountUserId: UserId.make("user-1"),
 	executionUserId: UserId.make("user-1"),
 	pluginRevisionId: pluginRevision.revisionId,
 	triggerId: AutomationTriggerId.make("trigger-1"),
 	pluginConfigRevisionId: pluginRevision.configRevisionId,
-	accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 	causation: {
 		depth: 0,
 		parentRunId: null,
@@ -375,25 +376,87 @@ layer(
 	);
 });
 
-const makeProjectionRedis = () =>
-	makeRedisService({
-		client: partialFake<RedisService["Service"]["client"]>({
-			eval: () => Promise.resolve(1),
-			hgetall: () => Promise.resolve({}),
-			callBuffer: () => Promise.resolve(1),
-		}),
-	});
+type JournalFields = Parameters<EffectPgDatabase["select"]>[0];
+
+/**
+ * The admission fake, except that the sandbox journal lives in a migrated database and each append is recorded as
+ * `index:count`.
+ */
+const journalDatabaseLayer = Layer.effect(
+	DatabaseSession,
+	Effect.gen(function* () {
+		const fake = Context.get(yield* Layer.build(mutationAdmissionTestLayer), DatabaseSession);
+		const real = Context.get(
+			yield* Layer.build(isolatedDatabaseLayer("sandbox_workflow")),
+			DatabaseSession,
+		);
+		const calls = yield* WorkflowTestCalls;
+		const journalSelect = (fields: JournalFields) => (table: typeof sandboxJournalEntry) => ({
+			where: (condition: SQL | undefined) =>
+				Object.assign(
+					real.run((db) => db.select(fields).from(table).where(condition)),
+					{
+						orderBy: (...order: ReadonlyArray<SQL>) =>
+							real.run((db) =>
+								db
+									.select(fields)
+									.from(table)
+									.where(condition)
+									.orderBy(...order),
+							),
+					},
+				),
+		});
+		const journalInsert = {
+			values: (rows: ReadonlyArray<typeof sandboxJournalEntry.$inferInsert>) => ({
+				onConflictDoNothing: () =>
+					calls.record("appends", `${rows[0]?.entryIndex}:${rows.length}`).pipe(
+						Effect.andThen(
+							real.run((db) =>
+								db
+									.insert(sandboxJournalEntry)
+									.values([...rows])
+									.onConflictDoNothing(),
+							),
+						),
+					),
+			}),
+		};
+		return {
+			...fake,
+			run: (statement) =>
+				fake.run((db) =>
+					statement(
+						new Proxy(db, {
+							get: (target, property, receiver) => {
+								if (property === "select") {
+									return (fields: JournalFields) => ({
+										from: (table: typeof sandboxJournalEntry) =>
+											table === sandboxJournalEntry
+												? journalSelect(fields)(table)
+												: target.select(fields).from(table),
+									});
+								}
+								if (property === "insert") {
+									return (table: typeof sandboxJournalEntry) =>
+										table === sandboxJournalEntry ? journalInsert : target.insert(table);
+								}
+								const value: unknown = Reflect.get(target, property, receiver);
+								return value;
+							},
+						}),
+					),
+				),
+		};
+	}),
+);
 
 const controlledWorkflowDependencies = Layer.mergeAll(
 	mutationAdmissionTestLayer,
-	Layer.succeed(RedisService, makeProjectionRedis()),
 	Layer.mock(ExecutionFileStore)({ retain: () => Effect.void, release: () => Effect.void }),
 	Layer.mock(SandboxPluginScriptResolver)({ findActiveScriptById: () => Effect.die("unused") }),
 	unusedKernelWorkflowReferencesLayer,
-	Layer.mock(SandboxDurableHostDispatcher)({
-		cancelInline: () => Effect.void,
-		dispatch: () => Effect.die("unused"),
-	}),
+	Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
 );
 
 it("sanitizes child id names deterministically", () => {
@@ -447,7 +510,6 @@ const hotSwapLayer = recordingLayer(
 		const calls = yield* WorkflowTestCalls;
 		const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
 		const active = yield* Ref.make(historicalScriptId);
-		const redisClient = yield* testRedisClient;
 		const pinOf = (scriptId: SandboxScriptId) =>
 			scriptId === historicalScriptId
 				? {
@@ -477,9 +539,8 @@ const hotSwapLayer = recordingLayer(
 		);
 		const artifactsLayer = compiledArtifactsLayer(repositoryLayer);
 		return Layer.mergeAll(
-			mutationAdmissionTestLayer,
+			journalDatabaseLayer,
 			activityEngineLayer(hotSwapExecutionId),
-			Layer.succeed(RedisService, makeRedisService({ client: redisClient })),
 			Layer.mock(ExecutionFileStore)({ retain: () => Effect.void, release: () => Effect.void }),
 			artifactsLayer,
 			Layer.mock(SandboxPluginScriptResolver)({
@@ -553,16 +614,13 @@ const hotSwapLayer = recordingLayer(
 				) =>
 					calls.record("kernel-callers", callerAuthority).pipe(Effect.as({ kernel: "recorded" })),
 			}),
-			Layer.mock(SandboxDurableHostDispatcher)({
-				cancelInline: () => Effect.void,
-				dispatch: () => Effect.die("unused"),
-			}),
+			Layer.mock(SandboxDurableHostDispatcher)({ dispatch: () => Effect.die("unused") }),
 			Layer.succeed(ActiveWorkflowScript, { current: Ref.get(active) }),
 		);
 	}),
 ).pipe(Layer.provide(BunServices.layer));
 
-layer(withWorkflowPinning(hotSwapLayer))((test) => {
+layer(withWorkflowPinning(hotSwapLayer))("hot-swapped workflow script", (test) => {
 	test.effect(
 		"keeps every shell replay on the initial script pin after an active hot swap",
 		() => {
@@ -742,7 +800,6 @@ layer(
 				const suspendAfterWrite = yield* Ref.make(true);
 				return Layer.mergeAll(
 					mutationAdmissionTestLayer,
-					Layer.succeed(RedisService, makeProjectionRedis()),
 					Layer.mock(ExecutionFileStore)({
 						retain: () => calls.record("artifact-retains", null),
 						release: () => calls.record("artifact-releases", null),
@@ -769,7 +826,6 @@ layer(
 						registerInTransaction: () => Effect.die("unused"),
 					}),
 					Layer.mock(SandboxDurableHostDispatcher)({
-						cancelInline: () => Effect.void,
 						dispatch: () =>
 							makeActivity({
 								error: SandboxRunError,
@@ -829,14 +885,7 @@ layer(
 				lane: "interactive" as const,
 				scriptId: interruptedScriptId,
 				resolutionMode: "exact" as const,
-				subject: {
-					type: "user" as const,
-					userId: UserId.make("interrupted-user"),
-					accountGeneration: {
-						token: "test-account-generation",
-						userId: UserId.make("interrupted-user"),
-					},
-				},
+				subject: { type: "user" as const, userId: UserId.make("interrupted-user") },
 			};
 			const processReplay = (sandboxPayload: SandboxExecutionQueuePayload) =>
 				Effect.succeed({
@@ -1182,10 +1231,8 @@ const inlineWorkflowLayer = (executionId: string, principal?: ScriptExecutionPri
 		recordingLayer(
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
-				const services = yield* Effect.context();
-				const redisClient = yield* testRedisClient;
 				return Layer.mergeAll(
-					mutationAdmissionTestLayer,
+					journalDatabaseLayer,
 					Layer.mock(ExecutionFileStore)({
 						retain: () => calls.record("artifact-retained", executionId),
 						release: () => calls.record("artifact-released", executionId),
@@ -1194,27 +1241,7 @@ const inlineWorkflowLayer = (executionId: string, principal?: ScriptExecutionPri
 						findActiveScriptById: () => Effect.die("unused"),
 					}),
 					unusedKernelWorkflowReferencesLayer,
-					Layer.succeed(
-						RedisService,
-						makeRedisService({
-							client: partialFake<RedisService["Service"]["client"]>({
-								hmget: (key: string, ...fields: string[]) => redisClient.hmget(key, ...fields),
-								eval: (script: string, keys: number, key: string, ...args: string[]) =>
-									redisClient.eval(script, keys, key, ...args),
-								callBuffer: (command: string, ...args: Array<string | Buffer>) =>
-									Effect.runPromiseWith(services)(
-										args.some((arg) => typeof arg !== "string")
-											? calls.record(
-													"appends",
-													`${String(args[4])}:${args.slice(5).filter((arg) => typeof arg === "string").length}`,
-												)
-											: Effect.void,
-									).then(() => redisClient.callBuffer(command, ...args)),
-							}),
-						}),
-					),
 					Layer.mock(SandboxDurableHostDispatcher)({
-						cancelInline: () => Effect.void,
 						dispatch: (request) =>
 							calls
 								.record("dispatched", request.index)
@@ -1323,69 +1350,74 @@ const retainedUserPrincipal = makeUserPrincipal({
 for (const code of ["package-identity-conflict", "installation-unavailable"] as const) {
 	for (const mode of ["execution", "workflow"] as const) {
 		const executionId = testExecutionId(`retained-user-${code}-${mode}`);
-		layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
-			test.effect(
-				`${mode} mode retains typed ${code} after admitted replay without changing recorded results`,
-				() =>
-					Effect.gen(function* () {
-						const calls = yield* WorkflowTestCalls;
-						const data = {
-							code,
-							pluginId: pluginRevision.id,
-							installationId: "private-installation",
-						};
-						const failure = new SandboxRunError({
-							data,
-							kind: "script-failure",
-							message: "Sandbox installation is unavailable",
-						});
-						const replay = (input: SandboxExecutionQueuePayload) =>
-							input.journalLength === 0 ? Effect.succeed(firstInlineReplay) : Effect.fail(failure);
-						const run = runScriptExecutionWorkflowBody(
-							{
-								input: {},
-								executionId,
-								lane: "interactive",
-								resolutionMode: "exact",
-								scriptId: inlineScriptId,
-								subject: retainedUserSubject,
-								...(mode === "execution" ? { resultMode: "execution" as const } : {}),
-							},
-							executionId,
-							replay,
-						);
-						if (mode === "execution") {
-							expect(yield* run).toEqual({
-								logs: [],
-								value: null,
-								status: "completed",
-								error: {
-									data,
-									phase: "execute",
-									message: failure.message,
-									kind: "resource-unavailable",
-								},
+		layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))(
+			"inline workflow journal",
+			(test) => {
+				test.effect(
+					`${mode} mode retains typed ${code} after admitted replay without changing recorded results`,
+					() =>
+						Effect.gen(function* () {
+							const calls = yield* WorkflowTestCalls;
+							const data = {
+								code,
+								pluginId: pluginRevision.id,
+								installationId: "private-installation",
+							};
+							const failure = new SandboxRunError({
+								data,
+								kind: "script-failure",
+								message: "Sandbox installation is unavailable",
 							});
-						} else {
-							assertExitFails(yield* Effect.exit(run), failure);
-						}
-						expect(yield* calls.entries("dispatched")).toEqual([1]);
-						expect(yield* calls.entries("references-retained")).toEqual([executionId]);
-						expect(yield* calls.entries("references-released")).toEqual([executionId]);
-						expect(yield* calls.entries("artifact-released")).toEqual([executionId]);
-						const redis = yield* RedisService;
-						const inspection = yield* inspectSandboxJournal(redis, executionId, 2);
-						assert(inspection !== null);
-						expect(
-							yield* readPinnedJournal(pinSandboxJournal(redis, executionId, inspection)),
-						).toEqual([
-							cachedEntry(inlineFirst),
-							{ request: inlineSecond, value: { value: "written", state: "success" } },
-						]);
-					}),
-				testTimeout,
-			);
-		});
+							const replay = (input: SandboxExecutionQueuePayload) =>
+								input.journalLength === 0
+									? Effect.succeed(firstInlineReplay)
+									: Effect.fail(failure);
+							const run = runScriptExecutionWorkflowBody(
+								{
+									input: {},
+									executionId,
+									lane: "interactive",
+									resolutionMode: "exact",
+									scriptId: inlineScriptId,
+									subject: retainedUserSubject,
+									...(mode === "execution" ? { resultMode: "execution" as const } : {}),
+								},
+								executionId,
+								replay,
+							);
+							if (mode === "execution") {
+								expect(yield* run).toEqual({
+									logs: [],
+									value: null,
+									status: "completed",
+									error: {
+										data,
+										phase: "execute",
+										message: failure.message,
+										kind: "resource-unavailable",
+									},
+								});
+							} else {
+								assertExitFails(yield* Effect.exit(run), failure);
+							}
+							expect(yield* calls.entries("dispatched")).toEqual([1]);
+							expect(yield* calls.entries("references-retained")).toEqual([executionId]);
+							expect(yield* calls.entries("references-released")).toEqual([executionId]);
+							expect(yield* calls.entries("artifact-released")).toEqual([executionId]);
+							const session = yield* DatabaseSession;
+							const inspection = yield* inspectSandboxJournal(session, executionId, 2);
+							assert(inspection !== null);
+							expect(
+								yield* readPinnedJournal(pinSandboxJournal(session, executionId, inspection)),
+							).toEqual([
+								cachedEntry(inlineFirst),
+								{ request: inlineSecond, value: { value: "written", state: "success" } },
+							]);
+						}),
+					testTimeout,
+				);
+			},
+		);
 	}
 }
 
@@ -1396,94 +1428,100 @@ for (const kind of [
 	"resource-unavailable",
 ] as const) {
 	const executionId = testExecutionId(`execution-mode-unchanged-${kind}`);
-	layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))((test) => {
-		test.effect(
-			`execution mode still fails for ${kind} without installation revocation data`,
-			() =>
-				Effect.gen(function* () {
-					const failure = new SandboxRunError({
-						kind,
-						message: `Unchanged ${kind} failure`,
-						...(kind === "resource-unavailable"
-							? { data: { operation: "httpCall", code: "execution-limit" as const } }
-							: {}),
-					});
-					assertExitFails(
-						yield* Effect.exit(
-							runScriptExecutionWorkflowBody(
-								{
-									input: {},
+	layer(inlineWorkflowLayer(executionId, retainedUserPrincipal))(
+		"inline workflow journal",
+		(test) => {
+			test.effect(
+				`execution mode still fails for ${kind} without installation revocation data`,
+				() =>
+					Effect.gen(function* () {
+						const failure = new SandboxRunError({
+							kind,
+							message: `Unchanged ${kind} failure`,
+							...(kind === "resource-unavailable"
+								? { data: { operation: "httpCall", code: "execution-limit" as const } }
+								: {}),
+						});
+						assertExitFails(
+							yield* Effect.exit(
+								runScriptExecutionWorkflowBody(
+									{
+										input: {},
+										executionId,
+										lane: "interactive",
+										resolutionMode: "exact",
+										resultMode: "execution",
+										scriptId: inlineScriptId,
+										subject: retainedUserSubject,
+									},
 									executionId,
-									lane: "interactive",
-									resolutionMode: "exact",
-									resultMode: "execution",
-									scriptId: inlineScriptId,
-									subject: retainedUserSubject,
-								},
-								executionId,
-								() => Effect.fail(failure),
+									() => Effect.fail(failure),
+								),
 							),
-						),
-						failure,
-					);
-				}),
-			testTimeout,
-		);
-	});
+							failure,
+						);
+					}),
+				testTimeout,
+			);
+		},
+	);
 }
 
 const returnedRevocationId = testExecutionId("returned-replay-revocation");
-layer(inlineWorkflowLayer(returnedRevocationId, retainedUserPrincipal))((test) => {
-	test.effect(
-		"preserves boundary data on an execution error returned by the replay",
-		() =>
-			Effect.gen(function* () {
-				const data = {
-					pluginId: pluginRevision.id,
-					code: "package-identity-conflict",
-					installationId: "private-installation",
-				} as const;
-				expect(
-					yield* runScriptExecutionWorkflowBody(
-						{
-							input: {},
-							lane: "interactive",
-							resolutionMode: "exact",
-							resultMode: "execution",
-							scriptId: inlineScriptId,
-							subject: retainedUserSubject,
-							executionId: returnedRevocationId,
+layer(inlineWorkflowLayer(returnedRevocationId, retainedUserPrincipal))(
+	"inline workflow journal",
+	(test) => {
+		test.effect(
+			"preserves boundary data on an execution error returned by the replay",
+			() =>
+				Effect.gen(function* () {
+					const data = {
+						pluginId: pluginRevision.id,
+						code: "package-identity-conflict",
+						installationId: "private-installation",
+					} as const;
+					expect(
+						yield* runScriptExecutionWorkflowBody(
+							{
+								input: {},
+								lane: "interactive",
+								resolutionMode: "exact",
+								resultMode: "execution",
+								scriptId: inlineScriptId,
+								subject: retainedUserSubject,
+								executionId: returnedRevocationId,
+							},
+							returnedRevocationId,
+							() =>
+								Effect.succeed({
+									...replayBase,
+									inline: [],
+									value: null,
+									pendingInline: [],
+									error: {
+										data,
+										phase: "execute",
+										kind: "script-failure",
+										message: "Sandbox installation is unavailable",
+									},
+								}),
+						),
+					).toEqual({
+						logs: [],
+						value: null,
+						status: "completed",
+						error: {
+							data,
+							phase: "execute",
+							kind: "resource-unavailable",
+							message: "Sandbox installation is unavailable",
 						},
-						returnedRevocationId,
-						() =>
-							Effect.succeed({
-								...replayBase,
-								inline: [],
-								value: null,
-								pendingInline: [],
-								error: {
-									data,
-									phase: "execute",
-									kind: "script-failure",
-									message: "Sandbox installation is unavailable",
-								},
-							}),
-					),
-				).toEqual({
-					logs: [],
-					value: null,
-					status: "completed",
-					error: {
-						data,
-						phase: "execute",
-						kind: "resource-unavailable",
-						message: "Sandbox installation is unavailable",
-					},
-				});
-			}),
-		testTimeout,
-	);
-});
+					});
+				}),
+			testTimeout,
+		);
+	},
+);
 
 const failedEnvelopeCases = [
 	{
@@ -1507,7 +1545,7 @@ for (const envelopeCase of failedEnvelopeCases) {
 	for (const mode of ["execution", "workflow"] as const) {
 		const executionId = testExecutionId(`failed-envelope-${envelopeCase.name}-${mode}`);
 		const { data } = envelopeCase;
-		layer(inlineWorkflowLayer(executionId))((test) => {
+		layer(inlineWorkflowLayer(executionId))("inline workflow journal", (test) => {
 			test.effect(
 				`${mode} mode carries a failed envelope's data: ${envelopeCase.name}`,
 				() =>
@@ -1579,7 +1617,7 @@ const inlineIds = {
 	recurring: testExecutionId("inline-recurring"),
 };
 
-layer(inlineWorkflowLayer(inlineIds.ordering))((test) => {
+layer(inlineWorkflowLayer(inlineIds.ordering))("inline workflow journal", (test) => {
 	test.effect(
 		"journals inline results in order and dispatches only the calls that ended a replay",
 		() => {
@@ -1616,29 +1654,27 @@ layer(inlineWorkflowLayer(inlineIds.ordering))((test) => {
 	);
 });
 
-layer(inlineWorkflowLayer(inlineIds.race))((test) => {
+layer(inlineWorkflowLayer(inlineIds.race))("inline workflow journal", (test) => {
 	test.effect(
 		"loads the enqueued journal when an older activation re-appends a prefix",
 		() =>
 			Effect.gen(function* () {
 				const calls = yield* WorkflowTestCalls;
-				const redis = yield* RedisService;
+				const session = yield* DatabaseSession;
 				yield* runInlineWorkflow(inlineIds.race, (sandboxPayload) => {
 					if (sandboxPayload.journalLength === 0) {
 						return Effect.succeed(firstInlineReplay);
 					}
 					return Effect.gen(function* () {
-						yield* appendWorkflowJournalWithRedis(redis, inlineIds.race, 0, [
-							cachedEntry(inlineFirst),
-						]);
+						yield* appendWorkflowJournal(inlineIds.race, 0, [cachedEntry(inlineFirst)]);
 						const inspection = yield* inspectSandboxJournal(
-							redis,
+							session,
 							inlineIds.race,
 							sandboxPayload.journalLength,
 						);
 						assert(inspection !== null);
 						const loaded = yield* readPinnedJournal(
-							pinSandboxJournal(redis, inlineIds.race, inspection),
+							pinSandboxJournal(session, inlineIds.race, inspection),
 						);
 						yield* calls.record("loaded", loaded);
 						return {
@@ -1666,7 +1702,7 @@ layer(inlineWorkflowLayer(inlineIds.race))((test) => {
 	);
 });
 
-layer(inlineWorkflowLayer(inlineIds.missing))((test) => {
+layer(inlineWorkflowLayer(inlineIds.missing))("inline workflow journal", (test) => {
 	test.effect(
 		"re-appends the full journal and retries after the projection is lost",
 		() =>
@@ -1704,7 +1740,7 @@ layer(inlineWorkflowLayer(inlineIds.missing))((test) => {
 	);
 });
 
-layer(inlineWorkflowLayer(inlineIds.lost))((test) => {
+layer(inlineWorkflowLayer(inlineIds.lost))("inline workflow journal", (test) => {
 	test.effect(
 		"fails with resource-unavailable after bounded projection rebuilds",
 		() =>
@@ -2015,12 +2051,7 @@ layer(
 		() =>
 			Effect.gen(function* () {
 				const importRunId = ImportRunId.make("run-1");
-				const subject = {
-					importRunId,
-					type: "user" as const,
-					userId: UserId.make("user-1"),
-					accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
-				};
+				const subject = { importRunId, type: "user" as const, userId: UserId.make("user-1") };
 				const result = yield* performSandboxWorkflowRequest(
 					{
 						index: 0,
@@ -2123,27 +2154,13 @@ layer(
 						executionId: "parent",
 						resolutionMode: "active",
 						scriptId: SandboxScriptId.make("parent-script"),
-						subject: {
-							type: "user",
-							userId: UserId.make("trusted-user"),
-							accountGeneration: {
-								token: "test-account-generation",
-								userId: UserId.make("trusted-user"),
-							},
-						},
+						subject: { type: "user", userId: UserId.make("trusted-user") },
 					},
 					"parent",
 					makeUserPrincipal({
 						pluginRevision,
 						scriptId: SandboxScriptId.make("parent-script"),
-						subject: {
-							type: "user",
-							userId: UserId.make("trusted-user"),
-							accountGeneration: {
-								token: "test-account-generation",
-								userId: UserId.make("trusted-user"),
-							},
-						},
+						subject: { type: "user", userId: UserId.make("trusted-user") },
 					}),
 				);
 
@@ -2155,15 +2172,8 @@ layer(
 						input: { externalId: "record-1" },
 						executionId: "parent-child-import-3-4",
 						workflowSlug: KERNEL_ENTITY_IMPORT_WORKFLOW,
+						subject: { type: "user", userId: "trusted-user" },
 						callerAuthority: { pluginRevision, scriptId: "parent-script" },
-						subject: {
-							type: "user",
-							userId: "trusted-user",
-							accountGeneration: {
-								token: "test-account-generation",
-								userId: UserId.make("trusted-user"),
-							},
-						},
 					},
 				]);
 			}),
@@ -2179,7 +2189,7 @@ const recurringRequests = (length: number) => [
 	),
 ];
 
-layer(inlineWorkflowLayer(inlineIds.recurring))((test) => {
+layer(inlineWorkflowLayer(inlineIds.recurring))("inline workflow journal", (test) => {
 	test.effect(
 		"counts only consecutive projection losses against the rebuild bound",
 		() =>

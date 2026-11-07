@@ -13,10 +13,9 @@ import {
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
-import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Duration, Effect, Fiber, Layer, MutableRef, Ref, Schema } from "effect";
+import { Duration, Effect, Fiber, Layer, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 
@@ -28,9 +27,9 @@ import {
 } from "#modules/scripts/authorization/principal.test-support";
 import { sandboxHttpRedirectClassifier } from "#modules/scripts/host/durable-dispatcher";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
-import { RedisService } from "#platform/redis";
 import { ServerRun } from "#platform/server-run";
-import { makeRedisService } from "#testing/effect";
+import { TransientValues } from "#platform/transient-values";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import {
 	executeSandboxHttp,
@@ -72,39 +71,11 @@ const pluginInput = makeUserRunInput({
 	},
 });
 
-const runtimeHostLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const values = yield* Ref.make<ReadonlyMap<string, string>>(new Map());
-		const run = Effect.runPromiseWith(yield* Effect.context());
-		const read = (key: string) => MutableRef.get(values.ref).get(key) ?? null;
-		const write = (key: string, value: string) =>
-			MutableRef.update(values.ref, (all) => new Map(all).set(key, value));
-		const client = partialFake<RedisService["Service"]["client"]>({
-			get: (key: string) => Promise.resolve(read(key)),
-			set: (key: string, value: string, ...options: ReadonlyArray<unknown>) =>
-				run(
-					Effect.sync(() => {
-						if (options.includes("NX") && MutableRef.get(values.ref).has(key)) {
-							return null;
-						}
-						write(key, value);
-						return "OK";
-					}),
-				),
-		});
-		const redis = makeRedisService({
-			client,
-			get: (key) => Effect.map(Ref.get(values), (all) => all.get(key) ?? null),
-			set: (key, value) => Ref.update(values, (all) => new Map(all).set(key, value)),
-		});
-
-		return Layer.mergeAll(
-			Layer.succeed(RedisService, redis),
-			Layer.succeed(ServerRun, { id: "run-1" }),
-			FetchHttpClient.layer,
-		);
-	}),
-);
+const runtimeHostLayer = Layer.mergeAll(
+	TransientValues.layer,
+	Layer.succeed(ServerRun, { id: "run-1" }),
+	FetchHttpClient.layer,
+).pipe(Layer.provideMerge(isolatedDatabaseLayer("runtime_host")));
 
 describe("runtime sandbox host functions", () => {
 	layer(runtimeHostLayer)((test) => {

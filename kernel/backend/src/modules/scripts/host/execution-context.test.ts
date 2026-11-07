@@ -27,7 +27,6 @@ describe("script execution context", () => {
 						type: "user",
 						userId: UserId.make("user-1"),
 						integrationId: IntegrationId.make("integration-1"),
-						accountGeneration: { userId: UserId.make("user-1"), token: "test-account-generation" },
 					}),
 					...trusted,
 				},

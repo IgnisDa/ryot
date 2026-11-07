@@ -28,8 +28,8 @@ import type {
 } from "#modules/scripts/authorization/capabilities";
 import { sandboxRunUserId } from "#modules/scripts/host/execution-context";
 import { EgressDenied } from "#platform/egress/http-client";
-import { redisKeys, RedisService } from "#platform/redis";
 import { ServerRun } from "#platform/server-run";
+import { TransientValues } from "#platform/transient-values";
 
 import { readSandboxByteLimitedText } from "./stream-utils";
 
@@ -326,45 +326,36 @@ const cacheScope = (input: ScriptRunInput) => {
 	return [sandboxRunUserId(input), pluginScope, operationScope] as const;
 };
 
+export const sandboxPersistentCacheKey = (
+	userId: null | string,
+	pluginScope: readonly ["kernel"] | readonly ["plugin", string],
+	operationScope: readonly [string, string],
+	key: string,
+) => `sandbox:cache:${identityTupleKey(userId, pluginScope, operationScope, key.trim())}`;
+
 const persistentKey = (input: ScriptRunInput, key: string) =>
-	redisKeys.sandboxPersistentCache(...cacheScope(input), key);
+	sandboxPersistentCacheKey(...cacheScope(input), key);
 
 export const makeRuntimeSandboxApiFunctions = (
 	classify: SandboxHttpClassify,
 ): Effect.Effect<
 	RuntimeSandboxHostImplementationMap,
 	never,
-	ServerRun | RedisService | HttpClient.HttpClient
+	ServerRun | TransientValues | HttpClient.HttpClient
 > =>
 	Effect.gen(function* () {
-		const redis = yield* RedisService;
+		const values = yield* TransientValues;
 		const serverRun = yield* ServerRun;
 		const httpClient = yield* HttpClient.HttpClient;
 		const runKey = (input: ScriptRunInput, key: string) =>
-			redisKeys.sandboxRunCacheNamespace(
-				serverRun.id,
-				identityTupleKey(
-					...cacheScope(input),
-					input.principal.pluginRevision?.revisionId ?? input.principal.contentHash,
-					input.principal.pluginRevision?.configRevisionId ?? null,
-					key.trim(),
-				),
-			);
+			`sandbox:cache:run:${serverRun.id}:${identityTupleKey(
+				...cacheScope(input),
+				input.principal.pluginRevision?.revisionId ?? input.principal.contentHash,
+				input.principal.pluginRevision?.configRevisionId ?? null,
+				key.trim(),
+			)}`;
 
 		return {
-			setCachedValue: (input, key, value, expiry) =>
-				sandboxCacheInputGuard(
-					"setCachedValue",
-					key,
-					() =>
-						encodeSandboxCacheValue("setCachedValue", value).pipe(
-							Effect.flatMap((serialized) =>
-								redis.set(runKey(input, key), serialized, expiry).pipe(Effect.as(null)),
-							),
-							sandboxHostEffect,
-						),
-					{ label: "expiry", seconds: expiry },
-				),
 			// Inline and live calls cannot wait for admission, so a stopped redirect fails the call.
 			httpCall: (_input, method, url, options) =>
 				prepareSandboxHttpRequest(method, url, options).pipe(
@@ -376,9 +367,25 @@ export const makeRuntimeSandboxApiFunctions = (
 							: sandboxHostFailure(SANDBOX_HTTP_REDIRECT_STOPPED_MESSAGE),
 					),
 				),
+			setCachedValue: (input, key, value, expiry) =>
+				sandboxCacheInputGuard(
+					"setCachedValue",
+					key,
+					() =>
+						encodeSandboxCacheValue("setCachedValue", value).pipe(
+							Effect.flatMap((serialized) =>
+								values
+									.set(runKey(input, key), serialized, Duration.seconds(expiry))
+									.pipe(Effect.as(null), Effect.mapError(unknownToMessage)),
+							),
+							sandboxHostEffect,
+						),
+					{ label: "expiry", seconds: expiry },
+				),
 			getPersistentValue: (input, key) =>
 				sandboxCacheInputGuard("getPersistentValue", key, () =>
-					Effect.uninterruptible(redis.get(persistentKey(input, key))).pipe(
+					Effect.uninterruptible(values.get(persistentKey(input, key))).pipe(
+						Effect.mapError(unknownToMessage),
 						Effect.flatMap((stored) =>
 							stored === null
 								? Effect.succeed(null)
@@ -398,7 +405,8 @@ export const makeRuntimeSandboxApiFunctions = (
 				),
 			getCachedValue: (input, key) =>
 				sandboxCacheInputGuard("getCachedValue", key, () =>
-					Effect.uninterruptible(redis.get(runKey(input, key))).pipe(
+					Effect.uninterruptible(values.get(runKey(input, key))).pipe(
+						Effect.mapError(unknownToMessage),
 						Effect.flatMap((cached) => {
 							if (cached === null) {
 								return Effect.succeed(null);
@@ -423,7 +431,7 @@ export const makeRuntimeSandboxApiFunctions = (
 					"claimPersistentValue",
 					key,
 					() => {
-						const redisKey = persistentKey(input, key);
+						const storedKey = persistentKey(input, key);
 
 						return Effect.gen(function* () {
 							yield* encodeSandboxCacheValue("claimPersistentValue", value);
@@ -434,19 +442,15 @@ export const makeRuntimeSandboxApiFunctions = (
 								Effect.mapError(() => "claimPersistentValue value must be JSON-serializable"),
 							);
 
-							const setResult = yield* Effect.tryPromise({
-								catch: unknownToMessage,
-								try: () => redis.client.set(redisKey, serialized, "EX", ttlSeconds, "NX"),
-							});
-							if (setResult !== null) {
+							const stored = yield* values
+								.setIfAbsent(storedKey, serialized, Duration.seconds(ttlSeconds))
+								.pipe(Effect.mapError(unknownToMessage));
+							if (stored) {
 								return { claimed: true } as const;
 							}
 
-							const existing = yield* Effect.uninterruptible(
-								Effect.tryPromise({
-									catch: unknownToMessage,
-									try: () => redis.client.get(redisKey),
-								}),
+							const existing = yield* Effect.uninterruptible(values.get(storedKey)).pipe(
+								Effect.mapError(unknownToMessage),
 							);
 							if (existing === null) {
 								return { value: null, claimed: false };

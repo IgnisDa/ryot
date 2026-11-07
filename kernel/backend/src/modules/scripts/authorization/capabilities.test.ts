@@ -34,11 +34,7 @@ const pluginRevision = (isUserBootstrap = false) => ({
 describe("requireSandboxCapabilityInput", () => {
 	it("limits projection processors to declared read-only capabilities", () => {
 		const userId = UserId.make("user_1");
-		const subject = {
-			userId,
-			type: "projection" as const,
-			accountGeneration: { userId, token: "test-account-generation" },
-		};
+		const subject = { userId, type: "projection" as const };
 		const input = makeSubjectRunInput(subject);
 		for (const capability of SANDBOX_HOST_CAPABILITIES) {
 			expect(isSandboxCapabilityAllowed(input, capability)).toBe(
@@ -81,11 +77,7 @@ describe("requireSandboxCapabilityInput", () => {
 		).toBe(false);
 		expect(
 			isSandboxCapabilityAllowed(
-				makeSubjectRunInput({
-					type: "user",
-					userId: UserId.make("user_1"),
-					accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
-				}),
+				makeSubjectRunInput({ type: "user", userId: UserId.make("user_1") }),
 				"sendNotification",
 			),
 		).toBe(false);
@@ -117,11 +109,7 @@ describe("requireSandboxCapabilityInput", () => {
 		expect(isSandboxCapabilityAllowed(input, "upsertGlobalRelationships")).toBe(false);
 	});
 	it("returns input when subject and metadata satisfy capability policy", () => {
-		const input = makeSubjectRunInput({
-			type: "user",
-			userId: UserId.make("user_1"),
-			accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
-		});
+		const input = makeSubjectRunInput({ type: "user", userId: UserId.make("user_1") });
 		expect(
 			Effect.runSync(requireSandboxCapabilityInput(input, "getUserPreferences")),
 		).toBe<unknown>(input);
@@ -135,11 +123,7 @@ describe("requireSandboxCapabilityInput", () => {
 
 	it("limits Pro availability and managed asset verification to user-owned runs", () => {
 		const userId = UserId.make("user_1");
-		const user = makeSubjectRunInput({
-			userId,
-			type: "user",
-			accountGeneration: { userId, token: "test-account-generation" },
-		});
+		const user = makeSubjectRunInput({ userId, type: "user" });
 		const automation = makeSubjectRunInput(automationRunSubject("after", userId));
 		const before = makeSubjectRunInput(automationRunSubject("before", userId));
 		const system = makeSubjectRunInput({ type: "system" });
@@ -170,11 +154,7 @@ describe("requireSandboxCapabilityInput", () => {
 
 	it("limits user settings writes to declared direct user executions", () => {
 		const userId = UserId.make("user_1");
-		const subject = {
-			userId,
-			type: "user" as const,
-			accountGeneration: { userId, token: "test-account-generation" },
-		};
+		const subject = { userId, type: "user" as const };
 		expect(isSandboxCapabilityAllowed(makeSubjectRunInput(subject), "updateUserSettings")).toBe(
 			true,
 		);
@@ -274,11 +254,7 @@ describe("requireSandboxCapabilityInput", () => {
 	});
 
 	it("permits only exact designated user-bootstrap scripts in either plugin scope", () => {
-		const subject = {
-			type: "user" as const,
-			userId: UserId.make("user_1"),
-			accountGeneration: { userId: UserId.make("user_1"), token: "test-account-generation" },
-		};
+		const subject = { type: "user" as const, userId: UserId.make("user_1") };
 		expect(() =>
 			Effect.runSync(
 				requireSandboxCapabilityInput(makeSubjectRunInput(subject), "ensureUserEntities"),

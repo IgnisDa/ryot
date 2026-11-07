@@ -15,7 +15,7 @@ product eligibility, or implements product capabilities; the backend provides th
 | `SandboxHostCallScope`      | The bound that host-call work runs under (the backend's database lease)                 |
 | `SandboxHostFunctions`      | Per-run host functions, bound to the execution and limited to its eligible capabilities |
 | `SandboxExecutionAuthority` | The trust tier of a principal, reloaded from persisted authority                        |
-| `SandboxRedis`              | The client for recovery, quarantine, and crash state under `ryot:sandbox:*` keys        |
+| `SandboxStateStore`         | Shared, expiring recovery, quarantine, and crash state, updated atomically per key set  |
 
 ## Isolation And Capacity
 
@@ -68,7 +68,7 @@ Artifact reads use 1 MiB slices; scratch writes are limited to 256 KiB. Before d
 
 ## Recovery
 
-Redis stores sidecar recovery state with a failure count capped at three. State exists only once a collateral failure is recorded: reads of a run without it store nothing, and the run returns no recovery identity, so its caller has nothing to clear. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An owner/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
+`SandboxStateStore` holds sidecar recovery state with a failure count capped at three. State exists only once a collateral failure is recorded: reads of a run without it store nothing, and the run returns no recovery identity, so its caller has nothing to clear. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An owner/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
 
 ## Limits
 

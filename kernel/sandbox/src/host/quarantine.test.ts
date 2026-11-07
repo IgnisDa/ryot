@@ -8,22 +8,17 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
-import { sandboxProtectionKeys } from "./crash-store";
 import { makeUserPluginRevision } from "./executor.test-support";
-import {
-	deleteRedisKeysOnExit,
-	makeSandboxHostConfigLayer,
-	testExecutionId,
-	testSandboxRedisLayer,
-} from "./host.test-support";
+import { makeSandboxHostConfigLayer, testExecutionId } from "./host.test-support";
 import type { SandboxPrincipal } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { makeUserPrincipal, makeUserSubject } from "./run-input.test-support";
+import { SandboxStateStore } from "./state-store";
 
 const quarantineLayer = Layer.unwrap(
 	Effect.sync(() =>
 		SandboxSidecarQuarantine.layer.pipe(
-			Layer.provideMerge(testSandboxRedisLayer),
+			Layer.provideMerge(SandboxStateStore.memoryLayer),
 			Layer.provide(makeSandboxHostConfigLayer()),
 		),
 	),
@@ -47,7 +42,6 @@ const testHash = () => crypto.randomUUID().replaceAll("-", "").padEnd(64, "0");
 const sessions = Effect.gen(function* () {
 	const quarantine = yield* SandboxSidecarQuarantine;
 	const identities = new Set<string>();
-	yield* deleteRedisKeysOnExit(() => [...identities].flatMap(sandboxProtectionKeys));
 	return Effect.fnUntraced(function* (principal: SandboxPrincipal, trust: "user" | "system") {
 		const session = yield* quarantine.open(principal, trust);
 		for (const identity of session.identities) {
@@ -171,12 +165,7 @@ layer(Layer.provideMerge(quarantineLayer, BunCrypto.layerSecureRandom))((test) =
 					const firstParty = { ...base, pluginRevision: null };
 					const otherUser = {
 						...firstParty,
-						subject: {
-							...base.subject,
-							userId: otherOwner,
-							type: "user" as const,
-							accountGeneration: { userId: otherOwner, token: "other-generation" },
-						},
+						subject: { ...base.subject, userId: otherOwner, type: "user" as const },
 					};
 					const userless = { ...firstParty, subject: { type: "system" as const } };
 					yield* open(otherUser, "system");
