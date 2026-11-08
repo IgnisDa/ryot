@@ -10,7 +10,7 @@ import {
 	kernelEntityPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
-import { objectContaining } from "@ryot-app/testing/matchers";
+import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -197,8 +197,80 @@ const itemMember = {
 	translationStatus: { state: "succeeded", availability: "complete" },
 };
 
+const collectionPage = (label: string, entitySchemaSlugs: readonly string[]) => ({
+	label,
+	icon: "sparkles",
+	entitySchemaSlugs,
+	route: "/collections/$collectionId/related",
+});
+
 describe("collection detail", () => {
 	afterEach(disposePluginBridges);
+
+	it.live(
+		"opens plugin collection pages that cover the collection's member types",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col 1");
+				yield* answerCollection(page, {
+					name: "Shelf",
+					members: [itemMember],
+					groups: [itemGroup, { ...itemGroup, ownerPluginId: "other" }],
+				});
+				const plugins = yield* request(page, "plugins");
+				expect(plugins.document.queries["plugins"]?.where).toMatchObject({
+					predicates: arrayContaining([
+						objectContaining({
+							type: "in",
+							values: [
+								{ type: "literal", value: "fixture" },
+								{ value: "other", type: "literal" },
+							],
+						}),
+					]),
+				});
+				page.replyQuery(plugins.requestId, {
+					outcome: "success",
+					response: {
+						data: {
+							plugins: {
+								type: "rows",
+								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								items: [
+									{
+										pluginId: "fixture",
+										packageId: "test/fixture",
+										pages: {
+											related: collectionPage("Related", ["item"]),
+											unused: collectionPage("Unused", ["other-type"]),
+										},
+									},
+								],
+							},
+						},
+					},
+				});
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Related" })),
+				);
+				expect(screen.queryByRole("button", { name: "Unused" })).toBeNull();
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>({
+							mode: "push",
+							type: "navigate",
+							target: {
+								search: "",
+								kind: "plugin-route",
+								packageId: "test/fixture",
+								path: "/collections/col%201/related",
+							},
+						}),
+					),
+				);
+			}),
+		testTimeout,
+	);
 
 	it.live(
 		"reorders with keyboard controls through the server command and shared haptics",

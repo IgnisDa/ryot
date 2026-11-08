@@ -253,6 +253,11 @@ picker offers for creation with the search text as the `name` search parameter (
 without one but with a manifest `editor`, create inline); `homeView` names a plugin-owned saved view or is null. Saved views do not carry
 legacy display mappings or sandbox scripts.
 
+`collectionPages` adds header actions to kernel collection detail. Each entry names a `label`, `icon`,
+owned `entitySchemaSlugs`, and a declared `route` containing a `$collectionId` segment. The action
+appears only on collections that contain members of those schemas, and opens the route with the
+collection's ID in that segment.
+
 Entity-browser settings declare a `summary` for compact kernel lists such as command-center search:
 `image` names a projected managed-asset field and `subtitle` names a projected field with a `text`,
 `date`, `number`, `year`, or `boolean` display kind; either may be null. Installation rejects search,

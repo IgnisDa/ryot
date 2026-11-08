@@ -20,6 +20,9 @@ import {
 	collectionMembersCountRecipe,
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
+	collectionPageLinks,
+	collectionPluginPagesRecipe,
+	type CollectionPluginPagesResult,
 } from "@ryot-app/ryotql-recipes/collections";
 import { useEffect, useEffectEvent, useState } from "react";
 
@@ -49,6 +52,14 @@ const browseQuery = createRyotQuery<
 });
 const totalQuery = createRyotQuery<string, number>(({ input, client }) =>
 	client.data.query(collectionMembersCountRecipe({ collectionId: input })),
+);
+const pluginPagesQuery = createRyotQuery<readonly string[], CollectionPluginPagesResult>(
+	({ input, client }) => {
+		const [first, ...rest] = input;
+		return first === undefined
+			? Effect.succeed([])
+			: client.data.query(collectionPluginPagesRecipe({ pluginIds: [first, ...rest] }));
+	},
 );
 
 const CollectionCount = ({
@@ -119,6 +130,22 @@ const CollectionBrowser = ({
 }) => {
 	const ryot = useRyot();
 	const openScreen = useHostScreen();
+	const pluginPages = useRyotQuery(pluginPagesQuery, [
+		...new Set(groups.items.flatMap(({ ownerPluginId }) => ownerPluginId ?? [])),
+	]);
+	const pageActions = collectionPageLinks(collectionId, groups, pluginPages.data ?? []).map(
+		(link) => ({
+			icon: link.icon,
+			label: link.label,
+			run: () =>
+				ryot.navigation.push({
+					search: {},
+					path: link.path,
+					kind: "plugin-route",
+					packageId: link.packageId,
+				}),
+		}),
+	);
 	const editCollection = () =>
 		openScreen(ryot.screens.editCollection({ collectionId }), (outcome) => {
 			if (outcome.kind === "deleted") {
@@ -174,6 +201,7 @@ const CollectionBrowser = ({
 			errorMessage="The collection could not be loaded."
 			tableColumns={collectionMemberTableColumns(membershipPropertiesSchema)}
 			headerActions={[
+				...pageActions,
 				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
 				{ icon: "pencil", run: editCollection, label: "Edit collection" },
 			]}

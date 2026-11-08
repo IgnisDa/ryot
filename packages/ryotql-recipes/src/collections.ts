@@ -4,12 +4,21 @@ import {
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
 import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
+import {
+	collectionPagePath,
+	PluginClientCollectionPages,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	SavedViewDisplayValue,
 	type SavedViewTableColumn,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { EntityId, RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import {
+	EntityId,
+	PluginId,
+	PluginPackageId,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	type AppPropertyDefinition,
@@ -720,3 +729,60 @@ export const collectionMembersAggregateRecipe = defineRecipe(
 export type CollectionMembersAggregateResult = Recipe.Success<
 	typeof collectionMembersAggregateRecipe
 >;
+
+export const collectionPluginPagesRecipe = defineRecipe(
+	(input: { readonly pluginIds: readonly [string, ...string[]] }) => {
+		const plugin = table("plugin", "collectionPagesPlugin");
+		return {
+			map: ({ plugins }) => Result.succeed(plugins.items),
+			queries: {
+				plugins: selectedRows(plugin, {
+					limit: 100,
+					orderBy: [ascending(column(plugin, "packageId")), ascending(column(plugin, "id"))],
+					where: and(
+						inArray(
+							column(plugin, "id"),
+							input.pluginIds.map((pluginId) => literal(pluginId)),
+						),
+						eq(column(plugin, "status"), literal("active")),
+						isNotNull(column(plugin, "clientCollectionPages")),
+					),
+					selection: {
+						pluginId: selectedField(column(plugin, "id"), PluginId),
+						packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
+						pages: selectedField(
+							column(plugin, "clientCollectionPages"),
+							PluginClientCollectionPages,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
+export type CollectionPluginPagesResult = Recipe.Success<typeof collectionPluginPagesRecipe>;
+
+export const collectionPageLinks = (
+	collectionId: string,
+	groups: CollectionMembersAggregateResult,
+	plugins: CollectionPluginPagesResult,
+) =>
+	plugins.flatMap((plugin) =>
+		Object.values(plugin.pages).flatMap((page) =>
+			groups.items.some(
+				(group) =>
+					group.ownerPluginId === plugin.pluginId &&
+					page.entitySchemaSlugs.includes(group.entitySchemaSlug),
+			)
+				? [
+						{
+							icon: page.icon,
+							label: page.label,
+							packageId: plugin.packageId,
+							path: collectionPagePath(page.route, collectionId),
+						},
+					]
+				: [],
+		),
+	);

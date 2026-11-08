@@ -242,6 +242,26 @@ export const PluginClientEntities = Schema.Record(
 	}),
 );
 
+const COLLECTION_PAGE_ROUTE_PARAM = "$collectionId";
+
+export const PluginClientCollectionPages = Schema.Record(
+	pluginManifestSlug,
+	strictStruct({
+		route: Schema.String,
+		icon: Schema.NonEmptyString,
+		label: Schema.NonEmptyString,
+		entitySchemaSlugs: Schema.NonEmptyArray(pluginManifestSlug),
+	}),
+);
+
+export const collectionPagePath = (route: string, collectionId: string) =>
+	route
+		.split("/")
+		.map((segment) =>
+			segment === COLLECTION_PAGE_ROUTE_PARAM ? encodeURIComponent(collectionId) : segment,
+		)
+		.join("/");
+
 export const PluginClientEntry = strictStruct({
 	homeView: Schema.NullOr(pluginManifestSlug),
 	exports: Schema.optional(PluginClientExports),
@@ -249,6 +269,7 @@ export const PluginClientEntry = strictStruct({
 	entities: Schema.optional(PluginClientEntities),
 	notFoundPage: Schema.optional(pluginManifestSlug),
 	pluginDependencies: Schema.optional(PluginClientDependencies),
+	collectionPages: Schema.optional(PluginClientCollectionPages),
 	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
 	analyticsSections: Schema.optional(
 		Schema.Record(
@@ -1087,6 +1108,15 @@ const hasValidClientManifestReferences = (
 			if (exportName !== undefined && clientExports[exportName]?.kind !== "presentation") {
 				return false;
 			}
+		}
+	}
+	for (const page of Object.values(manifest.client?.collectionPages ?? {})) {
+		if (
+			manifest.client?.routes?.[page.route] === undefined ||
+			!page.route.split("/").includes(COLLECTION_PAGE_ROUTE_PARAM) ||
+			!page.entitySchemaSlugs.every((slug) => entitySchemaSlugs.has(slug))
+		) {
+			return false;
 		}
 	}
 	for (const exportName of [

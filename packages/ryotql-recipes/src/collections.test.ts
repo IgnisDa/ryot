@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
+import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
@@ -21,6 +22,8 @@ import {
 	collectionMembershipTargetRecipe,
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
+	collectionPageLinks,
+	collectionPluginPagesRecipe,
 } from "./collections";
 import type { FilterInput } from "./filters";
 
@@ -97,6 +100,13 @@ const membershipPropertiesSchema: AppSchema = {
 	},
 };
 /* oxlint-enable perfectionist/sort-objects */
+
+const collectionPage = (entitySchemaSlugs: readonly string[]) => ({
+	icon: "sparkles",
+	label: "Related",
+	entitySchemaSlugs,
+	route: "/collections/$collectionId/related",
+});
 
 describe("collections recipes", () => {
 	it("selects the membership target name for the collection manager", () => {
@@ -598,6 +608,69 @@ describe("collections recipes", () => {
 				},
 			],
 		});
+	});
+
+	it("links only the plugin pages that cover a member type in the collection", () => {
+		const recipe = collectionPluginPagesRecipe({ pluginIds: ["fixture-1", "fixture-2"] });
+		const query = recipe.document.queries.plugins;
+		assert(query);
+		expect(query.where).toMatchObject({
+			predicates: [
+				{ type: "in", values: [{ value: "fixture-1" }, { value: "fixture-2" }] },
+				{ right: { value: "active" } },
+				{ type: "isNotNull", expr: { field: "clientCollectionPages" } },
+			],
+		});
+		const plugins = Result.getOrThrow(
+			recipe.decode({
+				data: {
+					plugins: {
+						pageInfo,
+						type: "rows",
+						items: [
+							{
+								pluginId: "fixture-1",
+								packageId: "test/one",
+								pages: { other: collectionPage(["group"]), related: collectionPage(["unit"]) },
+							},
+							{
+								pluginId: "fixture-2",
+								packageId: "test/two",
+								pages: { related: collectionPage(["unit"]) },
+							},
+						],
+					},
+				},
+			}),
+		);
+		const groups = {
+			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+			items: [
+				{
+					count: 1,
+					entitySchemaSlug: "unit",
+					ownerPluginId: "fixture-1",
+					ownerPluginName: "Fixture",
+					typeLabel: "Fixture / unit",
+				},
+				{
+					count: 1,
+					ownerPluginId: null,
+					ownerPluginName: null,
+					typeLabel: "Collections",
+					entitySchemaSlug: "unit",
+				},
+			],
+		};
+
+		expect(collectionPageLinks("col 1", groups, plugins)).toEqual([
+			{
+				icon: "sparkles",
+				label: "Related",
+				path: "/collections/col%201/related",
+				packageId: PluginPackageId.make("test/one"),
+			},
+		]);
 	});
 
 	it("rejects malformed list fields and cardinality", () => {

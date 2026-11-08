@@ -493,6 +493,11 @@ const plugin: CatalogTable = {
 		configSchema: pluginActiveRevisionField("revision.client_config_schema", "json", true),
 		clientEntities: pluginActiveRevisionField("revision.client -> 'entities'", "json", true),
 		userSettingsSchema: pluginActiveRevisionField("revision.user_settings_schema", "json", true),
+		clientCollectionPages: pluginActiveRevisionField(
+			"revision.client -> 'collectionPages'",
+			"json",
+			true,
+		),
 		environmentConfigRevisionId: withAccess(
 			physicalField("environment_config_revision_id", "text"),
 			"admin",

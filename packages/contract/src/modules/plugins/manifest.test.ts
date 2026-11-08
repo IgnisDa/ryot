@@ -10,6 +10,7 @@ import { emptySandboxExecutionMetadata } from "../../testing";
 import { uploadContentTypeExtensions } from "../assets/upload-policy";
 import {
 	CLIENT_API_VERSION,
+	collectionPagePath,
 	definePlugin,
 	type PluginClientEntry,
 	PluginManifest,
@@ -485,9 +486,21 @@ describe("definePlugin", () => {
 					pluginDependencies,
 					notFoundPage: "dashboard",
 					apiVersion: CLIENT_API_VERSION,
-					routes: { "/": "dashboard", "/things/$thingId": "dashboard" },
 					entities: {
 						thing: { createRoute: "/", detailPage: "dashboard", gridPresentation: "row" },
+					},
+					routes: {
+						"/": "dashboard",
+						"/things/$thingId": "dashboard",
+						"/collections/$collectionId/related": "dashboard",
+					},
+					collectionPages: {
+						related: {
+							icon: "sparkles",
+							label: "Related things",
+							entitySchemaSlugs: ["thing"] as const,
+							route: "/collections/$collectionId/related",
+						},
 					},
 					exports: {
 						card: {
@@ -552,6 +565,22 @@ describe("definePlugin", () => {
 					{ ...client, entities: { thing: { createRoute: "/things/new" } } },
 					{ ...client, routes: { "/": "card" } },
 					{ ...client, notFoundPage: "missing" },
+					{
+						...client,
+						collectionPages: {
+							related: { ...client.collectionPages.related, route: "/collections/$id/other" },
+						},
+					},
+					{
+						...client,
+						collectionPages: { related: { ...client.collectionPages.related, route: "/" } },
+					},
+					{
+						...client,
+						collectionPages: {
+							related: { ...client.collectionPages.related, entitySchemaSlugs: ["missing"] },
+						},
+					},
 				];
 				expect(
 					invalidClients.map((invalidClient) =>
@@ -562,7 +591,7 @@ describe("definePlugin", () => {
 							}),
 						),
 					),
-				).toEqual([true, true, true, true, true, true, true, true, true, true, true, true, true]);
+				).toEqual(invalidClients.map(() => true));
 			}),
 		testTimeout,
 	);
@@ -2094,6 +2123,15 @@ describe("definePlugin", () => {
 });
 
 const withSources = (calendarSources: ReadonlyArray<unknown>) => ({ ...manifest, calendarSources });
+
+describe("collection pages", () => {
+	it("substitutes only the collection route segment", () => {
+		expect(collectionPagePath("/collections/$collectionId/related", "a/b c")).toBe(
+			"/collections/a%2Fb%20c/related",
+		);
+		expect(collectionPagePath("/$collectionIds/$collectionId", "id")).toBe("/$collectionIds/id");
+	});
+});
 
 describe("calendar sources", () => {
 	const calendarSource = {

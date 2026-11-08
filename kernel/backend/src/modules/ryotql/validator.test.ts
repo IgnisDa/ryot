@@ -263,6 +263,7 @@ it("exposes only approved application-table fields", () => {
 			"activeRevisionId",
 			"clientApiVersion",
 			"userSettingsSchema",
+			"clientCollectionPages",
 			"environmentConfigRevisionId",
 		]),
 	);
