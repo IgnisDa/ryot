@@ -1394,6 +1394,42 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 	);
 
 	test.effect(
+		"reports every settled call when a failed parallel call stops its sibling",
+		() =>
+			Effect.gen(function* () {
+				const compiled = yield* compileTestScript(durableSource);
+				const { inline, response } = yield* runNative(
+					compiled,
+					{ mode: "parallel" },
+					{
+						lane: "background",
+						workflowExecutionId: "durable-parent",
+						inlineDurableHost: {
+							capabilities: ["getCachedValue"],
+							settle: (requests) =>
+								Effect.succeed(
+									requests.map(() => ({
+										state: "failure" as const,
+										error: { message: "Upstream timed out" },
+									})),
+								),
+						},
+					},
+				);
+				expect(inline).toHaveLength(2);
+				expect(response).toMatchObject({
+					success: true,
+					value: {
+						state: "failed",
+						error: stringContaining("Upstream timed out"),
+						requests: [cachedRequest(0, "first"), cachedRequest(1, "second")],
+					},
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"defers whole batches and rejects non-inline capabilities",
 		() =>
 			Effect.gen(function* () {

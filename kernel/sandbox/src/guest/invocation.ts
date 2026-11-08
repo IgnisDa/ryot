@@ -991,6 +991,16 @@ const createDurableHost = (
 			someArray(calls, (call: DurableCall) => !call.started || !call.settled)
 				? "Sandbox body returned with detached or in-flight durable host work"
 				: undefined,
+		settledRequests: () => {
+			const settled: Array<Schema.Schema.Type<typeof workflowDurableCallRequestSchema>> = [];
+			for (let index = 0; index < settledJournalLength; index += 1) {
+				const request = requests[index];
+				if (request !== undefined) {
+					pushArray(settled, request);
+				}
+			}
+			return settled;
+		},
 		startedRequests: () => {
 			const started: Array<Schema.Schema.Type<typeof workflowDurableCallRequestSchema>> = [];
 			for (let index = 0; index < calls.length; index += 1) {
@@ -1124,6 +1134,18 @@ const executeDefinition = Effect.fnUntraced(function* (
 	const outcome = yield* capturedExit;
 
 	if (durable) {
+		// A failure can stop sibling calls before they start; any already settled in a batch still ran.
+		if (!outcome.success) {
+			const data = boundaryReasonOfError(outcome.error);
+			return {
+				state: "failed",
+				...(data ? { data } : {}),
+				error: errorMessage(outcome.error),
+				requests: durable.settledRequests(),
+				journalLength: durable.journalLength,
+				kind: hostFailureKind(outcome.error) ?? "script-failure",
+			};
+		}
 		const detachedError = durable.detachedError();
 		if (detachedError) {
 			return {
@@ -1132,17 +1154,6 @@ const executeDefinition = Effect.fnUntraced(function* (
 				kind: "script-failure",
 				requests: durable.startedRequests(),
 				journalLength: durable.journalLength,
-			};
-		}
-		if (!outcome.success) {
-			const data = boundaryReasonOfError(outcome.error);
-			return {
-				state: "failed",
-				...(data ? { data } : {}),
-				requests: durable.requests,
-				error: errorMessage(outcome.error),
-				journalLength: durable.journalLength,
-				kind: hostFailureKind(outcome.error) ?? "script-failure",
 			};
 		}
 		setPhase("output");
