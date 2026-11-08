@@ -70,7 +70,7 @@ arbitrary script reads or eliminate sandbox execution while the writing transact
 that while preserving atomic source-plus-derived writes requires a restricted input snapshot or a
 complete read-dependency check; the former prepared-result key was neither.
 
-## Checkpoint API: viable direction, not replaced in this change
+## Checkpoint API: rationale
 
 Consider a 1,000-record import in batches of 100. With transparent replay, the plugin restarts its
 function, and the engine supplies saved results for completed calls until it reaches unfinished
@@ -93,20 +93,15 @@ The current implementation already contains much of this domain checkpointing:
 - `runtime/source-state-store.ts` preserves encrypted admitted settings and durable artifact
   references. Code/config pins and captured inputs must outlive process-local scratch files.
 
-A narrower replacement should let an import plugin return a normalized batch and its next cursor;
-the kernel should own capture, apply, checkpoint advancement, and cleanup. The plugin should not
-perform arbitrary mutations between returning batches. External confirmation is a separate phase
-with its own recorded outcome and provider retry policy: a cursor cannot resolve whether a remote
-write succeeded before the connection failed. Notification/reminder ambiguity is already documented
-in `../work-reduction/durability-requirements.md`.
+The kernel continues to own capture, apply, receipts, and cleanup. External confirmation remains a
+separate phase with its own recorded outcome and provider retry policy: a cursor cannot resolve
+whether a remote write succeeded before the connection failed. Notification/reminder ambiguity is
+already documented in `../work-reduction/durability-requirements.md`.
 
-I did not add this API alongside the existing one. That would create two execution models without
-removing the journal, projection, host-call, and recovery machinery still used by shipped workflows.
-Replacing the public replay API requires migrating the complete collection → capture → apply →
-confirmation path for both imports and integrations, then removing its old SDK/compiler/runtime
-surface together. This remains the strongest next simplification, but a lone `saveCheckpoint(offset)`
-would discard product guarantees, and a second optional runtime would increase complexity. The
-current change therefore retains transparent replay explicitly; it does not claim to replace it.
+The checkpoint migration below replaces the public orchestration contract across the collection →
+capture → apply → confirmation paths for both imports and integrations. A private journal remains
+inside each unfinished bounded step because it supplies the call receipts that cursors alone cannot
+replace. There is one workflow API, with optional checkpoint state for long-running work.
 
 ## Completion representation: retain stored events and fold state
 
@@ -197,3 +192,107 @@ existing V2 database. Existing local databases, source dumps, and production dep
 modified. V1 migration code and backup formats are retained. Changes are local; nothing was pushed.
 
 Code commits: `e3b9d96001` (single-process execution) and `8bfb777d4a` (atomic fold results).
+
+## Explicit plugin checkpoints
+
+The next pass replaces the plugin-facing transparent replay API with `run(input, step, checkpoint,
+execution)`. A workflow declares its checkpoint schema, performs a bounded step, and calls
+`step.save(state)` to end it. The next invocation receives that state; returning a value finishes
+the workflow. `step.activity` and `step.child` retain typed executable references. Workflows no
+longer expose sleep or the runtime's journal protocol. Ordinary bounded workflows need no checkpoint.
+
+Media and fitness imports save collection, sort, normalization, and application cursors. Media syncs
+save collection and application state, and monitoring saves its page cursor. Sorted runs retain the
+existing binary merge strategy and artifact captures: checkpoints store cursors and run references,
+not whole imported datasets. The redundant media application wrapper and segment workflow are removed.
+
+The runtime still journals calls inside the unfinished step. This is deliberate: an interrupted HTTP
+request, partially completed batch, or child workflow still needs its original identity and delivery
+result. Saving a checkpoint atomically updates `workflow_execution` and deletes that step's receipts
+under the existing tree-expiry fence. The engine updates its cached checkpoint and evicts the same
+receipts without interruption between the database commit and cache update. Each subsequent step gets
+a fresh call namespace; cancellation and artifact ownership remain attached to the original execution.
+Restart loads the saved state with the execution row. Bounded workflows do not incur a separate
+checkpoint read or completion write. Completed checkpointed workflows retain their final output so a
+restart during reference release cannot repeat the last step.
+
+This narrows plugin orchestration; it does not remove the private unfinished-step recovery mechanism.
+Pinned plugin revisions, admitted inputs and configuration, committed item identities, progress,
+confirmation receipts, and external delivery ambiguity remain. Stored completion events, frozen
+inventories, suppressed occurrences, indexed dates, page-first reads, and immutable catalog caches are
+unchanged for the reasons recorded above. No artifact, backup, manifest, protocol, compiler, or API
+version constant changes. The greenfield V2 baseline includes the checkpoint column; existing databases
+and source dumps are not migrated or deleted by this work.
+
+### Checkpoint performance probes
+
+VM runs `checkpoints-probes` (checkpoint implementation) and `checkpoints-baseline` (fresh checkout of
+`3dc229cc2a`) each passed with 68 observations across 23 flows. The baseline ran second, after the first
+comparison with the older `next-after` run showed higher medians even for unchanged read paths. These
+are sequential regression probes, not a controlled speedup experiment. SQL counts subtract idle work.
+
+| Flow | Samples per run | Median caller ms, baseline → checkpoints | Median SQL statements, baseline → checkpoints |
+| --- | ---: | ---: | ---: |
+| `signup` | 5 | 263 → 284 | 190 → 190 |
+| `media-movie-fixture` | 3 | 416 → 529 | 116 → 116 |
+| `event-create-backlog` | 5 | 240 → 255 | 89 → 89 |
+| `event-create-complete` | 5 | 369 → 423 | 273 → 275 |
+| `collection-membership-add` | 3 | 176 → 162 | 341 → 340 |
+| `plugin-upload-private` | 3 | 1721 → 1639 | 16 → 16 |
+| `plugin-install-private` | 3 | 330 → 280 | 140 → 138 |
+| `media-show-70-episodes` | 1 | 12595 → 13183 | 13118 → 13116 |
+| `media-progress-fanout-20` | 1 | 5585 → 5432 | 3917 → 3917 |
+| `event-create-no-hooks` | 5 | 111 → 88 | 39 → 40 |
+| `event-create-no-hooks-50` | 3 | 152 → 136 | 235 → 235 |
+| `read-entity-x50` | 3 | 480 → 555 | 203 → 203 |
+| `read-media-list-x50` | 3 | 1739 → 1785 | 252 → 252 |
+| `operation-review-create` | 3 | 736 → 751 | 507 → 504 |
+| `workout-1-set` | 2 | 885 → 955.5 | 311 → 311 |
+| `workout-10-sets` | 1 | 999 → 991 | 380 → 380 |
+| `workout-25-sets` | 1 | 884 → 875 | 501 → 501 |
+| `workout-editor-save-1x5` | 3 | 579 → 697 | 578 → 578 |
+| `workout-editor-save-5x5` | 3 | 1089 → 1166 | 999 → 999 |
+| `workout-editor-save-10x15` | 3 | 2264 → 2426 | 2632 → 2630 |
+| `plugin-system-install` | 3 | 429 → 384 | 123 → 123 |
+| `plugin-system-reconcile` | 3 | 132 → 144 | 1495 → 1495 |
+| `plugin-system-change` | 3 | 403 → 390 | 120 → 120 |
+
+SQL work is effectively unchanged. Several latency medians are higher, including movie creation and
+the small workout editor save; others are lower. Individual CPU and latency samples overlap, and background subtraction is noisy. These measurements
+do not establish latency neutrality or a reliable regression. They do not repeat the historical
+14,708-title library benchmark. Stored summaries and read-query optimizations remain unchanged.
+
+A focused follow-up (`checkpoints-focus`) passed with ten backlog creates and ten completion creates.
+Its medians were 212 ms / 89 SQL statements for backlog and 389.5 ms / 273 statements for completion,
+versus 240 ms / 89 and 369 ms / 273 in the fresh baseline's five samples. This reduced the completion
+latency difference seen in the full run, while backlog became faster. There is no demonstrated growth
+in query work or a consistent latency regression attributable to the checkpoint change; the samples
+still do not justify claiming a speedup. The one-off signup and fixture observations in the focused
+run are warm-up context, not comparable medians.
+
+### Checkpoint validation and handoff
+
+- `bun run check` passed: all 30 projects and 7,938 TypeScript files, plus repository lint,
+  formatting, import-boundary checks, native formatting/clippy, and protocol fixtures.
+- The final root Turbo test run filtered to `kernel-backend`, `plugin-backend-sdk`,
+  `plugin-backend-compiler`, `sandbox`, `media-plugin`, and `fitness-plugin` passed all 48 tasks,
+  with 43 cache hits. Results include 2,789 backend tests, 92 SDK tests, 109 compiler tests,
+  230 TypeScript sandbox tests and the native suite, 2,001 media tests, and 652 fitness tests.
+- PostgreSQL recovery coverage verifies that a new engine resumes from checkpoint 3 after completed
+  step records are removed, without repeating any batch. Native coverage passes saved state to a
+  fresh isolate. Import coverage preserves 1,601 unique measurement records across application steps.
+  The compiler rejects authored imports of the private workflow protocol.
+- VM run `checkpoints-final` passed 71 tests across 12 affected files. Coverage includes process and
+  sidecar restart, pinned configuration, cancellation with partial commits, external integration
+  confirmation, media/fitness imports, lifecycle hooks, HTTP spacing, and monitoring notifications.
+- Both full performance runs and the focused follow-up passed; their limitations and measurements
+  are recorded above.
+- The main-session read-only review found no blocking correctness issues. Cleanup against
+  `3dc229cc2a` removed 21 net lines: loops superseded by checkpoint returns, duplicate normalization
+  progress, and duplicate monitoring-test bookkeeping. Private unfinished-step receipts and their
+  test helpers remain because they protect recovery and external-delivery semantics. No type-checker
+  bypass casts or lint suppressions were added; literal `as const` assertions remain.
+
+Implementation commit: `a19c79c4ba`. Changes are local; nothing was pushed or deployed. The generated
+V2 baseline replaces the previous greenfield baseline rather than providing an incremental migration
+for existing V2 databases. Existing local application databases and source dumps remain untouched.
