@@ -28,6 +28,11 @@ immutable, enforced by a startup-installed database trigger.
 
 ## Durable Execution
 
+One backend process owns each database. `apps/server` acquires a dedicated PostgreSQL session
+advisory lock before migrations and holds it through shutdown. A second backend fails startup;
+loss of the ownership connection interrupts application work. Stop the old process before starting
+its replacement. Multiple backend processes require additional engineering.
+
 Feature Layers compose dependencies; boot composes features. Upward effects use generic durable
 queue hooks or transaction-scoped ports rather than reverse module dependencies. The common
 [background-work owner](src/modules/background-work/README.md) admits pinned user scripts and event
@@ -71,7 +76,7 @@ rules. Idempotency keys expire as described in
 [mutation admission](src/modules/mutations/README.md#idempotency-keys).
 
 PostgreSQL is the only backing service. `platform/jobs` runs queued background work,
-`platform/broadcast` tells every process about a change through `pg_notify` once its transaction
+`platform/broadcast` tells subscribers about a change through `pg_notify` once its transaction
 commits, and `platform/transient-values` holds expiring values such as tickets, grants, and script
 caches. Broadcasts are not durable, so listeners recover on reconnect. See the
 [live-updates protocol](../client/src/modules/entity-watches/README.md) and

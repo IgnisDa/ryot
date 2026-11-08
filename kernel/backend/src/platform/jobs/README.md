@@ -6,7 +6,7 @@ succeeds.
 
 ## Queueing
 
-A kind is declared with `makeJobKind`: a name, a payload schema, and its concurrency, attempts, lease
+A kind is declared with `makeJobKind`: a name, a payload schema, and its concurrency, attempts,
 and backoff. `JobQueue.enqueue` inserts the row through `DatabaseSession`, so it joins the caller's
 transaction: the job exists exactly when the write that queued it commits. It also sends `pg_notify` on
 `ryot_broadcast`, which PostgreSQL delivers at that commit.
@@ -20,20 +20,20 @@ running one may have read its input before the change that queued the next.
 Features register a handler per kind with `registerJobHandler`; the worker needs every handler layer
 built before it starts. The worker listens on `ryot_broadcast` and checks, per kind, whether a job is due and
 when the next one will be. It claims due jobs of each kind up to that kind's concurrency, with
-`FOR UPDATE SKIP LOCKED` in priority, `run_at`, ID order, so any number of processes can share the
-table. Without notifications it rechecks when the next delayed job or lease falls due, and at least once
-a minute.
+`FOR UPDATE SKIP LOCKED` in priority, `run_at`, ID order. One backend owns the database; the server
+acquires `DatabaseOwner` before starting workers. Without notifications the worker rechecks when
+the next delayed job falls due, and at least once a minute.
 
-A claim sets the job `running`, increments `attempts` and sets `locked_until` one lease ahead; the
-handler renews it every third of a lease. Every settlement is fenced on the claimed attempt, so a
-process whose lease lapsed cannot settle a job another process reclaimed.
+A claim sets the job `running` and increments `attempts`. Every settlement checks the claimed
+attempt and status. Database settlement failures retry without running the handler again.
 
 - Success deletes the row.
 - Failure requeues the job after the kind's backoff, doubled per attempt and capped at one hour, until
   its last attempt fails; then the row stays `failed` with the error. The frequent cron deletes failed
   rows a week after their last attempt.
-- Interruption, such as shutdown, expires the lease without counting the attempt, so the job runs
-  again at once elsewhere or on the next start.
-- A lapsed lease is reclaimed as a new attempt. One that lapses on the last attempt is failed.
+- Graceful interruption requeues the job without counting the attempt.
+- At startup, work left `running` by a crash is requeued as a new attempt, or failed if its last
+  attempt was exhausted. If a newer job is queued under the same key, it supersedes the interrupted
+  job. There is no lease renewal or timer-based reclamation.
 
 Handlers run at least once, so they must be idempotent by their own natural keys.

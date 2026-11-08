@@ -49,7 +49,6 @@ export const explicitTranslationExecutionId = (entityId: EntityId, language: str
 export const EntityTranslationJob = makeJobKind("entity-translation", {
 	maxAttempts: 3,
 	concurrency: 8,
-	lease: Duration.minutes(5),
 	backoff: Duration.seconds(5),
 	payload: Schema.Struct({ requestId: Schema.String }),
 });

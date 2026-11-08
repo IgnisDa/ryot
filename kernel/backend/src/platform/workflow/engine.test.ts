@@ -378,6 +378,19 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 			);
 		}
 
+		test.effect("postgres: concurrent callers join one execution in the same process", () =>
+			Effect.gen(function* () {
+				const id = yield* randomUuid;
+				const results = yield* Effect.forEach(
+					Array.from({ length: 20 }),
+					() => Counted.execute({ id }),
+					{ concurrency: 20 },
+				);
+				expect(results).toEqual(Array.from({ length: 20 }, () => "counted:1"));
+				expect(activityRuns.get(id)).toBe(1);
+			}).pipe(withEngine(postgresEngine())),
+		);
+
 		test.effect("postgres: a parent joins the child a caller outside it ran on its behalf", () =>
 			Effect.gen(function* () {
 				const id = yield* randomUuid;
@@ -551,43 +564,6 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 					),
 				).toBe("Workflow belongs to another account");
 			}).pipe(withEngine(postgresEngine())),
-		);
-
-		test.effect("postgres: an interrupt written by another process interrupts the owner", () =>
-			Effect.gen(function* () {
-				const id = yield* randomUuid;
-				const executionId = yield* Waiting.executionId({ id });
-				const owner = yield* Layer.build(postgresEngine());
-				const other = yield* Layer.build(postgresEngine());
-				yield* Waiting.execute({ id }, { discard: true }).pipe(Effect.provideContext(owner));
-				yield* untilResult(Waiting.poll(executionId), "Suspended").pipe(
-					Effect.provideContext(owner),
-				);
-				yield* Waiting.interrupt(executionId).pipe(Effect.provideContext(other));
-				const exit = yield* complete(Waiting.poll(executionId)).pipe(Effect.provideContext(owner));
-				expect(Exit.isFailure(exit) && Cause.hasInterruptsOnly(exit.cause)).toBe(true);
-				expect(finalizerExits.get(id)?.filter(Exit.isFailure)).toHaveLength(1);
-			}),
-		);
-
-		test.effect("postgres: a completion written by another process wakes the owner", () =>
-			Effect.gen(function* () {
-				const id = yield* randomUuid;
-				const executionId = yield* Waiting.executionId({ id });
-				const owner = yield* Layer.build(postgresEngine());
-				const other = yield* Layer.build(postgresEngine());
-				yield* Waiting.execute({ id }, { discard: true }).pipe(Effect.provideContext(owner));
-				yield* untilResult(Waiting.poll(executionId), "Suspended").pipe(
-					Effect.provideContext(owner),
-				);
-				yield* signal(Signal, Waiting, executionId, "remote").pipe(Effect.provideContext(other));
-				expect(
-					yield* complete(Waiting.poll(executionId)).pipe(Effect.provideContext(owner)),
-				).toEqual(Exit.succeed("remote:1"));
-				expect(
-					yield* complete(Waiting.poll(executionId)).pipe(Effect.provideContext(other)),
-				).toEqual(Exit.succeed("remote:1"));
-			}),
 		);
 	},
 );

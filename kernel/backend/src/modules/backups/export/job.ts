@@ -1,17 +1,7 @@
 import { InternalError, internalError } from "@ryot-app/contract/errors";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { sql } from "drizzle-orm";
-import {
-	Context,
-	DateTime,
-	Duration,
-	Effect,
-	FileSystem,
-	Layer,
-	Result,
-	Schema,
-	Stream,
-} from "effect";
+import { Context, DateTime, Effect, FileSystem, Layer, Result, Schema, Stream } from "effect";
 
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { AppConfig } from "#platform/config/service";
@@ -44,7 +34,6 @@ type ExportArtifact = typeof ExportArtifact.Type;
 
 export const ExportBackupJob = makeJobKind("backup-export", {
 	maxAttempts: 3,
-	lease: Duration.minutes(5),
 	payload: ExportBackupPayload,
 });
 

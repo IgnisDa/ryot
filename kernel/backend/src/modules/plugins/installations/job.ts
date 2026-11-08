@@ -2,7 +2,7 @@ import type { InternalError } from "@ryot-app/contract/errors";
 import { internalError } from "@ryot-app/contract/errors";
 import { PluginUserBootstrapEntity } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, Duration, Effect, Layer, Result, Schema } from "effect";
+import { Cause, Context, Effect, Layer, Result, Schema } from "effect";
 
 import { FoldRebuildJob } from "#modules/derived-values/marks";
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -45,7 +45,6 @@ type PluginInstallationBootstrap = typeof PluginInstallationBootstrap.Type;
 export const PluginInstallationJob = makeJobKind("plugin-installation", {
 	concurrency: 4,
 	maxAttempts: 3,
-	lease: Duration.minutes(5),
 	payload: PluginInstallationPayload,
 });
 

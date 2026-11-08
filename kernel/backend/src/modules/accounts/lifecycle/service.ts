@@ -5,7 +5,7 @@ import {
 } from "@ryot-app/contract/modules/instance-admin/contract";
 import type { UserLifecycleOperationKind } from "@ryot-app/contract/modules/instance-admin/user-lifecycle";
 import type { UserId } from "@ryot-app/contract/schema/brands";
-import { Cause, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
+import { Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -24,7 +24,6 @@ const accessRevocationStaleBefore = (now: Date) =>
 
 export const UserLifecycleJob = makeJobKind("user-lifecycle", {
 	concurrency: 2,
-	lease: Duration.minutes(10),
 	payload: Schema.Struct({ operationId: Schema.String }),
 });
 

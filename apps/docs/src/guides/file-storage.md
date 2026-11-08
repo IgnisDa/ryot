@@ -13,8 +13,8 @@ this directory. Provide enough writable space for the largest operation.
 Without complete S3 configuration, mount a persistent volume at `/home/ryot/storage` and back it up.
 The non-root backend user owns this directory and `/home/ryot/work`.
 
-Local permanent storage is single-replica only. Use S3 if multiple backend replicas need to
-share files.
+Both local storage and S3 use one backend process per database. Preserve the local storage volume
+when replacing the server.
 
 ### Docker Compose
 

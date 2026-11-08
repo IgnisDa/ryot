@@ -45,6 +45,7 @@
 		"./platform/build-info": "./src/platform/build-info.ts",
 		"./platform/config/definition": "./src/platform/config/definition.ts",
 		"./platform/config/service": "./src/platform/config/service.ts",
+		"./platform/db/ownership": "./src/platform/db/ownership.ts",
 		"./platform/db/errors": "./src/platform/db/errors.ts",
 		"./platform/db/session": "./src/platform/db/session.ts",
 		"./platform/jobs/queue": "./src/platform/jobs/queue.ts",

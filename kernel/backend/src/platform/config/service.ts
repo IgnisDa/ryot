@@ -134,7 +134,6 @@ const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, 
 		: Result.succeed(headers);
 };
 
-// The workflow and job wake listeners hold one connection each; the rest serve application statements.
 const fixedApplicationConnections = 5;
 
 export const databaseConnectionBudget = (config: {

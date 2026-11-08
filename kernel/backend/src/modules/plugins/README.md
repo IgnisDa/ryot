@@ -82,11 +82,10 @@ pass includes plugins that are active but are not bundled by the current server 
 Callers must not add a separate boot-time environment resolution pass.
 
 System config uses `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<NORMALIZED_KEY>`, with package ID segments uppercased and `-` replaced by `_`.
-Private config never reads environment values. All replicas must use the same server release and
-deployment configuration; the persisted catalog is authoritative and ingestion is serialized.
+Private config never reads environment values. The persisted catalog is authoritative and ingestion
+is serialized.
 
-Boot resolution sets `plugin.environment_config_revision_id` under the ingestion lock; all nodes
-must share environment values because the last booting node wins. Installation configuration pointer
+Boot resolution sets `plugin.environment_config_revision_id` under the ingestion lock. Installation configuration pointer
 activation uses the same ingestion lock. Retained executions use exact revision/configuration pins,
 not current environment values. Automation hooks use stable plugin ID and authored hook slug;
 scripts resolve by immutable revision ID, script slug, and content hash.

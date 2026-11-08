@@ -810,7 +810,6 @@ export const runPopulationAttempt = Effect.fn("runPopulationAttempt")(
 export const EntityPopulationJob = makeJobKind("entity-population", {
 	maxAttempts: 3,
 	concurrency: 8,
-	lease: Duration.minutes(5),
 	backoff: Duration.seconds(5),
 	payload: Schema.Struct({ requestId: Schema.String }),
 });

@@ -8,10 +8,9 @@
 ## Storage
 
 - `workflow_execution`: one row per execution, with its encoded payload, final result, root and
-  parent, status, suspension, and owning process.
+  parent, status, and suspension.
 - `workflow_step`: one row per completed activity attempt, deferred completion, or armed durable
   clock. The first write of a key wins.
-- `workflow_runner`: one heartbeat row per engine process.
 
 Encoded values are stored as `json`, which keeps their text: replays compare some results byte for
 byte, and `jsonb` would reorder object keys.
@@ -34,12 +33,12 @@ loading the execution stays bounded by the current chunk. Scopes stop at workflo
 
 ## Ownership
 
-Each process owns the executions it starts and renews one lease for all of them. A sweep claims
-active executions without an owner or whose owner's lease lapsed and resumes them, except runs that
-suspended after a failure, which wait for an explicit resume. A step written for an execution
-another live process owns calls `pg_notify` on `ryot_workflow` in the same statement; each process
-listens on one connection and wakes the executions it owns. Completion publishes on
-`WorkflowExecutionNotifications` for waiters outside the engine.
+One backend process owns the database, enforced before migrations or workers start by
+`DatabaseOwner`. Each workflow registration recovers its active executions in pages. Runs suspended
+after a failure wait for an explicit resume; waiting runs restore their durable clocks and deferreds.
+Wakes reach the in-memory activation directly. Completion publishes on
+`WorkflowExecutionNotifications` for waiters outside the engine. There are no process leases,
+heartbeats, or cross-process workflow wake-ups.
 
 ## Accounts
 

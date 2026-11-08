@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "edadd79c-f5ea-44a8-8572-c569661432db",
+	"id": "349d91f2-3953-4cf1-9b51-82847ec44608",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -1066,19 +1066,6 @@
 				"n|rel|public.workflow_execution",
 				"n|type|public.workflow_execution",
 				"n|rel|public.workflow_execution_pkey"
-			],
-			"reads": ["n|sch|public"]
-		},
-		{
-			"statementType": "create_table",
-			"statementTarget": ["table", "public", "workflow_runner"],
-			"writes": [
-				"s|tbl|public.workflow_runner",
-				"n|tbl|public.workflow_runner",
-				"e|tbl|public.workflow_runner",
-				"n|rel|public.workflow_runner",
-				"n|type|public.workflow_runner",
-				"n|rel|public.workflow_runner_pkey"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -2298,17 +2285,6 @@
 				"n|col|public.job.run_at",
 				"n|col|public.job.id"
 			]
-		},
-		{
-			"statementType": "create_index",
-			"statementTarget": ["index", "public", "job", "job_running_idx"],
-			"writes": [
-				"s|idx|public.job_running_idx",
-				"n|idx|public.job_running_idx",
-				"e|idx|public.job_running_idx",
-				"n|rel|public.job_running_idx"
-			],
-			"reads": ["n|tbl|public.job", "n|sch|public", "n|col|public.job.locked_until"]
 		},
 		{
 			"statementType": "create_index",
@@ -3587,17 +3563,18 @@
 		},
 		{
 			"statementType": "create_index",
-			"statementTarget": ["index", "public", "workflow_execution", "workflow_execution_owner_idx"],
+			"statementTarget": ["index", "public", "workflow_execution", "workflow_execution_active_idx"],
 			"writes": [
-				"s|idx|public.workflow_execution_owner_idx",
-				"n|idx|public.workflow_execution_owner_idx",
-				"e|idx|public.workflow_execution_owner_idx",
-				"n|rel|public.workflow_execution_owner_idx"
+				"s|idx|public.workflow_execution_active_idx",
+				"n|idx|public.workflow_execution_active_idx",
+				"e|idx|public.workflow_execution_active_idx",
+				"n|rel|public.workflow_execution_active_idx"
 			],
 			"reads": [
 				"n|tbl|public.workflow_execution",
 				"n|sch|public",
-				"n|col|public.workflow_execution.owner"
+				"n|col|public.workflow_execution.workflow_name",
+				"n|col|public.workflow_execution.execution_id"
 			]
 		},
 		{
@@ -6201,12 +6178,6 @@
 		{
 			"schema": "public",
 			"name": "workflow_execution",
-			"isRlsEnabled": false,
-			"entityType": "tables"
-		},
-		{
-			"schema": "public",
-			"name": "workflow_runner",
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
@@ -11544,19 +11515,6 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "locked_until",
-			"type": "timestamp(3) with time zone",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "job",
 			"name": "attempts",
 			"type": "integer",
 			"typeSchema": null,
@@ -14781,10 +14739,10 @@
 		{
 			"schema": "public",
 			"table": "plugin_revision",
-			"name": "manifest",
+			"name": "client",
 			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": true,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -14794,10 +14752,10 @@
 		{
 			"schema": "public",
 			"table": "plugin_revision",
-			"name": "client",
+			"name": "manifest",
 			"type": "jsonb",
 			"typeSchema": null,
-			"notNull": false,
+			"notNull": true,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -16900,19 +16858,6 @@
 		{
 			"schema": "public",
 			"table": "workflow_execution",
-			"name": "owner",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": false,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "workflow_execution",
 			"name": "result",
 			"type": "json",
 			"typeSchema": null,
@@ -17084,32 +17029,6 @@
 			"table": "workflow_execution",
 			"name": "status",
 			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "workflow_runner",
-			"name": "id",
-			"type": "text",
-			"typeSchema": null,
-			"notNull": true,
-			"dimensions": 0,
-			"default": null,
-			"generated": null,
-			"identity": null,
-			"entityType": "columns"
-		},
-		{
-			"schema": "public",
-			"table": "workflow_runner",
-			"name": "lease_until",
-			"type": "timestamp(3) with time zone",
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
@@ -19065,27 +18984,6 @@
 		{
 			"schema": "public",
 			"table": "job",
-			"name": "job_running_idx",
-			"nameExplicit": true,
-			"columns": [
-				{
-					"value": "locked_until",
-					"isExpression": false,
-					"asc": true,
-					"nullsFirst": false,
-					"opclass": null
-				}
-			],
-			"isUnique": false,
-			"where": "\"status\" = 'running'",
-			"with": "",
-			"method": "btree",
-			"concurrently": false,
-			"entityType": "indexes"
-		},
-		{
-			"schema": "public",
-			"table": "job",
 			"name": "job_failed_idx",
 			"nameExplicit": true,
 			"columns": [
@@ -20820,11 +20718,18 @@
 		{
 			"schema": "public",
 			"table": "workflow_execution",
-			"name": "workflow_execution_owner_idx",
+			"name": "workflow_execution_active_idx",
 			"nameExplicit": true,
 			"columns": [
 				{
-					"value": "owner",
+					"value": "workflow_name",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				},
+				{
+					"value": "execution_id",
 					"isExpression": false,
 					"asc": true,
 					"nullsFirst": false,
@@ -23013,14 +22918,6 @@
 			"schema": "public",
 			"table": "verification",
 			"name": "verification_pkey",
-			"columns": ["id"],
-			"nameExplicit": false,
-			"entityType": "pks"
-		},
-		{
-			"schema": "public",
-			"table": "workflow_runner",
-			"name": "workflow_runner_pkey",
 			"columns": ["id"],
 			"nameExplicit": false,
 			"entityType": "pks"

@@ -1,5 +1,5 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
-import { Duration, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import { PluginBootstrapEntities } from "#modules/plugins/installations/bootstrap-entities";
 import { makeJobKind } from "#platform/jobs/queue";
@@ -13,7 +13,6 @@ type UserBootstrapPayload = typeof UserBootstrapPayload.Type;
 export const UserBootstrapJob = makeJobKind("user-bootstrap", {
 	concurrency: 4,
 	maxAttempts: 10,
-	lease: Duration.minutes(5),
 	payload: UserBootstrapPayload,
 });
 

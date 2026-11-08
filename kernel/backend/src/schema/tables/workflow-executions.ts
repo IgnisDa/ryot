@@ -15,7 +15,6 @@ import { timestamptz } from "./timestamps";
 export const workflowExecution = snakeCase.table(
 	"workflow_execution",
 	{
-		owner: text(),
 		// `json` keeps the encoded text, so replayed results match their originals byte for byte.
 		result: json(),
 		payload: json(),
@@ -38,8 +37,8 @@ export const workflowExecution = snakeCase.table(
 		primaryKey({ columns: [table.workflowName, table.executionId] }),
 		index("workflow_execution_execution_id_idx").on(table.executionId),
 		index("workflow_execution_root_idx").on(table.rootWorkflowName, table.rootExecutionId),
-		index("workflow_execution_owner_idx")
-			.on(table.owner)
+		index("workflow_execution_active_idx")
+			.on(table.workflowName, table.executionId)
 			.where(sql`${table.status} = 'active'`),
 		index("workflow_execution_account_idx")
 			.on(table.accountUserId)
@@ -89,9 +88,3 @@ export const workflowStep = snakeCase.table(
 		),
 	],
 );
-
-// One row per engine process; executions whose owner's lease lapsed are taken over.
-export const workflowRunner = snakeCase.table("workflow_runner", {
-	id: text().primaryKey(),
-	leaseUntil: timestamptz().notNull(),
-});

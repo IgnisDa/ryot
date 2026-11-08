@@ -24,8 +24,8 @@ System plugin variables use the package ID's publisher and name, uppercased with
 `RYOT_PLUGIN__RYOT__MEDIA__`. Display names can change without changing these keys. Private
 plugins use their installation settings, never these environment variables.
 
-If you run multiple server replicas, use the same server/runtime release and deployment settings
-on every replica. Mixed-release rolling upgrades are not supported.
+Run one backend process per database. A second process fails to start while the first owns the
+database. Stop the current process before starting its replacement, including during upgrades.
 
 ## Health endpoint
 

@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import { Duration, Effect } from "effect";
+import { Effect } from "effect";
 
 import { makeJobKind } from "#platform/jobs/queue";
 import { type JobContext, registerJobHandler } from "#platform/jobs/worker";
@@ -10,7 +10,6 @@ import { NotificationDeliveryPayload } from "./ledger";
 
 export const NotificationDeliveryJob = makeJobKind("notification-delivery", {
 	concurrency: 4,
-	lease: Duration.minutes(2),
 	payload: NotificationDeliveryPayload,
 });
 

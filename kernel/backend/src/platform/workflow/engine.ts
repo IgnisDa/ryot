@@ -1,4 +1,3 @@
-import { PgClient } from "@effect/sql-pg";
 import { DbError } from "@ryot-app/contract/errors";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
@@ -18,9 +17,7 @@ import {
 	Schedule,
 	Schema,
 	Scope,
-	Stream,
 } from "effect";
-import { SecureRandom } from "effect/crypto";
 import { Activity, DurableDeferred, Workflow } from "effect/workflow";
 import {
 	type Encoded as WorkflowEngineEncoded,
@@ -33,21 +30,12 @@ import {
 import { CurrentJobId } from "#platform/jobs/worker";
 
 import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
-import {
-	type ExecutionRow,
-	type StepRow,
-	WorkflowEngineStore,
-	WorkflowWake,
-	workflowWakeChannel,
-} from "./engine-store";
+import { type ExecutionRow, type StepRow, WorkflowEngineStore } from "./engine-store";
 import { WorkflowExecutionNotifications } from "./execution-notifications";
 import { WorkflowExecutionExpired, type WorkflowIdentity } from "./identity";
 import { provideForgetWorkflowSteps, WorkflowCodecs, WorkflowStepScope } from "./scope";
 
-const LEASE = Duration.seconds(10);
-const RENEW_EVERY = Duration.seconds(3);
-const SWEEP_EVERY = Duration.seconds(5);
-const SWEEP_LIMIT = 100;
+const RECOVERY_PAGE = 100;
 
 // The interrupt is recorded as this deferred, so kernel code can read it through `deferredResult`.
 const InterruptSignal = DurableDeferred.make("Workflow/InterruptSignal");
@@ -145,9 +133,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 	const scope = yield* Effect.scope;
 	const store = yield* WorkflowEngineStore;
 	const notifications = yield* WorkflowExecutionNotifications;
-	const pg = yield* PgClient.PgClient;
-	const owner = `runner-${yield* (yield* SecureRandom.SecureRandom).uuidV4()}`;
-	const leaseMs = Duration.toMillis(LEASE);
 
 	const workflows = new Map<string, Registration>();
 	const activations = new Map<string, Activation>();
@@ -245,7 +230,9 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 	});
 
 	const wakeParent = (parent: WorkflowIdentity) =>
-		activations.has(keyOf(parent)) ? resume(parent, "automatic") : store.notify(parent);
+		Effect.flatMap(acquire(parent), (activation) =>
+			activation ? resume(parent, "automatic") : Effect.void,
+		);
 
 	const settle = Effect.fnUntraced(function* (activation: Activation, result: Result) {
 		if (result._tag === "Suspended") {
@@ -254,7 +241,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 		}
 		const encoded = yield* activation.codecs.encodeResult(result).pipe(Effect.orDie);
 		yield* store.complete({
-			owner,
 			result: encoded,
 			identity: activation.identity,
 			succeeded: result.exit._tag === "Success",
@@ -381,7 +367,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			);
 	});
 
-	// Loads an execution for a wake when this process owns it or can take it over.
 	const acquire = Effect.fnUntraced(function* (
 		identity: WorkflowIdentity,
 	): Effect.fn.Return<undefined | Activation> {
@@ -389,7 +374,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 		if (loaded) {
 			return loaded;
 		}
-		if (!workflows.has(identity.workflowName) || !(yield* store.claim(identity, owner))) {
+		if (!workflows.has(identity.workflowName)) {
 			return undefined;
 		}
 		const row = yield* store.find(identity);
@@ -407,7 +392,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 	}): Effect.fn.Return<void> {
 		const identity = { executionId: options.executionId, workflowName: options.workflowName };
 		const written = yield* store.writeStep({
-			owner,
 			identity,
 			attempt: 0,
 			kind: "deferred",
@@ -424,9 +408,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			return yield* Effect.void;
 		}
 		const interrupt = options.deferredName === InterruptSignal.name;
-		const activation =
-			activations.get(keyOf(identity)) ??
-			(written.leaseLive && written.owner !== owner ? undefined : yield* acquire(identity));
+		const activation = activations.get(keyOf(identity)) ?? (yield* acquire(identity));
 		if (!activation) {
 			return yield* Effect.void;
 		}
@@ -476,7 +458,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				: undefined;
 			const codecs = yield* codecsOf(workflow._tag);
 			const payload = yield* codecs.encodePayload(options.payload).pipe(Effect.orDie);
-			const admitted = yield* store.admit({ owner, parent, account, payload, identity });
+			const admitted = yield* store.admit({ parent, account, payload, identity });
 			if (admitted.rejected) {
 				return yield* rejected("Mutation command belongs to a retired account");
 			}
@@ -508,11 +490,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 					return undefined;
 				}
 				return yield* codecs.decodeResult(row.result).pipe(Effect.orDie);
-			}
-			const owned = admitted.inserted || (yield* store.claim(identity, owner));
-			if (!owned) {
-				// Another live process runs it; callers wait through their retry schedule.
-				return options.discard ? undefined : new Workflow.Suspended({});
 			}
 			const steps = admitted.inserted ? [] : yield* store.steps(identity);
 			activation = yield* activate(
@@ -565,6 +542,30 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 		return run(workflow, options);
 	}
 
+	const recover = Effect.fnUntraced(function* (workflowName: string): Effect.fn.Return<void> {
+		let after: null | string = null;
+		for (;;) {
+			const page: ReadonlyArray<WorkflowIdentity> = yield* store.active(
+				workflowName,
+				after,
+				RECOVERY_PAGE,
+			);
+			for (const identity of page) {
+				if (activations.has(keyOf(identity))) {
+					continue;
+				}
+				const activation = yield* acquire(identity);
+				if (activation && activation.loadedSuspension !== "failed") {
+					yield* resume(identity, activation.loadedSuspension === null ? "explicit" : "automatic");
+				}
+			}
+			if (page.length < RECOVERY_PAGE) {
+				return;
+			}
+			after = page.at(-1)?.executionId ?? null;
+		}
+	});
+
 	const engine: WorkflowEngine["Service"] = makeUnsafe({
 		register: Effect.fnUntraced(function* (workflow, body) {
 			workflows.set(workflow._tag, {
@@ -573,6 +574,16 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				scope: yield* Effect.scope,
 				codecs: Context.get(workflow.annotations, WorkflowCodecs),
 			});
+			yield* recover(workflow._tag).pipe(
+				Effect.catchCause((cause) =>
+					Effect.logWarning("workflow recovery failed", cause).pipe(
+						Effect.andThen(Effect.fail(cause)),
+					),
+				),
+				Effect.retry(Schedule.spaced(Duration.seconds(5))),
+				Effect.delay(Duration.seconds(1)),
+				Effect.forkIn(scope),
+			);
 		}),
 
 		execute,
@@ -641,8 +652,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			const identity = { executionId, workflowName: workflow._tag };
 			if (yield* acquire(identity)) {
 				yield* resume(identity, "explicit");
-			} else {
-				yield* store.notify(identity);
 			}
 		}),
 
@@ -676,7 +685,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			}
 			const written = yield* store.writeStep({
 				name,
-				owner,
 				attempt,
 				identity,
 				kind: "activity",
@@ -714,7 +722,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				DateTime.addDuration(yield* DateTime.now, options.clock.duration),
 			);
 			const written = yield* store.writeStep({
-				owner,
 				fireAt,
 				identity,
 				attempt: 0,
@@ -731,58 +738,6 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			return yield* written.written ? armClock(identity, options.clock.name, fireAt) : Effect.void;
 		}, Effect.uninterruptible),
 	});
-
-	// Wakes from other processes: a step or child result was written for an execution we own.
-	const wakes = yield* pg.listen(workflowWakeChannel).pipe(Effect.orDie);
-	yield* Stream.fromQueue(wakes).pipe(
-		Stream.runForEach((notification) =>
-			Effect.gen(function* () {
-				const [workflowName, executionId] = yield* Schema.decodeEffect(WorkflowWake)(
-					notification.payload,
-				).pipe(Effect.orDie);
-				const identity = { executionId, workflowName };
-				const activation = activations.get(keyOf(identity)) ?? (yield* acquire(identity));
-				if (!activation) {
-					return;
-				}
-				const before = activation.interrupted;
-				yield* loadSteps(activation, yield* store.steps(identity));
-				yield* resume(identity, activation.interrupted && !before ? "explicit" : "automatic");
-			}).pipe(Effect.catchCause((cause) => Effect.logWarning("workflow wake failed", cause))),
-		),
-		Effect.forkIn(scope),
-	);
-
-	yield* store.heartbeat(owner, leaseMs);
-	yield* store.heartbeat(owner, leaseMs).pipe(
-		Effect.delay(RENEW_EVERY),
-		Effect.catchCause((cause) => Effect.logWarning("workflow lease renewal failed", cause)),
-		Effect.forever,
-		Effect.forkIn(scope),
-	);
-
-	// Takes over executions whose owner stopped renewing. Waiting executions replay and suspend
-	// again unless a completion arrived meanwhile; failed suspensions wait for an explicit resume.
-	yield* Effect.gen(function* () {
-		// Only registered workflows are claimed: boot registers them after the engine starts.
-		for (const identity of yield* store.claimOrphans(owner, [...workflows.keys()], SWEEP_LIMIT)) {
-			const row = yield* store.find(identity);
-			if (row?.status !== "active") {
-				continue;
-			}
-			const activation = yield* activate(row, yield* store.steps(identity));
-			if (activation && row.suspension !== "failed") {
-				yield* resume(identity, row.suspension === null ? "explicit" : "automatic");
-			}
-		}
-	}).pipe(
-		Effect.catchCause((cause) => Effect.logWarning("workflow recovery sweep failed", cause)),
-		Effect.repeat(Schedule.spaced(SWEEP_EVERY)),
-		Effect.delay(Duration.seconds(1)),
-		Effect.forkIn(scope),
-	);
-
-	yield* Effect.addFinalizer(() => store.release(owner).pipe(Effect.ignore));
 
 	const accounts = WorkflowAccounts.of({
 		listActive: store.listAccountExecutions,

@@ -584,7 +584,6 @@ CREATE TABLE "job" (
 	"error" text,
 	"kind" text NOT NULL,
 	"id" text PRIMARY KEY,
-	"locked_until" timestamp(3) with time zone,
 	"attempts" integer NOT NULL,
 	"priority" integer NOT NULL,
 	"max_attempts" integer NOT NULL,
@@ -927,8 +926,8 @@ CREATE TABLE "plugin_revision" (
 	"plugin_id" text NOT NULL,
 	"content_hash" text NOT NULL,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"manifest" jsonb NOT NULL,
 	"client" jsonb,
+	"manifest" jsonb NOT NULL,
 	"package_id" text NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
 	"hooks" jsonb NOT NULL,
@@ -1179,7 +1178,6 @@ CREATE TABLE "verification" (
 );
 --> statement-breakpoint
 CREATE TABLE "workflow_execution" (
-	"owner" text,
 	"result" json,
 	"payload" json,
 	"account_user_id" text,
@@ -1198,11 +1196,6 @@ CREATE TABLE "workflow_execution" (
 	CONSTRAINT "workflow_execution_status_check" CHECK ("status" in ('active', 'succeeded', 'failed')),
 	CONSTRAINT "workflow_execution_suspension_check" CHECK ("suspension" is null or "suspension" in ('failed', 'waiting')),
 	CONSTRAINT "workflow_execution_completion_check" CHECK (("status" = 'active') = ("completed_at" is null))
-);
---> statement-breakpoint
-CREATE TABLE "workflow_runner" (
-	"id" text PRIMARY KEY,
-	"lease_until" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "workflow_step" (
@@ -1292,7 +1285,6 @@ CREATE INDEX "integration_provider_is_disabled_idx" ON "integration" ("provider"
 CREATE UNIQUE INDEX "integration_webhook_token_unique" ON "integration" ("webhook_token");--> statement-breakpoint
 CREATE UNIQUE INDEX "job_queued_key_unique" ON "job" ("kind","key") WHERE "status" = 'queued' and "key" is not null;--> statement-breakpoint
 CREATE INDEX "job_claim_idx" ON "job" ("kind","priority","run_at","id") WHERE "status" = 'queued';--> statement-breakpoint
-CREATE INDEX "job_running_idx" ON "job" ("locked_until") WHERE "status" = 'running';--> statement-breakpoint
 CREATE INDEX "job_failed_idx" ON "job" ("updated_at") WHERE "status" = 'failed';--> statement-breakpoint
 CREATE INDEX "managed_asset_owner_user_id_idx" ON "managed_asset" ("owner_user_id");--> statement-breakpoint
 CREATE INDEX "managed_asset_check_after_idx" ON "managed_asset" ("check_after") WHERE "retired_at" is null;--> statement-breakpoint
@@ -1367,7 +1359,7 @@ CREATE UNIQUE INDEX "user_lifecycle_operation_user_active_unique" ON "user_lifec
 CREATE INDEX "verification_identifier_idx" ON "verification" ("identifier");--> statement-breakpoint
 CREATE INDEX "workflow_execution_execution_id_idx" ON "workflow_execution" ("execution_id");--> statement-breakpoint
 CREATE INDEX "workflow_execution_root_idx" ON "workflow_execution" ("root_workflow_name","root_execution_id");--> statement-breakpoint
-CREATE INDEX "workflow_execution_owner_idx" ON "workflow_execution" ("owner") WHERE "status" = 'active';--> statement-breakpoint
+CREATE INDEX "workflow_execution_active_idx" ON "workflow_execution" ("workflow_name","execution_id") WHERE "status" = 'active';--> statement-breakpoint
 CREATE INDEX "workflow_execution_account_idx" ON "workflow_execution" ("account_user_id") WHERE "status" = 'active';--> statement-breakpoint
 CREATE INDEX "workflow_execution_cleanup_idx" ON "workflow_execution" ("expired_at") WHERE "expired_at" is not null and "cleared_at" is null;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

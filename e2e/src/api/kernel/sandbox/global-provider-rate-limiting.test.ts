@@ -320,6 +320,7 @@ describe("deployment-global sandbox HTTP rate limiting", () => {
 
 describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 	let apiEnvA: NodeJS.ProcessEnv;
+	let apiEnvB: NodeJS.ProcessEnv;
 	let httpServer: undefined | Effect.Success<ReturnType<typeof startFakeHttpServerScoped>>;
 	const requestTimestamps: Array<number> = [];
 	let apiProcessA: undefined | Effect.Success<ReturnType<typeof startApiProcess>>;
@@ -349,9 +350,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 					});
 					apiProcessA = yield* startApiProcess(apiEnvA, "Global Rate Limit API A");
 					const apiPortB = yield* Effect.promise(() => getPort());
-					// Both processes share a FRONTEND_URL: the internal OAuth client and API resource are
-					// provisioned from it, as they are for replicas of a single deployment.
-					const apiEnvB = buildApiEnv({
+					apiEnvB = buildApiEnv({
 						port: apiPortB,
 						dbUrl: infrastructure.dbUrl,
 						label: "Global Rate Limit API B",
@@ -360,7 +359,6 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 						frontendUrl: `http://127.0.0.1:${apiPortA}`,
 						extraEnv: { SCHEDULER_DISABLE_DISPATCHERS: "true" },
 					});
-					apiProcessB = yield* startApiProcess(apiEnvB, "Global Rate Limit API B");
 				}),
 			),
 		),
@@ -368,7 +366,7 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 
 	afterAll(() => runPromise(resources.close));
 
-	it.live("shares admission across processes and resumes a pending request after restart", () =>
+	it.live("preserves rate-limit deadlines and resumes a pending request across restarts", () =>
 		Effect.gen(function* () {
 			const http = requirePresent(httpServer, "Isolated HTTP server is not initialised");
 			const slug = `isolated-rate-limit-${yield* randomUuid}`;
@@ -401,7 +399,6 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 				],
 			});
 			const targetA = requirePresent(apiProcessA, "API A is not initialised").target;
-			const targetB = requirePresent(apiProcessB, "API B is not initialised").target;
 			const clientA = makeSession(targetA);
 			const installed = yield* installTestSupportSystemPlugin({
 				manifest,
@@ -435,7 +432,8 @@ describe("isolated deployment-global sandbox HTTP rate limiting", () => {
 			expect(requestTimestamps).toHaveLength(1);
 
 			yield* stopApiProcess(apiProcessA);
-			const clientB = makeSession(targetB);
+			apiProcessB = yield* resources.run(startApiProcess(apiEnvB, "Global Rate Limit API B"));
+			const clientB = makeSession(apiProcessB.target);
 			const secondJob = yield* enqueueSandboxAt(clientB, userB.userId, scriptId);
 			yield* Effect.sleep(Duration.seconds(1));
 			expect((yield* getSandboxResultAt(clientB, userB.userId, secondJob.jobId)).status).toBe(

@@ -61,8 +61,8 @@ Every import run has one durable root selected by its persisted `executionKind`:
   finalization and optional continuous-error handling.
 
 Both roots use the import run ID as their workflow execution ID and idempotency key. The sandbox
-import workflow uses `${runId}-import`. These durable IDs let any server instance
-address the correct root without retaining a process-local workflow handle.
+import workflow uses `${runId}-import`. These durable IDs let the backend address the correct root
+after restart without retaining a process-local workflow handle.
 
 `dispatchImportRun` is the only post-admission dispatch path for manual imports. It pins the import
 workflow, stores durable source state, and starts the root workflow. A failure before dispatch owns
@@ -181,7 +181,7 @@ disabling. Release rechecks the exact installation/settings and retains the prep
 recovery.
 
 Run status is persisted, workflow execution is durable, and roots and children have deterministic
-IDs. Server restart or execution on another replica therefore resumes the same run rather than
+IDs. Server restart therefore resumes the same run rather than
 creating a replacement. Manual source state retains the exact plugin revision selected at
 admission. Before source code runs, the sandbox workflow registration also retains the matching
 plugin configuration revision. Replay and restart do not resolve current plugin code or
@@ -217,10 +217,8 @@ A separate cancellation flag would duplicate lifecycle state and still require a
 with completion and failure. The `cancelling` status makes that arbitration one conditional update
 and prevents normal writes after cancellation wins.
 
-An in-memory registry of workflow handles would be local to one process and would be lost on
-restart. It would also require replica affinity or cross-node coordination. Persisted execution kind
-plus deterministic durable IDs gives the workflow engine enough information to interrupt the owner
-from any replica.
+An in-memory registry of workflow handles would be lost on restart. Persisted execution kind plus
+deterministic durable IDs lets the replacement backend locate and interrupt the same execution.
 
 ## Failure stages
 

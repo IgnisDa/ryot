@@ -15,7 +15,6 @@ export interface JobKind<Payload extends JobPayloadSchema = JobPayloadSchema> {
 	readonly payload: Payload;
 	readonly concurrency: number;
 	readonly maxAttempts: number;
-	readonly lease: Duration.Duration;
 	readonly backoff: Duration.Duration;
 }
 
@@ -25,7 +24,6 @@ export const makeJobKind = <Payload extends JobPayloadSchema>(
 		readonly payload: Payload;
 		readonly concurrency?: number;
 		readonly maxAttempts?: number;
-		readonly lease?: Duration.Input;
 		readonly backoff?: Duration.Input;
 	},
 ): JobKind<Payload> => ({
@@ -33,7 +31,6 @@ export const makeJobKind = <Payload extends JobPayloadSchema>(
 	payload: options.payload,
 	concurrency: options.concurrency ?? 1,
 	maxAttempts: options.maxAttempts ?? 5,
-	lease: Duration.fromInputUnsafe(options.lease ?? Duration.minutes(5)),
 	backoff: Duration.fromInputUnsafe(options.backoff ?? Duration.seconds(10)),
 });
 

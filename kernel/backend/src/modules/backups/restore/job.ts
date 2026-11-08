@@ -7,7 +7,7 @@ import {
 	type BackupRunFailure as BackupRunFailureValue,
 } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, PluginId, UserId } from "@ryot-app/contract/schema/brands";
-import { Context, Duration, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
+import { Context, Effect, FileSystem, Layer, Result, Schedule, Schema } from "effect";
 
 import {
 	ManagedAssetsService,
@@ -46,7 +46,6 @@ export class BackupRestoreError extends Schema.TaggedError<
 
 export const RestoreBackupJob = makeJobKind("backup-restore", {
 	maxAttempts: 3,
-	lease: Duration.minutes(5),
 	payload: RestoreBackupPayload,
 });
 

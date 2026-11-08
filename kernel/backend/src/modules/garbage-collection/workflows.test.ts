@@ -17,11 +17,8 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { WorkflowGarbageCollectionRepository } from "./workflow-repository";
 import { WorkflowGarbageCollector } from "./workflows";
 
-const owner = "gc-test-runner";
-
 const admit = Effect.fnUntraced(function* (identity: WorkflowIdentity, parent?: WorkflowIdentity) {
 	return yield* (yield* WorkflowEngineStore).admit({
-		owner,
 		parent,
 		identity,
 		account: undefined,
@@ -31,7 +28,6 @@ const admit = Effect.fnUntraced(function* (identity: WorkflowIdentity, parent?: 
 
 const finish = Effect.fnUntraced(function* (identity: WorkflowIdentity, succeeded: boolean) {
 	yield* (yield* WorkflowEngineStore).complete({
-		owner,
 		identity,
 		succeeded,
 		result: { _tag: "Complete" },
@@ -47,7 +43,6 @@ const write = Effect.fnUntraced(function* (
 	return yield* (yield* WorkflowEngineStore).writeStep({
 		kind,
 		name,
-		owner,
 		identity,
 		attempt: 0,
 		exit: kind === "clock" ? undefined : { _tag: "Success" },

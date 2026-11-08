@@ -1,6 +1,17 @@
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { sql } from "drizzle-orm";
-import { Cause, Context, Duration, Effect, Exit, FiberSet, Layer, Queue, Schema } from "effect";
+import {
+	Cause,
+	Context,
+	Duration,
+	Effect,
+	Exit,
+	FiberSet,
+	Layer,
+	Queue,
+	Schedule,
+	Schema,
+} from "effect";
 
 import { Broadcast } from "#platform/broadcast";
 import { DatabaseSession } from "#platform/db/session";
@@ -75,7 +86,6 @@ type ClaimedJob = {
 	readonly max_attempts: number;
 };
 
-// A job whose lease lapsed on its last attempt is failed instead of running again.
 class JobAttemptsExhausted extends Schema.TaggedError<
 	JobAttemptsExhausted,
 	{ readonly brand: unique symbol }
@@ -104,12 +114,23 @@ export const JobWorkerLive = Layer.effectDiscard(
 		const running = new Map<string, number>();
 		const signal = Queue.offer(wake, undefined);
 
+		yield* session.transaction(
+			session.run((db) =>
+				Effect.gen(function* () {
+					yield* db.execute(sql`delete from ${job} r where r.status = 'running' and r.key is not null
+ and exists (select 1 from ${job} q where q.kind = r.kind and q.key = r.key and q.status = 'queued')`);
+					yield* db.execute(sql`update ${job} set status = case when attempts >= max_attempts then 'failed' else 'queued' end,
+ error = 'Interrupted by backend shutdown', run_at = now(), updated_at = now() where status = 'running'`);
+				}),
+			),
+		);
+
 		const states = session.run((db) =>
 			db.execute<KindState>(
 				sql`select kind,
-					bool_or((status = 'queued' and run_at <= now()) or (status = 'running' and locked_until < now())) as ready,
-					greatest(0, ceil(extract(epoch from min(case when status = 'queued' then run_at else locked_until end) - now()) * 1000))::text as wait_ms
-				from ${job} where status in ('queued', 'running') group by kind`,
+					bool_or(run_at <= now()) as ready,
+					greatest(0, ceil(extract(epoch from min(run_at) - now()) * 1000))::text as wait_ms
+				from ${job} where status = 'queued' group by kind`,
 				"objects",
 			),
 		);
@@ -120,32 +141,18 @@ export const JobWorkerLive = Layer.effectDiscard(
 					sql`with next as (
 						select id from ${job}
 						where kind = ${kind.name}
-							and ((status = 'queued' and run_at <= now()) or (status = 'running' and locked_until < now()))
+							and status = 'queued' and run_at <= now()
 						order by priority, run_at, id
 						limit ${limit}
 						for update skip locked
 					)
 					update ${job} set status = 'running', attempts = ${job.attempts} + 1, error = null,
-						locked_until = now() + ${Duration.toMillis(kind.lease)} * interval '1 millisecond', updated_at = now()
+						updated_at = now()
 					from next where ${job.id} = next.id
 					returning ${job.id}, ${job.attempts}, ${job.payload}, ${job.maxAttempts} as max_attempts`,
 					"objects",
 				),
 			);
-
-		const renew = (kind: JobKind, row: ClaimedJob) =>
-			session
-				.run((db) =>
-					db.execute(
-						sql`update ${job} set locked_until = now() + ${Duration.toMillis(kind.lease)} * interval '1 millisecond'
-						where ${fenced(row)}`,
-					),
-				)
-				.pipe(
-					Effect.catchCause((cause) => Effect.logWarning("job lease renewal failed", cause)),
-					Effect.delay(Duration.divideUnsafe(kind.lease, 3)),
-					Effect.forever,
-				);
 
 		const remove = (row: ClaimedJob) =>
 			session.run((db) => db.execute(sql`delete from ${job} where ${fenced(row)}`));
@@ -155,18 +162,25 @@ export const JobWorkerLive = Layer.effectDiscard(
 				return remove(row);
 			}
 			if (Cause.hasInterruptsOnly(exit.cause)) {
-				return session.run((db) =>
-					db.execute(
-						sql`update ${job} set locked_until = now(), attempts = ${job.attempts} - 1 where ${fenced(row)}`,
-					),
-				);
+				return session
+					.run((db) =>
+						db.execute(
+							sql`update ${job} set status = 'queued', run_at = now(), attempts = ${job.attempts} - 1 where ${fenced(row)}`,
+						),
+					)
+					.pipe(
+						Effect.catchIf(
+							(failure) => failure.constraint === "job_queued_key_unique",
+							() => remove(row),
+						),
+					);
 			}
 			const error = errorText(exit.cause);
 			return row.attempts < row.max_attempts
 				? session
 						.run((db) =>
 							db.execute(
-								sql`update ${job} set status = 'queued', locked_until = null, error = ${error}, updated_at = now(),
+								sql`update ${job} set status = 'queued', error = ${error}, updated_at = now(),
 									run_at = now() + ${backoffMs(kind, row.attempts)} * interval '1 millisecond'
 								where ${fenced(row)}`,
 							),
@@ -180,7 +194,7 @@ export const JobWorkerLive = Layer.effectDiscard(
 						)
 				: session.run((db) =>
 						db.execute(
-							sql`update ${job} set status = 'failed', locked_until = null, error = ${error}, updated_at = now()
+							sql`update ${job} set status = 'failed', error = ${error}, updated_at = now()
 							where ${fenced(row)}`,
 						),
 					);
@@ -194,14 +208,15 @@ export const JobWorkerLive = Layer.effectDiscard(
 						: handler
 								.run(row.payload, { id: row.id, attempt: row.attempts })
 								.pipe(Effect.provideService(CurrentJobId, row.id))
-				).pipe(Effect.raceFirst(renew(handler.kind, row)), Effect.exit);
+				).pipe(Effect.exit);
 				if (Exit.isFailure(exit) && !Cause.hasInterruptsOnly(exit.cause)) {
 					yield* Effect.logWarning("job failed", exit.cause).pipe(
 						Effect.annotateLogs({ jobId: row.id, attempt: row.attempts, kind: handler.kind.name }),
 					);
 				}
 				yield* settle(handler.kind, row, exit).pipe(
-					Effect.catchCause((cause) => Effect.logWarning("job settlement failed", cause)),
+					Effect.tapError((error) => Effect.logWarning("job settlement failed", error)),
+					Effect.retry(Schedule.spaced(Duration.seconds(5))),
 				);
 			}).pipe(
 				Effect.onInterrupt(() => settle(handler.kind, row, Exit.interrupt()).pipe(Effect.ignore)),

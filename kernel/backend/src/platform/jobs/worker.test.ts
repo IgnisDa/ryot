@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, sql } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { Duration, Effect, Layer, Queue, Schema } from "effect";
 
 import { Broadcast } from "#platform/broadcast";
@@ -162,7 +162,7 @@ layer(testLayer, { excludeTestServices: true })((test) => {
 		}),
 	);
 
-	test.effect("reclaims a running job whose lease lapsed", () =>
+	test.effect("recovers an interrupted job at startup", () =>
 		Effect.gen(function* () {
 			const kind = makeJobKind("abandoned", { payload: Payload });
 			const session = yield* DatabaseSession;
@@ -177,13 +177,76 @@ layer(testLayer, { excludeTestServices: true })((test) => {
 						kind: kind.name,
 						status: "running",
 						payload: { value: "y" },
-						lockedUntil: sql`now() - interval '1 second'`,
 					}),
 			);
 			const { runs, record } = yield* recorder;
 			yield* startWorker(kind, record);
 
 			expect(yield* nextRun(runs)).toEqual({ value: "y", attempt: 2, id: "abandoned" });
+		}),
+	);
+
+	test.effect("startup keeps the newer keyed job and fails an exhausted attempt", () =>
+		Effect.gen(function* () {
+			const kind = makeJobKind("startup-settlement", { payload: Payload });
+			const session = yield* DatabaseSession;
+			const queue = yield* JobQueue;
+			yield* session.run((db) =>
+				db.insert(job).values([
+					{
+						priority: 0,
+						key: "same",
+						attempts: 1,
+						maxAttempts: 5,
+						kind: kind.name,
+						status: "running",
+						payload: { value: "old" },
+						id: "superseded-at-startup",
+					},
+					{
+						priority: 0,
+						attempts: 5,
+						maxAttempts: 5,
+						kind: kind.name,
+						status: "running",
+						id: "exhausted-at-startup",
+						payload: { value: "exhausted" },
+					},
+				]),
+			);
+			yield* queue.enqueue(kind, { value: "new" }, { key: "same" });
+			const { runs, record } = yield* recorder;
+			yield* startWorker(kind, (payload, context) =>
+				record(payload, context).pipe(Effect.andThen(Effect.never)),
+			);
+			expect((yield* nextRun(runs)).value).toBe("new");
+			const rows = yield* rowsOf(kind);
+			expect(rows).toHaveLength(2);
+			expect(rows.find((row) => row.id === "exhausted-at-startup")).toMatchObject({
+				attempts: 5,
+				status: "failed",
+			});
+			expect(yield* Queue.size(runs)).toBe(0);
+		}),
+	);
+
+	test.effect("graceful shutdown requeues unfinished work without spending an attempt", () =>
+		Effect.gen(function* () {
+			const kind = makeJobKind("shutdown", { payload: Payload });
+			const queue = yield* JobQueue;
+			const { runs, record } = yield* recorder;
+			yield* queue.enqueue(kind, { value: "unfinished" });
+			yield* Effect.scoped(
+				Effect.gen(function* () {
+					yield* startWorker(kind, (payload, context) =>
+						record(payload, context).pipe(Effect.andThen(Effect.never)),
+					);
+					expect((yield* nextRun(runs)).attempt).toBe(1);
+				}),
+			);
+			expect(yield* rowsOf(kind)).toMatchObject([{ attempts: 0, status: "queued" }]);
+			yield* startWorker(kind, record);
+			expect((yield* nextRun(runs)).attempt).toBe(1);
 		}),
 	);
 

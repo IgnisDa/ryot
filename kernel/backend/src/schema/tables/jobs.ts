@@ -12,7 +12,6 @@ export const job = snakeCase.table(
 		error: text(),
 		kind: text().notNull(),
 		id: text().primaryKey(),
-		lockedUntil: timestamptz(),
 		attempts: integer().notNull(),
 		priority: integer().notNull(),
 		maxAttempts: integer().notNull(),
@@ -31,9 +30,6 @@ export const job = snakeCase.table(
 		index("job_claim_idx")
 			.on(table.kind, table.priority, table.runAt, table.id)
 			.where(sql`${table.status} = 'queued'`),
-		index("job_running_idx")
-			.on(table.lockedUntil)
-			.where(sql`${table.status} = 'running'`),
 		index("job_failed_idx")
 			.on(table.updatedAt)
 			.where(sql`${table.status} = 'failed'`),

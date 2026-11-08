@@ -18,7 +18,7 @@ or mount the launcher with `nosuid`.
 
 Ryot generates one dedicated 32-byte encryption key on first start and stores it in the
 PostgreSQL singleton `plugin_config_encryption_key` table. There is no environment variable,
-Secret, or mount to configure. All nodes sharing the database use the same key.
+Secret, or mount to configure. The key survives server replacements in the database.
 
 Full PostgreSQL backups include the key and encrypted plugin configuration; account exports
 exclude both. If the key is missing while encrypted configuration exists, startup fails rather
@@ -49,8 +49,8 @@ for the backend, PostgreSQL, and other services.
 ## Imports
 
 Ryot runs two provider imports at a time and queues the rest, so one user importing a lot does
-not hold up everyone else. Change this with `SANDBOX_IMPORT_CONCURRENCY`. If you run more than
-one Ryot instance, set it to the combined `SANDBOX_WORKER_CONCURRENCY` of all instances.
+not hold up everyone else. Change this with `SANDBOX_IMPORT_CONCURRENCY`. Run only one backend
+process per database.
 
 ## Logging
 
