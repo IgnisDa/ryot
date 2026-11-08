@@ -85,12 +85,15 @@ serve)
 	(cd "$root/apps/server" && exec nohup bun --no-env-file run src/main.ts) > "$state/server.log" 2>&1 < /dev/null &
 	echo $! > "$state/server.pid"
 	until grep -q 'app backend listening' "$state/server.log" 2>/dev/null; do sleep 2; done
+	settled=false
 	for i in $(seq 1 720); do
-		r=$(pg "select count(*), count(*) filter (where revision = projected_revision) from relationship_projection" 2>/dev/null)
-		total=${r%%|*}; settled=${r#*|}
-		if [ "${total:-0}" -gt 0 ] && [ "$total" = "$settled" ]; then echo "settled $r"; break; fi
+		r=$(pg "select count(*) filter (where j.status != 'failed'), count(*) filter (where j.status = 'failed') from job j join \"user\" u on u.id = j.user_id where j.kind in ('fold', 'fold-rebuild') and u.disabled_at is null") || exit 1
+		pending=${r%%|*}; failed=${r#*|}
+		if [ "$failed" -gt 0 ]; then echo "failed fold jobs: $failed"; exit 1; fi
+		if [ "$pending" = 0 ]; then echo "folds settled"; settled=true; break; fi
 		sleep 5
 	done
+	if [ "$settled" != true ]; then echo "folds did not settle"; exit 1; fi
 	pg analyze >/dev/null
 	;;
 run)
@@ -99,15 +102,16 @@ run)
 	load_env
 	(while sleep 10; do echo "$(date -u +%T) $(docker stats --no-stream --format '{{.MemUsage}} {{.CPUPerc}}' wr-legacy-pg)"; done) > "$state/$id.stats" & stats=$!
 	since="$(date -u +%FT%TZ)"
-	(cd "$root/e2e" && RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$out" LIBRARY_CHECK_ROUNDS="$rounds" LIBRARY_CHECK_PAGES="$pages" \
+	(cd "$root/e2e" && RYOT_TEST_TIMEOUT=7200000 RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$out" LIBRARY_CHECK_ROUNDS="$rounds" LIBRARY_CHECK_PAGES="$pages" \
 		E2E_DATABASE_URL="$DATABASE_URL" E2E_API_URL=http://127.0.0.1:3999/api E2E_FRONTEND_URL=http://127.0.0.1:3999 \
 		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file test --timeout 7200000 \
 		src/api/perf/library-check.test.ts > "$state/$id.out" 2>&1)
-	echo "exit $?"
+	rc=$?; echo "exit $rc"
 	kill "$stats" 2>/dev/null
 	python3 -I "$here/library-report.py" "$out"
 	echo "peak memory: $(awk '{print $2}' "$state/$id.stats" | sort -n | tail -1)"
-	echo "backends killed:"; docker logs --since "$since" wr-legacy-pg 2>&1 | grep 'terminated by signal' | cut -c1-90
+	echo "backends killed:"; docker logs --since "$since" wr-legacy-pg 2>&1 | grep 'terminated by signal' | cut -c1-90 || true
+	exit "$rc"
 	;;
 plans)
 	id="$2"; only="$3"
@@ -115,16 +119,17 @@ plans)
 	pg "alter system set log_statement = 'all'" >/dev/null; pg "alter system set log_parameter_max_length = -1" >/dev/null
 	pg "select pg_reload_conf()" >/dev/null
 	since="$(date -u +%FT%TZ)"
-	(cd "$root/e2e" && RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$state/$id.jsonl" LIBRARY_CHECK_ROUNDS=server LIBRARY_CHECK_PAGES= LIBRARY_CHECK_ONLY="$only" \
+	(cd "$root/e2e" && RYOT_TEST_TIMEOUT=7200000 RUN_LIBRARY_CHECK=1 LIBRARY_CHECK_OUT="$state/$id.jsonl" LIBRARY_CHECK_ROUNDS=server LIBRARY_CHECK_PAGES= LIBRARY_CHECK_ONLY="$only" \
 		E2E_DATABASE_URL="$DATABASE_URL" E2E_API_URL=http://127.0.0.1:3999/api E2E_FRONTEND_URL=http://127.0.0.1:3999 \
 		E2E_ADMIN_ACCESS_TOKEN="$SERVER_ADMIN_ACCESS_TOKEN" bun --no-env-file test --timeout 7200000 \
 		src/api/perf/library-check.test.ts > "$state/$id.out" 2>&1)
-	echo "exit $?"
+	rc=$?; echo "exit $rc"
 	pg "alter system reset log_statement" >/dev/null; pg "alter system reset log_parameter_max_length" >/dev/null
 	pg "select pg_reload_conf()" >/dev/null
 	docker logs --since "$since" wr-legacy-pg > "$state/$id.log" 2>&1
 	python3 -I "$here/library-explain.py" "$state" "$id"
 	rm -f "$state/$id.log"
+	exit "$rc"
 	;;
 stop)
 	[ -f "$state/server.pid" ] && kill "$(cat "$state/server.pid")" 2>/dev/null

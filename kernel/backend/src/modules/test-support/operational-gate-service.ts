@@ -7,7 +7,7 @@ import { AutomationExecutionId, type ImportRunId } from "@ryot-app/contract/sche
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
-import { inArray, sql } from "drizzle-orm";
+import { inArray, or, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 
 import { IngestionExecution } from "#modules/imports/execution-service";
@@ -258,7 +258,15 @@ export class OperationalGateService extends Context.Service<OperationalGateServi
 							lastIndex: sql<number>`max(${sandboxJournalEntry.entryIndex})::int`,
 						})
 						.from(sandboxJournalEntry)
-						.where(inArray(sandboxJournalEntry.executionId, [...executionIds]))
+						.where(
+							or(
+								inArray(sandboxJournalEntry.executionId, [...executionIds]),
+								...executionIds.map(
+									(executionId) =>
+										sql`starts_with(${sandboxJournalEntry.executionId}, ${`${executionId}-checkpoint-`})`,
+								),
+							),
+						)
 						.groupBy(sandboxJournalEntry.executionId),
 				);
 				const projectionErrors = journals.filter(

@@ -17,11 +17,17 @@ script:
 ```bash
 RUN_OPERATIONAL_GATES=1 bun --cwd e2e run test 'src/api/plugins/media/imports/media-population-operational-gate.test.ts'
 RUN_OPERATIONAL_GATES=1 bun --cwd e2e run test 'src/api/plugins/media/imports/media-population-overlap-gate.test.ts'
+RUN_OPERATIONAL_GATES=1 bun --cwd e2e run test 'src/api/plugins/fitness/imports/checkpoint-recovery.test.ts'
+RUN_OPERATIONAL_GATES=1 bun --cwd e2e run test 'src/api/plugins/media/integrations/checkpoint-scale.test.ts'
 RUN_LIVE_PROVIDER_TESTS=1 bun --cwd e2e run test 'src/api/plugins/media/smoke/providers-live-smoke.test.ts'
 ```
 
 The capacity gate exercises production-size durable execution with a 15-minute budget. The overlap
 gate submits overlapping 5/20-import waves and requires completion without PostgreSQL deadlocks.
+The checkpoint recovery gate imports 3,201 measurements and kills the API after a saved application
+checkpoint. It verifies unique records after restart and records checkpoint and journal sizes.
+The sync gate collects 101 provider windows twice and verifies that unchanged progress retains its
+event identities. Run these gates separately to keep their timing and memory samples interpretable.
 Live smoke may require credentials and tests stable provider properties, not exact upstream copy.
 
 ## Harness

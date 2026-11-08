@@ -6,7 +6,7 @@ import statistics
 import sys
 
 rows = [json.loads(line) for line in open(sys.argv[1])]
-reads = [row for row in rows if "round" in row]
+reads = [row for row in rows if "outcome" in row]
 pages = [row for row in rows if "page" in row]
 print(next((row for row in rows if "members" in row), {}))
 
@@ -32,3 +32,10 @@ for page in pages:
     slow = sorted(page["outcomes"], key=lambda item: -item["ms"])[:3]
     print("page", page["page"], page["mode"], page["startedAt"][11:19], f'{page["ms"]} ms', "failed", bad,
           "slowest", [(item["label"], item["ms"]) for item in slow])
+
+writes = collections.defaultdict(list)
+for row in rows:
+    if "write" in row:
+        writes[row["write"]].append(row["ms"])
+for label, values in writes.items():
+    print("write", label, f"{median(values)} ms", f"samples {len(values)}")

@@ -296,3 +296,137 @@ run are warm-up context, not comparable medians.
 Implementation commit: `a19c79c4ba`. Changes are local; nothing was pushed or deployed. The generated
 V2 baseline replaces the previous greenfield baseline rather than providing an incremental migration
 for existing V2 databases. Existing local application databases and source dumps remain untouched.
+
+## Large-library and checkpoint scale validation
+
+Validation base: `cf39940142`. This pass changes benchmark tooling, opt-in regression gates, and the
+test-support journal inspector. It changes no product query, completion representation, execution
+capacity, or schema. The workspace was clean when work started; the intervening baseline replacement
+seen during the preceding status check was no longer present.
+
+### Restored library
+
+`tmp/file2.sql` was restored and migrated into separate local PostgreSQL/object-storage containers.
+Real user data stayed on the owner's machine. The original application containers and all source
+dumps were untouched. PostgreSQL retained the historical 1 GiB limit. Migration completed in 347 s.
+The selected account had 14,708 library members; the separate fitness account had 113 workouts.
+
+The library benchmark gained search and three-page traversal checks, plus five repetitions of
+completion creation, source-date editing, deletion, and editing suppressed history. It verifies that
+pages do not repeat entities, source edits preserve one completion, and deleting a completion keeps
+it suppressed after another source edit. Each write run adds five synthetic fixture movies to the
+restored account; subsequent runs include those additional fixtures.
+
+The first complete run waited for the measured media account's folds, while other accounts were still
+rebuilding. For the quiet runs, 50,069 queued fold jobs for unrelated accounts were temporarily
+deferred in the disposable database, with their original schedules saved. The measured fitness
+account's remaining folds were allowed to finish. All 50,069 schedules were restored afterward, the
+temporary scheduling table was removed, and the benchmark server and containers were stopped with
+their data retained. No production queue or application database was changed.
+
+Both full runs passed 708 individual reads across 236 variants, three concurrent home-page loads,
+and 20 write measurements. The busy-week run passed another 15 targeted reads and three home-page
+loads. There were no failed reads, repeated page entities, or PostgreSQL backend kills.
+
+Medians in milliseconds, three observations per read and five per write:
+
+| Operation | Other accounts rebuilding, dump date | Quiet, dump date | Quiet, busy week |
+| --- | ---: | ---: | ---: |
+| Upcoming | 122 | 110 | 157 |
+| Show calendar | 61 | 40 | 86 |
+| Continue shows | 1869 | 1197 | 1044 |
+| All Shows | 2781 | 1024 | 776 |
+| All Shows, three pages combined | 7680 | 4617 | — |
+| All Movies | 703 | 500 | — |
+| Create progress and completion | 204 | 303 | — |
+| Edit history date | 185 | 312 | — |
+| Delete completion | 64 | 126 | — |
+| Edit suppressed history | 124 | 206 | — |
+
+Home-page loads were 5546/1714/1736 ms during rebuilds, 2050/2122/1712 ms at the quiet dump date,
+and 1244/1228/1186 ms in the quiet busy week. Sampled PostgreSQL container memory peaked at
+1003/967.7/781.6 MiB respectively. Dates were 2026-07-15 and 2025-10-15; overrides affect requested
+windows, not the stored-state or PostgreSQL clock. These sequential samples are not a before/after
+comparison of the checkpoint implementation: cache state, query plans, and
+background work differ. In particular, the quiet write samples were slower than the loaded samples.
+The historical date-index gains remain visible, but not every show-read or whole-page sample meets
+the earlier one-second/two-second targets.
+
+Read-only query plans on the quiet copy explain the remaining show cost. All Shows spent 91.8 ms
+selecting 21 rows and 797.6 ms in total. Continue shows took 900.4 ms; its included episode rows
+accounted for about 812 ms over 21 cards. These are repeated per-card reads, not evidence that stored
+completion state or page-first selection should be removed. Plans and SQL remain local under
+`tmp/library-check/checkpoint-show-plans-*`.
+
+The benchmark itself needed repairs: its readiness check referenced the removed projection table;
+the Effect test helper used its five-second default despite the CLI timeout; selecting the largest
+library omitted the media-library entity constraint; and its result reporter did not distinguish
+write samples from read samples. The updated tooling uses fold jobs, passes the helper's timeout,
+constrains library selection, reports writes, and preserves the test exit status. The first short
+run was interrupted by the helper timeout and is excluded from the measurements above.
+
+### Import restart
+
+VM run `checkpoint-scale` imported 3,201 synthetic OpenScale measurements, killed the API with
+SIGKILL after an application checkpoint recorded 1,600 committed measurements, and restarted it
+against the same database and object store. It passed all 678 assertions, including exactly 3,201
+unique measurement IDs and timestamps and a final summary with no failures or duplicates.
+
+The import took 353.7 s including the restart; the test took 366.9 s. The API became healthy 5.1 s
+after the kill. The next saved application checkpoint was observed 178.3 s after the kill; that
+measures another bounded batch of work, not the time to the first resumed write. Across 336 samples,
+checkpoint payloads peaked at 416 bytes, workflow-step rows at 1,072, and journal projections at 129
+rows. No sample retained a workflow-step scope older than its saved checkpoint. At completion there
+were 277 workflow-step rows and zero journal projection rows: checkpoints do not eliminate all
+committed-result receipts. The active API's sampled RSS peaked at 604 MiB before restart and 599 MiB
+afterward. Sampling cannot establish a general memory bound or rule out leaks on larger inputs.
+
+### Repeated sync
+
+VM run `checkpoint-sync` passed 1,227 assertions across two 101-item Audiobookshelf syncs. Each item
+requires its own source window. The runs took 435.9 s and 413.3 s; the whole test took 888.8 s.
+The fake upstream saw exactly one snapshot fetch per sync and one progress fetch per item per sync.
+After the second run every item still had exactly one progress event with its original ID.
+
+Across 88 storage samples, checkpoint payloads peaked at 324 bytes, active executions at six, and
+obsolete checkpoint scopes stayed at zero. The API's sampled RSS peaked at 689 MiB and finished at
+529 MiB. Retained state nevertheless accumulated: the last sample had 765 execution rows, 13,298
+workflow-step rows, and 2,277 journal projection rows occupying 2.98 MB of body data. These include
+bounded child executions that do not save another checkpoint. Journal projections have a documented
+24-hour retention policy; this test did not wait for that collection window. A small current
+checkpoint is therefore not evidence that total persisted work is constant with import size.
+RSS figures cover the API process, excluding native sidecars and PostgreSQL.
+
+### Validation handoff
+
+The existing population capacity gate also passed: two concurrent 1,001-item imports, 33 assertions,
+and 408.9 s for the test body. Its initial run completed the work but failed its journal assertion
+because the test-support inspector only matched the original execution IDs. Checkpoint journal IDs
+include a checkpoint suffix. The inspector now includes those scopes; the unchanged gate assertions
+passed on the final run. This correction changes test inspection, not execution or persistence.
+
+Affected package checks passed before testing. Final `bun run check` passed across 7,940 TypeScript
+files in 30 projects, with 38 successful Turbo tasks. The backend suite passed 2,789 tests; the final
+`bun turbo test --filter=@ryot-app/kernel-backend` reused all 41 successful task caches. Only the
+individual operational and library e2e files described above were run. Shell syntax and diff checks
+passed. Raw synthetic workload logs and the comparison artifact are retained locally under
+`tmp/checkpoint-validation`; real-library logs and query plans remain under `tmp/library-check`.
+
+The main-session read-only review found no blocking issues. Cleanup against `cf39940142` removed the
+18-line temporary sampling script and its VM copy after stopping both observers. The regression
+gates, benchmark tools, and measured evidence remain useful. No type-checker bypass casts or lint
+suppressions were introduced. The validation services are stopped, and the restored benchmark data
+is retained. Changes are local; nothing was pushed or deployed.
+
+### Follow-ups supported by this evidence
+
+- Migration queues rebuild work for disabled accounts, while script resolution correctly rejects
+  their execution. The restored copy had 36,437 queued fold jobs for disabled accounts, and observed
+  unavailable-script failures belonged to disabled users. Admission should avoid that work and
+  arrange a rebuild when an account is enabled, while preserving its data. This pass records the
+  finding without changing migration or account lifecycle behavior.
+- Show-card and continue-watching episode reads merit targeted profiling and batching. Page-first
+  selection and stored completion state should remain.
+- Private unfinished-step receipts remain justified by the successful restart. Any further removal
+  should distinguish those receipts from reconstructible journal projections and already completed
+  child executions; API simplification alone does not make all durable storage unnecessary.

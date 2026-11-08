@@ -48,12 +48,17 @@ import type { HttpClient } from "effect/http";
 
 import type { Client } from "~/fixtures/kernel/auth";
 import { createImpersonationSession } from "~/fixtures/kernel/auth-impersonation";
+import { listEventsForEntity } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { workoutReference } from "~/fixtures/plugins/fitness";
-import { findMediaEntitySchema } from "~/fixtures/plugins/media";
+import {
+	createBuiltinMediaLifecycleFixture,
+	findMediaEntitySchema,
+} from "~/fixtures/plugins/media";
 import { requirePresent } from "~/support/assertions";
-import { describe, it } from "~/support/effect-test";
+import { describe, expect, it } from "~/support/effect-test";
 
+const LIBRARY_CHECK_WRITES = process.env.LIBRARY_CHECK_WRITES === "1";
 const RUN_LIBRARY_CHECK = process.env.RUN_LIBRARY_CHECK === "1";
 const OUT = String(process.env.LIBRARY_CHECK_OUT);
 const DATABASE_URL = String(process.env.E2E_DATABASE_URL);
@@ -238,6 +243,30 @@ const mediaReads = Effect.fn("mediaReads")(function* (client: Client) {
 		browsing[name] = read(() =>
 			Result.getOrThrow(entityBrowserRecipe({ browse, settings, queryDocument })),
 		);
+		browsing[`${name}-search`] = read(() =>
+			Result.getOrThrow(
+				entityBrowserRecipe({ browse, settings, queryDocument, searchText: "the" }),
+			),
+		);
+		browsing[`${name}-three-pages`] = (pageClient) =>
+			Effect.gen(function* () {
+				let after: string | undefined;
+				const ids = new Set<string>();
+				for (let pageIndex = 0; pageIndex < 3; pageIndex++) {
+					const page = yield* executeRyotQLRecipe(
+						pageClient,
+						Result.getOrThrow(entityBrowserRecipe({ after, browse, settings, queryDocument })),
+					);
+					for (const item of page.items) {
+						expect(ids.has(item.entityId)).toBe(false);
+						ids.add(item.entityId);
+					}
+					if (!page.pageInfo.hasMore) {
+						break;
+					}
+					after = requirePresent(page.pageInfo.nextCursor, "Expected next-page cursor");
+				}
+			});
 		browsing[`${name}-count`] = read(() =>
 			Result.getOrThrow(entityBrowserCountRecipe(queryDocument, settings, { browse })),
 		);
@@ -301,7 +330,8 @@ describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 				from relationship r
 				join entity e on e.id = r.target_entity_id
 				join "user" u on u.id = e.user_id
-				where r.relationship_schema_slug = 'in-media-library' and u.disabled_at is null
+				where e.entity_schema_slug = 'media-library'
+					and r.relationship_schema_slug = 'in-media-library' and u.disabled_at is null
 				group by 1 order by 2 desc limit 1`),
 				"the restored database has no library",
 			);
@@ -389,6 +419,74 @@ describe.skipIf(!RUN_LIBRARY_CHECK)("library check", () => {
 					ms: Math.round(performance.now() - start),
 				});
 				yield* Effect.sleep(Duration.seconds(15));
+			}
+			if (LIBRARY_CHECK_WRITES) {
+				const client = yield* session(library.user_id);
+				for (let round = 0; round < 5; round++) {
+					const movie = yield* createBuiltinMediaLifecycleFixture(client, {
+						entitySchemaSlug: "movie",
+					});
+					const timed = <A, E, R>(label: string, action: Effect.Effect<A, E, R>) =>
+						Effect.gen(function* () {
+							const startedAt = yield* Clock.currentTimeMillis;
+							const result = yield* action;
+							yield* log({ round, write: label, ms: (yield* Clock.currentTimeMillis) - startedAt });
+							return result;
+						});
+					yield* timed(
+						"progress-complete",
+						client.call((c) =>
+							c.events.create({
+								payload: [
+									{
+										entityId: movie.entityId,
+										properties: { progressPercent: 100 },
+										occurredAt: "2026-01-01T12:00:00.000Z",
+										eventSchemaSlug: movie.progressEventSchemaSlug,
+									},
+								],
+							}),
+						),
+					);
+					let history = yield* listEventsForEntity(client, movie.entityId, undefined, 100);
+					expect(history.filter((event) => event.eventSchemaSlug === "complete")).toHaveLength(1);
+					const progress = requirePresent(
+						history.find((event) => event.eventSchemaSlug === "progress"),
+						"Expected progress",
+					);
+					yield* timed(
+						"edit-history",
+						client.call((c) =>
+							c.events.update({
+								params: { eventId: progress.id },
+								payload: { occurredAt: "2026-01-02T12:00:00.000Z" },
+							}),
+						),
+					);
+					history = yield* listEventsForEntity(client, movie.entityId, undefined, 100);
+					const completions = history.filter((event) => event.eventSchemaSlug === "complete");
+					expect(completions).toHaveLength(1);
+					const completion = requirePresent(completions[0], "Expected completion");
+					expect(completion.occurredAt).toBe("2026-01-02T12:00:00.000Z");
+					yield* timed(
+						"delete-completion",
+						client.call((c) => c.events.delete({ params: { eventId: completion.id } })),
+					);
+					yield* timed(
+						"edit-suppressed-history",
+						client.call((c) =>
+							c.events.update({
+								params: { eventId: progress.id },
+								payload: { properties: { remove: [], set: { progressPercent: 100 } } },
+							}),
+						),
+					);
+					expect(
+						(yield* listEventsForEntity(client, movie.entityId, undefined, 100)).filter(
+							(event) => event.eventSchemaSlug === "complete",
+						),
+					).toHaveLength(0);
+				}
 			}
 		}),
 	);
