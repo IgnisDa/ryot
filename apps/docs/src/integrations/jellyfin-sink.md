@@ -13,9 +13,8 @@ Under **Settings > Integrations**, create a Jellyfin Sink integration and copy i
 ## Official plugin
 
 1. Install the `Webhook` plugin from the Jellyfin plugin catalog and restart Jellyfin.
-2. In the plugin settings, add a `Generic` destination with the copied URL, request method `POST`,
-   and request content type `application/json`. Add a `Content-Type` header if the destination does
-   not set one.
+2. In the plugin settings, add a `Generic` destination with the copied URL and request content type `application/json`.
+   Add a `Content-Type` header if the destination does not set one.
 3. Select notification types `Playback Start` and `Playback Stop`, and optionally `Playback Progress`
    for finer progress. Select item types `Movies` and `Episodes`, and optionally restrict it to your
    user.
