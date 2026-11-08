@@ -33,7 +33,12 @@ import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } f
 import { type ExecutionRow, type StepRow, WorkflowEngineStore } from "./engine-store";
 import { WorkflowExecutionNotifications } from "./execution-notifications";
 import { WorkflowExecutionExpired, type WorkflowIdentity } from "./identity";
-import { provideForgetWorkflowSteps, WorkflowCodecs, WorkflowStepScope } from "./scope";
+import {
+	provideForgetWorkflowSteps,
+	WorkflowCheckpoint,
+	WorkflowCodecs,
+	WorkflowStepScope,
+} from "./scope";
 
 const RECOVERY_PAGE = 100;
 
@@ -101,6 +106,7 @@ type Registration = {
 };
 
 type Activation = {
+	checkpoint: unknown;
 	interrupted: boolean;
 	account: null | UserId;
 	readonly payload: object;
@@ -209,6 +215,7 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 			workflow: entry.workflow,
 			interruptedUnsafe: false,
 			scope: Scope.makeUnsafe(),
+			checkpoint: row.checkpoint,
 			account: row.accountUserId,
 			resumeRequested: undefined,
 			done: Deferred.makeUnsafe(),
@@ -339,6 +346,29 @@ export const makePostgresWorkflowEngine = Effect.gen(function* () {
 				Effect.provideService(WorkflowAdmissionAccount, undefined),
 				// A body woken by a job outlives it; the execution's own account check guards its writes.
 				Effect.provideService(CurrentJobId, null),
+				Effect.provideService(WorkflowCheckpoint, {
+					load: Effect.sync(() => activation.checkpoint),
+					save: Effect.fnUntraced(function* (value, completedScope) {
+						const prefix = `${completedScope}/`;
+						if (!(yield* store.saveCheckpoint(activation.identity, value, prefix))) {
+							return yield* expired(activation.identity);
+						}
+						activation.checkpoint = value;
+						for (const key of activation.activities.keys()) {
+							if (key.startsWith(prefix)) {
+								activation.activities.delete(key);
+							}
+						}
+						for (const key of activation.deferreds.keys()) {
+							if (key.startsWith(prefix)) {
+								activation.deferreds.delete(key);
+								instance.completedDeferreds.delete(key);
+								instance.awaitedDeferreds.delete(key);
+							}
+						}
+						return undefined;
+					}, Effect.uninterruptible),
+				}),
 				provideForgetWorkflowSteps((prefix) =>
 					store.forgetActivities(activation.identity, prefix).pipe(
 						Effect.orDie,

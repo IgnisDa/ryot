@@ -4,11 +4,11 @@ import { isJsonValue } from "@ryot-app/contract/schema/json";
 import { hostFailure, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	workflowDurableResultSchema,
-	type WorkflowInlineRequest,
-	workflowInlineRequestSchema,
+	type WorkflowHostRequest,
+	workflowHostRequestSchema,
 	type WorkflowReplayJournalEntry,
 	workflowReplayJournalEntrySchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import type { Scope, Tracer } from "effect";
 import { Clock, Context, Deferred, Effect, Layer, Option, Schema, Semaphore } from "effect";
 import { Base64 } from "effect/encoding";
@@ -55,8 +55,8 @@ const decodeJournalEntryJson = Schema.decodeEffect(journalEntryJson, strictOptio
 const progressJson = Schema.fromJsonString(SandboxInlineProgress);
 const encodeProgressJson = Schema.encodeEffect(progressJson, strictOptions);
 const decodeProgressJson = Schema.decodeEffect(progressJson, strictOptions);
-const hostRequestJson = Schema.fromJsonString(workflowInlineRequestSchema);
-const encodeHostRequestJson = (request: WorkflowInlineRequest) =>
+const hostRequestJson = Schema.fromJsonString(workflowHostRequestSchema);
+const encodeHostRequestJson = (request: WorkflowHostRequest) =>
 	Schema.encodeEffect(hostRequestJson, strictOptions)(request).pipe(Effect.orDie);
 const decodeHostRequestJson = Schema.decodeEffect(hostRequestJson, strictOptions);
 const decodeJournalEntry = Schema.decodeUnknownEffect(
@@ -484,19 +484,17 @@ const boundedHostCall = (
 	);
 
 const inlineProgressBoundBytes = Effect.fnUntraced(function* (
-	requests: ReadonlyArray<WorkflowInlineRequest>,
+	requests: ReadonlyArray<WorkflowHostRequest>,
 ) {
 	let valueBytes = 0;
 	let progressBoundBytes = 0;
 	for (const request of requests) {
-		const resultBytes =
-			request.kind === "sleep" ? 4 : sandboxHostResultBytes(request.args.capability);
+		const resultBytes = sandboxHostResultBytes(request.args.capability);
 		if (resultBytes === null) {
 			return undefined;
 		}
 		valueBytes += resultBytes;
-		const wireBytes =
-			request.kind === "sleep" ? 4 : sandboxHostResultWireBytes(request.args.capability);
+		const wireBytes = sandboxHostResultWireBytes(request.args.capability);
 		if (wireBytes === null) {
 			return undefined;
 		}
@@ -579,9 +577,8 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 			requests.some(
 				(request, index) =>
 					request.index !== firstIndex + index ||
-					(request.kind === "host" &&
-						(!inline.capabilities.includes(request.args.capability) ||
-							!input.principal.metadata.capabilities?.includes(request.args.capability))),
+					!inline.capabilities.includes(request.args.capability) ||
+					!input.principal.metadata.capabilities?.includes(request.args.capability),
 			) || firstIndex + requests.length > SANDBOX_LIMITS.hostCalls.total;
 		if (invalidRequest) {
 			return hostResultFrame(frame, { defer: true });
@@ -590,12 +587,7 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 
 		let budgetExceeded = false;
 		for (const request of requests) {
-			if (
-				consumeSandboxHostCall(
-					state.hostCallBudget,
-					request.kind === "host" ? request.args.capability : "sleep",
-				)
-			) {
+			if (consumeSandboxHostCall(state.hostCallBudget, request.args.capability)) {
 				budgetExceeded = true;
 			}
 		}
@@ -672,10 +664,8 @@ const dispatchInlineBatch: GateAction = (state, options, frame, frameArgs, retai
 			return hostResultFrame(frame, { defer: true });
 		}
 
-		const canonicalResults = yield* Effect.forEach(settled, (result, index) =>
-			requests[index]?.kind === "sleep"
-				? Schema.decodeUnknownEffect(Schema.Null)(result)
-				: Schema.decodeUnknownEffect(workflowDurableResultSchema, strictOptions)(result),
+		const canonicalResults = yield* Effect.forEach(settled, (result) =>
+			Schema.decodeUnknownEffect(workflowDurableResultSchema, strictOptions)(result),
 		).pipe(Effect.match({ onFailure: () => undefined, onSuccess: (results) => results }));
 		if (canonicalResults === undefined) {
 			return hostResultFrame(frame, { defer: true });

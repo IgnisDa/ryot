@@ -2,11 +2,7 @@ import {
 	genericImportActivityReference,
 	genericImportCaptureReference,
 } from "@ryot-app/plugin-backend-sdk/imports";
-import {
-	Schema,
-	selectExecutable,
-	type WorkflowReplay,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+import { Schema, selectExecutable, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type {
 	MediaIntegrationCollectionInput,
@@ -17,9 +13,9 @@ import { mediaSortedRuns } from "../imports/sorted-runs";
 
 export function* collectMediaIntegrationWindows(
 	input: typeof MediaIntegrationCollectionInput.Type,
-	replay: WorkflowReplay,
+	step: WorkflowStep,
 ): Generator<
-	ReturnType<WorkflowReplay["child"]>,
+	ReturnType<WorkflowStep["child"]>,
 	typeof MediaIntegrationCollectionOutput.Type,
 	unknown
 > {
@@ -28,13 +24,13 @@ export function* collectMediaIntegrationWindows(
 	);
 	const source = selectExecutable(mediaIntegrations, input.integrationScriptSlug);
 	const attribution = { runId: input.runId, command: input.command };
-	const state = { ordinal: input.ordinal };
-	const runs = mediaSortedRuns(replay, attribution, state);
+	const state = { runs: [], ordinal: input.ordinal };
+	const runs = mediaSortedRuns(step, attribution, state);
 	let { page, carry } = input;
 	let done = false;
 	let sourceFailure: typeof MediaIntegrationCollectionOutput.Type.sourceFailure;
 	for (let boundary = 0; boundary < 64; boundary++) {
-		const collected = yield* replay.activity(`integration-collector:${page}`, source, {
+		const collected = yield* step.activity(`integration-collector:${page}`, source, {
 			...context,
 			...(carry ? { ingestionArtifacts: { runId: input.runId, captures: { carry } } } : {}),
 		});
@@ -43,7 +39,7 @@ export function* collectMediaIntegrationWindows(
 		const handle = collected.chunkHandles[0];
 		if (handle) {
 			const captureId = `${prefix}-0`;
-			yield* replay.child(`capture:${captureId}`, genericImportCaptureReference, {
+			yield* step.child(`capture:${captureId}`, genericImportCaptureReference, {
 				...attribution,
 				operation: {
 					handle,
@@ -63,7 +59,7 @@ export function* collectMediaIntegrationWindows(
 				throw new Error("Media integration window is missing its carry");
 			}
 			carry = `${prefix}-carry`;
-			yield* replay.child(`capture:${carry}`, genericImportCaptureReference, {
+			yield* step.child(`capture:${carry}`, genericImportCaptureReference, {
 				...attribution,
 				operation: {
 					captureId: carry,
@@ -77,7 +73,7 @@ export function* collectMediaIntegrationWindows(
 		}
 		page++;
 		if (collected.advancedAt) {
-			yield* replay.child(`progress:${page}`, genericImportActivityReference, {
+			yield* step.child(`progress:${page}`, genericImportActivityReference, {
 				...attribution,
 				operation: {
 					action: "activity",

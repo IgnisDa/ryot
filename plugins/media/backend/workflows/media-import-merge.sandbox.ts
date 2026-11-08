@@ -13,12 +13,14 @@ export default defineWorkflow({
 	manifest,
 	input: MediaMergeInput,
 	output: MediaMergeOutput,
-	run: (input, replay) =>
+	checkpoint: MediaMergeOutput,
+	run: (initial, step, checkpoint) =>
 		Effect.gen(function* () {
+			const input = { ...initial, ...checkpoint };
 			let { page, ordinal, leftPage, rightPage, leftOffset, rightOffset } = input;
 			const attribution = { runId: input.runId, command: input.command };
-			for (let step = 0; step < 16; step++) {
-				const result = yield* replay.activity(`merge:${page}`, mediaMerge, {
+			for (let iteration = 0; iteration < 16; iteration++) {
+				const result = yield* step.activity(`merge:${page}`, mediaMerge, {
 					offset: 0,
 					header: "",
 					leftOffset,
@@ -43,7 +45,7 @@ export default defineWorkflow({
 					throw new Error("Media merge did not return a capture");
 				}
 				const captureId = `${input.prefix}-${page}`;
-				yield* replay.child(`capture:${page}`, genericImportCaptureReference, {
+				yield* step.child(`capture:${page}`, genericImportCaptureReference, {
 					...attribution,
 					operation: {
 						handle,
@@ -80,6 +82,14 @@ export default defineWorkflow({
 					return { page, ordinal, leftPage, rightPage, leftOffset, done: true, rightOffset };
 				}
 			}
-			return { page, ordinal, leftPage, rightPage, leftOffset, rightOffset, done: false };
+			return yield* step.save({
+				page,
+				ordinal,
+				leftPage,
+				rightPage,
+				leftOffset,
+				rightOffset,
+				done: false,
+			});
 		}),
 });

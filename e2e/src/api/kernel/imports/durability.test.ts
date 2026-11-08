@@ -18,6 +18,7 @@ import {
 	testPluginManifest,
 	testPluginPackageId,
 } from "~/fixtures/kernel";
+import { checkpointWaitSource } from "~/fixtures/kernel/checkpoint-wait";
 import { describe, expect, it } from "~/support/effect-test";
 import {
 	buildApiEnv,
@@ -72,19 +73,23 @@ const readSource = defineScriptReference({
   scriptSlug: ${JSON.stringify(`${activityScriptSlug}-read`)},
 });
 
+const wait = defineScriptReference({ input: Schema.Int, output: Schema.Null, scriptSlug: ${JSON.stringify(`${activityScriptSlug}-wait`)} });
+
 export default defineWorkflow({
   manifest,
   input: genericImportWorkflowInputSchema,
   output: genericImportWorkflowResultSchema,
-  run: (input, replay) =>
+  checkpoint: Schema.Struct({ expectedValue: Schema.String, remainingMs: Schema.Int }),
+  run: (input, replay, checkpoint) =>
     Effect.gen(function* () {
       if (input.plan.operation !== ${JSON.stringify(workflowSlug)}) {
         return yield* Effect.fail(new Error("Import used an unexpected accepted plan"));
       }
+      const attribution = { runId: input.runId, command: input.command };
+      if (checkpoint === null) {
        const sourcePayload = yield* replay.activity("read-source", readSource, {
          artifactHandle: input.sourcePayloadHandle,
        });
-      const attribution = { runId: input.runId, command: input.command };
 
       yield* replay.child("capture-source", genericImportCaptureReference, {
         ...attribution,
@@ -116,9 +121,14 @@ export default defineWorkflow({
         },
       });
 
-      yield* replay.sleep("wait-before-config-read", sourcePayload.delayMs);
+      return yield* replay.save({ expectedValue: sourcePayload.expectedValue, remainingMs: sourcePayload.delayMs });
+      }
+      if (checkpoint.remainingMs > 0) {
+        yield* replay.activity("wait", wait, checkpoint.remainingMs);
+        return yield* replay.save({ ...checkpoint, remainingMs: Math.max(0, checkpoint.remainingMs - 1000) });
+      }
        yield* replay.activity("check-pinned-config", checkConfig, {
-         expectedValue: sourcePayload.expectedValue,
+         expectedValue: checkpoint.expectedValue,
        });
        yield* replay.child("record-reading-complete", genericImportActivityReference, {
          ...attribution,
@@ -265,13 +275,21 @@ describe("isolated import durability", () => {
 									label: "Delay",
 									type: "integer",
 									validation: { minimum: 0, required: true },
-									description: "Durable delay before reading configuration",
+									description: "Checkpointed wait before reading configuration",
 								},
 							},
 						},
 					},
 				],
 				scripts: [
+					{
+						kind: "script",
+						capabilities: [],
+						name: "Checkpoint wait",
+						requiredPluginConfigKeys: [],
+						slug: `${activityScriptSlug}-wait`,
+						entry: "backend/scripts/wait.sandbox.ts",
+					},
 					{
 						kind: "script",
 						requiredPluginConfigKeys: [],
@@ -304,6 +322,7 @@ describe("isolated import durability", () => {
 				files: encodePluginSourceFiles({
 					[activityEntry]: configActivitySource(activityScriptSlug),
 					"backend/scripts/read-source.sandbox.ts": readSourceActivity(activityScriptSlug),
+					"backend/scripts/wait.sandbox.ts": checkpointWaitSource(`${activityScriptSlug}-wait`),
 					[workflowEntry]: importWorkflowSource(
 						workflowScriptSlug,
 						activityScriptSlug,

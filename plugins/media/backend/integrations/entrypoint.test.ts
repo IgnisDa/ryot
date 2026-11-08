@@ -17,7 +17,7 @@ import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wi
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -109,11 +109,18 @@ it.effect(
 			const drive = Effect.fnUntraced(function* (
 				run: (
 					journal: WorkflowReplayJournalEntry[],
+					checkpoint: JsonValue | undefined,
 				) => Effect.Effect<WorkflowReplayEnvelope, DriverError>,
 			): Effect.fn.Return<JsonValue, DriverError> {
 				const journal: WorkflowReplayJournalEntry[] = [];
+				let checkpoint: JsonValue | undefined;
 				for (;;) {
-					const envelope = yield* run(journal);
+					const envelope = yield* run(journal, checkpoint);
+					if (envelope.state === "checkpoint") {
+						checkpoint = envelope.checkpoint;
+						journal.length = 0;
+						continue;
+					}
 					if (envelope.state === "completed") {
 						return envelope.output;
 					}
@@ -235,6 +242,7 @@ it.effect(
 				}
 			});
 			const rootJournal: WorkflowReplayJournalEntry[] = [];
+			let rootCheckpoint: JsonValue | undefined;
 			const input = {
 				runId: "run",
 				source: "spotify",
@@ -245,18 +253,33 @@ it.effect(
 					selection: { "integration-adapter": "integration.spotify" },
 				},
 			};
-			yield* drive((journal) => {
+			yield* drive((journal, checkpoint) => {
+				rootCheckpoint = checkpoint;
 				rootJournal.splice(0, rootJournal.length, ...journal);
-				return root.run(input, makeWorkflowReplayHost(journal), execution);
+				return root.run(
+					input,
+					{
+						...makeWorkflowReplayHost(journal),
+						...(checkpoint === undefined ? {} : { checkpoint }),
+					},
+					execution,
+				);
 			});
 			expect(fetched).toBe(1);
 			expect(writes).toBe(2);
 			expect(confirms).toBe(1);
 			expect(saved.size).toBe(2);
 			expect(captures.has("integration-source-0-0")).toBe(true);
-			expect((yield* root.run(input, makeWorkflowReplayHost(rootJournal), execution)).state).toBe(
-				"completed",
-			);
+			expect(
+				(yield* root.run(
+					input,
+					{
+						...makeWorkflowReplayHost(rootJournal),
+						...(rootCheckpoint === undefined ? {} : { checkpoint: rootCheckpoint }),
+					},
+					execution,
+				)).state,
+			).toBe("completed");
 			expect(fetched).toBe(1);
 			expect(writes).toBe(2);
 		}),

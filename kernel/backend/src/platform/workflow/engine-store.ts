@@ -23,6 +23,7 @@ export type StepKind = "clock" | "activity" | "deferred";
 
 const ExecutionRow = Schema.Struct({
 	executionId: Schema.String,
+	checkpoint: Schema.Unknown,
 	workflowName: Schema.String,
 	rootExpired: Schema.Boolean,
 	rootExecutionId: Schema.String,
@@ -65,7 +66,7 @@ const decode =
 	(rows: unknown) =>
 		Schema.decodeUnknownEffect(Schema.Array(schema))(rows).pipe(Effect.orDie);
 
-const executionColumns = sql`e.result, e.payload, e.status, e.suspension,
+const executionColumns = sql`e.result, e.payload, e.checkpoint, e.status, e.suspension,
 	e.execution_id as "executionId", e.workflow_name as "workflowName",
 	e.parent_execution_id as "parentExecutionId", e.parent_workflow_name as "parentWorkflowName",
 	e.root_execution_id as "rootExecutionId", e.root_workflow_name as "rootWorkflowName",
@@ -201,6 +202,35 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				);
 			});
 
+			const saveCheckpoint = Effect.fnUntraced(function* (
+				identity: WorkflowIdentity,
+				value: unknown,
+				prefix: string,
+			) {
+				const rows = yield* run(
+					db.execute(
+						sql`with target as (
+						select e.workflow_name, e.execution_id from ${execution} e
+						join ${execution} r on r.workflow_name = e.root_workflow_name and r.execution_id = e.root_execution_id
+						where e.workflow_name = ${identity.workflowName} and e.execution_id = ${identity.executionId}
+							and r.expired_at is null and e.status = 'active'
+						for key share of r
+					), saved as (
+						update ${execution} e set checkpoint = ${yield* encodeJson(value)}::json
+						from target t where e.workflow_name = t.workflow_name and e.execution_id = t.execution_id
+						returning e.workflow_name, e.execution_id
+					), forgotten as (
+						delete from ${step} s using saved e
+						where s.workflow_name = e.workflow_name and s.execution_id = e.execution_id
+							and starts_with(s.name, ${prefix})
+					)
+					select 1 from saved`,
+						"objects",
+					),
+				);
+				return rows.length > 0;
+			});
+
 			const writeStep = Effect.fnUntraced(function* (input: {
 				readonly name: string;
 				readonly exit: unknown;
@@ -318,6 +348,7 @@ export class WorkflowEngineStore extends Context.Service<WorkflowEngineStore>()(
 				fireClock,
 				writeStep,
 				clearClocks,
+				saveCheckpoint,
 				forgetActivities,
 				listAccountExecutions,
 			};

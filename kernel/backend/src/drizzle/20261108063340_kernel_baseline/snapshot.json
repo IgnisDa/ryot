@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "349d91f2-3953-4cf1-9b51-82847ec44608",
+	"id": "d16d03b0-e0a6-4aea-83fc-04a129444647",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -16872,6 +16872,19 @@
 			"schema": "public",
 			"table": "workflow_execution",
 			"name": "payload",
+			"type": "json",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "workflow_execution",
+			"name": "checkpoint",
 			"type": "json",
 			"typeSchema": null,
 			"notNull": false,

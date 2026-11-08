@@ -143,14 +143,14 @@ requirements, OAuth fields, or executable dependencies. The compiler derives tho
 used code and writes them to the build-derived script metadata. There are no driver maps or runtime
 kind selection.
 
-| Kind         | Helper                   | Use                                                             |
-| ------------ | ------------------------ | --------------------------------------------------------------- |
-| `script`     | `defineScript`           | Boot, cron, bootstrap, or internal execution                    |
-| `operation`  | `defineOperation`        | Public `plugins.invoke` entrypoint                              |
-| `workflow`   | `defineWorkflow`         | Deterministic durable orchestration; no local host capabilities |
-| `automation` | `defineAutomation`       | After hook (`automationType: "automation"`)                     |
-| `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                        |
-| `provider`   | `defineProvider`         | One logical provider operation                                  |
+| Kind         | Helper                   | Use                                                                               |
+| ------------ | ------------------------ | --------------------------------------------------------------------------------- |
+| `script`     | `defineScript`           | Boot, cron, bootstrap, or internal execution                                      |
+| `operation`  | `defineOperation`        | Public `plugins.invoke` entrypoint                                                |
+| `workflow`   | `defineWorkflow`         | Bounded orchestration with explicit saved checkpoints; no local host capabilities |
+| `automation` | `defineAutomation`       | After hook (`automationType: "automation"`)                                       |
+| `automation` | `defineAutomationPolicy` | Before hook (`automationType: "policy"`)                                          |
+| `provider`   | `defineProvider`         | One logical provider operation                                                    |
 
 A logical provider requires `details` and may declare `search`, `search-options`, `related`, `resolve`,
 and `translate`, each as a separate provider script. Generated `providerSlug`/`providerOperation`
@@ -614,6 +614,40 @@ Create executable references with `defineScriptReference` and `defineWorkflowRef
 for setup choices and `stage: "record"` for choices refined from collected records. Configuration and
 executable SDK methods must be called directly; method aliases are unsupported.
 
+Long-running workflows declare a `checkpoint` schema. The kernel calls
+`run(input, step, checkpoint, execution)` with `null` on the first step and the last saved value on
+subsequent steps. Return the final output to finish, or `yield* step.save(nextState)` to commit the
+next checkpoint and end this step. Keep each step bounded; use cursors and artifact references rather
+than accumulating source records. A saved checkpoint survives process restarts without rerunning
+completed steps. Code, configuration, input, and start time stay pinned for the whole execution.
+
+```ts
+export default defineWorkflow({
+  manifest,
+  input: importInput,
+  output: importSummary,
+  checkpoint: Schema.Struct({ nextPage: Schema.Int }),
+  run: (input, step, checkpoint) =>
+    Effect.gen(function* () {
+      const nextPage = checkpoint?.nextPage ?? 0;
+      const batch = yield* step.activity("read-page", readPage, { ...input, page: nextPage });
+      yield* step.child("apply-page", applyPage, batch);
+      if (batch.done) return yield* step.child("summary", summary, input);
+      return yield* step.save({ nextPage: nextPage + 1 });
+    }),
+});
+```
+
+`step.activity` and `step.child` invoke declared script and workflow references. Their names are local
+to the current checkpoint. The kernel retains call outcomes only for an unfinished step, so it can
+complete interrupted calls without guessing whether an external write succeeded. Calls within that
+step must remain deterministic. There is no public replay journal or durable sleep API. A bounded
+workflow that finishes in one step can omit `checkpoint`.
+
+Import writes still use immutable captures, stable batch identities, and kernel receipts. Save the
+next cursor only after applying the batch and its required confirmation. Cancellation preserves
+committed records; ambiguous external deliveries retain their existing retry policy.
+
 An import source can declare `plan.selections`: each selection has a fixed `value`, or a top-level
 settings `field` and finite `cases` mapping setting values to alternative keys. These selections are
 validated against compiled dependencies. Plan selection is pure and returns an ingestion operation
@@ -653,14 +687,14 @@ Matched traffic uses an evenly spaced global schedule with no burst reservation.
 retries durably after valid `Retry-After`, otherwise after the declaration interval. Unmatched origins
 are not constrained by this limiter.
 
-## Durable Workflows
+## Checkpoint Workflows
 
-Workflow modules orchestrate only `activity`, `sleep`, and child-workflow calls. Call order, names,
-slugs, inputs, and app-owned child execution IDs must remain deterministic across replay. Exactly one
-durable owner may create each execution. Move ambient time, randomness, network, filesystem, mutable
-state, and ordinary host functions into activity scripts. Use `Effect.fail` for expected failures.
-Runtime pinning and replay semantics are in the
-[sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md#durable-ownership).
+Workflow modules call declared activities and child workflows within a bounded step, then save the
+next checkpoint or return their final output. Keep call order, names, and inputs deterministic within
+an unfinished step. Move ambient time, randomness, network, filesystem, and ordinary host functions
+into activity scripts. Use `Effect.fail` for expected failures. Runtime pinning, checkpoint persistence,
+and private call recovery are described in the
+[sandbox runtime reference](../../kernel/backend/src/modules/scripts/README.md).
 
 ## Installation Lifecycle
 

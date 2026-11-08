@@ -21,7 +21,7 @@ import {
 	FitnessApplicationOutput,
 	FitnessMergeInput,
 	FitnessMergeOutput,
-	type FitnessSortedRun,
+	FitnessSortedRun,
 	type FitnessStageInput,
 	type FitnessStageResult,
 } from "./schemas";
@@ -54,11 +54,30 @@ const settingsReference = defineScriptReference({
 	output: FitnessSettingsOutput,
 });
 
+const checkpointSchema = Schema.Struct({
+	page: Schema.Int,
+	offset: Schema.Int,
+	ordinal: Schema.Int,
+	itemIndex: Schema.Int,
+	header: Schema.String,
+	advancedAt: Schema.String,
+	normalizePage: Schema.Int,
+	normalizePart: Schema.Int,
+	normalizedRows: Schema.Int,
+	settings: FitnessSettingsOutput,
+	carry: Schema.NullOr(Schema.String),
+	sourceSize: Schema.NullOr(Schema.Finite),
+	sourceCarry: Schema.NullOr(Schema.String),
+	sourceRun: Schema.NullOr(FitnessSortedRun),
+	runs: Schema.Array(Schema.NullOr(FitnessSortedRun)),
+	phase: Schema.Literals(["collection", "normalization", "application"]),
+});
 export default defineWorkflow({
 	manifest,
+	checkpoint: checkpointSchema,
 	input: genericImportWorkflowInputSchema,
 	output: genericImportWorkflowResultSchema,
-	run: (input, replay) =>
+	run: (input, step, checkpoint) =>
 		Effect.gen(function* () {
 			let expected: null | string = null;
 			if (input.source === "hevy") {
@@ -82,28 +101,30 @@ export default defineWorkflow({
 				);
 			}
 			const parser = selectExecutable(fitnessParsers, input.plan.selection["source-parser"]);
-			const settings = yield* replay.activity("settings", settingsReference, {
-				artifactHandle: input.sourcePayloadHandle,
-			});
-			let ordinal = 64;
-			let advancedAt = input.command.occurredAt;
+			const settings =
+				checkpoint?.settings ??
+				(yield* step.activity("settings", settingsReference, {
+					artifactHandle: input.sourcePayloadHandle,
+				}));
+			let ordinal = checkpoint?.ordinal ?? 64;
+			let advancedAt = checkpoint?.advancedAt ?? input.command.occurredAt;
 			const attribution = { runId: input.runId, command: input.command };
 			const publish = (
 				captureId: string,
 				handle: string,
 				phase: "collection" | "application",
-				checkpoint: { stage: string; offset: number },
+				captureCheckpoint: { stage: string; offset: number },
 			) =>
 				Effect.gen(function* () {
-					return yield* replay.child(`capture:${captureId}`, genericImportCaptureReference, {
+					return yield* step.child(`capture:${captureId}`, genericImportCaptureReference, {
 						...attribution,
 						operation: {
 							phase,
 							handle,
 							captureId,
-							checkpoint,
 							action: "capture",
 							ordinal: ordinal++,
+							checkpoint: captureCheckpoint,
 						},
 					});
 				});
@@ -116,7 +137,7 @@ export default defineWorkflow({
 				advancement = `${completed}:${state}`,
 			) =>
 				Effect.gen(function* () {
-					yield* replay.child(`activity:${id}:${advancement}`, genericImportActivityReference, {
+					yield* step.child(`activity:${id}:${advancement}`, genericImportActivityReference, {
 						...attribution,
 						operation: {
 							action: "activity",
@@ -137,14 +158,14 @@ export default defineWorkflow({
 				});
 			const stage = (id: string, stageInput: typeof FitnessStageInput.Type) =>
 				Effect.gen(function* () {
-					const result = yield* replay.activity(id, parser, stageInput);
+					const result = yield* step.activity(id, parser, stageInput);
 					advancedAt = result.advancedAt;
 					return result;
 				});
-			let offset = 0;
-			let itemIndex = 0;
-			let header = "";
-			let runs: Array<undefined | FitnessSortedRun> = [];
+			let offset = checkpoint?.offset ?? 0;
+			let itemIndex = checkpoint?.itemIndex ?? 0;
+			let header = checkpoint?.header ?? "";
+			let runs: Array<null | FitnessSortedRun> = [...(checkpoint?.runs ?? [])];
 			const sort = (initial: FitnessSortedRun[], prefix: string) =>
 				Effect.gen(function* () {
 					let current = initial;
@@ -160,41 +181,23 @@ export default defineWorkflow({
 								next.push(left);
 								continue;
 							}
-							let leftPage = 0;
-							let rightPage = 0;
-							let leftOffset = 0;
-							let rightOffset = 0;
-							let pages = 0;
 							const mergedPrefix = `${prefix}-${pass}-${pair}`;
-							for (let segment = 0; ; segment++) {
-								const result = yield* replay.child(
-									`merge-segment:${mergedPrefix}:${segment}`,
-									mergeReference,
-									{
-										...attribution,
-										left,
-										right,
-										ordinal,
-										leftPage,
-										rightPage,
-										leftOffset,
-										rightOffset,
-										page: pages,
-										prefix: mergedPrefix,
-										parser: parser.scriptSlug,
-									},
-								);
-								pages = result.page;
-								ordinal = result.ordinal;
-								advancedAt = result.advancedAt;
-								leftPage = result.leftPage;
-								rightPage = result.rightPage;
-								leftOffset = result.leftOffset;
-								rightOffset = result.rightOffset;
-								if (result.done) {
-									break;
-								}
-							}
+							const result = yield* step.child(`merge:${mergedPrefix}`, mergeReference, {
+								...attribution,
+								left,
+								right,
+								ordinal,
+								page: 0,
+								leftPage: 0,
+								rightPage: 0,
+								leftOffset: 0,
+								rightOffset: 0,
+								prefix: mergedPrefix,
+								parser: parser.scriptSlug,
+							});
+							const pages = result.page;
+							ordinal = result.ordinal;
+							advancedAt = result.advancedAt;
 							next.push({ pages, prefix: mergedPrefix });
 						}
 						current = next;
@@ -217,15 +220,45 @@ export default defineWorkflow({
 							);
 						}
 						incoming = merged;
-						runs[level] = undefined;
+						runs[level] = null;
 					}
 					return undefined;
 				});
 			const pendingRuns = () => runs.flatMap((run) => (run ? [run] : []));
-			yield* activity("collection", "reading", 0, "running", "bytes");
-			let sourceCarry: null | string = null;
-			let sourceSize: null | number = null;
-			for (let page = 0; ; page++) {
+			let sourceCarry = checkpoint?.sourceCarry ?? null;
+			let sourceSize = checkpoint?.sourceSize ?? null;
+			let sourceRun = checkpoint?.sourceRun ?? null;
+			let carry = checkpoint?.carry ?? null;
+			let normalizedRows = checkpoint?.normalizedRows ?? 0;
+			const save = (
+				phase: (typeof checkpointSchema.Type)["phase"],
+				page: number,
+				normalizePage: number,
+				normalizePart: number,
+			) =>
+				step.save({
+					page,
+					runs,
+					phase,
+					carry,
+					offset,
+					header,
+					ordinal,
+					settings,
+					itemIndex,
+					sourceRun,
+					advancedAt,
+					sourceSize,
+					sourceCarry,
+					normalizePage,
+					normalizePart,
+					normalizedRows,
+				});
+			if (!checkpoint || checkpoint.phase === "collection") {
+				if (!checkpoint) {
+					yield* activity("collection", "reading", 0, "running", "bytes");
+				}
+				const page = checkpoint?.page ?? 0;
 				const collected: typeof FitnessStageResult.Type = yield* stage(`collect:${page}`, {
 					offset,
 					header,
@@ -276,21 +309,19 @@ export default defineWorkflow({
 				);
 				yield* addRun({ prefix, pages: 1 }, `group-${page}`);
 				if (collected.done) {
-					break;
+					sourceRun = yield* sort(pendingRuns(), "group-final");
+					runs = [];
+					offset = 0;
+					yield* activity("normalization", "preparing", 0, "running", "records");
+					return yield* save("normalization", page + 1, 0, 0);
 				}
+				return yield* save("collection", page + 1, 0, 0);
 			}
-			yield* activity("normalization", "preparing", 0, "running", "records");
-			const sourceRun = yield* sort(pendingRuns(), "group-final");
-			runs = [];
-			let carry: null | string = null;
-			let normalizedRows = 0;
-			for (let page = 0; page < (sourceRun?.pages ?? 0); page++) {
-				if (!sourceRun) {
-					break;
-				}
-				const captureId = `${sourceRun.prefix}-${page}`;
-				offset = 0;
-				for (let part = 0; ; part++) {
+			if (checkpoint.phase === "normalization") {
+				const page = checkpoint.normalizePage;
+				if (sourceRun && page < sourceRun.pages) {
+					const captureId = `${sourceRun.prefix}-${page}`;
+					const part = checkpoint.normalizePart;
 					const prefix = `normalized-${page}-${part}`;
 					const id = `${prefix}-0`;
 					const captures: Record<string, string> = { records: captureId };
@@ -340,50 +371,36 @@ export default defineWorkflow({
 						`${page}-${part}`,
 					);
 					if (result.done) {
-						break;
+						offset = 0;
+						return yield* save("normalization", checkpoint.page, page + 1, 0);
 					}
+					return yield* save("normalization", checkpoint.page, page, part + 1);
 				}
+				return yield* save("application", checkpoint.page, checkpoint.normalizePage, 0);
 			}
 			const writes = yield* sort(pendingRuns(), "order-final");
 			yield* activity("normalization", "preparing", itemIndex, "completed", "records");
 			const unit = input.source === "open_scale" ? "measurements" : "workouts";
-			let batch = 0;
-			let appliedRecords = 0;
-			const issues: Array<(typeof genericImportWorkflowResultSchema.Type)["issues"][number]> = [];
 			yield* activity("application", "writing", 0, "running", unit);
-			if (writes) {
-				let page = 0;
-				offset = 0;
-				for (let segment = 0; ; segment++) {
-					const applied = yield* replay.child(
-						`application-segment:${segment}`,
-						applicationReference,
-						{
-							...attribution,
-							unit,
-							page,
-							batch,
-							offset,
-							ordinal,
-							run: writes,
-							parser: parser.scriptSlug,
-							completed: appliedRecords,
-							issueLimit: 1000 - issues.length,
-						},
-					);
-					issues.push(...applied.issues);
-					page = applied.page;
-					batch = applied.batch;
-					offset = applied.offset;
-					ordinal = applied.ordinal;
-					appliedRecords = applied.completed;
-					advancedAt = applied.advancedAt;
-					if (applied.done) {
-						break;
-					}
-				}
+			const applied = writes
+				? yield* step.child("application", applicationReference, {
+						...attribution,
+						unit,
+						page: 0,
+						ordinal,
+						batch: 0,
+						offset: 0,
+						run: writes,
+						completed: 0,
+						issueLimit: 1000,
+						parser: parser.scriptSlug,
+					})
+				: null;
+			const issues = applied?.issues ?? [];
+			if (applied) {
+				advancedAt = applied.advancedAt;
 			}
-			const sealed = yield* replay.child("seal", genericImportSealReference, {
+			const sealed = yield* step.child("seal", genericImportSealReference, {
 				...attribution,
 				operation: { action: "seal" },
 			});

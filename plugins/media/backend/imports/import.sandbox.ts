@@ -9,19 +9,18 @@ import {
 	defineWorkflow,
 	defineWorkflowReference,
 	Effect,
+	Schema,
 	selectExecutable,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
-import type { MediaSourceInput } from "./collection-schemas";
+import { MediaSortedRun } from "./collection-schemas";
 import {
 	MediaApplicationInput,
 	MediaApplicationOutput,
 	MediaCollectionInput,
 	MediaCollectionOutput,
 } from "./process";
-import type { MediaControlOutput } from "./references";
-import { mediaControl, mediaSources } from "./references";
-import { appendMediaIssues } from "./reports";
+import { mediaControl, MediaControlOutput, mediaSources } from "./references";
 import { mediaSortedRuns } from "./sorted-runs";
 import { classifyTraktExportName } from "./trakt-files";
 
@@ -40,253 +39,277 @@ const collection = defineWorkflowReference({
 	output: MediaCollectionOutput,
 	workflowSlug: "media-import-collection",
 });
+const checkpointSchema = Schema.Struct({
+	serial: Schema.Int,
+	offset: Schema.Int,
+	ordinal: Schema.Int,
+	completed: Schema.Int,
+	fileIndex: Schema.Int,
+	header: Schema.String,
+	sourcePage: Schema.Int,
+	eventOffset: Schema.Int,
+	netflixFiles: Schema.Int,
+	advancedAt: Schema.String,
+	normalizePage: Schema.Int,
+	normalizePart: Schema.Int,
+	normalizedItems: Schema.Int,
+	directoryDone: Schema.Boolean,
+	files: Schema.Array(Schema.Int),
+	raw: Schema.NullOr(MediaSortedRun),
+	after: Schema.NullOr(Schema.Finite),
+	carry: Schema.NullOr(Schema.String),
+	entries: MediaControlOutput.fields.entries,
+	settings: MediaControlOutput.fields.settings,
+	runs: Schema.Array(Schema.NullOr(MediaSortedRun)),
+	phase: Schema.Literals(["collection", "normalization", "application"]),
+});
 export default defineWorkflow({
 	manifest,
+	checkpoint: checkpointSchema,
 	input: genericImportWorkflowInputSchema,
 	output: genericImportWorkflowResultSchema,
-	run: (input, replay) =>
+	run: (input, step, checkpoint) =>
 		Effect.gen(function* () {
-			const admitted = yield* replay.activity("settings", mediaControl, {
-				action: "settings",
-				artifactHandle: input.sourcePayloadHandle,
-			});
-			const settings = admitted.settings;
-			const attribution = { runId: input.runId, command: input.command };
 			if (input.plan.operation !== "import") {
 				throw new Error("Media import plan does not match its workflow");
 			}
-			const state = { ordinal: 64 };
-			const runs = mediaSortedRuns(replay, attribution, state);
-			let completed = 0;
-			let serial = 0;
-			let advancedAt = input.command.occurredAt;
+			const saved =
+				checkpoint ??
+				(yield* Effect.gen(function* () {
+					const admitted = yield* step.activity("settings", mediaControl, {
+						action: "settings",
+						artifactHandle: input.sourcePayloadHandle,
+					});
+					let files = [0];
+					if (input.source === "movary") {
+						files = [0, 1, 2];
+					}
+					if (input.source === "myanimelist") {
+						files = [];
+						if (typeof admitted.settings["animeUploadToken"] === "string") {
+							files.push(0);
+						}
+						if (typeof admitted.settings["mangaUploadToken"] === "string") {
+							files.push(1);
+						}
+						if (!files.length) {
+							throw new Error("Import job is missing MyAnimeList export files");
+						}
+					}
+					const initial: typeof checkpointSchema.Type = {
+						files,
+						runs: [],
+						serial: 0,
+						offset: 0,
+						raw: null,
+						header: "",
+						ordinal: 64,
+						entries: [],
+						after: null,
+						carry: null,
+						completed: 0,
+						fileIndex: 0,
+						sourcePage: 0,
+						eventOffset: 0,
+						netflixFiles: 0,
+						normalizePage: 0,
+						normalizePart: 0,
+						normalizedItems: 0,
+						phase: "collection",
+						directoryDone: false,
+						settings: admitted.settings,
+						advancedAt: input.command.occurredAt,
+					};
+					return initial;
+				}));
+			const state = {
+				...saved,
+				runs: [...saved.runs],
+				files: [...saved.files],
+				entries: [...saved.entries],
+			};
+			const settings = state.settings;
+			const expected =
+				input.source === "trakt" && settings["mode"] === "export" ? "trakt-export" : input.source;
+			if (input.plan.selection["source-parser"] !== expected) {
+				throw new Error("Media import plan does not match its admitted source");
+			}
+			selectExecutable(mediaSources, expected);
+			const attribution = { runId: input.runId, command: input.command };
+			const runs = mediaSortedRuns(step, attribution, state);
 			const activity = (
 				id: string,
 				kind: "reading" | "writing" | "preparing",
-				activityState: "running" | "completed",
-				unit: string,
-				value: number,
+				status: "running" | "completed",
+				completed: number,
 			) =>
-				Effect.gen(function* () {
-					yield* replay.child(`activity:${id}:${serial++}`, genericImportActivityReference, {
-						...attribution,
-						operation: {
-							action: "activity",
-							activity: {
-								id,
-								kind,
-								unit,
-								wait: null,
-								batchId: null,
-								parentId: null,
-								completed: value,
-								exactTotal: null,
-								state: activityState,
-								lastAdvancedAt: advancedAt,
-							},
+				step.child(`activity:${id}:${state.serial++}`, genericImportActivityReference, {
+					...attribution,
+					operation: {
+						action: "activity",
+						activity: {
+							id,
+							kind,
+							completed,
+							wait: null,
+							state: status,
+							batchId: null,
+							parentId: null,
+							unit: "records",
+							exactTotal: null,
+							lastAdvancedAt: state.advancedAt,
 						},
+					},
+				});
+			if (state.phase === "collection") {
+				const archive =
+					input.source === "spotify" || input.source === "netflix" || expected === "trakt-export";
+				if (archive && state.entries.length === 0 && !state.directoryDone) {
+					const page = yield* step.activity("directory", mediaControl, {
+						after: state.after,
+						action: "directory",
+						key: expected === "trakt-export" ? "exportUploadToken" : "uploadToken",
 					});
-				});
-			yield* activity("collection", "reading", "running", "records", 0);
-			const selected = input.plan.selection["source-parser"];
-			const expected =
-				input.source === "trakt" && settings["mode"] === "export" ? "trakt-export" : input.source;
-			if (selected !== expected) {
-				throw new Error("Media import plan does not match its admitted source");
-			}
-			selectExecutable(mediaSources, selected);
-			let sourcePage = 0;
-			const collect = (fileIndex: number, entry?: MediaSourceInput["entry"]) =>
-				Effect.gen(function* () {
-					let offset = 0;
-					let header = "";
-					let carry: null | string = null;
-					let eventOffset = 0;
-					for (;;) {
-						const result: typeof MediaCollectionOutput.Type = yield* replay.child(
-							`collection:${sourcePage}`,
-							collection,
-							{
-								...attribution,
-								carry,
-								offset,
-								header,
-								settings,
-								fileIndex,
-								eventOffset,
-								records: null,
-								source: expected,
-								step: sourcePage,
-								action: "collect",
-								itemIndex: completed,
-								ordinal: state.ordinal,
-								prefix: `source-${fileIndex}`,
-								importedAt: input.command.occurredAt,
-								...(entry ? { entry } : {}),
-							},
-						);
-						completed = result.itemIndex;
-						offset = result.offset;
-						header = result.header;
-						carry = result.carry;
-						state.ordinal = result.ordinal;
-						advancedAt = result.advancedAt;
-						eventOffset = result.eventOffset;
-						yield* activity("collection", "reading", "running", "records", completed);
-						if (result.run) {
-							yield* runs.add(result.run, `source-sort-${sourcePage}`);
-						}
-						sourcePage = result.step;
-						if (result.done) {
-							break;
-						}
-					}
-				});
-			if (input.source === "spotify" || input.source === "netflix" || expected === "trakt-export") {
-				const key = expected === "trakt-export" ? "exportUploadToken" : "uploadToken";
-				let after: null | number = null;
-				let fileIndex = 0;
-				let netflixFiles = 0;
-				for (let directory = 0; ; directory++) {
-					const page: typeof MediaControlOutput.Type = yield* replay.activity(
-						`directory:${directory}`,
-						mediaControl,
-						{ key, after, action: "directory" },
-					);
-					for (const entry of page.entries) {
+					state.entries = page.entries.filter((entry) => {
 						const name = entry.name.split(/[\\/]/).pop() ?? "";
-						let selectedEntry = !!classifyTraktExportName(name);
 						if (input.source === "spotify") {
-							selectedEntry = /^Streaming_History_(Audio|Video)_[^/]*\.json$/.test(name);
+							return /^Streaming_History_(Audio|Video)_[^/]*\.json$/.test(name);
 						}
 						if (input.source === "netflix") {
-							selectedEntry = ["MyList.csv", "Ratings.csv", "ViewingActivity.csv"].includes(name);
+							return ["MyList.csv", "Ratings.csv", "ViewingActivity.csv"].includes(name);
 						}
-						if (selectedEntry) {
-							yield* collect(fileIndex++, entry);
-							if (input.source === "netflix") {
-								netflixFiles |=
-									1 << ["MyList.csv", "Ratings.csv", "ViewingActivity.csv"].indexOf(name);
-							}
-						}
-					}
-					after = page.next;
-					if (after === null) {
-						break;
-					}
+						return !!classifyTraktExportName(name);
+					});
+					state.after = page.next;
+					state.directoryDone = page.next === null;
+					return yield* step.save(state);
 				}
-				if (!fileIndex) {
+				const entry = state.entries[0];
+				const fileIndex = archive ? state.fileIndex : state.files[0];
+				if (archive ? entry !== undefined : fileIndex !== undefined) {
+					const result = yield* step.child(`collection:${state.sourcePage}`, collection, {
+						...attribution,
+						settings,
+						records: null,
+						source: expected,
+						action: "collect",
+						carry: state.carry,
+						offset: state.offset,
+						header: state.header,
+						step: state.sourcePage,
+						ordinal: state.ordinal,
+						fileIndex: fileIndex ?? 0,
+						itemIndex: state.completed,
+						prefix: `source-${fileIndex}`,
+						eventOffset: state.eventOffset,
+						importedAt: input.command.occurredAt,
+						...(entry ? { entry } : {}),
+					});
+					state.completed = result.itemIndex;
+					state.offset = result.offset;
+					state.header = result.header;
+					state.carry = result.carry;
+					state.eventOffset = result.eventOffset;
+					state.ordinal = result.ordinal;
+					state.advancedAt = result.advancedAt;
+					yield* activity("collection", "reading", "running", state.completed);
+					if (result.run) {
+						yield* runs.add(result.run, `source-sort-${state.sourcePage}`);
+					}
+					state.sourcePage = result.step;
+					if (result.done) {
+						if (entry && input.source === "netflix") {
+							const name = entry.name.split(/[\\/]/).pop() ?? "";
+							state.netflixFiles |=
+								1 << ["MyList.csv", "Ratings.csv", "ViewingActivity.csv"].indexOf(name);
+						}
+						state.entries.shift();
+						state.files.shift();
+						state.fileIndex++;
+						state.offset = 0;
+						state.header = "";
+						state.carry = null;
+						state.eventOffset = 0;
+					}
+					return yield* step.save(state);
+				}
+				if (archive && !state.fileIndex) {
 					throw new Error("Import archive contains no recognized source files");
 				}
-				if (input.source === "netflix" && netflixFiles !== 7) {
+				if (input.source === "netflix" && state.netflixFiles !== 7) {
 					throw new Error("Required Netflix CSV files were not found in the archive");
 				}
-			} else if (input.source === "movary") {
-				for (const fileIndex of [0, 1, 2]) {
-					yield* collect(fileIndex);
+				yield* activity("collection", "reading", "completed", state.completed);
+				if (["anilist", "netflix", "spotify", "trakt-export", "media_tracker"].includes(expected)) {
+					state.raw = yield* runs.finish("raw-final");
+					state.phase = "normalization";
+				} else {
+					state.phase = "application";
 				}
-			} else if (input.source === "myanimelist") {
-				if (
-					typeof settings["animeUploadToken"] !== "string" &&
-					typeof settings["mangaUploadToken"] !== "string"
-				) {
-					throw new Error("Import job is missing MyAnimeList export files");
-				}
-				if (typeof settings["animeUploadToken"] === "string") {
-					yield* collect(0);
-				}
-				if (typeof settings["mangaUploadToken"] === "string") {
-					yield* collect(1);
-				}
-			} else {
-				yield* collect(0);
+				return yield* step.save(state);
 			}
-			if (["anilist", "netflix", "spotify", "trakt-export", "media_tracker"].includes(expected)) {
-				const raw = yield* runs.finish("raw-final");
-				let header = "";
-				let carry: null | string = null;
-				let normalizedItems = 0;
-				if (raw) {
-					for (let page = 0; page < raw.pages; page++) {
-						let offset = 0;
-						for (let part = 0; ;) {
-							const result: typeof MediaCollectionOutput.Type = yield* replay.child(
-								`normalize:${page}:${part}`,
-								collection,
-								{
-									...attribution,
-									carry,
-									offset,
-									header,
-									settings,
-									step: part,
-									fileIndex: page,
-									source: expected,
-									action: "normalize",
-									ordinal: state.ordinal,
-									itemIndex: normalizedItems,
-									prefix: `normalized-${page}`,
-									records: `${raw.prefix}-${page}`,
-									importedAt: input.command.occurredAt,
-								},
-							);
-							header = result.header;
-							offset = result.offset;
-							carry = result.carry;
-							state.ordinal = result.ordinal;
-							advancedAt = result.advancedAt;
-							normalizedItems = result.itemIndex;
-							if (result.run) {
-								yield* runs.add(result.run, `normalized-sort-${page}-${part}`);
-							}
-							part = result.step;
-							if (result.done) {
-								break;
-							}
-						}
-					}
-				}
-				yield* activity("normalization", "preparing", "completed", "records", normalizedItems);
-			}
-			yield* activity("collection", "reading", "completed", "records", completed);
-			const run = yield* runs.finish("source-final");
-			const issues: Array<(typeof genericImportWorkflowResultSchema.Type)["issues"][number]> = [];
-			if (run) {
-				let page = 0;
-				let offset = 0;
-				let batch = 0;
-				let itemIndex = 0;
-				let dedupKey: null | string = null;
-				for (let segment = 0; ; segment++) {
-					const result: typeof MediaApplicationOutput.Type = yield* replay.child(
-						`application:${segment}`,
-						application,
-						{
-							...attribution,
-							run,
-							page,
-							batch,
-							offset,
-							dedupKey,
-							itemIndex,
-							ordinal: state.ordinal,
-							integrationContext: {},
-							integrationScriptSlug: null,
-							issueLimit: 1000 - issues.length,
-						},
-					);
-					({ page, batch, offset, dedupKey, itemIndex } = result);
+			if (state.phase === "normalization") {
+				const raw = state.raw;
+				if (raw && state.normalizePage < raw.pages) {
+					const page = state.normalizePage;
+					const part = state.normalizePart;
+					const result = yield* step.child(`normalize:${page}:${part}`, collection, {
+						...attribution,
+						settings,
+						step: part,
+						fileIndex: page,
+						source: expected,
+						carry: state.carry,
+						action: "normalize",
+						offset: state.offset,
+						header: state.header,
+						ordinal: state.ordinal,
+						prefix: `normalized-${page}`,
+						itemIndex: state.normalizedItems,
+						records: `${raw.prefix}-${page}`,
+						importedAt: input.command.occurredAt,
+					});
+					state.header = result.header;
+					state.offset = result.offset;
+					state.carry = result.carry;
 					state.ordinal = result.ordinal;
-					appendMediaIssues(issues, result.issues, 1000);
-					if (result.done) {
-						break;
+					state.advancedAt = result.advancedAt;
+					state.normalizedItems = result.itemIndex;
+					if (result.run) {
+						yield* runs.add(result.run, `normalized-sort-${page}-${part}`);
 					}
+					state.normalizePart = result.step;
+					if (result.done) {
+						state.normalizePage++;
+						state.offset = 0;
+						state.normalizePart = 0;
+					}
+					return yield* step.save(state);
 				}
+				yield* activity("normalization", "preparing", "completed", state.normalizedItems);
+				state.phase = "application";
+				return yield* step.save(state);
 			}
-			const sealed = yield* replay.child("seal", genericImportSealReference, {
+			const run = yield* runs.finish("source-final");
+			const applied = run
+				? yield* step.child("application", application, {
+						...attribution,
+						run,
+						page: 0,
+						batch: 0,
+						offset: 0,
+						itemIndex: 0,
+						dedupKey: null,
+						issueLimit: 1000,
+						ordinal: state.ordinal,
+						integrationContext: {},
+						integrationScriptSlug: null,
+					})
+				: null;
+			const sealed = yield* step.child("seal", genericImportSealReference, {
 				...attribution,
 				operation: { action: "seal" },
 			});
-			return { issues, summary: sealed.summary };
+			return { summary: sealed.summary, issues: applied?.issues ?? [] };
 		}),
 });

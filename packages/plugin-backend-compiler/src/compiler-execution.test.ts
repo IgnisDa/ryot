@@ -115,7 +115,7 @@ export default defineAutomationPolicy({ manifest, run: ({ items }) => {
 } });
 `
 						: `
-import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
@@ -128,7 +128,7 @@ export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Sche
       unusedHttp: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com"),
     },
     filesystem: () => readArtifact.pipe(Effect.as(null)),
-    executable: (replay: WorkflowReplay) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
+    executable: (replay: WorkflowStep) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
   };
   const { nested } = helpers;
   return nested.pure();
@@ -178,7 +178,7 @@ export const helpers = {
 };
 `
 						: `
-import { defineScriptReference, Effect, Schema, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, Effect, Schema, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
@@ -189,7 +189,7 @@ export const helpers = {
     unusedHttp: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com"),
   },
   filesystem: () => readArtifact.pipe(Effect.as(null)),
-  executable: (replay: WorkflowReplay) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
+  executable: (replay: WorkflowStep) => replay.activity("unused", reference, {}).pipe(Effect.as(null)),
 };
 `;
 				const sourceCompiled = yield* compileSandboxSource(sourceEntry);

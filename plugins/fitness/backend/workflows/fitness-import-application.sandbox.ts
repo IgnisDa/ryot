@@ -29,8 +29,10 @@ export default defineWorkflow({
 	manifest,
 	input: FitnessApplicationInput,
 	output: FitnessApplicationOutput,
-	run: (input, replay) =>
+	checkpoint: FitnessApplicationOutput,
+	run: (initial, step, checkpoint) =>
 		Effect.gen(function* () {
+			const input = { ...initial, ...checkpoint };
 			const parser = selectExecutable(fitnessParsers, input.parser);
 			const attribution = { runId: input.runId, command: input.command };
 			let page = input.page;
@@ -39,10 +41,10 @@ export default defineWorkflow({
 			let ordinal = input.ordinal;
 			let completed = input.completed;
 			let advancedAt = input.command.occurredAt;
-			let issues: (typeof FitnessApplicationOutput.Type)["issues"] = [];
+			let issues: (typeof FitnessApplicationOutput.Type)["issues"] = checkpoint?.issues ?? [];
 			for (let iteration = 0; iteration < 32 && page < input.run.pages; iteration++) {
 				const captureId = `${input.run.prefix}-${page}`;
-				const prepared = yield* replay.activity(`application:${batch}`, parser, {
+				const prepared = yield* step.activity(`application:${batch}`, parser, {
 					offset,
 					action: "application",
 					ingestionArtifacts: { runId: input.runId, captures: { records: captureId } },
@@ -56,7 +58,7 @@ export default defineWorkflow({
 					);
 				}
 				const id = `application-${batch}`;
-				const captured = yield* replay.child(`capture:${id}`, genericImportCaptureReference, {
+				const captured = yield* step.child(`capture:${id}`, genericImportCaptureReference, {
 					...attribution,
 					operation: {
 						handle,
@@ -67,7 +69,7 @@ export default defineWorkflow({
 						checkpoint: { page, stage: "application", offset: prepared.offset },
 					},
 				});
-				const applied = yield* replay.child(`apply:${batch}`, genericImportApplyReference, {
+				const applied = yield* step.child(`apply:${batch}`, genericImportApplyReference, {
 					...attribution,
 					operation: {
 						ordinal,
@@ -86,7 +88,7 @@ export default defineWorkflow({
 						0,
 					);
 				advancedAt = prepared.advancedAt;
-				yield* replay.child(`activity:application:${batch}`, genericImportActivityReference, {
+				yield* step.child(`activity:application:${batch}`, genericImportActivityReference, {
 					...attribution,
 					operation: {
 						action: "activity",
@@ -112,7 +114,7 @@ export default defineWorkflow({
 					offset = 0;
 				}
 			}
-			return {
+			const result = {
 				page,
 				batch,
 				offset,
@@ -122,5 +124,6 @@ export default defineWorkflow({
 				advancedAt,
 				done: page === input.run.pages,
 			};
+			return result.done ? result : yield* step.save(result);
 		}),
 });

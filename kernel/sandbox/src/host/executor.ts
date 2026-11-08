@@ -184,6 +184,7 @@ export class SandboxExecutor extends Context.Service<SandboxExecutor>()(
 										onExcessProperty: "error",
 									})({
 										context,
+										...(input.checkpoint === undefined ? {} : { checkpoint: input.checkpoint }),
 										mode: "definition",
 										startedAt: input.startedAt,
 										executionId: input.executionId,

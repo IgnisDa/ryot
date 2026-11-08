@@ -1,9 +1,6 @@
 import { httpCallResponseSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	workflowHostRequestSchema,
-	workflowInlineRequestSchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+import { workflowHostRequestSchema } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { Schema } from "effect";
 
 import { HttpRateLimitPolicyDeclaration } from "#modules/plugins/catalog/http-rate-limits";
@@ -57,10 +54,7 @@ export const SandboxHttpProgress = Schema.Struct({
 export type SandboxHttpProgress = typeof SandboxHttpProgress.Type;
 
 export const ScriptInlineProgress = Schema.Union([
-	Schema.TaggedStruct("Completed", {
-		value: jsonValueSchema,
-		request: workflowInlineRequestSchema,
-	}),
+	Schema.TaggedStruct("Completed", { value: jsonValueSchema, request: workflowHostRequestSchema }),
 	Schema.TaggedStruct("Http", {
 		progress: SandboxHttpProgress,
 		request: workflowHostRequestSchema,

@@ -12,14 +12,15 @@ inferred failure union. No plugin-wide error schema is required.
 script's failure channel rather than erasing it in tests.
 
 Workflows use the restricted Effect and Schema exports from `@ryot-app/plugin-backend-sdk/workflow`.
-`defineWorkflow` accepts a typed failure channel for its body. Durable replay steps can fail with
-schema or journal errors or signal a pending call. The workflow definition converts body failures
-to a failed replay envelope that carries the escaped error's boundary reason as `data`; its
-host-facing `run` fails with `SandboxHostError` when the replay journal cannot be read.
+`defineWorkflow` accepts an optional checkpoint schema and calls `run(input, step, checkpoint, execution)`.
+The checkpoint is `null` initially. `step.save(state)` ends the current bounded step; the next step
+receives the saved state. Return a value to finish. Bounded workflows can omit the checkpoint schema.
+Use `step.activity` and `step.child` to invoke typed scripts and workflows. There is no workflow sleep API.
 
-`replay.sleep` may settle inline with host requests, returning raw null; host results remain typed.
-Longer/exhausted waits use durable replay. Exact allowance and settlement rules belong to the
-[runtime](../../kernel/backend/src/modules/scripts/README.md#inline-durable-calls).
+The runtime retains a private call journal only for the unfinished step, then atomically saves its
+checkpoint and discards completed step receipts. Calls within that step must remain deterministic.
+Body failures retain their boundary reason and external delivery ambiguity; checkpoints do not make
+an uncertain external action safe to retry. See the [authoring guide](../plugin-kit/README.md#checkpoint-workflows).
 
 Shared plugin sources use the environment-neutral `@ryot-app/plugin-kit/effect` shim. It does not
 export `Effect`; import the sandbox Effect surface in backend-only sources.

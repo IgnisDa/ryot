@@ -104,9 +104,8 @@ export default defineWorkflow({
   manifest,
   output: Schema.String,
   input: Schema.Struct({ value: Schema.String }),
-  run: (input, replay) => replay.sleep("tracer-pause", 1500).pipe(
-    Effect.as("child:" + input.value),
-  ),
+  checkpoint: Schema.Boolean,
+  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed("child:" + input.value),
 });
 `;
 

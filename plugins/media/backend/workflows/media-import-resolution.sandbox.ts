@@ -42,7 +42,7 @@ export default defineWorkflow({
 	manifest,
 	input: MediaImportResolutionWorkflowInput,
 	output: MediaImportResolutionWorkflowOutput,
-	run: (input, replay) =>
+	run: (input, step) =>
 		Effect.gen(function* () {
 			const results: Array<(typeof MediaImportResolutionWorkflowOutput.Type)["results"][number]> =
 				[];
@@ -50,7 +50,7 @@ export default defineWorkflow({
 				const errors: string[] = [];
 				let resolved: null | { externalId: string; providerSlug: string } = null;
 				for (const [candidateIndex, candidate] of item.candidates.entries()) {
-					const result = yield* replay.activity(
+					const result = yield* step.activity(
 						`resolve-${item.index}-${candidateIndex}`,
 						selectExecutable(candidates, candidate.scriptSlug),
 						{ value: item.value, identifierType: item.identifierType },

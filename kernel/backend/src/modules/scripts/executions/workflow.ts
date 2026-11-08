@@ -18,7 +18,7 @@ import {
 	workflowReplayEnvelopeSchema,
 	type WorkflowReplayJournalEntry,
 	workflowReplayJournalEntrySchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { sanitizeSandboxExecutionSegment } from "@ryot-app/sandbox/host/filesystem-grants";
 import { sandboxMetricKind } from "@ryot-app/sandbox/host/metrics";
@@ -40,12 +40,18 @@ import type {
 	ScriptInlineProgress,
 } from "#modules/scripts/host/http-progress";
 import { appendWorkflowJournal, hashWorkflowCallArgs } from "#modules/scripts/replay/journal";
+import { clearSandboxJournal } from "#modules/scripts/replay/journal-store";
 import { DatabaseSession } from "#platform/db/session";
 import {
 	recordSandboxWorkflowReplayFinished,
 	type SandboxReplayOutcome,
 } from "#platform/observability/runtime-metrics";
-import { makeActivity } from "#platform/workflow/scope";
+import {
+	inWorkflowStepScope,
+	makeActivity,
+	WorkflowCheckpoint,
+	WorkflowStepScope,
+} from "#platform/workflow/scope";
 
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
 import { KernelWorkflowReferences } from "../registry/kernel-workflow-references";
@@ -93,6 +99,7 @@ const ObservedWorkflowReplay = Schema.Union([
 		data: Schema.optionalKey(SandboxBoundaryReason),
 	}),
 	Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
+	Schema.Struct({ checkpoint: jsonValueSchema, state: Schema.Literal("checkpoint") }),
 	Schema.Struct({
 		state: Schema.Literal("pending"),
 		requests: Schema.Array(
@@ -457,16 +464,18 @@ export const validateWorkflowReplayEnvelope = (
 			),
 		);
 	}
-	return Effect.succeed(
-		envelope.state === "completed"
-			? { output: envelope.output, state: "completed" as const }
-			: {
-					kind: envelope.kind,
-					error: envelope.error,
-					state: "failed" as const,
-					...(envelope.data === undefined ? {} : { data: envelope.data }),
-				},
-	);
+	if (envelope.state === "checkpoint") {
+		return Effect.succeed({ state: "checkpoint" as const, checkpoint: envelope.checkpoint });
+	}
+	if (envelope.state === "completed") {
+		return Effect.succeed({ output: envelope.output, state: "completed" as const });
+	}
+	return Effect.succeed({
+		kind: envelope.kind,
+		error: envelope.error,
+		state: "failed" as const,
+		...(envelope.data === undefined ? {} : { data: envelope.data }),
+	});
 };
 
 const observeWorkflowReplay = Effect.fnUntraced(function* (
@@ -513,7 +522,6 @@ const observeWorkflowReplay = Effect.fnUntraced(function* (
 					const target = yield* repository.resolveWorkflowCallScript(pluginRevision, request);
 					if (
 						request.kind !== "host" &&
-						request.kind !== "sleep" &&
 						!(
 							(request.kind === "child" || request.kind === "workflow-child") &&
 							request.args.workflowSlug.startsWith("kernel:")
@@ -561,14 +569,6 @@ export const performSandboxWorkflowRequest = Effect.fn("performSandboxWorkflowRe
 	executionId: string,
 	progress?: SandboxHttpProgress,
 ) {
-	if (request.kind === "sleep") {
-		yield* DurableClock.sleep({
-			inMemoryThreshold: Duration.millis(1),
-			name: `sandbox-workflow-sleep-${request.index}`,
-			duration: Duration.millis(request.args.durationMs),
-		});
-		return null;
-	}
 	if (request.kind === "host") {
 		const dispatcher = yield* SandboxDurableHostDispatcher;
 		return yield* dispatcher.dispatch(request, payload, principal, executionId, progress);
@@ -706,9 +706,10 @@ const settleSandboxRequest = Effect.fnUntraced(function* (
 	pending: undefined | ScriptInlineProgress,
 ) {
 	const engine = yield* WorkflowEngine;
-	const deferred = DurableDeferred.make(`sandbox-request-${request.index}`, {
-		success: SettledWorkflowRequest,
-	});
+	const deferred = DurableDeferred.make(
+		`${yield* WorkflowStepScope}sandbox-request-${request.index}`,
+		{ success: SettledWorkflowRequest },
+	);
 	const stored = yield* engine
 		.deferredResult(deferred)
 		.pipe(Effect.provideService(WorkflowInstance, instance));
@@ -809,9 +810,7 @@ const validatePendingInline = Effect.fnUntraced(function* (
 			);
 		}
 		if (entry._tag === "Completed") {
-			yield* Schema.decodeUnknownEffect(
-				request.kind === "sleep" ? Schema.Null : workflowDurableResultSchema,
-			)(entry.value).pipe(
+			yield* Schema.decodeUnknownEffect(workflowDurableResultSchema)(entry.value).pipe(
 				Effect.mapError((error) => sandboxFailure("infrastructure", unknownToMessage(error))),
 			);
 		}
@@ -856,9 +855,50 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 
 	const replayKind = sandboxMetricKind(pin.principal.metadata);
 	const originalInstance = yield* WorkflowInstance;
-	const scope: WorkflowRunScope = { pin, payload, executionId, instance: originalInstance };
+	const checkpointStore =
+		pin.principal.metadata.kind === "workflow" ? yield* WorkflowCheckpoint : undefined;
+	const saved = checkpointStore
+		? yield* Schema.decodeUnknownEffect(
+				Schema.NullOr(
+					Schema.Union([
+						Schema.Struct({
+							revision: Schema.Int,
+							checkpoint: jsonValueSchema,
+							state: Schema.Literal("active"),
+						}),
+						Schema.Struct({ output: jsonValueSchema, state: Schema.Literal("completed") }),
+					]),
+				),
+			)(yield* checkpointStore.load).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")))
+		: null;
+	let revision = saved?.state === "active" ? saved.revision : 0;
+	let checkpoint = saved?.state === "active" ? saved.checkpoint : undefined;
+	const advanced = Symbol("checkpoint-advanced");
+
+	const clearCheckpointJournal = (index: number) =>
+		Effect.flatMap(DatabaseSession, (session) =>
+			clearSandboxJournal(session, `${executionId}-checkpoint-${index}`),
+		).pipe(Effect.mapError(rethrowSandboxFailure("infrastructure")));
 
 	const replayWorkflow = Effect.fnUntraced(function* () {
+		const currentExecutionId = checkpointStore
+			? `${executionId}-checkpoint-${revision}`
+			: executionId;
+		const stepPayload = checkpointStore
+			? {
+					...payload,
+					grants: {
+						...payload.grants,
+						artifactOwnerExecutionId: artifactOwnerOf(payload, executionId),
+					},
+				}
+			: payload;
+		const scope: WorkflowRunScope = {
+			pin,
+			payload: stepPayload,
+			instance: originalInstance,
+			executionId: currentExecutionId,
+		};
 		const journal = makeReplayJournal();
 		let projected = 0;
 		let projectionRebuilds = 0;
@@ -913,16 +953,17 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				context: payload.input,
 				startedAt: pin.startedAt,
 				principal: pin.principal,
-				workflowExecutionId: executionId,
+				workflowExecutionId: currentExecutionId,
+				...(checkpoint === undefined ? {} : { checkpoint }),
 				journalLength: journal.entries.length,
-				executionId: `${executionId}-replay-${step}`,
-				...(payload.grants ? { grants: payload.grants } : {}),
+				executionId: `${currentExecutionId}-replay-${step}`,
+				...(stepPayload.grants ? { grants: stepPayload.grants } : {}),
 			};
 			const settled = yield* settledSandboxReplay(replayPayload);
 			const replay = Option.isSome(settled)
 				? settled.value
 				: yield* appendWorkflowJournal(
-						executionId,
+						currentExecutionId,
 						projected,
 						journal.entries.slice(projected),
 					).pipe(
@@ -961,7 +1002,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 				pin.principal.pluginRevision,
 				pin.principal.metadata,
 				step,
-				(state) => recordObservedReplay(replay, step, state),
+				(state) => recordObservedReplay(replay, step, state === "checkpoint" ? "completed" : state),
 			);
 			const pending = yield* validatePendingInline(replay, observed);
 			if (journal.entries.length + replay.inline.length > SANDBOX_WORKFLOW_MAX_STEPS) {
@@ -982,6 +1023,26 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 					},
 					observed.error,
 				);
+			}
+			if (observed.state === "checkpoint") {
+				if (!checkpointStore) {
+					return yield* sandboxFailure("invalid-output", "Only workflows may save checkpoints");
+				}
+				const bytes = jsonByteLength(observed.checkpoint);
+				if (bytes === null || bytes > SANDBOX_LIMITS.execution.contextBytes) {
+					return yield* sandboxFailure(
+						"invalid-output",
+						"Workflow checkpoint exceeds its byte limit",
+					);
+				}
+				yield* checkpointStore.save(
+					{ state: "active", revision: revision + 1, checkpoint: observed.checkpoint },
+					`checkpoint-${revision}`,
+				);
+				yield* clearCheckpointJournal(revision);
+				checkpoint = observed.checkpoint;
+				revision += 1;
+				return advanced;
 			}
 			if (observed.state === "completed") {
 				const output =
@@ -1019,7 +1080,25 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 			`Sandbox workflow exceeded the maximum of ${SANDBOX_WORKFLOW_MAX_STEPS} durable steps`,
 		);
 	});
-	return yield* replayWorkflow().pipe(
+	const runSteps = Effect.gen(function* () {
+		if (saved?.state === "completed") {
+			return saved.output;
+		}
+		for (;;) {
+			const output = yield* checkpointStore
+				? replayWorkflow().pipe(inWorkflowStepScope(`checkpoint-${revision}`))
+				: replayWorkflow();
+			if (output === advanced) {
+				continue;
+			}
+			if (checkpointStore && revision > 0) {
+				yield* checkpointStore.save({ output, state: "completed" }, `checkpoint-${revision}`);
+				yield* clearCheckpointJournal(revision);
+			}
+			return output;
+		}
+	});
+	return yield* runSteps.pipe(
 		Effect.catchTag("SandboxRunError", (error) =>
 			payload.resultMode === "execution" && installationUnavailable(error.data)
 				? Effect.succeed(
@@ -1105,7 +1184,7 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 			),
 		);
 		const observed = yield* validateWorkflowReplayEnvelope(envelope, [], replay.inline);
-		if (observed.state === "pending") {
+		if (observed.state === "pending" || observed.state === "checkpoint") {
 			return yield* new DirectScriptDeferred();
 		}
 		if (observed.state === "failed") {

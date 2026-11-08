@@ -47,36 +47,39 @@ export default defineWorkflow({
 	manifest,
 	input: MediaMonitoringSweepWorkflowInput,
 	output: MediaMonitoringSweepWorkflowOutput,
-	run: (_input, replay) =>
+	checkpoint: Schema.Struct({
+		after: Schema.String,
+		pageIndex: Schema.Int,
+		batchIndex: Schema.Int,
+		targetCount: Schema.Int,
+	}),
+	run: (_input, step, checkpoint) =>
 		Effect.gen(function* () {
-			let after: string | undefined;
-			let pageIndex = 0;
-			let batchIndex = 0;
-			let targetCount = 0;
-			for (;;) {
-				const result = yield* replay.activity(`targets-${pageIndex}`, listTargets, {
-					limit: BATCH_SIZE,
-					...(after === undefined ? {} : { after }),
+			const after = checkpoint?.after;
+			let pageIndex = checkpoint?.pageIndex ?? 0;
+			let batchIndex = checkpoint?.batchIndex ?? 0;
+			let targetCount = checkpoint?.targetCount ?? 0;
+			const result = yield* step.activity(`targets-${pageIndex}`, listTargets, {
+				limit: BATCH_SIZE,
+				...(after === undefined ? {} : { after }),
+			});
+			targetCount += result.items.length;
+			for (let start = 0; start < result.items.length; start += BATCH_SIZE) {
+				const batch = result.items.slice(start, start + BATCH_SIZE);
+				yield* step.child(`refresh-${batchIndex}`, providerEntityPopulation, {
+					mode: "refresh",
+					items: batch.map(({ externalId, providerId, entitySchemaSlug }) => ({
+						externalId,
+						providerId,
+						entitySchemaSlug,
+					})),
 				});
-				targetCount += result.items.length;
-				for (let start = 0; start < result.items.length; start += BATCH_SIZE) {
-					const batch = result.items.slice(start, start + BATCH_SIZE);
-					yield* replay.child(`refresh-${batchIndex}`, providerEntityPopulation, {
-						mode: "refresh",
-						items: batch.map(({ externalId, providerId, entitySchemaSlug }) => ({
-							externalId,
-							providerId,
-							entitySchemaSlug,
-						})),
-					});
-					batchIndex += 1;
-				}
-				pageIndex += 1;
-				if (result.nextCursor === null || result.nextCursor === "") {
-					break;
-				}
-				after = result.nextCursor;
+				batchIndex += 1;
 			}
-			return { targetCount, batchCount: batchIndex };
+			pageIndex += 1;
+			if (result.nextCursor === null || result.nextCursor === "") {
+				return { targetCount, batchCount: batchIndex };
+			}
+			return yield* step.save({ pageIndex, batchIndex, targetCount, after: result.nextCursor });
 		}),
 });

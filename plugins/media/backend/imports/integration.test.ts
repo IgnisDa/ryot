@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
 
-import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { driveWorkflowReplay, makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -29,15 +29,25 @@ it.live(
 				},
 			};
 			const journal: WorkflowReplayJournalEntry[] = [];
+			let checkpoint: JsonValue | undefined;
 			const record = (request: WorkflowReplayEnvelope["requests"][number], value: JsonValue) =>
 				journal.push({ value, request });
 			const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 			let envelope: WorkflowReplayEnvelope;
 			for (;;) {
-				envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
-					metadata: {},
-					sandboxScriptId: "media-integration",
-				});
+				envelope = yield* workflow.run(
+					input,
+					{
+						...makeWorkflowReplayHost(journal),
+						...(checkpoint === undefined ? {} : { checkpoint }),
+					},
+					{ metadata: {}, sandboxScriptId: "media-integration" },
+				);
+				if (envelope.state === "checkpoint") {
+					checkpoint = envelope.checkpoint;
+					journal.length = 0;
+					continue;
+				}
 				if (envelope.state !== "pending") {
 					break;
 				}
@@ -197,20 +207,11 @@ it.live(
 				},
 				{ summary: [], sealed: true },
 			];
-			const journal: WorkflowReplayJournalEntry[] = [];
-			for (const value of values) {
-				const pending = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
-					metadata: {},
-					sandboxScriptId: "media-integration",
-				});
-				assert(pending.state === "pending");
-				const request = pending.requests[journal.length];
-				assert(request);
-				journal.push({ value, request });
-			}
-			const envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
-				metadata: {},
-				sandboxScriptId: "media-integration",
+			let next = 0;
+			const envelope = yield* driveWorkflowReplay(workflow.run, input, () => {
+				const value = values[next++];
+				assert(value !== undefined);
+				return value;
 			});
 			assert(envelope.state === "completed");
 			expect(envelope.output).toEqual({

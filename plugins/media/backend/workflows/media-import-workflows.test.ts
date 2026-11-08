@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
 import { AutomationExecutionId, ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { driveWorkflowReplay, makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
-import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";

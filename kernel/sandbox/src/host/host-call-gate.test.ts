@@ -7,7 +7,7 @@ import {
 	type WorkflowDurableResult,
 	workflowHostRequestSchema,
 	workflowReplayJournalEntrySchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";

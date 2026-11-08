@@ -44,11 +44,11 @@ export default defineWorkflow({
 	manifest,
 	input: MediaImportPopulationWorkflowInput,
 	output: MediaImportPopulationWorkflowOutput,
-	run: (input, replay) =>
+	run: (input, step) =>
 		Effect.gen(function* () {
 			const childResults = yield* Effect.all(
 				input.items.map((item) =>
-					replay.child(`import-${item.index}`, entityImport, {
+					step.child(`import-${item.index}`, entityImport, {
 						command: item.command,
 						externalId: item.externalId,
 						entitySchemaSlug: item.entitySchemaSlug,

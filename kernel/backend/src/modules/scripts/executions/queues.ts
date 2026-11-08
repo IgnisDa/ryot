@@ -4,7 +4,8 @@ import {
 	SandboxExecutionGrants,
 	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
-import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow";
+import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { isAdmissionQueueFull, SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
@@ -33,6 +34,7 @@ import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { JobQueue, makeJobKind } from "#platform/jobs/queue";
 import { CurrentJobId, registerJobHandler } from "#platform/jobs/worker";
+import { WorkflowStepScope } from "#platform/workflow/scope";
 
 import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import { SandboxDurableHostDispatcher } from "../host/durable-dispatcher";
@@ -51,6 +53,7 @@ const SandboxExecutionQueuePayload = Schema.Struct({
 	executionId: Schema.String,
 	workflowExecutionId: Schema.String,
 	principal: ScriptExecutionPrincipal,
+	checkpoint: Schema.optional(jsonValueSchema),
 	grants: Schema.optional(SandboxExecutionGrants),
 	recoveryAttempt: Schema.optional(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
 });
@@ -118,7 +121,7 @@ const SandboxReplayBackgroundJob = replayJob("sandbox-replay-background");
 
 const replayDeferred = Effect.fnUntraced(function* (payload: SandboxExecutionQueuePayload) {
 	const id = yield* Activity.idempotencyKey(`sandbox-replay/${replayKey(payload)}`);
-	return { id, deferred: replayOutcome(`sandbox-replay/${id}`) };
+	return { id, deferred: replayOutcome(`${yield* WorkflowStepScope}sandbox-replay/${id}`) };
 });
 
 export const processSandboxExecutionQueue = Effect.fn("processSandboxExecutionQueue")(function* (
@@ -266,6 +269,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 					lane,
 					replayJournal,
 					context: payload.context,
+					...(payload.checkpoint === undefined ? {} : { checkpoint: payload.checkpoint }),
 					startedAt: payload.startedAt,
 					principal: payload.principal,
 					executionId: payload.executionId,

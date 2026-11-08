@@ -18,6 +18,7 @@ export const workflowExecution = snakeCase.table(
 		// `json` keeps the encoded text, so replayed results match their originals byte for byte.
 		result: json(),
 		payload: json(),
+		checkpoint: json(),
 		// The account the execution works for; account retirement interrupts it.
 		accountUserId: text(),
 		clearedAt: timestamptz(),

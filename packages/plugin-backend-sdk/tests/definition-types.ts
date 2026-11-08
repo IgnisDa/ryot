@@ -1,7 +1,8 @@
 import { defineAutomation, defineAutomationPolicy } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
-import { defineWorkflow, type WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 
 import { defineManifest, defineScript } from "../src/driver.js";
 import type { SandboxHostError } from "../src/wire.js";

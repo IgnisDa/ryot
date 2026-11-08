@@ -17,7 +17,7 @@ import {
 import {
 	workflowDurableResultSchema,
 	workflowReplayEnvelopeSchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
@@ -896,7 +896,7 @@ layer(
 					pendingInline: [],
 					status: "completed" as const,
 					value:
-						sandboxPayload.executionId === `${executionId}-replay-0`
+						sandboxPayload.executionId === `${executionId}-checkpoint-0-replay-0`
 							? { journalLength: 0, requests: [request], state: "pending" as const }
 							: {
 									journalLength: 1,
@@ -1084,8 +1084,8 @@ it.effect(
 		const recordedSecond = {
 			index: 1,
 			name: "original",
-			kind: "sleep" as const,
-			args: { durationMs: 10 },
+			kind: "activity" as const,
+			args: { input: 10, scriptSlug: "activity" },
 		};
 		const changedSecond = { ...recordedSecond, name: "changed" };
 
@@ -1116,9 +1116,24 @@ it.effect(
 it.effect(
 	"registers every missing request after validating its full prefix",
 	() => {
-		const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
-		const third = { index: 2, name: "third", kind: "sleep" as const, args: { durationMs: 30 } };
-		const pending = { index: 1, name: "pending", kind: "sleep" as const, args: { durationMs: 20 } };
+		const first = {
+			index: 0,
+			name: "first",
+			kind: "activity" as const,
+			args: { input: 10, scriptSlug: "activity" },
+		};
+		const third = {
+			index: 2,
+			name: "third",
+			kind: "activity" as const,
+			args: { input: 30, scriptSlug: "activity" },
+		};
+		const pending = {
+			index: 1,
+			name: "pending",
+			kind: "activity" as const,
+			args: { input: 20, scriptSlug: "activity" },
+		};
 		return Effect.gen(function* () {
 			expect(
 				yield* validateWorkflowReplayEnvelope(
@@ -1135,8 +1150,18 @@ it.effect(
 it.effect(
 	"fails as infrastructure when the replay loaded a different journal length",
 	() => {
-		const first = { index: 0, name: "first", kind: "sleep" as const, args: { durationMs: 10 } };
-		const second = { index: 1, name: "second", kind: "sleep" as const, args: { durationMs: 20 } };
+		const first = {
+			index: 0,
+			name: "first",
+			kind: "activity" as const,
+			args: { input: 10, scriptSlug: "activity" },
+		};
+		const second = {
+			index: 1,
+			name: "second",
+			kind: "activity" as const,
+			args: { input: 20, scriptSlug: "activity" },
+		};
 		const journal = [
 			{ value: null, request: first },
 			{ value: null, request: second },
@@ -1857,7 +1882,7 @@ layer(
 					},
 					executionId,
 					(sandboxPayload) => {
-						if (sandboxPayload.executionId === `${executionId}-replay-0`) {
+						if (sandboxPayload.executionId === `${executionId}-checkpoint-0-replay-0`) {
 							return Effect.succeed({
 								logs: [],
 								inline: [],
@@ -1888,8 +1913,8 @@ layer(
 				expect(result).toEqual({ done: true });
 				expect(Math.max(...(yield* calls.entries("active-activities")).map(Number))).toBe(2);
 				expect((yield* calls.entries("child-execution-ids")).map(String).sort()).toEqual([
-					sandboxWorkflowChildExecutionId(executionId, first.name, first.index),
-					sandboxWorkflowChildExecutionId(executionId, second.name, second.index),
+					sandboxWorkflowChildExecutionId(`${executionId}-checkpoint-0`, first.name, first.index),
+					sandboxWorkflowChildExecutionId(`${executionId}-checkpoint-0`, second.name, second.index),
 				]);
 			});
 		},
@@ -1949,7 +1974,12 @@ layer(
 it.effect(
 	"accepts completion output only after the encountered trace matches the journal",
 	() => {
-		const request = { index: 0, name: "done", kind: "sleep" as const, args: { durationMs: 10 } };
+		const request = {
+			index: 0,
+			name: "done",
+			kind: "activity" as const,
+			args: { input: 10, scriptSlug: "activity" },
+		};
 		return Effect.gen(function* () {
 			expect(
 				yield* validateWorkflowReplayEnvelope(

@@ -1,6 +1,6 @@
 import { BunServices } from "@effect/platform-bun";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";

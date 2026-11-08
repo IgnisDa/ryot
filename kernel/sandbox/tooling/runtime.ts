@@ -51,8 +51,11 @@ const compileTrustedRunner = (sandboxDirectory: string) =>
 					replacement: Bun.resolveSync("@ryot-app/plugin-backend-sdk/core", import.meta.dir),
 				},
 				{
-					find: "@ryot-app/plugin-backend-sdk/workflow",
-					replacement: Bun.resolveSync("@ryot-app/plugin-backend-sdk/workflow", import.meta.dir),
+					find: "@ryot-app/plugin-backend-sdk/workflow/protocol",
+					replacement: Bun.resolveSync(
+						"@ryot-app/plugin-backend-sdk/workflow/protocol",
+						import.meta.dir,
+					),
 				},
 				{
 					find: "@ryot-app/plugin-backend-compiler/limits",

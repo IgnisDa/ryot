@@ -848,10 +848,7 @@ it.effect(
 				slug: "media-monitoring-sweep",
 				scriptSlug: "workflow.media-monitoring-sweep",
 			});
-			expect(mediaPlugin.workflows).toContainEqual({
-				slug: "media-import-segment",
-				scriptSlug: "workflow.media-import-segment",
-			});
+
 			expect(monitoringTargetsManifest).toMatchObject({
 				kind: "script",
 				slug: "media-monitoring-targets",

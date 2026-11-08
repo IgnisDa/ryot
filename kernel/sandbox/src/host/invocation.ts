@@ -8,8 +8,8 @@ import type { SandboxHostImplementationMap as SdkSandboxHostImplementationMap } 
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowDurableResult,
-	WorkflowInlineRequest,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+	WorkflowHostRequest,
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect, PlatformError, type Schema } from "effect";
 
@@ -27,7 +27,7 @@ export type BoundHostFunction = (
 export type SandboxInlineDurableHost = {
 	readonly capabilities: ReadonlyArray<SandboxHostCapability>;
 	readonly settle: (
-		requests: ReadonlyArray<WorkflowInlineRequest>,
+		requests: ReadonlyArray<WorkflowHostRequest>,
 		wait: SandboxShortWait,
 		checkpoint: (progress: SandboxInlineProgress) => Effect.Effect<void>,
 	) => Effect.Effect<null | ReadonlyArray<null | WorkflowDurableResult>>;
@@ -39,6 +39,7 @@ export type SandboxRunInput = {
 	readonly lane: ExecutionLane;
 	readonly executionId: string;
 	readonly compiledCode: string;
+	readonly checkpoint?: JsonValue;
 	readonly compiledFormat: number;
 	readonly principal: SandboxPrincipal;
 	readonly workflowExecutionId?: string;

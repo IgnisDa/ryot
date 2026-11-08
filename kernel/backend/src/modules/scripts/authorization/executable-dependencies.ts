@@ -1,11 +1,11 @@
 import type { SandboxScriptMetadata } from "@ryot-app/contract/modules/scripts/schemas";
-import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 
 export const isDeclaredExecutableCall = (
 	metadata: SandboxScriptMetadata,
 	request: WorkflowDurableCallRequest,
 ): boolean => {
-	if (request.kind === "host" || request.kind === "sleep") {
+	if (request.kind === "host") {
 		return true;
 	}
 	const kind = request.kind === "activity" ? "script" : "workflow";

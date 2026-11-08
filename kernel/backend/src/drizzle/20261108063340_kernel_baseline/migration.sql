@@ -1180,6 +1180,7 @@ CREATE TABLE "verification" (
 CREATE TABLE "workflow_execution" (
 	"result" json,
 	"payload" json,
+	"checkpoint" json,
 	"account_user_id" text,
 	"cleared_at" timestamp(3) with time zone,
 	"expired_at" timestamp(3) with time zone,

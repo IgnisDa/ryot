@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
 import { SandboxRunError, TimeoutError } from "@ryot-app/contract/errors";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";

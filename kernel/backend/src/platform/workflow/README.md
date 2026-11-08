@@ -8,7 +8,7 @@
 ## Storage
 
 - `workflow_execution`: one row per execution, with its encoded payload, final result, root and
-  parent, status, and suspension.
+  parent, status, suspension, and the current explicit checkpoint.
 - `workflow_step`: one row per completed activity attempt, deferred completion, or armed durable
   clock. The first write of a key wins.
 
@@ -30,6 +30,12 @@ awaiting it is not woken; it reads the result from its cache if it awaits it lat
 Long executions run each chunk of work under `inWorkflowStepScope`, then call `forgetWorkflowSteps` once
 something durable lets a replay skip that chunk. The chunk's activities leave storage and memory, so
 loading the execution stays bounded by the current chunk. Scopes stop at workflow boundaries.
+
+`WorkflowCheckpoint` reads the checkpoint loaded with the execution, outside the activity journal. Saving a
+checkpoint and deleting the completed scope's steps happen in one SQL statement under the tree-expiry
+fence. The running engine then drops the same activity and deferred cache entries. Only a scope that
+can be skipped from the saved state may be discarded. Checkpoints are cleared with expired execution
+data.
 
 ## Ownership
 

@@ -41,7 +41,10 @@ export type SidecarRecorder = {
 };
 
 export type RunnerOptions = Partial<
-	Pick<SandboxRunInput, "lane" | "executionId" | "inlineDurableHost" | "workflowExecutionId">
+	Pick<
+		SandboxRunInput,
+		"lane" | "checkpoint" | "executionId" | "inlineDurableHost" | "workflowExecutionId"
+	>
 > & {
 	readonly replayJournal?: SandboxPinnedJournal;
 	readonly filesystem?: { readonly artifact: boolean };
@@ -145,6 +148,7 @@ export const makeRunnerInput = (
 		compiledFormat: compiled.format,
 		compiledCode: compiled.javascript,
 		lane: options.lane ?? "interactive",
+		...(options.checkpoint === undefined ? {} : { checkpoint: options.checkpoint }),
 		startedAt: "2026-08-06T00:00:00.000Z",
 		executionId: options.executionId ?? "native-runner-execution",
 		principal: makeUserPrincipal({
@@ -226,6 +230,7 @@ export const runNativeOutcome = Effect.fnUntraced(function* (
 				metadata: input.principal.metadata,
 				scriptId: input.principal.scriptId,
 				apiFunctions: [...Object.keys(options.functions ?? {}), "replayJournal"],
+				...(input.checkpoint === undefined ? {} : { checkpoint: input.checkpoint }),
 				...(input.workflowExecutionId === undefined
 					? {}
 					: { workflowExecutionId: input.workflowExecutionId }),

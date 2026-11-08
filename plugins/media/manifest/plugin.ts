@@ -681,7 +681,6 @@ export const mediaPlugin = definePlugin({
 		{ slug: "media-integration-segment", scriptSlug: "workflow.media-integration-segment" },
 		{ slug: "media-monitoring-sweep", scriptSlug: "workflow.media-monitoring-sweep" },
 		{ slug: "media-trending", scriptSlug: "workflow.media-trending" },
-		{ slug: "media-import-segment", scriptSlug: "workflow.media-import-segment" },
 		{ slug: "media-import-merge", scriptSlug: "workflow.media-import-merge" },
 		{ slug: "media-import-collection", scriptSlug: "workflow.media-import-collection" },
 		{ slug: "media-import-application", scriptSlug: "workflow.media-import-application" },

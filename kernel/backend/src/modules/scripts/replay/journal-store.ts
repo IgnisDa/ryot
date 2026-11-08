@@ -176,3 +176,8 @@ export const pruneSandboxJournals = (session: JournalSession, limit: number) =>
 			order by created_at limit ${limit}
 		)`),
 	).pipe(Effect.asVoid);
+
+export const clearSandboxJournal = (session: JournalSession, executionId: string) =>
+	journalQuery(session, (db) => db.delete(table).where(eq(table.executionId, executionId))).pipe(
+		Effect.asVoid,
+	);

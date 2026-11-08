@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";

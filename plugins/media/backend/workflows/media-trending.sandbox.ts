@@ -41,19 +41,19 @@ export default defineWorkflow({
 	manifest,
 	input: Schema.Struct({}),
 	output: MediaTrendingWorkflowOutput,
-	run: (_input, replay) =>
+	run: (_input, step) =>
 		Effect.gen(function* () {
 			const batches: Array<{ entitySchemaSlug: string; entityIds: readonly string[] }> = [];
 			const failedEntitySchemaSlugs: string[] = [];
 			for (const { reference, entitySchemaSlug } of providers) {
-				const result = yield* replay.activity(`fetch-${entitySchemaSlug}`, reference, {});
+				const result = yield* step.activity(`fetch-${entitySchemaSlug}`, reference, {});
 				if (result.status === "fetched") {
 					batches.push({ entitySchemaSlug, entityIds: result.entityIds });
 				} else {
 					failedEntitySchemaSlugs.push(entitySchemaSlug);
 				}
 			}
-			const ranked = yield* replay.activity("rank", rankings, { batches, failedEntitySchemaSlugs });
+			const ranked = yield* step.activity("rank", rankings, { batches, failedEntitySchemaSlugs });
 			return { synced: ranked.synced, itemCount: ranked.itemCount, providerCount: batches.length };
 		}),
 });

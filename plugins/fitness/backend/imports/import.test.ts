@@ -18,7 +18,7 @@ import { type JsonValue, jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wi
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { Effect, Schema } from "effect";
@@ -56,10 +56,12 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 	const captures = new Map<string, Uint8Array>();
 	const handles = new Map<string, Uint8Array>();
 	const journal: WorkflowReplayJournalEntry[] = [];
+	let checkpoint: JsonValue | undefined;
 	const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 	const chunks: Array<typeof genericImportChunkSchema.Type> = [];
 	const collectionOffsets: number[] = [];
 	let uploadBytesRead = 0;
+	let applicationCheckpoints = 0;
 	let grants: Record<string, Uint8Array> = {};
 	const primary = encoder.encode('{"timezone":"Asia/Kolkata"}');
 	let files: Array<{ name: string; contents: Uint8Array }> = [];
@@ -175,12 +177,22 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 					request.args.input,
 				);
 				const childJournal: WorkflowReplayJournalEntry[] = [];
+				let childCheckpoint: JsonValue | undefined;
 				for (;;) {
 					const envelope = yield* applicationWorkflow.run(
 						childInput,
-						makeWorkflowReplayHost(childJournal),
+						{
+							...makeWorkflowReplayHost(childJournal),
+							...(childCheckpoint === undefined ? {} : { checkpoint: childCheckpoint }),
+						},
 						{ metadata: {}, sandboxScriptId: "fitness-import-application" },
 					);
+					if (envelope.state === "checkpoint") {
+						applicationCheckpoints++;
+						childCheckpoint = envelope.checkpoint;
+						childJournal.length = 0;
+						continue;
+					}
 					if (envelope.state === "failed") {
 						expect.unreachable(envelope.error);
 					}
@@ -195,12 +207,21 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			} else if (request.kind === "child" && request.args.workflowSlug === "import-merge") {
 				const childInput = yield* Schema.decodeUnknownEffect(FitnessMergeInput)(request.args.input);
 				const childJournal: WorkflowReplayJournalEntry[] = [];
+				let childCheckpoint: JsonValue | undefined;
 				for (;;) {
 					const envelope = yield* mergeWorkflow.run(
 						childInput,
-						makeWorkflowReplayHost(childJournal),
+						{
+							...makeWorkflowReplayHost(childJournal),
+							...(childCheckpoint === undefined ? {} : { checkpoint: childCheckpoint }),
+						},
 						{ metadata: {}, sandboxScriptId: "fitness-import-merge" },
 					);
+					if (envelope.state === "checkpoint") {
+						childCheckpoint = envelope.checkpoint;
+						childJournal.length = 0;
+						continue;
+					}
 					if (envelope.state === "failed") {
 						expect.unreachable(envelope.error);
 					}
@@ -322,19 +343,26 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 			return yield* Schema.decodeUnknownEffect(jsonValueSchema)(structuredClone(value));
 		});
 	for (;;) {
-		const envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
-			metadata: {},
-			sandboxScriptId: "fitness-import",
-		});
+		const envelope = yield* workflow.run(
+			input,
+			{ ...makeWorkflowReplayHost(journal), ...(checkpoint === undefined ? {} : { checkpoint }) },
+			{ metadata: {}, sandboxScriptId: "fitness-import" },
+		);
+		if (envelope.state === "checkpoint") {
+			checkpoint = envelope.checkpoint;
+			journal.length = 0;
+			continue;
+		}
 		if (envelope.state === "failed") {
 			expect.unreachable(envelope.error);
 		}
 		if (envelope.state === "completed") {
 			expect(uploadBytesRead).toBe(upload.length);
-			const replayed = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
-				metadata: {},
-				sandboxScriptId: "fitness-import",
-			});
+			const replayed = yield* workflow.run(
+				input,
+				{ ...makeWorkflowReplayHost(journal), ...(checkpoint === undefined ? {} : { checkpoint }) },
+				{ metadata: {}, sandboxScriptId: "fitness-import" },
+			);
 			expect(replayed).toEqual(envelope);
 			return {
 				chunks,
@@ -342,6 +370,7 @@ const runImport = Effect.fn(function* (source: string, csv: string) {
 				captures,
 				maximumRead,
 				collectionOffsets,
+				applicationCheckpoints,
 				output: envelope.output,
 			};
 		}
@@ -841,7 +870,7 @@ it("restores a quoted measurement record across source and JSON capture windows 
 	);
 });
 
-it("continues application in a new bounded workflow segment without recollecting measurements", () =>
+it("resumes application from a saved checkpoint without recollecting measurements", () =>
 	Effect.runPromise(
 		runImport(
 			"open_scale",
@@ -855,7 +884,8 @@ it("continues application in a new bounded workflow segment without recollecting
 						(request) =>
 							request.kind === "child" && request.args.workflowSlug === "import-application",
 					),
-				).toHaveLength(2);
+				).toHaveLength(1);
+				expect(result.applicationCheckpoints).toBe(1);
 				const items = result.chunks.flatMap((chunk) => chunk.items);
 				expect(items).toHaveLength(1601);
 				expect(items.at(-1)?.recordId).toBe('["measurement",1600]');

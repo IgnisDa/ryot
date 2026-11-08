@@ -27,16 +27,6 @@ export const workflowActivityRequestSchema = strictStruct({
 		scriptSlug: Schema.String.pipe(Schema.check(Schema.isMinLength(1))),
 	}),
 });
-export const workflowSleepRequestSchema = strictStruct({
-	...durableCallFields,
-	kind: Schema.Literal("sleep"),
-	args: strictStruct({
-		durationMs: Schema.Number.pipe(
-			Schema.check(Schema.isInt()),
-			Schema.check(Schema.isGreaterThanOrEqualTo(0)),
-		),
-	}),
-});
 export const workflowChildRequestSchema = strictStruct({
 	...durableCallFields,
 	kind: Schema.Literal("child"),
@@ -53,11 +43,7 @@ export const workflowHostRequestSchema = strictStruct({
 		capability: sandboxHostCapabilitySchema,
 	}),
 });
-export const workflowInlineRequestSchema = Schema.Union([
-	workflowSleepRequestSchema,
-	workflowHostRequestSchema,
-]);
-export type WorkflowInlineRequest = Schema.Schema.Type<typeof workflowInlineRequestSchema>;
+export type WorkflowHostRequest = Schema.Schema.Type<typeof workflowHostRequestSchema>;
 export const workflowNestedChildRequestSchema = strictStruct({
 	...durableCallFields,
 	kind: Schema.Literal("workflow-child"),
@@ -68,7 +54,6 @@ export const workflowNestedChildRequestSchema = strictStruct({
 });
 export const workflowDurableCallRequestSchema = Schema.Union([
 	workflowActivityRequestSchema,
-	workflowSleepRequestSchema,
 	workflowChildRequestSchema,
 	workflowHostRequestSchema,
 	workflowNestedChildRequestSchema,
@@ -86,6 +71,12 @@ export type WorkflowReplayJournalEntry = Schema.Schema.Type<
 >;
 
 export const workflowReplayEnvelopeSchema = Schema.Union([
+	strictStruct({
+		checkpoint: jsonValueSchema,
+		state: Schema.Literal("checkpoint"),
+		journalLength: durableCallFields.index,
+		requests: Schema.Array(workflowDurableCallRequestSchema),
+	}),
 	strictStruct({
 		state: Schema.Literal("pending"),
 		journalLength: durableCallFields.index,
@@ -108,21 +99,16 @@ export const workflowReplayEnvelopeSchema = Schema.Union([
 ]);
 export type WorkflowReplayEnvelope = Schema.Schema.Type<typeof workflowReplayEnvelopeSchema>;
 
+export type WorkflowReplayHost = {
+	readonly checkpoint?: jsonValueSchema;
+	readonly replayJournal: () => RuntimeEffect.Effect<WorkflowReplayJournal, SandboxHostError>;
+};
+
 export type WorkflowReplayJournal = {
 	readonly length: number;
 	readonly read: (
 		index: number,
 	) => RuntimeEffect.Effect<WorkflowReplayJournalEntry, SandboxHostError>;
-};
-
-export type WorkflowReplayHost = {
-	readonly replayJournal: () => RuntimeEffect.Effect<WorkflowReplayJournal, SandboxHostError>;
-	readonly settleInline: (
-		requests: ReadonlyArray<Schema.Schema.Type<typeof workflowSleepRequestSchema>>,
-	) => RuntimeEffect.Effect<
-		null | ReadonlyArray<WorkflowReplayJournalEntry["value"]>,
-		SandboxHostError
-	>;
 };
 
 export const workflowDurableResultSchema = Schema.Union([

@@ -4,12 +4,11 @@ import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { PgClient } from "@effect/sql-pg";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowDurableResult } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { SandboxSidecarAdmission } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { SandboxHostCallScope } from "@ryot-app/sandbox/host/config";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
-import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
@@ -239,7 +238,6 @@ const makeHeadroomLayer = Layer.provideMerge(
 								requests,
 								(request) =>
 									Effect.gen(function* () {
-										assert(request.kind === "host");
 										state.callbackStarts.push(executionId);
 										if (state.callbackStarts.filter((id) => id === executionId).length === 4) {
 											yield* Deferred.succeed(state.fourCallbacksStarted, undefined);

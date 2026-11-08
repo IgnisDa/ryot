@@ -25,8 +25,10 @@ export default defineWorkflow({
 	manifest,
 	input: FitnessMergeInput,
 	output: FitnessMergeOutput,
-	run: (input, replay) =>
+	checkpoint: FitnessMergeOutput,
+	run: (initial, step, checkpoint) =>
 		Effect.gen(function* () {
+			const input = { ...initial, ...checkpoint };
 			const parser = selectExecutable(fitnessParsers, input.parser);
 			const attribution = { runId: input.runId, command: input.command };
 			let page = input.page;
@@ -41,7 +43,7 @@ export default defineWorkflow({
 				const leftId = `${input.left.prefix}-${Math.min(leftPage, input.left.pages - 1)}`;
 				const rightId = `${input.right.prefix}-${Math.min(rightPage, input.right.pages - 1)}`;
 				const id = `${input.prefix}-${page}`;
-				const result = yield* replay.activity(`merge:${id}`, parser, {
+				const result = yield* step.activity(`merge:${id}`, parser, {
 					leftOffset,
 					rightOffset,
 					action: "merge",
@@ -55,7 +57,7 @@ export default defineWorkflow({
 						new FitnessMergeError({ message: "Fitness merge did not return a capture" }),
 					);
 				}
-				yield* replay.child(`capture:${id}`, genericImportCaptureReference, {
+				yield* step.child(`capture:${id}`, genericImportCaptureReference, {
 					...attribution,
 					operation: {
 						handle,
@@ -95,6 +97,16 @@ export default defineWorkflow({
 					break;
 				}
 			}
-			return { page, done, ordinal, leftPage, rightPage, leftOffset, advancedAt, rightOffset };
+			const result = {
+				page,
+				done,
+				ordinal,
+				leftPage,
+				rightPage,
+				leftOffset,
+				advancedAt,
+				rightOffset,
+			};
+			return done ? result : yield* step.save(result);
 		}),
 });

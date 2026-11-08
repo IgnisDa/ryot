@@ -228,3 +228,12 @@ deterministic durable IDs lets the replacement backend locate and interrupt the 
 - `event_policy`: policy evaluation failed before an imported event was written.
 - `database_commit`: an entity, event, collection, relationship, or library write failed.
 - `source_fetch`: source payload or external source retrieval failed before normalization.
+
+## Plugin checkpoints
+
+Plugin orchestration saves explicit collection, sorting, normalization, and application cursors.
+Media and fitness keep their bounded external sorting and immutable source captures. Each checkpoint
+advances only after its captures, committed application receipts, and required confirmations are
+recorded. A restart loads the saved phase rather than replaying earlier phases. The current unfinished
+step retains private call outcomes for interruption and delivery safety. The execution owner keeps
+code/configuration pins, artifact retention, and cancellation attached across checkpoints.

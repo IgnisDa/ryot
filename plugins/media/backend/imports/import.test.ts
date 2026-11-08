@@ -3,11 +3,11 @@ import { expect } from "bun:test";
 import { genericImportKernelInputSchema } from "@ryot-app/plugin-backend-sdk/imports";
 import { makeWorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
-import {
-	selectExecutable,
-	type WorkflowReplayEnvelope,
-	type WorkflowReplayJournalEntry,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+import { selectExecutable } from "@ryot-app/plugin-backend-sdk/workflow";
+import type {
+	WorkflowReplayEnvelope,
+	WorkflowReplayJournalEntry,
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -53,6 +53,7 @@ it.live(
 				plan: { operation: "import", selection: { "source-parser": "goodreads" } },
 			};
 			const journal: WorkflowReplayJournalEntry[] = [];
+			let checkpoint: JsonValue | undefined;
 			const requests: Array<WorkflowReplayEnvelope["requests"][number]> = [];
 			const record = (request: WorkflowReplayEnvelope["requests"][number], value: JsonValue) =>
 				journal.push({ value, request });
@@ -66,10 +67,19 @@ it.live(
 			let collections = 0;
 			let envelope: WorkflowReplayEnvelope;
 			for (;;) {
-				envelope = yield* workflow.run(input, makeWorkflowReplayHost(journal), {
-					metadata: {},
-					sandboxScriptId: "media-import",
-				});
+				envelope = yield* workflow.run(
+					input,
+					{
+						...makeWorkflowReplayHost(journal),
+						...(checkpoint === undefined ? {} : { checkpoint }),
+					},
+					{ metadata: {}, sandboxScriptId: "media-import" },
+				);
+				if (envelope.state === "checkpoint") {
+					checkpoint = envelope.checkpoint;
+					journal.length = 0;
+					continue;
+				}
 				if (envelope.state !== "pending") {
 					break;
 				}

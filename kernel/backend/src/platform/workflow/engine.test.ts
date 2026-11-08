@@ -26,7 +26,13 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { WorkflowAccountRejected, WorkflowAccounts, WorkflowAdmissionAccount } from "./account";
 import { PostgresWorkflowEngine } from "./engine";
 import { WorkflowExecutionNotifications } from "./execution-notifications";
-import { forgetWorkflowSteps, implementWorkflow, inWorkflowStepScope, makeActivity } from "./scope";
+import {
+	forgetWorkflowSteps,
+	implementWorkflow,
+	inWorkflowStepScope,
+	makeActivity,
+	WorkflowCheckpoint,
+} from "./scope";
 
 const activityRuns = new Map<string, number>();
 const finalizerExits = new Map<string, Array<Exit.Exit<unknown, unknown>>>();
@@ -119,6 +125,12 @@ const Scoped = Workflow.make("EngineConformanceScoped", {
 const ScopedParent = Workflow.make("EngineConformanceScopedParent", {
 	success: Schema.String,
 	suspendedRetrySchedule: retry,
+	payload: { id: Schema.String },
+	idempotencyKey: ({ id }) => id,
+});
+
+const Checkpointed = Workflow.make("EngineCheckpointed", {
+	success: Schema.String,
 	payload: { id: Schema.String },
 	idempotencyKey: ({ id }) => id,
 });
@@ -249,8 +261,36 @@ const scopedLive = Layer.mergeAll(
 	),
 );
 
+const checkpointedLive = implementWorkflow(Checkpointed, ({ id }) =>
+	Effect.gen(function* () {
+		const checkpoint = yield* WorkflowCheckpoint;
+		yield* countRun(id, "kept");
+		const saved = yield* Schema.decodeUnknownEffect(Schema.NullOr(Schema.Int))(
+			yield* checkpoint.load,
+		).pipe(Effect.orDie);
+		for (let next = saved ?? 0; next < 3; next++) {
+			const scope = `chunk-${next}`;
+			yield* countRun(id, `batch-${next}`).pipe(inWorkflowStepScope(scope));
+			const settled = DurableDeferred.make(`${scope}/settled`, { success: Schema.Int });
+			yield* DurableDeferred.succeed(settled, {
+				value: next,
+				token: yield* DurableDeferred.token(settled),
+			});
+			yield* checkpoint.save(next + 1, scope);
+		}
+		return yield* DurableDeferred.await(Signal);
+	}),
+);
+
 const postgresEngine = () =>
-	Layer.mergeAll(workflowsLive, adopterLive, joblessLive, twinLive, scopedLive).pipe(
+	Layer.mergeAll(
+		workflowsLive,
+		adopterLive,
+		joblessLive,
+		twinLive,
+		scopedLive,
+		checkpointedLive,
+	).pipe(
 		Layer.provideMerge(
 			PostgresWorkflowEngine.pipe(Layer.provide(WorkflowExecutionNotifications.layer)),
 		),
@@ -426,6 +466,36 @@ layer(Layer.mergeAll(BunServices.layer, isolatedDatabase), { excludeTestServices
 				expect(activityRuns.get(`${id}:kept`)).toBe(1);
 				expect(activityRuns.get(`${id}:forgotten`)).toBe(2);
 			}).pipe(withEngine(postgresEngine())),
+		);
+
+		test.effect(
+			"postgres: resumes from a committed checkpoint after discarding completed step records",
+			() =>
+				Effect.gen(function* () {
+					const id = yield* randomUuid;
+					const executionId = yield* Checkpointed.executionId({ id });
+					yield* Effect.gen(function* () {
+						yield* Checkpointed.execute({ id }, { discard: true });
+						yield* untilResult(Checkpointed.poll(executionId), "Suspended");
+						const sql = yield* PgClient.PgClient;
+						expect(
+							yield* sql`select checkpoint from workflow_execution where workflow_name = ${Checkpointed._tag} and execution_id = ${executionId}`,
+						).toEqual([{ checkpoint: 3 }]);
+						expect(
+							yield* sql`select name from workflow_step where workflow_name = ${Checkpointed._tag} and execution_id = ${executionId} and starts_with(name, 'chunk-')`,
+						).toEqual([]);
+					}).pipe(withEngine(postgresEngine()));
+					yield* Effect.gen(function* () {
+						yield* signal(Signal, Checkpointed, executionId, "resumed");
+						expect(yield* complete(Checkpointed.poll(executionId))).toEqual(
+							Exit.succeed("resumed"),
+						);
+						expect(activityRuns.get(`${id}:kept`)).toBe(1);
+						for (let batch = 0; batch < 3; batch++) {
+							expect(activityRuns.get(`${id}:batch-${batch}`)).toBe(1);
+						}
+					}).pipe(withEngine(postgresEngine()));
+				}),
 		);
 
 		test.effect("postgres: a child's steps stay outside its parent's step scope", () =>

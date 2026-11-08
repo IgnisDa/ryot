@@ -2,7 +2,7 @@ import { expect } from "bun:test";
 
 import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
 import { hostFailure, hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
-import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowReplayJournalEntry } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { anyOf, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -72,10 +72,9 @@ export default defineWorkflow({
   manifest,
   input: Schema.Struct({ count: Schema.Number }),
   output: Schema.Struct({ activity: Schema.Number, child: Schema.Number, startedAt: Schema.String }),
-  run: (input, replay, execution) => Effect.gen(function* () {
+  run: (input, replay, _checkpoint, execution) => Effect.gen(function* () {
     const activityValue = yield* replay.activity("load-count", activity, { count: input.count });
     const childValue = yield* replay.child("double-count", child, { count: activityValue });
-    yield* replay.sleep("wait-before-complete", 5);
     const startedAt = execution.startedAt;
     if (startedAt === undefined) return yield* Effect.fail("Missing pinned workflow start");
     return { activity: activityValue, child: childValue, startedAt };
@@ -123,41 +122,30 @@ export default defineWorkflow({
 					kind: "child" as const,
 					args: { input: { count: 8 }, workflowSlug: "root-child" },
 				};
-				const sleepRequest = {
-					index: 2,
-					kind: "sleep" as const,
-					args: { durationMs: 5 },
-					name: "wait-before-complete",
-				};
+
 				const journal: WorkflowReplayJournalEntry[] = [
 					{ value: 8, request: activityRequest },
 					{ value: 16, request: childRequest },
-					{ value: null, request: sleepRequest },
 				];
-				for (const prefixLength of [0, 1, 2, 3]) {
+				for (const prefixLength of [0, 1, 2]) {
 					const result = yield* run(journal.slice(0, prefixLength));
 					assert(result.response.success);
 					expect(result.response.value).toEqual(
-						prefixLength === 3
+						prefixLength === 2
 							? {
-									journalLength: 3,
+									journalLength: 2,
 									state: "completed",
-									requests: [activityRequest, childRequest, sleepRequest],
+									requests: [activityRequest, childRequest],
 									output: { child: 16, activity: 8, startedAt: "2026-08-06T00:00:00.000Z" },
 								}
 							: {
 									state: "pending",
 									journalLength: prefixLength,
-									requests: [activityRequest, childRequest, sleepRequest].slice(
-										0,
-										prefixLength + 1,
-									),
+									requests: [activityRequest, childRequest].slice(0, prefixLength + 1),
 								},
 					);
 					expect(result.inline).toEqual([]);
-					expect(result.controls.filter((name) => name !== "journalRead")).toEqual(
-						prefixLength === 2 ? ["inlineBatch"] : [],
-					);
+					expect(result.controls.filter((name) => name !== "journalRead")).toEqual([]);
 					if (prefixLength > 0) {
 						expect(result.controls.length).toBeGreaterThan(0);
 					}
@@ -186,7 +174,7 @@ export default defineWorkflow({
 						success: true,
 						value: objectContaining({
 							state: "failed",
-							journalLength: 3,
+							journalLength: 2,
 							error: stringContaining("Sandbox workflow journal identity mismatch at index 0"),
 						}),
 					}),
@@ -204,7 +192,7 @@ export default defineWorkflow({
 							success: true,
 							value: objectContaining({
 								state: "failed",
-								journalLength: 3,
+								journalLength: 2,
 								error: stringContaining("Expected number"),
 								requests: [activityRequest, childRequest].slice(0, index + 1),
 							}),
@@ -545,42 +533,28 @@ export default defineWorkflow({
 	);
 
 	test.effect(
-		"surfaces a mismatched inline sleep reply as the SDK's typed journal mismatch",
+		"passes saved checkpoint state into a fresh isolate",
 		() =>
 			Effect.gen(function* () {
 				const compiled = yield* compileTestScript(`
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
-export const manifest = defineManifest({ kind: "workflow", name: "Inline sleep", slug: "inline-sleep" });
-export default defineWorkflow({
-  manifest,
-  input: Schema.Struct({}),
-  output: Schema.Null,
-  run: (_input, replay) => Effect.gen(function* () {
-    yield* replay.sleep("wait", 5);
-    return null;
-  }),
+export const manifest = defineManifest({ kind: "workflow", name: "Checkpoint", slug: "checkpoint" });
+export default defineWorkflow({ manifest, input: Schema.Null, output: Schema.Int,
+  checkpoint: Schema.Struct({ next: Schema.Int }),
+  run: (_input, step, checkpoint) => checkpoint === null ? step.save({ next: 4 }) : Effect.succeed(checkpoint.next)
 });`);
-				const { controls, response } = yield* runNative(
-					compiled,
-					{},
-					{
-						replayJournal: emptyPinnedJournal,
-						workflowExecutionId: "inline-mismatch",
-						reply: (frame) =>
-							Effect.succeed(
-								frame.name === "inlineBatch"
-									? { status: "success", value: { results: [] } }
-									: undefined,
-							),
-					},
-				);
-				expect(controls).toEqual(["inlineBatch"]);
-				expect(response).toMatchObject({
+				const first = yield* runNative(compiled, null, { workflowExecutionId: "checkpoint" });
+				expect(first.response).toMatchObject({
 					success: true,
-					value: {
-						state: "failed",
-						error: "WorkflowJournalMismatchError: Inline sleep results do not match the batch",
-					},
+					value: { requests: [], journalLength: 0, state: "checkpoint", checkpoint: { next: 4 } },
+				});
+				const resumed = yield* runNative(compiled, null, {
+					checkpoint: { next: 4 },
+					workflowExecutionId: "checkpoint-next",
+				});
+				expect(resumed.response).toMatchObject({
+					success: true,
+					value: { output: 4, requests: [], journalLength: 0, state: "completed" },
 				});
 			}),
 		testTimeout,

@@ -12,8 +12,8 @@ import {
 import type {
 	WorkflowDurableCallRequest,
 	WorkflowDurableResult,
-	WorkflowInlineRequest,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+	WorkflowHostRequest,
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import {
 	bindSandboxHostFunctions,
 	decodeSandboxHostArguments,
@@ -353,7 +353,7 @@ type SandboxDurableHostDispatcherValue = {
 		progress?: SandboxHttpProgress,
 	) => Effect.Effect<WorkflowDurableResult, SandboxRunError, WorkflowEngine | WorkflowInstance>;
 	readonly settleInline: (
-		requests: ReadonlyArray<WorkflowInlineRequest>,
+		requests: ReadonlyArray<WorkflowHostRequest>,
 		context: unknown,
 		principal: ScriptExecutionPrincipal,
 		lane: ExecutionLane,

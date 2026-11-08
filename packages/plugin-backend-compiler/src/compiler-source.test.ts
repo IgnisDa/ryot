@@ -163,6 +163,13 @@ it.layer(pluginBackendCompilerPlatformLayer)("sandbox source import policy", (te
 			prefix: 'void import("@ryot-app/plugin-backend-sdk/effect");',
 		},
 		{
+			label: "private workflow protocol",
+			token: '"@ryot-app/plugin-backend-sdk/workflow/protocol"',
+			message: disallowedSandboxImport("@ryot-app/plugin-backend-sdk/workflow/protocol"),
+			prefix:
+				'import type { WorkflowReplayHost } from "@ryot-app/plugin-backend-sdk/workflow/protocol";',
+		},
+		{
 			token: '"zod"',
 			label: "type-only import",
 			message: disallowedSandboxImport("zod"),

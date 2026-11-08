@@ -12,7 +12,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowDurableCallRequest } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { and, eq, sql } from "drizzle-orm";
 import { alias } from "drizzle-orm/pg-core";
 import { Cache, Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
@@ -349,7 +349,6 @@ export class SandboxRepository extends Context.Service<SandboxRepository>()(
 				function* (revision: null | ScriptPluginRevision, request: WorkflowDurableCallRequest) {
 					if (
 						request.kind === "host" ||
-						request.kind === "sleep" ||
 						((request.kind === "child" || request.kind === "workflow-child") &&
 							request.args.workflowSlug.startsWith("kernel:"))
 					) {

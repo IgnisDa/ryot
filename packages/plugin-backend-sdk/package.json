@@ -98,6 +98,10 @@
 		"./youtubei": {
 			"types": "./src/youtubei.ts",
 			"default": "./src/youtubei.ts"
+		},
+		"./workflow/protocol": {
+			"types": "./src/workflow/protocol.ts",
+			"default": "./src/workflow/protocol.ts"
 		}
 	},
 	"scripts": {

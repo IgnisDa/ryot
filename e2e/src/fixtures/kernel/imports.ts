@@ -26,6 +26,7 @@ import { requirePresent } from "~/support/assertions";
 import { webRequest } from "~/support/web-request";
 
 import type { Client } from "./auth";
+import { checkpointWaitSource } from "./checkpoint-wait";
 import { pollUntil } from "./polling";
 import { executeRyotQLRecipe } from "./ryotql";
 import { providerSandboxSource } from "./sandbox-provider";
@@ -571,7 +572,7 @@ import {
   genericImportWorkflowInputSchema,
   genericImportWorkflowResultSchema,
 } from "@ryot-app/plugin-backend-sdk/imports";
-import { Effect, defineManifest, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
+import { Effect, Schema, defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
 
 export const manifest = defineManifest({
   kind: "workflow",
@@ -579,13 +580,19 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(scriptSlug)},
 });
 
+const wait = defineScriptReference({ input: Schema.Int, output: Schema.Null, scriptSlug: ${JSON.stringify(`${scriptSlug}-wait`)} });
 export default defineWorkflow({
   manifest,
   input: genericImportWorkflowInputSchema,
   output: genericImportWorkflowResultSchema,
-  run: (input, replay) =>
+  checkpoint: Schema.Int,
+  run: (input, replay, checkpoint) =>
     Effect.gen(function* () {
-      yield* replay.sleep("hold-plugin-pin", 30_000);
+      const remaining = checkpoint ?? 30_000;
+      if (remaining > 0) {
+        yield* replay.activity("wait", wait, remaining);
+        return yield* replay.save(Math.max(0, remaining - 1000));
+      }
        const sealed = yield* replay.child("complete-import", genericImportSealReference, {
          operation: { action: "seal" },
          runId: input.runId,
@@ -605,7 +612,10 @@ export const installTestImportPinningPlugin = Effect.flatMap(randomUuid, (suffix
 	return installTestPluginBundle({
 		scope: "system",
 		workflows: [{ scriptSlug, slug: workflowSlug }],
-		files: { [entry]: testImportPinningWorkflowSource(scriptSlug) },
+		files: {
+			[entry]: testImportPinningWorkflowSource(scriptSlug),
+			"backend/scripts/wait.sandbox.ts": checkpointWaitSource(`${scriptSlug}-wait`),
+		},
 		importSources: [
 			{
 				slug: source,
@@ -616,6 +626,14 @@ export const installTestImportPinningPlugin = Effect.flatMap(randomUuid, (suffix
 			},
 		],
 		scripts: [
+			{
+				kind: "script",
+				capabilities: [],
+				name: "Checkpoint wait",
+				slug: `${scriptSlug}-wait`,
+				requiredPluginConfigKeys: [],
+				entry: "backend/scripts/wait.sandbox.ts",
+			},
 			{
 				entry,
 				slug: scriptSlug,

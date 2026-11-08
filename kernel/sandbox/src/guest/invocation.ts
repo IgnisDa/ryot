@@ -20,7 +20,7 @@ import {
 	type WorkflowReplayJournal,
 	type WorkflowReplayJournalEntry,
 	workflowReplayJournalEntrySchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 
 import {
 	chargeSandboxHostCall,
@@ -770,15 +770,12 @@ const createHost = (
 	};
 
 	if (journal) {
+		host["checkpoint"] = invocation.checkpoint;
 		host["replayJournal"] = () => Effect.succeed(journal);
-		host["settleInline"] = (requests: unknown) =>
-			sendInlineBatch(bridge, requests, "Sandbox inline sleep batch", asSandboxHostError).pipe(
-				Effect.mapError(asSandboxHostError),
-			);
 	}
 	for (let index = 0; index < invocation.apiFunctions.length; index += 1) {
 		const name = invocation.apiFunctions[index];
-		if (name === undefined || name === "replayJournal" || name === "settleInline") {
+		if (name === undefined || name === "replayJournal") {
 			continue;
 		}
 		host[name] = (...args: unknown[]) => callHost(name, args);

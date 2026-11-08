@@ -4,7 +4,7 @@ import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
 import {
 	type WorkflowDurableResult,
 	workflowDurableResultSchema,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { sandboxDurableHostDispatchStrategy } from "@ryot-app/sandbox/host/host-execution-policy";
 import { toSandboxHostError } from "@ryot-app/sandbox/host/invocation";
@@ -89,9 +89,6 @@ const recordHostCall = <A extends null | WorkflowDurableResult, E, R>(
 const settlesInline = (
 	request: Parameters<SandboxDurableHostDispatcher["Service"]["settleInline"]>[0][number],
 ) => {
-	if (request.kind === "sleep") {
-		return request.args.durationMs <= SANDBOX_LIMITS.replay.shortWaitMs;
-	}
 	const strategy = sandboxDurableHostDispatchStrategy(request.args.capability);
 	return strategy !== null && strategy !== "diagnostic";
 };
@@ -293,13 +290,6 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 							SandboxRunError
 						> =>
 							Effect.gen(function* () {
-								if (request.kind === "sleep") {
-									const settled = yield* wait.wait(request.args.durationMs);
-									if (settled) {
-										yield* checkpoint({ request, value: null, _tag: "Completed" });
-									}
-									return { settled, value: null };
-								}
 								const scope = { lane, context, principal, startedAt, executionId };
 								const value = yield* recordHostCall(
 									request,

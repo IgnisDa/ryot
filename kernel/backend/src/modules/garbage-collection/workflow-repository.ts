@@ -92,7 +92,7 @@ export class WorkflowGarbageCollectionRepository extends Context.Service<Workflo
 				yield* session.run((db) =>
 					db
 						.update(table)
-						.set({ result: null, payload: null, clearedAt: now })
+						.set({ result: null, payload: null, clearedAt: now, checkpoint: null })
 						.where(identityFilter(identity)),
 				);
 			});

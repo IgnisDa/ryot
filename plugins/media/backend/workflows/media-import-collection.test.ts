@@ -6,7 +6,7 @@ import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import type {
 	WorkflowReplayEnvelope,
 	WorkflowReplayJournalEntry,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+} from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -76,7 +76,7 @@ const recordKernel = Effect.fnUntraced(function* (
 });
 
 it.live(
-	"preserves three-window binary and final folds, carry, checkpoints, and merge replay",
+	"preserves three-window binary and final folds, carry, and completed merge results",
 	() =>
 		Effect.gen(function* () {
 			let windows = 0;
@@ -98,13 +98,13 @@ it.live(
 					const merge = yield* Schema.decodeUnknownEffect(MediaMergeInput)(request.args.input);
 					merges.push(merge);
 					return {
+						done: true,
 						leftPage: 0,
 						rightPage: 0,
-						page: merge.page + 1,
-						ordinal: merge.ordinal + 1,
 						leftOffset: merge.leftOffset + 17,
 						rightOffset: merge.rightOffset + 23,
-						done: merge.prefix !== "source-8-merge-0" || merge.page === 1,
+						page: merge.prefix === "source-8-merge-0" ? 2 : 1,
+						ordinal: merge.ordinal + (merge.prefix === "source-8-merge-0" ? 2 : 1),
 					};
 				}),
 			);
@@ -128,13 +128,12 @@ it.live(
 				"progress:8",
 				"source:8",
 				"capture:8",
-				"merge:source-8-merge-0:0",
-				"merge:source-8-merge-0:1",
+				"merge:source-8-merge-0",
 				"progress:9",
 				"source:9",
 				"capture:9",
 				"progress:10",
-				"merge:source-segment-7-1:0",
+				"merge:source-segment-7-1",
 			]);
 			const attribution = { runId: input.runId, command: input.command };
 			expect(merges).toEqual([
@@ -146,18 +145,6 @@ it.live(
 					rightPage: 0,
 					leftOffset: 0,
 					rightOffset: 0,
-					prefix: "source-8-merge-0",
-					left: { pages: 1, prefix: "source-7" },
-					right: { pages: 1, prefix: "source-8" },
-				},
-				{
-					...attribution,
-					page: 1,
-					ordinal: 45,
-					leftPage: 0,
-					rightPage: 0,
-					leftOffset: 17,
-					rightOffset: 23,
 					prefix: "source-8-merge-0",
 					left: { pages: 1, prefix: "source-7" },
 					right: { pages: 1, prefix: "source-8" },

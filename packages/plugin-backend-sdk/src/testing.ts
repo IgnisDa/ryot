@@ -33,7 +33,6 @@ export function defineSandboxTestHost(_manifest: SandboxManifest, host: unknown)
 }
 
 export const makeWorkflowReplayHost = (entries: ReadonlyArray<unknown>): WorkflowReplayHost => ({
-	settleInline: () => Effect.succeed(null),
 	replayJournal: () =>
 		Effect.succeed({
 			length: entries.length,
@@ -67,12 +66,19 @@ export const driveWorkflowReplay = <Input, Failure>(
 	) => WorkflowReplayJournalEntry["value"],
 ) =>
 	Effect.gen(function* () {
-		const journal: WorkflowReplayJournalEntry[] = [];
+		let journal: WorkflowReplayJournalEntry[] = [];
+		let checkpoint: WorkflowReplayHost["checkpoint"];
 		for (;;) {
-			const envelope = yield* run(input, makeWorkflowReplayHost(journal), {
-				metadata: {},
-				sandboxScriptId: "workflow-test",
-			});
+			const envelope = yield* run(
+				input,
+				{ ...makeWorkflowReplayHost(journal), ...(checkpoint === undefined ? {} : { checkpoint }) },
+				{ metadata: {}, sandboxScriptId: "workflow-test" },
+			);
+			if (envelope.state === "checkpoint") {
+				checkpoint = envelope.checkpoint;
+				journal = [];
+				continue;
+			}
 			const request = envelope.state === "pending" ? envelope.requests[journal.length] : undefined;
 			if (request === undefined) {
 				return envelope;

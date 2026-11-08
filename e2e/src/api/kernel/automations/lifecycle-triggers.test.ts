@@ -251,9 +251,8 @@ export default defineWorkflow({
   manifest,
   input: Schema.Struct({ value: Schema.String }),
   output: Schema.String,
-  run: (input, replay) => replay.sleep("lifecycle-replay-pause", 5000).pipe(
-    Effect.as(input.value),
-  ),
+  checkpoint: Schema.Boolean,
+  run: (input, step, checkpoint) => checkpoint === null ? step.save(true) : Effect.succeed(input.value),
 });
 `;
 

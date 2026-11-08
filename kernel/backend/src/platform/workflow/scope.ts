@@ -6,6 +6,16 @@ export const ActivityBody = Context.Reference<boolean>("ryot/ActivityBody", {
 	defaultValue: () => false,
 });
 
+export const WorkflowCheckpoint = Context.Reference<{
+	readonly load: Effect.Effect<unknown>;
+	readonly save: (value: unknown, completedScope: string) => Effect.Effect<void>;
+}>("ryot/WorkflowCheckpoint", {
+	defaultValue: () => ({
+		load: Effect.succeed(null),
+		save: () => Effect.die("Workflow checkpoints require the persistent workflow engine"),
+	}),
+});
+
 export const makeActivity: typeof Activity.make = (options) =>
 	// oxlint-disable-next-line no-restricted-properties -- This wrapper marks activity bodies for lifecycle ownership.
 	Activity.make({

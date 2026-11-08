@@ -7,7 +7,7 @@ import {
 	defineWorkflowReference,
 	Effect,
 	Schema,
-	type WorkflowReplay,
+	type WorkflowStep,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
@@ -96,10 +96,10 @@ const netflixResolution = defineScriptReference({
 });
 
 type BatchStep =
-	ReturnType<WorkflowReplay["child"]> | ReturnType<typeof Effect.fail<MediaWorkflowError>>;
+	ReturnType<WorkflowStep["child"]> | ReturnType<typeof Effect.fail<MediaWorkflowError>>;
 
 export function* runMediaImportBatch(
-	replay: WorkflowReplay,
+	step: WorkflowStep,
 	input: {
 		runId: string;
 		batchIndex: number;
@@ -122,7 +122,7 @@ export function* runMediaImportBatch(
 			: [],
 	);
 	const netflixOutput = netflixItems.length
-		? yield* replay.activity(`netflix-resolution-${batchIndex}`, netflixResolution, {
+		? yield* step.activity(`netflix-resolution-${batchIndex}`, netflixResolution, {
 				items: netflixItems,
 			})
 		: { results: [] };
@@ -144,7 +144,7 @@ export function* runMediaImportBatch(
 	);
 	const resolutionOutput =
 		resolutionItems.length > 0
-			? yield* replay.child(`resolve-${batchIndex}`, resolution, { items: resolutionItems })
+			? yield* step.child(`resolve-${batchIndex}`, resolution, { items: resolutionItems })
 			: { results: [] };
 	const resolutionByIndex = new Map(
 		resolutionOutput.results.map((result) => [result.index, result]),
@@ -214,7 +214,7 @@ export function* runMediaImportBatch(
 	);
 	const populationOutput =
 		populationItems.length > 0
-			? yield* replay.child(`populate-${batchIndex}`, population, { items: populationItems })
+			? yield* step.child(`populate-${batchIndex}`, population, { items: populationItems })
 			: { results: [] };
 	const populationByIndex = new Map(
 		populationOutput.results.map((result) => [result.index, result]),
@@ -271,7 +271,7 @@ export function* runMediaImportBatch(
 	});
 	const episodeOutput =
 		episodeRefs.length > 0
-			? yield* replay.activity(`episodes-${batchIndex}`, episodes, { refs: episodeRefs })
+			? yield* step.activity(`episodes-${batchIndex}`, episodes, { refs: episodeRefs })
 			: { results: [] };
 	const answeredRequests = new Set<number>();
 	const episodeEntityIdByEvent = new Map<string, null | string>();
@@ -375,7 +375,7 @@ export function* runMediaImportBatch(
 		}
 		finalizedGroups.push({ ...group, events });
 	}
-	const chunk = yield* replay.activity(`chunks-${batchIndex}`, chunkWriter, {
+	const chunk = yield* step.activity(`chunks-${batchIndex}`, chunkWriter, {
 		ownershipSyncedAt: input.command.occurredAt,
 		...(input.ingestionArtifacts ? { ingestionArtifacts: input.ingestionArtifacts } : {}),
 		...(integrationId === undefined

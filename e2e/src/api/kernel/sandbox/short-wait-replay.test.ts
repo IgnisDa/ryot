@@ -1,6 +1,6 @@
 import { type SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Clock, Effect } from "effect";
+import { Effect } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -17,34 +17,17 @@ import { runFileOnIsolatedServer } from "~/support/isolated-harness";
 
 runFileOnIsolatedServer("Sandbox Short Wait Replay");
 
-const workflowSource = (input: {
-	name: string;
-	slug: string;
-	sleepDurations: ReadonlyArray<number>;
-}) => {
-	const sleeps = input.sleepDurations
-		.map((duration, index) => `yield* replay.sleep("sleep-${index + 1}", ${duration});`)
-		.join("\n");
-	return `
+const workflowSource = (input: { name: string; slug: string; steps: number }) => `
 import { defineManifest, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
-
-export const manifest = defineManifest({
-  kind: "workflow",
-  name: ${JSON.stringify(input.name)},
-  slug: ${JSON.stringify(input.slug)},
-});
-
-export default defineWorkflow({
-  manifest,
-  input: Schema.Struct({}),
-  output: Schema.Struct({ completed: Schema.Number }),
-  run: (_input, replay) => Effect.gen(function* () {
-    ${sleeps}
-    return { completed: ${input.sleepDurations.length} };
-  }),
+export const manifest = defineManifest({ kind: "workflow", name: ${JSON.stringify(input.name)}, slug: ${JSON.stringify(input.slug)} });
+export default defineWorkflow({ manifest, input: Schema.Struct({}), output: Schema.Struct({ completed: Schema.Int }),
+  checkpoint: Schema.Int,
+  run: (_input, step, checkpoint) => {
+    const completed = checkpoint ?? 0;
+    return completed === ${input.steps} ? Effect.succeed({ completed }) : step.save(completed + 1);
+  },
 });
 `;
-};
 
 const httpScriptSource = (input: {
 	url: string;
@@ -93,7 +76,7 @@ const enqueueTrustedSandbox = (userId: string, scriptId: SandboxScriptId) =>
 	);
 
 describe("sandbox short waits and replay", () => {
-	it.live("short_and_long_sleeps_preserve_workflow_output", () =>
+	it.live("saved_checkpoints_preserve_workflow_output", () =>
 		Effect.gen(function* () {
 			const pluginSlug = `e2e-short-wait-replay-${yield* randomUuid}`;
 			const shortSlug = `workflow.short-wait-${yield* randomUuid}`;
@@ -103,16 +86,8 @@ describe("sandbox short waits and replay", () => {
 			const plugin = yield* installSystemPluginScoped({
 				pluginSlug,
 				files: {
-					[longEntry]: workflowSource({
-						slug: longSlug,
-						name: "Long workflow waits",
-						sleepDurations: [100, 1_250],
-					}),
-					[shortEntry]: workflowSource({
-						slug: shortSlug,
-						name: "Short workflow waits",
-						sleepDurations: [250, 250, 250],
-					}),
+					[longEntry]: workflowSource({ steps: 20, slug: longSlug, name: "Twenty saved steps" }),
+					[shortEntry]: workflowSource({ steps: 3, slug: shortSlug, name: "Three saved steps" }),
 				},
 				scripts: [
 					{
@@ -120,7 +95,7 @@ describe("sandbox short waits and replay", () => {
 						kind: "workflow",
 						capabilities: [],
 						entry: shortEntry,
-						name: "Short workflow waits",
+						name: "Three saved steps",
 						requiredPluginConfigKeys: [],
 					},
 					{
@@ -128,38 +103,32 @@ describe("sandbox short waits and replay", () => {
 						entry: longEntry,
 						kind: "workflow",
 						capabilities: [],
-						name: "Long workflow waits",
+						name: "Twenty saved steps",
 						requiredPluginConfigKeys: [],
 					},
 				],
 			});
 
 			const { userId } = yield* createAuthenticatedClient();
-			const shortStartedAt = yield* Clock.currentTimeMillis;
 			const shortJob = yield* enqueueTrustedSandbox(
 				userId,
 				requirePresent(plugin.scriptIds[shortSlug], "Short workflow script was not installed"),
 			);
 			const shortOutput = requireCompletedSandboxValue(
 				yield* pollSandboxResult(userId, shortJob.jobId),
-				"short workflow waits",
+				"three saved steps",
 			);
-			const shortWallMs = (yield* Clock.currentTimeMillis) - shortStartedAt;
 			expect(shortOutput).toEqual({ completed: 3 });
-			expect(shortWallMs).toBeGreaterThanOrEqual(750);
 
-			const longStartedAt = yield* Clock.currentTimeMillis;
 			const longJob = yield* enqueueTrustedSandbox(
 				userId,
 				requirePresent(plugin.scriptIds[longSlug], "Long workflow script was not installed"),
 			);
 			const longOutput = requireCompletedSandboxValue(
 				yield* pollSandboxResult(userId, longJob.jobId),
-				"long workflow waits",
+				"twenty saved steps",
 			);
-			const longWallMs = (yield* Clock.currentTimeMillis) - longStartedAt;
-			expect(longOutput).toEqual({ completed: 2 });
-			expect(longWallMs).toBeGreaterThanOrEqual(1_350);
+			expect(longOutput).toEqual({ completed: 20 });
 		}),
 	);
 

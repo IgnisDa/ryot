@@ -4,7 +4,7 @@ import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { DbError, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
-import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { ExecutionFileStore } from "@ryot-app/sandbox/host/execution-files";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stubRuntimeSandboxExecutor } from "@ryot-app/sandbox/host/executor.test-support";
@@ -16,7 +16,6 @@ import { it } from "@voila.dev/effect-bun-test";
 import {
 	Cause,
 	Deferred,
-	Duration,
 	Effect,
 	Exit,
 	Fiber,
@@ -28,7 +27,8 @@ import {
 	type Scope,
 } from "effect";
 import { Reactivity } from "effect/reactivity";
-import { DurableClock, DurableDeferred, Workflow } from "effect/workflow";
+import type { DurableClock } from "effect/workflow";
+import { DurableDeferred, Workflow } from "effect/workflow";
 import {
 	type Encoded,
 	makeUnsafe,
@@ -74,9 +74,19 @@ const requestAt = (index: number) => ({
 const firstRequest = requestAt(0);
 const secondRequest = requestAt(1);
 const requests = [firstRequest, secondRequest];
-const sleep0 = { index: 0, name: "sleep-0", kind: "sleep" as const, args: { durationMs: 250 } };
-const sleep1 = { index: 1, name: "sleep-1", kind: "sleep" as const, args: { durationMs: 5_000 } };
-const sleepRequests = [sleep0, sleep1];
+const inline0 = {
+	index: 0,
+	name: "cache-0",
+	kind: "host" as const,
+	args: { args: ["first"], capability: "httpCall" as const },
+};
+const inline1 = {
+	index: 1,
+	name: "cache-1",
+	kind: "host" as const,
+	args: { args: ["second"], capability: "httpCall" as const },
+};
+const inlineRequests = [inline0, inline1];
 const httpRequest = {
 	index: 0,
 	name: "httpCall",
@@ -164,7 +174,10 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 			runtimeImports: [],
 			kind: "workflow" as const,
 			capabilities: harnessOptions.capabilities ?? [],
-			executableDependencies: [{ kind: "workflow" as const, slug: firstRequest.args.workflowSlug }],
+			executableDependencies: [
+				{ slug: "activity", kind: "script" as const },
+				{ kind: "workflow" as const, slug: firstRequest.args.workflowSlug },
+			],
 		},
 	};
 	const dependencies = Layer.mergeAll(
@@ -279,7 +292,7 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 					if (state.forceCacheMiss) {
 						return Option.none();
 					}
-					if (state.hideReads > 0 && deferred.name.startsWith("sandbox-request-")) {
+					if (state.hideReads > 0 && deferred.name.startsWith("checkpoint-0/sandbox-request-")) {
 						state.hideReads -= 1;
 						return Option.none();
 					}
@@ -381,40 +394,11 @@ const makeHarness = (harnessOptions: HarnessOptions = {}) => {
 	};
 };
 
-const completedSleep0: ScriptInlineProgress = { value: null, request: sleep0, _tag: "Completed" };
-
-it.effect(
-	"deferred_inline_batch_reuses_completed_members_before_ordered_append",
-	() =>
-		Effect.gen(function* () {
-			const h = makeHarness();
-			const envelope: WorkflowReplayEnvelope = {
-				journalLength: 0,
-				state: "pending",
-				requests: sleepRequests,
-			};
-			const first = yield* h.fresh(envelope, payload, [completedSleep0]).body;
-			assert(first._tag === "Suspended");
-			expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
-			expect(h.clockSchedules.map(({ name }) => name)).toEqual(["sandbox-workflow-sleep-1"]);
-			const scheduledClock = h.clockSchedules[0];
-			assert(scheduledClock !== undefined);
-			expect(Duration.toMillis(scheduledClock.duration)).toBe(5_000);
-			expect(h.appends).toEqual([]);
-
-			const clock = DurableClock.make({
-				name: "sandbox-workflow-sleep-1",
-				duration: Duration.millis(5_000),
-			});
-			h.slots.set(clock.deferred.name, Exit.succeed(undefined));
-			const resumed = yield* h.fresh(envelope).body;
-			assert(resumed._tag === "Complete");
-			expect(yield* resumed.exit).toBe("done");
-			expect(h.clockSchedules.map(({ name }) => name)).not.toContain("sandbox-workflow-sleep-0");
-			expect(h.appends).toEqual(["0:2"]);
-		}),
-	testTimeout,
-);
+const completedInline0: ScriptInlineProgress = {
+	request: inline0,
+	_tag: "Completed",
+	value: { value: null, state: "success" },
+};
 
 const invalidInlineProgressCases: ReadonlyArray<{
 	readonly label: string;
@@ -422,14 +406,19 @@ const invalidInlineProgressCases: ReadonlyArray<{
 }> = [
 	{
 		label: "changed name",
-		entries: [{ ...completedSleep0, request: { ...sleep0, name: "changed" } }],
+		entries: [{ ...completedInline0, request: { ...inline0, name: "changed" } }],
 	},
-	{ label: "changed index", entries: [{ ...completedSleep0, request: { ...sleep0, index: 7 } }] },
+	{ label: "changed index", entries: [{ ...completedInline0, request: { ...inline0, index: 7 } }] },
 	{
 		label: "changed args",
-		entries: [{ ...completedSleep0, request: { ...sleep0, args: { durationMs: 251 } } }],
+		entries: [
+			{
+				...completedInline0,
+				request: { ...inline0, args: { ...inline0.args, args: ["changed"] } },
+			},
+		],
 	},
-	{ label: "duplicate completed entries", entries: [completedSleep0, completedSleep0] },
+	{ label: "duplicate completed entries", entries: [completedInline0, completedInline0] },
 ];
 
 it.effect.each(invalidInlineProgressCases)(
@@ -440,7 +429,7 @@ it.effect.each(invalidInlineProgressCases)(
 			const envelope: WorkflowReplayEnvelope = {
 				journalLength: 0,
 				state: "pending",
-				requests: sleepRequests,
+				requests: inlineRequests,
 			};
 			const result = yield* h.fresh(envelope, payload, entries).body;
 			assert(result._tag === "Complete");
@@ -484,7 +473,7 @@ it.effect.each(retainedHttpPhases)(
 			assert(first._tag === "Complete");
 			expect(yield* first.exit).toBe("done");
 			expect(dispatchProgress).toEqual([progress]);
-			const stored = h.slots.get("sandbox-request-0");
+			const stored = h.slots.get("checkpoint-0/sandbox-request-0");
 			assert(stored !== undefined);
 			assert(Exit.isSuccess(stored));
 			expect(stored.value).toEqual({
@@ -509,7 +498,7 @@ it.effect(
 			const first = yield* h.fresh().body;
 			expect(first._tag).toBe("Suspended");
 			expect(h.dispatches).toEqual([0, 1]);
-			expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
+			expect([...h.slots.keys()]).toEqual(["checkpoint-0/sandbox-request-0"]);
 			expect(h.appends).toEqual([]);
 			h.state.blocked = false;
 			const resumed = yield* h.fresh().body;
@@ -530,11 +519,16 @@ const settledSlot =
 	(h: Harness) =>
 		Effect.sync(() => {
 			h.slots.set(
-				"sandbox-request-0",
+				"checkpoint-0/sandbox-request-0",
 				Exit.succeed({ targetScriptId, entry: { request, value: null } }),
 			);
 		});
-const sleepAtZero = { index: 0, name: "child-0", kind: "sleep" as const, args: { durationMs: 0 } };
+const activityAtZero = {
+	index: 0,
+	name: "child-0",
+	kind: "activity" as const,
+	args: { input: null, scriptSlug: "activity" },
+};
 const pinnedRequests =
 	"SandboxWorkflowNondeterminism: replay requests do not match the pinned observation";
 const settledIdentity =
@@ -545,7 +539,7 @@ const divergedTraceCases: ReadonlyArray<{
 	readonly message: string;
 	readonly dispatches: ReadonlyArray<number>;
 	readonly setup: (h: Harness) => Effect.Effect<void, never, Scope.Scope>;
-	readonly requests?: ReadonlyArray<typeof sleepAtZero | typeof firstRequest>;
+	readonly requests?: ReadonlyArray<typeof firstRequest | typeof activityAtZero>;
 }> = [
 	{
 		setup: primed,
@@ -568,7 +562,7 @@ const divergedTraceCases: ReadonlyArray<{
 		setup: primed,
 		dispatches: [0, 1],
 		message: pinnedRequests,
-		requests: [sleepAtZero, secondRequest],
+		requests: [activityAtZero, secondRequest],
 		label: "changed kind after a cached observation",
 	},
 	{
@@ -622,7 +616,7 @@ const divergedTraceCases: ReadonlyArray<{
 	{
 		dispatches: [],
 		message: settledIdentity,
-		setup: settledSlot(sleepAtZero),
+		setup: settledSlot(activityAtZero),
 		label: "settled slot with a changed kind",
 	},
 ];
@@ -657,8 +651,8 @@ it.effect(
 			yield* Deferred.await(h.childStarted);
 			attempt.instance.interrupted = true;
 			yield* Fiber.interrupt(running);
-			expect(h.interrupted).toEqual([`${executionId}-child-child-1-1`]);
-			expect([...h.slots.keys()]).toEqual(["sandbox-request-0"]);
+			expect(h.interrupted).toEqual([`${executionId}-checkpoint-0-child-child-1-1`]);
+			expect([...h.slots.keys()]).toEqual(["checkpoint-0/sandbox-request-0"]);
 		}),
 	testTimeout,
 );
@@ -673,7 +667,7 @@ it.effect.each(["beforeStoreCrash", "afterStoreCrash"] as const)(
 			expect(failed.toString()).toContain(
 				window === "beforeStoreCrash" ? "crash-before-completion" : "crash-after-completion",
 			);
-			expect(h.slots.has("sandbox-request-0")).toBe(window === "afterStoreCrash");
+			expect(h.slots.has("checkpoint-0/sandbox-request-0")).toBe(window === "afterStoreCrash");
 			h.state[window] = false;
 			h.state.blocked = false;
 			const result = yield* h.fresh().body;
@@ -710,7 +704,7 @@ it.effect(
 		Effect.gen(function* () {
 			const h = makeHarness();
 			yield* h.fresh().body;
-			const queued = h.reads.find((name) => name.startsWith("sandbox-replay/"));
+			const queued = h.reads.find((name) => name.startsWith("checkpoint-0/sandbox-replay/"));
 			assert(queued !== undefined);
 			h.slots.set(
 				queued,
@@ -728,7 +722,10 @@ it.effect(
 			const result = yield* h.fresh().body;
 			assert(result._tag === "Complete");
 			expect(yield* result.exit).toBe("done");
-			expect(h.replays).toEqual([`${executionId}-replay-0`, `${executionId}-replay-1`]);
+			expect(h.replays).toEqual([
+				`${executionId}-checkpoint-0-replay-0`,
+				`${executionId}-checkpoint-0-replay-1`,
+			]);
 		}),
 	testTimeout,
 );
@@ -751,7 +748,7 @@ it.effect("logs a step's output once when the workflow resumes on its stored res
 		h.state.suspendReplay = true;
 		const suspended = yield* h.fresh().body;
 		expect(suspended._tag).toBe("Suspended");
-		const queued = h.reads.find((name) => name.startsWith("sandbox-replay/"));
+		const queued = h.reads.find((name) => name.startsWith("checkpoint-0/sandbox-replay/"));
 		assert(queued !== undefined);
 		h.slots.set(
 			queued,
@@ -780,7 +777,7 @@ it.effect(
 		Effect.gen(function* () {
 			const h = makeHarness();
 			yield* h.fresh().body;
-			const queued = h.reads.find((name) => name.startsWith("sandbox-replay/"));
+			const queued = h.reads.find((name) => name.startsWith("checkpoint-0/sandbox-replay/"));
 			assert(queued !== undefined);
 			h.slots.set(
 				queued,
@@ -798,9 +795,9 @@ it.effect(
 			h.state.blocked = false;
 			yield* h.fresh().body;
 			expect(h.replays).toEqual([
-				`${executionId}-replay-0`,
-				`${executionId}-replay-0`,
-				`${executionId}-replay-1`,
+				`${executionId}-checkpoint-0-replay-0`,
+				`${executionId}-checkpoint-0-replay-0`,
+				`${executionId}-checkpoint-0-replay-1`,
 			]);
 		}),
 	testTimeout,
@@ -822,7 +819,10 @@ it.effect(
 			}
 			expect(h.dispatches.filter((index) => index === 0)).toHaveLength(2);
 			expect(h.mutations).toEqual([0, 1]);
-			expect([...h.slots.keys()].sort()).toEqual(["sandbox-request-0", "sandbox-request-1"]);
+			expect([...h.slots.keys()].sort()).toEqual([
+				"checkpoint-0/sandbox-request-0",
+				"checkpoint-0/sandbox-request-1",
+			]);
 		}),
 	testTimeout,
 );
@@ -872,7 +872,7 @@ it.effect(
 		Effect.gen(function* () {
 			const h = makeHarness();
 			h.slots.set(
-				"sandbox-request-0",
+				"checkpoint-0/sandbox-request-0",
 				Exit.succeed({
 					targetScriptId: null,
 					entry: {
@@ -907,7 +907,7 @@ it.effect.each([
 			const h = makeHarness();
 			h.state.value = value;
 			yield* h.fresh().body;
-			const stored = h.slots.get("sandbox-request-0");
+			const stored = h.slots.get("checkpoint-0/sandbox-request-0");
 			assert(stored !== undefined);
 			assert(Exit.isSuccess(stored));
 			expect(stored.value).toEqual({
@@ -1049,7 +1049,9 @@ it.layer(
 									executionId,
 									discard: true,
 								});
-								const slot = DurableDeferred.make("sandbox-request-0", { success: Schema.Unknown });
+								const slot = DurableDeferred.make("checkpoint-0/sandbox-request-0", {
+									success: Schema.Unknown,
+								});
 								yield* Effect.gen(function* () {
 									for (;;) {
 										const result = yield* engine.poll(ScriptExecutionWorkflow, executionId);
@@ -1077,7 +1079,7 @@ it.layer(
 								expect(dispatches.filter((index) => index === 0)).toHaveLength(completedDispatches);
 								const token = DurableDeferred.tokenFromExecutionId(childReady, {
 									workflow: Child,
-									executionId: `${executionId}-child-child-1-1`,
+									executionId: `${executionId}-checkpoint-0-child-child-1-1`,
 								});
 								yield* DurableDeferred.succeed(childReady, { token, value: undefined });
 								expect(
@@ -1171,7 +1173,9 @@ it.layer(
 							const stored = yield* Effect.forEach(calls.slice(0, checkpointCount), ({ index }) =>
 								engine
 									.deferredResult(
-										DurableDeferred.make(`sandbox-request-${index}`, { success: Schema.Unknown }),
+										DurableDeferred.make(`checkpoint-0/sandbox-request-${index}`, {
+											success: Schema.Unknown,
+										}),
 									)
 									.pipe(
 										Effect.provideService(

@@ -480,7 +480,7 @@ export const helpers = {
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const unusedScript = defineScriptReference({
   scriptSlug: "unused",
@@ -488,7 +488,7 @@ const unusedScript = defineScriptReference({
   output: Schema.Null,
 });
 
-export default (host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">, replay: WorkflowReplay) => {
+export default (host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">, replay: WorkflowStep) => {
   const helpers = {
     pure: () => "pure",
     http: () => host.httpCall("GET", "https://example.com"),
@@ -504,7 +504,7 @@ export default (host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAut
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const unusedScript = defineScriptReference({
   scriptSlug: "unused",
@@ -517,7 +517,7 @@ export const helpers = {
   http: (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://example.com"),
   config: (host: Pick<ScriptHost, "getPluginConfig">) => host.getPluginConfig({ required: ["unused"] }),
   oauth: (host: Pick<ScriptHost, "getOAuthAccessToken">) => host.getOAuthAccessToken({ field: "unused" }),
-  executable: (replay: WorkflowReplay) => replay.activity("unused", unusedScript, {}),
+  executable: (replay: WorkflowStep) => replay.activity("unused", unusedScript, {}),
   filesystem: () => readArtifact.pipe(Effect.as(null)),
 };
 
@@ -536,7 +536,7 @@ export const methods = {
   oauth(host: Pick<ScriptHost, "getOAuthAccessToken">) {
     return host.getOAuthAccessToken({ field: "unused" });
   },
-  executable(replay: WorkflowReplay) {
+  executable(replay: WorkflowStep) {
     return replay.activity("unused", unusedScript, {});
   },
   filesystem() {
@@ -665,14 +665,14 @@ it.effect(
 				{
 					"shorthand-member-call.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 const reference = defineScriptReference({ scriptSlug: "unused", input: Schema.Unknown, output: Schema.Null });
 
 export default (
   host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">,
-  replay: WorkflowReplay,
+  replay: WorkflowStep,
 ) => {
   const request = () => host.httpCall("GET", "https://used.example.com");
   const helpers = {
@@ -687,14 +687,14 @@ export default (
 `,
 					"binding-element-closure.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
 const reference = defineScriptReference({ scriptSlug: "unused", input: Schema.Unknown, output: Schema.Null });
 
 export default (
   host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">,
-  replay: WorkflowReplay,
+  replay: WorkflowStep,
 ) => {
   const helpers = {
     request: () => host.httpCall("GET", "https://used.example.com"),
@@ -710,7 +710,7 @@ export default (
 					"nested-renamed-forwarded.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const reference = defineScriptReference({ scriptSlug: "used-child", input: Schema.Unknown, output: Schema.Null });
 const request = (
@@ -718,7 +718,7 @@ const request = (
     ScriptHost,
     "getPluginConfig" | "getOAuthAccessToken" | "invalidateOAuthAccessToken"
   >,
-  replay: WorkflowReplay,
+  replay: WorkflowStep,
 ) => {
   void host.getPluginConfig({ required: ["token"], optional: ["threshold"] });
   void host.getOAuthAccessToken({ field: "account" });
@@ -731,7 +731,7 @@ export default (
     ScriptHost,
     "httpCall" | "getPluginConfig" | "getOAuthAccessToken" | "invalidateOAuthAccessToken"
   >,
-  replay: WorkflowReplay,
+  replay: WorkflowStep,
 ) => {
   const helpers = {
     nested: { request },
@@ -783,13 +783,13 @@ it.effect(
 					"destructured-nested-pure.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const reference = defineScriptReference({ scriptSlug: "unused", input: Schema.Unknown, output: Schema.Null });
 
 export default (
   host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">,
-  replay: WorkflowReplay,
+  replay: WorkflowStep,
 ) => {
   const helpers = {
     nested: {
@@ -807,13 +807,13 @@ export default (
 					"destructured-nested-request.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { defineScriptReference, type WorkflowReplay } from "@ryot-app/plugin-backend-sdk/workflow";
+import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const reference = defineScriptReference({ scriptSlug: "unused", input: Schema.Unknown, output: Schema.Null });
 
 export default (
   host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAuthAccessToken">,
-  replay: WorkflowReplay,
+  replay: WorkflowStep,
 ) => {
   const helpers = {
     nested: {

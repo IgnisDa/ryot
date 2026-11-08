@@ -356,7 +356,7 @@ fn definition_envelopes_use_done_limit_while_values_keep_the_four_mib_limit() {
 
 #[test]
 fn workflow_guard_and_dependency_wrapper_preserve_determinism() {
-    let (compiled, metadata) = compiled_plugin_script("media", "workflow.media-import-segment");
+    let (compiled, metadata) = compiled_plugin_script("media", "workflow.media-import-application");
     let mut source = String::from(
         r#"
 import { configureApprovedDependencyRuntime as runnerConfigureDependencyRuntime, withApprovedDependencyRuntime as runnerDependencyRuntime } from "@ryot-app/plugin-backend-sdk/dependency-runtime";

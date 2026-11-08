@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { driveWorkflowReplay } from "@ryot-app/plugin-backend-sdk/testing";
-import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow";
+import type { WorkflowReplayEnvelope } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -40,22 +40,21 @@ it.live(
 				Array.from({ length: 100 }, (_, index) => target(index + 100)),
 				Array.from({ length: 5 }, (_, index) => target(index + 200)),
 			];
-			const resolved: string[] = [];
+			const requests: DurableRequest[] = [];
 			const result = yield* driveWorkflowReplay(workflow.run, {}, (request) => {
+				requests.push(request);
 				if (request.kind === "activity") {
-					resolved.push(request.name);
 					const pageIndex = Number(request.name.slice("targets-".length));
 					return {
 						items: pages[pageIndex] ?? [],
 						nextCursor: pageIndex < pages.length - 1 ? `cursor-${pageIndex}` : null,
 					};
 				}
-				resolved.push(request.name);
 				return [];
 			});
 			assert(result.state === "completed");
 			expect(result.output).toEqual({ batchCount: 3, targetCount: 205 });
-			const activities = result.requests.filter(
+			const activities = requests.filter(
 				(request): request is ActivityRequest => request.kind === "activity",
 			);
 			expect(activities.map(({ args, name }) => ({ name, input: args.input }))).toEqual([
@@ -63,7 +62,7 @@ it.live(
 				{ name: "targets-1", input: { limit: 100, after: "cursor-0" } },
 				{ name: "targets-2", input: { limit: 100, after: "cursor-1" } },
 			]);
-			const children = result.requests.filter(
+			const children = requests.filter(
 				(request): request is ChildRequest => request.kind === "child",
 			);
 			expect(children.map(({ name }) => name)).toEqual(["refresh-0", "refresh-1", "refresh-2"]);
@@ -76,7 +75,7 @@ it.live(
 				Schema.decodeUnknownEffect(RefreshInput)(args.input),
 			);
 			expect(refreshInputs.map(({ items }) => items.length)).toEqual([100, 100, 5]);
-			expect(result.requests.map(({ kind, name }) => `${kind}:${name}`)).toEqual([
+			expect(requests.map(({ kind, name }) => `${kind}:${name}`)).toEqual([
 				"activity:targets-0",
 				"child:refresh-0",
 				"activity:targets-1",
@@ -84,14 +83,7 @@ it.live(
 				"activity:targets-2",
 				"child:refresh-2",
 			]);
-			expect(resolved).toEqual([
-				"targets-0",
-				"refresh-0",
-				"targets-1",
-				"refresh-1",
-				"targets-2",
-				"refresh-2",
-			]);
+
 			const firstRefresh = refreshInputs[0];
 			assert(firstRefresh);
 			expect(firstRefresh.mode).toBe("refresh");

@@ -22,16 +22,16 @@ export default defineWorkflow({
 	manifest,
 	input: MediaCollectionInput,
 	output: MediaCollectionOutput,
-	run: (input, replay) =>
+	run: (input, calls) =>
 		Effect.gen(function* () {
 			const source = selectExecutable(mediaSources, input.source);
 			const attribution = { runId: input.runId, command: input.command };
 			let { step, carry, offset, header, itemIndex } = input;
-			const state = { ordinal: input.ordinal };
+			const state = { runs: [], ordinal: input.ordinal };
 			let done = false;
 			let advancedAt = input.command.occurredAt;
 			let eventOffset = input.eventOffset ?? 0;
-			const runs = mediaSortedRuns(replay, attribution, state);
+			const runs = mediaSortedRuns(calls, attribution, state);
 			for (let boundary = 0; boundary < 64; boundary++) {
 				const captures: Record<string, string> = {};
 				if (carry) {
@@ -40,7 +40,7 @@ export default defineWorkflow({
 				if (input.records) {
 					captures["records"] = input.records;
 				}
-				const result = yield* replay.activity(`source:${step}`, source, {
+				const result = yield* calls.activity(`source:${step}`, source, {
 					offset,
 					header,
 					itemIndex,
@@ -59,7 +59,7 @@ export default defineWorkflow({
 				if (!handle) {
 					throw new Error("Media source step did not return a capture");
 				}
-				yield* replay.child(`capture:${step}`, genericImportCaptureReference, {
+				yield* calls.child(`capture:${step}`, genericImportCaptureReference, {
 					...attribution,
 					operation: {
 						handle,
@@ -84,7 +84,7 @@ export default defineWorkflow({
 						throw new Error("Media source step is missing its carry");
 					}
 					carry = `${prefix}-carry`;
-					yield* replay.child(`carry:${step}`, genericImportCaptureReference, {
+					yield* calls.child(`carry:${step}`, genericImportCaptureReference, {
 						...attribution,
 						operation: {
 							captureId: carry,
@@ -104,7 +104,7 @@ export default defineWorkflow({
 				step++;
 				eventOffset = result.eventOffset;
 				advancedAt = result.advancedAt;
-				yield* replay.child(`progress:${step}`, genericImportActivityReference, {
+				yield* calls.child(`progress:${step}`, genericImportActivityReference, {
 					...attribution,
 					operation: {
 						action: "activity",

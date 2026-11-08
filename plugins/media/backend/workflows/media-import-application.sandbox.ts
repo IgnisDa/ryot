@@ -1,31 +1,51 @@
-import {
-	defineManifest,
-	defineWorkflow,
-	defineWorkflowReference,
-	Effect,
-} from "@ryot-app/plugin-backend-sdk/workflow";
+import { genericImportActivityReference } from "@ryot-app/plugin-backend-sdk/imports";
+import { defineManifest, defineWorkflow, Effect } from "@ryot-app/plugin-backend-sdk/workflow";
 
-import { applyMediaSegments } from "../imports/application";
+import { applyMediaSegment } from "../imports/application-segment";
 import { MediaApplicationInput, MediaApplicationOutput } from "../imports/process";
+import { appendMediaIssues } from "../imports/reports";
 
 export const manifest = defineManifest({
 	kind: "workflow",
-	name: "Apply media capture segments",
+	name: "Apply captured media batches",
 	slug: "workflow.media-import-application",
-});
-const segment = defineWorkflowReference({
-	input: MediaApplicationInput,
-	output: MediaApplicationOutput,
-	workflowSlug: "media-import-segment",
 });
 export default defineWorkflow({
 	manifest,
 	input: MediaApplicationInput,
 	output: MediaApplicationOutput,
-	run: (input, replay) =>
+	checkpoint: MediaApplicationOutput,
+	run: (input, step, checkpoint) =>
 		Effect.gen(function* () {
-			return yield* applyMediaSegments(input, replay, function* (part, current) {
-				return yield* replay.child(`segment:${part}`, segment, current);
+			if (input.integrationScriptSlug !== null) {
+				throw new Error("Media source application cannot select an integration adapter");
+			}
+			const issues = [...(checkpoint?.issues ?? [])];
+			const result = yield* applyMediaSegment(
+				{ ...input, ...checkpoint, issueLimit: input.issueLimit - issues.length },
+				step,
+			);
+			appendMediaIssues(issues, result.issues, input.issueLimit);
+			const next = { ...result, issues };
+			yield* step.child("progress", genericImportActivityReference, {
+				runId: input.runId,
+				command: input.command,
+				operation: {
+					action: "activity",
+					activity: {
+						wait: null,
+						batchId: null,
+						parentId: null,
+						kind: "writing",
+						unit: "batches",
+						exactTotal: null,
+						id: "application",
+						completed: result.batch,
+						lastAdvancedAt: input.command.occurredAt,
+						state: result.done ? "completed" : "running",
+					},
+				},
 			});
+			return next.done ? next : yield* step.save(next);
 		}),
 });

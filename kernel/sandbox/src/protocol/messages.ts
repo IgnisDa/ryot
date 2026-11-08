@@ -4,7 +4,7 @@ import {
 	SandboxScriptMetadata,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { workflowInlineRequestSchema } from "@ryot-app/plugin-backend-sdk/workflow";
+import { workflowHostRequestSchema } from "@ryot-app/plugin-backend-sdk/workflow/protocol";
 import { Result, Schema } from "effect";
 
 import { isBoolean, regExpExec, uncurry } from "../guest/primordials";
@@ -100,6 +100,7 @@ export const SandboxInvocationSchema = Schema.Struct({
 	metadata: SandboxScriptMetadata,
 	compiledFormat: Schema.Literal(1),
 	mode: Schema.Literal("definition"),
+	checkpoint: Schema.optional(JsonValue),
 	journal: Schema.optional(journalSchema),
 	apiFunctions: Schema.Array(Schema.String),
 	filesystem: Schema.optional(filesystemHintsSchema),
@@ -180,7 +181,7 @@ export const scratchWriteArgsSchema = Schema.Struct({
 });
 
 export const InlineBatchSchema = Schema.Struct({
-	requests: Schema.NonEmptyArray(workflowInlineRequestSchema),
+	requests: Schema.NonEmptyArray(workflowHostRequestSchema),
 });
 
 export const InlineBatchReplySchema = Schema.Union([

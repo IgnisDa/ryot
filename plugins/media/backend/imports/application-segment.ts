@@ -5,7 +5,7 @@ import {
 import {
 	defineScriptReference,
 	type Effect,
-	type WorkflowReplay,
+	type WorkflowStep,
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import type { MediaIntegrationConfirmation } from "../integrations/schemas";
@@ -21,21 +21,21 @@ const reader = defineScriptReference({
 });
 export function* applyMediaSegment(
 	input: typeof MediaApplicationInput.Type,
-	replay: WorkflowReplay,
+	step: WorkflowStep,
 	confirm?: (
 		confirmation: typeof MediaIntegrationConfirmation.Type,
 		batch: number,
-	) => Generator<ReturnType<WorkflowReplay["activity"]>, unknown, unknown>,
+	) => Generator<ReturnType<WorkflowStep["activity"]>, unknown, unknown>,
 ): Generator<
-	ReturnType<WorkflowReplay["child"]> | ReturnType<typeof Effect.fail<MediaWorkflowError>>,
+	ReturnType<WorkflowStep["child"]> | ReturnType<typeof Effect.fail<MediaWorkflowError>>,
 	typeof MediaApplicationOutput.Type,
 	unknown
 > {
 	let { page, batch, offset, ordinal, dedupKey, itemIndex } = input;
 	const attribution = { runId: input.runId, command: input.command };
 	const issues: Array<(typeof MediaApplicationOutput.Type)["issues"][number]> = [];
-	for (let step = 0; step < 48 && page < input.run.pages; step++) {
-		const prepared = yield* replay.activity(`prepare:${batch}`, reader, {
+	for (let iteration = 0; iteration < 48 && page < input.run.pages; iteration++) {
+		const prepared = yield* step.activity(`prepare:${batch}`, reader, {
 			offset,
 			dedupKey,
 			itemIndex,
@@ -49,7 +49,7 @@ export function* applyMediaSegment(
 			throw new Error("Media application did not return its source batch");
 		}
 		const sourceId = `application-source-${batch}`;
-		yield* replay.child(`source:${batch}`, genericImportCaptureReference, {
+		yield* step.child(`source:${batch}`, genericImportCaptureReference, {
 			...attribution,
 			operation: {
 				action: "capture",
@@ -60,7 +60,7 @@ export function* applyMediaSegment(
 				checkpoint: { page, offset: prepared.offset, stage: "application-source" },
 			},
 		});
-		const written = yield* runMediaImportBatch(replay, {
+		const written = yield* runMediaImportBatch(step, {
 			...attribution,
 			batchIndex: batch,
 			batch: prepared.batch,
@@ -76,7 +76,7 @@ export function* applyMediaSegment(
 		const captureId = `application-${batch}`;
 		const batchId = `media-${batch}`;
 		const applicationOrdinal = ordinal++;
-		const captured = yield* replay.child(`capture:${batch}`, genericImportCaptureReference, {
+		const captured = yield* step.child(`capture:${batch}`, genericImportCaptureReference, {
 			...attribution,
 			operation: {
 				handle,
@@ -93,7 +93,7 @@ export function* applyMediaSegment(
 				},
 			},
 		});
-		const applied = yield* replay.child(`apply:${batch}`, genericImportApplyReference, {
+		const applied = yield* step.child(`apply:${batch}`, genericImportApplyReference, {
 			...attribution,
 			operation: {
 				batchId,

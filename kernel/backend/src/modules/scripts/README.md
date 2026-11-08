@@ -1,7 +1,8 @@
 # Scripts
 
-`ScriptExecutionWorkflow` owns each invocation: pin compiled code, replay from the start, and turn
-mutable host calls into durable requests. A durable wait ends the isolate; replay starts a fresh one.
+`ScriptExecutionWorkflow` owns code/configuration pins and execution lifetime. Plugin workflows resume
+from their explicit saved checkpoint. An unfinished bounded step retains private call results so a
+wait or process interruption can resume safely in a fresh isolate.
 [Sandbox isolation, files, and limits](../../../../sandbox/README.md) belong to `kernel/sandbox`.
 
 ## Build And Execution
@@ -31,7 +32,7 @@ execution. Invocation bounds include trusted fields after projection, independen
 chunking. Author-facing projection shapes are in the
 [Plugin Kit](../../../../../packages/plugin-kit/README.md#execution-authority).
 
-An unrecorded mutable call or `replay.sleep` ends replay unless it settles inline. The workflow
+An unrecorded mutable call ends the current invocation unless it settles inline. The workflow
 dispatches it through its owner, journals typed results, and replays. Recorded calls reuse results.
 Successfully completed ending requests also persist validated results and targets in deferred slots
 keyed by parent execution/request index. Replay validates the envelope and identity before reuse.
@@ -42,7 +43,13 @@ The `operation-rejected` reason marks a deliberate operation refusal: the guest 
 other operation failure stays HTTP 502 `PluginInvocationError`, an automation run records it as a
 `business-failure` under the code `operation-rejected`, and workflow classification is unchanged.
 
-The workflow body runs from the start on every activation. A step whose first replay attempt has a
+Plugin workflow activations load their current checkpoint. A checkpoint commit stores the next
+revision and discards the completed scope's activities and deferreds atomically. In-memory caches and
+journal projections are discarded after the commit. A persisted final output prevents rerunning the
+last step if the process stops while releasing its execution references. All steps retain the same
+input, code/configuration pin, start time, artifact owner, and cancellation owner.
+
+The current step's private call driver runs from the start on each activation. A step whose first replay attempt has a
 stored success without recovery state to clear reuses that result: the body neither projects its
 journal nor offers the replay to the queue again. Other steps take the queue path: the body queues
 one replay job for the step on its lane, keyed by the step so a re-activation does not queue it twice,
@@ -77,9 +84,8 @@ at most twice before `resource-unavailable`; replay outcome metrics label projec
 ### Inline durable calls
 
 A replay batch includes requests registered before its first unrecorded call executes. The
-execution-scoped gate validates eligible host/sleep batches, which the sidecar settles over the framed
-socket while parking its CPU lease. JS fibers and timers freeze. Sleeps return raw null; host calls
-retain typed outcomes. Grant-carrying executions may settle inline. HTTP admission can settle matched
+execution-scoped gate validates eligible host-call batches, which the sidecar settles over the framed
+socket while parking its CPU lease. JS fibers and timers freeze. Host calls retain typed outcomes. Grant-carrying executions may settle inline. HTTP admission can settle matched
 hops, redirects, and short 429 delays without child workflows.
 
 Backend-only `pendingInline` metadata retains completed members and HTTP continuation, never exposing
@@ -95,7 +101,7 @@ declaration/delay, and `WaitingForRateLimitBlock` retains the acknowledged deadl
 an acknowledged block waits only its remaining time, without sending its response or applying it again.
 Drain or reset retained executions when replacing this private continuation shape.
 
-Inline sleep/admission waits share a 1,000 ms allowance per replay and a 1,000 ms per-wait threshold.
+Inline admission waits share a 1,000 ms allowance per replay and a 1,000 ms per-wait threshold.
 Allowance is reserved before waiting and unused cancelled time is refunded by monotonic clock.
 Longer/exhausted waits defer. A batch also defers when journal indexes diverge, bytes/results or
 continuations cannot fit, its lane cannot reserve the whole batch within 500 ms, or dispatch fails. Declared result
