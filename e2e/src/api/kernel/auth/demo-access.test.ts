@@ -295,6 +295,15 @@ describe("shared demo access acceptance", () => {
 				_tag: "DemoOperationProtected",
 				reason: { code: "demo-operation-protected" },
 			});
+			const renameResponse = yield* webRequest(`${apiUrl}/account/name`, {
+				method: "PATCH",
+				headers: { Authorization: `Bearer ${token}`, "content-type": "application/json" },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					name: "Changed",
+				}),
+			});
+			expect(renameResponse.status).toBe(403);
+
 			const mediaInstallation = yield* findPluginInstallationByPackage(demoClient, {
 				scope: "system",
 				packageId: mediaPlugin.metadata.packageId,

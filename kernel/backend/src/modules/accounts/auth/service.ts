@@ -827,6 +827,10 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.deleteUserSessions(userId),
 					).pipe(Effect.orDie),
+				updateUserName: (userId: UserId, name: string) =>
+					withInternalAdapter(({ internalAdapter }) =>
+						internalAdapter.updateUser(userId, { name }),
+					).pipe(Effect.asVoid),
 				updateUserImage: (userId: UserId, image: string) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { image }),

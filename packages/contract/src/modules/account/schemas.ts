@@ -6,3 +6,10 @@ export const TwoFactorStatus = Schema.Struct({
 });
 
 export type TwoFactorStatus = typeof TwoFactorStatus.Type;
+
+export const ACCOUNT_NAME_MAX_LENGTH = 100;
+
+export const AccountName = Schema.Trim.check(
+	Schema.isMinLength(1),
+	Schema.isMaxLength(ACCOUNT_NAME_MAX_LENGTH),
+);

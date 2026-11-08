@@ -27,13 +27,19 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 						: { language: patch.language === null ? null : patch.language.trim() || null }),
 				});
 			});
+			const rename = Effect.fn("UserSettingsService.rename")(function* (
+				user: CurrentUserValue,
+				name: string,
+			) {
+				yield* auth.updateUserName(user.id, name);
+			});
 			const refreshAvatar = Effect.fn("UserSettingsService.refreshAvatar")(function* (
 				user: CurrentUserValue,
 			) {
 				const image = generateUserAvatar(yield* random.uuidV4());
 				yield* auth.updateUserImage(user.id, image);
 			});
-			return { refreshAvatar, updatePreferences };
+			return { rename, refreshAvatar, updatePreferences };
 		}),
 	},
 ) {

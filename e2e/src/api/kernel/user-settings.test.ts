@@ -1,3 +1,4 @@
+import { ACCOUNT_NAME_MAX_LENGTH } from "@ryot-app/contract/modules/account/schemas";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { Effect, Schema } from "effect";
 
@@ -14,6 +15,40 @@ import { getApiUrl, getSharedHarnessTarget } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
 
 describe("user settings", () => {
+	it.live("renames only the authenticated account and rejects invalid names", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const before = yield* getUserSettings(owner.client);
+			yield* owner.client.call((c) => c.account.rename({ payload: { name: "Renée 新" } }));
+			const trimmed = yield* webRequest(`${getApiUrl()}/account/name`, {
+				method: "PATCH",
+				headers: { "content-type": "application/json", authorization: `Bearer ${owner.token}` },
+				body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+					name: "  Renée 新  ",
+				}),
+			});
+			expect(trimmed.status).toBe(204);
+			const after = yield* getUserSettings(owner.client);
+			expect(after).toEqual({ ...before, name: "Renée 新" });
+			expect((yield* getUserSettings(other.client)).name).toBe("Test User");
+			const info = yield* webRequest(`${getApiUrl()}/auth/oauth2/userinfo`, {
+				headers: { authorization: `Bearer ${owner.token}` },
+			});
+			expect(info.status).toBe(200);
+			expect(yield* Effect.promise(() => info.json())).toMatchObject({ name: "Renée 新" });
+			for (const name of ["", "   ", "x".repeat(ACCOUNT_NAME_MAX_LENGTH + 1), null]) {
+				const response = yield* webRequest(`${getApiUrl()}/account/name`, {
+					method: "PATCH",
+					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({ name }),
+					headers: { "content-type": "application/json", authorization: `Bearer ${owner.token}` },
+				});
+				expect(response.status).toBe(400);
+			}
+			expect((yield* getUserSettings(owner.client)).name).toBe("Renée 新");
+		}),
+	);
+
 	it.live("reads and updates the current user's preferences", () =>
 		Effect.gen(function* () {
 			const { email, client, userId } = yield* createAuthenticatedClient();
