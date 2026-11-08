@@ -753,10 +753,22 @@ export const migrateLegacyTables = Effect.gen(function* () {
 			yield* connection.executeRaw(buildHistoricalEnrichmentCheckSql(), []);
 		}),
 	);
+	const enabledUserIds = yield* withReservedConnection((connection) =>
+		Effect.gen(function* () {
+			const rows: ReadonlyArray<unknown> = yield* connection.execute(
+				'SELECT u."id" FROM "user" u JOIN "old_user" legacy ON legacy."id" = u."id" WHERE u."disabled_at" IS NULL ORDER BY u."id"',
+				[],
+				undefined,
+			);
+			return yield* Effect.orDie(
+				Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ id: Schema.String })))(rows),
+			);
+		}),
+	);
 	const jobs = yield* JobQueue.make;
 	yield* session.transaction(
 		Effect.forEach(
-			userIds.flatMap((id) =>
+			enabledUserIds.flatMap(({ id }) =>
 				[mediaPluginId, fitnessPluginId].map((pluginId) => ({
 					userId: UserId.make(id),
 					pluginId: PluginId.make(pluginId),

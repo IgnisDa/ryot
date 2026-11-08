@@ -101,10 +101,12 @@ layer(
 				yield* admit(identity);
 				yield* write(identity, "activity", "load");
 				yield* write(identity, "deferred", "signal");
+				yield* (yield* WorkflowEngineStore).saveCheckpoint(identity, { offset: 2 }, "completed/");
 				yield* finish(identity, true);
 				yield* TestClock.adjust("23 hours");
 				expect(yield* collector.runBatch()).toEqual({ expiredTrees: 0, clearedExecutions: 0 });
 				expect(yield* stepCount(identity)).toBe(2);
+				expect((yield* storedRow(identity))?.checkpoint).toEqual({ offset: 2 });
 				yield* TestClock.adjust("1 hour");
 				expect(yield* collector.runBatch()).toEqual({ expiredTrees: 1, clearedExecutions: 1 });
 				expect(yield* stepCount(identity)).toBe(0);
@@ -116,7 +118,12 @@ layer(
 				expect(resubmitted.inserted).toBe(false);
 				expect(resubmitted.row?.rootExpired).toBe(true);
 				const row = yield* storedRow(identity);
-				expect(row).toMatchObject({ result: null, payload: null, status: "succeeded" });
+				expect(row).toMatchObject({
+					result: null,
+					payload: null,
+					checkpoint: null,
+					status: "succeeded",
+				});
 				expect(row?.expiredAt?.toISOString()).toBe("2026-10-03T00:00:00.000Z");
 				expect(row?.clearedAt?.toISOString()).toBe("2026-10-03T00:00:00.000Z");
 			}),

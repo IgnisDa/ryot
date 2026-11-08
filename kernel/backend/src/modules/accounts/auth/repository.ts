@@ -349,10 +349,20 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				);
 			});
 
+			const updateUserDisabled = Effect.fn("AuthRepository.updateUserDisabled")(function* (
+				userId: UserId,
+				data: { updatedAt: Date; disabledAt: Date | null },
+			) {
+				yield* database.run((db) =>
+					db.update(schema.user).set(data).where(eq(schema.user.id, userId)),
+				);
+			});
+
 			return {
 				findSession,
 				findUserById,
 				deleteUserApiKeys,
+				updateUserDisabled,
 				getUserPreferences,
 				getPortableProfile,
 				lockBootstrapState,

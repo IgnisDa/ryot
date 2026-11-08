@@ -54,7 +54,8 @@ export class InstanceAdminRepository extends Context.Service<InstanceAdminReposi
 							.select({ id: schema.user.id, disabledAt: schema.user.disabledAt })
 							.from(schema.user)
 							.where(eq(schema.user.id, userId))
-							.limit(1),
+							.limit(1)
+							.for("update"),
 					);
 					return row ?? null;
 				},

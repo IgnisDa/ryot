@@ -131,7 +131,7 @@ integer volume context; a fractional context aborts rather than rounding or drop
 chapter context permits fractions. Source assertions require exactly one item event per completed
 numbered row and reject cumulative fields, derived-completion identity, or extra baselines.
 
-Show/Podcast parent completions are not migrated as derived output. Each migrated user queues a
+Show/Podcast parent completions are not migrated as derived output. Each enabled migrated user queues a
 `fold-rebuild` job for Media and Fitness, and the fold recreates the automatic completions of titles whose
 production status is terminal from the copied history. Source copying commits with a separate phase
 report. Restart skips completed phases, preserving later edits.
@@ -184,7 +184,7 @@ path is synthesized.
 
 When legacy debounce rows collapse to one V2 claim, preserve the longest remaining expiry. The claim namespace includes the migrated integration ID, resolved entity ID and schema, progress kind, normalized legacy consumption provider, and subitem signature. Cache keys use the runtime's canonical persistent namespace: user, exact local Media plugin ID, and stable script slug, without revision-specific script IDs. Normalize known provider labels to the display names runtime writers use as `consumedOn` (for example `Plex` and `YouTube Music`) and resolve show/podcast markers to episode IDs; zero or multiple matching integrations, ambiguous browser-extension, removed-provider, and unresolved targets are reported omissions. A pending YouTube Music row creates `seen`; a completed row creates both `seen` and `completed`.
 
-Historical rows are copied directly and never replay current lifecycle or notification hooks. The workout-set pass normalizes recorded values. A final pass queues one `fold-rebuild` job per migrated user for Media and Fitness; it does not dispatch workflows or hooks. The migration aborts if the migration creates any automation triggers, recipients, runs, or attempts; with no runs, it cannot emit automation notifications. Notification channels and notification-subscription preferences are current user configuration, not notification history, and remain migrated.
+Historical rows are copied directly and never replay current lifecycle or notification hooks. The workout-set pass normalizes recorded values. A final pass queues one `fold-rebuild` job per enabled migrated user for Media and Fitness; it does not dispatch workflows or hooks. The migration aborts if the migration creates any automation triggers, recipients, runs, or attempts; with no runs, it cannot emit automation notifications. Notification channels and notification-subscription preferences are current user configuration, not notification history, and remain migrated.
 
 Seen-history copying and description normalization each defer their table's non-constraint indexes and rebuild their catalog definitions in the same transaction. Primary, unique, and constraint-backed indexes remain active. Seen copying also restores its foreign keys with set-based validation before commit. An abort rolls back data, constraint, and index changes for that phase. Targeted statistics refreshes follow bulk loads before downstream joins and lifecycle validation.
 
@@ -262,7 +262,9 @@ produce no Media library event. An interrupted restart must backfill an absent e
 relationship, leave existing annotations unchanged, and preserve event counts and IDs on later runs.
 
 After normal startup, wait for every `in-media-library` relationship of an enabled account to read
-`projectionStatus` `ready`; disabled accounts run no plugin work, so their summaries stay empty.
+`projectionStatus` `ready`; disabled accounts receive no rebuild jobs and run no plugin work, so their summaries stay empty.
+Enabling an account queues rebuilds for its effective plugins that declare folds in the same
+transaction as enablement.
 Then compare each stored library summary with the Media library summary computed live from the
 user's history, including shows with specials, rewatch cycles, and list-state snapshots.
 

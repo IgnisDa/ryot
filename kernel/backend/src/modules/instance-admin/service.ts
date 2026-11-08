@@ -12,7 +12,9 @@ import { AuthService } from "#modules/accounts/auth/service";
 import { classifyAuthState } from "#modules/accounts/lifecycle/auth-state";
 import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { FoldMarks } from "#modules/derived-values/marks";
 import { AppConfig } from "#platform/config/service";
+import { DatabaseSession } from "#platform/db/session";
 
 import { InstanceAdminRepository } from "./repository";
 
@@ -29,6 +31,8 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 	{
 		make: Effect.gen(function* () {
 			const definitions = yield* DefinitionRepository;
+			const session = yield* DatabaseSession;
+			const folds = yield* FoldMarks;
 			const random = yield* SecureRandom.SecureRandom;
 			const config = yield* AppConfig;
 			const repository = yield* InstanceAdminRepository;
@@ -78,16 +82,30 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				userId: UserId,
 				disabled: boolean,
 			) {
-				const user = yield* repository.findUserDisabledState(userId);
+				yield* session
+					.transaction(
+						Effect.gen(function* () {
+							const user = yield* repository.findUserDisabledState(userId);
 
-				if (!user) {
-					return yield* new InstanceAdminNotFound({ reason: { userId, code: "user-not-found" } });
-				}
+							if (!user) {
+								return yield* new InstanceAdminNotFound({
+									reason: { userId, code: "user-not-found" },
+								});
+							}
 
-				const updatedAt = yield* DateTime.nowAsDate;
-				const disabledAt = disabled ? (user.disabledAt ?? updatedAt) : null;
+							const updatedAt = yield* DateTime.nowAsDate;
+							const disabledAt = disabled ? (user.disabledAt ?? updatedAt) : null;
 
-				yield* updateAuthUserDisabled(userId, { updatedAt, disabledAt });
+							yield* updateAuthUserDisabled(userId, { updatedAt, disabledAt });
+							if (!disabled && user.disabledAt !== null) {
+								yield* folds
+									.queueUserRebuilds(userId)
+									.pipe(Effect.catchTag("SchemaError", Effect.die));
+							}
+							return yield* Effect.void;
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 
 				if (disabled) {
 					yield* deleteUserSessions(userId);

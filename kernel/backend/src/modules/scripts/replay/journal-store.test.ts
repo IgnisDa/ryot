@@ -8,7 +8,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
-import { and, asc, eq } from "drizzle-orm";
+import { and, asc, eq, sql } from "drizzle-orm";
 import { Effect, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -17,7 +17,7 @@ import { testExecutionId } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { appendWorkflowJournal } from "./journal";
-import { inspectSandboxJournal, pinSandboxJournal } from "./journal-store";
+import { inspectSandboxJournal, pinSandboxJournal, pruneSandboxJournals } from "./journal-store";
 
 const entry = (index: number, value: string) => ({
 	value,
@@ -200,6 +200,44 @@ layer(isolatedDatabaseLayer("journal_store"))((test) => {
 				const error = yield* Effect.flip(inspectSandboxJournal(session, executionId, 1));
 				expect(error.kind).toBe("infrastructure");
 				expect(error.message).toBe("Sandbox workflow journal inspection is invalid");
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"prunes expired projections in bounded batches and allows their reconstruction",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const expired = testExecutionId("expired-projection");
+				const recent = testExecutionId("recent-projection");
+				const values = [entry(0, "first"), entry(1, "second")];
+				yield* appendWorkflowJournal(expired, 0, values);
+				yield* appendWorkflowJournal(recent, 0, [entry(0, "recent")]);
+				yield* session.run((db) =>
+					db
+						.update(sandboxJournalEntry)
+						.set({ createdAt: sql`now() - interval '25 hours'` })
+						.where(eq(sandboxJournalEntry.executionId, expired)),
+				);
+				yield* session.run((db) =>
+					db
+						.update(sandboxJournalEntry)
+						.set({ createdAt: sql`now() - interval '23 hours'` })
+						.where(eq(sandboxJournalEntry.executionId, recent)),
+				);
+				yield* pruneSandboxJournals(session, 1);
+				expect(yield* rowsOf(expired)).toHaveLength(1);
+				expect(yield* rowsOf(recent)).toHaveLength(1);
+				yield* pruneSandboxJournals(session, 1);
+				expect(yield* rowsOf(expired)).toHaveLength(0);
+				expect(yield* rowsOf(recent)).toHaveLength(1);
+				yield* appendWorkflowJournal(expired, 0, values);
+				const inspection = yield* inspectSandboxJournal(session, expired, values.length);
+				assert(inspection !== null);
+				expect(inspection.entries).toHaveLength(2);
+				yield* pruneSandboxJournals(session, 10);
+				expect(yield* rowsOf(expired)).toHaveLength(2);
+				expect(yield* rowsOf(recent)).toHaveLength(1);
 			}),
 		testTimeout,
 	);

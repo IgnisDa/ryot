@@ -377,6 +377,13 @@ const latestEpisodeLifecycleExpressions = (
 	return {
 		...latestEventOrderExpressions(where, alias),
 		eventSchemaSlug: latestField(event, "eventSchemaSlug", where),
+		state: coalesce(
+			latestLifecycleField(event, {
+				where,
+				select: episodeStateFromLatest(column(event, "eventSchemaSlug")),
+			}),
+			literal("untracked"),
+		),
 	};
 };
 
@@ -389,8 +396,14 @@ const latestEpisodeEventExpressions = (episode: TableReference, alias: string) =
 	);
 	return {
 		...latestEventOrderExpressions(where, alias),
-		eventSchemaSlug: latestField(event, "eventSchemaSlug", where),
 		sessionEntityId: latestField(event, "sessionEntityId", where),
+		state: coalesce(
+			latestLifecycleField(event, {
+				where,
+				select: episodeStateFromLatest(column(event, "eventSchemaSlug")),
+			}),
+			literal("untracked"),
+		),
 	};
 };
 
@@ -402,10 +415,10 @@ export const occursAt = (entity: TableReference) => column(entity, "occursAt");
 
 /** A null or malformed `publishDate` casts to null and counts as aired. */
 export const episodeHasAired = (episode: TableReference) =>
-	or(isNull(publishDate(episode)), lte(publishDate(episode), currentDate()));
+	or(isNull(occursAt(episode)), lte(occursAt(episode), currentDate()));
 
 export const episodeIsUpcoming = (episode: TableReference) =>
-	and(isNotNull(publishDate(episode)), gt(publishDate(episode), currentDate()));
+	and(isNotNull(occursAt(episode)), gt(occursAt(episode), currentDate()));
 
 type EpisodeAiring = "any" | "aired" | "upcoming";
 
@@ -628,12 +641,8 @@ export const episodeDisplayStateExpression = (
 			isNotNull(cycleSignal.id),
 			orderExpressionsAreAfter(cycleSignal, boundary),
 		),
-		conditional(
-			orderExpressionsAreAfter(current, boundary),
-			episodeStateFromLatest(current.eventSchemaSlug),
-			literal("untracked"),
-		),
-		episodeStateFromLatest(lifetime.eventSchemaSlug),
+		conditional(orderExpressionsAreAfter(current, boundary), current.state, literal("untracked")),
+		lifetime.state,
 	);
 };
 
@@ -664,7 +673,6 @@ const showPositionIsAfterAnchor = (
 	const anchorSeason = anchorAt(anchorSeasonNumber);
 	const anchorEpisode = anchorAt(anchorEpisodeNumber);
 	return and(
-		isNotNull(anchorSeason),
 		or(gt(season, anchorSeason), and(eq(season, anchorSeason), gt(episode, anchorEpisode))),
 	);
 };

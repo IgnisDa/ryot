@@ -39,6 +39,11 @@ Creation and the frequent cron's reconciliation of incomplete users queue one `u
 keyed by the user, so they coalesce while it is queued; creation does not wait for it.
 Reset runs the same bootstrap inside its own job, before enabling the recreated user.
 
+Instance Admin re-enablement locks the user row and queues one rebuild per effective plugin that
+declares entity folds in the same transaction as clearing `disabled_at`. Repeating enablement on an
+already enabled account queues no additional rebuilds. The status write uses `AuthRepository` so it
+participates in that transaction; session revocation on disable still uses the auth service.
+
 Reset and deletion lock the user row, mark it retiring, and delete the account's jobs and workflow
 executions in the transaction that holds the lock. Account writes take a shared lock on the same row,
 so a write either commits before retirement starts or fails once it has begun; a job whose row is gone

@@ -430,3 +430,89 @@ is retained. Changes are local; nothing was pushed or deployed.
 - Private unfinished-step receipts remain justified by the successful restart. Any further removal
   should distinguish those receipts from reconstructible journal projections and already completed
   child executions; API simplification alone does not make all durable storage unnecessary.
+
+## Targeted scheduling, show-read, and retention follow-ups
+
+Base: `0723e28c37`, on `ultra-rewrite`. The scheduling and read changes preserve stored completions,
+suppression, frozen inventories, and page-first selection. They add no schema, protocol, or execution
+model changes.
+
+### Disabled-account admission
+
+Legacy migration queues Media/Fitness fold rebuilds only for enabled migrated users. Instance Admin
+re-enablement locks the account and commits its status update together with one rebuild per effective
+plugin that declares folds. Re-enabling an already enabled account does not enqueue another rebuild.
+The status update uses the owning auth repository so it joins this transaction; disable still revokes
+sessions through the auth service. The regression test rejects the second plugin's job at the database
+boundary and verifies that both enablement and the first job roll back.
+
+Fresh local databases `followups_small` and `followups_large` were restored from `tmp/file.sql` and
+`tmp/file2.sql`. The small migration completed in 99 s with one enabled user and two rebuild jobs.
+The large migration completed in 497 s with 69 enabled users, 230 disabled users, 138 rebuild jobs for
+enabled users, and none for disabled users. Automation triggers, recipients, runs, and attempts stayed
+empty. Migration-only restarts preserved event and rebuild-job counts; the large restart also preserved
+ID fingerprints across 861,815 events and all 138 rebuild jobs. Original application databases and
+source dumps were not changed. These timings include different local load and are not migration
+speed comparisons.
+
+### Episode reads
+
+Episode display state is selected from the latest matching event in one scalar lookup instead of
+fetching its slug again for each state branch. The next-up anchor avoids a redundant lookup. Aired
+and upcoming episode predicates use the existing `occursAt` column maintained from `publishDate`,
+following `docs/work-reduction/design-indexed-date.md`; they no longer parse the date JSON for each
+candidate. Null and malformed dates retain their aired/unknown semantics.
+
+The old and new SQL were run alternately against the same restored library, with JIT off and the
+historical 1 GiB PostgreSQL limit. One warm-up pair was excluded, followed by five measured pairs.
+Both statements returned byte-identical rows, 21 per query:
+
+| Query | Before median | After median | Reduction |
+| --- | ---: | ---: | ---: |
+| Continue Shows | 873.431 ms | 765.603 ms | 12.3% |
+| All Shows | 818.186 ms | 593.263 ms | 27.5% |
+
+These are SQL execution times rather than complete page-load times. An earlier measurement that
+overlapped repository checks is excluded. Raw SQL and plans remain local in `tmp/library-check`;
+aggregate measurements and the comparison artifact are in `tmp/followups`.
+
+The API-level follow-up passed 21 reads across seven variants (including search and three-page
+traversal), three concurrent home-page loads, and 20 write measurements. It passed 200 assertions
+in 72.1 s. Median Continue Shows was 845 ms, All Shows 594 ms, search 464 ms, and three pages combined
+1,895 ms. Home-page loads took 1,583/1,065/1,045 ms. Completion creation, date edits, deletion, and
+suppressed-history edits preserved their invariants. There were no failed reads, duplicate page
+entities, or PostgreSQL backend kills. This write run added five synthetic fixture movies to the
+restored benchmark account.
+
+All 50,069 temporarily deferred job schedules in the benchmark copy were restored, the temporary
+schedule table was removed, and its API and containers were stopped with data retained.
+
+### Simulated retention validation
+
+A real 24-hour wait is unnecessary to verify the cleanup rules. Existing `TestClock` database tests
+cover the 23/24-hour boundary, seven-day failure retention, completed children whose parent remains
+active, active children, pending durable clocks, and admission races with expiry. Workflow cleanup
+clears steps, payloads, results, and checkpoints while retaining execution identities that fence late
+writes and repeated admission.
+
+The added journal-store test ages projection rows to 25 and 23 hours, runs the production pruning
+function in bounded batches, verifies that recent rows survive, and reconstructs the removed
+projections. Existing replay tests cover repairing missing projections from authoritative workflow
+receipts. This validates retention and recoverability without fake timers; it does not establish a
+long-running process memory bound or claim that retained execution identities disappear.
+
+### Validation and handoff
+
+`bun run check` passed across 7,941 TypeScript files and 30 projects. The subsequent root-level
+`bun turbo test --filter=@ryot-app/kernel-backend --filter=@ryot-app/media-plugin` passed all 2,792
+backend tests, 1,589 Media node tests, and 412 Media DOM tests. Affected package checks passed before
+their tests. The VM run passed 57 cases across lifecycle recipes, activity logs, custom episodic
+authoring, and God-mode recovery; after the indexed-date change, the three affected Media files
+passed again with 35 cases. Both VM runs stopped their application services.
+
+The read-only review found no blocking issues. The cleanup pass removed the completed 24-line
+`tmp/followups/compare-queries.py` scratch script after verifying it had no callers or running
+process. Regression tests and local measurement artifacts remain as validation evidence. Cleanup
+added no lines and introduced no behavior changes; the task adds no bypass casts, suppressions,
+non-null assertions, or TODOs. `git diff --check` passed. Changes are committed locally on
+`ultra-rewrite`; nothing is pushed or deployed.

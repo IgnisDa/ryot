@@ -816,6 +816,7 @@ export class AuthService extends Context.Service<AuthService>()(
 				revokePasswordResetLinks,
 				startUserImpersonation: handoffs.create,
 				handler: (request: Request) => auth.handler(request),
+				updateAuthUserDisabled: repository.updateUserDisabled,
 				apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 				oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
 				revokeUserOAuthTokens: (userId: UserId) =>
@@ -847,13 +848,6 @@ export class AuthService extends Context.Service<AuthService>()(
 							{ method: "admin" },
 						),
 					),
-				updateAuthUserDisabled: (
-					userId: UserId,
-					data: { updatedAt: Date; disabledAt: Date | null },
-				) =>
-					withInternalAdapter(({ internalAdapter }) =>
-						internalAdapter.updateUser(userId, data),
-					).pipe(Effect.asVoid),
 				currentUser: (headers: Headers) => {
 					const credential = credentialFromHeaders(headers);
 					return credential

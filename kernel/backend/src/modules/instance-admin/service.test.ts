@@ -19,6 +19,7 @@ import { UserLifecycleService } from "#modules/accounts/lifecycle/service";
 import { PluginUserBootstrapDispatcher } from "#modules/accounts/provisioning/plugin-dispatch";
 import { NotificationSubscriptionsService } from "#modules/automations/notification-subscriptions-service";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { FoldMarks } from "#modules/derived-values/marks";
 import { EntitiesService } from "#modules/entities/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
@@ -32,6 +33,7 @@ class FakeInstanceAdminAuth extends Context.Service<
 	FakeInstanceAdminAuth,
 	{
 		readonly sessionsDeleted: Effect.Effect<boolean>;
+		readonly rebuilds: Effect.Effect<readonly UserId[]>;
 		readonly createdUser: Effect.Effect<null | Record<string, unknown>>;
 		readonly lastDisabledUpdate: Effect.Effect<undefined | DisabledUpdate>;
 		readonly createdAccount: Effect.Effect<null | Record<string, unknown>>;
@@ -49,6 +51,7 @@ const fakeAuthLayer = (errors: {
 	Layer.effectContext(
 		Effect.gen(function* () {
 			const sessionsDeleted = yield* Ref.make(false);
+			const rebuilds = yield* Ref.make<readonly UserId[]>([]);
 			const lastDisabledUpdate = yield* Ref.make<undefined | DisabledUpdate>(undefined);
 			const createdUser = yield* Ref.make<null | Record<string, unknown>>(null);
 			const createdAccount = yield* Ref.make<null | Record<string, unknown>>(null);
@@ -75,7 +78,14 @@ const fakeAuthLayer = (errors: {
 						),
 				}),
 			).pipe(
+				Context.add(
+					FoldMarks,
+					partialFake<FoldMarks["Service"]>({
+						queueUserRebuilds: (userId: UserId) => Ref.update(rebuilds, (ids) => [...ids, userId]),
+					}),
+				),
 				Context.add(FakeInstanceAdminAuth, {
+					rebuilds: Ref.get(rebuilds),
 					createdUser: Ref.get(createdUser),
 					createdAccount: Ref.get(createdAccount),
 					sessionsDeleted: Ref.get(sessionsDeleted),
@@ -89,7 +99,10 @@ const selectingDatabaseLayer = (rows: ReadonlyArray<object>) =>
 	fakeDatabaseSession({
 		select: () => ({
 			from: () => ({
-				where: () => Object.assign(Effect.succeed(rows), { limit: () => Effect.succeed(rows) }),
+				where: () =>
+					Object.assign(Effect.succeed(rows), {
+						limit: () => Object.assign(Effect.succeed(rows), { for: () => Effect.succeed(rows) }),
+					}),
 			}),
 		}),
 	});
@@ -239,7 +252,7 @@ layer(
 	instanceAdminLayer({ rows: [{ id: "user_1", disabledAt: new Date("2024-01-02T00:00:00Z") }] }),
 )((test) => {
 	test.effect(
-		"enables a disabled user without deleting sessions",
+		"enables a disabled user and queues rebuilds without deleting sessions",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* InstanceAdminService;
@@ -249,6 +262,7 @@ layer(
 				expect(result).toEqual({ id: UserId.make("user_1") });
 				expect(yield* auth.sessionsDeleted).toBe(false);
 				expect(yield* auth.lastDisabledUpdate).toMatchObject({ disabledAt: null });
+				expect(yield* auth.rebuilds).toEqual([UserId.make("user_1")]);
 			}),
 		testTimeout,
 	);
@@ -264,6 +278,7 @@ layer(instanceAdminLayer({ rows: [{ id: "user_1", disabledAt: null }] }))((test)
 
 				expect(result).toEqual({ id: UserId.make("user_1") });
 				expect(yield* (yield* FakeInstanceAdminAuth).sessionsDeleted).toBe(false);
+				expect(yield* (yield* FakeInstanceAdminAuth).rebuilds).toEqual([]);
 			}),
 		testTimeout,
 	);

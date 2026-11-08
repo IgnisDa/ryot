@@ -276,7 +276,36 @@ export class FoldMarks extends Context.Service<FoldMarks>()(
 				);
 			});
 
-			return { mark, absorb, resolve, declarations, markSubjects, entityChanged, queueResolved };
+			const queueUserRebuilds = Effect.fn("FoldMarks.queueUserRebuilds")(function* (
+				userId: UserId,
+			) {
+				yield* requireTransaction;
+				const definitions = yield* catalog.forUser(userId);
+				const pluginIds = new Set(
+					definitions.entitySchemas.flatMap((schema) =>
+						schema.isEffective && schema.fold && schema.pluginId !== null ? [schema.pluginId] : [],
+					),
+				);
+				for (const id of [...pluginIds].sort()) {
+					const pluginId = PluginId.make(id);
+					yield* jobs.enqueue(
+						FoldRebuildJob,
+						{ userId, pluginId },
+						{ userId, key: `${userId}:${pluginId}` },
+					);
+				}
+			});
+
+			return {
+				mark,
+				absorb,
+				resolve,
+				declarations,
+				markSubjects,
+				entityChanged,
+				queueResolved,
+				queueUserRebuilds,
+			};
 		}),
 	},
 ) {
