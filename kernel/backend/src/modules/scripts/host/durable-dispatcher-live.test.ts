@@ -63,7 +63,10 @@ import {
 	ProviderHttpAdmissionService,
 	ProviderHttpAdmissionUnavailable,
 } from "#modules/scripts/host/http-admission";
-import { SandboxLifecycleHostFailure } from "#modules/scripts/host/lifecycle-host";
+import {
+	lifecycleHostFailure,
+	SandboxLifecycleHostFailure,
+} from "#modules/scripts/host/lifecycle-host";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { type EgressPolicy, withEgressPolicy } from "#platform/egress/http-client";
 import { makeWorkflowActivityEngine } from "#testing/effect";
@@ -1480,7 +1483,11 @@ layer(interruptedDispatchLayer)((test) => {
 	);
 });
 
-const lifecycleCapabilities = ["changeUserRelationships", "upsertGlobalEntities"] as const;
+const lifecycleCapabilities = [
+	"changeUserRelationships",
+	"upsertGlobalEntities",
+	"updateEvents",
+] as const;
 const lifecycleScript = {
 	...script,
 	metadata: { ...script.metadata, capabilities: [...lifecycleCapabilities] },
@@ -1591,6 +1598,58 @@ const lifecycleSteps = (overrides: Record<string, unknown>) => ({
 });
 
 const batch = { creates: [], deletes: [] };
+
+layer(
+	lifecycleDispatchLayer({
+		lifecycle: () =>
+			lifecycleSteps({
+				updateEvents: {
+					commit: () =>
+						Effect.fail(
+							lifecycleHostFailure(new DbError({ message: "Busy", code: "RYOT_FOLD_BUSY" })),
+						),
+					validate: () =>
+						Effect.succeed({
+							items: [],
+							_tag: "UpdateEvents",
+							userId: subject.executionUserId,
+							command: {
+								causation,
+								itemIdentity: "updateEvents",
+								occurredAt: lifecyclePayload.startedAt,
+							},
+						}),
+				},
+			}),
+	}),
+)((test) => {
+	test.effect("defers a rolled-back lifecycle write without checkpointing a capacity failure", () =>
+		Effect.gen(function* () {
+			const dispatcher = yield* SandboxDurableHostDispatcher;
+			const pending = yield* Ref.make<ReadonlyArray<SandboxInlineProgress>>([]);
+			const result = yield* dispatcher.settleInline(
+				[
+					{
+						index: 0,
+						kind: "host",
+						name: "updateEvents",
+						args: { args: [[]], capability: "updateEvents" },
+					},
+				],
+				{},
+				lifecyclePrincipal,
+				"interactive",
+				"busy-parent",
+				lifecyclePayload.startedAt,
+				makeSandboxShortWait(),
+				(entry) => append(pending, entry),
+			);
+			expect(result).toBeNull();
+			expect(yield* Ref.get(pending)).toEqual([]);
+			expect(yield* (yield* LifecycleDispatchHarness).recorded).toEqual([]);
+		}),
+	);
+});
 
 const batchWarning = {
 	omittedHooks: [],

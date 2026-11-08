@@ -6,15 +6,29 @@ import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manife
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { isAdmissionQueueFull } from "@ryot-app/sandbox/host/admission";
+import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { sql } from "drizzle-orm";
-import { Context, DateTime, Effect, Layer, Option, Ref, Schema, type Scope } from "effect";
+import {
+	Context,
+	DateTime,
+	Duration,
+	Effect,
+	Layer,
+	Option,
+	Ref,
+	Schedule,
+	Schema,
+	type Scope,
+} from "effect";
 import { SecureRandom } from "effect/crypto";
 
 import { lifecycleActor, rootLifecycleCausation } from "#modules/automations/lifecycle/command";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
+import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
 import { DirectScriptDeferred, type SandboxAdmission } from "#modules/scripts/executions/queues";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
@@ -63,16 +77,17 @@ class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique
 	{ message: Schema.String },
 ) {}
 
-export const PreparedFold = Context.Reference<null | {
-	readonly key: string;
-	readonly result: SandboxExecutionResult;
-}>("@ryot-app/kernel-backend/modules/derived-values/service/PreparedFold", {
+export const FoldReservation = Context.Reference<null | {
+	readonly subject: string;
+	readonly admission: SandboxAdmission;
+}>("@ryot-app/kernel-backend/modules/derived-values/service/FoldReservation", {
 	defaultValue: () => null,
 });
 
 const MAX_RUNS = 2;
 
-const INLINE_CAPACITY_RETRIES = 2;
+export const isFoldBusy = (error: unknown) =>
+	error instanceof DbError && error.code === "RYOT_FOLD_BUSY";
 
 const REBUILD_PAGE = 500;
 
@@ -83,31 +98,35 @@ type FoldRun = (
 	admission: SandboxAdmission,
 ) => Effect.Effect<SandboxExecutionResult, unknown>;
 
-/**
- * Runs fold scripts once the runtime installs its sandbox executor. Until then, and wherever nothing installs it,
- * such as migrations, every inline fold defers to a job.
- */
+type FoldExecution = {
+	readonly run: FoldRun;
+	readonly reserve: (
+		principal: ScriptExecutionPrincipal,
+	) => Effect.Effect<SandboxAdmission, unknown, Scope.Scope>;
+};
+
 class FoldExecutor extends Context.Service<
 	FoldExecutor,
-	{
-		readonly run: FoldRun;
-		readonly install: (run: FoldRun) => Effect.Effect<void, never, Scope.Scope>;
+	FoldExecution & {
+		readonly install: (executor: FoldExecution) => Effect.Effect<void, never, Scope.Scope>;
 	}
 >()("@ryot-app/kernel-backend/modules/derived-values/service/FoldExecutor") {
 	static readonly layer = Layer.effect(
 		this,
 		Effect.gen(function* () {
-			const installed = yield* Ref.make(Option.none<FoldRun>());
+			const installed = yield* Ref.make(Option.none<FoldExecution>());
+			const current = Ref.get(installed).pipe(
+				Effect.flatMap(Effect.fromOption),
+				Effect.mapError(() => failure("Fold executor is not installed")),
+			);
 			return {
-				install: (run: FoldRun) =>
-					Effect.acquireRelease(Ref.set(installed, Option.some(run)), () =>
-						Ref.set(installed, Option.none()),
-					),
+				reserve: (principal: ScriptExecutionPrincipal) =>
+					Effect.flatMap(current, (executor) => executor.reserve(principal)),
 				run: (input: ScriptExecutionInput, admission: SandboxAdmission) =>
-					Effect.flatMap(Ref.get(installed), (run) =>
-						Option.isNone(run)
-							? Effect.fail(failure("Fold executor is not installed"))
-							: run.value(input, admission),
+					Effect.flatMap(current, (executor) => executor.run(input, admission)),
+				install: (executor) =>
+					Effect.acquireRelease(Ref.set(installed, Option.some(executor)), () =>
+						Ref.set(installed, Option.none()),
 					),
 			};
 		}),
@@ -117,9 +136,18 @@ class FoldExecutor extends Context.Service<
 export const FoldExecutorInstalledLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const direct = yield* DirectScriptExecutor;
-		yield* (yield* FoldExecutor).install((input, admission) =>
-			executeScriptDirectly(direct, input, admission),
-		);
+		const sandbox = yield* SandboxExecutor;
+		yield* (yield* FoldExecutor).install({
+			run: (input, admission) => executeScriptDirectly(direct, input, admission),
+			reserve: (principal) =>
+				sandbox.reserve(principal, "background").pipe(
+					Effect.retry({
+						while: isAdmissionQueueFull,
+						schedule: Schedule.spaced(Duration.millis(100)),
+					}),
+					Effect.map((lease) => ({ lease, lane: "background" as const })),
+				),
+		});
 	}),
 ).pipe(Layer.provide(FoldExecutor.layer));
 
@@ -250,7 +278,6 @@ export class Folds extends Context.Service<Folds>()(
 			const inputs = Effect.fnUntraced(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
-				lock: boolean,
 			) {
 				const binding = yield* scripts.resolve({
 					userId: subject.userId,
@@ -260,11 +287,14 @@ export class Folds extends Context.Service<Folds>()(
 				if (!binding) {
 					return yield* failure("Fold script is unavailable");
 				}
-				if (lock) {
-					yield* session.run((db) =>
-						db.execute(sql`select 1 from entity where id = ${subject.entityId} for no key update`),
-					);
-				}
+				const reservation = yield* FoldReservation;
+				// A reserved job must not wait on a writer that needs sandbox capacity to finish.
+				const lock = reservation?.subject === foldJobKey(subject) ? sql`nowait` : sql``;
+				yield* session.run((db) =>
+					db.execute(
+						sql`select 1 from entity where id = ${subject.entityId} for no key update ${lock}`,
+					),
+				);
 				const stored = yield* session.run((db) =>
 					db.execute<StoredRow>(
 						sql`select kind, target_id as "targetId", value, status, plugin_revision_id as "pluginRevisionId"
@@ -281,12 +311,7 @@ export class Folds extends Context.Service<Folds>()(
 				);
 				const value = stored.find((row) => row.kind === "subject")?.value ?? null;
 				const input = { value, absorbed, subjectEntityId: subject.entityId };
-				const key = stableStringify({
-					input,
-					pin: binding.pluginPin,
-					scriptId: binding.principal.scriptId,
-				});
-				return { key, input, stored, binding };
+				return { input, stored, binding };
 			});
 
 			const execute = (
@@ -308,44 +333,48 @@ export class Folds extends Context.Service<Folds>()(
 					),
 				);
 
-			/**
-			 * Runs a job's fold before its transaction takes locks, so it can wait for a sandbox lease. The locked run
-			 * reuses the result only while the fold's inputs are unchanged.
-			 */
-			const prepare = Effect.fn("Folds.prepare")(
-				function* (subject: FoldSubject) {
-					const [entry] = yield* resolve({ sources: [], subjects: [subject] });
-					if (!entry) {
-						return null;
-					}
-					const read = yield* inputs(entry.subject, entry.declaration, false);
-					const result = yield* execute(read, "background", "queued");
-					return result.error ? null : { result, key: read.key };
-				},
-				Effect.orElseSucceed(() => null),
-			);
+			const reserve = Effect.fn("Folds.reserve")(function* (subject: FoldSubject) {
+				yield* session.requireRoot;
+				const [entry] = yield* resolve({ sources: [], subjects: [subject] });
+				if (!entry) {
+					return null;
+				}
+				const binding = yield* scripts.resolve({
+					userId: subject.userId,
+					pluginId: entry.declaration.pluginId,
+					scriptSlug: entry.declaration.scriptSlug,
+				});
+				if (!binding) {
+					return yield* failure("Fold script is unavailable");
+				}
+				return {
+					subject: foldJobKey(subject),
+					admission: yield* executor.reserve(binding.principal),
+				};
+			});
 
 			const run = Effect.fn("Folds.run")(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
 				lane: ExecutionLane,
 			) {
-				const read = yield* inputs(subject, declaration, true);
+				const read = yield* inputs(subject, declaration);
 				const { stored, binding } = read;
-				const prepared = yield* PreparedFold;
-				const result =
-					prepared?.key === read.key
-						? prepared.result
-						: yield* execute(read, lane, "direct").pipe(
-								// A locked fold must not wait long for a lease, so it retries only a briefly busy lane.
-								Effect.retry({
-									while: (error) => error instanceof DirectScriptDeferred,
-									times: lane === "interactive" ? INLINE_CAPACITY_RETRIES : 0,
-								}),
-								Effect.mapError((error) =>
-									failure(`Fold could not run in the sandbox: ${String(error)}`),
-								),
-							);
+				const reservation = yield* FoldReservation;
+				const result = yield* execute(
+					read,
+					lane,
+					reservation?.subject === foldJobKey(subject) ? reservation.admission : "direct",
+				).pipe(
+					Effect.mapError((error) =>
+						error instanceof DirectScriptDeferred
+							? new DbError({
+									code: "RYOT_FOLD_BUSY",
+									message: "Script capacity is busy; retry the save",
+								})
+							: failure(`Fold could not run in the sandbox: ${String(error)}`),
+					),
+				);
 				if (result.error) {
 					return yield* failure(
 						`Fold failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
@@ -465,38 +494,20 @@ export class Folds extends Context.Service<Folds>()(
 						return;
 					}
 					for (const entry of resolved) {
-						if (mode === "job") {
-							yield* settleOne(entry, apply, "background", runs).pipe(
-								Effect.mapError((error) => new DbError({ message: error.message })),
-							);
-							continue;
-						}
-						const marked = { sources: pending.sources.length, subjects: pending.subjects.length };
-						const settled = yield* session
-							.savepoint(settleOne(entry, apply, "interactive", runs))
-							.pipe(
-								Effect.catchTag("DatabaseSessionStateError", Effect.die),
-								Effect.as(true),
-								Effect.catchTag("FoldFailed", (error) =>
-									Effect.logWarning("Fold deferred to a job", error.message).pipe(
-										Effect.annotateLogs({ subjectEntityId: entry.subject.entityId }),
-										Effect.as(false),
-									),
-								),
-							);
-						if (!settled) {
-							pending.sources.length = marked.sources;
-							pending.subjects.length = marked.subjects;
-							yield* queueResolved([entry]);
-						}
+						yield* settleOne(
+							entry,
+							apply,
+							mode === "job" ? "background" : "interactive",
+							runs,
+						).pipe(
+							Effect.mapError((error) =>
+								error instanceof DbError ? error : new DbError({ message: error.message }),
+							),
+						);
 					}
 				}
 			});
 
-			/**
-			 * Runs `work` with fold marks collected, then folds every marked subject before the caller commits.
-			 * `queue` defers them all to jobs; `job` lets a fold failure fail the work.
-			 */
 			const within = <A, E, R>(
 				work: Effect.Effect<A, E, R>,
 				apply: ApplyFoldChanges,
@@ -575,7 +586,7 @@ export class Folds extends Context.Service<Folds>()(
 				} while (after !== null);
 			});
 
-			return { within, failed, rebuild, prepare };
+			return { within, failed, rebuild, reserve };
 		}),
 	},
 ) {

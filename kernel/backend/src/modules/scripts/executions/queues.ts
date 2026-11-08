@@ -12,7 +12,17 @@ import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Duration, Effect, Exit, Layer, Option, Schedule, Schema } from "effect";
+import {
+	Context,
+	Duration,
+	Effect,
+	Exit,
+	Layer,
+	Option,
+	Schedule,
+	Schema,
+	type Scope,
+} from "effect";
 import { Activity, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -155,9 +165,12 @@ export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* 
 		: Option.none<SandboxReplayResult>();
 });
 
-export type SandboxAdmission = "queued" | "direct";
-
 export type SandboxExecutionResolutionMode = "exact" | "active";
+
+export type SandboxAdmission =
+	| "queued"
+	| "direct"
+	| { readonly lane: ExecutionLane; readonly lease: SandboxAdmissionLease["Service"] };
 
 /** A direct run reached work that only `ScriptExecutionWorkflow`'s queue and replay loop can wait for. */
 export class DirectScriptDeferred extends Schema.TaggedError<
@@ -185,7 +198,8 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	admission: SandboxAdmission = "queued",
 ) {
 	const held = yield* HeldInlineBatch;
-	const lane = held === payload.lane ? otherLane(held) : payload.lane;
+	const unreservedLane = held === payload.lane ? otherLane(held) : payload.lane;
+	const lane = typeof admission === "object" ? admission.lane : unreservedLane;
 	yield* Effect.annotateCurrentSpan({
 		executionId: payload.executionId,
 		scriptId: payload.principal.scriptId,
@@ -207,19 +221,26 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			if (inspection === null) {
 				return yield* new SandboxProjectionMissing();
 			}
-			const reservation = sandbox.reserve(payload.principal, lane);
-			const lease = yield* admission === "queued"
-				? reservation
-				: reservation.pipe(
-						Effect.timeoutOrElse({
-							duration: DIRECT_ADMISSION_WAIT,
-							orElse: () => Effect.fail(new DirectScriptDeferred()),
-						}),
-						Effect.catchIf(
-							(error) => error instanceof SandboxRunError && error.kind === "resource-unavailable",
-							() => Effect.fail(new DirectScriptDeferred()),
-						),
-					);
+			let reservation: Effect.Effect<
+				SandboxAdmissionLease["Service"],
+				SandboxRunError | DirectScriptDeferred,
+				Scope.Scope
+			> = sandbox.reserve(payload.principal, lane);
+			if (typeof admission === "object") {
+				reservation = Effect.succeed(admission.lease);
+			} else if (admission === "direct") {
+				reservation = reservation.pipe(
+					Effect.timeoutOrElse({
+						duration: DIRECT_ADMISSION_WAIT,
+						orElse: () => Effect.fail(new DirectScriptDeferred()),
+					}),
+					Effect.catchIf(
+						(error) => error instanceof SandboxRunError && error.kind === "resource-unavailable",
+						() => Effect.fail(new DirectScriptDeferred()),
+					),
+				);
+			}
+			const lease = yield* reservation;
 			const replayJournal = pinSandboxJournal(session, payload.workflowExecutionId, inspection);
 
 			const artifact = yield* artifacts.get(payload.principal);

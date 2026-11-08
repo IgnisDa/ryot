@@ -121,20 +121,26 @@ refolds every subject of that plugin.
 An inline fold runs in the sandbox's direct path. A script reads through a savepoint marked read-only
 inside the writing transaction, so it sees that write's own changes, and the savepoint is rolled back
 so the mark cannot outlive the read. Reads run at the transaction's READ COMMITTED isolation. On the
-interactive lane, a run that finds no sandbox capacity retries twice before deferring. A fold that
-cannot finish inline never fails the write: the write commits and a `fold` job takes over. Fold jobs
+interactive lane, a run that finds no sandbox capacity rolls back the writing transaction before
+retrying. A parked plugin caller defers the host call to release its capacity first. Retries are
+bounded; a fold that cannot finish rolls back the source write, so a successful save includes its
+required derived state.
+Fold jobs reserve sandbox admission before opening the writing transaction; they execute from current
+transactional reads rather than applying a speculative result. When the subject row is locked, the
+job releases its reservation and retries outside the transaction without spending an attempt. Fold jobs
 are coalesced per user and subject, run four at a time, and retry up to eight times, one second apart.
 The last failed attempt marks the subject failed. Each settled job publishes the user-scoped
 derived-data-updated hint (see [entity interest](../../../../client/src/modules/entity-watches/README.md)).
 
 `derived_value` holds one row per target: the subject's own row (`kind = 'subject'`, holding `value`
 and `status`) and one row per event or relationship output. Each row records its subject, plugin
-revision and the subject's event-scope revision. A fold replaces only the rows whose value changed
+revision. A fold replaces only the rows whose value changed
 and deletes the rest of the subject's rows.
 
 RyotQL exposes `event.projection` and `event.projectionStatus`. A value is visible while its plugin
 revision is the active one, including while a newer fold is pending. Its status is `ready` once its
 subject row has folded, `pending` while a fold job is queued for the subject or the row is missing,
 `failed` when the subject's last fold job failed, and `none` when the schema declares no projection.
-Backups do not export derived values or a fold's state. A restored subject refolds from its restored
-events with no previous value.
+Backups export subject fold state in `fold-values.ndjson`, preserving history that cannot be rebuilt
+from events, such as suppressed occurrences. Restore and merge remap referenced IDs through absorbed
+state before refolding. Event and relationship projections are rebuilt.

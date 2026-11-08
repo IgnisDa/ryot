@@ -16,6 +16,7 @@ import {
 	type LifecyclePreparedStep,
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
+import { isFoldBusy } from "#modules/derived-values/service";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import type { PendingRelationshipMutations } from "#modules/relationships/mutation-pipeline";
 import type { UserSandboxRunInput } from "#modules/scripts/authorization/capabilities";
@@ -66,12 +67,14 @@ export class SandboxLifecycleHostFailure extends Schema.TaggedError<
 >()("SandboxLifecycleHostFailure", {
 	message: Schema.String,
 	data: Schema.optional(jsonValueSchema),
+	capacityDeferred: Schema.optional(Schema.Literal(true)),
 }) {}
 
 export const lifecycleHostFailure = (error: unknown) => {
 	const hostError = toSandboxHostError(error);
 	return new SandboxLifecycleHostFailure({
 		message: hostError.message,
+		...(isFoldBusy(error) ? { capacityDeferred: true as const } : {}),
 		...(hostError.data === undefined ? {} : { data: hostError.data }),
 	});
 };

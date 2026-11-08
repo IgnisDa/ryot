@@ -14,6 +14,7 @@ import { Cause, Effect, Layer, Schema } from "effect";
 
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
+import { isFoldBusy } from "#modules/derived-values/service";
 import { EventCreateInput } from "#modules/events/event-create";
 import { toSandboxCreateEventsResult } from "#modules/events/script-host";
 import { EventsService } from "#modules/events/service";
@@ -32,7 +33,10 @@ import {
 import { reportSandboxLifecycleWarnings } from "#modules/scripts/host/execution-context";
 import { ScriptHostImplementations } from "#modules/scripts/host/host-implementations";
 import { SandboxHttpDispatcher } from "#modules/scripts/host/http-dispatcher";
-import { writeInlineLifecycleItems } from "#modules/scripts/host/lifecycle-host";
+import {
+	SandboxLifecycleHostFailure,
+	writeInlineLifecycleItems,
+} from "#modules/scripts/host/lifecycle-host";
 import { makeActivity } from "#platform/workflow/scope";
 
 const lifecycleHostSuccessSchemas = {
@@ -43,16 +47,26 @@ const lifecycleHostSuccessSchemas = {
 	UpsertGlobalRelationships: sandboxHostContracts.upsertGlobalRelationships.success,
 };
 
-const failureOrRethrow = (cause: Cause.Cause<unknown>) =>
-	Cause.hasDies(cause) || Cause.hasInterrupts(cause)
-		? Effect.failCause(
-				Cause.fromReasons<never>(
-					cause.reasons.filter(
-						(reason): reason is Cause.Die | Cause.Interrupt => !Cause.isFailReason(reason),
-					),
+const failureOrRethrow = (cause: Cause.Cause<unknown>) => {
+	if (Cause.hasDies(cause) || Cause.hasInterrupts(cause)) {
+		return Effect.failCause(
+			Cause.fromReasons<never>(
+				cause.reasons.filter(
+					(reason): reason is Cause.Die | Cause.Interrupt => !Cause.isFailReason(reason),
 				),
-			)
-		: Effect.succeed(durableHostFailure(unknownToMessage(cause)));
+			),
+		);
+	}
+	if (cause.reasons.some((reason) => Cause.isFailReason(reason) && isFoldBusy(reason.error))) {
+		return Effect.fail(
+			new SandboxRunError({
+				kind: "resource-unavailable",
+				message: "Script capacity is busy; retry the save",
+			}),
+		);
+	}
+	return Effect.succeed(durableHostFailure(unknownToMessage(cause)));
+};
 
 type DispatchArguments = Parameters<SandboxDurableHostDispatcher["Service"]["dispatch"]>;
 
@@ -136,7 +150,14 @@ export const SandboxDurableHostDispatcherLive = Layer.effect(
 				}).pipe(
 					Effect.map((value) => ({ value, _tag: "written" as const })),
 					Effect.catch((error) =>
-						Effect.succeed({ ...toSandboxHostError(error), _tag: "failed" as const }),
+						error instanceof SandboxLifecycleHostFailure && error.capacityDeferred
+							? Effect.fail(
+									new SandboxRunError({
+										kind: "resource-unavailable",
+										message: "Script capacity is busy; retry the save",
+									}),
+								)
+							: Effect.succeed({ ...toSandboxHostError(error), _tag: "failed" as const }),
 					),
 				);
 				if (written._tag === "failed") {

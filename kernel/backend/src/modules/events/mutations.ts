@@ -19,7 +19,7 @@ import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Duration, Effect, Layer, Schedule, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -34,7 +34,12 @@ import {
 } from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
-import { type ApplyFoldChanges, type FoldMode, Folds } from "#modules/derived-values/service";
+import {
+	type ApplyFoldChanges,
+	type FoldMode,
+	Folds,
+	isFoldBusy,
+} from "#modules/derived-values/service";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { assertStableUnder, DomainWriteChecks } from "#modules/entities/write-context";
@@ -44,6 +49,7 @@ import {
 	CatalogDefinitionFingerprint,
 	catalogDefinitionFingerprint,
 } from "#modules/plugins/catalog/runtime-resolver";
+import { HeldInlineBatch } from "#modules/scripts/executions/queues";
 import { DatabaseSession } from "#platform/db/session";
 
 import { readEventCreateChunkScopes } from "./event-creation";
@@ -772,7 +778,18 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				yield* persist({ ...input, prepared, validated, derived: true });
 			});
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, mode?: FoldMode) =>
-				groups.transaction(folds.within(work, applyDerived, mode));
+				Effect.gen(function* () {
+					const held = yield* HeldInlineBatch;
+					return yield* groups
+						.transaction(folds.within(work, applyDerived, mode))
+						.pipe(
+							Effect.retry({
+								while: isFoldBusy,
+								times: held === null ? 10 : 0,
+								schedule: Schedule.spaced(Duration.millis(100)),
+							}),
+						);
+				});
 			return { prepare, persist, transaction, captureGroups, lockPreparedChanges };
 		}),
 	},

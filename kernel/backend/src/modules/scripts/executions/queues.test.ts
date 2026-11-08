@@ -371,11 +371,50 @@ layer(
 	);
 
 	test.effect(
+		"uses capacity reserved before a transaction for consecutive script runs",
+		() =>
+			Effect.gen(function* () {
+				const runtime = yield* SandboxExecutor;
+				const recorded = yield* RecordedRuns;
+				const session = yield* DatabaseSession;
+				const principal = {
+					providerId: null,
+					pluginRevision: null,
+					scriptSlug: "kernel",
+					scriptId: kernelScriptId,
+					contentHash: kernelContentHash,
+					metadata: { runtimeImports: [] },
+					subject: { type: "system" as const },
+				};
+				const before = (yield* recorded.reserved).length;
+				yield* Effect.scoped(
+					Effect.gen(function* () {
+						const lease = yield* runtime.reserve(principal, "background");
+						yield* session.transaction(
+							Effect.gen(function* () {
+								for (const executionId of ["reserved-first", "reserved-second"]) {
+									const result = yield* executeSandboxExecution(
+										{ ...queuedReplay, principal, executionId, context: {}, lane: "background" },
+										{ lease, lane: "background" },
+									);
+									expect(result.value).toBe("queued-result");
+								}
+							}),
+						);
+					}),
+				);
+				expect((yield* recorded.reserved).slice(before)).toEqual(["background"]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"runs a script nested in an inline batch on the lane that batch does not hold",
 		() =>
 			Effect.gen(function* () {
 				const recorded = yield* RecordedRuns;
 				const before = (yield* recorded.reserved).length;
+				const runsBefore = (yield* recorded.runs).length;
 				yield* nestedRun("interactive", "interactive");
 				yield* nestedRun("background", "background");
 				yield* nestedRun("background", "interactive");
@@ -384,7 +423,7 @@ layer(
 					"interactive",
 					"background",
 				]);
-				expect((yield* recorded.runs).slice(before).map(({ lane }) => lane)).toEqual([
+				expect((yield* recorded.runs).slice(runsBefore).map(({ lane }) => lane)).toEqual([
 					"background",
 					"interactive",
 					"background",

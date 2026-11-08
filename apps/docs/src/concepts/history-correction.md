@@ -13,5 +13,5 @@ Corrections do not resend notifications or playback pushes. They do not remove l
 or change monitoring. Provider updates do not erase past completion records; new episodes can still
 change current coverage.
 
-Corrections apply when you save. If the server is busy, derived figures can briefly show as processing
-while the correction finishes; your edit is already saved.
+Corrections and their derived figures apply together when you save. If the server cannot finish the
+correction, the save fails and your previous history remains; retry the save.
