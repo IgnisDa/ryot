@@ -54,8 +54,7 @@ Recommendations, watch-provider display, media home queries, and episode progres
 have client consumers, not only hand-built test queries.
 
 The main remaining work is notification producers, safe data retention, richer collection
-browsing, some custom-media/history controls, and complete V1-style
-analytics. Default collections, immutable history, a nightly calendar table, and destructive
+browsing and some custom-media/history controls. Default collections, immutable history, a nightly calendar table, and destructive
 workout replay are **not** accurate descriptions of the current V2 design.
 
 ## Recommended implementation order
@@ -159,13 +158,55 @@ readiness fix. Order 12 is Done.
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
 | 15 | Pending | **Ship collection recommendations** | 4 and 6 | Add a reusable Media-owned recipe and paged/searchable client surface over the existing suggestion graph. Specify exclusions and empty-result behavior. Keep the current latest-completion home recommendation design unless a separate product decision changes it; do not copy V1 random sampling simply for parity. |
-| 16 | In progress | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | Inventory each missing media/fitness metric and ship in slices: consumption totals by type, workout/measurement totals, period comparisons and grouping, then hourly timelines and frequency breakdowns. Define units, unknown dates/durations, rewatches, episodic counts, timezone and exclusions before implementing queries. Reuse current recipes/projections; introduce precomputation only for demonstrated query/scale limits. A complete screen, not a generic aggregate API, closes the gap. |
+| 16 | Done | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | The unified Analytics destination provides Media and Fitness totals, comparisons, grouping, trends, hourly activity, rankings and drill-downs with the agreed historical facts, units, date and timezone semantics. Targeted API/browser coverage and both real datasets pass correctness, readiness and restart acceptance. See the Order 16 acceptance record below. |
 | 17 | Pending | **Add account rename controls** | Existing hosted auth and admin authorization | Ship self-service rename, then admin-on-behalf rename if required. Keep server-token administration; do not reintroduce V1 roles or the onboarding-tour flag. This is independent work and may move earlier without delaying the main feature sequence. |
 
-The approved [Order 16 implementation plan](order-16-analytics-plan.md) records the unified Analytics
-destination, partial-consumption and historical-snapshot rules, reporting timezone, Fitness semantics,
-chart design, implementation gates and validation requirements. It is implemented, then redesigned
-in the follow-up cleanup; end-to-end and real-dump validation of the redesigned code are pending.
+Order 16 implements the unified Analytics destination, partial-consumption and historical-snapshot
+rules, reporting timezone, Fitness semantics and shared charts. The approved implementation plan is
+preserved in Git at `e96b847750:docs/order-16-analytics-plan.md`; it was removed from the working tree
+in `eca3233162`. Its historical evidence predates the follow-up redesign.
+
+#### Order 16 acceptance — 2026-11-08
+
+Validation uses the redesigned code at `eca3233162` plus the transaction-handoff and rebuild-discovery
+fixes found by this run. Targeted API/browser runs passed serially across 23 distinct files, covering
+reports, paging, navigation, preferences, corrections, imports, integrations, backups and Fitness
+history. Sixteen captured Media and Fitness charts were inspected at compact/desktop sizes in
+light/dark themes.
+
+Normal startup against both isolated migrated datasets exposed a sandbox-recycle failure: host-call
+fibers inherited a released SQL transaction and subsequent folds deferred indefinitely. The handoff
+now replaces that inherited transaction with the caller's transaction, or removes it for root work.
+Stored completions, historical contribution facts and runtime capacity limits are unchanged. A
+regression test covers both transaction and root handoffs; an accelerated local probe passed five
+recycle cycles, and the larger dataset completed two normal recycle cycles. Rebuild discovery also
+includes projected relationships whose source entities have no listened-to events. Previously those library-only entries remained pending after migration or restore.
+The acceptance databases resumed 49 and 20,993 missing subjects through normal fold jobs, without
+rewriting their source history. A backup/restore regression covers the same case.
+
+Both isolated datasets pass independent comparisons against their original V1 source history and
+live Media/Fitness reports. All-time and custom-period reports cover totals, previous periods, trends,
+hours, rankings and processing state. Persisted historical properties validate against their active
+schemas; the source oracle also checks frozen contribution facts, workout records, units and ownership.
+
+| Dataset | Live report selections | Report checks | Schema-validated records | Mismatches |
+| --- | --- | --- | --- | --- |
+| Normal | 2 | 42 | 120,498 | 0 |
+| Larger | 138 | 2,830 | 673,208 | 0 |
+
+Both finish with every derived value and enabled library membership ready, no remaining fold jobs,
+and no failed jobs. Source events, migration reports and derived values are identical before stopping,
+after stopping, after restarting and after final shutdown. Neither creates automation work or
+disabled-user derived values. Original dumps and application databases remain untouched; private
+data and acceptance evidence stay local in ignored `tmp/order16-acceptance/`.
+
+Final validation passes: `bun run check` covers all 30 projects, followed by root-level filtered
+Turbo tests for the backend, Media, Fitness, renderers, UI SDK, client SDK and contract (48 successful
+tasks). The backend run includes 2,793 passing tests. Read-only review and main-session cleanup are
+complete; temporary acceptance scripts are removed from the working tree. Order 16 is Done.
+
+The previously approved query-latency waiver and the larger source dump's 107 unavailable original
+assets remain accepted limitations. They do not waive correctness, readiness or restart stability.
 
 ### Differences that need a decision, not an automatic implementation slot
 
@@ -771,7 +812,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
 | Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). |
-| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. End-to-end and real-dump validation of the follow-up redesign are pending. |
+| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. The follow-up redesign passes targeted API/browser and real-dump acceptance; see Order 16. |
 | Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
 
@@ -795,7 +836,7 @@ Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-vi
 | Personal bests, derived set stats, history repair | Covered; reshaped | `script.workout-record-step`, event-stream projections, changed-set/context hooks, durable reconciliation and freshness checks. Rebuilds derived stats by exercise and recorded kind, without deleting/recreating workouts or replaying historical notifications. |
 | Exercise reviews/notes | Covered; reshaped | Private exercise `review` events, note create/update/delete and detail UI. No public reviews, comments or likes. |
 | Measurement logging/list/edit/delete/charts | Covered; reshaped | Metric entities, entry entities and session-linked reading events; dynamic metrics, pinning, composer, trends and paged history. Names on V1 measurement entries are not retained; time and comments are. Multi-call reading edits may partially commit. |
-| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. Validation of the follow-up redesign is pending. |
+| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. The follow-up redesign passes Order 16 acceptance. |
 | Strong, Hevy, OpenScale imports | Covered | Fitness-owned sources and bounded import workflows; chronological processing and unit normalization. Strong provides active duration, Hevy leaves it unknown; OpenScale reuses normalized metrics. |
 | Native workout experience | Additional V2 behavior | Shared Capacitor client, native rest alerts/haptics/screen-awake control, device-local recovery, iOS Live Activities. This is not server reminder delivery. |
 
@@ -1091,7 +1132,7 @@ Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,an
 - The Order 16 Analytics destination replaces V1 analytics with Media consumption counts and
   type-specific quantities, Fitness reps/weight/distance/rest/calories/bests, per-hour activity,
   exercise/muscle/equipment rankings and day/week/month/year grouping, read from grouped RyotQL
-  aggregates. No `daily_user_activity` table exists. Validation of the follow-up redesign is pending.
+  aggregates. No `daily_user_activity` table exists. The follow-up redesign passes Order 16 acceptance.
 - Calendar and the upcoming feed are built (row 11). The home **Upcoming** rail covers every
   dated Media source with a days-ahead window and one-per-title deduplication. V1's alternative
   "next N items" mode is not reproduced: the rail always shows the soonest 20 in the window.

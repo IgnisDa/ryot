@@ -4,7 +4,7 @@ import { FOLD_LIMITS, FoldAbsorbed, FoldOutput } from "@ryot-app/contract/module
 import type { EventMutationChange } from "@ryot-app/contract/modules/events/mutations";
 import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
-import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
+import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { isAdmissionQueueFull } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
@@ -537,28 +537,54 @@ export class Folds extends Context.Service<Folds>()(
 				userId: UserId;
 				pluginId: PluginId;
 				after: null | string;
+				projectedRelationships: ReadonlyArray<string>;
 			}) {
 				const rows = yield* session.run((db) =>
-					db.execute<{ entityId: string; eventSchemaSlug: string; sessionEntityId: null | string }>(
-						sql`with page as (select distinct entity_id from event
-							where user_id = ${input.userId} and event_schema_plugin_id = ${input.pluginId}
-								and (${input.after}::text is null or entity_id > ${input.after})
-							order by entity_id limit ${REBUILD_PAGE})
-						select distinct v.entity_id as "entityId", v.session_entity_id as "sessionEntityId",
-							v.event_schema_slug as "eventSchemaSlug"
-						from event v join page on page.entity_id = v.entity_id
-						where v.user_id = ${input.userId} and v.event_schema_plugin_id = ${input.pluginId}
+					db.execute<{
+						entityId: string;
+						eventSchemaSlug: null | string;
+						sessionEntityId: null | string;
+						hasProjectedRelationship: boolean;
+					}>(
+						sql`with relationship_subjects as (
+							select distinct source_entity_id as entity_id from relationship
+							where user_id = ${input.userId} and relationship_schema_plugin_id = ${input.pluginId}
+								and relationship_schema_slug in (${foldValuesSql(input.projectedRelationships)})
+						), page as (
+							select entity_id from (
+								select entity_id from event
+								where user_id = ${input.userId} and event_schema_plugin_id = ${input.pluginId}
+								union select entity_id from relationship_subjects
+							) subjects
+							where ${input.after}::text is null or entity_id > ${input.after}
+							order by entity_id limit ${REBUILD_PAGE}
+						)
+						select distinct page.entity_id as "entityId", v.session_entity_id as "sessionEntityId",
+							v.event_schema_slug as "eventSchemaSlug", r.entity_id is not null as "hasProjectedRelationship"
+						from page left join relationship_subjects r on r.entity_id = page.entity_id
+						left join event v on v.entity_id = page.entity_id
+							and v.user_id = ${input.userId} and v.event_schema_plugin_id = ${input.pluginId}
 						order by 1`,
 						"objects",
 					),
 				);
 				const resolved = yield* resolve({
-					subjects: [],
-					sources: rows.map((row) => ({
-						...row,
-						userId: input.userId,
-						eventSchemaPluginId: input.pluginId,
-					})),
+					subjects: rows
+						.filter((row) => row.hasProjectedRelationship)
+						.map((row) => ({ userId: input.userId, entityId: EntityId.make(row.entityId) })),
+					sources: rows.flatMap((row) =>
+						row.eventSchemaSlug === null
+							? []
+							: [
+									{
+										userId: input.userId,
+										entityId: row.entityId,
+										eventSchemaPluginId: input.pluginId,
+										sessionEntityId: row.sessionEntityId,
+										eventSchemaSlug: row.eventSchemaSlug,
+									},
+								],
+					),
 				});
 				const entities = new Set(rows.map((row) => row.entityId));
 				return {
@@ -571,12 +597,22 @@ export class Folds extends Context.Service<Folds>()(
 				userId: UserId;
 				pluginId: PluginId;
 			}) {
+				const projectedRelationships = (yield* definitions.forUser(
+					input.userId,
+				)).relationshipSchemas
+					.filter(
+						(schema) =>
+							schema.isEffective &&
+							schema.pluginId === input.pluginId &&
+							schema.projection !== null,
+					)
+					.map((schema) => schema.slug);
 				let after: null | string = null;
 				do {
 					const page = yield* session
 						.transaction(
 							Effect.gen(function* () {
-								const found = yield* subjectsOfPlugin({ ...input, after });
+								const found = yield* subjectsOfPlugin({ ...input, after, projectedRelationships });
 								yield* queueResolved(found.resolved);
 								return found.after;
 							}),

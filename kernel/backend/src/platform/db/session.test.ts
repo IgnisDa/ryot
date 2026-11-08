@@ -165,6 +165,40 @@ layer(sessionLayer)((test) => {
 	);
 
 	test.effect(
+		"replaces a host fiber's released transaction with the caller's transaction or root connection",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const inherited = yield* session.transaction(Effect.context());
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* session.run((db) =>
+							db.insert(entry).values({ id: "replacement", value: "uncommitted" }),
+						);
+						const carry = yield* session.carry;
+						const observed = yield* carry(
+							session.savepoint(
+								session.run((db) => db.select().from(entry).where(eq(entry.id, "replacement"))),
+							),
+						).pipe(Effect.provideContext(inherited));
+						expect(observed).toEqual([{ id: "replacement", value: "uncommitted" }]);
+					}),
+				);
+				const carry = yield* session.carry;
+				const observed = yield* carry(
+					Effect.gen(function* () {
+						expect(yield* session.isTransactionActive).toBe(false);
+						return yield* session.run((db) =>
+							db.delete(entry).where(eq(entry.id, "replacement")).returning(),
+						);
+					}),
+				).pipe(Effect.provideContext(inherited));
+				expect(observed).toEqual([{ id: "replacement", value: "uncommitted" }]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"commits work and propagates the transaction through nested run calls",
 		() =>
 			Effect.gen(function* () {

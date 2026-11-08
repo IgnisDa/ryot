@@ -116,7 +116,8 @@ import, integration or async hook, also queues one `fold` job per subject, so bu
 while scripts run. `requestFolds` and the owning plugin's
 `requestFoldsForAllUsers` queue jobs for changes that come from outside the subject's events.
 Installing a new plugin revision or restoring a backup queues one `fold-rebuild` job per user, which
-refolds every subject of that plugin.
+refolds subjects discovered from that plugin's events and projected relationships. Relationships
+without listened-to events still need their projections rebuilt.
 
 An inline fold runs in the sandbox's direct path. A script reads through a savepoint marked read-only
 inside the writing transaction, so it sees that write's own changes, and the savepoint is rolled back

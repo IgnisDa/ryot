@@ -15,7 +15,8 @@ import { listEventsForEntity, waitForEventProjections } from "~/fixtures/kernel/
 import { pollUntil } from "~/fixtures/kernel/polling";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
-import { getMediaLibraryEntityId } from "~/fixtures/plugins/media/media";
+import { waitForLibrarySummary } from "~/fixtures/plugins/media/library-summary";
+import { getMediaLibraryEntityId, insertLibraryMembership } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
 
@@ -187,5 +188,40 @@ it.live("retains Media consumption basis, calendar dates, undated progress and s
 		);
 		expect(restoredLibraryEvents).toEqual([]);
 		expect((yield* getEntity(target.client, restoredEntity.id)).properties["runtime"]).toBe(120);
+	}),
+);
+
+it.live("rebuilds a restored library membership without consumption or review history", () =>
+	Effect.gen(function* () {
+		const source = yield* createAuthenticatedClient();
+		const target = yield* createAuthenticatedClient();
+		const fixture = yield* createBuiltinMediaLifecycleFixture(source.client, {
+			entitySchemaSlug: "movie",
+		});
+		const entity = yield* getEntity(source.client, fixture.entityId);
+		yield* insertLibraryMembership(source.client, { mediaEntityId: entity.id });
+		expect((yield* waitForLibrarySummary(source.client, entity.id)).state).toBe("untracked");
+		expect(
+			(yield* listEventsForEntity(source.client, entity.id, undefined, 100)).map(
+				(event) => event.eventSchemaSlug,
+			),
+		).toEqual([EventSchemaSlug.make("add-to-media-library")]);
+		const { bytes } = yield* exportAndDownloadBackup(source.client);
+		yield* deleteUserAndWait(source.userId);
+		assertCompleted(
+			(yield* restoreBackup(target.client, bytes)).run,
+			"Empty library membership restore",
+		);
+		const restored = yield* getGlobalEntityByProvenance(target.client, {
+			entitySchemaSlug: entity.entitySchemaSlug,
+			providerId: requirePresent(entity.providerId, "Missing Media provider"),
+			externalId: requirePresent(entity.externalId, "Missing Media external ID"),
+		});
+		expect((yield* waitForLibrarySummary(target.client, restored.id)).state).toBe("untracked");
+		expect(
+			(yield* listEventsForEntity(target.client, restored.id, undefined, 100)).map(
+				(event) => event.eventSchemaSlug,
+			),
+		).toEqual([EventSchemaSlug.make("add-to-media-library")]);
 	}),
 );

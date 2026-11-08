@@ -115,16 +115,24 @@ export class DatabaseSession extends Context.Service<DatabaseSession>()(
 				});
 			// A sandbox run settles host calls on fibers its caller did not start. The SQL client finds a
 			// transaction's connection in fiber context, so those fibers need the caller's entries as well as
-			// these executors; a fiber's own entries win, so it keeps the services it was given.
+			// these executors. Other services stay local, but an inherited SQL transaction must not win.
 			const carry = Effect.map(
 				Effect.all([transactionExecutor, connectionExecutor, fiberContext]),
 				([current, connection, caller]) =>
-					<A, E, R>(work: Effect.Effect<A, E, R>) =>
-						Effect.flatMap(fiberContext, (own) =>
-							work.pipe(
-								Effect.provideContext(current === null ? own : Context.merge(caller, own)),
-								Effect.provideService(transactionExecutor, current),
-								Effect.provideService(connectionExecutor, connection),
+					<A, E, R>(
+						work: Effect.Effect<
+							A,
+							E,
+							Exclude<R, Context.Service.Identifier<typeof sqlClient.transactionService>>
+						>,
+					) =>
+						work.pipe(
+							Effect.provideService(transactionExecutor, current),
+							Effect.provideService(connectionExecutor, connection),
+							Effect.updateContext((own: Context.Context<R>) =>
+								current === null
+									? Context.omit(sqlClient.transactionService)(own)
+									: Context.merge(caller, Context.omit(sqlClient.transactionService)(own)),
 							),
 						),
 			);
