@@ -5,14 +5,14 @@ import {
 	sandboxSubjectUserId,
 } from "@ryot-app/contract/modules/scripts/schemas";
 import { workflowReplayJournalEntrySchema } from "@ryot-app/plugin-backend-sdk/workflow";
-import { isAdmissionQueueFull, SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
+import { SandboxAdmissionLease } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { sandboxInlineDurableCapabilities } from "@ryot-app/sandbox/host/host-execution-policy";
 import { SandboxRecoveryIdentity } from "@ryot-app/sandbox/host/recovery-store";
 import { SidecarRecoverySuspended } from "@ryot-app/sandbox/host/supervisor";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { Context, Duration, Effect, Exit, Layer, Option, Schedule, Schema } from "effect";
+import { Context, Duration, Effect, Exit, Layer, Option, Schema } from "effect";
 import { Activity, DurableDeferred } from "effect/workflow";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 
@@ -155,8 +155,6 @@ export const settledSandboxReplay = Effect.fn("settledSandboxReplay")(function* 
 		: Option.none<SandboxReplayResult>();
 });
 
-export type SandboxAdmission = "queued" | "direct";
-
 export type SandboxExecutionResolutionMode = "exact" | "active";
 
 /** A direct run reached work that only `ScriptExecutionWorkflow`'s queue and replay loop can wait for. */
@@ -168,7 +166,6 @@ export class DirectScriptDeferred extends Schema.TaggedError<
 // A direct run may be nested in a parked isolate's host call, and a parked isolate keeps its admission lease, so
 // it never waits long for one: two parked parents waiting on each other's leases would deadlock.
 const DIRECT_ADMISSION_WAIT = Duration.millis(SANDBOX_LIMITS.replay.shortWaitMs);
-const QUEUED_ADMISSION_RETRY = Schedule.spaced(Duration.millis(100)).pipe(Schedule.jittered);
 
 // An inline batch keeps its lane's transient pool, which fits one batch, until its host calls settle. A script
 // nested in one of those calls could never get a batch on that lane while its parent waits for it.
@@ -182,7 +179,7 @@ const otherLane = (lane: ExecutionLane): ExecutionLane =>
 
 export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(function* (
 	payload: SandboxExecutionQueuePayload,
-	admission: SandboxAdmission = "queued",
+	admission: "queued" | "direct" = "queued",
 ) {
 	const held = yield* HeldInlineBatch;
 	const lane = held === payload.lane ? otherLane(held) : payload.lane;
@@ -196,7 +193,7 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 	const dispatcher = yield* SandboxDurableHostDispatcher;
 	const carry = yield* Effect.flatMap(DatabaseSession, (session) => session.carry);
 	const jobId = yield* CurrentJobId;
-	const execution = Effect.scoped(
+	return yield* Effect.scoped(
 		Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const inspection = yield* inspectSandboxJournal(
@@ -319,12 +316,6 @@ export const executeSandboxExecution = Effect.fn("executeSandboxExecution")(func
 			),
 		),
 	);
-	// A full queue rejects a reservation before anything runs, so a caller that can wait tries again.
-	return yield* admission === "queued"
-		? execution.pipe(
-				Effect.retry({ while: isAdmissionQueueFull, schedule: QUEUED_ADMISSION_RETRY }),
-			)
-		: execution;
 });
 
 export const sandboxLaneCapacity = (workerConcurrency: number) => ({

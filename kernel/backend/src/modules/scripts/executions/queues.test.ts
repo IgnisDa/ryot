@@ -16,8 +16,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
-import { Context, Effect, Fiber, Layer, Ref, Schema } from "effect";
-import { TestClock } from "effect/testing";
+import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { appendWorkflowJournal } from "#modules/scripts/replay/journal";
 import { DatabaseSession } from "#platform/db/session";
@@ -645,61 +644,6 @@ layer(
 
 				assertExitFails(result, new SandboxProjectionMissing());
 				expect(yield* (yield* RecordedRuns).runs).toEqual([]);
-			}),
-		testTimeout,
-	);
-});
-
-const fullQueue = new SandboxRunError({
-	kind: "resource-unavailable",
-	message: "Sandbox ephemeral admission queue is full",
-});
-
-const fullQueueSandboxLayer = Layer.unwrap(
-	Effect.gen(function* () {
-		const rejections = yield* Ref.make(2);
-		const stub = stubRuntimeSandboxExecutor((input) =>
-			Effect.succeed({
-				logs: [],
-				inline: [],
-				error: null,
-				success: true,
-				harvest: null,
-				pendingInline: [],
-				value: "queued-result",
-				executionId: input.executionId,
-				timing: { totalMs: 1, executionMs: 1 },
-				recovery: recoveryIdentity(input.executionId),
-			}),
-		);
-		return Layer.succeed(SandboxExecutor, {
-			...stub,
-			reserve: (principal, lane) =>
-				Ref.getAndUpdate(rejections, (count) => count - 1).pipe(
-					Effect.flatMap((count) =>
-						count > 0 ? Effect.fail(fullQueue) : stub.reserve(principal, lane),
-					),
-				),
-		});
-	}),
-);
-
-layer(
-	Layer.mergeAll(
-		isolatedDatabaseLayer("sandbox_queues"),
-		dispatcherLayer,
-		unusedKernelWorkflowReferencesLayer,
-		queuedArtifactsLayer,
-		fullQueueSandboxLayer,
-	),
-)((test) => {
-	test.effect(
-		"waits out a full admission queue instead of failing a queued execution",
-		() =>
-			Effect.gen(function* () {
-				const execution = yield* Effect.forkChild(nestedRun("background", "interactive"));
-				yield* TestClock.adjust("1 second");
-				expect((yield* Fiber.join(execution)).value).toBe("queued-result");
 			}),
 		testTimeout,
 	);

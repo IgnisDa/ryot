@@ -46,11 +46,6 @@ export class SandboxAdmissionLease extends Context.Service<
 const limitError = (message: string) =>
 	new SandboxRunError({ message, kind: "resource-unavailable" });
 
-const queueFullMessage = "Sandbox ephemeral admission queue is full";
-
-export const isAdmissionQueueFull = (error: unknown) =>
-	error instanceof SandboxRunError && error.message === queueFullMessage;
-
 export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmission>()(
 	"@ryot-app/sandbox/host/admission/SandboxSidecarAdmission",
 	{
@@ -277,7 +272,7 @@ export class SandboxSidecarAdmission extends Context.Service<SandboxSidecarAdmis
 								}
 								if (!waiting) {
 									if (state.waiting >= concurrency) {
-										return yield* limitError(queueFullMessage);
+										return yield* limitError("Sandbox ephemeral admission queue is full");
 									}
 									waiting = true;
 									state.waiting++;

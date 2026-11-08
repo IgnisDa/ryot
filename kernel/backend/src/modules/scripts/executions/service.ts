@@ -39,7 +39,6 @@ import {
 } from "../registry/plugin-script-resolver";
 import { SandboxRepository } from "../registry/repository";
 import { SandboxWorkflowReferenceRepository } from "../registry/workflow-references";
-import type { SandboxAdmission } from "./queues";
 import { SandboxExecutionResult } from "./result";
 import type { DirectScriptExecutor } from "./workflow";
 import {
@@ -130,10 +129,9 @@ const scriptExecutionPayload = Effect.fnUntraced(function* (input: ScriptExecuti
 export const executeScriptDirectly = (
 	executor: DirectScriptExecutor["Service"],
 	input: ScriptExecutionInput,
-	admission: SandboxAdmission,
 ) =>
 	scriptExecutionPayload(input).pipe(
-		Effect.flatMap((payload) => executor.execute(payload, input.executionId, admission)),
+		Effect.flatMap((payload) => executor.execute(payload, input.executionId)),
 		Effect.catchTag("SandboxRunError", (error) => Effect.succeed(sandboxExecutionFailure(error))),
 	);
 

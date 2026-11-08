@@ -34,6 +34,8 @@ export type FoldSource = {
 
 const FoldSubjectPayload = Schema.Struct({ userId: UserId, entityId: EntityId });
 
+// A fold that finds its sandbox lane busy fails its attempt, so attempts must outlast passing contention
+// before a subject is marked failed.
 export const FoldJob = makeJobKind("fold", {
 	concurrency: 4,
 	maxAttempts: 8,

@@ -354,8 +354,8 @@ export const AutomationRunOperationsLive = Layer.effect(
 		const admission = yield* AccountAdmission.make;
 		return AutomationRunOperations.of({
 			runSandbox: (input) => sandbox.executeScript(input),
+			runSandboxDirect: (input) => executeScriptDirectly(direct, input),
 			releaseFirstClaim: (payload) => attempts.releaseFirstClaim(payload.runId),
-			runSandboxDirect: (input) => executeScriptDirectly(direct, input, "direct"),
 			finalize: (input) =>
 				Effect.gen(function* () {
 					return yield* attempts.finalizeAttempt(
