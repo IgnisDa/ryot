@@ -110,6 +110,9 @@ export function buildApiEnv(input: {
 	);
 
 	return {
+		// Show sources and sinks need these keys configured to be ready; tests resolve shows from fixtures.
+		RYOT_PLUGIN__RYOT__MEDIA__TVDB_API_KEY: "e2e-placeholder",
+		RYOT_PLUGIN__RYOT__MEDIA__TMDB_ACCESS_TOKEN: "e2e-placeholder",
 		...process.env,
 		TZ: "Etc/GMT",
 		NODE_ENV: "test",
