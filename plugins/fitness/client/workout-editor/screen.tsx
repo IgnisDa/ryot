@@ -125,7 +125,7 @@ export function WorkoutEditorScreen(props: {
 	const names = new Map(exercises.data?.map(({ id, name }) => [id, name]));
 	const disabled = snapshot.status !== "ready" || saving || editorDraft?.submission !== undefined;
 	const uploading = snapshot.status === "ready" && snapshot.uploading;
-	const locked = disabled || request.existingGuard;
+	const locked = disabled || request.existingGuard || request.starting;
 	const ready = snapshot.status === "ready" && editorDraft !== undefined && context !== undefined;
 	const live = editorDraft?.mode.kind === "live";
 	const historical = editorDraft?.mode.kind === "historical";

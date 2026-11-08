@@ -20,6 +20,7 @@ const startInitialDraft = (input: {
 	readonly client: RyotClient;
 	readonly prepare: PrepareDraft;
 	readonly onStarted: () => void;
+	readonly onSettled: () => void;
 	readonly schedule: RyotSchedule;
 	readonly onPrepared: () => void;
 	readonly isActive: () => boolean;
@@ -72,6 +73,7 @@ const startInitialDraft = (input: {
 		),
 		() => {
 			input.starting.current = false;
+			input.onSettled();
 		},
 	);
 };
@@ -96,6 +98,7 @@ export function useInitialDraft(input: {
 	const starting = useRef(false);
 	const active = useRef(isActive);
 	const [useExisting, setUseExisting] = useState(false);
+	const [startingDraft, setStartingDraft] = useState(false);
 	const [requestHandled, setRequestHandled] = useState(false);
 	const requestBlocked =
 		input.requiresPro === true && context !== undefined && !context.proAvailable;
@@ -135,7 +138,11 @@ export function useInitialDraft(input: {
 			prepare: prepareDraft,
 			onStarted: finishRequest,
 			isActive: () => active.current,
-			onPrepared: () => setUseExisting(true),
+			onSettled: () => setStartingDraft(false),
+			onPrepared: () => {
+				setUseExisting(true);
+				setStartingDraft(true);
+			},
 		});
 	}, [
 		client,
@@ -157,6 +164,8 @@ export function useInitialDraft(input: {
 		finishRequest,
 		requestBlocked,
 		requestHandled,
+		// The started draft is shown while it is stored, then its screen is replaced, losing any local state.
+		starting: startingDraft,
 		markStarted: () => setUseExisting(true),
 		existingGuard:
 			input.draft !== undefined &&

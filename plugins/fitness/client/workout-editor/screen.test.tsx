@@ -139,7 +139,7 @@ const rows = (items: readonly Record<string, unknown>[]) => ({
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
 
-type EditorStorage = { value: null | JsonValue };
+type EditorStorage = { holdWrites?: boolean; value: null | JsonValue };
 
 const previousWeightSet = {
 	rpe: 8,
@@ -205,7 +205,11 @@ const openEditor = (
 	type QueryData = QuerySuccess["response"]["data"];
 	const answerPending = () => {
 		for (const request of page.clientMessages()) {
-			if (!("requestId" in request) || answered.has(request.requestId)) {
+			if (
+				!("requestId" in request) ||
+				answered.has(request.requestId) ||
+				(request.type === "storage-request" && request.action === "set" && storage.holdWrites)
+			) {
 				continue;
 			}
 			answered.add(request.requestId);
@@ -599,6 +603,40 @@ describe("WorkoutEditorScreen", () => {
 					expect(
 						screen.queryByRole("dialog", { name: "You have a workout in progress" }),
 					).toBeNull();
+				} finally {
+					yield* Effect.promise(() => clock.dispose());
+				}
+			}),
+		testTimeout,
+	);
+	it.live(
+		"keeps a requested draft locked until it is stored and its screen is replaced",
+		() =>
+			Effect.gen(function* () {
+				const clock = createTestRyotClock();
+				try {
+					yield* Effect.promise(() => clock.setTime(startedAtMillis));
+					let started = 0;
+					const requested = yield* editorDraft([editorOccurrence("reps_and_weight")]);
+					const storage: EditorStorage = { value: null, holdWrites: true };
+					const { answerPending } = openEditor(clock, storage, [], {
+						prepareDraft: () => Effect.succeed(requested),
+						onStarted: () => {
+							started += 1;
+						},
+					});
+					yield* waitForEditor(answerPending);
+					const details = screen.getByRole("button", { name: "Details" });
+					assert(details instanceof HTMLButtonElement);
+					expect(details.disabled).toBe(true);
+					expect(started).toBe(0);
+					storage.holdWrites = false;
+					yield* Effect.promise(() =>
+						waitFor(() => {
+							answerPending();
+							expect(started).toBe(1);
+						}),
+					);
 				} finally {
 					yield* Effect.promise(() => clock.dispose());
 				}
