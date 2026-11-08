@@ -7,7 +7,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { registerJobHandler } from "#platform/jobs/worker";
 
 import { FoldJob, FoldMarks, FoldRebuildJob } from "./marks";
-import { Folds } from "./service";
+import { Folds, PreparedFold } from "./service";
 
 const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
 	Effect.gen(function* () {
@@ -15,15 +15,15 @@ const FoldJobLive = registerJobHandler(FoldJob, (subject, job) =>
 		const marks = yield* FoldMarks.make;
 		const folds = yield* Folds;
 		const mutations = yield* EventMutations;
-		yield* mutations
-			.transaction(marks.markSubjects([subject]), "job")
-			.pipe(
-				Effect.tapError(() =>
-					job.attempt >= FoldJob.maxAttempts
-						? session.transaction(folds.failed(subject)).pipe(Effect.ignore)
-						: Effect.void,
-				),
-			);
+		const prepared = yield* folds.prepare(subject);
+		yield* mutations.transaction(marks.markSubjects([subject]), "job").pipe(
+			Effect.provideService(PreparedFold, prepared),
+			Effect.tapError(() =>
+				job.attempt >= FoldJob.maxAttempts
+					? session.transaction(folds.failed(subject)).pipe(Effect.ignore)
+					: Effect.void,
+			),
+		);
 		yield* publishDerivedDataUpdated(subject.userId);
 	}),
 );

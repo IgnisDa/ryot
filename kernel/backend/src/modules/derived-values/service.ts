@@ -16,7 +16,7 @@ import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";
-import { DirectScriptDeferred } from "#modules/scripts/executions/queues";
+import { DirectScriptDeferred, type SandboxAdmission } from "#modules/scripts/executions/queues";
 import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import {
 	executeScriptDirectly,
@@ -63,6 +63,13 @@ class FoldFailed extends Schema.TaggedError<FoldFailed, { readonly brand: unique
 	{ message: Schema.String },
 ) {}
 
+export const PreparedFold = Context.Reference<null | {
+	readonly key: string;
+	readonly result: SandboxExecutionResult;
+}>("@ryot-app/kernel-backend/modules/derived-values/service/PreparedFold", {
+	defaultValue: () => null,
+});
+
 const MAX_RUNS = 2;
 
 const INLINE_CAPACITY_RETRIES = 2;
@@ -71,7 +78,10 @@ const REBUILD_PAGE = 500;
 
 const failure = (message: string) => new FoldFailed({ message });
 
-type FoldRun = (input: ScriptExecutionInput) => Effect.Effect<SandboxExecutionResult, unknown>;
+type FoldRun = (
+	input: ScriptExecutionInput,
+	admission: SandboxAdmission,
+) => Effect.Effect<SandboxExecutionResult, unknown>;
 
 /**
  * Runs fold scripts once the runtime installs its sandbox executor. Until then, and wherever nothing installs it,
@@ -93,11 +103,11 @@ class FoldExecutor extends Context.Service<
 					Effect.acquireRelease(Ref.set(installed, Option.some(run)), () =>
 						Ref.set(installed, Option.none()),
 					),
-				run: (input: ScriptExecutionInput) =>
+				run: (input: ScriptExecutionInput, admission: SandboxAdmission) =>
 					Effect.flatMap(Ref.get(installed), (run) =>
 						Option.isNone(run)
 							? Effect.fail(failure("Fold executor is not installed"))
-							: run.value(input),
+							: run.value(input, admission),
 					),
 			};
 		}),
@@ -107,7 +117,9 @@ class FoldExecutor extends Context.Service<
 export const FoldExecutorInstalledLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const direct = yield* DirectScriptExecutor;
-		yield* (yield* FoldExecutor).install((input) => executeScriptDirectly(direct, input));
+		yield* (yield* FoldExecutor).install((input, admission) =>
+			executeScriptDirectly(direct, input, admission),
+		);
 	}),
 ).pipe(Layer.provide(FoldExecutor.layer));
 
@@ -235,10 +247,10 @@ export class Folds extends Context.Service<Folds>()(
 				);
 			});
 
-			const run = Effect.fn("Folds.run")(function* (
+			const inputs = Effect.fnUntraced(function* (
 				subject: FoldSubject,
 				declaration: FoldDeclaration,
-				lane: ExecutionLane,
+				lock: boolean,
 			) {
 				const binding = yield* scripts.resolve({
 					userId: subject.userId,
@@ -248,9 +260,11 @@ export class Folds extends Context.Service<Folds>()(
 				if (!binding) {
 					return yield* failure("Fold script is unavailable");
 				}
-				yield* session.run((db) =>
-					db.execute(sql`select 1 from entity where id = ${subject.entityId} for no key update`),
-				);
+				if (lock) {
+					yield* session.run((db) =>
+						db.execute(sql`select 1 from entity where id = ${subject.entityId} for no key update`),
+					);
+				}
 				const stored = yield* session.run((db) =>
 					db.execute<StoredRow>(
 						sql`select kind, target_id as "targetId", value, status, plugin_revision_id as "pluginRevisionId"
@@ -258,7 +272,6 @@ export class Folds extends Context.Service<Folds>()(
 						"objects",
 					),
 				);
-				const previous = stored.find((row) => row.kind === "subject");
 				const absorbed = yield* Effect.forEach(
 					stored.filter((row) => row.kind === "absorbed"),
 					(row) =>
@@ -266,25 +279,73 @@ export class Folds extends Context.Service<Folds>()(
 							Effect.mapError(() => failure("Absorbed fold value is invalid")),
 						),
 				);
-				const result = yield* Effect.flatMap(random.uuidV4(), (id) =>
-					executor.run({
-						lane,
-						executionId: `fold-${id}`,
-						pluginRevision: binding.pluginPin,
-						subject: binding.principal.subject,
-						scriptId: binding.principal.scriptId,
-						input: { absorbed, value: previous?.value ?? null, subjectEntityId: subject.entityId },
-					}),
-				).pipe(
-					// A busy sandbox lane is brief, and waiting it out here keeps the fold in its write.
-					Effect.retry({
-						while: (error) => error instanceof DirectScriptDeferred,
-						times: lane === "interactive" ? INLINE_CAPACITY_RETRIES : 0,
-					}),
-					Effect.mapError((error) =>
-						failure(`Fold could not run in the sandbox: ${String(error)}`),
+				const value = stored.find((row) => row.kind === "subject")?.value ?? null;
+				const input = { value, absorbed, subjectEntityId: subject.entityId };
+				const key = stableStringify({
+					input,
+					pin: binding.pluginPin,
+					scriptId: binding.principal.scriptId,
+				});
+				return { key, input, stored, binding };
+			});
+
+			const execute = (
+				{ input, binding }: Effect.Success<ReturnType<typeof inputs>>,
+				lane: ExecutionLane,
+				admission: SandboxAdmission,
+			) =>
+				Effect.flatMap(random.uuidV4(), (id) =>
+					executor.run(
+						{
+							lane,
+							input,
+							executionId: `fold-${id}`,
+							pluginRevision: binding.pluginPin,
+							subject: binding.principal.subject,
+							scriptId: binding.principal.scriptId,
+						},
+						admission,
 					),
 				);
+
+			/**
+			 * Runs a job's fold before its transaction takes locks, so it can wait for a sandbox lease. The locked run
+			 * reuses the result only while the fold's inputs are unchanged.
+			 */
+			const prepare = Effect.fn("Folds.prepare")(
+				function* (subject: FoldSubject) {
+					const [entry] = yield* resolve({ sources: [], subjects: [subject] });
+					if (!entry) {
+						return null;
+					}
+					const read = yield* inputs(entry.subject, entry.declaration, false);
+					const result = yield* execute(read, "background", "queued");
+					return result.error ? null : { result, key: read.key };
+				},
+				Effect.orElseSucceed(() => null),
+			);
+
+			const run = Effect.fn("Folds.run")(function* (
+				subject: FoldSubject,
+				declaration: FoldDeclaration,
+				lane: ExecutionLane,
+			) {
+				const read = yield* inputs(subject, declaration, true);
+				const { stored, binding } = read;
+				const prepared = yield* PreparedFold;
+				const result =
+					prepared?.key === read.key
+						? prepared.result
+						: yield* execute(read, lane, "direct").pipe(
+								// A locked fold must not wait long for a lease, so it retries only a briefly busy lane.
+								Effect.retry({
+									while: (error) => error instanceof DirectScriptDeferred,
+									times: lane === "interactive" ? INLINE_CAPACITY_RETRIES : 0,
+								}),
+								Effect.mapError((error) =>
+									failure(`Fold could not run in the sandbox: ${String(error)}`),
+								),
+							);
 				if (result.error) {
 					return yield* failure(
 						`Fold failed with ${result.error.kind} during ${result.error.phase}: ${result.error.message}`,
@@ -514,7 +575,7 @@ export class Folds extends Context.Service<Folds>()(
 				} while (after !== null);
 			});
 
-			return { within, failed, rebuild };
+			return { within, failed, rebuild, prepare };
 		}),
 	},
 ) {

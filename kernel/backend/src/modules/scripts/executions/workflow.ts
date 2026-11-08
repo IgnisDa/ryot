@@ -59,6 +59,7 @@ import {
 	DirectScriptDeferred,
 	executeSandboxExecution,
 	processSandboxExecutionQueue,
+	type SandboxAdmission,
 	type SandboxExecutionQueuePayload,
 	type SandboxExecutionResolutionMode,
 	type SandboxProjectionMissing,
@@ -1054,6 +1055,7 @@ export const runScriptExecutionWorkflowBody = Effect.fn("ScriptExecutionWorkflow
 const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 	payload: ScriptExecutionWorkflowPayloadValue,
 	executionId: string,
+	admission: SandboxAdmission,
 ) {
 	const startedAt = yield* sandboxStartedAt;
 	const pinning = yield* SandboxWorkflowPinning;
@@ -1087,7 +1089,7 @@ const executeScriptDirect = Effect.fn("executeScriptDirect")(function* (
 				executionId: `${executionId}-replay-0`,
 				...(payload.grants ? { grants: payload.grants } : {}),
 			},
-			"direct",
+			admission,
 		);
 		if (replay.pendingInline.length > 0) {
 			return yield* new DirectScriptDeferred();
@@ -1129,6 +1131,7 @@ export class DirectScriptExecutor extends Context.Service<
 		readonly execute: (
 			payload: ScriptExecutionWorkflowPayloadValue,
 			executionId: string,
+			admission: SandboxAdmission,
 		) => Effect.Effect<SandboxExecutionResult, SandboxRunError | DirectScriptDeferred>;
 	}
 >()("@ryot-app/kernel-backend/modules/scripts/executions/workflow/DirectScriptExecutor") {
@@ -1139,9 +1142,15 @@ export class DirectScriptExecutor extends Context.Service<
 				yield* Effect.context<Effect.Services<ReturnType<typeof executeScriptDirect>>>();
 			const session = yield* DatabaseSession;
 			return {
-				execute: (payload: ScriptExecutionWorkflowPayloadValue, executionId: string) =>
+				execute: (
+					payload: ScriptExecutionWorkflowPayloadValue,
+					executionId: string,
+					admission: SandboxAdmission,
+				) =>
 					Effect.flatMap(session.carry, (carry) =>
-						carry(executeScriptDirect(payload, executionId)).pipe(Effect.provideContext(context)),
+						carry(executeScriptDirect(payload, executionId, admission)).pipe(
+							Effect.provideContext(context),
+						),
 					).pipe(
 						Effect.catchIf(
 							(error) =>
