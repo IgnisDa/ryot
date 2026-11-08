@@ -157,7 +157,12 @@ export const makeAutomationsApi = (overrides: Partial<AutomationsApi["Service"]>
 	});
 
 export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
-	Layer.succeed(AccountApi, { refreshAvatar: unused, updatePreferences: unused, ...overrides });
+	Layer.succeed(AccountApi, {
+		rename: unused,
+		refreshAvatar: unused,
+		updatePreferences: unused,
+		...overrides,
+	});
 
 export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Service"]> = {}) =>
 	Layer.succeed(InstanceAdminApi, {

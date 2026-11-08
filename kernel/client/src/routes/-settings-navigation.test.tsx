@@ -592,6 +592,7 @@ describe("account settings", () => {
 					screen.findByRole("button", { name: "New avatar" }),
 				);
 				expect(avatar.hasAttribute("disabled")).toBe(false);
+				expect(screen.queryByRole("textbox", { name: "Name" })).toBeNull();
 				expect(screen.getByRole("button", { name: "Sign out" }).hasAttribute("disabled")).toBe(
 					false,
 				);
@@ -769,6 +770,84 @@ describe("account settings", () => {
 				expect(opened).toEqual([server]);
 			}),
 		testTimeout,
+	);
+
+	it.live("saves a trimmed name and refreshes the account identity", () =>
+		Effect.gen(function* () {
+			let name: string = authenticated.user.name;
+			const writes: string[] = [];
+			const refreshes: boolean[] = [];
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				makeAuthStub({
+					settledSession: (_origin, force = false) =>
+						Effect.sync(() => {
+							refreshes.push(force);
+							return { ...authenticated, user: { ...authenticated.user, name } };
+						}),
+				}),
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					rename: (_scope, request) =>
+						Effect.sync(() => {
+							name = request.payload.name;
+							writes.push(name);
+						}),
+				}),
+			);
+			const input = yield* Effect.promise(() => screen.findByRole("textbox", { name: "Name" }));
+			expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
+			fireEvent.change(input, { target: { value: "   " } });
+			expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
+			fireEvent.change(input, { target: { value: "  New Name  " } });
+			fireEvent.click(screen.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => screen.findByText("Name saved"));
+			yield* Effect.promise(() => screen.findByText("New Name"));
+			expect(writes).toEqual(["New Name"]);
+			expect(refreshes).toContain(true);
+			expect(screen.getByRole("button", { name: "Save" }).hasAttribute("disabled")).toBe(true);
+		}),
+	);
+
+	it.live("preserves the name draft after failure and prevents duplicate saves while pending", () =>
+		Effect.gen(function* () {
+			const gate = Deferred.makeUnsafe<void>();
+			let attempts = 0;
+			mountView(
+				"/settings/account",
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				makeUserSettingsStub({
+					rename: () =>
+						Effect.gen(function* () {
+							attempts += 1;
+							if (attempts === 1) {
+								yield* Deferred.await(gate);
+								return yield* new AuthenticatedApiError({ cause: "unavailable" });
+							}
+							return undefined;
+						}),
+				}),
+			);
+			const input = yield* Effect.promise(() => screen.findByRole("textbox", { name: "Name" }));
+			fireEvent.change(input, { target: { value: "New Name" } });
+			fireEvent.click(screen.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => screen.findByRole("button", { name: "Saving..." }));
+			expect(input.hasAttribute("disabled")).toBe(true);
+			expect(screen.getByRole("button", { name: "Saving..." }).hasAttribute("disabled")).toBe(true);
+			yield* Deferred.succeed(gate, undefined);
+			yield* Effect.promise(() => screen.findByText("Could not save your name. Try again."));
+			expect(screen.getByDisplayValue("New Name")).toBe(input);
+			fireEvent.click(screen.getByRole("button", { name: "Save" }));
+			yield* Effect.promise(() => screen.findByText("Name saved"));
+			expect(attempts).toBe(2);
+		}),
 	);
 
 	it.live(

@@ -58,6 +58,24 @@ const refreshAvatarMutation = createRyotHostMutation<void, void, KernelHostServi
 	{ hostServices: KernelHostServices },
 );
 
+const renameMutation = createRyotHostMutation<string, void, KernelHostServices>(
+	({ input, client, hostServices }) =>
+		hostServices.runtime
+			.runSync(AccountApi)
+			.rename(hostServices.scope, { payload: { name: input } })
+			.pipe(
+				Effect.flatMap(() =>
+					hostServices.runtime
+						.runSync(AuthService)
+						.settledSession(hostServices.scope.serverUrl, true),
+				),
+				Effect.tap(() => Effect.sync(() => client.mutationCompleted.hint())),
+				Effect.as(undefined),
+				Effect.mapError(() => new RyotClientError({ reason: "transport" })),
+			),
+	{ hostServices: KernelHostServices },
+);
+
 const signOutMutation = createRyotHostMutation<void, boolean, KernelHostServices>(
 	({ hostServices }) =>
 		hostServices.runtime
@@ -74,16 +92,19 @@ function AccountRoute() {
 	const twoFactorStatus = useRyotQuery(twoFactorStatusQuery);
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	const refreshAvatar = useRyotMutation(refreshAvatarMutation);
+	const rename = useRyotMutation(renameMutation);
 	const signOut = useRyotMutation(signOutMutation);
 
 	return (
 		<SettingsFrame title="Account" backFallbackHref="/settings">
 			<div className="flex flex-col gap-8">
 				<AccountProfile
+					isDemo={isDemo}
 					identity={identity.data}
 					isLoading={identity.isPending}
 					onRetry={() => identity.refetch()}
 					isGenerating={refreshAvatar.isPending}
+					onRename={(name) => rename.mutateEffect(name)}
 					onGenerateAvatar={() => refreshAvatar.mutate()}
 					generationFailed={refreshAvatar.status === "error"}
 				/>
