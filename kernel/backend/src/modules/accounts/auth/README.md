@@ -22,6 +22,11 @@ Access tokens expire after 15 minutes and refresh tokens after 30 days. API midd
 
 User preferences are application data on the user row, not Better Auth user fields or session claims. Authenticated application reads decode the full canonical JSONB value. Preference commands validate a partial body, normalize language at the write boundary, and merge supplied fields in one row update; omitted fields remain unchanged. The database supplies complete defaults and rejects malformed stored values.
 
+Account settings rename the current user through `PATCH /account/name`. The name is trimmed,
+required, and limited to 100 characters. The protected application endpoint uses the existing auth
+adapter and demo/lifecycle guards; web and native clients refresh UserInfo after saving. External
+OIDC does not enable profile overrides on subsequent sign-ins, so local name edits persist.
+
 `reportingTimeZone` is a required, validated IANA zone. The database default is UTC. Hosted email
 sign-up sends the browser zone in the `x-ryot-reporting-time-zone` header, and hosted OIDC sign-in
 carries it as OAuth `additionalData`; after Better Auth creates the user, a valid requested zone

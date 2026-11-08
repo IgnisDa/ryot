@@ -159,7 +159,18 @@ readiness fix. Order 12 is Done.
 | --- | --- | --- | --- | --- |
 | 15 | Pending | **Ship collection recommendations** | 4 and 6 | Add a reusable Media-owned recipe and paged/searchable client surface over the existing suggestion graph. Specify exclusions and empty-result behavior. Keep the current latest-completion home recommendation design unless a separate product decision changes it; do not copy V1 random sampling simply for parity. |
 | 16 | Done | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | The unified Analytics destination provides Media and Fitness totals, comparisons, grouping, trends, hourly activity, rankings and drill-downs with the agreed historical facts, units, date and timezone semantics. Targeted API/browser coverage and both real datasets pass correctness, readiness and restart acceptance. See the Order 16 acceptance record below. |
-| 17 | Pending | **Add account rename controls** | Existing hosted auth and admin authorization | Ship self-service rename, then admin-on-behalf rename if required. Keep server-token administration; do not reintroduce V1 roles or the onboarding-tour flag. This is independent work and may move earlier without delaying the main feature sequence. |
+| 17 | Done | **Add self-service account rename** | Existing account authentication | Account settings edit the current user’s display name with validation, save/retry feedback and refreshed identity on web/native. Demo sessions cannot rename. Admin-on-behalf rename, V1 roles and the onboarding-tour flag are excluded by agreement. |
+
+Order 17 ships only self-service display-name editing in Settings → Account. The existing profile
+card contains a labeled name field and Save action with pending, success and retry feedback; failed
+saves retain the draft. The server trims names and requires 1–100 characters. Shared demo credentials
+cannot rename; ordinary owner credentials remain unrestricted. The client refreshes account identity
+after saving, using the same OAuth application path on web and native.
+
+Validation: `bun run check` passed; root Turbo tests passed for contract (299), backend (2,793), and
+client (1,189). Targeted `user-settings.test.ts` and `auth/demo-access.test.ts` acceptance passed
+(14 tests), including persistence, account isolation, validation, current UserInfo and demo rejection.
+Client route tests cover saving, identity refresh, pending controls, failed-save retry and demo UI.
 
 Order 16 implements the unified Analytics destination, partial-consumption and historical-snapshot
 rules, reporting timezone, Fitness semantics and shared charts. The approved implementation plan is
@@ -770,7 +781,7 @@ Paths abbreviated as `modules/...` in the tables below are under
 | Register, login/logout, OIDC, long-lived auth tokens | Reshaped | `modules/accounts/auth/service.ts`: Better Auth hosted login, external OIDC, OAuth 2.1/PKCE for web/native, API keys. Application APIs accept OAuth bearer tokens or `X-Api-Key`, not hosted-login cookies. Username login becomes email login. |
 | TOTP setup, verification, disable, recovery codes | Covered | Better Auth two-factor plugin, hosted `/oauth/two-factor`, kernel Account settings. Availability depends on a credential account. |
 | Password-change sessions and admin provisioning/reset | Reshaped | Instance Admin provisions credential/OIDC accounts and obtains Better Auth reset links; links expire after 30 minutes. No V1 password-change-session wire contract. |
-| User details, preferences, account name | Partial | Self `user` reads use RyotQL; kernel preferences are `language` and `disableIntegrations`; domain preferences belong to installations. Better Auth exposes `/update-user`, but the shipped Account screen has no rename form. See [account and preference differences](#account-and-preference-differences). |
+| User details, preferences, account name | Covered; reshaped | Self `user` reads use RyotQL; kernel preferences are `language` and `disableIntegrations`; domain preferences belong to installations. The Account screen offers self-service display-name editing through the protected `/account/name` command. See [account and preference differences](#account-and-preference-differences). |
 | User listing, disable/delete/reset | Covered | `modules/instance-admin` commands plus admin RyotQL `user` and `userLifecycleOperation` reads; client `kernel/client/src/routes/instance-admin`. Reset/delete are durable operations. Normal user reads see only self; the old claim that any authenticated caller receives the full user list is wrong. |
 | Admin impersonation | Reshaped | Instance Admin one-use 60-second handoff, PKCE, one-hour impersonation session, client banner and explicit exit. This replaces the admin use of access links; it is not missing with public sharing. |
 | Demo account | Reshaped | `USERS_DEMO_ACCOUNT_ID`, `/demo`, credential-scoped restrictions. Owner credentials remain unrestricted; shared demo changes persist, with no periodic reset. |
@@ -1145,8 +1156,8 @@ Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/sr
 
 ### Account and preference differences
 
-- Better Auth can update a user's own name; no shipped rename UI or dedicated admin
-  rename-on-behalf command exists. V1 roles/last-admin deletion guard do not apply to the
+- Account settings offer self-service display-name editing. Admin rename-on-behalf is excluded
+  by agreement. V1 roles/last-admin deletion guard do not apply to the
   server-token admin model. V1 onboarding-tour state is not the V2 account-bootstrap marker
   or server-selection onboarding flow.
 - Preserved or replaced preferences include language, integration disablement, Media NSFW,
@@ -1255,7 +1266,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `fitness` | `user_workout_templates_list`, `user_workout_template_details`, `user_exercises_list`, `user_workouts_list`, `exercise_details`, `user_workout_details`, `user_exercise_details`, `user_measurements_list` | `create_or_update_user_workout_template`, `delete_user_workout_template`, `create_or_update_user_measurement`, `delete_user_measurement`, `create_or_update_user_workout`, `update_user_workout_attributes`, `delete_user_workout`, `update_user_exercise_settings`, `merge_exercise` | Fitness recipes/screens and operations; merge/settings differences above. |
 | `user/services` | `user_metadata_recommendations`, `user_integrations`, `user_notification_platforms` | `create_or_update_user_integration`, `delete_user_integration`, `create_user_notification_platform`, `update_user_notification_platform`, `delete_user_notification_platform`, `test_user_notification_platforms` | Discovery recipe plus integration/channel commands and catalog reads. |
 | `user/authentication` | `get_oidc_redirect_url`, `user_by_oidc_issuer_id` | `complete_oidc_login`, `register_user`, `login_user`, `logout_user`, `generate_auth_token`, `verify_two_factor`, `initiate_two_factor_setup`, `complete_two_factor_setup`, `disable_two_factor`, `regenerate_two_factor_backup_codes` | Hosted Better Auth/OAuth/OIDC/API keys; no public arbitrary issuer-ID user lookup replacement. |
-| `user/management` | `users_list`, `user_details`, `user_access_links` | `delete_user`, `reset_user`, `update_user`, `update_user_preference`, `get_password_change_session`, `set_password_via_session`, `create_access_link`, `process_access_link`, `revoke_access_link`, `generate_user_impersonation_link` | Account/auth and Instance Admin; sharing excluded, roles reshaped, rename UI/admin-on-behalf gap. |
+| `user/management` | `users_list`, `user_details`, `user_access_links` | `delete_user`, `reset_user`, `update_user`, `update_user_preference`, `get_password_change_session`, `set_password_via_session`, `create_access_link`, `process_access_link`, `revoke_access_link`, `generate_user_impersonation_link` | Account/auth and Instance Admin; self-service display-name editing shipped; sharing, V1 roles and admin rename-on-behalf excluded. |
 | `exporter` | `user_exports` | `deploy_export_job` | Backup runs, export and download. |
 | `file-storage` | `get_presigned_s3_url` | `presigned_put_s3_url`, `delete_s3_object` | Managed upload intents/downloads/cleanup; no arbitrary bucket authority. |
 | `importer` | `user_import_reports` | `deploy_import_job`, `delete_user_import_report` | Import source/run/issue catalogs and start/delete/cancel/failure-download commands. |
