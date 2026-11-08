@@ -8,7 +8,12 @@ import { Result } from "@ryot-app/plugin-kit/effect";
 import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { anything, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
-import { latestCompletionSuggestionsRecipe, trendingLatestMediaRecipe } from "./discovery-recipes";
+import {
+	collectionRecommendationSourcesRecipe,
+	collectionRecommendationsRecipe,
+	latestCompletionSuggestionsRecipe,
+	trendingLatestMediaRecipe,
+} from "./discovery-recipes";
 
 const mediaRow = (id: string) => ({
 	id,
@@ -124,5 +129,69 @@ describe("trending latest media recipe", () => {
 			["asc", "column"],
 			["asc", "column"],
 		]);
+	});
+});
+
+const recommendationsQuery = (searchText?: string) =>
+	collectionRecommendationsRecipe({
+		limit: 30,
+		searchText,
+		collectionId: "col",
+		reference: { kind: "self" },
+	}).document.queries["recommendations"];
+
+const sources = (count: number) => ({ type: "aggregate", items: [{ count }] });
+
+describe("collection recommendations recipes", () => {
+	it("validates both documents", () => {
+		for (const recipe of [
+			collectionRecommendationSourcesRecipe({ collectionId: "col", reference: { kind: "self" } }),
+			collectionRecommendationsRecipe({
+				limit: 30,
+				after: "cursor",
+				searchText: "dune",
+				collectionId: "col",
+				reference: { kind: "self" },
+			}),
+		]) {
+			expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
+		}
+	});
+
+	it("ranks by suggesting members before name and searches only when given text", () => {
+		const query = recommendationsQuery("  dune ");
+		if (query?.output.type !== "rows" || query.where?.type !== "and") {
+			throw new Error("Expected the filtered recommendation rows query");
+		}
+
+		expect(query.output.orderBy.map(({ expr, direction }) => [direction, expr.type])).toEqual([
+			["desc", "aggregate"],
+			["asc", "column"],
+			["asc", "column"],
+		]);
+		expect(query.where.predicates).toContainEqual<unknown>(
+			objectContaining({ type: "contains", right: objectContaining({ value: "dune" }) }),
+		);
+		expect(recommendationsQuery("  ")?.where).toMatchObject({
+			predicates: [anything(), anything(), anything(), anything()],
+		});
+	});
+
+	it("reports a missing collection and counts suggesting members", () => {
+		const recipe = collectionRecommendationSourcesRecipe({
+			collectionId: "col",
+			reference: { kind: "self" },
+		});
+
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { sources: sources(0), collection: page([], 2) } })),
+		).toBeNull();
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: { sources: sources(3), collection: page([{ id: "col", name: "Shelf" }], 2) },
+				}),
+			),
+		).toMatchObject({ id: "col", name: "Shelf", sourceCount: 3 });
 	});
 });

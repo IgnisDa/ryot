@@ -4,7 +4,12 @@ import {
 	ascending,
 	castDate,
 	column,
+	contains,
+	count,
+	countAll,
 	defineRecipe,
+	descending,
+	entitySchemaPredicate,
 	eq,
 	eventOrderDescending,
 	exists,
@@ -21,12 +26,13 @@ import {
 	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
+	selectedAggregate,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityIdentitySelection,
@@ -206,3 +212,135 @@ export const trendingLatestMediaRecipe = defineRecipe(
 );
 
 export type TrendingLatestMediaResult = Recipe.Success<typeof trendingLatestMediaRecipe>;
+
+const collectionMembership = (membership: Table, collectionId: string) =>
+	and(
+		eq(column(membership, "targetEntityId"), literal(collectionId)),
+		relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
+	);
+
+const collectionSuggestionEdges = (
+	target: Table,
+	input: { readonly collectionId: string; readonly reference: PluginIdentityReference },
+	alias: string,
+) => {
+	const suggestion = table("relationship", alias);
+	const membership = table("relationship", `${alias}Membership`);
+	return [
+		suggestion,
+		{
+			joins: [
+				join(
+					"inner",
+					membership,
+					eq(column(membership, "sourceEntityId"), column(suggestion, "sourceEntityId")),
+				),
+			],
+			where: and(
+				collectionMembership(membership, input.collectionId),
+				eq(column(suggestion, "targetEntityId"), column(target, "id")),
+				relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
+			),
+		},
+	] as const;
+};
+
+/**
+ * The collection's name and how many of its members have provider suggestions, so an empty page can
+ * tell a collection with nothing to suggest from one whose suggestions it already holds.
+ */
+export const collectionRecommendationSourcesRecipe = defineRecipe(
+	(input: { readonly collectionId: string; readonly reference: PluginIdentityReference }) => {
+		const collection = table("entity", "recommendedCollection");
+		const membership = table("relationship", "recommendationSourceMembership");
+		const suggestion = table("relationship", "recommendationSourceEdge");
+		return {
+			map: ({ sources, collection: row }) =>
+				Result.succeed(row === undefined ? null : { ...row, sourceCount: sources.count }),
+			queries: {
+				sources: selectedAggregate(membership, {
+					measures: { count: countAll },
+					where: and(
+						collectionMembership(membership, input.collectionId),
+						exists(suggestion, {
+							where: and(
+								eq(column(suggestion, "sourceEntityId"), column(membership, "sourceEntityId")),
+								relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
+							),
+						}),
+					),
+				}),
+				collection: selectedOptionalRow(collection, {
+					orderBy: [ascending(column(collection, "id"))],
+					selection: {
+						id: selectedField(column(collection, "id"), EntityId),
+						name: selectedField(column(collection, "name"), Schema.String),
+					},
+					where: and(
+						eq(column(collection, "id"), literal(input.collectionId)),
+						entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export type CollectionRecommendationSourcesResult = Recipe.Success<
+	typeof collectionRecommendationSourcesRecipe
+>;
+
+/** Library titles stay because they can still be added to the collection. */
+export const collectionRecommendationsRecipe = defineRecipe(
+	(input: {
+		readonly limit: number;
+		readonly collectionId: string;
+		readonly after?: string | undefined;
+		readonly searchText?: string | undefined;
+		readonly reference: PluginIdentityReference;
+	}) => {
+		const target = table("entity", "recommendation");
+		const member = table("relationship", "recommendationMember");
+		const suggestedBy = count(...collectionSuggestionEdges(target, input, "recommendationCount"));
+		const search = input.searchText?.trim();
+		return {
+			map: ({ recommendations }) => Result.succeed(recommendations),
+			queries: {
+				recommendations: selectedRows(target, {
+					limit: input.limit,
+					...(input.after === undefined ? {} : { after: input.after }),
+					orderBy: [
+						descending(suggestedBy),
+						ascending(column(target, "name")),
+						ascending(column(target, "id")),
+					],
+					selection: {
+						...discoveredMediaSelection(target),
+						...mediaLibrarySelection(target),
+						suggestedBy: selectedField(suggestedBy, Schema.Finite),
+					},
+					where: and(
+						schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
+						exists(...collectionSuggestionEdges(target, input, "recommendationEdge")),
+						not(
+							exists(member, {
+								where: and(
+									collectionMembership(member, input.collectionId),
+									eq(column(member, "sourceEntityId"), column(target, "id")),
+								),
+							}),
+						),
+						isNotNsfw(target),
+						...(search ? [contains(column(target, "name"), literal(search))] : []),
+					),
+				}),
+			},
+		};
+	},
+);
+
+export type CollectionRecommendation = CollectionRecommendationsResult["items"][number];
+
+export type CollectionRecommendationsResult = Recipe.Success<
+	typeof collectionRecommendationsRecipe
+>;

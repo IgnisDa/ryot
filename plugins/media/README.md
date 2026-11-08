@@ -144,6 +144,11 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
   canonical episodic next-up and flat progress.
 - `discovery-recipes.ts` selects suggestions from the latest completion that still has suggestions
   and interleaves the latest per-schema trending ranks. Both exclude known NSFW entries.
+- Collection recommendations (`collectionPages.recommendations`) rank every title that collection
+  members suggest by how many members suggest it, then by name, with name search and cursor pages.
+  They exclude the collection's own members and known NSFW titles but keep library titles, which
+  show the in-library mark. The page separates a collection whose members have no suggestions from
+  one whose suggestions are all already members, and a missing or inaccessible collection.
 - `upcoming-recipes.ts` feeds the home Upcoming rail from four sources: unwatched regular show and
   podcast episodes of in-progress, caught-up or monitored titles; anime airings after the latest
   watched episode for in-progress or monitored anime; and monitored, incomplete flat releases

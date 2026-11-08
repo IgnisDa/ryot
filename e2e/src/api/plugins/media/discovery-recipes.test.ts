@@ -1,4 +1,6 @@
 import {
+	collectionRecommendationSourcesRecipe,
+	collectionRecommendationsRecipe,
 	latestCompletionSuggestionsRecipe,
 	trendingLatestMediaRecipe,
 } from "@ryot-app/media-plugin/shared/discovery-recipes";
@@ -15,6 +17,7 @@ import {
 	requireEventSchemaBySlug,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
+import { createCollection } from "~/fixtures/kernel/collections";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
@@ -186,6 +189,106 @@ describe("Trending latest media", () => {
 				[movieTwo.id, 2, at(0)],
 				[showTwo.id, 2, at(-1)],
 			]);
+		}),
+	);
+});
+
+describe("Collection recommendations", () => {
+	it.live("ranks titles suggested by collection members and excludes members and NSFW titles", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { schema, pluginId } = yield* findMediaEntitySchema(client, "book");
+			const reference: MediaReference = { pluginId, kind: "local" };
+			const suggestion = yield* relationshipSchemaReference(
+				client,
+				schema.reference.owner,
+				"media-suggestion",
+			);
+			const [first, second, outsider, shared, single, owned, adult, unrelated] = yield* Effect.all([
+				seedTitle(schema.id, "First Member"),
+				seedTitle(schema.id, "Second Member"),
+				seedTitle(schema.id, "Outside Source"),
+				seedTitle(schema.id, "Shared Suggestion"),
+				seedTitle(schema.id, "Single Suggestion"),
+				seedTitle(schema.id, "Library Suggestion"),
+				seedTitle(schema.id, "Adult Suggestion", true),
+				seedTitle(schema.id, "Unrelated Suggestion"),
+			]);
+			const collection = yield* createCollection(client);
+			for (const member of [first, second]) {
+				yield* client.call((c) =>
+					c.collections.createMembership({
+						payload: { entityId: member.id, collectionId: collection.id },
+					}),
+				);
+			}
+			yield* insertLibraryMembership(client, { mediaEntityId: owned.id });
+			for (const [source, target] of [
+				[first, shared],
+				[second, shared],
+				[first, single],
+				[second, owned],
+				[first, second],
+				[first, adult],
+				[outsider, unrelated],
+			] as const) {
+				yield* insertGlobalRelationship({
+					sourceEntityId: source.id,
+					targetEntityId: target.id,
+					relationshipSchema: suggestion,
+				});
+			}
+			const recommendations = (input: {
+				readonly limit: number;
+				readonly after?: string | undefined;
+				readonly searchText?: string | undefined;
+			}) =>
+				executeRyotQLRecipe(
+					client,
+					collectionRecommendationsRecipe({ ...input, reference, collectionId: collection.id }),
+				);
+
+			const sources = yield* executeRyotQLRecipe(
+				client,
+				collectionRecommendationSourcesRecipe({ reference, collectionId: collection.id }),
+			);
+			expect(sources).toEqual({ sourceCount: 2, id: collection.id, name: collection.name });
+			const all = yield* recommendations({ limit: 20 });
+			expect(all.items.map((item) => [item.id, item.suggestedBy, item.isInMediaLibrary])).toEqual([
+				[shared.id, 2, false],
+				[owned.id, 1, true],
+				[single.id, 1, false],
+			]);
+			const firstPage = yield* recommendations({ limit: 2 });
+			const secondPage = yield* recommendations({
+				limit: 2,
+				after: firstPage.pageInfo.nextCursor ?? undefined,
+			});
+			expect([...firstPage.items, ...secondPage.items].map(({ id }) => id)).toEqual(
+				all.items.map(({ id }) => id),
+			);
+			expect(secondPage.pageInfo.hasMore).toBe(false);
+			const searched = yield* recommendations({ limit: 20, searchText: "single suggestion" });
+			expect(searched.items.map(({ id }) => id)).toEqual([single.id]);
+		}),
+	);
+
+	it.live("hides another user's collection", () =>
+		Effect.gen(function* () {
+			const [{ client: owner }, { client: other }] = yield* Effect.all([
+				createAuthenticatedClient(),
+				createAuthenticatedClient(),
+			]);
+			const { pluginId } = yield* findMediaEntitySchema(other, "book");
+			const collection = yield* createCollection(owner);
+			const sources = yield* executeRyotQLRecipe(
+				other,
+				collectionRecommendationSourcesRecipe({
+					collectionId: collection.id,
+					reference: { pluginId, kind: "local" },
+				}),
+			);
+			expect(sources).toBeNull();
 		}),
 	);
 });

@@ -33,6 +33,16 @@ the collection's item types.
 If another tab changes the collection, reload it before making another move. If a move cannot be
 confirmed because of a connection failure, **Retry move** safely retries that same move.
 
+## Recommendations
+
+Collections with movies, shows, books, or other media titles show a **Recommendations** button.
+It lists titles suggested by the collection's items, with titles suggested by more of them first.
+
+- Items already in the collection are not shown. Titles already in your library are shown with a check mark.
+- Use the search box to find a recommendation by name.
+- Suggestions come from each title's provider. If none appear, add titles from a provider or refresh
+  a title to fetch its suggestions.
+
 ## Library state and monitoring
 
 Media lifecycle lists, ownership, and monitoring are separate from ordinary collections.

@@ -142,6 +142,8 @@ const consumedOnUserSettingFields = Object.fromEntries(
 	]),
 );
 
+const COLLECTION_RECOMMENDATIONS_ROUTE = "/collections/$collectionId/recommendations";
+
 const importDocs = (page: string) => ({ docsUrl: `https://docs.ryot.io/importing/${page}.html` });
 
 const uploadInputSchema = (
@@ -694,8 +696,17 @@ export const mediaPlugin = definePlugin({
 		analyticsSections: {
 			media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
 		},
+		collectionPages: {
+			recommendations: {
+				icon: "sparkles",
+				label: "Recommendations",
+				route: COLLECTION_RECOMMENDATIONS_ROUTE,
+				entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
+			},
+		},
 		routes: {
 			"/": "media-home",
+			[COLLECTION_RECOMMENDATIONS_ROUTE]: "media-collection-recommendations",
 			...Object.fromEntries(
 				Object.keys(mediaEntityEditorRoutes).map((route) => [route, "media-entity-editor"]),
 			),
@@ -732,6 +743,12 @@ export const mediaPlugin = definePlugin({
 				settingsSchema: { fields: {} },
 				automaticEntityPresentations: false,
 				entry: "client/entity-editor/page.tsx",
+			},
+			"media-collection-recommendations": {
+				kind: "page",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+				entry: "client/collection-recommendations/page.tsx",
 			},
 			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
 		},
