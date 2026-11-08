@@ -157,9 +157,29 @@ readiness fix. Order 12 is Done.
 
 | Order | Completion status | Feature to implement | Depends on | Completion criteria |
 | --- | --- | --- | --- | --- |
-| 15 | Pending | **Ship collection recommendations** | 4 and 6 | Add a reusable Media-owned recipe and paged/searchable client surface over the existing suggestion graph. Specify exclusions and empty-result behavior. Keep the current latest-completion home recommendation design unless a separate product decision changes it; do not copy V1 random sampling simply for parity. |
+| 15 | Done | **Ship collection recommendations** | 4 and 6 | A Media-owned recipe ranks every title suggested by collection members by suggesting-member count, with name search and cursor pages, behind a generic `collectionPages` collection-detail action. Members and known NSFW titles are excluded; library titles stay marked. Empty, exhausted, no-match and missing-collection states are distinct. Home keeps the latest-completion design. See the Order 15 acceptance record below. |
 | 16 | Done | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | The unified Analytics destination provides Media and Fitness totals, comparisons, grouping, trends, hourly activity, rankings and drill-downs with the agreed historical facts, units, date and timezone semantics. Targeted API/browser coverage and both real datasets pass correctness, readiness and restart acceptance. See the Order 16 acceptance record below. |
 | 17 | Done | **Add self-service account rename** | Existing account authentication | Account settings edit the current user’s display name with validation, save/retry feedback and refreshed identity on web/native. Demo sessions cannot rename. Admin-on-behalf rename, V1 roles and the onboarding-tour flag are excluded by agreement. |
+
+#### Order 15 acceptance — 2026-11-08
+
+Plugins declare `client.collectionPages` (label, icon, owned schemas and a declared route with a
+`$collectionId` segment). Collection detail reads them through the RyotQL `plugin.clientCollectionPages`
+field and shows a header action only when the collection contains members of those schemas; the
+kernel never names Media. Media declares **Recommendations** for its built-in title schemas.
+
+The Media page uses every collection member, not V1's random sample of ten, and triggers no provider
+refresh. Titles rank by how many members suggest them, then name and ID. It excludes collection
+members and known NSFW titles regardless of the NSFW setting, matching the other discovery surfaces,
+and keeps library titles with the in-library mark. Search lives in the page address. Copy separates a
+collection whose members have no suggestions, one whose suggestions are all members, a search with no
+match, and a missing or inaccessible collection.
+
+Validation: `bun run check` passed 38 tasks. Root Turbo tests passed for contract, RyotQL recipes,
+kernel renderers and Media; the backend passed 2,792 of 2,793, with only the backup streaming memory
+test exceeding its RSS limit under the parallel run; that file passed alone. The discovery recipe API
+file (5 tests), the new collection recommendations browser file and the collection detail browser file
+(7 tests) passed individually. Desktop, compact and dark captures were inspected.
 
 Order 17 ships only self-service display-name editing in Settings → Account. The existing profile
 card contains a labeled name field and Save action with pending, success and retry feedback; failed
@@ -817,7 +837,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Custom metadata/person/group | Covered | Manifest editors, shared SDK editor, `POST /entities/editor`, and owner-only create/edit routes cover media, people, companies, groups, show seasons/episodes and podcast episodes. Atomic saves compare loaded entity/relationship baselines and preserve unrelated fields/assets. API custom-media saves derive missing publish years from full valid dates; explicit years remain unchanged. Children are deleted only without history. Duplicate actions are deferred. |
 | Genres | Covered; reshaped | `genre` entities, local `genre.media-catalog` identities and typed `<schema>-to-genre` links; provider population, migration, any/all/none filters, pickers and private custom genres. No standalone V1 genre-list/detail page is shipped. |
 | Creator and group associations | Covered | Typed ordered relationships, creator credit rails and paged credit modals, group member screens; character names retained on person credits. Custom media and credit-bearing groups edit incoming credits; groups edit their members. |
-| Recommendations | Partial | `media-suggestion` graph, detail rails, `latestCompletionSuggestionsRecipe` and Media home. Collection-specific recommendations have no shipped recipe/UI. V1 randomized multi-source selection, fallback, enabled-lot filtering and candidate sampling are not reproduced. |
+| Recommendations | Reshaped | `media-suggestion` graph, detail rails, `latestCompletionSuggestionsRecipe`, Media home and Order 15 collection recommendations. V1 randomized multi-source selection, fallback, enabled-lot filtering and candidate sampling are not reproduced. |
 | Trending | Covered; reshaped | Media infrequent cron populates `media-trending`, TMDB movie/show scripts and `trendingLatestMediaRecipe`; consumed by Media home. Not a missing dedicated endpoint or saved view. |
 | Watch providers | Covered | TMDB movie/show properties and detail UI filtered by viewer region, offer kinds and JustWatch attribution. Data includes stream/free/ads/rent/buy. V1's user-defined consumption-source lists are now Media per-type settings, not dropped. |
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
@@ -1089,8 +1109,8 @@ resolved export, genre, Calendar, editor or projection work.
   member type's schema, including Media lifecycle state, ratings, completion/activity/release dates
   and source, and Fitness exercise activity. Members of other types never match a domain filter and
   sort last. There is no random sort and no V1 filter preset.
-- **Recommendations:** per-collection candidate search/page UI and a reusable Media-owned
-  recipe are absent. User home recommendations deliberately use the latest useful completion,
+- **Recommendations:** Order 15 ships a searchable, paged Media collection recommendations page.
+  User home recommendations deliberately use the latest useful completion,
   rather than V1's random set of up to ten library sources with candidate oversampling and
   global fallback. Disabled views do not act as V1 enabled-media-lot recommendation filters.
 - **Membership choices:** V1 learned possible string values after adds; V2 uses declared
@@ -1270,7 +1290,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `exporter` | `user_exports` | `deploy_export_job` | Backup runs, export and download. |
 | `file-storage` | `get_presigned_s3_url` | `presigned_put_s3_url`, `delete_s3_object` | Managed upload intents/downloads/cleanup; no arbitrary bucket authority. |
 | `importer` | `user_import_reports` | `deploy_import_job`, `delete_user_import_report` | Import source/run/issue catalogs and start/delete/cancel/failure-download commands. |
-| `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands and server-owned reordering with client controls; collection recommendations remain absent. |
+| `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands and server-owned reordering with client controls; Media collection recommendations page. |
 | `statistics` | `user_analytics_parameters`, `user_analytics` | — | Not migrated; Order 16 Analytics computes from canonical history. |
 | `miscellaneous/metadata` | `metadata_details`, `user_metadata_list`, `user_metadata_details`, `user_entity_recently_consumed` | `merge_metadata`, `disassociate_metadata`, `mark_entity_as_partial` | Media/entity recipes and user-data commands; debounce flag absent, partial flag replaced. |
 | `miscellaneous/media-translation` | `media_translation` | `deploy_update_media_translations_job` | Language-scoped entity resolution and durable translation work. |
