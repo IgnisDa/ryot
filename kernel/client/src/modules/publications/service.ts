@@ -1,4 +1,5 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	PublicationSource,
 	PublicationStatusResponse,
@@ -9,7 +10,7 @@ import {
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { allCollectionsRecipe, collectionHeaderRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
 import {
 	publicationsRecipe,
 	type PublicationsResult,
@@ -17,6 +18,7 @@ import {
 	sourcePublicationsRecipe,
 } from "@ryot-app/ryotql-recipes/publications";
 import {
+	type SavedViewRecord,
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
@@ -60,29 +62,19 @@ export const sourcePublicationsQuery = createRyotQuery<
 
 export const COLLECTION_PUBLICATION_ICON = "library";
 
-export const publicationSourceNameQuery = createRyotQuery<
-	PublicationSource,
-	{ readonly name: string; readonly icon: string },
+export const publicationSavedViewQuery = createRyotQuery<
+	SavedViewReference,
+	null | SavedViewRecord,
 	PublicationsLoadError
 >(({ input, client }) =>
-	(input.kind === "collection"
-		? client.data
-				.query(collectionHeaderRecipe({ collectionId: input.collectionId }))
-				.pipe(
-					Effect.map((header) => ({
-						icon: COLLECTION_PUBLICATION_ICON,
-						name: header?.name ?? "Collection",
-					})),
-				)
-		: client.data
-				.query(savedViewRecordRecipe(input.reference))
-				.pipe(
-					Effect.map((view) => ({
-						icon: view?.icon ?? "library",
-						name: view?.name ?? "Saved view",
-					})),
-				)
-	).pipe(Effect.mapError((cause) => new PublicationsLoadError({ cause }))),
+	client.data
+		.query(savedViewRecordRecipe(input))
+		.pipe(
+			Effect.mapBoth({
+				onSuccess: (view) => view ?? null,
+				onFailure: (cause) => new PublicationsLoadError({ cause }),
+			}),
+		),
 );
 
 export const publicationStatusQuery = createRyotHostQuery<
@@ -123,7 +115,6 @@ export const publicationSourcesQuery = createRyotQuery(
 );
 
 export type PublicationCommand =
-	| { readonly action: "create"; readonly request: ContractRequest<"publications", "create"> }
 	| { readonly action: "delete"; readonly request: ContractRequest<"publications", "delete"> }
 	| { readonly action: "revoke"; readonly request: ContractRequest<"publications", "revoke"> }
 	| { readonly action: "republish"; readonly request: ContractRequest<"publications", "republish"> }
@@ -142,9 +133,6 @@ export const publicationCommandMutation = createRyotHostMutation<
 		const api = hostServices.runtime.runSync(PublicationsApi);
 		let command: Effect.Effect<unknown, AuthenticatedApiError>;
 		switch (input.action) {
-			case "create":
-				command = api.create(hostServices.scope, input.request);
-				break;
 			case "delete":
 				command = api.delete(hostServices.scope, input.request);
 				break;

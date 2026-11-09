@@ -1,32 +1,19 @@
 import type { ReminderDeliveryConfiguration } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, NotificationSubscriptionId, ReminderId } from "@ryot-app/contract/schema/brands";
-import type { RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
-import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import type { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import type { RemindersResult } from "@ryot-app/ryotql-recipes/reminders";
-import {
-	createMemoryHistory,
-	createRootRoute,
-	createRoute,
-	createRouter,
-	Outlet,
-	RouterProvider,
-} from "@tanstack/react-router";
-import { render } from "@testing-library/react";
-import { Effect, Layer, ManagedRuntime } from "effect";
+import { Effect, Layer } from "effect";
 import type { ReactNode } from "react";
 
 import type { AutomationsApi } from "#/api/automations";
-import { ServerOrigin } from "#/api/origin";
 import { makeAutomationsApi, makeRemindersApi } from "#/api/ports.test-layer";
 import type { RemindersApi } from "#/api/reminders";
-import { testHostServices } from "#/host-services.test-support";
+import { type HostedTestQueryDocument, mountHostedTestScreen } from "#/host-screen.test-support";
 
 export type ReminderTestRow = RemindersResult["items"][number];
-export type ReminderTestQueryDocument = Parameters<RyotClientAdapter["query"]>[0];
 
 export type ReminderTestQuery = (
-	document: ReminderTestQueryDocument,
+	document: HostedTestQueryDocument,
 ) => Effect.Effect<unknown, RyotClientError>;
 
 const page = (items: readonly unknown[], hasMore = false, nextCursor: null | string = null) => ({
@@ -56,7 +43,7 @@ export const makeReminderRow = (overrides: Partial<ReminderTestRow> = {}): Remin
 	...overrides,
 });
 
-export const defaultReminderQueryResponse = (document: ReminderTestQueryDocument): unknown => {
+export const defaultReminderQueryResponse = (document: HostedTestQueryDocument): unknown => {
 	if ("reminders" in document.queries) {
 		return { data: { reminders: page([]) } };
 	}
@@ -94,15 +81,17 @@ export const mountReminderTestScreen = (
 		readonly deliveryConfiguration?: ReminderDeliveryConfiguration;
 	} = {},
 ) => {
-	const queryDocuments: ReminderTestQueryDocument[] = [];
-	const clock = createTestRyotClock({
+	const queryDocuments: HostedTestQueryDocument[] = [];
+	const screen = mountHostedTestScreen(content, {
+		routes: {
+			"/e/$entityId": <p>Entity</p>,
+			"/settings/notification-channels": <p>Notification channels</p>,
+		},
 		query: (document) => {
 			queryDocuments.push(document);
 			return options.query?.(document) ?? Effect.succeed(defaultReminderQueryResponse(document));
 		},
-	});
-	const runtime = ManagedRuntime.make(
-		Layer.mergeAll(
+		layer: Layer.mergeAll(
 			makeRemindersApi({
 				deliveryConfiguration: () =>
 					Effect.succeed(options.deliveryConfiguration ?? defaultReminderDeliveryConfiguration),
@@ -110,41 +99,6 @@ export const mountReminderTestScreen = (
 			}),
 			makeAutomationsApi(options.automationsApi),
 		),
-	);
-	const root = createRootRoute({ component: Outlet });
-	const main = createRoute({ path: "/", component: () => content, getParentRoute: () => root });
-	const channels = createRoute({
-		getParentRoute: () => root,
-		path: "/settings/notification-channels",
-		component: () => <p>Notification channels</p>,
 	});
-	const entity = createRoute({
-		path: "/e/$entityId",
-		getParentRoute: () => root,
-		component: () => <p>Entity</p>,
-	});
-	const router = createRouter({
-		routeTree: root.addChildren([main, channels, entity]),
-		history: createMemoryHistory({ initialEntries: ["/"] }),
-	});
-	const view = render(
-		<RyotProvider
-			runtime={clock.runtime}
-			hostServices={testHostServices(
-				{ userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
-				runtime,
-			)}
-		>
-			<RouterProvider router={router} />
-		</RyotProvider>,
-	);
-	return {
-		router,
-		queryDocuments,
-		advance: clock.advance,
-		dispose: () => {
-			view.unmount();
-			return Effect.runPromise(Effect.all([runtime.disposeEffect, Effect.promise(clock.dispose)]));
-		},
-	};
+	return { ...screen, queryDocuments };
 };

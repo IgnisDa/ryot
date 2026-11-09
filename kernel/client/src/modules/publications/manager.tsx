@@ -8,36 +8,35 @@ import {
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
-	Badge,
 	Button,
 	Card,
-	Checkbox,
+	DestructiveConfirmation,
 	EmptyState,
 	Field,
 	LoadMoreButton,
 	Notice,
 	Select,
 	TextArea,
-	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { Effect } from "effect";
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useRef, useState } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
 
+import { PublicationDetailsFields } from "./details-fields";
 import { publicationFailureText, PublicationLinks } from "./links";
 import { usePublicationPreview } from "./preview";
 import {
 	COLLECTION_PUBLICATION_ICON,
-	type PublicationCommand,
+	createPublicationMutation,
 	publicationCommandMutation,
 	PUBLICATIONS_PAGE_SIZE,
 	publicationSourcesQuery,
 	publicationsQuery,
 } from "./service";
-import { PublicationStatusLine } from "./status";
+import { PublicationHeader } from "./status";
 
 const KEEP_SOURCE = "keep";
 const initialCursor: string | undefined = undefined;
@@ -124,29 +123,35 @@ function PublicationCard(props: {
 	const { publication } = props;
 	const command = useRyotMutation(publicationCommandMutation);
 	const preview = usePublicationPreview();
-	const [confirmDelete, setConfirmDelete] = useState(false);
+	const [confirming, setConfirming] = useState<null | "delete" | "revoke">(null);
+	const confirmTrigger = useRef<null | HTMLButtonElement>(null);
 	const active = publication.revokedAt === null;
-	const run = (input: PublicationCommand) =>
-		void Effect.runPromise(Effect.ignore(command.mutateEffect(input)));
 	const payload = { publicationId: PublicationId.make(publication.id) };
+	const confirm = (action: "delete" | "revoke", trigger: HTMLButtonElement) => {
+		confirmTrigger.current = trigger;
+		setConfirming(action);
+	};
+	const closeConfirmation = () => {
+		command.reset();
+		setConfirming(null);
+	};
+	const confirmation =
+		confirming === "revoke"
+			? {
+					actionLabel: "Stop sharing",
+					pendingLabel: "Stopping...",
+					title: "Stop sharing this publication?",
+					detail: "Every link to it stops working, and it cannot be shared again.",
+				}
+			: {
+					pendingLabel: "Deleting...",
+					actionLabel: "Delete publication",
+					title: "Delete this publication?",
+					detail: "The publication and its links are deleted permanently.",
+				};
 	return (
 		<Card className="grid gap-4">
-			<div className="flex items-start gap-3">
-				<span className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-2 text-text-muted">
-					<AppIcon size={20} name={publication.icon} />
-				</span>
-				<div className="grid min-w-0 flex-1 gap-0.5">
-					<div className="flex flex-wrap items-center gap-2">
-						<h2 className="truncate text-base font-semibold text-text">{publication.title}</h2>
-						{!active && <Badge variant="danger">Revoked</Badge>}
-					</div>
-					{active ? (
-						<PublicationStatusLine publicationId={payload.publicationId} />
-					) : (
-						<span className="text-xs text-text-muted">No one can open it anymore.</span>
-					)}
-				</div>
-			</div>
+			<PublicationHeader heading="h2" publication={publication} />
 			{publication.description === null ? null : (
 				<p className="text-sm text-text-muted">{publication.description}</p>
 			)}
@@ -175,33 +180,43 @@ function PublicationCard(props: {
 						<Button
 							size="sm"
 							variant="dangerGhost"
-							disabled={props.disabled || command.isPending}
-							onClick={() => run({ action: "revoke", request: { payload } })}
+							disabled={props.disabled}
+							onClick={(event) => confirm("revoke", event.currentTarget)}
 						>
 							Stop sharing
 						</Button>
 					</>
 				)}
-				{confirmDelete ? (
-					<Button
-						size="sm"
-						variant="danger"
-						disabled={props.disabled || command.isPending}
-						onClick={() => run({ action: "delete", request: { payload } })}
-					>
-						Confirm delete
-					</Button>
-				) : (
-					<Button
-						size="sm"
-						variant="dangerGhost"
-						disabled={props.disabled}
-						onClick={() => setConfirmDelete(true)}
-					>
-						Delete
-					</Button>
-				)}
+				<Button
+					size="sm"
+					variant="dangerGhost"
+					disabled={props.disabled}
+					onClick={(event) => confirm("delete", event.currentTarget)}
+				>
+					Delete
+				</Button>
 			</div>
+			{confirming === null ? null : (
+				<DestructiveConfirmation
+					{...confirmation}
+					onClose={closeConfirmation}
+					triggerRef={confirmTrigger}
+					pending={command.isPending}
+					errorMessage={command.error === null ? undefined : publicationFailureText(command.error)}
+					onConfirm={() =>
+						void Effect.runPromise(
+							command
+								.mutateEffect({ action: confirming, request: { payload } })
+								.pipe(
+									Effect.match({
+										onFailure: () => undefined,
+										onSuccess: () => setConfirming(null),
+									}),
+								),
+						)
+					}
+				/>
+			)}
 		</Card>
 	);
 }
@@ -212,7 +227,8 @@ function PublicationEditor(props: {
 	readonly publication: null | PublicationSummary;
 }) {
 	const sources = useRyotQuery(publicationSourcesQuery, undefined);
-	const mutation = useRyotMutation(publicationCommandMutation);
+	const create = useRyotMutation(createPublicationMutation);
+	const command = useRyotMutation(publicationCommandMutation);
 	const [title, setTitle] = useState(props.publication?.title ?? "");
 	const [description, setDescription] = useState(props.publication?.description ?? "");
 	const [showOwnerName, setShowOwnerName] = useState(props.publication?.showOwnerName ?? false);
@@ -267,23 +283,21 @@ function PublicationEditor(props: {
 			source: option.source,
 			description: description.trim() === "" ? null : description,
 		};
-		const command: PublicationCommand =
+		const save =
 			props.publication === null
-				? { action: "create", request: { payload: details } }
-				: {
+				? create.mutateEffect(details)
+				: command.mutateEffect({
 						action: "republish",
 						request: { payload: { ...details, publicationId: props.publication.id } },
-					};
+					});
 		setError(null);
 		void Effect.runPromise(
-			mutation
-				.mutateEffect(command)
-				.pipe(
-					Effect.match({
-						onSuccess: props.onDone,
-						onFailure: (failure) => setError(publicationFailureText(failure)),
-					}),
-				),
+			save.pipe(
+				Effect.match({
+					onSuccess: props.onDone,
+					onFailure: (failure) => setError(publicationFailureText(failure)),
+				}),
+			),
 		);
 	};
 
@@ -300,39 +314,27 @@ function PublicationEditor(props: {
 					chevronIcon={<AppIcon size={16} name="chevron-down" />}
 					choices={options.map(({ key, hint, label }) => ({ hint, label, value: key }))}
 				/>
-				<Field label="Title">
-					{(control) => (
-						<TextField
-							{...control}
-							value={title}
-							maxLength={120}
-							onChange={(event) => setTitle(event.target.value)}
-						/>
-					)}
-				</Field>
-				<Field optional label="Description">
-					{(control) => (
-						<TextArea
-							{...control}
-							rows={2}
-							maxLength={2000}
-							value={description}
-							onChange={(event) => setDescription(event.target.value)}
-						/>
-					)}
-				</Field>
-				<Checkbox
-					checked={showOwnerName}
-					label="Show my name to visitors"
-					onChange={(event) => setShowOwnerName(event.target.checked)}
-				/>
-				<p className="text-xs text-text-muted">
-					Visitors see the items as they change, but not your activity, ratings, or other
-					collections.
-				</p>
+				<PublicationDetailsFields
+					title={title}
+					onTitleChange={setTitle}
+					showOwnerName={showOwnerName}
+					onShowOwnerNameChange={setShowOwnerName}
+				>
+					<Field optional label="Description">
+						{(control) => (
+							<TextArea
+								{...control}
+								rows={2}
+								maxLength={2000}
+								value={description}
+								onChange={(event) => setDescription(event.target.value)}
+							/>
+						)}
+					</Field>
+				</PublicationDetailsFields>
 				{error === null ? null : <Notice tone="danger">{error}</Notice>}
 				<div className="flex gap-2">
-					<Button type="submit" disabled={props.disabled || mutation.isPending}>
+					<Button type="submit" disabled={props.disabled || create.isPending || command.isPending}>
 						{props.publication === null ? "Publish" : "Save"}
 					</Button>
 					<Button type="button" variant="ghost" onClick={props.onDone}>

@@ -3,15 +3,26 @@ import {
 	PublicationsDisabled,
 } from "@ryot-app/contract/modules/publications/schemas";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
-import { Badge, Button, Field, Notice, TextField } from "@ryot-app/plugin-ui-sdk";
+import {
+	Badge,
+	Button,
+	DestructiveConfirmation,
+	Field,
+	Notice,
+	Row,
+	RowGroup,
+	TextField,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { Effect, Schema } from "effect";
-import { type SubmitEvent, useState } from "react";
+import { type SubmitEvent, useRef, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
+import { formatDateLabel, formatRelativeTime } from "#/modules/ui/run/run-status";
 import { ShareLinkField } from "#/modules/ui/share-link-field";
+import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 import { createPublicationLinkMutation, publicationCommandMutation } from "./service";
 
@@ -52,15 +63,13 @@ const isActive = (link: Link, now: number) =>
 
 const linkDetail = (link: Link, now: number) => {
 	if (!isActive(link, now)) {
-		return `Created ${new Date(link.createdAt).toLocaleDateString()}`;
+		return `Created ${formatDateLabel(link.createdAt)}`;
 	}
 	const parts = [
-		link.expiresAt === null
-			? "Never expires"
-			: `Expires ${new Date(link.expiresAt).toLocaleDateString()}`,
-		...(link.lastExchangedAt === null
-			? ["Not opened yet"]
-			: [`Last opened ${new Date(link.lastExchangedAt).toLocaleDateString()}`]),
+		link.expiresAt === null ? "Never expires" : `Expires ${formatDateLabel(link.expiresAt)}`,
+		link.lastExchangedAt === null
+			? "Not opened yet"
+			: `Last opened ${formatRelativeTime(link.lastExchangedAt, now)}`,
 	];
 	return parts.join(" · ");
 };
@@ -88,7 +97,9 @@ export function PublicationLinks(props: {
 	const [adding, setAdding] = useState(false);
 	const [created, setCreated] = useState<null | string>(null);
 	const [error, setError] = useState<null | string>(null);
-	const [now] = useState(() => Date.now());
+	const [revoking, setRevoking] = useState<null | Link>(null);
+	const revokeTrigger = useRef<null | HTMLButtonElement>(null);
+	const now = useNowMs(RELATIVE_TIME_REFRESH_MS);
 	const active = props.publication.revokedAt === null;
 	const links = props.publication.links.items;
 
@@ -124,44 +135,68 @@ export function PublicationLinks(props: {
 					No links yet. Create one to share this page with people.
 				</p>
 			) : (
-				<ul className="grid divide-y divide-border rounded-lg border border-border">
+				<RowGroup>
 					{links.map((link) => (
-						<li key={link.id} className="flex items-center gap-3 px-3 py-2.5">
-							<AppIcon
-								size={16}
-								name="link"
-								className={isActive(link, now) ? "text-text-muted" : "text-text-subtle"}
-							/>
-							<div className="grid min-w-0 flex-1">
-								<span className="truncate text-sm font-medium text-text">{link.label}</span>
-								<span className="truncate text-xs text-text-muted">{linkDetail(link, now)}</span>
-							</div>
-							{isActive(link, now) ? (
-								<Button
-									size="sm"
-									variant="dangerGhost"
-									disabled={props.disabled || command.isPending}
-									onClick={() =>
-										void Effect.runPromise(
-											Effect.ignore(
-												command.mutateEffect({
-													action: "revokeLink",
-													request: { payload: { linkId: link.id } },
-												}),
-											),
-										)
-									}
-								>
-									Revoke
-								</Button>
-							) : (
-								<Badge variant={link.revokedAt === null ? "neutral" : "danger"}>
-									{link.revokedAt === null ? "Expired" : "Revoked"}
-								</Badge>
-							)}
-						</li>
+						<Row
+							key={link.id}
+							title={link.label}
+							description={linkDetail(link, now)}
+							leading={
+								<AppIcon
+									size={16}
+									name="link"
+									className={isActive(link, now) ? "text-text-muted" : "text-text-subtle"}
+								/>
+							}
+							trailing={
+								isActive(link, now) ? (
+									<Button
+										size="sm"
+										variant="dangerGhost"
+										disabled={props.disabled}
+										onClick={(event) => {
+											revokeTrigger.current = event.currentTarget;
+											setRevoking(link);
+										}}
+									>
+										Revoke
+									</Button>
+								) : (
+									<Badge variant={link.revokedAt === null ? "neutral" : "danger"}>
+										{link.revokedAt === null ? "Expired" : "Revoked"}
+									</Badge>
+								)
+							}
+						/>
 					))}
-				</ul>
+				</RowGroup>
+			)}
+			{revoking === null ? null : (
+				<DestructiveConfirmation
+					title="Revoke this link?"
+					actionLabel="Revoke link"
+					pendingLabel="Revoking..."
+					triggerRef={revokeTrigger}
+					pending={command.isPending}
+					onClose={() => {
+						command.reset();
+						setRevoking(null);
+					}}
+					errorMessage={command.error === null ? undefined : publicationFailureText(command.error)}
+					detail={`Anyone using "${revoking.label}" can no longer open this page. Other links keep working.`}
+					onConfirm={() =>
+						void Effect.runPromise(
+							command
+								.mutateEffect({
+									action: "revokeLink",
+									request: { payload: { linkId: revoking.id } },
+								})
+								.pipe(
+									Effect.match({ onFailure: () => undefined, onSuccess: () => setRevoking(null) }),
+								),
+						)
+					}
+				/>
 			)}
 			{active && !adding && (
 				<div>

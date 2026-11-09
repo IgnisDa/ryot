@@ -13,7 +13,7 @@ import type {
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { resolveApiUrl } from "#/api/origin";
+import { resolveApiUrl, type ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import { UploadsApi } from "#/api/uploads";
 
@@ -22,24 +22,29 @@ export class ManagedAssetResolutionError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("ManagedAssetResolutionError", { cause: Schema.Unknown }) {}
 
-const isDeclaredFailure = Schema.is(
-	Schema.Union([AuthRateLimited, AuthUnauthorized, UploadBadRequest, UploadInternalError]),
-);
+const isUploadFailure = Schema.is(Schema.Union([UploadBadRequest, UploadInternalError]));
 
-const classifyManagedAssetCause = (cause: unknown): PluginAssetBridgeErrorReason =>
-	isDeclaredFailure(cause) ? "asset-failed" : "transport";
+const isAuthenticationFailure = Schema.is(Schema.Union([AuthRateLimited, AuthUnauthorized]));
+
+export const classifyManagedAssetCause = (
+	cause: unknown,
+	isAccessFailure: (cause: unknown) => boolean,
+): PluginAssetBridgeErrorReason =>
+	isUploadFailure(cause) || isAccessFailure(cause) ? "asset-failed" : "transport";
 
 export const classifyManagedAssetFailure = (error: unknown): PluginAssetBridgeErrorReason =>
-	error instanceof AuthenticatedApiError ? classifyManagedAssetCause(error.cause) : "transport";
+	error instanceof AuthenticatedApiError
+		? classifyManagedAssetCause(error.cause, isAuthenticationFailure)
+		: "transport";
 
 export const mapManagedAssetResolutions = (
-	scope: ApiScope,
+	serverUrl: ServerOrigin,
 	response: DownloadResolutionResponse,
 ): PluginManagedAssetResolution[] =>
 	response.map(({ asset, expiresAt, downloadUrl }) => ({
 		asset,
 		expiresAt,
-		url: resolveApiUrl(scope.serverUrl, downloadUrl),
+		url: resolveApiUrl(serverUrl, downloadUrl),
 	}));
 
 export class ManagedAssetsService extends Context.Service<ManagedAssetsService>()(
@@ -58,8 +63,8 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					.resolveDownloads(scope, { payload: { assets: [...assets] } })
 					.pipe(
 						Effect.mapBoth({
-							onSuccess: (response) => mapManagedAssetResolutions(scope, response),
 							onFailure: (error) => new ManagedAssetResolutionError({ cause: error.cause }),
+							onSuccess: (response) => mapManagedAssetResolutions(scope.serverUrl, response),
 						}),
 					);
 			});
@@ -71,7 +76,10 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 					Effect.match({
 						onSuccess: (resolutions) => ({ resolutions, outcome: "success" }) as const,
 						onFailure: (error) =>
-							({ outcome: "failure", reason: classifyManagedAssetCause(error.cause) }) as const,
+							({
+								outcome: "failure",
+								reason: classifyManagedAssetCause(error.cause, isAuthenticationFailure),
+							}) as const,
 					}),
 				);
 			return { read, outcome };

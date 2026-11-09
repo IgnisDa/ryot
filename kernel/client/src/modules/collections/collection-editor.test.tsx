@@ -6,27 +6,15 @@ import {
 	type CollectionResponse,
 } from "@ryot-app/contract/modules/collections/schemas";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
-import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import {
-	createMemoryHistory,
-	createRootRoute,
-	createRoute,
-	createRouter,
-	Outlet,
-	RouterProvider,
-} from "@tanstack/react-router";
-import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
-import { Deferred, Effect, ManagedRuntime } from "effect";
-import { StrictMode } from "react";
+import { Deferred, Effect } from "effect";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { CollectionsApi } from "#/api/collections";
-import { ServerOrigin } from "#/api/origin";
 import { makeCollectionsApi } from "#/api/ports.test-layer";
-import { testHostServices } from "#/host-services.test-support";
+import { mountHostedTestScreen } from "#/host-screen.test-support";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
 
 const collectionId = EntityId.make("collection-1");
@@ -49,106 +37,68 @@ const mountEditor = (
 	const requests: unknown[] = [];
 	const outcomes: unknown[] = [];
 	let refreshes = 0;
-	const runtime = ManagedRuntime.make(
-		makeCollectionsApi({
-			create: (_scope, request) =>
-				Effect.sync(() => {
-					requests.push(request.payload);
-					return response;
-				}),
-			update: (_scope, request) =>
-				Effect.sync(() => {
-					requests.push(request.payload);
-					return response;
-				}),
-			delete: (_scope, request) =>
-				Effect.sync(() => {
-					requests.push(request.payload);
-					return { warnings: [], id: collectionId };
-				}),
-			...options.api,
-		}),
-	);
-	const clock = createTestRyotClock({
-		query: () =>
-			Effect.succeed({
-				data: {
-					collection: {
-						type: "rows",
-						pageInfo: { limit: 30, hasMore: false, nextCursor: null },
-						items: [
-							{
-								name: "Favourites",
-								entityId: collectionId,
-								description: "Old description",
-								properties: {
-									membershipFields: [
-										{
-											key: "notes",
-											type: "text",
-											label: "Notes",
-											required: false,
-											defaultValue: "Keep",
-										},
-									],
-								},
-							},
-						],
-					},
-				},
+	const view = mountHostedTestScreen(
+		<CollectionEditor
+			initialName="Draft"
+			onClose={() => outcomes.push("closed")}
+			onDeleted={() => outcomes.push("deleted")}
+			onSaved={(id) => outcomes.push({ saved: id })}
+			collectionId={options.existing ? collectionId : undefined}
+		/>,
+		{
+			strict: true,
+			routes: { "/auth": <p>Away</p> },
+			onRootLoad: () => {
+				refreshes++;
+			},
+			layer: makeCollectionsApi({
+				create: (_scope, request) =>
+					Effect.sync(() => {
+						requests.push(request.payload);
+						return response;
+					}),
+				update: (_scope, request) =>
+					Effect.sync(() => {
+						requests.push(request.payload);
+						return response;
+					}),
+				delete: (_scope, request) =>
+					Effect.sync(() => {
+						requests.push(request.payload);
+						return { warnings: [], id: collectionId };
+					}),
+				...options.api,
 			}),
-	});
-	const root = createRootRoute({
-		component: Outlet,
-		loader: () => {
-			refreshes++;
+			query: () =>
+				Effect.succeed({
+					data: {
+						collection: {
+							type: "rows",
+							pageInfo: { limit: 30, hasMore: false, nextCursor: null },
+							items: [
+								{
+									name: "Favourites",
+									entityId: collectionId,
+									description: "Old description",
+									properties: {
+										membershipFields: [
+											{
+												key: "notes",
+												type: "text",
+												label: "Notes",
+												required: false,
+												defaultValue: "Keep",
+											},
+										],
+									},
+								},
+							],
+						},
+					},
+				}),
 		},
-	});
-	const editor = createRoute({
-		path: "/",
-		getParentRoute: () => root,
-		component: () => (
-			<CollectionEditor
-				initialName="Draft"
-				onClose={() => outcomes.push("closed")}
-				onDeleted={() => outcomes.push("deleted")}
-				onSaved={(id) => outcomes.push({ saved: id })}
-				collectionId={options.existing ? collectionId : undefined}
-			/>
-		),
-	});
-	const away = createRoute({
-		path: "/auth",
-		getParentRoute: () => root,
-		component: () => <p>Away</p>,
-	});
-	const router = createRouter({
-		routeTree: root.addChildren([editor, away]),
-		history: createMemoryHistory({ initialEntries: ["/"] }),
-	});
-	const view = render(
-		<StrictMode>
-			<RyotProvider
-				runtime={clock.runtime}
-				hostServices={testHostServices(
-					{ userId: "user-1", serverUrl: ServerOrigin.make("https://example.test") },
-					runtime,
-				)}
-			>
-				<RouterProvider router={router} />
-			</RyotProvider>
-		</StrictMode>,
 	);
-	return {
-		router,
-		requests,
-		outcomes,
-		getRefreshes: () => refreshes,
-		dispose: () => {
-			view.unmount();
-			return Effect.runPromise(Effect.all([runtime.disposeEffect, Effect.promise(clock.dispose)]));
-		},
-	};
+	return { ...view, requests, outcomes, getRefreshes: () => refreshes };
 };
 
 it.live(

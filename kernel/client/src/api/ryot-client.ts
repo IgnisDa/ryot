@@ -63,7 +63,7 @@ export const createKernelRyotClient = (
 				.resolveDownloads(scope, { payload: { assets: [...assets] } })
 				.pipe(
 					Effect.mapBoth({
-						onSuccess: (response) => mapManagedAssetResolutions(scope, response),
+						onSuccess: (response) => mapManagedAssetResolutions(scope.serverUrl, response),
 						onFailure: (error) =>
 							new RyotClientError({ reason: classifyManagedAssetFailure(error) }),
 					}),

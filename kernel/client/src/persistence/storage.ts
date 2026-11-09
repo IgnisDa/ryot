@@ -32,6 +32,9 @@ const sidebarSectionExpandedKey = (scope: ApiScope, workspace: string, section: 
 export const rememberedProviderKey = (scope: ApiScope, schemaKey: string) =>
 	`${RYOT_STORAGE_PREFIX}remembered-provider:${apiScopeKey(scope)}:${schemaKey}`;
 
+export const publicationVisitKey = (publicationId: string) =>
+	`${RYOT_STORAGE_PREFIX}publication-visit:${publicationId}`;
+
 export const pluginStorageKey = (scope: ApiScope, pluginId: PluginId, key: string) =>
 	`${RYOT_STORAGE_PREFIX}plugin-storage:${identityTupleKey(scope.serverUrl, scope.userId, pluginId, key)}`;
 

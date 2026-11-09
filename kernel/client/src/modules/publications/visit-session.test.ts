@@ -40,9 +40,10 @@ const tokenOf = (scope: PublicationVisitScope) => Effect.succeed(scope.sessionTo
 describe("publication visit session", () => {
 	it("reads a link secret or an owner preview from the fragment", () => {
 		expect(takeVisitCredentials("p1", "#secret")).toEqual({ session: null, secret: "secret" });
-		expect(takeVisitCredentials("p1", `#${previewHash("preview")}`)).toEqual({
+		const preview = previewHash({ sessionToken: "preview", expiresAt: "1970-01-01T01:00:00.000Z" });
+		expect(takeVisitCredentials("p1", `#${preview}`)).toEqual({
 			secret: null,
-			session: { token: "preview", expiresAt: Number.MAX_SAFE_INTEGER },
+			session: { token: "preview", expiresAt: 3_600_000 },
 		});
 	});
 
@@ -99,10 +100,7 @@ describe("publication visit session", () => {
 					origin,
 					publicationId: "p1",
 					api: visitsApi(exchanged),
-					credentials: {
-						secret: null,
-						session: { token: "preview", expiresAt: Number.MAX_SAFE_INTEGER },
-					},
+					credentials: { secret: null, session: { token: "preview", expiresAt: 3_600_000 } },
 				});
 				const error = yield* session.run(() => Effect.fail(sessionExpired)).pipe(Effect.flip);
 				expect(error).toBe(sessionExpired);

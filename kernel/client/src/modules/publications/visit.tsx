@@ -2,23 +2,27 @@ import type {
 	PublicationUnavailableCode,
 	PublicationVisitorPage,
 } from "@ryot-app/contract/modules/publications/schemas";
-import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import type { ClientPageContext, PluginRyotQLOutcome } from "@ryot-app/plugin-client-contract";
+import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useNavigate, useRouter, useRouterState } from "@tanstack/react-router";
-import { Effect, Schema } from "effect";
+import { Effect } from "effect";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { browserServerOrigin, resolveApiUrl } from "#/api/origin";
-import { PublicationVisitApiError, PublicationVisitsApi } from "#/api/publications";
+import { browserServerOrigin } from "#/api/origin";
+import { isPublicationVisitFailure, PublicationVisitsApi } from "#/api/publications";
+import { classifyRyotQLCause } from "#/api/ryotql";
+import {
+	classifyManagedAssetCause,
+	mapManagedAssetResolutions,
+} from "#/modules/assets/managed-assets";
 import { ExternalLinks } from "#/modules/external-links/service";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
-import { mergePageSearch } from "#/modules/pages/runtime/document-host";
+import { navigatePageSearch } from "#/modules/pages/runtime/document-host";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
 import { useIsDesktop } from "#/modules/shell/breakpoint";
 import { useSafeAreaInsets } from "#/modules/shell/safe-area";
@@ -62,15 +66,6 @@ const unavailableCopy: Record<PublicationUnavailableCode, { title: string; detai
 		detail: "Open the full link you were given to view this page again.",
 	},
 };
-
-const isDeclaredQueryFailure = Schema.is(Schema.Union([RyotQLBadRequest, RyotQLInternalError]));
-
-const queryFailureReason = (
-	error: unknown,
-): Extract<PluginRyotQLOutcome, { readonly outcome: "failure" }>["reason"] =>
-	error instanceof PublicationVisitApiError && isDeclaredQueryFailure(error.cause)
-		? "query-failed"
-		: "transport";
 
 const refused = <A,>(value: A) => Effect.succeed(value);
 
@@ -220,14 +215,8 @@ function PublicationFrame(props: {
 	const entry = useMemo(() => historyEntry(location.state), [location.state]);
 	const search = location.searchStr.replace(/^\?/, "");
 	const item = new URLSearchParams(search).get(ITEM_SEARCH_KEY);
-	const navigateSearch = (update: Record<string, null | string>, replace: boolean) => {
-		const next = mergePageSearch(search, update);
-		void navigate({
-			replace,
-			href: `${location.pathname}${next === "" ? "" : `?${next}`}`,
-			state: (current) => ({ ...current, ryotEntryKey: replace ? entry.key : crypto.randomUUID() }),
-		});
-	};
+	const navigateSearch = (update: Record<string, null | string>, replace: boolean) =>
+		navigatePageSearch(navigate, { update, replace, location, entryKey: entry.key });
 	const api = props.runtime.runSync(PublicationVisitsApi);
 	const { page, session } = props;
 	const context: ClientPageContext = page.context;
@@ -322,7 +311,10 @@ function PublicationFrame(props: {
 						Effect.match({
 							onSuccess: (response) => ({ response, outcome: "success" }) as const,
 							onFailure: (error) =>
-								({ outcome: "failure", reason: queryFailureReason(error) }) as const,
+								({
+									outcome: "failure",
+									reason: classifyRyotQLCause(error.cause, isPublicationVisitFailure),
+								}) as const,
 						}),
 					)
 			}
@@ -331,15 +323,15 @@ function PublicationFrame(props: {
 					.run((scope) => api.assets(scope, { payload: { assets: [...request.assets] } }))
 					.pipe(
 						Effect.match({
-							onFailure: () => ({ outcome: "failure", reason: "transport" }) as const,
 							onSuccess: (response) =>
 								({
 									outcome: "success",
-									resolutions: response.map(({ asset, expiresAt, downloadUrl }) => ({
-										asset,
-										expiresAt,
-										url: resolveApiUrl(session.origin, downloadUrl),
-									})),
+									resolutions: mapManagedAssetResolutions(session.origin, response),
+								}) as const,
+							onFailure: (error) =>
+								({
+									outcome: "failure",
+									reason: classifyManagedAssetCause(error.cause, isPublicationVisitFailure),
 								}) as const,
 						}),
 					)

@@ -1,14 +1,15 @@
+import type { ContractProgram, ContractRequest } from "@ryot-app/contract/client";
 import {
-	type ContractProgram,
-	type ContractRequest,
-	makeContractClient,
-} from "@ryot-app/contract/client";
-import { PUBLICATION_SESSION_HEADER } from "@ryot-app/contract/modules/publications/schemas";
+	PUBLICATION_SESSION_HEADER,
+	PublicationRateLimited,
+	PublicationUnavailable,
+} from "@ryot-app/contract/modules/publications/schemas";
 import { Context, Effect, Layer, Schema } from "effect";
 import { HttpClient } from "effect/http";
 
 import { AuthenticatedApi } from "#/api/authenticated";
-import { serverApiUrl, type ServerOrigin } from "#/api/origin";
+import type { ServerOrigin } from "#/api/origin";
+import { runServerContract } from "#/api/public";
 import type { ApiScope } from "#/api/scope";
 
 export type PublicationVisitScope = {
@@ -20,6 +21,10 @@ export class PublicationVisitApiError extends Schema.TaggedError<
 	PublicationVisitApiError,
 	{ readonly brand: unique symbol }
 >()("PublicationVisitApiError", { cause: Schema.Unknown }) {}
+
+export const isPublicationVisitFailure = Schema.is(
+	Schema.Union([PublicationUnavailable, PublicationRateLimited]),
+);
 
 export class PublicationsApi extends Context.Service<PublicationsApi>()(
 	"@ryot-app/kernel-client/api/publications/PublicationsApi",
@@ -60,9 +65,7 @@ export class PublicationVisitsApi extends Context.Service<PublicationVisitsApi>(
 				headers: Record<string, string>,
 				program: ContractProgram<A, E>,
 			) =>
-				makeContractClient(serverApiUrl(origin), headers).pipe(
-					Effect.flatMap(program),
-					Effect.provideService(HttpClient.HttpClient, http),
+				runServerContract(http, origin, headers, program).pipe(
 					Effect.mapError((cause) => new PublicationVisitApiError({ cause })),
 				);
 			const visit = <A, E>(scope: PublicationVisitScope, program: ContractProgram<A, E>) =>

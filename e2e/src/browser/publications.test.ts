@@ -64,6 +64,10 @@ it.live("shares a collection, lets a visitor open an item, and stops at revocati
 			.getByRole("button", { exact: true, name: "Revoke" })
 			.click();
 		yield* owner
+			.getByRole("dialog", { name: "Revoke this link?" })
+			.getByRole("button", { name: "Revoke link" })
+			.click();
+		yield* owner
 			.getByRole("dialog", { name: "Share" })
 			.getByText("Revoked")
 			.waitFor({ state: "visible" });

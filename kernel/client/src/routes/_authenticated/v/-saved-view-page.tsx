@@ -19,11 +19,12 @@ import { useEffect, useRef } from "react";
 import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
 import { useCollectionScreens } from "#/modules/collections/screens";
+import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
 import { ClientPagePending } from "#/modules/pages/loading";
-import { mergePageSearch } from "#/modules/pages/runtime/document-host";
+import { navigatePageSearch } from "#/modules/pages/runtime/document-host";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
 import { useShareScreen } from "#/modules/publications/share-screen";
@@ -104,11 +105,13 @@ export function SavedViewPage({
 	const providerAddAction = addAction?.type === "provider-search" ? addAction : null;
 	const addOpen = add === true && providerAddAction !== null;
 
-	const navigateAddSearch = (update: Record<string, null | string>, replace: boolean) => {
-		const nextSearch = mergePageSearch(location.searchStr, update);
-		const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
-		void navigate({ href, replace });
-	};
+	const navigateAddSearch = (update: Record<string, null | string>, replace: boolean) =>
+		navigatePageSearch(navigate, {
+			update,
+			replace,
+			location,
+			entryKey: historyEntry(location.state).key,
+		});
 	const closeAdd = () => {
 		if (pushedAdd.current) {
 			pushedAdd.current = false;

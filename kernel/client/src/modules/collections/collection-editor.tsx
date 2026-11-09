@@ -10,7 +10,6 @@ import {
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import {
 	createRyotHostMutation,
-	createRyotQuery,
 	useRyotMutation,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -26,10 +25,7 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import {
-	collectionHeaderRecipe,
-	type CollectionHeaderResult,
-} from "@ryot-app/ryotql-recipes/collections";
+import type { CollectionHeaderResult } from "@ryot-app/ryotql-recipes/collections";
 import { useRouter } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
@@ -37,6 +33,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { CollectionsApi } from "#/api/collections";
 import { KernelHostServices } from "#/host-services";
+import { collectionHeaderQuery } from "#/modules/collections/collection-header";
 import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
 import {
 	collectionFieldFrom,
@@ -46,10 +43,6 @@ import {
 	hasDefaultValue,
 	newFieldDraft,
 } from "#/modules/collections/field-drafts";
-
-const collectionHeader = createRyotQuery<EntityId, CollectionHeaderResult>(({ input, client }) =>
-	client.data.query(collectionHeaderRecipe({ collectionId: input })),
-);
 
 type SaveRequest =
 	| { readonly action: "create"; readonly request: ContractRequest<"collections", "create"> }
@@ -181,7 +174,9 @@ function ExistingCollectionEditor(props: {
 	readonly collectionId: EntityId;
 	readonly onSaved: (collectionId: EntityId) => void;
 }) {
-	const result = useRyotQuery(collectionHeader, props.collectionId, { refreshOnMutation: false });
+	const result = useRyotQuery(collectionHeaderQuery, props.collectionId, {
+		refreshOnMutation: false,
+	});
 	if (result.data) {
 		return <CollectionEditorForm {...props} initialName="" header={result.data} />;
 	}

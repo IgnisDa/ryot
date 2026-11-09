@@ -18,11 +18,11 @@ export function usePublicationPreview() {
 					.pipe(
 						Effect.match({
 							onFailure: () => undefined,
-							onSuccess: ({ sessionToken }) =>
+							onSuccess: (session) =>
 								void navigate({
 									params: { publicationId },
+									hash: previewHash(session),
 									to: "/share/$publicationId",
-									hash: previewHash(sessionToken),
 								}),
 						}),
 					),

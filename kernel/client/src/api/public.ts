@@ -10,11 +10,20 @@ export class PublicApiError extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("PublicApiError", { cause: Schema.Unknown }) {}
 
+export const runServerContract = <A, E>(
+	http: HttpClient.HttpClient,
+	origin: ServerOrigin,
+	headers: Record<string, string>,
+	program: ContractProgram<A, E>,
+) =>
+	makeContractClient(serverApiUrl(origin), headers).pipe(
+		Effect.flatMap(program),
+		Effect.provideService(HttpClient.HttpClient, http),
+	);
+
 const makePublicApi = (http: HttpClient.HttpClient) => {
 	const run = <A, E>(origin: ServerOrigin, program: ContractProgram<A, E>) =>
-		makeContractClient(serverApiUrl(origin)).pipe(
-			Effect.flatMap(program),
-			Effect.provideService(HttpClient.HttpClient, http),
+		runServerContract(http, origin, {}, program).pipe(
 			Effect.mapError((cause) => new PublicApiError({ cause })),
 		);
 	return {

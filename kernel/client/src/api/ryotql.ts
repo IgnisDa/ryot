@@ -6,13 +6,18 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { AuthenticatedApi, AuthenticatedApiError } from "#/api/authenticated";
 import type { ApiScope } from "#/api/scope";
 
-const isDeclaredFailure = Schema.is(
-	Schema.Union([AuthRateLimited, AuthUnauthorized, RyotQLBadRequest, RyotQLInternalError]),
-);
+const isQueryFailure = Schema.is(Schema.Union([RyotQLBadRequest, RyotQLInternalError]));
+
+const isAuthenticationFailure = Schema.is(Schema.Union([AuthRateLimited, AuthUnauthorized]));
+
+export const classifyRyotQLCause = (
+	cause: unknown,
+	isAccessFailure: (cause: unknown) => boolean,
+) => (isQueryFailure(cause) || isAccessFailure(cause) ? "query-failed" : "transport");
 
 export const classifyRyotQLFailure = (error: unknown) =>
-	error instanceof AuthenticatedApiError && isDeclaredFailure(error.cause)
-		? "query-failed"
+	error instanceof AuthenticatedApiError
+		? classifyRyotQLCause(error.cause, isAuthenticationFailure)
 		: "transport";
 
 export class RyotQLApi extends Context.Service<RyotQLApi>()(

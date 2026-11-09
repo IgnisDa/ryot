@@ -87,7 +87,7 @@ it.live("connects, edits and deletes an integration from settings", () =>
 			yield* row.click();
 			yield* page.waitForURL((url) => url.pathname.startsWith("/settings/integrations/"));
 			yield* page.getByRole("heading", { level: 1, name: INTEGRATION_NAME }).waitFor();
-			yield* page.getByRole("button", { name: "Copy webhook URL" }).waitFor({ state: "visible" });
+			yield* page.getByRole("textbox", { name: "Webhook URL" }).waitFor({ state: "visible" });
 			yield* page.getByText("This integration has not run yet.").waitFor({ state: "visible" });
 
 			yield* page.getByLabel("Name", { exact: true }).fill(RENAMED_INTEGRATION);

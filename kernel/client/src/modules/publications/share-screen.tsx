@@ -1,19 +1,12 @@
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
-import { PublicationId } from "@ryot-app/contract/schema/brands";
+import { type EntityId, PublicationId } from "@ryot-app/contract/schema/brands";
 import type {
 	SharePublicationOutcome,
 	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import {
-	Button,
-	Checkbox,
-	Dialog,
-	Field,
-	Notice,
-	StatusMessage,
-	TextField,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, Dialog, Notice, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
@@ -22,9 +15,11 @@ import { type SubmitEvent, useState } from "react";
 
 import type { ServerOrigin } from "#/api/origin";
 import { AuthService } from "#/modules/auth/service";
+import { collectionHeaderQuery } from "#/modules/collections/collection-header";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { useHostScreenSession } from "#/modules/ui/host-screen-session";
 
+import { PublicationDetailsFields } from "./details-fields";
 import {
 	CreatedLink,
 	publicationFailureText,
@@ -33,16 +28,26 @@ import {
 } from "./links";
 import { usePublicationPreview } from "./preview";
 import {
+	COLLECTION_PUBLICATION_ICON,
 	createPublicationLinkMutation,
 	createPublicationMutation,
-	publicationSourceNameQuery,
+	publicationSavedViewQuery,
 	sourcePublicationsQuery,
 } from "./service";
-import { PublicationStatusLine } from "./status";
+import { PublicationHeader } from "./status";
 
 const FIRST_LINK_LABEL = "Shared link";
 
+type PublishDefaults = { readonly name: string; readonly icon: string };
+
 type CreatedShareLink = { readonly url: string; readonly title: string };
+
+type PublishFormProps = {
+	readonly disabled: boolean;
+	readonly serverUrl: ServerOrigin;
+	readonly source: PublicationSource;
+	readonly onCreated: (link: CreatedShareLink) => void;
+};
 
 export function useShareScreen() {
 	const { server, runtime } = useRouteContext({ from: "/_authenticated" });
@@ -122,23 +127,65 @@ export function ShareSheet(props: {
 	);
 }
 
-function PublishForm(props: {
-	readonly disabled: boolean;
-	readonly serverUrl: ServerOrigin;
-	readonly source: PublicationSource;
-	readonly onCreated: (link: CreatedShareLink) => void;
-}) {
-	const name = useRyotQuery(publicationSourceNameQuery, props.source);
-	if (name.data === undefined) {
-		return name.isError ? (
-			<Notice tone="danger" action={<Button onClick={name.refetch}>Retry</Button>}>
+function PublishForm(props: PublishFormProps) {
+	return props.source.kind === "collection" ? (
+		<CollectionPublishForm {...props} collectionId={props.source.collectionId} />
+	) : (
+		<SavedViewPublishForm {...props} reference={props.source.reference} />
+	);
+}
+
+function CollectionPublishForm(props: PublishFormProps & { readonly collectionId: EntityId }) {
+	const header = useRyotQuery(collectionHeaderQuery, props.collectionId);
+	return (
+		<PublishDefaultsGate
+			{...props}
+			isError={header.isError}
+			onRetry={header.refetch}
+			defaults={
+				header.data === undefined
+					? undefined
+					: { icon: COLLECTION_PUBLICATION_ICON, name: header.data?.name ?? "Collection" }
+			}
+		/>
+	);
+}
+
+function SavedViewPublishForm(
+	props: PublishFormProps & { readonly reference: SavedViewReference },
+) {
+	const view = useRyotQuery(publicationSavedViewQuery, props.reference);
+	return (
+		<PublishDefaultsGate
+			{...props}
+			isError={view.isError}
+			onRetry={view.refetch}
+			defaults={
+				view.data === undefined
+					? undefined
+					: { icon: view.data?.icon ?? "library", name: view.data?.name ?? "Saved view" }
+			}
+		/>
+	);
+}
+
+function PublishDefaultsGate(
+	props: PublishFormProps & {
+		readonly isError: boolean;
+		readonly onRetry: () => void;
+		readonly defaults: undefined | PublishDefaults;
+	},
+) {
+	if (props.defaults === undefined) {
+		return props.isError ? (
+			<Notice tone="danger" action={<Button onClick={props.onRetry}>Retry</Button>}>
 				This could not be loaded.
 			</Notice>
 		) : (
 			<StatusMessage tone="pending">Loading...</StatusMessage>
 		);
 	}
-	return <PublishDetails {...props} defaults={name.data} />;
+	return <PublishDetails {...props} defaults={props.defaults} />;
 }
 
 function SharedPublication(props: {
@@ -152,15 +199,7 @@ function SharedPublication(props: {
 	const { publication } = props;
 	return (
 		<>
-			<div className="flex items-start gap-3">
-				<span className="grid size-10 shrink-0 place-items-center rounded-lg bg-surface-2 text-text-muted">
-					<AppIcon size={20} name={publication.icon} />
-				</span>
-				<div className="grid min-w-0 flex-1 gap-0.5">
-					<h3 className="truncate text-base font-semibold text-text">{publication.title}</h3>
-					<PublicationStatusLine publicationId={PublicationId.make(publication.id)} />
-				</div>
-			</div>
+			<PublicationHeader heading="h3" publication={publication} />
 			<PublicationLinks
 				disabled={props.disabled}
 				publication={publication}
@@ -191,13 +230,7 @@ function SharedPublication(props: {
 	);
 }
 
-function PublishDetails(props: {
-	readonly disabled: boolean;
-	readonly serverUrl: ServerOrigin;
-	readonly source: PublicationSource;
-	readonly onCreated: (link: CreatedShareLink) => void;
-	readonly defaults: { readonly name: string; readonly icon: string };
-}) {
+function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDefaults }) {
 	const publish = useRyotMutation(createPublicationMutation);
 	const createLink = useRyotMutation(createPublicationLinkMutation);
 	const [title, setTitle] = useState(props.defaults.name);
@@ -233,25 +266,12 @@ function PublishDetails(props: {
 
 	return (
 		<form onSubmit={submit} className="grid gap-4">
-			<Field label="Title">
-				{(control) => (
-					<TextField
-						{...control}
-						value={title}
-						maxLength={120}
-						onChange={(event) => setTitle(event.target.value)}
-					/>
-				)}
-			</Field>
-			<Checkbox
-				checked={showOwnerName}
-				label="Show my name to visitors"
-				onChange={(event) => setShowOwnerName(event.target.checked)}
+			<PublicationDetailsFields
+				title={title}
+				onTitleChange={setTitle}
+				showOwnerName={showOwnerName}
+				onShowOwnerNameChange={setShowOwnerName}
 			/>
-			<p className="text-xs text-text-muted">
-				Visitors see these items as they change, but not your activity, ratings, or other
-				collections.
-			</p>
 			{error === null ? null : <Notice tone="danger">{error}</Notice>}
 			<div>
 				<Button

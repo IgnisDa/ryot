@@ -935,7 +935,7 @@ describe("integration detail", () => {
 					screen.getByText("This operation is unavailable while using the shared demo account."),
 				).not.toBeNull();
 				expect(gets).toBe(0);
-				expect(screen.queryByText("Webhook URL")).toBeNull();
+				expect(screen.queryByRole("textbox", { name: "Webhook URL" })).toBeNull();
 				expect(screen.queryByRole("button", { name: "Save changes" })).toBeNull();
 				expect(screen.queryByRole("button", { name: "Integration actions" })).toBeNull();
 			}),
@@ -998,7 +998,10 @@ describe("integration detail", () => {
 				yield* Effect.promise(() =>
 					screen.findByRole("heading", { level: 1, name: "Sample Sink" }),
 				);
-				expect(screen.getByText(`${window.location.origin}/_i/webhook-token-1`)).not.toBeNull();
+				expect(screen.getByRole("textbox", { name: "Webhook URL" })).toHaveProperty(
+					"value",
+					`${window.location.origin}/_i/webhook-token-1`,
+				);
 				expect(screen.getByRole("img", { name: "Completed" })).not.toBeNull();
 				expect(
 					screen.getByText(

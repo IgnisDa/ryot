@@ -11,6 +11,7 @@ import { sortBy } from "@ryot-app/ts-utils/lodash";
 import {
 	useBlocker,
 	useNavigate,
+	type UseNavigateResult,
 	useRouteContext,
 	useRouter,
 	useRouterState,
@@ -94,7 +95,27 @@ const digest = (value: unknown) =>
 		byte.toString(16).padStart(2, "0"),
 	).join("");
 
-export function mergePageSearch(current: string, update: PluginPageSearchUpdate) {
+export function navigatePageSearch(
+	navigate: UseNavigateResult<string>,
+	input: {
+		readonly replace: boolean;
+		readonly entryKey: string;
+		readonly update: PluginPageSearchUpdate;
+		readonly location: { readonly pathname: string; readonly searchStr: string };
+	},
+) {
+	const next = mergePageSearch(input.location.searchStr, input.update);
+	void navigate({
+		replace: input.replace,
+		href: `${input.location.pathname}${next === "" ? "" : `?${next}`}`,
+		state: (current) => ({
+			...current,
+			ryotEntryKey: input.replace ? input.entryKey : crypto.randomUUID(),
+		}),
+	});
+}
+
+function mergePageSearch(current: string, update: PluginPageSearchUpdate) {
 	const next = new URLSearchParams(searchString(current));
 	for (const [key, value] of Object.entries(update)) {
 		if (value === null) {
@@ -610,6 +631,14 @@ function ClientPageFrame(props: {
 					currentScope: () => frameScope.current,
 				})
 			}
+			onPageSearch={({ mode, update }) =>
+				navigatePageSearch(navigate, {
+					update,
+					replace: mode === "replace",
+					entryKey: props.navigation.key,
+					location: router.state.location,
+				})
+			}
 			onLoadDocument={() =>
 				props.runtime
 					.runSync(PagesApi)
@@ -647,19 +676,6 @@ function ClientPageFrame(props: {
 						),
 					)
 			}
-			onPageSearch={({ mode, update }) => {
-				const location = router.state.location;
-				const nextSearch = mergePageSearch(location.searchStr, update);
-				const href = `${location.pathname}${nextSearch === "" ? "" : `?${nextSearch}`}`;
-				void navigate({
-					href,
-					replace: mode === "replace",
-					state: (current) => ({
-						...current,
-						ryotEntryKey: mode === "replace" ? props.navigation.key : crypto.randomUUID(),
-					}),
-				});
-			}}
 			onInvokeOperation={(request) => {
 				const target = props.operationTargets.find(
 					(candidate) => candidate.packageId === request.packageId,

@@ -1,6 +1,5 @@
 import { useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
 import { Button, FieldMessage, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type {
 	SchemaFileUpload,
 	SchemaFormApi,
@@ -22,6 +21,7 @@ import type {
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph } from "#/modules/ui/run/run-status-pill";
+import { ShareLinkField } from "#/modules/ui/share-link-field";
 
 export function IntegrationDetailView(props: {
 	readonly nowMs: number;
@@ -34,7 +34,6 @@ export function IntegrationDetailView(props: {
 	readonly onShowOlderRuns: () => void;
 	readonly uploadFile: SchemaFileUpload;
 	readonly saveDetail: string | undefined;
-	readonly onCopy: (value: string) => void;
 	readonly connectOAuth: SchemaOAuthConnect;
 	readonly runs: readonly ImportRunSummary[];
 	readonly integration: IntegrationClientDetail;
@@ -49,7 +48,7 @@ export function IntegrationDetailView(props: {
 					{props.provider === undefined ? "" : integrationLotDetail(props.provider.lot)}
 				</p>
 			) : (
-				<IntegrationWebhookRow onCopy={props.onCopy} webhookUrl={props.integration.webhookUrl} />
+				<ShareLinkField label="Webhook URL" url={props.integration.webhookUrl} />
 			)}
 			{props.integration.pluginId === null ? (
 				<p className="text-sm leading-6 text-text-muted">
@@ -125,27 +124,6 @@ export function IntegrationDetailView(props: {
 					/>
 				) : null}
 			</div>
-		</div>
-	);
-}
-
-function IntegrationWebhookRow(props: {
-	readonly webhookUrl: string;
-	readonly onCopy: (value: string) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-			<span className="text-xs font-medium text-text-muted">Webhook URL</span>
-			<span className="font-mono text-xs leading-5 break-all text-text">{props.webhookUrl}</span>
-			<Button
-				type="button"
-				variant="secondary"
-				onClick={() => props.onCopy(props.webhookUrl)}
-				className="flex min-h-9 items-center gap-1.5 self-start px-3 py-1.5 text-sm"
-			>
-				<AppIcon size={14} name="clipboard-list" className="text-text-muted" />
-				Copy webhook URL
-			</Button>
 		</div>
 	);
 }

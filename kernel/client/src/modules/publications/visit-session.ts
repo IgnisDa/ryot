@@ -11,9 +11,11 @@ import {
 	type PublicationVisitsApi,
 	type PublicationVisitScope,
 } from "#/api/publications";
+import { publicationVisitKey } from "#/persistence/storage";
 
 const SESSION_RENEWAL_MARGIN_MS = 30_000;
-const PREVIEW_FRAGMENT_PREFIX = "session=";
+const PREVIEW_SESSION_KEY = "session";
+const PREVIEW_EXPIRES_KEY = "expires";
 
 const VisitCredentials = Schema.Struct({
 	secret: Schema.NullOr(Schema.String),
@@ -23,11 +25,9 @@ export type VisitCredentials = typeof VisitCredentials.Type;
 
 const VisitCredentialsJson = Schema.fromJsonString(VisitCredentials);
 
-const storageKey = (publicationId: string) => `ryot.publication-visit.${publicationId}`;
-
 const readStored = (publicationId: string): VisitCredentials => {
 	try {
-		const raw = window.sessionStorage.getItem(storageKey(publicationId));
+		const raw = window.sessionStorage.getItem(publicationVisitKey(publicationId));
 		return raw === null
 			? { secret: null, session: null }
 			: Option.getOrElse(Schema.decodeOption(VisitCredentialsJson)(raw), () => ({
@@ -42,7 +42,7 @@ const readStored = (publicationId: string): VisitCredentials => {
 const writeStored = (publicationId: string, credentials: VisitCredentials) => {
 	try {
 		Option.map(Schema.encodeOption(VisitCredentialsJson)(credentials), (raw) =>
-			window.sessionStorage.setItem(storageKey(publicationId), raw),
+			window.sessionStorage.setItem(publicationVisitKey(publicationId), raw),
 		);
 	} catch {
 		// Without session storage the visit still works until the page is reloaded.
@@ -59,20 +59,31 @@ export const takeVisitCredentials = (publicationId: string, fragment: string): V
 	if (value === "") {
 		return stored;
 	}
-	const credentials: VisitCredentials = value.startsWith(PREVIEW_FRAGMENT_PREFIX)
-		? {
-				secret: null,
-				session: {
-					expiresAt: Number.MAX_SAFE_INTEGER,
-					token: value.slice(PREVIEW_FRAGMENT_PREFIX.length),
-				},
-			}
-		: { secret: value, session: null };
+	const preview = new URLSearchParams(value);
+	const previewToken = preview.get(PREVIEW_SESSION_KEY);
+	const previewExpiresAt = Date.parse(preview.get(PREVIEW_EXPIRES_KEY) ?? "");
+	const credentials: VisitCredentials =
+		previewToken === null
+			? { secret: value, session: null }
+			: {
+					secret: null,
+					session: {
+						token: previewToken,
+						expiresAt: Number.isNaN(previewExpiresAt) ? 0 : previewExpiresAt,
+					},
+				};
 	writeStored(publicationId, credentials);
 	return credentials;
 };
 
-export const previewHash = (sessionToken: string) => `${PREVIEW_FRAGMENT_PREFIX}${sessionToken}`;
+export const previewHash = (session: {
+	readonly expiresAt: string;
+	readonly sessionToken: string;
+}) =>
+	new URLSearchParams({
+		[PREVIEW_EXPIRES_KEY]: session.expiresAt,
+		[PREVIEW_SESSION_KEY]: session.sessionToken,
+	}).toString();
 
 export const unavailableCode = (error: unknown): null | PublicationUnavailableCode =>
 	error instanceof PublicationVisitApiError && Schema.is(PublicationUnavailable)(error.cause)

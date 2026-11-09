@@ -38,7 +38,7 @@ const DAY_MS = 24 * HOUR_MS;
 
 const instant = (value: string) => DateTime.toEpochMillis(DateTime.makeUnsafe(value));
 
-const formatDateLabel = (value: string) =>
+export const formatDateLabel = (value: string) =>
 	DateTime.formatLocal(DateTime.makeUnsafe(value), {
 		day: "numeric",
 		month: "short",

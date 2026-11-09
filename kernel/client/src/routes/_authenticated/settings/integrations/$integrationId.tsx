@@ -341,7 +341,6 @@ function StandardIntegrationDetail(props: { readonly integration: IntegrationCli
 				oauthDisabledReason={oauth.disabledReason}
 				isFetchingNextRuns={runs.isFetchingNextPage}
 				hasMoreRuns={runs.data?.pageInfo.hasMore === true}
-				onCopy={(value) => void navigator.clipboard.writeText(value)}
 				onShowOlderRuns={() => {
 					if (runs.errorOperation === "append") {
 						runs.retry();
