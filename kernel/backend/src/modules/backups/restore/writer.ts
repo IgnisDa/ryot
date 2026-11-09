@@ -2,8 +2,10 @@ import { badRequest, DbError } from "@ryot-app/contract/errors";
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import {
+	builtinSavedViewReference,
 	definitionKey,
 	definitionOwner,
+	definitionOwnerPluginId,
 	identityTupleKey,
 	pluginPackageKey,
 	type SavedViewReference,
@@ -75,6 +77,7 @@ import {
 	ArchiveIntegration,
 	ArchiveNotificationSubscription,
 	archivePluginDefinitionContract,
+	ArchivePublication,
 	type ArchiveRecords,
 	ArchiveRelationship,
 	ArchiveReminder,
@@ -318,6 +321,7 @@ const emptyArchiveRecords = (
 			| "reminders"
 			| "savedViews"
 			| "integrations"
+			| "publications"
 			| "relationships"
 			| "entityDependencies"
 			| "calendarSourceOverrides"
@@ -331,6 +335,7 @@ const emptyArchiveRecords = (
 	foldValues: [],
 	savedViews: [],
 	integrations: [],
+	publications: [],
 	relationships: [],
 	entityDependencies: [],
 	calendarSourceOverrides: [],
@@ -345,6 +350,7 @@ const archiveSectionNamespaces = {
 	"fold-values.ndjson": "fold-value",
 	"saved-views.ndjson": "saved-view",
 	"integrations.ndjson": "integration",
+	"publications.ndjson": "publication",
 	"relationships.ndjson": "relationship",
 	"entity-dependencies.ndjson": "entity",
 	"calendar-source-overrides.ndjson": "calendar",
@@ -757,6 +763,26 @@ export const preflightProvenance = Effect.fn(function* (
 			"calendar source",
 		);
 	}
+	const userEntitiesById = new Map(records.entities.map((entity) => [entity.id, entity]));
+	for (const { source } of records.publications) {
+		if (source.kind === "collection") {
+			const collection =
+				userEntitiesById.get(source.collectionId) ?? endpointEntities.get(source.collectionId);
+			if (
+				collection?.entitySchemaSlug !== "collection" ||
+				collection.entitySchemaPluginKey !== null
+			) {
+				return yield* badRequest("Backup publication references an unavailable collection");
+			}
+		} else if (source.reference.kind !== "custom") {
+			const key = source.reference.kind === "plugin" ? source.reference.pluginKey : null;
+			yield* assertOwner(
+				key,
+				definitions.savedViews[yield* definition("saved-view", source.reference.slug, key)],
+				"publication saved view",
+			);
+		}
+	}
 	for (const view of records.savedViews) {
 		if (view.kind === "builtin-override") {
 			yield* assertOwner(
@@ -862,6 +888,38 @@ export const preflightProvenance = Effect.fn(function* (
 });
 
 type DependencyTarget = { readonly id: EntityId; readonly inserted: boolean };
+
+const restoredPublicationSource = Effect.fn(function* (
+	source: ArchivePublication["source"],
+	pluginIdByKey: ReadonlyMap<string, string>,
+	definitions: DefinitionSnapshot,
+	context: Pick<RestoreRecordBatchContext, "entityIdMap" | "customViewIds">,
+) {
+	if (source.kind === "collection") {
+		const collectionId = context.entityIdMap.get(source.collectionId);
+		return collectionId
+			? { collectionId, kind: source.kind }
+			: yield* badRequest("Backup publication collection mapping is incomplete");
+	}
+	const reference = source.reference;
+	if (reference.kind === "custom") {
+		const savedViewId = context.customViewIds.get(reference.savedViewId);
+		return savedViewId
+			? { kind: source.kind, reference: { savedViewId, kind: reference.kind } }
+			: yield* badRequest("Backup publication saved view mapping is incomplete");
+	}
+	const owner = yield* mappedOwner(
+		pluginIdByKey,
+		reference.kind === "plugin" ? reference.pluginKey : null,
+	);
+	if (!definitions.savedViews[definitionKey("saved-view", owner, reference.slug)]) {
+		return yield* badRequest("Backup publication references an unavailable saved view");
+	}
+	return {
+		kind: source.kind,
+		reference: builtinSavedViewReference(definitionOwnerPluginId(owner), reference.slug),
+	};
+});
 
 type RestoreRecordBatchContext = {
 	readonly reminderIds: ReadonlyMap<string, string>;
@@ -1377,6 +1435,22 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							{ discard: true },
 						),
 					);
+					yield* forEachReferencePage("publications.ndjson", (rows) =>
+						Effect.forEach(
+							rows,
+							(row) =>
+								Schema.decodeUnknownEffect(ArchivePublication)(row.value).pipe(
+									Effect.map(({ id, source }) => {
+										if (source.kind === "collection") {
+											add("publication", id, "entity", source.collectionId);
+										} else if (source.reference.kind === "custom") {
+											add("publication", id, "saved-view-custom", source.reference.savedViewId);
+										}
+									}),
+								),
+							{ discard: true },
+						),
+					);
 					yield* forEachReferencePage("saved-views.ndjson", (rows) =>
 						Effect.forEach(
 							rows,
@@ -1547,6 +1621,31 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								case "fold-values.ndjson": {
 									yield* Effect.forEach(rows, (row) =>
 										Schema.decodeUnknownEffect(ArchiveFoldValue)(row.value),
+									);
+									break;
+								}
+								case "publications.ndjson": {
+									const values = yield* Effect.forEach(rows, (row) =>
+										Schema.decodeUnknownEffect(ArchivePublication)(row.value),
+									);
+									const endpoints = yield* staging.getEntityIdentities(runId, [
+										...new Set(
+											values.flatMap(({ source }) =>
+												source.kind === "collection" ? [source.collectionId] : [],
+											),
+										),
+									]);
+									yield* preflight(
+										emptyArchiveRecords(metadata, { publications: values }),
+										emptyEvents,
+										pluginIdByKey,
+										definitions,
+										required,
+										new Map(
+											endpoints
+												.filter(({ section }) => section === "entities.ndjson")
+												.map((endpoint) => [endpoint.id, endpoint]),
+										),
 									);
 									break;
 								}
@@ -1742,6 +1841,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					entityIds.add(event.entityId);
 					if (event.sessionEntityId !== null) {
 						entityIds.add(event.sessionEntityId);
+					}
+				}
+				for (const { source } of records.publications) {
+					if (source.kind === "collection") {
+						entityIds.add(source.collectionId);
+					} else if (source.reference.kind === "custom") {
+						savedViewIds.add(source.reference.savedViewId);
 					}
 				}
 				const entityIdentityRows = yield* staging.getEntityIdentities(runId, [...entityIds]);
@@ -2273,6 +2379,23 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						isHidden: override.isHidden,
 					});
 				}
+				for (const publication of records.publications) {
+					const source = yield* restoredPublicationSource(
+						publication.source,
+						pluginIdByKey,
+						definitions,
+						context,
+					);
+					yield* persistence.restorePublication({
+						userId,
+						source,
+						icon: publication.icon,
+						title: publication.title,
+						description: publication.description,
+						showOwnerName: publication.showOwnerName,
+						createdAt: parseDate(publication.createdAt),
+					});
+				}
 				for (const integration of records.integrations) {
 					const pluginId =
 						integration.packageKey === null ? undefined : pluginIdByKey.get(integration.packageKey);
@@ -2455,6 +2578,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										break;
 									}
 									case "integrations.ndjson":
+									case "publications.ndjson":
 										break;
 									case "relationships.ndjson": {
 										const values = yield* Effect.forEach(rows, (row) =>
@@ -2851,6 +2975,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										Schema.decodeUnknownEffect(ArchiveIntegration)(row.value),
 									);
 									records = emptyArchiveRecords(metadata, { integrations: values });
+									break;
+								}
+								case "publications.ndjson": {
+									const values = yield* Effect.forEach(rows, (row) =>
+										Schema.decodeUnknownEffect(ArchivePublication)(row.value),
+									);
+									records = emptyArchiveRecords(metadata, { publications: values });
 									break;
 								}
 								case "relationships.ndjson": {

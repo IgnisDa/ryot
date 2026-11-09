@@ -175,6 +175,18 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				yield* session.run((db) => db.insert(schema.reminder).values(input));
 			});
 
+			const restorePublication = Effect.fn("BackupRestorePersistence.restorePublication")(
+				function* (
+					input: Pick<
+						typeof schema.publication.$inferInsert,
+						"icon" | "title" | "userId" | "source" | "createdAt" | "description" | "showOwnerName"
+					>,
+				) {
+					yield* session.requireTransaction;
+					yield* session.run((db) => db.insert(schema.publication).values(input));
+				},
+			);
+
 			const restoreFoldValue = Effect.fn("BackupRestorePersistence.restoreFoldValue")(
 				function* (input: {
 					readonly userId: UserId;
@@ -656,6 +668,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				activateRestored,
 				reserveDependency,
 				restoreCustomView,
+				restorePublication,
 				restoreTranslation,
 				restoreInstallation,
 				restoreRelationship,

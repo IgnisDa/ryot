@@ -66,6 +66,7 @@ export const archiveFixtureSections = (
 		ARCHIVE_CODECS["notification-subscriptions.ndjson"],
 	),
 	encodeSection("reminders.ndjson", records.reminders, ARCHIVE_CODECS["reminders.ndjson"]),
+	encodeSection("publications.ndjson", records.publications, ARCHIVE_CODECS["publications.ndjson"]),
 	encodeSection("fold-values.ndjson", records.foldValues, ARCHIVE_CODECS["fold-values.ndjson"]),
 ];
 
@@ -100,6 +101,7 @@ export const collectFixtureRecords = Effect.fn(function* (archive: ArchiveFixtur
 		archive.sections["notification-subscriptions.ndjson"],
 	);
 	const reminders = yield* collectSection(archive.sections["reminders.ndjson"]);
+	const publications = yield* collectSection(archive.sections["publications.ndjson"]);
 	const foldValues = yield* collectSection(archive.sections["fold-values.ndjson"]);
 	return {
 		...archive.records,
@@ -108,6 +110,7 @@ export const collectFixtureRecords = Effect.fn(function* (archive: ArchiveFixtur
 		foldValues,
 		savedViews,
 		integrations,
+		publications,
 		relationships,
 		entityDependencies,
 		calendarSourceOverrides,
@@ -189,6 +192,12 @@ export const collectExportFixtureRecords = Effect.fn(function* (
 		"reminders.ndjson",
 		ARCHIVE_CODECS["reminders.ndjson"],
 	);
+	const publications = yield* collectExportSection(
+		snapshot,
+		fs,
+		"publications.ndjson",
+		ARCHIVE_CODECS["publications.ndjson"],
+	);
 	const foldValues = yield* collectExportSection(
 		snapshot,
 		fs,
@@ -202,6 +211,7 @@ export const collectExportFixtureRecords = Effect.fn(function* (
 		foldValues,
 		savedViews,
 		integrations,
+		publications,
 		relationships,
 		entityDependencies,
 		calendarSourceOverrides,

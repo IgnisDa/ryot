@@ -35,6 +35,7 @@ const MAX_RESTORE_TARGET_INSTALLATIONS = 4_096;
 export type AccountCleanlinessState = {
 	readonly hasEvents: boolean;
 	readonly hasReminders: boolean;
+	readonly hasPublications: boolean;
 	readonly hasIntegrations: boolean;
 	readonly hasRelationships: boolean;
 	readonly hasManagedAssets: boolean;
@@ -175,6 +176,9 @@ export const classifyAccountCleanliness = (
 	}
 	if (state.hasCalendarSourceOverrides) {
 		return "calendar-source-overrides";
+	}
+	if (state.hasPublications) {
+		return "publications";
 	}
 	if (state.hasIntegrations) {
 		return "integrations";

@@ -33,12 +33,12 @@ import {
 } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { anyOf } from "@ryot-app/testing/matchers";
+import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { it, layer } from "@voila.dev/effect-bun-test";
-import { count, eq, sql } from "drizzle-orm";
+import { and, count, eq, sql } from "drizzle-orm";
 import { Context, DateTime, Effect, FileSystem, Layer, Ref, Schema, Stream } from "effect";
 
 import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-support";
@@ -81,6 +81,7 @@ import {
 	type ArchiveEntitySnapshot,
 	ArchiveEvent,
 	archivePluginDefinitionContract,
+	type ArchivePublication,
 	type ArchiveRecords,
 } from "../archive/schemas";
 import { BackupExportSnapshot } from "../export/snapshot";
@@ -444,6 +445,7 @@ const provenanceRecords = (
 		readonly dependencyKey?: null | string;
 		readonly relationshipKey?: null | string;
 		readonly subscriptionKey?: null | string;
+		readonly publication?: ArchivePublication["source"];
 	} = {},
 ): ArchiveRecords => ({
 	reminders: [],
@@ -469,6 +471,20 @@ const provenanceRecords = (
 				input.subscriptionKey === undefined ? "owner-key" : input.subscriptionKey,
 		},
 	],
+	publications:
+		input.publication === undefined
+			? []
+			: [
+					{
+						icon: "share",
+						description: null,
+						title: "Published",
+						showOwnerName: false,
+						id: "publication-id",
+						source: input.publication,
+						createdAt: "2026-08-23T12:00:00.000Z",
+					},
+				],
 	relationships: [
 		{
 			scope: "user",
@@ -727,6 +743,37 @@ it.effect(
 					name: "calendar source with an unmapped key",
 					records: provenanceRecords({ calendarSourceKey: "unmapped-key" }),
 				},
+				{
+					event: provenanceEvent(),
+					name: "publication of a foreign-owned plugin view",
+					records: provenanceRecords({
+						publication: {
+							kind: "saved-view",
+							reference: { kind: "plugin", slug: "owner-view", pluginKey: "foreign-key" },
+						},
+					}),
+				},
+				{
+					event: provenanceEvent(),
+					name: "publication of an unavailable kernel view",
+					records: provenanceRecords({
+						publication: { kind: "saved-view", reference: { kind: "kernel", slug: "owner-view" } },
+					}),
+				},
+				{
+					event: provenanceEvent(),
+					name: "publication of a non-collection user entity",
+					records: provenanceRecords({
+						publication: { kind: "collection", collectionId: "user-entity" },
+					}),
+				},
+				{
+					event: provenanceEvent(),
+					name: "publication of an unknown collection",
+					records: provenanceRecords({
+						publication: { kind: "collection", collectionId: "archived-collection" },
+					}),
+				},
 			] as const;
 			for (const testCase of cases) {
 				const error = yield* preflightProvenance(
@@ -747,6 +794,31 @@ it.effect(
 				provenanceDefinitions,
 				[],
 			);
+			for (const publication of [
+				{
+					kind: "saved-view",
+					reference: { kind: "plugin", slug: "owner-view", pluginKey: "owner-key" },
+				},
+				{ kind: "collection", collectionId: "archived-collection" },
+			] as const) {
+				yield* preflightProvenance(
+					provenanceRecords({ publication }),
+					{ count: 1, sha256: "", read: () => Stream.make(provenanceEvent()) },
+					pluginIds,
+					provenanceDefinitions,
+					[],
+					new Map([
+						[
+							"archived-collection",
+							{
+								id: "archived-collection",
+								entitySchemaPluginKey: null,
+								entitySchemaSlug: "collection",
+							},
+						],
+					]),
+				);
+			}
 		}),
 	testTimeout,
 );
@@ -975,6 +1047,7 @@ const restoreArchivedEvents = (
 			foldValues: [],
 			savedViews: [],
 			integrations: [],
+			publications: [],
 			installations: [],
 			relationships: [],
 			privatePlugins: [],
@@ -1532,6 +1605,7 @@ describe("account backup restore in PostgreSQL", () => {
 						foldValues: [],
 						savedViews: [],
 						integrations: [],
+						publications: [],
 						privatePlugins: [],
 						entityDependencies: [],
 						calendarSourceOverrides: [],
@@ -2012,6 +2086,22 @@ describe("account backup restore in PostgreSQL", () => {
 											pluginId: sourceId,
 											slug: "bottle-dates",
 										});
+										yield* persistence.restorePublication({
+											icon: "share",
+											description: null,
+											userId: sourceUser,
+											showOwnerName: false,
+											createdAt: fixedDate,
+											title: "Plugin publication",
+											source: {
+												kind: "saved-view",
+												reference: {
+													kind: "plugin",
+													slug: "all-bottles",
+													pluginId: PluginId.make(sourceId),
+												},
+											},
+										});
 									}
 									for (const suffix of ["", "-extra", "-unassociated"]) {
 										const pluginInstallationId =
@@ -2055,6 +2145,20 @@ describe("account backup restore in PostgreSQL", () => {
 											},
 										});
 										assert(view);
+										if (suffix === "" && label === "B") {
+											yield* persistence.restorePublication({
+												icon: "share",
+												userId: sourceUser,
+												showOwnerName: true,
+												createdAt: fixedDate,
+												title: "Custom publication",
+												description: "Bottles worth sharing",
+												source: {
+													kind: "saved-view",
+													reference: { kind: "custom", savedViewId: SavedViewId.make(view.id) },
+												},
+											});
+										}
 										if (suffix === "") {
 											yield* installations.setHomeSavedView(sourceUser, installation.id, {
 												kind: "custom",
@@ -2109,6 +2213,39 @@ describe("account backup restore in PostgreSQL", () => {
 						expect(exportedRecords.calendarSourceOverrides).toEqual([
 							{ isHidden: true, pluginKey: firstKey, slug: "bottle-dates" },
 						]);
+						const [sourceCustomView] = yield* session.run((db) =>
+							db
+								.select({ id: tables.savedView.id })
+								.from(tables.savedView)
+								.where(
+									and(
+										eq(tables.savedView.userId, sourceUser),
+										eq(tables.savedView.slug, "bottles-b"),
+									),
+								),
+						);
+						assert(sourceCustomView);
+						expect(
+							exportedRecords.publications.map(({ title, source }) => ({ title, source })),
+						).toEqual<unknown>(
+							arrayContaining([
+								{
+									title: "Plugin publication",
+									source: {
+										kind: "saved-view",
+										reference: { kind: "plugin", pluginKey: firstKey, slug: "all-bottles" },
+									},
+								},
+								{
+									title: "Custom publication",
+									source: {
+										kind: "saved-view",
+										reference: { kind: "custom", savedViewId: sourceCustomView.id },
+									},
+								},
+							]),
+						);
+						expect(exportedRecords.publications).toHaveLength(2);
 						const exportedEventSection = exported.sections.find(
 							({ path }) => path === "events.ndjson",
 						);
@@ -2213,6 +2350,52 @@ describe("account backup restore in PostgreSQL", () => {
 							{ isHidden: true, slug: "bottle-dates", pluginId: ids.get(firstKey) },
 						]);
 						expect(restoredCalendarOverrides[0]?.pluginId).not.toBe(firstSource.sourceId);
+						const [restoredCustomView] = yield* session.run((db) =>
+							db
+								.select({ id: tables.savedView.id })
+								.from(tables.savedView)
+								.where(
+									and(
+										eq(tables.savedView.userId, destinationUser),
+										eq(tables.savedView.slug, "bottles-b"),
+									),
+								),
+						);
+						assert(restoredCustomView);
+						const restoredPublications = yield* session.run((db) =>
+							db
+								.select({
+									title: tables.publication.title,
+									source: tables.publication.source,
+									revision: tables.publication.revision,
+									revokedAt: tables.publication.revokedAt,
+								})
+								.from(tables.publication)
+								.where(eq(tables.publication.userId, destinationUser)),
+						);
+						expect(restoredPublications).toEqual<unknown>(
+							arrayContaining([
+								{
+									revision: 1,
+									revokedAt: null,
+									title: "Plugin publication",
+									source: {
+										kind: "saved-view",
+										reference: { kind: "plugin", slug: "all-bottles", pluginId: ids.get(firstKey) },
+									},
+								},
+								{
+									revision: 1,
+									revokedAt: null,
+									title: "Custom publication",
+									source: {
+										kind: "saved-view",
+										reference: { kind: "custom", savedViewId: restoredCustomView.id },
+									},
+								},
+							]),
+						);
+						expect(restoredPublications).toHaveLength(2);
 						const restoredEntities = yield* (yield* EntitiesRepository).listUserEntitiesForBackup(
 							destinationUser,
 						);
@@ -2335,6 +2518,13 @@ describe("account backup restore in PostgreSQL", () => {
 						}
 						expect(reexportedRecords.calendarSourceOverrides).toEqual(
 							exportedRecords.calendarSourceOverrides,
+						);
+						expect(
+							reexportedRecords.publications.find(({ title }) => title === "Plugin publication")
+								?.source,
+						).toEqual(
+							exportedRecords.publications.find(({ title }) => title === "Plugin publication")
+								?.source,
 						);
 						expect(reexportedRecords.integrations).toHaveLength(6);
 						for (const integration of reexportedRecords.integrations) {
@@ -2525,6 +2715,7 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	foldValues: [],
 	savedViews: [],
 	integrations: [],
+	publications: [],
 	installations: [],
 	relationships: [],
 	privatePlugins: [],

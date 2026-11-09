@@ -157,6 +157,7 @@ const emptyRecords = {
 	foldValues: [],
 	savedViews: [],
 	integrations: [],
+	publications: [],
 	installations: [],
 	relationships: [],
 	privatePlugins: [],

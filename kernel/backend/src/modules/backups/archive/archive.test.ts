@@ -110,6 +110,47 @@ const records: ArchiveRecords = {
 			renderer: { kind: "plugin", pluginKey: systemKey, exportName: "FixturePage" },
 		},
 	],
+	publications: [
+		{
+			icon: "star",
+			showOwnerName: true,
+			createdAt: timestamp,
+			title: "Shared collection",
+			id: "publication-collection",
+			description: "Things I like",
+			source: { kind: "collection", collectionId: "entity-1" },
+		},
+		{
+			icon: "list",
+			description: null,
+			title: "Custom view",
+			createdAt: timestamp,
+			showOwnerName: false,
+			id: "publication-custom",
+			source: { kind: "saved-view", reference: { kind: "custom", savedViewId: "view-1" } },
+		},
+		{
+			icon: "list",
+			description: null,
+			title: "Kernel view",
+			createdAt: timestamp,
+			showOwnerName: false,
+			id: "publication-kernel",
+			source: { kind: "saved-view", reference: { kind: "kernel", slug: "everything" } },
+		},
+		{
+			icon: "list",
+			description: null,
+			title: "Plugin view",
+			createdAt: timestamp,
+			showOwnerName: false,
+			id: "publication-plugin",
+			source: {
+				kind: "saved-view",
+				reference: { kind: "plugin", slug: "fixture-view", pluginKey: systemKey },
+			},
+		},
+	],
 };
 
 const input = (overrides: Partial<ArchiveFixtureInput> = {}): CreateArchiveInput => {
@@ -726,7 +767,12 @@ layer(BunFileSystem.layer)((test) => {
 					createArchiveStream(
 						input({
 							assets: [asset],
-							records: { ...records, savedViews: [], calendarSourceOverrides: [] },
+							records: {
+								...records,
+								savedViews: [],
+								publications: [],
+								calendarSourceOverrides: [],
+							},
 						}),
 						{ maxEntryBytes: 1 },
 					),
@@ -965,6 +1011,40 @@ layer(BunFileSystem.layer)((test) => {
 				});
 				const error = yield* validationError(archive);
 				expect(error).toMatchObject({ reason: "invalid_entry", path: "private-plugins.ndjson" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects publication records with source database plugin ids",
+		() =>
+			Effect.gen(function* () {
+				const archive = yield* mutateArchive(input(), (files) => {
+					const publication = {
+						icon: "list",
+						description: null,
+						title: "Plugin view",
+						createdAt: timestamp,
+						showOwnerName: false,
+						id: "publication-plugin",
+						source: {
+							kind: "saved-view",
+							reference: { kind: "plugin", slug: "fixture-view", pluginId: "source-plugin-id" },
+						},
+					};
+					return replaceSection(
+						files,
+						"publications.ndjson",
+						encoder.encode(`${JSON.stringify(publication)}\n`),
+						1,
+					);
+				});
+				const error = yield* validationError(archive);
+				expect(error).toMatchObject({
+					reason: "invalid_entry",
+					_tag: "BackupArchiveError",
+					path: "publications.ndjson",
+				});
 			}),
 		testTimeout,
 	);

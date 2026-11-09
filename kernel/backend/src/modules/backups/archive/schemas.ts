@@ -9,6 +9,7 @@ import {
 } from "@ryot-app/contract/modules/imports/data-json";
 import { NotificationOutcome } from "@ryot-app/contract/modules/notifications/delivery";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { CreatePublicationBody } from "@ryot-app/contract/modules/publications/schemas";
 import {
 	REMINDER_MESSAGE_MAX_LENGTH,
 	ReminderReason,
@@ -59,6 +60,7 @@ export const ARCHIVE_SECTION_PATHS = [
 	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
 	"reminders.ndjson",
+	"publications.ndjson",
 	"fold-values.ndjson",
 ] as const;
 
@@ -443,6 +445,20 @@ export const ArchiveReminder = strictStruct({
 );
 export type ArchiveReminder = typeof ArchiveReminder.Type;
 
+export const ArchivePublication = strictStruct({
+	id: Schema.NonEmptyString,
+	createdAt: DataRecordTimestamp,
+	icon: CreatePublicationBody.fields.icon,
+	title: CreatePublicationBody.fields.title,
+	description: CreatePublicationBody.fields.description,
+	showOwnerName: CreatePublicationBody.fields.showOwnerName,
+	source: Schema.Union([
+		strictStruct({ collectionId: Schema.String, kind: Schema.Literal("collection") }),
+		strictStruct({ kind: Schema.Literal("saved-view"), reference: ArchiveSavedViewReference }),
+	]),
+});
+export type ArchivePublication = typeof ArchivePublication.Type;
+
 export const ARCHIVE_CODECS = {
 	"events.ndjson": ArchiveEvent,
 	"profile.json": ArchiveProfile,
@@ -450,6 +466,7 @@ export const ARCHIVE_CODECS = {
 	"entities.ndjson": ArchiveUserEntity,
 	"fold-values.ndjson": ArchiveFoldValue,
 	"saved-views.ndjson": ArchiveSavedView,
+	"publications.ndjson": ArchivePublication,
 	"integrations.ndjson": ArchiveIntegration,
 	"installations.ndjson": ArchiveInstallation,
 	"relationships.ndjson": ArchiveRelationship,
@@ -465,6 +482,7 @@ export type ArchiveRecords = {
 	readonly entities: ReadonlyArray<ArchiveUserEntity>;
 	readonly foldValues: ReadonlyArray<ArchiveFoldValue>;
 	readonly savedViews: ReadonlyArray<ArchiveSavedView>;
+	readonly publications: ReadonlyArray<ArchivePublication>;
 	readonly integrations: ReadonlyArray<ArchiveIntegration>;
 	readonly installations: ReadonlyArray<ArchiveInstallation>;
 	readonly relationships: ReadonlyArray<ArchiveRelationship>;

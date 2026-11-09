@@ -1,4 +1,4 @@
-import type { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
+import type { BackupRunId, PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	asc,
@@ -92,6 +92,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 								hasEvents: sql<boolean>`exists (select 1 from ${schema.event} where ${schema.event.userId} = ${userId})`,
 								hasReminders: sql<boolean>`exists (select 1 from ${schema.reminder} where ${schema.reminder.userId} = ${userId})`,
 								hasIntegrations: sql<boolean>`exists (select 1 from ${schema.integration} where ${schema.integration.userId} = ${userId})`,
+								hasPublications: sql<boolean>`exists (select 1 from ${schema.publication} where ${schema.publication.userId} = ${userId})`,
 								hasRelationships: sql<boolean>`exists (select 1 from ${schema.relationship} where ${schema.relationship.userId} = ${userId})`,
 								hasManagedAssets: sql<boolean>`exists (select 1 from ${schema.managedAsset} where ${schema.managedAsset.ownerUserId} = ${userId})`,
 								hasNotificationChannels: sql<boolean>`exists (select 1 from ${schema.notificationChannel} where ${schema.notificationChannel.userId} = ${userId})`,
@@ -520,6 +521,49 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 					return page === undefined ? query : query.limit(page.limit);
 				});
 			});
+			const listPublications = Effect.fn("BackupExportRepository.listPublications")(function* (
+				userId: UserId,
+				page: { readonly limit: number; readonly afterId: undefined | PublicationId },
+			) {
+				const source = schema.publication.source;
+				return yield* session.run((db) =>
+					db
+						.select({
+							id: schema.publication.id,
+							icon: schema.publication.icon,
+							title: schema.publication.title,
+							source: schema.publication.source,
+							createdAt: schema.publication.createdAt,
+							description: schema.publication.description,
+							showOwnerName: schema.publication.showOwnerName,
+						})
+						.from(schema.publication)
+						.where(
+							and(
+								eq(schema.publication.userId, userId),
+								isNull(schema.publication.revokedAt),
+								page.afterId === undefined ? undefined : gt(schema.publication.id, page.afterId),
+								sql`case
+									when ${source} ->> 'kind' = 'collection' then exists (
+										select 1 from ${schema.entity}
+										where ${schema.entity.id} = ${source} ->> 'collectionId'
+											and ${schema.entity.userId} = ${userId}
+											and ${schema.entity.entitySchemaSlug} = 'collection'
+											and ${schema.entity.entitySchemaPluginId} is null
+									)
+									when ${source} #>> '{reference,kind}' = 'custom' then exists (
+										select 1 from ${schema.savedView}
+										where ${schema.savedView.id} = ${source} #>> '{reference,savedViewId}'
+											and ${schema.savedView.userId} = ${userId}
+									)
+									else true
+								end`,
+							),
+						)
+						.orderBy(asc(schema.publication.id))
+						.limit(page.limit),
+				);
+			});
 			const listReferencedInstallationIds = Effect.fn(
 				"BackupExportRepository.listReferencedInstallationIds",
 			)(function* (userId: UserId, limit: number = ARCHIVE_LIMITS.maxPluginRecords + 1) {
@@ -565,6 +609,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 			return {
 				listReminders,
 				listFoldValues,
+				listPublications,
 				addDependencyIds,
 				assertMetadataBounds,
 				inspectRestoreTarget,

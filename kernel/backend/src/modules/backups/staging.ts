@@ -313,6 +313,7 @@ export class BackupStaging extends Context.Service<BackupStaging>()(
 						db
 							.select({
 								id: schema.backupStagingRecord.id,
+								section: schema.backupStagingRecord.section,
 								inserted: schema.backupStagingRecord.inserted,
 								destinationId: schema.backupStagingRecord.destinationId,
 								entitySchemaSlug: sql<string>`${schema.backupStagingRecord.value}->>'entitySchemaSlug'`,

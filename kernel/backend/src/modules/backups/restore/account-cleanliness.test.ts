@@ -79,6 +79,7 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	hasReminders: false,
 	expectedSavedViews: [],
 	hasIntegrations: false,
+	hasPublications: false,
 	hasRelationships: false,
 	hasManagedAssets: false,
 	notificationSubscriptions: [],
@@ -475,6 +476,7 @@ describe("classifyAccountCleanliness", () => {
 		["integrations", { hasIntegrations: true }],
 		["notification-channels", { hasNotificationChannels: true }],
 		["calendar-source-overrides", { hasCalendarSourceOverrides: true }],
+		["publications", { hasPublications: true }],
 	] as const)("rejects %s", (category, override) => {
 		expect(classifyAccountCleanliness(cleanState(override))).toBe(category);
 	});
@@ -559,6 +561,37 @@ layer(
 						}),
 				);
 				expect((yield* reads.inspectRestoreTarget(userId))?.hasNonBootstrapEntities).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports existing publications through the aggregate inspection",
+		() =>
+			Effect.gen(function* () {
+				const database = yield* DatabaseSession;
+				const reads = yield* BackupExportRepository.make;
+				const userId = UserId.make(yield* randomUuid);
+				yield* database.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: userId, name: "Publishing target", email: `${userId}@example.com` }),
+				);
+				expect((yield* reads.inspectRestoreTarget(userId))?.hasPublications).toBe(false);
+				yield* database.run((db) =>
+					db
+						.insert(tables.publication)
+						.values({
+							userId,
+							icon: "share",
+							title: "Shared",
+							description: null,
+							showOwnerName: false,
+							revokedAt: new Date(0),
+							source: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },
+						}),
+				);
+				expect((yield* reads.inspectRestoreTarget(userId))?.hasPublications).toBe(true);
 			}),
 		testTimeout,
 	);

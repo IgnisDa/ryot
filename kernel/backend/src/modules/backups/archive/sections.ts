@@ -13,6 +13,7 @@ export const STREAMED_SECTION_PATHS = [
 	"integrations.ndjson",
 	"notification-subscriptions.ndjson",
 	"reminders.ndjson",
+	"publications.ndjson",
 	"fold-values.ndjson",
 ] as const;
 

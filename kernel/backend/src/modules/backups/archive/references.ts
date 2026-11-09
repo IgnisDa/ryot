@@ -285,6 +285,11 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 	for (const subscription of records.notificationSubscriptions) {
 		add(subscription.signalSchemaPluginKey);
 	}
+	for (const { source } of records.publications) {
+		if (source.kind === "saved-view" && source.reference.kind === "plugin") {
+			add(source.reference.pluginKey);
+		}
+	}
 	return referenced;
 };
 

@@ -8,7 +8,13 @@ import {
 	pluginPackageKey,
 	savedViewReferenceKey,
 } from "@ryot-app/contract/modules/plugins/references";
-import { type BackupRunId, EntityId, EventId, type UserId } from "@ryot-app/contract/schema/brands";
+import {
+	type BackupRunId,
+	EntityId,
+	EventId,
+	type PublicationId,
+	type UserId,
+} from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
@@ -57,6 +63,7 @@ import type {
 	ArchiveInstallation,
 	ArchiveIntegration,
 	ArchiveNotificationSubscription,
+	ArchivePublication,
 	ArchiveRecords,
 	ArchiveRelationship,
 	ArchiveReminder,
@@ -65,6 +72,7 @@ import type {
 } from "../archive/schemas";
 import {
 	ARCHIVE_CODECS,
+	ARCHIVE_SECTION_PATHS,
 	archivePluginDefinitionContract,
 	decodeArchiveJsonObject,
 	isArchiveJsonObject,
@@ -84,6 +92,7 @@ type ExportCursors = {
 	integrations: string | undefined;
 	relationships: string | undefined;
 	subscriptions: string | undefined;
+	publications: undefined | PublicationId;
 	calendar: undefined | { slug: string; pluginId: string };
 	viewOverrides: undefined | { slug: string; pluginId: null | string };
 };
@@ -96,6 +105,7 @@ const emptyCursors = (): ExportCursors => ({
 	foldValues: undefined,
 	dependencies: undefined,
 	integrations: undefined,
+	publications: undefined,
 	relationships: undefined,
 	subscriptions: undefined,
 	viewOverrides: undefined,
@@ -488,6 +498,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					userId,
 					{ limit: exportPageSize, after: cursors.calendar },
 				);
+				const storedPublications = yield* exportRepository.listPublications(userId, {
+					limit: exportPageSize,
+					afterId: cursors.publications,
+				});
 				const storedFoldValues = yield* exportRepository.listFoldValues(userId, {
 					limit: exportPageSize,
 					after: cursors.foldValues,
@@ -703,6 +717,40 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						isHidden: override.isHidden,
 					});
 				}
+				const publicationRecords = storedPublications.flatMap((row): ArchivePublication[] => {
+					const archived = {
+						id: row.id,
+						icon: row.icon,
+						title: row.title,
+						description: row.description,
+						showOwnerName: row.showOwnerName,
+						createdAt: row.createdAt.toISOString(),
+					};
+					if (row.source.kind === "collection") {
+						return [{ ...archived, source: row.source }];
+					}
+					const reference = row.source.reference;
+					if (reference.kind === "custom") {
+						return [{ ...archived, source: { reference, kind: row.source.kind } }];
+					}
+					if (reference.kind === "kernel") {
+						return context.savedView(reference.slug, null)
+							? [{ ...archived, source: { reference, kind: row.source.kind } }]
+							: [];
+					}
+					const pluginKey = pluginKeyById.get(reference.pluginId);
+					return pluginKey && context.savedView(reference.slug, reference.pluginId)
+						? [
+								{
+									...archived,
+									source: {
+										kind: row.source.kind,
+										reference: { pluginKey, kind: reference.kind, slug: reference.slug },
+									},
+								},
+							]
+						: [];
+				});
 				const subscriptionRecords: ArchiveNotificationSubscription[] = yield* Effect.forEach(
 					storedSubscriptions.filter(({ isActive, metadata }) => !isActive || metadata !== null),
 					({ metadata, isActive, signalSchemaSlug, signalSchemaPluginId }) =>
@@ -845,6 +893,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					reminders: reminderRecords,
 					foldValues: foldValueRecords,
 					integrations: integrationRecords,
+					publications: publicationRecords,
 					installations: installationRecords,
 					relationships: relationshipRecords,
 					notificationSubscriptions: subscriptionRecords,
@@ -859,6 +908,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							storedIntegrations.length +
 							storedViews.length +
 							storedReminders.length +
+							storedPublications.length +
 							storedFoldValues.length +
 							storedSubscriptions.length +
 							storedOverrides.length +
@@ -871,6 +921,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						calendar: storedCalendarOverrides.at(-1) ?? cursors.calendar,
 						viewOverrides: storedOverrides.at(-1) ?? cursors.viewOverrides,
 						dependencies: dependencyRows.at(-1)?.id ?? cursors.dependencies,
+						publications: storedPublications.at(-1)?.id ?? cursors.publications,
 						foldValues: storedFoldValues.at(-1)?.entityId ?? cursors.foldValues,
 						integrations: storedIntegrations.at(-1)?.id ?? cursors.integrations,
 						relationships: storedRelationships.at(-1)?.id ?? cursors.relationships,
@@ -1400,6 +1451,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					savedViews: exportedViews,
 					entities: exportedEntities,
 					foldValues: data.foldValues,
+					publications: data.publications,
 					integrations: restoredIntegrations,
 					privatePlugins: data.privatePlugins,
 					relationships: exportedRelationships,
@@ -1580,6 +1632,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						foldValues: spool("fold-values.ndjson", ARCHIVE_CODECS["fold-values.ndjson"]),
 						savedViews: spool("saved-views.ndjson", ARCHIVE_CODECS["saved-views.ndjson"]),
 						integrations: spool("integrations.ndjson", ARCHIVE_CODECS["integrations.ndjson"]),
+						publications: spool("publications.ndjson", ARCHIVE_CODECS["publications.ndjson"]),
 						relationships: spool("relationships.ndjson", ARCHIVE_CODECS["relationships.ndjson"]),
 						entityDependencies: spool(
 							"entity-dependencies.ndjson",
@@ -1622,7 +1675,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								return yield* badRequest("Backup asset metadata is inconsistent");
 							}
 							assetsBySha.set(asset.sha256, asset);
-							if (assetsBySha.size + 13 > ARCHIVE_LIMITS.maxEntryCount) {
+							if (assetsBySha.size + ARCHIVE_SECTION_PATHS.length > ARCHIVE_LIMITS.maxEntryCount) {
 								return yield* archiveError(
 									"entry_count_exceeded",
 									"Backup asset entry limit exceeded",
@@ -1671,6 +1724,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						yield* spools.savedViews.append(page.records.savedViews);
 						yield* spools.integrations.append(page.records.integrations);
 						yield* spools.reminders.append(page.records.reminders);
+						yield* spools.publications.append(page.records.publications);
 						yield* spools.foldValues.append(page.records.foldValues);
 						yield* spools.calendarSourceOverrides.append(page.records.calendarSourceOverrides);
 						yield* spools.notificationSubscriptions.append(page.records.notificationSubscriptions);

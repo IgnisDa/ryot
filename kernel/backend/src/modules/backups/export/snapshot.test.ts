@@ -11,9 +11,12 @@ import type {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	BackupRunId,
+	EntityId,
 	EntitySchemaSlug,
 	NotificationSubscriptionId,
+	PluginId,
 	PluginPackageId,
+	PublicationId,
 	SavedViewId,
 	SignalSchemaSlug,
 	UserId,
@@ -541,6 +544,23 @@ const storedSystemPlugin = (id: string, packageId: PluginPackageId, contentHash:
 	},
 });
 
+const pluginViewPublication = (id: string, pluginId: string) => ({
+	icon: "share",
+	description: null,
+	showOwnerName: false,
+	title: "Plugin view",
+	id: PublicationId.make(id),
+	createdAt: privateTimestamp,
+	source: {
+		kind: "saved-view" as const,
+		reference: {
+			slug: "retained-view",
+			kind: "plugin" as const,
+			pluginId: PluginId.make(pluginId),
+		},
+	},
+});
+
 const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 	withExportReads((reads) =>
 		Layer.effect(BackupExportSnapshot, BackupExportSnapshot.make).pipe(
@@ -590,6 +610,39 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 												isHidden: true,
 												slug: "retained-dates",
 												pluginId: "removed-plugin-id",
+											},
+										]
+									: [],
+							),
+						listPublications: (_userId, page) =>
+							Effect.succeed(
+								page.afterId === undefined
+									? [
+											{
+												icon: "share",
+												description: null,
+												title: "Collection",
+												showOwnerName: false,
+												createdAt: privateTimestamp,
+												id: PublicationId.make("publication-collection"),
+												source: {
+													kind: "collection" as const,
+													collectionId: EntityId.make("private-entity"),
+												},
+											},
+											pluginViewPublication("publication-retained", "private-plugin-id"),
+											pluginViewPublication("publication-removed-plugin", "removed-plugin-id"),
+											{
+												icon: "share",
+												description: null,
+												showOwnerName: false,
+												createdAt: privateTimestamp,
+												title: "Removed kernel view",
+												id: PublicationId.make("publication-removed-kernel"),
+												source: {
+													kind: "saved-view" as const,
+													reference: { slug: "removed-view", kind: "kernel" as const },
+												},
 											},
 										]
 									: [],
@@ -791,6 +844,19 @@ layer(privateRecordsExportLayer())((test) => {
 				expect(records.calendarSourceOverrides).toEqual([
 					{ isHidden: true, pluginKey: privateKey, slug: "retained-dates" },
 				]);
+				expect(records.publications.map(({ id, source }) => ({ id, source }))).toEqual([
+					{
+						id: "publication-collection",
+						source: { kind: "collection", collectionId: "private-entity" },
+					},
+					{
+						id: "publication-retained",
+						source: {
+							kind: "saved-view",
+							reference: { kind: "plugin", slug: "retained-view", pluginKey: privateKey },
+						},
+					},
+				]);
 				expect(records.entities).toEqual<unknown>([
 					objectContaining({
 						id: "private-entity",
@@ -977,6 +1043,7 @@ const eventPagesExportLayer = withExportReads((reads) =>
 					listReminders: () => Effect.succeed([]),
 					discoverDependencies: () => Effect.void,
 					listFoldValues: () => Effect.succeed([]),
+					listPublications: () => Effect.succeed([]),
 					listSavedViewOverrides: () => Effect.succeed([]),
 					listCalendarSourceOverrides: () => Effect.succeed([]),
 					discoverSnapshotDependencies: () => Effect.succeed(0),

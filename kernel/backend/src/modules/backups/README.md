@@ -9,7 +9,7 @@ Creating a run queues its `backup-export` or `backup-restore` [job](../../platfo
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, and `reminders.ndjson`.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, `reminders.ndjson`, and `publications.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>`.
 
 The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
@@ -31,7 +31,7 @@ account preferences still make the target unclean.
 ## Streaming
 
 Every usage-sized NDJSON section is disk-backed: entities, dependencies, relationships, events,
-saved views, calendar overrides, integrations, subscriptions, and reminders. Export uses stable
+saved views, calendar overrides, integrations, subscriptions, reminders, and publications. Export uses stable
 keyset pages and incrementally counts and hashes each spool. ZIP entry streams open on demand and
 advance under storage backpressure. Profile, private packages, installations, and the manifest retain
 strict metadata limits.
@@ -159,6 +159,15 @@ Unfinished records become `needs-scheduling`, with no active instant, formatter,
 delivery claim. Original date/time values remain, including whether a Processing source may have
 sent. Settled/cancelled outcomes remain history. Existing reminders make an account unclean, including
 retained removal fences. Channels and delivery ledgers are not portable and are never restored.
+
+Publication records carry active publication definitions only: title, icon, description, owner-name
+visibility, creation time, and a source. A collection source names an archived user entity; restore
+rejects it unless that entity is a user-owned kernel collection. Custom saved-view sources name an
+archived custom view; built-in sources use a kernel slug or package key plus slug and must resolve to a
+restored definition. Export skips revoked publications and those whose source no longer resolves.
+Publication links are never archived, because their secrets exist only as hashes, so restored
+publications start active at revision 1 with no links. Existing publications, including revoked
+ones, make an account unclean.
 
 ## Failure Contract
 

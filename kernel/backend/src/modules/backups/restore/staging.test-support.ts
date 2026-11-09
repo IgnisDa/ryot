@@ -40,6 +40,7 @@ export const fixtureArchiveReaders = (
 	"fold-values.ndjson": fixtureReader(records.foldValues),
 	"saved-views.ndjson": fixtureReader(records.savedViews),
 	"integrations.ndjson": fixtureReader(records.integrations),
+	"publications.ndjson": fixtureReader(records.publications),
 	"relationships.ndjson": fixtureReader(records.relationships),
 	"entity-dependencies.ndjson": fixtureReader(records.entityDependencies),
 	"calendar-source-overrides.ndjson": fixtureReader(records.calendarSourceOverrides),
@@ -167,6 +168,7 @@ const makeMemoryStaging = (): BackupStaging["Service"] => {
 										Effect.orDie,
 										Effect.map((entity) => ({
 											id: record.id,
+											section: record.section,
 											inserted: record.inserted,
 											destinationId: record.destinationId,
 											entitySchemaSlug: entity.entitySchemaSlug,

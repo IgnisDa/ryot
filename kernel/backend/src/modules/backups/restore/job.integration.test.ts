@@ -208,6 +208,7 @@ const dependencies = Layer.unwrap(
 										foldValues: [],
 										savedViews: [],
 										integrations: [],
+										publications: [],
 										installations: [],
 										relationships: [],
 										privatePlugins: [],

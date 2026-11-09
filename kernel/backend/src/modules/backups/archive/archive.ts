@@ -212,6 +212,7 @@ const validatePluginKeys = (
 		foldValues: [],
 		savedViews: [],
 		integrations: [],
+		publications: [],
 		relationships: [],
 		entityDependencies: [],
 		calendarSourceOverrides: [],
@@ -963,6 +964,10 @@ const validateExtracted = (
 		"integrations.ndjson": createSectionReader(
 			"integrations.ndjson",
 			ARCHIVE_CODECS["integrations.ndjson"],
+		),
+		"publications.ndjson": createSectionReader(
+			"publications.ndjson",
+			ARCHIVE_CODECS["publications.ndjson"],
 		),
 		"relationships.ndjson": createSectionReader(
 			"relationships.ndjson",
