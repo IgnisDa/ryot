@@ -8,7 +8,8 @@ import {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { kernelPublicationRenderer } from "@ryot-app/kernel-renderers";
 import { Context, Effect, Layer } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -21,7 +22,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 
 import { ClientPageCompositionService } from "./composition-service";
-import { generateClientDocument } from "./document";
+import { generateClientDocument, generatePublicClientDocument } from "./document";
 import {
 	clientPageCodeContributors,
 	type GraphPlugin,
@@ -427,7 +428,44 @@ export class PagesService extends Context.Service<PagesService>()(
 					Effect.provideService(ClientArtifactGrantService, artifactGrants),
 				);
 			});
-			return { prepare, document, isIdentityCurrent };
+			// Visitors receive no artifact grants, so their pages compose only image-shipped artifacts.
+			const publicationComposition = Effect.fn("Pages.publicationComposition")(function* (
+				ownerUserId: UserId,
+			) {
+				const available = (yield* listAvailable(ownerUserId)).filter(
+					(plugin) =>
+						plugin.scope === "system" &&
+						typeof plugin.clientArtifactHash === "string" &&
+						artifactStore.isPublic(plugin.clientArtifactHash),
+				);
+				const graph = yield* resolveKernelRendererGraph(available, kernelPublicationRenderer);
+				const composition = yield* compositions.getOrMaterialize(graph);
+				return { composition, contributors: clientPageCodeContributors(graph.identity, available) };
+			});
+			const preparePublication = Effect.fn("Pages.preparePublication")(function* (
+				ownerUserId: UserId,
+			) {
+				const { composition, contributors } = yield* publicationComposition(ownerUserId);
+				return {
+					contributors,
+					composition: compositionFor(composition),
+					rendererName: kernelPublicationRenderer.name,
+				};
+			});
+			const publicationDocument = Effect.fn("Pages.publicationDocument")(function* (
+				ownerUserId: UserId,
+				compositionHash: string,
+			) {
+				const { composition } = yield* publicationComposition(ownerUserId);
+				if (composition.compositionHash !== compositionHash) {
+					return null;
+				}
+				return yield* generatePublicClientDocument(
+					composition.compositionHash,
+					composition.manifest,
+				).pipe(Effect.provideService(ClientArtifactStore, artifactStore));
+			});
+			return { prepare, document, isIdentityCurrent, preparePublication, publicationDocument };
 		}),
 	},
 ) {

@@ -307,12 +307,24 @@ const server = group(
 			envKey: "SERVER_DISABLE_NOTIFICATIONS",
 			description: "Disable delivery of all notifications",
 		}),
+		disablePublications: booleanField({
+			defaultValue: false,
+			label: "Disable publications",
+			envKey: "SERVER_DISABLE_PUBLICATIONS",
+			description: "Disable creating and visiting read-only publications of user content",
+		}),
 		adminAccessToken: stringField({
 			secret: true,
 			label: "Admin access token",
 			validation: { required: true },
 			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
 			description: "Bearer token required for instance-admin admin endpoints",
+		}),
+		trustedProxies: stringField({
+			label: "Trusted proxies",
+			envKey: "SERVER_TRUSTED_PROXIES",
+			description:
+				"Comma-separated networks, such as 10.0.0.0/8, of reverse proxies whose X-Forwarded-For header identifies the client",
 		}),
 		proKeyVerificationUrl: stringField({
 			hidden: true,

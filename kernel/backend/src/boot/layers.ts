@@ -111,6 +111,7 @@ import {
 	PluginInstallationJobOperationsProvidedLive,
 } from "#modules/plugins/operations/layer";
 import { PluginRepository } from "#modules/plugins/packages/repository";
+import { PublicationsServiceLive } from "#modules/publications/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { ReminderEntityLifecycleLive } from "#modules/reminders/entity-lifecycle";
 import {
@@ -296,6 +297,7 @@ const ServicesLive = Layer.mergeAll(
 	EntityUserDataServiceLive,
 	UserBootstrapSchedulingLive,
 	PagesServiceLive,
+	PublicationsServiceLive,
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
 	AutomationReconciliationLive,

@@ -36,6 +36,15 @@ A document cannot provide a user ID, plugin identity, execution scope, or grant.
 | User, `plugin` | Client-plugin iframes through `/ryotql/plugin/execute`, user-subject sandbox scripts, saved views | Plugin-readable tables only, except `kernel` and `admin` fields                                      |
 | Admin          | `/instance-admin/ryotql/execute`                                                                  | Tables with an admin policy and all their fields; entity text is canonical                           |
 | System plugin  | Pinned system-scope scripts with `executeRyotql`                                                  | Global entities whose schema the plugin owns, plus events and relationships whose definition it owns |
+| Publication    | Anonymous [publication](../publications/README.md) visitors                                       | The publication's subject entities and the links between them; never owner identity                  |
+
+The publication scope receives the subject set computed from the publication's source as a
+`publication_subject` CTE. Entities are visible only when they are subjects, and expose
+`publicationRank`, their 1-based position in the scope's order. Relationships are visible only between
+two subjects, and only when global or the owner's kernel `member-of` memberships. Events are readable
+but always empty. Definitions are the owner's effective kernel and system-plugin definitions, and
+plugins are system plugins only. `entity.userId` and the relationship `userId`, `projection`, and
+`projectionStatus` fields are hidden. Every other table is denied.
 
 System-plugin ownership checks use the exact local plugin ID and pinned declarations, including the containing entity schema for events. Definition queries use the caller's pinned own revision. Trusted user-subject definition contexts also replace only the caller's own definitions with that pin; foreign definitions use their current effective revision.
 
@@ -54,6 +63,7 @@ System-plugin ownership checks use the exact local plugin ID and pinned declarat
 | `user`                                                                                                     | Self                                       |   no   |  yes  | admin: `disabledAt`, `twoFactorEnabled`, `authState`                   |
 | `oauthConnection`                                                                                          | Owned                                      |   no   |  no   | Only `id` and effective `status`; denied to demo credentials           |
 | `backupRun`                                                                                                | Owned                                      |   no   |  no   | —                                                                      |
+| `publication`, `publicationLink`                                                                           | Owned, directly or through publication     |   no   |  no   | Link secrets are stored only as hashes and are never fields            |
 | `notification`, `notificationDelivery`                                                                     | Owned, directly or through notification    |   no   |  no   | No source identity, account token, credentials or raw diagnostics      |
 | `importSource`, `integrationProvider`                                                                      | Of the user's executable plugins           |   no   |  no   | —                                                                      |
 | `entityTranslation`, `sandboxScript`, `userLifecycleOperation`, `migrationReport`, `migrationReportDetail` | —                                          |   no   |  yes  | —                                                                      |

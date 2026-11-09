@@ -11,6 +11,7 @@ import {
 	Schema,
 	SchemaIssue,
 } from "effect";
+import { IpNetwork } from "effect/net";
 
 import { parseEgressAllowedNetworks } from "../egress/address-policy";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
@@ -110,6 +111,19 @@ const parseOptional = <I, A>(
 				: Effect.succeedSome(parsed.success);
 		},
 	});
+
+const parseTrustedProxies = (
+	value: string,
+): Result.Result<ReadonlyArray<IpNetwork.IpNetwork>, string> =>
+	Result.all(
+		value
+			.split(",")
+			.map((entry) => entry.trim())
+			.filter((entry) => entry !== "")
+			.map((entry) =>
+				Result.mapError(IpNetwork.fromString(entry), () => `'${entry}' is not a CIDR network`),
+			),
+	);
 
 const parseOtlpHeaders = (value: string): Result.Result<Record<string, string>, string> => {
 	const headers: Record<string, string> = {};
@@ -220,6 +234,15 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 				"SERVER_EGRESS_ALLOWED_NETWORKS",
 				config.server.egressAllowedNetworks,
 				parseEgressAllowedNetworks,
+			),
+			() => [],
+		);
+
+		const trustedProxies = Option.getOrElse(
+			yield* parseOptional(
+				"SERVER_TRUSTED_PROXIES",
+				config.server.trustedProxies,
+				parseTrustedProxies,
 			),
 			() => [],
 		);
@@ -335,8 +358,8 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 		return {
 			...config,
 			frontendUrl: frontendUrl.origin,
-			server: { ...config.server, oidc, smtp, egressAllowedNetworks },
 			observability: { ...config.observability, otlp: { ...otlp, headers } },
+			server: { ...config.server, oidc, smtp, trustedProxies, egressAllowedNetworks },
 			fileStorage: {
 				s3,
 				localDir: config.fileStorage.localDir,

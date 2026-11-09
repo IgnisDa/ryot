@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "d16d03b0-e0a6-4aea-83fc-04a129444647",
+	"id": "79d430f6-324f-4c1a-bb26-1426ae43600b",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -839,6 +839,33 @@
 				"n|rel|public.provider_rate_limit",
 				"n|type|public.provider_rate_limit",
 				"n|rel|public.provider_rate_limit_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "publication"],
+			"writes": [
+				"s|tbl|public.publication",
+				"n|tbl|public.publication",
+				"e|tbl|public.publication",
+				"n|rel|public.publication",
+				"n|type|public.publication",
+				"n|rel|public.publication_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "publication_link"],
+			"writes": [
+				"s|tbl|public.publication_link",
+				"n|tbl|public.publication_link",
+				"e|tbl|public.publication_link",
+				"n|rel|public.publication_link",
+				"n|type|public.publication_link",
+				"n|rel|public.publication_link_pkey",
+				"n|rel|public.publication_link_token_hash_key"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -2984,6 +3011,37 @@
 				"n|tbl|public.plugin_installation",
 				"n|sch|public",
 				"n|col|public.plugin_installation.plugin_id"
+			]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "publication", "publication_user_id_idx"],
+			"writes": [
+				"s|idx|public.publication_user_id_idx",
+				"n|idx|public.publication_user_id_idx",
+				"e|idx|public.publication_user_id_idx",
+				"n|rel|public.publication_user_id_idx"
+			],
+			"reads": ["n|tbl|public.publication", "n|sch|public", "n|col|public.publication.user_id"]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": [
+				"index",
+				"public",
+				"publication_link",
+				"publication_link_publication_id_idx"
+			],
+			"writes": [
+				"s|idx|public.publication_link_publication_id_idx",
+				"n|idx|public.publication_link_publication_id_idx",
+				"e|idx|public.publication_link_publication_id_idx",
+				"n|rel|public.publication_link_publication_id_idx"
+			],
+			"reads": [
+				"n|tbl|public.publication_link",
+				"n|sch|public",
+				"n|col|public.publication_link.publication_id"
 			]
 		},
 		{
@@ -5473,6 +5531,44 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "publication"],
+			"writes": [
+				"s|fk|public.publication.publication_user_id_user_id_fkey",
+				"n|fk|public.publication.publication_user_id_user_id_fkey",
+				"e|fk|public.publication.publication_user_id_user_id_fkey",
+				"n|con|public.publication.publication_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.publication",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.publication.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "publication_link"],
+			"writes": [
+				"s|fk|public.publication_link.publication_link_publication_id_publication_id_fkey",
+				"n|fk|public.publication_link.publication_link_publication_id_publication_id_fkey",
+				"e|fk|public.publication_link.publication_link_publication_id_publication_id_fkey",
+				"n|con|public.publication_link.publication_link_publication_id_publication_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.publication_link",
+				"n|sch|public",
+				"n|tbl|public.publication",
+				"n|sch|public",
+				"n|col|public.publication_link.publication_id",
+				"n|col|public.publication.id",
+				"e|uniqueness|public.publication.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "relationship"],
 			"writes": [
 				"s|fk|public.relationship.relationship_user_id_user_id_fkey",
@@ -6121,6 +6217,13 @@
 		{
 			"schema": "public",
 			"name": "provider_rate_limit",
+			"isRlsEnabled": false,
+			"entityType": "tables"
+		},
+		{ "schema": "public", "name": "publication", "isRlsEnabled": false, "entityType": "tables" },
+		{
+			"schema": "public",
+			"name": "publication_link",
 			"isRlsEnabled": false,
 			"entityType": "tables"
 		},
@@ -15050,6 +15153,253 @@
 		},
 		{
 			"schema": "public",
+			"table": "publication",
+			"name": "description",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "icon",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "title",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "revoked_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "updated_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "show_owner_name",
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "source",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication",
+			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "label",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "expires_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "revoked_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "last_exchanged_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "token_hash",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "publication_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
 			"table": "relationship",
 			"name": "updated_at",
 			"type": "timestamp(3) with time zone",
@@ -19880,6 +20230,48 @@
 		},
 		{
 			"schema": "public",
+			"table": "publication",
+			"name": "publication_user_id_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "user_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "publication_link_publication_id_idx",
+			"nameExplicit": true,
+			"columns": [
+				{
+					"value": "publication_id",
+					"isExpression": false,
+					"asc": true,
+					"nullsFirst": false,
+					"opclass": null
+				}
+			],
+			"isUnique": false,
+			"where": null,
+			"with": "",
+			"method": "btree",
+			"concurrently": false,
+			"entityType": "indexes"
+		},
+		{
+			"schema": "public",
 			"table": "relationship",
 			"name": "relationship_schema_slug_idx",
 			"nameExplicit": true,
@@ -22053,6 +22445,32 @@
 		},
 		{
 			"schema": "public",
+			"table": "publication",
+			"name": "publication_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "publication_link_publication_id_publication_id_fkey",
+			"nameExplicit": false,
+			"columns": ["publication_id"],
+			"schemaTo": "public",
+			"tableTo": "publication",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "relationship",
 			"name": "relationship_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -22833,6 +23251,22 @@
 		},
 		{
 			"schema": "public",
+			"table": "publication",
+			"name": "publication_pkey",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "publication_link_pkey",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
 			"table": "relationship",
 			"name": "relationship_pkey",
 			"columns": ["id"],
@@ -23271,6 +23705,15 @@
 			"name": "oauth_resource_identifier_key",
 			"nameExplicit": false,
 			"columns": ["identifier"],
+			"nullsNotDistinct": false,
+			"entityType": "uniques"
+		},
+		{
+			"schema": "public",
+			"table": "publication_link",
+			"name": "publication_link_token_hash_key",
+			"nameExplicit": false,
+			"columns": ["token_hash"],
 			"nullsNotDistinct": false,
 			"entityType": "uniques"
 		},

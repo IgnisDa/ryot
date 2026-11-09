@@ -7,6 +7,8 @@ import {
 	DemoOperationProtected,
 } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
+import { PublicationMiddleware } from "@ryot-app/contract/modules/publications/contract";
+import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
@@ -98,6 +100,9 @@ const routesLayer = Layer.unwrap(
 			Layer.succeed(AdminMiddleware, {
 				adminToken: () =>
 					Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+			}),
+			Layer.succeed(PublicationMiddleware, {
+				session: () => Effect.fail(new PublicationUnavailable({ reason: { code: "not-found" } })),
 			}),
 			HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
 				Effect.flatMap(Ref.get(sent), ({ kind, accessClass }) =>

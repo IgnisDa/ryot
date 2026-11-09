@@ -1,10 +1,12 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
+import type { PublicationScope } from "@ryot-app/contract/modules/publications/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLDocument, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import type { EffectPgDatabase } from "drizzle-orm/effect-postgres";
 import { Context, Deferred, Effect, Layer, Match, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
@@ -15,10 +17,25 @@ import { plugin } from "#schema/tables/core";
 
 import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
-import { executeNamedQuery } from "./executor";
+import { executeNamedQuery, executeSubjectSet } from "./executor";
 import { validateRyotQLDocument } from "./validator";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
+const PUBLICATION_STATEMENT_TIMEOUT_MS = 10_000;
+
+/** A publication's resolved scope query, executed as its owner only to select the visible subjects. */
+export type PublicationSubjectQuery = {
+	readonly ownerUserId: string;
+	readonly subjectLimit: number;
+	readonly scope: PublicationScope;
+	readonly language: null | string;
+};
+
+const SubjectsJson = Schema.fromJsonString(
+	Schema.Array(Schema.Struct({ rank: Schema.Int, entity_id: Schema.String })),
+);
+
+const invalidQuery = () => new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 
 class DiscardedSavepoint extends Schema.TaggedError<
 	DiscardedSavepoint,
@@ -47,16 +64,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						.pipe(Effect.catchTag("DiscardedSavepoint", () => Deferred.await(finished)));
 				});
 
-			const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
-				scope: RyotQLExecutionScope,
-				document: RyotQLDocument,
-				resultBytes?: number,
+			const runRead = Effect.fnUntraced(function* <A, E, R>(
+				timeoutMs: number,
+				body: (transaction: EffectPgDatabase) => Effect.Effect<A, E, R>,
 			) {
-				const validated = validateRyotQLDocument(document, scope);
-				if (validated.error !== null) {
-					yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validated.error });
-					return yield* new RyotQLBadRequest({ reason: { code: "invalid-query" } });
-				}
 				const joined = yield* session.isTransactionActive;
 				const read = session.run((transaction) =>
 					Effect.gen(function* () {
@@ -66,8 +77,53 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 								: sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY`,
 						);
 						yield* transaction.execute(
-							sql`SELECT set_config('statement_timeout', ${RYOTQL_STATEMENT_TIMEOUT_MS.toString()}, true), set_config('jit', 'off', true)`,
+							sql`SELECT set_config('statement_timeout', ${timeoutMs.toString()}, true), set_config('jit', 'off', true)`,
 						);
+						return yield* body(transaction);
+					}),
+				);
+				return yield* (joined ? discardedSavepoint(read) : session.transaction(read)).pipe(
+					Effect.catchTag(
+						"DatabaseSessionStateError",
+						() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+					),
+					Effect.catchIf(
+						(error): error is DbError => error instanceof DbError,
+						(error) =>
+							Effect.logError("RyotQL database execution failed", error).pipe(
+								Effect.andThen(
+									Match.value(error.code).pipe(
+										Match.when("57014", () =>
+											Effect.fail(
+												new RyotQLBadRequest({
+													reason: { limitMs: timeoutMs, code: "query-timeout" },
+												}),
+											),
+										),
+										Match.orElse(() =>
+											Effect.fail(
+												new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+											),
+										),
+									),
+								),
+							),
+					),
+				);
+			});
+
+			const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
+				scope: RyotQLExecutionScope,
+				document: RyotQLDocument,
+				resultBytes?: number,
+			) {
+				const validated = validateRyotQLDocument(document, scope);
+				if (validated.error !== null) {
+					yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validated.error });
+					return yield* invalidQuery();
+				}
+				return yield* runRead(RYOTQL_STATEMENT_TIMEOUT_MS, (transaction) =>
+					Effect.gen(function* () {
 						let catalog: ReadonlyArray<PluginBinding> = [];
 						if (pluginIdentityReferences(validated.value).length > 0) {
 							if (scope.type === "user") {
@@ -115,33 +171,115 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						return { data: Object.fromEntries(results) };
 					}),
 				);
-				return yield* (joined ? discardedSavepoint(read) : session.transaction(read)).pipe(
-					Effect.catchTag(
-						"DatabaseSessionStateError",
-						() => new RyotQLInternalError({ reason: { code: "execution-failed" } }),
+			});
+
+			const readSubjects = Effect.fn("RyotQLService.readSubjects")(function* (
+				transaction: EffectPgDatabase,
+				source: PublicationSubjectQuery,
+			) {
+				const ownerScope = {
+					type: "user",
+					audience: "plugin",
+					accessClass: "standard",
+					language: source.language,
+					userId: source.ownerUserId,
+				} as const;
+				const validated = validateRyotQLDocument(
+					{ queries: { subjects: source.scope.query } },
+					ownerScope,
+				);
+				const query = validated.value?.queries["subjects"];
+				const subjectTable = [
+					...(query ? [query.from] : []),
+					...(query?.joins ?? []).flatMap((join) =>
+						join.type === "jsonElements" ? [] : [join.table],
 					),
-					Effect.catchIf(
-						(error): error is DbError => error instanceof DbError,
-						(error) =>
-							Effect.logError("RyotQL database execution failed", error).pipe(
-								Effect.andThen(
-									Match.value(error.code).pipe(
-										Match.when("57014", () =>
-											Effect.fail(
-												new RyotQLBadRequest({
-													reason: { code: "query-timeout", limitMs: RYOTQL_STATEMENT_TIMEOUT_MS },
-												}),
-											),
-										),
-										Match.orElse(() =>
-											Effect.fail(
-												new RyotQLInternalError({ reason: { code: "execution-failed" } }),
-											),
-										),
-									),
+				].find(({ alias }) => alias === source.scope.subjectAlias)?.table;
+				if (
+					validated.error !== null ||
+					query?.output.type !== "rows" ||
+					subjectTable !== "entity"
+				) {
+					yield* Effect.logWarning("Publication scope is invalid", {
+						diagnostic: validated.error ?? "The subject must be an entity alias of a rows query",
+					});
+					return yield* invalidQuery();
+				}
+				const catalog =
+					pluginIdentityReferences(validated.value).length === 0
+						? []
+						: (yield* catalogs.userPlugins(source.ownerUserId)).filter(
+								({ health }) => health === "ready",
+							);
+				const bound = yield* bindRyotQLDocument(validated.value, ownerScope, catalog);
+				const boundQuery = bound.queries["subjects"];
+				if (boundQuery?.output.type !== "rows") {
+					return yield* invalidQuery();
+				}
+				const subjects = yield* executeSubjectSet(
+					ownerScope,
+					{ ...boundQuery, output: boundQuery.output },
+					source.scope.subjectAlias,
+					source.subjectLimit,
+					transaction,
+					(names) => loadCatalogRelations(catalogs, source.ownerUserId, names),
+				);
+				if (subjects.length > source.subjectLimit) {
+					return yield* new RyotQLBadRequest({
+						reason: { limit: source.subjectLimit, code: "subject-limit-exceeded" },
+					});
+				}
+				return subjects;
+			});
+
+			const resolvePublicationSubjects = (source: PublicationSubjectQuery) =>
+				runRead(PUBLICATION_STATEMENT_TIMEOUT_MS, (transaction) =>
+					readSubjects(transaction, source),
+				);
+
+			const executeForPublication = Effect.fn("RyotQLService.executeForPublication")(function* (
+				source: PublicationSubjectQuery,
+				document: RyotQLDocument,
+				resultBytes: number,
+			) {
+				const validated = validateRyotQLDocument(document, { type: "publication" });
+				if (validated.error !== null) {
+					yield* Effect.logWarning("Publication RyotQL validation failed", {
+						diagnostic: validated.error,
+					});
+					return yield* invalidQuery();
+				}
+				return yield* runRead(PUBLICATION_STATEMENT_TIMEOUT_MS, (transaction) =>
+					Effect.gen(function* () {
+						const subjects = yield* readSubjects(transaction, source);
+						const scope = {
+							type: "publication",
+							language: source.language,
+							ownerUserId: source.ownerUserId,
+							subjectsJson: yield* Schema.encodeEffect(SubjectsJson)(
+								subjects.map(({ rank, entityId }) => ({ rank, entity_id: entityId })),
+							).pipe(Effect.orDie),
+						} as const;
+						const catalog =
+							pluginIdentityReferences(validated.value).length === 0
+								? []
+								: (yield* catalogs.userPlugins(source.ownerUserId)).filter(
+										({ health, scope: pluginScope }) =>
+											health === "ready" && pluginScope === "system",
+									);
+						const bound = yield* bindRyotQLDocument(validated.value, scope, catalog);
+						const budget = { limitBytes: resultBytes, remainingBytes: resultBytes };
+						const results: Array<readonly [string, RyotQLResult]> = [];
+						for (const [name, query] of Object.entries(bound.queries)) {
+							results.push([
+								name,
+								yield* executeNamedQuery(scope, query, name, transaction, budget, (names) =>
+									loadCatalogRelations(catalogs, source.ownerUserId, names),
 								),
-							),
-					),
+							]);
+						}
+						return { data: Object.fromEntries(results) };
+					}),
 				);
 			});
 
@@ -201,7 +339,9 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				executeForUser,
 				executeForAdmin,
 				executeForPlugin,
+				executeForPublication,
 				executeForPluginAudience,
+				resolvePublicationSubjects,
 			};
 		}),
 	},

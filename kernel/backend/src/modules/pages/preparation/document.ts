@@ -124,13 +124,12 @@ export const renderClientDocument = (
 	};
 };
 
-export const generateClientDocument = Effect.fn("Pages.generateDocument")(function* (
-	userId: UserId,
+const documentWithAccess = Effect.fnUntraced(function* <E, R>(
 	compositionHash: string,
 	manifest: ClientPageCompositionManifest,
+	privateAccess: (hash: string) => Effect.Effect<string, E, R>,
 ) {
 	const store = yield* ClientArtifactStore;
-	const grants = yield* ClientArtifactGrantService;
 	const hashes = new Set([
 		manifest.bootstrap.artifactHash,
 		...Object.values(manifest.imports).map(({ artifactHash }) => artifactHash),
@@ -145,9 +144,29 @@ export const generateClientDocument = Effect.fn("Pages.generateDocument")(functi
 			return yield* Effect.die(new Error(`Client composition artifact is missing: ${hash}`));
 		}
 		artifacts.set(hash, description);
-		access.set(hash, store.isPublic(hash) ? "public" : (yield* grants.issue(userId, hash)).token);
+		access.set(hash, store.isPublic(hash) ? "public" : yield* privateAccess(hash));
 	}
 	return yield* Effect.sync(() =>
 		renderClientDocument(manifest, artifacts, access, compositionHash),
+	);
+});
+
+export const generateClientDocument = Effect.fn("Pages.generateDocument")(function* (
+	userId: UserId,
+	compositionHash: string,
+	manifest: ClientPageCompositionManifest,
+) {
+	const grants = yield* ClientArtifactGrantService;
+	return yield* documentWithAccess(compositionHash, manifest, (hash) =>
+		Effect.map(grants.issue(userId, hash), ({ token }) => token),
+	);
+});
+
+export const generatePublicClientDocument = Effect.fn("Pages.generatePublicDocument")(function* (
+	compositionHash: string,
+	manifest: ClientPageCompositionManifest,
+) {
+	return yield* documentWithAccess(compositionHash, manifest, (hash) =>
+		Effect.die(new Error(`Public client document requires a private artifact: ${hash}`)),
 	);
 });

@@ -157,11 +157,13 @@ export const makeAppConfigLayer = (
 			},
 		},
 		server: {
+			trustedProxies: [],
 			oidc: Option.none(),
 			smtp: Option.none(),
 			proKey: Option.none(),
 			clientDir: "./client",
 			egressAllowedNetworks: [],
+			disablePublications: false,
 			disableNotifications: false,
 			pluginsSystemDir: "./plugins",
 			proKeyVerificationUrl: "https://api.unkey.com",

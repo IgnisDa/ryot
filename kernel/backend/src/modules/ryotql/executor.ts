@@ -487,7 +487,8 @@ const compileExpression = (expr: ScalarExpression, ctx: Context): SqlFragment =>
 	return field.resolve({
 		sqlAlias: table.sqlAlias,
 		userId: execution.type === "user" ? execution.userId : null,
-		language: execution.type === "user" ? execution.language : null,
+		language:
+			execution.type === "user" || execution.type === "publication" ? execution.language : null,
 	});
 };
 
@@ -737,6 +738,36 @@ const pluginVisibilityCondition = (
 	return policy.globalOnly ? sql`${identifier("user_id")} IS NULL AND ${ownership}` : ownership;
 };
 
+const publicationSubjectIds = sql`(SELECT publication_subject.entity_id FROM publication_subject)`;
+
+const publicationVisibilityCondition = (
+	table: CatalogTable,
+	scope: Extract<RyotQLExecutionScope, { type: "publication" }>,
+): SqlFragment => {
+	const policy = table.visibility.publication;
+	if (!policy) {
+		throw deniedTable(table);
+	}
+	if (policy.type === "none") {
+		return sql`false`;
+	}
+	if (policy.type === "subject") {
+		return sql`${identifier("id")} IN ${publicationSubjectIds}`;
+	}
+	if (policy.type === "subjectLink") {
+		return sql`${identifier("source_entity_id")} IN ${publicationSubjectIds}
+			AND ${identifier("target_entity_id")} IN ${publicationSubjectIds}
+			AND (${identifier("user_id")} IS NULL OR (${identifier("user_id")} = ${scope.ownerUserId}
+				AND ${identifier("relationship_schema_plugin_id")} IS NULL
+				AND ${identifier("relationship_schema_slug")} = 'member-of'))`;
+	}
+	if (policy.type === "systemPlugin") {
+		return sql`${identifier("owner_user_id")} IS NULL`;
+	}
+	return sql`${identifier("user_id")} = ${scope.ownerUserId} AND ${identifier("is_effective")}
+			AND (${identifier("plugin_id")} IS NULL OR ${identifier("plugin_id")} IN (SELECT system_plugin.id FROM plugin system_plugin WHERE system_plugin.owner_user_id IS NULL))`;
+};
+
 const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
 	if (!canAccessCatalogTable(table, scope)) {
 		throw deniedTable(table);
@@ -770,6 +801,8 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 		condition = userVisibilityCondition(table, scope);
 	} else if (scope.type === "plugin") {
 		condition = pluginVisibilityCondition(table, scope);
+	} else if (scope.type === "publication") {
+		condition = publicationVisibilityCondition(table, scope);
 	}
 	return condition
 		? sql`(SELECT * FROM ${identifier(table.name)} WHERE ${condition})`
@@ -1508,14 +1541,24 @@ export type CatalogRelationLoader = (
 	names: ReadonlySet<string>,
 ) => Effect.Effect<ReadonlyArray<readonly [CatalogRelationName, SqlFragment]>, DbError>;
 
+// Outer common table expressions stay visible inside every nested subquery of the statement.
+const withPublicationSubjects = (executionScope: RyotQLExecutionScope, query: SqlFragment) =>
+	executionScope.type === "publication"
+		? sql`WITH publication_subject AS MATERIALIZED (SELECT * FROM jsonb_to_recordset(${executionScope.subjectsJson}::jsonb) AS subject(entity_id text, rank integer)) SELECT * FROM (${query}) publication_statement`
+		: query;
+
 const executeSql = Effect.fn("executeRyotQLSql")(function* (
+	executionScope: RyotQLExecutionScope,
 	query: SqlFragment,
 	queryName: string,
 	db: EffectPgDatabase,
 	budget: undefined | RyotQLResultBudget,
 	catalogRelations: CatalogRelationLoader,
 ) {
-	const bounded = budget === undefined ? query : boundedQuery(query, budget.remainingBytes);
+	const bounded = withPublicationSubjects(
+		executionScope,
+		budget === undefined ? query : boundedQuery(query, budget.remainingBytes),
+	);
 	const statementQuery = withCatalogRelations(
 		yield* catalogRelations(referencedCatalogRelations(pgDialect.sqlToQuery(bounded).sql)),
 		bounded,
@@ -1658,10 +1701,13 @@ const reconstructAggregateItem = (
 
 const queryOwnerIdentity = (executionScope: RyotQLExecutionScope, query: ExpandedNamedQuery) =>
 	encodeJson({
-		scope: executionScope,
 		references: pluginIdentityReferences({ queries: { query } })
 			.map((reference) => stableStringify(reference))
 			.sort(),
+		scope:
+			executionScope.type === "publication"
+				? { type: executionScope.type, ownerUserId: executionScope.ownerUserId }
+				: executionScope,
 	}).pipe(Effect.map(sha256Hex));
 
 const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (
@@ -1682,6 +1728,7 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 		? yield* decodeCursor(query.output.after, kinds, directions, ownerIdentity)
 		: undefined;
 	const rows = yield* executeSql(
+		executionScope,
 		compileAggregateQuery(query, plan, orders, cursor),
 		queryName,
 		db,
@@ -1764,6 +1811,7 @@ const executeOutput = Effect.fnUntraced(function* (
 			)
 		: undefined;
 	const rows = yield* executeSql(
+		executionScope,
 		compileRowsQuery(rowsQuery, plan, orders, cursor),
 		queryName,
 		db,
@@ -1835,4 +1883,35 @@ export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* 
 	yield* db.execute(sql`SET LOCAL join_collapse_limit TO DEFAULT`);
 	yield* db.execute(sql`SET LOCAL from_collapse_limit TO DEFAULT`);
 	return result;
+});
+
+/**
+ * Lists the distinct subject entities of a validated rows query in its order, numbering them from 1.
+ * At most `limit + 1` subjects are returned so callers can detect an oversized set.
+ */
+export const executeSubjectSet = Effect.fn("executeRyotQLSubjectSet")(function* (
+	executionScope: Extract<RyotQLExecutionScope, { type: "user" }>,
+	query: Omit<ExpandedNamedQuery, "output"> & { readonly output: ExpandedRowsOutput },
+	subjectAlias: string,
+	limit: number,
+	db: EffectPgDatabase,
+	catalogRelations: CatalogRelationLoader,
+) {
+	const plan = planQuery(query, executionScope);
+	const orders = appendPrimaryKeyOrders(query, plan, query.output.orderBy);
+	const ctx = rootContext(plan);
+	const subject = compileExpression({ field: "id", type: "column", tableAlias: subjectAlias }, ctx);
+	const ranked = withCtes(
+		plan,
+		sql`SELECT ${subject} AS entity_id, row_number() OVER (ORDER BY ${expressionOrderSql(orders, ctx)}) AS ordinal ${querySetSql(query, ctx)}`,
+	);
+	const rows = yield* executeSql(
+		executionScope,
+		sql`SELECT subject_rows.entity_id, min(subject_rows.ordinal) AS first_ordinal FROM (${ranked}) subject_rows GROUP BY subject_rows.entity_id ORDER BY first_ordinal LIMIT ${limit + 1}`,
+		"subjects",
+		db,
+		undefined,
+		catalogRelations,
+	);
+	return rows.map((row, index) => ({ rank: index + 1, entityId: String(row["entity_id"]) }));
 });

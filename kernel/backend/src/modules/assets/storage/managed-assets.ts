@@ -228,7 +228,7 @@ export class ManagedAssetsService extends Context.Service<ManagedAssetsService>(
 			});
 
 			const resolveDownloads = Effect.fn("ManagedAssetsService.resolveDownloads")(function* (
-				user: CurrentUserValue,
+				user: Pick<CurrentUserValue, "id">,
 				assets: ReadonlyArray<{ key: string; type: "s3" | "local" }>,
 			) {
 				const owned = yield* verifyManagedAssetOwnership(user.id, assets);

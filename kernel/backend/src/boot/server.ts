@@ -41,6 +41,11 @@ import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
 import { PageBundlesRoutesLive } from "#modules/pages/bundles/routes";
 import { PagesRoutesLive } from "#modules/pages/preparation/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
+import {
+	PublicationMiddlewareLive,
+	PublicationsRoutesLive,
+	PublicationVisitsRoutesLive,
+} from "#modules/publications/routes";
 import { RelationshipsRoutesLive } from "#modules/relationships/routes";
 import { RemindersRoutesLive } from "#modules/reminders/routes";
 import { AdminRyotQLRoutesLive, RyotQLRoutesLive } from "#modules/ryotql/routes";
@@ -125,8 +130,15 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(
 		Layer.mergeAll(IntegrationsRoutesLive, NotificationsRoutesLive, OAuthConnectionsRoutesLive),
 	),
-	Layer.provide(Layer.mergeAll(RyotQLRoutesLive, LiveUpdatesRoutesLive)),
-	Layer.provide(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive)),
+	Layer.provide(
+		Layer.mergeAll(
+			RyotQLRoutesLive,
+			LiveUpdatesRoutesLive,
+			PublicationsRoutesLive,
+			PublicationVisitsRoutesLive,
+		),
+	),
+	Layer.provide(Layer.mergeAll(AuthMiddlewareLive, AdminMiddlewareLive, PublicationMiddlewareLive)),
 );
 
 const ScalarLive = HttpApiScalar.layer(AppContract, { path: "/docs" });
@@ -206,6 +218,11 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
+		if (config.server.trustedProxies.length > 0) {
+			yield* router.addGlobalMiddleware(
+				HttpMiddleware.xForwardedHeaders({ trustedProxies: config.server.trustedProxies }),
+			);
+		}
 		yield* registerRootRoutes(
 			router,
 			api.pipe(Effect.mapError(mapRouterError)),

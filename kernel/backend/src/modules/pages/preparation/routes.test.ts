@@ -11,6 +11,8 @@ import {
 	ClientPageDocumentStale,
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
+import { PublicationMiddleware } from "@ryot-app/contract/modules/publications/contract";
+import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -104,6 +106,8 @@ const routesLayer = Layer.unwrap(
 			PagesService.of({
 				prepare: () => Effect.die("unused"),
 				isIdentityCurrent: () => Effect.die("unused"),
+				preparePublication: () => Effect.die("unused"),
+				publicationDocument: () => Effect.die("unused"),
 				document: (current, requested) =>
 					Ref.update(requests, (all) => [
 						...all,
@@ -125,6 +129,9 @@ const routesLayer = Layer.unwrap(
 			Layer.succeed(AdminMiddleware, {
 				adminToken: () =>
 					Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
+			}),
+			Layer.succeed(PublicationMiddleware, {
+				session: () => Effect.fail(new PublicationUnavailable({ reason: { code: "not-found" } })),
 			}),
 			HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
 				Effect.flatMap(Ref.get(token), (sent) =>

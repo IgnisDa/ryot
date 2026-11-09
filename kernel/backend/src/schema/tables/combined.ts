@@ -13,6 +13,7 @@ export * from "./enrichment";
 export * from "./automations";
 export * from "./definitions";
 export * from "./translations";
+export * from "./publications";
 export * from "./notifications";
 export * from "./derived-values";
 export * from "./user-lifecycle";

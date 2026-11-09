@@ -17,11 +17,15 @@ export type RyotQLAudience = "kernel" | "plugin";
 export type CatalogFieldKind = "date" | "json" | "text" | "number" | "boolean";
 
 export type RyotQLExecutionScope =
-	UserExecutionScope | PluginExecutionScope | { readonly type: "admin" };
+	| UserExecutionScope
+	| PluginExecutionScope
+	| PublicationExecutionScope
+	| { readonly type: "admin" };
 
 export type RyotQLAccess =
 	| { readonly type: "admin" }
 	| Pick<PluginExecutionScope, "type">
+	| Pick<PublicationExecutionScope, "type">
 	| Pick<UserExecutionScope, "type" | "audience" | "accessClass">;
 
 export type CatalogField = {
@@ -29,7 +33,8 @@ export type CatalogField = {
 	readonly nullable: boolean;
 	readonly demoReadable?: false;
 	readonly kind: CatalogFieldKind;
-	readonly access?: "admin" | "kernel";
+	readonly publicationReadable?: false;
+	readonly access?: "admin" | "kernel" | "publication";
 	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
 };
 
@@ -67,11 +72,26 @@ type CatalogFieldContext = {
 	readonly language: null | string;
 };
 
+/** Reads only a publication's subjects, which the statement receives as `publication_subject`. */
+type PublicationExecutionScope = {
+	readonly type: "publication";
+	readonly ownerUserId: string;
+	readonly subjectsJson: string;
+	readonly language: null | string;
+};
+
 type PluginExecutionScope = PluginSchemaScope & {
 	readonly type: "plugin";
 	readonly pluginId: ScriptPluginRevision["id"];
 	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];
 };
+
+type CatalogPublicationPolicy =
+	| { readonly type: "none" }
+	| { readonly type: "subject" }
+	| { readonly type: "subjectLink" }
+	| { readonly type: "systemPlugin" }
+	| { readonly type: "systemDefinition" };
 
 type UserExecutionScope = {
 	readonly type: "user";
@@ -101,6 +121,7 @@ type CatalogUserPolicy =
 
 type CatalogVisibility = {
 	readonly admin?: { readonly type: "all" };
+	readonly publication?: CatalogPublicationPolicy;
 	readonly user?: CatalogUserPolicy & {
 		readonly demoReadable?: false;
 		readonly pluginReadable: boolean;
@@ -136,6 +157,11 @@ const textArrayField = (column: string): CatalogField => ({
 const withAccess = (field: CatalogField, access: "admin" | "kernel"): CatalogField => ({
 	...field,
 	access,
+});
+
+const unpublished = (field: CatalogField): CatalogField => ({
+	...field,
+	publicationReadable: false,
 });
 
 const standardOnly = (field: CatalogField): CatalogField => ({ ...field, demoReadable: false });
@@ -284,6 +310,7 @@ const entity: CatalogTable = {
 	name: "entity",
 	primaryKey: ["id"],
 	visibility: {
+		publication: { type: "subject" },
 		user: { type: "owned", column: "user_id", includeGlobal: true, pluginReadable: true },
 		plugin: {
 			globalOnly: true,
@@ -298,12 +325,12 @@ const entity: CatalogTable = {
 		properties: localizedEntityProperties,
 		id: physicalField("id", "text", false),
 		populationStatus: entityPopulationStatus,
-		userId: physicalField("user_id", "text"),
 		translationStatus: entityTranslationStatus,
 		occursAt: physicalField("occurs_at", "date"),
 		externalId: physicalField("external_id", "text"),
 		providerId: physicalField("provider_id", "text"),
 		populatedAt: physicalField("populated_at", "date"),
+		userId: unpublished(physicalField("user_id", "text")),
 		createdAt: physicalField("created_at", "date", false),
 		updatedAt: physicalField("updated_at", "date", false),
 		relatedPopulationStatus: entityRelatedPopulationStatus,
@@ -315,6 +342,15 @@ const entity: CatalogTable = {
 			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql`(select max(request.base_checked_at) from entity_enrichment_request request where request.entity_id = ${sql.raw(`${sqlAlias}.id`)})`,
+		},
+		publicationRank: {
+			kind: "number",
+			nullable: false,
+			access: "publication",
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(SELECT publication_subject.rank FROM publication_subject WHERE publication_subject.entity_id = ${sqlAlias}.id)`,
+				),
 		},
 	},
 };
@@ -365,6 +401,7 @@ const event: CatalogTable = {
 	primaryKey: ["id"],
 	source: eventSource,
 	visibility: {
+		publication: { type: "none" },
 		plugin: { type: "eventDefinition" },
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
@@ -420,6 +457,7 @@ const relationship: CatalogTable = {
 	name: "relationship",
 	visibility: {
 		admin: { type: "all" },
+		publication: { type: "subjectLink" },
 		user: { type: "owned", column: "user_id", includeGlobal: true, pluginReadable: true },
 		plugin: {
 			globalOnly: false,
@@ -431,20 +469,20 @@ const relationship: CatalogTable = {
 	},
 	fields: {
 		id: physicalField("id", "text", false),
-		userId: physicalField("user_id", "text"),
+		userId: unpublished(physicalField("user_id", "text")),
 		createdAt: physicalField("created_at", "date", false),
 		properties: physicalField("properties", "json", false),
 		sourceEntityId: physicalField("source_entity_id", "text", false),
 		targetEntityId: physicalField("target_entity_id", "text", false),
 		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text", false),
 		relationshipSchemaPluginId: physicalField("relationship_schema_plugin_id", "text"),
-		projection: {
+		projection: unpublished({
 			kind: "json",
 			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql`(select p.value from derived_value p where p.user_id = ${sql.raw(sqlAlias)}.user_id
 				and p.kind = 'relationship' and p.target_id = ${sql.raw(sqlAlias)}.id)`,
-		},
+		}),
 		collectionRank: {
 			kind: "number",
 			nullable: true,
@@ -453,7 +491,7 @@ const relationship: CatalogTable = {
 					`(case when ${sqlAlias}.relationship_schema_slug = 'member-of' and ${sqlAlias}.relationship_schema_plugin_id is null then (${sqlAlias}.properties ->> 'rank')::double precision end)`,
 				),
 		},
-		projectionStatus: {
+		projectionStatus: unpublished({
 			kind: "text",
 			nullable: false,
 			resolve: ({ sqlAlias }) => sql`case when exists (select 1 from user_relationship_schema d
@@ -466,7 +504,7 @@ const relationship: CatalogTable = {
 					left join derived_value f on f.user_id = ${sql.raw(sqlAlias)}.user_id and f.kind = 'subject'
 						and f.target_id = ${sql.raw(sqlAlias)}.source_entity_id)
 				else 'none' end`,
-		},
+		}),
 	},
 };
 
@@ -475,6 +513,7 @@ const plugin: CatalogTable = {
 	primaryKey: ["id"],
 	visibility: {
 		admin: { type: "all" },
+		publication: { type: "systemPlugin" },
 		user: { type: "owned", includeGlobal: true, pluginReadable: true, column: "owner_user_id" },
 	},
 	fields: {
@@ -624,6 +663,7 @@ const entitySchema: CatalogTable = {
 	name: "user_entity_schema",
 	visibility: {
 		...effectiveDefinitionVisibility,
+		publication: { type: "systemDefinition" },
 		plugin: { kind: "entity", type: "schemaDefinition" },
 	},
 	fields: {
@@ -640,13 +680,14 @@ const eventSchema: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_event_schema",
 	materializedInIncludes: true,
-	visibility: {
-		...effectiveDefinitionVisibility,
-		plugin: { kind: "event", type: "schemaDefinition" },
-	},
 	fields: {
 		...definitionFields,
 		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
+	},
+	visibility: {
+		...effectiveDefinitionVisibility,
+		publication: { type: "systemDefinition" },
+		plugin: { kind: "event", type: "schemaDefinition" },
 	},
 };
 
@@ -655,6 +696,7 @@ const relationshipSchema: CatalogTable = {
 	name: "user_relationship_schema",
 	visibility: {
 		...effectiveDefinitionVisibility,
+		publication: { type: "systemDefinition" },
 		plugin: { kind: "relationship", type: "schemaDefinition" },
 	},
 	fields: {
@@ -1255,6 +1297,50 @@ const migrationReport: CatalogTable = {
 	},
 };
 
+const publication: CatalogTable = {
+	primaryKey: ["id"],
+	name: "publication",
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		icon: physicalField("icon", "text", false),
+		title: physicalField("title", "text", false),
+		source: physicalField("source", "json", false),
+		revokedAt: physicalField("revoked_at", "date"),
+		description: physicalField("description", "text"),
+		revision: physicalField("revision", "number", false),
+		createdAt: physicalField("created_at", "date", false),
+		updatedAt: physicalField("updated_at", "date", false),
+		showOwnerName: physicalField("show_owner_name", "boolean", false),
+	},
+};
+
+const publicationLink: CatalogTable = {
+	primaryKey: ["id"],
+	name: "publication_link",
+	visibility: {
+		user: {
+			parentColumn: "id",
+			type: "parentOwned",
+			pluginReadable: false,
+			column: "publication_id",
+			parentTable: "publication",
+			parentOwnerColumn: "user_id",
+		},
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		label: physicalField("label", "text", false),
+		expiresAt: physicalField("expires_at", "date"),
+		revokedAt: physicalField("revoked_at", "date"),
+		createdAt: physicalField("created_at", "date", false),
+		lastExchangedAt: physicalField("last_exchanged_at", "date"),
+		publicationId: physicalField("publication_id", "text", false),
+	},
+};
+
 const tables: Readonly<Record<string, CatalogTable>> = {
 	user,
 	event,
@@ -1265,6 +1351,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	importRun,
 	savedView,
 	eventScope,
+	publication,
 	eventSchema,
 	integration,
 	importIssue,
@@ -1278,6 +1365,7 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	oauthConnection,
 	migrationReport,
 	sandboxProvider,
+	publicationLink,
 	entityTranslation,
 	pluginInstallation,
 	relationshipSchema,
@@ -1312,6 +1400,9 @@ export const canAccessCatalogTable = (table: CatalogTable, access: RyotQLAccess)
 	if (access.type === "admin") {
 		return table.visibility.admin !== undefined;
 	}
+	if (access.type === "publication") {
+		return table.visibility.publication !== undefined;
+	}
 	if (access.type === "plugin") {
 		return table.visibility.plugin !== undefined;
 	}
@@ -1323,11 +1414,21 @@ export const canAccessCatalogTable = (table: CatalogTable, access: RyotQLAccess)
 	);
 };
 
-const canAccessCatalogField = (field: CatalogField, access: RyotQLAccess) =>
-	(access.type !== "user" || access.accessClass !== "demo" || field.demoReadable !== false) &&
-	(field.access === undefined ||
-		access.type === "admin" ||
-		(field.access === "kernel" && access.type === "user" && access.audience === "kernel"));
+const canAccessCatalogField = (field: CatalogField, access: RyotQLAccess) => {
+	if (access.type === "publication") {
+		return (
+			field.access === "publication" ||
+			(field.access === undefined && field.publicationReadable !== false)
+		);
+	}
+	return (
+		field.access !== "publication" &&
+		(access.type !== "user" || access.accessClass !== "demo" || field.demoReadable !== false) &&
+		(field.access === undefined ||
+			access.type === "admin" ||
+			(field.access === "kernel" && access.type === "user" && access.audience === "kernel"))
+	);
+};
 
 export const resolveCatalogField = (table: CatalogTable, name: string, access: RyotQLAccess) => {
 	const field = Object.hasOwn(table.fields, name) ? table.fields[name] : undefined;

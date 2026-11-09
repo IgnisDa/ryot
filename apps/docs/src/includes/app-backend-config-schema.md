@@ -25,6 +25,8 @@
 |---|---|---|---|---|---|
 | `server.proKey` | `SERVER_PRO_KEY` | The key that can be used to enable Ryot Pro features | No | Yes | — |
 | `server.disableNotifications` | `SERVER_DISABLE_NOTIFICATIONS` | Disable delivery of all notifications | No | No | `false` |
+| `server.disablePublications` | `SERVER_DISABLE_PUBLICATIONS` | Disable creating and visiting read-only publications of user content | No | No | `false` |
+| `server.trustedProxies` | `SERVER_TRUSTED_PROXIES` | Comma-separated networks, such as 10.0.0.0/8, of reverse proxies whose X-Forwarded-For header identifies the client | No | No | — |
 | `server.adminAccessToken` | `SERVER_ADMIN_ACCESS_TOKEN` | Bearer token required for instance-admin admin endpoints | Yes | Yes | — |
 | `server.egressAllowedNetworks` | `SERVER_EGRESS_ALLOWED_NETWORKS` | Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed | No | No | — |
 
