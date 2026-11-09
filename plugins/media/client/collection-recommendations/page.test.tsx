@@ -167,11 +167,11 @@ describe("collection recommendations page", () => {
 				const found = yield* answerRecommendations(page, []);
 				expect(found.document.queries["recommendations"]?.where).toMatchObject({
 					predicates: arrayContaining([
-						objectContaining({ type: "contains", right: { value: "dune" } }),
+						objectContaining({ type: "contains", right: { value: "dune", type: "literal" } }),
 					]),
 				});
 				yield* Effect.promise(() => screen.findByText("No recommendations match “dune”"));
-				fireEvent.click(screen.getByRole("button", { name: "Clear search" }));
+				fireEvent.click(screen.getByText("Clear search", { selector: "button" }));
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(page.clientMessages()).toContainEqual<unknown>({

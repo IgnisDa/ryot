@@ -97,6 +97,14 @@ it.effect(
 				analyticsSections: {
 					media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
 				},
+				collectionPages: {
+					recommendations: {
+						icon: "sparkles",
+						label: "Recommendations",
+						route: "/collections/$collectionId/recommendations",
+						entitySchemaSlugs: [...builtinMediaEntitySchemaSlugs],
+					},
+				},
 				routes: {
 					"/": "media-home",
 					"/book/new": "media-entity-editor",
@@ -122,6 +130,7 @@ it.effect(
 					"/podcast-episode/new": "media-entity-editor",
 					"/comic-book-group/new": "media-entity-editor",
 					"/video-game-group/new": "media-entity-editor",
+					"/collections/$collectionId/recommendations": "media-collection-recommendations",
 					...Object.fromEntries(
 						Object.keys(mediaEntityEditors).map((slug) => [
 							mediaEntityEditRoutePattern(slug),
@@ -445,6 +454,12 @@ it.effect(
 						settingsSchema: { fields: {} },
 						automaticEntityPresentations: false,
 						entry: "client/video-game-group/screen.tsx",
+					},
+					"media-collection-recommendations": {
+						kind: "page",
+						settingsSchema: { fields: {} },
+						automaticEntityPresentations: false,
+						entry: "client/collection-recommendations/page.tsx",
 					},
 				},
 			});
