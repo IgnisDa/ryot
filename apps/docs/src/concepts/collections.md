@@ -2,6 +2,7 @@
 
 Collections are private lists of items. Use them to group media, exercises, or other collections.
 You can create, rename, and delete collections, and add fields such as notes or a rating to each member.
+You can also [share a collection](#share-a-collection) as a read-only page.
 
 ## Add or remove items
 
@@ -42,6 +43,23 @@ It lists titles suggested by the collection's items, with titles suggested by mo
 - Use the search box to find a recommendation by name.
 - Suggestions come from each title's provider. If none appear, add titles from a provider or refresh
   a title to fetch its suggestions.
+
+## Share a collection
+
+1. Open the collection and select **Share**.
+2. Check the title, choose whether visitors see your name, then select **Publish and create link**.
+3. Copy the link, or select **Share** on a phone.
+
+The link is shown only once. Anyone with it can view the collection's items without an account, but
+not your history, ratings, or other collections. The page stays up to date as the collection changes.
+Saved views in the item browser have the same **Share** button.
+
+Select **Share** again, or open **Settings → Publications**, to see how many items are shared, preview
+the page as a visitor, add links with an optional expiry, revoke a link, or stop sharing. A
+publication needs attention when its collection or view is deleted or it shares more than 5,000
+items.
+
+Backups include what you have shared, but not its links. After restoring a backup, create new links.
 
 ## Library state and monitoring
 

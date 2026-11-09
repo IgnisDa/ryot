@@ -157,7 +157,8 @@ You can keep using Ryot meanwhile.
 
 These are not carried over:
 
-- Share links.
+- Share links. To share again, publish a collection or saved view; see
+  [Share a collection](./concepts/collections.md#share-a-collection).
 - Saved filters.
 - Past import reports.
 - Notification history.

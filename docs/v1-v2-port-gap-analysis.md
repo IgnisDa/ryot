@@ -160,6 +160,7 @@ readiness fix. Order 12 is Done.
 | 15 | Done | **Ship collection recommendations** | 4 and 6 | A Media-owned recipe ranks every title suggested by collection members by suggesting-member count, with name search and cursor pages, behind a generic `collectionPages` collection-detail action. Members and known NSFW titles are excluded; library titles stay marked. Empty, exhausted, no-match and missing-collection states are distinct. Home keeps the latest-completion design. See the Order 15 acceptance record below. |
 | 16 | Done | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | The unified Analytics destination provides Media and Fitness totals, comparisons, grouping, trends, hourly activity, rankings and drill-downs with the agreed historical facts, units, date and timezone semantics. Targeted API/browser coverage and both real datasets pass correctness, readiness and restart acceptance. See the Order 16 acceptance record below. |
 | 17 | Done | **Add self-service account rename** | Existing account authentication | Account settings edit the current user’s display name with validation, save/retry feedback and refreshed identity on web/native. Demo sessions cannot rename. Admin-on-behalf rename, V1 roles and the onboarding-tour flag are excluded by agreement. |
+| 18 | Done | **Share collections and saved views read-only** | 5 and 6; existing saved views and backups | Owners publish a kernel collection or entity-browser saved view as a live, read-only page with labelled, expiring, revocable links, an in-app preview and a status check. Visitors need no account and see only the published items. Backups carry publication definitions but never links. Collaborators and V1 access links are not reproduced. See the Order 18 acceptance record below. |
 
 #### Order 15 acceptance — 2026-11-08
 
@@ -239,6 +240,37 @@ complete; temporary acceptance scripts are removed from the working tree. Order 
 The previously approved query-latency waiver and the larger source dump's 107 unavailable original
 assets remain accepted limitations. They do not waive correctness, readiness or restart stability.
 
+#### Order 18 acceptance — 2026-11-09
+
+V1 access links shared a whole account view and were consumed by count or expiry. V2 replaces them
+with publications: a publication's source is a kernel collection or an entity-browser saved view,
+resolved on every request, so membership, item and saved-view query changes appear without
+republishing. Collection detail and entity-browser saved views have a **Share** action that publishes
+with a title and owner-name choice and creates the first link in one step; Settings → Publications
+lists publications with their item count or why one needs attention, links, preview, editing, stop
+sharing and deletion. Links are labelled, may expire, are shown once and are stored only as hashes;
+the secret travels in the URL fragment. Revoking a link or publication takes effect on the next
+visitor request.
+
+Visitors open `/share/<publicationId>` without an account. The kernel publication renderer shows the
+title, description, optional owner name, item count and the published items, plus an item page with
+plain field values and related published items. Visitor queries run in a RyotQL publication scope
+limited to the resolved items, system plugins and public client artifacts. Sources over 5,000 items,
+deleted collections and missing or re-rendered saved views make a publication unavailable instead of
+truncating it. Link exchanges are limited to ten per visitor address per minute, with the address
+resolved exactly as Better Auth resolves it for sign-in rate limits. Owners preview in-app
+through linkless sessions on web and native.
+
+Backups export active publications whose source still exists, remap collection and saved-view
+references on restore, and never carry links, so restored publications need new links. Accounts that
+already have publications are not clean restore targets. V1 access links are not migrated.
+
+Validation: `bun run check` passed 38 tasks. Root Turbo tests passed for contract (301), RyotQL
+recipes (145), plugin client compiler (97), kernel renderers (83), Media (2,009), client (1,195) and
+backend (2,819). The publications API file (3 tests), the publications browser file (share, visit,
+item page, revoke) and the integrations browser file (3 tests) passed. Read-only DRY review findings
+were addressed and the main-session cleanup is complete.
+
 ### Differences that need a decision, not an automatic implementation slot
 
 Keeping V2's redesigns does not settle every individual behavior. Before adding any of the
@@ -255,7 +287,7 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | Same-time import ordering, association-only imports and old Generic JSON files | Keep source-order/dependency-safe V2 processing unless a concrete correctness case requires a change in row 1. Decide direct old-file conversion separately; do not reinstate the removed sink or old backup format. |
 | V1 display/dashboard/per-provider-language preferences | Keep workspace/home, current language and plugin-owned settings as defaults. Add only selected missing user controls; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
 | S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Add only a current operational requirement. Bucket health and configurable upload limits can be scoped separately; old export internals, token settings and startup knobs do not block this roadmap. |
-| Public sharing, collaborators, review visibility/comments/likes | Remain excluded. Restoring them would be a separate product/security scope, not a small follow-on notification task. |
+| Public sharing, collaborators, review visibility/comments/likes | Read-only public sharing of collections and saved views ships as Order 18 publications. Collaborators, shared editing, review visibility, comments and likes remain excluded; restoring them would be a separate product/security scope. |
 
 ### Per-feature completion gate
 
@@ -803,7 +835,8 @@ Paths abbreviated as `modules/...` in the tables below are under
 | Password-change sessions and admin provisioning/reset | Reshaped | Instance Admin provisions credential/OIDC accounts and obtains Better Auth reset links; links expire after 30 minutes. No V1 password-change-session wire contract. |
 | User details, preferences, account name | Covered; reshaped | Self `user` reads use RyotQL; kernel preferences are `language` and `disableIntegrations`; domain preferences belong to installations. The Account screen offers self-service display-name editing through the protected `/account/name` command. See [account and preference differences](#account-and-preference-differences). |
 | User listing, disable/delete/reset | Covered | `modules/instance-admin` commands plus admin RyotQL `user` and `userLifecycleOperation` reads; client `kernel/client/src/routes/instance-admin`. Reset/delete are durable operations. Normal user reads see only self; the old claim that any authenticated caller receives the full user list is wrong. |
-| Admin impersonation | Reshaped | Instance Admin one-use 60-second handoff, PKCE, one-hour impersonation session, client banner and explicit exit. This replaces the admin use of access links; it is not missing with public sharing. |
+| Admin impersonation | Reshaped | Instance Admin one-use 60-second handoff, PKCE, one-hour impersonation session, client banner and explicit exit. This replaces the admin use of access links; public read-only sharing is covered separately by publications. |
+| Access links / public sharing | Reshaped | `modules/publications`: owners publish a collection or entity-browser saved view and hand out labelled, expiring, revocable links; visitors need no account and read only the published items. Whole-account access links, usage-count limits and collaborators are not reproduced. See Order 18. |
 | Demo account | Reshaped | `USERS_DEMO_ACCOUNT_ID`, `/demo`, credential-scoped restrictions. Owner credentials remain unrestricted; shared demo changes persist, with no periodic reset. |
 | Admin application-log download | Covered | `modules/instance-admin/logs.ts`, contract `modules/instance-admin/logs.ts`: paged active/rotated files, individual downloads and ZIP-all. Signed tickets expire after five minutes and are reusable until expiry, unlike V1's consumed single-use token. |
 | Core details and capabilities | Reshaped | `/system/config` reports version, frontend origin, auth, SMTP availability, Pro state, analytics, and storage provider. Provider/schema/source catalogs supply domain capabilities through RyotQL. Not just an auth-config payload. |
@@ -1030,7 +1063,7 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `cleanup_user_and_metadata_association` | Accepted redesign: no reason recomputation or automatic deletion after the last history/review/collection reason disappears. Membership persists until explicit removal; full clear removes user data. |
 | `remove_cached_metadata_after_updates`, `expire_cache_keys` | Direct RyotQL reads, mutation refresh hints, entity watches, TTL caches and trending refresh replace V1 recommendation-cache invalidation. No need to recreate obsolete application-cache rows. |
 | `put_entities_in_partial_state` | No daily invalidation of every library provider entity. Watches fill missing base/related data; monitoring refreshes monitored data. Successfully populated unmonitored data refreshes only on explicit request. |
-| `revoke_invalid_access_tokens` | This function revokes expired/exhausted **access links**, not all login tokens. Excluded with sharing links; OAuth/API-key expiry is handled by auth. |
+| `revoke_invalid_access_tokens` | This function revokes expired/exhausted **access links**, not all login tokens. Publication links need no sweeper: every visitor request rechecks link expiry and revocation, and visitor sessions expire with their link. OAuth/API-key expiry is handled by auth. |
 | `rebalance_collection_ranks` | Reshaped: canonical collection writes allocate sparse integer ranks and respace exhausted gaps transactionally, first in a bounded window and then set-based across a fully dense collection if needed. No separate job or V1 fractional-fragmentation thresholds. |
 | `UpdateExerciseLibrary`, `UpdateGithubExercises` | Free Exercise DB search/details and watched population replace eager whole-library loading. No exposed refresh-all-dataset command. |
 | Scheduled / explicit `ReviseUserWorkouts` | Replaced by source-preserving event-stream record processors and reconciliation, including migrated stream seeding. It is incorrect to call fitness recalculation unbuilt because the V1 destructive replay scheduler is absent. |
@@ -1240,8 +1273,9 @@ Evidence: `crates/config/definition/src/lib.rs`,
 Absence alone is not proof of product intent. The following retain the previous analysis's
 exclusions or have explicit current migration/design evidence:
 
-- **Collection collaborators and public sharing/access links:** no V2 shared-collection or
-  public profile/session-link contract. Admin impersonation has a separate working replacement.
+- **Collection collaborators and whole-account access links:** no V2 shared-editing or public
+  profile contract. Read-only sharing of collections and saved views is reshaped as publications
+  (Order 18), and admin impersonation has a separate working replacement.
 - **Public/private review visibility, cross-user reviews, comment threads and likes:** events
   are user-owned; migration omits visibility and comments. Actor-only review notification is
   not a port of the old public-review audience.
@@ -1265,8 +1299,8 @@ workouts/templates/sets, measurements, managed assets, integrations, channels an
 preferences. Watchlist memberships also seed backlog events; Media memberships seed library
 events. Workout streams are seeded for current projection processors.
 
-Important omissions/changes include old passwords/sessions/TOTP, admin role, access links,
-unreferenced provider data, translations, stale watch-provider data, provider-only suggestions,
+Important omissions/changes include old passwords/sessions/TOTP, admin role, access links
+(recreate them as publications), unreferenced provider data, translations, stale watch-provider data, provider-only suggestions,
 review visibility/comments, removed Generic JSON integrations, automation/notification
 history, seen-to-review links, and preferences without current equivalents. Migration preserves or reports anomalies;
 it does not replay historical notification hooks. Losing old sessions or a cached translation
@@ -1286,7 +1320,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `fitness` | `user_workout_templates_list`, `user_workout_template_details`, `user_exercises_list`, `user_workouts_list`, `exercise_details`, `user_workout_details`, `user_exercise_details`, `user_measurements_list` | `create_or_update_user_workout_template`, `delete_user_workout_template`, `create_or_update_user_measurement`, `delete_user_measurement`, `create_or_update_user_workout`, `update_user_workout_attributes`, `delete_user_workout`, `update_user_exercise_settings`, `merge_exercise` | Fitness recipes/screens and operations; merge/settings differences above. |
 | `user/services` | `user_metadata_recommendations`, `user_integrations`, `user_notification_platforms` | `create_or_update_user_integration`, `delete_user_integration`, `create_user_notification_platform`, `update_user_notification_platform`, `delete_user_notification_platform`, `test_user_notification_platforms` | Discovery recipe plus integration/channel commands and catalog reads. |
 | `user/authentication` | `get_oidc_redirect_url`, `user_by_oidc_issuer_id` | `complete_oidc_login`, `register_user`, `login_user`, `logout_user`, `generate_auth_token`, `verify_two_factor`, `initiate_two_factor_setup`, `complete_two_factor_setup`, `disable_two_factor`, `regenerate_two_factor_backup_codes` | Hosted Better Auth/OAuth/OIDC/API keys; no public arbitrary issuer-ID user lookup replacement. |
-| `user/management` | `users_list`, `user_details`, `user_access_links` | `delete_user`, `reset_user`, `update_user`, `update_user_preference`, `get_password_change_session`, `set_password_via_session`, `create_access_link`, `process_access_link`, `revoke_access_link`, `generate_user_impersonation_link` | Account/auth and Instance Admin; self-service display-name editing shipped; sharing, V1 roles and admin rename-on-behalf excluded. |
+| `user/management` | `users_list`, `user_details`, `user_access_links` | `delete_user`, `reset_user`, `update_user`, `update_user_preference`, `get_password_change_session`, `set_password_via_session`, `create_access_link`, `process_access_link`, `revoke_access_link`, `generate_user_impersonation_link` | Account/auth and Instance Admin; self-service display-name editing shipped; access links reshaped as publications (Order 18); V1 roles and admin rename-on-behalf excluded. |
 | `exporter` | `user_exports` | `deploy_export_job` | Backup runs, export and download. |
 | `file-storage` | `get_presigned_s3_url` | `presigned_put_s3_url`, `delete_s3_object` | Managed upload intents/downloads/cleanup; no arbitrary bucket authority. |
 | `importer` | `user_import_reports` | `deploy_import_job`, `delete_user_import_report` | Import source/run/issue catalogs and start/delete/cancel/failure-download commands. |
