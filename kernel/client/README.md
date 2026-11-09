@@ -117,6 +117,7 @@ system share sheet. The temporary directory is removed after completion or failu
 obtain their bearer header inside `BackupsApi`; server-log downloads keep their admin-token header
 inside `AdminApi`. Links and text that users pass on go through `modules/device/share.ts`, which
 opens the system share sheet on native clients and copies to the clipboard on the web.
+`modules/ui/share-link-field.tsx` is the shared read-only link field with that action.
 
 `EntityWatchService` opens no event stream when a client is constructed. The authenticated layout owns
 the active server/user session and releases it on logout, scope change, or unmount. Plugin documents

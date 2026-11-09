@@ -38,6 +38,7 @@ import type {
 	InstanceAdminUserResetResult,
 } from "#/modules/instance-admin/user-lifecycle";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
+import { ShareLinkField } from "#/modules/ui/share-link-field";
 import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 50;
@@ -305,11 +306,9 @@ function UserRow(props: {
 	readonly operations: InstanceAdminUserOperations;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
-	const copyTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const pendingRef = useRef<null | string>(null);
 	const unmountSignal = useUnmountSignal();
 	const menuId = useId();
-	const [copied, setCopied] = useState(false);
 	const [error, setError] = useState<string>();
 	const [confirmation, setConfirmation] = useState<null | "reset" | "delete">(null);
 	const [menuOpen, setMenuOpen] = useState(false);
@@ -335,15 +334,6 @@ function UserRow(props: {
 	if (pending === "disabled") {
 		disabledActionLabel = isDisabled ? "Enabling..." : "Disabling...";
 	}
-
-	useEffect(
-		() => () => {
-			if (copyTimer.current !== undefined) {
-				clearTimeout(copyTimer.current);
-			}
-		},
-		[],
-	);
 
 	const run = <A,>(
 		kind: NonNullable<typeof pending>,
@@ -380,7 +370,6 @@ function UserRow(props: {
 		run(
 			"password",
 			() => {
-				setCopied(false);
 				setResult(null);
 				setImpersonationUrl(null);
 				return props.operations.resetUserPassword(props.user.id);
@@ -399,7 +388,6 @@ function UserRow(props: {
 		run(
 			"impersonation",
 			() => {
-				setCopied(false);
 				setResult(null);
 				setImpersonationUrl(null);
 				return props.operations.impersonateUser(props.user.id);
@@ -439,23 +427,6 @@ function UserRow(props: {
 				props.onRefresh();
 			},
 			"Could not delete this user. Try again.",
-		);
-	};
-	const transfer = () => {
-		if (linkUrl == null) {
-			return Effect.void;
-		}
-		return props.shareOrCopy({ url: linkUrl }).pipe(
-			Effect.tapError((failure) =>
-				Effect.logWarning("instance-admin link transfer failed", failure.cause),
-			),
-			Effect.match({
-				onFailure: () => setError("Could not copy or share the link. Try again."),
-				onSuccess: () => {
-					setCopied(true);
-					copyTimer.current = setTimeout(() => setCopied(false), 2000);
-				},
-			}),
 		);
 	};
 	const closeMenu = (restoreFocus: boolean) => {
@@ -599,30 +570,17 @@ function UserRow(props: {
 									{impersonationUrl === null ? "Reset link" : "Impersonation link"} for{" "}
 									{result?.email ?? props.user.email}
 								</p>
-								<div className="flex min-w-0 flex-wrap items-center gap-2">
-									<input
-										readOnly
-										value={linkUrl}
-										aria-label={linkLabel}
-										className="min-w-0 flex-1 basis-40 rounded-lg border border-border-strong bg-surface px-3 py-2 text-base font-normal text-text md:text-[13px]"
-									/>
-									<button
-										type="button"
-										disabled={copied}
-										onClick={() => Effect.runFork(transfer())}
-										className="min-h-9 shrink-0 rounded-lg border border-border-strong px-3 py-2 text-[13px] font-semibold text-text disabled:opacity-50"
-									>
-										{copied ? "Copied!" : "Copy or share"}
-									</button>
+								<ShareLinkField url={linkUrl} label={linkLabel} share={props.shareOrCopy}>
 									<a
 										href={linkUrl}
 										target="_blank"
 										rel="noopener noreferrer"
-										className="min-h-9 shrink-0 rounded-lg border border-border-strong px-3 py-2 text-[13px] font-semibold text-text"
+										className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
 									>
+										<AppIcon size={14} name="external-link" />
 										Open in new tab
 									</a>
-								</div>
+								</ShareLinkField>
 							</div>
 						)}
 					</td>

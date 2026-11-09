@@ -11,7 +11,7 @@ import { type SubmitEvent, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
-import { shareOrCopy, sharesNatively } from "#/modules/device/share";
+import { ShareLinkField } from "#/modules/ui/share-link-field";
 
 import { createPublicationLinkMutation, publicationCommandMutation } from "./service";
 
@@ -65,43 +65,13 @@ const linkDetail = (link: Link, now: number) => {
 	return parts.join(" · ");
 };
 
-const linkActionPresentation = (copied: boolean) => {
-	if (sharesNatively) {
-		return { icon: "share", label: "Share" };
-	}
-	return copied ? { icon: "check", label: "Copied" } : { icon: "copy", label: "Copy" };
-};
-
 export function CreatedLink(props: { readonly url: string; readonly title: string }) {
-	const [copied, setCopied] = useState(false);
-	const action = linkActionPresentation(copied);
 	return (
 		<Notice tone="success" title="Your link is ready">
-			<p className="text-xs">
+			<p className="mb-2 text-xs">
 				Copy it now. It is shown only once, and anyone with it can view this page.
 			</p>
-			<div className="mt-2 flex flex-wrap items-center gap-2">
-				<div className="min-w-0 flex-1">
-					<TextField readOnly value={props.url} density="compact" aria-label="New link" />
-				</div>
-				<Button
-					size="sm"
-					variant="secondary"
-					onClick={() =>
-						void Effect.runPromise(
-							shareOrCopy({ url: props.url, title: props.title }).pipe(
-								Effect.match({
-									onFailure: () => undefined,
-									onSuccess: (outcome) => setCopied(outcome === "copied"),
-								}),
-							),
-						)
-					}
-				>
-					<AppIcon size={16} name={action.icon} />
-					{action.label}
-				</Button>
-			</div>
+			<ShareLinkField url={props.url} label="New link" title={props.title} />
 		</Notice>
 	);
 }

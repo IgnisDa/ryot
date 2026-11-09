@@ -2,7 +2,7 @@ import { Capacitor } from "@capacitor/core";
 import { Share } from "@capacitor/share";
 import { Effect, Schema } from "effect";
 
-class ShareError extends Schema.TaggedError<ShareError, { readonly brand: unique symbol }>()(
+export class ShareError extends Schema.TaggedError<ShareError, { readonly brand: unique symbol }>()(
 	"ShareError",
 	{ cause: Schema.Unknown },
 ) {}

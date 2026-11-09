@@ -372,13 +372,9 @@ describe("Instance Admin users administration", () => {
 				expect(open.getAttribute("href")).toBe(resetLink.value);
 				expect(open.getAttribute("target")).toBe("_blank");
 				expect(open.getAttribute("rel")).toBe("noopener noreferrer");
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("button", { name: "Copy or share" })),
-				);
+				yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Copy" })));
 				expect(transferred).toEqual([{ url: "https://example.com/reset" }]);
-				expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(
-					true,
-				);
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Copied" }));
 			}),
 		testTimeout,
 	);
@@ -458,9 +454,7 @@ describe("Instance Admin users administration", () => {
 				expect(open.getAttribute("href")).toBe(link.value);
 				expect(open.getAttribute("target")).toBe("_blank");
 				expect(open.getAttribute("rel")).toBe("noopener noreferrer");
-				yield* Effect.promise(() =>
-					user.click(screen.getByRole("button", { name: "Copy or share" })),
-				);
+				yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Copy" })));
 				expect(transferred).toEqual([{ url: link.value }]);
 				expect(screen.queryByRole("alert")).toBeNull();
 			}),
