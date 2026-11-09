@@ -71,6 +71,10 @@ reverse proxy to preserve the public `Host` header and set `X-Forwarded-Proto`
 to the client-facing protocol. The proxy must overwrite forwarding headers
 supplied by clients.
 
+Sign-in and shared-link rate limits identify visitors by `X-Forwarded-For`. The proxy
+must set it to the single client address; requests without a usable address share one
+limit.
+
 ## Railway
 
 1. Create an empty Railway project.

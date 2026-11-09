@@ -41,8 +41,9 @@ previews are linkless sessions minted for the owner; they end only with the publ
 ## Limits
 
 Link exchanges are limited to ten per visitor address per minute, so one visitor cannot lock others
-out of a publication. The address is the connection peer, or the client named by `X-Forwarded-For`
-when the peer is one of `SERVER_TRUSTED_PROXIES`. Each session allows six concurrent reads, enough for
+out of a publication. The address comes from `requestClientAddress` in the auth module, which
+resolves it exactly as Better Auth does for its own rate limits; requests without a trustworthy address
+share one limit. Each session allows six concurrent reads, enough for
 a page's parallel queries. These limits are per process. Visitor statements time out after ten
 seconds and results are capped at 2 MB. Asset downloads resolve only for managed assets referenced by
-a current subject's properties.
+a current subject's properties or translations.

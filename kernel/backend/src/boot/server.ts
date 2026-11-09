@@ -218,11 +218,6 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
-		if (config.server.trustedProxies.length > 0) {
-			yield* router.addGlobalMiddleware(
-				HttpMiddleware.xForwardedHeaders({ trustedProxies: config.server.trustedProxies }),
-			);
-		}
 		yield* registerRootRoutes(
 			router,
 			api.pipe(Effect.mapError(mapRouterError)),

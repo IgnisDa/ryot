@@ -157,7 +157,6 @@ export const makeAppConfigLayer = (
 			},
 		},
 		server: {
-			trustedProxies: [],
 			oidc: Option.none(),
 			smtp: Option.none(),
 			proKey: Option.none(),

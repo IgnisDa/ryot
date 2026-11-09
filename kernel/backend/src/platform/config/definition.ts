@@ -320,12 +320,6 @@ const server = group(
 			envKey: "SERVER_ADMIN_ACCESS_TOKEN",
 			description: "Bearer token required for instance-admin admin endpoints",
 		}),
-		trustedProxies: stringField({
-			label: "Trusted proxies",
-			envKey: "SERVER_TRUSTED_PROXIES",
-			description:
-				"Comma-separated networks, such as 10.0.0.0/8, of reverse proxies whose X-Forwarded-For header identifies the client",
-		}),
 		proKeyVerificationUrl: stringField({
 			hidden: true,
 			label: "Pro key verification URL",

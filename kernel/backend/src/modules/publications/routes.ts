@@ -5,9 +5,11 @@ import {
 	PublicationMiddleware,
 	PublicationPrincipal,
 } from "@ryot-app/contract/modules/publications/contract";
-import { Effect, Layer, Option, Redacted } from "effect";
+import { Effect, Layer, Redacted } from "effect";
 import { HttpServerRequest } from "effect/http";
 import { HttpApiBuilder } from "effect/http-api";
+
+import { requestClientAddress } from "#modules/accounts/auth/client-address";
 
 import { PublicationsService } from "./service";
 import { PublicationVisitsService } from "./visits";
@@ -88,7 +90,7 @@ export const PublicationVisitsRoutesLive = HttpApiBuilder.group(
 						.exchange({
 							secret: payload.secret,
 							publicationId: payload.publicationId,
-							visitorAddress: Option.getOrNull(request.remoteAddress),
+							visitorAddress: requestClientAddress(new Headers(request.headers)),
 						})
 						.pipe(dieOnDbError);
 				}),

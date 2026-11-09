@@ -52,6 +52,7 @@ import { logHttpResponse } from "#platform/http/response-logger";
 import { TransientValues } from "#platform/transient-values";
 import * as authSchema from "#schema/tables/auth";
 
+import { authAdvancedOptions } from "./client-address";
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
 import { ImpersonationHandoffs } from "./impersonation-handoffs";
@@ -241,8 +242,8 @@ const makeAuthInstance = (args: {
 		appName: "Ryot",
 		basePath: "/api/auth",
 		database: database.adapter,
+		advanced: authAdvancedOptions,
 		baseURL: args.config.frontendUrl,
-		advanced: { disableCSRFCheck: false },
 		trustedOrigins: [args.config.frontendUrl],
 		account: { accountLinking: { enabled: false } },
 		secret: Redacted.value(args.config.server.adminAccessToken),
