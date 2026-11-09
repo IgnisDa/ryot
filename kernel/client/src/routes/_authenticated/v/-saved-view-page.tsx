@@ -26,6 +26,7 @@ import { ClientPagePending } from "#/modules/pages/loading";
 import { mergePageSearch } from "#/modules/pages/runtime/document-host";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
+import { useShareScreen } from "#/modules/publications/share-screen";
 import { useReminderScreen } from "#/modules/reminders/screens";
 import { ClientStorage } from "#/persistence/storage";
 
@@ -156,14 +157,16 @@ export function SavedViewPage({
 	}, [layout, loaded.entityBrowser, loaded.viewPath, runtime, scope]);
 	const collections = useCollectionScreens();
 	const reminders = useReminderScreen();
+	const share = useShareScreen();
 	useClientPageDocument({
 		onPickEntity: openAdd,
 		prepared: loaded.prepared,
+		onSharePublication: share.onSharePublication,
 		onEditCollection: collections.onEditCollection,
 		onManageReminders: reminders.onManageReminders,
 		onAddToCollection: collections.onAddToCollection,
-		inert: addOpen || collections.open || reminders.open,
 		title: loaded.prepared.context.view?.name ?? "Saved view",
+		inert: addOpen || collections.open || reminders.open || share.open,
 	});
 
 	return (
@@ -180,6 +183,7 @@ export function SavedViewPage({
 			) : null}
 			{collections.screen}
 			{reminders.screen}
+			{share.screen}
 		</>
 	);
 }

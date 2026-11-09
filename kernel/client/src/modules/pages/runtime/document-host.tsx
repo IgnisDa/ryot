@@ -60,7 +60,7 @@ import {
 } from "#/modules/pages/documents/state";
 import { ClientPageFreshness } from "#/modules/pages/preparation/freshness";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
-import { toPluginLocation } from "#/modules/plugins/catalog/location";
+import { toNavigationRequest, toPluginLocation } from "#/modules/plugins/catalog/location";
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import { useScreenLeadingControl } from "#/modules/shell/app-screen";
 import {
@@ -577,6 +577,9 @@ function ClientPageFrame(props: {
 			onEditCollection={(request) =>
 				props.document.onEditCollection?.(request) ?? Effect.succeed({ kind: "cancelled" as const })
 			}
+			onSharePublication={(request) =>
+				props.document.onSharePublication?.(request) ?? Effect.succeed({ kind: "closed" as const })
+			}
 			onAddToCollection={(request) =>
 				props.document.onAddToCollection?.(request) ??
 				Effect.succeed({ kind: "cancelled" as const })
@@ -607,13 +610,6 @@ function ClientPageFrame(props: {
 					currentScope: () => frameScope.current,
 				})
 			}
-			onNavigate={(request) =>
-				void navigate({
-					href: request.href,
-					replace: request.replace,
-					state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
-				})
-			}
 			onLoadDocument={() =>
 				props.runtime
 					.runSync(PagesApi)
@@ -629,6 +625,16 @@ function ClientPageFrame(props: {
 					currentScope: () => frameScope.current,
 				})
 			}
+			onNavigate={(request) => {
+				const navigation = toNavigationRequest(request, catalog);
+				if (navigation !== undefined) {
+					void navigate({
+						href: navigation.href,
+						replace: navigation.replace,
+						state: (current) => ({ ...current, ryotEntryKey: crypto.randomUUID() }),
+					});
+				}
+			}}
 			onCalendarSourceVisibility={(request) =>
 				props.runtime
 					.runSync(PluginCalendarSources)

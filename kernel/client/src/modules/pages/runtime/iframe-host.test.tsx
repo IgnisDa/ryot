@@ -156,6 +156,7 @@ function mount(
 		onPageSearch: (request: unknown) => searches.push(request),
 		onNavigate: (request: unknown) => navigations.push(request),
 		onReloadCurrent: options.onReloadCurrent ?? (() => undefined),
+		onSharePublication: () => Effect.succeed({ kind: "closed" as const }),
 		onCheckFreshness: options.onCheckFreshness ?? (() => Effect.succeed(true)),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		onQuery: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
@@ -724,7 +725,18 @@ describe("PageIframeHost", () => {
 				});
 
 				yield* Effect.promise(() => waitFor(() => expect(host.operations).toHaveLength(1)));
-				expect(host.navigations).toEqual([{ replace: false, href: "/p/ryot/fixture/items?q=x" }]);
+				expect(host.navigations).toEqual([
+					{
+						mode: "push",
+						type: "navigate",
+						target: {
+							search: "q=x",
+							path: "/items",
+							kind: "plugin-route",
+							packageId: "ryot/fixture",
+						},
+					},
+				]);
 				expect(host.searches).toEqual([
 					{ mode: "replace", type: "page-search", update: { q: "sample", dialog: null } },
 				]);

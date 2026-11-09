@@ -14,6 +14,7 @@ import { NotificationsApi } from "#/api/notifications";
 import { OAuthConnectionsApi } from "#/api/oauth-connections";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
+import { PublicationsApi, PublicationVisitsApi } from "#/api/publications";
 import { RemindersApi } from "#/api/reminders";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
@@ -156,6 +157,31 @@ export const makeAutomationsApi = (overrides: Partial<AutomationsApi["Service"]>
 		...overrides,
 	});
 
+export const makePublicationsApi = (overrides: Partial<PublicationsApi["Service"]> = {}) =>
+	Layer.succeed(PublicationsApi, {
+		create: unused,
+		delete: unused,
+		revoke: unused,
+		status: unused,
+		preview: unused,
+		republish: unused,
+		createLink: unused,
+		revokeLink: unused,
+		...overrides,
+	});
+
+export const makePublicationVisitsApi = (
+	overrides: Partial<PublicationVisitsApi["Service"]> = {},
+) =>
+	Layer.succeed(PublicationVisitsApi, {
+		page: unused,
+		assets: unused,
+		ryotql: unused,
+		document: unused,
+		exchange: unused,
+		...overrides,
+	});
+
 export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
 	Layer.succeed(AccountApi, {
 		rename: unused,
@@ -201,4 +227,6 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makeEntityProvidersApi(),
 	makeEntityWatchService(),
 	makePluginInstallationsApi(),
+	makePublicationsApi(),
+	makePublicationVisitsApi(),
 );

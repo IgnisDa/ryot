@@ -27,6 +27,7 @@ import { Route as OauthImpersonateRouteImport } from './routes/oauth.impersonate
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as OauthTwoFactorRouteImport } from './routes/oauth.two-factor'
+import { Route as SharePublicationIdRouteImport } from './routes/share.$publicationId'
 import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
@@ -38,6 +39,7 @@ import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from '.
 import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
 import { Route as AuthenticatedSettingsPluginsRouteImport } from './routes/_authenticated/settings/plugins'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
+import { Route as AuthenticatedSettingsPublicationsRouteImport } from './routes/_authenticated/settings/publications'
 import { Route as AuthenticatedSettingsRemindersRouteImport } from './routes/_authenticated/settings/reminders'
 import { Route as AuthLogoutCallbackRouteImport } from './routes/auth_.logout.callback'
 import { Route as AuthenticatedPPublisherNameRouteRouteImport } from './routes/_authenticated/p/$publisher/$name/route'
@@ -145,6 +147,11 @@ const OauthTwoFactorRoute = OauthTwoFactorRouteImport.update({
   path: '/oauth/two-factor',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SharePublicationIdRoute = SharePublicationIdRouteImport.update({
+  id: '/share/$publicationId',
+  path: '/share/$publicationId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthenticatedEEntityIdRoute = AuthenticatedEEntityIdRouteImport.update({
   id: '/e/$entityId',
   path: '/e/$entityId',
@@ -208,6 +215,12 @@ const AuthenticatedSettingsPreferencesRoute =
   AuthenticatedSettingsPreferencesRouteImport.update({
     id: '/preferences',
     path: '/preferences',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsPublicationsRoute =
+  AuthenticatedSettingsPublicationsRouteImport.update({
+    id: '/publications',
+    path: '/publications',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsRemindersRoute =
@@ -310,6 +323,7 @@ export interface FileRoutesByFullPath {
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
+  '/share/$publicationId': typeof SharePublicationIdRoute
   '/instance-admin/': typeof InstanceAdminIndexRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -321,6 +335,7 @@ export interface FileRoutesByFullPath {
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
   '/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -351,6 +366,7 @@ export interface FileRoutesByTo {
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
+  '/share/$publicationId': typeof SharePublicationIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/instance-admin': typeof InstanceAdminIndexRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
@@ -363,6 +379,7 @@ export interface FileRoutesByTo {
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
   '/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
@@ -396,6 +413,7 @@ export interface FileRoutesById {
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
   '/oauth/two-factor': typeof OauthTwoFactorRoute
+  '/share/$publicationId': typeof SharePublicationIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/instance-admin/': typeof InstanceAdminIndexRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
@@ -408,6 +426,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
   '/_authenticated/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
+  '/_authenticated/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
   '/_authenticated/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
@@ -443,6 +462,7 @@ export interface FileRouteTypes {
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
+    | '/share/$publicationId'
     | '/instance-admin/'
     | '/e/$entityId'
     | '/settings/$'
@@ -454,6 +474,7 @@ export interface FileRouteTypes {
     | '/settings/oauth-return'
     | '/settings/plugins'
     | '/settings/preferences'
+    | '/settings/publications'
     | '/settings/reminders'
     | '/auth/logout/callback'
     | '/settings/'
@@ -484,6 +505,7 @@ export interface FileRouteTypes {
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
+    | '/share/$publicationId'
     | '/'
     | '/instance-admin'
     | '/e/$entityId'
@@ -496,6 +518,7 @@ export interface FileRouteTypes {
     | '/settings/oauth-return'
     | '/settings/plugins'
     | '/settings/preferences'
+    | '/settings/publications'
     | '/settings/reminders'
     | '/auth/logout/callback'
     | '/settings'
@@ -528,6 +551,7 @@ export interface FileRouteTypes {
     | '/oauth/initializing'
     | '/oauth/login'
     | '/oauth/two-factor'
+    | '/share/$publicationId'
     | '/_authenticated/'
     | '/instance-admin/'
     | '/_authenticated/e/$entityId'
@@ -540,6 +564,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/oauth-return'
     | '/_authenticated/settings/plugins'
     | '/_authenticated/settings/preferences'
+    | '/_authenticated/settings/publications'
     | '/_authenticated/settings/reminders'
     | '/auth_/logout/callback'
     | '/_authenticated/settings/'
@@ -569,6 +594,7 @@ export interface RootRouteChildren {
   OauthInitializingRoute: typeof OauthInitializingRoute
   OauthLoginRoute: typeof OauthLoginRoute
   OauthTwoFactorRoute: typeof OauthTwoFactorRoute
+  SharePublicationIdRoute: typeof SharePublicationIdRoute
   AuthLogoutCallbackRoute: typeof AuthLogoutCallbackRoute
 }
 
@@ -700,6 +726,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof OauthTwoFactorRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/share/$publicationId': {
+      id: '/share/$publicationId'
+      path: '/share/$publicationId'
+      fullPath: '/share/$publicationId'
+      preLoaderRoute: typeof SharePublicationIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_authenticated/e/$entityId': {
       id: '/_authenticated/e/$entityId'
       path: '/e/$entityId'
@@ -775,6 +808,13 @@ declare module '@tanstack/react-router' {
       path: '/preferences'
       fullPath: '/settings/preferences'
       preLoaderRoute: typeof AuthenticatedSettingsPreferencesRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/publications': {
+      id: '/_authenticated/settings/publications'
+      path: '/publications'
+      fullPath: '/settings/publications'
+      preLoaderRoute: typeof AuthenticatedSettingsPublicationsRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/reminders': {
@@ -888,6 +928,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsOauthReturnRoute: typeof AuthenticatedSettingsOauthReturnRoute
   AuthenticatedSettingsPluginsRoute: typeof AuthenticatedSettingsPluginsRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
+  AuthenticatedSettingsPublicationsRoute: typeof AuthenticatedSettingsPublicationsRoute
   AuthenticatedSettingsRemindersRoute: typeof AuthenticatedSettingsRemindersRoute
   AuthenticatedSettingsIndexRoute: typeof AuthenticatedSettingsIndexRoute
   AuthenticatedSettingsImportDataRunIdRoute: typeof AuthenticatedSettingsImportDataRunIdRoute
@@ -913,6 +954,8 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsPluginsRoute: AuthenticatedSettingsPluginsRoute,
     AuthenticatedSettingsPreferencesRoute:
       AuthenticatedSettingsPreferencesRoute,
+    AuthenticatedSettingsPublicationsRoute:
+      AuthenticatedSettingsPublicationsRoute,
     AuthenticatedSettingsRemindersRoute: AuthenticatedSettingsRemindersRoute,
     AuthenticatedSettingsIndexRoute: AuthenticatedSettingsIndexRoute,
     AuthenticatedSettingsImportDataRunIdRoute:
@@ -1007,6 +1050,7 @@ const rootRouteChildren: RootRouteChildren = {
   OauthInitializingRoute: OauthInitializingRoute,
   OauthLoginRoute: OauthLoginRoute,
   OauthTwoFactorRoute: OauthTwoFactorRoute,
+  SharePublicationIdRoute: SharePublicationIdRoute,
   AuthLogoutCallbackRoute: AuthLogoutCallbackRoute,
 }
 export const routeTree = rootRouteImport

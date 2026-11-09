@@ -8,6 +8,8 @@ import type {
 	ManageRemindersRequest,
 	PickEntityOutcome,
 	PluginBridgePickEntityScreen,
+	SharePublicationOutcome,
+	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import { Effect } from "effect";
 import {
@@ -37,9 +39,13 @@ export type ClientPageDocument = {
 	readonly onManageReminders?: (
 		request: ManageRemindersRequest,
 	) => Effect.Effect<ManageRemindersOutcome>;
+	readonly onSharePublication?: (
+		request: SharePublicationRequest,
+	) => Effect.Effect<SharePublicationOutcome>;
 };
 
 const cancelled = Effect.succeed({ kind: "cancelled" as const });
+const closed = Effect.succeed({ kind: "closed" as const });
 
 type ClientPageDocumentState = {
 	readonly clear: () => void;
@@ -85,6 +91,7 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			prepared: document.prepared,
 			onPickEntity: (request) => latest.current.onPickEntity?.(request) ?? cancelled,
 			onEditCollection: (request) => latest.current.onEditCollection?.(request) ?? cancelled,
+			onSharePublication: (request) => latest.current.onSharePublication?.(request) ?? closed,
 			onAddToCollection: (request) => latest.current.onAddToCollection?.(request) ?? cancelled,
 			onManageReminders: (request) => latest.current.onManageReminders?.(request) ?? cancelled,
 		}),

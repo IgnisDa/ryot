@@ -20,6 +20,7 @@ import { PagesApi } from "#/api/pages";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
 import { PluginsApi } from "#/api/plugins";
 import { PublicApi } from "#/api/public";
+import { PublicationsApi, PublicationVisitsApi } from "#/api/publications";
 import { RemindersApi } from "#/api/reminders";
 import { RyotQLApi } from "#/api/ryotql";
 import { SavedViewsApi } from "#/api/saved-views";
@@ -60,4 +61,6 @@ export const ApiLive = Layer.mergeAll(
 	OAuthConnectionsApi.layer,
 	EntityProvidersApi.layer,
 	PluginInstallationsApi.layer,
+	PublicationsApi.layer,
+	PublicationVisitsApi.layer,
 ).pipe(Layer.provide(TransportLive));

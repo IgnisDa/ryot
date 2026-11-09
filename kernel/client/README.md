@@ -13,6 +13,15 @@ opaque-origin iframe.
 Plugin and entity pages share `modules/pages/documents/page.tsx` for host entity-picker and collection
 screens. Saved views retain their URL-owned provider-add screen.
 
+`modules/publications` owns publication management in settings, the share sheet that answers
+`screens.sharePublication` from collection and saved-view pages, and the unauthenticated
+`/share/$publicationId` visitor route. The visitor route takes the link secret or owner preview
+session from the URL fragment, clears the fragment, keeps credentials in tab-scoped session storage,
+and runs the publication page in the same sandboxed iframe host. Its bridge answers RyotQL and asset
+reads through the visitor session and refuses every write, upload, and kernel screen. Entity
+navigation becomes the `item` search parameter on the same route, so the browser back button returns
+to the list. Owner previews open in the app with a banner to exit; they never use the link secret.
+
 `modules/plugins` owns installation management and the executable catalog. `modules/pages` owns how
 a prepared page executes: `preparation` resolves targets and freshness, `documents` owns the
 published document and its `srcdoc`, `runtime` holds the document host that retains composition
@@ -106,7 +115,8 @@ File downloads share `modules/downloads/file.ts`: web clients fetch a Blob and s
 synthetic download link; native clients download directly to a temporary cache file and open the
 system share sheet. The temporary directory is removed after completion or failure. Backup downloads
 obtain their bearer header inside `BackupsApi`; server-log downloads keep their admin-token header
-inside `AdminApi`.
+inside `AdminApi`. Links and text that users pass on go through `modules/device/share.ts`, which
+opens the system share sheet on native clients and copies to the clipboard on the web.
 
 `EntityWatchService` opens no event stream when a client is constructed. The authenticated layout owns
 the active server/user session and releases it on logout, scope change, or unmount. Plugin documents

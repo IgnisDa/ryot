@@ -79,6 +79,8 @@ import {
 	type PluginUploadRequest,
 	type PluginUserSettingsOutcome,
 	type PluginUserSettingsRequest,
+	type SharePublicationOutcome,
+	type SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { EntityWatchSubscription } from "@ryot-app/plugin-client-sdk";
 import { Cause, Effect, Fiber, Match, Option, Result, Schema } from "effect";
@@ -122,6 +124,7 @@ type HostScreenType =
 	| "pick-entity-screen"
 	| "edit-collection-screen"
 	| "manage-reminders-screen"
+	| "share-publication-screen"
 	| "add-to-collection-screen";
 
 type PendingRequest = {
@@ -149,6 +152,7 @@ const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenT
 	"pick-entity-screen",
 	"edit-collection-screen",
 	"manage-reminders-screen",
+	"share-publication-screen",
 	"add-to-collection-screen",
 ]);
 
@@ -207,6 +211,9 @@ type PluginBridgeOptions = {
 	readonly onManageReminders: (
 		request: ManageRemindersRequest,
 	) => Effect.Effect<ManageRemindersOutcome>;
+	readonly onSharePublication: (
+		request: SharePublicationRequest,
+	) => Effect.Effect<SharePublicationOutcome>;
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
@@ -829,6 +836,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "manage-reminders-screen-cancel" }, ({ requestId }) =>
 							handleHostScreenCancel("manage-reminders-screen", requestId),
 						),
+						Match.when({ type: "share-publication-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("share-publication-screen", requestId),
+						),
 						Match.when({ type: "asset-request" }, (request) => handleAssets(request)),
 						Match.when({ type: "navigate-back" }, () => {
 							if (!requestOverlayDismiss()) {
@@ -880,6 +890,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							({ requestId, type: _type, ...request }) =>
 								openHostScreen(requestId, "manage-reminders-screen", () =>
 									options.onManageReminders(request),
+								),
+						),
+						Match.when(
+							{ type: "share-publication-screen" },
+							({ requestId, type: _type, ...request }) =>
+								openHostScreen(requestId, "share-publication-screen", () =>
+									options.onSharePublication(request),
 								),
 						),
 						Match.when({ type: "lifecycle-close" }, ({ reason }) => handleLifecycleClose(reason)),

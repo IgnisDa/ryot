@@ -16,6 +16,7 @@ import type {
 	PluginAssetOutcome,
 	PluginAssetRequest,
 	PluginBackgroundOperationRequest,
+	PluginBridgeNavigate,
 	PluginBridgePageSearch,
 	PluginBridgePickEntityScreen,
 	PluginCalendarSourceVisibilityOutcome,
@@ -40,6 +41,8 @@ import type {
 	PluginUploadRequest,
 	PluginUserSettingsOutcome,
 	PluginUserSettingsRequest,
+	SharePublicationOutcome,
+	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import { Button, ScreenFrame, StatusMessage, useShortcut } from "@ryot-app/plugin-ui-sdk";
@@ -69,11 +72,6 @@ import {
 	type PluginBridgeViewportInsets,
 } from "#/modules/pages/bridge/session";
 import { ClientPageLoading } from "#/modules/pages/loading";
-import {
-	type PluginNavigationRequest,
-	toNavigationRequest,
-} from "#/modules/plugins/catalog/location";
-import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
 import type { PageHeaderPublication, PageScreenReadiness } from "#/modules/shell/page-presentation";
 import type { ThemeStore } from "#/modules/theme/store";
 
@@ -116,10 +114,10 @@ export function PageIframeHost(props: {
 	readonly onHeader: (header: PageHeaderPublication) => void;
 	readonly onLoadDocument: () => Effect.Effect<string, Error>;
 	readonly mutationCompleted: RyotClient["mutationCompleted"];
+	readonly onNavigate: (request: PluginBridgeNavigate) => void;
 	readonly onKernelShortcut: (shortcut: KernelShortcut) => void;
 	readonly onCheckFreshness: () => Effect.Effect<boolean, Error>;
 	readonly subscribeResume?: (resumed: () => void) => () => void;
-	readonly onNavigate: (request: PluginNavigationRequest) => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: null | PageScreenReadiness) => void;
 	readonly onFlushReady: (flush: undefined | (() => Effect.Effect<boolean>)) => void;
@@ -151,6 +149,9 @@ export function PageIframeHost(props: {
 	readonly onManageReminders: (
 		request: ManageRemindersRequest,
 	) => Effect.Effect<ManageRemindersOutcome>;
+	readonly onSharePublication: (
+		request: SharePublicationRequest,
+	) => Effect.Effect<SharePublicationOutcome>;
 	readonly onUserSettings: (
 		request: PluginUserSettingsRequest,
 	) => Effect.Effect<PluginUserSettingsOutcome>;
@@ -175,8 +176,6 @@ export function PageIframeHost(props: {
 	const entitySchemaSlug = location.kind === "entity" ? location.entitySchemaSlug : undefined;
 	const { subscribeResume, chromeTriggerRef } = props;
 	const latest = useRef(props);
-	const { catalog } = usePluginCatalog();
-	const latestCatalog = useRef(catalog);
 	const [srcDoc, setSrcDoc] = useState<string>();
 	const frame = useRef<HTMLIFrameElement>(null);
 	const backSettle = useRef<number>(undefined);
@@ -196,7 +195,6 @@ export function PageIframeHost(props: {
 	);
 	useLayoutEffect(() => {
 		latest.current = props;
-		latestCatalog.current = catalog;
 		updatePending.current = updateAvailable;
 	});
 	const closeBridge = () => {
@@ -421,6 +419,7 @@ export function PageIframeHost(props: {
 			onUpload: (request) => latest.current.onUpload(request),
 			onDevice: (request) => latest.current.onDevice(request),
 			onStorage: (request) => latest.current.onStorage(request),
+			onNavigate: (request) => latest.current.onNavigate(request),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onCollection: (request) => latest.current.onCollection(request),
 			onEntitySave: (request) => latest.current.onEntitySave(request),
@@ -433,6 +432,7 @@ export function PageIframeHost(props: {
 			onAddToCollection: (request) => latest.current.onAddToCollection(request),
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),
 			onKernelShortcut: (shortcut) => latest.current.onKernelShortcut(shortcut),
+			onSharePublication: (request) => latest.current.onSharePublication(request),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onCalendarSourceVisibility: (request) => latest.current.onCalendarSourceVisibility(request),
 			onFailure: () => {
@@ -454,12 +454,6 @@ export function PageIframeHost(props: {
 				if (bridge.current === connection.session) {
 					setOverlayCount(count);
 					latest.current.onOverlayState(count);
-				}
-			},
-			onNavigate: (request) => {
-				const navigation = toNavigationRequest(request, latestCatalog.current);
-				if (navigation !== undefined) {
-					latest.current.onNavigate(navigation);
 				}
 			},
 			onNavigateBack: () => {
