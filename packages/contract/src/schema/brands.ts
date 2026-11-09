@@ -148,3 +148,11 @@ export type RemoteImageUrl = typeof RemoteImageUrl.Type;
 export const ReminderId = Schema.String.pipe(Schema.brand("ReminderId"));
 
 export type ReminderId = typeof ReminderId.Type;
+
+export const PublicationId = Schema.String.pipe(Schema.brand("PublicationId"));
+
+export type PublicationId = typeof PublicationId.Type;
+
+export const PublicationLinkId = Schema.String.pipe(Schema.brand("PublicationLinkId"));
+
+export type PublicationLinkId = typeof PublicationLinkId.Type;

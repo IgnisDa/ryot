@@ -22,6 +22,7 @@ const RyotQLBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("invalid-cursor") }),
 	Schema.Struct({ limitMs: Schema.Finite, code: Schema.Literal("query-timeout") }),
 	Schema.Struct({ limitBytes: Schema.Finite, code: Schema.Literal("result-too-large") }),
+	Schema.Struct({ limit: Schema.Int, code: Schema.Literal("subject-limit-exceeded") }),
 ]);
 
 export class RyotQLBadRequest extends Schema.TaggedError<

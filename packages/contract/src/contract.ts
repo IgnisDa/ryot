@@ -19,6 +19,7 @@ import { NotificationsGroup } from "./modules/notifications/contract";
 import { OAuthConnectionsGroup } from "./modules/oauth-connections/contract";
 import { PageBundlesGroup, PagesGroup } from "./modules/pages/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
+import { PublicationsGroup, PublicationVisitsGroup } from "./modules/publications/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
 import { RemindersGroup } from "./modules/reminders/contract";
 import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
@@ -46,6 +47,7 @@ export type AppGroups =
 	| typeof TestSupportGroup
 	| typeof AdminRyotQLGroup
 	| typeof LiveUpdatesGroup
+	| typeof PublicationsGroup
 	| typeof LocalUploadsGroup
 	| typeof IntegrationsGroup
 	| typeof RelationshipsGroup
@@ -57,6 +59,7 @@ export type AppGroups =
 	| typeof CalendarSourcesGroup
 	| typeof ImportDownloadsGroup
 	| typeof OAuthConnectionsGroup
+	| typeof PublicationVisitsGroup
 	| typeof ServerLogDownloadsGroup;
 
 export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryot")
@@ -91,5 +94,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(LiveUpdatesGroup)
 	.add(NotificationsGroup)
 	.add(PluginsGroup)
+	.add(PublicationsGroup)
+	.add(PublicationVisitsGroup)
 	.annotate(OpenApi.Title, "Ryot API")
 	.annotate(OpenApi.Description, "API documentation for the Ryot backend");
