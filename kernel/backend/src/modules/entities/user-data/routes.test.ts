@@ -1,15 +1,12 @@
 import { expect } from "bun:test";
 
 import {
-	AdminMiddleware,
 	AuthMiddleware,
 	AuthUnauthorized,
 	DemoOperationProtected,
 } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import type { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecycle";
-import { PublicationMiddleware } from "@ryot-app/contract/modules/publications/contract";
-import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -20,6 +17,7 @@ import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
+import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
 
 import { EntityUserDataRoutesLive } from "./routes";
 import { EntityUserDataService } from "./service";
@@ -99,13 +97,7 @@ const routesLayer = Layer.unwrap(
 		return Layer.mergeAll(
 			EntityUserDataRoutesLive,
 			HttpServer.layerServices,
-			Layer.succeed(AdminMiddleware, {
-				adminToken: () =>
-					Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-			}),
-			Layer.succeed(PublicationMiddleware, {
-				session: () => Effect.fail(new PublicationUnavailable({ reason: { code: "not-found" } })),
-			}),
+			rejectingAdminAndPublicationMiddleware,
 			HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
 				Effect.flatMap(Ref.get(caller), ({ userId, accessClass }) =>
 					next(HttpClientRequest.bearerToken(request, `${userId}|${accessClass}`)),

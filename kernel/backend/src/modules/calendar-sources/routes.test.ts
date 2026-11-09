@@ -1,15 +1,12 @@
 import { expect } from "bun:test";
 
 import {
-	AdminMiddleware,
 	AuthMiddleware,
 	AuthUnauthorized,
 	DemoOperationProtected,
 } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
 import { CalendarSourceNotFound } from "@ryot-app/contract/modules/calendar-sources/schemas";
-import { PublicationMiddleware } from "@ryot-app/contract/modules/publications/contract";
-import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { CalendarSourceSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -27,6 +24,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
 
 import { CalendarSourcesServiceLive } from "./layer";
 import { CalendarSourcesRoutesLive } from "./routes";
@@ -81,13 +79,7 @@ const routesLayer = Layer.unwrap(
 		return Layer.mergeAll(
 			CalendarSourcesRoutesLive,
 			HttpServer.layerServices,
-			Layer.succeed(AdminMiddleware, {
-				adminToken: () =>
-					Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-			}),
-			Layer.succeed(PublicationMiddleware, {
-				session: () => Effect.fail(new PublicationUnavailable({ reason: { code: "not-found" } })),
-			}),
+			rejectingAdminAndPublicationMiddleware,
 			HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
 				Effect.flatMap(Ref.get(caller), ({ userId, accessClass }) =>
 					next(HttpClientRequest.bearerToken(request, `${userId}|${accessClass}`)),

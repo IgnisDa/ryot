@@ -15,6 +15,7 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
+import { userCollectionWhere } from "#modules/collections/repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -544,13 +545,17 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 								isNull(schema.publication.revokedAt),
 								page.afterId === undefined ? undefined : gt(schema.publication.id, page.afterId),
 								sql`case
-									when ${source} ->> 'kind' = 'collection' then exists (
-										select 1 from ${schema.entity}
-										where ${schema.entity.id} = ${source} ->> 'collectionId'
-											and ${schema.entity.userId} = ${userId}
-											and ${schema.entity.entitySchemaSlug} = 'collection'
-											and ${schema.entity.entitySchemaPluginId} is null
-									)
+									when ${source} ->> 'kind' = 'collection' then ${exists(
+										db
+											.select({ id: schema.entity.id })
+											.from(schema.entity)
+											.where(
+												and(
+													eq(schema.entity.id, sql`${source} ->> 'collectionId'`),
+													userCollectionWhere(userId),
+												),
+											),
+									)}
 									when ${source} #>> '{reference,kind}' = 'custom' then exists (
 										select 1 from ${schema.savedView}
 										where ${schema.savedView.id} = ${source} #>> '{reference,savedViewId}'

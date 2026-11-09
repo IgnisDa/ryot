@@ -17,10 +17,11 @@ import { Clock, Context, DateTime, Effect, Layer } from "effect";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
+import { generateOpaqueTicket } from "#platform/http/opaque-tickets";
 import { trimToNull } from "#platform/validation";
 
 import { PublicationsRepository } from "./repository";
-import { PublicationSessions, randomToken } from "./sessions";
+import { PublicationSessions } from "./sessions";
 import { PublicationSources } from "./sources";
 
 type OwnerUser = Pick<CurrentUserValue, "id" | "preferences">;
@@ -198,7 +199,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				if (expiresAt !== null && expiresAt.getTime() <= now) {
 					return yield* new PublicationBadRequest({ reason: { code: "expiry-in-past" } });
 				}
-				const secret = randomToken();
+				const secret = generateOpaqueTicket();
 				const linkId = yield* write(
 					user,
 					repository.insertLink({

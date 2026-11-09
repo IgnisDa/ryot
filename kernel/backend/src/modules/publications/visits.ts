@@ -12,14 +12,16 @@ import { type PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Context, Effect, Layer } from "effect";
 
+import { ManagedAssetReferencesRepository } from "#modules/assets/storage/managed-asset-references-repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { PagesService } from "#modules/pages/preparation/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
+import { isOpaqueTicket } from "#platform/http/opaque-tickets";
 
 import { PublicationVisitLimits } from "./limits";
 import { PublicationsRepository } from "./repository";
-import { isWellFormedToken, PublicationSessions } from "./sessions";
+import { PublicationSessions } from "./sessions";
 import { PublicationSources } from "./sources";
 
 const VISITOR_RESULT_BYTES = 2 * 1024 * 1024;
@@ -41,6 +43,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 			const sessions = yield* PublicationSessions;
 			const sources = yield* PublicationSources;
 			const repository = yield* PublicationsRepository;
+			const references = yield* ManagedAssetReferencesRepository;
 
 			const requireEnabled = config.server.disablePublications
 				? Effect.fail(unavailable("disabled"))
@@ -97,7 +100,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 			}) {
 				yield* requireEnabled;
 				yield* limits.admitExchange(visitorAddress);
-				const link = isWellFormedToken(secret)
+				const link = isOpaqueTicket(secret)
 					? yield* repository.findLinkByHash(sha256Hex(secret))
 					: null;
 				if (link === null) {
@@ -115,9 +118,6 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 			const authenticate = Effect.fn("PublicationVisits.authenticate")(function* (token: string) {
 				yield* requireEnabled;
 				const session = yield* sessions.find(token);
-				if (session === null) {
-					return yield* unavailable("session-expired");
-				}
 				const link = session.linkId === null ? null : yield* repository.findLink(session.linkId);
 				if (session.linkId !== null && link === null) {
 					return yield* unavailable("revoked");
@@ -215,7 +215,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 					principal.sessionKey,
 					Effect.gen(function* () {
 						const subjects = yield* ryotql.resolvePublicationSubjects(source);
-						const referenced = yield* repository.referencedAssets(
+						const referenced = yield* references.referencedByEntities(
 							subjects.map(({ entityId }) => entityId),
 							locators,
 						);

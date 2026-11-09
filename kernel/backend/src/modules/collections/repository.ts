@@ -52,7 +52,7 @@ const toCollectionResponse = (row: CollectionRow) => ({
 	providerId: row.providerId ? SandboxProviderId.make(row.providerId) : null,
 });
 
-const userCollectionWhere = (userId: UserId) =>
+export const userCollectionWhere = (userId: UserId) =>
 	and(
 		eq(schema.entity.userId, userId),
 		eq(schema.entity.entitySchemaSlug, "collection"),

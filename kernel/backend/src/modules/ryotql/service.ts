@@ -18,7 +18,7 @@ import { plugin } from "#schema/tables/core";
 import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
 import type { RyotQLAudience, RyotQLExecutionScope } from "./catalog";
 import { executeNamedQuery, executeSubjectSet } from "./executor";
-import { validateRyotQLDocument } from "./validator";
+import { type ExpandedRyotQLDocument, validateRyotQLDocument } from "./validator";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
 const PUBLICATION_STATEMENT_TIMEOUT_MS = 10_000;
@@ -112,6 +112,69 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				);
 			});
 
+			const readyUserPlugins = (userId: string) =>
+				Effect.map(catalogs.userPlugins(userId), (plugins) =>
+					plugins.filter(({ health }) => health === "ready"),
+				);
+
+			const scopePlugins = Effect.fnUntraced(function* (
+				transaction: EffectPgDatabase,
+				scope: RyotQLExecutionScope,
+			) {
+				if (scope.type === "user") {
+					return yield* readyUserPlugins(scope.userId);
+				}
+				const plugins = yield* transaction
+					.select({ pluginId: plugin.id, ownerId: plugin.ownerId, packageId: plugin.packageId })
+					.from(plugin)
+					.where(
+						and(
+							eq(plugin.status, "active"),
+							scope.type === "plugin" ? isNull(plugin.ownerId) : undefined,
+						),
+					);
+				return Array.from(plugins, (entry) => ({
+					...entry,
+					scope: entry.ownerId === null ? ("system" as const) : ("user" as const),
+				}));
+			});
+
+			const bindDocument = Effect.fnUntraced(function* <E, R>(
+				document: ExpandedRyotQLDocument,
+				scope: RyotQLExecutionScope,
+				loadCatalog: Effect.Effect<ReadonlyArray<PluginBinding>, E, R>,
+			) {
+				const catalog = pluginIdentityReferences(document).length === 0 ? [] : yield* loadCatalog;
+				return yield* bindRyotQLDocument(document, scope, catalog);
+			});
+
+			const runDocument = Effect.fnUntraced(function* <E, R>(
+				transaction: EffectPgDatabase,
+				scope: RyotQLExecutionScope,
+				document: ExpandedRyotQLDocument,
+				options: {
+					readonly relationsOwner: null | string;
+					readonly resultBytes: number | undefined;
+					readonly loadCatalog: Effect.Effect<ReadonlyArray<PluginBinding>, E, R>;
+				},
+			) {
+				const bound = yield* bindDocument(document, scope, options.loadCatalog);
+				const budget =
+					options.resultBytes === undefined
+						? undefined
+						: { limitBytes: options.resultBytes, remainingBytes: options.resultBytes };
+				const results: Array<readonly [string, RyotQLResult]> = [];
+				for (const [name, query] of Object.entries(bound.queries)) {
+					results.push([
+						name,
+						yield* executeNamedQuery(scope, query, name, transaction, budget, (names) =>
+							loadCatalogRelations(catalogs, options.relationsOwner, names),
+						),
+					]);
+				}
+				return { data: Object.fromEntries(results) };
+			});
+
 			const executeWithScope = Effect.fn("RyotQLService.executeWithScope")(function* (
 				scope: RyotQLExecutionScope,
 				document: RyotQLDocument,
@@ -123,52 +186,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					return yield* invalidQuery();
 				}
 				return yield* runRead(RYOTQL_STATEMENT_TIMEOUT_MS, (transaction) =>
-					Effect.gen(function* () {
-						let catalog: ReadonlyArray<PluginBinding> = [];
-						if (pluginIdentityReferences(validated.value).length > 0) {
-							if (scope.type === "user") {
-								catalog = (yield* catalogs.userPlugins(scope.userId)).filter(
-									({ health }) => health === "ready",
-								);
-							} else {
-								const plugins = yield* transaction
-									.select({
-										pluginId: plugin.id,
-										ownerId: plugin.ownerId,
-										packageId: plugin.packageId,
-									})
-									.from(plugin)
-									.where(
-										and(
-											eq(plugin.status, "active"),
-											scope.type === "plugin" ? isNull(plugin.ownerId) : undefined,
-										),
-									);
-								catalog = Array.from(plugins, (entry) => ({
-									...entry,
-									scope: entry.ownerId === null ? ("system" as const) : ("user" as const),
-								}));
-							}
-						}
-						const bound = yield* bindRyotQLDocument(validated.value, scope, catalog);
-						const budget =
-							resultBytes === undefined
-								? undefined
-								: { limitBytes: resultBytes, remainingBytes: resultBytes };
-						const results: Array<readonly [string, RyotQLResult]> = [];
-						for (const [name, query] of Object.entries(bound.queries)) {
-							results.push([
-								name,
-								yield* executeNamedQuery(scope, query, name, transaction, budget, (names) =>
-									loadCatalogRelations(
-										catalogs,
-										scope.type === "user" ? scope.userId : null,
-										names,
-									),
-								),
-							]);
-						}
-						return { data: Object.fromEntries(results) };
+					runDocument(transaction, scope, validated.value, {
+						resultBytes,
+						loadCatalog: scopePlugins(transaction, scope),
+						relationsOwner: scope.type === "user" ? scope.userId : null,
 					}),
 				);
 			});
@@ -205,13 +226,11 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					});
 					return yield* invalidQuery();
 				}
-				const catalog =
-					pluginIdentityReferences(validated.value).length === 0
-						? []
-						: (yield* catalogs.userPlugins(source.ownerUserId)).filter(
-								({ health }) => health === "ready",
-							);
-				const bound = yield* bindRyotQLDocument(validated.value, ownerScope, catalog);
+				const bound = yield* bindDocument(
+					validated.value,
+					ownerScope,
+					readyUserPlugins(source.ownerUserId),
+				);
 				const boundQuery = bound.queries["subjects"];
 				if (boundQuery?.output.type !== "rows") {
 					return yield* invalidQuery();
@@ -260,25 +279,13 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 								subjects.map(({ rank, entityId }) => ({ rank, entity_id: entityId })),
 							).pipe(Effect.orDie),
 						} as const;
-						const catalog =
-							pluginIdentityReferences(validated.value).length === 0
-								? []
-								: (yield* catalogs.userPlugins(source.ownerUserId)).filter(
-										({ health, scope: pluginScope }) =>
-											health === "ready" && pluginScope === "system",
-									);
-						const bound = yield* bindRyotQLDocument(validated.value, scope, catalog);
-						const budget = { limitBytes: resultBytes, remainingBytes: resultBytes };
-						const results: Array<readonly [string, RyotQLResult]> = [];
-						for (const [name, query] of Object.entries(bound.queries)) {
-							results.push([
-								name,
-								yield* executeNamedQuery(scope, query, name, transaction, budget, (names) =>
-									loadCatalogRelations(catalogs, source.ownerUserId, names),
-								),
-							]);
-						}
-						return { data: Object.fromEntries(results) };
+						return yield* runDocument(transaction, scope, validated.value, {
+							resultBytes,
+							relationsOwner: source.ownerUserId,
+							loadCatalog: Effect.map(readyUserPlugins(source.ownerUserId), (plugins) =>
+								plugins.filter((entry) => entry.scope === "system"),
+							),
+						});
 					}),
 				);
 			});

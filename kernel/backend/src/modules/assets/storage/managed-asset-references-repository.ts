@@ -33,14 +33,36 @@ const encodeLocatorKeys = Schema.encodeEffect(
 	Schema.fromJsonString(Schema.Struct({ keys: Schema.Array(Schema.String) })),
 );
 
+const encodeEntityIds = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
+
 const locatorObjectsPath =
 	'strict $.** ? (@.type() == "object" && @."type".type() == "string" && @."key".type() == "string" && @."key" == $keys[*])';
+
+const locatorKeys = (locators: ReadonlyArray<ManagedAssetLocator>) =>
+	encodeLocatorKeys({ keys: [...new Set(locators.map(({ key }) => key))] }).pipe(Effect.orDie);
+
+const scanLocators = (keys: string, from: SQL, column: Column, where: SQL) => sql`
+	select found.value->>'type' as type, found.value->>'key' as key
+	from ${from}
+	cross join lateral jsonb_path_query(${column}, ${locatorObjectsPath}::jsonpath, ${keys}::jsonb, true) as found(value)
+	where ${where}`;
 
 export class ManagedAssetReferencesRepository extends Context.Service<ManagedAssetReferencesRepository>()(
 	"@ryot-app/kernel-backend/modules/assets/storage/managed-asset-references-repository/ManagedAssetReferencesRepository",
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+
+			const matchingLocators = Effect.fnUntraced(function* (
+				scans: Array<SQL>,
+				locators: ReadonlyArray<ManagedAssetLocator>,
+			) {
+				const rows = yield* session.run((db) =>
+					db.execute<{ key: string; type: string }>(sql.join(scans, sql` union `), "objects"),
+				);
+				const found = new Set(rows.map(({ key, type }) => `${type}\0${key}`));
+				return locators.filter(({ key, type }) => found.has(`${type}\0${key}`));
+			});
 
 			// Encrypted plugin configuration cannot be inspected, so an asset-capable schema retains
 			// every asset its owner (or any owner, for unowned revisions) may have stored there.
@@ -104,17 +126,12 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 					if (yield* hasOpaqueConfigReference(ownerUserId)) {
 						return locators;
 					}
-					const vars = yield* encodeLocatorKeys({
-						keys: [...new Set(locators.map(({ key }) => key))],
-					}).pipe(Effect.orDie);
+					const keys = yield* locatorKeys(locators);
 					const owned = (column: Column) => sql`${column} = ${ownerUserId}`;
 					const ownedOrUnowned = (column: Column) =>
 						sql`(${column} = ${ownerUserId} or ${column} is null)`;
-					const scan = (from: SQL, column: Column, where: SQL) => sql`
-						select found.value->>'type' as type, found.value->>'key' as key
-						from ${from}
-						cross join lateral jsonb_path_query(${column}, ${locatorObjectsPath}::jsonpath, ${vars}::jsonb, true) as found(value)
-						where ${where}`;
+					const scan = (from: SQL, column: Column, where: SQL) =>
+						scanLocators(keys, from, column, where);
 					const scans = [
 						scan(
 							sql`${tables.entity}`,
@@ -180,15 +197,40 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 							ownedOrUnowned(tables.automationTrigger.scopeUserId),
 						),
 					];
-					const rows = yield* session.run((db) =>
-						db.execute<{ key: string; type: string }>(sql.join(scans, sql` union `), "objects"),
-					);
-					const found = new Set(rows.map(({ key, type }) => `${type}\0${key}`));
-					return locators.filter(({ key, type }) => found.has(`${type}\0${key}`));
+					return yield* matchingLocators(scans, locators);
 				},
 			);
 
-			return { referencedLocators };
+			const referencedByEntities = Effect.fn(
+				"ManagedAssetReferencesRepository.referencedByEntities",
+			)(function* (entityIds: ReadonlyArray<string>, locators: ReadonlyArray<ManagedAssetLocator>) {
+				if (entityIds.length === 0 || locators.length === 0) {
+					return [];
+				}
+				const keys = yield* locatorKeys(locators);
+				const ids = yield* encodeEntityIds(entityIds).pipe(Effect.orDie);
+				const subject = (column: Column) =>
+					sql`${column} in (select value from jsonb_array_elements_text(${ids}::jsonb))`;
+				return yield* matchingLocators(
+					[
+						scanLocators(
+							keys,
+							sql`${tables.entity}`,
+							tables.entity.properties,
+							subject(tables.entity.id),
+						),
+						scanLocators(
+							keys,
+							sql`${tables.entityTranslation}`,
+							tables.entityTranslation.properties,
+							subject(tables.entityTranslation.entityId),
+						),
+					],
+					locators,
+				);
+			});
+
+			return { referencedLocators, referencedByEntities };
 		}),
 	},
 ) {

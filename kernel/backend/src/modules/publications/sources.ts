@@ -6,23 +6,22 @@ import {
 } from "@ryot-app/ryotql-recipes/publications";
 import { Context, Effect, Layer } from "effect";
 
+import { CollectionsRepository } from "#modules/collections/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
-
-import { PublicationsRepository } from "./repository";
 
 export class PublicationSources extends Context.Service<PublicationSources>()(
 	"@ryot-app/kernel-backend/modules/publications/sources/PublicationSources",
 	{
 		make: Effect.gen(function* () {
 			const savedViews = yield* SavedViewsRepository;
-			const repository = yield* PublicationsRepository;
+			const collections = yield* CollectionsRepository;
 
 			const resolveScope = Effect.fn("PublicationSources.resolveScope")(function* (
 				ownerUserId: UserId,
 				source: PublicationSource,
 			) {
 				if (source.kind === "collection") {
-					return (yield* repository.collectionExists(ownerUserId, source.collectionId))
+					return (yield* collections.getCollectionById(source.collectionId, ownerUserId))
 						? collectionPublicationScope(source.collectionId)
 						: null;
 				}

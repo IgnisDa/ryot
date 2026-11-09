@@ -6,6 +6,7 @@ import {
 	definitionKey,
 	definitionOwner,
 	pluginPackageKey,
+	type SavedViewReference,
 	savedViewReferenceKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
@@ -196,6 +197,18 @@ export const requirePluginKey = Effect.fn("BackupExportSnapshot.requirePluginKey
 	const key = pluginKeyById.get(pluginId);
 	return key ?? (yield* badRequest(`Backup references unavailable plugin '${pluginId}'`));
 });
+
+const archiveSavedViewReference = Effect.fn("BackupExportSnapshot.archiveSavedViewReference")(
+	function* (pluginKeyById: ReadonlyMap<string, string>, reference: SavedViewReference) {
+		return reference.kind === "plugin"
+			? {
+					kind: reference.kind,
+					slug: reference.slug,
+					pluginKey: yield* requirePluginKey(pluginKeyById, reference.pluginId),
+				}
+			: reference;
+	},
+);
 
 export const definitionForPlugin = <
 	Definition extends { readonly pluginId?: null | string | undefined },
@@ -717,7 +730,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						isHidden: override.isHidden,
 					});
 				}
-				const publicationRecords = storedPublications.flatMap((row): ArchivePublication[] => {
+				const publicationRecords: ArchivePublication[] = [];
+				for (const row of storedPublications) {
 					const archived = {
 						id: row.id,
 						icon: row.icon,
@@ -727,30 +741,27 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						createdAt: row.createdAt.toISOString(),
 					};
 					if (row.source.kind === "collection") {
-						return [{ ...archived, source: row.source }];
+						publicationRecords.push({ ...archived, source: row.source });
+						continue;
 					}
 					const reference = row.source.reference;
-					if (reference.kind === "custom") {
-						return [{ ...archived, source: { reference, kind: row.source.kind } }];
+					if (
+						reference.kind !== "custom" &&
+						!context.savedView(
+							reference.slug,
+							reference.kind === "plugin" ? reference.pluginId : null,
+						)
+					) {
+						continue;
 					}
-					if (reference.kind === "kernel") {
-						return context.savedView(reference.slug, null)
-							? [{ ...archived, source: { reference, kind: row.source.kind } }]
-							: [];
-					}
-					const pluginKey = pluginKeyById.get(reference.pluginId);
-					return pluginKey && context.savedView(reference.slug, reference.pluginId)
-						? [
-								{
-									...archived,
-									source: {
-										kind: row.source.kind,
-										reference: { pluginKey, kind: reference.kind, slug: reference.slug },
-									},
-								},
-							]
-						: [];
-				});
+					publicationRecords.push({
+						...archived,
+						source: {
+							kind: row.source.kind,
+							reference: yield* archiveSavedViewReference(pluginKeyById, reference),
+						},
+					});
+				}
 				const subscriptionRecords: ArchiveNotificationSubscription[] = yield* Effect.forEach(
 					storedSubscriptions.filter(({ isActive, metadata }) => !isActive || metadata !== null),
 					({ metadata, isActive, signalSchemaSlug, signalSchemaPluginId }) =>
@@ -791,16 +802,9 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								lifecycleIntent: installationLifecycleIntent(state.health, state.isHidden),
 								config: plugin?.scope === "system" ? {} : yield* storedJsonObject(state.config),
 								homeSavedView:
-									state.homeSavedView?.kind === "plugin"
-										? {
-												kind: "plugin" as const,
-												slug: state.homeSavedView.slug,
-												pluginKey: yield* requirePluginKey(
-													pluginKeyById,
-													state.homeSavedView.pluginId,
-												),
-											}
-										: state.homeSavedView,
+									state.homeSavedView === null
+										? null
+										: yield* archiveSavedViewReference(pluginKeyById, state.homeSavedView),
 							};
 						}),
 				);

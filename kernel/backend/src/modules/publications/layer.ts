@@ -1,6 +1,8 @@
 import { Layer } from "effect";
 
 import { ManagedAssetsServiceLive } from "#modules/assets/layer";
+import { ManagedAssetReferencesRepository } from "#modules/assets/storage/managed-asset-references-repository";
+import { CollectionsRepositoryLive } from "#modules/collections/layer";
 import { PagesServiceLive } from "#modules/pages/preparation/layer";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -19,14 +21,15 @@ export const PublicationsServiceLive = Layer.mergeAll(
 	Layer.provide(
 		Layer.mergeAll(
 			PublicationSources.layer.pipe(
-				Layer.provideMerge(PublicationsRepository.layer),
-				Layer.provide(SavedViewsRepository.layer),
+				Layer.provide(Layer.merge(SavedViewsRepository.layer, CollectionsRepositoryLive)),
 			),
+			PublicationsRepository.layer,
 			PublicationSessions.layer,
 			PublicationVisitLimits.layer,
 			RyotQLService.layer,
 			PagesServiceLive,
 			ManagedAssetsServiceLive,
+			ManagedAssetReferencesRepository.layer,
 		),
 	),
 );

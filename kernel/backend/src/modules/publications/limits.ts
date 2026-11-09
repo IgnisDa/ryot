@@ -1,10 +1,9 @@
 import { PublicationRateLimited } from "@ryot-app/contract/modules/publications/schemas";
-import { Clock, Context, Effect, Layer } from "effect";
+import { Context, Duration, Effect, Layer } from "effect";
+import { RateLimiter } from "effect/persistence";
 
 const EXCHANGES_PER_MINUTE = 10;
 const SESSION_CONCURRENCY = 6;
-const MAX_TRACKED_WINDOWS = 10_000;
-const WINDOW_MS = 60_000;
 const UNKNOWN_ADDRESS = "unknown";
 
 const rateLimited = () =>
@@ -13,34 +12,20 @@ const rateLimited = () =>
 export class PublicationVisitLimits extends Context.Service<PublicationVisitLimits>()(
 	"@ryot-app/kernel-backend/modules/publications/limits/PublicationVisitLimits",
 	{
-		make: Effect.sync(() => {
-			const exchanges = new Map<string, { count: number; windowStart: number }>();
+		make: Effect.gen(function* () {
+			const limiter = yield* RateLimiter.RateLimiter;
 			const inFlight = new Map<string, number>();
-
-			const consumeExchange = (visitorAddress: string, now: number) => {
-				const window = exchanges.get(visitorAddress);
-				if (window !== undefined && now - window.windowStart < WINDOW_MS) {
-					window.count += 1;
-					return window.count <= EXCHANGES_PER_MINUTE;
-				}
-				if (exchanges.size >= MAX_TRACKED_WINDOWS) {
-					for (const [key, tracked] of exchanges) {
-						if (now - tracked.windowStart >= WINDOW_MS) {
-							exchanges.delete(key);
-						}
-					}
-				}
-				exchanges.set(visitorAddress, { count: 1, windowStart: now });
-				return true;
-			};
 
 			const admitExchange = Effect.fn("PublicationVisitLimits.admitExchange")(function* (
 				visitorAddress: null | string,
 			) {
-				const now = yield* Clock.currentTimeMillis;
-				yield* Effect.succeed(consumeExchange(visitorAddress ?? UNKNOWN_ADDRESS, now)).pipe(
-					Effect.filterOrFail(Boolean, rateLimited),
-				);
+				yield* limiter
+					.consume({
+						limit: EXCHANGES_PER_MINUTE,
+						window: Duration.minutes(1),
+						key: visitorAddress ?? UNKNOWN_ADDRESS,
+					})
+					.pipe(Effect.mapError(rateLimited));
 			});
 
 			const withSessionPermit = <A, E, R>(sessionKey: string, work: Effect.Effect<A, E, R>) =>
@@ -69,5 +54,8 @@ export class PublicationVisitLimits extends Context.Service<PublicationVisitLimi
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(RateLimiter.layer),
+		Layer.provide(RateLimiter.layerStoreMemory),
+	);
 }

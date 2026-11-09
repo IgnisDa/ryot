@@ -8,12 +8,14 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
-import { publicationBrowserSource } from "@ryot-app/ryotql-recipes/saved-views";
+import { publicationBrowserSource } from "@ryot-app/ryotql-recipes/publication-browse";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Duration, Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
+import { ManagedAssetReferencesRepository } from "#modules/assets/storage/managed-asset-references-repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { CollectionsRepositoryLive } from "#modules/collections/layer";
 import { PagesService } from "#modules/pages/preparation/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
@@ -86,9 +88,10 @@ const publicationsLayer = (disablePublications = false) =>
 		Layer.provide(
 			Layer.mergeAll(
 				PublicationSources.layer.pipe(
-					Layer.provideMerge(PublicationsRepository.layer),
-					Layer.provide(SavedViewsRepository.layer),
+					Layer.provide(Layer.merge(SavedViewsRepository.layer, CollectionsRepositoryLive)),
 				),
+				PublicationsRepository.layer,
+				ManagedAssetReferencesRepository.layer,
 				PublicationVisitLimits.layer,
 				RyotQLService.layer,
 				PublicationSessions.layer.pipe(Layer.provide(TransientValues.layer)),

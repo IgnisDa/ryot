@@ -1,14 +1,11 @@
 import { expect } from "bun:test";
 
 import {
-	AdminMiddleware,
 	AuthMiddleware,
 	AuthUnauthorized,
 	DemoOperationProtected,
 } from "@ryot-app/contract/auth-middleware";
 import { AppContract } from "@ryot-app/contract/contract";
-import { PublicationMiddleware } from "@ryot-app/contract/modules/publications/contract";
-import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { AccessClass } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
@@ -23,6 +20,7 @@ import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { fakeDatabaseSession } from "#testing/effect";
+import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
 
 import { RyotQLRoutesLive } from "./routes";
 import { RyotQLService } from "./service";
@@ -97,13 +95,7 @@ const routesLayer = Layer.unwrap(
 		return Layer.mergeAll(
 			RyotQLRoutesLive,
 			HttpServer.layerServices,
-			Layer.succeed(AdminMiddleware, {
-				adminToken: () =>
-					Effect.fail(new AuthUnauthorized({ reason: { code: "admin-access-required" } })),
-			}),
-			Layer.succeed(PublicationMiddleware, {
-				session: () => Effect.fail(new PublicationUnavailable({ reason: { code: "not-found" } })),
-			}),
+			rejectingAdminAndPublicationMiddleware,
 			HttpApiMiddleware.layerClient(AuthMiddleware, ({ next, request }) =>
 				Effect.flatMap(Ref.get(sent), ({ kind, accessClass }) =>
 					next(

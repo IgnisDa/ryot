@@ -1130,4 +1130,41 @@ layer(testLayer)((test) => {
 			}),
 		testTimeout,
 	);
+
+	test.effect(
+		"finds locators in the given entities' own and translated properties only",
+		() =>
+			Effect.gen(function* () {
+				const references = yield* ManagedAssetReferencesRepository;
+				const [own, translated, unrelated] = [
+					unregisteredLocator(),
+					unregisteredLocator(),
+					unregisteredLocator(),
+				];
+				const subjectId = yield* insertEntity({
+					userId: null,
+					properties: { image: own },
+					entitySchemaSlug: "unknown",
+				});
+				yield* (yield* DatabaseSession).run((db) =>
+					db
+						.insert(tables.entityTranslation)
+						.values({
+							language: "en",
+							entityId: subjectId,
+							sourceContentGeneration: 1,
+							properties: { nested: [{ image: translated }] },
+						}),
+				);
+				yield* insertEntity({
+					userId: null,
+					entitySchemaSlug: "unknown",
+					properties: { image: unrelated },
+				});
+				expect(
+					yield* references.referencedByEntities([subjectId], [own, translated, unrelated]),
+				).toEqual([own, translated]);
+			}),
+		testTimeout,
+	);
 });

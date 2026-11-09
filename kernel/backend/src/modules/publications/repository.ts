@@ -1,4 +1,3 @@
-import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
 import type { PublicationId, PublicationLinkId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
@@ -6,7 +5,6 @@ import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
-import { entity } from "#schema/tables/entities";
 import { publication, publicationLink } from "#schema/tables/publications";
 
 type PublicationDetails = {
@@ -16,9 +14,6 @@ type PublicationDetails = {
 	readonly source: PublicationSource;
 	readonly description: null | string;
 };
-
-const locatorObjectsPath =
-	'strict $.** ? (@.type() == "object" && @."type" == $type && @."key" == $key)';
 
 export class PublicationsRepository extends Context.Service<PublicationsRepository>()(
 	"@ryot-app/kernel-backend/modules/publications/repository/PublicationsRepository",
@@ -37,26 +32,6 @@ export class PublicationsRepository extends Context.Service<PublicationsReposito
 						.where(and(eq(publication.id, publicationId), eq(publication.userId, userId))),
 				);
 				return row ?? null;
-			});
-
-			const collectionExists = Effect.fn("PublicationsRepository.collectionExists")(function* (
-				userId: UserId,
-				collectionId: string,
-			) {
-				const [row] = yield* session.run((db) =>
-					db
-						.select({ id: entity.id })
-						.from(entity)
-						.where(
-							and(
-								eq(entity.id, collectionId),
-								eq(entity.userId, userId),
-								eq(entity.entitySchemaSlug, "collection"),
-								isNull(entity.entitySchemaPluginId),
-							),
-						),
-				);
-				return row !== undefined;
 			});
 
 			const findForVisit = Effect.fn("PublicationsRepository.findForVisit")(function* (
@@ -212,30 +187,6 @@ export class PublicationsRepository extends Context.Service<PublicationsReposito
 				);
 			});
 
-			const referencedAssets = Effect.fn("PublicationsRepository.referencedAssets")(function* (
-				entityIds: ReadonlyArray<string>,
-				locators: ReadonlyArray<ManagedAssetLocator>,
-			) {
-				if (entityIds.length === 0 || locators.length === 0) {
-					return [];
-				}
-				const rows = yield* session.run((db) =>
-					db.execute<{ key: string; type: string }>(
-						sql`select locator.key, locator.type
-							from jsonb_to_recordset(${JSON.stringify(locators)}::jsonb) as locator(key text, type text)
-							where exists (
-								select 1 from ${entity}
-								where ${entity.id} in (select value from jsonb_array_elements_text(${JSON.stringify(entityIds)}::jsonb))
-								and jsonb_path_exists(${entity.properties}, ${locatorObjectsPath}::jsonpath,
-									jsonb_build_object('key', locator.key, 'type', locator.type))
-							)`,
-						"objects",
-					),
-				);
-				const found = new Set(rows.map(({ key, type }) => `${type}\0${key}`));
-				return locators.filter(({ key, type }) => found.has(`${type}\0${key}`));
-			});
-
 			return {
 				insert,
 				revoke,
@@ -247,8 +198,6 @@ export class PublicationsRepository extends Context.Service<PublicationsReposito
 				revokeLink,
 				findForVisit,
 				findLinkByHash,
-				collectionExists,
-				referencedAssets,
 				markLinkExchanged,
 			};
 		}),

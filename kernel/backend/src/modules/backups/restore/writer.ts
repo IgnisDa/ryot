@@ -5,10 +5,8 @@ import {
 	builtinSavedViewReference,
 	definitionKey,
 	definitionOwner,
-	definitionOwnerPluginId,
 	identityTupleKey,
 	pluginPackageKey,
-	type SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	EntityBrowserSavedViewSettings,
@@ -83,6 +81,7 @@ import {
 	ArchiveReminder,
 	ArchiveRequiredPlugin,
 	ArchiveSavedView,
+	type ArchiveSavedViewReference,
 	ArchiveUserEntity,
 	decodeArchiveJsonObject,
 	isArchiveJsonObject,
@@ -563,6 +562,20 @@ export const preflightProvenance = Effect.fn(function* (
 		}
 		return yield* Effect.void;
 	});
+	const assertArchivedSavedView = Effect.fn(function* (
+		reference: ArchiveSavedViewReference,
+		kind: string,
+	) {
+		if (reference.kind === "custom") {
+			return yield* Effect.void;
+		}
+		const key = reference.kind === "plugin" ? reference.pluginKey : null;
+		return yield* assertOwner(
+			key,
+			definitions.savedViews[yield* definition("saved-view", reference.slug, key)],
+			kind,
+		);
+	});
 	const contracts = new Map([
 		...records.privatePlugins.map((plugin) => [plugin.key, plugin.manifest] as const),
 		...requiredPlugins.map(
@@ -619,14 +632,8 @@ export const preflightProvenance = Effect.fn(function* (
 			installation.userSettings,
 			contracts.get(installation.packageKey)?.userSettingsSchema,
 		);
-		const home = installation.homeSavedView;
-		if (home && home.kind !== "custom") {
-			const key = home.kind === "plugin" ? home.pluginKey : null;
-			yield* assertOwner(
-				key,
-				definitions.savedViews[yield* definition("saved-view", home.slug, key)],
-				"home saved view",
-			);
+		if (installation.homeSavedView) {
+			yield* assertArchivedSavedView(installation.homeSavedView, "home saved view");
 		}
 	}
 	for (const integration of records.integrations) {
@@ -774,13 +781,8 @@ export const preflightProvenance = Effect.fn(function* (
 			) {
 				return yield* badRequest("Backup publication references an unavailable collection");
 			}
-		} else if (source.reference.kind !== "custom") {
-			const key = source.reference.kind === "plugin" ? source.reference.pluginKey : null;
-			yield* assertOwner(
-				key,
-				definitions.savedViews[yield* definition("saved-view", source.reference.slug, key)],
-				"publication saved view",
-			);
+		} else {
+			yield* assertArchivedSavedView(source.reference, "publication saved view");
 		}
 	}
 	for (const view of records.savedViews) {
@@ -889,10 +891,27 @@ export const preflightProvenance = Effect.fn(function* (
 
 type DependencyTarget = { readonly id: EntityId; readonly inserted: boolean };
 
+const restoredSavedViewReference = Effect.fn(function* (
+	reference: ArchiveSavedViewReference,
+	pluginIdByKey: ReadonlyMap<string, string>,
+	customViewIds: ReadonlyMap<string, string>,
+	kind: string,
+) {
+	if (reference.kind === "custom") {
+		const savedViewId = customViewIds.get(reference.savedViewId);
+		return savedViewId
+			? ({ kind: reference.kind, savedViewId: SavedViewId.make(savedViewId) } as const)
+			: yield* badRequest(`Backup ${kind} mapping is incomplete`);
+	}
+	return builtinSavedViewReference(
+		yield* mappedPluginId(pluginIdByKey, reference.kind === "plugin" ? reference.pluginKey : null),
+		reference.slug,
+	);
+});
+
 const restoredPublicationSource = Effect.fn(function* (
 	source: ArchivePublication["source"],
 	pluginIdByKey: ReadonlyMap<string, string>,
-	definitions: DefinitionSnapshot,
 	context: Pick<RestoreRecordBatchContext, "entityIdMap" | "customViewIds">,
 ) {
 	if (source.kind === "collection") {
@@ -901,23 +920,14 @@ const restoredPublicationSource = Effect.fn(function* (
 			? { collectionId, kind: source.kind }
 			: yield* badRequest("Backup publication collection mapping is incomplete");
 	}
-	const reference = source.reference;
-	if (reference.kind === "custom") {
-		const savedViewId = context.customViewIds.get(reference.savedViewId);
-		return savedViewId
-			? { kind: source.kind, reference: { savedViewId, kind: reference.kind } }
-			: yield* badRequest("Backup publication saved view mapping is incomplete");
-	}
-	const owner = yield* mappedOwner(
-		pluginIdByKey,
-		reference.kind === "plugin" ? reference.pluginKey : null,
-	);
-	if (!definitions.savedViews[definitionKey("saved-view", owner, reference.slug)]) {
-		return yield* badRequest("Backup publication references an unavailable saved view");
-	}
 	return {
 		kind: source.kind,
-		reference: builtinSavedViewReference(definitionOwnerPluginId(owner), reference.slug),
+		reference: yield* restoredSavedViewReference(
+			source.reference,
+			pluginIdByKey,
+			context.customViewIds,
+			"publication saved view",
+		),
 	};
 });
 
@@ -2383,7 +2393,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					const source = yield* restoredPublicationSource(
 						publication.source,
 						pluginIdByKey,
-						definitions,
 						context,
 					);
 					yield* persistence.restorePublication({
@@ -2842,23 +2851,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						continue;
 					}
 					const installationId = installationIdByKey.get(state.packageKey);
-					const home = state.homeSavedView;
-					let reference: SavedViewReference;
-					if (home.kind === "custom") {
-						const id = customIds.get(home.savedViewId);
-						if (!id) {
-							return yield* badRequest("Backup home custom view mapping is incomplete");
-						}
-						reference = { kind: "custom", savedViewId: SavedViewId.make(id) };
-					} else if (home.kind === "plugin") {
-						const id = pluginIdByKey.get(home.pluginKey);
-						if (!id) {
-							return yield* badRequest("Backup home plugin mapping is incomplete");
-						}
-						reference = { kind: "plugin", slug: home.slug, pluginId: PluginId.make(id) };
-					} else {
-						reference = home;
-					}
+					const reference = yield* restoredSavedViewReference(
+						state.homeSavedView,
+						pluginIdByKey,
+						customIds,
+						"home saved view",
+					);
 					if (
 						!installationId ||
 						!(yield* persistence.restoreInstallationHome(userId, installationId, reference))

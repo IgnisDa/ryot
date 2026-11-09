@@ -1,28 +1,28 @@
+import { PublicationUnavailable } from "@ryot-app/contract/modules/publications/schemas";
 import { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
-import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { Clock, Context, DateTime, Duration, Effect, Layer, Option, Schema } from "effect";
+import { Clock, Context, DateTime, Duration, Effect, Layer, Schema } from "effect";
 
+import { makeOpaqueTickets } from "#platform/http/opaque-tickets";
 import { TransientValues } from "#platform/transient-values";
 
-const SESSION_TTL_MS = 60 * 60 * 1000;
-const TOKEN_PATTERN = /^[A-Za-z0-9_-]{43}$/;
-
-const storageKey = (tokenHash: string) => `publication-session:${tokenHash}`;
+const SESSION_TTL_SECONDS = 60 * 60;
 
 const SessionValue = Schema.fromJsonString(
 	Schema.Struct({ publicationId: PublicationId, linkId: Schema.NullOr(PublicationLinkId) }),
 );
 
-export const randomToken = () =>
-	Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString("base64url");
-
-export const isWellFormedToken = (token: string) => TOKEN_PATTERN.test(token);
-
 export class PublicationSessions extends Context.Service<PublicationSessions>()(
 	"@ryot-app/kernel-backend/modules/publications/sessions/PublicationSessions",
 	{
 		make: Effect.gen(function* () {
-			const values = yield* TransientValues;
+			const tickets = makeOpaqueTickets({
+				codec: SessionValue,
+				unavailable: (cause) => cause,
+				values: yield* TransientValues,
+				ttlSeconds: SESSION_TTL_SECONDS,
+				key: (tokenHash) => `publication-session:${tokenHash}`,
+				invalid: () => new PublicationUnavailable({ reason: { code: "session-expired" } }),
+			});
 
 			const start = Effect.fn("PublicationSessions.start")(function* (input: {
 				readonly linkExpiresAt: null | Date;
@@ -31,36 +31,22 @@ export class PublicationSessions extends Context.Service<PublicationSessions>()(
 			}) {
 				const now = yield* Clock.currentTimeMillis;
 				const expiresAt = Math.min(
-					now + SESSION_TTL_MS,
+					now + SESSION_TTL_SECONDS * 1000,
 					input.linkExpiresAt?.getTime() ?? Number.POSITIVE_INFINITY,
 				);
-				const token = randomToken();
-				const encoded = yield* Schema.encodeEffect(SessionValue)({
-					linkId: input.linkId,
-					publicationId: input.publicationId,
-				}).pipe(Effect.orDie);
-				yield* values.set(
-					storageKey(sha256Hex(token)),
-					encoded,
+				const { ticket } = yield* tickets.create(
+					{ linkId: input.linkId, publicationId: input.publicationId },
 					Duration.millis(Math.max(1, expiresAt - now)),
 				);
 				return {
-					sessionToken: token,
+					sessionToken: ticket,
 					expiresAt: DateTime.formatIso(DateTime.makeUnsafe(expiresAt)),
 				};
 			});
 
 			const find = Effect.fn("PublicationSessions.find")(function* (token: string) {
-				if (!isWellFormedToken(token)) {
-					return null;
-				}
-				const sessionKey = sha256Hex(token);
-				const raw = yield* values.get(storageKey(sessionKey));
-				if (raw === null) {
-					return null;
-				}
-				const decoded = yield* Effect.option(Schema.decodeEffect(SessionValue)(raw));
-				return Option.isSome(decoded) ? { ...decoded.value, sessionKey } : null;
+				const { hash, value } = yield* tickets.read(token);
+				return { ...value, sessionKey: hash };
 			});
 
 			return { find, start };
