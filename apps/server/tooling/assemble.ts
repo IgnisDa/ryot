@@ -12,6 +12,7 @@ import {
 	kernelCollectionBrowserRenderer,
 	kernelCollectionDetailRenderer,
 	kernelEntityBrowserRenderer,
+	kernelPublicationRenderer,
 	kernelResultsTableRenderer,
 } from "@ryot-app/kernel-renderers";
 import { readPluginArchive } from "@ryot-app/plugin-archive";
@@ -82,6 +83,7 @@ export const assemble = Effect.gen(function* () {
 		kernelEntityBrowserRenderer,
 		kernelResultsTableRenderer,
 		kernelCollectionDetailRenderer,
+		kernelPublicationRenderer,
 	];
 	const compiledRenderers = yield* Effect.forEach(kernelRenderers, (renderer) =>
 		compileClientPluginModule({

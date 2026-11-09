@@ -1,7 +1,7 @@
 # Kernel Renderers
 
 The saved-view and collection renderers the kernel ships: `entity-browser`, `collection-browser`,
-`results-table`, `calendar`, `analytics`, and `collection-detail`. They are ordinary
+`results-table`, `calendar`, `analytics`, `collection-detail`, and `publication`. They are ordinary
 client-plugin sources — typechecked, formatted, linted, and unit-tested here — not string literals
 embedded in backend code.
 
@@ -28,6 +28,17 @@ renders kernel collection cards with batched member counts.
 states, and result layouts. Saved views adapt their configured recipe and optional provider Add flow;
 collections adapt the collections recipe, never expose Add, and pass `{ collectionId }` as the entity
 presentation context.
+
+The publication renderer reuses the entity browser over a publication's subjects in published
+order, under a summary of the description, the owner's name when shown, and the item count that the
+host passes as renderer settings. It offers only fields and filters that read entity columns, because
+visitors cannot read events or the owner's collections. Opening a card sets the `item` page search
+parameter, which shows that item's card, its entity-column browse values, and the other published
+items it is linked to.
+
+Collection detail and entity-browser saved views offer **Share**, which opens the kernel share sheet
+through `screens.sharePublication`. Collection-browser views do not, because only entity-browser
+views can be published.
 
 Browser and results-table pagination use the client SDK's shared infinite-query state. Background
 refresh retains all loaded results and refreshes their loaded depth atomically; only an explicit

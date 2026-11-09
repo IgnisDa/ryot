@@ -19,7 +19,7 @@ import {
 	EntityBrowserPageInput,
 	entityBrowserRecipe,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { useEffect, useEffectEvent, useState } from "react";
+import { type ComponentProps, useEffect, useEffectEvent, useState } from "react";
 
 import { BrowserInlineError } from "./browser-states";
 import {
@@ -29,8 +29,14 @@ import {
 	type BrowserResultsRenderer,
 	EntityBrowserController,
 } from "./entity-browser-controller";
+import { useHostScreen } from "./host-screen";
 
-const browseQuery = createRyotQuery<
+type BrowserViewInput = Pick<
+	typeof EntityBrowserPageInput.Type,
+	"view" | "settings" | "dataSources"
+>;
+
+export const browseQuery = createRyotQuery<
 	typeof EntityBrowserPageInput.Type.settings.subject.schemas,
 	EntitySchemaBrowseResult
 >(({ input, client }) => {
@@ -51,9 +57,9 @@ const BrowserCount = ({
 	searchText,
 }: {
 	readonly searchText: string;
+	readonly input: BrowserViewInput;
 	readonly browse: readonly BrowseSchema[];
 	readonly filter: BrowserQueryInput["filter"];
-	readonly input: typeof EntityBrowserPageInput.Type;
 	readonly onTotal: (total: number | undefined) => void;
 }) => {
 	const [query] = useState(() =>
@@ -93,21 +99,35 @@ const BrowserCount = ({
 	return null;
 };
 
+type ControllerProps = ComponentProps<typeof EntityBrowserController<null>>;
+
 type EntityBrowserPageProps = {
 	readonly add?: AddAction | undefined;
+	readonly shareable?: boolean | undefined;
 	readonly renderResults?: undefined | BrowserResultsRenderer;
 };
 
-const Browser = ({
+export const EntityBrowserView = ({
 	add,
 	input,
 	browse,
+	controls,
+	errorTitle,
+	viewContext,
+	errorMessage,
+	headerActions,
+	renderSummary,
 	renderResults,
-}: EntityBrowserPageProps & {
+}: Omit<EntityBrowserPageProps, "shareable"> & {
+	readonly errorTitle: string;
+	readonly errorMessage: string;
+	readonly input: BrowserViewInput;
 	readonly browse: readonly BrowseSchema[];
-	readonly input: typeof EntityBrowserPageInput.Type;
+	readonly headerActions?: ControllerProps["headerActions"];
+	readonly renderSummary?: ControllerProps["renderSummary"];
+	readonly controls: ReturnType<typeof entityBrowserControls>;
+	readonly viewContext: ComponentProps<typeof EntityBrowserController>["viewContext"];
 }) => {
-	const controls = entityBrowserControls(browse);
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
 	const [query] = useState(() =>
@@ -139,17 +159,19 @@ const Browser = ({
 		<EntityBrowserController
 			query={query}
 			name={() => viewName}
+			errorTitle={errorTitle}
+			viewContext={viewContext}
+			errorMessage={errorMessage}
+			headerActions={headerActions}
+			renderSummary={renderSummary}
 			renderResults={renderResults}
 			layouts={input.settings.layouts}
 			sortChoices={controls.sortChoices}
-			errorTitle="Saved view unavailable"
 			icon={input.view?.icon ?? "library"}
 			filterFields={controls.filterFields}
+			identityKey={JSON.stringify(viewContext)}
 			tableColumns={input.settings.tableColumns}
 			canSearch={input.settings.searchFields.length > 0}
-			viewContext={{ savedView: input.target.reference }}
-			identityKey={JSON.stringify(input.target.reference)}
-			errorMessage="The saved view results could not be loaded."
 			defaultLayout={
 				input.settings.layouts.includes(input.settings.defaultLayout)
 					? input.settings.defaultLayout
@@ -163,7 +185,7 @@ const Browser = ({
 					onTotal={onTotal}
 					filter={filter ?? null}
 					searchText={searchText}
-					key={JSON.stringify([input.target.reference, searchText, filter])}
+					key={JSON.stringify([viewContext, searchText, filter])}
 				/>
 			)}
 			add={
@@ -204,8 +226,11 @@ const Browser = ({
 const BrowseDefinitions = ({
 	add,
 	input,
+	shareable,
 	renderResults,
 }: EntityBrowserPageProps & { readonly input: typeof EntityBrowserPageInput.Type }) => {
+	const ryot = useRyot();
+	const openScreen = useHostScreen();
 	const browse = useRyotQuery(browseQuery, input.settings.subject.schemas);
 	if (browse.data === undefined) {
 		return (
@@ -221,23 +246,52 @@ const BrowseDefinitions = ({
 		);
 	}
 	return (
-		<Browser
+		<EntityBrowserView
 			add={add}
 			input={input}
 			browse={browse.data}
 			renderResults={renderResults}
 			key={JSON.stringify(browse.data)}
+			errorTitle="Saved view unavailable"
+			controls={entityBrowserControls(browse.data)}
+			viewContext={{ savedView: input.target.reference }}
+			errorMessage="The saved view results could not be loaded."
+			headerActions={
+				shareable === false
+					? undefined
+					: [
+							{
+								icon: "share",
+								label: "Share",
+								run: () =>
+									openScreen(
+										ryot.screens.sharePublication({
+											source: { kind: "saved-view", reference: input.target.reference },
+										}),
+									),
+							},
+						]
+			}
 		/>
 	);
 };
 
-export default function EntityBrowserPage({ add, renderResults }: EntityBrowserPageProps = {}) {
+export default function EntityBrowserPage({
+	add,
+	shareable,
+	renderResults,
+}: EntityBrowserPageProps = {}) {
 	const page = Schema.decodeUnknownResult(EntityBrowserPageInput)(usePageContext());
 	return Result.isFailure(page) ? (
 		<PluginScreenFrame title="Entity browser">
 			<StatusMessage tone="error">This entity browser configuration is invalid.</StatusMessage>
 		</PluginScreenFrame>
 	) : (
-		<BrowseDefinitions add={add} input={page.success} renderResults={renderResults} />
+		<BrowseDefinitions
+			add={add}
+			input={page.success}
+			shareable={shareable}
+			renderResults={renderResults}
+		/>
 	);
 }

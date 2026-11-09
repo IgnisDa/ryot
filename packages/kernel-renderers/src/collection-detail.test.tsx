@@ -468,6 +468,29 @@ describe("collection detail", () => {
 	);
 
 	it.live(
+		"shares the collection through the kernel share sheet",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { name: "Road Trips" });
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Share" })),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								type: "share-publication-screen",
+								source: { kind: "collection", collectionId: "col-1" },
+							}),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"opens a member's collection details in the kernel screen",
 		() =>
 			Effect.gen(function* () {

@@ -20,6 +20,7 @@ export default function CollectionBrowserPage() {
 		});
 	return (
 		<EntityBrowserPage
+			shareable={false}
 			renderResults={renderCollectionResults}
 			add={{ open: newCollection, label: "New collection" }}
 		/>

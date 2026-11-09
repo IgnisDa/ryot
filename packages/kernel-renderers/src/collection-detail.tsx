@@ -155,6 +155,8 @@ const CollectionBrowser = ({
 				});
 			}
 		});
+	const share = () =>
+		openScreen(ryot.screens.sharePublication({ source: { collectionId, kind: "collection" } }));
 	const memberDetails = (entityId: string) =>
 		openScreen(ryot.screens.addToCollection({ entityId, collectionId }));
 	const membershipPropertiesSchema = header?.membershipPropertiesSchema ?? null;
@@ -203,6 +205,7 @@ const CollectionBrowser = ({
 			headerActions={[
 				...pageActions,
 				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
+				{ run: share, icon: "share", label: "Share" },
 				{ icon: "pencil", run: editCollection, label: "Edit collection" },
 			]}
 			renderItemActions={(item) => (

@@ -177,6 +177,50 @@ describe("entity browser", () => {
 	);
 
 	it.live(
+		"shares the saved view through the kernel share sheet",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser({ savedViewId: "shared-view" });
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Share" })),
+				);
+				const share = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page
+							.clientMessages()
+							.find((message) => message.type === "share-publication-screen");
+						expect(found).toBeDefined();
+						return found;
+					}),
+				);
+				expect(share).toMatchObject({
+					source: { kind: "saved-view", reference: { kind: "kernel", slug: "shared-view" } },
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does not offer sharing on the collections list",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollectionBrowser();
+				yield* Effect.promise(() =>
+					answerBrowser(page, new Set(), [browserRow("item-2", "Shelf")]),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() => expect(page.container?.textContent).toContain("1 result")),
+				);
+				expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"shows the invalid-configuration state for settings the browser schema rejects",
 		() =>
 			Effect.gen(function* () {

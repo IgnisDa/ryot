@@ -14,6 +14,7 @@ const encoder = new TextEncoder();
 const SHARED_PATHS = ["client/display-value.tsx"] as const satisfies readonly KernelRendererPath[];
 
 const BROWSER_PATHS = [
+	"client/host-screen.ts",
 	"client/browser-states.tsx",
 	"client/browser-table.tsx",
 	"client/entity-browser-controller.tsx",
@@ -27,9 +28,14 @@ const ANALYTICS_PATHS = [
 	"client/analytics-controls.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
+const PUBLICATION_PATHS = [
+	...BROWSER_PATHS,
+	"client/entity-browser.tsx",
+	"client/publication-item.tsx",
+] as const satisfies readonly KernelRendererPath[];
+
 const COLLECTION_PATHS = [
 	...BROWSER_PATHS,
-	"client/host-screen.ts",
 	"client/collection-order.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
@@ -102,6 +108,13 @@ export const kernelCollectionDetailRenderer = renderer(
 	"Collection detail",
 	"client/collection-detail.tsx",
 	COLLECTION_PATHS,
+	true,
+);
+
+export const kernelPublicationRenderer = renderer(
+	"Publication",
+	"client/publication.tsx",
+	PUBLICATION_PATHS,
 	true,
 );
 
