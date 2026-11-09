@@ -21,12 +21,12 @@ import {
 	useState,
 } from "react";
 
+import type { ShareOrCopy } from "#/modules/device/share";
 import {
 	isUnauthorizedCause,
 	runAdminAction,
 	withAdminAuthorization,
 } from "#/modules/instance-admin/errors";
-import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
 import type {
 	InstanceAdminPasswordResetResult,
 	InstanceAdminSetDisabledResult,
@@ -65,9 +65,9 @@ export type InstanceAdminUserOperations = {
 type UserAction = "reset" | "delete" | "password" | "disabled" | "impersonate";
 
 type UsersAdministrationProps = {
+	readonly shareOrCopy: ShareOrCopy;
 	readonly onUnauthorized: () => void;
 	readonly backInterceptors: BackInterceptors;
-	readonly transferAdminLink: AdminLinkTransfer;
 	readonly operations: InstanceAdminUserOperations;
 };
 
@@ -206,9 +206,9 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 							user={user}
 							onRefresh={refreshUsers}
 							operations={props.operations}
+							shareOrCopy={props.shareOrCopy}
 							onUnauthorized={props.onUnauthorized}
 							backInterceptors={props.backInterceptors}
-							transferAdminLink={props.transferAdminLink}
 						/>
 					)}
 				/>
@@ -299,9 +299,9 @@ function UserActionsMenu(props: {
 function UserRow(props: {
 	readonly onRefresh: () => void;
 	readonly user: InstanceAdminUser;
+	readonly shareOrCopy: ShareOrCopy;
 	readonly onUnauthorized: () => void;
 	readonly backInterceptors: BackInterceptors;
-	readonly transferAdminLink: AdminLinkTransfer;
 	readonly operations: InstanceAdminUserOperations;
 }) {
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -445,7 +445,7 @@ function UserRow(props: {
 		if (linkUrl == null) {
 			return Effect.void;
 		}
-		return props.transferAdminLink(linkUrl).pipe(
+		return props.shareOrCopy({ url: linkUrl }).pipe(
 			Effect.tapError((failure) =>
 				Effect.logWarning("instance-admin link transfer failed", failure.cause),
 			),

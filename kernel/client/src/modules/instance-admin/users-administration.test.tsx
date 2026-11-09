@@ -9,7 +9,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
-import type { AdminLinkTransfer } from "#/modules/instance-admin/link-transfer";
+import type { ShareContent, ShareOrCopy } from "#/modules/device/share";
 import type { InstanceAdminUser } from "#/modules/instance-admin/service";
 import {
 	type InstanceAdminUserOperations,
@@ -84,14 +84,14 @@ const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<un
 
 const renderUsers = (
 	users: ReadonlyArray<InstanceAdminUser>,
-	transfer: AdminLinkTransfer = () => Effect.succeed("copied"),
+	transfer: ShareOrCopy = () => Effect.succeed("copied"),
 	overrides: Partial<InstanceAdminUserOperations> = {},
 ) => {
 	const calls: Array<unknown> = [];
 	const backInterceptors = createBackInterceptors();
 	const view = render(
 		<UsersAdministration
-			transferAdminLink={transfer}
+			shareOrCopy={transfer}
 			backInterceptors={backInterceptors}
 			onUnauthorized={() => calls.push("unauthorized")}
 			operations={{ ...makeOperations(users, calls), ...overrides }}
@@ -351,9 +351,9 @@ describe("Instance Admin users administration", () => {
 		() =>
 			Effect.gen(function* () {
 				const user = userEvent.setup();
-				const transferred: string[] = [];
-				renderUsers([makeUser(0)], (url) => {
-					transferred.push(url);
+				const transferred: ShareContent[] = [];
+				renderUsers([makeUser(0)], (content) => {
+					transferred.push(content);
 					return Effect.succeed("copied" as const);
 				});
 				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
@@ -375,7 +375,7 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Copy or share" })),
 				);
-				expect(transferred).toEqual(["https://example.com/reset"]);
+				expect(transferred).toEqual([{ url: "https://example.com/reset" }]);
 				expect(screen.getByRole<HTMLButtonElement>("button", { name: "Copied!" }).disabled).toBe(
 					true,
 				);
@@ -434,9 +434,9 @@ describe("Instance Admin users administration", () => {
 		() =>
 			Effect.gen(function* () {
 				const user = userEvent.setup();
-				const transferred: string[] = [];
-				const view = renderUsers([makeUser(0)], (url) => {
-					transferred.push(url);
+				const transferred: ShareContent[] = [];
+				const view = renderUsers([makeUser(0)], (content) => {
+					transferred.push(content);
 					return Effect.succeed("copied");
 				});
 				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
@@ -461,7 +461,7 @@ describe("Instance Admin users administration", () => {
 				yield* Effect.promise(() =>
 					user.click(screen.getByRole("button", { name: "Copy or share" })),
 				);
-				expect(transferred).toEqual([link.value]);
+				expect(transferred).toEqual([{ url: link.value }]);
 				expect(screen.queryByRole("alert")).toBeNull();
 			}),
 		testTimeout,

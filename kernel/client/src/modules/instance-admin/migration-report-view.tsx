@@ -5,8 +5,8 @@ import clsx from "clsx";
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { shareOrCopy } from "#/modules/device/share";
 import { isUnauthorizedCause, withAdminAuthorization } from "#/modules/instance-admin/errors";
-import { transferMigrationReportDetails } from "#/modules/instance-admin/link-transfer";
 import {
 	buildMigrationReportClipboardText,
 	formatMigrationReportElapsed,
@@ -173,15 +173,15 @@ function DetailList(props: { readonly entry: MigrationReportEntry }) {
 					variant="secondary"
 					onClick={() =>
 						Effect.runFork(
-							transferMigrationReportDetails(
-								buildMigrationReportClipboardText({
+							shareOrCopy({
+								text: buildMigrationReportClipboardText({
 									code,
 									details,
 									phase: entry.phase,
 									message: entry.message,
 									totalDetails: entry.totalDetails,
 								}),
-							),
+							}),
 						)
 					}
 				>
