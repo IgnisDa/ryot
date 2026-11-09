@@ -132,6 +132,22 @@ type EntityBrowserControllerProps<Meta> = {
 };
 
 const MAX_TABLE_INTEREST = 500;
+
+export const browserResultEntries = (items: readonly EntityBrowserResultItem[]) => ({
+	assets: items.flatMap((item) => managedCellAssets(item.cells)),
+	presentations: new Map(
+		items.flatMap(({ entityId, presentation }) =>
+			presentation === null ? [] : [[entityId, presentation] as const],
+		),
+	),
+	references: items.map((item) => ({
+		name: item.name,
+		entityId: item.entityId,
+		ownerPluginId: item.ownerPluginId,
+		entitySchemaSlug: item.entitySchemaSlug,
+		...item.sync,
+	})),
+});
 const syncSummary = (items: BrowserResult["items"]) => ({
 	populating: items.filter(({ sync }) => isEnrichmentActive(sync.populationStatus)).length,
 	translating: items.filter(({ sync }) => isEnrichmentActive(sync.translationStatus)).length,
@@ -314,19 +330,7 @@ export function EntityBrowserController<Meta>({
 	const layouts = viewLayoutOptions.filter(({ value }) => availableLayouts.includes(value));
 	const summary = syncSummary(current.items);
 	const columns = typeof tableColumns === "function" ? tableColumns(current.meta) : tableColumns;
-	const references = current.items.map((item) => ({
-		name: item.name,
-		entityId: item.entityId,
-		ownerPluginId: item.ownerPluginId,
-		entitySchemaSlug: item.entitySchemaSlug,
-		...item.sync,
-	}));
-	const presentations = new Map(
-		current.items.flatMap(({ entityId, presentation }) =>
-			presentation === null ? [] : [[entityId, presentation] as const],
-		),
-	);
-	const assets = current.items.flatMap((item) => managedCellAssets(item.cells));
+	const { assets, references, presentations } = browserResultEntries(current.items);
 	const tableIds =
 		layout === "table"
 			? current.items

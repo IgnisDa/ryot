@@ -10,6 +10,9 @@ export type SavedViewCellAsset = Extract<
 	{ readonly displayKind: "managed-asset" }
 >["value"];
 
+export const countLabel = (count: number) =>
+	`${count.toLocaleString()} item${count === 1 ? "" : "s"}`;
+
 export const isAssetCell = (
 	cell: SavedViewCell,
 ): cell is SavedViewCell & { readonly value: { readonly displayKind: "managed-asset" } } =>

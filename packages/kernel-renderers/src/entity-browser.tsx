@@ -36,7 +36,7 @@ type BrowserViewInput = Pick<
 	"view" | "settings" | "dataSources"
 >;
 
-export const browseQuery = createRyotQuery<
+const browseQuery = createRyotQuery<
 	typeof EntityBrowserPageInput.Type.settings.subject.schemas,
 	EntitySchemaBrowseResult
 >(({ input, client }) => {

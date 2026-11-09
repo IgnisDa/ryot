@@ -11,6 +11,7 @@ import {
 	Pagination,
 	RyotQLDocument,
 	RyotQLResponse,
+	scalarExpressionTables,
 } from "./language";
 
 const document = {
@@ -597,4 +598,29 @@ describe("RyotQLDocument", () => {
 			}),
 		testTimeout,
 	);
+});
+
+const idColumn = (tableAlias: string) => ({ tableAlias, field: "id", type: "column" }) as const;
+
+describe("scalarExpressionTables", () => {
+	it("collects the tables read by nested queries and joins", () => {
+		expect([
+			...scalarExpressionTables({
+				type: "aggregate",
+				aggregation: { function: "count" },
+				query: {
+					from: { alias: "link", table: "relationship" },
+					where: { type: "exists", query: { from: { alias: "event", table: "event" } } },
+					joins: [
+						{
+							type: "inner",
+							table: { alias: "target", table: "entity" },
+							on: { type: "isNotNull", expr: idColumn("target") },
+						},
+					],
+				},
+			}),
+		]).toEqual(["relationship", "event", "entity"]);
+		expect([...scalarExpressionTables(idColumn("subject"))]).toEqual([]);
+	});
 });

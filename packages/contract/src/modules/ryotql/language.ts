@@ -490,6 +490,7 @@ const mapNonEmpty = <A, B>(
 
 type LanguageMapping = {
 	readonly alias: (alias: string) => string;
+	readonly table: (table: string) => string;
 	readonly reference: (reference: PluginIdentityReference) => PluginIdentityReference;
 };
 
@@ -503,6 +504,7 @@ const languageMapper = (mapping: LanguageMapping) => {
 	});
 	const tableReference = (value: TableReference): TableReference => ({
 		...value,
+		table: mapping.table(value.table),
 		alias: mapping.alias(value.alias),
 	});
 	const join = (value: Join): Join =>
@@ -619,8 +621,20 @@ export const mapScalarExpression = (
 ): ScalarExpression =>
 	languageMapper({
 		alias: mapping.alias ?? ((alias) => alias),
+		table: mapping.table ?? ((table) => table),
 		reference: mapping.reference ?? ((reference) => reference),
 	}).expression(value);
+
+export const scalarExpressionTables = (value: ScalarExpression): ReadonlySet<string> => {
+	const tables = new Set<string>();
+	mapScalarExpression(value, {
+		table: (table) => {
+			tables.add(table);
+			return table;
+		},
+	});
+	return tables;
+};
 
 export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	document: RyotQLDocumentWithSelections<Selection>,
@@ -629,6 +643,7 @@ export const mapPluginIdentityReferences = <Selection extends RowSelection>(
 	const { field, ordering, querySet, aggregation } = languageMapper({
 		reference: transform,
 		alias: (alias) => alias,
+		table: (table) => table,
 	});
 	const selection = (value: Selection): Selection | FieldSelection =>
 		"expr" in value ? field(value) : value;

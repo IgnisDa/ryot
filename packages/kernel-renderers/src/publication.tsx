@@ -8,10 +8,12 @@ import {
 	publicationBrowse,
 	publicationBrowserControls,
 	publicationBrowserSource,
+	type PublicationSubjectSchema,
 	publicationSubjectSchemasRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
+} from "@ryot-app/ryotql-recipes/publication-browse";
 
 import { BrowserInlineError } from "./browser-states";
+import { countLabel } from "./display-value";
 import { EntityBrowserView } from "./entity-browser";
 import { PublicationItem } from "./publication-item";
 
@@ -25,11 +27,12 @@ const PublicationPageInput = Schema.Struct({
 	}),
 });
 
-type SubjectSchema = { readonly slug: string; readonly pluginId: null | string };
-
 const subjectsQuery = createRyotQuery<
 	string,
-	{ readonly browse: readonly BrowseSchema[]; readonly schemas: readonly SubjectSchema[] }
+	{
+		readonly browse: readonly BrowseSchema[];
+		readonly schemas: readonly PublicationSubjectSchema[];
+	}
 >(({ client }) =>
 	Effect.gen(function* () {
 		const schemas = yield* client.data.query(publicationSubjectSchemasRecipe());
@@ -62,9 +65,7 @@ const PublicationSummary = ({
 					<span aria-hidden>·</span>
 				</>
 			)}
-			<span>
-				{settings.itemCount === 1 ? "1 item" : `${settings.itemCount.toLocaleString()} items`}
-			</span>
+			<span>{countLabel(settings.itemCount)}</span>
 		</p>
 	</header>
 );

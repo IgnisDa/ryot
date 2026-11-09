@@ -13,9 +13,9 @@ import {
 } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
 
-const CollectionPresentation = Schema.Struct({ presentationMemberCount: Schema.Finite });
+import { countLabel } from "./display-value";
 
-const countLabel = (count: number) => `${count.toLocaleString()} item${count === 1 ? "" : "s"}`;
+const CollectionPresentation = Schema.Struct({ presentationMemberCount: Schema.Finite });
 
 const countText = (count: number | undefined) => {
 	if (count !== undefined) {

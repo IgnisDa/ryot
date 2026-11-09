@@ -1,27 +1,34 @@
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { EntityResults, usePluginChrome } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotQuery,
+	ManagedAssetProvider,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { BrowseSchema } from "@ryot-app/ryotql-recipes/browse";
 import {
-	entityBrowserRecipe,
-	type EntityBrowserResultItem,
 	publicationBrowserSource,
 	type PublicationItemDetail,
 	publicationItemDetailsRecipe,
 	publicationItemLinksRecipe,
+	type PublicationSubjectSchema,
+} from "@ryot-app/ryotql-recipes/publication-browse";
+import {
+	entityBrowserRecipe,
+	type EntityBrowserResultItem,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
 import { BrowserInlineError } from "./browser-states";
-
-type SubjectSchema = { readonly slug: string; readonly pluginId: null | string };
+import { CellValue } from "./display-value";
+import { browserResultEntries } from "./entity-browser-controller";
 
 type ItemsInput = {
 	readonly entityIds: readonly string[];
 	readonly browse: readonly BrowseSchema[];
-	readonly schemas: readonly [SubjectSchema, ...SubjectSchema[]];
+	readonly schemas: readonly [PublicationSubjectSchema, ...PublicationSubjectSchema[]];
 };
 
 const itemsQuery = createRyotQuery<ItemsInput, readonly EntityBrowserResultItem[]>(
@@ -63,38 +70,27 @@ const linksQuery = createRyotQuery<string, readonly string[]>(({ input, client }
 	client.data.query(publicationItemLinksRecipe({ entityId: input })),
 );
 
-const formatDetail = (detail: PublicationItemDetail) => {
-	if (detail.kind === "list") {
-		return detail.value.join(", ");
-	}
-	if (detail.kind === "number") {
-		return detail.value.toLocaleString();
-	}
-	if (detail.kind === "boolean") {
-		return detail.value ? "Yes" : "No";
-	}
-	if (detail.kind === "date") {
-		const parsed = new Date(detail.value);
-		return Number.isNaN(parsed.getTime()) ? detail.value : parsed.toLocaleDateString();
-	}
-	return detail.value;
-};
-
-const references = (items: readonly EntityBrowserResultItem[]) =>
-	items.map((item) => ({
-		name: item.name,
-		entityId: item.entityId,
-		ownerPluginId: item.ownerPluginId,
-		entitySchemaSlug: item.entitySchemaSlug,
-		...item.sync,
-	}));
-
-const presentations = (items: readonly EntityBrowserResultItem[]) =>
-	new Map(
-		items.flatMap(({ entityId, presentation }) =>
-			presentation === null ? [] : [[entityId, presentation] as const],
-		),
+const ItemResults = ({
+	items,
+	layout,
+	publicationId,
+}: {
+	readonly publicationId: string;
+	readonly layout: "grid" | "list";
+	readonly items: readonly EntityBrowserResultItem[];
+}) => {
+	const { assets, references, presentations } = browserResultEntries(items);
+	return (
+		<ManagedAssetProvider assets={assets}>
+			<EntityResults
+				layout={layout}
+				references={references}
+				presentations={presentations}
+				viewContext={{ publication: publicationId }}
+			/>
+		</ManagedAssetProvider>
 	);
+};
 
 const ItemDetails = ({
 	browse,
@@ -115,25 +111,29 @@ const ItemDetails = ({
 			<h2 id="publication-item-details" className="text-sm font-semibold text-text">
 				Details
 			</h2>
-			<dl className="grid gap-x-6 gap-y-3 rounded-lg border border-border p-4 sm:grid-cols-[max-content_1fr]">
-				{details.data.map((detail) => (
-					<div key={detail.key} className="contents">
-						<dt className="text-xs font-medium tracking-wide text-text-muted uppercase sm:pt-0.5">
-							{detail.label}
-						</dt>
-						<dd className="text-sm text-text">{formatDetail(detail)}</dd>
-					</div>
-				))}
-			</dl>
+			<Card>
+				<dl className="grid gap-x-6 gap-y-3 sm:grid-cols-[max-content_1fr]">
+					{details.data.map((detail) => (
+						<div key={detail.key} className="contents">
+							<dt className="text-xs font-medium tracking-wide text-text-muted uppercase sm:pt-0.5">
+								{detail.label}
+							</dt>
+							<dd className="text-sm text-text">
+								<CellValue value={detail.value} />
+							</dd>
+						</div>
+					))}
+				</dl>
+			</Card>
 		</section>
 	);
 };
 
 const RelatedItems = ({
 	input,
-	viewContext,
+	publicationId,
 }: {
-	readonly viewContext: { readonly publication: string };
+	readonly publicationId: string;
 	readonly input: Omit<ItemsInput, "entityIds"> & { readonly entityId: string };
 }) => {
 	const links = useRyotQuery(linksQuery, input.entityId);
@@ -150,12 +150,7 @@ const RelatedItems = ({
 			<h2 id="publication-item-related" className="text-sm font-semibold text-text">
 				Related
 			</h2>
-			<EntityResults
-				layout="grid"
-				viewContext={viewContext}
-				references={references(related.data)}
-				presentations={presentations(related.data)}
-			/>
+			<ItemResults layout="grid" items={related.data} publicationId={publicationId} />
 		</section>
 	);
 };
@@ -169,7 +164,7 @@ export const PublicationItem = ({
 	readonly entityId: string;
 	readonly publicationId: string;
 	readonly browse: readonly BrowseSchema[];
-	readonly schemas: readonly [SubjectSchema, ...SubjectSchema[]];
+	readonly schemas: readonly [PublicationSubjectSchema, ...PublicationSubjectSchema[]];
 }) => {
 	const chrome = usePluginChrome();
 	const item = useRyotQuery(itemsQuery, { browse, schemas, entityIds: [entityId] });
@@ -204,17 +199,9 @@ export const PublicationItem = ({
 						</Button>
 					</div>
 				)}
-				<EntityResults
-					layout="list"
-					references={references([found])}
-					presentations={presentations([found])}
-					viewContext={{ publication: publicationId }}
-				/>
+				<ItemResults layout="list" items={[found]} publicationId={publicationId} />
 				<ItemDetails browse={schema} entityId={entityId} />
-				<RelatedItems
-					input={{ browse, schemas, entityId }}
-					viewContext={{ publication: publicationId }}
-				/>
+				<RelatedItems publicationId={publicationId} input={{ browse, schemas, entityId }} />
 			</div>
 		</PluginScreenFrame>
 	);
