@@ -74,17 +74,18 @@ const collectionOptions = createRyotQuery(
 	}) => client.data.query(collectionPickerRecipe(input)),
 );
 
-const membershipDetails = createRyotQuery(
-	({ input, client }: { readonly client: RyotClient; readonly input: MembershipTarget }) =>
-		Effect.all(
-			{
-				membership: client.data.query(collectionMembershipRecipe(input)),
-				header: client.data.query(collectionHeaderRecipe({ collectionId: input.collectionId })),
-			},
-			{ concurrency: "unbounded" },
-		),
-	{ cancelOnUnmount: true },
-);
+const createMembershipDetailsQuery = () =>
+	createRyotQuery(
+		({ input, client }: { readonly client: RyotClient; readonly input: MembershipTarget }) =>
+			Effect.all(
+				{
+					membership: client.data.query(collectionMembershipRecipe(input)),
+					header: client.data.query(collectionHeaderRecipe({ collectionId: input.collectionId })),
+				},
+				{ concurrency: "unbounded" },
+			),
+		{ cancelOnUnmount: true },
+	);
 
 const upsertMembership = createRyotMutation(
 	({
@@ -197,6 +198,7 @@ function SelectedCollection(props: {
 	readonly onRemoved: () => void;
 	readonly target: MembershipTarget;
 }) {
+	const [membershipDetails] = useState(createMembershipDetailsQuery);
 	const result = useRyotQuery(membershipDetails, props.target, { refreshOnMutation: false });
 	const header = result.data?.header;
 	if (result.data && header) {
@@ -267,7 +269,7 @@ function CollectionOptions(props: {
 				{items.map((option) => (
 					<li key={option.id}>
 						<Button className="w-full" variant="secondary" onClick={() => props.onSelect(option)}>
-							<span className="min-w-0 flex-1 text-left break-words">{option.name}</span>
+							<span className="min-w-0 flex-1 text-left wrap-break-word">{option.name}</span>
 							<span className="flex shrink-0 items-center gap-2">
 								{option.added ? (
 									<Badge size="sm" variant="success">
