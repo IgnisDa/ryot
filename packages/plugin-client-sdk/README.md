@@ -170,6 +170,11 @@ collection update and delete are not otherwise exposed to plugins.
 for an entity, optionally scoped to a parent entity. It returns `{ kind: "changed" }` or
 `{ kind: "cancelled" }`; only `changed` hints a page refresh.
 
+`screens.sharePublication({ source })` opens the kernel share sheet for a collection
+(`{ kind: "collection", collectionId }`) or an entity-browser saved view
+(`{ kind: "saved-view", reference }`). The owner can publish it, copy or revoke links, and open the
+publication settings there. It returns `{ kind: "closed" }` and hints no refresh.
+
 `calendarSources.setVisibility({ pluginId, slug, isHidden })` hides or shows one calendar source for
 the current user and hints a page refresh on success. Only the kernel calendar renderer is allowed to
 call it; other documents receive `invalid-request`.

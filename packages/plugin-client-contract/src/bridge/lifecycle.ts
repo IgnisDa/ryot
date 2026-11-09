@@ -1,5 +1,6 @@
 import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
+import { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -325,6 +326,42 @@ export const PluginBridgeManageRemindersScreenResult = hostScreenResult(
 
 export type PluginBridgeManageRemindersScreenResult = Schema.Schema.Type<
 	typeof PluginBridgeManageRemindersScreenResult
+>;
+
+export const SharePublicationRequest = strictStruct({ source: PublicationSource });
+
+export type SharePublicationRequest = Schema.Schema.Type<typeof SharePublicationRequest>;
+
+export const PluginBridgeSharePublicationScreen = strictStruct({
+	...SharePublicationRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("share-publication-screen"),
+});
+
+export type PluginBridgeSharePublicationScreen = Schema.Schema.Type<
+	typeof PluginBridgeSharePublicationScreen
+>;
+
+export const SharePublicationOutcome = strictStruct({ kind: Schema.Literal("closed") });
+
+export type SharePublicationOutcome = Schema.Schema.Type<typeof SharePublicationOutcome>;
+
+export const PluginBridgeSharePublicationScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("share-publication-screen-cancel"),
+});
+
+export type PluginBridgeSharePublicationScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeSharePublicationScreenCancel
+>;
+
+export const PluginBridgeSharePublicationScreenResult = hostScreenResult(
+	"share-publication-screen-result",
+	SharePublicationOutcome,
+);
+
+export type PluginBridgeSharePublicationScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeSharePublicationScreenResult
 >;
 
 export const PluginBridgePageRefresh = strictStruct({ type: Schema.Literal("page-refresh") });

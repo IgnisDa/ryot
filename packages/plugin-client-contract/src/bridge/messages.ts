@@ -75,6 +75,9 @@ import {
 	PluginBridgePickEntityScreenCancel,
 	PluginBridgePickEntityScreenResult,
 	PluginBridgeScreenState,
+	PluginBridgeSharePublicationScreen,
+	PluginBridgeSharePublicationScreenCancel,
+	PluginBridgeSharePublicationScreenResult,
 	PluginBridgeTheme,
 	PluginBridgeViewport,
 } from "./lifecycle";
@@ -119,6 +122,8 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeAddToCollectionScreenCancel,
 	PluginBridgeManageRemindersScreen,
 	PluginBridgeManageRemindersScreenCancel,
+	PluginBridgeSharePublicationScreen,
+	PluginBridgeSharePublicationScreenCancel,
 ]);
 
 export type PluginBridgeClientMessage = Schema.Schema.Type<typeof PluginBridgeClientMessage>;
@@ -153,6 +158,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeEditCollectionScreenResult,
 	PluginBridgeAddToCollectionScreenResult,
 	PluginBridgeManageRemindersScreenResult,
+	PluginBridgeSharePublicationScreenResult,
 	PluginBridgePageShortcutPress,
 ]);
 

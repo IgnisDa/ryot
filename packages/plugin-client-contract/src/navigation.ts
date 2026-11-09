@@ -6,6 +6,7 @@ import {
 	EntitySchemaSlug,
 	PluginId,
 	PluginPackageId,
+	PublicationId,
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
@@ -67,6 +68,7 @@ export const ClientPageTarget = Schema.Union([
 		entitySchemaSlug: EntitySchemaSlug,
 		entitySchemaPluginId: Schema.NullOr(Schema.String),
 	}),
+	strictStruct({ publicationId: PublicationId, kind: Schema.Literal("publication") }),
 ]);
 
 export type ClientPageTarget = Schema.Schema.Type<typeof ClientPageTarget>;

@@ -23,6 +23,7 @@ import type {
 	PluginStorageRequest,
 	PluginThemeSnapshot,
 	PluginUploadRequest,
+	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import type { Effect, Schema } from "effect";
@@ -44,6 +45,7 @@ export type RyotEditCollectionRequest = Schema.Codec.Encoded<typeof EditCollecti
 
 export type RyotAddToCollectionRequest = Schema.Codec.Encoded<typeof AddToCollectionRequest>;
 export type RyotManageRemindersRequest = Schema.Codec.Encoded<typeof ManageRemindersRequest>;
+export type RyotSharePublicationRequest = Schema.Codec.Encoded<typeof SharePublicationRequest>;
 
 export type FileUploadRequest = Omit<
 	Extract<PluginUploadRequest, { readonly action: "temporary" }>,
@@ -112,6 +114,9 @@ export type RyotClientAdapter = {
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly invokeOperation?: (
 		request: OperationAdapterRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly sharePublication?: (
+		request: SharePublicationRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly mutateCollection?: (
 		request: CollectionAdapterRequest,

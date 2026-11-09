@@ -49,6 +49,8 @@ import {
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
+	type PluginBridgeSharePublicationScreen,
+	type PluginBridgeSharePublicationScreenCancel,
 	type PluginBridgeStorageRequest,
 	type PluginBridgeUploadRequest,
 	type PluginBridgeUserSettingsRequest,
@@ -59,6 +61,7 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadRequest,
 	type RyotClientErrorReason,
+	type SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Match, Result, Schema } from "effect";
@@ -105,6 +108,7 @@ type RequestType =
 	| "reporting-preferences"
 	| "edit-collection-screen"
 	| "manage-reminders-screen"
+	| "share-publication-screen"
 	| "add-to-collection-screen"
 	| "calendar-source-visibility";
 
@@ -613,6 +617,22 @@ export const createPluginRuntime = (
 				}) satisfies PluginBridgeManageRemindersScreenCancel,
 		);
 
+	const sharePublication = (request: SharePublicationRequest) =>
+		sendRequest(
+			"share-publication-screen",
+			(requestId) =>
+				({
+					...request,
+					requestId,
+					type: "share-publication-screen",
+				}) satisfies PluginBridgeSharePublicationScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "share-publication-screen-cancel",
+				}) satisfies PluginBridgeSharePublicationScreenCancel,
+		);
+
 	const client = createRyotClient({
 		query,
 		upload,
@@ -625,6 +645,7 @@ export const createPluginRuntime = (
 		addToCollection,
 		manageReminders,
 		invokeOperation,
+		sharePublication,
 		submitBackground,
 		readUserSettings,
 		mutateCollection,
@@ -982,6 +1003,9 @@ export const createPluginRuntime = (
 					return;
 				case "manage-reminders-screen-result":
 					settle("manage-reminders-screen", message.requestId, message);
+					return;
+				case "share-publication-screen-result":
+					settle("share-publication-screen", message.requestId, message);
 					return;
 				case "add-to-collection-screen-result":
 					settle("add-to-collection-screen", message.requestId, message);

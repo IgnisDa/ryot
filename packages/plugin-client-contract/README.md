@@ -28,7 +28,7 @@ definitions for callers.
 The client artifact format, client API, compiler, and bridge protocol remain version 1.
 There are no compatibility adapters for earlier development builds.
 
-`ClientPageTarget` covers saved-view slugs, explicit plugin routes, and entities. Its page context
+`ClientPageTarget` covers saved-view slugs, explicit plugin routes, entities, and publications. Its page context
 carries renderer identity, settings, optional named data sources, and route parameters. Authenticated
 HTTP preparation returns no capability; the authenticated document request issues private artifact
 grants inside the `srcdoc` document. No grant crosses the bridge in page context.

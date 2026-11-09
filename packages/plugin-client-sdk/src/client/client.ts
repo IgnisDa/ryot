@@ -49,6 +49,8 @@ import {
 	PluginThemeSnapshot,
 	type PluginUploadRequest,
 	PluginUploadResult,
+	SharePublicationOutcome,
+	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
 import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Result, Schema } from "effect";
@@ -66,6 +68,7 @@ import type {
 	RyotManageRemindersRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,
+	RyotSharePublicationRequest,
 } from "./adapter";
 import { asTransportError, RyotClientError } from "./errors";
 import type { RyotNavigationTarget } from "./navigation-target";
@@ -367,6 +370,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			adapter.manageReminders,
 			request,
 		).pipe(Effect.tap(refreshAfterHostScreen));
+	const sharePublication = (request: RyotSharePublicationRequest) =>
+		openScreen(SharePublicationRequest, SharePublicationOutcome, adapter.sharePublication, request);
 	const requestUpload = (request: PluginUploadRequest) =>
 		adapterEffect(() => adapter.upload(request)).pipe(
 			Effect.flatMap((value) => decodeCapability(PluginUploadResult, value)),
@@ -412,7 +417,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		userSettings: readUserSettings,
 		uploads: { uploadPermanent, uploadTemporary },
 		calendarSources: { setVisibility: setCalendarSourceVisibility },
-		screens: { pickEntity, editCollection, addToCollection, manageReminders },
+		screens: { pickEntity, editCollection, addToCollection, manageReminders, sharePublication },
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
 				throw new RyotClientError({ reason: "invalid-request" });

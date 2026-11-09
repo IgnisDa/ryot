@@ -40,6 +40,7 @@ import {
 	PluginBridgeReady,
 	PluginBridgeRyotQLCancel,
 	PluginBridgeRyotQLResult,
+	PluginBridgeSharePublicationScreen,
 	PluginBridgeStorageResult,
 	PluginBridgeUploadResult,
 	PluginClientArtifact,
@@ -878,6 +879,32 @@ describe("plugin client bridge contract", () => {
 					...result,
 					value: { kind: "saved" },
 				}),
+			),
+		).toBe(true);
+	});
+
+	it("shares only collection and saved-view sources from the client", () => {
+		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
+		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
+		const decodeRequest = Schema.decodeUnknownResult(PluginBridgeSharePublicationScreen);
+		const request = {
+			type: "share-publication-screen",
+			requestId: "share-publication-screen-1",
+			source: { kind: "collection", collectionId: "collection-1" },
+		};
+		expect(Result.isSuccess(decodeClient(request))).toBe(true);
+		expect(Result.isFailure(decodeHost(request))).toBe(true);
+		expect(
+			Result.isSuccess(
+				decodeRequest({
+					...request,
+					source: { kind: "saved-view", reference: { slug: "all", kind: "kernel" } },
+				}),
+			),
+		).toBe(true);
+		expect(
+			Result.isFailure(
+				decodeRequest({ ...request, source: { query: {}, kind: "query", subjectAlias: "s" } }),
 			),
 		).toBe(true);
 	});
