@@ -33,12 +33,16 @@ export const EventOrderAnchor = strictStruct({
 	suffix: Schema.NonEmptyString.check(Schema.isMaxLength(64)),
 });
 
-export const EventUpdatePatch = strictStruct({
+const eventUpdateFields = {
 	entityId: Schema.optional(EntityId),
 	occurredAt: Schema.optional(Schema.String),
 	properties: Schema.optional(EventPropertiesPatch),
 	sessionEntityId: Schema.optional(Schema.NullOr(EntityId)),
-}).pipe(Schema.check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)));
+};
+
+export const EventUpdatePatch = strictStruct(eventUpdateFields).pipe(
+	Schema.check(Schema.makeFilter((patch) => Object.keys(patch).length > 0)),
+);
 
 export type EventUpdatePatch = typeof EventUpdatePatch.Type;
 
@@ -61,6 +65,15 @@ export const EventWritePrecondition = strictStruct({
 	),
 );
 export type EventWritePrecondition = typeof EventWritePrecondition.Type;
+
+export const EventUpdateRequest = strictStruct({
+	...eventUpdateFields,
+	expected: Schema.optional(EventWritePrecondition),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(({ expected: _expected, ...patch }) => Object.keys(patch).length > 0),
+	),
+);
 
 export const UpdateEventItem = strictStruct({
 	eventId: EventId,

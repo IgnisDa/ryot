@@ -12,7 +12,7 @@ import {
 	EventNotFound,
 	EventsInternalError,
 	EventStale,
-	EventUpdatePatch,
+	EventUpdateRequest,
 } from "./schemas";
 
 export const EventsGroup = HttpApiGroup.make("events")
@@ -29,7 +29,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 	)
 	.add(
 		AuthenticatedMutationEndpoint.patch("allowed")("update", "/events/:eventId", {
-			payload: EventUpdatePatch,
+			payload: EventUpdateRequest,
 			params: { eventId: EventId },
 			success: EventMutationResponse,
 			error: [

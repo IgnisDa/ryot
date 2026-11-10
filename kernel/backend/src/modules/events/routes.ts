@@ -46,6 +46,7 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 				const user = yield* CurrentUser;
 				const service = yield* EventsService;
 				const eventId = EventId.make(params.eventId);
+				const { expected, ...patch } = payload;
 				const command = {
 					...rootLifecycleCommand({
 						source: "api",
@@ -59,7 +60,11 @@ export const EventsRoutesLive = HttpApiBuilder.group(AppContract, "events", (han
 					writeContext: null,
 				};
 				return yield* service
-					.edit({ eventId, patch: payload }, user.id, command)
+					.edit(
+						{ patch, eventId, ...(expected === undefined ? {} : { expected }) },
+						user.id,
+						command,
+					)
 					.pipe(
 						Effect.catchTag("DbError", (error) =>
 							Effect.logError("event update failed", error).pipe(
