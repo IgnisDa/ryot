@@ -115,7 +115,7 @@ describe.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
 			await send("Progress");
 			const resumed = await history();
 			expect(resumed).toHaveLength(1);
-			expect(resumed[0].progress).toBe("25");
+			expect(Number(resumed[0].progress)).toBe(25);
 			await client.request(
 				DeleteSeenItemDocument,
 				{ seenId: resumed[0].id },
