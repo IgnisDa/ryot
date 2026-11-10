@@ -19,6 +19,7 @@ import { Context, DateTime, Effect, Layer, Option } from "effect";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 
+import { makeHttpOAuthRedirects } from "./http-oauth-redirects";
 import {
 	AuthRepository,
 	type InternalOAuthClient,
@@ -30,8 +31,11 @@ const INTERNAL_OAUTH_RESOURCE_ID = "ryot-api";
 
 export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnabled: boolean) => {
 	const resourceIdentifier = getOAuthResource(frontendOrigin);
-	const webRedirectUris = getWebOAuthRedirectUris(frontendOrigin);
-	const webLogoutRedirectUris = getWebOAuthLogoutRedirectUris(frontendOrigin);
+	const redirects = makeHttpOAuthRedirects(frontendOrigin);
+	const webRedirectUris = getWebOAuthRedirectUris(frontendOrigin).map(redirects.toProvider);
+	const webLogoutRedirectUris = getWebOAuthLogoutRedirectUris(frontendOrigin).map(
+		redirects.toProvider,
+	);
 	const client = (
 		clientId:
 			| typeof OAUTH_WEB_CLIENT_ID

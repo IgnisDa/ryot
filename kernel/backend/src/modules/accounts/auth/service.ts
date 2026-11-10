@@ -55,6 +55,7 @@ import * as authSchema from "#schema/tables/auth";
 import { authAdvancedOptions } from "./client-address";
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
+import { makeHttpOAuthRedirects } from "./http-oauth-redirects";
 import { ImpersonationHandoffs } from "./impersonation-handoffs";
 import { impersonationOAuthExtension, isImpersonationClient } from "./impersonation-oauth";
 import { impersonationPlugin } from "./impersonation-plugin";
@@ -816,10 +817,10 @@ export class AuthService extends Context.Service<AuthService>()(
 				requestPasswordResetLink,
 				revokePasswordResetLinks,
 				startUserImpersonation: handoffs.create,
-				handler: (request: Request) => auth.handler(request),
 				updateAuthUserDisabled: repository.updateUserDisabled,
 				apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 				oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
+				handler: makeHttpOAuthRedirects(config.frontendUrl).wrapHandler(auth.handler),
 				revokeUserOAuthTokens: (userId: UserId) =>
 					repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
 				updateUserPreferences: (userId: UserId, patch: UserPreferencesPatch) =>

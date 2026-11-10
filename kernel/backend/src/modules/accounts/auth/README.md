@@ -16,6 +16,13 @@ Startup provisions five public clients:
 
 All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
 
+Non-loopback HTTP deployments use an origin-scoped callback translation in
+`http-oauth-redirects.ts` until Better Auth supports an origin-scoped HTTP override. Provisioning stores HTTPS equivalents of the web callback URIs. The auth handler
+translates incoming callback parameters before validation and final callback destinations back to
+HTTP, including JSON redirects. Signed login/consent queries remain untouched. Issuers, audiences,
+trusted origins, and native callbacks retain their configured values. This does not encrypt HTTP
+traffic or resolve upstream's separate HTTP issuer normalization in discovery and logout hints.
+
 ## Tokens
 
 Access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user. Disabled or deleted users fail immediately. API keys retain Better Auth expiry, rate limiting, cache, database fallback, and ownership checks. `requestClientAddress` resolves a request's client address with Better Auth's own `advanced` options, so other per-address limits key requests exactly as Better Auth's rate limits do.
