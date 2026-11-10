@@ -10,6 +10,10 @@ Do not run the entire e2e suite together. For final acceptance, run files separa
 bun turbo --filter=@ryot-app/e2e test --only -- '<file1>' '<file2>'
 ```
 
+`--only` drops dependency tasks from the cache key, so the root `turbo.json` declares the server,
+kernel, package and plugin sources as `@ryot-app/e2e#test` inputs; a cached result is reused only
+while those sources are unchanged.
+
 The large media gates and live-provider smoke are discovered but opt-in. Never combine them with
 standard files. Turbo does not pass their opt-in variables to tasks, so run them through the package
 script:

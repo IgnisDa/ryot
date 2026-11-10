@@ -24,6 +24,24 @@
 			"outputLogs": "errors-only",
 			"dependsOn": ["build", "^build", "^check", "^test"]
 		},
+		"@ryot-app/e2e#test": {
+			"outputLogs": "errors-only",
+			"dependsOn": ["^build", "^check", "^test"],
+			"inputs": [
+				"$TURBO_DEFAULT$",
+				"$TURBO_ROOT$/apps/server/**",
+				"$TURBO_ROOT$/kernel/**",
+				"$TURBO_ROOT$/packages/**",
+				"$TURBO_ROOT$/plugins/**",
+				"!$TURBO_ROOT$/**/node_modules/**",
+				"!$TURBO_ROOT$/**/dist/**",
+				"!$TURBO_ROOT$/**/.turbo/**",
+				"!$TURBO_ROOT$/**/{.DS_Store,.env,*.tsbuildinfo}",
+				"!$TURBO_ROOT$/apps/server/{client,logs,plugins,sandboxd,storage,tmp,work}/**",
+				"!$TURBO_ROOT$/kernel/client/{android,ios}/**",
+				"!$TURBO_ROOT$/kernel/sandbox/native/{payload,target}/**"
+			]
+		},
 		"@ryot-app/sandbox#build": {
 			"dependsOn": ["^build"],
 			"outputLogs": "errors-only",
