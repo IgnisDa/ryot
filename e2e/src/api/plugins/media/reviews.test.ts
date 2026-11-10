@@ -21,6 +21,7 @@ import {
 import { invokeEncodedOperation, invokeOperation } from "~/fixtures/kernel/operations";
 import {
 	createBuiltinMediaLifecycleFixture,
+	logMediaActivity,
 	mediaReferenceForEntity,
 } from "~/fixtures/plugins/media";
 import { assertTaggedError, requirePresent } from "~/support/assertions";
@@ -64,6 +65,145 @@ const snapshot = (
 		sessionEntityId: event.sessionEntityId ?? null,
 		absentProperties: ["text", "isSpoiler", "rating"].filter((key) => !(key in event.properties)),
 	}).pipe(Effect.orDie);
+
+const occurrenceOf = (
+	client: Parameters<typeof listEventsForEntity>[0],
+	entityId: string,
+	eventSchemaSlug: string,
+) =>
+	listEventsForEntity(client, entityId, undefined, 100, { eventSchemaSlug }).pipe(
+		Effect.map((events) => requirePresent(events[0], `Expected a ${eventSchemaSlug} event`)),
+	);
+
+describe("Media review occurrence links", () => {
+	it.live("links, keeps, relinks and clears what a review is about", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { entityId, backlogEventSchemaSlug, progressEventSchemaSlug } =
+				yield* createBuiltinMediaLifecycleFixture(client, { entitySchemaSlug: "movie" });
+			const other = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "movie",
+			});
+			yield* logMediaActivity(client, {
+				submittedAt: nowIso(),
+				submissionId: yield* randomUuid,
+				entry: { entityId, kind: "complete", when: { kind: "now" } },
+			});
+			yield* logMediaActivity(client, {
+				submittedAt: nowIso(),
+				submissionId: yield* randomUuid,
+				entry: { kind: "complete", when: { kind: "now" }, entityId: other.entityId },
+			});
+			yield* createEventFixture(client, {
+				entityId,
+				properties: { progressPercent: 40 },
+				eventSchemaSlug: progressEventSchemaSlug,
+			});
+			yield* createEventFixture(client, {
+				entityId,
+				properties: {},
+				eventSchemaSlug: backlogEventSchemaSlug,
+			});
+			const completion = yield* occurrenceOf(client, entityId, "complete");
+			const progress = yield* occurrenceOf(client, entityId, "progress");
+			const backlog = yield* occurrenceOf(client, entityId, "backlog");
+			const foreign = yield* occurrenceOf(client, other.entityId, "complete");
+			const content = { rating: 80, text: null, isSpoiler: false };
+			yield* invokeOperation(client, createReview, {
+				...content,
+				entityId,
+				consumptionEventId: completion.id,
+			});
+			expect((yield* readReview(client, entityId)).properties).toEqual({
+				rating: 80,
+				consumptionEventId: completion.id,
+			});
+			const update = (consumptionEventId?: null | string) =>
+				Effect.gen(function* () {
+					const original = yield* readReview(client, entityId);
+					return yield* invokeOperation(client, updateReview, {
+						...content,
+						eventId: original.id,
+						submittedAt: nowIso(),
+						submissionId: yield* randomUuid,
+						expected: yield* snapshot(entityId, original),
+						...(consumptionEventId === undefined ? {} : { consumptionEventId }),
+					});
+				});
+			yield* update();
+			expect((yield* readReview(client, entityId)).properties["consumptionEventId"]).toBe(
+				completion.id,
+			);
+			yield* update(progress.id);
+			expect((yield* readReview(client, entityId)).properties["consumptionEventId"]).toBe(
+				progress.id,
+			);
+			yield* update(null);
+			expect((yield* readReview(client, entityId)).properties).toEqual({ rating: 80 });
+			for (const rejected of [foreign.id, backlog.id, "event-that-does-not-exist"]) {
+				assertTaggedError(yield* Effect.flip(update(rejected)), "PluginOperationRejected");
+				assertTaggedError(
+					yield* Effect.flip(
+						invokeOperation(client, createReview, {
+							...content,
+							entityId,
+							consumptionEventId: rejected,
+						}),
+					),
+					"PluginOperationRejected",
+				);
+			}
+			expect((yield* readReview(client, entityId)).properties).toEqual({ rating: 80 });
+		}),
+	);
+
+	it.live("clears the link when its occurrence is deleted or a fold removes it", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const explicit = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "movie",
+			});
+			yield* logMediaActivity(client, {
+				submittedAt: nowIso(),
+				submissionId: yield* randomUuid,
+				entry: { kind: "complete", when: { kind: "now" }, entityId: explicit.entityId },
+			});
+			const completion = yield* occurrenceOf(client, explicit.entityId, "complete");
+			const content = { rating: 60, text: null, isSpoiler: false };
+			yield* invokeOperation(client, createReview, {
+				...content,
+				entityId: explicit.entityId,
+				consumptionEventId: completion.id,
+			});
+			yield* client.call((c) => c.events.delete({ params: { eventId: completion.id } }));
+			expect((yield* readReview(client, explicit.entityId)).properties).toEqual({ rating: 60 });
+
+			const automatic = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "movie",
+			});
+			yield* createEventFixture(client, {
+				entityId: automatic.entityId,
+				properties: { progressPercent: 100 },
+				eventSchemaSlug: automatic.progressEventSchemaSlug,
+			});
+			const derived = yield* occurrenceOf(client, automatic.entityId, "complete");
+			expect(derived.properties["completionKey"]).toBeDefined();
+			yield* invokeOperation(client, createReview, {
+				...content,
+				entityId: automatic.entityId,
+				consumptionEventId: derived.id,
+			});
+			const progress = yield* occurrenceOf(client, automatic.entityId, "progress");
+			yield* client.call((c) => c.events.delete({ params: { eventId: progress.id } }));
+			expect(
+				yield* listEventsForEntity(client, automatic.entityId, undefined, 100, {
+					eventSchemaSlug: "complete",
+				}),
+			).toEqual([]);
+			expect((yield* readReview(client, automatic.entityId)).properties).toEqual({ rating: 60 });
+		}),
+	);
+});
 
 describe("Media rating-only reviews", () => {
 	it.live("creates, reads, edits and deletes a rating with replay-safe writes", () =>

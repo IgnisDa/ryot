@@ -437,6 +437,21 @@ operation idempotency keys and stale-update snapshots. Successful writes refresh
 through the client SDK mutation notification. Review changes do not log consumption, and deleting
 the last review does not remove library membership.
 
+A review can name the one occurrence it is about through its optional `consumptionEventId`, a kernel
+[event reference](../../kernel/backend/src/modules/events/README.md#event-references). Create and
+update accept `consumptionEventId: string | null`; on update an absent field keeps the link and `null`
+clears it. The target must be a `complete`, `item-complete`, `progress`, `dropped`, or `on_hold` event
+of this plugin on the review's own entity, including automatic completions, so a show-episode review
+names that episode's records. History events never carry review references, and several reviews may
+name one occurrence. Deleting the occurrence, including a fold removing an automatic completion,
+clears the link in the same write. The composer's **About** select lists the 20 newest occurrences of
+the chosen subject and resets when the subject changes. When a finished completion opens the
+composer, the select waits for that background log to settle and then chooses the newest completion
+unless the user chose already. `shared/review-link-recipes.ts` resolves links for a timeline in one
+query of at most 100 event IDs: review rows say what they are about in the schema's activity
+vocabulary ("About your watch on Nov 3, 2026"), and consumption rows a review names show a
+**Reviewed** badge that opens that review.
+
 `media-activity-log` writes one logged activity for a builtin media item: a completion, progress
 (percent for flat media, a cumulative `position` in episodes for anime and possibly fractional
 chapters or volumes for manga), a backlog/on-hold/dropped status,

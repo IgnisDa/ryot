@@ -7,7 +7,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, ReviewComposer } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import { type RefObject, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useRef, useState } from "react";
 
 import type { MediaPosition } from "../../shared/consumption";
 import {
@@ -18,6 +18,7 @@ import {
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { eventPrecondition, type MediaActivityLogger } from "./activity-log/state";
 import type { MediaActivityEventRef } from "./activity-timeline";
+import { linkedOccurrenceId, ReviewAboutSelect, type ReviewCompletion } from "./review-about";
 import { ReviewSubjectPicker } from "./review-subject";
 import {
 	positionalReviewSubject,
@@ -121,11 +122,13 @@ export function MediaReviewForm(props: {
 	readonly onClose: () => void;
 	readonly fixed?: undefined | FixedReviewSubject;
 	readonly logger?: undefined | MediaActivityLogger;
+	readonly completion?: undefined | ReviewCompletion;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const review = useBackgroundSubmission(createReview);
 	const scale = useUserPreferences().data?.ratingScale;
 	const [subject, setSubject] = useState(WHOLE_REVIEW_SUBJECT);
+	const [about, setAbout] = useState<null | string>(null);
 	if (scale === undefined) {
 		return null;
 	}
@@ -140,16 +143,18 @@ export function MediaReviewForm(props: {
 		picker = (
 			<ReviewSubjectPicker
 				draft={subject}
-				onChange={setSubject}
 				logger={props.logger}
 				entityId={props.entityId}
+				onChange={(next) => {
+					setSubject(next);
+					setAbout(null);
+				}}
 			/>
 		);
 	}
 	return (
 		<ReviewComposer
 			scale={scale}
-			subject={picker}
 			title="Rate or review"
 			onClose={props.onClose}
 			isSending={review.isSending}
@@ -161,7 +166,23 @@ export function MediaReviewForm(props: {
 			onSave={(draft) =>
 				target === undefined
 					? undefined
-					: review.submit({ ...draft, ...target }, { onAccepted: props.onClose })
+					: review.submit(
+							{ ...draft, ...target, ...(about === null ? {} : { consumptionEventId: about }) },
+							{ onAccepted: props.onClose },
+						)
+			}
+			subject={
+				<ReviewSubjectAndAbout picker={picker}>
+					{target === undefined ? null : (
+						<ReviewAboutSelect
+							value={about}
+							onChange={setAbout}
+							key={target.entityId}
+							entityId={target.entityId}
+							completion={props.completion}
+						/>
+					)}
+				</ReviewSubjectAndAbout>
 			}
 		/>
 	);
@@ -180,6 +201,7 @@ export function MediaReviewEditForm(props: {
 	const review = useBackgroundSubmission(updateReview);
 	const scale = useUserPreferences().data?.ratingScale;
 	const [subject, setSubject] = useState(() => positionalReviewSubject(props.position));
+	const [about, setAbout] = useState(() => linkedOccurrenceId(props.record));
 	if (scale === undefined) {
 		return null;
 	}
@@ -203,7 +225,6 @@ export function MediaReviewEditForm(props: {
 	return (
 		<ReviewComposer
 			scale={scale}
-			subject={picker}
 			title="Edit review"
 			initial={props.initial}
 			onClose={props.onClose}
@@ -213,14 +234,21 @@ export function MediaReviewEditForm(props: {
 			errorMessage={
 				review.error === null ? undefined : "Couldn't start saving your review. Try again."
 			}
+			subject={
+				<ReviewSubjectAndAbout picker={picker}>
+					<ReviewAboutSelect value={about} onChange={setAbout} entityId={props.record.entityId} />
+				</ReviewSubjectAndAbout>
+			}
 			onSave={(draft) =>
 				review.submit(
 					{
 						...draft,
 						eventId: props.record.id,
+						consumptionEventId: about,
 						...(positional ? { position: target?.position ?? null } : {}),
 						expected: eventPrecondition(props.record, [
 							...reviewPropertyKeys,
+							"consumptionEventId",
 							...(positional ? ["position"] : []),
 						]),
 					},
@@ -236,5 +264,17 @@ function FixedSubject(props: { readonly label: string }) {
 		<p className="text-label text-text-muted">
 			Review of <span className="font-medium text-text">{props.label}</span>
 		</p>
+	);
+}
+
+function ReviewSubjectAndAbout(props: {
+	readonly picker: ReactNode;
+	readonly children: ReactNode;
+}) {
+	return (
+		<div className="flex flex-col gap-3">
+			{props.picker}
+			{props.children}
+		</div>
 	);
 }

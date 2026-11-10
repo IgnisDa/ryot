@@ -21,6 +21,12 @@ import {
 	type MediaActivityTimeline,
 } from "./activity-timeline";
 import { formatLocalMonthLabel } from "./date";
+import {
+	MediaReviewedBadge,
+	MediaReviewLinksScope,
+	MediaReviewOccurrenceNote,
+	useLinkedReview,
+} from "./review-links";
 
 export type MediaActivityRowRender<Row extends MediaActivityRowBase> = {
 	readonly segmentNoun: string;
@@ -70,6 +76,7 @@ export function MediaActivityReviewDetail<Subject>(props: {
 	const scale = useUserPreferences().data?.ratingScale;
 	return (
 		<div className="flex flex-col gap-1 border-l-2 border-accent-border pl-2.5">
+			<MediaReviewOccurrenceNote event={row.event} />
 			{row.rating === undefined || scale === undefined ? null : (
 				<p className="text-micro font-medium text-accent-text">
 					<RatingValue scale={scale} rating={row.rating} />
@@ -108,7 +115,8 @@ function MediaActivityEntry<Row extends MediaActivityRowBase>(props: {
 	const source = render.rowSource(row);
 	const run = render.rowRun?.(row);
 	const expand = render.rowExpand?.(row);
-	const hasMeta = source !== undefined || run !== undefined;
+	const review = useLinkedReview(row.events ?? []);
+	const hasMeta = source !== undefined || run !== undefined || review !== undefined;
 	return (
 		<TimelineEntry
 			marker={markerOf(row.type)}
@@ -133,6 +141,7 @@ function MediaActivityEntry<Row extends MediaActivityRowBase>(props: {
 							</span>
 						)}
 						{run === undefined ? null : <span>{run}</span>}
+						{review === undefined ? null : <MediaReviewedBadge review={review} />}
 					</>
 				) : undefined
 			}
@@ -208,6 +217,30 @@ export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
 	readonly render: MediaActivityRowRender<Row>;
 	readonly monthly?: undefined | { readonly openNewest: boolean };
 }) {
+	return (
+		<MediaReviewLinksScope rows={props.rows} segmentNoun={props.render.segmentNoun}>
+			<MediaActivityRowGroups {...props} />
+		</MediaReviewLinksScope>
+	);
+}
+
+function MediaActivityWatchSeparator(props: { readonly label: string }) {
+	return (
+		<div className="flex items-center gap-2.5 pb-3.5">
+			<p className="text-micro font-medium tracking-widest text-text-subtle uppercase">
+				{props.label}
+			</p>
+			<div className="h-px flex-1 bg-border" />
+		</div>
+	);
+}
+
+function MediaActivityRowGroups<Row extends MediaActivityRowBase>(props: {
+	readonly compact: boolean;
+	readonly rows: readonly Row[];
+	readonly render: MediaActivityRowRender<Row>;
+	readonly monthly?: undefined | { readonly openNewest: boolean };
+}) {
 	const months = monthGroups(props.rows);
 	if (
 		props.monthly === undefined ||
@@ -233,17 +266,6 @@ export function MediaActivityRows<Row extends MediaActivityRowBase>(props: {
 					initiallyOpen={openNewest && index === 0}
 				/>
 			))}
-		</div>
-	);
-}
-
-function MediaActivityWatchSeparator(props: { readonly label: string }) {
-	return (
-		<div className="flex items-center gap-2.5 pb-3.5">
-			<p className="text-micro font-medium tracking-widest text-text-subtle uppercase">
-				{props.label}
-			</p>
-			<div className="h-px flex-1 bg-border" />
 		</div>
 	);
 }
@@ -314,31 +336,36 @@ export function MediaActivityTimelineView<Row extends MediaActivityRowBase>(prop
 	const { open, completed } = props.timeline;
 	const noun = render.segmentNoun;
 	return (
-		<div className="flex flex-col gap-5">
-			{open === undefined ? null : (
-				<div>
-					<MediaActivityWatchSeparator label={`Since the last ${noun.toLowerCase()}`} />
-					<MediaActivityRows
-						rows={open}
-						render={render}
-						compact={compact}
-						monthly={{ openNewest: true }}
-					/>
-				</div>
-			)}
-			{completed.map((segment, index) => (
-				<div key={segment.key}>
-					<MediaActivityWatchSeparator
-						label={segmentSeparatorLabel({ noun, index, segment, total: completed.length })}
-					/>
-					<MediaActivityRows
-						render={render}
-						compact={compact}
-						rows={segment.rows}
-						monthly={{ openNewest: open === undefined && index === 0 }}
-					/>
-				</div>
-			))}
-		</div>
+		<MediaReviewLinksScope
+			segmentNoun={noun}
+			rows={[...(open ?? []), ...completed.flatMap((segment) => segment.rows)]}
+		>
+			<div className="flex flex-col gap-5">
+				{open === undefined ? null : (
+					<div>
+						<MediaActivityWatchSeparator label={`Since the last ${noun.toLowerCase()}`} />
+						<MediaActivityRows
+							rows={open}
+							render={render}
+							compact={compact}
+							monthly={{ openNewest: true }}
+						/>
+					</div>
+				)}
+				{completed.map((segment, index) => (
+					<div key={segment.key}>
+						<MediaActivityWatchSeparator
+							label={segmentSeparatorLabel({ noun, index, segment, total: completed.length })}
+						/>
+						<MediaActivityRows
+							render={render}
+							compact={compact}
+							rows={segment.rows}
+							monthly={{ openNewest: open === undefined && index === 0 }}
+						/>
+					</div>
+				))}
+			</div>
+		</MediaReviewLinksScope>
 	);
 }

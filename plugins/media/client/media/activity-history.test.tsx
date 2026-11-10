@@ -83,6 +83,9 @@ describe("complete activity history", () => {
 									data: { work: rows([]), active: rows([]), checkpoint: rows([]) },
 								});
 							}
+							if ("reviews" in document.queries) {
+								return Effect.succeed({ data: { reviews: rows([]), occurrences: rows([]) } });
+							}
 							documents.push(document);
 							if ("totals" in document.queries) {
 								return Effect.succeed(activity(true));

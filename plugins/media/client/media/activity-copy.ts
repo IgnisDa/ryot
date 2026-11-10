@@ -1,7 +1,9 @@
 import type { MediaPosition } from "../../shared/consumption";
 import type { ListStateProperties } from "../../shared/list-state";
+import type { MediaReviewOccurrence } from "../../shared/review-link-recipes";
 import { capitalized } from "./activity-log/state";
 import { decimalLabel, type MediaActivityProgressRun } from "./activity-timeline";
+import { formatDateOnlyLabel, formatLocalDateLabel } from "./date";
 
 type MediaActivityVerb = "read" | "play" | "watch" | "listen";
 
@@ -163,3 +165,50 @@ export const mediaActivityExpandLabel = (input: {
 	readonly count: number;
 	readonly expanded: boolean;
 }) => (input.expanded ? "Hide episodes" : `Show ${input.count} episodes`);
+
+const occurrenceDateLabel = (occurrence: MediaReviewOccurrence) => {
+	if (occurrence.dateUnknown === true) {
+		return undefined;
+	}
+	return occurrence.calendarDate === null
+		? formatLocalDateLabel(occurrence.occurredAt)
+		: formatDateOnlyLabel(occurrence.calendarDate);
+};
+
+const datedLabel = (label: string, occurrence: MediaReviewOccurrence, separator: string) => {
+	const date = occurrenceDateLabel(occurrence);
+	return date === undefined ? label : `${label}${separator}${date}`;
+};
+
+/** What a linked review is about, in the schema's activity vocabulary: "About your watch on Nov 3, 2026". */
+export const mediaReviewOccurrenceLabel = (
+	segmentNoun: string,
+	occurrence: MediaReviewOccurrence,
+) => {
+	const noun = segmentNoun.toLowerCase();
+	const subjects: Record<MediaReviewOccurrence["eventSchemaSlug"], string> = {
+		dropped: "stopping",
+		complete: `your ${noun}`,
+		progress: "your progress",
+		on_hold: "putting it on hold",
+		"item-complete":
+			occurrence.position === null
+				? `your ${noun}`
+				: `your ${noun} of ${mediaPositionLabel(occurrence.position)}`,
+	};
+	return datedLabel(`About ${subjects[occurrence.eventSchemaSlug]}`, occurrence, " on ");
+};
+
+/** A choice in the review composer's "About" select: "Finished · Nov 3, 2026". */
+export const mediaReviewOccurrenceChoiceLabel = (occurrence: MediaReviewOccurrence) => {
+	const position =
+		occurrence.position === null ? "" : ` ${mediaPositionLabel(occurrence.position)}`;
+	const kinds: Record<MediaReviewOccurrence["eventSchemaSlug"], string> = {
+		dropped: "Dropped",
+		on_hold: "On hold",
+		complete: "Finished",
+		progress: `Progress${position}`,
+		"item-complete": `Finished${position}`,
+	};
+	return datedLabel(kinds[occurrence.eventSchemaSlug], occurrence, " · ");
+};

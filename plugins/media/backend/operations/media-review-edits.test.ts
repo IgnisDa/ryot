@@ -38,6 +38,7 @@ const page = (items: readonly unknown[]) => ({
 const recordingHost = (input: {
 	readonly allowed: boolean;
 	readonly properties?: Record<string, Schema.Json>;
+	readonly consumption?: { readonly entityId: string; readonly eventSchemaSlug: string };
 	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 }) => {
 	const documents: RyotQLDocument[] = [];
@@ -67,7 +68,11 @@ const recordingHost = (input: {
 			Effect.sync(() => {
 				documents.push(document);
 				return {
-					data: { visible: page([{ id: row.id }]), allowed: page(input.allowed ? [row] : []) },
+					data: {
+						visible: page([{ id: row.id }]),
+						allowed: page(input.allowed ? [row] : []),
+						consumption: page(input.consumption ? [input.consumption] : []),
+					},
 				};
 			}),
 	});
@@ -75,7 +80,11 @@ const recordingHost = (input: {
 };
 
 const update = (
-	input: { readonly text?: null | string; readonly rating: null | number },
+	input: {
+		readonly text?: null | string;
+		readonly rating: null | number;
+		readonly consumptionEventId?: null | string;
+	},
 	host: ReturnType<typeof recordingHost>["host"],
 ) =>
 	runSandboxTestScript(
@@ -103,6 +112,67 @@ const failureOf = <A, E>(effect: Effect.Effect<A, E>) =>
 	});
 
 describe("media review edits", () => {
+	it.live(
+		"links, keeps and clears the occurrence a review is about",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates, documents } = recordingHost({
+					allowed: true,
+					consumption: { entityId: "anime-1", eventSchemaSlug: "complete" },
+				});
+				yield* update({ rating: 85, consumptionEventId: "complete-1" }, host);
+				yield* update({ rating: 85 }, host);
+				yield* update({ rating: 85, consumptionEventId: null }, host);
+				expect(updates.map(({ items }) => items[0]?.patch.properties)).toEqual([
+					{
+						remove: [],
+						set: {
+							rating: 85,
+							isSpoiler: true,
+							text: "Better on rewatch",
+							consumptionEventId: "complete-1",
+						},
+					},
+					{ remove: [], set: { rating: 85, isSpoiler: true, text: "Better on rewatch" } },
+					{
+						remove: ["consumptionEventId"],
+						set: { rating: 85, isSpoiler: true, text: "Better on rewatch" },
+					},
+				]);
+				const nodes = ryotqlDocumentNodes(
+					documents.flatMap((document) => document.queries["consumption"] ?? []),
+				);
+				expect(nodes).toContainEqual({ type: "literal", value: "complete-1" });
+				expect(nodes).toContainEqual({ type: "pluginId", reference: { kind: "self" } });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"refuses occurrences that are missing, of another kind or of another entity",
+		() =>
+			Effect.gen(function* () {
+				for (const [consumption, message] of [
+					[undefined, "The record this review is about no longer exists."],
+					[
+						{ entityId: "anime-1", eventSchemaSlug: "backlog" },
+						"A review can only be about a completion, progress or status record.",
+					],
+					[
+						{ entityId: "anime-2", eventSchemaSlug: "progress" },
+						"A review can only be about a record of what it reviews.",
+					],
+				] as const) {
+					const { host, updates } = recordingHost({ consumption, allowed: true });
+					expect(
+						yield* failureOf(update({ rating: 85, consumptionEventId: "event-1" }, host)),
+					).toBe(message);
+					expect(updates).toEqual([]);
+				}
+			}),
+		testTimeout,
+	);
+
 	it.live(
 		"rewrites text, rating, and spoiler state under the precondition and write key",
 		() =>

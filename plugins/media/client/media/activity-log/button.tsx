@@ -5,9 +5,18 @@ import { type RefObject, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import { MediaReviewForm } from "../review";
+import type { ReviewCompletion } from "../review-about";
+import { type ActivityLogSubmission, useActivityLogSubmission } from "./queries";
 import { useQuickLog } from "./quick-log";
 import { MediaActivityLogSheet } from "./sheet";
 import { activityQuickAction, type MediaActivityLogger } from "./state";
+
+const reviewCompletion = (state: ActivityLogSubmission["state"]): undefined | ReviewCompletion => {
+	if (state.status === "settled") {
+		return state.outcome.status === "succeeded" ? "saved" : "failed";
+	}
+	return state.status === "sending" || state.status === "accepted" ? "pending" : undefined;
+};
 
 export function MediaLogActivityButton(props: {
 	readonly link?: boolean;
@@ -17,6 +26,7 @@ export function MediaLogActivityButton(props: {
 	readonly onOpenChange?: (open: boolean) => void;
 }) {
 	usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
+	const log = useActivityLogSubmission();
 	const [open, setOpenState] = useState<"log" | "review" | undefined>(undefined);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const setOpen = (next: "log" | "review" | undefined) => {
@@ -46,6 +56,7 @@ export function MediaLogActivityButton(props: {
 			{trigger}
 			{open === "log" ? (
 				<MediaActivityLogSheet
+					log={log}
 					logger={props.logger}
 					compact={props.compact}
 					triggerRef={triggerRef}
@@ -60,6 +71,7 @@ export function MediaLogActivityButton(props: {
 					triggerRef={triggerRef}
 					entityId={props.entityId}
 					onClose={() => setOpen(undefined)}
+					completion={reviewCompletion(log.state)}
 				/>
 			) : null}
 		</>

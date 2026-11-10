@@ -4,11 +4,16 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, listEventsForEntity } from "~/fixtures/kernel";
-import { insertLibraryMembership, seedGlobalMovieWithCollection } from "~/fixtures/plugins/media";
+import {
+	insertLibraryMembership,
+	logMediaActivity,
+	seedGlobalMovieWithCollection,
+} from "~/fixtures/plugins/media";
 import { mediaPluginFrame } from "~/fixtures/plugins/media/frame";
 import { signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
+import { nowIso } from "~/support/time";
 
 it.live("creates, edits and deletes a rating-only review from Movie detail", () =>
 	Effect.gen(function* () {
@@ -113,4 +118,61 @@ it.live("enters and shows Media review ratings in the rating scale chosen in Set
 		});
 		expect(review?.properties).toEqual({ rating: 75 });
 	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live(
+	"reviews a logged completion through About and opens the review from its Reviewed badge",
+	() =>
+		Effect.gen(function* () {
+			const { email, client, password } = yield* createAuthenticatedClient();
+			const suffix = yield* randomUuid;
+			const movieName = `Linked Movie ${suffix}`;
+			const { movie } = yield* seedGlobalMovieWithCollection(client, {
+				movieName,
+				siblingName: `Linked Sequel ${suffix}`,
+				collectionName: `Linked Collection ${suffix}`,
+			});
+			yield* insertLibraryMembership(client, { mediaEntityId: movie.id });
+			yield* logMediaActivity(client, {
+				submittedAt: nowIso(),
+				submissionId: yield* randomUuid,
+				entry: { kind: "complete", entityId: movie.id, when: { kind: "now" } },
+			});
+			const [completion] = yield* listEventsForEntity(client, movie.id, undefined, 100, {
+				eventSchemaSlug: "complete",
+			});
+			const browser = yield* Playwright.Browser;
+			const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+			yield* signInThroughHostedOAuth(page, email, password);
+			yield* page.goto(`${getFrontendUrl()}/e/${movie.id}`);
+			const media = mediaPluginFrame(page).contentFrame();
+			yield* media
+				.getByRole("heading", { exact: true, name: movieName })
+				.waitFor({ state: "visible" });
+			yield* media.getByRole("button", { exact: true, name: "Rate or review" }).click();
+			const create = media.getByRole("dialog", { name: "Rate or review" });
+			yield* create.getByRole("button", { name: "About: Not a specific time" }).click();
+			yield* media
+				.getByRole("dialog", { name: "About" })
+				.getByRole("radio", { name: /^Finished · / })
+				.click();
+			yield* create
+				.getByRole("button", { name: /^About: Finished · / })
+				.waitFor({ state: "visible" });
+			yield* create.getByLabel("Rating (out of 100, optional)").fill("70");
+			yield* create.getByRole("button", { exact: true, name: "Save review" }).click();
+			yield* create.waitFor({ state: "hidden" });
+			yield* media.getByRole("tab", { exact: true, name: "Activity" }).click();
+			yield* media.getByText(/^About your watch on /).waitFor({ state: "visible" });
+			const [review] = yield* listEventsForEntity(client, movie.id, undefined, 100, {
+				eventSchemaSlug: "review",
+			});
+			expect(review?.properties).toEqual({ rating: 70, consumptionEventId: completion?.id });
+			yield* media.getByRole("button", { exact: true, name: "Reviewed" }).click();
+			const edit = media.getByRole("dialog", { name: "Edit review" });
+			expect(yield* edit.getByLabel("Rating (out of 100, optional)").inputValue()).toBe("70");
+			yield* edit
+				.getByRole("button", { name: /^About: Finished · / })
+				.waitFor({ state: "visible" });
+		}).pipe(PlaywrightSpawner.withBrowser),
 );

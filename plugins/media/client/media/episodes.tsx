@@ -5,6 +5,7 @@ import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui
 import clsx from "clsx";
 import { useRef, useState } from "react";
 
+import { useActivityLogSubmission } from "./activity-log/queries";
 import { MediaActivityLogSheet } from "./activity-log/sheet";
 import type { ActivityEpisode, MediaActivityLogger } from "./activity-log/state";
 import type { MediaCursorPage } from "./cursor-page-state";
@@ -190,6 +191,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 }) {
 	const { render, episode } = props;
 	const [overlay, setOverlay] = useState<"log" | "review" | "details">();
+	const logSubmission = useActivityLogSubmission();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
@@ -274,6 +276,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 			) : null}
 			{overlay === "log" ? (
 				<MediaActivityLogSheet
+					log={logSubmission}
 					triggerRef={triggerRef}
 					compact={props.compact}
 					logger={props.log.logger}

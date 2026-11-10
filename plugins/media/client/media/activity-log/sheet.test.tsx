@@ -42,6 +42,7 @@ import {
 import { MediaSummaryHeader } from "../summary-header";
 import { MediaLogActivityButton } from "./button";
 import { MediaActivityEditSheet } from "./edit-sheet";
+import { useActivityLogSubmission } from "./queries";
 import { MediaActivityLogSheet } from "./sheet";
 import type { MediaActivityLogger } from "./state";
 
@@ -2148,13 +2149,17 @@ it.live(
 	testTimeout,
 );
 
+function SubmittingLogSheet(props: Omit<Parameters<typeof MediaActivityLogSheet>[0], "log">) {
+	return <MediaActivityLogSheet {...props} log={useActivityLogSubmission()} />;
+}
+
 it.live(
 	"opens the sheet on the preselected episode",
 	() =>
 		Effect.gen(function* () {
 			const mounted = mountRyotClient(
 				{ watchEntities, query: activityLogQuery(showFake({ earlier: {} })) },
-				<MediaActivityLogSheet
+				<SubmittingLogSheet
 					compact
 					logger={show}
 					entityId="entity-1"

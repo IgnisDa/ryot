@@ -79,6 +79,7 @@ import {
 	personEntityTargets,
 } from "./person-mapping";
 import { buildReminderMigrationSql } from "./reminder-mapping";
+import { buildReviewConsumptionMigrationSql } from "./review-consumption-mapping";
 import { buildReviewMigrationSql } from "./review-mapping";
 import {
 	buildLegacySavedViewStateMigrationSql,
@@ -623,6 +624,8 @@ export const migrateLegacyTables = Effect.gen(function* () {
 				[],
 			);
 			yield* connection.executeRaw(buildSeenMigrationSql(mediaPluginId), []);
+			reportSequence = yield* logReportRows(connection, reportSequence);
+			yield* connection.executeRaw(buildReviewConsumptionMigrationSql(mediaPluginId), []);
 			reportSequence = yield* logReportRows(connection, reportSequence);
 			yield* connection.executeRaw(
 				buildPersonRelationshipMigrationSql(resolvedPersonRelationshipTargets),

@@ -23,6 +23,7 @@ import {
 	reviewPositionError,
 } from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
+import { requireReviewConsumption } from "./media-review-consumption";
 
 const reviewTargetRecipe = defineRecipe((entityId: string) => {
 	const entity = table("entity", "reviewTarget");
@@ -67,16 +68,23 @@ export default defineOperation({
 			if (target === undefined) {
 				return yield* new OperationRejectedError({ message: "Review target not found" });
 			}
-			const { position } = input;
+			const { position, consumptionEventId } = input;
 			const positionError = reviewPositionError(target.entitySchemaSlug, position);
 			if (positionError !== undefined) {
 				return yield* new OperationRejectedError({ message: positionError });
+			}
+			if (consumptionEventId) {
+				yield* requireReviewConsumption(host, { entityId: target.id, eventId: consumptionEventId });
 			}
 			return yield* host.createEvents([
 				{
 					entityId: target.id,
 					eventSchemaSlug: "review",
-					properties: { ...reviewProperties(input), ...(position ? { position } : {}) },
+					properties: {
+						...reviewProperties(input),
+						...(position ? { position } : {}),
+						...(consumptionEventId ? { consumptionEventId } : {}),
+					},
 				},
 			]);
 		}),

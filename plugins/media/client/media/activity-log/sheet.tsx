@@ -1,7 +1,6 @@
 import {
 	localDay,
 	paginationItems,
-	useBackgroundSubmission,
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotInfiniteQuery,
@@ -45,7 +44,11 @@ import {
 	PodcastEpisodes,
 	ShowEpisodes,
 } from "../episode-picker";
-import { activityLogContextQuery, earlierEpisodesQuery, logActivitySubmission } from "./queries";
+import {
+	activityLogContextQuery,
+	type ActivityLogSubmission,
+	earlierEpisodesQuery,
+} from "./queries";
 import {
 	activityCopyLabels,
 	type ActivityDraft,
@@ -115,6 +118,7 @@ type ActivityLogDialogProps = {
 	readonly entityId: string;
 	readonly onClose: () => void;
 	readonly onReview?: () => void;
+	readonly log: ActivityLogSubmission;
 	readonly logger: MediaActivityLogger;
 	readonly context: MediaActivityLogContext;
 	readonly initialEpisode?: ActivityEpisode;
@@ -144,6 +148,7 @@ export function MediaActivityLogSheet(props: {
 	readonly entityId: string;
 	readonly onClose: () => void;
 	readonly onReview?: () => void;
+	readonly log: ActivityLogSubmission;
 	readonly logger: MediaActivityLogger;
 	readonly initialEpisode?: ActivityEpisode;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
@@ -798,7 +803,7 @@ function ActivityLogForm(
 	const { pager, episodeId, seasonNumber } = props;
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
-	const log = useBackgroundSubmission(logActivitySubmission);
+	const { log } = props;
 	const [draft, setDraft] = useState(() => initialActivityDraft(logger, context, today));
 	const [backfill, setBackfill] = useState(true);
 	const patch = (next: Partial<ActivityDraft>) => setDraft((current) => ({ ...current, ...next }));

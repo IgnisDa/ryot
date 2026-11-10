@@ -11,13 +11,16 @@ import { execution } from "../../tests/backend/automations/automation-test-utils
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import definition, { manifest } from "./media-review-create.sandbox";
 
+const rows = (items: readonly unknown[]) => ({
+	items,
+	type: "rows",
+	pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+});
+
 const targetRows = (
 	items: readonly { readonly id: string; readonly entitySchemaSlug: string }[],
-) => ({
-	data: {
-		target: { items, type: "rows", pageInfo: { limit: 1, hasMore: false, nextCursor: null } },
-	},
-});
+	consumption: readonly { readonly entityId: string; readonly eventSchemaSlug: string }[] = [],
+) => ({ data: { target: rows(items), consumption: rows(consumption) } });
 
 describe("create media review", () => {
 	it.live(
@@ -158,6 +161,65 @@ describe("create media review", () => {
 					["anime", { position: 1.5, unit: "episodes" }, "Episode numbers are whole numbers"],
 				] as const) {
 					expect(yield* Effect.flip(create(slug, position))).toMatchObject({ message });
+				}
+				expect(creates).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"links the review to an occurrence of its subject and refuses any other record",
+		() =>
+			Effect.gen(function* () {
+				const creates: unknown[] = [];
+				const create = (consumption: undefined | { entityId: string; eventSchemaSlug: string }) =>
+					runSandboxTestScript(
+						definition,
+						{
+							rating: 70,
+							text: null,
+							isSpoiler: false,
+							entityId: "episode-1",
+							consumptionEventId: "watch-1",
+						},
+						defineSandboxTestHost(manifest, {
+							createEvents: (items) =>
+								Effect.sync(() => {
+									creates.push(items);
+									return { count: 1, outcomes: [] };
+								}),
+							executeRyotql: () =>
+								Effect.succeed(
+									targetRows(
+										[{ id: "episode-1", entitySchemaSlug: "show-episode" }],
+										consumption === undefined ? [] : [consumption],
+									),
+								),
+						}),
+						execution,
+					);
+				yield* create({ entityId: "episode-1", eventSchemaSlug: "progress" });
+				expect(creates).toEqual([
+					[
+						{
+							entityId: "episode-1",
+							eventSchemaSlug: "review",
+							properties: { rating: 70, consumptionEventId: "watch-1" },
+						},
+					],
+				]);
+				for (const [consumption, message] of [
+					[undefined, "The record this review is about no longer exists."],
+					[
+						{ entityId: "episode-1", eventSchemaSlug: "review" },
+						"A review can only be about a completion, progress or status record.",
+					],
+					[
+						{ entityId: "show-1", eventSchemaSlug: "complete" },
+						"A review can only be about a record of what it reviews.",
+					],
+				] as const) {
+					expect(yield* Effect.flip(create(consumption))).toMatchObject({ message });
 				}
 				expect(creates).toHaveLength(1);
 			}),

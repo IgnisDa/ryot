@@ -2,6 +2,7 @@ import {
 	createRyotBackgroundSubmission,
 	createRyotQuery,
 	type RyotSubmission,
+	useBackgroundSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
@@ -104,6 +105,11 @@ export const logActivitySubmission = createRyotBackgroundSubmission({
 	input: ({ input, submittedAt, submissionId }) =>
 		activityLogInput(input.entry, { submittedAt, submissionId }),
 });
+
+/** A log submission owned by the opener, so a follow-up review can wait for it to settle. */
+export const useActivityLogSubmission = () => useBackgroundSubmission(logActivitySubmission);
+
+export type ActivityLogSubmission = ReturnType<typeof useActivityLogSubmission>;
 
 export const updateActivitySubmission = createRyotBackgroundSubmission({
 	packageId: PLUGIN_PACKAGE_ID,

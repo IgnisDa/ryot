@@ -16,6 +16,7 @@ import {
 	reviewCombinations,
 	writePrecondition,
 } from "./media-activity-edits";
+import { requireReviewConsumption } from "./media-review-consumption";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -42,10 +43,16 @@ export default defineOperation({
 				target,
 				mediaReviewDeclaredProperties(target.entitySchemaSlug),
 			);
-			const { position } = input;
+			const { position, consumptionEventId } = input;
 			const positionError = reviewPositionError(target.entitySchemaSlug, position);
 			if (positionError !== undefined) {
 				return yield* new OperationRejectedError({ message: positionError });
+			}
+			if (consumptionEventId) {
+				yield* requireReviewConsumption(host, {
+					eventId: consumptionEventId,
+					entityId: input.expected.entityId,
+				});
 			}
 			const { set, remove } = reviewPropertiesPatch(input);
 			return yield* host
@@ -55,8 +62,16 @@ export default defineOperation({
 						expected: writePrecondition(input.expected),
 						patch: {
 							properties: {
-								set: position ? { ...set, position } : set,
-								remove: position === null ? [...remove, "position"] : remove,
+								set: {
+									...set,
+									...(position ? { position } : {}),
+									...(consumptionEventId ? { consumptionEventId } : {}),
+								},
+								remove: [
+									...remove,
+									...(position === null ? ["position"] : []),
+									...(consumptionEventId === null ? ["consumptionEventId"] : []),
+								],
 							},
 						},
 					},

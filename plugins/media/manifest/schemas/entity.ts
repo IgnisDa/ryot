@@ -231,7 +231,15 @@ const libraryEventSchema = () => ({
 });
 
 const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema => {
-	const fields = reviewPropertyFields("Your written thoughts or notes about this media");
+	const fields: AppSchema["fields"] = {
+		...reviewPropertyFields("Your written thoughts or notes about this media"),
+		consumptionEventId: {
+			type: "string",
+			label: "About",
+			reference: { kind: "event-id" },
+			description: "The completion, progress or status record this review is about",
+		},
+	};
 	switch (entitySchemaSlug) {
 		case "anime":
 		case "manga":

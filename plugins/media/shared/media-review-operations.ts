@@ -5,10 +5,24 @@ import { MediaPosition, mediaPositionError } from "./consumption";
 import { MediaEventSnapshot, mediaSubmissionFields } from "./media-activity-operations";
 import { isPositional } from "./media-schema-slugs";
 
+/** The records a review can be about: one occurrence of consuming its subject. */
+export const mediaReviewConsumptionSlugs = [
+	"complete",
+	"item-complete",
+	"progress",
+	"dropped",
+	"on_hold",
+] as const;
+
 const reviewPositionField = { position: Schema.optionalKey(Schema.NullOr(MediaPosition)) };
+
+const reviewConsumptionField = {
+	consumptionEventId: Schema.optionalKey(Schema.NullOr(Schema.NonEmptyString)),
+};
 
 export const MediaReviewCreateInput = Schema.Struct({
 	...reviewPositionField,
+	...reviewConsumptionField,
 	...ReviewContent.fields,
 	entityId: Schema.NonEmptyString,
 }).pipe(Schema.check(requireReviewContent));
@@ -33,6 +47,7 @@ export type MediaReviewCreateInput = Schema.Schema.Type<typeof MediaReviewCreate
 export const MediaReviewUpdateInput = Schema.Struct({
 	...mediaSubmissionFields,
 	...reviewPositionField,
+	...reviewConsumptionField,
 	...ReviewContent.fields,
 	expected: MediaEventSnapshot,
 	eventId: Schema.NonEmptyString,

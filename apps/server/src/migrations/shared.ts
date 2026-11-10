@@ -79,6 +79,7 @@ const AnomalyCode = Schema.Literals([
 	"review-episode-ambiguous",
 	"review-season-absent",
 	"review-season-ambiguous",
+	"review-consumption-shared",
 	"asset-locator-unresolved",
 	"asset-deletion-failed",
 	"exercise-ownerless-unreferenced",

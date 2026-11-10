@@ -14,11 +14,13 @@ import { getEntity, getGlobalEntityByProvenance } from "~/fixtures/kernel/entiti
 import { listEventsForEntity, waitForEventProjections } from "~/fixtures/kernel/events";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
+import { logMediaActivity } from "~/fixtures/plugins/media/activity-log";
 import { createBuiltinMediaLifecycleFixture } from "~/fixtures/plugins/media/events";
 import { waitForLibrarySummary } from "~/fixtures/plugins/media/library-summary";
 import { getMediaLibraryEntityId, insertLibraryMembership } from "~/fixtures/plugins/media/media";
 import { assertCompleted, requirePresent } from "~/support/assertions";
 import { expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 it.live("restores a deleted automatic completion as deleted and keeps a remaining one single", () =>
 	Effect.gen(function* () {
@@ -81,6 +83,57 @@ it.live("restores a deleted automatic completion as deleted and keeps a remainin
 		yield* waitForEventProjections(target.client);
 		expect(completionsOf(yield* restoredEvents(kept))).toHaveLength(1);
 		expect(completionsOf(yield* restoredEvents(deleted))).toEqual([]);
+	}),
+);
+
+it.live("restores what a review is about onto the restored occurrence", () =>
+	Effect.gen(function* () {
+		const source = yield* createAuthenticatedClient();
+		const target = yield* createAuthenticatedClient();
+		const fixture = yield* createBuiltinMediaLifecycleFixture(source.client, {
+			entitySchemaSlug: "movie",
+		});
+		yield* logMediaActivity(source.client, {
+			submittedAt: nowIso(),
+			submissionId: yield* randomUuid,
+			entry: { kind: "complete", when: { kind: "now" }, entityId: fixture.entityId },
+		});
+		const completion = requirePresent(
+			(yield* listEventsForEntity(source.client, fixture.entityId, undefined, 100)).find(
+				({ eventSchemaSlug }) => eventSchemaSlug === "complete",
+			),
+			"Missing completion",
+		);
+		yield* source.client.call((c) =>
+			c.events.create({
+				payload: [
+					{
+						entityId: fixture.entityId,
+						eventSchemaSlug: fixture.reviewEventSchemaSlug,
+						properties: { rating: 90, consumptionEventId: completion.id },
+					},
+				],
+			}),
+		);
+		const entity = yield* getEntity(source.client, fixture.entityId);
+		const { bytes } = yield* exportAndDownloadBackup(source.client);
+		yield* deleteUserAndWait(source.userId);
+		assertCompleted((yield* restoreBackup(target.client, bytes)).run, "Media review link restore");
+		const restored = yield* getGlobalEntityByProvenance(target.client, {
+			entitySchemaSlug: entity.entitySchemaSlug,
+			providerId: requirePresent(entity.providerId, "Missing Media provider"),
+			externalId: requirePresent(entity.externalId, "Missing Media external ID"),
+		});
+		const events = yield* listEventsForEntity(target.client, restored.id, undefined, 100);
+		const restoredCompletion = requirePresent(
+			events.find(({ eventSchemaSlug }) => eventSchemaSlug === "complete"),
+			"Missing restored completion",
+		);
+		expect(restoredCompletion.id).not.toBe(completion.id);
+		expect(events.find(({ eventSchemaSlug }) => eventSchemaSlug === "review")?.properties).toEqual({
+			rating: 90,
+			consumptionEventId: restoredCompletion.id,
+		});
 	}),
 );
 

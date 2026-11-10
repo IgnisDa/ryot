@@ -142,4 +142,6 @@ export const mediaActivityPatchableProperties = (
 };
 
 export const mediaReviewDeclaredProperties = (entitySchemaSlug: string): readonly string[] =>
-	isPositional(entitySchemaSlug) ? [...reviewPropertyKeys, "position"] : reviewPropertyKeys;
+	isPositional(entitySchemaSlug)
+		? [...reviewPropertyKeys, "consumptionEventId", "position"]
+		: [...reviewPropertyKeys, "consumptionEventId"];
