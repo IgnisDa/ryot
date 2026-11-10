@@ -136,8 +136,9 @@ Standalone set writes require a matching anchor; adding a new occurrence or dele
 requires an atomic command that includes the anchor. Before policies capture facts but do not enforce
 cross-command cardinality. See [atomic event groups](../../kernel/backend/src/modules/events/README.md#atomic-event-groups).
 
-`exercise-merge` requires distinct same-kind entities and a custom source. It detaches source
-membership/taxonomy links, moves events/notes/collection membership through `mergeUserEntityData`,
+`exercise-merge` accepts custom and provider-backed sources and requires distinct same-kind
+entities. Only the caller's data moves; shared metadata, provider taxonomy and other users' data
+remain unchanged. It detaches the caller's source membership/taxonomy links, moves events/notes/collection membership through `mergeUserEntityData`,
 then replaces template references. These steps are not atomic: retry-to-complete works after partial
 detachment. The client blocks merging an exercise used by the active workout/template draft.
 

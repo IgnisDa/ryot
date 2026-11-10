@@ -62,9 +62,9 @@ history/review controls. Bulk collection add/remove and collection review manage
 have usable client paths. Completion of this roadmap does not mean exact V1 parity.
 
 Pro verification exists, but feature-by-feature entitlement parity remains open. No equivalent
-was found for V1's media-consumed-during-a-workout panel. Other differences requiring a product
-decision include provider-source exercise merging, exercise analytics exclusions, standalone
-genre pages, random sorting/context-specific presets, and selected preferences/operator settings.
+was found for V1's media-consumed-during-a-workout panel. Provider-source exercise merging is
+implemented. The owner declined the other proposed ports on 2026-11-10: the workout media panel, exercise analytics exclusions, standalone genre pages,
+random sorting/context-specific presets, and old preferences/operator settings.
 See the remaining inventory below; these are not automatic commitments to restore V1 behavior.
 Default collections, immutable history, a nightly calendar table and destructive workout replay
 are **not** accurate descriptions of the current V2 design.
@@ -332,14 +332,30 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | Automatic library-reason recomputation and default smart-collection edits | Closed as intentional redesign under the agreed policy. Do not implement; explicit removal, live state and explicit monitoring are the replacement. |
 | Exact V1 recommendation sampling, enabled-lot gates and global fallback | Keep current home selection. Decide whether a separate explicit recommendation preference is needed; hiding a navigation view must not silently become a processing permission. |
 | Rating scales, positional reviews, consumption-to-review links, episode retargeting, multi-source consumption, dated/manual-time progress and manga volume-only next-entry | **Done** as Order 19 (2026-11-10); the [Order 19 plan](order-19-history-review-controls-plan.md) records the product decisions. Review visibility stays excluded; Fitness notes stay text-required notes sharing the rating scale; batch episode logs take no time spent; retargeting stays within one parent. |
-| Learned collection string choices and standalone genre pages | Keep explicit choices and existing genre pickers/filters unless a user workflow needs more. Approved browse work fits after row 6. |
-| Broader exercise merge and `exclude_from_analytics` | Order 16 shipped without these controls; restoring them remains a separate product decision. Provider-source merging means allowing a provider-backed exercise as the merge-from source, which V2 currently rejects. Keep same-kind/ownership protections; do not change recorded units/kinds or restore destructive workout replay. An exclusion preference is not required merely because V1 stored one. |
+| Learned collection string choices and standalone genre pages | Excluded from further porting by the owner on 2026-11-10; keep explicit choices and existing genre pickers/filters. |
+| Broader exercise merge and `exclude_from_analytics` | Provider-source merging is implemented by the 2026-11-10 follow-up. The owner declined porting `exclude_from_analytics`. Keep same-kind/ownership protections; do not change recorded units/kinds or restore destructive workout replay. An exclusion preference is not required merely because V1 stored one. |
 | Same-time import ordering, association-only imports and old Generic JSON files | Keep source-order/dependency-safe V2 processing unless a concrete correctness case requires a change in row 1. Decide direct old-file conversion separately; do not reinstate the removed sink or old backup format. |
-| V1 display/dashboard/per-provider-language preferences | Keep workspace/home, current language and plugin-owned settings as defaults. Add only selected missing user controls; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
-| S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Add only a current operational requirement. Bucket health and configurable upload limits can be scoped separately; old export internals, token settings and startup knobs do not block this roadmap. |
+| V1 display/dashboard/per-provider-language preferences | Excluded from further porting by the owner on 2026-11-10. Keep workspace/home, current language and plugin-owned settings; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
+| S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Excluded from this port by the owner on 2026-11-10; old export internals, token settings and startup knobs do not block this roadmap. |
 | Pro entitlement parity | Verification is implemented; audit and decide each feature's backend enforcement, client gating and expiry behavior. Existing integration/Fitness gates do not establish full parity. |
-| Media consumed during a workout | No current equivalent found for the V1 workout-detail panel. Decide whether to restore it with explicit cross-plugin ownership and user-scoped reads. |
+| Media consumed during a workout | Excluded by the owner on 2026-11-10; no current equivalent for the V1 workout-detail panel. |
 | Public sharing, collaborators, review visibility/comments/likes | Read-only public sharing of collections and saved views ships as Order 18 publications. Collaborators, shared editing, review visibility, comments and likes remain excluded; restoring them would be a separate product/security scope. |
+
+### Exercise merge follow-up — 2026-11-10
+
+The owner approved provider-source exercise merging and declined the other proposed ports.
+The exercise menu and operation accept visible custom or provider-backed sources of the same
+kind. The caller's history, notes, collection memberships and template references move; shared
+source metadata and other users' data remain intact. Same-entity/missing/kind-mismatch refusals,
+active-draft blocking and retry-to-complete semantics remain. The obsolete custom-only refusal
+and source-owner query field were removed.
+
+Validation: affected Fitness/e2e checks passed 34 Turbo tasks before tests. Final `bun run check`
+passed 38 tasks and type checks across 30 projects. Root Turbo tests for Fitness and its required
+dependencies passed 47 tasks. The focused `src/browser/fitness-exercise.test.ts` run passed all
+8 cases, including custom/global-source merges, moved history/records/templates, unchanged source
+metadata and another user's retained history. Read-only review and scoped main-session cleanup
+are complete; no other port feature was implemented.
 
 ### Per-feature completion gate
 
@@ -945,9 +961,9 @@ Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-vi
 | Exercise dataset, details, search/filter, custom exercise | Covered; reshaped | Free Exercise DB provider and Fitness Catalog target/equipment providers, library picker, detail/history UI and shared entity editor. Dataset population is on demand, not a startup import of every exercise. |
 | Exercise taxonomy, instructions, assets | Covered | Typed targets/equipment relationships, target roles, instructions and managed attachments. Standard and private taxonomy pickers support import and creation. |
 | Exercise settings | Partial / reshaped | Installation unit/rest/sound/timer settings and per-exercise membership overrides. Stored units are kg/km/seconds; changing display units does not rebuild history. V1 `exclude_from_analytics` has no equivalent. |
-| Exercise merge | Partial / reshaped | `exercise-merge` moves user data and collection links, replaces template references and triggers record repairs. Requires a custom source and same kind; V1 allowed same-lot provider-source merges too. Multi-step merge is retry-to-complete, not atomic. |
+| Exercise merge | Covered; reshaped | `exercise-merge` moves user data and collection links, replaces template references and triggers record repairs. Accepts custom and provider-backed sources of the same kind, moving only the caller's data and preserving shared metadata and other users' data. Multi-step merge is retry-to-complete, not atomic. |
 | Workouts: create/edit/delete, attributes, repeat | Covered; reshaped | `workout-editor-save`, `workout-delete`, `workout-time-correction`, shared live/historical editor and repeat flows. Atomic source save, stale baselines, durable retry identities, notes/media, confirmed sets, rest timers, supersets and device drafts. |
-| Media consumed during a workout | Missing | V1 workout details queried media consumption during the workout interval and displayed linked titles. No equivalent V2 recipe/client panel was found; this needs a cross-plugin product decision, not a kernel dependency on Media or Fitness. |
+| Media consumed during a workout | Excluded | V1 workout details queried media consumption during the workout interval and displayed linked titles. No equivalent V2 recipe/client panel was found; excluded from porting by the owner on 2026-11-10. |
 | Workout duration and unit handling | Reshaped | Active duration excludes explicit pauses and remains distinct from elapsed timestamps. Time correction preserves recorded duration unless explicitly changed; unlike V1, editing times does not silently replace it with elapsed duration. |
 | Templates: list/detail/create/edit/delete/use | Covered | Template saved view/detail, shared editor and explicit delete; templates store plans without workout execution events. Writes/replacement and protected notes/media have current Pro rules. |
 | Personal bests, derived set stats, history repair | Covered; reshaped | `script.workout-record-step`, event-stream projections, changed-set/context hooks, durable reconciliation and freshness checks. Rebuilds derived stats by exercise and recorded kind, without deleting/recreating workouts or replaying historical notifications. |
@@ -1160,11 +1176,16 @@ Evidence: `crates/models/enum/src/notification_enums.rs`;
 
 ## Remaining gaps and decisions
 
-These are behavioral differences found in current code, not a new commitment to restore
-all V1 behavior. The [implementation order](#recommended-implementation-order) distinguishes
+These are behavioral differences found in current code, not a commitment to restore V1 behavior.
+The [implementation order](#recommended-implementation-order) distinguishes
 planned capabilities from decisions and accepted redesigns. The groups below are an inventory,
 not a priority order or a requirement to reproduce an old table/job/endpoint. Do not reopen
 resolved export, genre, Calendar, editor or projection work.
+
+The owner approved only broader exercise merging in the 2026-11-10 follow-up and declined
+porting the other proposed missing features. The historical differences below remain an inventory,
+not an implementation backlog. Pro entitlement correctness remains separately identified; this
+follow-up does not change paid-feature policy.
 
 ### Pro entitlements
 
@@ -1300,10 +1321,10 @@ Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/sr
   selection have no matching server preference contract. V2 adds device appearance and
   workspace/home choices; these are not exact migrations of those old controls.
 - V1 exercise `exclude_from_analytics` is explicitly omitted by migration. Exercise merge
-  currently requires a custom merge-from source and matching exercise kinds. V1 accepted a
-  provider-backed source too: for example, moving your history from one catalog exercise to
-  another of the same kind. This is about the caller's exercise data, not editing the global
-  provider catalog. Whether to allow it remains a product decision.
+  accepts custom or provider-backed merge-from sources with matching exercise kinds. It moves
+  only the caller's history, notes, collection memberships and template references; shared
+  provider metadata and other users' data remain unchanged. The owner approved this capability
+  and declined the other proposed ports on 2026-11-10.
 - The V1 workout-detail media-consumption panel remains absent. Its source query and UI are in
   `crates/utils/database/src/lib.rs` and
   `crates/frontend/app/routes/_dashboard.fitness.$entity.$id._index.tsx`; current V2 workout details
