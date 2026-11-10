@@ -220,6 +220,8 @@ Warnings are allowed by `code`, never by message text, so report copy can be rew
 | `asset-locator-unresolved`               | `legacy S3 assets -> managed_asset`                          | An attachment could not be copied into managed storage; its original locator was retained.                                       | no                |
 | `asset-deletion-failed`                  | `legacy S3 assets -> managed_asset`                          | A copied attachment could not be deleted from the old bucket.                                                                    | no                |
 | `workout-set-completion-outside-session` | `workout sets -> event records`                              | A valid confirmed set time falls before the workout start or after its end; the time is preserved, not clamped.                  | yes               |
+| `workout-active-duration-invalid`        | `workout -> entity`                                          | A negative recorded workout duration was omitted as unknown; detail keeps the original value and times.                          | yes               |
+| `workout-energy-invalid`                 | `workout -> entity`                                          | A negative recorded workout energy was omitted as unknown; detail keeps the original value and unit.                             | yes               |
 
 Any warning whose code is not in `AnomalyCode`, and any other unexpected state, aborts startup. On restart, existing report rows remain and orchestration logs only newly appended rows.
 

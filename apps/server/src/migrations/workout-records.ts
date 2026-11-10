@@ -164,6 +164,7 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 	let eventCursor: string | undefined;
 	let eventsRead = 0;
 	let eventsUpdated = 0;
+	const completionWarnings: Array<MigrationReportDetail> = [];
 
 	for (;;) {
 		const rawRows = yield* connection.execute(
@@ -190,7 +191,6 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 			removeKeys: ReadonlyArray<string>;
 			setProperties: Record<string, unknown>;
 		}> = [];
-		const completionWarnings: Array<MigrationReportDetail> = [];
 
 		for (const row of rows) {
 			if (
@@ -269,22 +269,21 @@ export const migrateWorkoutRecords = Effect.fn("migrateWorkoutRecords")(function
 			}
 			eventsUpdated += patches.length;
 		}
-		if (completionWarnings.length > 0) {
-			yield* insertAnomalyReport(connection, {
-				phase: reportPhase,
-				elapsedSeconds: null,
-				details: completionWarnings,
-				count: completionWarnings.length,
-				code: "workout-set-completion-outside-session",
-				message:
-					"Some confirmed workout sets occurred outside the recorded workout interval. The original completion times were kept unchanged.",
-			});
-		}
-
 		eventsRead += rows.length;
 		eventCursor = rows.at(-1)?.eventId;
 	}
 
+	if (completionWarnings.length > 0) {
+		yield* insertAnomalyReport(connection, {
+			phase: reportPhase,
+			elapsedSeconds: null,
+			details: completionWarnings,
+			count: completionWarnings.length,
+			code: "workout-set-completion-outside-session",
+			message:
+				"Some confirmed workout sets occurred outside the recorded workout interval. The original completion times were kept unchanged.",
+		});
+	}
 	const elapsedSeconds = ((yield* Clock.currentTimeMillis) - startedAt) / 1000;
 	return yield* insertReportRows(connection, [
 		{ elapsedSeconds, count: eventsRead, phase: reportPhase, message: "set event(s) examined" },
