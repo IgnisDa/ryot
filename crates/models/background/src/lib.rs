@@ -1,5 +1,5 @@
 use common_models::{ChangeCollectionToEntitiesInput, EntityWithLot};
-use enum_models::{EntityLot, EntityTranslationVariant};
+use enum_models::{EntityLot, EntityTranslationVariant, UserNotificationContent};
 use media_models::{
     DeployImportJobInput, MetadataProgressUpdateInput, PodcastTranslationExtraInformation,
     ReviewPostedEvent, ShowTranslationExtraInformation,
@@ -36,6 +36,7 @@ pub enum MpApplicationJob {
     PerformBackgroundTasks,
     ReviseUserWorkouts(String),
     UpdateMediaDetails(EntityWithLot),
+    NotifyMetadataUpdated(String, Vec<UserNotificationContent>),
     UpdateMediaTranslations(UpdateMediaTranslationJobInput),
 }
 

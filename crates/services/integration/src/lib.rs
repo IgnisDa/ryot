@@ -1,5 +1,6 @@
 mod data_operations;
 mod event_handlers;
+mod import_errors;
 mod integration_operations;
 mod push;
 mod sink;

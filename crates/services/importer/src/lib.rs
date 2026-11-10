@@ -136,7 +136,7 @@ pub async fn perform_import(
             })
             .await
             {
-                Ok((source_result, details)) => {
+                Ok((source_result, details, _)) => {
                     model.source_result =
                         ActiveValue::Set(Some(serde_json::to_value(&source_result)?));
                     model.details = ActiveValue::Set(Some(details));

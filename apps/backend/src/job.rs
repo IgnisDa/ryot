@@ -11,8 +11,8 @@ use common_utils::ryot_log;
 use dependent_analytics_utils::recalculate_user_activities_and_summary;
 use dependent_collection_utils::{add_entities_to_collection, remove_entities_from_collection};
 use dependent_notification_utils::{
-    update_metadata_and_notify_users, update_metadata_group_and_notify_users,
-    update_person_and_notify_users,
+    notify_metadata_updated, update_metadata_and_notify_users,
+    update_metadata_group_and_notify_users, update_person_and_notify_users,
 };
 use enum_models::EntityLot;
 use exporter_service::export_operations::perform_export;
@@ -95,6 +95,9 @@ pub async fn perform_mp_application_job(
     let name = information.to_string();
     ryot_log!(trace, "Started job {:?}", information);
     let status = match information {
+        MpApplicationJob::NotifyMetadataUpdated(id, notifications) => {
+            notify_metadata_updated(&id, &notifications, &ss).await
+        }
         MpApplicationJob::SyncIntegrationsData => sync_integrations_data(&ss).await,
         MpApplicationJob::UpdateGithubExercises => update_github_exercises(&ss).await,
         MpApplicationJob::PerformBackgroundTasks => perform_background_jobs(&ss).await,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::{Result, bail};
 use common_models::StringIdObject;
 use database_models::prelude::{Review, Seen};
-use dependent_progress_utils::metadata_progress_update;
+use dependent_progress_utils::{invalidate_seen_progress_cache, metadata_progress_update};
 use dependent_seen_utils::handle_after_metadata_seen_tasks;
 use dependent_utility_utils::associate_user_with_entity;
 use enum_models::EntityLot;
@@ -27,6 +27,7 @@ pub async fn update_seen_item(
     if &seen.user_id != user_id {
         bail!("No seen found for this user and metadata");
     }
+    let previous_seen = seen.clone();
     let mut seen = seen.into_active_model();
     if let Some(started_on) = input.started_on {
         seen.started_on = ActiveValue::Set(Some(started_on));
@@ -81,6 +82,13 @@ pub async fn update_seen_item(
         seen.review_id = ActiveValue::Set(to_update_review_id);
     }
     let seen = seen.update(&ss.db).await?;
+    if previous_seen.show_extra_information != seen.show_extra_information
+        || previous_seen.anime_extra_information != seen.anime_extra_information
+        || previous_seen.manga_extra_information != seen.manga_extra_information
+        || previous_seen.podcast_extra_information != seen.podcast_extra_information
+    {
+        invalidate_seen_progress_cache(ss, &previous_seen).await?;
+    }
     handle_after_metadata_seen_tasks(seen, ss).await?;
     Ok(true)
 }
@@ -100,7 +108,8 @@ pub async fn delete_seen_item(
     }
     let seen_id = si.id.clone();
     let metadata_id = si.metadata_id.clone();
-    si.delete(&ss.db).await.trace_ok();
+    invalidate_seen_progress_cache(ss, &si).await?;
+    si.delete(&ss.db).await?;
     try_join!(
         handle_after_metadata_seen_tasks(cloned_seen, ss),
         associate_user_with_entity(user_id, &metadata_id, EntityLot::Metadata, ss)
