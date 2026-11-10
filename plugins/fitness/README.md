@@ -212,8 +212,8 @@ one is required. An unchanged timestamp retains seconds. Forms retain input on v
 or a refused submission and close once the kernel accepts the write. Live readings save independently and survive workout discard;
 historical/template editors do not offer logging.
 
-Measurement and workout-time forms use the device's named timezone. Nonexistent local times are
-rejected. Repeated times show both UTC offsets; edits within the original local date preserve its
+Measurement and workout-time forms use the UI SDK `DateTimeField` and `useDateTimeInput` in the
+device's named timezone. Nonexistent local times are rejected. Repeated times show both UTC offsets; edits within the original local date preserve its
 offset when valid, while other ambiguous times require an occurrence choice. An explicit choice
 overrides the original offset.
 

@@ -34,6 +34,7 @@ type StepperProps = {
 	readonly invalid?: boolean | undefined;
 	readonly className?: string | undefined;
 	readonly disabled?: boolean | undefined;
+	readonly inputMode?: "numeric" | "decimal";
 	readonly format?: (value: number) => string;
 	readonly "aria-describedby"?: string | undefined;
 	readonly parse?: (text: string) => number | undefined;
@@ -52,6 +53,7 @@ export function Stepper({
 	className,
 	incrementIcon,
 	decrementIcon,
+	inputMode = "numeric",
 	parse = plainFormat.parse,
 	format = plainFormat.format,
 	"aria-describedby": describedBy,
@@ -86,7 +88,7 @@ export function Stepper({
 				id={id}
 				aria-label={label}
 				disabled={disabled}
-				inputMode="numeric"
+				inputMode={inputMode}
 				onKeyDown={onKeyDown}
 				aria-invalid={invalid}
 				onBlur={() => setDraft(null)}

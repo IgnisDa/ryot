@@ -9,12 +9,15 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
+	DateTimeField,
 	Dialog,
 	Field,
 	Notice,
 	SegmentedControl,
 	TextField,
+	useDateTimeInput,
 } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useEffect, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
@@ -32,8 +35,6 @@ import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
 } from "../../shared/workout-time-operations";
-import { DateTimeField } from "../datetime-field";
-import { useDateTimeInput } from "../use-datetime-input";
 
 type Correction = Omit<
 	typeof WorkoutTimeCorrectionInputSchema.Type,
@@ -193,8 +194,20 @@ function TimeForm(props: {
 					className="grid min-w-0 gap-4 border-0 p-0"
 					disabled={save.isPending || save.status === "retained"}
 				>
-					<DateTimeField {...start} label="Start time" showError={submitted} />
-					<DateTimeField {...end} label="End time" showError={submitted && end.value !== ""} />
+					<DateTimeField
+						{...start}
+						label="Start time"
+						showError={submitted}
+						checkIcon={<AppIcon size={14} name="check" />}
+						chevronIcon={<AppIcon size={14} name="chevron-down" />}
+					/>
+					<DateTimeField
+						{...end}
+						label="End time"
+						showError={submitted && end.value !== ""}
+						checkIcon={<AppIcon size={14} name="check" />}
+						chevronIcon={<AppIcon size={14} name="chevron-down" />}
+					/>
 					<div className="grid gap-1.5">
 						<span className="text-[13px] font-medium">Active duration</span>
 						<SegmentedControl

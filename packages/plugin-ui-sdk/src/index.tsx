@@ -47,6 +47,7 @@ export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
 export type { MetricUnit, MetricDelta } from "./metric-format";
 export { groupColors, groupColorVariable } from "./group-colors";
+export { DateTimeField, useDateTimeInput } from "./datetime-field";
 export { RatingInput, RatingValue, useRatingDraft } from "./rating";
 export { QueryStatus, type QueryStatusProps } from "./query-status";
 export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
@@ -56,6 +57,7 @@ export { useShortcut, OverlayScope, OverlayBackProvider } from "./shortcut";
 export type { HotkeyChord, RegisterableHotkey } from "@tanstack/react-hotkeys";
 export { SelectionBar, SelectableItem, type ItemSelection } from "./selection";
 export type { ActivityTone, ActivityAction, ActivityTrayEntry } from "./activity-tray";
+export { DurationField, durationDraft, parseDuration, type DurationDraft } from "./duration-field";
 export { Field, Radio, Checkbox, TextArea, CellInput, TextField, FieldMessage } from "./text-field";
 export {
 	useFocusTrap,

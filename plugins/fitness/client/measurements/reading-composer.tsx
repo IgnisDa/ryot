@@ -1,6 +1,7 @@
 import {
 	ActionForm,
 	Button,
+	DateTimeField,
 	Dialog,
 	Field,
 	FieldMessage,
@@ -8,13 +9,12 @@ import {
 	StatusMessage,
 	TextArea,
 	TextField,
+	useDateTimeInput,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type RefObject, useRef, useState } from "react";
 
 import type { MeasurementEntry } from "../../shared/measurement-reading-operations";
-import { DateTimeField } from "../datetime-field";
-import { useDateTimeInput } from "../use-datetime-input";
 import { unitSuffix } from "./model";
 
 type ComposerMetric = { readonly id: string; readonly name: string; readonly unit: null | string };
@@ -115,7 +115,9 @@ export function MeasurementDialog(props: {
 						label="Date and time"
 						showError={submitted}
 						inputRef={occurredAtRef}
+						checkIcon={<AppIcon size={14} name="check" />}
 						onChange={(value) => timestamp.onChange(value)}
+						chevronIcon={<AppIcon size={14} name="chevron-down" />}
 						onOccurrenceChange={(value) => timestamp.onOccurrenceChange(value)}
 					/>
 					<ul aria-label="Values" className="flex flex-col gap-3">
