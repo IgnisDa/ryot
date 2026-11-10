@@ -53,6 +53,7 @@ export { DestructiveConfirmation } from "./destructive-confirmation";
 export { revealOffset, useFocusedFieldVisibility } from "./focused-field";
 export { useShortcut, OverlayScope, OverlayBackProvider } from "./shortcut";
 export type { HotkeyChord, RegisterableHotkey } from "@tanstack/react-hotkeys";
+export { SelectionBar, SelectableItem, type ItemSelection } from "./selection";
 export type { ActivityTone, ActivityAction, ActivityTrayEntry } from "./activity-tray";
 export { Field, Radio, Checkbox, TextArea, CellInput, TextField, FieldMessage } from "./text-field";
 export {
