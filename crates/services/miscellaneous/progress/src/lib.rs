@@ -21,7 +21,6 @@ pub async fn update_seen_item(
     user_id: &String,
     input: UpdateSeenItemInput,
 ) -> Result<bool> {
-    let _guard = ss.progress_update_lock.lock().await;
     let Some(seen) = Seen::find_by_id(input.seen_id).one(&ss.db).await? else {
         bail!("No seen found for this user and metadata");
     };
@@ -99,7 +98,6 @@ pub async fn delete_seen_item(
     user_id: &String,
     seen_id: String,
 ) -> Result<StringIdObject> {
-    let _guard = ss.progress_update_lock.lock().await;
     let seen_item = Seen::find_by_id(seen_id).one(&ss.db).await?;
     let Some(si) = seen_item else {
         bail!("This seen item does not exist");

@@ -55,7 +55,6 @@ pub async fn commit_import_seen_item(
     ss: &Arc<SupportingService>,
     input: ImportOrExportMetadataItemSeen,
 ) -> Result<()> {
-    let _guard = ss.progress_update_lock.lock().await;
     let common = MetadataProgressUpdateCommonInput {
         manual_time_spent: input.manual_time_spent,
         show_season_number: input.show_season_number,

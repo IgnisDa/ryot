@@ -22,12 +22,10 @@ pub struct SupportingService {
     pub log_file_path: PathBuf,
     pub timezone: chrono_tz::Tz,
     pub server_start_time: DateTimeUtc,
-    pub progress_update_lock: futures::lock::Mutex<()>,
 
     lp_application_job: JobStorage<LpApplicationJob>,
     hp_application_job: JobStorage<HpApplicationJob>,
     mp_application_job: JobStorage<MpApplicationJob>,
-    webhook_application_job: JobStorage<SingleApplicationJob>,
     single_application_job: JobStorage<SingleApplicationJob>,
 }
 
@@ -42,7 +40,6 @@ impl SupportingService {
         lp_application_job: JobStorage<LpApplicationJob>,
         mp_application_job: JobStorage<MpApplicationJob>,
         hp_application_job: JobStorage<HpApplicationJob>,
-        webhook_application_job: JobStorage<SingleApplicationJob>,
         single_application_job: JobStorage<SingleApplicationJob>,
     ) -> Self {
         Self {
@@ -54,8 +51,6 @@ impl SupportingService {
             mp_application_job,
             hp_application_job,
             single_application_job,
-            webhook_application_job,
-            progress_update_lock: futures::lock::Mutex::new(()),
             server_start_time: Utc::now(),
         }
     }
@@ -65,12 +60,6 @@ impl SupportingService {
             ApplicationJob::Lp(job) => self.lp_application_job.clone().send(Task::new(job)).await?,
             ApplicationJob::Hp(job) => self.hp_application_job.clone().send(Task::new(job)).await?,
             ApplicationJob::Mp(job) => self.mp_application_job.clone().send(Task::new(job)).await?,
-            ApplicationJob::Single(job @ SingleApplicationJob::ProcessIntegrationWebhook(..)) => {
-                self.webhook_application_job
-                    .clone()
-                    .send(Task::new(job))
-                    .await?
-            }
             ApplicationJob::Single(job) => {
                 self.single_application_job
                     .clone()

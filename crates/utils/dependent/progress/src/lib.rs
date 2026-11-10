@@ -150,7 +150,6 @@ pub async fn metadata_progress_update(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateInput,
 ) -> Result<()> {
-    let _guard = ss.progress_update_lock.lock().await;
     metadata_progress_update_inner(user_id, ss, input, None).await
 }
 

@@ -70,7 +70,6 @@ pub async fn create_app_dependencies(
     lp_application_job: JobStorage<LpApplicationJob>,
     mp_application_job: JobStorage<MpApplicationJob>,
     hp_application_job: JobStorage<HpApplicationJob>,
-    webhook_application_job: JobStorage<SingleApplicationJob>,
     single_application_job: JobStorage<SingleApplicationJob>,
 ) -> (Router, Arc<SupportingService>) {
     let supporting_service = Arc::new(
@@ -83,7 +82,6 @@ pub async fn create_app_dependencies(
             .mp_application_job(mp_application_job)
             .hp_application_job(hp_application_job)
             .single_application_job(single_application_job)
-            .webhook_application_job(webhook_application_job)
             .build()
             .await,
     );

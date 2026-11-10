@@ -117,7 +117,6 @@ async fn main() -> Result<()> {
     let (lp_application_job_storage, lp_application_job_sink) = make_job_storage();
     let (mp_application_job_storage, mp_application_job_sink) = make_job_storage();
     let (hp_application_job_storage, hp_application_job_sink) = make_job_storage();
-    let (webhook_application_job_storage, webhook_application_job_sink) = make_job_storage();
     let (single_application_job_storage, single_application_job_sink) = make_job_storage();
 
     let (app_router, supporting_service) = create_app_dependencies()
@@ -129,7 +128,6 @@ async fn main() -> Result<()> {
         .mp_application_job(mp_application_job_sink)
         .hp_application_job(hp_application_job_sink)
         .single_application_job(single_application_job_sink)
-        .webhook_application_job(webhook_application_job_sink)
         .call()
         .await;
 
@@ -174,7 +172,6 @@ async fn main() -> Result<()> {
         let ss4 = supporting_service.clone();
         let ss5 = supporting_service.clone();
         let ss6 = supporting_service.clone();
-        let ss7 = supporting_service.clone();
 
         Monitor::new()
             .register(move |_runs| {
@@ -212,21 +209,6 @@ async fn main() -> Result<()> {
                     .enable_tracing()
                     .concurrency(1)
                     .data(ss3.clone())
-                    .build(perform_single_application_job)
-            })
-            .register(move |_runs| {
-                WorkerBuilder::new("perform_webhook_application_job")
-                    .backend(
-                        webhook_application_job_storage
-                            .lock()
-                            .unwrap()
-                            .take()
-                            .unwrap(),
-                    )
-                    .catch_panic()
-                    .enable_tracing()
-                    .concurrency(1)
-                    .data(ss7.clone())
                     .build(perform_single_application_job)
             })
             .register(move |_runs| {
