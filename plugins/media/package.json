@@ -6,6 +6,10 @@
 			"types": "./shared/analytics-recipes.ts",
 			"default": "./shared/analytics-recipes.ts"
 		},
+		"./shared/consumed-on-settings": {
+			"types": "./shared/consumed-on-settings.ts",
+			"default": "./shared/consumed-on-settings.ts"
+		},
 		"./shared/consumption-recipes": {
 			"types": "./shared/consumption-recipes.ts",
 			"default": "./shared/consumption-recipes.ts"

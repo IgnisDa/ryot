@@ -500,7 +500,12 @@ it.live("suggests the user's Where you consume list in the Log activity sheet an
 			.getByRole("button", { exact: true, name: "Netflix" })
 			.waitFor({ state: "visible" });
 		expect(yield* dialog.getByRole("button", { exact: true, name: source }).count).toBe(0);
+		yield* dialog.getByRole("button", { exact: true, name: "Cinema" }).click();
 		yield* dialog.getByLabel("Where did you watch it?").fill(source);
+		yield* dialog.getByLabel("Where did you watch it?").press("Enter");
+		yield* dialog
+			.getByRole("button", { exact: true, name: `Remove ${source}` })
+			.waitFor({ state: "visible" });
 		yield* dialog.getByRole("button", { exact: true, name: "Mark as watched" }).click();
 		yield* media
 			.getByRole("dialog", { name: "Rate or review" })

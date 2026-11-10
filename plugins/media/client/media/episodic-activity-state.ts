@@ -1,5 +1,6 @@
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
+import { consumedOnLabel } from "../../shared/consumed-on";
 import type { mediaReviewEventSelection } from "../../shared/media-recipes";
 import { seasonLabel } from "./activity-log/state";
 import {
@@ -31,7 +32,6 @@ import {
 	mergeProgressRuns,
 	type NonEmpty,
 	nonEmpty,
-	optionalText,
 } from "./activity-timeline";
 
 export type MediaEpisodicBeat = "backlog" | "dropped" | "on_hold";
@@ -106,7 +106,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 			...anchorOf(event, "watch"),
 			type: "watch",
 			events: [eventRef(event)],
-			source: optionalText(event.consumedOn),
+			source: consumedOnLabel(event.consumedOn),
 			episodes: [
 				{
 					order,
@@ -202,7 +202,7 @@ export type MediaEpisodicWatchDayRow = {
 	readonly lastWatchedAt: string;
 	readonly runtime: null | number;
 	readonly minutes: null | number;
-	readonly consumedOn: null | string;
+	readonly consumedOn: null | readonly string[];
 };
 
 export type MediaEpisodicSummary = {
@@ -308,7 +308,7 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 		if (watch.lastWatchedAt > day.latest) {
 			day.latest = watch.lastWatchedAt;
 		}
-		day.source ??= optionalText(watch.consumedOn);
+		day.source ??= consumedOnLabel(watch.consumedOn);
 		days.set(watch.day, day);
 	}
 	return [...days.entries()].flatMap(
@@ -360,7 +360,7 @@ const episodeEventRow = (
 		...anchorOf(event, "progress"),
 		type: "progress",
 		events: [eventRef(event)],
-		source: optionalText(event.consumedOn),
+		source: consumedOnLabel(event.consumedOn),
 		percent: event.progressPercent ?? undefined,
 		episode: {
 			order,

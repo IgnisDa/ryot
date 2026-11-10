@@ -85,6 +85,13 @@ const input = (element: HTMLElement, value: string) =>
 		fireEvent.change(element, { target: { value } });
 	});
 
+const addSource = (element: HTMLElement, value: string) => {
+	input(element, value);
+	act(() => {
+		fireEvent.keyDown(element, { key: "Enter" });
+	});
+};
+
 const dialogOf = () => getByRole(document.body, "dialog", { name: "Log activity" });
 
 const eventually = (check: () => void) => Effect.promise(() => waitFor(check));
@@ -154,7 +161,7 @@ const mountPageEdit = (progressPages: number, pagesTotal: null | number = null) 
 	const background = createTestBackgroundSubmissions();
 	const properties = {
 		progressPages,
-		consumedOn: "Kindle",
+		consumedOn: ["Kindle"],
 		calendarDate: "2026-10-10",
 		sourceRun: "import:original",
 		consumptionBasis: { unit: "pages", property: "pages" },
@@ -199,7 +206,7 @@ const mountEpisodeEdit = (options: {
 		occurredAt: "2026-10-10T12:00:00.000Z",
 		sessionEntityId: EntityId.make("entity-1"),
 		entityId: EntityId.make(options.episodeId),
-		properties: { consumedOn: "Plex", calendarDate: "2026-10-10" },
+		properties: { consumedOn: ["Plex"], calendarDate: "2026-10-10" },
 	};
 	const view = mountRyotClient(
 		{
@@ -361,12 +368,46 @@ it.live(
 					operation({
 						timeSpent: 130,
 						kind: "complete",
-						consumedOn: "Plex",
+						consumedOn: ["Plex"],
 						entityId: "entity-1",
 						when: { kind: "now" },
 					}),
 				]);
 				yield* closedWith(mounted, "Heat marked as watched.");
+			} finally {
+				mounted.view.unmount();
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"collects several sources from chips and typing, and drops one by tapping its chip again",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountLog({
+				logger: movie,
+				fake: { consumedOn: ["Plex", "Netflix", "Hulu"] },
+			});
+			try {
+				const dialog = yield* openLog(mounted);
+				press(dialog, "Plex");
+				press(dialog, "Netflix");
+				press(dialog, "Plex");
+				press(dialog, "Hulu");
+				addSource(getByLabelText(dialog, /Where did you watch it/), "plex");
+				addSource(getByLabelText(dialog, /Where did you watch it/), "Criterion");
+				expect(getByRole(dialog, "button", { name: "Remove Criterion" })).toBeDefined();
+				press(dialog, "Mark as watched");
+				yield* submitted(mounted);
+				expect(mounted.requests).toEqual<unknown>([
+					operation({
+						kind: "complete",
+						entityId: "entity-1",
+						when: { kind: "now" },
+						consumedOn: ["Netflix", "Hulu", "plex", "Criterion"],
+					}),
+				]);
 			} finally {
 				mounted.view.unmount();
 			}
@@ -746,9 +787,9 @@ it.live(
 					operation({
 						kind: "progress",
 						progressPages: 120,
-						consumedOn: "Kindle",
 						entityId: "entity-1",
 						when: { kind: "now" },
+						consumedOn: ["Kindle"],
 					}),
 				]);
 			} finally {
@@ -773,7 +814,7 @@ it.live(
 				expect(getByText(dialog, "pages")).toBeDefined();
 				expect(queryByText(dialog, "%")).toBeNull();
 				input(getByLabelText(dialog, "Finished"), "2026-10-11");
-				input(getByLabelText(dialog, /Where did you read it/), "Libby");
+				addSource(getByLabelText(dialog, /Where did you read it/), "Libby");
 				press(dialog, "Save changes");
 				yield* eventually(() => expect(mounted.background.requests).toHaveLength(1));
 				const request = mounted.background.requests[0];
@@ -784,7 +825,7 @@ it.live(
 						input: objectContaining({
 							eventId: "event-1",
 							patch: objectContaining({
-								consumedOn: "Libby",
+								consumedOn: ["Kindle", "Libby"],
 								when: objectContaining({
 									kind: "date",
 									calendarDate: "2026-10-11",
@@ -802,7 +843,7 @@ it.live(
 					}),
 				);
 				expect(request?.input).toHaveProperty("patch", {
-					consumedOn: "Libby",
+					consumedOn: ["Kindle", "Libby"],
 					when: {
 						kind: "date",
 						calendarDate: "2026-10-11",
@@ -857,7 +898,7 @@ it.live(
 				expect(getByRole(dialog, "button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 					true,
 				);
-				input(getByLabelText(dialog, /Where did you read it/), "Libby");
+				addSource(getByLabelText(dialog, /Where did you read it/), "Libby");
 				expect(getByRole(dialog, "button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
 					false,
 				);
@@ -943,7 +984,7 @@ it.live(
 						kind: "progress",
 						entityId: "entity-1",
 						when: { kind: "now" },
-						consumedOn: "Crunchyroll",
+						consumedOn: ["Crunchyroll"],
 						position: { position: 14, unit: "episodes" },
 					}),
 				]);
@@ -1176,7 +1217,7 @@ it.live(
 				clickRyotElement(radio(dialog, "Pick date"));
 				input(getByLabelText(dialog, "Watched on"), "2026-10-18");
 				const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
-				input(source, "Living room");
+				addSource(source, "Living room");
 				act(() => source.focus());
 				const form = getByRole(dialog, "form", { name: "Log activity" });
 				act(() => {
@@ -1198,7 +1239,7 @@ it.live(
 					expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
 					expect(document.activeElement).toBe(source);
 					expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
-					expect(source.getAttribute("value")).toBe("Living room");
+					expect(getByText(dialog, "Living room")).toBeDefined();
 					expect(radio(dialog, "S2·E6").getAttribute("aria-checked")).toBe("true");
 					expect(
 						queryByRole(dialog, "switch", { name: "Also mark 2 earlier unwatched episodes" }),
@@ -1209,8 +1250,8 @@ it.live(
 				expect(mounted.requests).toEqual<unknown>([
 					operation({
 						kind: "episodes",
-						consumedOn: "Living room",
 						parentEntityId: "entity-1",
+						consumedOn: ["Living room"],
 						episodeEntityIds: ["s2e5", "s2e6"],
 						when: {
 							kind: "date",
@@ -1255,7 +1296,7 @@ it.live(
 				);
 				clickRyotElement(radio(dialog, "Pick date"));
 				input(getByLabelText(dialog, "Watched on"), "2026-10-18");
-				input(getByRole(dialog, "textbox", { name: /Where did you watch it/ }), "Living room");
+				addSource(getByRole(dialog, "textbox", { name: /Where did you watch it/ }), "Living room");
 				const form = getByRole(dialog, "form", { name: "Log activity" });
 				clickRyotElement(radio(dialog, "Status"));
 				expect(dialogOf()).toBe(dialog);
@@ -1269,9 +1310,7 @@ it.live(
 				expect(attempts).toBe(1);
 				expect(dialogOf()).toBe(dialog);
 				expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
-				expect(
-					getByRole(dialog, "textbox", { name: /Where did you watch it/ }).getAttribute("value"),
-				).toBe("Living room");
+				expect(getByText(dialog, "Living room")).toBeDefined();
 				expect(getByLabelText(dialog, "Watched on").getAttribute("value")).toBe("2026-10-18");
 			} finally {
 				mounted.view.unmount();
@@ -1311,7 +1350,7 @@ it.live(
 				clickRyotElement(radio(dialog, "Pick date"));
 				input(getByLabelText(dialog, "Watched on"), "2026-10-18");
 				const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
-				input(source, "Living room");
+				addSource(source, "Living room");
 				const form = getByRole(dialog, "form", { name: "Log activity" });
 				act(() => source.focus());
 				expect(
@@ -1354,9 +1393,9 @@ it.live(
 				expect(mounted.requests).toEqual<unknown>([
 					operation({
 						kind: "episodes",
-						consumedOn: "Living room",
 						parentEntityId: "entity-1",
 						episodeEntityIds: ["s2e5"],
+						consumedOn: ["Living room"],
 						when: {
 							kind: "date",
 							calendarDate: "2026-10-18",
@@ -1399,7 +1438,7 @@ it.live(
 				clickRyotElement(radio(dialog, "S2·E1 · Watched"));
 				expect(getByText(dialog, /logged as a rewatch/)).toBeDefined();
 				const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
-				input(source, "Living room");
+				addSource(source, "Living room");
 				const form = getByRole(dialog, "form", { name: "Log activity" });
 				press(dialog, "Season: Season 2");
 				clickRyotElement(radio(document.body, "Specials"));
@@ -1407,7 +1446,7 @@ it.live(
 				expect(dialogOf()).toBe(dialog);
 				expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
 				expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
-				expect(source.getAttribute("value")).toBe("Living room");
+				expect(getByText(dialog, "Living room")).toBeDefined();
 				expect(queryByRole(dialog, "switch")).toBeNull();
 				press(dialog, "Mark S0·E1 watched");
 				yield* submitted(mounted);
@@ -1415,9 +1454,9 @@ it.live(
 					operation({
 						kind: "episodes",
 						when: { kind: "now" },
-						consumedOn: "Living room",
 						parentEntityId: "entity-1",
 						episodeEntityIds: ["s0e1"],
+						consumedOn: ["Living room"],
 					}),
 				]);
 			} finally {
@@ -1476,7 +1515,7 @@ it.live(
 				expect(queryByRole(dialog, "radio", { name: "S2·E101" })).toBeNull();
 				clickRyotElement(radio(dialog, "S2·E4"));
 				const source = getByRole(dialog, "textbox", { name: /Where did you watch it/ });
-				input(source, "Living room");
+				addSource(source, "Living room");
 				act(() => source.focus());
 				const form = getByRole(dialog, "form", { name: "Log activity" });
 				press(dialog, "Load more");
@@ -1486,7 +1525,7 @@ it.live(
 				expect(getByRole(dialog, "form", { name: "Log activity" })).toBe(form);
 				expect(getByRole(dialog, "textbox", { name: /Where did you watch it/ })).toBe(source);
 				expect(document.activeElement).toBe(source);
-				expect(source.getAttribute("value")).toBe("Living room");
+				expect(getByText(dialog, "Living room")).toBeDefined();
 				expect(queryByRole(dialog, "button", { name: "Load more" })).toBeNull();
 				press(dialog, "Mark S2·E4 watched");
 				yield* submitted(mounted);
@@ -1494,9 +1533,9 @@ it.live(
 					operation({
 						kind: "episodes",
 						when: { kind: "now" },
-						consumedOn: "Living room",
 						parentEntityId: "entity-1",
 						episodeEntityIds: ["s2e4"],
+						consumedOn: ["Living room"],
 					}),
 				]);
 			} finally {

@@ -102,8 +102,8 @@ export const episodicEpisodeReviewEventRow = {
 
 export const episodicProgressRow = {
 	episodeNumber: 3,
-	consumedOn: "Plex",
 	progressPercent: 40,
+	consumedOn: ["Plex"],
 	episodeRuntime: null,
 	episodeId: "episode-3",
 	id: "episode-3-progress",
@@ -127,7 +127,7 @@ export const episodicFirstWatchDayRow = {
 	runtime: 55,
 	episodeNumber: 1,
 	episodeId: "episode-1",
-	consumedOn: "Jellyfin",
+	consumedOn: ["Jellyfin"],
 	day: "2025-11-04T00:00:00.000Z",
 	episodeName: "Episode 1: The Arrest",
 	lastWatchedAt: "2025-11-04T21:00:00.000Z",
@@ -139,7 +139,7 @@ export const episodicSecondWatchDayRow = {
 	minutes: null,
 	episodeNumber: 2,
 	episodeId: "episode-2",
-	consumedOn: "Jellyfin",
+	consumedOn: ["Jellyfin"],
 	day: "2025-11-05T00:00:00.000Z",
 	episodeName: "Episode 2: The Interview",
 	lastWatchedAt: "2025-11-05T21:00:00.000Z",
@@ -154,7 +154,7 @@ export const episodicSameDayWatchRow = {
 export const episodicRewatchWatchDayRow = {
 	...episodicFirstWatchDayRow,
 	minutes: null,
-	consumedOn: "Netflix",
+	consumedOn: ["Netflix"],
 	day: "2026-03-01T00:00:00.000Z",
 	lastWatchedAt: "2026-03-01T21:00:00.000Z",
 };

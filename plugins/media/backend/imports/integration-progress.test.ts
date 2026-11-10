@@ -20,7 +20,7 @@ import type { MediaImportWriteChunkInput } from "./schemas";
 import { manifest } from "./write-chunks.sandbox";
 
 const input = (
-	properties: Readonly<Record<string, JsonValue>> = { consumedOn: "Plex", progressPercent: 50 },
+	properties: Readonly<Record<string, JsonValue>> = { progressPercent: 50, consumedOn: ["Plex"] },
 	event: Partial<MediaImportWriteChunkInput["entityGroups"][number]["events"][number]> = {},
 	entity: { providerSlug: string; entitySchemaSlug: string } = {
 		entitySchemaSlug: "movie",
@@ -129,14 +129,14 @@ it.live(
 		Effect.gen(function* () {
 			const { host } = createHost({ maximum: 95 });
 			const normalized = yield* admitIntegrationProgress(
-				input({ consumedOn: "Plex", progressPercent: 97 }),
+				input({ progressPercent: 97, consumedOn: ["Plex"] }),
 				host,
 			);
 			expect(normalized.entityGroups[0]?.events[0]).toEqual({
 				operationId: "event-1",
 				eventSchemaSlug: "progress",
 				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { consumedOn: "Plex", progressPercent: 100 },
+				properties: { consumedOn: ["Plex"], progressPercent: 100 },
 			});
 			yield* Effect.forEach(
 				[95, "35.555", 35.555],
@@ -160,22 +160,22 @@ it.live(
 				events: [
 					eventRecord({
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						properties: { consumedOn: "Plex", progressPercent: 35 },
+						properties: { progressPercent: 35, consumedOn: ["Plex"] },
 					}),
 					eventRecord({
 						occurredAt: "2026-01-02T00:00:00.000Z",
-						properties: { consumedOn: "Other", progressPercent: 50 },
+						properties: { progressPercent: 50, consumedOn: ["Other"] },
 					}),
 				],
 			});
 			const duplicate = yield* admitIntegrationProgress(
-				input({ consumedOn: "Plex", progressPercent: "35" }),
+				input({ consumedOn: ["Plex"], progressPercent: "35" }),
 				host,
 			);
 			expect(duplicate.entityGroups[0]?.events).toEqual([]);
 			const distinctProperties: Readonly<Record<string, JsonValue>>[] = [
-				{ consumedOn: "Other", progressPercent: 35 },
-				{ consumedOn: "Plex", progressPercent: 36 },
+				{ progressPercent: 35, consumedOn: ["Other"] },
+				{ progressPercent: 36, consumedOn: ["Plex"] },
 			];
 			yield* Effect.forEach(
 				distinctProperties,
@@ -207,12 +207,12 @@ it.live(
 				events: [
 					eventRecord({
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						properties: { consumedOn: "Komga", position: { position: 10, unit: "chapters" } },
+						properties: { consumedOn: ["Komga"], position: { position: 10, unit: "chapters" } },
 					}),
 				],
 			});
 			const advanced = input(
-				{ consumedOn: "Komga", position: { position: 11, unit: "chapters" } },
+				{ consumedOn: ["Komga"], position: { position: 11, unit: "chapters" } },
 				{},
 				manga,
 			);
@@ -228,7 +228,7 @@ it.live(
 				events: [
 					eventRecord({
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						properties: { consumedOn: "Komga", position: { position: 11, unit: "chapters" } },
+						properties: { consumedOn: ["Komga"], position: { position: 11, unit: "chapters" } },
 					}),
 				],
 			});
@@ -245,11 +245,11 @@ it.live(
 		Effect.gen(function* () {
 			const { host, logs } = createHost();
 			const empty = yield* admitIntegrationProgress(
-				input({ consumedOn: "Komga" }, {}, manga),
+				input({ consumedOn: ["Komga"] }, {}, manga),
 				host,
 			);
 			const wrongSchema = yield* admitIntegrationProgress(
-				input({ consumedOn: "Komga", position: { position: 3, unit: "chapters" } }),
+				input({ consumedOn: ["Komga"], position: { position: 3, unit: "chapters" } }),
 				host,
 			);
 			expect(empty.entityGroups[0]?.events).toEqual([]);
@@ -277,17 +277,17 @@ it.live.each([
 				threshold,
 				events: [
 					eventRecord({
-						properties: { consumedOn: "Plex", progressPercent: 100 },
+						properties: { consumedOn: ["Plex"], progressPercent: 100 },
 						occurredAt: DateTime.formatIso(DateTime.subtract(now, { minutes })),
 					}),
 					eventRecord({
-						properties: { consumedOn: "Plex", progressPercent: 50 },
+						properties: { progressPercent: 50, consumedOn: ["Plex"] },
 						occurredAt: DateTime.formatIso(DateTime.subtract(now, { minutes: 1 })),
 					}),
 				],
 			});
 			const result = yield* admitIntegrationProgress(
-				input({ consumedOn: "Plex", progressPercent: 100 }),
+				input({ consumedOn: ["Plex"], progressPercent: 100 }),
 				host,
 			);
 			expect(result.entityGroups[0]?.events).toHaveLength(suppressed ? 0 : 1);
@@ -301,7 +301,7 @@ it.live(
 		Effect.gen(function* () {
 			const { host, logs, queries } = createHost();
 			const episode = input(
-				{ consumedOn: "Plex", progressPercent: 100 },
+				{ consumedOn: ["Plex"], progressPercent: 100 },
 				{ subjectEntityId: "episode-1", subjectEntitySchemaSlug: "show-episode" },
 			);
 			yield* Effect.forEach(

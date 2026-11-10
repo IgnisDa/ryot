@@ -81,7 +81,7 @@ describe("Webhook routes", () => {
 				eventSchemaSlug: "progress",
 			});
 			expect(events.map(({ properties }) => properties)).toMatchObject([
-				{ consumedOn: "Emby", progressPercent: 50 },
+				{ progressPercent: 50, consumedOn: ["Emby"] },
 			]);
 		}),
 	);
@@ -183,7 +183,7 @@ describe("Webhook routes", () => {
 				eventSchemaSlug: "progress",
 			});
 			expect(progress).toHaveLength(1);
-			expect(progress[0]?.properties).toMatchObject({ consumedOn: "Plex", progressPercent: 100 });
+			expect(progress[0]?.properties).toMatchObject({ consumedOn: ["Plex"], progressPercent: 100 });
 			expect(completion.occurredAt).toBe<unknown>(progress[0]?.occurredAt);
 		}),
 	);
@@ -218,7 +218,7 @@ describe("Webhook routes", () => {
 			expect(progress).toHaveLength(1);
 			expect(progress[0]?.properties).toMatchObject({
 				progressPercent: 100,
-				consumedOn: "Jellyfin",
+				consumedOn: ["Jellyfin"],
 			});
 			expect(completion.occurredAt).toBe<unknown>(progress[0]?.occurredAt);
 		}),

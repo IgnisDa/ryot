@@ -1,9 +1,13 @@
 import {
+	CONSUMED_ON_ITEM_LIMIT,
+	CONSUMED_ON_SOURCES_LIMIT,
+} from "@ryot-app/media-plugin/shared/consumed-on-settings";
+import {
 	consumptionBasisRules,
 	defaultConsumptionBasisRule,
 } from "@ryot-app/media-plugin/shared/consumption";
 
-import { buildAbortOnRowsSql, quoteSqlString } from "./shared";
+import { buildAbortOnRowsSql, buildReportDetailSql, quoteSqlString } from "./shared";
 
 type ConsumptionBasisRule = typeof defaultConsumptionBasisRule;
 
@@ -60,8 +64,10 @@ export const buildSeenConsumptionFactsSql = (mediaPluginId: string) => `
 		s.started_on,
 		s.finished_on,
 		s.updated_at[array_length(s.updated_at, 1)] AS ordering_time,
-		COALESCE(NULLIF(s.providers_consumed_on[array_length(s.updated_at, 1)], ''),
-			NULLIF(s.providers_consumed_on[1], '')) AS consumed_on,
+		sources.consumed_on,
+		s.providers_consumed_on AS legacy_consumed_on,
+		(SELECT count(DISTINCT lower(btrim(value))) FROM unnest(s.providers_consumed_on) AS value
+			WHERE btrim(value) <> '') - COALESCE(jsonb_array_length(sources.consumed_on), 0) AS consumed_on_dropped,
 		CASE e.entity_schema_slug
 			WHEN 'anime' THEN s.anime_extra_information ->> 'episode'
 			WHEN 'manga' THEN NULLIF(s.manga_extra_information ->> 'chapter', '')
@@ -93,6 +99,22 @@ export const buildSeenConsumptionFactsSql = (mediaPluginId: string) => `
 	FROM "seen" s
 	INNER JOIN "metadata" m ON m.id = s.metadata_id
 	INNER JOIN "entity" e ON e.id = s.metadata_id
+	LEFT JOIN LATERAL (
+		SELECT jsonb_agg(kept.value ORDER BY kept.position) AS consumed_on
+		FROM (
+			SELECT unique_values.value, unique_values.position FROM (
+				SELECT DISTINCT ON (lower(trimmed.value)) trimmed.value, trimmed.position
+				FROM (
+					SELECT btrim(entry.value) AS value, entry.position
+					FROM unnest(s.providers_consumed_on) WITH ORDINALITY AS entry(value, position)
+				) trimmed
+				WHERE trimmed.value <> '' AND char_length(trimmed.value) <= ${CONSUMED_ON_ITEM_LIMIT}
+				ORDER BY lower(trimmed.value), trimmed.position
+			) unique_values
+			ORDER BY unique_values.position
+			LIMIT ${CONSUMED_ON_SOURCES_LIMIT}
+		) kept
+	) sources ON true
 	LEFT JOIN _legacy_show_episode_resolution show_episode
 		ON e.entity_schema_slug = 'show'
 		AND show_episode.parent_entity_id = s.metadata_id
@@ -198,3 +220,20 @@ export const seenConsumptionPropertiesSql = (
 		'percent', ${alias}.progress
 	) END
 )))`;
+
+export const buildConsumedOnDroppedDetailSql = (facts: string, entity: string) =>
+	buildReportDetailSql({
+		key: `${facts}.seen_id`,
+		label: `${entity}.name`,
+		sentence: `format(
+			'%s of the %s distinct sources were not kept: only the first ${CONSUMED_ON_SOURCES_LIMIT} sources of at most ${CONSUMED_ON_ITEM_LIMIT} characters carry over.',
+			${facts}.consumed_on_dropped, ${facts}.consumed_on_dropped + COALESCE(jsonb_array_length(${facts}.consumed_on), 0))`,
+		provenance: [
+			["Title", `${entity}.name`],
+			["Entity", `${facts}.metadata_id`],
+			["Legacy row", `${facts}.seen_id`],
+			["User", `${facts}.user_id`],
+			["Stored sources", `array_to_string(${facts}.legacy_consumed_on, ' | ')`],
+			["Kept sources", `COALESCE(${facts}.consumed_on::text, '[]')`],
+		],
+	});

@@ -1,10 +1,16 @@
 import {
+	CONSUMED_ON_ITEM_LIMIT,
+	CONSUMED_ON_SOURCES_LIMIT,
+} from "@ryot-app/media-plugin/shared/consumed-on-settings";
+
+import {
 	buildEpisodeAbsentDetailSql,
 	buildEpisodeAmbiguousDetailSql,
 	buildEpisodeMalformedDetailSql,
 	buildEpisodeResolutionFallbackSql,
 } from "./episode-resolution-sql";
 import {
+	buildConsumedOnDroppedDetailSql,
 	buildSeenConsumptionFactsSql,
 	consumptionBasisSql,
 	seenConsumptionPropertiesSql,
@@ -33,6 +39,7 @@ DECLARE
 	unresolved_ambiguous_rows int := 0;
 	unresolved_malformed_rows int := 0;
 	report_seq int;
+	dropped_consumed_on_rows int;
 	invalid_source_rows int;
 	invalid_source_sample text;
 	batch_count int;
@@ -293,6 +300,15 @@ BEGIN
 		source: "_seen_unresolved_positions u WHERE u.cause = 'malformed'",
 		message:
 			"Some show and podcast watch history was not carried over because the legacy row did not record a usable episode number. Each skipped watch is listed below with the value that was actually stored.",
+	})}
+	${buildAnomalyReportSql({
+		phase: seenReportPhase,
+		seqVariable: "report_seq",
+		code: "seen-consumed-on-dropped",
+		countVariable: "dropped_consumed_on_rows",
+		detail: buildConsumedOnDroppedDetailSql("f", "e"),
+		source: `_legacy_seen_consumption f INNER JOIN "entity" e ON e.id = f.metadata_id WHERE f.consumed_on_dropped > 0`,
+		message: `Some watch history lost part of its list of where it was consumed because the list held more than ${CONSUMED_ON_SOURCES_LIMIT} distinct sources or sources longer than ${CONSUMED_ON_ITEM_LIMIT} characters. Each affected record is listed below with the values that were stored and kept.`,
 	})}
 
 	${buildReportSql(seenReportPhase, [

@@ -132,8 +132,8 @@ describe("Media activity log operation", () => {
 					entry: {
 						timeSpent: 95,
 						kind: "complete",
-						consumedOn: "Cinema",
 						when: { kind: "now" },
+						consumedOn: ["Cinema"],
 						entityId: now.entityId,
 					},
 				}),
@@ -146,7 +146,7 @@ describe("Media activity log operation", () => {
 			expect(isoOf(nowEvent.occurredAt)).toBe(submittedAt);
 			expect(nowEvent.properties).toEqual({
 				timeSpent: 95,
-				consumedOn: "Cinema",
+				consumedOn: ["Cinema"],
 				consumptionBasis: { unit: "minutes", property: "runtime" },
 			});
 
@@ -199,19 +199,19 @@ describe("Media activity log operation", () => {
 				);
 			expect(yield* mediaSettings()).toEqual({});
 
-			const log = (entityId: string, consumedOn: string) =>
+			const log = (entityId: string, consumedOn: readonly string[]) =>
 				logMediaActivity(client, {
 					submittedAt: nowIso(),
 					submissionId: crypto.randomUUID(),
 					entry: { entityId, consumedOn, kind: "complete", when: { kind: "now" } },
 				});
-			expect(yield* log(movie.entityId, "Criterion Channel")).toEqual({
+			expect(yield* log(movie.entityId, ["Criterion Channel"])).toEqual({
 				count: 1,
 				status: "saved",
 			});
 			const afterFirst = yield* mediaSettings();
 			expect(Object.keys(afterFirst)).toEqual(["consumedOnMovie"]);
-			expect(afterFirst.consumedOnMovie).toEqual([
+			const movieSources = [
 				"Netflix",
 				"Amazon Prime",
 				"Disney+",
@@ -222,13 +222,17 @@ describe("Media activity log operation", () => {
 				"Crunchyroll",
 				"Cinema",
 				"Criterion Channel",
-			]);
+			];
+			expect(afterFirst.consumedOnMovie).toEqual(movieSources);
 
-			yield* log(movie.entityId, "criterion channel");
-			yield* log(movie.entityId, "NETFLIX");
+			yield* log(movie.entityId, ["criterion channel"]);
+			yield* log(movie.entityId, ["NETFLIX"]);
 			expect(yield* mediaSettings()).toEqual(afterFirst);
 
-			yield* log(book.entityId, "Bookshop");
+			yield* log(movie.entityId, ["mubi", "Criterion Channel", "NETFLIX"]);
+			expect((yield* mediaSettings()).consumedOnMovie).toEqual([...movieSources, "mubi"]);
+
+			yield* log(book.entityId, ["Bookshop"]);
 			expect((yield* mediaSettings()).consumedOnBook).toEqual([
 				"Paperback",
 				"Hardcover",
@@ -273,25 +277,28 @@ describe("Media activity log operation", () => {
 				entitySchemaSlug: "movie",
 			});
 			const submittedAt = nowIso();
-			const complete = (entityId: string, consumedOn: string, finishedOn: string) =>
+			const complete = (entityId: string, consumedOn: readonly string[], finishedOn: string) =>
 				logMediaActivity(client, {
 					submittedAt,
 					submissionId: crypto.randomUUID(),
 					entry: { entityId, consumedOn, kind: "complete", when: { finishedOn, kind: "date" } },
 				});
 
-			yield* complete(first.entityId, "Plex", "2026-01-01T12:00:00.000Z");
-			yield* complete(first.entityId, "Kodi", "2026-02-01T12:00:00.000Z");
-			yield* complete(second.entityId, "Jellyfin", "2026-03-01T12:00:00.000Z");
+			yield* complete(first.entityId, ["Plex", "Emby"], "2026-01-01T12:00:00.000Z");
+			yield* complete(first.entityId, ["Emby"], "2026-01-15T12:00:00.000Z");
+			yield* complete(first.entityId, ["Kodi"], "2026-02-01T12:00:00.000Z");
+			yield* complete(second.entityId, ["Jellyfin"], "2026-03-01T12:00:00.000Z");
 
 			expect((yield* readContext(client, first.entityId)).consumedOn).toEqual([
 				"Kodi",
+				"Emby",
 				"Plex",
 				"Jellyfin",
 			]);
 			expect((yield* readContext(client, second.entityId)).consumedOn).toEqual([
 				"Jellyfin",
 				"Kodi",
+				"Emby",
 				"Plex",
 			]);
 		}),
@@ -314,7 +321,7 @@ describe("Media activity log operation", () => {
 			yield* logMediaActivity(client, {
 				submittedAt,
 				submissionId: yield* randomUuid,
-				entry: { entityId, kind: "progress", progressPercent: 40, consumedOn: "Kindle" },
+				entry: { entityId, kind: "progress", progressPercent: 40, consumedOn: ["Kindle"] },
 			});
 
 			const events = yield* readEvents(client, entityId, "progress");
@@ -324,7 +331,7 @@ describe("Media activity log operation", () => {
 			});
 			expect(events.map((event) => event.properties)).toContainEqual({
 				progressPercent: 40,
-				consumedOn: "Kindle",
+				consumedOn: ["Kindle"],
 				consumptionBasis: { total: 300, unit: "pages", property: "pages" },
 			});
 			const context = yield* readContext(client, entityId);
@@ -679,15 +686,18 @@ describe("Media activity log operation", () => {
 				submissionId: yield* randomUuid,
 				entry: {
 					kind: "episodes",
-					consumedOn: "Plex",
 					parentEntityId: showId,
 					when: { kind: "unknown" },
+					consumedOn: ["Plex", "Netflix"],
 					episodeEntityIds: [episodeId(1, 1), episodeId(1, 2)],
 				},
 			});
 
 			const parentCompletion = yield* waitForEventWithSchema(client, showId, "complete");
-			expect(parentCompletion.properties).toMatchObject({ dateUnknown: true, consumedOn: "Plex" });
+			expect(parentCompletion.properties).toMatchObject({
+				dateUnknown: true,
+				consumedOn: ["Plex", "Netflix"],
+			});
 			expect((yield* readContext(client, showId)).state).toBe("complete");
 		}),
 	);
@@ -729,7 +739,7 @@ describe("Media activity log operation", () => {
 					when: { kind: "now" },
 					parentEntityId: podcastId,
 					episodeEntityIds: [first],
-					consumedOn: "Pocket Casts",
+					consumedOn: ["Pocket Casts"],
 				},
 			});
 
@@ -737,7 +747,7 @@ describe("Media activity log operation", () => {
 			assertPresent(event, "Expected the podcast episode completion");
 			expect(event.sessionEntityId).toBe(podcastId);
 			expect(event.properties).toEqual({
-				consumedOn: "Pocket Casts",
+				consumedOn: ["Pocket Casts"],
 				consumptionBasis: { unit: "minutes", property: "runtime" },
 			});
 			expect((yield* earlier(third)).items.map((item) => item.id)).toEqual([second]);

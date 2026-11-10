@@ -143,7 +143,7 @@ describe("media activity log", () => {
 								kind: "complete",
 								entityId: "movie-1",
 								when: { kind: "now" },
-								consumedOn: " Netflix ",
+								consumedOn: [" Netflix "],
 							},
 						},
 						host,
@@ -155,7 +155,7 @@ describe("media activity log", () => {
 							entityId: "movie-1",
 							occurredAt: submittedAt,
 							eventSchemaSlug: "complete",
-							properties: { timeSpent: 95, consumedOn: "Netflix" },
+							properties: { timeSpent: 95, consumedOn: ["Netflix"] },
 						},
 					],
 				]);
@@ -286,7 +286,7 @@ describe("media activity log", () => {
 							kind: "progress",
 							entityId: "book-1",
 							progressPercent: 40,
-							consumedOn: "Kindle",
+							consumedOn: ["Kindle"],
 						},
 					},
 					host,
@@ -298,7 +298,7 @@ describe("media activity log", () => {
 							entityId: "book-1",
 							occurredAt: submittedAt,
 							eventSchemaSlug: "progress",
-							properties: { progressPercent: 40, consumedOn: "Kindle" },
+							properties: { progressPercent: 40, consumedOn: ["Kindle"] },
 						},
 					],
 					[
@@ -488,7 +488,7 @@ describe("media activity log", () => {
 					{
 						entry: {
 							kind: "episodes",
-							consumedOn: "Disney+",
+							consumedOn: ["Disney+"],
 							parentEntityId: "show-1",
 							when: { kind: "unknown" },
 							episodeEntityIds: ["episode-3", "episode-1", "episode-2"],
@@ -501,7 +501,7 @@ describe("media activity log", () => {
 						entityId,
 						occurredAt: submittedAt,
 						eventSchemaSlug: "complete",
-						properties: { dateUnknown: true, consumedOn: "Disney+" },
+						properties: { dateUnknown: true, consumedOn: ["Disney+"] },
 					})),
 				]);
 			}),
@@ -662,13 +662,41 @@ describe("media activity log", () => {
 							kind: "complete",
 							entityId: "movie-1",
 							when: { kind: "now" },
-							consumedOn: " Criterion ",
+							consumedOn: [" Criterion "],
 						},
 					},
 					host,
 				);
 				expect(result).toEqual({ count: 1, status: "saved" });
 				expect(patches).toEqual([{ consumedOnMovie: ["Netflix", "Criterion"] }]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"appends each new source in order, skipping known ones and stopping at the list limit",
+		() =>
+			Effect.gen(function* () {
+				const entry = { kind: "complete", entityId: "movie-1", when: { kind: "now" } } as const;
+				const several = recordingHost({
+					schemaSlug: "movie",
+					settings: { consumedOnMovie: ["Netflix"] },
+				});
+				yield* run(
+					{ entry: { ...entry, consumedOn: ["Criterion", "netflix", "Mubi"] } },
+					several.host,
+				);
+				expect(several.patches).toEqual([{ consumedOnMovie: ["Netflix", "Criterion", "Mubi"] }]);
+				const nearlyFull = recordingHost({
+					schemaSlug: "movie",
+					settings: {
+						consumedOnMovie: Array.from({ length: 29 }, (_, index) => `Source ${index}`),
+					},
+				});
+				yield* run({ entry: { ...entry, consumedOn: ["Criterion", "Mubi"] } }, nearlyFull.host);
+				expect(nearlyFull.patches[0]?.["consumedOnMovie"]).toHaveLength(30);
+				expect(nearlyFull.patches[0]?.["consumedOnMovie"]).toContain("Criterion");
+				expect(nearlyFull.patches[0]?.["consumedOnMovie"]).not.toContain("Mubi");
 			}),
 		testTimeout,
 	);
@@ -683,7 +711,7 @@ describe("media activity log", () => {
 						entry: {
 							kind: "progress",
 							entityId: "anime-1",
-							consumedOn: "Crunchyroll",
+							consumedOn: ["Crunchyroll"],
 							position: { position: 3, unit: "episodes" },
 						},
 					},
@@ -699,7 +727,7 @@ describe("media activity log", () => {
 						entry: {
 							kind: "episodes",
 							when: { kind: "now" },
-							consumedOn: "Overcast",
+							consumedOn: ["Overcast"],
 							parentEntityId: "podcast-1",
 							episodeEntityIds: episodeIds(2),
 						},
@@ -723,8 +751,8 @@ describe("media activity log", () => {
 				const capped = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: full } });
 				const bare = recordingHost({ schemaSlug: "movie", settings: { consumedOnMovie: [] } });
 				const entry = { kind: "complete", entityId: "movie-1", when: { kind: "now" } } as const;
-				yield* run({ entry: { ...entry, consumedOn: "nETflix" } }, duplicate.host);
-				yield* run({ entry: { ...entry, consumedOn: "Criterion" } }, capped.host);
+				yield* run({ entry: { ...entry, consumedOn: ["nETflix"] } }, duplicate.host);
+				yield* run({ entry: { ...entry, consumedOn: ["Criterion"] } }, capped.host);
 				yield* run({ entry }, bare.host);
 				expect([duplicate.patches, capped.patches, bare.patches]).toEqual([[], [], []]);
 				expect([duplicate.logs, capped.logs]).toEqual([[], []]);
@@ -750,7 +778,7 @@ describe("media activity log", () => {
 					{
 						entry: {
 							kind: "episodes",
-							consumedOn: "Hulu",
+							consumedOn: ["Hulu"],
 							when: { kind: "now" },
 							parentEntityId: "show-1",
 							episodeEntityIds: episodeIds(150),
@@ -771,7 +799,7 @@ describe("media activity log", () => {
 					kind: "complete",
 					entityId: "movie-1",
 					when: { kind: "now" },
-					consumedOn: "Criterion",
+					consumedOn: ["Criterion"],
 				} as const;
 				for (const failSettings of ["read", "write"] as const) {
 					const { host, logs, patches } = recordingHost({

@@ -1,6 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { CalendarDate, EntityId } from "@ryot-app/plugin-kit/schema";
 
+import { ConsumedOn } from "./consumed-on";
 import { MediaPosition } from "./consumption";
 
 export const mediaActivityStatuses = ["backlog", "on_hold", "dropped"] as const;
@@ -22,13 +23,6 @@ const NonEmptyString = Schema.String.pipe(
 		Schema.makeFilter((value) => value.trim().length > 0 || "Expected a nonblank value"),
 	),
 );
-
-const ConsumedOnText = Schema.Trim.pipe(
-	Schema.check(Schema.isMinLength(1)),
-	Schema.check(Schema.isMaxLength(100)),
-);
-
-const ConsumedOn = Schema.optional(ConsumedOnText);
 
 const TimeSpent = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
 
@@ -54,17 +48,17 @@ export type MediaActivityWhen = typeof MediaActivityWhen.Type;
 
 export const MediaActivityEntry = Schema.Union([
 	Schema.Struct({
-		consumedOn: ConsumedOn,
 		when: MediaActivityWhen,
 		entityId: NonEmptyString,
 		kind: Schema.Literal("complete"),
 		timeSpent: Schema.optional(TimeSpent),
+		consumedOn: Schema.optional(ConsumedOn),
 	}),
 	Schema.Struct({
-		consumedOn: ConsumedOn,
 		entityId: NonEmptyString,
 		kind: Schema.Literal("progress"),
 		timeSpent: Schema.optional(TimeSpent),
+		consumedOn: Schema.optional(ConsumedOn),
 		when: Schema.optional(MediaActivityWhen),
 		position: Schema.optional(MediaPosition),
 		progressPercent: Schema.optional(ProgressPercent),
@@ -85,10 +79,10 @@ export const MediaActivityEntry = Schema.Union([
 		status: Schema.Literals(mediaActivityStatuses),
 	}),
 	Schema.Struct({
-		consumedOn: ConsumedOn,
 		when: MediaActivityWhen,
 		parentEntityId: NonEmptyString,
 		kind: Schema.Literal("episodes"),
+		consumedOn: Schema.optional(ConsumedOn),
 		episodeEntityIds: Schema.Array(NonEmptyString).pipe(
 			Schema.check(Schema.isMinLength(1)),
 			Schema.check(Schema.isMaxLength(MAX_ACTIVITY_EPISODES)),
@@ -166,7 +160,7 @@ export const MediaActivityPatch = Schema.Struct({
 	when: Schema.optional(MediaActivityEditWhen),
 	episodeEntityId: Schema.optional(NonEmptyString),
 	timeSpent: Schema.optional(Schema.NullOr(TimeSpent)),
-	consumedOn: Schema.optional(Schema.NullOr(ConsumedOnText)),
+	consumedOn: Schema.optional(Schema.NullOr(ConsumedOn)),
 	progressPercent: Schema.optional(Schema.NullOr(ProgressPercent)),
 	progressPages: Schema.optional(
 		Schema.NullOr(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),

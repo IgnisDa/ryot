@@ -98,8 +98,8 @@ describe("complete activity history recipes", () => {
 						watchDays: {
 							...data.watchDays,
 							items: [
-								{ ...watchDay, consumedOn: "Jellyfin" },
-								{ ...watchDay, consumedOn: "Plex" },
+								{ ...watchDay, consumedOn: ["Jellyfin"] },
+								{ ...watchDay, consumedOn: ["Plex"] },
 							],
 						},
 						totals: rows([

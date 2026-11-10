@@ -231,7 +231,8 @@ remain separate identities even when their names match catalog genres.
 hold one "Where you consume" list per builtin media type (`consumedOnBook` through
 `consumedOnVisualNovel`, mapped from schema slugs in `shared/consumed-on-settings.ts`): at most 30
 sources of at most 100 characters, seeded with per-type defaults. The Log activity sheet suggests
-the list for the item's type first, then the item's own history and recent sources, ignoring case. Images contain remote
+the list for the item's type first, then the item's own history and recent sources (each element of
+stored `consumedOn` arrays), ignoring case. Images contain remote
 URLs or managed keys plus a declared purpose. Providers prefer foreground art, preserve order within
 purposes, and deduplicate URLs using their first classification. Translation may replace the entire
 image array; omission preserves canonical images.
@@ -446,9 +447,9 @@ day-only by default and keep their `calendarDate`; **Add time** switches the she
 time inputs in the user's time zone, and a timed entry writes an exact instant without
 `calendarDate`. Time spent is entered as hours and minutes with the UI SDK `DurationField`. Writes are chunked
 by the event batch limit with `<submissionId>:<chunk>` idempotency keys, so a retried submission
-writes nothing twice. After a `saved` write of an entry with a source, it appends the trimmed source
+writes nothing twice. After a `saved` write of an entry with sources, it appends each trimmed source
 to the settings list of the item's type (a show or podcast for episodes) unless a case-insensitive
-match exists or the list holds 30; status entries never do. A settings read or write failure is
+match exists, stopping when the list holds 30; status entries never do. A settings read or write failure is
 logged and never changes the result. It is protected in demo sessions. The header and the empty activity tab open
 the same Log activity sheet. The sheet, quick log button, episode quick mark, review composer, and
 ownership and monitoring toggles hand their writes to the kernel's background submissions: dialogs
@@ -657,8 +658,8 @@ creating history. The fold reads changes from outside its own events, such as a 
 inventory, because `media-entity-updated` and `media-relationship-sync` call
 `requestFoldsForAllUsers`.
 
-Completion time follows the closing coverage event; consumption source is copied only when all
-supporting completions agree. Source corrections can change that time or invalidate the completion.
+Completion time follows the closing coverage event; consumption sources are the ordered union of the
+supporting completions' sources, deduplicated ignoring case. Source corrections can change that time or invalidate the completion.
 A fold's writes commit with the write that caused them. If it cannot finish inline, the write still
 commits and a `fold` job takes over; meanwhile the previous contributions and summaries stay visible and
 processing reads as pending. A subject that keeps failing reads as failed, and its next write folds it
@@ -679,7 +680,7 @@ nothing even if source `updatedAt` changes, preserving later local actions. Miss
 do not delete local history; ratings, notes, and custom lists are outside the integration.
 
 Integration progress consumption sources are display names: Jellyfin, Emby, Plex, Kodi, Komga,
-Audiobookshelf, YouTube Music, and Spotify; the browser extension keeps the page hostname.
+Audiobookshelf, YouTube Music, and Spotify, written as one-item arrays; the browser extension keeps the page hostname as its single item.
 
 Integration progress admission runs after population/episode resolution in `import.write-chunks`.
 It accepts a percent or, for Anime/Manga, a position; an event with neither is rejected. Minimum
@@ -702,6 +703,7 @@ Progress, completion, independent item, dropped and on-hold events carry these f
 | `progressPages`    | Finite nonnegative cumulative pages, on Book/Comic Book progress or status events. Exclusive with percent and positional progress. No rounding or conversion to percent on submission.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | `progressPercent`  | Source-supported percent in `(0, 100]`, retained without decimal rounding. Exclusive with page/episode/chapter quantities. Missing denominator does not establish an absolute amount.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | `position`         | `MediaPosition`: `{ unit: "episodes" \| "chapters" \| "volumes", position: number, volume?: number }`, on Anime/Manga events. On progress, dropped and on-hold it is the cumulative consumed-through position: Anime in integer episodes, Manga in chapters or volumes, either of which may be fractional. On `item-complete` it is required and identifies one independent item, never a quantity; Manga items may be chapters or volumes. On `list-state` it is the snapshot position, and on reviews the reviewed item. Optional `volume` is chapter context only, valid only with chapters, and contributes no volume quantity. |
+| `consumedOn`       | Optional array of 1 to 10 sources, each 1 to 100 trimmed characters and unique ignoring case; absent when there are none. Operations accept `null` in an edit patch to remove it. `shared/consumed-on.ts` owns the schema.                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `timeSpent`        | Finite nonnegative cumulative minutes in this run, including on progress. Original manual time is recorded evidence. Empty means unknown; explicit zero is known.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | `calendarDate`     | Valid `YYYY-MM-DD` date-only evidence within one day of the UTC date of `occurredAt`. Keep this calendar day in every reporting timezone. Never use it in hourly activity.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | `dateUnknown`      | `true` means no reliable consumption date. Cannot coexist with `calendarDate`. The row's `occurredAt` is then only a deterministic ordering timestamp.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
@@ -741,7 +743,7 @@ must use the target's unit/property mapping. Automatic completions must supply r
 they cannot recapture current providers. A create carrying `sourceRun` must supply its basis, including
 an explicitly unavailable total. Historical restore/migration supplies these facts directly.
 
-Progress-derived completions copy their source's basis, calendar date, time spent, and source run;
+Progress-derived completions copy their source's basis, calendar date, time spent, sources, and source run;
 coverage-derived parent completions have only the parent episode basis and closing date evidence. Each
 occurrence carries a `key` fixed when it is created from its source event; the completion stores it as
 `completionKey`, which identifies derived output. Editing a completion makes it explicit, and deleting

@@ -108,6 +108,10 @@ the episode completion that finishes it.
 `startedOn` retains the available source start timestamp. Manual seconds convert to cumulative
 `timeSpent` minutes, including zero, on the fact carrying consumption. A resolved episode's terminal
 parent status does not repeat its child manual time.
+`consumedOn` keeps V1's full `providers_consumed_on` array in stored order, trimmed and deduplicated
+case-insensitively, skipping blanks and values over the Media plugin's item limit and stopping at
+its source limit; an empty result is omitted. Dropped distinct values are reported per record as
+`seen-consumed-on-dropped`.
 
 `seen-consumption-mapping.ts` captures the frozen basis from legacy metadata, even when the migrated
 parent is a skeleton. Basis units, properties, and divisors are generated from the Media plugin's
@@ -202,6 +206,7 @@ Warnings are allowed by `code`, never by message text, so report copy can be rew
 | `seen-episode-absent`                    | `seen -> event`                                              | The watched position is not in the parent's stored episode list.                                                                 | yes               |
 | `seen-episode-ambiguous`                 | `seen -> event`                                              | Several stored episodes claim the watched position.                                                                              | yes               |
 | `seen-episode-malformed`                 | `seen -> event`                                              | The legacy row stored no usable episode number.                                                                                  | yes               |
+| `seen-consumed-on-dropped`               | `seen -> event`                                              | A legacy source list had distinct values over the item length or source count limits; detail lists stored and kept values.       | yes               |
 | `review-episode-absent`                  | `review -> event`                                            | The reviewed position is not in the parent's stored episode list.                                                                | yes               |
 | `review-episode-ambiguous`               | `review -> event`                                            | Several stored episodes claim the reviewed position.                                                                             | yes               |
 | `review-season-absent`                   | `review -> event`                                            | The reviewed season is not in the show's stored season list.                                                                     | yes               |

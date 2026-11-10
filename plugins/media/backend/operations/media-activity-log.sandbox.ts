@@ -111,7 +111,10 @@ const completeEvent = (
 	id: string,
 	when: MediaActivityWhen,
 	submittedAt: string,
-	extras: { readonly timeSpent?: number | undefined; readonly consumedOn?: string | undefined },
+	extras: {
+		readonly timeSpent?: number | undefined;
+		readonly consumedOn?: undefined | readonly string[];
+	},
 ): CreateEventItem => ({
 	entityId: id,
 	eventSchemaSlug: "complete",
@@ -253,7 +256,11 @@ const buildEvents = (
 		};
 	});
 
-const rememberConsumedOn = (host: SettingsHost, schemaSlug: string, consumedOn: string) =>
+const rememberConsumedOn = (
+	host: SettingsHost,
+	schemaSlug: string,
+	consumedOn: readonly string[],
+) =>
 	Effect.gen(function* () {
 		const key = consumedOnSettingKey(schemaSlug);
 		if (key === undefined) {
@@ -261,14 +268,20 @@ const rememberConsumedOn = (host: SettingsHost, schemaSlug: string, consumedOn: 
 		}
 		const settings = yield* host.getUserSettings();
 		const current = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.String))(settings[key]);
-		const lowered = consumedOn.toLowerCase();
-		if (
-			current.length >= CONSUMED_ON_LIST_LIMIT ||
-			current.some((value) => value.toLowerCase() === lowered)
-		) {
-			return;
+		const remembered = new Set(current.map((value) => value.toLowerCase()));
+		const added: string[] = [];
+		for (const value of consumedOn) {
+			if (current.length + added.length >= CONSUMED_ON_LIST_LIMIT) {
+				break;
+			}
+			if (!remembered.has(value.toLowerCase())) {
+				remembered.add(value.toLowerCase());
+				added.push(value);
+			}
 		}
-		yield* host.updateUserSettings({ [key]: [...current, consumedOn] });
+		if (added.length > 0) {
+			yield* host.updateUserSettings({ [key]: [...current, ...added] });
+		}
 	}).pipe(
 		Effect.catch((error) =>
 			host

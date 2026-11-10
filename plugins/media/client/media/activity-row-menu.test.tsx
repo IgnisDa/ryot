@@ -194,6 +194,7 @@ describe("activity row menu", () => {
 					fireEvent.change(getByLabelText(dialog, /Where did you use it\?/), {
 						target: { value: " Plex " },
 					});
+					fireEvent.keyDown(getByLabelText(dialog, /Where did you use it\?/), { key: "Enter" });
 				});
 				clickRyotElement(save);
 				yield* eventually(() => expect(background.requests).toHaveLength(1));
@@ -202,7 +203,7 @@ describe("activity row menu", () => {
 					slug: "media-activity-update",
 					input: {
 						eventId: "media-complete",
-						patch: { consumedOn: "Plex" },
+						patch: { consumedOn: ["Plex"] },
 						expected: snapshot(flatCompletionEventRow, properties),
 					},
 				});
@@ -236,12 +237,13 @@ describe("activity row menu", () => {
 					fireEvent.change(getByLabelText(dialog, /Where did you use it\?/), {
 						target: { value: "Plex" },
 					});
+					fireEvent.keyDown(getByLabelText(dialog, /Where did you use it\?/), { key: "Enter" });
 				});
 				clickRyotElement(getByRole(dialog, "button", { name: "Save changes" }));
 				yield* eventually(() => expect(background.requests).toHaveLength(1));
 				expect(background.requests[0]?.input).toMatchObject({
 					eventId: "media-complete",
-					patch: { consumedOn: "Plex" },
+					patch: { consumedOn: ["Plex"] },
 					expected: snapshot(flatCompletionEventRow, properties),
 				});
 			}),

@@ -184,7 +184,7 @@ describe("consumption policy", () => {
 							...payload,
 							operation: "update",
 							changedProperties: ["consumedOn", "consumptionBasis"],
-							draft: { ...payload.draft, properties: { consumedOn: "Changed" } },
+							draft: { ...payload.draft, properties: { consumedOn: ["Changed"] } },
 							before: {
 								...payload.draft,
 								id: "source",

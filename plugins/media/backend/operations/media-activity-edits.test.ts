@@ -37,8 +37,8 @@ const submittedAt = "2026-03-10T09:00:00.000Z";
 const expected = {
 	entityId: "movie-1",
 	sessionEntityId: null,
-	properties: { consumedOn: "Netflix" },
 	occurredAt: "2026-03-01T12:00:00.000Z",
+	properties: { consumedOn: ["Netflix"] },
 	absentProperties: ["startedOn", "dateUnknown", "timeSpent"],
 };
 
@@ -124,7 +124,7 @@ const movieCompletion: StoredEvent = {
 	id: "event-1",
 	entitySchemaSlug: "movie",
 	eventSchemaSlug: "complete",
-	properties: { consumedOn: "Netflix" },
+	properties: { consumedOn: ["Netflix"] },
 };
 
 const update = (
@@ -392,7 +392,7 @@ describe("media activity update", () => {
 					disallowed: ["event-1"],
 					events: [{ ...event, id: "event-1", properties: {} }],
 				});
-				expect(yield* rejection(update({ consumedOn: "Plex" }, host))).toBe(
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toBe(
 					"Only activity records can be edited here.",
 				);
 				expect(updates).toEqual([]);
@@ -405,7 +405,7 @@ describe("media activity update", () => {
 		() =>
 			Effect.gen(function* () {
 				const { host, documents } = recordingHost({ events: [movieCompletion] });
-				yield* update({ consumedOn: "Plex" }, host);
+				yield* update({ consumedOn: ["Plex"] }, host);
 				const nodes = ryotqlDocumentNodes(documents[0]?.queries["allowed"]);
 				for (const slug of ["complete", "progress", "dropped", "on_hold", "backlog"]) {
 					expect(nodes).toContainEqual({ value: slug, type: "literal" });
@@ -437,13 +437,13 @@ describe("media activity update", () => {
 			submittedAt,
 			eventId: "event-1",
 			submissionId: "submission",
-			patch: { consumedOn: "Plex" },
+			patch: { consumedOn: ["Plex"] },
 		};
 		expect(decode(valid)._tag).toBe("Success");
 		for (const invalid of [
 			{ ...valid, entityId: "movie-2" },
-			{ ...valid, patch: { consumedOn: "Plex", entityId: "movie-2" } },
-			{ ...valid, patch: { consumedOn: "Plex", sessionEntityId: "show-2" } },
+			{ ...valid, patch: { entityId: "movie-2", consumedOn: ["Plex"] } },
+			{ ...valid, patch: { consumedOn: ["Plex"], sessionEntityId: "show-2" } },
 			{ ...valid, patch: {} },
 			{ ...valid, expected: { ...expected, kind: "fields" } },
 		]) {
@@ -470,7 +470,7 @@ describe("media activity update", () => {
 							data: { eventId: "event-1", code: "event-stale" },
 						}),
 				});
-				expect(yield* rejection(update({ consumedOn: "Plex" }, stale.host))).toBe(
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, stale.host))).toBe(
 					STALE_RECORD_MESSAGE,
 				);
 				const conflict = recordingHost({
@@ -481,7 +481,7 @@ describe("media activity update", () => {
 							data: { code: "mutation-conflict", message: "Conflicting event command identity" },
 						}),
 				});
-				expect(yield* rejection(update({ consumedOn: "Plex" }, conflict.host))).toBe(
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, conflict.host))).toBe(
 					"Conflicting event command identity",
 				);
 			}),
@@ -491,7 +491,7 @@ describe("media activity update", () => {
 	it.live.each([
 		{
 			name: "a source on backlog",
-			patch: { consumedOn: "Kindle" },
+			patch: { consumedOn: ["Kindle"] },
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "backlog" },
 		},
 		{
@@ -586,7 +586,7 @@ describe("media activity update", () => {
 				const { host, updates } = recordingHost({
 					events: [{ ...movieCompletion, properties: { legacyRating: 3 } }],
 				});
-				expect(yield* rejection(update({ consumedOn: "Plex" }, host))).toBe(
+				expect(yield* rejection(update({ consumedOn: ["Plex"] }, host))).toBe(
 					"This record can't be edited.",
 				);
 				expect(updates).toEqual([]);
@@ -599,7 +599,7 @@ describe("media activity update", () => {
 		() =>
 			Effect.gen(function* () {
 				const { host, updates } = recordingHost({ events: [] });
-				yield* rejection(update({ consumedOn: "Plex" }, host));
+				yield* rejection(update({ consumedOn: ["Plex"] }, host));
 				expect(updates).toEqual([]);
 			}),
 		testTimeout,

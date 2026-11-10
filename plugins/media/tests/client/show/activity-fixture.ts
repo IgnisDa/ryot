@@ -113,8 +113,8 @@ export const collectionRemovedEventRow = {
 
 export const specialProgressRow = {
 	...specialEpisode,
-	consumedOn: "Plex",
 	progressPercent: 40,
+	consumedOn: ["Plex"],
 	id: "special-3-progress",
 	createdAt: "2025-11-08T12:00:05.000Z",
 	occurredAt: "2025-11-08T12:00:00.000Z",
@@ -143,7 +143,7 @@ export const firstWatchDayRow = {
 	seasonNumber: 1,
 	episodeNumber: 1,
 	episodeId: "episode-1",
-	consumedOn: "Jellyfin",
+	consumedOn: ["Jellyfin"],
 	day: "2025-11-04T00:00:00.000Z",
 	episodeName: "Episode 1: The Arrest",
 	lastWatchedAt: "2025-11-04T21:00:00.000Z",
@@ -156,7 +156,7 @@ export const secondWatchDayRow = {
 	seasonNumber: 1,
 	episodeNumber: 2,
 	episodeId: "episode-2",
-	consumedOn: "Jellyfin",
+	consumedOn: ["Jellyfin"],
 	day: "2025-11-05T00:00:00.000Z",
 	episodeName: "Episode 2: The Interview",
 	lastWatchedAt: "2025-11-05T21:00:00.000Z",
@@ -171,7 +171,7 @@ export const sameDayWatchRow = {
 export const rewatchWatchDayRow = {
 	...firstWatchDayRow,
 	minutes: null,
-	consumedOn: "Netflix",
+	consumedOn: ["Netflix"],
 	day: "2026-03-01T00:00:00.000Z",
 	lastWatchedAt: "2026-03-01T21:00:00.000Z",
 };

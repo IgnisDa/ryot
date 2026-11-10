@@ -153,7 +153,7 @@ const runSpotifyYank = (
 							expiresAt,
 						),
 						properties: {
-							consumedOn: "Spotify",
+							consumedOn: ["Spotify"],
 							consumptionBasis: {
 								unit: "minutes",
 								property: "duration",

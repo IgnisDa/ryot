@@ -50,7 +50,7 @@ export const flatProgressEventRow = {
 	...emptyEventProperties,
 	progressPercent: 42,
 	id: "media-progress",
-	consumedOn: "Jellyfin",
+	consumedOn: ["Jellyfin"],
 	eventSchemaSlug: "progress",
 	createdAt: "2025-11-03T12:00:05.000Z",
 	occurredAt: "2025-11-03T12:00:00.000Z",

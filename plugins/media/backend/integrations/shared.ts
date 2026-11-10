@@ -34,10 +34,10 @@ export const failureResult = (
 });
 
 export const progressResult = (input: {
-	consumedOn: string;
 	occurredAt: string;
 	progressPercent: number;
 	entityRef: ImportEntityRef;
+	consumedOn: readonly string[];
 	unresolvedEpisode?: UnresolvedEpisodeRef;
 }): MediaIntegrationAdapterResult => ({
 	failures: [],

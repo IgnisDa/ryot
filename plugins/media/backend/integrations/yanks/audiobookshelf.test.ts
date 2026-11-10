@@ -140,7 +140,7 @@ describe("Audiobookshelf yank", () => {
 						{
 							eventSchemaSlug: "progress",
 							occurredAt: execution.startedAt,
-							properties: { progressPercent: 42, consumedOn: "Audiobookshelf" },
+							properties: { progressPercent: 42, consumedOn: ["Audiobookshelf"] },
 						},
 					],
 				});

@@ -104,6 +104,21 @@ describe("media activity log context recipe", () => {
 		expect(queries["recentConsumedOn"]?.output).toMatchObject({ limit: 5, type: "aggregate" });
 	});
 
+	it("groups suggestions over the elements of the stored consumedOn array", () => {
+		const { queries } = mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }).document;
+		for (const key of ["entityConsumedOn", "recentConsumedOn"]) {
+			const query = queries[key];
+			expect(JSON.stringify(query)).toContain('"type":"jsonElements"');
+			expect(ryotqlDocumentNodes([query])).toContainEqual(
+				objectContaining({
+					type: "cast",
+					target: "text",
+					expr: objectContaining({ field: "value" }),
+				}),
+			);
+		}
+	});
+
 	it("is empty for an entity that is not visible media", () => {
 		expect(Result.getOrThrow(decodeContext(undefined))).toBeNull();
 	});

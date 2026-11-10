@@ -2,6 +2,7 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
+import { mergeConsumedOn } from "../../shared/consumed-on";
 import { ConsumptionBasis, MediaPosition } from "../../shared/consumption";
 import { isPositional } from "../../shared/media-schema-slugs";
 
@@ -174,6 +175,13 @@ const optional = (key: string, value: JsonValue | undefined, keep: boolean) =>
 
 const positive = (value: JsonValue | undefined) =>
 	typeof value === "number" && value > 0 ? value : 0;
+
+const consumedOnOf = (event: FoldEvent) => {
+	const value = event.properties["consumedOn"];
+	return Array.isArray(value)
+		? value.filter((item): item is string => typeof item === "string")
+		: [];
+};
 
 const sourceRunOf = (event: FoldEvent) => {
 	const run = event.properties["sourceRun"];
@@ -348,11 +356,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 						source.properties["timeSpent"],
 						typeof source.properties["timeSpent"] === "number",
 					),
-					...optional(
-						"consumedOn",
-						source.properties["consumedOn"],
-						typeof source.properties["consumedOn"] === "string",
-					),
+					...optional("consumedOn", consumedOnOf(source), consumedOnOf(source).length > 0),
 					...optional("dateUnknown", true, source.properties["dateUnknown"] === true),
 				},
 			),
@@ -438,8 +442,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 				continue;
 			}
 			used.add(key);
-			const consumedOn = new Set(covered.map(({ event: item }) => item.properties["consumedOn"]));
-			const [onlyConsumedOn] = consumedOn;
+			const consumedOn = mergeConsumedOn(...covered.map(({ event: item }) => consumedOnOf(item)));
 			const dateUnknown = covered.every(
 				({ event: item }) => item.properties["dateUnknown"] === true,
 			);
@@ -462,11 +465,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 					{ entityId: input.subject.id, sessionEntityId: input.subject.id },
 					{
 						consumptionBasis: { unit: "episodes" },
-						...optional(
-							"consumedOn",
-							onlyConsumedOn,
-							consumedOn.size === 1 && typeof onlyConsumedOn === "string",
-						),
+						...optional("consumedOn", consumedOn, consumedOn.length > 0),
 						...optional("dateUnknown", true, dateUnknown),
 						...optional(
 							"calendarDate",

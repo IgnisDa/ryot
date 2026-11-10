@@ -60,7 +60,7 @@ describe("Kodi sink", () => {
 					events: [
 						{
 							eventSchemaSlug: "progress",
-							properties: { consumedOn: "Kodi", progressPercent: 45 },
+							properties: { progressPercent: 45, consumedOn: ["Kodi"] },
 							unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 7 },
 						},
 					],
@@ -158,7 +158,7 @@ describe("media server sinks", () => {
 					entityRef: { externalId: "95396", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 					events: [
 						{
-							properties: { consumedOn: "Emby", progressPercent: 50 },
+							properties: { progressPercent: 50, consumedOn: ["Emby"] },
 							unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 3 },
 						},
 					],
@@ -194,7 +194,7 @@ describe("media server sinks", () => {
 					entityRef: { externalId: "125988", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 					events: [
 						{
-							properties: { progressPercent: 25, consumedOn: "Jellyfin" },
+							properties: { progressPercent: 25, consumedOn: ["Jellyfin"] },
 							unresolvedEpisode: { type: "show", seasonNumber: 2, episodeNumber: 4 },
 						},
 					],
@@ -726,7 +726,7 @@ describe("Plex sink", () => {
 				);
 				expect(result.failures).toEqual([]);
 				expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
-					consumedOn: "Plex",
+					consumedOn: ["Plex"],
 					progressPercent: 100,
 				});
 			}),
@@ -743,8 +743,8 @@ describe("Plex sink", () => {
 				});
 				expect(result.failures).toEqual([]);
 				expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
-					consumedOn: "Plex",
 					progressPercent: 0,
+					consumedOn: ["Plex"],
 				});
 			}),
 		testTimeout,
@@ -788,8 +788,8 @@ describe("Plex sink", () => {
 				);
 				expect(result.failures).toEqual([]);
 				expect(result.entityGroups[0]?.events[0]?.properties).toEqual({
-					consumedOn: "Plex",
 					progressPercent: 25,
+					consumedOn: ["Plex"],
 				});
 			}),
 		testTimeout,
@@ -835,7 +835,7 @@ describe("Plex sink", () => {
 					entityRef: { externalId: "93740", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 					events: [
 						{
-							properties: { consumedOn: "Plex", progressPercent: 80 },
+							properties: { progressPercent: 80, consumedOn: ["Plex"] },
 							unresolvedEpisode: { type: "show", seasonNumber: 3, episodeNumber: 5 },
 						},
 					],
@@ -994,7 +994,7 @@ describe("browser extension sink", () => {
 					entityRef: { externalId: "94997", entitySchemaSlug: "show", providerSlug: "show.tmdb" },
 					events: [
 						{
-							properties: { consumedOn: "max", progressPercent: 80 },
+							properties: { consumedOn: ["max"], progressPercent: 80 },
 							unresolvedEpisode: { type: "show", seasonNumber: 1, episodeNumber: 6 },
 						},
 					],

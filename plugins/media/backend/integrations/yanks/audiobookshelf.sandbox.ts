@@ -201,7 +201,10 @@ export default defineScript({
 										{
 											eventSchemaSlug: "progress",
 											occurredAt: cursor.occurredAt,
-											properties: { consumedOn: "Audiobookshelf", progressPercent: progress * 100 },
+											properties: {
+												consumedOn: ["Audiobookshelf"],
+												progressPercent: progress * 100,
+											},
 											...(episode
 												? {
 														unresolvedEpisode: {

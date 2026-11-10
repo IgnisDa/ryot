@@ -372,7 +372,6 @@ export const MediaConsumptionFacts = Schema.Struct({
 	position: Schema.optionalKey(MediaPosition),
 	timeSpent: Schema.optionalKey(Schema.Finite),
 	sourceRun: Schema.optionalKey(Schema.String),
-	consumedOn: Schema.optionalKey(Schema.String),
 	calendarDate: Schema.optionalKey(Schema.String),
 	dateUnknown: Schema.optionalKey(Schema.Boolean),
 	progressPages: Schema.optionalKey(Schema.Finite),
@@ -380,6 +379,7 @@ export const MediaConsumptionFacts = Schema.Struct({
 	progressPercent: Schema.optionalKey(Schema.Finite),
 	sourceProgress: Schema.optionalKey(SourceProgress),
 	consumptionBasis: Schema.optionalKey(ConsumptionBasis),
+	consumedOn: Schema.optionalKey(Schema.Array(Schema.String)),
 });
 
 export const mediaAnalyticsRecordsRecipe = defineRecipe(

@@ -43,8 +43,10 @@ const progressPosition = (entitySchemaSlug: string, properties: Properties) => {
 	return typeof unit !== "string" || number === null ? null : `${unit}:${number}`;
 };
 
-const consumedOnValue = (properties: Properties) =>
-	typeof properties["consumedOn"] === "string" ? properties["consumedOn"] : "";
+const consumedOnValue = (properties: Properties) => {
+	const value = properties["consumedOn"];
+	return Array.isArray(value) ? value.filter((item) => typeof item === "string").join(", ") : "";
+};
 
 const sortLatestFirst = (left: ProgressEvent, right: ProgressEvent) =>
 	eventTimestamp(right.occurredAt) - eventTimestamp(left.occurredAt) ||

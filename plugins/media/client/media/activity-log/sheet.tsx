@@ -24,6 +24,7 @@ import {
 	StatusMessage,
 	Stepper,
 	Switch,
+	TagInput,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -31,7 +32,11 @@ import clsx from "clsx";
 import { type RefObject, useEffect, useMemo, useState } from "react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
-import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
+import {
+	CONSUMED_ON_ITEM_LIMIT,
+	CONSUMED_ON_SOURCES_LIMIT,
+	consumedOnSettingKey,
+} from "../../../shared/consumed-on-settings";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import {
 	ActivitySeasonSelector,
@@ -134,44 +139,6 @@ type Body = {
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
 };
 
-export function SourceField(props: {
-	readonly value: string;
-	readonly error: string | undefined;
-	readonly logger: MediaActivityLogger;
-	readonly suggestions: readonly string[];
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-2">
-			<Field optional error={props.error} label={`Where did you ${props.logger.copy.verb} it?`}>
-				{(control) => (
-					<TextField
-						{...control}
-						type="text"
-						value={props.value}
-						placeholder="Service, app or format"
-						onChange={(event) => props.onChange(event.currentTarget.value)}
-					/>
-				)}
-			</Field>
-			{props.suggestions.length === 0 ? null : (
-				<div className="flex flex-wrap gap-1.5">
-					{props.suggestions.map((suggestion) => (
-						<button
-							type="button"
-							key={suggestion}
-							onClick={() => props.onChange(suggestion)}
-							aria-pressed={props.value.trim() === suggestion}
-						>
-							<Chip label={suggestion} checked={props.value.trim() === suggestion} />
-						</button>
-					))}
-				</div>
-			)}
-		</div>
-	);
-}
-
 export function MediaActivityLogSheet(props: {
 	readonly compact: boolean;
 	readonly entityId: string;
@@ -207,6 +174,55 @@ export function MediaActivityLogSheet(props: {
 		);
 	}
 	return <ActivityLogDialog {...props} context={result.data} name={result.data.name} />;
+}
+
+export function SourceField(props: {
+	readonly value: readonly string[];
+	readonly logger: MediaActivityLogger;
+	readonly suggestions: readonly string[];
+	readonly onChange: (value: readonly string[]) => void;
+}) {
+	const selected = (suggestion: string) =>
+		props.value.some((value) => value.toLowerCase() === suggestion.toLowerCase());
+	const full = props.value.length >= CONSUMED_ON_SOURCES_LIMIT;
+	const toggle = (suggestion: string) =>
+		props.onChange(
+			selected(suggestion)
+				? props.value.filter((value) => value.toLowerCase() !== suggestion.toLowerCase())
+				: [...props.value, suggestion],
+		);
+	return (
+		<div className="flex flex-col gap-2">
+			<Field optional label={`Where did you ${props.logger.copy.verb} it?`}>
+				{(control) => (
+					<TagInput
+						{...control}
+						values={props.value}
+						onChange={props.onChange}
+						maxLength={CONSUMED_ON_ITEM_LIMIT}
+						maxItems={CONSUMED_ON_SOURCES_LIMIT}
+						placeholder="Service, app or format"
+						removeIcon={<AppIcon name="x" size={14} />}
+					/>
+				)}
+			</Field>
+			{props.suggestions.length === 0 ? null : (
+				<div className="flex flex-wrap gap-1.5">
+					{props.suggestions.map((suggestion) => (
+						<button
+							type="button"
+							key={suggestion}
+							onClick={() => toggle(suggestion)}
+							aria-pressed={selected(suggestion)}
+							disabled={full && !selected(suggestion)}
+						>
+							<Chip label={suggestion} checked={selected(suggestion)} />
+						</button>
+					))}
+				</div>
+			)}
+		</div>
+	);
 }
 
 export function PositionProgress(props: {
@@ -740,7 +756,6 @@ function ActivityLogFields(props: Body) {
 				<SourceField
 					logger={logger}
 					value={draft.consumedOn}
-					error={errors.consumedOn}
 					suggestions={props.suggestions}
 					onChange={(consumedOn) => props.onChange({ consumedOn })}
 				/>

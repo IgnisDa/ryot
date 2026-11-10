@@ -67,7 +67,7 @@ it.live.each([
 								eventSchemaSlug: "progress",
 								operationId: "source-episode",
 								occurredAt: "2026-01-01T00:00:00.000Z",
-								properties: { progressPercent: 42, consumedOn: "audiobookshelf" },
+								properties: { progressPercent: 42, consumedOn: ["audiobookshelf"] },
 								unresolvedEpisode: { type: "podcast-title", episodeTitle: "Pilot" },
 								attribution: {
 									recordId: "episode",
@@ -129,7 +129,7 @@ it.live.each([
 													subjectEntitySchemaSlug: "podcast-episode",
 													properties: {
 														progressPercent: 42,
-														consumedOn: "audiobookshelf",
+														consumedOn: ["audiobookshelf"],
 														...(integrationId === undefined
 															? { sourceRun: "run:source-episode" }
 															: {}),

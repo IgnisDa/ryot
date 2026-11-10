@@ -49,7 +49,7 @@ describe("episodic session policy", () => {
 					sessionEntityId: "wrong-show",
 					entitySchemaSlug: "show-episode",
 					occurredAt: "2026-02-01T00:00:00.000Z",
-					properties: { consumedOn: "Plex", progressPercent: 42.125 },
+					properties: { consumedOn: ["Plex"], progressPercent: 42.125 },
 				});
 				const result = yield* run(input, [{ seasonNumber: 1, parentEntityId: "show-1" }]);
 				expect(result).toEqual<unknown>({

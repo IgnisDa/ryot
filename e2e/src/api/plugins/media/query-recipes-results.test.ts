@@ -308,7 +308,7 @@ describe("Media RyotQL query recipe results", () => {
 			yield* createEventFixture(client, {
 				entityId: firstEpisode.id,
 				eventSchemaSlug: progressEventSchema.id,
-				properties: { progressPercent: 50, consumedOn: "RyotQL test" },
+				properties: { progressPercent: 50, consumedOn: ["RyotQL test"] },
 			});
 			yield* createEventFixture(client, {
 				properties: {},
@@ -830,7 +830,7 @@ describe("Media RyotQL query recipe results", () => {
 			yield* createEventFixture(client, {
 				entityId: firstEpisode.id,
 				eventSchemaSlug: seeded.episodeProgressEventSchemaSlug,
-				properties: { progressPercent: 50, consumedOn: "RyotQL test" },
+				properties: { progressPercent: 50, consumedOn: ["RyotQL test"] },
 			});
 			yield* createEventFixture(client, {
 				properties: {},
@@ -914,7 +914,7 @@ describe("Media RyotQL query recipe results", () => {
 			yield* createEventFixture(client, {
 				entityId: firstEpisode.id,
 				eventSchemaSlug: seeded.episodeProgressEventSchemaSlug,
-				properties: { progressPercent: 100, consumedOn: "RyotQL test" },
+				properties: { progressPercent: 100, consumedOn: ["RyotQL test"] },
 			});
 			yield* createEventFixture(client, {
 				properties: {},
@@ -957,14 +957,14 @@ describe("Media RyotQL query recipe results", () => {
 					occurredAt,
 					entityId: seeded.firstEpisode.id,
 					eventSchemaSlug: seeded.episodeEvents.progress,
-					properties: { progressPercent, consumedOn: "Jellyfin" },
+					properties: { progressPercent, consumedOn: ["Jellyfin"] },
 				});
 			}
 			yield* createEventFixture(client, {
 				entityId: seeded.firstEpisode.id,
 				occurredAt: "2024-03-05T12:00:00.000Z",
 				eventSchemaSlug: seeded.episodeEvents.complete,
-				properties: { timeSpent: 45, consumedOn: "Jellyfin" },
+				properties: { timeSpent: 45, consumedOn: ["Jellyfin"] },
 			});
 			yield* createEventFixture(client, {
 				entityId: seeded.firstEpisode.id,
@@ -1117,7 +1117,7 @@ describe("Media RyotQL query recipe results", () => {
 					occurredAt,
 					entityId: seeded.firstEpisode.id,
 					eventSchemaSlug: seeded.episodeEvents.progress,
-					properties: { progressPercent, consumedOn: "Plex" },
+					properties: { progressPercent, consumedOn: ["Plex"] },
 				});
 			}
 
@@ -1134,8 +1134,8 @@ describe("Media RyotQL query recipe results", () => {
 			expect(activity.events).toHaveLength(1);
 			expect(activity.events[0]).toMatchObject({
 				kind: "episode",
-				consumedOn: "Plex",
 				progressPercent: 85,
+				consumedOn: ["Plex"],
 				eventSchemaSlug: "progress",
 				occurredAt: "2024-04-03T12:00:00.000Z",
 			});

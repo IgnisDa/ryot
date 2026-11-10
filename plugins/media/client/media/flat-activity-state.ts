@@ -1,3 +1,4 @@
+import { consumedOnLabel } from "../../shared/consumed-on";
 import type {
 	MediaFlatActivityEvent,
 	MediaFlatActivityMediaEvent,
@@ -27,7 +28,6 @@ import {
 	mediaLibraryRow,
 	mediaReviewRow,
 	mergeProgressRuns,
-	optionalText,
 } from "./activity-timeline";
 
 export type MediaFlatActivityTimeline<Subject, Extra = unknown> = MediaActivityTimeline<
@@ -114,7 +114,7 @@ const parentRow = <Subject, Extra>(
 			type: "progress",
 			position: event.position,
 			events: [eventRef(event)],
-			source: optionalText(event.consumedOn),
+			source: consumedOnLabel(event.consumedOn),
 			percent: event.progressPercent ?? undefined,
 		};
 	}

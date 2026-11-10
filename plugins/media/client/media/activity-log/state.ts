@@ -67,7 +67,6 @@ export type MediaActivityLogger =
 export type ActivityDraft = DurationDraft & {
 	readonly amount: string;
 	readonly startedDay: string;
-	readonly consumedOn: string;
 	readonly episodeId?: string;
 	readonly finishedDay: string;
 	readonly item?: MediaPosition;
@@ -75,6 +74,7 @@ export type ActivityDraft = DurationDraft & {
 	readonly when: ActivityWhenKind;
 	readonly status: MediaActivityStatus;
 	readonly position: number | undefined;
+	readonly consumedOn: readonly string[];
 	readonly time: null | ActivityTimeDraft;
 	readonly amountUnit: "unit" | "percent";
 	readonly progressMode: "amount" | "started";
@@ -116,7 +116,6 @@ export const EARLIER_PAGE_LIMIT = 100;
 export const EARLIER_MAX_PAGES = 5;
 export const BACKFILL_LIMIT = MAX_ACTIVITY_EPISODES - 1;
 
-const CONSUMED_ON_LIMIT = 100;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WHOLE_NUMBER = /^\d+$/;
 const DECIMAL_NUMBER = /^\d+(?:\.\d+)?$/;
@@ -248,7 +247,7 @@ export const initialActivityDraft = (
 		positionUnit,
 		...durationDraft(undefined),
 		startedDay: "",
-		consumedOn: "",
+		consumedOn: [],
 		finishedDay: today,
 		amountUnit: "percent",
 		progressMode: progress > 0 ? "amount" : "started",
@@ -264,7 +263,6 @@ type ActivityDraftErrors = {
 	readonly status?: string;
 	readonly percent?: string;
 	readonly position?: string;
-	readonly consumedOn?: string;
 };
 
 /** Switches dated fields to local date and time inputs at the current time of day. */
@@ -355,9 +353,6 @@ export const activityDraftErrors = (input: {
 		}
 		return errors;
 	}
-	if (draft.consumedOn.trim().length > CONSUMED_ON_LIMIT) {
-		errors.consumedOn = `Keep this under ${CONSUMED_ON_LIMIT} characters.`;
-	}
 	{
 		const when = whenError(draft, today);
 		if (when !== undefined) {
@@ -443,8 +438,7 @@ export const activityEntryDraft = (input: {
 	readonly episodeEntityIds: readonly string[];
 }): ActivityEntryDraft => {
 	const { draft, entityId } = input;
-	const consumedOn = draft.consumedOn.trim();
-	const source = consumedOn === "" ? {} : { consumedOn };
+	const source = draft.consumedOn.length === 0 ? {} : { consumedOn: draft.consumedOn };
 	if (draft.intent === "status") {
 		return { entityId, kind: "status", status: draft.status };
 	}
@@ -783,6 +777,13 @@ const storedPosition = (ref: MediaActivityEventRef) =>
 export const parsePositionNumber = (unit: MediaPosition["unit"], text: string) =>
 	(unit === "episodes" ? WHOLE_NUMBER : DECIMAL_NUMBER).test(text) ? Number(text) : undefined;
 
+const textListProperty = (ref: MediaActivityEventRef, key: string) => {
+	const value = ref.properties[key];
+	return Array.isArray(value)
+		? value.filter((item): item is string => typeof item === "string")
+		: [];
+};
+
 const textProperty = (ref: MediaActivityEventRef, key: string) => {
 	const value = ref.properties[key];
 	return typeof value === "string" ? value : undefined;
@@ -824,7 +825,7 @@ export const activityEditDraft = (input: {
 		positionUnit:
 			input.intent === "progress" ? (stored?.unit ?? base.positionUnit) : base.positionUnit,
 		...durationDraft(minutes),
-		consumedOn: textProperty(ref, "consumedOn") ?? "",
+		consumedOn: textListProperty(ref, "consumedOn"),
 		finishedDay: calendarDate ?? dayOf(ref.occurredAt),
 		amountUnit: pages === undefined ? "percent" : "unit",
 		startedDay: startedOn === undefined ? "" : dayOf(startedOn),
@@ -960,9 +961,11 @@ export const activityEditPatch = (input: {
 	) {
 		patch.timeSpent = parseDuration(draft) ?? null;
 	}
-	const consumedOn = draft.consumedOn.trim();
-	if (consumedOn !== initial.consumedOn.trim()) {
-		patch.consumedOn = consumedOn === "" ? null : consumedOn;
+	if (
+		draft.consumedOn.length !== initial.consumedOn.length ||
+		draft.consumedOn.some((value, index) => value !== initial.consumedOn[index])
+	) {
+		patch.consumedOn = draft.consumedOn.length === 0 ? null : draft.consumedOn;
 	}
 	return Object.keys(patch).length === 0 ? undefined : patch;
 };

@@ -63,7 +63,7 @@ describe("episodic activity state", () => {
 			collectionEvents: [],
 			watchDays: [
 				episodicFirstWatchDayRow,
-				{ ...episodicFirstWatchDayRow, minutes: 0.25, consumedOn: "Plex" },
+				{ ...episodicFirstWatchDayRow, minutes: 0.25, consumedOn: ["Plex"] },
 			],
 		});
 		assert(result.timeline.layout === "flat");
@@ -104,6 +104,20 @@ describe("episodic activity state", () => {
 		expect(episodicFixtureSchema.mapActivity(readyQueryResult(emptyEpisodicActivity()))).toEqual({
 			status: "empty",
 		});
+	});
+
+	it("shows every source of a watch day joined", () => {
+		const day = view({
+			parentEvents: [],
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			watchDays: [{ ...episodicFirstWatchDayRow, consumedOn: ["Plex", "Netflix"] }],
+		});
+		assert(day.timeline.layout === "flat");
+		const [row] = day.timeline.rows;
+		assert(row.type === "watch");
+		expect(row.source).toBe("Plex, Netflix");
 	});
 
 	it("collapses a day of episode completions into one entry listing its episodes", () => {

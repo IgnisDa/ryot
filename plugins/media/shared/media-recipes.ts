@@ -45,6 +45,7 @@ import {
 	type PluginIdentityReference,
 } from "@ryot-app/plugin-kit/schema";
 
+import { ConsumedOnSelection } from "./consumed-on";
 import { MediaPosition } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
@@ -641,8 +642,8 @@ export const mediaReviewActivityEventSelection = (event: Table) => ({
 
 export const mediaActivityEventSelection = (event: Table) => ({
 	...mediaReviewEventSelection(event),
+	consumedOn: selectedField(propertyJson(event, "consumedOn"), ConsumedOnSelection),
 	timeSpent: selectedField(propertyNumber(event, "timeSpent"), Schema.NullOr(Schema.Finite)),
-	consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
 });
 
 export const mediaCollectionEventsQuery = (input: {

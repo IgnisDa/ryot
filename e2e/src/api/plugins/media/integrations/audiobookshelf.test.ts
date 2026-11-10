@@ -106,7 +106,7 @@ describe("Audiobookshelf integration", () => {
 			const firstProgressEvent = requirePresent(firstProgressEvents[0], "Expected progress event");
 			expect(firstProgressEvent.properties).toMatchObject({
 				progressPercent: 42,
-				consumedOn: "Audiobookshelf",
+				consumedOn: ["Audiobookshelf"],
 			});
 			expect(firstEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "complete")).toBe(false);
 
@@ -128,7 +128,7 @@ describe("Audiobookshelf integration", () => {
 			expect(secondProgressEvent.id).toBe(firstProgressEvent.id);
 			expect(secondProgressEvent.properties).toMatchObject({
 				progressPercent: 42,
-				consumedOn: "Audiobookshelf",
+				consumedOn: ["Audiobookshelf"],
 			});
 			expect(secondEvents.some(({ eventSchemaSlug }) => eventSchemaSlug === "complete")).toBe(
 				false,

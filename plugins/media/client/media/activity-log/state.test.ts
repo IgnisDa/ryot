@@ -338,8 +338,6 @@ describe("validation", () => {
 		expect(errors({ ...volume, position: 12 }, manga, { volumes: 12, chapters: 5 })).toEqual({});
 		expect(errors(draft({ hours: "1.5" })).time).toBeDefined();
 		expect(errors(draft({ minutes: "-5" })).time).toBeDefined();
-		expect(errors(draft({ consumedOn: "x".repeat(101) })).consumedOn).toBeDefined();
-		expect(errors(draft({ intent: "status", consumedOn: "x".repeat(101) }))).toEqual({});
 	});
 
 	it("validates exact page amounts without using the current total as a limit", () => {
@@ -383,12 +381,12 @@ const entry = (
 	});
 
 describe("entries", () => {
-	it("builds Finished with trimmed source and time", () => {
+	it("builds Finished with sources and time", () => {
 		expect(entry({})).toEqual({ kind: "complete", entityId: "entity-1", when: { kind: "now" } });
-		expect(entry({ hours: "1", minutes: "5", when: "unknown", consumedOn: "  Plex " })).toEqual({
+		expect(entry({ hours: "1", minutes: "5", when: "unknown", consumedOn: ["Plex"] })).toEqual({
 			timeSpent: 65,
 			kind: "complete",
-			consumedOn: "Plex",
+			consumedOn: ["Plex"],
 			entityId: "entity-1",
 			when: { kind: "unknown" },
 		});
@@ -521,18 +519,18 @@ describe("entries", () => {
 
 	it("builds positional progress with a position and no percent", () => {
 		expect(
-			entry({ position: 13, intent: "progress", consumedOn: "Crunchyroll" }, positional),
+			entry({ position: 13, intent: "progress", consumedOn: ["Crunchyroll"] }, positional),
 		).toEqual({
 			kind: "progress",
 			entityId: "entity-1",
 			when: { kind: "now" },
-			consumedOn: "Crunchyroll",
+			consumedOn: ["Crunchyroll"],
 			position: { position: 13, unit: "episodes" },
 		});
 	});
 
 	it("builds status and episodes", () => {
-		expect(entry({ intent: "status", status: "dropped", consumedOn: "ignored" })).toEqual({
+		expect(entry({ intent: "status", status: "dropped", consumedOn: ["ignored"] })).toEqual({
 			kind: "status",
 			status: "dropped",
 			entityId: "entity-1",
@@ -888,7 +886,7 @@ describe("activity edits", () => {
 			edit({
 				change: {},
 				intent: "finished",
-				record: stored({ timeSpent: 95, consumedOn: "Plex" }),
+				record: stored({ timeSpent: 95, consumedOn: ["Plex"] }),
 			}),
 		).toBeUndefined();
 	});
@@ -960,8 +958,8 @@ describe("activity edits", () => {
 		expect(
 			edit({
 				intent: "finished",
-				change: { hours: "", minutes: "", consumedOn: " " },
-				record: stored({ timeSpent: 95, consumedOn: "Plex" }),
+				change: { hours: "", minutes: "", consumedOn: [] },
+				record: stored({ timeSpent: 95, consumedOn: ["Plex"] }),
 			}),
 		).toEqual({ timeSpent: null, consumedOn: null });
 	});
@@ -1009,7 +1007,7 @@ describe("activity edits", () => {
 			Effect.gen(function* () {
 				const record = stored({
 					progressPages: 0,
-					consumedOn: "Kindle",
+					consumedOn: ["Kindle"],
 					calendarDate: "2026-10-10",
 					sourceRun: "import:original",
 					consumptionBasis: { unit: "pages", property: "pages" },
@@ -1033,9 +1031,9 @@ describe("activity edits", () => {
 					logger: pages,
 					context: target,
 					submittedAt: submittedAt(9),
-					draft: { ...initial, consumedOn: "Libby" },
+					draft: { ...initial, consumedOn: ["Kindle", "Libby"] },
 				});
-				expect(patch).toEqual({ consumedOn: "Libby" });
+				expect(patch).toEqual({ consumedOn: ["Kindle", "Libby"] });
 				if (patch === undefined) {
 					throw new Error("Expected a source patch");
 				}
@@ -1046,7 +1044,7 @@ describe("activity edits", () => {
 					submissionId: "submission-1",
 					expected: eventPrecondition(record, mediaActivityPatchableKeys),
 				});
-				expect(encoded.patch).toEqual({ consumedOn: "Libby" });
+				expect(encoded.patch).toEqual({ consumedOn: ["Kindle", "Libby"] });
 				expect(encoded.expected.properties).toEqual(record.properties);
 				expect(encoded.expected.absentProperties).toContain("progressPercent");
 			}),

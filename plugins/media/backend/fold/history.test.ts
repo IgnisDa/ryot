@@ -112,7 +112,12 @@ const completions = (events: ReadonlyArray<FoldEvent>) =>
 	events.filter(({ eventSchemaSlug }) => eventSchemaSlug === "complete");
 
 const show: Subject = { id: "show", terminal: true, episodic: true };
-const episode = (id: string, slug: "complete" | "progress", occurredAt: string) =>
+const episode = (
+	id: string,
+	slug: "complete" | "progress",
+	occurredAt: string,
+	consumedOn?: ReadonlyArray<string>,
+) =>
 	event(`${slug}-${id}`, {
 		occurredAt,
 		entityId: id,
@@ -123,6 +128,7 @@ const episode = (id: string, slug: "complete" | "progress", occurredAt: string) 
 		properties: {
 			consumptionBasis: { unit: "minutes", property: "runtime" },
 			...(slug === "progress" ? { progressPercent: 100 } : {}),
+			...(consumedOn === undefined ? {} : { consumedOn }),
 		},
 	});
 
@@ -173,7 +179,11 @@ describe("media history fold", () => {
 			Effect.gen(function* () {
 				const progress = event("progress-1", {
 					eventSchemaSlug: "progress",
-					properties: { progressPercent: 100, consumedOn: "Netflix", consumptionBasis: basis },
+					properties: {
+						progressPercent: 100,
+						consumptionBasis: basis,
+						consumedOn: ["Netflix", "Plex"],
+					},
 				});
 				const first = yield* fold([progress]);
 				expect(completions(first.events)).toMatchObject([
@@ -182,9 +192,9 @@ describe("media history fold", () => {
 						orderKey: "progress-1~complete",
 						occurredAt: progress.occurredAt,
 						properties: {
-							consumedOn: "Netflix",
 							consumptionBasis: basis,
 							completionSilent: false,
+							consumedOn: ["Netflix", "Plex"],
 							completionKey: "progress:progress-1",
 						},
 					},
@@ -330,6 +340,38 @@ describe("media history fold", () => {
 					["episode-1", "episode-2", "episode-3"],
 				);
 				expect(completions(removed.events).map(({ entityId }) => entityId)).toEqual(["episode-2"]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"copies the ordered case-insensitive union of covered sources onto the parent completion",
+		() =>
+			Effect.gen(function* () {
+				const covered = yield* fold(
+					[
+						episode("episode-1", "complete", "2026-01-01T12:00:00.000Z", ["Plex", "Netflix"]),
+						episode("episode-2", "complete", "2026-01-02T12:00:00.000Z", ["netflix", "Kindle"]),
+						episode("episode-3", "complete", "2026-01-03T12:00:00.000Z"),
+					],
+					undefined,
+					show,
+					["episode-1", "episode-2", "episode-3"],
+				);
+				expect(
+					completions(covered.events).find(({ entityId }) => entityId === "show")?.properties[
+						"consumedOn"
+					],
+				).toEqual(["Plex", "Netflix", "Kindle"]);
+				const unsourced = yield* fold(
+					[episode("episode-1", "complete", "2026-01-01T12:00:00.000Z")],
+					undefined,
+					show,
+					["episode-1"],
+				);
+				expect(
+					completions(unsourced.events).find(({ entityId }) => entityId === "show")?.properties,
+				).not.toHaveProperty("consumedOn");
 			}),
 		testTimeout,
 	);

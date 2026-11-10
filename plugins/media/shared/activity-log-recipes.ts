@@ -2,14 +2,15 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
+	castText,
 	column,
 	conditional,
 	defineRecipe,
 	entitySchemaPredicate,
 	eq,
 	first,
-	isNotNull,
 	join,
+	jsonElementsJoin,
 	literal,
 	lt,
 	measureDescending,
@@ -32,6 +33,7 @@ import { MediaPosition } from "./consumption";
 import {
 	entityId,
 	entityIdentitySelection,
+	propertyJson,
 	propertyNumber,
 	propertyText,
 	type Table,
@@ -87,6 +89,11 @@ const consumedOnSuggestions = (input: {
 	const event = table("event", `${input.alias}Event`);
 	const eventEntity = table("entity", `${input.alias}Entity`);
 	const target = table("entity", `${input.alias}Target`);
+	const source = jsonElementsJoin(
+		"inner",
+		`${input.alias}Source`,
+		propertyJson(event, "consumedOn"),
+	);
 	const eventEntitySlug = conditional(
 		entitySchemaIs(target, "show"),
 		literal("show-episode"),
@@ -99,7 +106,7 @@ const consumedOnSuggestions = (input: {
 	return selectedAggregate(event, {
 		limit: input.limit,
 		orderBy: [measureDescending("lastUsedAt")],
-		groupBy: { consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.String) },
+		groupBy: { consumedOn: selectedField(castText(column(source, "value")), Schema.String) },
 		measures: {
 			lastUsedAt: selectedMeasure(
 				{ function: "maximum", expr: column(event, "occurredAt") },
@@ -107,6 +114,7 @@ const consumedOnSuggestions = (input: {
 			),
 		},
 		joins: [
+			source,
 			join("inner", eventEntity, eq(column(event, "entityId"), column(eventEntity, "id"))),
 			join("inner", target, entityId(target, input.entityId)),
 		],
@@ -116,7 +124,6 @@ const consumedOnSuggestions = (input: {
 			sameSchemaOwner(eventEntity, "entitySchemaPluginId", target),
 			eq(column(eventEntity, "entitySchemaSlug"), eventEntitySlug),
 			eventSlugIsOneOf(event, ["complete", "progress"]),
-			isNotNull(propertyText(event, "consumedOn")),
 			...(input.onlyThisEntity
 				? [
 						or(

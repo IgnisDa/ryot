@@ -351,7 +351,7 @@ function SourceFacts(props: {
 			: [{ value: facts.calendarDate, label: "Source calendar date" }]),
 		...(facts.consumedOn === undefined
 			? []
-			: [{ value: facts.consumedOn, label: "Original consumed-on value" }]),
+			: [{ value: facts.consumedOn.join(", "), label: "Original consumed-on values" }]),
 		...(facts.dateUnknown === true ? [{ label: "Source date", value: "Marked unknown" }] : []),
 		...(facts.completionKey === undefined
 			? []

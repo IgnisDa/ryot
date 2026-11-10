@@ -171,7 +171,7 @@ export const parseMediaServer = (
 				}
 				return progressResult({
 					occurredAt,
-					consumedOn: provider,
+					consumedOn: [provider],
 					progressPercent: percent,
 					...(locator ? { unresolvedEpisode: locator } : {}),
 					entityRef: resolvedMediaRef(entitySchemaSlug, metadataProvider, id, label),

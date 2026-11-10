@@ -146,7 +146,7 @@ export const runYoutubeMusicYank = (
 						{
 							occurredAt,
 							eventSchemaSlug: "progress",
-							properties: { progressPercent, consumedOn: "YouTube Music" },
+							properties: { progressPercent, consumedOn: ["YouTube Music"] },
 							operationId: yield* integrationRecordId([
 								"integration-source-event",
 								key,

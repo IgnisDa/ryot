@@ -354,7 +354,6 @@ function EditFields(props: {
 			<SourceField
 				logger={logger}
 				value={draft.consumedOn}
-				error={errors.consumedOn}
 				suggestions={props.suggestions}
 				onChange={(consumedOn) => props.onChange({ consumedOn })}
 			/>

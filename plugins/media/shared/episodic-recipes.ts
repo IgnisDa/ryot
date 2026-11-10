@@ -39,6 +39,7 @@ import {
 import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { EntityId, localDateOf } from "@ryot-app/plugin-kit/schema";
 
+import { ConsumedOnSelection } from "./consumed-on";
 import {
 	consumptionAmount,
 	consumptionNumber,
@@ -478,10 +479,7 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 				selection: {
 					...mediaEventSnapshotSelection(event),
 					createdAt: selectedField(column(event, "createdAt"), IsoDateString),
-					consumedOn: selectedField(
-						propertyText(event, "consumedOn"),
-						Schema.NullOr(Schema.String),
-					),
+					consumedOn: selectedField(propertyJson(event, "consumedOn"), ConsumedOnSelection),
 					progressPercent: selectedField(
 						propertyNumber(event, "progressPercent"),
 						Schema.NullOr(Schema.Finite),
@@ -566,9 +564,9 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 			...input.episodeFields(episode),
 			episodeId: selectedField(column(episode, "id"), EntityId),
 			episodeName: selectedField(column(episode, "name"), Schema.String),
+			consumedOn: selectedField(propertyJson(event, "consumedOn"), ConsumedOnSelection),
 			episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
 			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
-			consumedOn: selectedField(propertyText(event, "consumedOn"), Schema.NullOr(Schema.String)),
 			day: selectedField(
 				conditional(
 					eq(castText(consumptionValue(event, "attribution", "kind")), literal("date")),

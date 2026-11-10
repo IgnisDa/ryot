@@ -1,6 +1,10 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { reviewPropertyFields } from "@ryot-app/plugin-kit/schema";
 
+import {
+	CONSUMED_ON_ITEM_LIMIT,
+	CONSUMED_ON_SOURCES_LIMIT,
+} from "../../shared/consumed-on-settings";
 import { mediaPositionField, withConsumptionFacts } from "./consumption";
 import {
 	animePropertiesSchema,
@@ -25,8 +29,16 @@ import {
 const consumedOnField = {
 	consumedOn: {
 		label: "Consumed on",
-		type: "string" as const,
-		description: "The source or platform where this content was consumed (e.g. Netflix, Jellyfin)",
+		type: "array" as const,
+		validation: { maxItems: CONSUMED_ON_SOURCES_LIMIT },
+		description:
+			"The sources or platforms where this content was consumed (e.g. Netflix, Jellyfin)",
+		items: {
+			label: "Source",
+			type: "string" as const,
+			description: "A source or platform",
+			validation: { maxLength: CONSUMED_ON_ITEM_LIMIT },
+		},
 	},
 };
 

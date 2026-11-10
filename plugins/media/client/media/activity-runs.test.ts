@@ -107,9 +107,9 @@ const historyEvent = (input: {
 	readonly season: number;
 	readonly number: number;
 	readonly occurredAt: string;
-	readonly consumedOn?: string;
 	readonly progressPercent?: number;
 	readonly slug: "complete" | "progress";
+	readonly consumedOn?: readonly string[];
 }): MediaEpisodicHistoryEvent<TestEpisode> => ({
 	text: null,
 	rating: null,
@@ -149,7 +149,7 @@ describe("episodic activity runs", () => {
 					number,
 					season: 1,
 					slug: "complete",
-					consumedOn: "Plex",
+					consumedOn: ["Plex"],
 					id: `event-${index}`,
 					occurredAt: "2026-01-05T10:00:00.000Z",
 				}),
@@ -171,13 +171,13 @@ describe("episodic activity runs", () => {
 	it("keeps watches apart when their source or instant differs", () => {
 		const base = { season: 1, slug: "complete", occurredAt: "2026-01-05T10:00:00.000Z" } as const;
 		const rows = historyRows([
-			historyEvent({ ...base, id: "a", number: 1, consumedOn: "Plex" }),
-			historyEvent({ ...base, id: "b", number: 2, consumedOn: "Jellyfin" }),
+			historyEvent({ ...base, id: "a", number: 1, consumedOn: ["Plex"] }),
+			historyEvent({ ...base, id: "b", number: 2, consumedOn: ["Jellyfin"] }),
 			historyEvent({
 				...base,
 				id: "c",
 				number: 3,
-				consumedOn: "Jellyfin",
+				consumedOn: ["Jellyfin"],
 				occurredAt: "2026-01-04T10:00:00.000Z",
 			}),
 		]);

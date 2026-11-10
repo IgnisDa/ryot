@@ -28,9 +28,9 @@ describe("adaptSpotifyStreamingHistory", () => {
 			file([1, 0, null].map((ms_played) => play("2020-01-01T00:00:00Z", "a", { ms_played }))),
 		]);
 		expect(result.entityGroups[0]?.events.map((event) => event.properties)).toEqual([
-			{ consumedOn: "Spotify", timeSpent: 1 / 60_000 },
-			{ timeSpent: 0, consumedOn: "Spotify" },
-			{ consumedOn: "Spotify" },
+			{ timeSpent: 1 / 60_000, consumedOn: ["Spotify"] },
+			{ timeSpent: 0, consumedOn: ["Spotify"] },
+			{ consumedOn: ["Spotify"] },
 		]);
 	});
 	it("records only finished track plays and skips episodes and audiobooks without failures", () => {
@@ -84,7 +84,7 @@ describe("adaptSpotifyStreamingHistory", () => {
 		expect(events[0]).toEqual({
 			eventSchemaSlug: "complete",
 			occurredAt: "2020-01-01T00:00:00.000Z",
-			properties: { timeSpent: 3.59, consumedOn: "Spotify" },
+			properties: { timeSpent: 3.59, consumedOn: ["Spotify"] },
 		});
 		for (const group of result.entityGroups) {
 			expect(group.entityRef).toEqual({

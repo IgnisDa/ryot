@@ -45,7 +45,7 @@ const PROGRESS_EVENT = {
 	entityId: "entity-1",
 	id: "anime-progress",
 	sessionEntityId: null,
-	consumedOn: "Crunchyroll",
+	consumedOn: ["Crunchyroll"],
 	eventSchemaSlug: "progress",
 	createdAt: "2025-11-03T12:00:05.000Z",
 	occurredAt: "2025-11-03T12:00:00.000Z",

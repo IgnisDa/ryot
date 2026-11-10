@@ -154,7 +154,7 @@ describe("Spotify yank", () => {
 									occurredAt,
 									eventSchemaSlug: "complete",
 									properties: {
-										consumedOn: "Spotify",
+										consumedOn: ["Spotify"],
 										consumptionBasis: {
 											unit: "minutes",
 											property: "duration",
@@ -179,7 +179,7 @@ describe("Spotify yank", () => {
 									eventSchemaSlug: "complete",
 									occurredAt: "2026-01-01T12:05:00.000Z",
 									properties: {
-										consumedOn: "Spotify",
+										consumedOn: ["Spotify"],
 										consumptionBasis: { total: 1, unit: "minutes", property: "duration" },
 									},
 								},

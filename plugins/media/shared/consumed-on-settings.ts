@@ -4,6 +4,8 @@ export const CONSUMED_ON_ITEM_LIMIT = 100;
 
 export const CONSUMED_ON_LIST_LIMIT = 30;
 
+export const CONSUMED_ON_SOURCES_LIMIT = 10;
+
 export const consumedOnSettingKeys = {
 	book: "consumedOnBook",
 	show: "consumedOnShow",

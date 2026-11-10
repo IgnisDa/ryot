@@ -79,7 +79,7 @@ export const adaptSpotifyStreamingHistory = (
 						occurredAt: play.occurredAt,
 						eventSchemaSlug: "complete",
 						properties: {
-							consumedOn: "Spotify",
+							consumedOn: ["Spotify"],
 							...(play.timeSpent === null ? {} : { timeSpent: play.timeSpent }),
 						},
 					})),

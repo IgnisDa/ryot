@@ -461,7 +461,7 @@ describe("Event automations", () => {
 								entityId,
 								occurredAt: isoAt(1),
 								eventSchemaSlug: progressEventSchemaSlug,
-								properties: { progressPercent: 100, consumedOn: "Jellyfin" },
+								properties: { progressPercent: 100, consumedOn: ["Jellyfin"] },
 							},
 						],
 					}),
@@ -469,7 +469,7 @@ describe("Event automations", () => {
 
 				const completeEvent = yield* waitForEventWithSchema(client, entityId, "complete");
 
-				expect(completeEvent.properties).toMatchObject({ consumedOn: "Jellyfin" });
+				expect(completeEvent.properties).toMatchObject({ consumedOn: ["Jellyfin"] });
 				expect(completeEvent.properties).not.toHaveProperty("completedOn");
 				expect(completeEvent.occurredAt).toBe(isoAt(1));
 			}),

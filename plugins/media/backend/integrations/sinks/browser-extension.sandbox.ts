@@ -106,7 +106,7 @@ export default defineScript({
 					return progressResult({
 						occurredAt,
 						progressPercent: progress,
-						consumedOn: hostname(url),
+						consumedOn: [hostname(url)],
 						entityRef: resolvedMediaRef(lot, "tmdb", id, id),
 						...(locator ? { unresolvedEpisode: locator } : {}),
 					});

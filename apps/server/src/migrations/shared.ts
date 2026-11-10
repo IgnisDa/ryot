@@ -74,6 +74,7 @@ const AnomalyCode = Schema.Literals([
 	"seen-episode-absent",
 	"seen-episode-ambiguous",
 	"seen-episode-malformed",
+	"seen-consumed-on-dropped",
 	"review-episode-absent",
 	"review-episode-ambiguous",
 	"review-season-absent",

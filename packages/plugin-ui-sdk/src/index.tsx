@@ -8,6 +8,7 @@ export { Select } from "./select";
 export { Tooltip } from "./tooltip";
 export { Tabs, tabId } from "./tabs";
 export type { MenuItem } from "./menu";
+export { TagInput } from "./tag-input";
 export type { TabOption } from "./tabs";
 export { StatStrip } from "./stat-strip";
 export type { Stat } from "./stat-strip";

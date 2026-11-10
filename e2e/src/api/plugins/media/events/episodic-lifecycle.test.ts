@@ -205,7 +205,7 @@ describe("Episodic lifecycle sessions", () => {
 							{
 								entityId: airedEpisode.id,
 								occurredAt: "2026-04-08T00:00:00.000Z",
-								properties: { dateUnknown: true, consumedOn: "Plex" },
+								properties: { dateUnknown: true, consumedOn: ["Plex"] },
 								eventSchemaSlug: requireEventSchemaBySlug(eventSchemas, "complete").id,
 							},
 						],
@@ -216,7 +216,7 @@ describe("Episodic lifecycle sessions", () => {
 				expect(parentCompletion.occurredAt).toBe("2026-04-08T00:00:00.000Z");
 				expect(parentCompletion.properties).toMatchObject({
 					dateUnknown: true,
-					consumedOn: "Plex",
+					consumedOn: ["Plex"],
 				});
 			}),
 	);

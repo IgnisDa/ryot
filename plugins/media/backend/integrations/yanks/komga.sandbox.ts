@@ -334,7 +334,7 @@ export default defineScript({
 						{
 							occurredAt,
 							eventSchemaSlug: "progress",
-							properties: { consumedOn: "Komga", ...progressProperties },
+							properties: { consumedOn: ["Komga"], ...progressProperties },
 							attribution: {
 								sourceLabel: ref.sourceLabel,
 								sourceIdentifier: book.id ?? String(index),
