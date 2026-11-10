@@ -5,6 +5,14 @@ literal types while validating the strict authored manifest: every section is re
 are explicit, unknown fields are rejected, and `scripts` is not authored. Sandbox slugs use lowercase
 letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapping.
 
+## Review Content
+
+`@ryot-app/plugin-kit/schema` exposes `ReviewContent`, `requireReviewContent`, `reviewProperties`,
+`reviewPropertyKeys`, and `reviewPropertyFields`. Compose operation inputs from the content fields
+and apply the shared content check. The mapper omits absent text and rating and stores the spoiler
+flag only with text. Manifest fields accept plugin-owned descriptive copy. Plugins retain target
+admission, lifecycle hooks, and operation execution.
+
 ## Identity
 
 Set `metadata.packageId` to a permanent `publisher/name` package ID. Each segment is lowercase

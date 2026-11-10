@@ -1,3 +1,4 @@
+import { reviewPropertyFields } from "@ryot-app/contract/modules/events/review";
 import type { PluginHook } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	and,
@@ -30,27 +31,6 @@ export const kernelNotificationHook = {
 	})),
 } as const satisfies PluginHook;
 
-const reviewPropertiesSchema = {
-	fields: {
-		text: {
-			label: "Review",
-			type: "string" as const,
-			description: "Your written thoughts or notes about this entity",
-		},
-		isSpoiler: {
-			type: "boolean" as const,
-			label: "Contains spoilers",
-			description: "Whether this review contains spoilers",
-		},
-		rating: {
-			label: "Rating",
-			type: "number" as const,
-			validation: { minimum: 0, maximum: 100 },
-			description: "Your personal rating from 0 (lowest) to 100 (highest)",
-		},
-	},
-};
-
 const collectionSchema = {
 	pluginId: null,
 	icon: "folders",
@@ -78,7 +58,14 @@ const collectionSchema = {
 		},
 	},
 	eventSchemas: [
-		{ pluginId: null, name: "Review", slug: "review", propertiesSchema: reviewPropertiesSchema },
+		{
+			pluginId: null,
+			name: "Review",
+			slug: "review",
+			propertiesSchema: {
+				fields: reviewPropertyFields("Your written thoughts or notes about this entity"),
+			},
+		},
 		...(["Add", "Remove"] as const).map((operation) => ({
 			pluginId: null,
 			name: `${operation} Entity ${operation === "Add" ? "to" : "from"} Collection`,

@@ -1,4 +1,5 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { reviewPropertyFields } from "@ryot-app/plugin-kit/schema";
 
 import { consumedItemField, withConsumptionFacts } from "./consumption";
 import {
@@ -252,34 +253,13 @@ const libraryEventSchema = () => ({
 	propertiesSchema: { fields: {} },
 });
 
-const reviewBaseFields = () => ({
-	text: {
-		label: "Review",
-		type: "string" as const,
-		description: "Your written thoughts or notes about this media",
-	},
-	isSpoiler: {
-		type: "boolean" as const,
-		label: "Contains spoilers",
-		description: "Whether this review contains spoilers",
-	},
-	rating: {
-		label: "Rating",
-		type: "number" as const,
-		validation: { minimum: 0, maximum: 100 },
-		description: "Your personal rating from 0 (lowest) to 100 (highest)",
-	},
-});
-
 const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): AppSchema => {
-	if (entitySchemaSlug === undefined) {
-		return { fields: reviewBaseFields() };
-	}
+	const fields = reviewPropertyFields("Your written thoughts or notes about this media");
 	switch (entitySchemaSlug) {
 		case "anime":
 			return {
 				fields: {
-					...reviewBaseFields(),
+					...fields,
 					animeEpisode: {
 						label: "Anime episode",
 						type: "integer" as const,
@@ -290,7 +270,7 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 		case "manga":
 			return {
 				fields: {
-					...reviewBaseFields(),
+					...fields,
 					mangaVolume: {
 						label: "Manga volume",
 						type: "integer" as const,
@@ -303,8 +283,9 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 					},
 				},
 			};
+		case undefined:
 		default:
-			return { fields: reviewBaseFields() };
+			return { fields };
 	}
 };
 

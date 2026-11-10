@@ -35,6 +35,13 @@ capabilities. Tint extraction refetches the image as a no-store CORS request, be
 can otherwise serve the page's non-CORS cached copy; it silently returns no tint when image, canvas,
 or CORS access fails.
 
+## Review Composer
+
+`ReviewComposer` owns rating/text drafts, validation, spoiler controls, focus, dismissal, and
+optional confirmed deletion. Callers supply `onSave`, optional `onDelete`, submission state, and
+error copy; the component does not invoke client capabilities. Collection and Media review editors
+use it with the shared review content model. Drafts remain intact on submission failure.
+
 ## Visual Foundations
 
 Structure comes from spacing first, then hairline dividers, then a surface. A filled surface marks a

@@ -1,11 +1,9 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { reviewProperties, reviewPropertyKeys } from "@ryot-app/plugin-kit/schema";
 
-import {
-	mediaReviewDeclaredProperties,
-	mediaReviewPatchableKeys,
-} from "../../shared/media-activity-fields";
+import { mediaReviewDeclaredProperties } from "../../shared/media-activity-fields";
 import { MediaReviewOutput, MediaReviewUpdateInput } from "../../shared/media-review-operations";
 import {
 	loadEditTargets,
@@ -14,7 +12,6 @@ import {
 	reviewCombinations,
 	writePrecondition,
 } from "./media-activity-edits";
-import { mediaReviewProperties } from "./media-review-properties";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -41,14 +38,14 @@ export default defineOperation({
 				target,
 				mediaReviewDeclaredProperties(target.entitySchemaSlug),
 			);
-			const set = mediaReviewProperties(input);
+			const set = reviewProperties(input);
 			return yield* host
 				.updateEvents([
 					{
 						eventId: target.id,
 						expected: writePrecondition(input.expected),
 						patch: {
-							properties: { set, remove: mediaReviewPatchableKeys.filter((key) => !(key in set)) },
+							properties: { set, remove: reviewPropertyKeys.filter((key) => !(key in set)) },
 						},
 					},
 				])

@@ -1,3 +1,5 @@
+import { reviewPropertyKeys } from "@ryot-app/plugin-kit/schema";
+
 import {
 	builtinMediaEntitySchemaSlugs,
 	isPositional,
@@ -154,14 +156,12 @@ export const mediaActivityPatchableProperties = (
 	);
 };
 
-export const mediaReviewPatchableKeys = ["text", "isSpoiler", "rating"] as const;
-
 export const mediaReviewDeclaredProperties = (entitySchemaSlug: string): readonly string[] => {
 	if (entitySchemaSlug === "anime") {
-		return [...mediaReviewPatchableKeys, "animeEpisode"];
+		return [...reviewPropertyKeys, "animeEpisode"];
 	}
 	if (entitySchemaSlug === "manga") {
-		return [...mediaReviewPatchableKeys, "mangaVolume", "mangaChapter"];
+		return [...reviewPropertyKeys, "mangaVolume", "mangaChapter"];
 	}
-	return mediaReviewPatchableKeys;
+	return reviewPropertyKeys;
 };

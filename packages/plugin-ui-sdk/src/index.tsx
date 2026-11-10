@@ -31,6 +31,7 @@ export type { TimelineMarker } from "./timeline";
 export { Stepper, clockFormat } from "./stepper";
 export type { GroupColor } from "./group-colors";
 export { StatusMessage } from "./status-message";
+export { ReviewComposer } from "./review-composer";
 export { ChipRadioGroup } from "./chip-radio-group";
 export { LoadMoreButton } from "./load-more-button";
 export { Eyebrow, schemaSlugLabel } from "./eyebrow";
@@ -69,6 +70,7 @@ export {
 	MotionScrollRoot,
 	usePrefersReducedMotion,
 } from "./motion";
+
 export {
 	countUnit,
 	measureUnit,

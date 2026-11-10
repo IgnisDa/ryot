@@ -427,7 +427,7 @@ Both inputs carry nullable `text` and `rating` fields. Ratings use the finite 0â
 zero and decimals. Text is trimmed; absent content is omitted from event properties. The spoiler
 flag is stored only with text. Updates remove cleared content and preserve other declared fields,
 including imported positional metadata. Imported rating-only reviews need no placeholder text.
-The header and empty review activity tab open the same **Rate or review** composer, with the rating
+The header and empty review activity tab use the UI SDK `ReviewComposer`, shared with collection reviews, with the rating
 first and spoiler controls shown only when text exists. Clearing both fields while editing asks the
 user to retain content or delete the review. Writes remain protected in demo sessions and use the
 operation idempotency keys and stale-update snapshots. Successful writes refresh active queries
