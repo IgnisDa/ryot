@@ -161,7 +161,7 @@ readiness fix. Order 12 is Done.
 | 16 | Done | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | The unified Analytics destination provides Media and Fitness totals, comparisons, grouping, trends, hourly activity, rankings and drill-downs with the agreed historical facts, units, date and timezone semantics. Targeted API/browser coverage and both real datasets pass correctness, readiness and restart acceptance. See the Order 16 acceptance record below. |
 | 17 | Done | **Add self-service account rename** | Existing account authentication | Account settings edit the current user’s display name with validation, save/retry feedback and refreshed identity on web/native. Demo sessions cannot rename. Admin-on-behalf rename, V1 roles and the onboarding-tour flag are excluded by agreement. |
 | 18 | Done | **Share collections and saved views read-only** | 5 and 6; existing saved views and backups | Owners publish a kernel collection or entity-browser saved view as a live, read-only page with labelled, expiring, revocable links, an in-app preview and a status check. Visitors need no account and see only the published items. Backups carry publication definitions but never links. Collaborators and V1 access links are not reproduced. See the Order 18 acceptance record below. |
-| 19 | Pending | **Add history and review controls** | 1 and 3; the 2026-11-10 decisions in the [Order 19 plan](order-19-history-review-controls-plan.md) | User-selectable rating scales (100, 10, 5 stars, 3-point smiley) as a kernel preference across Media, Fitness and collection reviews; one Media position model with episode/chapter/volume reviews; a review's optional link to one consumption event with kernel event-reference integrity; same-parent episode retargeting; multiple consumption sources; progress started dates and optional time of day; manga volume tracking with next entry and completion. Review visibility is not reproduced. See the plan's acceptance list. |
+| 19 | Done | **Add history and review controls** | 1 and 3; the 2026-11-10 decisions in the [Order 19 plan](order-19-history-review-controls-plan.md) | User-selectable rating scales (100, 10, 5 stars, 3-point smiley) as a kernel preference across Media, Fitness and collection reviews; one Media position model with episode/chapter/volume reviews; a review's optional link to one consumption event with kernel event-reference integrity; same-parent episode retargeting; multiple consumption sources; progress started dates and optional time of day; manga volume tracking with next entry and completion. Review visibility is not reproduced. See the Order 19 acceptance record below. |
 
 #### Order 15 acceptance — 2026-11-08
 
@@ -271,6 +271,43 @@ recipes (145), plugin client compiler (97), kernel renderers (83), Media (2,009)
 backend (2,819). The publications API file (3 tests), the publications browser file (share, visit,
 item page, revoke) and the integrations browser file (3 tests) passed. Read-only DRY review findings
 were addressed and the main-session cleanup is complete.
+
+#### Order 19 acceptance — 2026-11-10
+
+Ratings are stored on 0–100 and shown in the user's kernel `ratingScale` preference (100, 10, five
+half-stars or a three-point smiley) on every rating surface, filters and browse values; plugins
+read it through the `user-preferences` bridge capability and a shared preferences gate with retry,
+and publication visitors get defaults. Media has one `position` model (`episodes`, `chapters`
+including fractional chapters with optional volume context, `volumes`). Anime and Manga reviews
+can name a position; show, season, episode and podcast-episode reviews land on the child entity,
+and season reviews appear in show activity and history. A review may name one completion,
+progress or status record of its own entity through `consumptionEventId`; review rows say what
+they are about, named records show **Reviewed**, the composer offers an **About** choice and
+preselects a just-logged completion.
+
+The kernel validates `event-id` references as same-user, existing, non-self targets, maintains an
+`event_reference` index, and clears optional references in the same transaction when a target is
+deleted directly, by a fold, by an entity cascade, by a user-data clear or by a merge. Event
+references are top-level, optional, editable event properties only. Restore drops references to
+events missing from the archive; merges keep IDs.
+
+Watch and listen records can move to another episode of the same show or podcast; the session
+policy recomputes `sessionEntityId` and both subjects refold, and reviews naming a moved record
+lose that link. `consumedOn` is an ordered, case-insensitively unique list of up to ten sources
+with a shared tag input, element-wise suggestions and fold unions. Progress records a start day,
+an optional time writes an exact instant, and manga volume runs suggest the next volume, complete
+at the volume total and report volumes separately in analytics.
+
+The V1 migration maps `review_scale`, positional and season-only reviews, full
+`providers_consumed_on` arrays, `seen.review_id` links (with `review-consumption-shared` and
+`review-consumption-unresolved` anomalies) and integration-progress claims in the runtime key
+format. Real V1 dumps (250 MB, 159 MB and 35 MB) migrated without abort and re-ran idempotently;
+scale, position, season-review, source, link, reference-index and claim counts matched the source.
+Validation found and fixed leftover anime positions on V1 show reviews.
+
+Validation: `bun run check` passed 38 tasks; root Turbo tests passed for the 13 affected packages
+(51 tasks); 51 affected API and browser e2e files passed, run one at a time. Read-only reviews of
+the kernel and plugin changes were addressed and the main-session cleanup is complete.
 
 ### Differences that need a decision, not an automatic implementation slot
 
