@@ -328,6 +328,49 @@ export type PluginBridgeManageRemindersScreenResult = Schema.Schema.Type<
 	typeof PluginBridgeManageRemindersScreenResult
 >;
 
+export const ManageCollectionReviewsRequest = strictStruct({ collectionId: EntityId });
+
+export type ManageCollectionReviewsRequest = Schema.Schema.Type<
+	typeof ManageCollectionReviewsRequest
+>;
+
+export const PluginBridgeManageCollectionReviewsScreen = strictStruct({
+	...ManageCollectionReviewsRequest.fields,
+	requestId: Schema.String,
+	type: Schema.Literal("manage-collection-reviews-screen"),
+});
+
+export type PluginBridgeManageCollectionReviewsScreen = Schema.Schema.Type<
+	typeof PluginBridgeManageCollectionReviewsScreen
+>;
+
+export const ManageCollectionReviewsOutcome = Schema.Union([
+	strictStruct({ kind: Schema.Literal("changed") }),
+	strictStruct({ kind: Schema.Literal("cancelled") }),
+]);
+
+export type ManageCollectionReviewsOutcome = Schema.Schema.Type<
+	typeof ManageCollectionReviewsOutcome
+>;
+
+export const PluginBridgeManageCollectionReviewsScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("manage-collection-reviews-screen-cancel"),
+});
+
+export type PluginBridgeManageCollectionReviewsScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeManageCollectionReviewsScreenCancel
+>;
+
+export const PluginBridgeManageCollectionReviewsScreenResult = hostScreenResult(
+	"manage-collection-reviews-screen-result",
+	ManageCollectionReviewsOutcome,
+);
+
+export type PluginBridgeManageCollectionReviewsScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeManageCollectionReviewsScreenResult
+>;
+
 export const SharePublicationRequest = strictStruct({ source: PublicationSource });
 
 export type SharePublicationRequest = Schema.Schema.Type<typeof SharePublicationRequest>;

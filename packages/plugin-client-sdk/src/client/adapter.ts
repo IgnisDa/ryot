@@ -9,6 +9,7 @@ import type {
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
+	ManageCollectionReviewsRequest,
 	ManageRemindersRequest,
 	PickEntityRequest,
 	PluginBackgroundOperationRequest,
@@ -46,6 +47,9 @@ export type RyotEditCollectionRequest = Schema.Codec.Encoded<typeof EditCollecti
 export type RyotAddToCollectionRequest = Schema.Codec.Encoded<typeof AddToCollectionRequest>;
 export type RyotManageRemindersRequest = Schema.Codec.Encoded<typeof ManageRemindersRequest>;
 export type RyotSharePublicationRequest = Schema.Codec.Encoded<typeof SharePublicationRequest>;
+export type RyotManageCollectionReviewsRequest = Schema.Codec.Encoded<
+	typeof ManageCollectionReviewsRequest
+>;
 
 export type FileUploadRequest = Omit<
 	Extract<PluginUploadRequest, { readonly action: "temporary" }>,
@@ -143,6 +147,9 @@ export type RyotClientAdapter = {
 	readonly pluginIdentity?: (
 		packageId: PluginPackageId,
 	) => Extract<PluginIdentityReference, { readonly kind: "local" }>;
+	readonly manageCollectionReviews?: (
+		request: ManageCollectionReviewsRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
 	readonly watchEntities?: (
 		interest: EntityWatch,
 		onUpdate: (update: EntityUpdate) => void,

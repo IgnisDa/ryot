@@ -60,6 +60,9 @@ import {
 	PluginBridgeKernelShortcut,
 	PluginBridgeLifecycleClose,
 	PluginBridgeLocation,
+	PluginBridgeManageCollectionReviewsScreen,
+	PluginBridgeManageCollectionReviewsScreenCancel,
+	PluginBridgeManageCollectionReviewsScreenResult,
 	PluginBridgeManageRemindersScreen,
 	PluginBridgeManageRemindersScreenCancel,
 	PluginBridgeManageRemindersScreenResult,
@@ -121,7 +124,9 @@ export const PluginBridgeClientMessage = Schema.Union([
 	PluginBridgeAddToCollectionScreen,
 	PluginBridgeAddToCollectionScreenCancel,
 	PluginBridgeManageRemindersScreen,
+	PluginBridgeManageCollectionReviewsScreen,
 	PluginBridgeManageRemindersScreenCancel,
+	PluginBridgeManageCollectionReviewsScreenCancel,
 	PluginBridgeSharePublicationScreen,
 	PluginBridgeSharePublicationScreenCancel,
 ]);
@@ -158,6 +163,7 @@ export const PluginBridgeHostMessage = Schema.Union([
 	PluginBridgeEditCollectionScreenResult,
 	PluginBridgeAddToCollectionScreenResult,
 	PluginBridgeManageRemindersScreenResult,
+	PluginBridgeManageCollectionReviewsScreenResult,
 	PluginBridgeSharePublicationScreenResult,
 	PluginBridgePageShortcutPress,
 ]);

@@ -248,6 +248,7 @@ const connect = (
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		onBackgroundOperation: options.onBackgroundOperation ?? (() => Effect.never),
 		onReportingPreferences: options.onReportingPreferences ?? (() => Effect.never),
+		onManageCollectionReviews: () => Effect.succeed({ kind: "cancelled" as const }),
 		onCalendarSourceVisibility: options.onCalendarSourceVisibility ?? (() => Effect.never),
 		watchEntities: options.watchEntities ?? (() => ({ update: () => {}, dispose: () => {} })),
 		onPickEntity: (request) => {
@@ -1508,6 +1509,7 @@ describe("plugin bridge", () => {
 					onSharePublication: () => Effect.succeed({ kind: "closed" as const }),
 					onEditCollection: () => Effect.succeed({ kind: "cancelled" as const }),
 					onAddToCollection: () => Effect.succeed({ kind: "cancelled" as const }),
+					onManageCollectionReviews: () => Effect.succeed({ kind: "cancelled" as const }),
 					onManageReminders: () => Effect.succeed<ManageRemindersOutcome>({ kind: "cancelled" }),
 					target: {
 						postMessage: () => {

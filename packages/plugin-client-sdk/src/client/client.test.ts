@@ -73,6 +73,19 @@ describe("Effect-native client capabilities", () => {
 					unsubscribe();
 				}
 				expect(refreshes).toBe(5);
+				for (const outcome of [{ kind: "changed" }, { kind: "cancelled" }] as const) {
+					const client = createRyotClient(
+						createTestRyotAdapter({ manageCollectionReviews: () => Effect.succeed(outcome) }),
+					);
+					const unsubscribe = client.mutationCompleted.subscribe(() => {
+						refreshes++;
+					});
+					expect(
+						yield* client.screens.manageCollectionReviews({ collectionId: "collection-1" }),
+					).toEqual(outcome);
+					unsubscribe();
+				}
+				expect(refreshes).toBe(6);
 			}),
 		testTimeout,
 	);

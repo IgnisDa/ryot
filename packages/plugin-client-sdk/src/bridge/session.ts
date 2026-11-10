@@ -33,6 +33,8 @@ import {
 	type PluginBridgeInit,
 	type PluginBridgeKernelShortcut,
 	type PluginBridgeLocation,
+	type PluginBridgeManageCollectionReviewsScreen,
+	type PluginBridgeManageCollectionReviewsScreenCancel,
 	type PluginBridgeManageRemindersScreen,
 	type PluginBridgeManageRemindersScreenCancel,
 	type PluginBridgeNavigate,
@@ -71,6 +73,7 @@ import type {
 	CollectionAdapterRequest,
 	EntityUpdate,
 	OperationAdapterRequest,
+	RyotManageCollectionReviewsRequest,
 	RyotManageRemindersRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,
@@ -110,7 +113,8 @@ type RequestType =
 	| "manage-reminders-screen"
 	| "share-publication-screen"
 	| "add-to-collection-screen"
-	| "calendar-source-visibility";
+	| "calendar-source-visibility"
+	| "manage-collection-reviews-screen";
 
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 const noOverlayToDismiss = () => false;
@@ -616,6 +620,21 @@ export const createPluginRuntime = (
 					type: "manage-reminders-screen-cancel",
 				}) satisfies PluginBridgeManageRemindersScreenCancel,
 		);
+	const manageCollectionReviews = (request: RyotManageCollectionReviewsRequest) =>
+		sendRequest(
+			"manage-collection-reviews-screen",
+			(requestId) =>
+				({
+					requestId,
+					type: "manage-collection-reviews-screen",
+					collectionId: EntityId.make(request.collectionId),
+				}) satisfies PluginBridgeManageCollectionReviewsScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "manage-collection-reviews-screen-cancel",
+				}) satisfies PluginBridgeManageCollectionReviewsScreenCancel,
+		);
 
 	const sharePublication = (request: SharePublicationRequest) =>
 		sendRequest(
@@ -651,6 +670,7 @@ export const createPluginRuntime = (
 		mutateCollection,
 		requestEnrichment,
 		navigatePageSearch,
+		manageCollectionReviews,
 		readReportingPreferences,
 		setCalendarSourceVisibility,
 		device: (request: PluginDeviceRequest) =>
@@ -1016,6 +1036,9 @@ export const createPluginRuntime = (
 						message.requestId,
 						message.outcome === "failure" ? message : { value: null, outcome: "success" },
 					);
+					return;
+				case "manage-collection-reviews-screen-result":
+					settle("manage-collection-reviews-screen", message.requestId, message);
 					return;
 				default: {
 					throw new Error("Unhandled plugin host message", { cause: message satisfies never });

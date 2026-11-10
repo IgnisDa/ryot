@@ -9,6 +9,8 @@ import type {
 	ExternalLinkOutcome,
 	ExternalLinkRequest,
 	KernelShortcut,
+	ManageCollectionReviewsOutcome,
+	ManageCollectionReviewsRequest,
 	ManageRemindersOutcome,
 	ManageRemindersRequest,
 	PageShortcutKey,
@@ -161,6 +163,9 @@ export function PageIframeHost(props: {
 	readonly onIosLiveActivity: (
 		request: PluginIosLiveActivityRequest,
 	) => Effect.Effect<PluginIosLiveActivityOutcome>;
+	readonly onManageCollectionReviews: (
+		request: ManageCollectionReviewsRequest,
+	) => Effect.Effect<ManageCollectionReviewsOutcome>;
 	readonly onCalendarSourceVisibility: (
 		request: PluginCalendarSourceVisibilityRequest,
 	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
@@ -404,6 +409,20 @@ export function PageIframeHost(props: {
 		}
 		setFrameStatus("loading");
 		const connection: { failed: boolean; session?: PluginBridgeSession } = { failed: false };
+		const manageScreen = Effect.fnUntraced(function* <Outcome extends { readonly kind: string }>(
+			open: () => Effect.Effect<Outcome>,
+		) {
+			const acceptedDocumentKey = latest.current.documentKey;
+			const outcome = yield* open();
+			if (
+				outcome.kind === "changed" &&
+				latest.current.documentKey === acceptedDocumentKey &&
+				bridge.current === connection.session
+			) {
+				latest.current.mutationCompleted.hint();
+			}
+			return outcome;
+		});
 		const nextBridge = openPluginBridge({
 			target: plugin,
 			page: latest.current.page,
@@ -435,6 +454,9 @@ export function PageIframeHost(props: {
 			onSharePublication: (request) => latest.current.onSharePublication(request),
 			watchEntities: (interest, onUpdate) => latest.current.watchEntities(interest, onUpdate),
 			onCalendarSourceVisibility: (request) => latest.current.onCalendarSourceVisibility(request),
+			onManageReminders: (request) => manageScreen(() => latest.current.onManageReminders(request)),
+			onManageCollectionReviews: (request) =>
+				manageScreen(() => latest.current.onManageCollectionReviews(request)),
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();
@@ -490,20 +512,6 @@ export function PageIframeHost(props: {
 						return { outcome: "failure", reason: "operation-failed" };
 					}),
 				),
-			onManageReminders: (request) => {
-				const acceptedDocumentKey = latest.current.documentKey;
-				return latest.current
-					.onManageReminders(request)
-					.pipe(
-						Effect.tap((outcome) =>
-							outcome.kind === "changed" &&
-							latest.current.documentKey === acceptedDocumentKey &&
-							bridge.current === connection.session
-								? Effect.sync(() => latest.current.mutationCompleted.hint())
-								: Effect.void,
-						),
-					);
-			},
 		});
 		if (!connection.failed) {
 			connection.session = nextBridge;

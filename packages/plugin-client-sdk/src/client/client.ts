@@ -32,6 +32,8 @@ import {
 	ExternalLinkRequest,
 	ExternalLinkSuccess,
 	isBackgroundSubmissionLabelCharacterAllowed,
+	ManageCollectionReviewsOutcome,
+	ManageCollectionReviewsRequest,
 	ManageRemindersOutcome,
 	ManageRemindersRequest,
 	PickEntityOutcome,
@@ -65,6 +67,7 @@ import type {
 	RyotAddToCollectionRequest,
 	RyotClientAdapter,
 	RyotEditCollectionRequest,
+	RyotManageCollectionReviewsRequest,
 	RyotManageRemindersRequest,
 	RyotPageSearchUpdate,
 	RyotPickEntityRequest,
@@ -346,7 +349,11 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const pickEntity = (request: RyotPickEntityRequest) =>
 		openScreen(PickEntityRequest, PickEntityOutcome, adapter.pickEntity, request);
 	const refreshAfterHostScreen = Effect.fnUntraced(function* (
-		outcome: EditCollectionOutcome | AddToCollectionOutcome | ManageRemindersOutcome,
+		outcome:
+			| EditCollectionOutcome
+			| AddToCollectionOutcome
+			| ManageRemindersOutcome
+			| ManageCollectionReviewsOutcome,
 	) {
 		if (outcome.kind !== "cancelled") {
 			yield* Effect.sync(() => mutationCompleted.hint());
@@ -368,6 +375,13 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			ManageRemindersRequest,
 			ManageRemindersOutcome,
 			adapter.manageReminders,
+			request,
+		).pipe(Effect.tap(refreshAfterHostScreen));
+	const manageCollectionReviews = (request: RyotManageCollectionReviewsRequest) =>
+		openScreen(
+			ManageCollectionReviewsRequest,
+			ManageCollectionReviewsOutcome,
+			adapter.manageCollectionReviews,
 			request,
 		).pipe(Effect.tap(refreshAfterHostScreen));
 	const sharePublication = (request: RyotSharePublicationRequest) =>
@@ -417,7 +431,14 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		userSettings: readUserSettings,
 		uploads: { uploadPermanent, uploadTemporary },
 		calendarSources: { setVisibility: setCalendarSourceVisibility },
-		screens: { pickEntity, editCollection, addToCollection, manageReminders, sharePublication },
+		screens: {
+			pickEntity,
+			editCollection,
+			addToCollection,
+			manageReminders,
+			sharePublication,
+			manageCollectionReviews,
+		},
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {
 				throw new RyotClientError({ reason: "invalid-request" });

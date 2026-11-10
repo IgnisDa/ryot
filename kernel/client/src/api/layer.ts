@@ -10,6 +10,7 @@ import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
 import { EntityProvidersApi } from "#/api/entity-providers";
+import { EventsApi } from "#/api/events";
 import { ImportsApi } from "#/api/imports";
 import { InstanceAdminApi } from "#/api/instance-admin";
 import { IntegrationsApi } from "#/api/integrations";
@@ -48,6 +49,7 @@ export const ApiLive = Layer.mergeAll(
 	BackupsApi.layer,
 	PagesApi.layer,
 	CollectionsApi.layer,
+	EventsApi.layer,
 	CalendarSourcesApi.layer,
 	UploadsApi.layer,
 	PluginsApi.layer,

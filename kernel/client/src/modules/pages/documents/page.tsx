@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 
+import { useCollectionReviewScreen } from "#/modules/collections/review-screen";
 import { useCollectionScreens } from "#/modules/collections/screens";
 import { type ClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
@@ -12,6 +13,7 @@ export function ClientPage(props: Pick<ClientPageDocument, "title" | "prepared">
 	const { open, session } = useEntityPickerSession();
 	const collections = useCollectionScreens();
 	const reminders = useReminderScreen();
+	const reviews = useCollectionReviewScreen();
 	const share = useShareScreen();
 	useClientPageDocument({
 		...props,
@@ -20,7 +22,8 @@ export function ClientPage(props: Pick<ClientPageDocument, "title" | "prepared">
 		onManageReminders: reminders.onManageReminders,
 		onEditCollection: collections.onEditCollection,
 		onAddToCollection: collections.onAddToCollection,
-		inert: session !== null || collections.open || reminders.open || share.open,
+		onManageCollectionReviews: reviews.onManageCollectionReviews,
+		inert: session !== null || collections.open || reviews.open || reminders.open || share.open,
 	});
 	return (
 		<>
@@ -35,6 +38,7 @@ export function ClientPage(props: Pick<ClientPageDocument, "title" | "prepared">
 				/>
 			)}
 			{collections.screen}
+			{reviews.screen}
 			{reminders.screen}
 			{share.screen}
 		</>

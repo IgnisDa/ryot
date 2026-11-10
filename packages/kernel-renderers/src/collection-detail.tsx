@@ -202,12 +202,6 @@ const CollectionBrowser = ({
 			name={() => header?.name ?? "Collection"}
 			errorMessage="The collection could not be loaded."
 			tableColumns={collectionMemberTableColumns(membershipPropertiesSchema)}
-			headerActions={[
-				...pageActions,
-				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
-				{ run: share, icon: "share", label: "Share" },
-				{ icon: "pencil", run: editCollection, label: "Edit collection" },
-			]}
 			renderItemActions={(item) => (
 				<IconButton
 					size="sm"
@@ -228,6 +222,17 @@ const CollectionBrowser = ({
 					key={JSON.stringify([collectionId, search, filter])}
 				/>
 			)}
+			headerActions={[
+				...pageActions,
+				{
+					icon: "star",
+					label: "Reviews",
+					run: () => openScreen(ryot.screens.manageCollectionReviews({ collectionId })),
+				},
+				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
+				{ run: share, icon: "share", label: "Share" },
+				{ icon: "pencil", run: editCollection, label: "Edit collection" },
+			]}
 			renderSummary={() => (
 				<>
 					{header?.description ? (

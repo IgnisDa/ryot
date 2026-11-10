@@ -4,6 +4,8 @@ import type {
 	AddToCollectionRequest,
 	EditCollectionOutcome,
 	EditCollectionRequest,
+	ManageCollectionReviewsOutcome,
+	ManageCollectionReviewsRequest,
 	ManageRemindersOutcome,
 	ManageRemindersRequest,
 	PickEntityOutcome,
@@ -42,6 +44,9 @@ export type ClientPageDocument = {
 	readonly onSharePublication?: (
 		request: SharePublicationRequest,
 	) => Effect.Effect<SharePublicationOutcome>;
+	readonly onManageCollectionReviews?: (
+		request: ManageCollectionReviewsRequest,
+	) => Effect.Effect<ManageCollectionReviewsOutcome>;
 };
 
 const cancelled = Effect.succeed({ kind: "cancelled" as const });
@@ -94,6 +99,8 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			onSharePublication: (request) => latest.current.onSharePublication?.(request) ?? closed,
 			onAddToCollection: (request) => latest.current.onAddToCollection?.(request) ?? cancelled,
 			onManageReminders: (request) => latest.current.onManageReminders?.(request) ?? cancelled,
+			onManageCollectionReviews: (request) =>
+				latest.current.onManageCollectionReviews?.(request) ?? cancelled,
 		}),
 		[document.inert, document.prepared, document.title],
 	);

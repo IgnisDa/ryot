@@ -18,6 +18,7 @@ import { useEffect, useRef } from "react";
 
 import { PagesApi } from "#/api/pages";
 import type { ApiScope } from "#/api/scope";
+import { useCollectionReviewScreen } from "#/modules/collections/review-screen";
 import { useCollectionScreens } from "#/modules/collections/screens";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -160,6 +161,7 @@ export function SavedViewPage({
 	}, [layout, loaded.entityBrowser, loaded.viewPath, runtime, scope]);
 	const collections = useCollectionScreens();
 	const reminders = useReminderScreen();
+	const reviews = useCollectionReviewScreen();
 	const share = useShareScreen();
 	useClientPageDocument({
 		onPickEntity: openAdd,
@@ -169,7 +171,8 @@ export function SavedViewPage({
 		onManageReminders: reminders.onManageReminders,
 		onAddToCollection: collections.onAddToCollection,
 		title: loaded.prepared.context.view?.name ?? "Saved view",
-		inert: addOpen || collections.open || reminders.open || share.open,
+		onManageCollectionReviews: reviews.onManageCollectionReviews,
+		inert: addOpen || collections.open || reviews.open || reminders.open || share.open,
 	});
 
 	return (
@@ -185,6 +188,7 @@ export function SavedViewPage({
 				/>
 			) : null}
 			{collections.screen}
+			{reviews.screen}
 			{reminders.screen}
 			{share.screen}
 		</>

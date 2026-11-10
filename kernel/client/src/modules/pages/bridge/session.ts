@@ -16,6 +16,8 @@ import {
 	type ExternalLinkRequest,
 	isPageShortcut,
 	type KernelShortcut,
+	type ManageCollectionReviewsOutcome,
+	type ManageCollectionReviewsRequest,
 	type ManageRemindersOutcome,
 	type ManageRemindersRequest,
 	type PageShortcutKey,
@@ -125,7 +127,8 @@ type HostScreenType =
 	| "edit-collection-screen"
 	| "manage-reminders-screen"
 	| "share-publication-screen"
-	| "add-to-collection-screen";
+	| "add-to-collection-screen"
+	| "manage-collection-reviews-screen";
 
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
@@ -154,6 +157,7 @@ const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenT
 	"manage-reminders-screen",
 	"share-publication-screen",
 	"add-to-collection-screen",
+	"manage-collection-reviews-screen",
 ]);
 
 export type BackgroundOperationAcceptance =
@@ -220,6 +224,9 @@ type PluginBridgeOptions = {
 	readonly onIosLiveActivity: (
 		request: PluginIosLiveActivityRequest,
 	) => Effect.Effect<PluginIosLiveActivityOutcome>;
+	readonly onManageCollectionReviews: (
+		request: ManageCollectionReviewsRequest,
+	) => Effect.Effect<ManageCollectionReviewsOutcome>;
 	readonly onCalendarSourceVisibility: (
 		request: PluginCalendarSourceVisibilityRequest,
 	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
@@ -836,6 +843,9 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 						Match.when({ type: "manage-reminders-screen-cancel" }, ({ requestId }) =>
 							handleHostScreenCancel("manage-reminders-screen", requestId),
 						),
+						Match.when({ type: "manage-collection-reviews-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("manage-collection-reviews-screen", requestId),
+						),
 						Match.when({ type: "share-publication-screen-cancel" }, ({ requestId }) =>
 							handleHostScreenCancel("share-publication-screen", requestId),
 						),
@@ -890,6 +900,13 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							({ requestId, type: _type, ...request }) =>
 								openHostScreen(requestId, "manage-reminders-screen", () =>
 									options.onManageReminders(request),
+								),
+						),
+						Match.when(
+							{ type: "manage-collection-reviews-screen" },
+							({ requestId, type: _type, ...request }) =>
+								openHostScreen(requestId, "manage-collection-reviews-screen", () =>
+									options.onManageCollectionReviews(request),
 								),
 						),
 						Match.when(

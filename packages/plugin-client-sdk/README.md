@@ -166,6 +166,10 @@ or `{ kind: "cancelled" }` when unchanged. Both screens hint a page refresh afte
 outcomes. Both accept IDs only;
 collection update and delete are not otherwise exposed to plugins.
 
+`screens.manageCollectionReviews({ collectionId })` opens the host's dated collection review list
+and create/edit/delete controls. It returns `changed` after a successful mutation, otherwise
+`cancelled`, and refreshes client queries on change. Reviews have no visibility setting.
+
 `screens.manageReminders({ entityId, parentEntityId? })` opens the host reminder-management screen
 for an entity, optionally scoped to a parent entity. It returns `{ kind: "changed" }` or
 `{ kind: "cancelled" }`; only `changed` hints a page refresh.

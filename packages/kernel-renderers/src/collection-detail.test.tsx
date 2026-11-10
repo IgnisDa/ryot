@@ -208,6 +208,26 @@ describe("collection detail", () => {
 	afterEach(disposePluginBridges);
 
 	it.live(
+		"opens collection reviews even when the collection has no members",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, { total: 0, groups: [], members: [], name: "Empty shelf" });
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Reviews" })),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.messages).toContainEqual(
+							objectContaining({ collectionId: "col-1", type: "manage-collection-reviews-screen" }),
+						),
+					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"opens plugin collection pages that cover the collection's member types",
 		() =>
 			Effect.gen(function* () {

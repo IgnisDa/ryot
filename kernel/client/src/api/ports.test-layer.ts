@@ -6,6 +6,7 @@ import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
 import { CollectionsApi } from "#/api/collections";
 import { EntityProvidersApi } from "#/api/entity-providers";
+import { EventsApi } from "#/api/events";
 import { ImportsApi } from "#/api/imports";
 import { InstanceAdminApi } from "#/api/instance-admin";
 import { IntegrationsApi } from "#/api/integrations";
@@ -42,6 +43,9 @@ export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Se
 
 export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
 	Layer.succeed(RyotQLApi, { execute: unused, executePlugin: unused, ...overrides });
+
+export const makeEventsApi = (overrides: Partial<EventsApi["Service"]> = {}) =>
+	Layer.succeed(EventsApi, { create: unused, update: unused, delete: unused, ...overrides });
 
 export const makeCollectionsApi = (overrides: Partial<CollectionsApi["Service"]> = {}) =>
 	Layer.succeed(CollectionsApi, {
@@ -213,6 +217,7 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	}),
 	makeRyotQLApi(),
 	makeCollectionsApi(),
+	makeEventsApi(),
 	makeCalendarSourcesApi(),
 	makeImportsApi(),
 	makeBackupsApi(),
