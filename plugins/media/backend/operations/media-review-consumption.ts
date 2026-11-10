@@ -1,4 +1,4 @@
-import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
+import { EVENT_MUTATION_SANDBOX_LIMITS, type ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 import {
@@ -12,9 +12,11 @@ import {
 	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
+	selectedRows,
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 
+import { propertyText } from "../../shared/entity-selections";
 import { mediaReviewConsumptionSlugs } from "../../shared/media-review-operations";
 
 const reviewConsumptionRecipe = defineRecipe((eventId: string) => {
@@ -65,4 +67,42 @@ export const requireReviewConsumption = (
 			});
 		}
 		return yield* Effect.void;
+	});
+
+const reviewsOfConsumptionRecipe = defineRecipe((eventId: string) => {
+	const review = table("event", "consumptionReview");
+	return {
+		map: ({ reviews }) =>
+			Result.succeed({ hasMore: reviews.pageInfo.hasMore, ids: reviews.items.map(({ id }) => id) }),
+		queries: {
+			reviews: selectedRows(review, {
+				orderBy: [ascending(column(review, "id"))],
+				limit: EVENT_MUTATION_SANDBOX_LIMITS.items - 1,
+				selection: { id: selectedField(column(review, "id"), Schema.String) },
+				where: and(
+					schemaOwnerPredicate(review, "eventSchemaPluginId", { kind: "self" }),
+					eq(column(review, "eventSchemaSlug"), literal("review")),
+					eq(propertyText(review, "consumptionEventId"), literal(eventId)),
+				),
+			}),
+		},
+	};
+});
+
+/** The reviews that name `eventId`, which must stop naming it once it is no longer a record of their entity. */
+export const reviewsNamingConsumption = (
+	host: Pick<ScriptHost, "executeRyotql">,
+	eventId: string,
+) =>
+	Effect.gen(function* () {
+		const { ids, hasMore } = yield* executeRyotqlRecipe(
+			host.executeRyotql,
+			reviewsOfConsumptionRecipe(eventId),
+		);
+		if (hasMore) {
+			return yield* new OperationRejectedError({
+				message: "Too many reviews are about this record to move it.",
+			});
+		}
+		return ids;
 	});

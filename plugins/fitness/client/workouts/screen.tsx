@@ -5,13 +5,17 @@ import {
 } from "@ryot-app/plugin-client-sdk/browser";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { type TimeZone, usePageContext, usePageRefresh } from "@ryot-app/plugin-client-sdk/plugin";
-import { paginationItems, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	paginationItems,
+	PreferencesGate,
+	useRyot,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { useMemo, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { DisplayPreferences } from "../display-preferences";
-import { PreferencesGate } from "../preferences-gate";
 import { WorkoutProcessing } from "../workout-processing";
 import { workoutFilterFields } from "./filters";
 import {

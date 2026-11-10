@@ -1,9 +1,13 @@
-import { type ReviewContent, reviewPropertyKeys } from "@ryot-app/plugin-client-sdk";
+import {
+	type PluginUserPreferences,
+	type ReviewContent,
+	reviewPropertyKeys,
+} from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotBackgroundSubmission,
+	PreferencesGate,
 	type RyotSubmission,
 	useBackgroundSubmission,
-	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, ReviewComposer } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -65,6 +69,42 @@ export const deleteReviewSubmission = createRyotBackgroundSubmission({
 
 type FixedReviewSubject = { readonly label: string; readonly entityId: string };
 
+type MediaReviewFormProps = {
+	readonly entityId: string;
+	readonly onClose: () => void;
+	readonly fixed?: undefined | FixedReviewSubject;
+	readonly logger?: undefined | MediaActivityLogger;
+	readonly completion?: undefined | ReviewCompletion;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+};
+
+type MediaReviewEditFormProps = {
+	readonly entityId: string;
+	readonly onClose: () => void;
+	readonly initial: ReviewContent;
+	readonly record: MediaActivityEventRef;
+	readonly subjectLabel?: string | undefined;
+	readonly position?: undefined | MediaPosition;
+	readonly logger?: undefined | MediaActivityLogger;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+};
+
+export function MediaReviewForm(props: MediaReviewFormProps) {
+	return (
+		<PreferencesGate>
+			{({ ratingScale }) => <MediaReviewFormBody {...props} scale={ratingScale} />}
+		</PreferencesGate>
+	);
+}
+
+export function MediaReviewEditForm(props: MediaReviewEditFormProps) {
+	return (
+		<PreferencesGate>
+			{({ ratingScale }) => <MediaReviewEditFormBody {...props} scale={ratingScale} />}
+		</PreferencesGate>
+	);
+}
+
 export function MediaChildReviewButton(props: FixedReviewSubject) {
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -117,21 +157,33 @@ export function MediaReviewButton(props: {
 	);
 }
 
-export function MediaReviewForm(props: {
-	readonly entityId: string;
-	readonly onClose: () => void;
-	readonly fixed?: undefined | FixedReviewSubject;
-	readonly logger?: undefined | MediaActivityLogger;
-	readonly completion?: undefined | ReviewCompletion;
-	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+function FixedSubject(props: { readonly label: string }) {
+	return (
+		<p className="text-label text-text-muted">
+			Review of <span className="font-medium text-text">{props.label}</span>
+		</p>
+	);
+}
+
+function ReviewSubjectAndAbout(props: {
+	readonly picker: ReactNode;
+	readonly children: ReactNode;
 }) {
+	return (
+		<div className="flex flex-col gap-3">
+			{props.picker}
+			{props.children}
+		</div>
+	);
+}
+
+function MediaReviewFormBody(
+	props: MediaReviewFormProps & { readonly scale: PluginUserPreferences["ratingScale"] },
+) {
 	const review = useBackgroundSubmission(createReview);
-	const scale = useUserPreferences().data?.ratingScale;
+	const { scale } = props;
 	const [subject, setSubject] = useState(WHOLE_REVIEW_SUBJECT);
 	const [about, setAbout] = useState<null | string>(null);
-	if (scale === undefined) {
-		return null;
-	}
 	const target =
 		props.fixed === undefined
 			? reviewTarget(props.entityId, subject)
@@ -188,23 +240,13 @@ export function MediaReviewForm(props: {
 	);
 }
 
-export function MediaReviewEditForm(props: {
-	readonly entityId: string;
-	readonly onClose: () => void;
-	readonly initial: ReviewContent;
-	readonly record: MediaActivityEventRef;
-	readonly subjectLabel?: string | undefined;
-	readonly position?: undefined | MediaPosition;
-	readonly logger?: undefined | MediaActivityLogger;
-	readonly triggerRef: RefObject<null | HTMLButtonElement>;
-}) {
+function MediaReviewEditFormBody(
+	props: MediaReviewEditFormProps & { readonly scale: PluginUserPreferences["ratingScale"] },
+) {
 	const review = useBackgroundSubmission(updateReview);
-	const scale = useUserPreferences().data?.ratingScale;
+	const { scale } = props;
 	const [subject, setSubject] = useState(() => positionalReviewSubject(props.position));
 	const [about, setAbout] = useState(() => linkedOccurrenceId(props.record));
-	if (scale === undefined) {
-		return null;
-	}
 	const { logger } = props;
 	const positional =
 		props.subjectLabel === undefined && logger !== undefined && logger.family === "positional";
@@ -256,25 +298,5 @@ export function MediaReviewEditForm(props: {
 				)
 			}
 		/>
-	);
-}
-
-function FixedSubject(props: { readonly label: string }) {
-	return (
-		<p className="text-label text-text-muted">
-			Review of <span className="font-medium text-text">{props.label}</span>
-		</p>
-	);
-}
-
-function ReviewSubjectAndAbout(props: {
-	readonly picker: ReactNode;
-	readonly children: ReactNode;
-}) {
-	return (
-		<div className="flex flex-col gap-3">
-			{props.picker}
-			{props.children}
-		</div>
 	);
 }

@@ -29,6 +29,19 @@ const sharedReviewDetailSql = buildReportDetailSql({
 		u.winner_seen_id)`,
 });
 
+const unresolvedReviewDetailSql = buildReportDetailSql({
+	key: "u.seen_id",
+	label: "u.entity_name",
+	provenance: [
+		["Title", "u.entity_name"],
+		["Review", "u.review_id"],
+		["Legacy row", "u.seen_id"],
+		["User", "u.user_id"],
+	],
+	sentence:
+		"'This record named a review, but none of its migrated records could be matched, so the review is not about any specific watch or read.'",
+});
+
 // Runs after reviews and seen history. Seen rows keep deterministic event IDs, so each candidate is
 // the migrated completion, progress or status event of that row on the review's own entity.
 export const buildReviewConsumptionMigrationSql = (mediaPluginId: string) => `
@@ -36,6 +49,7 @@ DO $$
 DECLARE
 	linked_rows int := 0;
 	shared_rows int := 0;
+	unresolved_rows int := 0;
 	report_seq int;
 	started_at timestamptz := clock_timestamp();
 BEGIN
@@ -105,6 +119,30 @@ BEGIN
 		source: "_review_consumption_shared u",
 		message:
 			"Some reviews were named by more than one watch or read. Each review is now about its latest finished record; the other records are listed below and keep no link to the review.",
+	})}
+
+	CREATE TEMP TABLE _review_consumption_unresolved ON COMMIT DROP AS
+	SELECT s.id AS seen_id, s.user_id, review.id AS review_id, entity.name AS entity_name
+	FROM "seen" s
+	INNER JOIN "event" review
+		ON review.id = s.review_id
+		AND review.user_id = s.user_id
+		AND review.event_schema_slug = 'review'
+		AND review.event_schema_plugin_id = ${quoteSqlString(mediaPluginId)}
+	INNER JOIN "entity" entity ON entity.id = review.entity_id
+	WHERE NOT EXISTS (
+		SELECT 1 FROM _review_consumption_candidates candidate WHERE candidate.review_id = review.id
+	);
+
+	${buildAnomalyReportSql({
+		seqVariable: "report_seq",
+		phase: reviewConsumptionPhase,
+		countVariable: "unresolved_rows",
+		detail: unresolvedReviewDetailSql,
+		code: "review-consumption-unresolved",
+		source: "_review_consumption_unresolved u",
+		message:
+			"Some reviews named a watch or read whose migrated record could not be found on the reviewed title. Those reviews are kept without a link to a specific record; they are listed below.",
 	})}
 
 	${buildReportSql(reviewConsumptionPhase, [

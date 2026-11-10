@@ -395,14 +395,12 @@ describe("Media rating-only reviews", () => {
 				);
 				assertTaggedError(failure, "PluginOperationRejected");
 			}
-			const movieReview = yield* Effect.flip(
-				invokeOperation(client, createReview, {
-					...content,
-					position: null,
-					entityId: movie.entityId,
-				}),
-			);
-			assertTaggedError(movieReview, "PluginOperationRejected");
+			yield* invokeOperation(client, createReview, {
+				...content,
+				position: null,
+				entityId: movie.entityId,
+			});
+			expect((yield* readReview(client, movie.entityId)).properties).toEqual({ rating: 70 });
 		}),
 	);
 

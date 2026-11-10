@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Option, Schema } from "@ryot-app/plugin-kit/effect";
 
 import { ConsumedOn, consumedOnLabel, mergeConsumedOn } from "./consumed-on";
+import { CONSUMED_ON_SOURCES_LIMIT } from "./consumed-on-settings";
 
 const decode = (value: unknown) =>
 	Option.getOrUndefined(Schema.decodeUnknownOption(ConsumedOn)(value));
@@ -34,6 +35,17 @@ describe("mergeConsumedOn", () => {
 			"Netflix",
 			"Kindle",
 		]);
+	});
+});
+
+describe("mergeConsumedOn limit", () => {
+	it("caps the union at the sources limit", () => {
+		const merged = mergeConsumedOn(
+			Array.from({ length: 8 }, (_, index) => `A ${index}`),
+			Array.from({ length: 8 }, (_, index) => `B ${index}`),
+		);
+		expect(merged).toHaveLength(CONSUMED_ON_SOURCES_LIMIT);
+		expect(merged.at(-1)).toBe("B 1");
 	});
 });
 

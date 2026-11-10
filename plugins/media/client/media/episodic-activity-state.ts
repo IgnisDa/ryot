@@ -1,6 +1,6 @@
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
-import { consumedOnLabel } from "../../shared/consumed-on";
+import { consumedOnLabel, mergeConsumedOn } from "../../shared/consumed-on";
 import type { mediaReviewEventSelection } from "../../shared/media-recipes";
 import { seasonLabel } from "./activity-log/state";
 import {
@@ -105,6 +105,7 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 		return {
 			...anchorOf(event, "watch"),
 			type: "watch",
+			consumptionEventIds: [],
 			events: [eventRef(event)],
 			source: consumedOnLabel(event.consumedOn),
 			episodes: [
@@ -202,6 +203,7 @@ export type MediaEpisodicWatchDayRow = {
 	readonly lastWatchedAt: string;
 	readonly runtime: null | number;
 	readonly minutes: null | number;
+	readonly eventIds: readonly string[];
 	readonly consumedOn: null | readonly string[];
 };
 
@@ -245,6 +247,7 @@ export type MediaEpisodicWatchRow = {
 	readonly dateUnknown?: boolean;
 	readonly source: string | undefined;
 	readonly run?: MediaActivityProgressRun;
+	readonly consumptionEventIds: readonly string[];
 	readonly events: readonly MediaActivityEventRef[];
 	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
 };
@@ -275,13 +278,15 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 		string,
 		{
 			latest: string;
-			source: string | undefined;
+			readonly eventIds: string[];
+			readonly consumedOn: string[][];
 			readonly episodes: Map<string, MediaEpisodicWatchedEpisode>;
 		}
 	>();
 	for (const watch of watchDays) {
 		const day = days.get(watch.day) ?? {
-			source: undefined,
+			eventIds: [],
+			consumedOn: [],
 			latest: watch.lastWatchedAt,
 			episodes: new Map<string, MediaEpisodicWatchedEpisode>(),
 		};
@@ -308,17 +313,17 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 		if (watch.lastWatchedAt > day.latest) {
 			day.latest = watch.lastWatchedAt;
 		}
-		day.source ??= consumedOnLabel(watch.consumedOn);
+		day.eventIds.push(...watch.eventIds);
+		day.consumedOn.push([...(watch.consumedOn ?? [])]);
 		days.set(watch.day, day);
 	}
 	return [...days.entries()].flatMap(
-		([day, { latest, source, episodes }]): readonly MediaEpisodicWatchRow[] => {
+		([day, { latest, eventIds, episodes, consumedOn }]): readonly MediaEpisodicWatchRow[] => {
 			const listed = sortedEpisodes([...episodes.values()]);
 			return listed === undefined
 				? []
 				: [
 						{
-							source,
 							events: [],
 							dateKey: day,
 							type: "watch",
@@ -326,6 +331,8 @@ const watchDayRows = <WatchDay extends MediaEpisodicWatchDayRow>(
 							calendarDate: day,
 							occurredAt: latest,
 							key: `watch-${day}`,
+							consumptionEventIds: eventIds,
+							source: consumedOnLabel(mergeConsumedOn(...consumedOn)),
 						},
 					];
 		},
@@ -394,7 +401,12 @@ export const mergeEpisodicRuns = (
 		]);
 		return episodes === undefined
 			? undefined
-			: { ...current, episodes, events: joinEvents(current.events, next.events) };
+			: {
+					...current,
+					episodes,
+					events: joinEvents(current.events, next.events),
+					consumptionEventIds: [...current.consumptionEventIds, ...next.consumptionEventIds],
+				};
 	}
 	if (
 		current.type === "progress" &&

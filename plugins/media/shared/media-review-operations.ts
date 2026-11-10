@@ -3,7 +3,6 @@ import { requireReviewContent, ReviewContent } from "@ryot-app/plugin-kit/schema
 
 import { MediaPosition, mediaPositionError } from "./consumption";
 import { MediaEventSnapshot, mediaSubmissionFields } from "./media-activity-operations";
-import { isPositional } from "./media-schema-slugs";
 
 /** The records a review can be about: one occurrence of consuming its subject. */
 export const mediaReviewConsumptionSlugs = [
@@ -31,13 +30,8 @@ export const reviewPositionError = (
 	entitySchemaSlug: string,
 	position: null | undefined | MediaPosition,
 ) => {
-	if (position === undefined) {
+	if (position === undefined || position === null) {
 		return undefined;
-	}
-	if (position === null) {
-		return isPositional(entitySchemaSlug)
-			? undefined
-			: "This media type does not track this position";
 	}
 	return mediaPositionError(entitySchemaSlug, position);
 };

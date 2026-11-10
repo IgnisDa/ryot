@@ -119,6 +119,7 @@ export const decodePodcastActivity = (
 			data: {
 				seasonEvents: rows([]),
 				episodeEvents: rows([]),
+				watchDayEvents: rows([]),
 				episodeProgress: rows([]),
 				collectionEvents: rows([]),
 				coverage: rows(input.coverage ?? [podcastCoverageRow]),

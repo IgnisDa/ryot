@@ -177,6 +177,7 @@ type ActivityRows = {
 	readonly watchDays?: readonly Record<string, unknown>[];
 	readonly parentEvents?: readonly Record<string, unknown>[];
 	readonly episodeEvents?: readonly Record<string, unknown>[];
+	readonly watchDayEvents?: readonly Record<string, unknown>[];
 	readonly episodeProgress?: readonly Record<string, unknown>[];
 	readonly collectionEvents?: readonly Record<string, unknown>[];
 };
@@ -214,6 +215,7 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 		episodicActivityFixtureRecipe.decode({
 			data: {
 				seasonEvents: activityRows([], false),
+				watchDayEvents: activityRows(input.watchDayEvents ?? [], false),
 				coverage: activityRows(input.coverage ?? [episodicCoverageRow], false),
 				episodeProgress: progressRows(input.episodeProgress ?? [episodicProgressRow]),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodicEpisodeReviewEventRow], false),

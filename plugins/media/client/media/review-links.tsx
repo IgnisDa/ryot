@@ -1,30 +1,12 @@
-import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createContext, type ReactNode, useContext, useMemo, useRef, useState } from "react";
 
-import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import {
-	MEDIA_REVIEW_LINK_LIMIT,
-	type MediaLinkedReview,
-	type MediaReviewLinks,
-	mediaReviewLinksRecipe,
-} from "../../shared/review-link-recipes";
+import type { MediaLinkedReview, MediaReviewLinks } from "../../shared/review-link-recipes";
 import { mediaReviewOccurrenceLabel } from "./activity-copy";
 import { MediaActivityActionsContext } from "./activity-row-menu";
 import type { MediaActivityEventRef, MediaActivityRowBase } from "./activity-timeline";
 import { MediaReviewEditForm } from "./review";
-import { linkedOccurrenceId } from "./review-about";
-
-export const reviewLinksQuery = createRyotQuery<
-	{ readonly eventIds: readonly string[] },
-	MediaReviewLinks
->(({ input, client }) =>
-	client.data.query(
-		mediaReviewLinksRecipe({
-			eventIds: input.eventIds,
-			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-		}),
-	),
-);
+import { linkedOccurrenceId, reviewLinksQuery } from "./review-about";
 
 type ReviewLinks = { readonly segmentNoun: string; readonly data: undefined | MediaReviewLinks };
 
@@ -35,17 +17,20 @@ const isReviewRow = (
 ): row is MediaActivityRowBase & { readonly event: MediaActivityEventRef } =>
 	row.type === "review" && "event" in row;
 
+export const rowConsumptionEventIds = (row: MediaActivityRowBase) => [
+	...(row.events ?? []).map(({ id }) => id),
+	...(row.consumptionEventIds ?? []),
+];
+
 const linkEventIds = (rows: readonly MediaActivityRowBase[]) =>
 	[
 		...new Set(
 			rows.flatMap((row) => {
 				const linked = isReviewRow(row) ? linkedOccurrenceId(row.event) : null;
-				return [...(row.events ?? []).map(({ id }) => id), ...(linked === null ? [] : [linked])];
+				return [...rowConsumptionEventIds(row), ...(linked === null ? [] : [linked])];
 			}),
 		),
-	]
-		.sort()
-		.slice(0, MEDIA_REVIEW_LINK_LIMIT);
+	].sort();
 
 /** Resolves review links once for `rows`; nested timelines reuse the nearest resolution. */
 export function MediaReviewLinksScope(props: {

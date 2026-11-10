@@ -168,6 +168,32 @@ describe("create media review", () => {
 	);
 
 	it.live(
+		"treats a null position as no position on any media type",
+		() =>
+			Effect.gen(function* () {
+				const creates: unknown[] = [];
+				yield* runSandboxTestScript(
+					definition,
+					{ rating: 70, text: null, position: null, isSpoiler: false, entityId: "media-1" },
+					defineSandboxTestHost(manifest, {
+						executeRyotql: () =>
+							Effect.succeed(targetRows([{ id: "media-1", entitySchemaSlug: "movie" }])),
+						createEvents: (items) =>
+							Effect.sync(() => {
+								creates.push(items);
+								return { count: 1, outcomes: [] };
+							}),
+					}),
+					execution,
+				);
+				expect(creates).toEqual([
+					[{ entityId: "media-1", eventSchemaSlug: "review", properties: { rating: 70 } }],
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"links the review to an occurrence of its subject and refuses any other record",
 		() =>
 			Effect.gen(function* () {

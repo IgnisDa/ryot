@@ -37,7 +37,7 @@ import {
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
-import { EntityId, localDateOf } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId, localDateOf } from "@ryot-app/plugin-kit/schema";
 
 import { ConsumedOnSelection } from "./consumed-on";
 import {
@@ -507,26 +507,70 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 	});
 };
 
-export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelection>(input: {
+const WATCH_DAY_EVENT_LIMIT = 100;
+
+type EpisodicWatchDayInput = {
 	readonly limit: number;
 	readonly alias: string;
 	readonly entityId: string;
 	readonly timeZone: TimeZone;
 	readonly config: EpisodicKindConfig;
 	readonly reference: PluginIdentityReference;
-	readonly orderProperties: readonly string[];
-	readonly episodeFields: (episode: Table) => EpisodeFields;
-}) => {
+};
+
+const episodicWatchDayScope = (input: EpisodicWatchDayInput, event: Table, episode: Table) => ({
+	joins: [join("inner", episode, eq(column(event, "entityId"), column(episode, "id")))],
+	day: selectedField(
+		conditional(
+			eq(castText(consumptionValue(event, "attribution", "kind")), literal("date")),
+			castText(consumptionValue(event, "attribution", "value")),
+			castText(
+				dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone: input.timeZone }),
+			),
+		),
+		Schema.String,
+	),
+	where: and(
+		entitySchemaPredicate(episode, input.config.episodeSchemaSlug, input.reference),
+		schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
+		eq(column(event, "eventSchemaSlug"), literal("complete")),
+		consumptionReady(event),
+		gt(consumptionNumber(event, "episodeCompletions"), literal(0)),
+		or(
+			isNull(propertyBoolean(event, "dateUnknown")),
+			eq(propertyBoolean(event, "dateUnknown"), literal(false)),
+		),
+		episodicEpisodeMembership(input.config, episode, input.entityId, `${input.alias}Member`),
+	),
+});
+
+export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelection>(
+	input: EpisodicWatchDayInput & {
+		readonly orderProperties: readonly string[];
+		readonly episodeFields: (episode: Table) => EpisodeFields;
+	},
+) => {
 	const event = table("event", `${input.alias}Event`);
 	const episode = table("entity", `${input.alias}Episode`);
+	const { day, joins, where } = episodicWatchDayScope(input, event, episode);
 	return selectedAggregate(event, {
+		where,
+		joins,
 		limit: input.limit,
-		joins: [join("inner", episode, eq(column(event, "entityId"), column(episode, "id")))],
 		orderBy: [
 			groupDescending("day"),
 			...input.orderProperties.map(groupAscending),
 			groupAscending("episodeNumber"),
 		],
+		groupBy: {
+			day,
+			...input.episodeFields(episode),
+			episodeId: selectedField(column(episode, "id"), EntityId),
+			episodeName: selectedField(column(episode, "name"), Schema.String),
+			consumedOn: selectedField(propertyJson(event, "consumedOn"), ConsumedOnSelection),
+			episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
+			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
+		},
 		measures: {
 			lastWatchedAt: selectedMeasure(
 				{ function: "maximum", expr: column(event, "occurredAt") },
@@ -548,35 +592,24 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 				Schema.NullOr(Schema.Finite),
 			),
 		},
-		where: and(
-			entitySchemaPredicate(episode, input.config.episodeSchemaSlug, input.reference),
-			schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
-			eq(column(event, "eventSchemaSlug"), literal("complete")),
-			consumptionReady(event),
-			gt(consumptionNumber(event, "episodeCompletions"), literal(0)),
-			or(
-				isNull(propertyBoolean(event, "dateUnknown")),
-				eq(propertyBoolean(event, "dateUnknown"), literal(false)),
-			),
-			episodicEpisodeMembership(input.config, episode, input.entityId, `${input.alias}Member`),
-		),
-		groupBy: {
-			...input.episodeFields(episode),
+	});
+};
+
+/** The completion events behind each watch day, so reviews that name them can be resolved. */
+export const episodicWatchDayEventsQuery = (input: EpisodicWatchDayInput) => {
+	const event = table("event", `${input.alias}Event`);
+	const episode = table("entity", `${input.alias}Episode`);
+	const { day, joins, where } = episodicWatchDayScope(input, event, episode);
+	return selectedRows(event, {
+		where,
+		joins,
+		limit: input.limit,
+		orderBy: eventOrderDescending(event),
+		selection: {
+			day,
+			id: selectedField(column(event, "id"), EventId),
 			episodeId: selectedField(column(episode, "id"), EntityId),
-			episodeName: selectedField(column(episode, "name"), Schema.String),
 			consumedOn: selectedField(propertyJson(event, "consumedOn"), ConsumedOnSelection),
-			episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
-			runtime: selectedField(propertyNumber(episode, "runtime"), Schema.NullOr(Schema.Finite)),
-			day: selectedField(
-				conditional(
-					eq(castText(consumptionValue(event, "attribution", "kind")), literal("date")),
-					castText(consumptionValue(event, "attribution", "value")),
-					castText(
-						dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone: input.timeZone }),
-					),
-				),
-				Schema.String,
-			),
 		},
 	});
 };
@@ -734,6 +767,12 @@ type EpisodicCoverageRows<Row> = {
 	readonly pageInfo: { readonly hasMore: boolean };
 };
 
+const watchDayKey = (row: {
+	readonly day: string;
+	readonly episodeId: string;
+	readonly consumedOn: null | readonly string[];
+}) => JSON.stringify([row.day, row.episodeId, row.consumedOn]);
+
 /** The episodic counterpart of `mediaFlatRecipes`: everything a parent shares above its episodes. */
 const seasonReviewEvent = <
 	Row extends {
@@ -883,6 +922,14 @@ export const mediaEpisodicRecipes = <
 					limit: input.episodeEventLimit,
 					alias: `${config.alias}SeasonEvent`,
 				}),
+				watchDayEvents: episodicWatchDayEventsQuery({
+					config: config.config,
+					entityId: input.entityId,
+					timeZone: input.timeZone,
+					reference: input.reference,
+					limit: WATCH_DAY_EVENT_LIMIT,
+					alias: `${config.alias}WatchDayEvent`,
+				}),
 				episodeEvents: episodicEpisodeEventsQuery({
 					config: config.config,
 					entityId: input.entityId,
@@ -940,6 +987,7 @@ export const mediaEpisodicRecipes = <
 				parentEvents,
 				seasonEvents,
 				episodeEvents,
+				watchDayEvents,
 				episodeProgress,
 				collectionEvents,
 			}) => {
@@ -978,10 +1026,16 @@ export const mediaEpisodicRecipes = <
 					...seasonEvents.items.map(seasonReviewEvent),
 					...mediaCollectionActivityEvents(collectionEvents.items),
 				];
+				const eventIdsByWatchDay = new Map<string, string[]>();
+				for (const event of watchDayEvents.items) {
+					const key = watchDayKey(event);
+					eventIdsByWatchDay.set(key, [...(eventIdsByWatchDay.get(key) ?? []), event.id]);
+				}
 				const days = watchDays.items.map((row) => ({
 					...row,
 					day: localDateOf(row.day, input.timeZone),
 					minutes: (row.missing ?? 0) > 0 ? null : row.minutes,
+					eventIds: eventIdsByWatchDay.get(watchDayKey(row)) ?? [],
 				}));
 				const displayedWatches = new Set(
 					days.map((row) => JSON.stringify([row.day, row.episodeId])),
@@ -1012,6 +1066,7 @@ export const mediaEpisodicRecipes = <
 								displayedWatches ||
 						watchDays.pageInfo.hasMore ||
 						parentEvents.pageInfo.hasMore ||
+						seasonEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
 						episodeProgress.pageInfo.hasMore ||
 						collectionEvents.pageInfo.hasMore,

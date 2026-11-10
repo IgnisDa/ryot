@@ -96,6 +96,10 @@ is reflected on the next page refresh. Writes go through backend operations; the
 plugins without a plugin ID and refreshes after preference mutations. It exposes no user profile
 data; publication visitors receive the defaults (UTC, out of 100). Pass `ratingScale` to the UI
 SDK's `RatingInput`, `RatingValue`, and `ReviewComposer`; ratings are always stored 0–100.
+`PreferencesGate` wraps `useUserPreferences()` in `QueryStatus` with retry and renders its children
+with the loaded preferences. Use it for any UI that needs the rating scale or time zone instead of
+reading `data?.…` with a fallback, so a load failure shows a retry state rather than a blank or
+defaulted screen.
 Compiled client sources import the canonical reporting definitions from
 `@ryot-app/plugin-client-sdk/plugin`: the `ReportingSelection` schema and its parts, URL encoding
 (`reportingSearchParams`, `parseReportingSearch`, `analyticsSectionKey`) with the labelled

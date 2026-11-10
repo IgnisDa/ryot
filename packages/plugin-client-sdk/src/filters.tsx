@@ -11,7 +11,6 @@ import {
 	IconButton,
 	Modal,
 	MultiSelect,
-	QueryStatus,
 	SegmentedControl,
 	Select,
 	TextField,
@@ -43,8 +42,8 @@ import { type ReactNode, type RefObject, useDeferredValue, useState } from "reac
 import { usePluginLocation } from "./navigation/routing";
 import { createRyotQuery } from "./queries/definitions";
 import { useRyotQuery } from "./queries/hooks";
+import { PreferencesGate } from "./queries/preferences-gate";
 import { useRyot } from "./queries/provider";
-import { useUserPreferences } from "./queries/user-settings";
 
 export type ViewFilterField = FilterFieldSpec;
 export type ViewFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
@@ -228,12 +227,6 @@ const ratingScaleOf =
 		const field = fields.find(({ key }) => key === fieldKey);
 		return field !== undefined && isRatingField(field) ? scale : undefined;
 	};
-
-function WithRatingScale(props: {
-	readonly children: (scale: undefined | RatingScale) => ReactNode;
-}) {
-	return props.children(useUserPreferences().data?.ratingScale);
-}
 
 function LinkedValueEditor({
 	field,
@@ -447,12 +440,7 @@ export function FilterRules(props: FilterRulesProps) {
 }
 
 function RatingScaleStatus(props: { readonly children: (scale: RatingScale) => ReactNode }) {
-	const preferences = useUserPreferences();
-	return (
-		<QueryStatus query={preferences} label="rating scale" onRetry={preferences.refetch}>
-			{(data) => props.children(data.ratingScale)}
-		</QueryStatus>
-	);
+	return <PreferencesGate>{({ ratingScale }) => props.children(ratingScale)}</PreferencesGate>;
 }
 
 function RuleRow({
@@ -625,104 +613,21 @@ function FilterRulesPanel({
 const chipClassName =
 	"inline-flex h-7 max-w-full items-center rounded-pill border border-accent-border bg-accent-soft text-xs font-medium text-accent-text pointer-coarse:h-9";
 
-export function FilterChips({
-	filter,
-	fields,
-	onOpen,
-	onChange,
-}: {
+type FilterChipsProps = {
 	readonly onOpen: () => void;
 	readonly filter: undefined | ViewFilter;
 	readonly fields: readonly ViewFilterField[];
 	readonly onChange: (filter: undefined | ViewFilter) => void;
-}) {
-	if (filter === undefined) {
+};
+
+export function FilterChips(props: FilterChipsProps) {
+	if (props.filter === undefined) {
 		return null;
 	}
-	const group = editableGroup(filter);
-	let chips: ReactNode;
-	if (group === null) {
-		chips = (
-			<FilterChip
-				onOpen={onOpen}
-				text="Custom filter"
-				removeLabel="Remove custom filter"
-				onRemove={() => onChange(undefined)}
-			/>
-		);
-	} else {
-		const idsByField = new Map<string, readonly string[]>();
-		for (const rule of group.rules) {
-			if ("values" in rule) {
-				idsByField.set(rule.field, [
-					...new Set([...(idsByField.get(rule.field) ?? []), ...rule.values]),
-				]);
-			}
-		}
-		const remove = (index: number) =>
-			onChange(
-				groupFilter({ match: group.match, rules: group.rules.filter((_, at) => at !== index) }),
-			);
-		chips = (
-			<>
-				{group.match === "any" && group.rules.length > 1 && (
-					<FilterChip onOpen={onOpen} text="Match any" removeLabel="Match any" />
-				)}
-				{group.rules.map((rule, index) => {
-					const field = fields.find(({ key }) => key === rule.field);
-					if (field === undefined) {
-						return null;
-					}
-					const key = JSON.stringify([index, rule]);
-					if (field.kind !== "value") {
-						return (
-							<LinkedRuleChip
-								key={key}
-								rule={rule}
-								field={field}
-								onOpen={onOpen}
-								onRemove={() => remove(index)}
-								ids={idsByField.get(rule.field) ?? []}
-							/>
-						);
-					}
-					const choices = new Map(fieldChoices(field).map(({ value, label }) => [value, label]));
-					const chip = (valueText: string) => (
-						<FilterChip
-							key={key}
-							onOpen={onOpen}
-							onRemove={() => remove(index)}
-							text={ruleText(field, rule, valueText)}
-							removeLabel={`Remove ${field.label} filter`}
-						/>
-					);
-					return isRatingField(field) ? (
-						<WithRatingScale key={key}>
-							{(scale) => chip(ratingRuleValueText(rule, scale ?? "hundred"))}
-						</WithRatingScale>
-					) : (
-						chip(ruleValueText(rule, (value) => choices.get(value) ?? value))
-					);
-				})}
-			</>
-		);
-	}
-	return (
-		<div
-			role="group"
-			aria-label="Active filters"
-			className="flex flex-wrap items-center gap-1.5 pb-2"
-		>
-			{chips}
-			<Button
-				size="sm"
-				variant="ghost"
-				onClick={() => onChange(undefined)}
-				className="text-xs text-accent-text"
-			>
-				Clear
-			</Button>
-		</div>
+	return props.fields.some(isRatingField) ? (
+		<RatingScaleStatus>{(scale) => <FilterChipsList {...props} scale={scale} />}</RatingScaleStatus>
+	) : (
+		<FilterChipsList {...props} scale="hundred" />
 	);
 }
 
@@ -783,5 +688,98 @@ function LinkedRuleChip({
 				resolved ? ruleText(field, rule, valueText) : `${field.label}: ${values.length} selected`
 			}
 		/>
+	);
+}
+
+function FilterChipsList({
+	scale,
+	filter,
+	fields,
+	onOpen,
+	onChange,
+}: FilterChipsProps & { readonly scale: RatingScale }) {
+	if (filter === undefined) {
+		return null;
+	}
+	const group = editableGroup(filter);
+	let chips: ReactNode;
+	if (group === null) {
+		chips = (
+			<FilterChip
+				onOpen={onOpen}
+				text="Custom filter"
+				removeLabel="Remove custom filter"
+				onRemove={() => onChange(undefined)}
+			/>
+		);
+	} else {
+		const idsByField = new Map<string, readonly string[]>();
+		for (const rule of group.rules) {
+			if ("values" in rule) {
+				idsByField.set(rule.field, [
+					...new Set([...(idsByField.get(rule.field) ?? []), ...rule.values]),
+				]);
+			}
+		}
+		const remove = (index: number) =>
+			onChange(
+				groupFilter({ match: group.match, rules: group.rules.filter((_, at) => at !== index) }),
+			);
+		chips = (
+			<>
+				{group.match === "any" && group.rules.length > 1 && (
+					<FilterChip onOpen={onOpen} text="Match any" removeLabel="Match any" />
+				)}
+				{group.rules.map((rule, index) => {
+					const field = fields.find(({ key }) => key === rule.field);
+					if (field === undefined) {
+						return null;
+					}
+					const key = JSON.stringify([index, rule]);
+					if (field.kind !== "value") {
+						return (
+							<LinkedRuleChip
+								key={key}
+								rule={rule}
+								field={field}
+								onOpen={onOpen}
+								onRemove={() => remove(index)}
+								ids={idsByField.get(rule.field) ?? []}
+							/>
+						);
+					}
+					const choices = new Map(fieldChoices(field).map(({ value, label }) => [value, label]));
+					const chip = (valueText: string) => (
+						<FilterChip
+							key={key}
+							onOpen={onOpen}
+							onRemove={() => remove(index)}
+							text={ruleText(field, rule, valueText)}
+							removeLabel={`Remove ${field.label} filter`}
+						/>
+					);
+					return isRatingField(field)
+						? chip(ratingRuleValueText(rule, scale))
+						: chip(ruleValueText(rule, (value) => choices.get(value) ?? value));
+				})}
+			</>
+		);
+	}
+	return (
+		<div
+			role="group"
+			aria-label="Active filters"
+			className="flex flex-wrap items-center gap-1.5 pb-2"
+		>
+			{chips}
+			<Button
+				size="sm"
+				variant="ghost"
+				onClick={() => onChange(undefined)}
+				className="text-xs text-accent-text"
+			>
+				Clear
+			</Button>
+		</div>
 	);
 }

@@ -1,3 +1,4 @@
+import { Array, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Select } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -5,7 +6,10 @@ import { useEffect, useRef, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
+	MEDIA_REVIEW_LINK_LIMIT,
 	mediaReviewableOccurrencesRecipe,
+	type MediaReviewLinks,
+	mediaReviewLinksRecipe,
 	type MediaReviewOccurrence,
 } from "../../shared/review-link-recipes";
 import { mediaReviewOccurrenceChoiceLabel } from "./activity-copy";
@@ -25,6 +29,25 @@ export const reviewableOccurrencesQuery = createRyotQuery<
 			limit: REVIEWABLE_OCCURRENCE_LIMIT,
 			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 		}),
+	),
+);
+
+export const reviewLinksQuery = createRyotQuery<
+	{ readonly eventIds: readonly string[] },
+	MediaReviewLinks
+>(({ input, client }) =>
+	Effect.forEach(
+		Array.chunksOf(input.eventIds, MEDIA_REVIEW_LINK_LIMIT),
+		(eventIds) =>
+			client.data.query(
+				mediaReviewLinksRecipe({ eventIds, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			),
+		{ concurrency: 4 },
+	).pipe(
+		Effect.map((chunks) => ({
+			reviews: chunks.flatMap((chunk) => chunk.reviews),
+			occurrences: chunks.flatMap((chunk) => chunk.occurrences),
+		})),
 	),
 );
 
@@ -56,8 +79,9 @@ export function ReviewAboutSelect(props: {
 }) {
 	const result = useRyotQuery(reviewableOccurrencesQuery, { entityId: props.entityId });
 	const [refresh, setRefresh] = useState<
-		| { readonly phase: "idle" | "done" }
+		| { readonly phase: "idle" }
 		| { readonly phase: "requested"; readonly before: typeof result.data }
+		| { readonly phase: "done"; readonly added: readonly MediaReviewOccurrence[] }
 	>({ phase: "idle" });
 	const preselected = useRef(false);
 	const { data, refetch, isFetching } = result;
@@ -70,7 +94,11 @@ export function ReviewAboutSelect(props: {
 		data !== undefined &&
 		data !== refresh.before
 	) {
-		setRefresh({ phase: "done" });
+		const known = new Set(refresh.before?.map(({ id }) => id));
+		setRefresh({
+			phase: "done",
+			added: refresh.before === undefined ? [] : data.filter(({ id }) => !known.has(id)),
+		});
 	}
 	useEffect(() => {
 		if (saved) {
@@ -83,12 +111,15 @@ export function ReviewAboutSelect(props: {
 			return;
 		}
 		preselected.current = true;
-		const completion = newestCompletion(data);
+		const completion = newestCompletion(refresh.added);
 		if (value === null && completion !== undefined) {
 			onChange(completion.id);
 		}
 	}, [refresh, data, value, onChange]);
-	const occurrences = data ?? [];
+	const loaded = data ?? [];
+	const missing = value !== null && data !== undefined && !data.some(({ id }) => id === value);
+	const linked = useRyotQuery(reviewLinksQuery, { eventIds: missing ? [value] : [] });
+	const occurrences = [...(missing ? (linked.data?.occurrences ?? []) : []), ...loaded];
 	if (occurrences.length === 0 && props.completion !== "pending") {
 		return null;
 	}

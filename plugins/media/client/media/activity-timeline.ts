@@ -59,12 +59,6 @@ export type ActivityRowPredicates<Row extends ActivityAnchor> = {
 	readonly isCompletion: (row: Row) => boolean;
 };
 
-export type MediaActivityRowBase = ActivityAnchor & {
-	readonly type: string;
-	readonly absorbed?: number;
-	readonly events?: readonly MediaActivityEventRef[];
-};
-
 export type MediaActivityBeatRow<Beat extends string> = ActivityAnchor & {
 	readonly beat: Beat;
 	readonly type: "beat";
@@ -87,6 +81,13 @@ export type MediaActivitySpan =
 			readonly latest: string;
 			readonly earliest: string;
 	  };
+
+export type MediaActivityRowBase = ActivityAnchor & {
+	readonly type: string;
+	readonly absorbed?: number;
+	readonly consumptionEventIds?: readonly string[];
+	readonly events?: readonly MediaActivityEventRef[];
+};
 
 export type MediaActivityCompletionRow = ActivityAnchor & {
 	readonly absorbed?: number;

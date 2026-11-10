@@ -989,7 +989,7 @@ describe("activity edits", () => {
 				change: { position: 12.5 },
 				record: stored({ position: { volume: 2, position: 12, unit: "chapters" } }),
 			}),
-		).toEqual({ position: { volume: 2, position: 12.5, unit: "chapters" } });
+		).toEqual({ position: { position: 12.5, unit: "chapters" } });
 		expect(
 			edit({
 				logger: manga,

@@ -80,22 +80,26 @@ const recordingHost = (input: {
 };
 
 const update = (
-	input: {
+	{
+		expectedProperties,
+		...input
+	}: {
 		readonly text?: null | string;
 		readonly rating: null | number;
 		readonly consumptionEventId?: null | string;
+		readonly expectedProperties?: Record<string, Schema.Json>;
 	},
 	host: ReturnType<typeof recordingHost>["host"],
 ) =>
 	runSandboxTestScript(
 		updateDefinition,
 		{
-			expected,
 			submittedAt,
 			isSpoiler: true,
 			eventId: "review-1",
 			submissionId: "submission",
 			text: "  Better on rewatch  ",
+			expected: { ...expected, properties: expectedProperties ?? expected.properties },
 			...input,
 		},
 		host,
@@ -144,6 +148,26 @@ describe("media review edits", () => {
 				);
 				expect(nodes).toContainEqual({ type: "literal", value: "complete-1" });
 				expect(nodes).toContainEqual({ type: "pluginId", reference: { kind: "self" } });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"does not revalidate an unchanged occurrence link",
+		() =>
+			Effect.gen(function* () {
+				const { host, documents } = recordingHost({ allowed: true });
+				yield* update(
+					{
+						rating: 85,
+						consumptionEventId: "gone-1",
+						expectedProperties: { ...expected.properties, consumptionEventId: "gone-1" },
+					},
+					host,
+				);
+				expect(documents.some((document) => document.queries["consumption"] !== undefined)).toBe(
+					false,
+				);
 			}),
 		testTimeout,
 	);

@@ -48,7 +48,10 @@ export default defineOperation({
 			if (positionError !== undefined) {
 				return yield* new OperationRejectedError({ message: positionError });
 			}
-			if (consumptionEventId) {
+			if (
+				consumptionEventId &&
+				consumptionEventId !== input.expected.properties["consumptionEventId"]
+			) {
 				yield* requireReviewConsumption(host, {
 					eventId: consumptionEventId,
 					entityId: input.expected.entityId,

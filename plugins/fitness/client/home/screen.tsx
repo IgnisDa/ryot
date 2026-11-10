@@ -5,7 +5,7 @@ import {
 	usePageRefresh,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { PreferencesGate, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -14,7 +14,6 @@ import { useMemo, useState } from "react";
 
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useActiveEditorDraft } from "../exercise/active-draft";
-import { PreferencesGate } from "../preferences-gate";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import { WorkoutProcessing } from "../workout-processing";
 import { buildWorkoutCards } from "../workouts/model";

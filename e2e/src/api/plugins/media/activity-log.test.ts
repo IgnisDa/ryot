@@ -948,9 +948,24 @@ describe("Media activity log operation", () => {
 				assertPresent(first, "Expected podcast episode 1");
 				assertPresent(second, "Expected podcast episode 2");
 				yield* logEpisodeCompletions(client, podcastId, [first]);
-				yield* retargetEpisode(client, yield* episodeCompletion(client, first), first, second);
+				const completion = yield* episodeCompletion(client, first);
+				yield* client.call((c) =>
+					c.events.create({
+						payload: [
+							{
+								entityId: first,
+								eventSchemaSlug: EventSchemaSlug.make("review"),
+								properties: { rating: 80, consumptionEventId: completion.id },
+							},
+						],
+					}),
+				);
+				yield* retargetEpisode(client, completion, first, second);
 				expect((yield* episodeCompletion(client, second)).sessionEntityId).toBe(podcastId);
 				expect(yield* readEvents(client, first, "complete")).toHaveLength(0);
+				const [review] = yield* readEvents(client, first, "review");
+				assertPresent(review, "Expected the review to remain");
+				expect(review.properties).toEqual({ rating: 80 });
 			}),
 		);
 

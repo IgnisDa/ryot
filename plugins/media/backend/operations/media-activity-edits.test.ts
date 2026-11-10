@@ -63,6 +63,7 @@ const requestedIds = (document: RyotQLDocument) =>
 const recordingHost = (input: {
 	readonly events: readonly StoredEvent[];
 	readonly disallowed?: readonly string[];
+	readonly namingReviews?: readonly string[];
 	readonly episodeParents?: Readonly<Record<string, string>>;
 	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 	readonly deleteEvents?: (
@@ -106,6 +107,9 @@ const recordingHost = (input: {
 							),
 						},
 					};
+				}
+				if (document.queries["reviews"] !== undefined) {
+					return { data: { reviews: page((input.namingReviews ?? []).map((id) => ({ id }))) } };
 				}
 				const ids = requestedIds(document);
 				const known = input.events.filter(({ id }) => ids.includes(id));
@@ -184,6 +188,49 @@ describe("media activity update", () => {
 				});
 				yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot);
 				expect(updates[0]?.items[0]?.patch).toEqual({ entityId: "episode-2" });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"clears the episode link of reviews naming a record in the same write as it moves",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [episodeCompletion],
+					namingReviews: ["review-1", "review-2"],
+					episodeParents: { "episode-1": "show-1", "episode-2": "show-1" },
+				});
+				expect(yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot)).toEqual({
+					count: 1,
+					status: "saved",
+				});
+				expect(updates).toHaveLength(1);
+				expect(updates[0]?.items.slice(1)).toEqual([
+					{
+						eventId: "review-1",
+						patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
+					},
+					{
+						eventId: "review-2",
+						patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
+					},
+				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"leaves reviews linked when the record stays on its episode",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [episodeCompletion],
+					namingReviews: ["review-1"],
+					episodeParents: { "episode-1": "show-1" },
+				});
+				yield* update({ timeSpent: 20, episodeEntityId: "episode-1" }, host, episodeSnapshot);
+				expect(updates[0]?.items).toHaveLength(1);
 			}),
 		testTimeout,
 	);

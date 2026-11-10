@@ -183,6 +183,7 @@ const decodeActivity = (
 		readonly parentEvents?: readonly Record<string, unknown>[];
 		readonly seasonEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
+		readonly watchDayEvents?: readonly Record<string, unknown>[];
 		readonly episodeProgress?: readonly Record<string, unknown>[];
 		readonly collectionEvents?: readonly Record<string, unknown>[];
 	} = {},
@@ -193,6 +194,7 @@ const decodeActivity = (
 			seasonEvents: rows(input.seasonEvents ?? []),
 			episodeEvents: rows(input.episodeEvents ?? []),
 			coverage: rows(input.coverage ?? [COVERAGE_ROW]),
+			watchDayEvents: rows(input.watchDayEvents ?? []),
 			collectionEvents: rows(input.collectionEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
@@ -543,12 +545,26 @@ describe("episodic media recipes", () => {
 		});
 	});
 
+	it("attaches the completion event ids of each watch day, episode and source", () => {
+		const event = { day: WATCH_DAY_ROW.day, episodeId: "episode-1", consumedOn: ["Jellyfin"] };
+		expect(
+			decodeActivity({
+				watchDayEvents: [
+					{ ...event, id: "watch-1" },
+					{ ...event, id: "watch-2" },
+					{ ...event, id: "other", consumedOn: ["Plex"] },
+				],
+			}),
+		).toMatchObject({ success: { watchDays: [{ eventIds: ["watch-1", "watch-2"] }] } });
+	});
+
 	it("reports truncation when any activity page holds more rows", () => {
 		expect(
 			activityRecipe().decode({
 				data: {
 					parentEvents: rows([]),
 					seasonEvents: rows([]),
+					watchDayEvents: rows([]),
 					collectionEvents: rows([]),
 					coverage: rows([COVERAGE_ROW]),
 					episodeProgress: progressRows([]),

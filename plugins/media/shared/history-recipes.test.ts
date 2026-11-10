@@ -40,6 +40,7 @@ describe("complete activity history recipes", () => {
 			seasonEvents: rows([]),
 			episodeEvents: rows([]),
 			coverage: rows([], true),
+			watchDayEvents: rows([]),
 			episodeProgress: rows([]),
 			collectionEvents: rows([]),
 			watchDays: {
@@ -107,6 +108,48 @@ describe("complete activity history recipes", () => {
 								consumedAmount: 0,
 								completionCount: 0,
 								historyEventCount: 2,
+								unknownAmountCount: 0,
+								consumptionProcessing: "ready",
+							},
+						]),
+					},
+				}),
+			).hasMoreActivities,
+		).toBe(true);
+	});
+	it("offers more history when only season reviews are truncated", () => {
+		const recipe = showRecipes.activityRecipe({
+			entityId: "show-1",
+			coverageLimit: 100,
+			watchDayLimit: 1000,
+			parentEventLimit: 60,
+			episodeEventLimit: 100,
+			collectionEventLimit: 60,
+			episodeProgressLimit: 100,
+			reference: { kind: "self" },
+			timeZone: TimeZone.make("UTC"),
+		});
+		expect(
+			Result.getOrThrow(
+				recipe.decode({
+					data: {
+						coverage: rows([]),
+						parentEvents: rows([]),
+						episodeEvents: rows([]),
+						watchDayEvents: rows([]),
+						episodeProgress: rows([]),
+						collectionEvents: rows([]),
+						seasonEvents: rows([], true),
+						watchDays: {
+							items: [],
+							type: "aggregate",
+							pageInfo: { limit: 1000, hasMore: false, nextCursor: null },
+						},
+						totals: rows([
+							{
+								consumedAmount: 0,
+								completionCount: 0,
+								historyEventCount: 0,
 								unknownAmountCount: 0,
 								consumptionProcessing: "ready",
 							},

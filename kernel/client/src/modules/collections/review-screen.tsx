@@ -117,7 +117,8 @@ function CollectionReviews(props: {
 	readonly collectionId: EntityId;
 }) {
 	const [editor, setEditor] = useState<null | "new" | CollectionReview>(null);
-	const scale = useRyotQuery(preferencesQuery).data?.ratingScale;
+	const preferences = useRyotQuery(preferencesQuery);
+	const scale = preferences.data?.ratingScale;
 	const query = useRyotInfiniteQuery(
 		collectionReviewsQuery,
 		{ collectionId: props.collectionId },
@@ -155,6 +156,14 @@ function CollectionReviews(props: {
 					onClick={query.fetchNextPage}
 					isFetchingNextPage={query.isFetchingNextPage}
 				/>
+			) : null}
+			{editor !== null && scale === undefined && preferences.isError ? (
+				<Notice tone="danger" action={<Button onClick={preferences.refetch}>Retry</Button>}>
+					Preferences could not be loaded.
+				</Notice>
+			) : null}
+			{editor !== null && scale === undefined && !preferences.isError ? (
+				<p role="status">Loading preferences…</p>
 			) : null}
 			{editor === null || scale === undefined ? null : (
 				<CollectionReviewEditor

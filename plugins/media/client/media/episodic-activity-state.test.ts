@@ -120,6 +120,33 @@ describe("episodic activity state", () => {
 		expect(row.source).toBe("Plex, Netflix");
 	});
 
+	it("labels a watch day once with the sources of every record and carries their event ids", () => {
+		const first = { ...episodicFirstWatchDayRow, consumedOn: ["Plex"] };
+		const second = { ...episodicSameDayWatchRow, consumedOn: ["plex", "Netflix"] };
+		const day = view({
+			parentEvents: [],
+			episodeEvents: [],
+			episodeProgress: [],
+			collectionEvents: [],
+			watchDays: [first, second],
+			watchDayEvents: [
+				{ id: "watch-1", day: first.day, episodeId: first.episodeId, consumedOn: first.consumedOn },
+				{
+					id: "watch-2",
+					day: second.day,
+					episodeId: second.episodeId,
+					consumedOn: second.consumedOn,
+				},
+			],
+		});
+		assert(day.timeline.layout === "flat");
+		const [row] = day.timeline.rows;
+		assert(row.type === "watch");
+		expect(row.source).toBe("Plex, Netflix");
+		expect(row.consumptionEventIds).toEqual(["watch-1", "watch-2"]);
+		expect(row.events).toEqual([]);
+	});
+
 	it("collapses a day of episode completions into one entry listing its episodes", () => {
 		const day = view({
 			parentEvents: [],

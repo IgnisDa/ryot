@@ -925,7 +925,7 @@ export const activityEditPatch = (input: {
 				(draft.position !== initial.position || draft.positionUnit !== initial.positionUnit)
 			) {
 				patch.position = {
-					...(stored?.unit === unit ? stored : {}),
+					...(stored?.unit === unit && stored.position === draft.position ? stored : {}),
 					unit,
 					position: draft.position,
 				};

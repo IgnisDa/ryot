@@ -31,7 +31,7 @@ export const mergeConsumedOn = (...lists: readonly (readonly string[])[]): strin
 			merged.push(value);
 		}
 	}
-	return merged;
+	return merged.slice(0, CONSUMED_ON_SOURCES_LIMIT);
 };
 
 export const ConsumedOnSelection = Schema.NullOr(Schema.Array(Schema.String));

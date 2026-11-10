@@ -1,6 +1,7 @@
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { type TimeZone, usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
+	PreferencesGate,
 	type RyotQueryResult,
 	usePageRefresh,
 	useRyotMutation,
@@ -14,7 +15,6 @@ import { useMemo, useRef, useState } from "react";
 
 import { buildMetricRows, type MetricSort, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
-import { PreferencesGate } from "../preferences-gate";
 import { MeasurementDialogs, type MeasurementDialogState } from "./measurement-logger";
 import { MetricsTable } from "./metrics-table";
 import { type RangeKey, rangeOptions, selectPinnedMetrics, type seriesWindow } from "./model";

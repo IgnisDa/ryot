@@ -7,6 +7,7 @@ import {
 import {
 	createRyotQuery,
 	ManagedAssetProvider,
+	PreferencesGate,
 	type RyotQueryResult,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
@@ -18,7 +19,6 @@ import { useMemo, useState } from "react";
 import { type ExerciseDetails, exerciseDetailsRecipe } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
-import { PreferencesGate } from "../preferences-gate";
 import { WorkoutProcessing } from "../workout-processing";
 import { useActiveEditorDraft } from "./active-draft";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";

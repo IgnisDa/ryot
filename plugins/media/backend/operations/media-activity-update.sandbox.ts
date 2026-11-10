@@ -28,6 +28,7 @@ import {
 	requireDeclaredProperties,
 	writePrecondition,
 } from "./media-activity-edits";
+import { reviewsNamingConsumption } from "./media-review-consumption";
 
 const reject = (message: string) => Effect.fail(new OperationRejectedError({ message: message }));
 
@@ -228,9 +229,17 @@ export default defineOperation({
 			if (Object.keys(patch).length === 0) {
 				return yield* reject("Nothing to change on this record.");
 			}
+			const unlinked =
+				patch.entityId === undefined ? [] : yield* reviewsNamingConsumption(host, target.id);
 			const { count } = yield* host
-				.updateEvents([{ patch, eventId: target.id, expected: writePrecondition(input.expected) }])
+				.updateEvents([
+					{ patch, eventId: target.id, expected: writePrecondition(input.expected) },
+					...unlinked.map((eventId) => ({
+						eventId,
+						patch: { properties: { set: {}, remove: ["consumptionEventId"] } },
+					})),
+				])
 				.pipe(Effect.catch(rejectHostFailure));
-			return { count, status: "saved" as const };
+			return { status: "saved" as const, count: count - unlinked.length };
 		}),
 });
