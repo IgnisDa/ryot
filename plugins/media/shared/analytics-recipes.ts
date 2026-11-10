@@ -4,7 +4,6 @@ import {
 	castBoolean,
 	castDate,
 	castJson,
-	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -20,7 +19,6 @@ import {
 	gt,
 	isNotNull,
 	join,
-	jsonPath,
 	literal,
 	localDate,
 	localHour,
@@ -47,7 +45,7 @@ import {
 	UTC,
 } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumedItem, ConsumptionBasis, SourceProgress } from "./consumption";
+import { ConsumptionBasis, MediaPosition, SourceProgress } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { ConsumptionContribution } from "./consumption-projection";
 import {
@@ -61,6 +59,7 @@ import {
 	mediaTypeJoin,
 } from "./consumption-recipes";
 import type { Table } from "./entity-selections";
+import { reviewRating } from "./user-rating";
 
 export type MediaAnalyticsInput = ConsumptionScope & {
 	readonly reporting: ResolvedReportingSelection;
@@ -194,23 +193,20 @@ const periodSummary = (
 				join("inner", reviewed, eq(column(review, "entityId"), column(reviewed, "id"))),
 				reviewType.join,
 			],
+			measures: {
+				reviews: countAll,
+				rated: countIf(isNotNull(reviewRating(review))),
+				averageRating: selectedMeasure(
+					{ function: "average", expr: reviewRating(review) },
+					NullableNumber,
+				),
+			},
 			where: and(
 				consumptionScope(review, input),
 				schemaOwnerPredicate(reviewed, "entitySchemaPluginId", input.reference),
 				eq(column(review, "eventSchemaSlug"), literal("review")),
 				withinPeriod(column(review, "occurredAt"), period),
 			),
-			measures: {
-				reviews: countAll,
-				rated: countIf(isNotNull(jsonPath(column(review, "properties"), "rating"))),
-				averageRating: selectedMeasure(
-					{
-						function: "average",
-						expr: castNumber(jsonPath(column(review, "properties"), "rating")),
-					},
-					NullableNumber,
-				),
-			},
 		}),
 	};
 };
@@ -373,15 +369,12 @@ export const mediaAnalyticsRankingRecipe = defineRecipe(
 );
 
 export const MediaConsumptionFacts = Schema.Struct({
+	position: Schema.optionalKey(MediaPosition),
 	timeSpent: Schema.optionalKey(Schema.Finite),
 	sourceRun: Schema.optionalKey(Schema.String),
 	consumedOn: Schema.optionalKey(Schema.String),
-	mangaVolume: Schema.optionalKey(Schema.Finite),
-	consumedItem: Schema.optionalKey(ConsumedItem),
 	calendarDate: Schema.optionalKey(Schema.String),
 	dateUnknown: Schema.optionalKey(Schema.Boolean),
-	animeEpisode: Schema.optionalKey(Schema.Finite),
-	mangaChapter: Schema.optionalKey(Schema.Finite),
 	progressPages: Schema.optionalKey(Schema.Finite),
 	completionKey: Schema.optionalKey(Schema.String),
 	progressPercent: Schema.optionalKey(Schema.Finite),

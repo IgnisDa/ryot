@@ -155,7 +155,7 @@ describe("Media rating-only reviews", () => {
 				yield* createEventFixture(client, {
 					entityId,
 					eventSchemaSlug: reviewEventSchemaSlug,
-					properties: { rating: 60, animeEpisode: 3 },
+					properties: { rating: 60, position: { position: 3, unit: "episodes" } },
 				});
 				for (const content of [
 					{ text: null, rating: 82.5, isSpoiler: false },
@@ -172,7 +172,7 @@ describe("Media rating-only reviews", () => {
 						expected: yield* snapshot(entityId, original),
 					});
 					expect((yield* readReview(client, entityId)).properties).toEqual({
-						animeEpisode: 3,
+						position: { position: 3, unit: "episodes" },
 						...(content.text?.trim()
 							? { text: content.text.trim(), isSpoiler: content.isSpoiler }
 							: {}),

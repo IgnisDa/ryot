@@ -24,7 +24,6 @@ import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import { MeasurementDialogs, useMeasurementLogger } from "./measurement-logger";
 import { formatDay, formatTime } from "./model";
 import { ReadingLog } from "./reading-log";
@@ -166,6 +165,7 @@ const openPage = (
 	const page = mountPluginPage(pageComponent, {
 		bootstrap: options.bootstrap,
 		location: routeLocation("/v/all-measurements"),
+		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -197,7 +197,6 @@ const openPage = (
 	};
 	rememberEntries(logRows);
 	const answerPending = () => {
-		replyReportingPreferences(page, answered);
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
 				answered.add(request.requestId);

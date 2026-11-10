@@ -1,4 +1,3 @@
-import { ReportingPreferences } from "@ryot-app/contract/modules/analytics/reporting";
 import {
 	ManagedAssetLocator,
 	ManagedAssetResolutionBatch,
@@ -22,6 +21,7 @@ import {
 	RequestEntityEnrichmentBody,
 	RequestEntityEnrichmentResult,
 } from "@ryot-app/contract/modules/entities/schemas";
+import { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import {
 	EntityUpdatedFrame,
 	MAX_INTEREST_ENTITY_IDS,
@@ -29,6 +29,7 @@ import {
 import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { HttpUrl, IsoUtcString, strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
@@ -587,61 +588,63 @@ export type PluginBridgeUserSettingsResult = Schema.Schema.Type<
 	typeof PluginBridgeUserSettingsResult
 >;
 
-export const PluginReportingPreferencesBridgeErrorReason = Schema.Literals([
+export const PluginUserPreferences = strictStruct({ timeZone: TimeZone, ratingScale: RatingScale });
+
+export type PluginUserPreferences = Schema.Schema.Type<typeof PluginUserPreferences>;
+
+export const PluginUserPreferencesBridgeErrorReason = Schema.Literals([
 	"invalid-request",
 	"transport",
 ]);
 
-export type PluginReportingPreferencesBridgeErrorReason = Schema.Schema.Type<
-	typeof PluginReportingPreferencesBridgeErrorReason
+export type PluginUserPreferencesBridgeErrorReason = Schema.Schema.Type<
+	typeof PluginUserPreferencesBridgeErrorReason
 >;
 
-export const PluginBridgeReportingPreferencesRequest = strictStruct({
+export const PluginBridgeUserPreferencesRequest = strictStruct({
 	requestId: Schema.String,
-	type: Schema.Literal("reporting-preferences-request"),
+	type: Schema.Literal("user-preferences-request"),
 });
 
-export type PluginBridgeReportingPreferencesRequest = Schema.Schema.Type<
-	typeof PluginBridgeReportingPreferencesRequest
+export type PluginBridgeUserPreferencesRequest = Schema.Schema.Type<
+	typeof PluginBridgeUserPreferencesRequest
 >;
 
-const pluginReportingPreferencesSuccessFields = {
-	preferences: ReportingPreferences,
+const pluginUserPreferencesSuccessFields = {
+	preferences: PluginUserPreferences,
 	outcome: Schema.Literal("success"),
 };
 
-const pluginReportingPreferencesFailureFields = {
+const pluginUserPreferencesFailureFields = {
 	outcome: Schema.Literal("failure"),
-	reason: PluginReportingPreferencesBridgeErrorReason,
+	reason: PluginUserPreferencesBridgeErrorReason,
 };
 
-const pluginBridgeReportingPreferencesResultFields = {
+const pluginBridgeUserPreferencesResultFields = {
 	requestId: Schema.String,
-	type: Schema.Literal("reporting-preferences-result"),
+	type: Schema.Literal("user-preferences-result"),
 };
 
-export const PluginReportingPreferencesOutcome = Schema.Union([
-	strictStruct(pluginReportingPreferencesSuccessFields),
-	strictStruct(pluginReportingPreferencesFailureFields),
+export const PluginUserPreferencesOutcome = Schema.Union([
+	strictStruct(pluginUserPreferencesSuccessFields),
+	strictStruct(pluginUserPreferencesFailureFields),
 ]);
 
-export type PluginReportingPreferencesOutcome = Schema.Schema.Type<
-	typeof PluginReportingPreferencesOutcome
->;
+export type PluginUserPreferencesOutcome = Schema.Schema.Type<typeof PluginUserPreferencesOutcome>;
 
-export const PluginBridgeReportingPreferencesResult = Schema.Union([
+export const PluginBridgeUserPreferencesResult = Schema.Union([
 	strictStruct({
-		...pluginReportingPreferencesSuccessFields,
-		...pluginBridgeReportingPreferencesResultFields,
+		...pluginUserPreferencesSuccessFields,
+		...pluginBridgeUserPreferencesResultFields,
 	}),
 	strictStruct({
-		...pluginReportingPreferencesFailureFields,
-		...pluginBridgeReportingPreferencesResultFields,
+		...pluginUserPreferencesFailureFields,
+		...pluginBridgeUserPreferencesResultFields,
 	}),
 ]);
 
-export type PluginBridgeReportingPreferencesResult = Schema.Schema.Type<
-	typeof PluginBridgeReportingPreferencesResult
+export type PluginBridgeUserPreferencesResult = Schema.Schema.Type<
+	typeof PluginBridgeUserPreferencesResult
 >;
 
 export const PluginUploadSource = Schema.declare<Blob>((value) => value instanceof Blob).annotate({

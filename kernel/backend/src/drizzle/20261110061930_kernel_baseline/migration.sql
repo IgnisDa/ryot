@@ -1158,12 +1158,13 @@ CREATE TABLE "user" (
 	"bootstrap_completed_at" timestamp(3) with time zone,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"email_verified" boolean DEFAULT false NOT NULL,
-	"preferences" jsonb DEFAULT '{"language":null,"reportingTimeZone":"UTC","disableIntegrations":false}' NOT NULL,
+	"preferences" jsonb DEFAULT '{"language":null,"ratingScale":"hundred","reportingTimeZone":"UTC","disableIntegrations":false}' NOT NULL,
 	CONSTRAINT "user_preferences_check" CHECK (
 		jsonb_typeof("preferences") = 'object'
-		and "preferences" ?& array['disableIntegrations', 'language', 'reportingTimeZone']
-		and "preferences" - 'disableIntegrations' - 'language' - 'reportingTimeZone' = '{}'::jsonb
+		and "preferences" ?& array['disableIntegrations', 'language', 'ratingScale', 'reportingTimeZone']
+		and "preferences" - 'disableIntegrations' - 'language' - 'ratingScale' - 'reportingTimeZone' = '{}'::jsonb
 		and jsonb_typeof("preferences"->'disableIntegrations') = 'boolean'
+		and "preferences"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')
 		and jsonb_typeof("preferences"->'reportingTimeZone') = 'string'
 		and "preferences"->>'reportingTimeZone' <> ''
 		and btrim("preferences"->>'reportingTimeZone') = "preferences"->>'reportingTimeZone'

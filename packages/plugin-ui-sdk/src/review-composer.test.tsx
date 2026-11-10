@@ -11,6 +11,7 @@ it("normalizes rating-only submissions and does not retain a spoiler flag withou
 	render(
 		<ReviewComposer
 			title="Review"
+			scale="hundred"
 			isSending={false}
 			onClose={() => {}}
 			onSave={(review) => saved.push(review)}
@@ -18,7 +19,7 @@ it("normalizes rating-only submissions and does not retain a spoiler flag withou
 		/>,
 	);
 	const text = screen.getByRole("textbox", { name: "Review (optional)" });
-	const rating = screen.getByRole("textbox", { name: "Rating (0–100, optional)" });
+	const rating = screen.getByRole("textbox", { name: "Rating (out of 100, optional)" });
 	fireEvent.change(text, { target: { value: " " } });
 	const save = screen.getByRole("button", { name: "Save review" });
 	expect(save.hasAttribute("disabled")).toBe(true);
@@ -36,6 +37,7 @@ it("retains drafts after a failed submission and confirms deletion separately", 
 	const props = {
 		title: "Review",
 		isSending: false,
+		scale: "hundred" as const,
 		onSave: () => events.push("save"),
 		onClose: () => events.push("close"),
 		onDelete: () => events.push("delete"),
@@ -56,4 +58,45 @@ it("retains drafts after a failed submission and confirms deletion separately", 
 	expect(within(confirmation).queryByText("Save failed")).toBeNull();
 	fireEvent.click(within(confirmation).getByRole("button", { name: "Delete review" }));
 	expect(events).toEqual(["save", "delete"]);
+});
+
+it("enters ratings on the chosen scale and keeps an untouched stored rating exact", () => {
+	const saved: ReviewContent[] = [];
+	const view = render(
+		<ReviewComposer
+			scale="ten"
+			title="Review"
+			isSending={false}
+			onClose={() => {}}
+			onSave={(review) => saved.push(review)}
+			initial={{ text: "Fine", rating: 66.66, isSpoiler: false }}
+		/>,
+	);
+	const rating = screen.getByRole("textbox", { name: "Rating (out of 10, optional)" });
+	expect(rating).toHaveProperty("value", "6.7");
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
+	fireEvent.change(rating, { target: { value: "7.25" } });
+	expect(screen.getByRole("alert").textContent).toBe(
+		"Enter a number from 0 to 10 with at most one decimal place.",
+	);
+	fireEvent.change(rating, { target: { value: "7.3" } });
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
+	expect(saved).toEqual([
+		{ text: "Fine", rating: 66.66, isSpoiler: false },
+		{ rating: 73, text: "Fine", isSpoiler: false },
+	]);
+	view.unmount();
+
+	render(
+		<ReviewComposer
+			title="Review"
+			isSending={false}
+			onClose={() => {}}
+			scale="three-point"
+			onSave={(review) => saved.push(review)}
+		/>,
+	);
+	fireEvent.click(screen.getByRole("radio", { name: "Sad" }));
+	fireEvent.click(screen.getByRole("button", { name: "Save review" }));
+	expect(saved.at(-1)).toEqual({ rating: 0, text: null, isSpoiler: false });
 });

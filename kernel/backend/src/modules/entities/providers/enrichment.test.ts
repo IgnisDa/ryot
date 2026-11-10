@@ -55,7 +55,12 @@ const currentUser = (id: string): CurrentUserValue => ({
 	name: "Retry User",
 	id: UserId.make(id),
 	email: `${id}@example.test`,
-	preferences: { language: "es", reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: "es",
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 });
 const owner = currentUser("owner");
 const recipient = currentUser("recipient");

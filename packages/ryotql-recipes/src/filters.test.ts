@@ -41,6 +41,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { assert } from "@ryot-app/testing/assert";
 import { DateTime, Effect, Result } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -60,6 +61,8 @@ import {
 	newFilterDraft,
 	outputFilterTargets,
 	queryFilterFields,
+	ratingDraftFromRule,
+	ratingDraftRule,
 } from "./filters";
 import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
 import { requireRowsQuery } from "./test-utils";
@@ -695,6 +698,37 @@ describe("filter URL codec", () => {
 		] as const) {
 			expect(draftRule(draftFromRule(rule))).toEqual(rule);
 		}
+	});
+});
+
+describe("rating filter drafts", () => {
+	const draft = { values: [], second: "", text: "7.5", field: "rating", operator: "gte" } as const;
+
+	it("stores rating bounds on 0–100 and reads them back in the user's scale", () => {
+		expect(ratingDraftRule(draft, "ten")).toEqual({ value: 75, field: "rating", operator: "gte" });
+		expect(
+			ratingDraftRule({ ...draft, text: "3", second: "4.5", operator: "between" }, "five"),
+		).toEqual({ min: 60, max: 90, field: "rating", operator: "between" });
+		expect(ratingDraftFromRule({ value: 75, field: "rating", operator: "gte" }, "ten").text).toBe(
+			"7.5",
+		);
+		expect(ratingDraftRule({ ...draft, operator: "empty" }, "ten")).toEqual({
+			field: "rating",
+			operator: "empty",
+		});
+	});
+
+	it("covers whole three-point buckets", () => {
+		const between = { ...draft, text: "1", second: "1", operator: "between" } as const;
+		const rule = ratingDraftRule(between, "three-point");
+		expect(rule).toEqual({ min: 100 / 3, max: 200 / 3, field: "rating", operator: "between" });
+		assert(rule !== undefined);
+		expect(ratingDraftFromRule(rule, "three-point")).toEqual(between);
+		expect(ratingDraftRule({ ...draft, text: "0", operator: "lte" }, "three-point")).toEqual({
+			value: 100 / 3,
+			field: "rating",
+			operator: "lte",
+		});
 	});
 });
 

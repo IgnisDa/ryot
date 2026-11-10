@@ -1,4 +1,3 @@
-import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import {
 	and,
@@ -17,8 +16,6 @@ import {
 	table,
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
-
-import type { ExerciseNoteUpdateInput } from "../../shared/exercise-note-operations";
 
 type ExecuteRyotql = (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>;
 
@@ -77,10 +74,3 @@ export const requireExerciseNote = (noteId: string, executeRyotql: ExecuteRyotql
 	executeRyotqlRecipe(executeRyotql, exerciseNoteEventRecipe(noteId)).pipe(
 		Effect.flatMap(requireFound("Exercise note not found")),
 	);
-
-export const exerciseNotePropertiesPatch = (
-	input: ExerciseNoteUpdateInput,
-): NonNullable<UpdateEventItem["patch"]["properties"]> =>
-	input.rating === null
-		? { remove: ["rating"], set: { text: input.text } }
-		: { remove: [], set: { text: input.text, rating: input.rating } };

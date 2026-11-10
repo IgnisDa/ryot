@@ -36,13 +36,13 @@ import type {
 	PluginIosLiveActivityRequest,
 	PluginOperationOutcome,
 	PluginOperationRequest,
-	PluginReportingPreferencesOutcome,
 	PluginRyotQLOutcome,
 	PluginRyotQLRequest,
 	PluginStorageOutcome,
 	PluginStorageRequest,
 	PluginUploadOutcome,
 	PluginUploadRequest,
+	PluginUserPreferencesOutcome,
 	PluginUserSettingsOutcome,
 	PluginUserSettingsRequest,
 	SharePublicationOutcome,
@@ -124,12 +124,12 @@ export function PageIframeHost(props: {
 	readonly subscribeResume?: (resumed: () => void) => () => void;
 	readonly onPageSearch: (request: PluginBridgePageSearch) => void;
 	readonly onScreenState: (state: null | PageScreenReadiness) => void;
+	readonly onUserPreferences: () => Effect.Effect<PluginUserPreferencesOutcome>;
 	readonly onFlushReady: (flush: undefined | (() => Effect.Effect<boolean>)) => void;
 	readonly onAssets: (request: PluginAssetRequest) => Effect.Effect<PluginAssetOutcome>;
 	readonly onQuery: (request: PluginRyotQLRequest) => Effect.Effect<PluginRyotQLOutcome>;
 	readonly onUpload: (request: PluginUploadRequest) => Effect.Effect<PluginUploadOutcome>;
 	readonly onDevice: (request: PluginDeviceRequest) => Effect.Effect<PluginDeviceOutcome>;
-	readonly onReportingPreferences: () => Effect.Effect<PluginReportingPreferencesOutcome>;
 	readonly onStorage: (request: PluginStorageRequest) => Effect.Effect<PluginStorageOutcome>;
 	readonly onExternalLink: (request: ExternalLinkRequest) => Effect.Effect<ExternalLinkOutcome>;
 	readonly onPickEntity: (
@@ -444,6 +444,7 @@ export function PageIframeHost(props: {
 			onDevice: (request) => latest.current.onDevice(request),
 			onStorage: (request) => latest.current.onStorage(request),
 			onNavigate: (request) => latest.current.onNavigate(request),
+			onUserPreferences: () => latest.current.onUserPreferences(),
 			onPageSearch: (request) => latest.current.onPageSearch(request),
 			onCollection: (request) => latest.current.onCollection(request),
 			onEntitySave: (request) => latest.current.onEntitySave(request),
@@ -451,7 +452,6 @@ export function PageIframeHost(props: {
 			onEnrichment: (request) => latest.current.onEnrichment(request),
 			onUserSettings: (request) => latest.current.onUserSettings(request),
 			onExternalLink: (request) => latest.current.onExternalLink(request),
-			onReportingPreferences: () => latest.current.onReportingPreferences(),
 			onEditCollection: (request) => latest.current.onEditCollection(request),
 			onAddToCollection: (request) => latest.current.onAddToCollection(request),
 			onIosLiveActivity: (request) => latest.current.onIosLiveActivity(request),

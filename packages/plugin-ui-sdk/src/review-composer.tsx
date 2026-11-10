@@ -1,8 +1,8 @@
+import { type RatingScale, ratingScales } from "@ryot-app/contract/modules/events/rating-scale";
 import {
 	requireReviewContent,
 	ReviewContent,
 	type ReviewProperties,
-	ReviewRating,
 } from "@ryot-app/contract/modules/events/review";
 import { Schema } from "effect";
 import { type RefObject, useId, useRef, useState } from "react";
@@ -11,17 +11,18 @@ import { ActionForm } from "./action-form";
 import { Button } from "./button";
 import { DestructiveConfirmation } from "./destructive-confirmation";
 import { Dialog } from "./dialog";
+import { RatingInput, useRatingDraft } from "./rating";
 import { StatusMessage } from "./status-message";
 import { Row } from "./surface";
 import { Switch } from "./switch";
-import { TextArea, TextField } from "./text-field";
+import { TextArea } from "./text-field";
 
-const isReviewRating = Schema.is(ReviewRating);
 const isReviewContent = Schema.is(ReviewContent.pipe(Schema.check(requireReviewContent)));
 
 export function ReviewComposer(props: {
 	readonly title: string;
 	readonly isSending: boolean;
+	readonly scale: RatingScale;
 	readonly onClose: () => void;
 	readonly errorMessage?: string | undefined;
 	readonly onDelete?: undefined | (() => void);
@@ -33,22 +34,19 @@ export function ReviewComposer(props: {
 	const [deletion, setDeletion] = useState<"closed" | "submitted" | "confirming">("closed");
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const ratingRef = useRef<HTMLInputElement>(null);
+	const textRef = useRef<HTMLTextAreaElement>(null);
 	const [text, setText] = useState(props.initial?.text ?? "");
-	const [rating, setRating] = useState(
-		props.initial?.rating == null ? "" : String(props.initial.rating),
-	);
+	const rating = useRatingDraft(props.initial?.rating, props.scale);
 	const [isSpoiler, setIsSpoiler] = useState(props.initial?.isSpoiler ?? false);
 	const { onClose, isSending } = props;
-	const ratingValue = rating.trim() === "" ? undefined : Number(rating);
-	const validRating = ratingValue === undefined || isReviewRating(ratingValue);
 	const hasText = text.trim().length > 0;
 	const draft = {
-		rating: ratingValue ?? null,
 		isSpoiler: hasText && isSpoiler,
 		text: hasText ? text.trim() : null,
+		rating: rating.result.valid ? rating.result.rating : null,
 	};
-	const hasContent = hasText || ratingValue !== undefined;
-	const canSave = isReviewContent(draft) && !isSending;
+	const hasContent = hasText || rating.draft.trim() !== "";
+	const canSave = rating.result.valid && isReviewContent(draft) && !isSending;
 	const save = () => {
 		if (canSave) {
 			props.onSave(draft);
@@ -60,32 +58,23 @@ export function ReviewComposer(props: {
 			title={props.title}
 			dismissible={!isSending}
 			closeLabel="Close review"
-			initialFocusRef={ratingRef}
+			initialFocusRef={ratingScales[props.scale].input === "number" ? ratingRef : textRef}
 			{...(props.triggerRef === undefined ? {} : { triggerRef: props.triggerRef })}
 		>
 			<ActionForm onSubmit={save} label={props.title} className="flex flex-col gap-4">
 				<p className="text-label text-text-muted">Add a rating, a review, or both.</p>
-				<label htmlFor={`${id}-rating`}>Rating (0–100, optional)</label>
-				<TextField
-					type="text"
-					value={rating}
-					ref={ratingRef}
-					inputMode="decimal"
-					id={`${id}-rating`}
+				<RatingInput
+					scale={props.scale}
+					inputRef={ratingRef}
+					value={rating.draft}
 					disabled={isSending}
-					invalid={!validRating}
-					onChange={(event) => setRating(event.currentTarget.value)}
-					aria-describedby={validRating ? undefined : `${id}-rating-error`}
+					onChange={rating.setDraft}
 				/>
-				{validRating ? null : (
-					<StatusMessage tone="error" id={`${id}-rating-error`}>
-						Enter a number from 0 to 100.
-					</StatusMessage>
-				)}
 				<label htmlFor={`${id}-text`}>Review (optional)</label>
 				<TextArea
 					rows={5}
 					value={text}
+					ref={textRef}
 					id={`${id}-text`}
 					disabled={isSending}
 					onChange={(event) => setText(event.currentTarget.value)}

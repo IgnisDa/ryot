@@ -54,6 +54,7 @@ DECLARE
 	missing_oidc_stub_user_ids text;
 	unexpected_oidc_account_user_ids text;
 	password_user_account_ids text;
+	unknown_review_scales text;
 BEGIN
 	${buildRequireLegacyTableSql("old_user -> user", "old_user")}
 
@@ -104,6 +105,19 @@ BEGIN
 			duplicate_oidc_subject_ids;
 	END IF;
 
+	SELECT string_agg(DISTINCT review_scale, ', ' ORDER BY review_scale)
+	INTO unknown_review_scales
+	FROM (
+		SELECT "preferences" -> 'general' ->> 'review_scale' AS review_scale
+		FROM "old_user"
+	) legacy_review_scales
+	WHERE review_scale IS NOT NULL
+		AND review_scale NOT IN ('OutOfHundred', 'OutOfTen', 'OutOfFive', 'ThreePointSmiley');
+	IF unknown_review_scales IS NOT NULL THEN
+		RAISE EXCEPTION 'old_user -> user: these V1 review scales are not known, so V2 cannot choose a rating scale for the users who picked them: %. Set preferences.general.review_scale to OutOfHundred, OutOfTen, OutOfFive, or ThreePointSmiley for those users in the V1 database, then start the server again.',
+			unknown_review_scales;
+	END IF;
+
 	WITH classified_users AS (
 		SELECT
 			old_user.id,
@@ -152,6 +166,12 @@ BEGIN
 				false
 			),
 			'reportingTimeZone', 'UTC',
+			'ratingScale', CASE legacy_users.preferences -> 'general' ->> 'review_scale'
+				WHEN 'OutOfTen' THEN 'ten'
+				WHEN 'OutOfFive' THEN 'five'
+				WHEN 'ThreePointSmiley' THEN 'three-point'
+				ELSE 'hundred'
+			END,
 			'language', NULL
 		),
 		true,

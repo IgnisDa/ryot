@@ -143,7 +143,12 @@ const craftedRecords = (publications: ReadonlyArray<ArchivePublication>): Archiv
 	profile: {
 		image: null,
 		name: "Archived",
-		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+		preferences: {
+			language: null,
+			reportingTimeZone: UTC,
+			ratingScale: "hundred",
+			disableIntegrations: false,
+		},
 	},
 	entityDependencies: [
 		{

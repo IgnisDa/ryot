@@ -71,6 +71,7 @@ const records: ArchiveRecords = {
 		name: "Test User",
 		preferences: {
 			language: null,
+			ratingScale: "five",
 			disableIntegrations: false,
 			reportingTimeZone: TimeZone.make("Asia/Tokyo"),
 		},

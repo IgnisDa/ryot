@@ -2,6 +2,7 @@ import type {
 	PublicationUnavailableCode,
 	PublicationVisitorPage,
 } from "@ryot-app/contract/modules/publications/schemas";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -21,6 +22,7 @@ import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
 import { historyEntry } from "#/modules/navigation/history-entry";
 import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
+import { pluginUserPreferences } from "#/modules/pages/bridge/user-settings";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import { navigatePageSearch } from "#/modules/pages/runtime/document-host";
 import { PageIframeHost } from "#/modules/pages/runtime/iframe-host";
@@ -281,11 +283,14 @@ function PublicationFrame(props: {
 			onBackgroundOperation={() =>
 				refused({ outcome: "failure", reason: "operation-failed" } as const)
 			}
-			onReportingPreferences={() =>
-				refused({ outcome: "failure", reason: "invalid-request" } as const)
-			}
 			onCalendarSourceVisibility={() =>
 				refused({ outcome: "failure", reason: "invalid-request" } as const)
+			}
+			onUserPreferences={() =>
+				Effect.succeed({
+					outcome: "success",
+					preferences: pluginUserPreferences(defaultUserPreferences),
+				} as const)
 			}
 			onNavigate={({ mode, target }) => {
 				if (target.kind === "entity") {

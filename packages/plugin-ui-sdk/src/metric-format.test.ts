@@ -10,9 +10,18 @@ import {
 	metricDelta,
 	metricParts,
 	percentUnit,
+	ratingUnit,
 } from "./metric-format";
 
 describe("formatMetric", () => {
+	it("shows stored ratings in the chosen scale", () => {
+		expect(formatMetric(72.5, ratingUnit("hundred"))).toBe("72.5 / 100");
+		expect(formatMetric(73, ratingUnit("ten"))).toBe("7.3 / 10");
+		expect(formatMetric(70, ratingUnit("five"))).toBe("3.5 / 5");
+		expect(formatMetric(80, ratingUnit("three-point"))).toBe("Happy");
+		expect(ratingUnit("ten")).toBe(ratingUnit("ten"));
+	});
+
 	it("groups digits, trims precision by magnitude, and agrees count nouns with the value", () => {
 		const titles = countUnit("title");
 		expect(formatMetric(63213, titles)).toBe("63,213 titles");

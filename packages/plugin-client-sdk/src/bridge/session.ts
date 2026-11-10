@@ -50,7 +50,6 @@ import {
 	type PluginBridgePickEntityScreen,
 	type PluginBridgePickEntityScreenCancel,
 	type PluginBridgeReady,
-	type PluginBridgeReportingPreferencesRequest,
 	type PluginBridgeRyotQLCancel,
 	type PluginBridgeRyotQLRequest,
 	type PluginBridgeScreenState,
@@ -58,6 +57,7 @@ import {
 	type PluginBridgeSharePublicationScreenCancel,
 	type PluginBridgeStorageRequest,
 	type PluginBridgeUploadRequest,
+	type PluginBridgeUserPreferencesRequest,
 	type PluginBridgeUserSettingsRequest,
 	type PluginCalendarSourceVisibilityRequest,
 	type PluginDeviceRequest,
@@ -107,11 +107,11 @@ type RequestType =
 	| "enrichment"
 	| "external-link"
 	| "user-settings"
+	| "user-preferences"
 	| "ios-live-activity"
 	| "entity-editor-save"
 	| "pick-entity-screen"
 	| "background-operation"
-	| "reporting-preferences"
 	| "edit-collection-screen"
 	| "manage-reminders-screen"
 	| "share-publication-screen"
@@ -457,14 +457,14 @@ export const createPluginRuntime = (
 					}) satisfies PluginBridgeUserSettingsRequest,
 			),
 		);
-	const readReportingPreferences = () =>
+	const readUserPreferences = () =>
 		sendRequest(
-			"reporting-preferences",
+			"user-preferences",
 			(requestId) =>
 				({
 					requestId,
-					type: "reporting-preferences-request",
-				}) satisfies PluginBridgeReportingPreferencesRequest,
+					type: "user-preferences-request",
+				}) satisfies PluginBridgeUserPreferencesRequest,
 		);
 
 	const requestEnrichment = (request: PluginEnrichmentRequest) =>
@@ -689,9 +689,9 @@ export const createPluginRuntime = (
 		mutateCollection,
 		requestEnrichment,
 		navigatePageSearch,
+		readUserPreferences,
 		manageCollectionReviews,
 		changeCollectionMembers,
-		readReportingPreferences,
 		setCalendarSourceVisibility,
 		device: (request: PluginDeviceRequest) =>
 			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
@@ -1002,6 +1002,15 @@ export const createPluginRuntime = (
 							: { outcome: "success", value: message.settings },
 					);
 					return;
+				case "user-preferences-result":
+					settle(
+						"user-preferences",
+						message.requestId,
+						message.outcome === "failure"
+							? message
+							: { outcome: "success", value: message.preferences },
+					);
+					return;
 				case "ios-live-activity-result":
 					settle("ios-live-activity", message.requestId, message);
 					return;
@@ -1013,15 +1022,6 @@ export const createPluginRuntime = (
 						"entity-editor-save",
 						message.requestId,
 						message.outcome === "failure" ? message : { outcome: "success", value: message.output },
-					);
-					return;
-				case "reporting-preferences-result":
-					settle(
-						"reporting-preferences",
-						message.requestId,
-						message.outcome === "failure"
-							? message
-							: { outcome: "success", value: message.preferences },
 					);
 					return;
 				case "background-operation-settled":

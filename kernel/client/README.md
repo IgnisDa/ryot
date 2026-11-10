@@ -18,7 +18,8 @@ screens. Saved views retain their URL-owned provider-add screen.
 `/share/$publicationId` visitor route. The visitor route takes the link secret or owner preview
 session from the URL fragment, clears the fragment, keeps credentials in tab-scoped session storage,
 and runs the publication page in the same sandboxed iframe host. Its bridge answers RyotQL and asset
-reads through the visitor session and refuses every write, upload, and kernel screen. Entity
+reads through the visitor session, answers user preferences with the defaults (UTC, ratings out of
+100), and refuses every write, upload, and kernel screen. Entity
 navigation becomes the `item` search parameter on the same route, so the browser back button returns
 to the list. Owner previews open in the app with a banner to exit; they never use the link secret.
 

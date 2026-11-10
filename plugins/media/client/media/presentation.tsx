@@ -7,8 +7,8 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
-import { Eyebrow, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
+import { ManagedAssetProvider, useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
+import { Eyebrow, RatingValue, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 
@@ -49,9 +49,6 @@ export const loadMediaPresentations: EntityPresentationLoader<MediaPresentationV
 	const slug = context.references[0]?.entitySchemaSlug ?? "";
 	return createMediaPresentationLoader(mediaPresentationSource(slug))(context);
 };
-
-const ratingLabel = (rating: null | number) =>
-	rating === null ? undefined : rating.toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 export function MediaCardContent(props: {
 	readonly compact: boolean;
@@ -133,7 +130,7 @@ function MediaArtwork(props: {
 }
 
 function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPresentationData }) {
-	const rating = ratingLabel(props.data.rating);
+	const scale = useUserPreferences().data?.ratingScale;
 	return (
 		<div className="grid min-w-0 gap-1">
 			<Eyebrow>{props.schemaName}</Eyebrow>
@@ -151,8 +148,12 @@ function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPr
 			{props.data.secondary !== null && (
 				<span className="truncate text-xs text-text-subtle">{props.data.secondary}</span>
 			)}
-			{rating !== undefined && (
-				<span className="truncate text-xs font-semibold text-accent-text">{rating}</span>
+			{props.data.rating !== null && scale !== undefined && (
+				<RatingValue
+					scale={scale}
+					rating={props.data.rating}
+					className="truncate text-xs font-semibold text-accent-text"
+				/>
 			)}
 		</div>
 	);

@@ -1,7 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
-import { reviewProperties, reviewPropertyKeys } from "@ryot-app/plugin-kit/schema";
+import { reviewPropertiesPatch } from "@ryot-app/plugin-kit/schema";
 
 import { mediaReviewDeclaredProperties } from "../../shared/media-activity-fields";
 import { MediaReviewOutput, MediaReviewUpdateInput } from "../../shared/media-review-operations";
@@ -38,15 +38,12 @@ export default defineOperation({
 				target,
 				mediaReviewDeclaredProperties(target.entitySchemaSlug),
 			);
-			const set = reviewProperties(input);
 			return yield* host
 				.updateEvents([
 					{
 						eventId: target.id,
 						expected: writePrecondition(input.expected),
-						patch: {
-							properties: { set, remove: reviewPropertyKeys.filter((key) => !(key in set)) },
-						},
+						patch: { properties: reviewPropertiesPatch(input) },
 					},
 				])
 				.pipe(Effect.catch(rejectHostFailure));

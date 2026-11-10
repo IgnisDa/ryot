@@ -1,4 +1,9 @@
 import {
+	ratingRange,
+	type RatingScale,
+	scaledRangeBound,
+} from "@ryot-app/contract/modules/events/rating-scale";
+import {
 	type Filter,
 	Filter as FilterSchema,
 	type FilterField,
@@ -626,6 +631,40 @@ export const draftRule = (draft: FilterDraft): undefined | FilterRule => {
 	return rule.success.operator === "between" && rule.success.min > rule.success.max
 		? undefined
 		: rule.success;
+};
+
+const scaledBound = (stored: number, bound: "min" | "max", scale: RatingScale) =>
+	String(scaledRangeBound(stored, bound, scale));
+
+/** A draft whose rating bounds are in the user's scale, from a rule stored on 0–100. */
+export const ratingDraftFromRule = (rule: FilterRule, scale: RatingScale): FilterDraft => {
+	const draft = draftFromRule(rule);
+	if (rule.operator === "gte") {
+		return { ...draft, text: scaledBound(rule.value, "min", scale) };
+	}
+	if (rule.operator === "lte") {
+		return { ...draft, text: scaledBound(rule.value, "max", scale) };
+	}
+	return rule.operator === "between"
+		? {
+				...draft,
+				text: scaledBound(rule.min, "min", scale),
+				second: scaledBound(rule.max, "max", scale),
+			}
+		: draft;
+};
+
+export const ratingDraftRule = (draft: FilterDraft, scale: RatingScale): undefined | FilterRule => {
+	const rule = draftRule(draft);
+	if (rule?.operator === "gte") {
+		return { ...rule, value: ratingRange(rule.value, scale).min };
+	}
+	if (rule?.operator === "lte") {
+		return { ...rule, value: ratingRange(rule.value, scale).max };
+	}
+	return rule?.operator === "between"
+		? { ...rule, min: ratingRange(rule.min, scale).min, max: ratingRange(rule.max, scale).max }
+		: rule;
 };
 
 const filterChoicePageSize = 50;

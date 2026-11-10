@@ -2,8 +2,6 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	average,
-	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -36,6 +34,7 @@ import {
 	type Table,
 } from "./entity-selections";
 import { MediaImageAssetSchema } from "./media-image";
+import { averageUserRating } from "./user-rating";
 
 export type MediaPresentationSource<Data> = SelectedRowsSource<Data>;
 
@@ -97,17 +96,6 @@ export const mediaPresentationImageSelection = (entity: Table) => ({
 	image: selectedField(preferredMediaImageExpression(entity), Schema.NullOr(MediaImageAssetSchema)),
 });
 
-const reviewRatingAverage = (media: Table) => {
-	const review = table("event", "presentationReview");
-	return average(review, castNumber(jsonPath(column(review, "properties"), "rating")), {
-		where: and(
-			eq(column(review, "entityId"), column(media, "id")),
-			eq(column(review, "eventSchemaPluginId"), column(media, "entitySchemaPluginId")),
-			eq(column(review, "eventSchemaSlug"), literal("review")),
-		),
-	});
-};
-
 const withUnit = (media: Table, property: string, unit: string) => {
 	const value = castText(propertyNumber(media, property));
 	return conditional(isNotNull(value), concat(value, literal(unit)), literal(null));
@@ -155,9 +143,16 @@ export const mediaPresentationSource = (slug: string) => {
 		selection: {
 			...entityIdentitySelection(media),
 			...mediaPresentationImageSelection(media),
-			rating: selectedField(reviewRatingAverage(media), Schema.NullOr(Schema.Finite)),
 			primary: selectedField(primaryExpression(media, slug), Schema.NullOr(Schema.String)),
 			secondary: selectedField(secondaryExpression(media, slug), Schema.NullOr(Schema.String)),
+			rating: selectedField(
+				averageUserRating(
+					"presentationReview",
+					column(media, "id"),
+					column(media, "entitySchemaPluginId"),
+				),
+				Schema.NullOr(Schema.Finite),
+			),
 		},
 	});
 };

@@ -7,7 +7,7 @@ import type {
 } from "@ryot-app/contract/modules/ryotql/language";
 import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
+import { PluginId, TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
 	disposePluginBridges,
@@ -22,7 +22,6 @@ import { it } from "@voila.dev/effect-bun-test";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
 import { storedEditorDraft } from "../../tests/client/exercise-fixtures";
-import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import FitnessHomePage from "./screen";
 
 afterEach(disposePluginBridges);
@@ -219,10 +218,10 @@ const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotCl
 		page: pageContext,
 		bootstrap: clock?.bootstrap,
 		location: routeLocation("/"),
+		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 	});
 	const answered = new Set<string>();
 	const answerPending = () => {
-		replyReportingPreferences(page, answered);
 		for (const message of page.clientMessages()) {
 			if (message.type === "operation-request" && !answered.has(message.requestId)) {
 				answered.add(message.requestId);

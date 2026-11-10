@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "79d430f6-324f-4c1a-bb26-1426ae43600b",
+	"id": "99ed1fe6-a695-425e-abe1-d6d9e6bed9fe",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -16953,7 +16953,7 @@
 			"typeSchema": null,
 			"notNull": true,
 			"dimensions": 0,
-			"default": "'{\"language\":null,\"reportingTimeZone\":\"UTC\",\"disableIntegrations\":false}'",
+			"default": "'{\"language\":null,\"ratingScale\":\"hundred\",\"reportingTimeZone\":\"UTC\",\"disableIntegrations\":false}'",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -24180,7 +24180,7 @@
 			"schema": "public",
 			"table": "user",
 			"name": "user_preferences_check",
-			"value": "\n\t\tjsonb_typeof(\"preferences\") = 'object'\n\t\tand \"preferences\" ?& array['disableIntegrations', 'language', 'reportingTimeZone']\n\t\tand \"preferences\" - 'disableIntegrations' - 'language' - 'reportingTimeZone' = '{}'::jsonb\n\t\tand jsonb_typeof(\"preferences\"->'disableIntegrations') = 'boolean'\n\t\tand jsonb_typeof(\"preferences\"->'reportingTimeZone') = 'string'\n\t\tand \"preferences\"->>'reportingTimeZone' <> ''\n\t\tand btrim(\"preferences\"->>'reportingTimeZone') = \"preferences\"->>'reportingTimeZone'\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'language') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'language') = 'string'\n\t\t\t\tand \"preferences\"->>'language' <> ''\n\t\t\t\tand btrim(\"preferences\"->>'language', E' \t\n\r') = \"preferences\"->>'language')\n\t\t)\n\t",
+			"value": "\n\t\tjsonb_typeof(\"preferences\") = 'object'\n\t\tand \"preferences\" ?& array['disableIntegrations', 'language', 'ratingScale', 'reportingTimeZone']\n\t\tand \"preferences\" - 'disableIntegrations' - 'language' - 'ratingScale' - 'reportingTimeZone' = '{}'::jsonb\n\t\tand jsonb_typeof(\"preferences\"->'disableIntegrations') = 'boolean'\n\t\tand \"preferences\"->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')\n\t\tand jsonb_typeof(\"preferences\"->'reportingTimeZone') = 'string'\n\t\tand \"preferences\"->>'reportingTimeZone' <> ''\n\t\tand btrim(\"preferences\"->>'reportingTimeZone') = \"preferences\"->>'reportingTimeZone'\n\t\tand (\n\t\t\tjsonb_typeof(\"preferences\"->'language') = 'null'\n\t\t\tor (jsonb_typeof(\"preferences\"->'language') = 'string'\n\t\t\t\tand \"preferences\"->>'language' <> ''\n\t\t\t\tand btrim(\"preferences\"->>'language', E' \t\n\r') = \"preferences\"->>'language')\n\t\t)\n\t",
 			"entityType": "checks"
 		},
 		{

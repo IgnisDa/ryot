@@ -55,7 +55,7 @@ const homeAdapter = (input: {
 	const documents: unknown[] = [];
 	const navigations: RyotNavigationTarget[] = [];
 	const entityPicks: unknown[] = [];
-	let reportingPreferenceReads = 0;
+	let userPreferenceReads = 0;
 	let gate = input.gate;
 	const adapter = {
 		readUserSettings: () => Effect.succeed(input.settings ?? {}),
@@ -65,10 +65,10 @@ const homeAdapter = (input: {
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		pickEntity: (request) =>
 			Effect.sync(() => entityPicks.push(request)).pipe(Effect.as({ kind: "cancelled" as const })),
-		readReportingPreferences: () =>
+		readUserPreferences: () =>
 			Effect.sync(() => {
-				reportingPreferenceReads += 1;
-				return { timeZone: "UTC" };
+				userPreferenceReads += 1;
+				return { timeZone: "UTC", ratingScale: "hundred" };
 			}),
 		query: (document) => {
 			const names = Object.keys(document.queries);
@@ -100,7 +100,7 @@ const homeAdapter = (input: {
 		documents,
 		navigations,
 		entityPicks,
-		reportingPreferenceReads: () => reportingPreferenceReads,
+		userPreferenceReads: () => userPreferenceReads,
 		setGate: (next: typeof input.gate) => {
 			gate = next;
 		},
@@ -429,7 +429,7 @@ describe("home sections", () => {
 					["trending.trending"],
 					["days", "figures", "mediaTypes", "reviews"],
 				]);
-				expect(home.reportingPreferenceReads()).toBe(1);
+				expect(home.userPreferenceReads()).toBe(1);
 				view.unmount();
 			}),
 		testTimeout,

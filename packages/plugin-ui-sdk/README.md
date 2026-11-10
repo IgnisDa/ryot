@@ -35,12 +35,25 @@ capabilities. Tint extraction refetches the image as a no-store CORS request, be
 can otherwise serve the page's non-CORS cached copy; it silently returns no tint when image, canvas,
 or CORS access fails.
 
+## Ratings
+
+Ratings are stored 0–100 and shown in the user's rating scale, which callers pass as `scale` (plugins
+read it from the client SDK's `useUserPreferences`). `RatingValue` renders one rating as an
+accessible image labelled like "7.3 out of 10": out of 100 and out of 10 as numbers, five stars
+filled to the nearest half, and three-point as a face with Sad, Neutral, or Happy. `RatingInput` is a
+decimal field for out of 100 (whole numbers) and out of 10 (one decimal place), a half-star radio group
+for five stars, and three labelled choices for three-point; star and choice inputs offer **Clear
+rating**. `useRatingDraft(initial, scale)` owns the scaled draft and its stored result; an untouched
+draft keeps the exact stored rating. `ratingUnit(scale)` formats stored ratings in metric figures; a
+three-point change shows no absolute difference.
+
 ## Review Composer
 
 `ReviewComposer` owns rating/text drafts, validation, spoiler controls, focus, dismissal, and
-optional confirmed deletion. Callers supply `onSave`, optional `onDelete`, submission state, and
-error copy; the component does not invoke client capabilities. Collection and Media review editors
-use it with the shared review content model. Drafts remain intact on submission failure.
+optional confirmed deletion. Callers supply the rating `scale`, `onSave`, optional `onDelete`,
+submission state, and error copy; the component does not invoke client capabilities. Collection and
+Media review editors use it with the shared review content model. Drafts remain intact on submission
+failure.
 
 ## Visual Foundations
 

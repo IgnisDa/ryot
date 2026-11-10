@@ -24,7 +24,12 @@ const user = {
 	name: "Test User",
 	id: realSandboxUserId,
 	email: "user@example.com",
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 } satisfies CurrentUserValue;
 
 const providerSource = (call: string) => `

@@ -21,6 +21,7 @@ export const filterValueTypes = [
 	"text",
 	"text-list",
 	"number",
+	"rating",
 	"date",
 	"boolean",
 ] as const;
@@ -30,6 +31,7 @@ export const filterOperators = {
 	"text-list": ["contains"],
 	boolean: ["isTrue", "isFalse"],
 	enum: ["anyOf", "noneOf", "empty", "notEmpty"],
+	rating: ["gte", "lte", "between", "empty", "notEmpty"],
 	text: ["contains", "notContains", "is", "empty", "notEmpty"],
 	number: ["gte", "lte", "eq", "between", "empty", "notEmpty"],
 	"enum-list": ["anyOf", "allOf", "noneOf", "empty", "notEmpty"],
@@ -55,7 +57,7 @@ export const ValueFilterField = Schema.Union([
 	}),
 	strictStruct({
 		...filterFieldBase,
-		type: Schema.Literals(["text", "text-list", "number", "date", "boolean"]),
+		type: Schema.Literals(["text", "text-list", "number", "rating", "date", "boolean"]),
 	}),
 ]);
 export type ValueFilterField = typeof ValueFilterField.Type;

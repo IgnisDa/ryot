@@ -14,7 +14,7 @@ import { useMemo, useState } from "react";
 
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { useActiveEditorDraft } from "../exercise/active-draft";
-import { ReportingPreferences } from "../reporting-preferences";
+import { PreferencesGate } from "../preferences-gate";
 import { workoutEditorContextQuery } from "../workout-editor/context-query";
 import { WorkoutProcessing } from "../workout-processing";
 import { buildWorkoutCards } from "../workouts/model";
@@ -29,9 +29,7 @@ import { TemplatesSection } from "./templates";
 
 export default function FitnessHomePage() {
 	return (
-		<ReportingPreferences>
-			{(timeZone) => <FitnessHomeBody timeZone={timeZone} />}
-		</ReportingPreferences>
+		<PreferencesGate>{({ timeZone }) => <FitnessHomeBody timeZone={timeZone} />}</PreferencesGate>
 	);
 }
 

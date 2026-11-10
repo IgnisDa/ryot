@@ -12,8 +12,6 @@ import {
 	latestPersonalBests,
 	metricsForKind,
 	type PersonalBestRow,
-	ratingToStars,
-	starsToRating,
 } from "./details-model";
 
 const month = (iso: string, maxWeight: null | number) => ({
@@ -165,15 +163,6 @@ describe("exercise details model", () => {
 				latestAt: "2023-01-01T00:00:00.000Z",
 			},
 		]);
-	});
-
-	it("maps ratings between stars and stored values", () => {
-		expect(ratingToStars(80)).toBe(4);
-		expect(ratingToStars(100)).toBe(5);
-		expect(ratingToStars(50)).toBe(3);
-		expect(ratingToStars(0)).toBeNull();
-		expect(ratingToStars(null)).toBeNull();
-		expect(starsToRating(3)).toBe(60);
 	});
 
 	it("groups targets by role only when roles exist", () => {

@@ -1,6 +1,6 @@
-import type { ReportingPreferences } from "@ryot-app/contract/modules/analytics/reporting";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { PluginUserPreferences } from "@ryot-app/plugin-client-contract";
 
 import { createRyotQuery } from "./definitions";
 import { useRyotQuery } from "./hooks";
@@ -12,8 +12,8 @@ const pluginUserSettingsQuery = createRyotQuery<PluginId, Readonly<Record<string
 export const usePluginUserSettings = (pluginId: PluginId) =>
 	useRyotQuery(pluginUserSettingsQuery, pluginId);
 
-const reportingPreferencesQuery = createRyotQuery<void, ReportingPreferences>(
-	({ client }) => client.reportingPreferences,
+const userPreferencesQuery = createRyotQuery<void, PluginUserPreferences>(
+	({ client }) => client.userPreferences,
 );
 
-export const useReportingPreferences = () => useRyotQuery(reportingPreferencesQuery);
+export const useUserPreferences = () => useRyotQuery(userPreferencesQuery);

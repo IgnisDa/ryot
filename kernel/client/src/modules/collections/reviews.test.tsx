@@ -24,6 +24,20 @@ const migrated: CollectionReview = {
 	properties: { rating: 0, isSpoiler: true, text: "Original thoughts" },
 };
 
+const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
+const account = {
+	image: null,
+	id: "user-1",
+	name: "Reader",
+	email: "reader@example.com",
+	preferences: {
+		language: null,
+		ratingScale: "ten",
+		reportingTimeZone: "UTC",
+		disableIntegrations: false,
+	},
+};
+
 const mountReviews = (overrides: Partial<EventsApi["Service"]> = {}) => {
 	const requests: unknown[] = [];
 	const outcomes: unknown[] = [];
@@ -34,13 +48,16 @@ const mountReviews = (overrides: Partial<EventsApi["Service"]> = {}) => {
 			complete={(outcome) => outcomes.push(outcome)}
 		/>,
 		{
-			query: (document) =>
-				Effect.succeed({
+			query: (document) => {
+				if (Object.hasOwn(document.queries, "user")) {
+					return Effect.succeed({ data: { user: { pageInfo, type: "rows", items: [account] } } });
+				}
+				return Effect.succeed({
 					data: Object.hasOwn(document.queries, "collection")
 						? {
 								collection: {
+									pageInfo,
 									type: "rows",
-									pageInfo: { limit: 2, hasMore: false, nextCursor: null },
 									items: [{ properties: {}, name: "Favourites", entityId: collectionId }],
 								},
 							}
@@ -51,7 +68,8 @@ const mountReviews = (overrides: Partial<EventsApi["Service"]> = {}) => {
 									pageInfo: { limit: 20, hasMore: false, nextCursor: null },
 								},
 							},
-				}),
+				});
+			},
 			layer: makeEventsApi({
 				update: (_scope, request) =>
 					Effect.sync(() => {
@@ -87,7 +105,7 @@ it.live(
 		Effect.gen(function* () {
 			const view = mountReviews();
 			yield* Effect.addFinalizer(() => Effect.promise(view.dispose));
-			yield* Effect.promise(() => screen.findByText("0/100"));
+			yield* Effect.promise(() => screen.findByRole("img", { name: "0.0 out of 10" }));
 			expect(screen.queryByText("Original thoughts")).toBeNull();
 			expect(document.querySelector("time")?.dateTime).toBe(migrated.occurredAt);
 			fireEvent.click(screen.getByRole("button", { name: "Show spoiler" }));
@@ -126,12 +144,13 @@ it.live(
 			);
 			const save = within(editor).getByRole("button", { name: "Save review" });
 			expect(save.hasAttribute("disabled")).toBe(true);
-			fireEvent.change(within(editor).getByRole("textbox", { name: /Rating/ }), {
-				target: { value: "101" },
-			});
+			fireEvent.change(
+				within(editor).getByRole("textbox", { name: "Rating (out of 10, optional)" }),
+				{ target: { value: "11" } },
+			);
 			expect(save.hasAttribute("disabled")).toBe(true);
 			fireEvent.change(within(editor).getByRole("textbox", { name: /Rating/ }), {
-				target: { value: "0" },
+				target: { value: "7.5" },
 			});
 			fireEvent.change(within(editor).getByRole("textbox", { name: /Review/ }), {
 				target: { value: " New thoughts " },
@@ -145,7 +164,7 @@ it.live(
 					{
 						entityId: collectionId,
 						eventSchemaSlug: "review",
-						properties: { rating: 0, isSpoiler: false, text: "New thoughts" },
+						properties: { rating: 75, isSpoiler: false, text: "New thoughts" },
 					},
 				],
 			]);

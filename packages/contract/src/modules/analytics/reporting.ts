@@ -1,6 +1,6 @@
 import { Array, DateTime, Option, Order, Record, Result, Schema } from "effect";
 
-import { TimeZone } from "../../schema/time-zone";
+import type { TimeZone } from "../../schema/time-zone";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 import {
 	addCalendarDays,
@@ -11,9 +11,6 @@ import {
 	localDateOf,
 	startOfCalendarUnit,
 } from "./calendar";
-
-export const ReportingPreferences = strictStruct({ timeZone: TimeZone });
-export type ReportingPreferences = typeof ReportingPreferences.Type;
 
 export const CalendarDate = Schema.String.check(
 	Schema.makeFilter(

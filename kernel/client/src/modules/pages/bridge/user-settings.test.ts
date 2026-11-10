@@ -13,7 +13,7 @@ import { ServerOrigin } from "#/api/origin";
 import type { ApiScope } from "#/api/scope";
 import {
 	pluginUserSettingsOutcome,
-	reportingPreferencesOutcome,
+	userPreferencesOutcome,
 } from "#/modules/pages/bridge/user-settings";
 
 const scope: ApiScope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
@@ -190,9 +190,9 @@ describe("plugin user settings bridge read", () => {
 	);
 });
 
-describe("reporting preferences bridge read", () => {
+describe("user preferences bridge read", () => {
 	it.effect(
-		"returns only the reporting time zone and rejects a changed account",
+		"returns only the reporting time zone and rating scale and rejects a changed account",
 		() =>
 			Effect.gen(function* () {
 				let current = scope;
@@ -219,6 +219,7 @@ describe("reporting preferences bridge read", () => {
 													email: "private@example.com",
 													preferences: {
 														language: "en",
+														ratingScale: "five",
 														disableIntegrations: true,
 														reportingTimeZone: "Asia/Tokyo",
 													},
@@ -230,12 +231,12 @@ describe("reporting preferences bridge read", () => {
 							}),
 					},
 				};
-				expect(yield* reportingPreferencesOutcome(input)).toEqual<unknown>({
+				expect(yield* userPreferencesOutcome(input)).toEqual<unknown>({
 					outcome: "success",
-					preferences: { timeZone: "Asia/Tokyo" },
+					preferences: { ratingScale: "five", timeZone: "Asia/Tokyo" },
 				});
 				switchAccount = true;
-				expect(yield* reportingPreferencesOutcome(input)).toEqual({
+				expect(yield* userPreferencesOutcome(input)).toEqual({
 					outcome: "failure",
 					reason: "invalid-request",
 				});

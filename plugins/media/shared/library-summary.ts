@@ -2,9 +2,7 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	average,
 	castDate,
-	castNumber,
 	castText,
 	coalesce,
 	column,
@@ -52,6 +50,7 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
+import { averageUserRating } from "./user-rating";
 
 /** Output of the `in-media-library` projection; absent values are omitted. */
 export const librarySummaryPropertiesSchema = {
@@ -240,9 +239,11 @@ export const librarySummary = (membership: Table) => {
 	return {
 		releaseDate: castDate(read("releaseDate")),
 		lastActivityAt: castDate(read("lastActivityAt")),
-		userRating: average(event, castNumber(property(event, "rating")), {
-			where: and(own, eq(column(event, "eventSchemaSlug"), literal("review"))),
-		}),
+		userRating: averageUserRating(
+			"libraryReview",
+			column(membership, "sourceEntityId"),
+			column(membership, "relationshipSchemaPluginId"),
+		),
 		lifecycleState: conditional(
 			and(eq(stored, literal("caught_up")), lte(castDate(read("nextAiringAt")), currentDate())),
 			literal("in_progress"),

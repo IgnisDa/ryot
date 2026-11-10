@@ -1,3 +1,4 @@
+import { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import type {
 	UserPreferences,
@@ -13,7 +14,7 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useForm } from "@tanstack/react-form";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 import { useState } from "react";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
@@ -33,6 +34,15 @@ const LANGUAGE_OPTIONS = [
 	{ hint: "zh", value: "zh", label: "Chinese" },
 	{ hint: "ru", value: "ru", label: "Russian" },
 ] as const satisfies readonly SelectChoice[];
+
+const ratingScaleChoices = [
+	{ value: "hundred", label: "Out of 100" },
+	{ value: "ten", label: "Out of 10" },
+	{ value: "five", label: "5 stars" },
+	{ value: "three-point", label: "3-point smiley" },
+] as const satisfies readonly (SelectChoice & { readonly value: RatingScale })[];
+
+const isRatingScale = Schema.is(RatingScale);
 
 const languageChoices: readonly SelectChoice[] = [
 	{ value: DEFAULT_LANGUAGE, label: "Provider default" },
@@ -124,6 +134,29 @@ export function PreferencesForm(props: {
 											changed();
 										}}
 									/>
+								)}
+							</form.Field>
+							<form.Field name="ratingScale">
+								{(field) => (
+									<div className="flex flex-col gap-2">
+										<Select
+											value={field.value}
+											label="Rating scale"
+											choices={ratingScaleChoices}
+											checkIcon={<AppIcon size={16} name="check" />}
+											disabled={props.disabled === true || isSubmitting}
+											chevronIcon={<AppIcon size={16} name="chevron-down" />}
+											onChange={(value) => {
+												if (isRatingScale(value)) {
+													field.handleChange(value);
+													changed();
+												}
+											}}
+										/>
+										<p className="text-xs text-text-muted">
+											Sets how ratings are shown and entered. Saved ratings stay the same.
+										</p>
+									</div>
 								)}
 							</form.Field>
 							<form.Field

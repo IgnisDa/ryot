@@ -93,7 +93,7 @@ export type OperationInvocation<
 };
 
 export type RyotClientAdapter = {
-	readonly readReportingPreferences?: () => Effect.Effect<unknown, RyotClientError>;
+	readonly readUserPreferences?: () => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
 	readonly upload: (request: PluginUploadRequest) => Effect.Effect<unknown, RyotClientError>;

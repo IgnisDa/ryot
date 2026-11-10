@@ -12,8 +12,8 @@ import {
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	ActiveScreenContext,
-	useReportingPreferences,
 	useRyot,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { EmptyState, QueryStatus, SegmentedControl } from "@ryot-app/plugin-ui-sdk";
@@ -28,7 +28,7 @@ export default function AnalyticsPage() {
 	const ryot = useRyot();
 	const location = usePluginLocation();
 	const sections = useAnalyticsSections();
-	const preferences = useReportingPreferences();
+	const preferences = useUserPreferences();
 	const { compact, safeAreaBottom } = useRyotViewport();
 	const selection = parseReportingSearch(location.search);
 	const selectionParams = reportingSearchParams(selection);

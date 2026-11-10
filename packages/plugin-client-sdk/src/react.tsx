@@ -8,8 +8,8 @@ export { useEntitySettle, useEntityRefresh } from "./refresh/entity-hooks";
 export { usePluginStorage, type PluginStorageState } from "./queries/storage";
 export { renderSchemaAsset, useSchemaAssetUpload } from "./assets/schema-form";
 export { usePageRefresh, usePageRefreshRequest } from "./refresh/page-registry";
+export { useUserPreferences, usePluginUserSettings } from "./queries/user-settings";
 export { nextPageCursor, paginationItems, PaginationError } from "./queries/pagination";
-export { usePluginUserSettings, useReportingPreferences } from "./queries/user-settings";
 export { useAssetUrl, useManagedAssetUrl, ManagedAssetProvider } from "./assets/provider";
 export { usePagination, useReportedPages, useRyotInfiniteQuery } from "./queries/pagination-hook";
 export {

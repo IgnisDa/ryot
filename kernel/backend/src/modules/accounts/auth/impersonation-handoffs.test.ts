@@ -39,7 +39,12 @@ const targetUser: HandoffTarget = {
 	disabledAt: null,
 	email: "target@example.com",
 	bootstrapCompletedAt: new Date("2026-09-01T00:00:00.000Z"),
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 };
 
 const authorization = (

@@ -28,7 +28,12 @@ const user = {
 	name: "Test User",
 	email: "user@example.com",
 	id: UserId.make("user-1"),
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 } satisfies CurrentUserValue;
 
 const providerId = SandboxProviderId.make("provider-1");

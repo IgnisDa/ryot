@@ -1,7 +1,7 @@
 import { afterEach, expect } from "bun:test";
 
 import { PluginId } from "@ryot-app/contract/schema/brands";
-import type { ClientPageContext } from "@ryot-app/plugin-client-contract";
+import type { ClientPageContext, PluginUserPreferences } from "@ryot-app/plugin-client-contract";
 import {
 	analyticsSectionKey,
 	type AnalyticsSectionProps,
@@ -66,33 +66,33 @@ const answerPreferences = (page: ReturnType<typeof mountPluginPage>) =>
 	waitFor(() => {
 		const request = page
 			.clientMessages()
-			.find((message) => message.type === "reporting-preferences-request");
+			.find((message) => message.type === "user-preferences-request");
 		if (!request) {
 			throw new Error("No reporting request");
 		}
 		page.send({
 			outcome: "success",
 			requestId: request.requestId,
-			type: "reporting-preferences-result",
-			preferences: { timeZone: TimeZone.make("Asia/Kolkata") },
+			type: "user-preferences-result",
+			preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Asia/Kolkata") },
 		});
 	});
 
-const answerReportingPreferences = (
+const answerUserPreferences = (
 	page: ReturnType<typeof mountPluginPage>,
 	requestNumber: number,
 	result:
 		| { readonly outcome: "failure"; readonly reason: "transport" }
-		| { readonly outcome: "success"; readonly preferences: { readonly timeZone: TimeZone } },
+		| { readonly outcome: "success"; readonly preferences: PluginUserPreferences },
 ) =>
 	waitFor(() => {
 		const request = page
 			.clientMessages()
-			.filter((message) => message.type === "reporting-preferences-request")[requestNumber - 1];
+			.filter((message) => message.type === "user-preferences-request")[requestNumber - 1];
 		if (!request) {
-			throw new Error("No reporting preferences request");
+			throw new Error("No user preferences request");
 		}
-		page.send({ ...result, requestId: request.requestId, type: "reporting-preferences-result" });
+		page.send({ ...result, requestId: request.requestId, type: "user-preferences-result" });
 	});
 
 const mountControls = (search: string) => {
@@ -112,7 +112,7 @@ it.effect(
 			const page = mountPluginPage(AnalyticsPage, {
 				page: context,
 				onClientMessage: (message) => {
-					if (message.type === "reporting-preferences-request") {
+					if (message.type === "user-preferences-request") {
 						attempts += 1;
 					}
 				},
@@ -127,9 +127,9 @@ it.effect(
 			});
 			page.navigate(routeLocation("/v/k/analytics", `?${search}`));
 			yield* Effect.promise(() =>
-				answerReportingPreferences(page, 1, {
+				answerUserPreferences(page, 1, {
 					outcome: "success",
-					preferences: { timeZone: TimeZone.make("UTC") },
+					preferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 				}),
 			);
 			yield* Effect.promise(() =>
@@ -142,7 +142,7 @@ it.effect(
 
 			page.send({ type: "page-refresh" });
 			yield* Effect.promise(() =>
-				answerReportingPreferences(page, 2, { outcome: "failure", reason: "transport" }),
+				answerUserPreferences(page, 2, { outcome: "failure", reason: "transport" }),
 			);
 			yield* Effect.promise(() =>
 				waitFor(() => {
@@ -158,9 +158,9 @@ it.effect(
 
 			fireEvent.click(screen.getByRole("button", { name: "Retry reporting preferences" }));
 			yield* Effect.promise(() =>
-				answerReportingPreferences(page, 3, {
+				answerUserPreferences(page, 3, {
 					outcome: "success",
-					preferences: { timeZone: TimeZone.make("Asia/Kolkata") },
+					preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Asia/Kolkata") },
 				}),
 			);
 			yield* Effect.promise(() =>
@@ -234,15 +234,15 @@ it.effect(
 				waitFor(() => {
 					const request = page
 						.clientMessages()
-						.find((message) => message.type === "reporting-preferences-request");
+						.find((message) => message.type === "user-preferences-request");
 					if (!request) {
 						throw new Error("No reporting request");
 					}
 					page.send({
 						outcome: "success",
 						requestId: request.requestId,
-						type: "reporting-preferences-result",
-						preferences: { timeZone: TimeZone.make("Europe/Paris") },
+						type: "user-preferences-result",
+						preferences: { ratingScale: "hundred", timeZone: TimeZone.make("Europe/Paris") },
 					});
 				}),
 			);

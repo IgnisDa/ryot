@@ -7,10 +7,13 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Review Content
 
-`@ryot-app/plugin-kit/schema` exposes `ReviewContent`, `requireReviewContent`, `reviewProperties`,
-`reviewPropertyKeys`, and `reviewPropertyFields`. Compose operation inputs from the content fields
-and apply the shared content check. The mapper omits absent text and rating and stores the spoiler
-flag only with text. Manifest fields accept plugin-owned descriptive copy. Plugins retain target
+`@ryot-app/plugin-kit/schema` exposes `ReviewContent`, `ReviewRating`, `requireReviewContent`,
+`reviewProperties`, `reviewPropertiesPatch`, `reviewPropertyKeys`, `reviewRatingField`, and
+`reviewPropertyFields`. Compose operation inputs from the content fields and apply the shared
+content check, or reuse `ReviewRating` with a plugin-owned text rule. The mapper omits absent text
+and rating and stores the spoiler flag only with text and only when the input carries one; the patch
+sets those properties and removes every other review key. Ratings are stored 0–100 whatever scale
+the user enters them in. Manifest fields accept plugin-owned descriptive copy. Plugins retain target
 admission, lifecycle hooks, and operation execution.
 
 ## Identity
@@ -278,8 +281,11 @@ An entity schema may declare `browse: { fields }`, the filters and sorts every e
 collection offers for its entities. Keys are unique per schema, match `/^[a-z][A-Za-z0-9]*$/`, and
 avoid the reserved `collections` and `name`.
 
-- `kind: "value"`: a typed filter (`text`, `number`, `date`, `boolean`, `enum`, `enum-list`, or
-  `text-list`; enum types list unique `choices`) with a RyotQL `expression`. Add
+- `kind: "value"`: a typed filter (`text`, `number`, `rating`, `date`, `boolean`, `enum`,
+  `enum-list`, or `text-list`; enum types list unique `choices`) with a RyotQL `expression`. A
+  `rating` expression is a stored 0–100 number; browsers accept and summarize its bounds in the
+  user's rating scale (a three-point choice covers its whole bucket) and offer range operators but
+  not equality. Add
   `sort: { label, defaultDirection, ascending, descending }` to also offer it as a sort; list types
   cannot sort.
 - `kind: "sort"`: a sort-only `expression` with the same `sort` metadata.

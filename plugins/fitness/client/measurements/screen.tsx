@@ -14,7 +14,7 @@ import { useMemo, useRef, useState } from "react";
 
 import { buildMetricRows, type MetricSort, sortMetricRows } from "../../shared/measurement-metrics";
 import type { MeasurementSeries, MeasurementSummary } from "../../shared/measurement-recipes";
-import { ReportingPreferences } from "../reporting-preferences";
+import { PreferencesGate } from "../preferences-gate";
 import { MeasurementDialogs, type MeasurementDialogState } from "./measurement-logger";
 import { MetricsTable } from "./metrics-table";
 import { type RangeKey, rangeOptions, selectPinnedMetrics, type seriesWindow } from "./model";
@@ -25,9 +25,9 @@ import { ReadingLog } from "./reading-log";
 
 export default function MeasurementsPage() {
 	return (
-		<ReportingPreferences>
-			{(timeZone) => <MeasurementsPageBody timeZone={timeZone} />}
-		</ReportingPreferences>
+		<PreferencesGate>
+			{({ timeZone }) => <MeasurementsPageBody timeZone={timeZone} />}
+		</PreferencesGate>
 	);
 }
 

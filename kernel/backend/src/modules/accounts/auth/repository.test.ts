@@ -42,12 +42,14 @@ layer(testLayer)((test) => {
 				);
 				yield* repository.patchUserPreferences(id, { language: "fr", disableIntegrations: true });
 				yield* repository.patchUserPreferences(id, {
+					ratingScale: "three-point",
 					reportingTimeZone: TimeZone.make("America/New_York"),
 				});
 				expect(yield* repository.getUserPreferences(id)).toEqual({
 					...defaultUserPreferences,
 					language: "fr",
 					disableIntegrations: true,
+					ratingScale: "three-point",
 					reportingTimeZone: TimeZone.make("America/New_York"),
 				});
 				expect(yield* translations.findUserLanguage(id)).toBe("fr");
@@ -83,7 +85,7 @@ layer(testLayer)((test) => {
 		testTimeout,
 	);
 	test.effect(
-		"defaults new accounts to UTC and rejects a missing reporting zone",
+		"defaults new accounts to UTC and rejects a missing reporting zone or unknown rating scale",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
@@ -101,6 +103,14 @@ layer(testLayer)((test) => {
 					),
 				);
 				expect(invalid.code).toBe("23514");
+				const unknownScale = yield* Effect.flip(
+					session.run((db) =>
+						db.execute(
+							sql`update "user" set preferences = preferences || '{"ratingScale":"stars"}'::jsonb where id = ${id}`,
+						),
+					),
+				);
+				expect(unknownScale.code).toBe("23514");
 			}),
 		testTimeout,
 	);

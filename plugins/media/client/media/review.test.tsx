@@ -69,7 +69,9 @@ it.live(
 			try {
 				const trigger = getByRole(mounted.container, "button", { name: "Rate or review" });
 				clickRyotElement(trigger);
-				const dialog = getByRole(document.body, "dialog", { name: "Rate or review" });
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog", { name: "Rate or review" })),
+				);
 				expect(within(dialog).getByRole("form", { name: "Rate or review" }).tagName).toBe("DIV");
 				const save = within(dialog).getByRole("button", { name: "Save review" });
 				expect(save.getAttribute("type")).toBe("button");
@@ -77,9 +79,9 @@ it.live(
 				input(getByLabelText(dialog, "Review (optional)"), "   ");
 				expect(save.hasAttribute("disabled")).toBe(true);
 				input(getByLabelText(dialog, "Review (optional)"), "  Great ending  ");
-				input(getByLabelText(dialog, "Rating (0–100, optional)"), "101");
+				input(getByLabelText(dialog, "Rating (out of 100, optional)"), "101");
 				expect(save.hasAttribute("disabled")).toBe(true);
-				input(getByLabelText(dialog, "Rating (0–100, optional)"), "82.5");
+				input(getByLabelText(dialog, "Rating (out of 100, optional)"), "82");
 				clickRyotElement(within(dialog).getByRole("switch", { name: "Contains spoilers" }));
 				clickRyotElement(save);
 				yield* Effect.promise(() => waitFor(() => expect(requests).toHaveLength(1)));
@@ -94,7 +96,7 @@ it.live(
 						submittedAt: anyOf(String),
 						slug: "media-review-create",
 						idempotencyKey: anyOf(String),
-						input: { rating: 82.5, isSpoiler: true, entityId: "media-1", text: "Great ending" },
+						input: { rating: 82, isSpoiler: true, entityId: "media-1", text: "Great ending" },
 					},
 				]);
 				yield* Deferred.succeed(release, undefined);
@@ -102,7 +104,9 @@ it.live(
 					waitFor(() => expect(queryByRole(document.body, "dialog")).toBeNull()),
 				);
 				clickRyotElement(trigger);
-				const reopened = getByRole(document.body, "dialog");
+				const reopened = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog")),
+				);
 				expect(getByLabelText(reopened, "Review (optional)")).toHaveProperty("value", "");
 			} finally {
 				mounted.unmount();
@@ -129,14 +133,16 @@ it.live(
 			);
 			try {
 				clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
-				const dialog = getByRole(document.body, "dialog");
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog")),
+				);
 				const text = getByLabelText(dialog, "Review (optional)");
 				input(text, "Thoughts");
 				act(() => {
 					fireEvent.keyDown(text, { key: "Enter" });
 				});
 				expect(requests).toEqual([]);
-				const rating = getByLabelText(dialog, "Rating (0–100, optional)");
+				const rating = getByLabelText(dialog, "Rating (out of 100, optional)");
 				input(rating, "80");
 				act(() => {
 					fireEvent.keyDown(rating, { key: "Enter" });
@@ -169,8 +175,10 @@ it.live(
 			const mounted = mountRyotClient(background.adapter, <MediaReviewButton entityId="media-1" />);
 			try {
 				clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
-				const dialog = getByRole(document.body, "dialog");
-				const rating = getByLabelText(dialog, "Rating (0–100, optional)");
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog")),
+				);
+				const rating = getByLabelText(dialog, "Rating (out of 100, optional)");
 				expect(document.activeElement).toBe(rating);
 				expect(queryByRole(dialog, "switch", { name: "Contains spoilers" })).toBeNull();
 				input(getByLabelText(dialog, "Review (optional)"), "   ");
@@ -188,7 +196,7 @@ it.live(
 	testTimeout,
 );
 
-for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
+for (const invalidRating of ["not a number", "1e", "-1", "101", "82.5"]) {
 	it.live(
 		`shows an inline error and blocks saving the invalid rating ${invalidRating}`,
 		() =>
@@ -207,12 +215,16 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 				);
 				try {
 					clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
-					const dialog = getByRole(document.body, "dialog");
+					const dialog = yield* Effect.promise(() =>
+						waitFor(() => getByRole(document.body, "dialog")),
+					);
 					input(getByLabelText(dialog, "Review (optional)"), "Thoughts");
-					const rating = getByLabelText(dialog, "Rating (0–100, optional)");
+					const rating = getByLabelText(dialog, "Rating (out of 100, optional)");
 					input(rating, invalidRating);
 					expect(rating).toHaveProperty("value", invalidRating);
-					expect(getByRole(dialog, "alert").textContent).toBe("Enter a number from 0 to 100.");
+					expect(getByRole(dialog, "alert").textContent).toBe(
+						"Enter a whole number from 0 to 100.",
+					);
 					expect(rating.getAttribute("aria-describedby")).toBe(getByRole(dialog, "alert").id);
 					expect(rating.getAttribute("aria-invalid")).toBe("true");
 					const save = within(dialog).getByRole("button", { name: "Save review" });
@@ -250,7 +262,7 @@ for (const invalidRating of ["not a number", "1e", "-1", "101"]) {
 it.live(
 	"opens from empty activity and cancels without saving",
 	() =>
-		Effect.sync(() => {
+		Effect.gen(function* () {
 			const requests: unknown[] = [];
 			const mounted = mountRyotClient(
 				{
@@ -270,7 +282,9 @@ it.live(
 			);
 			try {
 				clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
-				const dialog = getByRole(document.body, "dialog");
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog")),
+				);
 				input(getByLabelText(dialog, "Review (optional)"), "Draft");
 				clickRyotElement(within(dialog).getByRole("button", { name: "Cancel" }));
 				expect(queryByRole(document.body, "dialog")).toBeNull();
@@ -303,7 +317,9 @@ it.live(
 			);
 			try {
 				clickRyotElement(getByRole(mounted.container, "button", { name: "Rate or review" }));
-				const dialog = getByRole(document.body, "dialog");
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog")),
+				);
 				input(getByLabelText(dialog, "Review (optional)"), "Thoughts");
 				clickRyotElement(within(dialog).getByRole("button", { name: "Save review" }));
 				yield* Effect.promise(() =>

@@ -456,8 +456,6 @@ export const mediaActivityDateLabel = (row: ActivityAnchor & { readonly dateUnkn
 		? "Date unknown"
 		: (row.calendarDate ?? formatLocalDateLabel(row.occurredAt));
 
-export const mediaActivityRatingLabel = (rating: number) => `${decimalLabel(rating)} / 100`;
-
 export const mediaActivityTimeLabel = (minutes: {
 	readonly total: number;
 	readonly missing: number;

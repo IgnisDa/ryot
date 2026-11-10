@@ -175,10 +175,10 @@ function mount(
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onDevice: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "invalid-request" as const }),
+		onUserPreferences: () =>
+			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onExternalLink: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "link-open-failed" as const }),
-		onReportingPreferences: () =>
-			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onCalendarSourceVisibility: () =>
 			Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onEditCollection: (request: EditCollectionRequest) =>

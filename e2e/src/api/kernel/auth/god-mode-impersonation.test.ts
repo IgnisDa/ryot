@@ -126,6 +126,7 @@ const runImpersonationClientFlow = (
 		const current = yield* getUserSettings(target.client);
 		expect(current.preferences).toEqual({
 			language: null,
+			ratingScale: "hundred",
 			disableIntegrations: false,
 			reportingTimeZone: TimeZone.make("UTC"),
 		});
@@ -136,11 +137,13 @@ const runImpersonationClientFlow = (
 		});
 		expect((yield* getUserSettings(impersonation.client)).preferences).toEqual({
 			language,
+			ratingScale: "hundred",
 			disableIntegrations: true,
 			reportingTimeZone: TimeZone.make("UTC"),
 		});
 		expect((yield* getUserSettings(target.client)).preferences).toEqual({
 			language,
+			ratingScale: "hundred",
 			disableIntegrations: true,
 			reportingTimeZone: TimeZone.make("UTC"),
 		});
@@ -192,6 +195,7 @@ const runImpersonationClientFlow = (
 		);
 		expect((yield* getUserSettings(refreshedClient)).preferences).toEqual({
 			language,
+			ratingScale: "hundred",
 			disableIntegrations: true,
 			reportingTimeZone: TimeZone.make("UTC"),
 		});

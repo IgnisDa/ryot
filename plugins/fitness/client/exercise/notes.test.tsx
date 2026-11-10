@@ -32,7 +32,13 @@ const openNotes = () => {
 	return mountPluginPage(
 		() => (
 			<PluginScreenFrame title="Exercise">
-				<NotesSection notes={[note]} focusRequest={0} workoutNotes={[]} exerciseId="exercise-1" />
+				<NotesSection
+					notes={[note]}
+					focusRequest={0}
+					workoutNotes={[]}
+					ratingScale="ten"
+					exerciseId="exercise-1"
+				/>
 			</PluginScreenFrame>
 		),
 		{
@@ -57,7 +63,7 @@ const backgroundRequests = (page: ReturnType<typeof openNotes>) =>
 
 describe("exercise notes", () => {
 	it.live(
-		"hands a new note to the shell and resets the composer once accepted",
+		"hands a new note rated on the user's scale to the shell and resets the composer once accepted",
 		() =>
 			Effect.gen(function* () {
 				const page = openNotes();
@@ -65,6 +71,9 @@ describe("exercise notes", () => {
 					waitFor(() => screen.getByRole("textbox", { name: "New note" })),
 				);
 				fireEvent.change(input, { target: { value: "  Keep elbows tucked  " } });
+				fireEvent.change(screen.getByRole("textbox", { name: "Rating (out of 10, optional)" }), {
+					target: { value: "7.5" },
+				});
 				fireEvent.click(screen.getByRole("button", { name: "Save note" }));
 				const request = yield* Effect.promise(() =>
 					waitFor(() => {
@@ -77,7 +86,7 @@ describe("exercise notes", () => {
 					label: "Saved note",
 					packageId: PLUGIN_PACKAGE_ID,
 					operationSlug: "exercise-note-create",
-					input: { exerciseId: "exercise-1", text: "Keep elbows tucked" },
+					input: { rating: 75, exerciseId: "exercise-1", text: "Keep elbows tucked" },
 				});
 				expect(screen.getByRole("button", { name: "Saving…" }).hasAttribute("disabled")).toBe(true);
 				page.send({

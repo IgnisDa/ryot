@@ -7,6 +7,7 @@ import {
 	getEntity,
 	pollUntil,
 	seedPopulatedEntity,
+	updateUserSettingsPreferences,
 } from "~/fixtures/kernel";
 import {
 	createExerciseEntityFixture,
@@ -26,6 +27,7 @@ it.live("shows exercise history and manages private notes", () =>
 	Effect.gen(function* () {
 		const frontendUrl = getFrontendUrl();
 		const { email, client, password } = yield* createAuthenticatedClient();
+		yield* updateUserSettingsPreferences(client, { ratingScale: "five" });
 		const id = yield* randomUuid;
 		const { exerciseId } = yield* createExerciseEntityFixture(client, {
 			name: `Detail bench ${id}`,
@@ -59,7 +61,7 @@ it.live("shows exercise history and manages private notes", () =>
 		yield* detail.getByRole("radio", { exact: true, name: "4 stars" }).click();
 		yield* detail.getByRole("button", { exact: true, name: "Save note" }).click();
 		yield* visible(detail.getByText(`Keep elbows tucked ${id}`, { exact: true }));
-		yield* visible(detail.getByRole("img", { name: "Rated 4 of 5" }));
+		yield* visible(detail.getByRole("img", { name: "4.0 out of 5 stars" }));
 
 		yield* detail.getByRole("button", { exact: true, name: "Edit note" }).click();
 		yield* detail.getByLabel("Edit note", { exact: true }).fill(`Wrist neutral ${id}`);

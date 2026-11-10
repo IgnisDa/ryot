@@ -54,7 +54,7 @@ import type { PluginBridgeNavigationState } from "#/modules/pages/bridge/session
 import { PluginStorage } from "#/modules/pages/bridge/storage";
 import {
 	pluginUserSettingsOutcome,
-	reportingPreferencesOutcome,
+	userPreferencesOutcome,
 } from "#/modules/pages/bridge/user-settings";
 import { renderClientDocument } from "#/modules/pages/documents/srcdoc";
 import {
@@ -634,8 +634,8 @@ function ClientPageFrame(props: {
 				props.document.onChangeCollectionMembers?.(request) ??
 				Effect.succeed<ChangeCollectionMembersOutcome>({ kind: "cancelled" })
 			}
-			onReportingPreferences={() =>
-				reportingPreferencesOutcome({
+			onUserPreferences={() =>
+				userPreferencesOutcome({
 					scope: props.scope,
 					api: props.runtime.runSync(RyotQLApi),
 					currentScope: () => frameScope.current,

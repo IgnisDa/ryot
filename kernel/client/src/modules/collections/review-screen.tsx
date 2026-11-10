@@ -1,3 +1,4 @@
+import type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import type {
 	ManageCollectionReviewsOutcome,
@@ -9,11 +10,12 @@ import {
 	useRyotInfiniteQuery,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { Button, Card, Dialog, LoadMoreButton, Notice } from "@ryot-app/plugin-ui-sdk";
+import { Button, Card, Dialog, LoadMoreButton, Notice, RatingValue } from "@ryot-app/plugin-ui-sdk";
 import { useRef, useState } from "react";
 
 import { collectionHeaderQuery } from "#/modules/collections/collection-header";
 import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
+import { preferencesQuery } from "#/modules/settings/preferences-service";
 import { useHostScreenSession } from "#/modules/ui/host-screen-session";
 
 import { CollectionReviewEditor } from "./review-editor";
@@ -78,6 +80,7 @@ const initialCursor: string | undefined = undefined;
 function CollectionReviewCard(props: {
 	readonly onEdit: () => void;
 	readonly review: CollectionReview;
+	readonly scale: undefined | RatingScale;
 }) {
 	const { review } = props;
 	const [revealed, setRevealed] = useState(false);
@@ -90,7 +93,9 @@ function CollectionReviewCard(props: {
 						new Date(review.occurredAt),
 					)}
 				</time>
-				{rating == null ? null : <strong>{rating}/100</strong>}
+				{rating == null || props.scale === undefined ? null : (
+					<RatingValue rating={rating} scale={props.scale} className="font-semibold" />
+				)}
 			</div>
 			{text && isSpoiler && !revealed ? (
 				<Button variant="secondary" onClick={() => setRevealed(true)}>
@@ -112,6 +117,7 @@ function CollectionReviews(props: {
 	readonly collectionId: EntityId;
 }) {
 	const [editor, setEditor] = useState<null | "new" | CollectionReview>(null);
+	const scale = useRyotQuery(preferencesQuery).data?.ratingScale;
 	const query = useRyotInfiniteQuery(
 		collectionReviewsQuery,
 		{ collectionId: props.collectionId },
@@ -139,7 +145,7 @@ function CollectionReviews(props: {
 			<ul className="grid gap-3">
 				{reviews.map((review) => (
 					<li key={review.id}>
-						<CollectionReviewCard review={review} onEdit={() => setEditor(review)} />
+						<CollectionReviewCard scale={scale} review={review} onEdit={() => setEditor(review)} />
 					</li>
 				))}
 			</ul>
@@ -150,8 +156,9 @@ function CollectionReviews(props: {
 					isFetchingNextPage={query.isFetchingNextPage}
 				/>
 			) : null}
-			{editor === null ? null : (
+			{editor === null || scale === undefined ? null : (
 				<CollectionReviewEditor
+					scale={scale}
 					collectionId={props.collectionId}
 					initial={editor === "new" ? null : editor}
 					onClose={() => {

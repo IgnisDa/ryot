@@ -98,6 +98,7 @@ layer(serviceLayer())((test) => {
 				const service = yield* UserSettingsService;
 				const user = makeUser({
 					language: "es",
+					ratingScale: "hundred",
 					disableIntegrations: false,
 					reportingTimeZone: TimeZone.make("America/New_York"),
 				});

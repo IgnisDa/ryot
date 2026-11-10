@@ -1,9 +1,16 @@
+import {
+	formatRating,
+	type RatingScale,
+	ratingScales,
+} from "@ryot-app/contract/modules/events/rating-scale";
+
 /** Reporting text uses one explicit locale so figures never depend on the host environment. */
 export const REPORTING_LOCALE = "en-US";
 
 export type MetricUnit =
 	| { readonly kind: "percent" }
 	| { readonly symbol: string; readonly kind: "measure" }
+	| { readonly kind: "rating"; readonly scale: RatingScale }
 	| { readonly kind: "duration"; readonly from: "seconds" | "minutes" }
 	| { readonly one: string; readonly kind: "count"; readonly other: string };
 
@@ -19,6 +26,18 @@ export const durationUnit = (from: "seconds" | "minutes"): MetricUnit => ({
 	from,
 	kind: "duration",
 });
+
+const ratingUnits = new Map<RatingScale, MetricUnit>();
+
+/** Stored 0–100 ratings shown in the user's scale; cached per scale like `measureUnit`. */
+export const ratingUnit = (scale: RatingScale): MetricUnit => {
+	let unit = ratingUnits.get(scale);
+	if (unit === undefined) {
+		unit = { scale, kind: "rating" };
+		ratingUnits.set(scale, unit);
+	}
+	return unit;
+};
 
 const measureUnits = new Map<string, MetricUnit>();
 
@@ -95,6 +114,12 @@ export const metricParts = (value: null | number, unit: MetricUnit): MetricParts
 	}
 	if (unit.kind === "measure") {
 		return { unit: unit.symbol, value: formatNumber(value) };
+	}
+	if (unit.kind === "rating") {
+		return {
+			value: formatRating(value, unit.scale),
+			unit: unit.scale === "three-point" ? "" : `/ ${ratingScales[unit.scale].max}`,
+		};
 	}
 	return { value: formatNumber(value), unit: value === 1 ? unit.one : unit.other };
 };

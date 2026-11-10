@@ -1,7 +1,7 @@
 import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Effect, Option } from "effect";
+import { Effect, Option, Schema } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -10,6 +10,7 @@ import {
 	createEventFixture,
 	listEventSchemas,
 	requireEventSchemaBySlug,
+	updateUserSettingsPreferences,
 	waitForEventWithSchema,
 } from "~/fixtures/kernel";
 import { listPluginUserSettings } from "~/fixtures/kernel/plugin-user-settings";
@@ -306,9 +307,10 @@ it.live("renders the Movie presentation facts in the canonical saved view", () =
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
-it.live("filters All Movies by status and sorts them by rating", () =>
+it.live("filters All Movies by status and rating and sorts them by rating", () =>
 	Effect.gen(function* () {
 		const { email, client, password } = yield* createAuthenticatedClient();
+		yield* updateUserSettingsPreferences(client, { ratingScale: "five" });
 		const movie = Effect.fn(function* (
 			events: readonly (readonly [
 				"review" | "backlog" | "complete" | "progress",
@@ -349,9 +351,8 @@ it.live("filters All Movies by status and sorts them by rating", () =>
 		const browser = yield* Playwright.Browser;
 		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
 		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(
-			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-movies", packageId: mediaPlugin.metadata.packageId })}`,
-		);
+		const allMovies = `${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-movies", packageId: mediaPlugin.metadata.packageId })}`;
+		yield* page.goto(allMovies);
 		const view = page.locator("iframe").contentFrame();
 		const order = () =>
 			view
@@ -391,6 +392,21 @@ it.live("filters All Movies by status and sorts them by rating", () =>
 			.and(view.locator(`article[data-entity-id="${watching}"]`))
 			.waitFor({ state: "visible" });
 		expect(yield* order()).toEqual([watching, finished, planned]);
+
+		const ratingFilter = Buffer.from(
+			yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+				value: 60,
+				operator: "gte",
+				field: "userRating",
+			}),
+		).toString("base64url");
+		yield* page.goto(`${allMovies}?filters=${ratingFilter}`);
+		yield* view
+			.getByRole("group", { name: "Active filters" })
+			.getByText("Your rating is at least 3.0", { exact: true })
+			.waitFor({ state: "visible" });
+		yield* view.locator(`article[data-entity-id="${finished}"]`).waitFor({ state: "visible" });
+		expect(yield* order()).toEqual([finished]);
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

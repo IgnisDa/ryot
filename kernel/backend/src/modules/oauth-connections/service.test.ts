@@ -76,7 +76,12 @@ const currentUser = (id: UserId): CurrentUserValue => ({
 	image: null,
 	name: "User",
 	email: `${id}@example.test`,
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 });
 
 type TokenResponse = { readonly body: unknown; readonly status: number };

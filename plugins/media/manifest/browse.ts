@@ -5,7 +5,6 @@ import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	and,
 	ascending,
-	average,
 	castBoolean,
 	castDate,
 	castNumber,
@@ -27,6 +26,7 @@ import { libraryLinkExists, type Table } from "../shared/entity-selections";
 import { libraryMembershipValue, librarySummary } from "../shared/library-summary";
 import { sameSchemaOwner } from "../shared/lifecycle-expressions";
 import { builtinMediaEntitySchemaSlugs, mediaGroupMemberSlugs } from "../shared/media-schema-slugs";
+import { averageUserRating } from "../shared/user-rating";
 import { mediaProviders } from "./providers";
 
 const subject = table("entity", "subject");
@@ -80,21 +80,13 @@ const sourceField = (slug: string): AuthoredBrowseField => {
 	};
 };
 
-const reviewRating = () => {
-	const review = table("event", "browseReview");
-	return average(review, castNumber(jsonPath(column(review, "properties"), "rating")), {
-		where: and(
-			eq(column(review, "entityId"), column(subject, "id")),
-			sameSchemaOwner(review, "eventSchemaPluginId", subject),
-			eq(column(review, "eventSchemaSlug"), literal("review")),
-		),
-	});
-};
+const subjectUserRating = () =>
+	averageUserRating("browseReview", column(subject, "id"), column(subject, "entitySchemaPluginId"));
 
 const userRatingField = (expression: ScalarExpression): AuthoredBrowseField => ({
 	expression,
 	kind: "value",
-	type: "number",
+	type: "rating",
 	key: "userRating",
 	label: "Your rating",
 	sort: {
@@ -272,7 +264,7 @@ const titleFields = (slug: string, propertiesSchema: AppSchema): readonly Author
 
 const creatorFields = (slug: "person" | "company"): readonly AuthoredBrowseField[] => [
 	sourceField(slug),
-	userRatingField(reviewRating()),
+	userRatingField(subjectUserRating()),
 	slug === "person"
 		? {
 				type: "date",
@@ -318,7 +310,7 @@ export const groupParts = (entity: Table) =>
 
 const groupFields = (slug: string): readonly AuthoredBrowseField[] => [
 	sourceField(slug),
-	userRatingField(reviewRating()),
+	userRatingField(subjectUserRating()),
 	{
 		key: "parts",
 		kind: "value",

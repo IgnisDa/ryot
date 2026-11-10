@@ -47,7 +47,12 @@ const credential = (userId: UserId, accessClass: AccessClass) => ({
 		name: userId,
 		accountUserId: userId,
 		email: `${userId}@example.test`,
-		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+		preferences: {
+			language: null,
+			reportingTimeZone: UTC,
+			disableIntegrations: false,
+			ratingScale: "hundred" as const,
+		},
 	},
 });
 

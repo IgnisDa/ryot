@@ -18,6 +18,7 @@ const expectedKinds: Record<FilterValueType, string> = {
 	text: "text",
 	enum: "text",
 	date: "date",
+	rating: "number",
 	number: "number",
 	boolean: "boolean",
 	"text-list": "json",

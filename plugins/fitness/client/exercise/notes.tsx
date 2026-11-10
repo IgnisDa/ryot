@@ -1,3 +1,4 @@
+import type { RatingScale } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotBackgroundSubmission,
 	useBackgroundSubmission,
@@ -5,9 +6,11 @@ import {
 import {
 	Button,
 	DestructiveConfirmation,
-	RadioGroup,
+	RatingInput,
+	RatingValue,
 	StatusMessage,
 	TextArea,
+	useRatingDraft,
 } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { type RefObject, useEffect, useId, useRef, useState } from "react";
@@ -21,7 +24,7 @@ import {
 } from "../../shared/exercise-note-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { formatShortDate } from "../workout/format";
-import { ratingSteps, ratingToStars, starsToRating, type WorkoutNote } from "./details-model";
+import type { WorkoutNote } from "./details-model";
 import { cardHeadingClass, sectionHeadingClass } from "./styles";
 
 type Note = ExerciseDetails["notes"][number];
@@ -90,6 +93,7 @@ export function WorkoutNotes(props: { readonly notes: readonly WorkoutNote[] }) 
 export function NotesSection(props: {
 	readonly exerciseId: string;
 	readonly focusRequest: number;
+	readonly ratingScale: RatingScale;
 	readonly notes: ExerciseDetails["notes"];
 	readonly workoutNotes: readonly WorkoutNote[];
 }) {
@@ -106,31 +110,19 @@ export function NotesSection(props: {
 			<NoteComposer
 				key={composerKey}
 				exerciseId={props.exerciseId}
+				ratingScale={props.ratingScale}
 				focusRequest={props.focusRequest}
 				onSaved={() => setComposerKey((key) => key + 1)}
 			/>
 			{props.notes.length === 0 ? null : (
 				<ul className="flex flex-col gap-3">
 					{props.notes.map((note) => (
-						<NoteRow note={note} key={note.id} />
+						<NoteRow note={note} key={note.id} ratingScale={props.ratingScale} />
 					))}
 				</ul>
 			)}
 			<WorkoutNotes notes={props.workoutNotes} />
 		</section>
-	);
-}
-
-function Stars(props: { readonly rating: number }) {
-	const stars = ratingToStars(props.rating);
-	if (stars === null) {
-		return null;
-	}
-	return (
-		<span role="img" className="text-accent" aria-label={`Rated ${stars} of ${ratingSteps}`}>
-			{"★".repeat(stars)}
-			<span className="text-text-subtle">{"★".repeat(ratingSteps - stars)}</span>
-		</span>
 	);
 }
 
@@ -157,56 +149,26 @@ function DeleteNoteConfirmation(props: {
 	);
 }
 
-function StarRating(props: {
-	readonly label: string;
-	readonly stars: number | undefined;
-	readonly onChange: (stars: number | undefined) => void;
-}) {
-	return (
-		<RadioGroup
-			label={props.label}
-			className="flex gap-1"
-			value={props.stars === undefined ? undefined : String(props.stars)}
-			onChange={(value) =>
-				props.onChange(Number(value) === props.stars ? undefined : Number(value))
-			}
-			options={Array.from({ length: ratingSteps }, (_, index) => ({
-				value: String(index + 1),
-				label: `${index + 1} ${index === 0 ? "star" : "stars"}`,
-			}))}
-			renderOption={(option) => ({
-				content: "★",
-				className: clsx(
-					"grid size-9 place-items-center text-2xl leading-none",
-					props.stars !== undefined && Number(option.value) <= props.stars
-						? "text-accent"
-						: "text-text-subtle",
-				),
-			})}
-		/>
-	);
-}
-
 function NoteEditor(props: {
 	readonly note: Note;
 	readonly onCancel: () => void;
 	readonly onChanged: () => void;
+	readonly ratingScale: RatingScale;
 }) {
 	const inputId = useId();
 	const [text, setText] = useState(props.note.text ?? "");
-	const [stars, setStars] = useState(ratingToStars(props.note.rating) ?? undefined);
+	const rating = useRatingDraft(props.note.rating, props.ratingScale);
 	const update = useBackgroundSubmission(updateNote);
 	const { onChanged } = props;
 	const trimmed = text.trim();
-	const save = () =>
-		update.submit(
-			{
-				text: trimmed,
-				noteId: props.note.id,
-				rating: stars === undefined ? null : starsToRating(stars),
-			},
-			{ onAccepted: onChanged },
-		);
+	const save = () => {
+		if (rating.result.valid) {
+			update.submit(
+				{ text: trimmed, noteId: props.note.id, rating: rating.result.rating },
+				{ onAccepted: onChanged },
+			);
+		}
+	};
 	const message = failureMessage(update.error);
 	return (
 		<div className="flex flex-col gap-3">
@@ -220,9 +182,17 @@ function NoteEditor(props: {
 				maxLength={maxNoteLength}
 				onChange={(event) => setText(event.currentTarget.value)}
 			/>
-			<StarRating stars={stars} label="Rating" onChange={setStars} />
+			<RatingInput
+				value={rating.draft}
+				scale={props.ratingScale}
+				onChange={rating.setDraft}
+				disabled={update.isSending}
+			/>
 			<div className="flex gap-2">
-				<Button onClick={save} disabled={trimmed === "" || update.isSending}>
+				<Button
+					onClick={save}
+					disabled={trimmed === "" || !rating.result.valid || update.isSending}
+				>
 					{update.isSending ? "Saving…" : "Save"}
 				</Button>
 				<Button variant="secondary" onClick={props.onCancel} disabled={update.isSending}>
@@ -234,7 +204,7 @@ function NoteEditor(props: {
 	);
 }
 
-function NoteRow(props: { readonly note: Note }) {
+function NoteRow(props: { readonly note: Note; readonly ratingScale: RatingScale }) {
 	const { note } = props;
 	const deleteTrigger = useRef<HTMLButtonElement>(null);
 	const [editing, setEditing] = useState(false);
@@ -245,6 +215,7 @@ function NoteRow(props: { readonly note: Note }) {
 			<li className="rounded-lg border border-border bg-surface-2 p-3">
 				<NoteEditor
 					note={note}
+					ratingScale={props.ratingScale}
 					onCancel={() => setEditing(false)}
 					onChanged={() => setEditing(false)}
 				/>
@@ -255,7 +226,13 @@ function NoteRow(props: { readonly note: Note }) {
 		<li className="flex flex-col gap-2 rounded-lg border border-border p-3">
 			<div className="flex flex-wrap items-center justify-between gap-2 text-[13px] text-text-muted">
 				<span>{formatShortDate(note.occurredAt, null)}</span>
-				{note.rating === null ? null : <Stars rating={note.rating} />}
+				{note.rating === null ? null : (
+					<RatingValue
+						rating={note.rating}
+						scale={props.ratingScale}
+						className="text-accent-text"
+					/>
+				)}
 			</div>
 			<p
 				className={clsx(
@@ -294,13 +271,14 @@ function NoteComposer(props: {
 	readonly exerciseId: string;
 	readonly onSaved: () => void;
 	readonly focusRequest: number;
+	readonly ratingScale: RatingScale;
 }) {
 	const { onSaved } = props;
 	const inputId = useId();
 	const textArea = useRef<HTMLTextAreaElement>(null);
 	const handledFocusRequest = useRef(props.focusRequest);
 	const [text, setText] = useState("");
-	const [stars, setStars] = useState<number | undefined>();
+	const rating = useRatingDraft(null, props.ratingScale);
 	const create = useBackgroundSubmission(createNote);
 	const { focusRequest } = props;
 	useEffect(() => {
@@ -310,15 +288,18 @@ function NoteComposer(props: {
 		}
 	}, [focusRequest]);
 	const trimmed = text.trim();
-	const save = () =>
-		create.submit(
-			{
-				text: trimmed,
-				exerciseId: props.exerciseId,
-				...(stars === undefined ? {} : { rating: starsToRating(stars) }),
-			},
-			{ onAccepted: onSaved },
-		);
+	const save = () => {
+		if (rating.result.valid) {
+			create.submit(
+				{
+					text: trimmed,
+					exerciseId: props.exerciseId,
+					...(rating.result.rating === null ? {} : { rating: rating.result.rating }),
+				},
+				{ onAccepted: onSaved },
+			);
+		}
+	};
 	const message = failureMessage(create.error);
 	return (
 		<div className="flex flex-col gap-3">
@@ -334,9 +315,17 @@ function NoteComposer(props: {
 				placeholder="Cues, setup, how it felt…"
 				onChange={(event) => setText(event.currentTarget.value)}
 			/>
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<StarRating stars={stars} label="Rating" onChange={setStars} />
-				<Button onClick={save} disabled={trimmed === "" || create.isSending}>
+			<div className="flex flex-wrap items-end justify-between gap-3">
+				<RatingInput
+					value={rating.draft}
+					scale={props.ratingScale}
+					onChange={rating.setDraft}
+					disabled={create.isSending}
+				/>
+				<Button
+					onClick={save}
+					disabled={trimmed === "" || !rating.result.valid || create.isSending}
+				>
 					{create.isSending ? "Saving…" : "Save note"}
 				</Button>
 			</div>

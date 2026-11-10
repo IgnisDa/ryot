@@ -41,6 +41,10 @@ replaces the default before bootstrap is scheduled. Server-side creation (Instan
 reset recreation) keeps UTC. Later changes use ordinary preference patches; device travel does not
 change the stored preference.
 
+`ratingScale` is one of `hundred` (the database default), `ten`, `five`, or `three-point`. It only
+selects how clients show and enter ratings; stored ratings stay 0–100 and are never rewritten when
+it changes.
+
 Preference-only consumers capture `AuthRepository` at construction and call `getUserPreferences`, which returns decoded preferences or `null` for a missing user. Its Layer requires only `DatabaseSession`; it does not load the auth runtime. Consumers retain their own missing-user behavior. Reads that already need user columns decode preferences from that same row.
 
 Disable, deletion, and password reset revoke browser sessions and OAuth token records; disable and deletion also clear API-key caches, and password reset deletes the user's API keys. Ordinary issued access tokens remain valid until expiry because verification does not read token records.

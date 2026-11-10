@@ -3,6 +3,7 @@ import {
 	createRyotBackgroundSubmission,
 	type RyotSubmission,
 	useBackgroundSubmission,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { Button, ReviewComposer } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -53,28 +54,6 @@ export const deleteReviewSubmission = createRyotBackgroundSubmission({
 	}),
 });
 
-export function MediaReviewForm(props: {
-	readonly entityId: string;
-	readonly onClose: () => void;
-	readonly triggerRef: RefObject<null | HTMLButtonElement>;
-}) {
-	const review = useBackgroundSubmission(createReview);
-	return (
-		<ReviewComposer
-			title="Rate or review"
-			onClose={props.onClose}
-			isSending={review.isSending}
-			triggerRef={props.triggerRef}
-			errorMessage={
-				review.error === null ? undefined : "Couldn't start saving your review. Try again."
-			}
-			onSave={(draft) =>
-				review.submit({ ...draft, entityId: props.entityId }, { onAccepted: props.onClose })
-			}
-		/>
-	);
-}
-
 export function MediaReviewButton(props: { readonly link?: boolean; readonly entityId: string }) {
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
@@ -101,6 +80,33 @@ export function MediaReviewButton(props: { readonly link?: boolean; readonly ent
 	);
 }
 
+export function MediaReviewForm(props: {
+	readonly entityId: string;
+	readonly onClose: () => void;
+	readonly triggerRef: RefObject<null | HTMLButtonElement>;
+}) {
+	const review = useBackgroundSubmission(createReview);
+	const scale = useUserPreferences().data?.ratingScale;
+	if (scale === undefined) {
+		return null;
+	}
+	return (
+		<ReviewComposer
+			scale={scale}
+			title="Rate or review"
+			onClose={props.onClose}
+			isSending={review.isSending}
+			triggerRef={props.triggerRef}
+			errorMessage={
+				review.error === null ? undefined : "Couldn't start saving your review. Try again."
+			}
+			onSave={(draft) =>
+				review.submit({ ...draft, entityId: props.entityId }, { onAccepted: props.onClose })
+			}
+		/>
+	);
+}
+
 export function MediaReviewEditForm(props: {
 	readonly onClose: () => void;
 	readonly initial: ReviewContent;
@@ -108,8 +114,13 @@ export function MediaReviewEditForm(props: {
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const review = useBackgroundSubmission(updateReview);
+	const scale = useUserPreferences().data?.ratingScale;
+	if (scale === undefined) {
+		return null;
+	}
 	return (
 		<ReviewComposer
+			scale={scale}
 			title="Edit review"
 			initial={props.initial}
 			onClose={props.onClose}

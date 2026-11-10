@@ -167,7 +167,12 @@ const emptyRecords = {
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+		preferences: {
+			language: null,
+			reportingTimeZone: UTC,
+			disableIntegrations: false,
+			ratingScale: "hundred" as const,
+		},
 	},
 };
 

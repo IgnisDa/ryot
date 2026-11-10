@@ -11,7 +11,7 @@ import { useMemo, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { DisplayPreferences } from "../display-preferences";
-import { ReportingPreferences } from "../reporting-preferences";
+import { PreferencesGate } from "../preferences-gate";
 import { WorkoutProcessing } from "../workout-processing";
 import { workoutFilterFields } from "./filters";
 import {
@@ -35,9 +35,7 @@ import { WorkoutSummarySection } from "./summary";
 export default function WorkoutsPage() {
 	return (
 		<WorkoutProcessing>
-			<ReportingPreferences>
-				{(timeZone) => <WorkoutsBody timeZone={timeZone} />}
-			</ReportingPreferences>
+			<PreferencesGate>{({ timeZone }) => <WorkoutsBody timeZone={timeZone} />}</PreferencesGate>
 		</WorkoutProcessing>
 	);
 }

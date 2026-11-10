@@ -1,9 +1,17 @@
 import {
+	formatRating,
+	type RatingScale,
+	ratingScales,
+	scaledRangeBound,
+	threePointRatings,
+} from "@ryot-app/contract/modules/events/rating-scale";
+import {
 	Button,
 	Checkbox,
 	IconButton,
 	Modal,
 	MultiSelect,
+	QueryStatus,
 	SegmentedControl,
 	Select,
 	TextField,
@@ -26,6 +34,8 @@ import {
 	linkedFilterChoicesInput,
 	linkedFilterChoicesRecipe,
 	newFilterDraft,
+	ratingDraftFromRule,
+	ratingDraftRule,
 } from "@ryot-app/ryotql-recipes/filters";
 import { Effect, Schema } from "effect";
 import { type ReactNode, type RefObject, useDeferredValue, useState } from "react";
@@ -34,6 +44,7 @@ import { usePluginLocation } from "./navigation/routing";
 import { createRyotQuery } from "./queries/definitions";
 import { useRyotQuery } from "./queries/hooks";
 import { useRyot } from "./queries/provider";
+import { useUserPreferences } from "./queries/user-settings";
 
 export type ViewFilterField = FilterFieldSpec;
 export type ViewFilter = NonNullable<ReturnType<typeof decodeFilterParam>>;
@@ -144,6 +155,22 @@ const operatorLabel = (field: ViewFilterField, operator: FilterOperator) =>
 
 const fieldChoices = (field: ViewFilterField) => ("choices" in field ? field.choices : []);
 
+const isRatingField = (field: ViewFilterField) => field.kind === "value" && field.type === "rating";
+
+const ratingBoundText = (stored: number, bound: "min" | "max", scale: RatingScale) =>
+	scale === "three-point"
+		? (threePointRatings[scaledRangeBound(stored, bound, scale)] ?? "")
+		: formatRating(stored, scale);
+
+const ratingRuleValueText = (rule: ViewFilterRule, scale: RatingScale) => {
+	if (rule.operator === "gte" || rule.operator === "lte") {
+		return ratingBoundText(rule.value, rule.operator === "gte" ? "min" : "max", scale);
+	}
+	return rule.operator === "between"
+		? `${ratingBoundText(rule.min, "min", scale)} and ${ratingBoundText(rule.max, "max", scale)}`
+		: "";
+};
+
 const ruleValueText = (rule: ViewFilterRule, labelOf: (value: string) => string) => {
 	if ("values" in rule) {
 		return rule.values.map(labelOf).join(", ");
@@ -163,6 +190,8 @@ const ruleValueText = (rule: ViewFilterRule, labelOf: (value: string) => string)
 const ruleText = (field: ViewFilterField, rule: ViewFilterRule, valueText: string) =>
 	[field.label, operatorLabel(field, rule.operator), valueText].filter(Boolean).join(" ");
 
+type RatingScaleOf = (fieldKey: string) => undefined | RatingScale;
+
 type PanelRow = { readonly id: number; readonly draft: FilterDraft };
 
 type PanelState = {
@@ -171,20 +200,40 @@ type PanelState = {
 	readonly match: RuleGroup["match"];
 };
 
-const toPanelState = (source: RuleGroup): PanelState => ({
+const toPanelState = (source: RuleGroup, scaleOf: RatingScaleOf): PanelState => ({
 	match: source.match,
 	nextId: source.rules.length,
-	rows: source.rules.map((rule, id) => ({ id, draft: draftFromRule(rule) })),
+	rows: source.rules.map((rule, id) => {
+		const scale = scaleOf(rule.field);
+		return {
+			id,
+			draft: scale === undefined ? draftFromRule(rule) : ratingDraftFromRule(rule, scale),
+		};
+	}),
 });
 
-const stateFilter = (state: PanelState) =>
+const stateFilter = (state: PanelState, scaleOf: RatingScaleOf) =>
 	groupFilter({
 		match: state.match,
 		rules: state.rows.flatMap(({ draft }) => {
-			const rule = draftRule(draft);
+			const scale = scaleOf(draft.field);
+			const rule = scale === undefined ? draftRule(draft) : ratingDraftRule(draft, scale);
 			return rule === undefined ? [] : [rule];
 		}),
 	});
+
+const ratingScaleOf =
+	(fields: readonly ViewFilterField[], scale: RatingScale): RatingScaleOf =>
+	(fieldKey) => {
+		const field = fields.find(({ key }) => key === fieldKey);
+		return field !== undefined && isRatingField(field) ? scale : undefined;
+	};
+
+function WithRatingScale(props: {
+	readonly children: (scale: undefined | RatingScale) => ReactNode;
+}) {
+	return props.children(useUserPreferences().data?.ratingScale);
+}
 
 function LinkedValueEditor({
 	field,
@@ -284,29 +333,43 @@ const dateOperators: ReadonlySet<FilterOperator> = new Set(["after", "before"]);
 function ValueEditor({
 	draft,
 	field,
+	scale,
 	onChange,
 }: {
+	readonly scale: RatingScale;
 	readonly draft: FilterDraft;
 	readonly field: ViewFilterField;
 	readonly onChange: (update: Partial<FilterDraft>) => void;
 }) {
 	const { operator } = draft;
+	const rating = isRatingField(field) ? ratingScales[scale] : undefined;
 	const input = (
 		role: string,
 		key: "text" | "second",
 		type: "text" | "date" | "number",
-		extra: { readonly min?: number; readonly step?: number } = {},
-	) => (
-		<TextField
-			{...extra}
-			type={type}
-			density="compact"
-			value={draft[key]}
-			className="min-w-0 flex-1"
-			aria-label={`${field.label} ${role}`}
-			onChange={(event) => onChange({ [key]: event.currentTarget.value })}
-		/>
-	);
+		extra: { readonly min?: number; readonly max?: number; readonly step?: number } = {},
+	) =>
+		rating?.input === "choices" ? (
+			<Select
+				{...selectIcons}
+				value={draft[key]}
+				placeholder="Select a rating"
+				label={`${field.label} ${role}`}
+				onChange={(value) => onChange({ [key]: value })}
+				choices={threePointRatings.map((label, index) => ({ label, value: String(index) }))}
+			/>
+		) : (
+			<TextField
+				{...extra}
+				type={type}
+				density="compact"
+				value={draft[key]}
+				className="min-w-0 flex-1"
+				aria-label={`${field.label} ${role}`}
+				onChange={(event) => onChange({ [key]: event.currentTarget.value })}
+			/>
+		);
+	const numberExtra = rating === undefined ? {} : { min: 0, max: rating.max, step: rating.step };
 	if (listOperators.has(operator)) {
 		if (field.kind !== "value") {
 			return (
@@ -331,7 +394,7 @@ function ValueEditor({
 		);
 	}
 	if (numberOperators.has(operator)) {
-		return input("value", "text", "number");
+		return input("value", "text", "number", numberExtra);
 	}
 	if (textOperators.has(operator)) {
 		return input("value", "text", "text");
@@ -342,8 +405,8 @@ function ValueEditor({
 	if (operator === "between") {
 		return (
 			<div className="flex gap-2">
-				{input("minimum", "text", "number")}
-				{input("maximum", "second", "number")}
+				{input("minimum", "text", "number", numberExtra)}
+				{input("maximum", "second", "number", numberExtra)}
 			</div>
 		);
 	}
@@ -366,104 +429,36 @@ const selectIcons = {
 	chevronIcon: <AppIcon size={14} name="chevron-down" />,
 };
 
-export function FilterRules({
-	filter,
-	fields,
-	compact,
-	onChange,
-}: {
+type FilterRulesProps = {
 	readonly compact: boolean;
 	readonly filter: undefined | ViewFilter;
 	readonly fields: readonly ViewFilterField[];
 	readonly onChange: (filter: undefined | ViewFilter) => void;
-}) {
-	const group = editableGroup(filter);
-	const [state, setState] = useState<PanelState>(() =>
-		toPanelState(group ?? { rules: [], match: "all" }),
+};
+
+export function FilterRules(props: FilterRulesProps) {
+	return props.fields.some(isRatingField) ? (
+		<RatingScaleStatus>
+			{(scale) => <FilterRulesPanel {...props} scale={scale} />}
+		</RatingScaleStatus>
+	) : (
+		<FilterRulesPanel {...props} scale="hundred" />
 	);
-	const applied = encodeFilterParam(filter);
-	useValueChange(applied, () => {
-		if (group !== null && applied !== encodeFilterParam(stateFilter(state))) {
-			setState(toPanelState(group));
-		}
-	});
-	const commit = (next: PanelState) => {
-		setState(next);
-		onChange(stateFilter(next));
-	};
-	if (group === null) {
-		return (
-			<div className="mt-4 grid gap-2">
-				<p className="text-xs text-text-muted">
-					A custom filter is applied. Clear it to build one here.
-				</p>
-				<Button variant="secondary" onClick={() => onChange(undefined)}>
-					Clear all
-				</Button>
-			</div>
-		);
-	}
+}
+
+function RatingScaleStatus(props: { readonly children: (scale: RatingScale) => ReactNode }) {
+	const preferences = useUserPreferences();
 	return (
-		<div className="mt-4 grid gap-3">
-			{state.rows.length >= 2 && (
-				<SegmentedControl
-					value={state.match}
-					label="Match rules"
-					optionClassName="px-3"
-					onChange={(match) => commit({ ...state, match })}
-					options={[
-						{ value: "all", label: "Match all", content: "Match all" },
-						{ value: "any", label: "Match any", content: "Match any" },
-					]}
-				/>
-			)}
-			{state.rows.map((row, index) => (
-				<RuleRow
-					key={row.id}
-					index={index}
-					fields={fields}
-					draft={row.draft}
-					compact={compact}
-					onRemove={() => commit({ ...state, rows: state.rows.filter(({ id }) => id !== row.id) })}
-					onChange={(draft) =>
-						commit({
-							...state,
-							rows: state.rows.map((current) =>
-								current.id === row.id ? { draft, id: row.id } : current,
-							),
-						})
-					}
-				/>
-			))}
-			<Select
-				{...selectIcons}
-				value=""
-				label="Add filter"
-				placeholder="Add filter"
-				choices={fields.map(({ key, label }) => ({ label, value: key }))}
-				onChange={(key) => {
-					const next = fields.find((candidate) => candidate.key === key);
-					if (next !== undefined) {
-						commit({
-							...state,
-							nextId: state.nextId + 1,
-							rows: [...state.rows, { id: state.nextId, draft: newFilterDraft(next) }],
-						});
-					}
-				}}
-			/>
-			{state.rows.length > 0 && (
-				<Button variant="ghost" onClick={() => commit({ ...state, rows: [] })}>
-					Clear all
-				</Button>
-			)}
-		</div>
+		<QueryStatus query={preferences} label="rating scale" onRetry={preferences.refetch}>
+			{(data) => props.children(data.ratingScale)}
+		</QueryStatus>
 	);
 }
 
 function RuleRow({
 	draft,
 	index,
+	scale,
 	fields,
 	compact,
 	onChange,
@@ -471,6 +466,7 @@ function RuleRow({
 }: {
 	readonly index: number;
 	readonly compact: boolean;
+	readonly scale: RatingScale;
 	readonly draft: FilterDraft;
 	readonly onRemove: () => void;
 	readonly fields: readonly ViewFilterField[];
@@ -521,6 +517,7 @@ function RuleRow({
 					<ValueEditor
 						field={field}
 						draft={draft}
+						scale={scale}
 						onChange={(update) => onChange({ ...draft, ...update })}
 					/>
 				</div>
@@ -528,6 +525,99 @@ function RuleRow({
 					<AppIcon name="x" size={16} />
 				</IconButton>
 			</div>
+		</div>
+	);
+}
+
+function FilterRulesPanel({
+	scale,
+	filter,
+	fields,
+	compact,
+	onChange,
+}: FilterRulesProps & { readonly scale: RatingScale }) {
+	const group = editableGroup(filter);
+	const scaleOf = ratingScaleOf(fields, scale);
+	const [state, setState] = useState<PanelState>(() =>
+		toPanelState(group ?? { rules: [], match: "all" }, scaleOf),
+	);
+	const applied = encodeFilterParam(filter);
+	useValueChange(applied, () => {
+		if (group !== null && applied !== encodeFilterParam(stateFilter(state, scaleOf))) {
+			setState(toPanelState(group, scaleOf));
+		}
+	});
+	const commit = (next: PanelState) => {
+		setState(next);
+		onChange(stateFilter(next, scaleOf));
+	};
+	if (group === null) {
+		return (
+			<div className="mt-4 grid gap-2">
+				<p className="text-xs text-text-muted">
+					A custom filter is applied. Clear it to build one here.
+				</p>
+				<Button variant="secondary" onClick={() => onChange(undefined)}>
+					Clear all
+				</Button>
+			</div>
+		);
+	}
+	return (
+		<div className="mt-4 grid gap-3">
+			{state.rows.length >= 2 && (
+				<SegmentedControl
+					value={state.match}
+					label="Match rules"
+					optionClassName="px-3"
+					onChange={(match) => commit({ ...state, match })}
+					options={[
+						{ value: "all", label: "Match all", content: "Match all" },
+						{ value: "any", label: "Match any", content: "Match any" },
+					]}
+				/>
+			)}
+			{state.rows.map((row, index) => (
+				<RuleRow
+					key={row.id}
+					index={index}
+					scale={scale}
+					fields={fields}
+					draft={row.draft}
+					compact={compact}
+					onRemove={() => commit({ ...state, rows: state.rows.filter(({ id }) => id !== row.id) })}
+					onChange={(draft) =>
+						commit({
+							...state,
+							rows: state.rows.map((current) =>
+								current.id === row.id ? { draft, id: row.id } : current,
+							),
+						})
+					}
+				/>
+			))}
+			<Select
+				{...selectIcons}
+				value=""
+				label="Add filter"
+				placeholder="Add filter"
+				choices={fields.map(({ key, label }) => ({ label, value: key }))}
+				onChange={(key) => {
+					const next = fields.find((candidate) => candidate.key === key);
+					if (next !== undefined) {
+						commit({
+							...state,
+							nextId: state.nextId + 1,
+							rows: [...state.rows, { id: state.nextId, draft: newFilterDraft(next) }],
+						});
+					}
+				}}
+			/>
+			{state.rows.length > 0 && (
+				<Button variant="ghost" onClick={() => commit({ ...state, rows: [] })}>
+					Clear all
+				</Button>
+			)}
 		</div>
 	);
 }
@@ -597,18 +687,21 @@ export function FilterChips({
 						);
 					}
 					const choices = new Map(fieldChoices(field).map(({ value, label }) => [value, label]));
-					return (
+					const chip = (valueText: string) => (
 						<FilterChip
 							key={key}
 							onOpen={onOpen}
 							onRemove={() => remove(index)}
+							text={ruleText(field, rule, valueText)}
 							removeLabel={`Remove ${field.label} filter`}
-							text={ruleText(
-								field,
-								rule,
-								ruleValueText(rule, (value) => choices.get(value) ?? value),
-							)}
 						/>
+					);
+					return isRatingField(field) ? (
+						<WithRatingScale key={key}>
+							{(scale) => chip(ratingRuleValueText(rule, scale ?? "hundred"))}
+						</WithRatingScale>
+					) : (
+						chip(ruleValueText(rule, (value) => choices.get(value) ?? value))
 					);
 				})}
 			</>

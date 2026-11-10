@@ -223,6 +223,7 @@ describe("backup export and restore round trip", () => {
 					);
 					if (includeGlobalDependency) {
 						yield* updateUserSettingsPreferences(source.client, {
+							ratingScale: "three-point",
 							reportingTimeZone: TimeZone.make("Asia/Kolkata"),
 						});
 					}
@@ -290,8 +291,12 @@ describe("backup export and restore round trip", () => {
 					yield* deleteUserAndWait(source.userId);
 					const restored = yield* restoreBackup(target.client, bytes);
 					assertCompleted(restored.run, "retained event snapshot restore");
-					expect((yield* getUserSettings(target.client)).preferences.reportingTimeZone).toBe(
+					const restoredPreferences = (yield* getUserSettings(target.client)).preferences;
+					expect(restoredPreferences.reportingTimeZone).toBe(
 						TimeZone.make(includeGlobalDependency ? "Asia/Kolkata" : "UTC"),
+					);
+					expect(restoredPreferences.ratingScale).toBe(
+						includeGlobalDependency ? "three-point" : "hundred",
 					);
 					const restoredRecordId = yield* findEntityIdByName(target.client, {
 						name: record.name,

@@ -473,16 +473,3 @@ export const dedupeWorkoutNotes = (
 			left.text.localeCompare(right.text),
 	);
 };
-
-export const ratingSteps = 5;
-const ratingStep = 20;
-
-export const ratingToStars = (rating: null | number) => {
-	if (rating === null) {
-		return null;
-	}
-	const stars = Math.min(Math.round(rating / ratingStep), ratingSteps);
-	return stars < 1 ? null : stars;
-};
-
-export const starsToRating = (stars: number) => stars * ratingStep;

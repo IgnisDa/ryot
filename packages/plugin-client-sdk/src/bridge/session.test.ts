@@ -1022,33 +1022,36 @@ describe("plugin Effect request engine", () => {
 	);
 
 	it.live(
-		"reads reporting preferences without a plugin identity",
+		"reads user preferences without a plugin identity",
 		() =>
 			Effect.gen(function* () {
 				const { channel, runtime, messages } = yield* openRuntime();
-				const read = yield* Effect.forkChild(runtime.client.reportingPreferences, {
+				const read = yield* Effect.forkChild(runtime.client.userPreferences, {
 					startImmediately: true,
 				});
 				yield* waitForMessagePortMacrotask;
-				expect(sent(messages, "reporting-preferences-request")).toEqual([
-					{ requestId: "reporting-preferences-1", type: "reporting-preferences-request" },
+				expect(sent(messages, "user-preferences-request")).toEqual([
+					{ requestId: "user-preferences-1", type: "user-preferences-request" },
 				]);
 				channel.port1.postMessage({
 					outcome: "success",
-					type: "reporting-preferences-result",
-					requestId: "reporting-preferences-1",
-					preferences: { timeZone: "America/New_York" },
+					type: "user-preferences-result",
+					requestId: "user-preferences-1",
+					preferences: { ratingScale: "ten", timeZone: "America/New_York" },
 				});
-				expect(yield* Fiber.join(read)).toEqual<unknown>({ timeZone: "America/New_York" });
-				const failed = yield* Effect.forkChild(Effect.flip(runtime.client.reportingPreferences), {
+				expect(yield* Fiber.join(read)).toEqual<unknown>({
+					ratingScale: "ten",
+					timeZone: "America/New_York",
+				});
+				const failed = yield* Effect.forkChild(Effect.flip(runtime.client.userPreferences), {
 					startImmediately: true,
 				});
 				yield* waitForMessagePortMacrotask;
 				channel.port1.postMessage({
 					outcome: "failure",
 					reason: "transport",
-					type: "reporting-preferences-result",
-					requestId: "reporting-preferences-2",
+					type: "user-preferences-result",
+					requestId: "user-preferences-2",
 				});
 				expect((yield* Fiber.join(failed)).reason).toBe("transport");
 			}),

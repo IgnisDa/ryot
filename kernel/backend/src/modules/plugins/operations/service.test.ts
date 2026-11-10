@@ -260,6 +260,7 @@ const makeLayer = (input: {
 										preferences: {
 											language: null,
 											reportingTimeZone: UTC,
+											ratingScale: "hundred",
 											disableIntegrations: false,
 										},
 									},

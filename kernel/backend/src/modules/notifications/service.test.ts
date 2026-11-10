@@ -19,7 +19,12 @@ const user = {
 	name: "Test User",
 	id: UserId.make("owner"),
 	email: "user@example.com",
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 } satisfies CurrentUserValue;
 
 class RecordedAdmissions extends Context.Service<

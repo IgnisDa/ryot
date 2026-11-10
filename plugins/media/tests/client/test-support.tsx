@@ -28,6 +28,7 @@ export const localDateTime = (parts: LocalDateTimeParts) =>
 export const mountRyotClient = (adapter: Partial<RyotClientAdapter>, children: ReactNode) => {
 	const { client, runtime, advance, setTime, dispose } = createTestRyotClock({
 		...createTestBackgroundSubmissions().adapter,
+		readUserPreferences: () => Effect.succeed({ timeZone: "UTC", ratingScale: "hundred" }),
 		pluginIdentity: (packageId) => {
 			if (packageId !== PLUGIN_PACKAGE_ID) {
 				throw new Error("Unexpected contributor package");

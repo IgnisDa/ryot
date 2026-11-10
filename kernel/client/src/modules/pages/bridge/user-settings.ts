@@ -1,7 +1,9 @@
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
+import type { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type {
-	PluginReportingPreferencesOutcome,
+	PluginUserPreferences,
+	PluginUserPreferencesOutcome,
 	PluginUserSettingsOutcome,
 	PluginUserSettingsRequest,
 } from "@ryot-app/plugin-client-contract";
@@ -22,11 +24,16 @@ const isCurrentScope = (scope: ApiScope, currentScope: () => ApiScope | undefine
 	return current !== undefined && apiScopeKey(current) === apiScopeKey(scope);
 };
 
-export const reportingPreferencesOutcome = (input: {
+export const pluginUserPreferences = (preferences: UserPreferences): PluginUserPreferences => ({
+	ratingScale: preferences.ratingScale,
+	timeZone: preferences.reportingTimeZone,
+});
+
+export const userPreferencesOutcome = (input: {
 	readonly scope: ApiScope;
 	readonly currentScope: () => ApiScope | undefined;
 	readonly api: Pick<RyotQLApi["Service"], "execute">;
-}): Effect.Effect<PluginReportingPreferencesOutcome> =>
+}): Effect.Effect<PluginUserPreferencesOutcome> =>
 	Effect.gen(function* () {
 		if (!isCurrentScope(input.scope, input.currentScope)) {
 			return invalidRequest;
@@ -47,7 +54,7 @@ export const reportingPreferencesOutcome = (input: {
 		}
 		return {
 			outcome: "success",
-			preferences: { timeZone: decoded.success.preferences.reportingTimeZone },
+			preferences: pluginUserPreferences(decoded.success.preferences),
 		} as const;
 	});
 

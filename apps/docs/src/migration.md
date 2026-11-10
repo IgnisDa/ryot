@@ -149,6 +149,10 @@ collection, podcasts, shows not from TMDB, and cast and crew pages are downloade
 browse, so right after the upgrade some of them may show only their title for a moment.
 Recommendations are not carried over and come back when an item is refreshed.
 
+Your review scale carries over as the **Rating scale** under **Settings → Preferences**: out of 100,
+out of 10, 5 stars, or a 3-point smiley. Changing it only changes how ratings are shown and entered;
+your saved ratings stay the same.
+
 After the upgrade, Ryot processes your media history and workouts in the background to compute
 analytics, progress and personal bests. This usually takes a few minutes: a library with about
 65,000 media history entries and 40,000 workout sets finishes in under ten minutes. Until it

@@ -47,6 +47,7 @@ export { Notice, Skeleton, EmptyState } from "./feedback";
 export { ScreenFrame, ScreenBarButton } from "./screen-frame";
 export type { MetricUnit, MetricDelta } from "./metric-format";
 export { groupColors, groupColorVariable } from "./group-colors";
+export { RatingInput, RatingValue, useRatingDraft } from "./rating";
 export { QueryStatus, type QueryStatusProps } from "./query-status";
 export { Timeline, TimelineEntry, TimelineGroup } from "./timeline";
 export { DestructiveConfirmation } from "./destructive-confirmation";
@@ -74,6 +75,7 @@ export {
 
 export {
 	countUnit,
+	ratingUnit,
 	measureUnit,
 	metricDelta,
 	percentUnit,

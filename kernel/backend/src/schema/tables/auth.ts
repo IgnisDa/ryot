@@ -37,9 +37,10 @@ export const user = snakeCase.table(
 			"user_preferences_check",
 			sql`
 		jsonb_typeof(${table.preferences}) = 'object'
-		and ${table.preferences} ?& array['disableIntegrations', 'language', 'reportingTimeZone']
-		and ${table.preferences} - 'disableIntegrations' - 'language' - 'reportingTimeZone' = '{}'::jsonb
+		and ${table.preferences} ?& array['disableIntegrations', 'language', 'ratingScale', 'reportingTimeZone']
+		and ${table.preferences} - 'disableIntegrations' - 'language' - 'ratingScale' - 'reportingTimeZone' = '{}'::jsonb
 		and jsonb_typeof(${table.preferences}->'disableIntegrations') = 'boolean'
+		and ${table.preferences}->>'ratingScale' in ('hundred', 'ten', 'five', 'three-point')
 		and jsonb_typeof(${table.preferences}->'reportingTimeZone') = 'string'
 		and ${table.preferences}->>'reportingTimeZone' <> ''
 		and btrim(${table.preferences}->>'reportingTimeZone') = ${table.preferences}->>'reportingTimeZone'

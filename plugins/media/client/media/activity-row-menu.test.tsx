@@ -259,7 +259,9 @@ describe("activity row menu", () => {
 					throw new Error("Expected a review row menu");
 				}
 				choose(menu, "Edit");
-				const dialog = getByRole(document.body, "dialog", { name: "Edit review" });
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog", { name: "Edit review" })),
+				);
 				const text = getByLabelText(dialog, "Review (optional)");
 				expect(text).toHaveProperty("value", "The twist still lands.");
 				act(() => {
@@ -301,11 +303,13 @@ describe("activity row menu", () => {
 					throw new Error("Expected a review row menu");
 				}
 				choose(menu, "Edit");
-				const dialog = getByRole(document.body, "dialog", { name: "Edit review" });
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog", { name: "Edit review" })),
+				);
 				expect(getByLabelText(dialog, "Review (optional)")).toHaveProperty("value", "");
 				expect(queryByRole(dialog, "switch", { name: "Contains spoilers" })).toBeNull();
 				act(() => {
-					fireEvent.change(getByLabelText(dialog, "Rating (0–100, optional)"), {
+					fireEvent.change(getByLabelText(dialog, "Rating (out of 100, optional)"), {
 						target: { value: "0" },
 					});
 				});
@@ -335,12 +339,14 @@ describe("activity row menu", () => {
 					throw new Error("Expected a review row menu");
 				}
 				choose(menu, "Edit");
-				const dialog = getByRole(document.body, "dialog", { name: "Edit review" });
+				const dialog = yield* Effect.promise(() =>
+					waitFor(() => getByRole(document.body, "dialog", { name: "Edit review" })),
+				);
 				act(() => {
 					fireEvent.change(getByLabelText(dialog, "Review (optional)"), {
 						target: { value: "  " },
 					});
-					fireEvent.change(getByLabelText(dialog, "Rating (0–100, optional)"), {
+					fireEvent.change(getByLabelText(dialog, "Rating (out of 100, optional)"), {
 						target: { value: "" },
 					});
 				});
@@ -351,7 +357,7 @@ describe("activity row menu", () => {
 				);
 				expect(background.requests).toEqual([]);
 				act(() => {
-					fireEvent.change(getByLabelText(dialog, "Rating (0–100, optional)"), {
+					fireEvent.change(getByLabelText(dialog, "Rating (out of 100, optional)"), {
 						target: { value: "91" },
 					});
 				});

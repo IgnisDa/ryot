@@ -1,6 +1,7 @@
 import {
 	type ReviewContent,
 	reviewProperties,
+	reviewPropertiesPatch,
 	reviewPropertyKeys,
 } from "@ryot-app/contract/modules/events/review";
 import type { EventWritePrecondition } from "@ryot-app/contract/modules/events/schemas";
@@ -63,13 +64,12 @@ export const collectionReviewMutation = createRyotHostMutation<
 				yield* api.delete(hostServices.scope, { params: { eventId: command.eventId } });
 			} else {
 				const { draft, initial } = command;
-				const properties = reviewProperties(draft);
 				if (initial === null) {
 					const result = yield* api.create(hostServices.scope, {
 						payload: [
 							{
-								properties,
 								entityId: command.collectionId,
+								properties: reviewProperties(draft),
 								eventSchemaSlug: EventSchemaSlug.make("review"),
 							},
 						],
@@ -82,10 +82,7 @@ export const collectionReviewMutation = createRyotHostMutation<
 						params: { eventId: initial.id },
 						payload: {
 							expected: reviewPrecondition(initial),
-							properties: {
-								set: properties,
-								remove: reviewPropertyKeys.filter((key) => !Object.hasOwn(properties, key)),
-							},
+							properties: reviewPropertiesPatch(draft),
 						},
 					});
 				}

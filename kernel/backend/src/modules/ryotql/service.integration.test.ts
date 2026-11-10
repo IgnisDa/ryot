@@ -1539,7 +1539,12 @@ layer(catalogDatabaseLayer)("ryotql catalog harness", (test) => {
 						createdAt: anyOf(String),
 						email: "owner@example.test",
 						twoFactorStatus: { enabled: false, available: true },
-						preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+						preferences: {
+							language: null,
+							reportingTimeZone: UTC,
+							ratingScale: "hundred",
+							disableIntegrations: false,
+						},
 					},
 				]);
 				expect(yield* readRows("admin", "user", ["id", "authState"])).toEqual([

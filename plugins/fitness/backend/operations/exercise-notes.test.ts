@@ -208,7 +208,7 @@ describe("exercise note operations", () => {
 	);
 
 	it.live(
-		"patches only note properties and removes a cleared rating",
+		"patches only note properties, removes a cleared rating, and keeps notes spoiler-free",
 		() =>
 			Effect.gen(function* () {
 				const hosts = recordingHosts();
@@ -230,13 +230,15 @@ describe("exercise note operations", () => {
 					[
 						{
 							eventId: "note-1",
-							patch: { properties: { remove: [], set: { rating: 60, text: "Heavier" } } },
+							patch: {
+								properties: { remove: ["isSpoiler"], set: { rating: 60, text: "Heavier" } },
+							},
 						},
 					],
 					[
 						{
 							eventId: "note-1",
-							patch: { properties: { remove: ["rating"], set: { text: "Cleared" } } },
+							patch: { properties: { set: { text: "Cleared" }, remove: ["isSpoiler", "rating"] } },
 						},
 					],
 				]);

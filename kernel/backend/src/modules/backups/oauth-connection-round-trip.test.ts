@@ -71,7 +71,12 @@ const currentUser: CurrentUserValue = {
 	image: null,
 	name: "Owner",
 	email: "owner@example.test",
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 };
 
 const tokenEndpointLayer = Layer.succeed(

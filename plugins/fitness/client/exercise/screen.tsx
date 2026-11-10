@@ -1,3 +1,4 @@
+import type { RatingScale } from "@ryot-app/plugin-client-sdk";
 import {
 	type TimeZone,
 	usePluginLocation,
@@ -17,7 +18,7 @@ import { useMemo, useState } from "react";
 import { type ExerciseDetails, exerciseDetailsRecipe } from "../../shared/exercise-details-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { managedAssetBatch } from "../asset-urls";
-import { ReportingPreferences } from "../reporting-preferences";
+import { PreferencesGate } from "../preferences-gate";
 import { WorkoutProcessing } from "../workout-processing";
 import { useActiveEditorDraft } from "./active-draft";
 import { dedupeWorkoutNotes, type ExerciseRecord } from "./details-model";
@@ -43,9 +44,15 @@ const exerciseDetailsQuery = createRyotQuery<
 export default function ExerciseDetailsPage() {
 	const location = usePluginLocation();
 	return location.kind === "entity" ? (
-		<ReportingPreferences>
-			{(timeZone) => <ExerciseDetailsScreen timeZone={timeZone} entityId={location.entityId} />}
-		</ReportingPreferences>
+		<PreferencesGate>
+			{({ timeZone, ratingScale }) => (
+				<ExerciseDetailsScreen
+					timeZone={timeZone}
+					ratingScale={ratingScale}
+					entityId={location.entityId}
+				/>
+			)}
+		</PreferencesGate>
 	) : null;
 }
 
@@ -54,6 +61,7 @@ export function ExerciseDetailsView(props: {
 	readonly compact: boolean;
 	readonly timeZone: TimeZone;
 	readonly onChanged: () => void;
+	readonly ratingScale: RatingScale;
 	readonly details: ExerciseDetails;
 	readonly exercise: ExerciseRecord;
 }) {
@@ -72,6 +80,7 @@ export function ExerciseDetailsView(props: {
 			exerciseId={exercise.id}
 			workoutNotes={workoutNotes}
 			focusRequest={reviewRequest}
+			ratingScale={props.ratingScale}
 		/>
 	);
 	return (
@@ -107,14 +116,23 @@ export function ExerciseDetailsView(props: {
 	);
 }
 
-function ExerciseDetailsScreen(props: { readonly entityId: string; readonly timeZone: TimeZone }) {
+function ExerciseDetailsScreen(props: {
+	readonly entityId: string;
+	readonly timeZone: TimeZone;
+	readonly ratingScale: RatingScale;
+}) {
 	const { compact } = useRyotViewport();
 	const { timeZone } = props;
 	const result = useRyotQuery(exerciseDetailsQuery, { timeZone, entityId: props.entityId });
 	return (
 		<WorkoutProcessing exerciseId={props.entityId}>
 			<PluginScreenFrame hideTitle title={result.data?.exercise?.name ?? null}>
-				<ExerciseDetailsBody result={result} compact={compact} timeZone={timeZone} />
+				<ExerciseDetailsBody
+					result={result}
+					compact={compact}
+					timeZone={timeZone}
+					ratingScale={props.ratingScale}
+				/>
 			</PluginScreenFrame>
 		</WorkoutProcessing>
 	);
@@ -123,6 +141,7 @@ function ExerciseDetailsScreen(props: { readonly entityId: string; readonly time
 function ExerciseDetailsBody(props: {
 	readonly compact: boolean;
 	readonly timeZone: TimeZone;
+	readonly ratingScale: RatingScale;
 	readonly result: RyotQueryResult<ExerciseDetails>;
 }) {
 	const { result, compact, timeZone } = props;
@@ -137,6 +156,7 @@ function ExerciseDetailsBody(props: {
 				timeZone={timeZone}
 				onChanged={result.refetch}
 				exercise={details.exercise}
+				ratingScale={props.ratingScale}
 			/>
 		);
 	}

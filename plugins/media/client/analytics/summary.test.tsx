@@ -91,6 +91,7 @@ const mountSummary = (clock: ReturnType<typeof createTestRyotClock>, props: Summ
 	mountPluginPage(() => <MediaAnalyticsSummary {...props} />, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
+		userPreferences: { ratingScale: "ten", timeZone: TimeZone.make("UTC") },
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -199,9 +200,9 @@ describe("Media analytics summary UI", () => {
 						waitFor(() => expect(screen.getAllByText("100 pages").length).toBeGreaterThan(0)),
 					);
 					expect(screen.getByText("Average rating", { selector: "dt" })).toBeDefined();
-					expect(screen.getByText("40")).toBeDefined();
-					expect(screen.getByText("0/100")).toBeDefined();
-					expect(screen.getByText("80/100")).toBeDefined();
+					yield* Effect.promise(() => waitFor(() => expect(screen.getByText("4.0")).toBeDefined()));
+					expect(screen.getByText("0.0 / 10")).toBeDefined();
+					expect(screen.getByText("8.0 / 10")).toBeDefined();
 				} finally {
 					page.dispose();
 					yield* Effect.promise(() => clock.dispose());

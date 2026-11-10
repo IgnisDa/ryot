@@ -37,7 +37,6 @@ import {
 	type PluginOperationBridgeErrorReason,
 	type PluginOperationOutcome,
 	type PluginOperationRequest,
-	type PluginReportingPreferencesOutcome,
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
 	type PluginRyotQLRequest,
@@ -46,6 +45,7 @@ import {
 	type PluginThemeSnapshot,
 	type PluginUploadOutcome,
 	type PluginUploadRequest,
+	type PluginUserPreferencesOutcome,
 	type PluginUserSettingsOutcome,
 } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
@@ -179,12 +179,10 @@ const connect = (
 		readonly onIosLiveActivity?: Parameters<typeof openPluginBridge>[0]["onIosLiveActivity"];
 		readonly onAddToCollection?: Parameters<typeof openPluginBridge>[0]["onAddToCollection"];
 		readonly onManageReminders?: Parameters<typeof openPluginBridge>[0]["onManageReminders"];
+		readonly onUserPreferences?: Parameters<typeof openPluginBridge>[0]["onUserPreferences"];
 		readonly onBackgroundOperation?: Parameters<
 			typeof openPluginBridge
 		>[0]["onBackgroundOperation"];
-		readonly onReportingPreferences?: Parameters<
-			typeof openPluginBridge
-		>[0]["onReportingPreferences"];
 		readonly onCalendarSourceVisibility?: Parameters<
 			typeof openPluginBridge
 		>[0]["onCalendarSourceVisibility"];
@@ -244,10 +242,10 @@ const connect = (
 		onExternalLink: options.onExternalLink ?? (() => Effect.never),
 		onPageShortcuts: (registered) => pageShortcuts.push(registered),
 		scheduleOverlayDismissTimeout: options.scheduleOverlayDismissTimeout,
+		onUserPreferences: options.onUserPreferences ?? (() => Effect.never),
 		onSharePublication: () => Effect.succeed({ kind: "closed" as const }),
 		onDevice: options.onDevice ?? (() => Effect.succeed(invalidDeviceRequest)),
 		onBackgroundOperation: options.onBackgroundOperation ?? (() => Effect.never),
-		onReportingPreferences: options.onReportingPreferences ?? (() => Effect.never),
 		onManageCollectionReviews: () => Effect.succeed({ kind: "cancelled" as const }),
 		onChangeCollectionMembers: () => Effect.succeed({ kind: "cancelled" as const }),
 		onCalendarSourceVisibility: options.onCalendarSourceVisibility ?? (() => Effect.never),
@@ -1500,8 +1498,8 @@ describe("plugin bridge", () => {
 					onUserSettings: () => Effect.never,
 					onExternalLink: () => Effect.never,
 					onFailure: () => failures.push(null),
+					onUserPreferences: () => Effect.never,
 					onBackgroundOperation: () => Effect.never,
-					onReportingPreferences: () => Effect.never,
 					onCalendarSourceVisibility: () => Effect.never,
 					viewport: { safeAreaTop: 0, safeAreaBottom: 0 },
 					onDevice: () => Effect.succeed(invalidDeviceRequest),
@@ -2401,15 +2399,18 @@ describe("plugin bridge", () => {
 	);
 
 	it.live(
-		"answers reporting preference requests without a plugin identity",
+		"answers user preference requests without a plugin identity",
 		() =>
 			Effect.gen(function* () {
-				const outcomes: PluginReportingPreferencesOutcome[] = [
-					{ outcome: "success", preferences: { timeZone: TimeZone.make("Asia/Tokyo") } },
+				const outcomes: PluginUserPreferencesOutcome[] = [
+					{
+						outcome: "success",
+						preferences: { ratingScale: "ten", timeZone: TimeZone.make("Asia/Tokyo") },
+					},
 					{ outcome: "failure", reason: "transport" },
 				];
 				const { init, received, pluginPort } = connect({
-					onReportingPreferences: () => {
+					onUserPreferences: () => {
 						const outcome = outcomes.shift();
 						return outcome === undefined ? Effect.die("unexpected") : Effect.succeed(outcome);
 					},
@@ -2417,22 +2418,22 @@ describe("plugin bridge", () => {
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-				const request = { type: "reporting-preferences-request" as const };
-				pluginPort.postMessage({ ...request, requestId: "reporting-1" });
+				const request = { type: "user-preferences-request" as const };
+				pluginPort.postMessage({ ...request, requestId: "preferences-1" });
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
 				expect(received[1]).toEqual({
 					outcome: "success",
-					requestId: "reporting-1",
-					type: "reporting-preferences-result",
-					preferences: { timeZone: "Asia/Tokyo" },
+					requestId: "preferences-1",
+					type: "user-preferences-result",
+					preferences: { ratingScale: "ten", timeZone: "Asia/Tokyo" },
 				});
-				pluginPort.postMessage({ ...request, requestId: "reporting-2" });
+				pluginPort.postMessage({ ...request, requestId: "preferences-2" });
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
 				expect(received[2]).toEqual({
 					outcome: "failure",
 					reason: "transport",
-					requestId: "reporting-2",
-					type: "reporting-preferences-result",
+					requestId: "preferences-2",
+					type: "user-preferences-result",
 				});
 			}),
 		testTimeout,

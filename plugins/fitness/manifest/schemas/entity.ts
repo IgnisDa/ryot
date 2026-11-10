@@ -1,3 +1,5 @@
+import { reviewRatingField } from "@ryot-app/plugin-kit/schema";
+
 import { exerciseTargetKinds } from "../../shared/taxonomy";
 import {
 	exercisePropertiesSchema,
@@ -14,16 +16,11 @@ import { workoutExercisePropertiesSchema } from "./workout-taxonomy";
 const exerciseReviewPropertiesSchema = {
 	unknownKeys: "strict" as const,
 	fields: {
+		rating: reviewRatingField,
 		text: {
 			label: "Note",
 			type: "string" as const,
 			description: "Your private note about this exercise",
-		},
-		rating: {
-			label: "Rating",
-			type: "number" as const,
-			validation: { minimum: 0, maximum: 100 },
-			description: "Your personal rating from 0 (lowest) to 100 (highest)",
 		},
 	},
 };

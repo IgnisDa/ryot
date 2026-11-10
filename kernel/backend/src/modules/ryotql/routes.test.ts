@@ -31,7 +31,12 @@ const user = {
 	id: UserId.make("user-1"),
 	email: "user@example.com",
 	accountUserId: UserId.make("user-1"),
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		disableIntegrations: false,
+		ratingScale: "hundred" as const,
+	},
 };
 
 type CredentialKind = "oauth" | "api-key";

@@ -1,6 +1,7 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+import { reviewProperties } from "@ryot-app/plugin-kit/schema";
 
 import { ExerciseNoteCreateInput, ExerciseNoteOutput } from "../../shared/exercise-note-operations";
 import { requireExerciseNoteExercise } from "./exercise-notes";
@@ -22,10 +23,7 @@ export default defineOperation({
 				{
 					entityId,
 					eventSchemaSlug: "review",
-					properties:
-						input.rating === undefined
-							? { text: input.text }
-							: { text: input.text, rating: input.rating },
+					properties: reviewProperties({ text: input.text, rating: input.rating ?? null }),
 				},
 			]);
 		}),

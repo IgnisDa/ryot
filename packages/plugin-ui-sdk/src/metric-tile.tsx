@@ -149,6 +149,7 @@ function DeltaBadge(props: {
 	if (delta.kind === "unavailable") {
 		return <span className="text-micro text-text-subtle">No comparison</span>;
 	}
+	const bucketed = props.unit.kind === "rating" && props.unit.scale === "three-point";
 	const signed = `${delta.absolute > 0 ? "+" : ""}${formatMetric(delta.absolute, props.unit)}`;
 	let variant: "info" | "danger" | "neutral" | "success" = "neutral";
 	let text = "No change";
@@ -165,7 +166,7 @@ function DeltaBadge(props: {
 				{text}
 			</Badge>
 			<span className="truncate text-micro text-text-subtle">
-				{signed} {props.comparisonLabel}
+				{bucketed ? props.comparisonLabel : `${signed} ${props.comparisonLabel}`}
 			</span>
 		</span>
 	);

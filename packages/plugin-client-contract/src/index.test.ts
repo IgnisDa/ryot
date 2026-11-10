@@ -1119,26 +1119,27 @@ describe("plugin client bridge contract", () => {
 		);
 	});
 
-	it("names nothing in reporting preference requests and returns a validated time zone", () => {
+	it("names nothing in user preference requests and returns validated preferences", () => {
 		const decodeClient = Schema.decodeUnknownResult(PluginBridgeClientMessage);
 		const decodeHost = Schema.decodeUnknownResult(PluginBridgeHostMessage);
-		const request = { requestId: "reporting-1", type: "reporting-preferences-request" as const };
+		const request = { requestId: "preferences-1", type: "user-preferences-request" as const };
 		expect(Result.isSuccess(decodeClient(request))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, pluginId: "fixture" }))).toBe(true);
 		expect(Result.isFailure(decodeClient({ ...request, kind: "reporting" }))).toBe(true);
 		expect(Result.isFailure(decodeHost(request))).toBe(true);
 
-		const result = { requestId: "reporting-1", type: "reporting-preferences-result" as const };
-		expect(
-			Result.isSuccess(
-				decodeHost({ ...result, outcome: "success", preferences: { timeZone: "Asia/Kolkata" } }),
-			),
-		).toBe(true);
-		expect(
-			Result.isFailure(
-				decodeHost({ ...result, outcome: "success", preferences: { timeZone: "+05:30" } }),
-			),
-		).toBe(true);
+		const result = { requestId: "preferences-1", type: "user-preferences-result" as const };
+		const preferences = { ratingScale: "five", timeZone: "Asia/Kolkata" };
+		expect(Result.isSuccess(decodeHost({ ...result, preferences, outcome: "success" }))).toBe(true);
+		for (const invalid of [
+			{ ...preferences, timeZone: "+05:30" },
+			{ ...preferences, ratingScale: "stars" },
+			{ timeZone: "Asia/Kolkata" },
+		]) {
+			expect(
+				Result.isFailure(decodeHost({ ...result, outcome: "success", preferences: invalid })),
+			).toBe(true);
+		}
 		expect(
 			Result.isSuccess(decodeHost({ ...result, outcome: "failure", reason: "transport" })),
 		).toBe(true);

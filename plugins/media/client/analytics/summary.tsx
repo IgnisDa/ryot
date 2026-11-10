@@ -1,13 +1,15 @@
+import type { RatingScale } from "@ryot-app/plugin-client-sdk";
 import { periodCaption, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
+import { useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ChartCard,
 	countUnit,
 	formatMetric,
 	formatNumber,
-	measureUnit,
 	type Metric,
 	metricDelta,
 	MetricGrid,
+	ratingUnit,
 } from "@ryot-app/plugin-ui-sdk";
 import { CoverageBar } from "@ryot-app/plugin-ui-sdk/charts";
 
@@ -28,12 +30,8 @@ import {
 type PeriodModel = ReturnType<typeof summaryModel>["current"];
 
 const reviewUnit = countUnit("review");
-const ratingUnit = countUnit("rating");
-const ratingScaleUnit = measureUnit("/ 100");
+const ratedUnit = countUnit("rating");
 const undatedUnit = countUnit("undated entry", "undated entries");
-
-const formatRating = (value: null | number) =>
-	value === null ? "—" : `${formatNumber(value)}/100`;
 
 const typeAmounts = (row: PeriodModel["types"][number]) =>
 	consumptionMeasureUnits
@@ -43,6 +41,7 @@ const typeAmounts = (row: PeriodModel["types"][number]) =>
 
 export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 	const { compact } = useRyotViewport();
+	const ratingScale = useUserPreferences().data?.ratingScale;
 	const model = summaryModel(props.summary);
 	const { current, previous } = model;
 	const delta = (value: null | number, old: null | number | undefined) =>
@@ -218,7 +217,11 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 				</ChartCard>
 			)}
 			<ChartCard title="Reviews">
-				<ReviewFigures reviews={current.reviews} previous={previous?.reviews ?? null} />
+				<ReviewFigures
+					ratingScale={ratingScale}
+					reviews={current.reviews}
+					previous={previous?.reviews ?? null}
+				/>
 				{current.reviews.categories.length === 0 ? null : (
 					<div className="min-w-0 overflow-x-auto">
 						<table className="w-full min-w-[28rem] border-collapse text-left text-label">
@@ -252,7 +255,9 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 											{formatNumber(row.rated ?? 0)}
 										</td>
 										<td className="py-2.5 text-right tabular-nums">
-											{formatRating(row.averageRating ?? null)}
+											{row.averageRating == null || ratingScale === undefined
+												? "—"
+												: formatMetric(row.averageRating, ratingUnit(ratingScale))}
 										</td>
 									</tr>
 								))}
@@ -271,9 +276,11 @@ export function MediaAnalyticsSummary(props: SummaryChartsProps) {
 }
 
 function ReviewFigures(props: {
+	readonly ratingScale: undefined | RatingScale;
 	readonly reviews: ReturnType<typeof reviewModel>;
 	readonly previous: null | ReturnType<typeof reviewModel>;
 }) {
+	const { ratingScale } = props;
 	const { compact } = useRyotViewport();
 	return (
 		<MetricGrid
@@ -294,7 +301,7 @@ function ReviewFigures(props: {
 				{
 					key: "rated",
 					label: "Rated",
-					unit: ratingUnit,
+					unit: ratedUnit,
 					value: props.reviews.rated,
 					delta:
 						props.previous === null
@@ -303,9 +310,9 @@ function ReviewFigures(props: {
 				},
 				{
 					key: "average",
-					unit: ratingScaleUnit,
 					label: "Average rating",
-					value: props.reviews.averageRating,
+					unit: ratingUnit(ratingScale ?? "hundred"),
+					value: ratingScale === undefined ? null : props.reviews.averageRating,
 					delta:
 						props.previous === null
 							? undefined

@@ -1,4 +1,6 @@
+import { useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
 import {
+	RatingValue,
 	StatStrip,
 	Timeline,
 	TimelineEntry,
@@ -14,7 +16,6 @@ import {
 	type MediaActivityCompletedWatch,
 	mediaActivityDateLabel,
 	type MediaActivityFigure,
-	mediaActivityRatingLabel,
 	type MediaActivityReviewRow,
 	type MediaActivityRowBase,
 	type MediaActivityTimeline,
@@ -66,11 +67,12 @@ export function MediaActivityReviewDetail<Subject>(props: {
 	readonly row: MediaActivityReviewRow<Subject>;
 }) {
 	const { row } = props;
+	const scale = useUserPreferences().data?.ratingScale;
 	return (
 		<div className="flex flex-col gap-1 border-l-2 border-accent-border pl-2.5">
-			{row.rating === undefined ? null : (
+			{row.rating === undefined || scale === undefined ? null : (
 				<p className="text-micro font-medium text-accent-text">
-					{mediaActivityRatingLabel(row.rating)}
+					<RatingValue scale={scale} rating={row.rating} />
 				</p>
 			)}
 			{row.body === undefined ? null : (

@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 
 import { makePreferenceDraft, preferencePayload } from "#/modules/settings/preference-draft";
 
-const preferences = { language: null, reportingTimeZone: UTC, disableIntegrations: false };
+const preferences = defaultUserPreferences;
 
 describe("user settings preference draft", () => {
 	it("does not treat the empty language field as a change from provider default", () => {
@@ -26,5 +26,14 @@ describe("user settings preference draft", () => {
 				{ ...makePreferenceDraft(preferences), language: "  " },
 			),
 		).toEqual({ language: null });
+	});
+
+	it("only includes a changed rating scale", () => {
+		const draft = makePreferenceDraft(preferences);
+
+		expect(preferencePayload(preferences, { ...draft, ratingScale: "hundred" })).toEqual({});
+		expect(preferencePayload(preferences, { ...draft, ratingScale: "three-point" })).toEqual({
+			ratingScale: "three-point",
+		});
 	});
 });

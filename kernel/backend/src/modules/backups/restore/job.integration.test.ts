@@ -58,6 +58,7 @@ const profile = {
 	preferences: {
 		language: null,
 		disableIntegrations: true,
+		ratingScale: "ten" as const,
 		reportingTimeZone: TimeZone.make("America/New_York"),
 	},
 };

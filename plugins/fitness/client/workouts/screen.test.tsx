@@ -6,6 +6,7 @@ import type {
 	RyotQLResult,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -21,7 +22,6 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
-import { replyReportingPreferences } from "../../tests/client/reporting-preferences";
 import WorkoutsPage from "./screen";
 
 const serialize = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
@@ -163,6 +163,7 @@ const respond = (queries: Queries, answers: Answers) => {
 const openPage = (answers: Answers = {}, search = "") => {
 	const page = mountPluginPage(WorkoutsPage, {
 		location: routeLocation("/v/all-workouts", search),
+		userPreferences: { ratingScale: "hundred", timeZone: TimeZone.make("UTC") },
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -182,7 +183,6 @@ const openPage = (answers: Answers = {}, search = "") => {
 	});
 	const answered = new Set<string>();
 	const answerPending = () => {
-		replyReportingPreferences(page, answered);
 		for (const request of page.clientMessages()) {
 			if (request.type === "operation-request" && !answered.has(request.requestId)) {
 				answered.add(request.requestId);

@@ -142,8 +142,11 @@ then replaces template references. These steps are not atomic: retry-to-complete
 detachment. The client blocks merging an exercise used by the active workout/template draft.
 
 Exercise note operations require a visible exercise and a `review` event on that schema, not merely
-the shared review slug. Updates patch only text/rating. Input text is trimmed/bounded, while stored
-text remains unbounded for migrated notes. `workout-delete` removes the workout, events, and
+the shared review slug. Notes are reviews without a spoiler flag: text is required, the rating is the
+shared optional 0–100 `ReviewRating`, and the manifest's rating field is the shared review rating
+field. Updates patch only text/rating through the shared review patch helper. Input text is
+trimmed/bounded, while stored text remains unbounded for migrated notes. The exercise page shows and
+enters note ratings in the user's kernel rating scale with the UI SDK rating components. `workout-delete` removes the workout, events, and
 relationships, recalculates surviving exercise records in the same write, and leaves exercises/templates and
 separately logged measurements intact. `workout-template-delete` removes the template and its
 relationships, leaving workouts started from it intact. Collection additions preserve existing

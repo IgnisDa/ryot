@@ -91,9 +91,11 @@ otherwise or after the frame's server or user changes. `usePluginUserSettings(pl
 keyed by local ID that refreshes after mutations, so an operation that calls `updateUserSettings`
 is reflected on the next page refresh. Writes go through backend operations; the client is read-only.
 
-`client.reportingPreferences` (an Effect) and `useReportingPreferences()` read only the account's
-reporting `timeZone`. This narrow authenticated capability is available to renderers and plugins
-without a plugin ID and refreshes after preference mutations. It exposes no user profile data.
+`client.userPreferences` (an Effect) and `useUserPreferences()` read only the account's reporting
+`timeZone` and `ratingScale`. This narrow authenticated capability is available to renderers and
+plugins without a plugin ID and refreshes after preference mutations. It exposes no user profile
+data; publication visitors receive the defaults (UTC, out of 100). Pass `ratingScale` to the UI
+SDK's `RatingInput`, `RatingValue`, and `ReviewComposer`; ratings are always stored 0–100.
 Compiled client sources import the canonical reporting definitions from
 `@ryot-app/plugin-client-sdk/plugin`: the `ReportingSelection` schema and its parts, URL encoding
 (`reportingSearchParams`, `parseReportingSearch`, `analyticsSectionKey`) with the labelled

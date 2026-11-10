@@ -115,7 +115,12 @@ const fakeLayer = Layer.unwrap(
 							id: realSandboxUserId,
 							email: "user@example.com",
 							accountUserId: realSandboxUserId,
-							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+							preferences: {
+								language: null,
+								reportingTimeZone: UTC,
+								ratingScale: "hundred",
+								disableIntegrations: false,
+							},
 						},
 					}),
 			}),

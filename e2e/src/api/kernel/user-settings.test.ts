@@ -59,14 +59,20 @@ describe("user settings", () => {
 			expect(initial.name).toBe("Test User");
 			expect(initial.preferences).toEqual({
 				language: null,
+				ratingScale: "hundred",
 				disableIntegrations: false,
 				reportingTimeZone: TimeZone.make("UTC"),
 			});
 
-			yield* updateUserSettingsPreferences(client, { language: "es", disableIntegrations: true });
+			yield* updateUserSettingsPreferences(client, {
+				language: "es",
+				ratingScale: "five",
+				disableIntegrations: true,
+			});
 
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: "es",
+				ratingScale: "five",
 				disableIntegrations: true,
 				reportingTimeZone: TimeZone.make("UTC"),
 			});
@@ -80,6 +86,7 @@ describe("user settings", () => {
 			const defaultPreferences = {
 				language: null,
 				disableIntegrations: false,
+				ratingScale: "hundred" as const,
 				reportingTimeZone: TimeZone.make("UTC"),
 			};
 			expect((yield* getUserSettings(other.client)).preferences).toEqual(defaultPreferences);
@@ -90,6 +97,7 @@ describe("user settings", () => {
 			yield* updateUserSettingsPreferences(owner.client, { language: "fr" });
 			expect((yield* getUserSettings(owner.client)).preferences).toEqual({
 				language: "fr",
+				ratingScale: "hundred",
 				disableIntegrations: false,
 				reportingTimeZone: TimeZone.make("Asia/Kolkata"),
 			});
@@ -141,6 +149,7 @@ describe("user settings", () => {
 			yield* updateUserSettingsPreferences(client, { language: null });
 			expect((yield* getUserSettings(client)).preferences).toEqual({
 				language: null,
+				ratingScale: "hundred",
 				disableIntegrations: true,
 				reportingTimeZone: TimeZone.make("UTC"),
 			});
@@ -153,6 +162,7 @@ describe("user settings", () => {
 				{ language: ["fr"] },
 				{ language: { value: "fr" } },
 				{ disableIntegrations: "true" },
+				{ ratingScale: "stars" },
 				{ unknownField: true },
 			]) {
 				const response = yield* webRequest(`${apiUrl}/account/preferences`, {

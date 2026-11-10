@@ -43,7 +43,7 @@ export const BrowseValueField = Schema.Union([
 	}),
 	strictStruct({
 		...browseValueFieldBase,
-		type: Schema.Literals(["text", "text-list", "number", "date", "boolean"]),
+		type: Schema.Literals(["text", "text-list", "number", "rating", "date", "boolean"]),
 	}),
 ]);
 export type BrowseValueField = typeof BrowseValueField.Type;

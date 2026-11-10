@@ -42,7 +42,12 @@ const user: CurrentUserValue = {
 	name: "User",
 	email: "user@example.test",
 	id: ingestionTestScope.userId,
-	preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+	preferences: {
+		language: null,
+		reportingTimeZone: UTC,
+		ratingScale: "hundred",
+		disableIntegrations: false,
+	},
 };
 const source: RegisteredImportSource = {
 	slug: "fixture",

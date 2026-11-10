@@ -453,15 +453,20 @@ const provenanceRecords = (
 	integrations: [],
 	installations: [],
 	privatePlugins: [],
-	profile: {
-		image: null,
-		name: "User",
-		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-	},
 	calendarSourceOverrides:
 		input.calendarSourceKey === undefined
 			? []
 			: [{ isHidden: true, slug: "owner-dates", pluginKey: input.calendarSourceKey }],
+	profile: {
+		image: null,
+		name: "User",
+		preferences: {
+			language: null,
+			reportingTimeZone: UTC,
+			ratingScale: "hundred",
+			disableIntegrations: false,
+		},
+	},
 	notificationSubscriptions: [
 		{
 			metadata: null,
@@ -1057,7 +1062,12 @@ const restoreArchivedEvents = (
 			profile: {
 				image: null,
 				name: "User",
-				preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+				preferences: {
+					language: null,
+					reportingTimeZone: UTC,
+					ratingScale: "hundred",
+					disableIntegrations: false,
+				},
 			},
 			entities: [
 				{
@@ -1448,6 +1458,7 @@ describe("account backup restore in PostgreSQL", () => {
 										preferences: {
 											language: null,
 											reportingTimeZone: UTC,
+											ratingScale: "hundred",
 											disableIntegrations: false,
 										},
 									}),
@@ -1609,11 +1620,6 @@ describe("account backup restore in PostgreSQL", () => {
 						privatePlugins: [],
 						entityDependencies: [],
 						calendarSourceOverrides: [],
-						profile: {
-							image: null,
-							name: "Restored",
-							preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
-						},
 						notificationSubscriptions: [
 							{
 								metadata: null,
@@ -1622,6 +1628,16 @@ describe("account backup restore in PostgreSQL", () => {
 								signalSchemaSlug: "portable.signal",
 							},
 						],
+						profile: {
+							image: null,
+							name: "Restored",
+							preferences: {
+								language: null,
+								reportingTimeZone: UTC,
+								ratingScale: "hundred",
+								disableIntegrations: false,
+							},
+						},
 						relationships: [
 							{
 								scope: "user",
@@ -2725,7 +2741,12 @@ const assetRecords = (overrides: Partial<ArchiveRecords>): ArchiveRecords => ({
 	profile: {
 		image: null,
 		name: "User",
-		preferences: { language: null, reportingTimeZone: UTC, disableIntegrations: false },
+		preferences: {
+			language: null,
+			reportingTimeZone: UTC,
+			ratingScale: "hundred",
+			disableIntegrations: false,
+		},
 	},
 	...overrides,
 });

@@ -1,3 +1,4 @@
+import type { RatingScale } from "@ryot-app/contract/modules/events/rating-scale";
 import { EventNotFound, EventStale } from "@ryot-app/contract/modules/events/schemas";
 import type { EntityId } from "@ryot-app/contract/schema/brands";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
@@ -22,6 +23,7 @@ const failureMessage = (error: unknown) => {
 };
 
 export function CollectionReviewEditor(props: {
+	readonly scale: RatingScale;
 	readonly onClose: () => void;
 	readonly onSaved: () => void;
 	readonly collectionId: EntityId;
@@ -32,6 +34,7 @@ export function CollectionReviewEditor(props: {
 	const initial = props.initial;
 	return (
 		<ReviewComposer
+			scale={props.scale}
 			onClose={props.onClose}
 			initial={initial?.properties}
 			isSending={mutation.isPending}

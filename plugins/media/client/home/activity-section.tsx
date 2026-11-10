@@ -3,9 +3,9 @@ import { localDateOf, PluginLink, type TimeZone } from "@ryot-app/plugin-client-
 import {
 	createRyotQuery,
 	type RyotQueryResult,
-	useReportingPreferences,
 	useRyotQuery,
 	useRyotSchedule,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import { countUnit, StatStrip, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { CalendarHeatmap, RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
@@ -121,7 +121,7 @@ const sectionStatus = (
 };
 
 export function ActivitySection(props: { readonly compact: boolean }) {
-	const preferences = useReportingPreferences();
+	const preferences = useUserPreferences();
 	if (preferences.data === undefined) {
 		return (
 			<MediaSectionFrame

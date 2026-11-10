@@ -26,6 +26,7 @@ import {
 	type PluginLogicalLocation,
 	type PluginRouteLocation,
 	type PluginRyotQLOutcome,
+	type PluginUserPreferences,
 } from "@ryot-app/plugin-client-contract";
 import * as Clock from "effect/Clock";
 import { SecureRandom } from "effect/crypto";
@@ -314,6 +315,8 @@ export const mountPluginPage = (
 	options: {
 		readonly page?: undefined | ClientPageContext;
 		readonly location?: undefined | PluginLogicalLocation;
+		/** Answers every user-preferences request with these preferences. */
+		readonly userPreferences?: undefined | PluginUserPreferences;
 		readonly bootstrap?: undefined | ReturnType<typeof createClientBootstrap>;
 		readonly analyticsSections?: undefined | readonly AnalyticsSectionRegistration[];
 		readonly entityPresentations?: undefined | readonly EntityPresentationRegistration[];
@@ -341,6 +344,17 @@ export const mountPluginPage = (
 		messages.push(data);
 		const decoded = decodeClientMessage(data);
 		if (Result.isSuccess(decoded)) {
+			if (
+				decoded.success.type === "user-preferences-request" &&
+				options.userPreferences !== undefined
+			) {
+				channel.port1.postMessage({
+					outcome: "success",
+					type: "user-preferences-result",
+					requestId: decoded.success.requestId,
+					preferences: options.userPreferences,
+				} satisfies PluginBridgeHostMessage);
+			}
 			options.onClientMessage?.(decoded.success);
 		}
 	});

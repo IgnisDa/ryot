@@ -4,7 +4,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import { usePageRefreshRequest, useReportingPreferences } from "@ryot-app/plugin-client-sdk/react";
+import { usePageRefreshRequest, useUserPreferences } from "@ryot-app/plugin-client-sdk/react";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import {
 	createTestRyotClock,
@@ -53,7 +53,7 @@ const activityResponse = (input: { readonly finished?: number; readonly activeDa
 });
 
 function ActivityTestHarness() {
-	const preferences = useReportingPreferences();
+	const preferences = useUserPreferences();
 	const refresh = usePageRefreshRequest();
 	return (
 		<>
@@ -87,7 +87,7 @@ const mountActivity = (clock: ReturnType<typeof createTestRyotClock>) =>
 	});
 
 const reportingPreferenceRequests = (page: ActivityPage) =>
-	page.clientMessages().filter((message) => message.type === "reporting-preferences-request");
+	page.clientMessages().filter((message) => message.type === "user-preferences-request");
 
 const activityRequests = (page: ActivityPage) =>
 	page
@@ -108,7 +108,7 @@ const waitForRequest = <Request,>(requests: () => readonly Request[], index: num
 		return request;
 	});
 
-const replyReportingPreferences = (
+const replyUserPreferences = (
 	page: ActivityPage,
 	requestId: string,
 	outcome: "failure" | "success",
@@ -116,8 +116,13 @@ const replyReportingPreferences = (
 ) =>
 	page.send(
 		outcome === "success"
-			? { outcome, requestId, preferences: { timeZone }, type: "reporting-preferences-result" }
-			: { outcome, requestId, reason: "transport", type: "reporting-preferences-result" },
+			? {
+					outcome,
+					requestId,
+					type: "user-preferences-result",
+					preferences: { timeZone, ratingScale: "hundred" },
+				}
+			: { outcome, requestId, reason: "transport", type: "user-preferences-result" },
 	);
 
 const replyActivity = (
@@ -238,7 +243,7 @@ describe("ActivitySection reporting window", () => {
 					const preference = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 0),
 					);
-					replyReportingPreferences(page, preference.requestId, "success");
+					replyUserPreferences(page, preference.requestId, "success");
 					const request = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 0),
 					);
@@ -295,7 +300,7 @@ describe("ActivitySection reporting window", () => {
 					const preference = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 0),
 					);
-					replyReportingPreferences(page, preference.requestId, "success");
+					replyUserPreferences(page, preference.requestId, "success");
 					const first = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 0),
 					);
@@ -358,7 +363,7 @@ describe("ActivitySection reporting window", () => {
 						const preference = yield* Effect.promise(() =>
 							waitForRequest(() => reportingPreferenceRequests(page), 0),
 						);
-						replyReportingPreferences(page, preference.requestId, "success");
+						replyUserPreferences(page, preference.requestId, "success");
 						const first = yield* Effect.promise(() =>
 							waitForRequest(() => activityRequests(page), 0),
 						);
@@ -406,7 +411,7 @@ describe("ActivitySection reporting window", () => {
 						waitForRequest(() => reportingPreferenceRequests(page), 0),
 					);
 					expect(screen.getByRole("status", { name: "Loading Your activity" })).toBeDefined();
-					replyReportingPreferences(page, firstPreference.requestId, "failure");
+					replyUserPreferences(page, firstPreference.requestId, "failure");
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByRole("alert").textContent).toContain("Unable to load"),
@@ -417,7 +422,7 @@ describe("ActivitySection reporting window", () => {
 					const preferenceRetry = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 1),
 					);
-					replyReportingPreferences(page, preferenceRetry.requestId, "success");
+					replyUserPreferences(page, preferenceRetry.requestId, "success");
 					const firstActivity = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 0),
 					);
@@ -432,7 +437,7 @@ describe("ActivitySection reporting window", () => {
 					const preferenceRefresh = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 2),
 					);
-					replyReportingPreferences(page, preferenceRefresh.requestId, "failure");
+					replyUserPreferences(page, preferenceRefresh.requestId, "failure");
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(screen.getByText(/last loaded time zone is being used/)).toBeDefined(),
@@ -443,7 +448,7 @@ describe("ActivitySection reporting window", () => {
 					const retainedPreferenceRetry = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 3),
 					);
-					replyReportingPreferences(page, retainedPreferenceRetry.requestId, "success");
+					replyUserPreferences(page, retainedPreferenceRetry.requestId, "success");
 
 					clickRyotElement(screen.getByRole("button", { name: "Refresh activity" }));
 					yield* Effect.promise(() => clock.advance(250));
@@ -501,7 +506,7 @@ describe("ActivitySection reporting window", () => {
 					const preference = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 0),
 					);
-					replyReportingPreferences(page, preference.requestId, "success", TimeZone.make("UTC"));
+					replyUserPreferences(page, preference.requestId, "success", TimeZone.make("UTC"));
 					const oldZoneRequest = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 0),
 					);
@@ -510,7 +515,7 @@ describe("ActivitySection reporting window", () => {
 					const changedPreference = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 1),
 					);
-					replyReportingPreferences(page, changedPreference.requestId, "success", TIME_ZONE);
+					replyUserPreferences(page, changedPreference.requestId, "success", TIME_ZONE);
 					const newZoneRequest = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 1),
 					);
@@ -551,7 +556,7 @@ describe("ActivitySection reporting window", () => {
 					const preference = yield* Effect.promise(() =>
 						waitForRequest(() => reportingPreferenceRequests(page), 0),
 					);
-					replyReportingPreferences(page, preference.requestId, "success");
+					replyUserPreferences(page, preference.requestId, "success");
 					const request = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 0),
 					);

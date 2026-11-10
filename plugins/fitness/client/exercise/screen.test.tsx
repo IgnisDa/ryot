@@ -45,6 +45,7 @@ const renderDetails = (details: ReturnType<typeof exerciseDetails>, storedDraft:
 			<ExerciseDetailsView
 				compact={false}
 				details={details}
+				ratingScale="five"
 				onChanged={() => undefined}
 				timeZone={TimeZone.make("UTC")}
 				now={new Date("2026-10-12T00:00:00.000Z")}
@@ -231,7 +232,7 @@ describe("exercise details view", () => {
 				expect(container?.querySelector('[data-set-lot="failure"]')?.textContent).not.toContain(
 					"80",
 				);
-				expect(container?.querySelector('[aria-label="Rated 4 of 5"]')).not.toBeNull();
+				expect(screen.getByRole("img", { name: "4.0 out of 5 stars" })).toBeTruthy();
 				expect(container?.querySelector("p.whitespace-pre-wrap")?.textContent).toBe(
 					"Keep elbows tucked.\nBreathe out.",
 				);
@@ -599,6 +600,7 @@ const mountCustomExercise = () => {
 			<ExerciseDetailsView
 				compact={false}
 				exercise={exercise}
+				ratingScale="hundred"
 				onChanged={() => undefined}
 				timeZone={TimeZone.make("UTC")}
 				details={exerciseDetails({ exercise })}
