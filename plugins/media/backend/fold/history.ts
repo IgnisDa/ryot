@@ -304,7 +304,11 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		const full =
 			(source.properties["progressPercent"] === 100 ||
 				(total > 0 && positive(source.properties["progressPages"]) >= total) ||
-				(position._tag === "Some" && total > 0 && position.value.position >= total)) &&
+				(position._tag === "Some" &&
+					basis._tag === "Some" &&
+					basis.value.unit === position.value.unit &&
+					total > 0 &&
+					position.value.position >= total)) &&
 			!blocked &&
 			!sameTime;
 		if (!full) {

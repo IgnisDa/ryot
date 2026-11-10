@@ -139,6 +139,11 @@ const adaptLot = (
 			) {
 				throw new Error(`${doneTag} is invalid`);
 			}
+			const volumesText = input.lot === "manga" ? text(item, "my_read_volumes") : "";
+			const volumes = volumesText === "" ? 0 : Number(volumesText);
+			if (!Number.isSafeInteger(volumes) || volumes < 0) {
+				throw new Error("my_read_volumes is invalid");
+			}
 			const score = Number.parseInt(text(item, "my_score"), 10);
 			if (!Number.isInteger(score) || score < 0) {
 				throw new Error("my_score is invalid");
@@ -167,13 +172,16 @@ const adaptLot = (
 				},
 				index,
 			);
-			if (done > 0) {
+			if (done > 0 || volumes > 0) {
 				group.events.push({
 					occurredAt,
 					eventSchemaSlug: "progress",
 					properties: {
 						dateUnknown: true,
-						position: { position: done, unit: input.lot === "anime" ? "episodes" : "chapters" },
+						position:
+							done > 0
+								? { position: done, unit: input.lot === "anime" ? "episodes" : "chapters" }
+								: { unit: "volumes", position: volumes },
 					},
 				});
 			}

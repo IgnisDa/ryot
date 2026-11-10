@@ -162,17 +162,20 @@ export const adaptAnilistExport = (jsonText: string, timezone: string, importedA
 					},
 					itemIndex,
 				);
-				if (item.progress > 0) {
+				if (item.progress > 0 || volumeProgress > 0) {
 					group.events.push({
 						occurredAt,
 						eventSchemaSlug: "progress",
 						properties: {
 							dateUnknown: true,
-							position: {
-								position: item.progress,
-								unit: target.positionUnit,
-								...(volumeProgress > 0 ? { volume: volumeProgress } : {}),
-							},
+							position:
+								item.progress > 0
+									? {
+											position: item.progress,
+											unit: target.positionUnit,
+											...(volumeProgress > 0 ? { volume: volumeProgress } : {}),
+										}
+									: { unit: "volumes", position: volumeProgress },
 						},
 					});
 				}

@@ -1,7 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { CalendarDate } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumptionBasis, MediaPosition, SourceProgress } from "./consumption";
+import { ConsumptionBasis, MediaPosition, MediaPositionUnit, SourceProgress } from "./consumption";
 
 const Nonnegative = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -54,7 +54,11 @@ const UnitAnchors = Schema.Struct({
 	chapters: RecordedAnchor,
 });
 
-export const ConsumptionRunPlan = Schema.Struct({ count: Schema.Int, anchors: UnitAnchors });
+export const ConsumptionRunPlan = Schema.Struct({
+	count: Schema.Int,
+	anchors: UnitAnchors,
+	positionBasis: Schema.NullOr(ConsumptionBasis),
+});
 export type ConsumptionRunPlan = typeof ConsumptionRunPlan.Type;
 
 const UnitAllocation = Schema.Struct({ recorded: Nonnegative, fraction: Nonnegative });
@@ -96,6 +100,7 @@ export type ConsumptionAllocation = typeof ConsumptionAllocation.Type;
 
 export const emptyConsumptionRunPlan = (): ConsumptionRunPlan => ({
 	count: 0,
+	positionBasis: null,
 	anchors: {
 		pages: { amount: 0, index: -1 },
 		minutes: { amount: 0, index: -1 },
@@ -119,6 +124,9 @@ export const emptyConsumptionAllocationState = (): ConsumptionAllocationState =>
 const isParent = (observation: ConsumptionObservation) =>
 	observation.entitySchemaSlug === "show" || observation.entitySchemaSlug === "podcast";
 
+const cumulativePosition = (observation: ConsumptionObservation) =>
+	observation.eventSchemaSlug === "item-complete" ? undefined : observation.properties.position;
+
 const recordedAmount = (observation: ConsumptionObservation, unit: ConsumptionMeasureUnit) => {
 	if (observation.automatic !== undefined || isParent(observation)) {
 		return undefined;
@@ -129,8 +137,7 @@ const recordedAmount = (observation: ConsumptionObservation, unit: ConsumptionMe
 	if (unit === "pages") {
 		return observation.properties.progressPages;
 	}
-	const position =
-		observation.eventSchemaSlug === "item-complete" ? undefined : observation.properties.position;
+	const position = cumulativePosition(observation);
 	return position?.unit === unit ? position.position : undefined;
 };
 
@@ -145,14 +152,31 @@ export const planConsumptionObservation = (
 			anchors[unit] = { amount, index: plan.count };
 		}
 	}
-	return { anchors, count: plan.count + 1 };
+	return {
+		anchors,
+		count: plan.count + 1,
+		positionBasis:
+			plan.positionBasis ??
+			(cumulativePosition(observation) === undefined
+				? null
+				: observation.properties.consumptionBasis),
+	};
 };
 
-const observationFraction = (observation: ConsumptionObservation, unit: ConsumptionMeasureUnit) => {
-	if (
-		observation.automatic !== undefined ||
-		unit !== observation.properties.consumptionBasis.unit
-	) {
+/** Observations without a position, such as a closing completion, follow the run's position unit. */
+const runBasis = (plan: ConsumptionRunPlan, observation: ConsumptionObservation) =>
+	cumulativePosition(observation) === undefined &&
+	plan.positionBasis !== null &&
+	plan.positionBasis.unit !== observation.properties.consumptionBasis.unit
+		? plan.positionBasis
+		: observation.properties.consumptionBasis;
+
+const observationFraction = (
+	observation: ConsumptionObservation,
+	basis: ConsumptionBasis,
+	unit: ConsumptionMeasureUnit,
+) => {
+	if (observation.automatic !== undefined || unit !== basis.unit) {
 		return undefined;
 	}
 	if (observation.eventSchemaSlug === "complete") {
@@ -165,7 +189,7 @@ const observationFraction = (observation: ConsumptionObservation, unit: Consumpt
 		return undefined;
 	}
 	const amount = recordedAmount(observation, unit);
-	const total = observation.properties.consumptionBasis.total;
+	const total = basis.total;
 	return amount === undefined || total === undefined || total === 0 ? undefined : amount / total;
 };
 
@@ -192,9 +216,10 @@ export const allocateConsumptionObservation = (
 		throw new Error("Item occurrence is missing its identity");
 	}
 	let activeObservation = item !== undefined;
+	const basis = runBasis(plan, observation);
 	if (!isParent(observation) && observation.automatic === undefined) {
 		for (const unit of consumptionMeasureUnits) {
-			const primary = unit === observation.properties.consumptionBasis.unit;
+			const primary = unit === basis.unit;
 			if (item !== undefined && unit !== "minutes") {
 				continue;
 			}
@@ -204,7 +229,7 @@ export const allocateConsumptionObservation = (
 			}
 			const previous = state.units[unit];
 			const amount = recordedAmount(observation, unit);
-			const fraction = observationFraction(observation, unit);
+			const fraction = observationFraction(observation, basis, unit);
 			const recorded = amount === undefined ? 0 : Math.max(0, amount - previous.recorded);
 			const measured = amount !== undefined;
 			if (!measured && fraction === undefined) {
@@ -219,7 +244,7 @@ export const allocateConsumptionObservation = (
 			let estimated = 0;
 			let missing = false;
 			if (!measured && primary && increased && !supersededEstimate) {
-				const total = observation.properties.consumptionBasis.total;
+				const total = basis.total;
 				if ((unit === "minutes" && anchor.index >= 0) || total === undefined) {
 					missing = true;
 				} else {
@@ -263,6 +288,7 @@ export const allocateConsumptionObservation = (
 export const ConsumptionRunCursor = Schema.Struct({
 	runKey: Schema.NullOr(Schema.String),
 	closedBy: Schema.NullOr(Schema.String),
+	unit: Schema.NullOr(MediaPositionUnit),
 });
 export type ConsumptionRunCursor = typeof ConsumptionRunCursor.Type;
 
@@ -285,14 +311,19 @@ export const consumptionRunForObservation = (
 		}
 		return { cursor, runKey: cursor.runKey };
 	}
-	const runKey =
-		cursor.runKey === null || cursor.closedBy !== null
-			? JSON.stringify([observation.entityId, "event", observation.id])
-			: cursor.runKey;
+	const unit = cumulativePosition(observation)?.unit;
+	const fresh =
+		cursor.runKey === null ||
+		cursor.closedBy !== null ||
+		(unit !== undefined && cursor.unit !== null && cursor.unit !== unit);
+	const runKey = fresh
+		? JSON.stringify([observation.entityId, "event", observation.id])
+		: cursor.runKey;
 	return {
 		runKey,
 		cursor: {
 			runKey,
+			unit: unit ?? (fresh ? null : cursor.unit),
 			closedBy:
 				observation.closesRun || observation.eventSchemaSlug === "complete" ? observation.id : null,
 		},

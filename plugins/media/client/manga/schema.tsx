@@ -50,10 +50,9 @@ export const mangaSchema = defineFlatMediaSchema({
 		family: "positional",
 		itemContextLabel: "Volume context",
 		copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
-		progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
-		itemUnits: [
-			{ label: "Chapter", value: "chapters" },
-			{ label: "Volume", value: "volumes" },
+		units: [
+			{ label: "Chapter", value: "chapters", plural: "chapters", singular: "chapter" },
+			{ label: "Volume", value: "volumes", plural: "volumes", singular: "volume" },
 		],
 	},
 });

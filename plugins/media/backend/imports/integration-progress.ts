@@ -33,11 +33,14 @@ const toFiniteNumber = (value: unknown) => {
 	return typeof parsed === "number" && Number.isFinite(parsed) ? parsed : null;
 };
 
+/** A comparable key for a positional observation, so equal numbers in different units differ. */
 const progressPosition = (entitySchemaSlug: string, properties: Properties) => {
 	const position = properties["position"];
 	const value =
 		isPositional(entitySchemaSlug) && position !== undefined ? jsonObject(position) : null;
-	return value === null ? null : parseProgressPercent(value["position"]);
+	const number = value === null ? null : parseProgressPercent(value["position"]);
+	const unit = value?.["unit"];
+	return typeof unit !== "string" || number === null ? null : `${unit}:${number}`;
 };
 
 const consumedOnValue = (properties: Properties) =>

@@ -35,6 +35,7 @@ const aggregateRows = (consumedOn: readonly string[]) => ({
 const targetRow = (overrides: Record<string, unknown> = {}) => ({
 	pages: null,
 	runtime: null,
+	volumes: null,
 	id: "entity-1",
 	name: "Entity",
 	chapters: null,
@@ -118,19 +119,19 @@ describe("media activity log context recipe", () => {
 		const context = Result.getOrThrow(
 			decodeContext(
 				targetRow({
-					position: 7,
 					schemaSlug: "show",
 					state: "in_progress",
 					progressPercent: 58.33,
 					showNextUp: includeRows([nextUp]),
+					position: { position: 7, unit: "episodes" },
 					seasons: includeRows([{ id: "season-1", seasonNumber: 1, name: "Season 1" }]),
 				}),
 			),
 		);
 		expect(context).toMatchObject({
 			nextUp,
-			position: 7,
 			progressPercent: 58.33,
+			position: { position: 7, unit: "episodes" },
 			seasons: [{ id: "season-1", seasonNumber: 1, name: "Season 1" }],
 		});
 	});

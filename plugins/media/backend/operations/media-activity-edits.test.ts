@@ -386,8 +386,8 @@ describe("media activity update", () => {
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "progress" },
 		},
 		{
-			name: "a volume position on manga progress",
-			patch: { position: { position: 3, unit: "volumes" } },
+			name: "an episode position on manga progress",
+			patch: { position: { position: 3, unit: "episodes" } },
 			event: { entitySchemaSlug: "manga", eventSchemaSlug: "progress" },
 		},
 		{

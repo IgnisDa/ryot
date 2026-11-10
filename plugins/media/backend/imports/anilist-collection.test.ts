@@ -77,17 +77,20 @@ for (const { volumes, chapters } of [
 						.filter((event) => event.eventSchemaSlug === "progress")
 						.map((event) => event.properties),
 				).toEqual(
-					chapters === 0
+					chapters === 0 && volumes === 0
 						? []
 						: [
 								{
 									dateUnknown: true,
 									sourceRun: '[0,"baseline"]',
-									position: {
-										unit: "chapters",
-										position: chapters,
-										...(volumes > 0 ? { volume: volumes } : {}),
-									},
+									position:
+										chapters === 0
+											? { unit: "volumes", position: volumes }
+											: {
+													unit: "chapters",
+													position: chapters,
+													...(volumes > 0 ? { volume: volumes } : {}),
+												},
 								},
 							],
 				);
@@ -97,7 +100,7 @@ for (const { volumes, chapters } of [
 						.filter((event) => event.eventSchemaSlug === "review")
 						.map((event) => event.properties),
 				).toEqual([{ rating: 4 }]);
-				expect(events).toHaveLength(chapters > 0 ? 3 : 2);
+				expect(events).toHaveLength(chapters > 0 || volumes > 0 ? 3 : 2);
 				expect(new Set(events.map((event) => event.operationId)).size).toBe(events.length);
 				expect(records.flatMap((record) => record.group?.collectionMemberships ?? [])).toEqual([
 					{ collectionName: "Reading Club" },

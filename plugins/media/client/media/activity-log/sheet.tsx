@@ -8,12 +8,15 @@ import {
 	useRyotInfiniteQuery,
 	useRyotQuery,
 	useRyotSchedule,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
 	Button,
 	Chip,
+	DateTimeField,
 	Dialog,
+	DurationField,
 	Field,
 	FieldMessage,
 	LoadMoreButton,
@@ -52,8 +55,10 @@ import {
 	activityRuntimeHint,
 	activityStatusNote,
 	activityStatusOptions,
+	type ActivityTimeDraft,
 	activityUnitTotal,
 	type ActivityWhenKind,
+	addActivityTime,
 	BACKFILL_LIMIT,
 	backfillSummary,
 	capitalized,
@@ -67,7 +72,11 @@ import {
 	hasActivityErrors,
 	initialActivityDraft,
 	type MediaActivityLogger,
+	nextActivityPosition,
 	parsePositionNumber,
+	positionLogUnit,
+	removeActivityTime,
+	resolveActivityDateTime,
 	seasonLabel,
 	selectedEpisode,
 } from "./state";
@@ -214,95 +223,6 @@ export function MediaActivityLogSheet(props: {
 	return <ActivityLogDialog {...props} context={result.data} name={result.data.name} />;
 }
 
-export function TimeSpentField(props: {
-	readonly hint: string;
-	readonly label: string;
-	readonly draft: ActivityDraft;
-	readonly error: string | undefined;
-	readonly onChange: (patch: Partial<ActivityDraft>) => void;
-}) {
-	return (
-		<div className="flex flex-col gap-1.5">
-			<span className="text-[13px] font-medium text-text">{props.label}</span>
-			<div className="flex items-center gap-2">
-				<TextField
-					type="text"
-					placeholder="0"
-					className="w-20"
-					aria-label="Hours"
-					inputMode="numeric"
-					value={props.draft.hours}
-					invalid={props.error !== undefined}
-					onChange={(event) => props.onChange({ hours: event.currentTarget.value })}
-				/>
-				<span className="text-text-muted">h</span>
-				<TextField
-					type="text"
-					placeholder="0"
-					className="w-20"
-					inputMode="numeric"
-					aria-label="Minutes"
-					value={props.draft.minutes}
-					invalid={props.error !== undefined}
-					onChange={(event) => props.onChange({ minutes: event.currentTarget.value })}
-				/>
-				<span className="text-text-muted">min</span>
-			</div>
-			{props.error === undefined ? (
-				<p className="text-xs text-text-muted">{props.hint}</p>
-			) : (
-				<FieldMessage>{props.error}</FieldMessage>
-			)}
-		</div>
-	);
-}
-
-export function PositionProgress(props: {
-	readonly draft: ActivityDraft;
-	readonly error: string | undefined;
-	readonly context: MediaActivityLogContext;
-	readonly onChange: (patch: Partial<ActivityDraft>) => void;
-	readonly logger: Extract<MediaActivityLogger, { family: "positional" }>;
-}) {
-	const { draft, logger } = props;
-	const total = activityPositionTotal(logger, props.context);
-	const { plural, singular } = logger.progressUnit;
-	const percent =
-		total === null || draft.position === undefined
-			? undefined
-			: Math.round((draft.position / total) * 100);
-	return (
-		<div className="flex flex-col gap-2">
-			<span className="text-[13px] font-medium text-text">
-				{capitalized(logger.copy.participle)} through {singular}
-			</span>
-			<div className="flex items-center gap-3">
-				<Stepper
-					min={1}
-					step={1}
-					className="w-44"
-					value={draft.position}
-					invalid={props.error !== undefined}
-					incrementIcon={<AppIcon size={16} name="plus" />}
-					decrementIcon={<AppIcon size={16} name="minus" />}
-					onChange={(position) => props.onChange({ position })}
-					label={`${capitalized(logger.copy.participle)} through ${singular}`}
-					parse={(text) => parsePositionNumber(logger.progressUnit.field, text)}
-				/>
-				{total === null ? null : <span className="text-text-muted">of {total}</span>}
-			</div>
-			{props.error === undefined ? (
-				<p className="text-xs text-text-muted">
-					{percent === undefined ? "" : `${percent}% of the ${logger.copy.noun} · `}earlier {plural}{" "}
-					count as {logger.copy.participle}
-				</p>
-			) : (
-				<FieldMessage>{props.error}</FieldMessage>
-			)}
-		</div>
-	);
-}
-
 export function ActivitySeasonSelector(props: {
 	readonly entityId: string;
 	readonly seasonNumber: number | undefined;
@@ -365,70 +285,63 @@ export function ActivitySeasonSelector(props: {
 	);
 }
 
-export function WhenField(props: {
-	readonly today: string;
+export function PositionProgress(props: {
 	readonly draft: ActivityDraft;
 	readonly error: string | undefined;
-	readonly logger: MediaActivityLogger;
-	readonly kinds?: readonly ActivityWhenKind[];
+	readonly context: MediaActivityLogContext;
 	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+	readonly logger: Extract<MediaActivityLogger, { family: "positional" }>;
 }) {
-	const { draft, logger } = props;
-	const episode = draft.intent === "episode";
-	let whenLabel = "When did you finish it?";
-	if (episode) {
-		whenLabel = `When did you ${logger.copy.verb} it?`;
-	}
-	if (draft.intent === "progress") {
-		whenLabel = "When did you reach this progress?";
-	}
+	const { draft, logger, context } = props;
+	const unit = positionLogUnit(logger, draft.positionUnit);
+	const total = activityPositionTotal(context, unit.value);
+	const label = `${capitalized(logger.copy.participle)} through ${unit.singular}`;
+	const percent =
+		total === null || draft.position === undefined
+			? undefined
+			: Math.round((draft.position / total) * 100);
 	return (
 		<div className="flex flex-col gap-2">
-			<span className="text-[13px] font-medium text-text">{whenLabel}</span>
-			<SegmentedControl
-				fill
-				label="When"
-				value={draft.when}
-				optionClassName="px-3"
-				onChange={(when) => props.onChange({ when })}
-				options={whenOptions(episode).filter(
-					(option) => props.kinds === undefined || props.kinds.includes(option.value),
-				)}
-			/>
-			{draft.when === "date" ? (
-				<div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
-					{episode ? null : (
-						<Field optional label="Started">
-							{(control) => (
-								<TextField
-									{...control}
-									type="date"
-									max={props.today}
-									value={draft.startedDay}
-									onChange={(event) => props.onChange({ startedDay: event.currentTarget.value })}
-								/>
-							)}
-						</Field>
-					)}
-					<Field label={episode ? `${capitalized(logger.copy.participle)} on` : "Finished"}>
-						{(control) => (
-							<TextField
-								{...control}
-								type="date"
-								max={props.today}
-								value={draft.finishedDay}
-								onChange={(event) => props.onChange({ finishedDay: event.currentTarget.value })}
-							/>
-						)}
-					</Field>
-				</div>
+			<span className="text-[13px] font-medium text-text">{label}</span>
+			{logger.units.length > 1 ? (
+				<SegmentedControl
+					label="Unit"
+					value={unit.value}
+					optionClassName="px-3"
+					onChange={(positionUnit) =>
+						props.onChange({ positionUnit, position: nextActivityPosition(context, positionUnit) })
+					}
+					options={logger.units.map((option) => ({
+						value: option.value,
+						label: option.label,
+						content: option.label,
+					}))}
+				/>
 			) : null}
-			{props.error === undefined ? null : <FieldMessage>{props.error}</FieldMessage>}
-			{draft.when === "unknown" ? (
-				<p className="text-text-muted">
-					Recorded with no date. It counts toward your totals but stays off the activity calendar.
+			<div className="flex items-center gap-3">
+				<Stepper
+					min={1}
+					step={1}
+					label={label}
+					className="w-44"
+					value={draft.position}
+					invalid={props.error !== undefined}
+					incrementIcon={<AppIcon size={16} name="plus" />}
+					decrementIcon={<AppIcon size={16} name="minus" />}
+					onChange={(position) => props.onChange({ position })}
+					parse={(text) => parsePositionNumber(unit.value, text)}
+					inputMode={unit.value === "episodes" ? "numeric" : "decimal"}
+				/>
+				{total === null ? null : <span className="text-text-muted">of {total}</span>}
+			</div>
+			{props.error === undefined ? (
+				<p className="text-xs text-text-muted">
+					{percent === undefined ? "" : `${percent}% of the ${logger.copy.noun} · `}earlier{" "}
+					{unit.plural} count as {logger.copy.participle}
 				</p>
-			) : null}
+			) : (
+				<FieldMessage>{props.error}</FieldMessage>
+			)}
 		</div>
 	);
 }
@@ -509,6 +422,126 @@ export function FlatProgress(props: {
 			<Button variant="link" onClick={() => props.onChange({ progressMode: "started" })}>
 				Just started? Skip the amount
 			</Button>
+		</div>
+	);
+}
+
+export function WhenField(props: {
+	readonly today: string;
+	readonly draft: ActivityDraft;
+	readonly error: string | undefined;
+	readonly logger: MediaActivityLogger;
+	readonly kinds?: readonly ActivityWhenKind[];
+	readonly onChange: (patch: Partial<ActivityDraft>) => void;
+}) {
+	const { draft, logger } = props;
+	const schedule = useRyotSchedule();
+	const timeZone = useUserPreferences().data?.timeZone;
+	const episode = draft.intent === "episode";
+	const { time } = draft;
+	let whenLabel = "When did you finish it?";
+	if (episode) {
+		whenLabel = `When did you ${logger.copy.verb} it?`;
+	}
+	if (draft.intent === "progress") {
+		whenLabel = "When did you reach this progress?";
+	}
+	const finishedLabel = episode ? `${capitalized(logger.copy.participle)} on` : "Finished";
+	const icons = {
+		checkIcon: <AppIcon size={16} name="check" />,
+		chevronIcon: <AppIcon size={16} name="chevron-down" />,
+	};
+	const dateTimeField = (
+		key: "started" | "finished",
+		label: string,
+		current: ActivityTimeDraft,
+		optional: boolean,
+	) => (
+		<DateTimeField
+			{...icons}
+			label={label}
+			showError={false}
+			optional={optional}
+			value={current[key].value}
+			resolution={resolveActivityDateTime(current[key], current.timeZone)}
+			onOccurrenceChange={(occurrence) =>
+				props.onChange({ time: { ...current, [key]: { ...current[key], occurrence } } })
+			}
+			onChange={(value) =>
+				props.onChange({
+					time: { ...current, [key]: { ...current[key], value, occurrence: undefined } },
+				})
+			}
+		/>
+	);
+	return (
+		<div className="flex flex-col gap-2">
+			<span className="text-[13px] font-medium text-text">{whenLabel}</span>
+			<SegmentedControl
+				fill
+				label="When"
+				value={draft.when}
+				optionClassName="px-3"
+				onChange={(when) => props.onChange({ when })}
+				options={whenOptions(episode).filter(
+					(option) => props.kinds === undefined || props.kinds.includes(option.value),
+				)}
+			/>
+			{draft.when === "date" && time !== null ? (
+				<div className="grid gap-3">
+					{episode ? null : dateTimeField("started", "Started", time, true)}
+					{dateTimeField("finished", finishedLabel, time, false)}
+				</div>
+			) : null}
+			{draft.when === "date" && time === null ? (
+				<div className="grid grid-cols-[repeat(2,minmax(0,1fr))] gap-3">
+					{episode ? null : (
+						<Field optional label="Started">
+							{(control) => (
+								<TextField
+									{...control}
+									type="date"
+									max={props.today}
+									value={draft.startedDay}
+									onChange={(event) => props.onChange({ startedDay: event.currentTarget.value })}
+								/>
+							)}
+						</Field>
+					)}
+					<Field label={finishedLabel}>
+						{(control) => (
+							<TextField
+								{...control}
+								type="date"
+								max={props.today}
+								value={draft.finishedDay}
+								onChange={(event) => props.onChange({ finishedDay: event.currentTarget.value })}
+							/>
+						)}
+					</Field>
+				</div>
+			) : null}
+			{draft.when === "date" && (time !== null || timeZone !== undefined) ? (
+				<Button
+					variant="link"
+					className="self-start"
+					onClick={() =>
+						props.onChange(
+							time !== null || timeZone === undefined
+								? removeActivityTime(draft)
+								: addActivityTime(draft, schedule.now(), timeZone),
+						)
+					}
+				>
+					{time === null ? "Add time" : "Remove time"}
+				</Button>
+			) : null}
+			{props.error === undefined ? null : <FieldMessage>{props.error}</FieldMessage>}
+			{draft.when === "unknown" ? (
+				<p className="text-text-muted">
+					Recorded with no date. It counts toward your totals but stays off the activity calendar.
+				</p>
+			) : null}
 		</div>
 	);
 }
@@ -899,8 +932,8 @@ function ActivityLogFields(props: Body) {
 				/>
 			) : null}
 			{finished && timePrimary ? (
-				<TimeSpentField
-					draft={draft}
+				<DurationField
+					value={draft}
 					error={errors.time}
 					label="Time played"
 					onChange={props.onChange}
@@ -908,8 +941,8 @@ function ActivityLogFields(props: Body) {
 				/>
 			) : null}
 			{draft.intent === "progress" ? (
-				<TimeSpentField
-					draft={draft}
+				<DurationField
+					value={draft}
 					error={errors.time}
 					onChange={props.onChange}
 					label="Cumulative time spent"
@@ -936,8 +969,8 @@ function ActivityLogFields(props: Body) {
 						{details ? "Hide details" : "More details"}
 					</Button>
 					{details ? (
-						<TimeSpentField
-							draft={draft}
+						<DurationField
+							value={draft}
 							label="Time spent"
 							error={errors.time}
 							onChange={props.onChange}

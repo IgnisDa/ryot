@@ -244,7 +244,7 @@ describe("adaptAnilistExport", () => {
 	);
 
 	it.effect(
-		"writes no chapter progress for volume-only manga progress",
+		"writes volume progress for volume-only manga progress",
 		() =>
 			Effect.gen(function* () {
 				const exportJson = yield* encodeJson({
@@ -271,7 +271,6 @@ describe("adaptAnilistExport", () => {
 				expect(result.failures).toEqual([]);
 				expect(result.entityGroups).toEqual([
 					{
-						events: [],
 						itemIndex: 0,
 						collectionMemberships: [],
 						entityRef: {
@@ -281,6 +280,13 @@ describe("adaptAnilistExport", () => {
 							entitySchemaSlug: "manga",
 							providerSlug: "manga.anilist",
 						},
+						events: [
+							{
+								eventSchemaSlug: "progress",
+								occurredAt: "2026-01-03T09:00:00.000Z",
+								properties: { dateUnknown: true, position: { position: 3, unit: "volumes" } },
+							},
+						],
 					},
 				]);
 			}),

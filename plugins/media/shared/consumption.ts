@@ -2,7 +2,13 @@ import { Schema } from "@ryot-app/plugin-kit/effect";
 
 import { isPositional } from "./media-schema-slugs";
 
-export const ConsumptionUnit = Schema.Literals(["minutes", "pages", "episodes", "chapters"]);
+export const ConsumptionUnit = Schema.Literals([
+	"minutes",
+	"pages",
+	"episodes",
+	"chapters",
+	"volumes",
+]);
 export type ConsumptionUnit = typeof ConsumptionUnit.Type;
 
 export const ConsumptionBasisProperty = Schema.Literals([
@@ -12,6 +18,7 @@ export const ConsumptionBasisProperty = Schema.Literals([
 	"pages",
 	"episodes",
 	"chapters",
+	"volumes",
 ]);
 
 export const ConsumptionBasis = Schema.Struct({
@@ -41,30 +48,18 @@ export const SourceProgress = Schema.Struct({
 	percent: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0), Schema.isLessThanOrEqualTo(100)),
 });
 
-const cumulativePositionEvents = new Set(["dropped", "on_hold", "progress"]);
-
-/** Cumulative Manga positions count chapters; an item, snapshot or review may name a volume. */
 export const mediaPositionUnits = (
 	entitySchemaSlug: "anime" | "manga",
-	eventSchemaSlug: string,
-): readonly MediaPositionUnit[] => {
-	if (entitySchemaSlug === "anime") {
-		return ["episodes"];
-	}
-	return cumulativePositionEvents.has(eventSchemaSlug) ? ["chapters"] : ["chapters", "volumes"];
-};
+): readonly MediaPositionUnit[] =>
+	entitySchemaSlug === "anime" ? ["episodes"] : ["chapters", "volumes"];
 
 export const hasStrayVolume = (position: Pick<MediaPosition, "unit" | "volume">) =>
 	position.volume !== undefined && position.unit !== "chapters";
 
-export const mediaPositionError = (
-	entitySchemaSlug: string,
-	eventSchemaSlug: string,
-	position: MediaPosition,
-) => {
+export const mediaPositionError = (entitySchemaSlug: string, position: MediaPosition) => {
 	if (
 		!isPositional(entitySchemaSlug) ||
-		!mediaPositionUnits(entitySchemaSlug, eventSchemaSlug).includes(position.unit)
+		!mediaPositionUnits(entitySchemaSlug).includes(position.unit)
 	) {
 		return "This media type does not track this position";
 	}
@@ -105,15 +100,23 @@ export const consumptionBasisRules: ReadonlyMap<string, ConsumptionBasisRule> = 
 	["music", { divisor: 60, unit: "minutes", property: "duration" }],
 ]);
 
+const volumeBasisRule: ConsumptionBasisRule = { unit: "volumes", property: "volumes" };
+
+/** A cumulative volume position is a volume run, measured against the title's volume total. */
+export const consumptionBasisRule = (
+	slug: string,
+	positionUnit?: MediaPositionUnit,
+): ConsumptionBasisRule =>
+	slug === "manga" && positionUnit === "volumes"
+		? volumeBasisRule
+		: (consumptionBasisRules.get(slug) ?? defaultConsumptionBasisRule);
+
 export const consumptionBasisFor = (
 	slug: string,
 	properties: Readonly<Record<string, unknown>>,
+	positionUnit?: MediaPositionUnit,
 ): ConsumptionBasis => {
-	const {
-		unit,
-		property,
-		divisor = 1,
-	} = consumptionBasisRules.get(slug) ?? defaultConsumptionBasisRule;
+	const { unit, property, divisor = 1 } = consumptionBasisRule(slug, positionUnit);
 	const value = property === undefined ? undefined : properties[property];
 	return {
 		unit,

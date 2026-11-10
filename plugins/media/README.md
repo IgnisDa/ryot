@@ -73,22 +73,22 @@ selects an order by external ID; default or missing orders clear the preference.
 regroup and page episode IDs while retaining their original episode labels. Lifecycle, coverage,
 and next-up always use default seasons; next-up appears only in aired order.
 
-| Schema            | Activity measure          | Distinct behavior                                                                  |
-| ----------------- | ------------------------- | ---------------------------------------------------------------------------------- |
-| Movie             | Canonical minutes         | Cover/backdrop and watch providers                                                 |
-| Music             | Canonical minutes         | Stored duration is seconds, displayed `m:ss`; square cover                         |
-| Book / Comic Book | Pages                     | Book supports unlinked creators; Comic Book has person credits only                |
-| Manga             | Chapters                  | Cumulative chapter progress with optional volume; no group or creator credits      |
-| Anime             | Episodes                  | Episode progress; no group; future airing schedule, with next episode in summary   |
-| Audiobook         | Canonical minutes         | Author/Narrator credits, unlinked contributors, square cover                       |
-| Visual Novel      | Canonical minutes         | No group; developer person credits; screenshots are gallery-only                   |
-| Video Game        | Recorded `timeSpent` only | Community time-to-beat is never consumed time; IGDB artwork appears in the gallery |
+| Schema            | Activity measure          | Distinct behavior                                                                   |
+| ----------------- | ------------------------- | ----------------------------------------------------------------------------------- |
+| Movie             | Canonical minutes         | Cover/backdrop and watch providers                                                  |
+| Music             | Canonical minutes         | Stored duration is seconds, displayed `m:ss`; square cover                          |
+| Book / Comic Book | Pages                     | Book supports unlinked creators; Comic Book has person credits only                 |
+| Manga             | Chapters / Volumes        | Cumulative chapter or volume runs; chapters carry optional volume context; no group |
+| Anime             | Episodes                  | Episode progress; no group; future airing schedule, with next episode in summary    |
+| Audiobook         | Canonical minutes         | Author/Narrator credits, unlinked contributors, square cover                        |
+| Visual Novel      | Canonical minutes         | No group; developer person credits; screenshots are gallery-only                    |
+| Video Game        | Recorded `timeSpent` only | Community time-to-beat is never consumed time; IGDB artwork appears in the gallery  |
 
 Flat summaries return `{ summary, entitySchemaSlug }`; activity returns completion count, consumed
 amount, unknown count, processing state, truncation, and events. Unknown measures render lower-bound totals,
 not zero. Anime/Manga progress labels use the latest recorded position; the in-progress percentage is
-that position divided by the episode or chapter total when both are known, else the latest recorded
-percentage.
+that position divided by the total of its unit (episodes, chapters or volumes) when both are known,
+else the latest recorded percentage.
 `shared/consumption-recipes.ts` reads canonical contributions. A pending or failed fold replaces
 the detail figures with an explicit state. Independent numbered items remain separate activity rows;
 their editor supports item number/unit, chapter volume context, date precision, and recorded time.
@@ -437,10 +437,14 @@ through the client SDK mutation notification. Review changes do not log consumpt
 the last review does not remove library membership.
 
 `media-activity-log` writes one logged activity for a builtin media item: a completion, progress
-(percent for flat media, a cumulative `position` in episodes or possibly fractional chapters for
-anime and manga), a backlog/on-hold/dropped status,
-or completions for up to 500 show or podcast episodes of one parent. Dates must satisfy
-`startedOn ≤ finishedOn ≤ submittedAt`; "now" and unknown dates use `submittedAt`. Writes are chunked
+(percent for flat media, a cumulative `position` in episodes for anime and possibly fractional
+chapters or volumes for manga), a backlog/on-hold/dropped status,
+or completions for up to 500 show or podcast episodes of one parent. Completions and progress keep
+an optional `startedOn`; episode batches carry no start or time spent. Dates must satisfy
+`startedOn ≤ finishedOn ≤ submittedAt`; "now" and unknown dates use `submittedAt`. Picked dates are
+day-only by default and keep their `calendarDate`; **Add time** switches the sheet to local date and
+time inputs in the user's time zone, and a timed entry writes an exact instant without
+`calendarDate`. Time spent is entered as hours and minutes with the UI SDK `DurationField`. Writes are chunked
 by the event batch limit with `<submissionId>:<chunk>` idempotency keys, so a retried submission
 writes nothing twice. After a `saved` write of an entry with a source, it appends the trimmed source
 to the settings list of the item's type (a show or podcast for episodes) unless a case-insensitive
@@ -466,7 +470,9 @@ The field matrix in `shared/media-activity-fields.ts` mirrors the declared event
 the schema does not declare, and a stored record carrying keys its schema no longer declares, are
 refused. Progress follows the logging rules: a position on Anime/Manga, a percent elsewhere. Moving
 a date sets `occurredAt` (and `startedOn` where declared); an unknown date keeps `occurredAt` so
-history is not reordered. Deletes accept up to 500 unique IDs, validate every 100-ID chunk before
+history is not reordered. The edit sheet opens a record without `calendarDate` with its local time
+and keeps the start of progress and completions. Manga progress edits can switch the position's
+unit; a chapter's volume context survives only while the unit stays chapters. Deletes accept up to 500 unique IDs, validate every 100-ID chunk before
 the first write, and delete chunks in input order with `<submissionId>:<chunk>` keys. IDs that
 resolve to nothing pass through as host no-ops, so a retry after a partial commit replays the same
 chunks. A failure after a committed chunk returns `incomplete` for Retry; an earlier failure is a
@@ -503,8 +509,8 @@ can duplicate earlier activity.
 Rating scales belong to each source, not the rating value: Goodreads, StoryGraph, Hardcover, and
 Grouvee use five points; MyAnimeList and Watcharr use ten; AniList exports use 100. MyAnimeList and
 AniList imports write one cumulative progress event per entry with an episode or chapter `position`;
-AniList volumes ride on a chapter position as its `volume` context, and volume-only AniList progress
-writes no progress event. IMDb imports write no consumption source. Jellyfin imports keep played items without a
+AniList volumes ride on a chapter position as its `volume` context, and volume-only progress (zero
+chapters, some volumes) writes a volume position, as MyAnimeList `my_read_volumes` does. IMDb imports write no consumption source. Jellyfin imports keep played items without a
 played timestamp with an unknown completion date; malformed nonempty timestamps fail per item.
 
 Trakt's API and export parsers have separate compiler-derived configuration requirements. Setup checks
@@ -601,8 +607,10 @@ entity-scoped, with progress reported only after the latest completion. `progres
 on progress, dropped, and on-hold events (above 0, at most 100); Show/Podcast parent dropped and
 on-hold events carry neither percent nor position. A percent-less, position-less progress event means
 "started". Anime/Manga progress, dropped and on-hold events carry a cumulative `position` ("consumed
-through N") in episodes or chapters and no percent; a chapter's optional `volume` is context, never a
-completion unit. The latest position is the one on the latest progress or list-state event that
+through N") in episodes, chapters or volumes and no percent; a chapter's optional `volume` is context,
+never a consumed volume. The Log activity sheet's Manga Chapter/Volume toggle defaults to the latest
+position's unit; the next entry is that position + 1 in the same unit, capped at the unit's total, and
+switching units starts at 1. The latest position is the one on the latest progress or list-state event that
 carries one. Whole-entity completion carries no position. Reviews do not affect state.
 
 Shows/Podcasts track child episodes. Parent aggregate signals can interrupt episode-derived activity;
@@ -651,7 +659,8 @@ processing reads as pending. A subject that keeps failing reads as failed, and i
 again.
 
 100% progress completes other flat media. Anime/Manga complete when a progress event's
-position reaches the episode or chapter total, or its percent is 100; no completion is written when
+position reaches the total of its basis, in the same unit (episodes, chapters or volumes), or its
+percent is 100; no completion is written when
 an equal-or-later completion exists, so repeated delivery stays idempotent and a later repeat
 completes again. Completion needs no preceding progress. Source percentages retain their precision.
 A completion's `occurredAt` is its completion time unless date-only or unknown evidence is present; unknown
@@ -669,8 +678,8 @@ Audiobookshelf, YouTube Music, and Spotify; the browser extension keeps the page
 Integration progress admission runs after population/episode resolution in `import.write-chunks`.
 It accepts a percent or, for Anime/Manga, a position; an event with neither is rejected. Minimum
 filtering, maximum clamping, and configured 100% debounce apply to percent only. Duplicate
-suppression compares the latest committed or pending event of the same consumption source by position
-for positional events, otherwise by percent. The run guard serializes competing deliveries; failed writes
+suppression compares the latest committed or pending event of the same consumption source by unit and
+position for positional events, otherwise by percent. The run guard serializes competing deliveries; failed writes
 leave no completion claim. Missing sink timestamps are supplied and auto-completion retains the
 trigger's time. Numeric normalization stays schema-owned. Source/event indexes and deterministic
 population/write identities preserve attribution when admission filters records.
@@ -681,17 +690,17 @@ population/write identities preserve attribution when admission filters records.
 Progress, completion, independent item, dropped and on-hold events carry these fields. Backlog, reviews and AniList
 `list-state` are not consumption observations.
 
-| Field              | Stored meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `consumptionBasis` | `{ unit, property?, total? }`. Unit is `minutes`, `pages`, `episodes` or `chapters`. `total` is a finite nonnegative metadata estimate, never a recorded amount. Omission means metadata was unavailable; zero remains a known zero.                                                                                                                                                                                                                                                                                                                                                                           |
-| `progressPages`    | Finite nonnegative cumulative pages, on Book/Comic Book progress or status events. Exclusive with percent and positional progress. No rounding or conversion to percent on submission.                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `progressPercent`  | Source-supported percent in `(0, 100]`, retained without decimal rounding. Exclusive with page/episode/chapter quantities. Missing denominator does not establish an absolute amount.                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `position`         | `MediaPosition`: `{ unit: "episodes" \| "chapters" \| "volumes", position: number, volume?: number }`, on Anime/Manga events. On progress, dropped and on-hold it is the cumulative consumed-through position: Anime in integer episodes, Manga in chapters, which may be fractional. On `item-complete` it is required and identifies one independent item, never a quantity; Manga items may be chapters or volumes. On `list-state` it is the snapshot position, and on reviews the reviewed item. Optional `volume` is chapter context only, valid only with chapters, and contributes no volume quantity. |
-| `timeSpent`        | Finite nonnegative cumulative minutes in this run, including on progress. Original manual time is recorded evidence. Empty means unknown; explicit zero is known.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `calendarDate`     | Valid `YYYY-MM-DD` date-only evidence within one day of the UTC date of `occurredAt`. Keep this calendar day in every reporting timezone. Never use it in hourly activity.                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| `dateUnknown`      | `true` means no reliable consumption date. Cannot coexist with `calendarDate`. The row's `occurredAt` is then only a deterministic ordering timestamp.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `sourceRun`        | Optional nonblank source-owned identity, at most 200 characters. All observations from one independent imported run share it. Distinct explicit source records use distinct identities, even when their other fields match. Immutable on edits. No entity/event references are embedded in this identity.                                                                                                                                                                                                                                                                                                      |
-| `sourceProgress`   | Optional immutable `{ unit: "episodes" \| "chapters" \| "volumes", position: number, volume?: number, percent: number }`, retaining a source's ambiguous position/percent pair, including partial volume-only evidence and chapter volume context. Position is nonnegative; percent is `[0, 100]`. This raw evidence does not itself establish consumption and never drives automatic completion.                                                                                                                                                                                                              |
+| Field              | Stored meaning                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `consumptionBasis` | `{ unit, property?, total? }`. Unit is `minutes`, `pages`, `episodes`, `chapters` or `volumes`. `total` is a finite nonnegative metadata estimate, never a recorded amount. Omission means metadata was unavailable; zero remains a known zero.                                                                                                                                                                                                                                                                                                                                                                                     |
+| `progressPages`    | Finite nonnegative cumulative pages, on Book/Comic Book progress or status events. Exclusive with percent and positional progress. No rounding or conversion to percent on submission.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `progressPercent`  | Source-supported percent in `(0, 100]`, retained without decimal rounding. Exclusive with page/episode/chapter quantities. Missing denominator does not establish an absolute amount.                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `position`         | `MediaPosition`: `{ unit: "episodes" \| "chapters" \| "volumes", position: number, volume?: number }`, on Anime/Manga events. On progress, dropped and on-hold it is the cumulative consumed-through position: Anime in integer episodes, Manga in chapters or volumes, either of which may be fractional. On `item-complete` it is required and identifies one independent item, never a quantity; Manga items may be chapters or volumes. On `list-state` it is the snapshot position, and on reviews the reviewed item. Optional `volume` is chapter context only, valid only with chapters, and contributes no volume quantity. |
+| `timeSpent`        | Finite nonnegative cumulative minutes in this run, including on progress. Original manual time is recorded evidence. Empty means unknown; explicit zero is known.                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `calendarDate`     | Valid `YYYY-MM-DD` date-only evidence within one day of the UTC date of `occurredAt`. Keep this calendar day in every reporting timezone. Never use it in hourly activity.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| `dateUnknown`      | `true` means no reliable consumption date. Cannot coexist with `calendarDate`. The row's `occurredAt` is then only a deterministic ordering timestamp.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `sourceRun`        | Optional nonblank source-owned identity, at most 200 characters. All observations from one independent imported run share it. Distinct explicit source records use distinct identities, even when their other fields match. Immutable on edits. No entity/event references are embedded in this identity.                                                                                                                                                                                                                                                                                                                           |
+| `sourceProgress`   | Optional immutable `{ unit: "episodes" \| "chapters" \| "volumes", position: number, volume?: number, percent: number }`, retaining a source's ambiguous position/percent pair, including partial volume-only evidence and chapter volume context. Position is nonnegative; percent is `[0, 100]`. This raw evidence does not itself establish consumption and never drives automatic completion.                                                                                                                                                                                                                                   |
 
 When both date fields are absent, `occurredAt` must be an actual observed instant. Importers must
 classify precision from source evidence, not timestamp shape. A midnight timestamp does not establish
@@ -711,13 +720,16 @@ Live Spotify track duration is metadata, so it supplies frozen basis rather than
 Basis mapping is fixed: movies/audiobooks/show episodes/podcast episodes use `minutes/runtime`;
 music uses `minutes/duration` with the source seconds divided by 60; visual novels use
 `minutes/lengthMinutes`; books/comics use `pages/pages`; anime uses `episodes/episodes`; manga uses
-`chapters/chapters`. Games use `{ unit: "minutes" }` with no metadata estimate. Show/Podcast parents
+`chapters/chapters`, except that a cumulative volume position uses `volumes/volumes`. Volumes are
+never converted to chapters. Games use `{ unit: "minutes" }` with no metadata estimate. Show/Podcast parents
 use `{ unit: "episodes" }` with no total; parent completion never supplies child duration.
 
 Field shapes, position units per event, integer anime episodes, nonblank source runs and
 calendar-date format are manifest property validation; manifest choices derive from the `shared/consumption.ts` literal
 schemas. The single `media.consumption` before-policy keeps only cross-field and immutability rules and
-captures a missing basis on creation across runtime writers. Updates retain the original basis, including an unavailable total. Supplying an explicit
+captures a missing basis on creation across runtime writers. Updates retain the original basis, including an unavailable total,
+unless an edit moves the cumulative position to another unit, which recaptures the basis for that unit. A
+supplied basis on an event without a cumulative position may use either Manga mapping. Supplying an explicit
 amount corrects the observation without rewriting the retained metadata. A supplied historical basis
 must use the target's unit/property mapping. Automatic completions must supply retained evidence;
 they cannot recapture current providers. A create carrying `sourceRun` must supply its basis, including
@@ -752,6 +764,10 @@ recorded high-water anchors; replay retains five recorded amounts and progress f
 state grows with history length. Callers supply ordered observations and retained automatic/suppressed
 boundary evidence. A named `sourceRun` groups only that source's observations. Unnamed explicit
 completions close local runs. Independent numbered items never advance or reset a local progress run.
+A local run's unit is fixed by its first cumulative position; a position in another unit starts a new
+run. The plan retains that first position's basis, and an observation without a position (such as
+the completion closing a volume run) is measured against it, so it estimates the remaining volumes
+rather than the chapter total.
 
 Recorded quantities take precedence over estimates through their last recorded high-water anchor.
 The positive increases in recorded amounts are attributed to their own observations. Lower or equal
@@ -773,8 +789,8 @@ run; later unmeasured progress has missing duration coverage instead of an inven
 
 Automatic completions supply occurrence counts but no second quantity or active observation. Parent
 Show/Podcast completions supply title counts, never child minutes. The volume context of a
-cumulative chapter position is not a consumed volume; only explicit volume occurrences establish
-that quantity. Date-only observations retain their calendar date, unknown dates stay undated, and
+cumulative chapter position is not a consumed volume; only volume runs and explicit volume occurrences
+establish that quantity, which Analytics reports separately from chapters. Date-only observations retain their calendar date, unknown dates stay undated, and
 reporting periods filter contributions after the complete run is allocated.
 
 `backend/fold/consumption.ts` allocates contributions for one title at a time from the history the fold

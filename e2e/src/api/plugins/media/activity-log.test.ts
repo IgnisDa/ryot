@@ -7,8 +7,12 @@ import {
 	showSeasonEpisodeChoicesRecipe,
 } from "@ryot-app/media-plugin/shared/activity-log-recipes";
 import type { MediaPosition } from "@ryot-app/media-plugin/shared/consumption";
+import {
+	type MediaActivityPatch,
+	MediaEventSnapshot,
+} from "@ryot-app/media-plugin/shared/media-activity-operations";
 import { randomUuid } from "@ryot-app/testing/random";
-import { DateTime, Effect } from "effect";
+import { DateTime, Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -25,6 +29,7 @@ import {
 	mediaReferenceForEntity,
 	seedPodcast,
 	seedShow,
+	updateMediaActivity,
 } from "~/fixtures/plugins/media";
 import { assertPresent, assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -296,7 +301,7 @@ describe("Media activity log operation", () => {
 
 			yield* progress(1);
 			const afterFirst = yield* readContext(client, entityId);
-			expect(afterFirst.position).toBe(1);
+			expect(afterFirst.position).toEqual({ position: 1, unit: "episodes" });
 			expect(afterFirst.state).toBe("in_progress");
 			expect(yield* readEvents(client, entityId, "complete")).toHaveLength(0);
 
@@ -317,29 +322,116 @@ describe("Media activity log operation", () => {
 		}),
 	);
 
-	it.live("logs a fractional manga chapter and refuses a volume position", () =>
+	it.live(
+		"logs a fractional manga chapter, then a volume run that completes at the volume total",
+		() =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
+					entitySchemaSlug: "manga",
+					properties: { volumes: 3, chapters: 20 },
+				});
+				const progress = (position: MediaPosition) =>
+					logMediaActivity(client, {
+						submittedAt: nowIso(),
+						submissionId: crypto.randomUUID(),
+						entry: { entityId, position, kind: "progress" },
+					});
+
+				yield* progress({ position: 10.5, unit: "chapters" });
+				const context = yield* readContext(client, entityId);
+				expect(context.position).toEqual({ position: 10.5, unit: "chapters" });
+				expect(context.progressPercent).toBe(52.5);
+
+				yield* progress({ position: 2, unit: "volumes" });
+				const volumes = yield* readContext(client, entityId);
+				expect(volumes).toMatchObject({
+					volumes: 3,
+					state: "in_progress",
+					progressPercent: 66.67,
+					position: { position: 2, unit: "volumes" },
+				});
+				expect(yield* readEvents(client, entityId, "complete")).toHaveLength(0);
+
+				yield* progress({ position: 3, unit: "volumes" });
+				yield* waitForEventWithSchema(client, entityId, "complete");
+				const [completion] = yield* readEvents(client, entityId, "complete");
+				assertPresent(completion, "Expected the volume-total completion");
+				expect(completion.properties).toMatchObject({
+					consumptionBasis: { total: 3, unit: "volumes", property: "volumes" },
+				});
+				expect(
+					(yield* readEvents(client, entityId, "progress")).map((event) => event.properties),
+				).toContainEqual({
+					position: { position: 3, unit: "volumes" },
+					consumptionBasis: { total: 3, unit: "volumes", property: "volumes" },
+				});
+				expect((yield* readContext(client, entityId)).state).toBe("complete");
+			}),
+	);
+
+	it.live("keeps a progress start date through logging and edits", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
-				entitySchemaSlug: "manga",
-				properties: { chapters: 20 },
+				entitySchemaSlug: "book",
 			});
-			const progress = (position: MediaPosition) =>
-				logMediaActivity(client, {
-					submittedAt: nowIso(),
-					submissionId: crypto.randomUUID(),
-					entry: { entityId, position, kind: "progress" },
-				});
+			yield* logMediaActivity(client, {
+				submittedAt: nowIso(),
+				submissionId: yield* randomUuid,
+				entry: {
+					entityId,
+					kind: "progress",
+					progressPercent: 40,
+					when: {
+						kind: "date",
+						calendarDate: "2026-01-10",
+						startedOn: "2026-01-08T00:00:00.000Z",
+						finishedOn: "2026-01-10T00:00:00.000Z",
+					},
+				},
+			});
+			const [logged] = yield* readEvents(client, entityId, "progress");
+			assertPresent(logged, "Expected the dated progress");
+			expect(logged.properties).toMatchObject({
+				calendarDate: "2026-01-10",
+				startedOn: "2026-01-08T00:00:00.000Z",
+			});
 
-			yield* progress({ position: 10.5, unit: "chapters" });
-			const context = yield* readContext(client, entityId);
-			expect(context.position).toBe(10.5);
-			expect(context.progressPercent).toBe(52.5);
-			assertTaggedError(
-				yield* Effect.flip(progress({ position: 2, unit: "volumes" })),
-				"PluginOperationRejected",
-			);
-			expect(yield* readEvents(client, entityId, "progress")).toHaveLength(1);
+			const edit = (event: typeof logged, patch: MediaActivityPatch) =>
+				Effect.gen(function* () {
+					yield* updateMediaActivity(client, {
+						patch,
+						eventId: event.id,
+						submittedAt: nowIso(),
+						submissionId: yield* randomUuid,
+						expected: yield* Schema.decodeUnknownEffect(MediaEventSnapshot)({
+							entityId,
+							absentProperties: [],
+							sessionEntityId: null,
+							properties: event.properties,
+							occurredAt: isoOf(event.occurredAt),
+						}),
+					});
+					const [updated] = yield* readEvents(client, entityId, "progress");
+					assertPresent(updated, "Expected the edited progress");
+					return updated;
+				});
+			const timed = yield* edit(logged, { timeSpent: 30 });
+			expect(timed.properties).toMatchObject({
+				timeSpent: 30,
+				startedOn: "2026-01-08T00:00:00.000Z",
+			});
+			const exact = yield* edit(timed, {
+				when: {
+					kind: "date",
+					startedOn: "2026-01-08T00:00:00.000Z",
+					finishedOn: "2026-01-11T18:30:00.000Z",
+				},
+			});
+			expect(isoOf(exact.occurredAt)).toBe("2026-01-11T18:30:00.000Z");
+			expect(exact.properties).toMatchObject({ startedOn: "2026-01-08T00:00:00.000Z" });
+			expect(exact.properties).not.toHaveProperty("calendarDate");
 		}),
 	);
 

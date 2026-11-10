@@ -3,6 +3,7 @@ import {
 	and,
 	ascending,
 	castDate,
+	castJson,
 	castNumber,
 	castText,
 	coalesce,
@@ -296,9 +297,28 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 	const progressPosition = castNumber(
 		jsonPath(column(progressEvent, "properties"), "position", "position"),
 	);
+	const progressPositionUnit = castText(
+		jsonPath(column(progressEvent, "properties"), "position", "unit"),
+	);
+	const positionWhere = and(progressWhere, isNotNull(progressPosition));
 	const latestPosition = latestLifecycleField(progressEvent, {
-		select: progressPosition,
-		where: and(progressWhere, isNotNull(progressPosition)),
+		where: positionWhere,
+		select: castJson(jsonPath(column(progressEvent, "properties"), "position")),
+	});
+	const latestPositionFraction = latestLifecycleField(progressEvent, {
+		where: positionWhere,
+		select: divide(
+			progressPosition,
+			conditional(
+				eq(progressPositionUnit, literal("volumes")),
+				entityProperty("volumes"),
+				conditional(
+					eq(progressPositionUnit, literal("chapters")),
+					entityProperty("chapters"),
+					entityProperty("episodes"),
+				),
+			),
+		),
 	});
 	const boundaryCompleteEvent = latestEntityCompletionExpressions(entity, `${alias}Boundary`);
 	const progressBoundaryAlias = `${alias}ProgressBoundary`;
@@ -338,18 +358,7 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 			conditional(
 				isCurrentProgress,
 				coalesce(
-					divide(
-						round(
-							multiply(
-								divide(
-									latestPosition,
-									coalesce(entityProperty("episodes"), entityProperty("chapters")),
-								),
-								literal(10000),
-							),
-						),
-						literal(100),
-					),
+					divide(round(multiply(latestPositionFraction, literal(10000))), literal(100)),
 					latestLifecycleField(progressEvent, {
 						where: progressWhere,
 						select: progressProperty("progressPercent"),

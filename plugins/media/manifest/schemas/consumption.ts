@@ -48,10 +48,9 @@ export const calendarDateField = {
 
 export const mediaPositionField = (
 	entitySchemaSlug: "anime" | "manga",
-	eventSchemaSlug: string,
 	copy: { readonly label: string; readonly required?: true; readonly description: string },
 ) => {
-	const units = mediaPositionUnits(entitySchemaSlug, eventSchemaSlug);
+	const units = mediaPositionUnits(entitySchemaSlug);
 	const properties: AppSchema["fields"] = {
 		unit: {
 			type: "enum",

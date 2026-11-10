@@ -1,6 +1,7 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	mediaAnalyticsHoursRecipe,
 	mediaAnalyticsRankingRecipe,
@@ -21,6 +22,11 @@ import { listEventSchemas, requireEventSchemaBySlug } from "~/fixtures/kernel/ev
 import { waitForEventProjections } from "~/fixtures/kernel/events";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { deleteUserAndWait } from "~/fixtures/kernel/user-lifecycle";
+import {
+	createBuiltinMediaLifecycleFixture,
+	logMediaActivity,
+	mediaReferenceForEntity,
+} from "~/fixtures/plugins/media";
 import { createMediaAnalyticsFixture } from "~/fixtures/plugins/media/analytics";
 import {
 	mediaAnalyticsInput,
@@ -30,6 +36,7 @@ import {
 import { findMediaEntitySchema } from "~/fixtures/plugins/media/entity-schemas";
 import { assertCondition, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
+import { nowIso } from "~/support/time";
 
 const allTime: ReportingSelection = {
 	grouping: "day",
@@ -168,6 +175,37 @@ describe("Media analytics supplemental SQL recipes", () => {
 					mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(input)),
 				)).items,
 			).toEqual([]);
+		}),
+	);
+
+	it.live("reports a manga volume run as volumes, separate from chapters", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "manga",
+				properties: { volumes: 5, chapters: 50 },
+			});
+			for (const position of [2, 5]) {
+				yield* logMediaActivity(client, {
+					submittedAt: nowIso(),
+					submissionId: yield* randomUuid,
+					entry: { entityId, kind: "progress", position: { position, unit: "volumes" } },
+				});
+			}
+			const report = yield* waitForMediaConsumptionReport(client, {
+				timeZone: UTC,
+				selection: allTime,
+				now: Date.parse(nowIso()),
+				reference: yield* mediaReferenceForEntity(client, entityId),
+			});
+			const manga = requireMediaConsumptionGroup(report, "manga");
+			expect(manga).toMatchObject({
+				volumesKnown: 2,
+				volumesRecorded: 5,
+				volumesEstimated: 0,
+				titleCompletions: 1,
+			});
+			expect(manga.chaptersKnown ?? 0).toBe(0);
 		}),
 	);
 

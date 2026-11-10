@@ -72,7 +72,7 @@ const game: MediaActivityLogger = {
 const anime: MediaActivityLogger = {
 	family: "positional",
 	copy: { ...watchCopy, noun: "anime" },
-	progressUnit: { field: "episodes", plural: "episodes", singular: "episode" },
+	units: [{ label: "Episode", value: "episodes", plural: "episodes", singular: "episode" }],
 };
 const show: MediaActivityLogger = { family: "show", copy: { ...watchCopy, noun: "show" } };
 const podcast: MediaActivityLogger = {
@@ -526,6 +526,83 @@ it.live(
 );
 
 it.live(
+	"writes a progress start day, and an added time as an exact instant",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountLog({ logger: movie });
+			try {
+				const dialog = yield* openLog(mounted);
+				clickRyotElement(radio(dialog, "Progress"));
+				clickRyotElement(radio(dialog, "Pick dates"));
+				input(getByLabelText(dialog, "Finished", { selector: "input" }), "2026-10-19");
+				input(getByLabelText(dialog, /^Started/), "2026-10-17");
+				press(dialog, "Add time");
+				input(getByLabelText(dialog, "Finished", { selector: "input" }), "2026-10-19T21:30");
+				input(getByLabelText(dialog, /^Started/), "2026-10-17T08:05");
+				press(dialog, "Start watching");
+				yield* submitted(mounted);
+				expect(mounted.requests).toEqual<unknown>([
+					operation({
+						kind: "progress",
+						entityId: "entity-1",
+						when: {
+							kind: "date",
+							startedOn: "2026-10-17T08:05:00.000Z",
+							finishedOn: "2026-10-19T21:30:00.000Z",
+						},
+					}),
+				]);
+			} finally {
+				mounted.view.unmount();
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"tracks a volume-only manga by volume and restarts at chapter 1 on a unit switch",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountLog({
+				logger: manga,
+				fake: {
+					target: contextTarget({
+						volumes: 10,
+						chapters: 200,
+						schemaSlug: "manga",
+						position: { position: 3, unit: "volumes" },
+					}),
+				},
+			});
+			try {
+				const dialog = yield* openLog(mounted);
+				expect(radio(dialog, "Volume").getAttribute("aria-checked")).toBe("true");
+				const stepper = getByLabelText(dialog, "Read through volume");
+				expect(stepper).toHaveProperty("value", "4");
+				expect(stepper.getAttribute("inputmode")).toBe("decimal");
+				expect(getByText(dialog, "of 10")).toBeDefined();
+				clickRyotElement(radio(dialog, "Chapter"));
+				expect(getByLabelText(dialog, "Read through chapter")).toHaveProperty("value", "1");
+				clickRyotElement(radio(dialog, "Volume"));
+				press(dialog, "Save progress");
+				yield* submitted(mounted);
+				expect(mounted.requests).toEqual<unknown>([
+					operation({
+						kind: "progress",
+						entityId: "entity-1",
+						when: { kind: "now" },
+						position: { position: 4, unit: "volumes" },
+					}),
+				]);
+				yield* closedWith(mounted, "Now read through volume 4.");
+			} finally {
+				mounted.view.unmount();
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
 	"blocks future and misordered dates",
 	() =>
 		Effect.gen(function* () {
@@ -813,7 +890,7 @@ it.live(
 				logger: anime,
 				fake: {
 					consumedOn: ["Crunchyroll"],
-					target: contextTarget({ position: 12, episodes: 28 }),
+					target: contextTarget({ episodes: 28, position: { position: 12, unit: "episodes" } }),
 				},
 			});
 			try {
@@ -849,7 +926,9 @@ it.live(
 		Effect.gen(function* () {
 			const mounted = mountLog({
 				logger: anime,
-				fake: { target: contextTarget({ position: 12, episodes: 28 }) },
+				fake: {
+					target: contextTarget({ episodes: 28, position: { position: 12, unit: "episodes" } }),
+				},
 			});
 			try {
 				const dialog = yield* openLog(mounted);
@@ -1685,7 +1764,10 @@ it.live(
 const manga: MediaActivityLogger = {
 	family: "positional",
 	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
-	progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
+	units: [
+		{ label: "Chapter", value: "chapters", plural: "chapters", singular: "chapter" },
+		{ label: "Volume", value: "volumes", plural: "volumes", singular: "volume" },
+	],
 };
 
 const quickButton = (mounted: ReturnType<typeof mountLog>, name: string) =>
@@ -1808,7 +1890,7 @@ for (const [name, logger, target, label, text, position] of [
 	[
 		"anime",
 		anime,
-		{ position: 12, episodes: 28 },
+		{ episodes: 28, position: { position: 12, unit: "episodes" } },
 		"Mark episode 13 watched",
 		"Episode 13 watched.",
 		{ position: 13, unit: "episodes" },
@@ -1816,7 +1898,7 @@ for (const [name, logger, target, label, text, position] of [
 	[
 		"manga",
 		manga,
-		{ position: 113, chapters: 200 },
+		{ chapters: 200, position: { position: 113, unit: "chapters" } },
 		"Mark chapter 114 read",
 		"Chapter 114 read.",
 		{ position: 114, unit: "chapters" },

@@ -1,5 +1,7 @@
 import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { localDay } from "@ryot-app/plugin-client-sdk/react";
+import { type DurationDraft, durationDraft, parseDuration } from "@ryot-app/plugin-ui-sdk";
+import { resolveDateTimeInput, toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { MediaPosition, mediaPositionError, sameMediaPosition } from "../../../shared/consumption";
@@ -19,28 +21,32 @@ export type ActivityWhenKind = "now" | "date" | "unknown";
 
 export type ActivityEntryDraft = EntryDraftShape<MediaActivityEntry>;
 
+export type ActivityDateTimeDraft = {
+	readonly value: string;
+	readonly original?: string;
+	readonly occurrence?: string;
+};
+
+/** A local date and time in the user's time zone, written as an exact instant. */
+export type ActivityTimeDraft = {
+	readonly timeZone: string;
+	readonly started: ActivityDateTimeDraft;
+	readonly finished: ActivityDateTimeDraft;
+};
+
+export type MediaPositionLogUnit = {
+	readonly label: string;
+	readonly plural: string;
+	readonly singular: string;
+	readonly value: MediaPosition["unit"];
+};
+
 export type ActivityEpisode = {
 	readonly id: string;
 	readonly name: string;
 	readonly episodeNumber: number;
 	readonly seasonNumber: null | number;
 	readonly state: EpisodeLifecycleState;
-};
-
-export type ActivityDraft = {
-	readonly hours: string;
-	readonly amount: string;
-	readonly minutes: string;
-	readonly startedDay: string;
-	readonly consumedOn: string;
-	readonly finishedDay: string;
-	readonly item?: MediaPosition;
-	readonly intent: ActivityIntent;
-	readonly when: ActivityWhenKind;
-	readonly status: MediaActivityStatus;
-	readonly position: number | undefined;
-	readonly amountUnit: "unit" | "percent";
-	readonly progressMode: "amount" | "started";
 };
 
 export type MediaActivityLogger =
@@ -55,18 +61,36 @@ export type MediaActivityLogger =
 			readonly family: "positional";
 			readonly itemContextLabel?: string;
 			readonly copy: MediaActivityLogCopy;
-			readonly itemUnits?: readonly {
-				readonly label: string;
-				readonly value: MediaPosition["unit"];
-			}[];
-			readonly progressUnit: MediaActivityLogUnit & {
-				readonly field: Extract<MediaPosition["unit"], "episodes" | "chapters">;
-			};
+			readonly units: readonly [MediaPositionLogUnit, ...MediaPositionLogUnit[]];
 	  };
+
+export type ActivityDraft = DurationDraft & {
+	readonly amount: string;
+	readonly startedDay: string;
+	readonly consumedOn: string;
+	readonly finishedDay: string;
+	readonly item?: MediaPosition;
+	readonly intent: ActivityIntent;
+	readonly when: ActivityWhenKind;
+	readonly status: MediaActivityStatus;
+	readonly position: number | undefined;
+	readonly time: null | ActivityTimeDraft;
+	readonly amountUnit: "unit" | "percent";
+	readonly progressMode: "amount" | "started";
+	readonly positionUnit: undefined | MediaPosition["unit"];
+};
 
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
 
 type ActivityIntent = "status" | "episode" | "finished" | "progress";
+
+type PositionalLogger = Extract<MediaActivityLogger, { family: "positional" }>;
+
+type MediaActivityLogUnit = {
+	readonly plural: string;
+	readonly singular: string;
+	readonly field: "pages" | "runtime";
+};
 
 type MediaActivityLogCopy = {
 	readonly verb: string;
@@ -75,22 +99,17 @@ type MediaActivityLogCopy = {
 	readonly participle: string;
 };
 
-type MediaActivityLogUnit = {
-	readonly plural: string;
-	readonly singular: string;
-	readonly field: "pages" | "runtime" | "episodes" | "chapters";
-};
-
-type ActivityWhenDraft =
-	| { readonly kind: "now" }
-	| { readonly kind: "unknown" }
-	| { readonly kind: "date"; readonly finishedDay: string; readonly startedDay?: string };
-
 type EntryDraftShape<Entry> = Entry extends { readonly when: MediaActivityWhen }
 	? Omit<Entry, "when"> & { readonly when: ActivityWhenDraft }
 	: "when" extends keyof Entry
 		? Omit<Entry, "when"> & { readonly when?: ActivityWhenDraft }
 		: Entry;
+
+type ActivityWhenDraft =
+	| { readonly kind: "now" }
+	| { readonly kind: "unknown" }
+	| { readonly kind: "date"; readonly finishedDay: string; readonly startedDay?: string }
+	| { readonly kind: "instant"; readonly finishedOn: string; readonly startedOn?: string };
 
 export const EARLIER_PAGE_LIMIT = 100;
 export const EARLIER_MAX_PAGES = 5;
@@ -145,22 +164,6 @@ const dayParts = (day: string) => {
 
 const isActivityDay = (day: string) => dayParts(day) !== undefined;
 
-export const parseTimeSpent = (hours: string, minutes: string) => {
-	const parts = [hours.trim(), minutes.trim()];
-	if (
-		(hours.trim() !== "" && !WHOLE_NUMBER.test(hours.trim())) ||
-		(minutes.trim() !== "" && !/^\d+(?:\.\d+)?$/.test(minutes.trim()))
-	) {
-		return null;
-	}
-	const [h, m] = parts.map((part) => (part === "" ? 0 : Number(part)));
-	const total = (h ?? 0) * 60 + (m ?? 0);
-	if (!Number.isFinite(total)) {
-		return null;
-	}
-	return parts.every((part) => part === "") ? undefined : total;
-};
-
 const percentValue = (percent: string) => {
 	const text = percent.trim();
 	const value = text === "" ? Number.NaN : Number(text);
@@ -168,9 +171,27 @@ const percentValue = (percent: string) => {
 };
 
 export const activityPositionTotal = (
-	logger: MediaActivityLogger,
 	context: MediaActivityLogContext,
-) => (logger.family === "positional" ? context[logger.progressUnit.field] : null);
+	unit: MediaPosition["unit"],
+) => context[unit];
+
+export const positionLogUnit = (
+	logger: PositionalLogger,
+	unit: undefined | MediaPosition["unit"],
+) => logger.units.find((candidate) => candidate.value === unit) ?? logger.units[0];
+
+const latestPositionIn = (context: MediaActivityLogContext, unit: MediaPosition["unit"]) =>
+	context.position?.unit === unit ? context.position.position : 0;
+
+/** The next entry in `unit`: one past the latest position in that unit, capped at its total. */
+export const nextActivityPosition = (
+	context: MediaActivityLogContext,
+	unit: MediaPosition["unit"],
+) => {
+	const next = latestPositionIn(context, unit) + 1;
+	const total = activityPositionTotal(context, unit);
+	return total === null ? next : Math.min(next, total);
+};
 
 export const activityUnitTotal = (logger: MediaActivityLogger, context: MediaActivityLogContext) =>
 	logger.family === "flat" && logger.progressUnit !== undefined
@@ -212,24 +233,27 @@ export const initialActivityDraft = (
 	today: string,
 ): ActivityDraft => {
 	const progress = context.progressPercent ?? 0;
-	const total = activityPositionTotal(logger, context);
-	const next = (context.position ?? 0) + 1;
+	const positionUnit =
+		logger.family === "positional"
+			? positionLogUnit(logger, context.position?.unit).value
+			: undefined;
 	const status =
 		activityStatusOptions(logger).find((option) => option.value !== context.state)?.value ??
 		"backlog";
 	return {
 		status,
-		hours: "",
-		minutes: "",
+		time: null,
 		when: "now",
+		positionUnit,
+		...durationDraft(undefined),
 		startedDay: "",
 		consumedOn: "",
 		finishedDay: today,
 		amountUnit: "percent",
 		progressMode: progress > 0 ? "amount" : "started",
 		intent: INTENT_ORDER[logger.family][0] ?? "finished",
-		position: total === null ? next : Math.min(next, total),
 		amount: progress > 0 ? String(Math.round(progress)) : "30",
+		position: positionUnit === undefined ? undefined : nextActivityPosition(context, positionUnit),
 	};
 };
 
@@ -242,9 +266,62 @@ type ActivityDraftErrors = {
 	readonly consumedOn?: string;
 };
 
+/** Switches dated fields to local date and time inputs at the current time of day. */
+export const addActivityTime = (
+	draft: ActivityDraft,
+	now: number,
+	timeZone: string,
+): Pick<ActivityDraft, "time"> => {
+	const clock = toDateTimeInput(new Date(now).toISOString(), timeZone).slice(10);
+	return {
+		time: {
+			timeZone,
+			finished: { value: `${draft.finishedDay}${clock}` },
+			started: { value: draft.startedDay === "" ? "" : `${draft.startedDay}${clock}` },
+		},
+	};
+};
+
+export const removeActivityTime = (
+	draft: ActivityDraft,
+): Pick<ActivityDraft, "time" | "startedDay" | "finishedDay"> => {
+	const finished = draft.time?.finished.value.slice(0, 10) ?? "";
+	return {
+		time: null,
+		finishedDay: finished === "" ? draft.finishedDay : finished,
+		startedDay: draft.time?.started.value.slice(0, 10) ?? draft.startedDay,
+	};
+};
+
+export const resolveActivityDateTime = (value: ActivityDateTimeDraft, timeZone: string) =>
+	resolveDateTimeInput(value.value, value.original, value.occurrence, timeZone);
+
+const timeError = (time: ActivityTimeDraft, today: string, withStart: boolean) => {
+	const finished = resolveActivityDateTime(time.finished, time.timeZone);
+	if (finished.iso === null) {
+		return finished.error;
+	}
+	if (time.finished.value.slice(0, 10) > today) {
+		return "That day is in the future.";
+	}
+	if (!withStart || time.started.value === "") {
+		return undefined;
+	}
+	const started = resolveActivityDateTime(time.started, time.timeZone);
+	if (started.iso === null) {
+		return started.error;
+	}
+	return Date.parse(started.iso) > Date.parse(finished.iso)
+		? "The start can't be after the finish."
+		: undefined;
+};
+
 const whenError = (draft: ActivityDraft, today: string) => {
 	if (draft.when !== "date") {
 		return undefined;
+	}
+	if (draft.time !== null) {
+		return timeError(draft.time, today, draft.intent !== "episode");
 	}
 	if (!isActivityDay(draft.finishedDay)) {
 		return draft.intent === "finished" ? "Pick the day you finished." : "Pick a day.";
@@ -252,7 +329,7 @@ const whenError = (draft: ActivityDraft, today: string) => {
 	if (draft.finishedDay > today) {
 		return "That day is in the future.";
 	}
-	if (draft.intent === "finished" && draft.startedDay !== "") {
+	if (draft.intent !== "episode" && draft.startedDay !== "") {
 		if (!isActivityDay(draft.startedDay)) {
 			return "Pick a valid start day.";
 		}
@@ -288,7 +365,7 @@ export const activityDraftErrors = (input: {
 	}
 	if (
 		(draft.intent === "finished" || draft.intent === "progress") &&
-		parseTimeSpent(draft.hours, draft.minutes) === null
+		parseDuration(draft) === null
 	) {
 		errors.time = "Enter whole hours and nonnegative minutes.";
 	}
@@ -308,21 +385,22 @@ export const activityDraftErrors = (input: {
 		}
 	}
 	if (draft.intent === "progress" && logger.family === "positional") {
-		const total = activityPositionTotal(logger, context);
+		const unit = positionLogUnit(logger, draft.positionUnit);
+		const total = activityPositionTotal(context, unit.value);
 		const { position } = draft;
 		if (
 			position === undefined ||
 			position < 1 ||
 			(total !== null && position > total) ||
-			(logger.progressUnit.field === "episodes" && !Number.isInteger(position))
+			(unit.value === "episodes" && !Number.isInteger(position))
 		) {
-			errors.position = `Enter a ${logger.progressUnit.singular} number${total === null ? "" : ` from 1 to ${total}`}.`;
+			errors.position = `Enter a ${unit.singular} number${total === null ? "" : ` from 1 to ${total}`}.`;
 		}
 	}
 	if (
 		draft.item !== undefined &&
 		(Option.isNone(Schema.decodeOption(MediaPosition)(draft.item)) ||
-			mediaPositionError(context.schemaSlug, "item-complete", draft.item) !== undefined)
+			mediaPositionError(context.schemaSlug, draft.item) !== undefined)
 	) {
 		errors.position = "Enter a valid item number.";
 	}
@@ -332,11 +410,23 @@ export const activityDraftErrors = (input: {
 export const hasActivityErrors = (errors: ActivityDraftErrors) => Object.keys(errors).length > 0;
 
 const whenDraft = (draft: ActivityDraft): ActivityWhenDraft => {
+	if (draft.when === "date" && draft.time !== null) {
+		const { time } = draft;
+		const started =
+			draft.intent === "episode" || time.started.value === ""
+				? null
+				: resolveActivityDateTime(time.started, time.timeZone).iso;
+		return {
+			kind: "instant",
+			finishedOn: resolveActivityDateTime(time.finished, time.timeZone).iso ?? "",
+			...(started === null ? {} : { startedOn: started }),
+		};
+	}
 	if (draft.when === "date") {
 		return {
 			kind: "date",
 			finishedDay: draft.finishedDay,
-			...(draft.intent === "finished" && draft.startedDay !== ""
+			...(draft.intent !== "episode" && draft.startedDay !== ""
 				? { startedDay: draft.startedDay }
 				: {}),
 		};
@@ -375,7 +465,7 @@ export const activityEntryDraft = (input: {
 		const percent = pages
 			? undefined
 			: draftProgressPercent(draft, activityUnitTotal(input.logger, input.context));
-		const timeSpent = parseTimeSpent(draft.hours, draft.minutes);
+		const timeSpent = parseDuration(draft);
 		return {
 			...source,
 			entityId,
@@ -384,7 +474,12 @@ export const activityEntryDraft = (input: {
 			...(timeSpent === undefined || timeSpent === null ? {} : { timeSpent }),
 			...(pages ? { progressPages: Number(draft.amount) } : {}),
 			...(input.logger.family === "positional" && draft.position !== undefined
-				? { position: { position: draft.position, unit: input.logger.progressUnit.field } }
+				? {
+						position: {
+							position: draft.position,
+							unit: positionLogUnit(input.logger, draft.positionUnit).value,
+						},
+					}
 				: {}),
 			...(!pages &&
 			input.logger.family === "flat" &&
@@ -394,7 +489,7 @@ export const activityEntryDraft = (input: {
 				: {}),
 		};
 	}
-	const timeSpent = parseTimeSpent(draft.hours, draft.minutes);
+	const timeSpent = parseDuration(draft);
 	return {
 		...source,
 		entityId,
@@ -408,6 +503,16 @@ export const resolveActivityWhen = (
 	when: ActivityWhenDraft,
 	submittedAt: string,
 ): MediaActivityWhen => {
+	if (when.kind === "instant") {
+		const finishedOn = Math.min(Date.parse(when.finishedOn), Date.parse(submittedAt));
+		const startedOn =
+			when.startedOn === undefined ? undefined : Math.min(Date.parse(when.startedOn), finishedOn);
+		return {
+			kind: "date",
+			finishedOn: new Date(finishedOn).toISOString(),
+			...(startedOn === undefined ? {} : { startedOn: new Date(startedOn).toISOString() }),
+		};
+	}
 	if (when.kind !== "date") {
 		return { kind: when.kind };
 	}
@@ -518,20 +623,16 @@ export const activityQuickAction = (
 		};
 	}
 	if (logger.family === "positional") {
-		const position = (context.position ?? 0) + 1;
-		const total = activityPositionTotal(logger, context);
+		const unit = positionLogUnit(logger, context.position?.unit);
+		const position = latestPositionIn(context, unit.value) + 1;
+		const total = activityPositionTotal(context, unit.value);
 		if (context.state === "complete" || (total !== null && position > total)) {
 			return null;
 		}
-		const { singular } = logger.progressUnit;
 		return {
-			label: `Mark ${singular} ${position} ${participle}`,
-			text: `${capitalized(singular)} ${position} ${participle}.`,
-			entry: {
-				kind: "progress",
-				entityId: context.id,
-				position: { position, unit: logger.progressUnit.field },
-			},
+			label: `Mark ${unit.singular} ${position} ${participle}`,
+			text: `${capitalized(unit.singular)} ${position} ${participle}.`,
+			entry: { kind: "progress", entityId: context.id, position: { position, unit: unit.value } },
 		};
 	}
 	return null;
@@ -584,7 +685,7 @@ export const activityCopyLabels = (input: {
 		return {
 			offerReview: false,
 			submit: "Save progress",
-			success: `Now ${participle} through ${logger.progressUnit.singular} ${draft.position ?? ""}.`,
+			success: `Now ${participle} through ${positionLogUnit(logger, draft.positionUnit).singular} ${draft.position ?? ""}.`,
 		};
 	}
 	if (draft.intent === "progress") {
@@ -642,7 +743,7 @@ export const activityStatusNote = (
 	if (logger.family === "positional") {
 		return context.position === null
 			? undefined
-			: `Keeps your place at ${logger.progressUnit.singular} ${context.position}.`;
+			: `Keeps your place at ${positionLogUnit(logger, context.position.unit).singular} ${context.position.position}.`;
 	}
 	const progress = context.progressPercent ?? 0;
 	return progress > 0 ? `Keeps your progress at ${Math.round(progress)}%.` : undefined;
@@ -691,6 +792,7 @@ const dayOf = (instant: string) => localDay(Date.parse(instant));
 /** The Log activity draft that shows a stored completion or progress update as it is now. */
 export const activityEditDraft = (input: {
 	readonly today: string;
+	readonly timeZone: string;
 	readonly ref: MediaActivityEventRef;
 	readonly intent: ActivityEditIntent;
 	readonly logger: MediaActivityLogger;
@@ -703,23 +805,46 @@ export const activityEditDraft = (input: {
 	const pages = numberProperty(ref, "progressPages");
 	const amount = pages ?? percent;
 	const startedOn = textProperty(ref, "startedOn");
+	const calendarDate = textProperty(ref, "calendarDate");
 	const stored = storedPosition(ref);
+	const instant = (original: string): ActivityDateTimeDraft => ({
+		original,
+		value: toDateTimeInput(original, input.timeZone),
+	});
 	return {
 		...base,
 		...(input.intent === "finished" && stored !== undefined ? { item: stored } : {}),
 		intent: input.intent,
 		position: stored?.position ?? base.position,
+		positionUnit:
+			input.intent === "progress" ? (stored?.unit ?? base.positionUnit) : base.positionUnit,
+		...durationDraft(minutes),
 		consumedOn: textProperty(ref, "consumedOn") ?? "",
+		finishedDay: calendarDate ?? dayOf(ref.occurredAt),
 		amountUnit: pages === undefined ? "percent" : "unit",
-		minutes: minutes === undefined ? "" : String(minutes % 60),
 		startedDay: startedOn === undefined ? "" : dayOf(startedOn),
 		amount: amount === undefined ? base.amount : String(amount),
 		when: ref.properties["dateUnknown"] === true ? "unknown" : "date",
-		hours: minutes === undefined ? "" : String(Math.floor(minutes / 60)),
-		finishedDay: textProperty(ref, "calendarDate") ?? dayOf(ref.occurredAt),
 		progressMode: percent === undefined && pages === undefined ? "started" : "amount",
+		time:
+			calendarDate === undefined && ref.properties["dateUnknown"] !== true
+				? {
+						timeZone: input.timeZone,
+						finished: instant(ref.occurredAt),
+						started: startedOn === undefined ? { value: "" } : instant(startedOn),
+					}
+				: null,
 	};
 };
+
+const sameTime = (left: null | ActivityTimeDraft, right: null | ActivityTimeDraft) =>
+	left === right ||
+	(left !== null &&
+		right !== null &&
+		[left.started, left.finished].every((value, index) => {
+			const other = index === 0 ? right.started : right.finished;
+			return value.value === other.value && value.occurrence === other.occurrence;
+		}));
 
 const editWhen = (
 	draft: ActivityDraft,
@@ -727,16 +852,22 @@ const editWhen = (
 	ref: MediaActivityEventRef,
 	submittedAt: string,
 ): MediaActivityPatch["when"] => {
-	const startedDay = draft.intent === "finished" ? draft.startedDay : "";
+	const startedDay = draft.intent === "episode" ? "" : draft.startedDay;
 	const unchanged =
 		draft.when === initial.when &&
 		(draft.when === "unknown" ||
-			(draft.finishedDay === initial.finishedDay && startedDay === initial.startedDay));
+			(sameTime(draft.time, initial.time) &&
+				(draft.time !== null ||
+					(draft.finishedDay === initial.finishedDay && startedDay === initial.startedDay))));
 	if (unchanged) {
 		return undefined;
 	}
 	if (draft.when === "unknown") {
 		return { kind: "unknown" };
+	}
+	if (draft.time !== null) {
+		const resolved = resolveActivityWhen(whenDraft(draft), submittedAt);
+		return resolved.kind === "date" ? resolved : undefined;
 	}
 	const resolved = resolveActivityWhen(
 		{ kind: "date", finishedDay: draft.finishedDay, ...(startedDay === "" ? {} : { startedDay }) },
@@ -745,17 +876,17 @@ const editWhen = (
 	if (resolved.kind !== "date") {
 		return undefined;
 	}
-	const keepFinished = initial.when === "date" && draft.finishedDay === initial.finishedDay;
+	const keepFinished =
+		initial.when === "date" && initial.time === null && draft.finishedDay === initial.finishedDay;
 	const finishedOn = keepFinished ? ref.occurredAt : resolved.finishedOn;
-	const storedStart = textProperty(ref, "startedOn");
 	const startedOn =
-		startedDay !== "" && startedDay === initial.startedDay ? storedStart : resolved.startedOn;
+		startedDay !== "" && startedDay === initial.startedDay && initial.time === null
+			? textProperty(ref, "startedOn")
+			: resolved.startedOn;
 	return {
 		finishedOn,
-		...(keepFinished && textProperty(ref, "calendarDate") === undefined
-			? {}
-			: { calendarDate: draft.finishedDay }),
 		kind: "date",
+		calendarDate: draft.finishedDay,
 		...(startedOn === undefined
 			? {}
 			: { startedOn: Date.parse(startedOn) > Date.parse(finishedOn) ? finishedOn : startedOn }),
@@ -778,11 +909,16 @@ export const activityEditPatch = (input: {
 	}
 	if (draft.intent === "progress") {
 		if (input.logger.family === "positional" && ref.entityId === input.context.id) {
-			if (draft.position !== undefined && draft.position !== initial.position) {
+			const unit = positionLogUnit(input.logger, draft.positionUnit).value;
+			const stored = storedPosition(ref);
+			if (
+				draft.position !== undefined &&
+				(draft.position !== initial.position || draft.positionUnit !== initial.positionUnit)
+			) {
 				patch.position = {
-					...storedPosition(ref),
+					...(stored?.unit === unit ? stored : {}),
+					unit,
 					position: draft.position,
-					unit: input.logger.progressUnit.field,
 				};
 			}
 		} else {
@@ -814,7 +950,7 @@ export const activityEditPatch = (input: {
 		(draft.intent === "finished" || draft.intent === "progress") &&
 		(draft.hours !== initial.hours || draft.minutes !== initial.minutes)
 	) {
-		patch.timeSpent = parseTimeSpent(draft.hours, draft.minutes) ?? null;
+		patch.timeSpent = parseDuration(draft) ?? null;
 	}
 	const consumedOn = draft.consumedOn.trim();
 	if (consumedOn !== initial.consumedOn.trim()) {

@@ -28,6 +28,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
+import { MediaPosition } from "./consumption";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -188,9 +189,10 @@ export const mediaActivityLogContextRecipe = defineRecipe(
 						...entityIdentitySelection(entity),
 						pages: mediaNumberField(entity, "pages"),
 						runtime: mediaNumberField(entity, "runtime"),
+						volumes: mediaNumberField(entity, "volumes"),
 						episodes: mediaNumberField(entity, "episodes"),
 						chapters: mediaNumberField(entity, "chapters"),
-						position: selectedField(lifecycle.position, Schema.NullOr(Schema.Finite)),
+						position: selectedField(lifecycle.position, Schema.NullOr(MediaPosition)),
 						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
 						state: selectedField(
 							conditional(

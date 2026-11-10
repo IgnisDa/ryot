@@ -55,8 +55,7 @@ export const animeSchema = defineFlatMediaSchema({
 	}),
 	logActivity: {
 		family: "positional",
-		itemUnits: [{ label: "Episode", value: "episodes" }],
-		progressUnit: { field: "episodes", plural: "episodes", singular: "episode" },
 		copy: { verb: "watch", noun: "anime", gerund: "watching", participle: "watched" },
+		units: [{ label: "Episode", value: "episodes", plural: "episodes", singular: "episode" }],
 	},
 });

@@ -190,9 +190,7 @@ const buildEvents = (
 				return yield* reject(progressError);
 			}
 			const positionError =
-				entry.position === undefined
-					? undefined
-					: mediaPositionError(schemaSlug, "progress", entry.position);
+				entry.position === undefined ? undefined : mediaPositionError(schemaSlug, entry.position);
 			if (positionError !== undefined) {
 				return yield* reject(positionError);
 			}
@@ -207,6 +205,9 @@ const buildEvents = (
 							...(entry.when?.kind === "unknown" ? { dateUnknown: true } : {}),
 							...(entry.when?.kind === "date" && entry.when.calendarDate !== undefined
 								? { calendarDate: entry.when.calendarDate }
+								: {}),
+							...(entry.when?.kind === "date" && entry.when.startedOn !== undefined
+								? { startedOn: entry.when.startedOn }
 								: {}),
 							...(entry.timeSpent === undefined ? {} : { timeSpent: entry.timeSpent }),
 							...(entry.progressPages === undefined ? {} : { progressPages: entry.progressPages }),

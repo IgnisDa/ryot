@@ -59,7 +59,7 @@ export const consumptionContributions = Effect.fn("consumptionContributions")(fu
 				compareText(left.group, right.group) || compareHistory(left.event, right.event),
 		);
 		const runs: Array<{ runKey: string; observations: Array<ConsumptionObservation> }> = [];
-		let cursor: ConsumptionRunCursor = { runKey: null, closedBy: null };
+		let cursor: ConsumptionRunCursor = { unit: null, runKey: null, closedBy: null };
 		for (const { event } of rows) {
 			const automatic = input.automatic.get(event.id);
 			const observation = yield* Schema.decodeUnknownEffect(ConsumptionObservation)({

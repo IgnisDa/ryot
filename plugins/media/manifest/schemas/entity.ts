@@ -88,7 +88,7 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 			return {
 				fields: {
 					...progressPercentPropertiesSchema().fields,
-					position: mediaPositionField(entitySchemaSlug, "progress", {
+					position: mediaPositionField(entitySchemaSlug, {
 						label: "Position",
 						description: "Cumulative position consumed through",
 					}),
@@ -141,7 +141,7 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 				7,
 			),
 			position: {
-				...mediaPositionField(entitySchemaSlug, "list-state", {
+				...mediaPositionField(entitySchemaSlug, {
 					label: "Position",
 					description: "The position AniList reports",
 				}),
@@ -226,7 +226,7 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 			return {
 				fields: {
 					...fields,
-					position: mediaPositionField(entitySchemaSlug, "review", {
+					position: mediaPositionField(entitySchemaSlug, {
 						label: "Reviewed item",
 						description: "The episode, chapter or volume being reviewed",
 					}),
@@ -305,7 +305,7 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 							...consumedOnField,
 							timeSpent: timeSpentField,
 							startedOn: startedOnField,
-							position: mediaPositionField(entitySchemaSlug, "item-complete", {
+							position: mediaPositionField(entitySchemaSlug, {
 								required: true,
 								label: "Consumed item",
 								description:

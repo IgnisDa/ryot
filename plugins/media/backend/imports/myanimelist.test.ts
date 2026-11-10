@@ -22,6 +22,19 @@ describe("adaptMyanimelistExports", () => {
 		]);
 		expect(result.failures).toHaveLength(1);
 	});
+	it("writes volume progress for a manga entry with volumes but no chapters", () => {
+		const result = adaptMyanimelistExports({
+			mangaXml:
+				"<myanimelist><manga><manga_mangadb_id>203</manga_mangadb_id><my_read_chapters>0</my_read_chapters><my_read_volumes>4</my_read_volumes><my_score>0</my_score></manga></myanimelist>",
+		});
+		expect(result.failures).toEqual([]);
+		expect(result.entityGroups[0]?.events).toMatchObject([
+			{
+				eventSchemaSlug: "progress",
+				properties: { dateUnknown: true, position: { position: 4, unit: "volumes" } },
+			},
+		]);
+	});
 	it.each([
 		[1, 10],
 		[4, 40],

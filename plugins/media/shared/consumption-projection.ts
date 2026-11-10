@@ -66,7 +66,7 @@ export type ConsumptionCheckpoint = typeof ConsumptionCheckpoint.Type;
 
 export const initialConsumptionCheckpoint = (
 	after: ConsumptionCheckpoint["after"] = null,
-	cursor: ConsumptionCheckpoint["cursor"] = { runKey: null, closedBy: null },
+	cursor: ConsumptionCheckpoint["cursor"] = { unit: null, runKey: null, closedBy: null },
 ): ConsumptionCheckpoint => ({
 	after,
 	cursor,

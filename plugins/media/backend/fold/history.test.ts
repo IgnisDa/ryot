@@ -128,6 +128,46 @@ const episode = (id: string, slug: "complete" | "progress", occurredAt: string) 
 
 describe("media history fold", () => {
 	it.effect(
+		"completes a manga when a volume position reaches its volume total, never by chapters",
+		() =>
+			Effect.gen(function* () {
+				const manga = { id: "manga", terminal: false, episodic: false };
+				const progress = (id: string, unit: "volumes" | "chapters", position: number) =>
+					event(id, {
+						entityId: "manga",
+						entitySchemaSlug: "manga",
+						eventSchemaSlug: "progress",
+						properties: {
+							position: { unit, position },
+							consumptionBasis: { unit, property: unit, total: unit === "volumes" ? 12 : 120 },
+						},
+					});
+				const partial = yield* fold([progress("vol-11", "volumes", 11)], undefined, manga);
+				expect(completions(partial.events)).toEqual([]);
+				const done = yield* fold([progress("vol-12", "volumes", 12)], undefined, manga);
+				expect(completions(done.events)).toMatchObject([
+					{ properties: { consumptionBasis: { total: 12, unit: "volumes" } } },
+				]);
+				const mismatched = yield* fold(
+					[
+						event("vol-as-chapters", {
+							entityId: "manga",
+							entitySchemaSlug: "manga",
+							eventSchemaSlug: "progress",
+							properties: {
+								position: { position: 130, unit: "volumes" },
+								consumptionBasis: { total: 120, unit: "chapters", property: "chapters" },
+							},
+						}),
+					],
+					undefined,
+					manga,
+				);
+				expect(completions(mismatched.events)).toEqual([]);
+			}),
+		testTimeout,
+	);
+	it.effect(
 		"completes progress that reaches its total and repairs it when the source moves",
 		() =>
 			Effect.gen(function* () {

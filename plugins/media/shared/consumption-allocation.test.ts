@@ -60,7 +60,7 @@ const allocate = (history: readonly ConsumptionObservation[]) => {
 	const runs = new Map<string, ConsumptionObservation[]>();
 	for (const event of history) {
 		const next = consumptionRunForObservation(
-			cursors.get(event.entityId) ?? { runKey: null, closedBy: null },
+			cursors.get(event.entityId) ?? { unit: null, runKey: null, closedBy: null },
 			event,
 		);
 		cursors.set(event.entityId, next.cursor);
@@ -357,6 +357,56 @@ describe("canonical consumption allocation", () => {
 		expect(amounts(result, "chapters")).toEqual([1]);
 		expect(amounts(result, "volumes")).toEqual([1]);
 		expect(result.map((row) => row.titleCompletions)).toEqual([0, 0]);
+	});
+	it("measures a volume run in volumes and closes it with its volume total, not chapters", () => {
+		const volumes = { total: 10, unit: "volumes", property: "volumes" } as const;
+		const options = { entityId: "manga", entitySchemaSlug: "manga" };
+		const result = allocate([
+			observation(
+				"vol-2",
+				{ consumptionBasis: volumes, position: { position: 2, unit: "volumes" } },
+				options,
+			),
+			observation(
+				"vol-6",
+				{ consumptionBasis: volumes, position: { position: 6, unit: "volumes" } },
+				options,
+			),
+			observation(
+				"done",
+				{ consumptionBasis: { total: 120, unit: "chapters", property: "chapters" } },
+				{ ...options, eventSchemaSlug: "complete" },
+			),
+		]);
+		expect(amounts(result, "volumes")).toEqual([2, 4, 4]);
+		expect(quantity(result, "chapters")).toEqual([]);
+		expect(result.map((row) => row.titleCompletions)).toEqual([0, 0, 1]);
+	});
+	it("a position in another unit starts a new run instead of continuing the old one", () => {
+		const options = { entityId: "manga", entitySchemaSlug: "manga" };
+		const chapters = { total: 120, unit: "chapters", property: "chapters" } as const;
+		const result = allocate([
+			observation(
+				"ch-30",
+				{ consumptionBasis: chapters, position: { position: 30, unit: "chapters" } },
+				options,
+			),
+			observation(
+				"vol-4",
+				{
+					position: { position: 4, unit: "volumes" },
+					consumptionBasis: { total: 10, unit: "volumes", property: "volumes" },
+				},
+				options,
+			),
+			observation(
+				"ch-40",
+				{ consumptionBasis: chapters, position: { position: 40, unit: "chapters" } },
+				options,
+			),
+		]);
+		expect(amounts(result, "chapters")).toEqual([30, 40]);
+		expect(amounts(result, "volumes")).toEqual([4]);
 	});
 	it("an item occurrence does not reset or advance an unrelated cumulative run", () => {
 		const basis = { total: 24, unit: "episodes", property: "episodes" } as const;

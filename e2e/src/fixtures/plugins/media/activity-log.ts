@@ -2,6 +2,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	MediaActivityLogInput,
 	MediaActivityLogOutput,
+	MediaActivityUpdateInput,
 } from "@ryot-app/media-plugin/shared/media-activity-operations";
 import { PLUGIN_PACKAGE_ID } from "@ryot-app/media-plugin/shared/plugin-identity";
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
@@ -19,8 +20,18 @@ const mediaActivityLogRecipe = defineOperationRecipe({
 	operationSlug: "media-activity-log",
 });
 
+const mediaActivityUpdateRecipe = defineOperationRecipe({
+	packageId: PLUGIN_PACKAGE_ID,
+	output: MediaActivityLogOutput,
+	input: MediaActivityUpdateInput,
+	operationSlug: "media-activity-update",
+});
+
 export const logMediaActivity = (client: Client, input: MediaActivityLogInput) =>
 	invokeOperation(client, mediaActivityLogRecipe, input, { idempotencyKey: input.submissionId });
+
+export const updateMediaActivity = (client: Client, input: MediaActivityUpdateInput) =>
+	invokeOperation(client, mediaActivityUpdateRecipe, input, { idempotencyKey: input.submissionId });
 
 export const logMediaActivityUnchecked = (
 	client: Client,

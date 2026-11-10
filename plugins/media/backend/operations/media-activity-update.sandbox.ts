@@ -64,11 +64,7 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 		const properties: PropertiesPatch = { set: {}, remove: [] };
 		if (patch.position !== undefined) {
 			yield* allow("position");
-			const positionError = mediaPositionError(
-				target.entitySchemaSlug,
-				target.eventSchemaSlug,
-				patch.position,
-			);
+			const positionError = mediaPositionError(target.entitySchemaSlug, patch.position);
 			if (positionError !== undefined) {
 				return yield* reject(positionError);
 			}

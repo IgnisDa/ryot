@@ -25,6 +25,7 @@ import {
 	CALENDAR_DATE_TOLERANCE_DAYS,
 	ConsumptionBasis,
 	consumptionBasisFor,
+	consumptionBasisRule,
 	hasStrayVolume,
 	MediaPosition,
 	SourceProgress,
@@ -139,12 +140,18 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	) {
 		return reject("Pages require a book or comic book");
 	}
+	const runUnit = item || position._tag === "None" ? undefined : position.value.unit;
 	const retained =
 		payload.operation === "update" ? payload.before.properties["consumptionBasis"] : undefined;
 	if (payload.operation === "update" && retained === undefined) {
 		return reject("Recorded consumption basis is missing");
 	}
-	if (retained !== undefined) {
+	const retainedUnit = Schema.decodeUnknownOption(ConsumptionBasis)(retained);
+	const unitChanged =
+		runUnit !== undefined &&
+		retainedUnit._tag === "Some" &&
+		retainedUnit.value.unit !== consumptionBasisRule(draft.entitySchemaSlug, runUnit).unit;
+	if (retained !== undefined && !unitChanged) {
 		if (!jsonValueEquals(retained, properties["consumptionBasis"])) {
 			return {
 				action: "transform",
@@ -156,14 +163,23 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 		}
 		return { action: "allow" } as const;
 	}
-	if (properties["consumptionBasis"] !== undefined) {
+	if (properties["consumptionBasis"] !== undefined && !unitChanged) {
 		const basis = Schema.decodeUnknownOption(ConsumptionBasis)(properties["consumptionBasis"]);
-		const expected = consumptionBasisFor(draft.entitySchemaSlug, {});
+		const expected =
+			runUnit === undefined
+				? [
+						consumptionBasisRule(draft.entitySchemaSlug),
+						consumptionBasisRule(draft.entitySchemaSlug, "volumes"),
+					]
+				: [consumptionBasisRule(draft.entitySchemaSlug, runUnit)];
 		if (
 			basis._tag === "None" ||
-			basis.value.unit !== expected.unit ||
-			basis.value.property !== expected.property ||
-			(expected.property === undefined && basis.value.total !== undefined)
+			!expected.some(
+				(rule) =>
+					basis.value.unit === rule.unit &&
+					basis.value.property === rule.property &&
+					(rule.property !== undefined || basis.value.total === undefined),
+			)
 		) {
 			return reject("Invalid consumption estimation basis");
 		}
@@ -172,7 +188,7 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	if (properties["completionKey"] !== undefined) {
 		return reject("Automatic completions require a consumption basis");
 	}
-	if (properties["sourceRun"] !== undefined) {
+	if (properties["sourceRun"] !== undefined && !unitChanged) {
 		return reject("Imported source runs require a consumption basis");
 	}
 	const target = yield* executeRyotqlRecipe(
@@ -189,7 +205,13 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 			draft: {
 				properties: {
 					remove: [],
-					set: { consumptionBasis: consumptionBasisFor(draft.entitySchemaSlug, target.properties) },
+					set: {
+						consumptionBasis: consumptionBasisFor(
+							draft.entitySchemaSlug,
+							target.properties,
+							runUnit,
+						),
+					},
 				},
 			},
 		},

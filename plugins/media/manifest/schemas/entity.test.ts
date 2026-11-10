@@ -54,7 +54,9 @@ describe("media lifecycle event schemas", () => {
 		expect(accepts("anime", "progress", position("episodes", 12.5))).toBe(false);
 		expect(accepts("manga", "progress", position("chapters", 12.5))).toBe(true);
 		expect(accepts("manga", "progress", position("chapters", 12, 2))).toBe(true);
-		expect(accepts("manga", "progress", position("volumes", 2))).toBe(false);
+		expect(accepts("manga", "progress", position("volumes", 2))).toBe(true);
+		expect(accepts("manga", "dropped", position("volumes", 2))).toBe(true);
+		expect(accepts("manga", "progress", position("episodes", 2))).toBe(false);
 		expect(accepts("manga", "item-complete", position("volumes", 2))).toBe(true);
 		expect(accepts("anime", "item-complete", position("chapters", 2))).toBe(false);
 		expect(accepts("manga", "list-state", validListState(position("chapters", 12.5)))).toBe(true);

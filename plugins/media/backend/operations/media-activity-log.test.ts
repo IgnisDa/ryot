@@ -360,6 +360,37 @@ describe("media activity log", () => {
 						},
 					],
 				]);
+				const volumes = recordingHost({ schemaSlug: "manga" });
+				yield* run(
+					{
+						entry: {
+							kind: "progress",
+							entityId: "manga-1",
+							position: { position: 2, unit: "volumes" },
+							when: {
+								kind: "date",
+								calendarDate: "2026-03-09",
+								startedOn: "2026-03-01T00:00:00.000Z",
+								finishedOn: "2026-03-09T00:00:00.000Z",
+							},
+						},
+					},
+					volumes.host,
+				);
+				expect(volumes.creates).toEqual([
+					[
+						{
+							entityId: "manga-1",
+							eventSchemaSlug: "progress",
+							occurredAt: "2026-03-09T00:00:00.000Z",
+							properties: {
+								calendarDate: "2026-03-09",
+								startedOn: "2026-03-01T00:00:00.000Z",
+								position: { position: 2, unit: "volumes" },
+							},
+						},
+					],
+				]);
 			}),
 		testTimeout,
 	);
@@ -397,7 +428,7 @@ describe("media activity log", () => {
 				const manga = recordingHost({ schemaSlug: "manga" });
 				yield* rejects(
 					"OperationRejectedError",
-					{ kind: "progress", entityId: "manga-1", position: { position: 2, unit: "volumes" } },
+					{ kind: "progress", entityId: "manga-1", position: { position: 2, unit: "episodes" } },
 					manga.host,
 				);
 				const book = recordingHost({ schemaSlug: "book" });

@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
@@ -26,13 +27,15 @@ import {
 	activityQuickAction,
 	activityRuntimeHint,
 	activityStatusNote,
+	addActivityTime,
 	backfillSummary,
 	convertedAmount,
 	defaultSeasonNumber,
 	eventPrecondition,
 	initialActivityDraft,
 	type MediaActivityLogger,
-	parseTimeSpent,
+	nextActivityPosition,
+	removeActivityTime,
 	resolveActivityWhen,
 	selectedEpisode,
 } from "./state";
@@ -52,12 +55,15 @@ const pages: MediaActivityLogger = {
 const positional: MediaActivityLogger = {
 	copy,
 	family: "positional",
-	progressUnit: { field: "episodes", plural: "episodes", singular: "episode" },
+	units: [{ label: "Episode", value: "episodes", plural: "episodes", singular: "episode" }],
 };
 const manga: MediaActivityLogger = {
 	family: "positional",
-	progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
 	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
+	units: [
+		{ label: "Chapter", value: "chapters", plural: "chapters", singular: "chapter" },
+		{ label: "Volume", value: "volumes", plural: "volumes", singular: "volume" },
+	],
 };
 const show: MediaActivityLogger = { copy, family: "show" };
 const podcast: MediaActivityLogger = { copy, family: "podcast" };
@@ -94,6 +100,8 @@ const loaded = (overrides: Record<string, unknown> = {}) => {
 };
 
 const TODAY = "2026-10-20";
+const ZONE = "UTC";
+const episodeAt = (position: number) => ({ position, unit: "episodes" });
 const submittedAt = (hour: number) => new Date(2026, 9, 20, hour, 15).toISOString();
 const noon = (day: number) => new Date(2026, 9, day, 12).toISOString();
 
@@ -127,11 +135,40 @@ describe("intents", () => {
 		});
 		expect(initialActivityDraft(positional, loaded(), TODAY).position).toBe(1);
 		expect(
-			initialActivityDraft(positional, loaded({ position: 12, episodes: 28 }), TODAY).position,
+			initialActivityDraft(positional, loaded({ episodes: 28, position: episodeAt(12) }), TODAY)
+				.position,
 		).toBe(13);
 		expect(
-			initialActivityDraft(positional, loaded({ position: 28, episodes: 28 }), TODAY).position,
+			initialActivityDraft(positional, loaded({ episodes: 28, position: episodeAt(28) }), TODAY)
+				.position,
 		).toBe(28);
+	});
+
+	it("defaults manga to the latest unit and caps the next entry at that unit's total", () => {
+		expect(
+			initialActivityDraft(
+				manga,
+				loaded({ volumes: 12, chapters: 200, position: { position: 4, unit: "volumes" } }),
+				TODAY,
+			),
+		).toMatchObject({ position: 5, positionUnit: "volumes" });
+		expect(
+			initialActivityDraft(
+				manga,
+				loaded({ volumes: 12, position: { position: 12, unit: "volumes" } }),
+				TODAY,
+			),
+		).toMatchObject({ position: 12, positionUnit: "volumes" });
+		expect(initialActivityDraft(manga, loaded({ chapters: 200 }), TODAY)).toMatchObject({
+			position: 1,
+			positionUnit: "chapters",
+		});
+		expect(
+			nextActivityPosition(
+				loaded({ chapters: 200, position: { position: 4, unit: "volumes" } }),
+				"chapters",
+			),
+		).toBe(1);
 	});
 
 	it("defaults the status to the first one the entity is not already in", () => {
@@ -226,6 +263,13 @@ describe("picked dates", () => {
 const errors = (value: ActivityDraft, logger: MediaActivityLogger = flat, extra = {}) =>
 	activityDraftErrors({ logger, draft: value, today: TODAY, context: loaded(extra) });
 
+const timedDraft = (finished: string, started = "") =>
+	draft({
+		when: "date",
+		intent: "progress",
+		time: { timeZone: ZONE, started: { value: started }, finished: { value: finished } },
+	});
+
 describe("validation", () => {
 	it("accepts the defaults", () => {
 		expect(errors(draft())).toEqual({});
@@ -287,6 +331,11 @@ describe("validation", () => {
 		expect(errors({ ...position, position: 500 }, positional)).toEqual({});
 		expect(errors({ ...position, position: 2.5 }, positional).position).toBeDefined();
 		expect(errors({ ...position, position: 2.5 }, manga)).toEqual({});
+		const volume = { ...position, positionUnit: "volumes" as const };
+		expect(errors({ ...volume, position: 13 }, manga, { volumes: 12 }).position).toBe(
+			"Enter a volume number from 1 to 12.",
+		);
+		expect(errors({ ...volume, position: 12 }, manga, { volumes: 12, chapters: 5 })).toEqual({});
 		expect(errors(draft({ hours: "1.5" })).time).toBeDefined();
 		expect(errors(draft({ minutes: "-5" })).time).toBeDefined();
 		expect(errors(draft({ consumedOn: "x".repeat(101) })).consumedOn).toBeDefined();
@@ -309,12 +358,13 @@ describe("validation", () => {
 		).toBe("Enter a percent above 0 and up to 100.");
 	});
 
-	it("parses h + m into minutes and keeps explicit zero distinct from missing", () => {
-		expect(parseTimeSpent("2", "30")).toBe(150);
-		expect(parseTimeSpent("", "45")).toBe(45);
-		expect(parseTimeSpent("", "")).toBeUndefined();
-		expect(parseTimeSpent("0", "0")).toBe(0);
-		expect(parseTimeSpent("a", "")).toBeNull();
+	it("validates an exact time and its ordered start", () => {
+		expect(errors(timedDraft("2026-10-19T21:30", "2026-10-19T08:00"))).toEqual({});
+		expect(errors(timedDraft("")).when).toBe("Enter a date and time.");
+		expect(errors(timedDraft("2026-10-21T08:00")).when).toBe("That day is in the future.");
+		expect(errors(timedDraft("2026-10-19T08:00", "2026-10-19T09:00")).when).toBe(
+			"The start can't be after the finish.",
+		);
 	});
 });
 
@@ -388,8 +438,50 @@ describe("entries", () => {
 				kind: "progress",
 				entityId: "entity-1",
 				progressPercent: 42.5,
-				when: { finishedOn, kind: "date", calendarDate: TODAY },
+				when: {
+					finishedOn,
+					kind: "date",
+					calendarDate: TODAY,
+					startedOn: "2026-10-01T00:00:00.000Z",
+				},
 			},
+		});
+	});
+
+	it("writes an added time of day as an exact instant without a calendar date", () => {
+		const base = draft({ when: "date", intent: "progress", finishedDay: "2026-10-19" });
+		const timed = { ...base, ...addActivityTime(base, Date.parse("2026-10-20T07:45:00Z"), ZONE) };
+		expect(timed.time?.finished.value).toBe("2026-10-19T07:45");
+		const input = activityLogInput(
+			activityEntryDraft({
+				logger: flat,
+				context: loaded(),
+				entityId: "entity-1",
+				episodeEntityIds: [],
+				draft: {
+					...timed,
+					time: {
+						timeZone: "Asia/Kolkata",
+						started: { value: "2026-10-18T22:00" },
+						finished: { value: "2026-10-19T21:30" },
+					},
+				},
+			}),
+			{ submissionId: "submission-1", submittedAt: "2026-10-20T07:45:00.000Z" },
+		);
+		expect(input.entry).toEqual({
+			kind: "progress",
+			entityId: "entity-1",
+			when: {
+				kind: "date",
+				startedOn: "2026-10-18T16:30:00.000Z",
+				finishedOn: "2026-10-19T16:00:00.000Z",
+			},
+		});
+		expect(removeActivityTime(timed)).toEqual({
+			time: null,
+			startedDay: "",
+			finishedDay: "2026-10-19",
 		});
 	});
 
@@ -598,7 +690,7 @@ describe("episodes and copy", () => {
 			"Keeps your progress at 42%.",
 		);
 		expect(activityStatusNote(flat, loaded())).toBeUndefined();
-		expect(activityStatusNote(positional, loaded({ position: 113 }))).toBe(
+		expect(activityStatusNote(positional, loaded({ position: episodeAt(113) }))).toBe(
 			"Keeps your place at episode 113.",
 		);
 		expect(activityStatusNote(show, loaded())).toBe(
@@ -665,28 +757,55 @@ describe("quick actions", () => {
 	});
 
 	it("advances an anime mid-way and when the total is unknown", () => {
-		expect(activityQuickAction(anime, loaded({ position: 12, episodes: 28 }))).toMatchObject({
-			label: "Mark episode 13 watched",
-			entry: { position: { position: 13 } },
-		});
-		expect(activityQuickAction(anime, loaded({ position: 12 }))).toMatchObject({
+		expect(
+			activityQuickAction(anime, loaded({ episodes: 28, position: episodeAt(12) })),
+		).toMatchObject({ label: "Mark episode 13 watched", entry: { position: { position: 13 } } });
+		expect(activityQuickAction(anime, loaded({ position: episodeAt(12) }))).toMatchObject({
 			entry: { position: { position: 13 } },
 		});
 	});
 
 	it("offers nothing for an anime at its total or marked complete", () => {
-		expect(activityQuickAction(anime, loaded({ position: 28, episodes: 28 }))).toBeNull();
 		expect(
-			activityQuickAction(anime, loaded({ position: 3, episodes: 28, state: "complete" })),
+			activityQuickAction(anime, loaded({ episodes: 28, position: episodeAt(28) })),
+		).toBeNull();
+		expect(
+			activityQuickAction(
+				anime,
+				loaded({ episodes: 28, state: "complete", position: episodeAt(3) }),
+			),
 		).toBeNull();
 	});
 
 	it("labels manga chapters as read", () => {
-		expect(activityQuickAction(manga, loaded({ position: 113, chapters: 200 }))).toMatchObject({
+		expect(
+			activityQuickAction(
+				manga,
+				loaded({ chapters: 200, position: { position: 113, unit: "chapters" } }),
+			),
+		).toMatchObject({
 			text: "Chapter 114 read.",
 			label: "Mark chapter 114 read",
 			entry: { position: { position: 114, unit: "chapters" } },
 		});
+	});
+
+	it("advances a volume-only manga by volume up to its volume total", () => {
+		expect(
+			activityQuickAction(
+				manga,
+				loaded({ volumes: 10, chapters: 200, position: { position: 3, unit: "volumes" } }),
+			),
+		).toMatchObject({
+			text: "Volume 4 read.",
+			entry: { position: { position: 4, unit: "volumes" } },
+		});
+		expect(
+			activityQuickAction(
+				manga,
+				loaded({ volumes: 10, position: { position: 10, unit: "volumes" } }),
+			),
+		).toBeNull();
 	});
 
 	it("never offers a quick action for flat media", () => {
@@ -714,6 +833,7 @@ const edit = (input: {
 	const initial = activityEditDraft({
 		logger,
 		today: TODAY,
+		timeZone: ZONE,
 		context: target,
 		ref: input.record,
 		intent: input.intent,
@@ -739,6 +859,7 @@ describe("activity edits", () => {
 		const initial = activityEditDraft({
 			ref: record,
 			today: TODAY,
+			timeZone: ZONE,
 			intent: "finished",
 			logger: positional,
 			context: loaded({ schemaSlug: "manga" }),
@@ -772,15 +893,67 @@ describe("activity edits", () => {
 		).toBeUndefined();
 	});
 
-	it("marks the date unknown and keeps the stored time when only the start day moves", () => {
+	it("marks the date unknown and keeps the stored day when only the start day moves", () => {
 		expect(edit({ intent: "finished", record: stored({}), change: { when: "unknown" } })).toEqual({
 			when: { kind: "unknown" },
 		});
 		expect(
-			edit({ intent: "finished", record: stored({}), change: { startedDay: "2026-10-08" } }),
+			edit({
+				intent: "progress",
+				change: { startedDay: "2026-10-08" },
+				record: stored({ calendarDate: "2026-10-10" }),
+			}),
 		).toEqual({
-			when: { kind: "date", finishedOn: noon(10), startedOn: "2026-10-08T00:00:00.000Z" },
+			when: {
+				kind: "date",
+				finishedOn: noon(10),
+				calendarDate: "2026-10-10",
+				startedOn: "2026-10-08T00:00:00.000Z",
+			},
 		});
+	});
+
+	it("opens an exact instant with its time and keeps the start on progress edits", () => {
+		const record = stored({ startedOn: "2026-10-08T06:00:00.000Z" });
+		const initial = activityEditDraft({
+			ref: record,
+			today: TODAY,
+			logger: flat,
+			timeZone: ZONE,
+			context: loaded(),
+			intent: "progress",
+		});
+		expect(initial.time).toEqual({
+			timeZone: ZONE,
+			finished: { original: noon(10), value: toDateTimeInput(noon(10), ZONE) },
+			started: { value: "2026-10-08T06:00", original: "2026-10-08T06:00:00.000Z" },
+		});
+		const time = initial.time;
+		if (time === null) {
+			throw new Error("Expected an exact time");
+		}
+		expect(
+			edit({
+				record,
+				intent: "progress",
+				change: { time: { ...time, finished: { value: "2026-10-10T18:30" } } },
+			}),
+		).toEqual({
+			when: {
+				kind: "date",
+				startedOn: "2026-10-08T06:00:00.000Z",
+				finishedOn: "2026-10-10T18:30:00.000Z",
+			},
+		});
+		expect(edit({ record, intent: "progress", change: removeActivityTime(initial) })).toMatchObject(
+			{
+				when: {
+					kind: "date",
+					startedOn: "2026-10-08T00:00:00.000Z",
+					calendarDate: toDateTimeInput(noon(10), ZONE).slice(0, 10),
+				},
+			},
+		);
 	});
 
 	it("clears a source and a time spent that were emptied", () => {
@@ -819,6 +992,15 @@ describe("activity edits", () => {
 				record: stored({ position: { volume: 2, position: 12, unit: "chapters" } }),
 			}),
 		).toEqual({ position: { volume: 2, position: 12.5, unit: "chapters" } });
+		expect(
+			edit({
+				logger: manga,
+				intent: "progress",
+				schemaSlug: "manga",
+				change: { position: 3, positionUnit: "volumes" },
+				record: stored({ position: { volume: 2, position: 12, unit: "chapters" } }),
+			}),
+		).toEqual({ position: { position: 3, unit: "volumes" } });
 	});
 
 	it.effect(
@@ -837,6 +1019,7 @@ describe("activity edits", () => {
 					ref: record,
 					today: TODAY,
 					logger: pages,
+					timeZone: ZONE,
 					context: target,
 					intent: "progress",
 				});
@@ -880,6 +1063,7 @@ describe("activity edits", () => {
 			ref: record,
 			today: TODAY,
 			logger: pages,
+			timeZone: ZONE,
 			context: target,
 			intent: "progress",
 		});

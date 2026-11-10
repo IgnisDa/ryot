@@ -203,6 +203,105 @@ describe("consumption policy", () => {
 		testTimeout,
 	);
 	it.effect(
+		"measures a volume run against the volume total and recaptures when an edit switches units",
+		() =>
+			Effect.gen(function* () {
+				const test = harness({ volumes: 12, chapters: 120 });
+				const context = yield* policyAutomationContext({
+					entitySchemaSlug: "manga",
+					eventSchemaSlug: "progress",
+					properties: { position: { position: 3, unit: "volumes" } },
+				});
+				expect(yield* test.run(context)).toMatchObject({
+					action: "transform",
+					patch: {
+						draft: {
+							properties: {
+								set: { consumptionBasis: { total: 12, unit: "volumes", property: "volumes" } },
+							},
+						},
+					},
+				});
+				const payload = context.automation.payload;
+				if (payload.resource !== "event" || payload.operation !== "create") {
+					throw new Error("Expected event create");
+				}
+				const chapterBasis = { total: 120, unit: "chapters", property: "chapters" };
+				const before = {
+					...payload.draft,
+					id: "source",
+					createdAt: payload.draft.occurredAt,
+					updatedAt: payload.draft.occurredAt,
+					properties: {
+						consumptionBasis: chapterBasis,
+						position: { position: 30, unit: "chapters" },
+					},
+				};
+				const edit = (position: Schema.Json) =>
+					Schema.decodeEffect(automationPolicyInputSchema)({
+						automation: {
+							...context.automation,
+							payload: {
+								...payload,
+								before,
+								operation: "update",
+								changedProperties: ["position"],
+								draft: {
+									...payload.draft,
+									properties: { position, consumptionBasis: chapterBasis },
+								},
+							},
+						},
+					});
+				expect(yield* test.run(yield* edit({ position: 31, unit: "chapters" }))).toEqual({
+					action: "allow",
+				});
+				expect(yield* test.run(yield* edit({ position: 3, unit: "volumes" }))).toMatchObject({
+					action: "transform",
+					patch: {
+						draft: { properties: { set: { consumptionBasis: { total: 12, unit: "volumes" } } } },
+					},
+				});
+			}),
+		testTimeout,
+	);
+	it.effect(
+		"accepts a volume basis only where a manga volume run can carry it",
+		() =>
+			Effect.gen(function* () {
+				const test = harness();
+				const volumes = { total: 12, unit: "volumes", property: "volumes" };
+				expect(
+					yield* test.run(
+						yield* policyAutomationContext({
+							entitySchemaSlug: "manga",
+							eventSchemaSlug: "complete",
+							properties: { consumptionBasis: volumes, completionKey: "progress:a" },
+						}),
+					),
+				).toEqual({ action: "allow" });
+				const inputs: Parameters<typeof policyAutomationContext>[0][] = [
+					{
+						entitySchemaSlug: "manga",
+						eventSchemaSlug: "progress",
+						properties: { consumptionBasis: volumes, position: { position: 3, unit: "chapters" } },
+					},
+					{
+						entitySchemaSlug: "book",
+						eventSchemaSlug: "complete",
+						properties: { consumptionBasis: volumes },
+					},
+				];
+				for (const input of inputs) {
+					expect(yield* test.run(yield* policyAutomationContext(input))).toMatchObject({
+						action: "reject",
+					});
+				}
+				expect(test.reads()).toBe(0);
+			}),
+		testTimeout,
+	);
+	it.effect(
 		"rejects duplicate amount forms, contradictory or distant date evidence and game estimates",
 		() =>
 			Effect.gen(function* () {

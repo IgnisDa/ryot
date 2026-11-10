@@ -5,11 +5,13 @@ import {
 	usePluginUserSettings,
 	useRyotQuery,
 	useRyotSchedule,
+	useUserPreferences,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
 	ActionForm,
 	Button,
 	Dialog,
+	DurationField,
 	Field,
 	FieldMessage,
 	Select,
@@ -25,7 +27,7 @@ import { mediaActivityPatchableKeys } from "../../../shared/media-activity-field
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import type { MediaActivityEventRef } from "../activity-timeline";
 import { activityLogContextQuery, updateActivitySubmission } from "./queries";
-import { FlatProgress, PositionProgress, SourceField, TimeSpentField, WhenField } from "./sheet";
+import { FlatProgress, PositionProgress, SourceField, WhenField } from "./sheet";
 import {
 	type ActivityDraft,
 	activityDraftErrors,
@@ -51,11 +53,13 @@ type EditSheetProps = {
 /** Edits one stored completion or progress update with the Log activity fields. */
 export function MediaActivityEditSheet(props: EditSheetProps & { readonly entityId: string }) {
 	const result = useRyotQuery(activityLogContextQuery, { entityId: props.entityId });
-	if (result.data === undefined || result.data === null) {
+	const preferences = useUserPreferences();
+	const failed = result.isError || preferences.isError;
+	if (result.data === undefined || result.data === null || preferences.data === undefined) {
 		let message = "Loading…";
 		if (result.data === null) {
 			message = "This activity can't be edited.";
-		} else if (result.isError) {
+		} else if (failed) {
 			message = "Unable to load this item.";
 		}
 		return (
@@ -67,24 +71,43 @@ export function MediaActivityEditSheet(props: EditSheetProps & { readonly entity
 				placement={props.compact ? "sheet" : "center"}
 			>
 				<StatusMessage
-					tone={result.isError ? "error" : "pending"}
-					action={result.isError ? { label: "Try again", onClick: result.refetch } : undefined}
+					tone={failed ? "error" : "pending"}
+					action={
+						failed
+							? {
+									label: "Try again",
+									onClick: () => {
+										result.refetch();
+										preferences.refetch();
+									},
+								}
+							: undefined
+					}
 				>
 					{message}
 				</StatusMessage>
 			</Dialog>
 		);
 	}
-	return <EditForm {...props} context={result.data} />;
+	return <EditForm {...props} context={result.data} timeZone={preferences.data.timeZone} />;
 }
 
-function EditForm(props: EditSheetProps & { readonly context: MediaActivityLogContext }) {
+function EditForm(
+	props: EditSheetProps & { readonly timeZone: string; readonly context: MediaActivityLogContext },
+) {
 	const { logger, record, context } = props;
 	const schedule = useRyotSchedule();
 	const today = localDay(schedule.now());
 	const update = useBackgroundSubmission(updateActivitySubmission);
 	const [initial] = useState(() =>
-		activityEditDraft({ today, logger, context, ref: record, intent: props.intent }),
+		activityEditDraft({
+			today,
+			logger,
+			context,
+			ref: record,
+			intent: props.intent,
+			timeZone: props.timeZone,
+		}),
 	);
 	const [draft, setDraft] = useState(initial);
 	const settings = usePluginUserSettings(usePluginIdentity(PLUGIN_PACKAGE_ID).pluginId);
@@ -173,11 +196,11 @@ function EditFields(props: {
 					<Select
 						label="Item unit"
 						value={item.unit}
-						choices={logger.itemUnits ?? []}
+						choices={logger.units}
 						checkIcon={<AppIcon size={16} name="check" />}
 						chevronIcon={<AppIcon size={16} name="chevron-down" />}
 						onChange={(value) => {
-							const unit = logger.itemUnits?.find((candidate) => candidate.value === value);
+							const unit = logger.units.find((candidate) => candidate.value === value);
 							if (unit !== undefined) {
 								props.onChange({ item: { unit: unit.value, position: item.position } });
 							}
@@ -258,8 +281,8 @@ function EditFields(props: {
 			/>
 
 			{draft.intent === "finished" || draft.intent === "progress" ? (
-				<TimeSpentField
-					draft={draft}
+				<DurationField
+					value={draft}
 					error={errors.time}
 					onChange={props.onChange}
 					label="Cumulative time spent"
