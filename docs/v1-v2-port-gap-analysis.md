@@ -6,6 +6,10 @@ Code inventory audited on **2026-10-26**, against repository commit
 `e85f5099664211919552cca54b26c8ffe97541d5`. This is a legacy engineering reference,
 not maintained product documentation; maintained user documentation lives in `apps/docs`.
 
+The current-status inventory was reconciled on **2026-11-10** against commits through
+`68beedb34e`, including bulk collection management, collection reviews and Order 19. This
+was a source/documentation check, not a new execution of the historical validation suites.
+
 The comparison covers V1's public operations, HTTP handlers, scheduled work, dependent
 utilities, data models, preferences, and client screens. It maps these to executable V2
 services, plugin declarations/scripts, recipes, client surfaces, and migration mappings.
@@ -53,9 +57,17 @@ fitness record rebuilding, Calendar, Pro verification, and admin log downloads n
 Recommendations, watch-provider display, media home queries, and episode progress also
 have client consumers, not only hand-built test queries.
 
-The main remaining work is notification producers, safe data retention, richer collection
-browsing and some custom-media/history controls. Default collections, immutable history, a nightly calendar table, and destructive
-workout replay are **not** accurate descriptions of the current V2 design.
+Orders 1–19 are complete, including notification producers, retention, analytics and the
+history/review controls. Bulk collection add/remove and collection review management also
+have usable client paths. Completion of this roadmap does not mean exact V1 parity.
+
+Pro verification exists, but feature-by-feature entitlement parity remains open. No equivalent
+was found for V1's media-consumed-during-a-workout panel. Other differences requiring a product
+decision include provider-source exercise merging, exercise analytics exclusions, standalone
+genre pages, random sorting/context-specific presets, and selected preferences/operator settings.
+See the remaining inventory below; these are not automatic commitments to restore V1 behavior.
+Default collections, immutable history, a nightly calendar table and destructive workout replay
+are **not** accurate descriptions of the current V2 design.
 
 ## Recommended implementation order
 
@@ -87,7 +99,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | --- | --- | --- | --- | --- |
 | 1 | Done | **Settle and implement history-correction behavior** | Agreed: repair automatic consequences; preserve explicit records and overrides; suppress explicitly deleted automatic occurrences; keep corrections silent and retain provider-time completion evidence | The bounded, resumable implementation replaces the unbounded ledger. Runtime acceptance, status/retry controls, and final validation pass. See the Order 1 acceptance record below. |
 | 2 | Done | **Wire existing custom-media/person/group editing** | Existing entity editor/save capability | Add owner-only edit entry points and update-mode routes; reuse the shared editor, declared outgoing links and stale baselines. Derive publish year when absent and a date is supplied. Existing fields/assets survive unrelated edits. This does not require building custom episode authoring first. |
-| 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales are a separate decision. |
+| 3 | Done | **Support rating-only Media reviews** | Existing review events and operations | Create, read, edit and delete a rating without requiring text. Keep at least one of rating/text, the 0–100 storage scale, ownership checks and retry safety. Imported rating-only records are editable without inventing review text. Alternate display scales shipped separately in Order 19. |
 | 4 | Done | **Add explicit provider refresh** | Existing population/enrichment workflows | Successful provider data can be refreshed from Media detail screens with progress, failure and retry controls. Shared bounded admission, write fences, current-language translation refresh, and successful-check freshness evidence preserve saved data and user intent. See the Order 4 acceptance record below. |
 | 5 | Done | **Add collection member reordering** | Existing memberships and rank reads | Server-owned moves, sparse integer ranks, transactional respacing, revision-fenced pagination, retry-safe submissions and shared pointer/keyboard controls with haptics are shipped. Real dump migrations preserve complete collection order. See the Order 5 acceptance record below. |
 | 6 | Done | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Media and Fitness entity schemas declare source, lifecycle state, rating, date and activity filters and sorts; entity browsers and collection detail compile search, count and pages from them without kernel branches on plugin IDs. Stored library summaries keep V2's cycle-aware state. See the Order 6 acceptance record below. |
@@ -319,12 +331,14 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | --- | --- |
 | Automatic library-reason recomputation and default smart-collection edits | Closed as intentional redesign under the agreed policy. Do not implement; explicit removal, live state and explicit monitoring are the replacement. |
 | Exact V1 recommendation sampling, enabled-lot gates and global fallback | Keep current home selection. Decide whether a separate explicit recommendation preference is needed; hiding a navigation view must not silently become a processing permission. |
-| Rating scales, positional reviews, consumption-to-review links, episode retargeting, multi-source consumption, dated/manual-time progress and manga volume-only next-entry | **Implement** (decided 2026-11-10) as Order 19; the [Order 19 plan](order-19-history-review-controls-plan.md) records the product decisions. Review visibility stays excluded; Fitness notes stay text-required notes sharing the rating scale; batch episode logs take no time spent; retargeting stays within one parent. |
+| Rating scales, positional reviews, consumption-to-review links, episode retargeting, multi-source consumption, dated/manual-time progress and manga volume-only next-entry | **Done** as Order 19 (2026-11-10); the [Order 19 plan](order-19-history-review-controls-plan.md) records the product decisions. Review visibility stays excluded; Fitness notes stay text-required notes sharing the rating scale; batch episode logs take no time spent; retargeting stays within one parent. |
 | Learned collection string choices and standalone genre pages | Keep explicit choices and existing genre pickers/filters unless a user workflow needs more. Approved browse work fits after row 6. |
-| Broader exercise merge and `exclude_from_analytics` | Decide before row 16's metric contract. Keep same-kind/ownership protections; do not change recorded units/kinds or restore destructive workout replay. An exclusion preference is not required merely because V1 stored one. |
+| Broader exercise merge and `exclude_from_analytics` | Order 16 shipped without these controls; restoring them remains a separate product decision. Provider-source merging means allowing a provider-backed exercise as the merge-from source, which V2 currently rejects. Keep same-kind/ownership protections; do not change recorded units/kinds or restore destructive workout replay. An exclusion preference is not required merely because V1 stored one. |
 | Same-time import ordering, association-only imports and old Generic JSON files | Keep source-order/dependency-safe V2 processing unless a concrete correctness case requires a change in row 1. Decide direct old-file conversion separately; do not reinstate the removed sink or old backup format. |
 | V1 display/dashboard/per-provider-language preferences | Keep workspace/home, current language and plugin-owned settings as defaults. Add only selected missing user controls; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
 | S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Add only a current operational requirement. Bucket health and configurable upload limits can be scoped separately; old export internals, token settings and startup knobs do not block this roadmap. |
+| Pro entitlement parity | Verification is implemented; audit and decide each feature's backend enforcement, client gating and expiry behavior. Existing integration/Fitness gates do not establish full parity. |
+| Media consumed during a workout | No current equivalent found for the V1 workout-detail panel. Decide whether to restore it with explicit cross-plugin ownership and user-scoped reads. |
 | Public sharing, collaborators, review visibility/comments/likes | Read-only public sharing of collections and saved views ships as Order 18 publications. Collaborators, shared editing, review visibility, comments and likes remain excluded; restoring them would be a separate product/security scope. |
 
 ### Per-feature completion gate
@@ -473,7 +487,7 @@ stored properties. Removing text also removes its spoiler flag; removing both fi
 rejected, with deletion kept separate. The **Rate or review** composer puts the rating first
 and shows spoiler controls only with text. Existing imported positional fields survive edits.
 Ownership, demo protection, stale-update snapshots, replay safety, and persistent library
-membership remain unchanged. Alternate rating scales remain outside this item.
+membership remain unchanged. Alternate rating scales shipped separately in Order 19.
 
 Owners: `plugins/media/shared/media-review-operations.ts`, the Media review create/update/delete
 operations, `shared/media-recipes.ts` review selections, and `client/media/{review,activity-rows,activity-row-menu}.tsx`.
@@ -871,15 +885,15 @@ Paths abbreviated as `modules/...` in the tables below are under
 | Register, login/logout, OIDC, long-lived auth tokens | Reshaped | `modules/accounts/auth/service.ts`: Better Auth hosted login, external OIDC, OAuth 2.1/PKCE for web/native, API keys. Application APIs accept OAuth bearer tokens or `X-Api-Key`, not hosted-login cookies. Username login becomes email login. |
 | TOTP setup, verification, disable, recovery codes | Covered | Better Auth two-factor plugin, hosted `/oauth/two-factor`, kernel Account settings. Availability depends on a credential account. |
 | Password-change sessions and admin provisioning/reset | Reshaped | Instance Admin provisions credential/OIDC accounts and obtains Better Auth reset links; links expire after 30 minutes. No V1 password-change-session wire contract. |
-| User details, preferences, account name | Covered; reshaped | Self `user` reads use RyotQL; kernel preferences are `language` and `disableIntegrations`; domain preferences belong to installations. The Account screen offers self-service display-name editing through the protected `/account/name` command. See [account and preference differences](#account-and-preference-differences). |
+| User details, preferences, account name | Covered; reshaped | Self `user` reads use RyotQL; kernel preferences include `language`, `disableIntegrations`, `reportingTimeZone` and `ratingScale`; domain preferences belong to installations. The Account screen offers self-service display-name editing through the protected `/account/name` command. See [account and preference differences](#account-and-preference-differences). |
 | User listing, disable/delete/reset | Covered | `modules/instance-admin` commands plus admin RyotQL `user` and `userLifecycleOperation` reads; client `kernel/client/src/routes/instance-admin`. Reset/delete are durable operations. Normal user reads see only self; the old claim that any authenticated caller receives the full user list is wrong. |
 | Admin impersonation | Reshaped | Instance Admin one-use 60-second handoff, PKCE, one-hour impersonation session, client banner and explicit exit. This replaces the admin use of access links; public read-only sharing is covered separately by publications. |
 | Access links / public sharing | Reshaped | `modules/publications`: owners publish a collection or entity-browser saved view and hand out labelled, expiring, revocable links; visitors need no account and read only the published items. Whole-account access links, usage-count limits and collaborators are not reproduced. See Order 18. |
 | Demo account | Reshaped | `USERS_DEMO_ACCOUNT_ID`, `/demo`, credential-scoped restrictions. Owner credentials remain unrestricted; shared demo changes persist, with no periodic reset. |
 | Admin application-log download | Covered | `modules/instance-admin/logs.ts`, contract `modules/instance-admin/logs.ts`: paged active/rotated files, individual downloads and ZIP-all. Signed tickets expire after five minutes and are reusable until expiry, unlike V1's consumed single-use token. |
 | Core details and capabilities | Reshaped | `/system/config` reports version, frontend origin, auth, SMTP availability, Pro state, analytics, and storage provider. Provider/schema/source catalogs supply domain capabilities through RyotQL. Not just an auth-config payload. |
-| Health and observability | Reshaped | `/system/health` checks PostgreSQL and Redis; structured rotating logs and optional OTLP replace the Rust process facilities. There is no S3 bucket probe in this health response. |
-| Server Pro key | Covered | `kernel/backend/src/platform/pro-key.ts`: Unkey verification, expiry validation, one-hour cache. Trusted host checks gate integrations and Fitness operations. This is not an unresolved question about whether V2 has paid features. |
+| Health and observability | Reshaped | `/system/health` checks PostgreSQL; structured rotating logs and optional OTLP replace the Rust process facilities. There is no S3 bucket probe in this health response. |
+| Server Pro key and feature entitlements | Partial | `kernel/backend/src/platform/pro-key.ts`: Unkey verification, expiry validation, one-hour cache. Integration and Fitness gates exist, but full feature-by-feature entitlement parity is not established. Collection reordering, for example, was Pro-gated in V1 and has no corresponding V2 gate. See the remaining Pro inventory. |
 | File upload/download/delete | Reshaped | `modules/assets`: upload intents/completion, owned managed assets, download resolution, safe unreferenced cleanup, local permanent-storage fallback and S3. Temporary imports use local working storage. See [asset lifecycle](#asset-lifecycle). |
 | User data export and listing | Reshaped | `modules/backups`: durable export, RyotQL `backupRun` listing, short-lived download URL and deletion; kernel Backup settings. It replaces V1's S3 JSON export/list-by-prefix mechanism. |
 | Restore | Covered; additional V2 behavior | Atomic clean-account restore of validated backup archives, dependencies, private compiled plugins and assets. Secrets are redacted where required. Backup is not a credentials/session dump and is not the V1 Generic JSON format. |
@@ -901,8 +915,8 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Seen/progress/status history | Reshaped | `backlog`, `progress`, `complete`, `dropped`, `on_hold`, plus integration `list-state` snapshots; plugin `media-activity-log`, history UI, and RyotQL lifecycle recipes. Events can be edited and deleted. |
 | Completion, rewatch, episodic progress | Reshaped | Required full-progress and episodic-parent hooks, per-cycle coverage, session assignment, season/episode queries and next-up. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/manga progress is cumulative position, not per-chapter/episode history expansion. |
 | Correct/delete existing history or reviews | Covered | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Media-owned completion evidence and atomic reconciliation repair derived records, preserve explicit overrides and deletion suppressions, and keep corrections silent. |
-| Ratings and review text/spoilers | Partial | Schema-owned private `review` events support rating-only, text-only, or combined content through the Media composer and create/update/delete operations. Ratings remain 0–100, including zero and decimals. Imported rating-only records are editable without placeholder text. Alternate display scales and some review-position controls remain separate decisions. |
-| Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, server-owned reordering with revision-fenced pagination and shared haptics, plus member-type filters and sorts declared by plugin schemas and a date-added filter. Details below. |
+| Ratings and review text/spoilers | Covered; reshaped | Private `review` events support rating-only, text-only or combined content, spoilers and create/update/delete. Storage stays 0–100; the kernel `ratingScale` preference selects 100, 10, five half-stars or three-point smiley display across Media, Fitness and collection reviews. Order 19 adds positions and optional consumption-event links; public review visibility stays excluded. |
+| Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, server-owned reordering with revision-fenced pagination and shared haptics, plus member-type filters and sorts declared by plugin schemas and a date-added filter. Shared browser selection supports bulk add/remove; collection detail opens private review management. Learned membership choices remain absent. Details below. |
 | Owned and Monitoring default collections | Reshaped | Owned/ownedOn annotations on `in-media-library`; `media-monitoring` relationships and explicit status/enable/disable operations. Both have client controls. They are not protected kernel collections. |
 | Watchlist, In-Progress, Completed smart collections | Reshaped / partial | Lifecycle-derived home lists replace the state-list role. V2 does not maintain ordinary named collections or automatically enable monitoring when logging progress. New aired episodes affect live coverage without a collection-moving job; unmonitored caught-up series get a “more episodes available” notification. |
 | Custom metadata/person/group | Covered | Manifest editors, shared SDK editor, `POST /entities/editor`, and owner-only create/edit routes cover media, people, companies, groups, show seasons/episodes and podcast episodes. Atomic saves compare loaded entity/relationship baselines and preserve unrelated fields/assets. API custom-media saves derive missing publish years from full valid dates; explicit years remain unchanged. Children are deleted only without history. Duplicate actions are deferred. |
@@ -933,6 +947,7 @@ Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-vi
 | Exercise settings | Partial / reshaped | Installation unit/rest/sound/timer settings and per-exercise membership overrides. Stored units are kg/km/seconds; changing display units does not rebuild history. V1 `exclude_from_analytics` has no equivalent. |
 | Exercise merge | Partial / reshaped | `exercise-merge` moves user data and collection links, replaces template references and triggers record repairs. Requires a custom source and same kind; V1 allowed same-lot provider-source merges too. Multi-step merge is retry-to-complete, not atomic. |
 | Workouts: create/edit/delete, attributes, repeat | Covered; reshaped | `workout-editor-save`, `workout-delete`, `workout-time-correction`, shared live/historical editor and repeat flows. Atomic source save, stale baselines, durable retry identities, notes/media, confirmed sets, rest timers, supersets and device drafts. |
+| Media consumed during a workout | Missing | V1 workout details queried media consumption during the workout interval and displayed linked titles. No equivalent V2 recipe/client panel was found; this needs a cross-plugin product decision, not a kernel dependency on Media or Fitness. |
 | Workout duration and unit handling | Reshaped | Active duration excludes explicit pauses and remains distinct from elapsed timestamps. Time correction preserves recorded duration unless explicitly changed; unlike V1, editing times does not silently replace it with elapsed duration. |
 | Templates: list/detail/create/edit/delete/use | Covered | Template saved view/detail, shared editor and explicit delete; templates store plans without workout execution events. Writes/replacement and protected notes/media have current Pro rules. |
 | Personal bests, derived set stats, history repair | Covered; reshaped | `script.workout-record-step`, event-stream projections, changed-set/context hooks, durable reconciliation and freshness checks. Rebuilds derived stats by exercise and recorded kind, without deleting/recreating workouts or replaying historical notifications. |
@@ -1151,6 +1166,19 @@ planned capabilities from decisions and accepted redesigns. The groups below are
 not a priority order or a requirement to reproduce an old table/job/endpoint. Do not reopen
 resolved export, genre, Calendar, editor or projection work.
 
+### Pro entitlements
+
+Verification and several paid-feature checks are implemented. They do not prove parity with
+V1's feature gates. V1 `reorder_collection_entity` checks the server key; current V2 collection
+reorder routes/ordering service and the client action have no matching check. Analytics and
+collection recommendations also need an explicit entitlement decision. Audit backend enforcement,
+client messaging and key expiry for the agreed feature list; do not infer a paid policy solely
+from a V1 UI restriction.
+
+Evidence: `crates/utils/dependent/collection/src/lib.rs`,
+`kernel/backend/src/platform/pro-key.ts`, `modules/collections/{routes,ordering-service}.ts`,
+`packages/kernel-renderers/src/collection-detail.tsx`.
+
 ### Notification producers
 
 1. Release-day alerts to monitoring users are implemented (Order 13).
@@ -1180,6 +1208,13 @@ resolved export, genre, Calendar, editor or projection work.
   member type's schema, including Media lifecycle state, ratings, completion/activity/release dates
   and source, and Fitness exercise activity. Members of other types never match a domain filter and
   sort last. There is no random sort and no V1 filter preset.
+- **Bulk membership:** shared SDK browser selection supports loaded items or every matching item
+  minus exclusions, resolves IDs page by page and opens the kernel collection-members screen.
+  Entity browsers and Fitness workout lists support bulk add; collection detail also supports
+  bulk remove. This is implemented client behavior, not only batch APIs.
+- **Collection reviews:** collection detail's **Reviews** action opens private review listing,
+  creation, editing and deletion through the kernel screen/bridge. It shares the review composer
+  and rating scale; public review visibility/comments/likes remain excluded.
 - **Recommendations:** Order 15 ships a searchable, paged Media collection recommendations page.
   User home recommendations deliberately use the latest useful completion,
   rather than V1's random set of up to ten library sources with candidate oversampling and
@@ -1192,7 +1227,11 @@ resolved export, genre, Calendar, editor or projection work.
 
 Evidence: `modules/collections/service.ts`, `packages/contract/src/modules/collections/contract.ts`,
 `packages/ryotql-recipes/src/collections.ts`, `plugins/media/manifest/saved-views.ts`,
-`plugins/media/shared/discovery-recipes.ts`, `crates/services/collection/src`.
+`plugins/media/shared/discovery-recipes.ts`, `crates/services/collection/src`;
+`packages/plugin-client-sdk/src/browser/{controller.tsx,collection-actions.ts}`;
+`kernel/client/src/modules/collections/{change-members,review-screen,review-editor}.tsx`.
+Bulk UI commits: `85e3802ccc`, `5dc3976d3f`, `f6cf65ead0`; collection review commits:
+`0aec6395b5`, `4971d70b45`. Their presence was checked in source; no new test run is claimed here.
 
 ### Custom media and history controls
 
@@ -1206,13 +1245,15 @@ Evidence: `modules/collections/service.ts`, `packages/contract/src/modules/colle
   population.
 - Media review creation and editing accept a rating, nonblank text, or both. Clearing text removes
   its spoiler flag; clearing both content fields is rejected, with deletion kept separate. The
-  **Rate or review** composer shows rating first and spoiler controls only with text. Review scale
-  preferences and V1's anime/manga positional review controls are not reproduced; existing imported
-  positional fields survive edits.
-- V1 seen rows can link a review, correct the episode identity, and retain a consumption-source
-  array. Current Media operations do not link a review to a consumption record or retarget an
-  event to another episode; `consumedOn` is one string per event. Progress logging is separate
-  from dated completion logging, and does not accept V1's started-date/manual-time input.
+  **Rate or review** composer shows rating first and spoiler controls only with text. Order 19
+  implements the shared rating-scale preference, anime/manga positional reviews and reviews
+  of shows, seasons, episodes and podcast episodes.
+- Reviews can link one consumption event through `consumptionEventId`; referenced records show
+  **Reviewed**. Kernel event-reference integrity clears links when their target is deleted.
+  Watch/listen records can move to another episode within the same parent, refolding both subjects
+  and clearing reviews' links to the moved record. `consumedOn` accepts up to ten ordered,
+  case-insensitively unique sources. Progress supports a start day and optional time of day.
+  Batch episode logs do not accept time spent. These are shipped Order 19 behaviors.
 - Activity/review edit/delete and automatic completion repair are implemented. Source corrections
   can create, update, or invalidate derived completions across affected consumption cycles. Explicit
   completions survive inference; editing an automatic completion makes it explicit, and deletion
@@ -1221,8 +1262,8 @@ Evidence: `modules/collections/service.ts`, `packages/contract/src/modules/colle
   silent; later provider changes do not rewrite retained past completion evidence. See row 1 for validation.
 - Show/podcast next-up and paged episode/season progress are implemented. Their cycle-aware
   rules intentionally differ from V1's “next after latest history position” and lifetime
-  times-seen tree. Anime/manga expose the latest position; V1's separate manga volume-only
-  next-entry behavior is not equivalent.
+  times-seen tree. Anime/manga expose the latest position; Order 19 adds manga volume runs,
+  next-volume suggestions, completion at the volume total and separate volume analytics.
 
 Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,anime-recipes,manga-recipes}.ts`,
 `plugins/media/client/entity-editor/page.tsx`, `plugins/media/shared/media-activity-operations.ts`,
@@ -1251,16 +1292,22 @@ Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/sr
   by agreement. V1 roles/last-admin deletion guard do not apply to the
   server-token admin model. V1 onboarding-tour state is not the V2 account-bootstrap marker
   or server-selection onboarding flow.
-- Preserved or replaced preferences include language, integration disablement, Media NSFW,
-  per-type “where you consume”, Fitness units/rest/timers, source visibility and saved-view
-  navigation. Hiding a view does not disable domain processing or recommendation eligibility.
-- V1 landing path, list page size, review scale, disable-reviews/videos/watch-providers,
+- Preserved or replaced preferences include language, rating scale, reporting timezone,
+  integration disablement, Media NSFW, per-type “where you consume”, Fitness units/rest/timers,
+  source visibility and saved-view navigation. Hiding a view does not disable domain processing or recommendation eligibility.
+- V1 landing path, list page size, disable-reviews/videos/watch-providers,
   navigation-animation toggle, configurable dashboard sections and per-provider language
   selection have no matching server preference contract. V2 adds device appearance and
   workspace/home choices; these are not exact migrations of those old controls.
 - V1 exercise `exclude_from_analytics` is explicitly omitted by migration. Exercise merge
-  currently accepts custom sources only. Whether to restore broader behavior is a product
-  decision, not a missing workout-revision scheduler.
+  currently requires a custom merge-from source and matching exercise kinds. V1 accepted a
+  provider-backed source too: for example, moving your history from one catalog exercise to
+  another of the same kind. This is about the caller's exercise data, not editing the global
+  provider catalog. Whether to allow it remains a product decision.
+- The V1 workout-detail media-consumption panel remains absent. Its source query and UI are in
+  `crates/utils/database/src/lib.rs` and
+  `crates/frontend/app/routes/_dashboard.fitness.$entity.$id._index.tsx`; current V2 workout details
+  are in `plugins/fitness/client/workout/screen.tsx` and `plugins/fitness/shared/workout-details-recipes.ts`.
 
 Evidence: `crates/models/user/src/lib.rs`,
 `packages/contract/src/schema/user-preferences.ts`, plugin user-settings declarations,
@@ -1299,8 +1346,10 @@ No matching operator setting was found for V1's login-token lifetime, password-s
 validation toggle, dashboard announcement, provider image-size preference, configurable
 max upload size, host binding or startup sleep. Auth now uses short access tokens and refresh
 tokens; host defaults to `0.0.0.0`. V2 scheduler phrases/cron tiers and dispatcher disablement
-are not V1's global stop-all-background-workers switch. CORS/auth proxy behavior is redesigned;
-the GraphQL playground and its config setting are obsolete.
+are not V1's global stop-all-background-workers switch. These are operator choices, not missing
+login/upload functionality: for example, uploads work with fixed limits, and authentication works
+with its current token policy. Restoring any knob needs a current operational requirement.
+CORS/auth proxy behavior is redesigned; the GraphQL playground and its config setting are obsolete.
 
 Evidence: `crates/config/definition/src/lib.rs`,
 `kernel/backend/src/platform/config/definition.ts`,
@@ -1362,7 +1411,7 @@ their lower-camel-case forms. Every row refers to the corresponding
 | `exporter` | `user_exports` | `deploy_export_job` | Backup runs, export and download. |
 | `file-storage` | `get_presigned_s3_url` | `presigned_put_s3_url`, `delete_s3_object` | Managed upload intents/downloads/cleanup; no arbitrary bucket authority. |
 | `importer` | `user_import_reports` | `deploy_import_job`, `delete_user_import_report` | Import source/run/issue catalogs and start/delete/cancel/failure-download commands. |
-| `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands and server-owned reordering with client controls; Media collection recommendations page. |
+| `collection` | `user_collections_list`, `collection_contents`, `collection_recommendations` | `create_or_update_collection`, `delete_collection`, `reorder_collection_entity`, `deploy_add_entities_to_collection_job`, `deploy_remove_entities_from_collection_job` | Collection recipes/CRUD/member commands, bulk browser selection, private collection reviews and server-owned reordering with client controls; Media collection recommendations page. |
 | `statistics` | `user_analytics_parameters`, `user_analytics` | — | Not migrated; Order 16 Analytics computes from canonical history. |
 | `miscellaneous/metadata` | `metadata_details`, `user_metadata_list`, `user_metadata_details`, `user_entity_recently_consumed` | `merge_metadata`, `disassociate_metadata`, `mark_entity_as_partial` | Media/entity recipes and user-data commands; debounce flag absent, partial flag replaced. |
 | `miscellaneous/media-translation` | `media_translation` | `deploy_update_media_translations_job` | Language-scoped entity resolution and durable translation work. |
