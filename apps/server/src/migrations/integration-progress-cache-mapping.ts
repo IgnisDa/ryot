@@ -26,9 +26,6 @@ const LegacyProgressCacheRow = Schema.Struct({
 	cacheId: Schema.String,
 	expiresAtMs: Schema.Finite,
 	validValue: Schema.Boolean,
-	volume: Schema.NullOr(Schema.String),
-	episode: Schema.NullOr(Schema.String),
-	chapter: Schema.NullOr(Schema.String),
 	entityId: Schema.NullOr(Schema.String),
 	parentName: Schema.NullOr(Schema.String),
 	metadataId: Schema.NullOr(Schema.String),
@@ -78,9 +75,6 @@ SELECT
 		WHEN e."entity_schema_slug" = 'podcast' THEN 'podcast-episode'
 		ELSE e."entity_schema_slug"
 	END AS "entitySchemaSlug",
-	cr.common->>'anime_episode_number' AS "episode",
-	cr.common->>'manga_chapter_number' AS "chapter",
-	cr.common->>'manga_volume_number' AS "volume",
 	extract(epoch FROM cr.expires_at)::double precision * 1000 AS "expiresAtMs",
 	cr.common->'providers_consumed_on' AS "providersConsumedOn",
 	cr.valid_value AS "validValue"
@@ -108,30 +102,6 @@ export const readLegacyIntegrationProgressCache = Effect.fn("readLegacyIntegrati
 		return yield* Effect.orDie(decodeLegacyProgressCacheRows(rows));
 	},
 );
-
-const integerFingerprintPart = (key: string, value: null | string) => {
-	if (value === null) {
-		return null;
-	}
-	const parsed = Number(value);
-	if (!Number.isInteger(parsed)) {
-		throw new Error(
-			`application_cache -> integration progress persistent cache: legacy progress field "${key}" holds ${JSON.stringify(value)}, which is not a number, so the claim fingerprint cannot be built. Fix or delete that cache row in the V1 database, then start the server again.`,
-		);
-	}
-	return `${key}=${String(parsed)}`;
-};
-
-const numberFingerprintPart = (key: string, value: null | string) => {
-	if (value === null) {
-		return null;
-	}
-	const parsed = Number(value);
-	if (!Number.isFinite(parsed)) {
-		throw new Error(`Invalid legacy integration progress ${key}: ${value}`);
-	}
-	return `${key}=${String(parsed)}`;
-};
 
 export const migrateIntegrationProgressCache = (input: {
 	pluginId: string;
@@ -310,11 +280,6 @@ export const resolveIntegrationProgressClaims = (input: {
 			continue;
 		}
 
-		const parts = [
-			integerFingerprintPart("episodes", row.episode),
-			integerFingerprintPart("volume", row.volume),
-			numberFingerprintPart("chapters", row.chapter),
-		].filter((part) => part !== null);
 		const claimKey = JSON.stringify([
 			"media.integration-progress.v1",
 			integration.id,
@@ -322,7 +287,6 @@ export const resolveIntegrationProgressClaims = (input: {
 			row.entitySchemaSlug,
 			"progress",
 			target.consumedOn,
-			parts.join(","),
 		]);
 		const identity = `${row.userId}\u0000${claimKey}`;
 		const existing = claimsByIdentity.get(identity);
