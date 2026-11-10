@@ -2245,9 +2245,9 @@ dependencies = [
  "sea-orm",
  "serde_json",
  "supporting-service",
+ "tokio",
  "tracing",
  "user-models",
- "uuid",
 ]
 
 [[package]]
@@ -4197,6 +4197,7 @@ dependencies = [
  "futures",
  "google-books-provider",
  "hardcover-provider",
+ "importer-models",
  "itertools 0.14.0",
  "media-models",
  "openlibrary-provider",

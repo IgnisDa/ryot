@@ -39,6 +39,7 @@ external-models = { workspace = true }
 external-utils = { workspace = true }
 google-books-provider = { workspace = true }
 hardcover-provider = { workspace = true }
+importer-models = { workspace = true }
 media-models = { workspace = true }
 openlibrary-provider = { workspace = true }
 supporting-service = { workspace = true }

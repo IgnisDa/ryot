@@ -85,6 +85,10 @@ describe.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
 							result.finishedAt !== before.triggerResult?.[0]?.finishedAt
 						) {
 							expect(result.error).toContain("404");
+							expect(result.error).toMatch(
+								/^Progress import failed for 1 item\(s\):/,
+							);
+							expect(result.error?.length).toBeLessThan(2048);
 							return current;
 						}
 						await waitFor(250);

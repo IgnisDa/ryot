@@ -12,7 +12,6 @@ rust_decimal = { workspace = true }
 sea-orm = { workspace = true }
 serde_json = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true } # TEMP(1611): remove once duplicate seen debug logging is no longer needed
 
 common-models = { workspace = true }
 common-utils = { workspace = true }
@@ -33,3 +32,6 @@ user-models = { workspace = true }
 
 [package.metadata.cargo-machete]
 ignored = ["rust_decimal", "tracing"]
+
+[dev-dependencies]
+tokio = { workspace = true }

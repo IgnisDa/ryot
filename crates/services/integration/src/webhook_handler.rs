@@ -96,10 +96,9 @@ pub async fn integration_progress_update(
         if details.failed_items.is_empty() {
             Ok(())
         } else {
-            Err(anyhow::anyhow!(
-                "Progress import failed: {:?}",
-                details.failed_items
-            ))
+            Err(anyhow!(crate::import_errors::summarize(
+                &details.failed_items
+            )))
         }
     });
     ryot_log!(

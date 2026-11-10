@@ -1,5 +1,4 @@
 use std::{
-    cmp::Ordering,
     collections::{HashMap, hash_map::Entry},
     future::Future,
     sync::Arc,
@@ -184,11 +183,12 @@ where
 
     for (idx, item) in import.completed.into_iter().enumerate() {
         ryot_log!(debug, "Processing item ({:#}) {}/{}", item, idx + 1, total,);
+        let mut successful_seen_entries = 0;
         let previous_failures = import.failed.len();
         match item {
             ImportCompletedItem::Empty => continue,
             ImportCompletedItem::Metadata(metadata) => {
-                metadata::process_metadata(
+                successful_seen_entries = metadata::process_metadata(
                     is_import,
                     user_id,
                     ss,
@@ -425,7 +425,7 @@ where
             }
         }
 
-        if import.failed.len() == previous_failures {
+        if successful_seen_entries > 0 || import.failed.len() == previous_failures {
             successful_items += 1;
         }
 
