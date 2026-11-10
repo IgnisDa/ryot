@@ -1058,25 +1058,29 @@ it("binds deterministic episodic sessions at policy position 200", () => {
 			.flatMap(({ targets }) =>
 				targets.flatMap((target) =>
 					target.resource === "event"
-						? [`${target.entitySchemaSlug}:${target.eventSchemaSlug}`]
+						? [`${target.entitySchemaSlug}:${target.eventSchemaSlug}:${target.operation}`]
 						: [],
 				),
 			)
 			.sort(),
 	).toEqual(
 		[
-			"show:backlog",
-			"show:complete",
-			"show:dropped",
-			"show:on_hold",
-			"show-episode:progress",
-			"show-episode:complete",
-			"podcast:backlog",
-			"podcast:complete",
-			"podcast:dropped",
-			"podcast:on_hold",
-			"podcast-episode:progress",
-			"podcast-episode:complete",
+			"show:backlog:create",
+			"show:complete:create",
+			"show:dropped:create",
+			"show:on_hold:create",
+			"show-episode:progress:create",
+			"show-episode:complete:create",
+			"show-episode:progress:update",
+			"show-episode:complete:update",
+			"podcast:backlog:create",
+			"podcast:complete:create",
+			"podcast:dropped:create",
+			"podcast:on_hold:create",
+			"podcast-episode:progress:create",
+			"podcast-episode:complete:create",
+			"podcast-episode:progress:update",
+			"podcast-episode:complete:update",
 		].sort(),
 	);
 });

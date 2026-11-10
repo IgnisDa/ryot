@@ -10,6 +10,7 @@ import {
 	episodicEarlierUnwatchedRecipe,
 	type MediaActivityLogContext,
 	mediaActivityLogContextRecipe,
+	showEpisodeSeasonRecipe,
 	showSeasonChoicesRecipe,
 	type ShowSeasonEpisodeChoices,
 	showSeasonEpisodeChoicesRecipe,
@@ -39,6 +40,11 @@ export const activityLogContextQuery = createRyotQuery<
 		),
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
+
+export const showEpisodeSeasonQuery = createRyotQuery<
+	{ readonly episodeEntityId: string },
+	null | number
+>(({ input, client }) => client.data.query(showEpisodeSeasonRecipe(input)));
 
 export const showSeasonChoicesQuery = createRyotQuery<
 	{ readonly after: null | string; readonly seasonNumber: number; readonly showEntityId: string },

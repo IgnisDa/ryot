@@ -10,6 +10,7 @@ import {
 	hostSuccess,
 	policyAutomationContext,
 	ryotqlRows,
+	updatePolicyAutomationContext,
 } from "../../tests/backend/automations/automation-test-utils";
 import definition, { manifest } from "./episodic-session-policy.sandbox";
 
@@ -213,6 +214,92 @@ describe("episodic session policy", () => {
 						expect(result).toEqual({ action: "reject", reason: "episodic_parent_not_found" });
 					}),
 				);
+			}),
+		testTimeout,
+	);
+
+	it.effect.each([
+		{
+			name: "a regular episode to another regular episode",
+			parents: [{ seasonNumber: 2, parentEntityId: "show-1" }],
+			expected: {
+				action: "transform",
+				patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
+			},
+		},
+		{
+			name: "a regular episode to a special",
+			parents: [{ seasonNumber: 0, parentEntityId: "show-1" }],
+			expected: {
+				action: "transform",
+				patch: { resource: "event", draft: { sessionEntityId: null } },
+			},
+		},
+	])(
+		"recomputes the session when an update moves $name",
+		({ parents, expected }) =>
+			Effect.gen(function* () {
+				const result = yield* run(
+					yield* updatePolicyAutomationContext(
+						{ entityId: "episode-1", sessionEntityId: "show-1", entitySchemaSlug: "show-episode" },
+						{ entityId: "episode-2", sessionEntityId: "show-1", entitySchemaSlug: "show-episode" },
+					),
+					parents,
+				);
+				expect(result).toEqual<unknown>(expected);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"gives a special moved to a regular episode the show session",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* run(
+					yield* updatePolicyAutomationContext(
+						{ entityId: "special-1", sessionEntityId: null, entitySchemaSlug: "show-episode" },
+						{ entityId: "episode-1", sessionEntityId: null, entitySchemaSlug: "show-episode" },
+					),
+					[{ seasonNumber: 1, parentEntityId: "show-1" }],
+				);
+				expect(result).toEqual<unknown>({
+					action: "transform",
+					patch: { resource: "event", draft: { sessionEntityId: "show-1" } },
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"assigns a moved podcast episode to its podcast",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* run(
+					yield* updatePolicyAutomationContext(
+						{ entityId: "episode-1", entitySchemaSlug: "podcast-episode" },
+						{ entityId: "episode-2", entitySchemaSlug: "podcast-episode" },
+					),
+					[{ parentEntityId: "podcast-1" }],
+				);
+				expect(result).toEqual<unknown>({
+					action: "transform",
+					patch: { resource: "event", draft: { sessionEntityId: "podcast-1" } },
+				});
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"allows an update that keeps its episode without looking up a parent",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* run(
+					yield* updatePolicyAutomationContext(
+						{ entityId: "episode-1", entitySchemaSlug: "show-episode" },
+						{ entityId: "episode-1", entitySchemaSlug: "show-episode" },
+					),
+				);
+				expect(result).toEqual<unknown>({ action: "allow" });
 			}),
 		testTimeout,
 	);

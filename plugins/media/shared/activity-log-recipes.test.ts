@@ -12,6 +12,7 @@ import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import {
 	episodicEarlierUnwatchedRecipe,
 	mediaActivityLogContextRecipe,
+	showEpisodeSeasonRecipe,
 	showSeasonChoicesRecipe,
 	showSeasonEpisodeChoicesRecipe,
 } from "./activity-log-recipes";
@@ -213,6 +214,21 @@ describe("show season episode choices recipe", () => {
 		expect(
 			Result.getOrThrow(recipe.decode({ data: { episodes: rows([choice]) } })).items,
 		).toEqual<unknown>([choice]);
+	});
+});
+
+describe("show episode season recipe", () => {
+	const recipe = showEpisodeSeasonRecipe({ episodeEntityId: "episode-1" });
+
+	it("validates the document", () => {
+		valid(recipe);
+	});
+
+	it("decodes the season number and null when the episode is not visible", () => {
+		expect(
+			Result.getOrThrow(recipe.decode({ data: { season: rows([{ seasonNumber: 2 }]) } })),
+		).toBe(2);
+		expect(Result.getOrThrow(recipe.decode({ data: { season: rows([]) } }))).toBeNull();
 	});
 });
 

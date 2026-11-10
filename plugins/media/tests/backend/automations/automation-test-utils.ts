@@ -96,30 +96,44 @@ export const eventBatchContext = Effect.fnUntraced(function* (
 	});
 });
 
+const policyEventDraft = {
+	properties: {},
+	entityId: "entity-1",
+	occurredAt: timestamp,
+	sessionEntityId: null,
+	entitySchemaSlug: "movie",
+	eventSchemaSlug: "event-schema-1",
+	eventSchemaPluginId: PluginId.make("media-owner"),
+	entitySchemaPluginId: PluginId.make("media-owner"),
+};
+
+const policyInput = (payload: Record<string, unknown>) =>
+	Schema.decodeUnknownEffect(automationPolicyInputSchema)({
+		automation: { ...invocation, payload: { resource: "event", category: "request", ...payload } },
+	}).pipe(Effect.orDie);
+
 export const policyAutomationContext = (
 	overrides: Partial<typeof AutomationEventDraft.Encoded> = {},
-) =>
-	Schema.decodeUnknownEffect(automationPolicyInputSchema)({
-		automation: {
-			...invocation,
-			payload: {
-				resource: "event",
-				category: "request",
-				operation: "create",
-				draft: {
-					properties: {},
-					entityId: "entity-1",
-					occurredAt: timestamp,
-					sessionEntityId: null,
-					entitySchemaSlug: "movie",
-					eventSchemaSlug: "event-schema-1",
-					eventSchemaPluginId: PluginId.make("media-owner"),
-					entitySchemaPluginId: PluginId.make("media-owner"),
-					...overrides,
-				},
-			},
-		},
-	}).pipe(Effect.orDie);
+) => policyInput({ operation: "create", draft: { ...policyEventDraft, ...overrides } });
+
+export const updatePolicyAutomationContext = (
+	before: Partial<typeof AutomationEventSnapshot.Encoded>,
+	overrides: Partial<typeof AutomationEventDraft.Encoded> = {},
+) => {
+	const snapshot = {
+		...policyEventDraft,
+		id: "event-1",
+		createdAt: timestamp,
+		updatedAt: timestamp,
+		...before,
+	};
+	return policyInput({
+		before: snapshot,
+		operation: "update",
+		changedProperties: [],
+		draft: { ...policyEventDraft, ...overrides },
+	});
+};
 
 export const entityRecord = (overrides: Partial<EntityRecord> = {}): EntityRecord => ({
 	id: "entity-1",

@@ -1,9 +1,14 @@
-import type { UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
+import type { ScriptHost, UpdateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { mediaPositionError } from "../../shared/consumption";
+import {
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+} from "../../shared/lifecycle-expressions";
 import {
 	mediaActivityDeclaredProperties,
 	mediaActivityPatchableProperties,
@@ -14,6 +19,7 @@ import {
 	type MediaActivityPatch,
 	MediaActivityUpdateInput,
 } from "../../shared/media-activity-operations";
+import { resolveEpisodeParentRecipe } from "../contracts/episode-parent-recipe";
 import {
 	activityCombinations,
 	type EditTarget,
@@ -33,6 +39,58 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
 	consumedOn: "Where it was consumed",
 };
 
+const episodeParentId = (
+	host: Pick<ScriptHost, "executeRyotql">,
+	entitySchemaSlug: string,
+	episodeEntityId: string,
+) => {
+	const reference = { kind: "self" } as const;
+	if (entitySchemaSlug === "show-episode") {
+		return executeRyotqlRecipe(
+			host.executeRyotql,
+			resolveEpisodeParentRecipe({ reference, episodeEntityId, config: showEpisodicKindConfig }),
+		).pipe(Effect.map((resolution) => resolution?.parentEntityId));
+	}
+	return executeRyotqlRecipe(
+		host.executeRyotql,
+		resolveEpisodeParentRecipe({ reference, episodeEntityId, config: podcastEpisodicKindConfig }),
+	).pipe(Effect.map((resolution) => resolution?.parentEntityId));
+};
+
+/** The episode an edit moves the event to, or `undefined` when the event stays where it is. */
+const retargetedEpisode = (
+	host: Pick<ScriptHost, "executeRyotql">,
+	target: EditTarget,
+	currentEntityId: string,
+	episodeEntityId: string,
+) =>
+	Effect.gen(function* () {
+		const episodic =
+			target.entitySchemaSlug === "show-episode" || target.entitySchemaSlug === "podcast-episode";
+		if (
+			!episodic ||
+			(target.eventSchemaSlug !== "complete" && target.eventSchemaSlug !== "progress")
+		) {
+			return yield* reject("Only watch and listen records can move to another episode.");
+		}
+		if (episodeEntityId === currentEntityId) {
+			return undefined;
+		}
+		const currentParent = yield* episodeParentId(host, target.entitySchemaSlug, currentEntityId);
+		const nextParent = yield* episodeParentId(host, target.entitySchemaSlug, episodeEntityId);
+		if (nextParent === undefined) {
+			return yield* reject("That episode isn't available.");
+		}
+		if (nextParent !== currentParent) {
+			return yield* reject(
+				`Records can only move to another episode of the same ${
+					target.entitySchemaSlug === "show-episode" ? "show" : "podcast"
+				}.`,
+			);
+		}
+		return episodeEntityId;
+	});
+
 type PropertiesPatch = { remove: string[]; set: Record<string, Schema.Json> };
 
 const assign = (patch: PropertiesPatch, key: string, value: null | Schema.Json) => {
@@ -44,7 +102,12 @@ const assign = (patch: PropertiesPatch, key: string, value: null | Schema.Json) 
 };
 
 /** Maps the edit onto the event, refusing any field its schema does not let an edit change. */
-const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
+const buildPatch = (
+	host: Pick<ScriptHost, "executeRyotql">,
+	target: EditTarget,
+	currentEntityId: string,
+	patch: MediaActivityPatch,
+) =>
 	Effect.gen(function* () {
 		const patchable = new Set(
 			mediaActivityPatchableProperties(target.entitySchemaSlug, target.eventSchemaSlug),
@@ -62,6 +125,10 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 			return yield* reject(progressError);
 		}
 		const properties: PropertiesPatch = { set: {}, remove: [] };
+		const entityId =
+			patch.episodeEntityId === undefined
+				? undefined
+				: yield* retargetedEpisode(host, target, currentEntityId, patch.episodeEntityId);
 		if (patch.position !== undefined) {
 			yield* allow("position");
 			const positionError = mediaPositionError(target.entitySchemaSlug, patch.position);
@@ -126,6 +193,7 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 		}
 		const hasProperties = properties.remove.length > 0 || Object.keys(properties.set).length > 0;
 		return {
+			...(entityId === undefined ? {} : { entityId }),
 			...(occurredAt === undefined ? {} : { occurredAt }),
 			...(hasProperties ? { properties } : {}),
 		} satisfies UpdateEventItem["patch"];
@@ -156,7 +224,7 @@ export default defineOperation({
 				target,
 				mediaActivityDeclaredProperties(target.entitySchemaSlug, target.eventSchemaSlug),
 			);
-			const patch = yield* buildPatch(target, input.patch);
+			const patch = yield* buildPatch(host, target, input.expected.entityId, input.patch);
 			if (Object.keys(patch).length === 0) {
 				return yield* reject("Nothing to change on this record.");
 			}

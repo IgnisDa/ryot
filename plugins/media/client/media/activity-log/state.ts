@@ -68,6 +68,7 @@ export type ActivityDraft = DurationDraft & {
 	readonly amount: string;
 	readonly startedDay: string;
 	readonly consumedOn: string;
+	readonly episodeId?: string;
 	readonly finishedDay: string;
 	readonly item?: MediaPosition;
 	readonly intent: ActivityIntent;
@@ -814,6 +815,10 @@ export const activityEditDraft = (input: {
 	return {
 		...base,
 		...(input.intent === "finished" && stored !== undefined ? { item: stored } : {}),
+		...(ref.entityId !== input.context.id &&
+		(input.logger.family === "show" || input.logger.family === "podcast")
+			? { episodeId: ref.entityId }
+			: {}),
 		intent: input.intent,
 		position: stored?.position ?? base.position,
 		positionUnit:
@@ -906,6 +911,9 @@ export const activityEditPatch = (input: {
 	const patch: { -readonly [Key in keyof MediaActivityPatch]: MediaActivityPatch[Key] } = {};
 	if (draft.item !== undefined && !sameMediaPosition(draft.item, initial.item)) {
 		patch.position = draft.item;
+	}
+	if (draft.episodeId !== undefined && draft.episodeId !== initial.episodeId) {
+		patch.episodeEntityId = draft.episodeId;
 	}
 	if (draft.intent === "progress") {
 		if (input.logger.family === "positional" && ref.entityId === input.context.id) {

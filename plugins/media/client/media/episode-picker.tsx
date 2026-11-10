@@ -95,6 +95,43 @@ export function ShowEpisodes(props: {
 	});
 }
 
+export function EpisodeChoice(props: {
+	readonly entityId: string;
+	readonly emptyMessage: string;
+	readonly family: "show" | "podcast";
+	readonly selectedId: string | undefined;
+	readonly seasonNumber: number | undefined;
+	readonly onSelect: (episodeId: string) => void;
+	readonly onSeason: (season: { readonly id: string; readonly seasonNumber: number }) => void;
+}) {
+	const list = (pager: EpisodePager) => (
+		<EpisodeList
+			pager={pager}
+			family={props.family}
+			onSelect={props.onSelect}
+			selectedId={props.selectedId}
+			emptyMessage={props.emptyMessage}
+		/>
+	);
+	if (props.family === "podcast") {
+		return <PodcastEpisodes entityId={props.entityId}>{list}</PodcastEpisodes>;
+	}
+	return (
+		<div className="flex flex-col gap-3">
+			<ActivitySeasonSelector
+				entityId={props.entityId}
+				onSeason={props.onSeason}
+				seasonNumber={props.seasonNumber}
+			/>
+			{props.seasonNumber === undefined ? null : (
+				<ShowEpisodes entityId={props.entityId} seasonNumber={props.seasonNumber}>
+					{list}
+				</ShowEpisodes>
+			)}
+		</div>
+	);
+}
+
 export function ActivitySeasonSelector(props: {
 	readonly entityId: string;
 	readonly seasonNumber: number | undefined;

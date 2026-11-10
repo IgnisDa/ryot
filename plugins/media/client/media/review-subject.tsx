@@ -11,13 +11,7 @@ import {
 	parsePositionNumber,
 	positionLogUnit,
 } from "./activity-log/state";
-import {
-	ActivitySeasonSelector,
-	EpisodeList,
-	type EpisodePager,
-	PodcastEpisodes,
-	ShowEpisodes,
-} from "./episode-picker";
+import { ActivitySeasonSelector, EpisodeChoice } from "./episode-picker";
 import {
 	type ReviewSubjectDraft,
 	type ReviewSubjectMode,
@@ -81,7 +75,7 @@ export function ReviewSubjectPicker(props: {
 				/>
 			) : null}
 			{draft.mode === "episode" ? (
-				<EpisodeChoice
+				<ReviewEpisodeChoice
 					draft={draft}
 					logger={logger}
 					entityId={entityId}
@@ -92,39 +86,23 @@ export function ReviewSubjectPicker(props: {
 	);
 }
 
-function EpisodeChoice(props: {
+function ReviewEpisodeChoice(props: {
 	readonly entityId: string;
 	readonly draft: ReviewSubjectDraft;
 	readonly logger: MediaActivityLogger;
 	readonly onChange: (draft: ReviewSubjectDraft) => void;
 }) {
 	const { draft, logger, entityId } = props;
-	const family = logger.family === "podcast" ? "podcast" : "show";
-	const list = (pager: EpisodePager) => (
-		<EpisodeList
-			pager={pager}
-			family={family}
-			selectedId={draft.episodeId}
-			emptyMessage="There are no episodes to review yet."
-			onSelect={(episodeId) => props.onChange({ ...draft, episodeId })}
-		/>
-	);
-	if (logger.family === "podcast") {
-		return <PodcastEpisodes entityId={entityId}>{list}</PodcastEpisodes>;
-	}
 	return (
-		<div className="flex flex-col gap-3">
-			<ActivitySeasonSelector
-				entityId={entityId}
-				seasonNumber={draft.season?.seasonNumber}
-				onSeason={(season) => props.onChange({ ...draft, season, episodeId: undefined })}
-			/>
-			{draft.season === undefined ? null : (
-				<ShowEpisodes entityId={entityId} seasonNumber={draft.season.seasonNumber}>
-					{list}
-				</ShowEpisodes>
-			)}
-		</div>
+		<EpisodeChoice
+			entityId={entityId}
+			selectedId={draft.episodeId}
+			seasonNumber={draft.season?.seasonNumber}
+			emptyMessage="There are no episodes to review yet."
+			family={logger.family === "podcast" ? "podcast" : "show"}
+			onSelect={(episodeId) => props.onChange({ ...draft, episodeId })}
+			onSeason={(season) => props.onChange({ ...draft, season, episodeId: undefined })}
+		/>
 	);
 }
 

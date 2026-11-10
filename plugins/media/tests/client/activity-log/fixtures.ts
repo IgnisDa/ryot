@@ -72,6 +72,7 @@ export const podcastRow = (episodeNumber: number, state = "untracked") =>
 export type ActivityLogFake = {
 	readonly podcast?: Pages;
 	readonly seasonChoices?: Pages;
+	readonly episodeSeason?: number;
 	readonly target?: Row | undefined;
 	readonly recent?: readonly string[];
 	readonly consumedOn?: readonly string[];
@@ -117,6 +118,17 @@ export const activityLogQuery =
 						hasMore: false,
 						nextCursor: null,
 					}),
+				},
+			});
+		}
+		if (text.includes('"seasonProbeEpisode"')) {
+			requests.push("episodeSeason");
+			return Effect.succeed({
+				data: {
+					season: rowsResult(
+						fake.episodeSeason === undefined ? [] : [{ seasonNumber: fake.episodeSeason }],
+						{ limit: 1, hasMore: false, nextCursor: null },
+					),
 				},
 			});
 		}

@@ -305,6 +305,31 @@ export const showSeasonChoicesRecipe = defineRecipe(
 	},
 );
 
+/** The season number of a show episode, or null when the episode is not visible. */
+export const showEpisodeSeasonRecipe = defineRecipe(
+	(input: { readonly episodeEntityId: string }) => {
+		const episode = table("entity", "seasonProbeEpisode");
+		return {
+			map: ({ season }) => Result.succeed(season?.seasonNumber ?? null),
+			queries: {
+				season: selectedOptionalRow(episode, {
+					orderBy: [ascending(column(episode, "id"))],
+					where: and(
+						entityId(episode, input.episodeEntityId),
+						entitySchemaIs(episode, "show-episode"),
+					),
+					selection: {
+						seasonNumber: selectedField(
+							propertyNumber(episode, "seasonNumber"),
+							NextUpSeasonNumber,
+						),
+					},
+				}),
+			},
+		};
+	},
+);
+
 /** One page of a show season's episodes, specials and unaired included, in episode order with their display state. */
 export const showSeasonEpisodeChoicesRecipe = defineRecipe(
 	(input: {

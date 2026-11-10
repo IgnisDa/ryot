@@ -186,6 +186,41 @@ const mountPageEdit = (progressPages: number, pagesTotal: null | number = null) 
 	return { view, record, background, properties };
 };
 
+const edit = () => getByRole(document.body, "dialog", { name: "Edit activity" });
+
+const mountEpisodeEdit = (options: {
+	readonly episodeId: string;
+	readonly fake: ActivityLogFake;
+	readonly logger: MediaActivityLogger;
+}) => {
+	const background = createTestBackgroundSubmissions();
+	const record = {
+		id: EventId.make("event-1"),
+		occurredAt: "2026-10-10T12:00:00.000Z",
+		sessionEntityId: EntityId.make("entity-1"),
+		entityId: EntityId.make(options.episodeId),
+		properties: { consumedOn: "Plex", calendarDate: "2026-10-10" },
+	};
+	const view = mountRyotClient(
+		{
+			...background.adapter,
+			watchEntities,
+			query: activityLogQuery(options.fake),
+			readUserSettings: () => Effect.succeed({}),
+		},
+		<MediaActivityEditSheet
+			compact
+			record={record}
+			intent="episode"
+			entityId="entity-1"
+			logger={options.logger}
+			onClose={() => undefined}
+			triggerRef={createRef<HTMLButtonElement>()}
+		/>,
+	);
+	return { view, background };
+};
+
 const openLog = (mounted: ReturnType<typeof mountLog>) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() => mounted.view.setTime(NOW));
@@ -2104,6 +2139,76 @@ it.live(
 				expect(getByRole(dialogOf(), "button", { name: "Mark S2·E7 watched" })).toBeDefined();
 			} finally {
 				mounted.unmount();
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"retargets a show episode record within its season and across seasons",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountEpisodeEdit({
+				logger: show,
+				episodeId: "s2e1",
+				fake: {
+					episodeSeason: 2,
+					seasons: { 1: [[choiceRow(1, 1)]], 2: [[choiceRow(2, 1, "complete"), choiceRow(2, 2)]] },
+					target: contextTarget({
+						schemaSlug: "show",
+						seasons: {
+							items: [seasonRow(1), seasonRow(2)],
+							pageInfo: { limit: 100, hasMore: false },
+						},
+					}),
+				},
+			});
+			try {
+				yield* Effect.promise(() => mounted.view.setTime(NOW));
+				yield* eventually(() =>
+					expect(radio(edit(), "S2·E1").getAttribute("aria-checked")).toBe("true"),
+				);
+				expect(getByRole(edit(), "button", { name: "Save changes" }).hasAttribute("disabled")).toBe(
+					true,
+				);
+				clickRyotElement(radio(edit(), "S2·E2"));
+				press(edit(), "Save changes");
+				yield* eventually(() => expect(mounted.background.requests).toHaveLength(1));
+				expect(mounted.background.requests[0]?.input).toHaveProperty("patch", {
+					episodeEntityId: "s2e2",
+				});
+			} finally {
+				mounted.view.unmount();
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"retargets a podcast episode record",
+	() =>
+		Effect.gen(function* () {
+			const mounted = mountEpisodeEdit({
+				logger: podcast,
+				episodeId: "p70",
+				fake: {
+					target: contextTarget({ schemaSlug: "podcast" }),
+					podcast: [[podcastRow(71), podcastRow(70, "complete")]],
+				},
+			});
+			try {
+				yield* Effect.promise(() => mounted.view.setTime(NOW));
+				yield* eventually(() =>
+					expect(radio(edit(), "Episode 70").getAttribute("aria-checked")).toBe("true"),
+				);
+				clickRyotElement(radio(edit(), "Episode 71"));
+				press(edit(), "Save changes");
+				yield* eventually(() => expect(mounted.background.requests).toHaveLength(1));
+				expect(mounted.background.requests[0]?.input).toHaveProperty("patch", {
+					episodeEntityId: "p71",
+				});
+			} finally {
+				mounted.view.unmount();
 			}
 		}),
 	testTimeout,

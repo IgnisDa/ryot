@@ -64,6 +64,54 @@ const readEvents = (
 const codes = (items: readonly { episodeNumber: number; seasonNumber: null | number }[]) =>
 	items.map((item) => `S${item.seasonNumber}E${item.episodeNumber}`);
 
+const retargetEpisode = (
+	client: Parameters<typeof mediaReferenceForEntity>[0],
+	event: {
+		readonly id: string;
+		readonly occurredAt: string;
+		readonly properties: Record<string, unknown>;
+		readonly sessionEntityId?: string | undefined;
+	},
+	from: string,
+	episodeEntityId: string,
+) =>
+	Effect.gen(function* () {
+		return yield* updateMediaActivity(client, {
+			eventId: event.id,
+			submittedAt: nowIso(),
+			patch: { episodeEntityId },
+			submissionId: yield* randomUuid,
+			expected: yield* Schema.decodeUnknownEffect(MediaEventSnapshot)({
+				entityId: from,
+				absentProperties: [],
+				properties: event.properties,
+				occurredAt: isoOf(event.occurredAt),
+				sessionEntityId: event.sessionEntityId ?? null,
+			}),
+		});
+	});
+const logEpisodeCompletions = (
+	client: Parameters<typeof mediaReferenceForEntity>[0],
+	parentEntityId: string,
+	episodeEntityIds: readonly string[],
+) =>
+	Effect.gen(function* () {
+		yield* logMediaActivity(client, {
+			submittedAt: nowIso(),
+			submissionId: yield* randomUuid,
+			entry: { parentEntityId, episodeEntityIds, kind: "episodes", when: { kind: "unknown" } },
+		});
+	});
+const episodeCompletion = (
+	client: Parameters<typeof mediaReferenceForEntity>[0],
+	episodeEntityId: string,
+) =>
+	Effect.gen(function* () {
+		const [event] = yield* readEvents(client, episodeEntityId, "complete");
+		assertPresent(event, "Expected the episode completion");
+		return event;
+	});
+
 describe("Media activity log operation", () => {
 	it.live("completes a movie just now, on picked dates, and with an unknown date", () =>
 		Effect.gen(function* () {
@@ -831,4 +879,108 @@ describe("Media activity log operation", () => {
 			}
 		}),
 	);
+
+	describe("episode retargeting", () => {
+		it.live("moves a show record between a special and a regular season and refolds the show", () =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const {
+					episodeId,
+					show: { id: showId },
+				} = yield* seedShow(client, {
+					seasons: [
+						{ seasonNumber: 0, episodes: [{ episodeNumber: 1 }] },
+						{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] },
+						{ seasonNumber: 2, episodes: [{ episodeNumber: 1 }] },
+					],
+				});
+				const caughtUp = pollUntil(
+					"show caught up",
+					readContext(client, showId).pipe(
+						Effect.map((value) => (value.state === "caught_up" ? value : null)),
+					),
+				);
+				yield* logEpisodeCompletions(client, showId, [episodeId(1, 1), episodeId(2, 1)]);
+				yield* caughtUp;
+
+				yield* retargetEpisode(
+					client,
+					yield* episodeCompletion(client, episodeId(2, 1)),
+					episodeId(2, 1),
+					episodeId(0, 1),
+				);
+				const special = yield* episodeCompletion(client, episodeId(0, 1));
+				expect(special.sessionEntityId).toBeUndefined();
+				expect(yield* readEvents(client, episodeId(2, 1), "complete")).toHaveLength(0);
+				yield* pollUntil(
+					"show leaves caught up",
+					readContext(client, showId).pipe(
+						Effect.map((value) => (value.state === "caught_up" ? null : value)),
+					),
+				);
+
+				yield* retargetEpisode(client, special, episodeId(0, 1), episodeId(2, 1));
+				const moved = yield* episodeCompletion(client, episodeId(2, 1));
+				expect(moved.id).toBe(special.id);
+				expect(moved.sessionEntityId).toBe(showId);
+				yield* caughtUp;
+			}),
+		);
+
+		it.live("moves a podcast record to another episode of the same podcast", () =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const {
+					episodes,
+					podcast: { id: podcastId },
+				} = yield* seedPodcast(client, { episodes: [{ episodeNumber: 1 }, { episodeNumber: 2 }] });
+				const [first, second] = episodes.map(({ id }) => id);
+				assertPresent(first, "Expected podcast episode 1");
+				assertPresent(second, "Expected podcast episode 2");
+				yield* logEpisodeCompletions(client, podcastId, [first]);
+				yield* retargetEpisode(client, yield* episodeCompletion(client, first), first, second);
+				expect((yield* episodeCompletion(client, second)).sessionEntityId).toBe(podcastId);
+				expect(yield* readEvents(client, first, "complete")).toHaveLength(0);
+			}),
+		);
+
+		it.live("rejects moves outside the parent, to unseen episodes and off episode records", () =>
+			Effect.gen(function* () {
+				const { client } = yield* createAuthenticatedClient();
+				const { client: stranger } = yield* createAuthenticatedClient();
+				const show = yield* seedShow(client, {
+					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
+				});
+				const otherShow = yield* seedShow(client, {
+					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
+				});
+				const hidden = yield* seedShow(stranger, {
+					seasons: [{ seasonNumber: 1, episodes: [{ episodeNumber: 1 }] }],
+				});
+				const movie = yield* createBuiltinMediaLifecycleFixture(client, {
+					entitySchemaSlug: "movie",
+				});
+				yield* logEpisodeCompletions(client, show.show.id, [show.episodeId(1, 1)]);
+				yield* logMediaActivity(client, {
+					submittedAt: nowIso(),
+					submissionId: yield* randomUuid,
+					entry: { kind: "complete", when: { kind: "now" }, entityId: movie.entityId },
+				});
+				const episodeEvent = yield* episodeCompletion(client, show.episodeId(1, 1));
+				const [movieEvent] = yield* readEvents(client, movie.entityId, "complete");
+				assertPresent(movieEvent, "Expected the movie completion");
+
+				for (const [event, from, to] of [
+					[episodeEvent, show.episodeId(1, 1), otherShow.episodeId(1, 1)],
+					[episodeEvent, show.episodeId(1, 1), hidden.episodeId(1, 1)],
+					[movieEvent, movie.entityId, show.episodeId(1, 1)],
+				] as const) {
+					const failure = yield* Effect.flip(retargetEpisode(client, event, from, to));
+					assertTaggedError(failure, "PluginOperationRejected");
+					expect(failure.message).not.toBe("");
+				}
+				expect((yield* episodeCompletion(client, show.episodeId(1, 1))).id).toBe(episodeEvent.id);
+			}),
+		);
+	});
 });

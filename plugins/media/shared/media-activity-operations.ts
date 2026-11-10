@@ -164,6 +164,7 @@ export type MediaEventSnapshot = typeof MediaEventSnapshot.Type;
 export const MediaActivityPatch = Schema.Struct({
 	position: Schema.optional(MediaPosition),
 	when: Schema.optional(MediaActivityEditWhen),
+	episodeEntityId: Schema.optional(NonEmptyString),
 	timeSpent: Schema.optional(Schema.NullOr(TimeSpent)),
 	consumedOn: Schema.optional(Schema.NullOr(ConsumedOnText)),
 	progressPercent: Schema.optional(Schema.NullOr(ProgressPercent)),

@@ -964,7 +964,12 @@ export const mediaPlugin = definePlugin({
 				"podcast:on_hold",
 				"podcast-episode:progress",
 				"podcast-episode:complete",
-			].map(eventHookTarget),
+			].flatMap((slug) => {
+				const target = eventHookTarget(slug);
+				return slug.includes("-episode")
+					? [target, { ...target, operation: "update" as const }]
+					: [target];
+			}),
 		},
 		...(["radarr", "sonarr", "jellyfin"] as const).map(
 			(prov) =>

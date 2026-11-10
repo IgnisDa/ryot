@@ -72,7 +72,11 @@ const assignPodcastEpisodeSession = (host: AutomationHost, payload: EventPayload
 
 const runItem = (input: AutomationPolicyInput, host: AutomationHost) => {
 	const payload = input.automation.payload;
-	if (payload.resource !== "event" || payload.operation !== "create") {
+	if (
+		payload.resource !== "event" ||
+		payload.operation === "delete" ||
+		(payload.operation === "update" && payload.draft.entityId === payload.before.entityId)
+	) {
 		return Effect.succeed({ action: "allow" } as const);
 	}
 	const draft = payload.draft;

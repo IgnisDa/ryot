@@ -465,7 +465,11 @@ reads its targets through an explicit allow-list: `complete`, `item-complete`, `
 refused. Inputs carry `submittedAt` and the background submission ID; edits use the
 `<submissionId>:write` key. Updates and single-record deletes send the row's full snapshot as a
 `fields` precondition (every current property and every absent editable one), so a concurrent
-change is reported as stale instead of merged. Edits never touch `entityId` or `sessionEntityId`.
+change is reported as stale instead of merged. Edits never touch `sessionEntityId` and touch `entityId` only
+through `episodeEntityId`: a show or podcast episode `complete` or `progress` record can move to another
+episode of the same show (across seasons) or podcast, which must be visible to the caller; moving to the
+record's own episode changes nothing, and any other record or parent is refused. The session policy
+then recomputes the record's session, and the fold refolds the subjects it leaves and joins.
 The field matrix in `shared/media-activity-fields.ts` mirrors the declared event schemas; a field
 the schema does not declare, and a stored record carrying keys its schema no longer declares, are
 refused. Progress follows the logging rules: a position on Anime/Manga, a percent elsewhere. Moving
@@ -480,7 +484,9 @@ rejection.
 
 Activity and review rows in the Activity tab and complete history offer a row menu. Delete names
 the number of records a folded row stands for; Edit appears only when the row is one completion,
-progress update, or review, and opens the Log activity fields or the review composer. Aggregated
+progress update, or review, and opens the Log activity fields or the review composer. For an episode
+record the sheet also shows the episode picker, prefilled with the current episode, and sends
+`episodeEntityId` only when another one is chosen. Aggregated
 daily watches in an episodic summary carry no record IDs and are edited from complete history.
 Collection, library, and synced list-state rows have no menu.
 
@@ -591,7 +597,7 @@ immutable trigger evidence; current-state RyotQL cannot reconstruct omitted hist
 | Library membership              | Required user-scoped entity/provider-import and event-batch hooks merge `in-media-library` properties without clearing annotations. The library never links to itself. A required batch hook (`batchMaxItems` 80) records `add-to-media-library` once per newly created membership in one write; idempotent upserts do not. |
 | Association / relationship sync | Batch hooks filter projected changes; association resolves credits together, and sync uses the population batch leader. Item-count chunks remain subject to the separate invocation byte limit.                                                                                                                             |
 | Entity updated                  | Async population hook compares projected trigger-time fields, treating image order as irrelevant, and emits monitoring signals.                                                                                                                                                                                             |
-| Episodic session                | Before-event policy patches only `sessionEntityId`; missing/ambiguous parents reject the event and caller session IDs are replaced.                                                                                                                                                                                         |
+| Episodic session                | Before-event policy on episode creates and on episode updates that change `entityId` patches only `sessionEntityId` (a season-0 special stays sessionless); missing/ambiguous parents reject the event and caller session IDs are replaced.                                                                                 |
 | Completion reconciliation       | No hook. The `fold.media-history` fold runs on every history write and writes automatic completions; see [the fold](#the-fold).                                                                                                                                                                                             |
 | Review / collection pushes      | Review includes kernel collection reviews; Radarr/Sonarr observe collection additions. Notifications/pushes have one attempt and no automatic external retry.                                                                                                                                                               |
 

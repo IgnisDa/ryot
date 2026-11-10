@@ -15,6 +15,7 @@ import {
 	MediaActivityDeleteInput,
 	type MediaActivityPatch,
 	MediaActivityUpdateInput,
+	type MediaEventSnapshot,
 } from "../../shared/media-activity-operations";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
@@ -62,6 +63,7 @@ const requestedIds = (document: RyotQLDocument) =>
 const recordingHost = (input: {
 	readonly events: readonly StoredEvent[];
 	readonly disallowed?: readonly string[];
+	readonly episodeParents?: Readonly<Record<string, string>>;
 	readonly updateEvents?: () => Effect.Effect<{ readonly count: number }, SandboxHostError>;
 	readonly deleteEvents?: (
 		ids: readonly string[],
@@ -92,6 +94,19 @@ const recordingHost = (input: {
 			Effect.sync(() => {
 				calls.push("validate");
 				documents.push(document);
+				if (document.queries["parents"] !== undefined) {
+					const parent = ryotqlDocumentNodes(document.queries["parents"])
+						.filter(isLiteral)
+						.map(({ value }) => input.episodeParents?.[value])
+						.find((id) => id !== undefined);
+					return {
+						data: {
+							parents: page(
+								parent === undefined ? [] : [{ seasonNumber: 1, parentEntityId: parent }],
+							),
+						},
+					};
+				}
 				const ids = requestedIds(document);
 				const known = input.events.filter(({ id }) => ids.includes(id));
 				return {
@@ -112,10 +127,14 @@ const movieCompletion: StoredEvent = {
 	properties: { consumedOn: "Netflix" },
 };
 
-const update = (patch: MediaActivityPatch, host: ReturnType<typeof recordingHost>["host"]) =>
+const update = (
+	patch: MediaActivityPatch,
+	host: ReturnType<typeof recordingHost>["host"],
+	snapshot: typeof MediaEventSnapshot.Encoded = expected,
+) =>
 	runSandboxTestScript(
 		updateDefinition,
-		{ patch, expected, submittedAt, eventId: "event-1", submissionId: "submission" },
+		{ patch, submittedAt, expected: snapshot, eventId: "event-1", submissionId: "submission" },
 		host,
 		execution,
 	);
@@ -145,7 +164,112 @@ const eventIds = (count: number) =>
 
 const movieCompletions = (ids: readonly string[]) => ids.map((id) => ({ ...movieCompletion, id }));
 
+const episodeCompletion: StoredEvent = {
+	id: "event-1",
+	properties: {},
+	eventSchemaSlug: "complete",
+	entitySchemaSlug: "show-episode",
+};
+
+const episodeSnapshot = { ...expected, entityId: "episode-1", sessionEntityId: "show-1" };
+
 describe("media activity update", () => {
+	it.live.each(["show-episode", "podcast-episode"] as const)(
+		"moves a %s record to another episode of the same parent",
+		(entitySchemaSlug) =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [{ ...episodeCompletion, entitySchemaSlug }],
+					episodeParents: { "episode-1": "parent-1", "episode-2": "parent-1" },
+				});
+				yield* update({ episodeEntityId: "episode-2" }, host, episodeSnapshot);
+				expect(updates[0]?.items[0]?.patch).toEqual({ entityId: "episode-2" });
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"moves a show record to an episode of another season of the same show",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [{ ...episodeCompletion, eventSchemaSlug: "progress" }],
+					episodeParents: { "episode-1": "show-1", "special-1": "show-1" },
+				});
+				yield* update({ progressPercent: 40, episodeEntityId: "special-1" }, host, episodeSnapshot);
+				expect(updates[0]?.items[0]?.patch).toEqual({
+					entityId: "special-1",
+					properties: { remove: [], set: { progressPercent: 40 } },
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"treats a move to the current episode as no change",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [episodeCompletion],
+					episodeParents: { "episode-1": "show-1" },
+				});
+				yield* update({ timeSpent: 20, episodeEntityId: "episode-1" }, host, episodeSnapshot);
+				expect(updates[0]?.items[0]?.patch).toEqual({
+					properties: { remove: [], set: { timeSpent: 20 } },
+				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"rejects a move to an episode of another parent",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [episodeCompletion],
+					episodeParents: { "episode-1": "show-1", "episode-9": "show-2" },
+				});
+				expect(
+					yield* rejection(update({ episodeEntityId: "episode-9" }, host, episodeSnapshot)),
+				).toBe("Records can only move to another episode of the same show.");
+				expect(updates).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"rejects a move to an episode that is not visible or of another kind",
+		() =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [episodeCompletion],
+					episodeParents: { "episode-1": "show-1" },
+				});
+				expect(
+					yield* rejection(update({ episodeEntityId: "hidden-1" }, host, episodeSnapshot)),
+				).toBe("That episode isn't available.");
+				expect(updates).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live.each([
+		{ event: movieCompletion, name: "a movie completion" },
+		{ name: "an anime completion", event: { ...movieCompletion, entitySchemaSlug: "anime" } },
+	])(
+		"rejects an episode move on $name",
+		({ event }) =>
+			Effect.gen(function* () {
+				const { host, updates } = recordingHost({
+					events: [event],
+					episodeParents: { "episode-1": "show-1", "episode-2": "show-1" },
+				});
+				yield* rejection(update({ episodeEntityId: "episode-2" }, host, episodeSnapshot));
+				expect(updates).toEqual([]);
+			}),
+		testTimeout,
+	);
+
 	it.effect(
 		"edits an independent item without changing its retained source facts",
 		() =>

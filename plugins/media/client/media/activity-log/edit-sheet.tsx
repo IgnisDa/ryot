@@ -26,7 +26,12 @@ import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
 import { mediaActivityPatchableKeys } from "../../../shared/media-activity-fields";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
 import type { MediaActivityEventRef } from "../activity-timeline";
-import { activityLogContextQuery, updateActivitySubmission } from "./queries";
+import { EpisodeChoice } from "../episode-picker";
+import {
+	activityLogContextQuery,
+	showEpisodeSeasonQuery,
+	updateActivitySubmission,
+} from "./queries";
 import { FlatProgress, PositionProgress, SourceField, WhenField } from "./sheet";
 import {
 	type ActivityDraft,
@@ -90,6 +95,54 @@ export function MediaActivityEditSheet(props: EditSheetProps & { readonly entity
 		);
 	}
 	return <EditForm {...props} context={result.data} timeZone={preferences.data.timeZone} />;
+}
+
+function EpisodeField(props: {
+	readonly entityId: string;
+	readonly episodeId: string;
+	readonly family: "show" | "podcast";
+	readonly onChange: (episodeId: string) => void;
+}) {
+	return props.family === "show" ? (
+		<ShowEpisodeField {...props} />
+	) : (
+		<EpisodePicker {...props} initialSeason={undefined} />
+	);
+}
+
+function ShowEpisodeField(props: {
+	readonly entityId: string;
+	readonly episodeId: string;
+	readonly family: "show" | "podcast";
+	readonly onChange: (episodeId: string) => void;
+}) {
+	const [currentId] = useState(props.episodeId);
+	const season = useRyotQuery(showEpisodeSeasonQuery, { episodeEntityId: currentId });
+	if (season.data === undefined) {
+		return <StatusMessage tone="pending">Loading episode…</StatusMessage>;
+	}
+	return <EpisodePicker {...props} initialSeason={season.data ?? undefined} />;
+}
+
+function EpisodePicker(props: {
+	readonly entityId: string;
+	readonly episodeId: string;
+	readonly family: "show" | "podcast";
+	readonly initialSeason: number | undefined;
+	readonly onChange: (episodeId: string) => void;
+}) {
+	const [seasonNumber, setSeasonNumber] = useState(props.initialSeason);
+	return (
+		<EpisodeChoice
+			family={props.family}
+			entityId={props.entityId}
+			onSelect={props.onChange}
+			seasonNumber={seasonNumber}
+			selectedId={props.episodeId}
+			emptyMessage="There are no episodes to move this to."
+			onSeason={(season) => setSeasonNumber(season.seasonNumber)}
+		/>
+	);
 }
 
 function EditForm(
@@ -191,6 +244,15 @@ function EditFields(props: {
 	const item = draft.item;
 	return (
 		<>
+			{draft.episodeId !== undefined &&
+			(logger.family === "show" || logger.family === "podcast") ? (
+				<EpisodeField
+					entityId={context.id}
+					family={logger.family}
+					episodeId={draft.episodeId}
+					onChange={(episodeId) => props.onChange({ episodeId })}
+				/>
+			) : null}
 			{item !== undefined && logger.family === "positional" ? (
 				<>
 					<Select
