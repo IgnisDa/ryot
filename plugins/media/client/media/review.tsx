@@ -9,14 +9,22 @@ import { Button, ReviewComposer } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { type RefObject, useRef, useState } from "react";
 
+import type { MediaPosition } from "../../shared/consumption";
 import {
 	MediaReviewCreateInput,
 	MediaReviewDeleteInput,
 	MediaReviewUpdateInput,
 } from "../../shared/media-review-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { eventPrecondition } from "./activity-log/state";
+import { eventPrecondition, type MediaActivityLogger } from "./activity-log/state";
 import type { MediaActivityEventRef } from "./activity-timeline";
+import { ReviewSubjectPicker } from "./review-subject";
+import {
+	positionalReviewSubject,
+	reviewSubjectModes,
+	reviewTarget,
+	WHOLE_REVIEW_SUBJECT,
+} from "./review-subject-state";
 
 const createReview = createRyotBackgroundSubmission({
 	label: () => "Review",
@@ -54,7 +62,34 @@ export const deleteReviewSubmission = createRyotBackgroundSubmission({
 	}),
 });
 
-export function MediaReviewButton(props: { readonly link?: boolean; readonly entityId: string }) {
+type FixedReviewSubject = { readonly label: string; readonly entityId: string };
+
+export function MediaChildReviewButton(props: FixedReviewSubject) {
+	const [open, setOpen] = useState(false);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	return (
+		<>
+			<Button ref={triggerRef} variant="secondary" onClick={() => setOpen(true)}>
+				<AppIcon size={15} name="star" />
+				Review
+			</Button>
+			{open ? (
+				<MediaReviewForm
+					fixed={props}
+					triggerRef={triggerRef}
+					entityId={props.entityId}
+					onClose={() => setOpen(false)}
+				/>
+			) : null}
+		</>
+	);
+}
+
+export function MediaReviewButton(props: {
+	readonly link?: boolean;
+	readonly entityId: string;
+	readonly logger?: undefined | MediaActivityLogger;
+}) {
 	const [open, setOpen] = useState(false);
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	return (
@@ -71,6 +106,7 @@ export function MediaReviewButton(props: { readonly link?: boolean; readonly ent
 			)}
 			{open ? (
 				<MediaReviewForm
+					logger={props.logger}
 					triggerRef={triggerRef}
 					entityId={props.entityId}
 					onClose={() => setOpen(false)}
@@ -83,49 +119,97 @@ export function MediaReviewButton(props: { readonly link?: boolean; readonly ent
 export function MediaReviewForm(props: {
 	readonly entityId: string;
 	readonly onClose: () => void;
+	readonly fixed?: undefined | FixedReviewSubject;
+	readonly logger?: undefined | MediaActivityLogger;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const review = useBackgroundSubmission(createReview);
 	const scale = useUserPreferences().data?.ratingScale;
+	const [subject, setSubject] = useState(WHOLE_REVIEW_SUBJECT);
 	if (scale === undefined) {
 		return null;
+	}
+	const target =
+		props.fixed === undefined
+			? reviewTarget(props.entityId, subject)
+			: { entityId: props.entityId };
+	let picker = null;
+	if (props.fixed !== undefined) {
+		picker = <FixedSubject label={props.fixed.label} />;
+	} else if (props.logger !== undefined && reviewSubjectModes(props.logger).length > 0) {
+		picker = (
+			<ReviewSubjectPicker
+				draft={subject}
+				onChange={setSubject}
+				logger={props.logger}
+				entityId={props.entityId}
+			/>
+		);
 	}
 	return (
 		<ReviewComposer
 			scale={scale}
+			subject={picker}
 			title="Rate or review"
 			onClose={props.onClose}
 			isSending={review.isSending}
 			triggerRef={props.triggerRef}
+			canSave={target !== undefined}
 			errorMessage={
 				review.error === null ? undefined : "Couldn't start saving your review. Try again."
 			}
 			onSave={(draft) =>
-				review.submit({ ...draft, entityId: props.entityId }, { onAccepted: props.onClose })
+				target === undefined
+					? undefined
+					: review.submit({ ...draft, ...target }, { onAccepted: props.onClose })
 			}
 		/>
 	);
 }
 
 export function MediaReviewEditForm(props: {
+	readonly entityId: string;
 	readonly onClose: () => void;
 	readonly initial: ReviewContent;
 	readonly record: MediaActivityEventRef;
+	readonly subjectLabel?: string | undefined;
+	readonly position?: undefined | MediaPosition;
+	readonly logger?: undefined | MediaActivityLogger;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
 }) {
 	const review = useBackgroundSubmission(updateReview);
 	const scale = useUserPreferences().data?.ratingScale;
+	const [subject, setSubject] = useState(() => positionalReviewSubject(props.position));
 	if (scale === undefined) {
 		return null;
+	}
+	const { logger } = props;
+	const positional =
+		props.subjectLabel === undefined && logger !== undefined && logger.family === "positional";
+	const target = reviewTarget(props.entityId, subject);
+	let picker = null;
+	if (props.subjectLabel !== undefined) {
+		picker = <FixedSubject label={props.subjectLabel} />;
+	} else if (positional) {
+		picker = (
+			<ReviewSubjectPicker
+				draft={subject}
+				logger={logger}
+				onChange={setSubject}
+				entityId={props.entityId}
+			/>
+		);
 	}
 	return (
 		<ReviewComposer
 			scale={scale}
+			subject={picker}
 			title="Edit review"
 			initial={props.initial}
 			onClose={props.onClose}
 			isSending={review.isSending}
 			triggerRef={props.triggerRef}
+			canSave={!positional || target !== undefined}
 			errorMessage={
 				review.error === null ? undefined : "Couldn't start saving your review. Try again."
 			}
@@ -134,11 +218,23 @@ export function MediaReviewEditForm(props: {
 					{
 						...draft,
 						eventId: props.record.id,
-						expected: eventPrecondition(props.record, reviewPropertyKeys),
+						...(positional ? { position: target?.position ?? null } : {}),
+						expected: eventPrecondition(props.record, [
+							...reviewPropertyKeys,
+							...(positional ? ["position"] : []),
+						]),
 					},
 					{ onAccepted: props.onClose },
 				)
 			}
 		/>
+	);
+}
+
+function FixedSubject(props: { readonly label: string }) {
+	return (
+		<p className="text-label text-text-muted">
+			Review of <span className="font-medium text-text">{props.label}</span>
+		</p>
 	);
 }

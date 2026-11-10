@@ -5,7 +5,7 @@ import {
 	type ReviewProperties,
 } from "@ryot-app/contract/modules/events/review";
 import { Schema } from "effect";
-import { type RefObject, useId, useRef, useState } from "react";
+import { type ReactNode, type RefObject, useId, useRef, useState } from "react";
 
 import { ActionForm } from "./action-form";
 import { Button } from "./button";
@@ -21,8 +21,10 @@ const isReviewContent = Schema.is(ReviewContent.pipe(Schema.check(requireReviewC
 
 export function ReviewComposer(props: {
 	readonly title: string;
+	readonly canSave?: boolean;
 	readonly isSending: boolean;
 	readonly scale: RatingScale;
+	readonly subject?: ReactNode;
 	readonly onClose: () => void;
 	readonly errorMessage?: string | undefined;
 	readonly onDelete?: undefined | (() => void);
@@ -46,7 +48,8 @@ export function ReviewComposer(props: {
 		rating: rating.result.valid ? rating.result.rating : null,
 	};
 	const hasContent = hasText || rating.draft.trim() !== "";
-	const canSave = rating.result.valid && isReviewContent(draft) && !isSending;
+	const canSave =
+		props.canSave !== false && rating.result.valid && isReviewContent(draft) && !isSending;
 	const save = () => {
 		if (canSave) {
 			props.onSave(draft);
@@ -62,6 +65,7 @@ export function ReviewComposer(props: {
 			{...(props.triggerRef === undefined ? {} : { triggerRef: props.triggerRef })}
 		>
 			<ActionForm onSubmit={save} label={props.title} className="flex flex-col gap-4">
+				{props.subject}
 				<p className="text-label text-text-muted">Add a rating, a review, or both.</p>
 				<RatingInput
 					scale={props.scale}

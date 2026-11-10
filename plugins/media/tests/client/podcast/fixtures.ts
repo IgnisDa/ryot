@@ -117,6 +117,7 @@ export const decodePodcastActivity = (
 	Result.getOrThrow(
 		podcastActivityFixtureRecipe.decode({
 			data: {
+				seasonEvents: rows([]),
 				episodeEvents: rows([]),
 				episodeProgress: rows([]),
 				collectionEvents: rows([]),

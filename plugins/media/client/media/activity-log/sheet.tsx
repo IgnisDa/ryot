@@ -1,6 +1,5 @@
 import {
 	localDay,
-	nextPageCursor,
 	paginationItems,
 	useBackgroundSubmission,
 	usePluginIdentity,
@@ -19,11 +18,9 @@ import {
 	DurationField,
 	Field,
 	FieldMessage,
-	LoadMoreButton,
 	RadioGroup,
 	Row,
 	SegmentedControl,
-	Select,
 	StatusMessage,
 	Stepper,
 	Switch,
@@ -31,19 +28,19 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
-import { type ReactNode, type RefObject, useEffect, useMemo, useState } from "react";
+import { type RefObject, useEffect, useMemo, useState } from "react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
 import { consumedOnSettingKey } from "../../../shared/consumed-on-settings";
 import { PLUGIN_PACKAGE_ID } from "../../../shared/plugin-identity";
-import { podcastEpisodesQuery } from "../../podcast/episodes-query";
 import {
-	activityLogContextQuery,
-	activityLogSeasonsQuery,
-	earlierEpisodesQuery,
-	logActivitySubmission,
-	showSeasonChoicesQuery,
-} from "./queries";
+	ActivitySeasonSelector,
+	EpisodeList,
+	type EpisodePager,
+	PodcastEpisodes,
+	ShowEpisodes,
+} from "../episode-picker";
+import { activityLogContextQuery, earlierEpisodesQuery, logActivitySubmission } from "./queries";
 import {
 	activityCopyLabels,
 	type ActivityDraft,
@@ -77,7 +74,6 @@ import {
 	positionLogUnit,
 	removeActivityTime,
 	resolveActivityDateTime,
-	seasonLabel,
 	selectedEpisode,
 } from "./state";
 
@@ -90,16 +86,6 @@ type Earlier =
 			readonly tooMany: boolean;
 			readonly episodes: readonly ActivityEpisode[];
 	  };
-
-type EpisodePager = {
-	readonly isError: boolean;
-	readonly retry: () => void;
-	readonly isPending: boolean;
-	readonly hasNextPage: boolean;
-	readonly fetchNextPage: () => void;
-	readonly isFetchingNextPage: boolean;
-	readonly choices: readonly ActivityEpisode[];
-};
 
 const FIRST_PAGE: null | string = null;
 
@@ -221,68 +207,6 @@ export function MediaActivityLogSheet(props: {
 		);
 	}
 	return <ActivityLogDialog {...props} context={result.data} name={result.data.name} />;
-}
-
-export function ActivitySeasonSelector(props: {
-	readonly entityId: string;
-	readonly seasonNumber: number | undefined;
-	readonly onSeason: (seasonNumber: number) => void;
-}) {
-	const query = useRyotInfiniteQuery(
-		activityLogSeasonsQuery,
-		{ entityId: props.entityId },
-		{
-			initialPageParam: FIRST_PAGE,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after) => ({ ...input, after }),
-		},
-	);
-	const seasons = paginationItems(
-		query.pages,
-		(page) => page.items,
-		(season) => season.id,
-	);
-	const choices = seasons.map((season) => ({
-		value: String(season.seasonNumber),
-		label: seasonLabel(season.seasonNumber),
-	}));
-	if (
-		props.seasonNumber !== undefined &&
-		!seasons.some((season) => season.seasonNumber === props.seasonNumber)
-	) {
-		choices.push({ value: String(props.seasonNumber), label: seasonLabel(props.seasonNumber) });
-	}
-	return (
-		<div className="flex flex-col gap-2">
-			<Field label="Season">
-				{(control) => (
-					<Select
-						label="Season"
-						id={control.id}
-						choices={choices}
-						value={String(props.seasonNumber ?? "")}
-						checkIcon={<AppIcon size={16} name="check" />}
-						onChange={(value) => props.onSeason(Number(value))}
-						chevronIcon={<AppIcon size={16} name="chevron-down" />}
-					/>
-				)}
-			</Field>
-			{query.isPending ? <StatusMessage tone="pending">Loading seasons…</StatusMessage> : null}
-			{query.isError ? (
-				<StatusMessage tone="error" action={{ label: "Try again", onClick: query.retry }}>
-					Unable to load seasons.
-				</StatusMessage>
-			) : null}
-			{query.hasNextPage ? (
-				<LoadMoreButton
-					label="Load more seasons"
-					disabled={query.isFetching}
-					onClick={query.fetchNextPage}
-					isFetchingNextPage={query.isFetchingNextPage}
-				/>
-			) : null}
-		</div>
-	);
 }
 
 export function PositionProgress(props: {
@@ -546,77 +470,6 @@ export function WhenField(props: {
 	);
 }
 
-function PodcastEpisodes(props: {
-	readonly entityId: string;
-	readonly children: (pager: EpisodePager) => ReactNode;
-}) {
-	const query = useRyotInfiniteQuery(
-		podcastEpisodesQuery,
-		{ entityId: props.entityId, containerId: props.entityId },
-		{
-			initialPageParam: FIRST_PAGE,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after) => ({ ...input, after }),
-		},
-	);
-	const choices = paginationItems(
-		query.pages,
-		(page) => page.items,
-		(item) => item.id,
-	).map((item) => ({
-		id: item.id,
-		name: item.name,
-		state: item.state,
-		seasonNumber: null,
-		episodeNumber: item.episodeNumber,
-	}));
-	return props.children({
-		choices,
-		retry: query.retry,
-		isError: query.isError,
-		isPending: query.isPending,
-		hasNextPage: query.hasNextPage,
-		fetchNextPage: query.fetchNextPage,
-		isFetchingNextPage: query.isFetchingNextPage,
-	});
-}
-
-function ShowEpisodes(props: {
-	readonly entityId: string;
-	readonly seasonNumber: number;
-	readonly children: (pager: EpisodePager) => ReactNode;
-}) {
-	const query = useRyotInfiniteQuery(
-		showSeasonChoicesQuery,
-		{ showEntityId: props.entityId, seasonNumber: props.seasonNumber },
-		{
-			initialPageParam: FIRST_PAGE,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after) => ({ ...input, after }),
-		},
-	);
-	const choices = paginationItems(
-		query.pages,
-		(page) => page.items,
-		(item) => item.id,
-	).map((item) => ({
-		id: item.id,
-		name: item.name,
-		state: item.state,
-		seasonNumber: props.seasonNumber,
-		episodeNumber: item.episodeNumber,
-	}));
-	return props.children({
-		choices,
-		retry: query.retry,
-		isError: query.isError,
-		isPending: query.isPending,
-		hasNextPage: query.hasNextPage,
-		fetchNextPage: query.fetchNextPage,
-		isFetchingNextPage: query.isFetchingNextPage,
-	});
-}
-
 function ActivityLogDialog(props: ActivityLogDialogProps) {
 	const { logger, context, entityId, initialEpisode } = props;
 	const [seasonNumber, setSeasonNumber] = useState(() =>
@@ -763,8 +616,8 @@ function EpisodeStep(props: Body) {
 			{logger.family === "show" ? (
 				<ActivitySeasonSelector
 					entityId={context.id}
-					onSeason={props.onSeason}
 					seasonNumber={props.seasonNumber}
+					onSeason={(season) => props.onSeason(season.seasonNumber)}
 				/>
 			) : null}
 			{pager === undefined ? (
@@ -772,10 +625,13 @@ function EpisodeStep(props: Body) {
 			) : (
 				<EpisodeList
 					pager={pager}
-					logger={logger}
 					onSelect={props.onSelect}
 					selectedId={selected?.id}
-					nextUpId={context.nextUp?.id}
+					emptyMessage="There are no episodes to log yet."
+					family={logger.family === "podcast" ? "podcast" : "show"}
+					stateLabel={(episode) =>
+						episodeStateLabel({ logger, episode, nextUpId: context.nextUp?.id })
+					}
 				/>
 			)}
 			{selected?.state === "complete" ? (
@@ -819,75 +675,6 @@ function EpisodeStep(props: Body) {
 					}
 				/>
 			)}
-		</div>
-	);
-}
-
-function EpisodeList(props: {
-	readonly pager: EpisodePager;
-	readonly logger: MediaActivityLogger;
-	readonly nextUpId: string | undefined;
-	readonly selectedId: string | undefined;
-	readonly onSelect: (id: string) => void;
-}) {
-	const { pager, logger } = props;
-	if (pager.isError && pager.choices.length === 0) {
-		return (
-			<StatusMessage tone="error" action={{ label: "Try again", onClick: pager.retry }}>
-				Unable to load episodes.
-			</StatusMessage>
-		);
-	}
-	if (pager.isPending) {
-		return <StatusMessage tone="pending">Loading episodes…</StatusMessage>;
-	}
-	if (pager.choices.length === 0) {
-		return <p className="text-text-muted">There are no episodes to log yet.</p>;
-	}
-	return (
-		<div className="flex flex-col gap-2">
-			<RadioGroup
-				label="Episode"
-				value={props.selectedId}
-				onChange={props.onSelect}
-				className="max-h-56 overflow-y-auto rounded-md border border-border"
-				options={pager.choices.map((episode) => {
-					const state = episodeStateLabel({ logger, episode, nextUpId: props.nextUpId });
-					return {
-						state,
-						episode,
-						value: episode.id,
-						label: `${episodeCode(logger, episode)}${state === undefined ? "" : ` · ${state}`}`,
-					};
-				})}
-				renderOption={(option, selected) => ({
-					className: clsx(
-						"flex min-h-11 w-full items-center justify-between gap-3 border-t border-border px-3 text-left first:border-t-0",
-						selected ? "bg-accent-soft" : "hover:bg-hover",
-					),
-					content: (
-						<>
-							<span className="min-w-0 flex-1 truncate">
-								<span className="font-medium text-text">{episodeCode(logger, option.episode)}</span>
-								{option.episode.name === "" ? null : (
-									<span className="text-text-muted"> · {option.episode.name}</span>
-								)}
-							</span>
-							{option.state === undefined ? null : (
-								<span className="shrink-0 text-xs text-text-subtle">{option.state}</span>
-							)}
-						</>
-					),
-				})}
-			/>
-			{pager.hasNextPage ? (
-				<LoadMoreButton
-					label="Load more"
-					onClick={pager.fetchNextPage}
-					disabled={pager.isFetchingNextPage}
-					isFetchingNextPage={pager.isFetchingNextPage}
-				/>
-			) : null}
 		</div>
 	);
 }

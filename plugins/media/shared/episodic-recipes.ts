@@ -73,6 +73,7 @@ import {
 	episodicNextUpInclude,
 	relationshipConnects,
 	sameSchemaOwner,
+	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import {
@@ -95,6 +96,7 @@ import {
 	mediaHistoryPage,
 	mediaOverviewQueries,
 	mediaPeopleRecipe,
+	mediaReviewEventSelection,
 	mediaSummaryQueries,
 	mediaSummaryResult,
 	mediaSummarySelection,
@@ -335,6 +337,44 @@ const episodicEpisodeEventScope = (
 		episodicEpisodeMembership(input.config, episode, input.entityId, `${input.alias}Member`),
 	),
 });
+
+export const episodicSeasonReviewEventsQuery = (input: {
+	readonly limit: number;
+	readonly alias: string;
+	readonly entityId: string;
+	readonly reference: PluginIdentityReference;
+	readonly before?: undefined | MediaHistoryCursor;
+}) => {
+	const event = table("event", `${input.alias}Event`);
+	const season = table("entity", `${input.alias}Season`);
+	const relationship = table("relationship", `${input.alias}Relationship`);
+	const scope = and(
+		eq(column(event, "eventSchemaSlug"), literal("review")),
+		entitySchemaPredicate(season, "show-season", input.reference),
+		schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
+		eq(column(relationship, "sourceEntityId"), literal(input.entityId)),
+		relationshipSchemaPredicate(
+			relationship,
+			showEpisodicKindConfig.parentSeasonRelationshipSlug,
+			input.reference,
+		),
+	);
+	return selectedRows(event, {
+		limit: input.limit,
+		orderBy: eventOrderDescending(event),
+		where: input.before === undefined ? scope : and(scope, mediaHistoryBefore(event, input.before)),
+		joins: [
+			join("inner", season, eq(column(event, "entityId"), column(season, "id"))),
+			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(season, "id"))),
+		],
+		selection: {
+			...mediaReviewEventSelection(event),
+			seasonId: selectedField(column(season, "id"), EntityId),
+			seasonName: selectedField(column(season, "name"), Schema.String),
+			seasonNumber: selectedField(propertyNumber(season, "seasonNumber"), Schema.Finite),
+		},
+	});
+};
 
 export const episodicEpisodeEventsQuery = <const EpisodeFields extends SelectedSelection>(input: {
 	readonly limit: number;
@@ -697,6 +737,24 @@ type EpisodicCoverageRows<Row> = {
 };
 
 /** The episodic counterpart of `mediaFlatRecipes`: everything a parent shares above its episodes. */
+const seasonReviewEvent = <
+	Row extends {
+		readonly seasonId: string;
+		readonly seasonName: string;
+		readonly seasonNumber: number;
+	},
+>({
+	seasonId,
+	seasonName,
+	seasonNumber,
+	...row
+}: Row) => ({
+	...row,
+	kind: "season" as const,
+	eventSchemaSlug: "review" as const,
+	season: { id: seasonId, seasonNumber, name: seasonName },
+});
+
 export const mediaEpisodicRecipes = <
 	const SummaryFields extends SelectedSelection,
 	const PresentationFields extends SelectedSelection,
@@ -821,6 +879,12 @@ export const mediaEpisodicRecipes = <
 					limit: input.parentEventLimit,
 					alias: `${config.alias}ParentEvent`,
 				}),
+				seasonEvents: episodicSeasonReviewEventsQuery({
+					entityId: input.entityId,
+					reference: input.reference,
+					limit: input.episodeEventLimit,
+					alias: `${config.alias}SeasonEvent`,
+				}),
 				episodeEvents: episodicEpisodeEventsQuery({
 					config: config.config,
 					entityId: input.entityId,
@@ -876,6 +940,7 @@ export const mediaEpisodicRecipes = <
 				coverage,
 				watchDays,
 				parentEvents,
+				seasonEvents,
 				episodeEvents,
 				episodeProgress,
 				collectionEvents,
@@ -912,6 +977,7 @@ export const mediaEpisodicRecipes = <
 							episode: config.activityEpisode(row),
 						})),
 					),
+					...seasonEvents.items.map(seasonReviewEvent),
 					...mediaCollectionActivityEvents(collectionEvents.items),
 				];
 				const days = watchDays.items.map((row) => ({
@@ -934,6 +1000,7 @@ export const mediaEpisodicRecipes = <
 						coverage.pageInfo.hasMore ||
 						watchDays.pageInfo.hasMore ||
 						parentEvents.pageInfo.hasMore ||
+						seasonEvents.pageInfo.hasMore ||
 						episodeEvents.pageInfo.hasMore ||
 						episodeProgress.pageInfo.hasMore ||
 						collectionEvents.pageInfo.hasMore,
@@ -995,6 +1062,10 @@ export const mediaEpisodicRecipes = <
 					...query,
 					alias: `${config.alias}HistoryParent`,
 				}),
+				seasonEvents: episodicSeasonReviewEventsQuery({
+					...query,
+					alias: `${config.alias}HistorySeason`,
+				}),
 				episodeEvents: episodicEpisodeEventsQuery({
 					...query,
 					history: true,
@@ -1003,7 +1074,7 @@ export const mediaEpisodicRecipes = <
 					alias: `${config.alias}HistoryEpisode`,
 				}),
 			},
-			map: ({ parentEvents, episodeEvents, collectionEvents }) =>
+			map: ({ parentEvents, seasonEvents, episodeEvents, collectionEvents }) =>
 				Result.flatMap(cursor, () =>
 					mediaHistoryPage(
 						[
@@ -1013,10 +1084,12 @@ export const mediaEpisodicRecipes = <
 								kind: "episode" as const,
 								episode: config.activityEpisode(row),
 							})),
+							...seasonEvents.items.map(seasonReviewEvent),
 							...mediaCollectionActivityEvents(collectionEvents.items),
 						],
 						input.limit,
 						parentEvents.pageInfo.hasMore ||
+							seasonEvents.pageInfo.hasMore ||
 							episodeEvents.pageInfo.hasMore ||
 							collectionEvents.pageInfo.hasMore,
 					),

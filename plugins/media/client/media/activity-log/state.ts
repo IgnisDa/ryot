@@ -180,7 +180,7 @@ export const positionLogUnit = (
 	unit: undefined | MediaPosition["unit"],
 ) => logger.units.find((candidate) => candidate.value === unit) ?? logger.units[0];
 
-const latestPositionIn = (context: MediaActivityLogContext, unit: MediaPosition["unit"]) =>
+export const latestPositionIn = (context: MediaActivityLogContext, unit: MediaPosition["unit"]) =>
 	context.position?.unit === unit ? context.position.position : 0;
 
 /** The next entry in `unit`: one past the latest position in that unit, capped at its total. */
@@ -549,7 +549,7 @@ export const activityLogInput = (
 };
 
 export const episodeCode = (
-	logger: MediaActivityLogger,
+	logger: Pick<MediaActivityLogger, "family">,
 	episode: Pick<ActivityEpisode, "seasonNumber" | "episodeNumber">,
 ) =>
 	logger.family === "show"

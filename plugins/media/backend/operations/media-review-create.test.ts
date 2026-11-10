@@ -6,11 +6,14 @@ import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-ba
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
+import type { MediaPosition } from "../../shared/consumption";
 import { execution } from "../../tests/backend/automations/automation-test-utils";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import definition, { manifest } from "./media-review-create.sandbox";
 
-const targetRows = (items: readonly { readonly id: string }[]) => ({
+const targetRows = (
+	items: readonly { readonly id: string; readonly entitySchemaSlug: string }[],
+) => ({
 	data: {
 		target: { items, type: "rows", pageInfo: { limit: 1, hasMore: false, nextCursor: null } },
 	},
@@ -27,7 +30,7 @@ describe("create media review", () => {
 					executeRyotql: (document) =>
 						Effect.sync(() => {
 							documents.push(document);
-							return targetRows([{ id: "media-1" }]);
+							return targetRows([{ id: "media-1", entitySchemaSlug: "movie" }]);
 						}),
 					createEvents: (items) =>
 						Effect.sync(() => {
@@ -74,7 +77,8 @@ describe("create media review", () => {
 			Effect.gen(function* () {
 				const creates: unknown[] = [];
 				const host = defineSandboxTestHost(manifest, {
-					executeRyotql: () => Effect.succeed(targetRows([{ id: "creator-1" }])),
+					executeRyotql: () =>
+						Effect.succeed(targetRows([{ id: "creator-1", entitySchemaSlug: "movie" }])),
 					createEvents: (items) =>
 						Effect.sync(() => {
 							creates.push(items);
@@ -101,6 +105,61 @@ describe("create media review", () => {
 						},
 					],
 				]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"stores the position of a positional review and rejects it for other targets",
+		() =>
+			Effect.gen(function* () {
+				const creates: unknown[] = [];
+				const create = (entitySchemaSlug: string, position: MediaPosition) =>
+					runSandboxTestScript(
+						definition,
+						{ position, rating: 70, text: null, isSpoiler: false, entityId: "media-1" },
+						defineSandboxTestHost(manifest, {
+							executeRyotql: () =>
+								Effect.succeed(targetRows([{ id: "media-1", entitySchemaSlug }])),
+							createEvents: (items) =>
+								Effect.sync(() => {
+									creates.push(items);
+									return {
+										count: 1,
+										outcomes: [
+											{ index: 0, status: "written" as const, eventId: EventId.make("review-1") },
+										],
+									};
+								}),
+						}),
+						execution,
+					);
+				yield* create("manga", { volume: 2, position: 12, unit: "chapters" });
+				expect(creates).toEqual([
+					[
+						{
+							entityId: "media-1",
+							eventSchemaSlug: "review",
+							properties: { rating: 70, position: { volume: 2, position: 12, unit: "chapters" } },
+						},
+					],
+				]);
+				for (const [slug, position, message] of [
+					[
+						"movie",
+						{ position: 1, unit: "episodes" },
+						"This media type does not track this position",
+					],
+					[
+						"anime",
+						{ position: 1, unit: "chapters" },
+						"This media type does not track this position",
+					],
+					["anime", { position: 1.5, unit: "episodes" }, "Episode numbers are whole numbers"],
+				] as const) {
+					expect(yield* Effect.flip(create(slug, position))).toMatchObject({ message });
+				}
+				expect(creates).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -139,7 +198,8 @@ describe("create media review", () => {
 				Effect.gen(function* () {
 					const creates: unknown[] = [];
 					const host = defineSandboxTestHost(manifest, {
-						executeRyotql: () => Effect.succeed(targetRows([{ id: "media-1" }])),
+						executeRyotql: () =>
+							Effect.succeed(targetRows([{ id: "media-1", entitySchemaSlug: "movie" }])),
 						createEvents: (items) =>
 							Effect.sync(() => {
 								creates.push(items);

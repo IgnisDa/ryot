@@ -1,3 +1,7 @@
+import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
+
+import type { mediaReviewEventSelection } from "../../shared/media-recipes";
+import { seasonLabel } from "./activity-log/state";
 import {
 	absorbProgressRun,
 	anchorOf,
@@ -33,20 +37,22 @@ import {
 export type MediaEpisodicBeat = "backlog" | "dropped" | "on_hold";
 
 export type MediaEpisodicActivityEvent<Episode> =
-	MediaEpisodicParentEvent | MediaEpisodicCollectionEvent | MediaEpisodicEpisodeEvent<Episode>;
-
-export type MediaEpisodicHistoryEvent<Episode> =
 	| MediaEpisodicParentEvent
+	| MediaEpisodicSeasonEvent
 	| MediaEpisodicCollectionEvent
-	| (Omit<MediaEpisodicEpisodeEvent<Episode>, "eventSchemaSlug"> & {
-			readonly eventSchemaSlug: "review" | "progress" | "complete";
-	  });
+	| MediaEpisodicEpisodeEvent<Episode>;
 
 export type MediaEpisodicParentEvent = MediaActivityEventRow & {
 	readonly kind: "parent";
 	readonly startedOn: null | string;
 	readonly dateUnknown: null | boolean;
 	readonly eventSchemaSlug: "review" | "complete" | MediaEpisodicBeat | "add-to-media-library";
+};
+
+export type MediaEpisodicSeasonEvent = SelectedRow<ReturnType<typeof mediaReviewEventSelection>> & {
+	readonly kind: "season";
+	readonly eventSchemaSlug: "review";
+	readonly season: { readonly id: string; readonly name: string; readonly seasonNumber: number };
 };
 
 export type MediaEpisodicCollectionEvent = {
@@ -66,6 +72,14 @@ export type MediaEpisodicEpisodeEvent<Episode> = MediaActivityEventRow & {
 	readonly eventSchemaSlug: "review" | "progress";
 };
 
+export type MediaEpisodicHistoryEvent<Episode> =
+	| MediaEpisodicParentEvent
+	| MediaEpisodicSeasonEvent
+	| MediaEpisodicCollectionEvent
+	| (Omit<MediaEpisodicEpisodeEvent<Episode>, "eventSchemaSlug"> & {
+			readonly eventSchemaSlug: "review" | "progress" | "complete";
+	  });
+
 type MediaEpisodicEpisodeVocabulary<Episode> = {
 	readonly origin: (episode: Episode) => string;
 	readonly order: (episode: Episode) => readonly number[];
@@ -80,6 +94,10 @@ export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeVal
 	}
 	if (event.kind === "collection") {
 		return mediaCollectionRow(event);
+	}
+	if (event.kind === "season") {
+		const name = seasonLabel(event.season.seasonNumber);
+		return { ...mediaReviewRow(event, { name, on: "season" }), subjectLabel: name };
 	}
 	const origin = vocabulary.origin(event.episode);
 	const order = vocabulary.order(event.episode);
@@ -112,10 +130,6 @@ export type MediaEpisodicEpisodeValue = {
 	readonly name: string;
 	readonly runtime: null | number;
 };
-
-export type MediaEpisodicReviewSubject =
-	| { readonly on: "parent" }
-	| { readonly name: string; readonly on: "episode"; readonly origin: string };
 
 export type MediaEpisodicFigureLabels = {
 	readonly time: string;
@@ -156,6 +170,11 @@ export type MediaEpisodicCoverageRow = {
 	readonly total: number | undefined;
 	readonly percent: number | undefined;
 };
+
+export type MediaEpisodicReviewSubject =
+	| { readonly on: "parent" }
+	| { readonly name: string; readonly on: "season" }
+	| { readonly name: string; readonly on: "episode"; readonly origin: string };
 
 export type MediaEpisodicRow =
 	| MediaEpisodicWatchRow
@@ -332,7 +351,10 @@ const episodeEventRow = (
 	order: readonly number[],
 ): MediaEpisodicRow => {
 	if (event.eventSchemaSlug === "review") {
-		return mediaReviewRow(event, { origin, on: "episode", name: event.episode.name });
+		return {
+			...mediaReviewRow(event, { origin, on: "episode", name: event.episode.name }),
+			subjectLabel: `${origin} · ${event.episode.name}`,
+		};
 	}
 	return {
 		...anchorOf(event, "progress"),

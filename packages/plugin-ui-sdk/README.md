@@ -51,7 +51,9 @@ three-point change shows no absolute difference.
 
 `ReviewComposer` owns rating/text drafts, validation, spoiler controls, focus, dismissal, and
 optional confirmed deletion. Callers supply the rating `scale`, `onSave`, optional `onDelete`,
-submission state, and error copy; the component does not invoke client capabilities. Collection and
+submission state, error copy, and an optional `subject` node rendered above the rating for callers
+that let the review target something narrower than the whole entity, and `canSave` to block saving
+while that subject is incomplete; the component does not invoke client capabilities. Collection and
 Media review editors use it with the shared review content model. Drafts remain intact on submission
 failure.
 

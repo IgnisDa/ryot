@@ -323,7 +323,9 @@ export const defineFlatMediaSchema = <
 		if (row.type === "snapshot") {
 			return activityCopy.snapshot?.label ?? "Synced";
 		}
-		return activityCopy.rowLabels.review;
+		return row.position !== undefined
+			? `${activityCopy.rowLabels.review} · ${mediaPositionLabel(row.position)}`
+			: activityCopy.rowLabels.review;
 	};
 
 	const activityRender: MediaActivityRowRender<MediaFlatSchemaRow<Extra>> = {

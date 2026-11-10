@@ -56,6 +56,7 @@ export function MediaLogActivityButton(props: {
 			) : null}
 			{open === "review" ? (
 				<MediaReviewForm
+					logger={props.logger}
 					triggerRef={triggerRef}
 					entityId={props.entityId}
 					onClose={() => setOpen(undefined)}

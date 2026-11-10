@@ -37,6 +37,7 @@ describe("complete activity history recipes", () => {
 		});
 		const data = {
 			parentEvents: rows([]),
+			seasonEvents: rows([]),
 			episodeEvents: rows([]),
 			coverage: rows([], true),
 			episodeProgress: rows([]),
@@ -248,6 +249,7 @@ describe("complete activity history recipes", () => {
 		const page = Result.getOrThrow(
 			recipe.decode({
 				data: {
+					seasonEvents: rows([]),
 					parentEvents: rows([flatReviewEventRow]),
 					collectionEvents: rows([flatCollectionAddedEventRow]),
 					episodeEvents: rows([
@@ -268,6 +270,7 @@ describe("complete activity history recipes", () => {
 			"collectionEvents",
 			"episodeEvents",
 			"parentEvents",
+			"seasonEvents",
 		]);
 	});
 });

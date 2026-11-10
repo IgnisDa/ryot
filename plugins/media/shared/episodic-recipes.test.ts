@@ -181,6 +181,7 @@ const decodeActivity = (
 		readonly coverage?: readonly Record<string, unknown>[];
 		readonly watchDays?: readonly Record<string, unknown>[];
 		readonly parentEvents?: readonly Record<string, unknown>[];
+		readonly seasonEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
 		readonly episodeProgress?: readonly Record<string, unknown>[];
 		readonly collectionEvents?: readonly Record<string, unknown>[];
@@ -189,6 +190,7 @@ const decodeActivity = (
 	activityRecipe().decode({
 		data: {
 			parentEvents: rows(input.parentEvents ?? []),
+			seasonEvents: rows(input.seasonEvents ?? []),
 			episodeEvents: rows(input.episodeEvents ?? []),
 			coverage: rows(input.coverage ?? [COVERAGE_ROW]),
 			collectionEvents: rows(input.collectionEvents ?? []),
@@ -424,6 +426,33 @@ describe("episodic media recipes", () => {
 		});
 	});
 
+	it("carries season reviews with their season identity", () => {
+		expect(
+			decodeActivity({
+				seasonEvents: [
+					{
+						...PARENT_EVENT_ROW,
+						seasonNumber: 2,
+						id: "season-review",
+						seasonId: "season-2",
+						seasonName: "Season 2",
+					},
+				],
+			}),
+		).toMatchObject({
+			success: {
+				events: [
+					{
+						kind: "season",
+						id: "season-review",
+						eventSchemaSlug: "review",
+						season: { id: "season-2", seasonNumber: 2, name: "Season 2" },
+					},
+				],
+			},
+		});
+	});
+
 	it("keeps parent activity separate from episode activity without duplicating rows", () => {
 		const decoded = decodeActivity({
 			parentEvents: [PARENT_EVENT_ROW],
@@ -519,6 +548,7 @@ describe("episodic media recipes", () => {
 			activityRecipe().decode({
 				data: {
 					parentEvents: rows([]),
+					seasonEvents: rows([]),
 					collectionEvents: rows([]),
 					coverage: rows([COVERAGE_ROW]),
 					episodeProgress: progressRows([]),

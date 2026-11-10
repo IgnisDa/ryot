@@ -2,7 +2,11 @@ import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
-import { createAuthenticatedClient, waitForEventWithSchema } from "~/fixtures/kernel";
+import {
+	createAuthenticatedClient,
+	listEventsForEntity,
+	waitForEventWithSchema,
+} from "~/fixtures/kernel";
 import {
 	createBuiltinMediaLifecycleFixture,
 	insertLibraryMembership,
@@ -66,5 +70,56 @@ it.live("suggests the next volume of a volume-only Manga and completes at its vo
 			.getByRole("group", { name: "Your library" })
 			.getByText("Status: Complete", { exact: true })
 			.waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
+
+it.live("reviews a Manga chapter and edits it to the whole title", () =>
+	Effect.gen(function* () {
+		const { email, client, password } = yield* createAuthenticatedClient();
+		const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
+			entitySchemaSlug: "manga",
+			properties: { volumes: 10, chapters: 120 },
+		});
+		yield* insertLibraryMembership(client, { mediaEntityId: entityId });
+		yield* logMediaActivity(client, {
+			submittedAt: nowIso(),
+			submissionId: yield* randomUuid,
+			entry: { entityId, kind: "progress", position: { position: 7, unit: "chapters" } },
+		});
+
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 900 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+		yield* page.goto(`${getFrontendUrl()}/e/${entityId}`);
+		const media = mediaPluginFrame(page).contentFrame();
+		yield* media
+			.getByRole("button", { exact: true, name: "Rate or review" })
+			.click({ timeout: 150_000 });
+		const create = media.getByRole("dialog", { name: "Rate or review" });
+		yield* create.getByRole("radio", { exact: true, name: "Specific part" }).click();
+		const stepper = create.getByRole("textbox", { exact: true, name: "Chapter" });
+		expect(yield* stepper.inputValue()).toBe("7");
+		yield* stepper.fill("8");
+		yield* create.getByLabel("Rating (out of 100, optional)").fill("90");
+		yield* create.getByRole("button", { exact: true, name: "Save review" }).click();
+		yield* create.waitFor({ state: "hidden" });
+		yield* media.getByRole("tab", { exact: true, name: "Activity" }).click();
+		yield* media.getByText(/^Reviewed the manga · Ch 8$/).waitFor({ state: "visible" });
+		const [review] = yield* listEventsForEntity(client, entityId, undefined, 100, {
+			eventSchemaSlug: "review",
+		});
+		expect(review?.properties).toEqual({ rating: 90, position: { position: 8, unit: "chapters" } });
+
+		yield* media.getByRole("button", { exact: true, name: "Record actions" }).first().click();
+		yield* media.getByRole("menuitem", { exact: true, name: "Edit" }).click();
+		const edit = media.getByRole("dialog", { name: "Edit review" });
+		yield* edit.getByRole("radio", { exact: true, name: /^Whole / }).click();
+		yield* edit.getByRole("button", { exact: true, name: "Save review" }).click();
+		yield* edit.waitFor({ state: "hidden" });
+		yield* media.getByText(/Ch 8$/).waitFor({ state: "hidden" });
+		const [edited] = yield* listEventsForEntity(client, entityId, undefined, 100, {
+			eventSchemaSlug: "review",
+		});
+		expect(edited?.properties).toEqual({ rating: 90 });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

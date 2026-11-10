@@ -168,7 +168,7 @@ function MediaActions(props: {
 					logger={props.logActivity}
 				/>
 			)}
-			<MediaReviewButton entityId={props.media.id} />
+			<MediaReviewButton entityId={props.media.id} logger={props.logActivity} />
 			<MediaEntityEditAction
 				entityId={props.media.id}
 				isCustom={props.media.isCustom}

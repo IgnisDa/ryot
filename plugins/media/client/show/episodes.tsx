@@ -36,6 +36,7 @@ import {
 import { mediaEpisodeNumberLabel } from "../media/episodes-state";
 import { ManagedAssetImage } from "../media/managed-assets";
 import { MediaProgressBar, MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
+import { MediaChildReviewButton } from "../media/review";
 import {
 	orderByExternalIds,
 	resolveShowEpisodeOrder,
@@ -493,25 +494,28 @@ function ShowSeasonHeader(props: {
 					{meta === "" ? null : <p className="font-ui text-[12px] text-text-subtle">{meta}</p>}
 				</div>
 			</div>
-			{props.editable ? (
-				<div className="flex flex-wrap gap-2">
-					<MediaEntityEditAction
-						isCustom
-						label="Edit season"
-						entityId={season.id}
-						entitySchemaSlug="show-season"
-					/>
-					<MediaChildCreateAction
-						label="Add episode"
-						parentEntityId={season.id}
-						childSchemaSlug="show-episode"
-						initialProperties={{
-							seasonNumber: season.seasonNumber,
-							episodeNumber: season.episodeTotal + season.upcomingTotal + 1,
-						}}
-					/>
-				</div>
-			) : null}
+			<div className="flex flex-wrap gap-2">
+				<MediaChildReviewButton entityId={season.id} label={showSeasonLabel(season)} />
+				{props.editable ? (
+					<>
+						<MediaEntityEditAction
+							isCustom
+							label="Edit season"
+							entityId={season.id}
+							entitySchemaSlug="show-season"
+						/>
+						<MediaChildCreateAction
+							label="Add episode"
+							parentEntityId={season.id}
+							childSchemaSlug="show-episode"
+							initialProperties={{
+								seasonNumber: season.seasonNumber,
+								episodeNumber: season.episodeTotal + season.upcomingTotal + 1,
+							}}
+						/>
+					</>
+				) : null}
+			</div>
 			{percent === undefined ? null : <MediaProgressBar percent={percent} />}
 			{description === undefined ? null : (
 				<p className="line-clamp-2 font-ui text-[13px] leading-5 text-text">

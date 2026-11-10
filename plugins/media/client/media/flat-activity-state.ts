@@ -102,7 +102,10 @@ const parentRow = <Subject, Extra>(
 		};
 	}
 	if (event.eventSchemaSlug === "review") {
-		return mediaReviewRow(event, subject);
+		return {
+			...mediaReviewRow(event, subject),
+			...(event.position === null ? {} : { position: event.position }),
+		};
 	}
 	if (event.eventSchemaSlug === "progress") {
 		return {

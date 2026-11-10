@@ -1,6 +1,7 @@
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
 import type { SelectedRow } from "@ryot-app/plugin-client-sdk/ryotql";
 
+import type { MediaPosition } from "../../shared/consumption";
 import type {
 	mediaActivityEventSelection,
 	mediaEventSnapshotSelection,
@@ -97,15 +98,6 @@ export type MediaActivityCompletionRow = ActivityAnchor & {
 	readonly events: readonly MediaActivityEventRef[];
 };
 
-export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
-	readonly type: "review";
-	readonly subject: Subject;
-	readonly rating: number | undefined;
-	readonly event: MediaActivityEventRef;
-	readonly events: readonly MediaActivityEventRef[];
-	readonly body: undefined | { readonly text: string; readonly isSpoiler: boolean };
-};
-
 export type MediaActivityTimeline<Row extends ActivityAnchor> =
 	| { readonly layout: "flat"; readonly rows: NonEmpty<Row> }
 	| {
@@ -117,6 +109,17 @@ export type MediaActivityTimeline<Row extends ActivityAnchor> =
 				...MediaActivityCompletedWatch<Row>[],
 			];
 	  };
+
+export type MediaActivityReviewRow<Subject> = ActivityAnchor & {
+	readonly type: "review";
+	readonly subject: Subject;
+	readonly subjectLabel?: string;
+	readonly position?: MediaPosition;
+	readonly rating: number | undefined;
+	readonly event: MediaActivityEventRef;
+	readonly events: readonly MediaActivityEventRef[];
+	readonly body: undefined | { readonly text: string; readonly isSpoiler: boolean };
+};
 
 export const optionalText = (value: null | string) =>
 	value === null || value.trim() === "" ? undefined : value;

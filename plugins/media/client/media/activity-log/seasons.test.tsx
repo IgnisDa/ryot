@@ -11,7 +11,7 @@ import {
 	flushRyotClient,
 	mountRyotClient,
 } from "../../../tests/client/test-support";
-import { ActivitySeasonSelector } from "./sheet";
+import { ActivitySeasonSelector } from "../episode-picker";
 
 afterEach(() => {
 	document.body.innerHTML = "";
@@ -51,7 +51,7 @@ describe("activity season choices", () => {
 					<ActivitySeasonSelector
 						seasonNumber={1}
 						entityId="show-1"
-						onSeason={(number) => selected.push(number)}
+						onSeason={(season) => selected.push(season.seasonNumber)}
 					/>,
 				);
 				yield* Effect.promise(() => flushRyotClient());

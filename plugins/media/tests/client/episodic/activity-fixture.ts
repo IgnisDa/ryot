@@ -213,6 +213,7 @@ export const decodeEpisodicActivity = (input: ActivityRows = {}) => {
 	return Result.getOrThrow(
 		episodicActivityFixtureRecipe.decode({
 			data: {
+				seasonEvents: activityRows([], false),
 				coverage: activityRows(input.coverage ?? [episodicCoverageRow], false),
 				episodeProgress: progressRows(input.episodeProgress ?? [episodicProgressRow]),
 				episodeEvents: activityRows(input.episodeEvents ?? [episodicEpisodeReviewEventRow], false),

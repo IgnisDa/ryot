@@ -22,6 +22,7 @@ import {
 	mediaEpisodeSynopsis,
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
+import { MediaReviewForm } from "./review";
 
 export type MediaEpisodePagesCopy = MediaCursorPagesCopy;
 
@@ -188,7 +189,7 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 	readonly render: MediaEpisodeRender<Episode>;
 }) {
 	const { render, episode } = props;
-	const [overlay, setOverlay] = useState<"log" | "details">();
+	const [overlay, setOverlay] = useState<"log" | "review" | "details">();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const asset = mediaEpisodeAsset(episode, render.purpose);
 	const synopsis = mediaEpisodeSynopsis(episode);
@@ -256,7 +257,19 @@ function MediaEpisodeRow<Episode extends MediaEpisode>(props: {
 					editable={props.editable}
 					onLog={() => setOverlay("log")}
 					safeAreaTop={props.safeAreaTop}
+					onReview={() => setOverlay("review")}
 					onClose={() => setOverlay(undefined)}
+				/>
+			) : null}
+			{overlay === "review" ? (
+				<MediaReviewForm
+					entityId={episode.id}
+					triggerRef={triggerRef}
+					onClose={() => setOverlay(undefined)}
+					fixed={{
+						entityId: episode.id,
+						label: `${render.originLabel(episode)} · ${episode.name}`,
+					}}
 				/>
 			) : null}
 			{overlay === "log" ? (

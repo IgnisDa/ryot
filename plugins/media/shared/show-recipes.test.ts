@@ -128,6 +128,7 @@ const decodeActivity = (
 ) =>
 	ACTIVITY_RECIPE.decode({
 		data: {
+			seasonEvents: activityRows([]),
 			parentEvents: activityRows(input.parentEvents ?? []),
 			coverage: activityRows(input.coverage ?? [SEASON_ROW]),
 			episodeEvents: activityRows(input.episodeEvents ?? []),

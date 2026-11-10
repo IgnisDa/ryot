@@ -243,6 +243,9 @@ export const defineEpisodicMediaSchema = <
 				if (event.kind === "episode") {
 					return [event.episode.id];
 				}
+				if (event.kind === "season") {
+					return [event.season.id];
+				}
 				if (event.kind === "collection") {
 					return [event.collection.id];
 				}
@@ -320,6 +323,9 @@ export const defineEpisodicMediaSchema = <
 			events.flatMap((event) => {
 				if (event.kind === "episode") {
 					return [event.episode.id];
+				}
+				if (event.kind === "season") {
+					return [event.season.id];
 				}
 				return event.kind === "collection" ? [event.collection.id] : [];
 			}),

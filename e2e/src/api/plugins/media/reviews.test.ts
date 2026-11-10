@@ -182,6 +182,90 @@ describe("Media rating-only reviews", () => {
 			}),
 	);
 
+	it.live("creates, edits and clears positional reviews for anime and manga only", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const anime = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "anime",
+			});
+			const manga = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "manga",
+			});
+			const movie = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "movie",
+			});
+			const content = { rating: 70, text: null, isSpoiler: false };
+			yield* invokeOperation(client, createReview, {
+				...content,
+				entityId: anime.entityId,
+				position: { position: 5, unit: "episodes" },
+			});
+			yield* invokeOperation(client, createReview, {
+				...content,
+				entityId: manga.entityId,
+				position: { volume: 3, position: 12.5, unit: "chapters" },
+			});
+			expect((yield* readReview(client, anime.entityId)).properties).toEqual({
+				rating: 70,
+				position: { position: 5, unit: "episodes" },
+			});
+			expect((yield* readReview(client, manga.entityId)).properties).toEqual({
+				rating: 70,
+				position: { volume: 3, position: 12.5, unit: "chapters" },
+			});
+			const update = (
+				entityId: string,
+				original: Effect.Success<ReturnType<typeof readReview>>,
+				position: MediaReviewUpdateInput["position"],
+			) =>
+				Effect.gen(function* () {
+					return yield* invokeOperation(client, updateReview, {
+						...content,
+						eventId: original.id,
+						submittedAt: nowIso(),
+						submissionId: yield* randomUuid,
+						expected: yield* snapshot(entityId, original),
+						...(position === undefined ? {} : { position }),
+					});
+				});
+			const original = yield* readReview(client, manga.entityId);
+			yield* update(manga.entityId, original, { position: 4, unit: "volumes" });
+			expect((yield* readReview(client, manga.entityId)).properties).toEqual({
+				rating: 70,
+				position: { position: 4, unit: "volumes" },
+			});
+			yield* update(manga.entityId, yield* readReview(client, manga.entityId), undefined);
+			expect((yield* readReview(client, manga.entityId)).properties.position).toEqual({
+				position: 4,
+				unit: "volumes",
+			});
+			yield* update(manga.entityId, yield* readReview(client, manga.entityId), null);
+			expect((yield* readReview(client, manga.entityId)).properties).toEqual({ rating: 70 });
+			for (const rejected of [
+				{ entityId: movie.entityId, position: { position: 1, unit: "episodes" as const } },
+				{ entityId: anime.entityId, position: { position: 1, unit: "chapters" as const } },
+				{ entityId: anime.entityId, position: { position: 1.5, unit: "episodes" as const } },
+				{
+					entityId: manga.entityId,
+					position: { volume: 2, position: 1, unit: "volumes" as const },
+				},
+			]) {
+				const failure = yield* Effect.flip(
+					invokeOperation(client, createReview, { ...content, ...rejected }),
+				);
+				assertTaggedError(failure, "PluginOperationRejected");
+			}
+			const movieReview = yield* Effect.flip(
+				invokeOperation(client, createReview, {
+					...content,
+					position: null,
+					entityId: movie.entityId,
+				}),
+			);
+			assertTaggedError(movieReview, "PluginOperationRejected");
+		}),
+	);
+
 	it.live("rejects empty or invalid content and other users' edits and deletes", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();

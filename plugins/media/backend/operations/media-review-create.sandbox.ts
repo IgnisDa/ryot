@@ -17,7 +17,11 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { reviewProperties } from "@ryot-app/plugin-kit/schema";
 
-import { MediaReviewCreateInput, MediaReviewOutput } from "../../shared/media-review-operations";
+import {
+	MediaReviewCreateInput,
+	MediaReviewOutput,
+	reviewPositionError,
+} from "../../shared/media-review-operations";
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
 const reviewTargetRecipe = defineRecipe((entityId: string) => {
@@ -27,7 +31,10 @@ const reviewTargetRecipe = defineRecipe((entityId: string) => {
 		queries: {
 			target: selectedOptionalRow(entity, {
 				orderBy: [ascending(column(entity, "id"))],
-				selection: { id: selectedField(column(entity, "id"), Schema.String) },
+				selection: {
+					id: selectedField(column(entity, "id"), Schema.String),
+					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+				},
 				where: and(
 					eq(column(entity, "id"), literal(entityId)),
 					or(
@@ -60,8 +67,17 @@ export default defineOperation({
 			if (target === undefined) {
 				return yield* new OperationRejectedError({ message: "Review target not found" });
 			}
+			const { position } = input;
+			const positionError = reviewPositionError(target.entitySchemaSlug, position);
+			if (positionError !== undefined) {
+				return yield* new OperationRejectedError({ message: positionError });
+			}
 			return yield* host.createEvents([
-				{ entityId: target.id, eventSchemaSlug: "review", properties: reviewProperties(input) },
+				{
+					entityId: target.id,
+					eventSchemaSlug: "review",
+					properties: { ...reviewProperties(input), ...(position ? { position } : {}) },
+				},
 			]);
 		}),
 });

@@ -90,8 +90,12 @@ export function MediaActivityRowMenu(props: { readonly row: MediaActivityRowBase
 			{open === "edit" && review !== undefined ? (
 				<MediaReviewEditForm
 					onClose={close}
+					logger={logger}
 					record={review.event}
 					triggerRef={triggerRef}
+					position={review.position}
+					entityId={actions.entityId}
+					subjectLabel={review.subjectLabel}
 					initial={{
 						rating: review.rating ?? null,
 						text: review.body?.text ?? null,

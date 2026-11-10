@@ -4,7 +4,11 @@ import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backen
 import { reviewPropertiesPatch } from "@ryot-app/plugin-kit/schema";
 
 import { mediaReviewDeclaredProperties } from "../../shared/media-activity-fields";
-import { MediaReviewOutput, MediaReviewUpdateInput } from "../../shared/media-review-operations";
+import {
+	MediaReviewOutput,
+	MediaReviewUpdateInput,
+	reviewPositionError,
+} from "../../shared/media-review-operations";
 import {
 	loadEditTargets,
 	rejectHostFailure,
@@ -38,12 +42,23 @@ export default defineOperation({
 				target,
 				mediaReviewDeclaredProperties(target.entitySchemaSlug),
 			);
+			const { position } = input;
+			const positionError = reviewPositionError(target.entitySchemaSlug, position);
+			if (positionError !== undefined) {
+				return yield* new OperationRejectedError({ message: positionError });
+			}
+			const { set, remove } = reviewPropertiesPatch(input);
 			return yield* host
 				.updateEvents([
 					{
 						eventId: target.id,
 						expected: writePrecondition(input.expected),
-						patch: { properties: reviewPropertiesPatch(input) },
+						patch: {
+							properties: {
+								set: position ? { ...set, position } : set,
+								remove: position === null ? [...remove, "position"] : remove,
+							},
+						},
 					},
 				])
 				.pipe(Effect.catch(rejectHostFailure));

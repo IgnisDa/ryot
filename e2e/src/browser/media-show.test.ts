@@ -108,3 +108,41 @@ it.live("opens the Log activity sheet from episode details with that episode sel
 			.waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
+
+it.live("reviews an episode from its details and a season from its header", () =>
+	Effect.gen(function* () {
+		const { email, client, seeded, password } = yield* seedShowWithFirstEpisodeWatched;
+		const { media } = yield* openShow({ email, password, showId: seeded.show.id });
+
+		yield* media.getByRole("tab", { name: "Episodes" }).click();
+		yield* media.getByRole("button", { name: /^Open S1E3 / }).click();
+		yield* media
+			.getByRole("dialog", { name: /^S1E3 / })
+			.getByRole("button", { exact: true, name: "Review" })
+			.click();
+		const episodeReview = media.getByRole("dialog", { name: "Rate or review" });
+		yield* episodeReview.waitFor({ state: "visible" });
+		yield* episodeReview.getByText(/^Review of S1 • E3/).waitFor({ state: "visible" });
+		yield* episodeReview.getByLabel("Rating (out of 100, optional)").fill("80");
+		yield* episodeReview.getByRole("button", { exact: true, name: "Save review" }).click();
+		yield* episodeReview.waitFor({ state: "hidden" });
+		const episodeEvent = yield* waitForEventWithSchema(client, seeded.episodeId(1, 3), "review");
+		expect(episodeEvent.properties).toEqual({ rating: 80 });
+
+		yield* media.getByRole("button", { exact: true, name: "Review" }).click();
+		const seasonReview = media.getByRole("dialog", { name: "Rate or review" });
+		yield* seasonReview.getByText(/^Review of Season 1/).waitFor({ state: "visible" });
+		yield* seasonReview.getByLabel("Rating (out of 100, optional)").fill("65");
+		yield* seasonReview.getByRole("button", { exact: true, name: "Save review" }).click();
+		yield* seasonReview.waitFor({ state: "hidden" });
+		const seasonEvent = yield* waitForEventWithSchema(
+			client,
+			seeded.seasons[0]?.id ?? "",
+			"review",
+		);
+		expect(seasonEvent.properties).toEqual({ rating: 65 });
+
+		yield* media.getByRole("tab", { exact: true, name: "Activity" }).click();
+		yield* media.getByText("Reviewed Season 1", { exact: true }).waitFor({ state: "visible" });
+	}).pipe(PlaywrightSpawner.withBrowser),
+);

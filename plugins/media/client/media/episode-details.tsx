@@ -28,6 +28,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 	readonly onLog: () => void;
 	readonly safeAreaTop: number;
 	readonly onClose: () => void;
+	readonly onReview: () => void;
 	readonly log: MediaEpisodeLog;
 	readonly render: MediaEpisodeRender<Episode>;
 	readonly triggerRef: RefObject<null | HTMLButtonElement>;
@@ -85,6 +86,10 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					)}
 					<div className="flex flex-wrap items-center gap-2">
 						<MediaEpisodeActions log={props.log} episode={episode} onLog={props.onLog} />
+						<Button variant="secondary" onClick={props.onReview}>
+							<AppIcon size={15} name="star" />
+							Review
+						</Button>
 						<MenuButton
 							items={[reminders.item]}
 							label="More episode actions"
