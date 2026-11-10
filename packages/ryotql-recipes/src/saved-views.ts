@@ -98,7 +98,10 @@ const displayValue = (
 	if (displayKind === "text" && typeof value === "string") {
 		return Result.succeed({ value, displayKind });
 	}
-	if ((displayKind === "number" || displayKind === "year") && typeof value === "number") {
+	if (
+		(displayKind === "number" || displayKind === "year" || displayKind === "rating") &&
+		typeof value === "number"
+	) {
 		return Result.succeed({ value, displayKind });
 	}
 	if (displayKind === "boolean" && typeof value === "boolean") {

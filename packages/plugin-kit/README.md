@@ -271,7 +271,8 @@ collection's ID in that segment.
 
 Entity-browser settings declare a `summary` for compact kernel lists such as command-center search:
 `image` names a projected managed-asset field and `subtitle` names a projected field with a `text`,
-`date`, `number`, `year`, or `boolean` display kind; either may be null. Installation rejects search,
+`date`, `number`, `year`, or `boolean` display kind; either may be null. Table columns additionally support the `rating` display kind, a nullable stored
+0-100 rating shown in the viewer's rating scale. Installation rejects search,
 column, and summary fields that the source query does not project. Filters and sorts come from the
 subject schemas' browse fields, not view settings; the view query's `orderBy` is the default order.
 

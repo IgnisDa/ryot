@@ -2,7 +2,11 @@ import type { SavedViewDisplayValue } from "@ryot-app/contract/modules/saved-vie
 import { type ComponentProps, Fragment, type ReactNode } from "react";
 
 export const displayValueText = (value: SavedViewDisplayValue): string => {
-	if (value.value === null || value.displayKind === "managed-asset") {
+	if (
+		value.value === null ||
+		value.displayKind === "managed-asset" ||
+		value.displayKind === "rating"
+	) {
 		return "";
 	}
 	switch (value.displayKind) {

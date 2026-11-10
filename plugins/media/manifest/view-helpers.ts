@@ -6,6 +6,7 @@ import type {
 import { column, jsonPath, table } from "@ryot-app/ryotql";
 
 import { preferredMediaImageExpression } from "../shared/entity-presentations";
+import { averageUserRating } from "../shared/user-rating";
 
 type ViewColumn = SavedViewTableColumn & { readonly expression: ScalarExpression };
 
@@ -22,7 +23,7 @@ const text = (expression: ScalarExpression) => ({ expression, displayKind: "text
 const yearValue = (expression: ScalarExpression) => ({ expression, displayKind: "year" as const });
 const number = (expression: ScalarExpression) => ({ expression, displayKind: "number" as const });
 
-const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
+const entityColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 	const name = { field: "name", label: "Name", ...text(entityColumn("name")) };
 	const year = { label: "Year", field: "publishYear", ...yearValue(entityProperty("publishYear")) };
 	if (slug === "person") {
@@ -86,6 +87,25 @@ const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
 		];
 	}
 	return [name, year];
+};
+
+const isTitle = (slug: string) =>
+	slug !== "person" && slug !== "company" && !slug.endsWith("-group");
+
+const userRating = (): ViewColumn => ({
+	field: "userRating",
+	label: "Your rating",
+	displayKind: "rating",
+	expression: averageUserRating(
+		"tableReview",
+		entityColumn("id"),
+		entityColumn("entitySchemaPluginId"),
+	),
+});
+
+const tableColumns = (slug: string): ViewExpressions["table"]["columns"] => {
+	const columns = entityColumns(slug);
+	return isTitle(slug) ? [...columns, userRating()] : columns;
 };
 
 const summarySubtitle = (columns: readonly ViewColumn[]): EntityBrowserSummary["subtitle"] => {

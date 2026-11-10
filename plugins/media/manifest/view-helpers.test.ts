@@ -19,11 +19,13 @@ describe("buildViewExpressions", () => {
 
 	it.each([
 		["person", ["Name", "Birth Place"]],
-		["movie", ["Name", "Year", "Runtime"]],
-		["show", ["Name", "Year", "Status"]],
-		["book", ["Name", "Year", "Pages"]],
-		["custom-schema", ["Name", "Year"]],
-		["anime", ["Name", "Year", "Episodes"]],
+		["company", ["Name", "Founded Year"]],
+		["movie-group", ["Name", "Parts"]],
+		["movie", ["Name", "Year", "Runtime", "Your rating"]],
+		["show", ["Name", "Year", "Status", "Your rating"]],
+		["book", ["Name", "Year", "Pages", "Your rating"]],
+		["custom-schema", ["Name", "Year", "Your rating"]],
+		["anime", ["Name", "Year", "Episodes", "Your rating"]],
 	] as const)("builds the expected %s table columns", (slug, labels) => {
 		expect(buildViewExpressions(slug).table.columns.map(({ label }) => label)).toEqual<unknown>(
 			labels,
@@ -33,6 +35,17 @@ describe("buildViewExpressions", () => {
 	it("assigns persisted display kinds to media values", () => {
 		expect(
 			buildViewExpressions("book").table.columns.map(({ displayKind }) => displayKind),
-		).toEqual(["text", "year", "number"]);
+		).toEqual(["text", "year", "number", "rating"]);
+	});
+
+	it("keeps the summary subtitle on the year column", () => {
+		expect(buildViewExpressions("movie").summary.subtitle).toEqual({
+			displayKind: "year",
+			field: "publishYear",
+		});
+		expect(buildViewExpressions("person").summary.subtitle).toEqual({
+			field: "birthPlace",
+			displayKind: "text",
+		});
 	});
 });

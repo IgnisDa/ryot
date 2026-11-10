@@ -24,6 +24,8 @@ Related rails, credit lists, series members, and trending tiles use
 use a theme-aware amber tint and a small check mark labelled "In your library"; activity,
 monitoring, and collection membership alone do not set this indicator.
 Library-only saved views and home rails keep their normal titles.
+Title table views (every entity-browser view except people, companies, and groups) end with a
+"Your rating" `rating` column (`userRating`) built from the shared `averageUserRating` expression.
 `shared/media-schema-slugs.ts` owns builtin/group slug sets. `client/media/activity-copy.ts` owns
 activity and progress verbs.
 

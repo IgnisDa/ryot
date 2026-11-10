@@ -1,5 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import type { PluginUserPreferences } from "@ryot-app/plugin-client-contract";
+import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	disposePluginBridges,
 	mountPluginPage,
@@ -19,6 +21,44 @@ const filteredSettings = {
 	...resultsSettings,
 	filterFields: [{ key: "note", type: "text", label: "Note", field: "note", kind: "value" }],
 };
+
+const ratingSettings = {
+	...resultsSettings,
+	columns: [
+		{ label: "Note", field: "note", displayKind: "text" },
+		{ field: "rating", label: "Your rating", displayKind: "rating" },
+	],
+};
+
+const mountRatings = (userPreferences?: PluginUserPreferences) =>
+	mountPluginPage(ResultsTablePage, {
+		userPreferences,
+		location: routeLocation("/v/reading-log", ""),
+		page: savedViewPageContext({
+			settings: ratingSettings,
+			savedViewId: "view-table",
+			rendererName: "results-table",
+			dataSources: resultsDataSources,
+			view: { icon: "table", name: "Reading Log" },
+		}),
+	});
+
+const answerRatings = (page: ReturnType<typeof mountPluginPage>, requestId: string) =>
+	page.replyQuery(requestId, {
+		outcome: "success",
+		response: {
+			data: {
+				resultsTable: {
+					type: "rows",
+					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
+					items: [
+						{ rating: 80, note: "Rated", entityId: "item-1", occurredAt: "2026-08-12" },
+						{ rating: null, note: "Unrated", entityId: "item-2", occurredAt: "2026-08-13" },
+					],
+				},
+			},
+		},
+	});
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unknown));
@@ -76,6 +116,38 @@ const nextRequest = (page: ReturnType<typeof mountPluginPage>, count: number) =>
 
 describe("results table", () => {
 	afterEach(disposePluginBridges);
+
+	for (const [scale, label] of [
+		["five", "4.0 out of 5 stars"],
+		["ten", "8.0 out of 10"],
+		["hundred", "80 out of 100"],
+	] as const) {
+		it.live(
+			`renders rating cells in the ${scale} scale and leaves unrated rows empty`,
+			() =>
+				Effect.gen(function* () {
+					const page = mountRatings({ ratingScale: scale, timeZone: TimeZone.make("UTC") });
+					answerRatings(page, (yield* nextRequest(page, 1)).requestId);
+					yield* Effect.promise(() => screen.findByRole("img", { name: label }));
+					expect(screen.getAllByRole("img")).toHaveLength(1);
+					const cells = screen.getAllByRole("row")[2]?.querySelectorAll("td");
+					expect(cells?.[1]?.textContent).toBe("");
+				}),
+			testTimeout,
+		);
+	}
+
+	it.live(
+		"renders no rating while preferences are unavailable",
+		() =>
+			Effect.gen(function* () {
+				const page = mountRatings();
+				answerRatings(page, (yield* nextRequest(page, 1)).requestId);
+				yield* Effect.promise(() => screen.findByText("Rated"));
+				expect(screen.queryAllByRole("img")).toHaveLength(0);
+			}),
+		testTimeout,
+	);
 
 	it.live(
 		"shares the filtered request across unrelated location and viewport updates",

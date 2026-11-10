@@ -1,4 +1,6 @@
+import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { mediaPlugin } from "@ryot-app/media-plugin";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -117,6 +119,17 @@ it.live("enters and shows Media review ratings in the rating scale chosen in Set
 			eventSchemaSlug: "review",
 		});
 		expect(review?.properties).toEqual({ rating: 75 });
+
+		yield* page.goto(
+			`${getFrontendUrl()}${savedViewPath({ kind: "plugin", slug: "all-movies", packageId: mediaPlugin.metadata.packageId })}`,
+		);
+		const savedView = page.locator("iframe").contentFrame();
+		yield* savedView.getByRole("radio", { name: "Table view" }).click();
+		yield* savedView
+			.getByRole("columnheader", { exact: true, name: "Your rating" })
+			.waitFor({ state: "visible" });
+		const row = savedView.getByRole("row").filter({ hasText: movieName });
+		yield* row.getByRole("img", { name: "7.5 out of 10" }).waitFor({ state: "visible" });
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 

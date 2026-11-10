@@ -21,7 +21,9 @@ The browser owns its own screen chrome inside the iframe: the saved view's name 
 layout, the Filters dialog (the **Sort by** field selector, separate direction button, and filter
 rules), active-filter chips, the result and sync count line, and the compact search row, options sheet,
 and add FAB. Entity-browser cards come from registered entity presentations, and the table renders
-entity art from a `managed-asset` table column. Collection-browser reuses the shared controller and
+entity art from a `managed-asset` table column. A `rating` table column carries a nullable stored 0-100
+rating that table cells show in the viewer's rating-scale preference, and nothing while preferences
+are loading or unavailable. Collection-browser reuses the shared controller and
 renders kernel collection cards with batched member counts.
 
 The shared browser controller lives in `@ryot-app/plugin-client-sdk/browser` (see the client SDK
