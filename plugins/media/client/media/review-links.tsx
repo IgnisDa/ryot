@@ -17,7 +17,7 @@ const isReviewRow = (
 ): row is MediaActivityRowBase & { readonly event: MediaActivityEventRef } =>
 	row.type === "review" && "event" in row;
 
-export const rowConsumptionEventIds = (row: MediaActivityRowBase) => [
+const rowConsumptionEventIds = (row: MediaActivityRowBase) => [
 	...(row.events ?? []).map(({ id }) => id),
 	...(row.consumptionEventIds ?? []),
 ];
@@ -79,9 +79,9 @@ function ResolvedReviewLinks(props: {
 }
 
 /** The review naming one of a row's records, when one does. */
-export const useLinkedReview = (events: readonly MediaActivityEventRef[]) => {
+export const useLinkedReview = (row: MediaActivityRowBase) => {
 	const links = useContext(ReviewLinksContext);
-	const ids = new Set(events.map(({ id }) => id));
+	const ids = new Set(rowConsumptionEventIds(row));
 	return links?.data?.reviews.find(({ consumptionEventId }) => ids.has(consumptionEventId));
 };
 

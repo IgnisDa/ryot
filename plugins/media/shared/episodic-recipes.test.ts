@@ -183,7 +183,7 @@ const decodeActivity = (
 		readonly parentEvents?: readonly Record<string, unknown>[];
 		readonly seasonEvents?: readonly Record<string, unknown>[];
 		readonly episodeEvents?: readonly Record<string, unknown>[];
-		readonly watchDayEvents?: readonly Record<string, unknown>[];
+		readonly watchDayReviews?: readonly Record<string, unknown>[];
 		readonly episodeProgress?: readonly Record<string, unknown>[];
 		readonly collectionEvents?: readonly Record<string, unknown>[];
 	} = {},
@@ -194,7 +194,7 @@ const decodeActivity = (
 			seasonEvents: rows(input.seasonEvents ?? []),
 			episodeEvents: rows(input.episodeEvents ?? []),
 			coverage: rows(input.coverage ?? [COVERAGE_ROW]),
-			watchDayEvents: rows(input.watchDayEvents ?? []),
+			watchDayReviews: rows(input.watchDayReviews ?? []),
 			collectionEvents: rows(input.collectionEvents ?? []),
 			episodeProgress: progressRows(input.episodeProgress ?? []),
 			watchDays: aggregateRows(input.watchDays ?? [WATCH_DAY_ROW]),
@@ -545,11 +545,26 @@ describe("episodic media recipes", () => {
 		});
 	});
 
-	it("attaches the completion event ids of each watch day, episode and source", () => {
+	it("finds watch-day reviews from review events that name a watch-day completion", () => {
+		const query = activityRecipe().document.queries["watchDayReviews"];
+		if (query?.output.type !== "rows") {
+			throw new Error("Expected watch-day review rows query");
+		}
+		const [linked] = query.joins ?? [];
+		if (linked?.type === "jsonElements") {
+			throw new Error("Expected the named completion join");
+		}
+
+		expect(JSON.stringify(query.where)).toContain('"value":"review"');
+		expect(JSON.stringify(linked?.on)).toContain("consumptionEventId");
+		expect(query.output.pagination).toMatchObject({ limit: 100 });
+	});
+
+	it("attaches the completions reviews name to their watch day, episode and source", () => {
 		const event = { day: WATCH_DAY_ROW.day, episodeId: "episode-1", consumedOn: ["Jellyfin"] };
 		expect(
 			decodeActivity({
-				watchDayEvents: [
+				watchDayReviews: [
 					{ ...event, id: "watch-1" },
 					{ ...event, id: "watch-2" },
 					{ ...event, id: "other", consumedOn: ["Plex"] },
@@ -564,7 +579,7 @@ describe("episodic media recipes", () => {
 				data: {
 					parentEvents: rows([]),
 					seasonEvents: rows([]),
-					watchDayEvents: rows([]),
+					watchDayReviews: rows([]),
 					collectionEvents: rows([]),
 					coverage: rows([COVERAGE_ROW]),
 					episodeProgress: progressRows([]),

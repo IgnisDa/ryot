@@ -115,7 +115,7 @@ function MediaActivityEntry<Row extends MediaActivityRowBase>(props: {
 	const source = render.rowSource(row);
 	const run = render.rowRun?.(row);
 	const expand = render.rowExpand?.(row);
-	const review = useLinkedReview(row.events ?? []);
+	const review = useLinkedReview(row);
 	const hasMeta = source !== undefined || run !== undefined || review !== undefined;
 	return (
 		<TimelineEntry

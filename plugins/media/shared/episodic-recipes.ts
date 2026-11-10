@@ -507,7 +507,7 @@ export const episodicEpisodeProgressQuery = <const EpisodeFields extends Selecte
 	});
 };
 
-const WATCH_DAY_EVENT_LIMIT = 100;
+const WATCH_DAY_REVIEW_LIMIT = 100;
 
 type EpisodicWatchDayInput = {
 	readonly limit: number;
@@ -595,16 +595,24 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 	});
 };
 
-/** The completion events behind each watch day, so reviews that name them can be resolved. */
-export const episodicWatchDayEventsQuery = (input: EpisodicWatchDayInput) => {
+/** The watch-day completions that reviews name, keyed like the watch days they belong to. */
+export const episodicWatchDayReviewsQuery = (input: EpisodicWatchDayInput) => {
+	const review = table("event", `${input.alias}Review`);
 	const event = table("event", `${input.alias}Event`);
 	const episode = table("entity", `${input.alias}Episode`);
 	const { day, joins, where } = episodicWatchDayScope(input, event, episode);
-	return selectedRows(event, {
-		where,
-		joins,
+	return selectedRows(review, {
 		limit: input.limit,
-		orderBy: eventOrderDescending(event),
+		orderBy: eventOrderDescending(review),
+		joins: [
+			join("inner", event, eq(column(event, "id"), propertyText(review, "consumptionEventId"))),
+			...joins,
+		],
+		where: and(
+			where,
+			schemaOwnerPredicate(review, "eventSchemaPluginId", input.reference),
+			eq(column(review, "eventSchemaSlug"), literal("review")),
+		),
 		selection: {
 			day,
 			id: selectedField(column(event, "id"), EventId),
@@ -922,13 +930,13 @@ export const mediaEpisodicRecipes = <
 					limit: input.episodeEventLimit,
 					alias: `${config.alias}SeasonEvent`,
 				}),
-				watchDayEvents: episodicWatchDayEventsQuery({
+				watchDayReviews: episodicWatchDayReviewsQuery({
 					config: config.config,
 					entityId: input.entityId,
 					timeZone: input.timeZone,
 					reference: input.reference,
-					limit: WATCH_DAY_EVENT_LIMIT,
-					alias: `${config.alias}WatchDayEvent`,
+					limit: WATCH_DAY_REVIEW_LIMIT,
+					alias: `${config.alias}WatchDayReview`,
 				}),
 				episodeEvents: episodicEpisodeEventsQuery({
 					config: config.config,
@@ -987,7 +995,7 @@ export const mediaEpisodicRecipes = <
 				parentEvents,
 				seasonEvents,
 				episodeEvents,
-				watchDayEvents,
+				watchDayReviews,
 				episodeProgress,
 				collectionEvents,
 			}) => {
@@ -1027,9 +1035,9 @@ export const mediaEpisodicRecipes = <
 					...mediaCollectionActivityEvents(collectionEvents.items),
 				];
 				const eventIdsByWatchDay = new Map<string, string[]>();
-				for (const event of watchDayEvents.items) {
-					const key = watchDayKey(event);
-					eventIdsByWatchDay.set(key, [...(eventIdsByWatchDay.get(key) ?? []), event.id]);
+				for (const reviewed of watchDayReviews.items) {
+					const key = watchDayKey(reviewed);
+					eventIdsByWatchDay.set(key, [...(eventIdsByWatchDay.get(key) ?? []), reviewed.id]);
 				}
 				const days = watchDays.items.map((row) => ({
 					...row,

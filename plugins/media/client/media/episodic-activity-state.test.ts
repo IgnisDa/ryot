@@ -129,7 +129,7 @@ describe("episodic activity state", () => {
 			episodeProgress: [],
 			collectionEvents: [],
 			watchDays: [first, second],
-			watchDayEvents: [
+			watchDayReviews: [
 				{ id: "watch-1", day: first.day, episodeId: first.episodeId, consumedOn: first.consumedOn },
 				{
 					id: "watch-2",

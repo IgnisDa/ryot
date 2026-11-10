@@ -40,7 +40,7 @@ describe("complete activity history recipes", () => {
 			seasonEvents: rows([]),
 			episodeEvents: rows([]),
 			coverage: rows([], true),
-			watchDayEvents: rows([]),
+			watchDayReviews: rows([]),
 			episodeProgress: rows([]),
 			collectionEvents: rows([]),
 			watchDays: {
@@ -136,7 +136,7 @@ describe("complete activity history recipes", () => {
 						coverage: rows([]),
 						parentEvents: rows([]),
 						episodeEvents: rows([]),
-						watchDayEvents: rows([]),
+						watchDayReviews: rows([]),
 						episodeProgress: rows([]),
 						collectionEvents: rows([]),
 						seasonEvents: rows([], true),

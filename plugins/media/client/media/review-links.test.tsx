@@ -16,8 +16,10 @@ import {
 } from "../../tests/client/flat-media/activity-fixture";
 import { fixtureSchema } from "../../tests/client/flat-media/schema-fixture";
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
+import { decodeShowActivity, firstWatchDayRow } from "../../tests/client/show/activity-fixture";
 import { clickRyotElement, mountRyotClient } from "../../tests/client/test-support";
 import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
+import { showSchema } from "../show/schema";
 import { MediaReviewEditForm, MediaReviewForm } from "./review";
 import type { ReviewCompletion } from "./review-about";
 import { MediaReviewLinksScope } from "./review-links";
@@ -375,6 +377,67 @@ describe("review links", () => {
 					);
 					clickRyotElement(getByRole(dialog, "button", { name: "Cancel" }));
 					expect(queryByRole(document.body, "dialog")).toBeNull();
+				} finally {
+					mounted.unmount();
+				}
+			}),
+		testTimeout,
+	);
+	it.live(
+		"marks a watch day whose completion a review names",
+		() =>
+			Effect.gen(function* () {
+				const mounted = mountRyotClient(
+					{
+						readUserSettings: () => Effect.succeed({}),
+						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
+						query: (document) =>
+							Effect.succeed({
+								data:
+									"reviews" in document.queries
+										? {
+												occurrences: rows([]),
+												reviews: rows([
+													{ ...flatReviewEventRow, position: null, consumptionEventId: "watch-1" },
+												]),
+											}
+										: {},
+							}),
+					},
+					<showSchema.Activity
+						compact
+						entityId="show-1"
+						refresh={() => undefined}
+						state={showSchema.mapActivity(
+							readyQueryResult(
+								decodeShowActivity({
+									parentEvents: [],
+									episodeEvents: [],
+									watchDays: [firstWatchDayRow],
+									watchDayReviews: [
+										{
+											id: "watch-1",
+											day: firstWatchDayRow.day,
+											episodeId: firstWatchDayRow.episodeId,
+											consumedOn: firstWatchDayRow.consumedOn,
+										},
+									],
+								}),
+							),
+						)}
+					/>,
+				);
+				try {
+					clickRyotElement(
+						yield* eventually(() => getByRole(mounted.container, "button", { name: "Reviewed" })),
+					);
+					const dialog = yield* eventually(() =>
+						getByRole(document.body, "dialog", { name: "Edit review" }),
+					);
+					expect(getByLabelText(dialog, "Review (optional)")).toHaveProperty(
+						"value",
+						"The twist still lands.",
+					);
 				} finally {
 					mounted.unmount();
 				}

@@ -447,10 +447,12 @@ name one occurrence. Deleting the occurrence, including a fold removing an autom
 clears the link in the same write. The composer's **About** select lists the 20 newest occurrences of
 the chosen subject and resets when the subject changes. When a finished completion opens the
 composer, the select waits for that background log to settle and then chooses the newest completion
-unless the user chose already. `shared/review-link-recipes.ts` resolves links for a timeline in one
-query of at most 100 event IDs: review rows say what they are about in the schema's activity
+unless the user chose already. `shared/review-link-recipes.ts` resolves links for a timeline in
+queries of at most 100 event IDs: review rows say what they are about in the schema's activity
 vocabulary ("About your watch on Nov 3, 2026"), and consumption rows a review names show a
-**Reviewed** badge that opens that review.
+**Reviewed** badge that opens that review. Show and podcast watch days aggregate completions, so the
+activity recipe starts from the newest 100 reviews naming a watch-day completion and attaches each
+named completion to its watch day by day, episode and source.
 
 `media-activity-log` writes one logged activity for a builtin media item: a completion, progress
 (percent for flat media, a cumulative `position` in episodes for anime and possibly fractional
