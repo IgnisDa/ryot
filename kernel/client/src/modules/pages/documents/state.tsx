@@ -2,6 +2,8 @@ import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schema
 import type {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
+	ChangeCollectionMembersOutcome,
+	ChangeCollectionMembersRequest,
 	EditCollectionOutcome,
 	EditCollectionRequest,
 	ManageCollectionReviewsOutcome,
@@ -47,6 +49,9 @@ export type ClientPageDocument = {
 	readonly onManageCollectionReviews?: (
 		request: ManageCollectionReviewsRequest,
 	) => Effect.Effect<ManageCollectionReviewsOutcome>;
+	readonly onChangeCollectionMembers?: (
+		request: ChangeCollectionMembersRequest,
+	) => Effect.Effect<ChangeCollectionMembersOutcome>;
 };
 
 const cancelled = Effect.succeed({ kind: "cancelled" as const });
@@ -101,6 +106,8 @@ export function useClientPageDocument(document: ClientPageDocument) {
 			onManageReminders: (request) => latest.current.onManageReminders?.(request) ?? cancelled,
 			onManageCollectionReviews: (request) =>
 				latest.current.onManageCollectionReviews?.(request) ?? cancelled,
+			onChangeCollectionMembers: (request) =>
+				latest.current.onChangeCollectionMembers?.(request) ?? cancelled,
 		}),
 		[document.inert, document.prepared, document.title],
 	);

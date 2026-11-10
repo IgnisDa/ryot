@@ -4,53 +4,29 @@ import type { RyotClient } from "@ryot-app/plugin-client-sdk";
 import {
 	createRyotMutation,
 	createRyotQuery,
-	nextPageCursor,
-	PaginationError,
-	paginationItems,
-	renderSchemaAsset,
-	useRyotInfiniteQuery,
 	useRyotMutation,
 	useRyotQuery,
-	useSchemaAssetUpload,
 } from "@ryot-app/plugin-client-sdk/react";
-import {
-	Badge,
-	Button,
-	DestructiveConfirmation,
-	Dialog,
-	Field,
-	LoadMoreButton,
-	Notice,
-	TextField,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, DestructiveConfirmation, Dialog, Notice } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
-import {
-	initialSchemaFormValues,
-	SchemaForm,
-	type SchemaFormValues,
-	toSchemaFormPayload,
-	useSchemaForm,
-} from "@ryot-app/plugin-ui-sdk/schema-form";
 import {
 	collectionHeaderRecipe,
 	type CollectionHeaderResult,
 	collectionMembershipRecipe,
 	type CollectionMembershipResult,
 	collectionMembershipTargetRecipe,
-	collectionPickerRecipe,
-	type CollectionPickerResult,
 } from "@ryot-app/ryotql-recipes/collections";
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 
-import { CollectionEditor } from "#/modules/collections/collection-editor";
 import { CollectionLoadDialog } from "#/modules/collections/collection-load-dialog";
-import { schemaFormReorderFeedback } from "#/modules/ui/schema-form-feedback";
-import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
-import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
-import { useFormSeed } from "#/modules/ui/use-form-seed";
-
-type CollectionOption = CollectionPickerResult["items"][number];
+import { CollectionPicker } from "#/modules/collections/collection-picker";
+import {
+	hasMembershipFields,
+	MembershipFields,
+	membershipSchema,
+	useMembershipForm,
+} from "#/modules/collections/membership-fields";
 
 type MembershipTarget = { readonly entityId: EntityId; readonly collectionId: EntityId };
 
@@ -62,16 +38,6 @@ const membershipTarget = createRyotQuery(
 		readonly client: RyotClient;
 		readonly input: { readonly entityId: EntityId };
 	}) => client.data.query(collectionMembershipTargetRecipe(input)),
-);
-
-const collectionOptions = createRyotQuery(
-	({
-		input,
-		client,
-	}: {
-		readonly client: RyotClient;
-		readonly input: Parameters<typeof collectionPickerRecipe>[0];
-	}) => client.data.query(collectionPickerRecipe(input)),
 );
 
 const createMembershipDetailsQuery = () =>
@@ -102,13 +68,6 @@ const removeMembership = createRyotMutation(
 		client.collections.removeMembership(input),
 );
 
-const emptyMembershipSchema = { fields: {} };
-
-type AddView =
-	| { readonly kind: "pick" }
-	| { readonly name: string; readonly kind: "create" }
-	| { readonly kind: "membership"; readonly collectionId: EntityId };
-
 export function AddToCollection(props: {
 	readonly entityId: EntityId;
 	readonly onClose: () => void;
@@ -116,15 +75,10 @@ export function AddToCollection(props: {
 	readonly onRemoved: () => void;
 	readonly collectionId?: EntityId | undefined;
 }) {
-	const [search, setSearch] = useState("");
 	const target = useRyotQuery(membershipTarget, { entityId: props.entityId });
 	const outcome = useRef<AddToCollectionOutcome["kind"]>("cancelled");
-	const [view, setView] = useState<AddView>(
-		props.collectionId === undefined
-			? { kind: "pick" }
-			: { kind: "membership", collectionId: props.collectionId },
-	);
-	const returnToCollections = () => setView({ kind: "pick" });
+	const [collectionId, setCollectionId] = useState(props.collectionId);
+	const returnToCollections = () => setCollectionId(undefined);
 	const close = () => {
 		if (outcome.current === "saved") {
 			props.onSaved();
@@ -134,11 +88,11 @@ export function AddToCollection(props: {
 			props.onClose();
 		}
 	};
-	if (view.kind === "membership") {
+	if (collectionId !== undefined) {
 		return (
 			<SelectedCollection
 				onClose={returnToCollections}
-				target={{ entityId: props.entityId, collectionId: view.collectionId }}
+				target={{ collectionId, entityId: props.entityId }}
 				onSaved={() => {
 					outcome.current = "saved";
 					returnToCollections();
@@ -150,45 +104,15 @@ export function AddToCollection(props: {
 			/>
 		);
 	}
-	if (view.kind === "create") {
-		return (
-			<CollectionEditor
-				initialName={view.name}
-				onClose={returnToCollections}
-				onDeleted={returnToCollections}
-				onSaved={(collectionId) => setView({ collectionId, kind: "membership" })}
-			/>
-		);
-	}
-	const query = search.trim();
 	return (
-		<Dialog
+		<CollectionPicker
 			onClose={close}
+			entityId={props.entityId}
+			onChosen={setCollectionId}
 			closeLabel="Close collections"
 			footer={<Button onClick={close}>Done</Button>}
 			title={target.data ? `Collections for ${target.data.name}` : "Collections"}
-		>
-			<div className="grid gap-3">
-				<Field label="Search collections">
-					{(control) => (
-						<TextField
-							{...control}
-							value={search}
-							onChange={(event) => setSearch(event.target.value)}
-						/>
-					)}
-				</Field>
-				<Button variant="secondary" onClick={() => setView({ name: query, kind: "create" })}>
-					{query === "" ? "New collection" : `Create “${query}” and add`}
-				</Button>
-				<CollectionOptions
-					key={search}
-					search={search}
-					entityId={props.entityId}
-					onSelect={(option) => setView({ kind: "membership", collectionId: option.id })}
-				/>
-			</div>
-		</Dialog>
+		/>
 	);
 }
 
@@ -216,87 +140,6 @@ function SelectedCollection(props: {
 	);
 }
 
-function CollectionOptions(props: {
-	readonly search: string;
-	readonly entityId: EntityId;
-	readonly onSelect: (option: CollectionOption) => void;
-}) {
-	const result = useRyotInfiniteQuery(
-		collectionOptions,
-		{ search: props.search, entityId: props.entityId },
-		{
-			initialPageParam: undefined,
-			getNextPageParam: nextPageCursor,
-			getPageInput: (input, after: string | undefined) => ({
-				...input,
-				...(after === undefined ? {} : { after }),
-			}),
-		},
-	);
-	const items = paginationItems(
-		result.pages,
-		({ items: pageItems }) => pageItems,
-		({ id }) => id,
-	);
-	const errorNotice =
-		result.error instanceof PaginationError ? (
-			<Notice tone="danger">More collections could not be loaded. Close and reopen this.</Notice>
-		) : (
-			<Notice
-				tone="danger"
-				action={
-					<Button variant="secondary" onClick={result.retry}>
-						Retry collections
-					</Button>
-				}
-			>
-				Collections could not be loaded.
-			</Notice>
-		);
-	if (result.pages.length === 0) {
-		return result.isError ? errorNotice : <p role="status">Loading collections…</p>;
-	}
-	if (items.length === 0 && result.pageParams[0] === undefined) {
-		return (
-			<p role="status">
-				{props.search.trim() === "" ? "You have no collections yet." : "No matching collections."}
-			</p>
-		);
-	}
-	return (
-		<>
-			<ul className="grid gap-2">
-				{items.map((option) => (
-					<li key={option.id}>
-						<Button className="w-full" variant="secondary" onClick={() => props.onSelect(option)}>
-							<span className="min-w-0 flex-1 text-left wrap-break-word">{option.name}</span>
-							<span className="flex shrink-0 items-center gap-2">
-								{option.added ? (
-									<Badge size="sm" variant="success">
-										<AppIcon size={12} name="check" />
-										Added
-									</Badge>
-								) : null}
-								<AppIcon size={15} name="chevron-right" className="text-text-subtle" />
-							</span>
-						</Button>
-					</li>
-				))}
-			</ul>
-			{result.isError ? errorNotice : null}
-			{result.hasNextPage && !result.isError ? (
-				<LoadMoreButton
-					variant="secondary"
-					label="Show more collections"
-					onClick={result.fetchNextPage}
-					disabled={result.isFetchingNextPage}
-					isFetchingNextPage={result.isFetchingNextPage}
-				/>
-			) : null}
-		</>
-	);
-}
-
 function MembershipForm(props: {
 	readonly onClose: () => void;
 	readonly onSaved: () => void;
@@ -306,25 +149,22 @@ function MembershipForm(props: {
 	readonly header: NonNullable<CollectionHeaderResult>;
 }) {
 	const { header, membership } = props;
-	const uploadAsset = useSchemaAssetUpload();
-	const uploadFile = useSchemaFileUpload();
 	const removeTrigger = useRef<HTMLButtonElement>(null);
 	const [confirmingRemove, setConfirmingRemove] = useState(false);
-	const schema = header.membershipPropertiesSchema ?? emptyMembershipSchema;
+	const schema = membershipSchema(header);
 	const save = useRyotMutation(upsertMembership);
 	const remove = useRyotMutation(removeMembership);
-	const form = useSchemaForm({
-		schemas: [schema],
-		onSubmit: (values: SchemaFormValues) =>
+	const form = useMembershipForm({
+		schema,
+		properties: membership?.properties,
+		seedKey: `${props.target.collectionId}:${membership === null}`,
+		onSubmit: (properties) =>
 			save.mutate({
 				...props.target,
-				properties: toSchemaFormPayload(schema, values),
+				properties,
 				...(membership === null ? { mode: "add-if-absent" as const } : {}),
 			}),
 	});
-	useFormSeed(form, `${props.target.collectionId}:${membership === null}`, () =>
-		initialSchemaFormValues(schema, undefined, membership?.properties),
-	);
 	const { onSaved, onRemoved } = props;
 	useEffect(() => {
 		if (save.data) {
@@ -338,23 +178,10 @@ function MembershipForm(props: {
 	}, [onRemoved, remove.data]);
 	const busy = save.isPending || remove.isPending;
 	const editing = membership !== null;
-	const hasFields = Object.keys(schema.fields).length > 0;
+	const hasFields = hasMembershipFields(schema);
 	const body = (
 		<>
-			{hasFields ? (
-				<fieldset disabled={busy} className="min-w-0 border-0 p-0">
-					<SchemaForm
-						form={form}
-						schema={schema}
-						uploadFile={uploadFile}
-						icons={schemaFormIcons}
-						uploadAsset={uploadAsset}
-						onChange={() => undefined}
-						renderAsset={renderSchemaAsset}
-						onReorder={schemaFormReorderFeedback}
-					/>
-				</fieldset>
-			) : null}
+			{hasFields ? <MembershipFields form={form} schema={schema} disabled={busy} /> : null}
 			{save.error ? (
 				<Notice tone="danger">
 					{editing ? "The details could not be saved." : "The item could not be added."} Try again.

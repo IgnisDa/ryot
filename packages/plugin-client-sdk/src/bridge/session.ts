@@ -8,6 +8,7 @@ import {
 import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	type AddToCollectionRequest,
+	type ChangeCollectionMembersRequest,
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
 	type ClientCompositionMetadata,
 	type ClientPageContext,
@@ -22,6 +23,8 @@ import {
 	type PluginBridgeBackgroundOperationRequest,
 	type PluginBridgeBackgroundOperationSettled,
 	type PluginBridgeCalendarSourceVisibilityRequest,
+	type PluginBridgeChangeCollectionMembersScreen,
+	type PluginBridgeChangeCollectionMembersScreenCancel,
 	type PluginBridgeCollectionRequest,
 	type PluginBridgeDismissOverlayResult,
 	type PluginBridgeEditCollectionScreen,
@@ -114,7 +117,8 @@ type RequestType =
 	| "share-publication-screen"
 	| "add-to-collection-screen"
 	| "calendar-source-visibility"
-	| "manage-collection-reviews-screen";
+	| "manage-collection-reviews-screen"
+	| "change-collection-members-screen";
 
 const decodeHostMessage = Schema.decodeUnknownResult(PluginBridgeHostMessage);
 const noOverlayToDismiss = () => false;
@@ -635,6 +639,21 @@ export const createPluginRuntime = (
 					type: "manage-collection-reviews-screen-cancel",
 				}) satisfies PluginBridgeManageCollectionReviewsScreenCancel,
 		);
+	const changeCollectionMembers = (request: ChangeCollectionMembersRequest) =>
+		sendRequest(
+			"change-collection-members-screen",
+			(requestId) =>
+				({
+					...request,
+					requestId,
+					type: "change-collection-members-screen",
+				}) satisfies PluginBridgeChangeCollectionMembersScreen,
+			(requestId) =>
+				({
+					requestId,
+					type: "change-collection-members-screen-cancel",
+				}) satisfies PluginBridgeChangeCollectionMembersScreenCancel,
+		);
 
 	const sharePublication = (request: SharePublicationRequest) =>
 		sendRequest(
@@ -671,6 +690,7 @@ export const createPluginRuntime = (
 		requestEnrichment,
 		navigatePageSearch,
 		manageCollectionReviews,
+		changeCollectionMembers,
 		readReportingPreferences,
 		setCalendarSourceVisibility,
 		device: (request: PluginDeviceRequest) =>
@@ -1039,6 +1059,9 @@ export const createPluginRuntime = (
 					return;
 				case "manage-collection-reviews-screen-result":
 					settle("manage-collection-reviews-screen", message.requestId, message);
+					return;
+				case "change-collection-members-screen-result":
+					settle("change-collection-members-screen", message.requestId, message);
 					return;
 				default: {
 					throw new Error("Unhandled plugin host message", { cause: message satisfies never });

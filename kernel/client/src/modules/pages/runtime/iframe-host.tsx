@@ -3,6 +3,8 @@ import { CLIENT_BRIDGE_BOOTSTRAP_READY } from "@ryot-app/plugin-client-contract"
 import type {
 	AddToCollectionOutcome,
 	AddToCollectionRequest,
+	ChangeCollectionMembersOutcome,
+	ChangeCollectionMembersRequest,
 	ClientPageContext,
 	EditCollectionOutcome,
 	EditCollectionRequest,
@@ -166,6 +168,9 @@ export function PageIframeHost(props: {
 	readonly onManageCollectionReviews: (
 		request: ManageCollectionReviewsRequest,
 	) => Effect.Effect<ManageCollectionReviewsOutcome>;
+	readonly onChangeCollectionMembers: (
+		request: ChangeCollectionMembersRequest,
+	) => Effect.Effect<ChangeCollectionMembersOutcome>;
 	readonly onCalendarSourceVisibility: (
 		request: PluginCalendarSourceVisibilityRequest,
 	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
@@ -457,6 +462,8 @@ export function PageIframeHost(props: {
 			onManageReminders: (request) => manageScreen(() => latest.current.onManageReminders(request)),
 			onManageCollectionReviews: (request) =>
 				manageScreen(() => latest.current.onManageCollectionReviews(request)),
+			onChangeCollectionMembers: (request) =>
+				manageScreen(() => latest.current.onChangeCollectionMembers(request)),
 			onFailure: () => {
 				connection.failed = true;
 				closeBridge();

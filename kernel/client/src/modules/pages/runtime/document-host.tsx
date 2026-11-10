@@ -1,6 +1,7 @@
 import { sha256 } from "@noble/hashes/sha2.js";
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import type {
+	ChangeCollectionMembersOutcome,
 	ManageCollectionReviewsOutcome,
 	ManageRemindersOutcome,
 	PluginPageSearchUpdate,
@@ -628,6 +629,10 @@ function ClientPageFrame(props: {
 			onManageCollectionReviews={(request) =>
 				props.document.onManageCollectionReviews?.(request) ??
 				Effect.succeed<ManageCollectionReviewsOutcome>({ kind: "cancelled" })
+			}
+			onChangeCollectionMembers={(request) =>
+				props.document.onChangeCollectionMembers?.(request) ??
+				Effect.succeed<ChangeCollectionMembersOutcome>({ kind: "cancelled" })
 			}
 			onReportingPreferences={() =>
 				reportingPreferencesOutcome({

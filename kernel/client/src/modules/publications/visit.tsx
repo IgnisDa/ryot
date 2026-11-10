@@ -264,6 +264,7 @@ function PublicationFrame(props: {
 			onAddToCollection={() => refused({ kind: "cancelled" as const })}
 			onManageReminders={() => refused({ kind: "cancelled" as const })}
 			onManageCollectionReviews={() => refused({ kind: "cancelled" as const })}
+			onChangeCollectionMembers={() => refused({ kind: "cancelled" as const })}
 			watchEntities={() => ({ update: () => undefined, dispose: () => undefined })}
 			onPageSearch={({ mode, update }) => navigateSearch(update, mode === "replace")}
 			onExternalLink={(request) => props.runtime.runSync(ExternalLinks).outcome(request)}

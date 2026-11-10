@@ -26,6 +26,8 @@ import {
 	AddToCollectionRequest,
 	BACKGROUND_SUBMISSION_LABEL_MAX_LENGTH,
 	BackgroundSubmissionOutcome,
+	ChangeCollectionMembersOutcome,
+	ChangeCollectionMembersRequest,
 	EditCollectionOutcome,
 	EditCollectionRequest,
 	EntityWatch,
@@ -65,6 +67,7 @@ import type {
 	FileUploadRequest,
 	OperationInvocation,
 	RyotAddToCollectionRequest,
+	RyotChangeCollectionMembersRequest,
 	RyotClientAdapter,
 	RyotEditCollectionRequest,
 	RyotManageCollectionReviewsRequest,
@@ -353,7 +356,8 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			| EditCollectionOutcome
 			| AddToCollectionOutcome
 			| ManageRemindersOutcome
-			| ManageCollectionReviewsOutcome,
+			| ManageCollectionReviewsOutcome
+			| ChangeCollectionMembersOutcome,
 	) {
 		if (outcome.kind !== "cancelled") {
 			yield* Effect.sync(() => mutationCompleted.hint());
@@ -382,6 +386,13 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			ManageCollectionReviewsRequest,
 			ManageCollectionReviewsOutcome,
 			adapter.manageCollectionReviews,
+			request,
+		).pipe(Effect.tap(refreshAfterHostScreen));
+	const changeCollectionMembers = (request: RyotChangeCollectionMembersRequest) =>
+		openScreen(
+			ChangeCollectionMembersRequest,
+			ChangeCollectionMembersOutcome,
+			adapter.changeCollectionMembers,
 			request,
 		).pipe(Effect.tap(refreshAfterHostScreen));
 	const sharePublication = (request: RyotSharePublicationRequest) =>
@@ -438,6 +449,7 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			manageReminders,
 			sharePublication,
 			manageCollectionReviews,
+			changeCollectionMembers,
 		},
 		pluginIdentity: (packageId: PluginPackageId) => {
 			if (!adapter.pluginIdentity) {

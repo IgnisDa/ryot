@@ -86,6 +86,33 @@ describe("Effect-native client capabilities", () => {
 					unsubscribe();
 				}
 				expect(refreshes).toBe(6);
+				const requests: unknown[] = [];
+				for (const outcome of [{ kind: "changed" }, { kind: "cancelled" }] as const) {
+					const client = createRyotClient(
+						createTestRyotAdapter({
+							changeCollectionMembers: (request) => {
+								requests.push(request);
+								return Effect.succeed(outcome);
+							},
+						}),
+					);
+					const unsubscribe = client.mutationCompleted.subscribe(() => {
+						refreshes++;
+					});
+					expect(
+						yield* client.screens.changeCollectionMembers({
+							kind: "remove",
+							collectionId: "collection-1",
+							entityIds: ["entity-1", "entity-2"],
+						}),
+					).toEqual(outcome);
+					unsubscribe();
+				}
+				expect(refreshes).toBe(7);
+				expect(requests).toEqual([
+					{ kind: "remove", collectionId: "collection-1", entityIds: ["entity-1", "entity-2"] },
+					{ kind: "remove", collectionId: "collection-1", entityIds: ["entity-1", "entity-2"] },
+				]);
 			}),
 		testTimeout,
 	);

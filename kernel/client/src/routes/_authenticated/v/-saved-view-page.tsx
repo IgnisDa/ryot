@@ -172,6 +172,7 @@ export function SavedViewPage({
 		onAddToCollection: collections.onAddToCollection,
 		title: loaded.prepared.context.view?.name ?? "Saved view",
 		onManageCollectionReviews: reviews.onManageCollectionReviews,
+		onChangeCollectionMembers: collections.onChangeCollectionMembers,
 		inert: addOpen || collections.open || reviews.open || reminders.open || share.open,
 	});
 

@@ -160,6 +160,7 @@ function mount(
 		onCheckFreshness: options.onCheckFreshness ?? (() => Effect.succeed(true)),
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		onManageCollectionReviews: () => Effect.succeed({ kind: "cancelled" as const }),
+		onChangeCollectionMembers: () => Effect.succeed({ kind: "cancelled" as const }),
 		onQuery: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onAssets: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),
 		onUpload: () => Effect.succeed({ outcome: "failure" as const, reason: "transport" as const }),

@@ -6,6 +6,7 @@ import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands
 import type {
 	AddToCollectionRequest,
 	BackgroundSubmissionOutcome,
+	ChangeCollectionMembersRequest,
 	EditCollectionRequest,
 	EntityWatch,
 	ExternalLinkRequest,
@@ -49,6 +50,9 @@ export type RyotManageRemindersRequest = Schema.Codec.Encoded<typeof ManageRemin
 export type RyotSharePublicationRequest = Schema.Codec.Encoded<typeof SharePublicationRequest>;
 export type RyotManageCollectionReviewsRequest = Schema.Codec.Encoded<
 	typeof ManageCollectionReviewsRequest
+>;
+export type RyotChangeCollectionMembersRequest = Schema.Codec.Encoded<
+	typeof ChangeCollectionMembersRequest
 >;
 
 export type FileUploadRequest = Omit<
@@ -149,6 +153,9 @@ export type RyotClientAdapter = {
 	) => Extract<PluginIdentityReference, { readonly kind: "local" }>;
 	readonly manageCollectionReviews?: (
 		request: ManageCollectionReviewsRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly changeCollectionMembers?: (
+		request: ChangeCollectionMembersRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly watchEntities?: (
 		interest: EntityWatch,

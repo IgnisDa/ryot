@@ -183,13 +183,19 @@ only real transport failures show the connection message.
 
 Saved-view renderers own their title and icon inside the iframe. Entity-browser layout selection is
 stored locally, with explicit URL state taking precedence. Plugin routes host the entity picker
-screen (`modules/provider-add`); plugin, entity, and saved-view documents host the collection editor
-and add-to-collection screens, collection review management (`modules/collections`), and reminder management (`modules/reminders`).
+screen (`modules/provider-add`); plugin, entity, and saved-view documents host the collection editor,
+add-to-collection, and bulk collection-member screens, collection review management
+(`modules/collections`), and reminder management (`modules/reminders`).
 The bridge allows one pending host screen per frame across types, and the document is inert while any
 screen is open.
 The collection membership screen stays open after adds, detail edits, and removals, returning to its
 searchable collection list. Closing it reports the last membership change, or cancellation if none
 was made. Collection-specific requests open that membership first; Back returns to the list.
+The bulk collection-member screen shares that collection list and membership-field form. Adds pick
+a collection, collect its membership fields once for every item, and add only absent members;
+removals confirm first. Both write each membership through the ordinary collection commands with
+bounded concurrency, show progress, keep failures for retry, and report `changed` when any write
+succeeded, including after closing mid-run, which interrupts the remaining writes.
 Saved views accept only library picks matching their explicit `addAction` owner and schema; that
 modal remains open after import and refreshes the page when it closes. Library picks create through
 the catalog `createRoute` when one exists; otherwise, and always for plain picks, creation uses the

@@ -4,6 +4,8 @@ import {
 	type AddToCollectionOutcome,
 	type AddToCollectionRequest,
 	type BackgroundSubmissionOutcome,
+	type ChangeCollectionMembersOutcome,
+	type ChangeCollectionMembersRequest,
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
 	CLIENT_BRIDGE_MAX_PENDING_REQUESTS,
@@ -128,7 +130,8 @@ type HostScreenType =
 	| "manage-reminders-screen"
 	| "share-publication-screen"
 	| "add-to-collection-screen"
-	| "manage-collection-reviews-screen";
+	| "manage-collection-reviews-screen"
+	| "change-collection-members-screen";
 
 type PendingRequest = {
 	readonly fiber: Fiber.Fiber<unknown, unknown>;
@@ -158,6 +161,7 @@ const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenT
 	"share-publication-screen",
 	"add-to-collection-screen",
 	"manage-collection-reviews-screen",
+	"change-collection-members-screen",
 ]);
 
 export type BackgroundOperationAcceptance =
@@ -227,6 +231,9 @@ type PluginBridgeOptions = {
 	readonly onManageCollectionReviews: (
 		request: ManageCollectionReviewsRequest,
 	) => Effect.Effect<ManageCollectionReviewsOutcome>;
+	readonly onChangeCollectionMembers: (
+		request: ChangeCollectionMembersRequest,
+	) => Effect.Effect<ChangeCollectionMembersOutcome>;
 	readonly onCalendarSourceVisibility: (
 		request: PluginCalendarSourceVisibilityRequest,
 	) => Effect.Effect<PluginCalendarSourceVisibilityOutcome>;
@@ -946,6 +953,16 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 							),
 						),
 						Match.when({ type: "enrichment-request" }, (request) => handleEnrichment(request)),
+						Match.when({ type: "change-collection-members-screen-cancel" }, ({ requestId }) =>
+							handleHostScreenCancel("change-collection-members-screen", requestId),
+						),
+						Match.when(
+							{ type: "change-collection-members-screen" },
+							({ requestId, type: _type, ...request }) =>
+								openHostScreen(requestId, "change-collection-members-screen", () =>
+									options.onChangeCollectionMembers(request),
+								),
+						),
 						Match.exhaustive,
 					);
 				return;

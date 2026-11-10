@@ -23,6 +23,7 @@ export function ClientPage(props: Pick<ClientPageDocument, "title" | "prepared">
 		onEditCollection: collections.onEditCollection,
 		onAddToCollection: collections.onAddToCollection,
 		onManageCollectionReviews: reviews.onManageCollectionReviews,
+		onChangeCollectionMembers: collections.onChangeCollectionMembers,
 		inert: session !== null || collections.open || reviews.open || reminders.open || share.open,
 	});
 	return (

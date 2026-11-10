@@ -371,6 +371,70 @@ export type PluginBridgeManageCollectionReviewsScreenResult = Schema.Schema.Type
 	typeof PluginBridgeManageCollectionReviewsScreenResult
 >;
 
+const AddCollectionMembersRequest = strictStruct({
+	kind: Schema.Literal("add"),
+	entityIds: Schema.NonEmptyArray(EntityId),
+});
+
+const RemoveCollectionMembersRequest = strictStruct({
+	collectionId: EntityId,
+	kind: Schema.Literal("remove"),
+	entityIds: Schema.NonEmptyArray(EntityId),
+});
+
+export const ChangeCollectionMembersRequest = Schema.Union([
+	AddCollectionMembersRequest,
+	RemoveCollectionMembersRequest,
+]);
+
+export type ChangeCollectionMembersRequest = Schema.Schema.Type<
+	typeof ChangeCollectionMembersRequest
+>;
+
+const changeCollectionMembersScreenFields = {
+	requestId: Schema.String,
+	type: Schema.Literal("change-collection-members-screen"),
+};
+
+export const PluginBridgeChangeCollectionMembersScreen = Schema.Union([
+	strictStruct({ ...AddCollectionMembersRequest.fields, ...changeCollectionMembersScreenFields }),
+	strictStruct({
+		...RemoveCollectionMembersRequest.fields,
+		...changeCollectionMembersScreenFields,
+	}),
+]);
+
+export type PluginBridgeChangeCollectionMembersScreen = Schema.Schema.Type<
+	typeof PluginBridgeChangeCollectionMembersScreen
+>;
+
+export const ChangeCollectionMembersOutcome = Schema.Union([
+	strictStruct({ kind: Schema.Literal("changed") }),
+	strictStruct({ kind: Schema.Literal("cancelled") }),
+]);
+
+export type ChangeCollectionMembersOutcome = Schema.Schema.Type<
+	typeof ChangeCollectionMembersOutcome
+>;
+
+export const PluginBridgeChangeCollectionMembersScreenCancel = strictStruct({
+	requestId: Schema.String,
+	type: Schema.Literal("change-collection-members-screen-cancel"),
+});
+
+export type PluginBridgeChangeCollectionMembersScreenCancel = Schema.Schema.Type<
+	typeof PluginBridgeChangeCollectionMembersScreenCancel
+>;
+
+export const PluginBridgeChangeCollectionMembersScreenResult = hostScreenResult(
+	"change-collection-members-screen-result",
+	ChangeCollectionMembersOutcome,
+);
+
+export type PluginBridgeChangeCollectionMembersScreenResult = Schema.Schema.Type<
+	typeof PluginBridgeChangeCollectionMembersScreenResult
+>;
+
 export const SharePublicationRequest = strictStruct({ source: PublicationSource });
 
 export type SharePublicationRequest = Schema.Schema.Type<typeof SharePublicationRequest>;
