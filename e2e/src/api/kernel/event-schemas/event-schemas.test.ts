@@ -387,7 +387,10 @@ describe("GET /event-schemas", () => {
 						properties: {
 							volume: { type: "number" },
 							position: { type: "number" },
-							unit: { type: "enum", choices: { values: [{ value: "chapters" }] } },
+							unit: {
+								type: "enum",
+								choices: { values: [{ value: "chapters" }, { value: "volumes" }] },
+							},
 						},
 					},
 				},
