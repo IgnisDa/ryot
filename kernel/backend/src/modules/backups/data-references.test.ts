@@ -238,3 +238,33 @@ it.effect(
 		}),
 	testTimeout,
 );
+
+it.effect(
+	"drops a top-level event reference whose event is not restored",
+	() =>
+		Effect.gen(function* () {
+			const referenceSchema = {
+				fields: {
+					label: { label: "Label", type: "string" as const, description: "Ordinary text" },
+					about: {
+						label: "About",
+						type: "string" as const,
+						description: "Related event",
+						reference: { kind: "event-id" as const },
+					},
+				},
+			};
+			const restored = new Map([["kept", "restored-kept"]]);
+			const rewrite = (about: string) =>
+				rewritePropertyReferences(
+					{ about, label: "note" },
+					referenceSchema,
+					new Map(),
+					new Map(),
+					(id) => restored.get(id),
+				);
+			expect(yield* rewrite("kept")).toEqual({ label: "note", about: "restored-kept" });
+			expect(yield* rewrite("absent")).toEqual({ label: "note" });
+		}),
+	testTimeout,
+);

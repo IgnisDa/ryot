@@ -19,7 +19,10 @@ import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Result, Schema } from "effect";
 
-type AppSchemaDefinitionValidationOptions = { readonly allowUpload?: boolean };
+type AppSchemaDefinitionValidationOptions = {
+	readonly allowUpload?: boolean;
+	readonly allowEventReferences?: boolean;
+};
 
 const isComparableType = (
 	type: AppPropertyDefinition["type"],
@@ -129,12 +132,49 @@ const collectFormatDefinitionIssues = (
 	return [];
 };
 
+const isEventReference = (property: AppPropertyDefinition) =>
+	property.type === "string" && property.reference?.kind === "event-id";
+
+const collectEventReferenceIssues = (
+	property: AppPropertyDefinition,
+	path: ReadonlyArray<string>,
+	allowed: boolean,
+): ReadonlyArray<PropertyValidationIssue> => {
+	if (property.type === "array") {
+		return collectEventReferenceIssues(property.items, [...path, "items"], false);
+	}
+	if (property.type === "object") {
+		return Object.entries(property.properties).flatMap(([key, value]) =>
+			collectEventReferenceIssues(value, [...path, "properties", key], false),
+		);
+	}
+	if (property.type !== "string" || property.reference?.kind !== "event-id") {
+		return [];
+	}
+	if (!allowed) {
+		return [
+			{
+				path: [...path, "reference"],
+				message: "Event references must be top-level event properties",
+			},
+		];
+	}
+	return property.reference.required === true ||
+		property.validation?.required === true ||
+		property.immutable === true
+		? [{ path: [...path, "reference"], message: "Event references must be optional and mutable" }]
+		: [];
+};
+
 export const validateAppSchemaDefinition = (
 	schema: AppSchema,
 	options: AppSchemaDefinitionValidationOptions = {},
 ): ReadonlyArray<PropertyValidationIssue> => {
 	const formatIssues = Object.entries(schema.fields).flatMap(([key, property]) =>
 		collectFormatDefinitionIssues(property, ["fields", key], true, options.allowUpload === true),
+	);
+	const referenceIssues = Object.entries(schema.fields).flatMap(([key, property]) =>
+		collectEventReferenceIssues(property, ["fields", key], options.allowEventReferences === true),
 	);
 	const ruleIssues = (schema.rules ?? []).flatMap((rule, index) => {
 		const property = getAppPropertyDefinitionAtPath(schema.fields, rule.path);
@@ -146,7 +186,18 @@ export const validateAppSchemaDefinition = (
 		}
 		return collectConditionDefinitionIssues(schema.fields, rule.when, [...path, "when"]);
 	});
-	return [...formatIssues, ...ruleIssues];
+	const requiredReferenceIssues = (schema.rules ?? []).flatMap((rule, index) => {
+		const property = getAppPropertyDefinitionAtPath(schema.fields, rule.path);
+		return rule.kind === "validation" && property !== undefined && isEventReference(property)
+			? [
+					{
+						path: ["rules", String(index), "path"],
+						message: "Event references cannot be required by rules",
+					},
+				]
+			: [];
+	});
+	return [...formatIssues, ...referenceIssues, ...ruleIssues, ...requiredReferenceIssues];
 };
 
 const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {

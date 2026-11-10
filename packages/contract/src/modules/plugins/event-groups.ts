@@ -34,7 +34,9 @@ const scalarKind = (property: undefined | AppPropertyDefinition): string | undef
 		return undefined;
 	}
 	if (property.type === "string") {
-		return `string:${property.reference?.kind ?? "value"}`;
+		return property.reference?.kind === "event-id"
+			? undefined
+			: `string:${property.reference?.kind ?? "value"}`;
 	}
 	if (property.type === "enum") {
 		return property.choices.kind === "static"
@@ -63,8 +65,12 @@ export const pluginEventGroupIssue = (
 			}
 		}
 		for (const key of group.immutableProperties) {
-			if (!Object.hasOwn(anchor.propertiesSchema.fields, key)) {
+			const property = anchor.propertiesSchema.fields[key];
+			if (!property) {
 				return `Event group ${anchor.slug} immutable property ${key} is not declared`;
+			}
+			if (property.type === "string" && property.reference?.kind === "event-id") {
+				return `Event group ${anchor.slug} immutable property ${key} cannot be an event reference`;
 			}
 		}
 		for (const dependent of group.dependents) {

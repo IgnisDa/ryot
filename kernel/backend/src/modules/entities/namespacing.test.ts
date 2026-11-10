@@ -798,6 +798,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 						sessionEntityId: from.id,
 						eventSchemaName: "Tasted",
 						eventSchemaPluginId: b.pluginId,
+						propertiesSchema: { fields: {} },
 						properties: { title: "Foreign" },
 						id: EventId.make("foreign-session-event"),
 						eventSchemaSlug: EventSchemaSlug.make("tasted"),

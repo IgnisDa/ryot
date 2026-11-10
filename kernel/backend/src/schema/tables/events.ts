@@ -1,5 +1,5 @@
 import { generateId } from "better-auth";
-import { index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, primaryKey, snakeCase, text } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
 import { plugin } from "./core";
@@ -70,3 +70,18 @@ export const eventScope = snakeCase.table("event_scope", {
 		.notNull()
 		.references(() => entity.id, { onDelete: "cascade" }),
 });
+
+export const eventReference = snakeCase.table(
+	"event_reference",
+	{
+		property: text().notNull(),
+		referencedEventId: text().notNull(),
+		referencingEventId: text()
+			.notNull()
+			.references(() => event.id, { onDelete: "cascade" }),
+	},
+	(table) => [
+		primaryKey({ columns: [table.referencingEventId, table.property] }),
+		index("event_reference_referenced_event_id_idx").on(table.referencedEventId),
+	],
+);

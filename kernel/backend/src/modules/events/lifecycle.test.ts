@@ -124,6 +124,7 @@ const updateEventProperties = (
 			repository.updatePreparedEvent({
 				...input,
 				expectedRevision,
+				propertiesSchema: { fields: {} },
 				updatedAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-16T00:00:00.000Z")),
 				draft: {
 					entityId: snapshot.entityId,
@@ -634,6 +635,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							eventSchemaPluginId: null,
 							eventSchemaName: "Rating",
 							properties: { rating: 3 },
+							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 						}),
 					);
@@ -730,6 +732,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							sessionEntityId: movedId,
 							eventSchemaName: "Rating",
 							properties: { rating: 5 },
+							propertiesSchema: { fields: {} },
 							eventSchemaPluginId: "event-plugin",
 							occurredAt: DateTime.toDate(DateTime.makeUnsafe(now)),
 						}),
@@ -790,6 +793,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							eventSchemaPluginId: null,
 							properties: { rating: 3 },
 							sessionEntityId: entityId,
+							propertiesSchema: { fields: {} },
 						}),
 					);
 					const replay = yield* session.transaction(
@@ -803,6 +807,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							eventSchemaPluginId: null,
 							properties: { rating: 3 },
 							sessionEntityId: entityId,
+							propertiesSchema: { fields: {} },
 						}),
 					);
 					expect(replay.id).toBe(eventId);
@@ -819,6 +824,7 @@ describe("Event lifecycle PostgreSQL", () => {
 									eventSchemaPluginId: null,
 									properties: { rating: 9 },
 									sessionEntityId: entityId,
+									propertiesSchema: { fields: {} },
 								}),
 							),
 						),
@@ -958,6 +964,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 3 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 							}),
 						);
 
@@ -1141,6 +1148,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 3 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDate(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1235,6 +1243,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							properties: { rating: 1 },
 							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
+							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 						}),
 					);
@@ -1376,6 +1385,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								eventSchemaSlug,
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1464,6 +1474,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							properties: { rating: 1 },
 							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
+							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 						}),
 					);
@@ -1498,6 +1509,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							properties: { rating: 1 },
 							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
+							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 						}),
 					);
@@ -1548,6 +1560,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 1 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1604,6 +1617,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								eventSchemaSlug,
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								properties: { rating: 1, note: "before" },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
@@ -1647,6 +1661,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 2 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1683,6 +1698,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 1 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1717,6 +1733,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 1 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1805,6 +1822,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
 								properties: { note, rating: 1 },
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1891,6 +1909,7 @@ describe("Event lifecycle PostgreSQL", () => {
 								properties: { rating: 1 },
 								eventSchemaName: "Rating",
 								eventSchemaPluginId: null,
+								propertiesSchema: { fields: {} },
 								occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 							}),
 						);
@@ -1940,6 +1959,7 @@ describe("Event lifecycle PostgreSQL", () => {
 							properties: { rating: 1 },
 							eventSchemaName: "Rating",
 							eventSchemaPluginId: null,
+							propertiesSchema: { fields: {} },
 							occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
 						}),
 					);

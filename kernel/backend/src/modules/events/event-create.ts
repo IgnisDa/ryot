@@ -159,16 +159,19 @@ const createResult = (outcomes: ReadonlyArray<EventCreateItemOutcome>): CreateEv
 	};
 };
 
-const commitRejection = (error: { readonly _tag: string; readonly reason?: unknown }) => ({
-	code:
+const commitRejection = (error: { readonly _tag: string; readonly reason?: unknown }) => {
+	const code =
 		error._tag === "EventBadRequest" &&
 		typeof error.reason === "object" &&
 		error.reason !== null &&
-		"code" in error.reason &&
-		error.reason.code === "asset-forbidden"
-			? ("asset-forbidden" as const)
-			: ("mutation-conflict" as const),
-});
+		"code" in error.reason
+			? error.reason.code
+			: undefined;
+	if (code === "asset-forbidden" || code === "invalid-properties") {
+		return { code } as const;
+	}
+	return { code: "mutation-conflict" as const };
+};
 
 /**
  * Creates events and returns their final outcome. Preparation, policy planning and, when no policy

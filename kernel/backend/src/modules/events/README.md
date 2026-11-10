@@ -92,6 +92,31 @@ transaction.
 Historical restore validates final consistency with SQL, without comparing or recapturing immutable
 properties from live metadata.
 
+## Event references
+
+An event schema can declare top-level string properties with `reference: { kind: "event-id" }`.
+Definition validation rejects them elsewhere: nested, in entity, relationship or signal schemas, marked
+`required` or `immutable`, required by a rule, or used as an event-group key, match or immutable
+property. Every event reference is therefore optional.
+
+Creates and updates require each referenced event to exist, belong to the same user and differ from
+the referrer. The write takes `FOR KEY SHARE` on the targets and fails as an `invalid-properties`
+`EventBadRequest`. `EventsRepository` keeps the reverse index in `event_reference`, one row per
+referrer and property, rewritten with each create and update; deleting a referrer cascades its rows.
+
+Deleting a referenced event removes its index rows after the event row, so a concurrent referrer that
+locked the target is seen once it commits. The events transaction collects the released referrers
+and, after its work and after each applied fold change, removes those properties from referrers that
+still hold them: their revision advances, their scopes are touched and their subjects refold before
+the transaction settles. The clear runs no policies or hooks. This covers direct and batch deletes,
+events a fold deletes, entity cascades and user-data clears; a referrer deleted in the same
+transaction is simply gone. A delete outside an events transaction clears immediately. Merges move
+events by ID, so their references stay valid.
+
+Restore resolves each reference through the archive's staged event mappings, drops a reference
+whose event is not in the archive, and writes index rows with each restored event batch. The index has
+no foreign key on the referenced event, so archive order does not matter.
+
 ## Folds
 
 `modules/derived-values` owns the fold. The script receives `{ subjectEntityId, value }`, where

@@ -98,7 +98,8 @@ population with the existing admission, concurrency, and retry controls; restore
 fan-out. Snapshot metadata is applied only to rows allocated by this restore.
 
 Event archives contain source rows and their schema-backed properties, including the events folds
-wrote. Restore remaps typed references and queues a `fold-rebuild` job for each restored plugin, in the
+wrote. Restore remaps typed references, drops [event references](../events/README.md#event-references)
+whose event is not in the archive, and queues a `fold-rebuild` job for each restored plugin, in the
 data transaction, instead of trusting archived calculations; completed restore does not mean completed
 folds. Unavailable plugins, configuration and artifacts do not gain authority or become ready through
 restore.

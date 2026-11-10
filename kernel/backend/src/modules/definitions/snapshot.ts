@@ -240,8 +240,13 @@ const assertUniqueEventSlugs = (
 	}
 };
 
-const assertSchemaDefinition = (kind: string, slug: string, schema: AppSchema) => {
-	const issues = validateAppSchemaDefinition(schema);
+const assertSchemaDefinition = (
+	kind: string,
+	slug: string,
+	schema: AppSchema,
+	options?: Parameters<typeof validateAppSchemaDefinition>[1],
+) => {
+	const issues = validateAppSchemaDefinition(schema, options);
 	if (issues.length > 0) {
 		throw new Error(`Invalid ${kind} properties schema ${slug}: ${formatPropertyIssues(issues)}`);
 	}
@@ -439,6 +444,7 @@ const validateDefinitionSource = (
 				"event",
 				`${entitySchema.slug}:${eventSchema.slug}`,
 				eventSchema.propertiesSchema,
+				{ allowEventReferences: true },
 			);
 			if (eventSchema.projection) {
 				assertSchemaDefinition(

@@ -179,16 +179,24 @@ export class PluginMembershipWrites extends Context.Service<PluginMembershipWrit
 				if (!schema) {
 					return null;
 				}
-				const created = yield* events.createEvent({
-					properties: {},
-					userId: input.userId,
-					eventSchemaName: schema.name,
-					entityId: input.member.entityId,
-					eventSchemaSlug: scope.eventSchemaSlug,
-					eventSchemaPluginId: input.member.entitySchemaPluginId,
-					occurredAt: DateTime.toDate(DateTime.makeUnsafe(input.occurredAt)),
-					id: EventId.make(`event_0000_${sha256Base64Url(stableStringify([input.identity]))}`),
-				});
+				const created = yield* events
+					.createEvent({
+						properties: {},
+						userId: input.userId,
+						eventSchemaName: schema.name,
+						entityId: input.member.entityId,
+						eventSchemaSlug: scope.eventSchemaSlug,
+						propertiesSchema: schema.propertiesSchema,
+						eventSchemaPluginId: input.member.entitySchemaPluginId,
+						occurredAt: DateTime.toDate(DateTime.makeUnsafe(input.occurredAt)),
+						id: EventId.make(`event_0000_${sha256Base64Url(stableStringify([input.identity]))}`),
+					})
+					.pipe(
+						Effect.catchTag(
+							"EventReferenceUnavailable",
+							(error) => new DbError({ message: error.message }),
+						),
+					);
 				const written = yield* events.getEventSnapshot({
 					eventId: created.id,
 					userId: input.userId,

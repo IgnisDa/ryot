@@ -43,6 +43,7 @@ import {
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventGroupConstraints } from "#modules/events/event-group-constraints";
+import { eventPropertyReferences } from "#modules/events/event-references";
 import { RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -276,8 +277,7 @@ const collectPropertyReferences = (properties: unknown, schema: AppSchema) => {
 			references.push({
 				id: value,
 				kind: definition.reference.kind,
-				required:
-					definition.reference.kind === "event-id" || definition.reference.required === true,
+				required: definition.reference.required === true,
 			});
 			return;
 		}
@@ -932,6 +932,7 @@ const restoredPublicationSource = Effect.fn(function* (
 });
 
 type RestoreRecordBatchContext = {
+	readonly eventIdMap: ReadonlyMap<string, string>;
 	readonly reminderIds: ReadonlyMap<string, string>;
 	readonly entityIdMap: ReadonlyMap<string, EntityId>;
 	readonly relationshipIdMap: ReadonlyMap<string, string>;
@@ -1763,6 +1764,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 			) {
 				const entityIds = new Set<string>();
 				const relationshipIds = new Set<string>();
+				const eventIds = new Set<string>();
 				const savedViewIds = new Set<string>();
 				const reminderIds = new Set<string>();
 				const addPropertyRefs = (properties: unknown, propertiesSchema: AppSchema | undefined) => {
@@ -1775,6 +1777,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						}
 						if (reference.kind === "relationship-id") {
 							relationshipIds.add(reference.id);
+						}
+						if (reference.kind === "event-id") {
+							eventIds.add(reference.id);
 						}
 					}
 				};
@@ -1926,6 +1931,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				const relationshipIdMap = yield* staging.resolveMappings(runId, "relationship", [
 					...relationshipIds,
 				]);
+				const eventIdMap = yield* staging.resolveMappings(runId, "event", [...eventIds]);
 				const mappedViews = yield* staging.resolveMappings(runId, "saved-view", [...savedViewIds]);
 				const customViewIds = new Map(
 					[...mappedViews].map(
@@ -1975,6 +1981,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 				return {
+					eventIdMap,
 					entityIdMap,
 					customViewIds,
 					entitySchemaById,
@@ -2056,7 +2063,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							propertiesSchema,
 							context.entityIdMap,
 							context.relationshipIdMap,
-							(id) => sha256Hex(identityTupleKey("backup-event", userId, id)),
+							(id) => context.eventIdMap.get(id),
 						);
 						return yield* rewriteManagedAssetLocators(references, propertiesSchema, assetLocators);
 					}).pipe(Effect.mapError(archiveReferenceError));
@@ -2258,7 +2265,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						propertiesSchema,
 						context.entityIdMap,
 						context.relationshipIdMap,
-						(id) => sha256Hex(identityTupleKey("backup-event", userId, id)),
+						(id) => context.eventIdMap.get(id),
 					);
 					const properties = yield* rewriteManagedAssetLocators(
 						rewritten.properties,
@@ -2276,6 +2283,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						eventSchemaSlug: event.eventSchemaSlug,
 						occurredAt: parseDate(event.occurredAt),
 						orderCreatedAt: parseDate(event.orderCreatedAt),
+						references: eventPropertyReferences(propertiesSchema, properties),
 						id: sha256Hex(identityTupleKey("backup-event", userId, event.id)),
 						sessionEntityId: rewritten.sessionEntityId
 							? EntityId.make(rewritten.sessionEntityId)
@@ -2704,7 +2712,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							propertiesSchema,
 							batchContext.entityIdMap,
 							batchContext.relationshipIdMap,
-							(id) => sha256Hex(identityTupleKey("backup-event", userId, id)),
+							(id) => batchContext.eventIdMap.get(id),
 						);
 						return yield* rewriteManagedAssetLocators(references, propertiesSchema, assetLocators);
 					}).pipe(Effect.mapError(archiveReferenceError));

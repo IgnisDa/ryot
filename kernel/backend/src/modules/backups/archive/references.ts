@@ -315,7 +315,7 @@ export const rewriteEventReferences = Effect.fn(function* (
 	propertiesSchema: AppSchema,
 	entityIds: ReferenceMap,
 	relationshipIds: ReferenceMap,
-	eventId: (id: string) => string,
+	eventId: (id: string) => string | undefined,
 ) {
 	const entityId = yield* requiredArchiveReference(entityIds, event.entityId, "entity");
 	const sessionEntityId =

@@ -14,6 +14,7 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, asc, eq, getTableColumns, gt, inArray, or, sql } from "drizzle-orm";
@@ -26,6 +27,14 @@ import { STATEMENT_CHUNK_SIZE } from "#modules/entities/repository";
 import { pluginIdWhere } from "#platform/db/definition-owner";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
+
+import {
+	type ClearedEventReference,
+	type EventPropertyReference,
+	eventPropertyReferences,
+	EventReferenceUnavailable,
+	PendingEventReferenceClears,
+} from "./event-references";
 
 export type EventIdentityInput = {
 	readonly userId: UserId;
@@ -107,6 +116,7 @@ type CreateEventInput = {
 	readonly occurredAt: Date;
 	readonly entityId: EntityId;
 	readonly eventSchemaName: string;
+	readonly propertiesSchema: AppSchema;
 	readonly eventSchemaSlug: EventSchemaSlug;
 	readonly eventSchemaPluginId: null | string;
 	readonly properties: Record<string, unknown>;
@@ -127,6 +137,14 @@ const eventSourceOf = (row: {
 	sessionEntityId: row.sessionEntityId ?? null,
 	eventSchemaPluginId: row.eventSchemaPluginId,
 });
+
+const referenceMatches = (cleared: ReadonlyArray<ClearedEventReference>) =>
+	sql`select r."referencingEventId" as id, array_agg(r.property) as properties
+		from jsonb_to_recordset(${JSON.stringify(cleared)}::jsonb)
+			as r("referencingEventId" text, property text, "referencedEventId" text)
+		join event current on current.id = r."referencingEventId"
+			and current.properties ->> r.property = r."referencedEventId"
+		group by 1`;
 
 /** Locks the entity and session rows of event sources in ID order, before any event row. */
 export const lockEventReferences = (
@@ -253,6 +271,124 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 			});
 			const touchEventMutation = (input: { after: EventSource; before: EventSource }) =>
 				folds.mark([input.before, input.after]);
+			const writeReferences = Effect.fn("EventsRepository.writeReferences")(function* (
+				rows: ReadonlyArray<{
+					userId: string;
+					eventId: string;
+					references: ReadonlyArray<EventPropertyReference>;
+				}>,
+			) {
+				const references = rows.flatMap((row) =>
+					row.references.map((reference) => ({
+						...reference,
+						userId: row.userId,
+						referencingEventId: row.eventId,
+					})),
+				);
+				if (references.length === 0) {
+					return yield* Effect.void;
+				}
+				const targetIds = [...new Set(references.map((row) => row.referencedEventId))].sort();
+				const targets = yield* session.run((db) =>
+					db.execute<{ id: string; userId: string }>(
+						sql`select id, user_id as "userId" from event
+							where id in (select jsonb_array_elements_text(${JSON.stringify(targetIds)}::jsonb))
+							order by id for key share`,
+						"objects",
+					),
+				);
+				const owners = new Map(targets.map((target) => [target.id, target.userId]));
+				const unavailable = references.find(
+					(row) =>
+						row.referencedEventId === row.referencingEventId ||
+						owners.get(row.referencedEventId) !== row.userId,
+				);
+				if (unavailable) {
+					return yield* new EventReferenceUnavailable({
+						message: `Event property '${unavailable.property}' references an event that does not exist`,
+					});
+				}
+				return yield* session.run((db) =>
+					db
+						.insert(schema.eventReference)
+						.values(
+							references.map((row) => ({
+								property: row.property,
+								referencedEventId: row.referencedEventId,
+								referencingEventId: row.referencingEventId,
+							})),
+						),
+				);
+			});
+			const clearReferences = Effect.fn("EventsRepository.clearReferences")(function* (
+				cleared: ReadonlyArray<ClearedEventReference>,
+			) {
+				if (cleared.length === 0) {
+					return;
+				}
+				const matches = referenceMatches(cleared);
+				const referrers = yield* session.run((db) =>
+					db.execute<{
+						userId: string;
+						entityId: string;
+						eventSchemaSlug: string;
+						sessionEntityId: null | string;
+						eventSchemaPluginId: null | string;
+					}>(
+						sql`select e.user_id as "userId", e.entity_id as "entityId",
+							e.session_entity_id as "sessionEntityId", e.event_schema_slug as "eventSchemaSlug",
+							e.event_schema_plugin_id as "eventSchemaPluginId"
+						from event e where e.id in (select id from (${matches}) m)`,
+						"objects",
+					),
+				);
+				if (referrers.length === 0) {
+					return;
+				}
+				yield* lockEventReferences(session, referrers.map(eventSourceOf));
+				const updatedAt = yield* DateTime.nowAsDate;
+				const updated = yield* session.run((db) =>
+					db.execute<{
+						userId: string;
+						entityId: string;
+						eventSchemaSlug: string;
+						sessionEntityId: null | string;
+						eventSchemaPluginId: null | string;
+					}>(
+						sql`update event set properties = event.properties - m.properties,
+							revision = event.revision + 1, updated_at = ${updatedAt}
+						from (${matches}) m
+						where event.id = m.id
+						returning event.user_id as "userId", event.entity_id as "entityId",
+							event.session_entity_id as "sessionEntityId",
+							event.event_schema_slug as "eventSchemaSlug",
+							event.event_schema_plugin_id as "eventSchemaPluginId"`,
+						"objects",
+					),
+				);
+				yield* touchScopes(updated);
+				yield* folds.mark(updated.map(eventSourceOf));
+			});
+			const releaseReferences = Effect.fn("EventsRepository.releaseReferences")(function* (
+				eventId: string,
+			) {
+				const released = yield* session.run((db) =>
+					db
+						.delete(schema.eventReference)
+						.where(eq(schema.eventReference.referencedEventId, eventId))
+						.returning({
+							property: schema.eventReference.property,
+							referencedEventId: schema.eventReference.referencedEventId,
+							referencingEventId: schema.eventReference.referencingEventId,
+						}),
+				);
+				const pending = yield* PendingEventReferenceClears;
+				if (pending) {
+					pending.push(...released);
+					return;
+				}
+				yield* clearReferences(released);
+			});
 			const listUserEventsForBackup = Effect.fn("EventsRepository.listUserEventsForBackup")(
 				function* (input: {
 					userId: UserId;
@@ -377,6 +513,13 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					created.push(toListedEvent({ ...row, eventSchemaName: input.eventSchemaName }));
 				}
 				const fresh = inputs.filter((input) => insertedIds.has(input.id));
+				yield* writeReferences(
+					fresh.map((input) => ({
+						eventId: input.id,
+						userId: input.userId,
+						references: eventPropertyReferences(input.propertiesSchema, input.properties),
+					})),
+				);
 				if (fresh.length > 0) {
 					yield* touchScopes(
 						fresh.map((input) => ({ ...input, sessionEntityId: input.sessionEntityId ?? null })),
@@ -543,6 +686,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (row) {
 					yield* touchScopes([current]);
 					yield* touchEventMutation({ after: streamKey, before: streamKey });
+					yield* releaseReferences(row.id);
 				}
 
 				return row ? EventId.make(row.id) : null;
@@ -573,6 +717,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (row) {
 					yield* touchScopes([current]);
 					yield* touchEventMutation({ after: streamKey, before: streamKey });
+					yield* releaseReferences(row.id);
 				}
 
 				return row ? EventId.make(row.id) : null;
@@ -645,6 +790,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				input: EventIdentityInput & {
 					updatedAt: Date;
 					expectedRevision: number;
+					propertiesSchema: AppSchema;
 					draft: AutomationEventDraft;
 					order?: null | undefined | { key: string; createdAt: string };
 				},
@@ -683,6 +829,18 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					),
 				);
 				if (row) {
+					yield* session.run((db) =>
+						db
+							.delete(schema.eventReference)
+							.where(eq(schema.eventReference.referencingEventId, row.id)),
+					);
+					yield* writeReferences([
+						{
+							eventId: row.id,
+							userId: input.userId,
+							references: eventPropertyReferences(input.propertiesSchema, input.draft.properties),
+						},
+					]);
 					yield* touchScopes([
 						current,
 						{
@@ -786,6 +944,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				hasUserEvents,
 				lockEventRows,
 				getEventOrder,
+				clearReferences,
 				getEventSnapshot,
 				getScopeRevision,
 				getEventSnapshots,

@@ -97,3 +97,43 @@ it("rejects multiple anchor declarations claiming the same dependent", () => {
 		"Event group other-anchor dependent member must name one unclaimed non-anchor schema in the same entity schema",
 	);
 });
+
+it("keeps event references out of keys, matches and immutable properties", () => {
+	const referenced: AppSchema = {
+		fields: {
+			...propertiesSchema.fields,
+			evidence: {
+				type: "string",
+				label: "Evidence",
+				description: "Evidence",
+				reference: { kind: "event-id" },
+			},
+			position: {
+				type: "string",
+				label: "Position",
+				description: "Position",
+				reference: { kind: "event-id" },
+			},
+		},
+	};
+	expect(
+		pluginEventGroupIssue(
+			schemas().map((schema) => Object.assign({}, schema, { propertiesSchema: referenced })),
+		),
+	).toBe("Event group anchor key position must be a declared scalar property");
+	expect(
+		pluginEventGroupIssue([
+			{
+				slug: "anchor",
+				eventGroup: eventGroupDeclaration,
+				propertiesSchema: {
+					fields: {
+						...referenced.fields,
+						position: { type: "integer", label: "Position", description: "Position" },
+					},
+				},
+			},
+			{ slug: "member", propertiesSchema },
+		]),
+	).toBe("Event group anchor immutable property evidence cannot be an event reference");
+});

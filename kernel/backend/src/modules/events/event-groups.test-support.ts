@@ -73,7 +73,19 @@ export const commitUserCommand = (payload: {
 export const createGroupEvents = (input: EventCreateInput) =>
 	Effect.flatMap(makeEventCreate, (create) => create(input));
 
-export const eventGroupFixture = Effect.fnUntraced(function* () {
+const groupEventSchemas = [
+	{ slug: "anchor", name: "Anchor", propertiesSchema, eventGroup: eventGroupDeclaration },
+	{ slug: "member", name: "Member", propertiesSchema },
+];
+
+export const eventGroupFixture = Effect.fnUntraced(function* (
+	eventSchemas: ReadonlyArray<{
+		readonly slug: string;
+		readonly name: string;
+		readonly propertiesSchema: AppSchema;
+		readonly eventGroup?: PluginEventGroup;
+	}> = groupEventSchemas,
+) {
 	const source = revisionPackage(`group-${yield* randomUuid}`, "fixture", "subject");
 	const installed = yield* installRevisionPackage(
 		{
@@ -85,16 +97,8 @@ export const eventGroupFixture = Effect.fnUntraced(function* () {
 						icon: "file",
 						slug: "subject",
 						name: "Subject",
+						eventSchemas: [...eventSchemas],
 						propertiesSchema: { fields: {} },
-						eventSchemas: [
-							{
-								slug: "anchor",
-								name: "Anchor",
-								propertiesSchema,
-								eventGroup: eventGroupDeclaration,
-							},
-							{ slug: "member", name: "Member", propertiesSchema },
-						],
 					},
 					{
 						icon: "file",

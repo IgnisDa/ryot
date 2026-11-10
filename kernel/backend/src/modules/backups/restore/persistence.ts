@@ -18,6 +18,7 @@ import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import type { PortableUserProfile } from "#modules/accounts/auth/repository";
+import type { EventPropertyReference } from "#modules/events/event-references";
 import { lockEventReferences } from "#modules/events/repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
@@ -67,7 +68,10 @@ type RestoreEntityInput = Pick<
 	| "entitySchemaSlug"
 	| "entitySchemaPluginId"
 >;
-type RestoreEventInput = Pick<
+type RestoreEventInput = {
+	readonly id: string;
+	readonly references: ReadonlyArray<EventPropertyReference>;
+} & Pick<
 	typeof schema.event.$inferInsert,
 	| "id"
 	| "userId"
@@ -300,7 +304,17 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						eventSchemaPluginId: input.eventSchemaPluginId ?? null,
 					})),
 				);
-				yield* session.run((db) => db.insert(schema.event).values([...inputs]));
+				yield* session.run((db) =>
+					db
+						.insert(schema.event)
+						.values(inputs.map(({ references: _references, ...input }) => input)),
+				);
+				const references = inputs.flatMap((input) =>
+					input.references.map((reference) => ({ ...reference, referencingEventId: input.id })),
+				);
+				if (references.length > 0) {
+					yield* session.run((db) => db.insert(schema.eventReference).values(references));
+				}
 			});
 			const restoreTranslation = Effect.fn("BackupRestorePersistence.restoreTranslation")(
 				function* (input: RestoreTranslationInput) {

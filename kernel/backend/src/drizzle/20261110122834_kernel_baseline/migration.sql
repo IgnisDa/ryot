@@ -466,6 +466,13 @@ CREATE TABLE "event" (
 	"id" text PRIMARY KEY
 );
 --> statement-breakpoint
+CREATE TABLE "event_reference" (
+	"property" text,
+	"referenced_event_id" text NOT NULL,
+	"referencing_event_id" text,
+	CONSTRAINT "event_reference_pkey" PRIMARY KEY("referencing_event_id","property")
+);
+--> statement-breakpoint
 CREATE TABLE "event_scope" (
 	"id" text PRIMARY KEY,
 	"revision" integer DEFAULT 0 NOT NULL,
@@ -1296,6 +1303,7 @@ CREATE INDEX "event_properties_idx" ON "event" USING gin ("properties");--> stat
 CREATE INDEX "event_user_entity_schema_order_idx" ON "event" ("user_id","entity_id","event_schema_slug","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "event_user_schema_occurred_at_idx" ON "event" ("user_id","event_schema_plugin_id","event_schema_slug","occurred_at");--> statement-breakpoint
 CREATE INDEX "event_user_session_order_idx" ON "event" ("user_id","session_entity_id","occurred_at" DESC NULLS LAST,"created_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
+CREATE INDEX "event_reference_referenced_event_id_idx" ON "event_reference" ("referenced_event_id");--> statement-breakpoint
 CREATE INDEX "idempotency_key_created_at_idx" ON "idempotency_key" ("created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "import_item_payload_ordinal_unique" ON "import_item" ("run_id","phase","ordinal") WHERE "kind" = 'payload';--> statement-breakpoint
 CREATE UNIQUE INDEX "import_item_batch_ordinal_unique" ON "import_item" ("run_id","ordinal") WHERE "kind" = 'batch';--> statement-breakpoint
@@ -1438,6 +1446,7 @@ ALTER TABLE "event" ADD CONSTRAINT "event_session_entity_id_entity_id_fkey" FORE
 ALTER TABLE "event" ADD CONSTRAINT "event_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event" ADD CONSTRAINT "event_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "event_reference" ADD CONSTRAINT "event_reference_referencing_event_id_event_id_fkey" FOREIGN KEY ("referencing_event_id") REFERENCES "event"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_event_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("event_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "event_scope" ADD CONSTRAINT "event_scope_entity_id_entity_id_fkey" FOREIGN KEY ("entity_id") REFERENCES "entity"("id") ON DELETE CASCADE;--> statement-breakpoint

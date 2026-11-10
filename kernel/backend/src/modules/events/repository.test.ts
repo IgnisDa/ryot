@@ -18,6 +18,7 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { BACKUP_EVENT_PAGE_SIZE, EventsRepository } from "./repository";
 
 const restoreEventInput = (id: string) => ({
+	references: [],
 	id: EventId.make(id),
 	sessionEntityId: null,
 	properties: { rating: 80 },
@@ -170,6 +171,64 @@ layer(restorePersistenceLayer)((test) => {
 			}),
 		testTimeout,
 	);
+
+	test.effect(
+		"indexes restored references regardless of the referenced event's batch position",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const persistence = yield* BackupRestorePersistence;
+				const owner = {
+					userId: UserId.make("reference-user"),
+					entityId: EntityId.make("reference-entity"),
+				};
+				yield* session.run((db) =>
+					db
+						.insert(tables.user)
+						.values({ id: owner.userId, name: "Reference owner", email: "reference@example.test" }),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(tables.entity)
+						.values({
+							id: owner.entityId,
+							userId: owner.userId,
+							name: "Referenced entity",
+							entitySchemaSlug: "record",
+						}),
+				);
+				const referrer = {
+					...restoreEventInput("event-referrer"),
+					...owner,
+					properties: { about: "event-referenced" },
+					references: [{ property: "about", referencedEventId: "event-referenced" }],
+				};
+				yield* session.transaction(
+					persistence.restoreEvents([
+						referrer,
+						{ ...restoreEventInput("event-referenced"), ...owner },
+					]),
+				);
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({
+								property: tables.eventReference.property,
+								referencedEventId: tables.eventReference.referencedEventId,
+								referencingEventId: tables.eventReference.referencingEventId,
+							})
+							.from(tables.eventReference),
+					),
+				).toEqual([
+					{
+						property: "about",
+						referencingEventId: "event-referrer",
+						referencedEventId: "event-referenced",
+					},
+				]);
+			}),
+		testTimeout,
+	);
 });
 
 layer(
@@ -228,6 +287,7 @@ layer(
 					properties: { rating: 5 },
 					eventSchemaName: "Review",
 					id: EventId.make("event-write"),
+					propertiesSchema: { fields: {} },
 					eventSchemaSlug: EventSchemaSlug.make("review"),
 					occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z")),
 				};

@@ -1338,6 +1338,7 @@ layer(restoreWriterLayer())((test) => {
 				const [event] = yield* persistence.restoredEvents;
 				const timestamp = DateTime.toDate(DateTime.makeUnsafe("2026-08-23T12:00:00.000Z"));
 				expect(event).toEqual<unknown>({
+					references: [],
 					userId: "user-id",
 					id: anyOf(String),
 					entityId: entity.id,
@@ -1361,6 +1362,47 @@ layer(restoreWriterLayer())((test) => {
 				});
 				expect(event?.id).not.toBe("source-event");
 				expect(entity.id).not.toBe("archived-bootstrap");
+			}),
+		testTimeout,
+	);
+});
+
+layer(restoreWriterLayer())((test) => {
+	test.effect(
+		"remaps event references to restored events and drops references to absent events",
+		() =>
+			Effect.gen(function* () {
+				yield* restoreArchivedEvents(
+					[
+						{ ...archivedEvent("note-kept"), properties: { about: "occurrence" } },
+						archivedEvent("occurrence"),
+						{ ...archivedEvent("note-dropped"), properties: { text: "Kept", about: "absent" } },
+					],
+					{
+						fields: {
+							text: { label: "Text", type: "string", description: "Opaque text" },
+							about: {
+								type: "string",
+								label: "About",
+								description: "Referenced event",
+								reference: { kind: "event-id" },
+							},
+						},
+					},
+				);
+				const restored = yield* (yield* FakeRestorePersistence).restoredEvents;
+				const byOrder = new Map(restored.map((event) => [event.orderKey, event]));
+				const occurrence = byOrder.get("occurrence");
+				assert(occurrence?.id);
+				expect(byOrder.get("note-kept")).toMatchObject({
+					properties: { about: occurrence.id },
+					references: [{ property: "about", referencedEventId: occurrence.id }],
+				});
+				expect(byOrder.get("note-dropped")).toMatchObject({
+					references: [],
+					properties: { text: "Kept" },
+				});
+				expect(byOrder.get("note-dropped")?.properties).not.toHaveProperty("about");
 			}),
 		testTimeout,
 	);
@@ -2067,6 +2109,7 @@ describe("account backup restore in PostgreSQL", () => {
 									yield* persistence.restoreEvents([
 										{
 											entityId,
+											references: [],
 											userId: sourceUser,
 											createdAt: fixedDate,
 											updatedAt: fixedDate,

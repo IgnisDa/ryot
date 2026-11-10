@@ -137,6 +137,7 @@ const createEvent = (id: EventId, userId: UserId, entityId: EntityId, sessionEnt
 				properties: {},
 				eventSchemaPluginId: null,
 				eventSchemaName: "Progress",
+				propertiesSchema: { fields: {} },
 				eventSchemaSlug: EventSchemaSlug.make("progress"),
 				occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-15T00:00:00.000Z")),
 				...(sessionEntityId === undefined ? {} : { sessionEntityId }),
@@ -346,19 +347,22 @@ const entitiesLayer = (options: TestOptions = {}) =>
 												trigger.payload.operation === "delete"
 											) {
 												const before = trigger.payload.draft;
-												yield* eventRepository.createEvent({
-													entityId: before.entityId,
-													eventSchemaPluginId: null,
-													userId: trigger.scopeUserId,
-													eventSchemaName: "Progress",
-													properties: before.properties,
-													id: EventId.make("late-cascade-event"),
-													eventSchemaSlug: before.eventSchemaSlug,
-													occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
-													...(before.sessionEntityId === null
-														? {}
-														: { sessionEntityId: before.sessionEntityId }),
-												});
+												yield* eventRepository
+													.createEvent({
+														entityId: before.entityId,
+														eventSchemaPluginId: null,
+														userId: trigger.scopeUserId,
+														eventSchemaName: "Progress",
+														properties: before.properties,
+														propertiesSchema: { fields: {} },
+														id: EventId.make("late-cascade-event"),
+														eventSchemaSlug: before.eventSchemaSlug,
+														occurredAt: DateTime.toDateUtc(DateTime.makeUnsafe(before.occurredAt)),
+														...(before.sessionEntityId === null
+															? {}
+															: { sessionEntityId: before.sessionEntityId }),
+													})
+													.pipe(Effect.orDie);
 											}
 											const changePlanCount =
 												trigger.kind.category === "change"

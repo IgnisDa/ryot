@@ -1208,12 +1208,19 @@ export class EventsService extends Context.Service<EventsService>()(
 								() => new EventBadRequest({ reason: { code: "asset-forbidden" } }),
 							),
 						);
-					const updated = yield* repository.updatePreparedEvent({
-						...prepared.input,
-						draft: prepared.draft,
-						expectedRevision: prepared.expectedRevision,
-						updatedAt: DateTime.toDate(DateTime.makeUnsafe(prepared.command.occurredAt)),
-					});
+					const updated = yield* repository
+						.updatePreparedEvent({
+							...prepared.input,
+							draft: prepared.draft,
+							expectedRevision: prepared.expectedRevision,
+							propertiesSchema: prepared.propertiesSchema,
+							updatedAt: DateTime.toDate(DateTime.makeUnsafe(prepared.command.occurredAt)),
+						})
+						.pipe(
+							Effect.catchTag("EventReferenceUnavailable", (error) =>
+								eventBadRequest("invalid-properties", error.message),
+							),
+						);
 					if (!updated) {
 						return yield* new EventStale({
 							reason: { code: "event-stale", eventId: prepared.input.eventId },

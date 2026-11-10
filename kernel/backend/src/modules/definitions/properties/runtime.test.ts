@@ -819,6 +819,50 @@ describe("validateAppSchemaDefinition", () => {
 		expect(issues).toEqual([]);
 	});
 
+	it("allows event references only as optional mutable top-level event properties", () => {
+		const reference = { reference: { kind: "event-id" as const } };
+		const allowed = { allowEventReferences: true };
+		expect(validateAppSchemaDefinition(schema({ about: str(reference) }), allowed)).toEqual([]);
+		expect(
+			validateAppSchemaDefinition(schema({ about: str(reference) })).map(({ message }) => message),
+		).toEqual(["Event references must be top-level event properties"]);
+		expect(
+			validateAppSchemaDefinition(
+				schema({ nested: objectProp({ about: str(reference) }) }),
+				allowed,
+			).map(({ path }) => path),
+		).toEqual([["fields", "nested", "properties", "about", "reference"]]);
+		expect(
+			[
+				{ reference: { required: true as const, kind: "event-id" as const } },
+				{ ...reference, immutable: true as const },
+				{ ...reference, validation: { required: true as const } },
+			].flatMap((overrides) =>
+				validateAppSchemaDefinition(schema({ about: str(overrides) }), allowed).map(
+					({ message }) => message,
+				),
+			),
+		).toEqual(Array.from({ length: 3 }, () => "Event references must be optional and mutable"));
+		expect(
+			validateAppSchemaDefinition(
+				schema(
+					{ status: str(), about: str(reference) },
+					{
+						rules: [
+							{
+								path: ["about"],
+								kind: "validation",
+								validation: { required: true },
+								when: { value: "done", operator: "eq", path: ["status"] },
+							},
+						],
+					},
+				),
+				allowed,
+			).map(({ message }) => message),
+		).toEqual(["Event references cannot be required by rules"]);
+	});
+
 	it("returns no issues for a valid rule referencing an existing field", () => {
 		const s = schema(
 			{ status: str(), progress: num() },

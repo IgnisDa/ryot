@@ -54,6 +54,11 @@ import { DatabaseSession } from "#platform/db/session";
 
 import { readEventCreateChunkScopes } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
+import {
+	type ClearedEventReference,
+	type EventReferenceUnavailable,
+	PendingEventReferenceClears,
+} from "./event-references";
 import { EventsRepository } from "./repository";
 
 const EventWriteIdentity = Schema.Struct({
@@ -210,6 +215,9 @@ const sameExpected = (
 			stableStringify(before.properties[key]) === stableStringify(value),
 	) &&
 	expected.absentProperties.every((key) => !Object.hasOwn(before.properties, key));
+
+const unavailableReference = (error: EventReferenceUnavailable) =>
+	bad("invalid-properties", error.message);
 
 export class EventMutations extends Context.Service<EventMutations>()(
 	"@ryot-app/kernel-backend/modules/events/mutations/EventMutations",
@@ -657,17 +665,20 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						),
 					);
 				const creates = validatedRows.filter(({ row }) => row.change.kind === "create");
-				yield* repository.createEvents(
-					creates.map(({ row, draft, schema }) => ({
-						order: row.order ?? undefined,
-						...draft,
-						userId: input.userId,
-						id: preparedEventId(row),
-						eventSchemaName: schema.name,
-						sessionEntityId: draft.sessionEntityId ?? undefined,
-						occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
-					})),
-				);
+				yield* repository
+					.createEvents(
+						creates.map(({ row, draft, schema }) => ({
+							order: row.order ?? undefined,
+							...draft,
+							userId: input.userId,
+							id: preparedEventId(row),
+							eventSchemaName: schema.name,
+							propertiesSchema: schema.propertiesSchema,
+							sessionEntityId: draft.sessionEntityId ?? undefined,
+							occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
+						})),
+					)
+					.pipe(Effect.catchTag("EventReferenceUnavailable", unavailableReference));
 				const snapshots = yield* repository.getEventSnapshots(
 					input.userId,
 					creates.map(({ row }) => preparedEventId(row)),
@@ -678,7 +689,7 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					if (!entry) {
 						return yield* new DbError({ message: "Validated event change is unavailable" });
 					}
-					const { draft, command } = entry;
+					const { draft, schema, command } = entry;
 					let change;
 					let eventId: EventId;
 					if (row.change.kind === "create") {
@@ -715,12 +726,15 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							};
 						} else {
 							if (
-								!(yield* repository.updatePreparedEvent({
-									...identity,
-									draft,
-									order: row.order,
-									updatedAt: DateTime.toDate(DateTime.makeUnsafe(command.occurredAt)),
-								}))
+								!(yield* repository
+									.updatePreparedEvent({
+										...identity,
+										draft,
+										order: row.order,
+										propertiesSchema: schema.propertiesSchema,
+										updatedAt: DateTime.toDate(DateTime.makeUnsafe(command.occurredAt)),
+									})
+									.pipe(Effect.catchTag("EventReferenceUnavailable", unavailableReference)))
 							) {
 								return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 							}
@@ -777,11 +791,27 @@ export class EventMutations extends Context.Service<EventMutations>()(
 				);
 				yield* persist({ ...input, prepared, validated, derived: true });
 			});
+			const clearPendingReferences = Effect.gen(function* () {
+				const pending = yield* PendingEventReferenceClears;
+				if (pending) {
+					yield* repository.clearReferences(pending.splice(0));
+				}
+			});
 			const transaction = <A, E, R>(work: Effect.Effect<A, E, R>, mode?: FoldMode) =>
 				Effect.gen(function* () {
 					const held = yield* HeldInlineBatch;
+					const clearing = Effect.gen(function* () {
+						const pending: Array<ClearedEventReference> = [];
+						return yield* folds
+							.within(
+								Effect.tap(work, () => clearPendingReferences),
+								(input) => Effect.tap(applyDerived(input), () => clearPendingReferences),
+								mode,
+							)
+							.pipe(Effect.provideService(PendingEventReferenceClears, pending));
+					});
 					return yield* groups
-						.transaction(folds.within(work, applyDerived, mode))
+						.transaction(clearing)
 						.pipe(
 							Effect.retry({
 								while: isFoldBusy,
