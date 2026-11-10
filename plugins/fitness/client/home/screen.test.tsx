@@ -61,9 +61,9 @@ const dayTotals = {
 };
 
 const latestWorkout = {
-	id: "w1",
 	setCount: 21,
 	volume: 24600,
+	entityId: "w1",
 	name: "Legs - 2",
 	exerciseCount: 7,
 	personalBests: 1,

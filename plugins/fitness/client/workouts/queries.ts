@@ -3,10 +3,16 @@ import {
 	type RyotClient,
 	type RyotClientError,
 } from "@ryot-app/plugin-client-sdk";
+import type {
+	BrowserCountSource,
+	BrowserQueryInput,
+	BrowserSelectionSource,
+} from "@ryot-app/plugin-client-sdk/browser";
 import { Array, DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { ViewFilter } from "@ryot-app/plugin-client-sdk/filters";
 import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { ENTITY_IDS_PAGE_SIZE } from "@ryot-app/ryotql-recipes/browse";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
@@ -15,6 +21,7 @@ import {
 	workoutComparisonsRecipe,
 	workoutCountRecipe,
 	type WorkoutFilterPredicate,
+	workoutIdsRecipe,
 	type WorkoutListItem,
 	type WorkoutPeriodTotals,
 	type WorkoutSummary,
@@ -72,7 +79,7 @@ const enrichWorkoutItems = (client: RyotClient, items: readonly WorkoutListItem[
 									workoutTaxonomyRecipe({
 										after,
 										reference,
-										workoutIds: items.map(({ id }) => id),
+										workoutIds: items.map(({ entityId }) => entityId),
 									}),
 								),
 							),
@@ -113,59 +120,51 @@ export const loadWorkoutPages = (
 		return { items, hasMore, ...(yield* enrichWorkoutItems(client, items)) } satisfies WorkoutPages;
 	});
 
-export const loadWorkoutPage = (
-	client: RyotClient,
-	input: {
-		readonly search: string;
-		readonly after: string | undefined;
-		readonly filter: undefined | WorkoutFilterPredicate;
-	},
-) =>
-	Effect.gen(function* () {
-		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-		const page = yield* client.data.query(
-			workoutCardsRecipe({
-				reference,
-				after: input.after,
-				filter: input.filter,
-				search: input.search,
-			}),
-		);
-		return { ...page, ...(yield* enrichWorkoutItems(client, page.items)) } satisfies WorkoutPage;
+const listFilter = (client: RyotClient, filter: null | ViewFilter) =>
+	compileWorkoutFilter({
+		filter,
+		target: "list",
+		reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 	});
 
-export const workoutsQuery = createRyotQuery<
-	{
-		readonly search: string;
-		readonly after: string | undefined;
-		readonly filter: null | ViewFilter;
-	},
-	WorkoutPage,
-	Error
->(({ input, client }) =>
-	Effect.gen(function* () {
-		const filter = yield* compileWorkoutFilter({
-			target: "list",
-			filter: input.filter,
-			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-		});
-		return yield* loadWorkoutPage(client, { ...input, filter });
-	}),
+export const workoutsQuery = createRyotQuery<BrowserQueryInput, WorkoutPage, Error>(
+	({ input, client }) =>
+		Effect.gen(function* () {
+			const page = yield* client.data.query(
+				workoutCardsRecipe({
+					search: input.searchText,
+					after: input.cursor ?? undefined,
+					filter: yield* listFilter(client, input.filter),
+					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+				}),
+			);
+			return { ...page, ...(yield* enrichWorkoutItems(client, page.items)) } satisfies WorkoutPage;
+		}),
 );
 
-export const workoutCountQuery = createRyotQuery<
-	{ readonly search: string; readonly filter: null | ViewFilter },
-	number,
-	Error
->(({ input, client }) =>
+export const countWorkouts: BrowserCountSource = (client, input) =>
 	Effect.gen(function* () {
-		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-		const filter = yield* compileWorkoutFilter({ reference, target: "list", filter: input.filter });
 		return yield* client.data.query(
-			workoutCountRecipe({ filter, reference, search: input.search }),
+			workoutCountRecipe({
+				search: input.searchText,
+				filter: yield* listFilter(client, input.filter),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+			}),
 		);
-	}),
-);
+	});
+
+export const readWorkoutIds: BrowserSelectionSource["readIds"] = (client, input) =>
+	Effect.gen(function* () {
+		return yield* client.data.query(
+			workoutIdsRecipe({
+				after: input.after,
+				search: input.searchText,
+				limit: ENTITY_IDS_PAGE_SIZE,
+				filter: yield* listFilter(client, input.filter),
+				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
+			}),
+		);
+	});
 
 export const workoutWeeksQuery = createRyotQuery<
 	{ readonly filter: null | ViewFilter } & Omit<

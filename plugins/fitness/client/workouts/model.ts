@@ -232,7 +232,7 @@ export const buildWorkoutCards = (input: {
 		const groups = exerciseGroups(item.sets);
 		const muscles = countMuscleSets(
 			input.targets
-				.filter((recorded) => recorded.workoutId === item.id)
+				.filter((recorded) => recorded.workoutId === item.entityId)
 				.map((recorded) => ({ sets: recorded.setCount, targets: recorded.targets.items })),
 		);
 		const lines = groups.map(({ key, sets, first }) => {
@@ -247,8 +247,8 @@ export const buildWorkoutCards = (input: {
 		});
 		return {
 			lines,
-			id: item.id,
 			name: item.name,
+			id: item.entityId,
 			sets: item.setCount,
 			duration: durationOf(item),
 			exercises: item.exerciseCount,

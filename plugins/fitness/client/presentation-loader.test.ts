@@ -142,7 +142,6 @@ describe("fitness presentation loaders", () => {
 									{
 										setCount: 1,
 										volume: 480,
-										id: "workout-1",
 										exerciseCount: 1,
 										name: "Push day",
 										personalBests: 0,
@@ -150,6 +149,7 @@ describe("fitness presentation loaders", () => {
 										processing: "ready",
 										activeDuration: 3600,
 										repeatedFromId: null,
+										entityId: "workout-1",
 										previousTemplateWorkoutId: null,
 										endedAt: "2026-09-07T09:00:00.000Z",
 										startedAt: "2026-09-07T08:00:00.000Z",

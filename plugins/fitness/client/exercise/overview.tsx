@@ -1,6 +1,6 @@
 import type { AssetLocator } from "@ryot-app/plugin-client-sdk";
 import { Schema } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { useHostScreen, useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { type ComponentProps, useState } from "react";
@@ -8,7 +8,6 @@ import { type ComponentProps, useState } from "react";
 import { WorkoutExerciseOverridesSchema } from "../../shared/workout-editor-preferences";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { AssetArtWell } from "../asset-urls";
-import { useAddToCollection } from "../collections";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { ExerciseDefaultsSheet } from "../workout-editor/preferences";
 import { type ActiveEditorDraft, addToDraftLabel } from "./active-draft";
@@ -233,7 +232,7 @@ function ExerciseActions(props: {
 	const { draft, exercise } = props;
 	const client = useRyot();
 	const [action, setAction] = useState<"merge" | "preferences">();
-	const addToCollection = useAddToCollection();
+	const openScreen = useHostScreen();
 	const [mergeFailure, setMergeFailure] =
 		useState<ComponentProps<typeof MergeFailureMessage>["failure"]>();
 	const overrides = Schema.decodeResult(WorkoutExerciseOverridesSchema)(
@@ -281,7 +280,10 @@ function ExerciseActions(props: {
 					Edit
 				</Button>
 			) : null}
-			<Button variant="secondary" onClick={() => addToCollection(exercise.id)}>
+			<Button
+				variant="secondary"
+				onClick={() => openScreen(client.screens.addToCollection({ entityId: exercise.id }))}
+			>
 				Add to collection
 			</Button>
 			<HeaderActionsMenu

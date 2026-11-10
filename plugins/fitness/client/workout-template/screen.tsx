@@ -1,5 +1,10 @@
 import { usePluginLocation, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
-import { ManagedAssetProvider, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	ManagedAssetProvider,
+	useHostScreen,
+	useRyot,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, Card, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
@@ -10,7 +15,6 @@ import type { TemplateOccurrenceProperties } from "../../shared/workout-editor-p
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { durationDisplayUnit } from "../../shared/workout-units";
 import { AssetArtWell, managedAssetBatch } from "../asset-urls";
-import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { supersetColorVariable, supersetName } from "../group-colors";
 import { HeaderActionsMenu } from "../header-actions-menu";
@@ -127,7 +131,7 @@ function TemplateDetails(props: { readonly entityId: string }) {
 	const context = useRyotQuery(workoutEditorContextQuery, undefined);
 	const template = source.data?.kind === "ready" ? source.data : undefined;
 	const [dialog, setDialog] = useState<"delete">();
-	const addToCollection = useAddToCollection();
+	const openScreen = useHostScreen();
 	const imperial = context.data?.settings.unitSystem === "imperial";
 	const action = (kind: "edit" | "start") =>
 		client.navigation.push(
@@ -219,7 +223,8 @@ function TemplateDetails(props: { readonly entityId: string }) {
 									{
 										key: "collections",
 										label: "Add to collection",
-										onSelect: () => addToCollection(props.entityId),
+										onSelect: () =>
+											openScreen(client.screens.addToCollection({ entityId: props.entityId })),
 									},
 									{
 										key: "delete",

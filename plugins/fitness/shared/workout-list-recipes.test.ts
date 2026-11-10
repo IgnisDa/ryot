@@ -11,6 +11,7 @@ import {
 	workoutCardsRecipe,
 	workoutCountRecipe,
 	workoutFilterScope,
+	workoutIdsRecipe,
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
 } from "./workout-list-recipes";
@@ -133,6 +134,32 @@ const documentText = (recipe: { readonly document: unknown }) => serialize(recip
 describe("workout filter predicates", () => {
 	const filter = eq(column(table("entity", "workout"), "id"), literal("marker-workout"));
 	const reference = { kind: "self" } as const;
+
+	it.effect(
+		"reaches the ids query and decodes its page of workout ids",
+		() =>
+			Effect.gen(function* () {
+				const recipe = workoutIdsRecipe({ filter, limit: 2, reference, search: "legs" });
+				const text = yield* documentText(recipe);
+				expect(text).toContain("marker-workout");
+				expect(text).toContain("legs");
+				const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
+				expect(
+					Result.getOrThrow(
+						recipe.decode({
+							data: {
+								workoutIds: {
+									pageInfo,
+									type: "rows",
+									items: [{ entityId: "w1" }, { entityId: "w2" }],
+								},
+							},
+						}),
+					),
+				).toEqual({ pageInfo, items: ["w1", "w2"] });
+			}),
+		testTimeout,
+	);
 
 	it.effect(
 		"reaches the cards and count queries",

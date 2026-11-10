@@ -14,6 +14,7 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { encodeFilterParam } from "@ryot-app/ryotql-recipes/filters";
+import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -59,9 +60,9 @@ const listSet = (exerciseId: string, exerciseName: string, exerciseOrder: number
 	exerciseKind: "reps_and_weight",
 });
 
-const listWorkout = (id: string, name: string, startedAt: string) => ({
-	id,
+const listWorkout = (entityId: string, name: string, startedAt: string) => ({
 	name,
+	entityId,
 	startedAt,
 	setCount: 2,
 	volume: 1000,
@@ -85,12 +86,17 @@ type Answers = {
 	readonly deferProcessing?: boolean;
 	readonly processingPending?: boolean;
 	readonly projectionPending?: boolean;
+	readonly ids?: (after: string | undefined) => ReturnType<typeof rows>;
 	readonly list?: (after: string | undefined) => ReturnType<typeof rows>;
 };
 
 const respond = (queries: Queries, answers: Answers) => {
 	if (processingPoll(queries)) {
 		return { processing: aggregate([{ failed: 0, pending: answers.processingPending ? 1 : 0 }]) };
+	}
+	const ids = queries["workoutIds"];
+	if (ids?.output.type === "rows") {
+		return { workoutIds: answers.ids?.(ids.output.pagination.after) ?? rows([{ entityId: "w1" }]) };
 	}
 	const list = queries["workouts"];
 	if (list?.output.type === "rows" && list.output.include !== undefined) {
@@ -211,14 +217,26 @@ const exerciseFilter = `?filters=${encodeFilterParam({
 })}`;
 
 const body = within(document.body);
-const settle = (assert: () => void) =>
+const settle = (check: () => void) =>
 	Effect.promise(() =>
 		waitFor(() => {
 			answerCurrent();
-			assert();
+			check();
 		}),
 	);
 let answerCurrent = () => {};
+
+const changeMembersRequest = (page: ReturnType<typeof openPage>["page"]) =>
+	Effect.promise(() =>
+		waitFor(() => {
+			answerCurrent();
+			const found = page
+				.clientMessages()
+				.findLast(({ type }) => type === "change-collection-members-screen");
+			assert(found?.type === "change-collection-members-screen");
+			return found;
+		}),
+	);
 
 describe("all workouts page", () => {
 	it.live(
@@ -311,10 +329,10 @@ describe("all workouts page", () => {
 				yield* settle(() => expect(body.getByRole("button", { name: "Count all" })).toBeTruthy());
 				fireEvent.click(body.getByRole("button", { name: "Count all" }));
 				yield* settle(() => expect(body.getByText("1 of 42 workouts")).toBeTruthy());
-				fireEvent.click(body.getByRole("button", { name: "Show earlier weeks" }));
+				fireEvent.click(body.getByRole("button", { name: "Load more results" }));
 				yield* settle(() => {
 					expect(body.getByRole("link", { name: "Pull" })).toBeTruthy();
-					expect(body.queryByRole("button", { name: "Show earlier weeks" })).toBeNull();
+					expect(body.queryByRole("button", { name: "Load more results" })).toBeNull();
 				});
 				expect(cursors).toEqual([undefined, "older"]);
 			}),
@@ -337,7 +355,7 @@ describe("all workouts page", () => {
 						page
 							.clientMessages()
 							.flatMap((message) => (message.type === "page-search" ? [message.update] : [])),
-					).toEqual([{ layout: "table" }, { search: "leg day" }]),
+					).toEqual([{ layout: "table" }, { sort: null, filters: null, search: "leg day" }]),
 				);
 			}),
 		testTimeout,
@@ -381,8 +399,12 @@ describe("all workouts page", () => {
 			Effect.gen(function* () {
 				const { page, answerPending } = openPage({ list: () => rows([]) });
 				answerCurrent = answerPending;
-				yield* settle(() => expect(body.getByText("No workouts yet")).toBeTruthy());
-				fireEvent.click(body.getByRole("button", { name: "Start workout" }));
+				yield* settle(() => expect(body.getByText("All Workouts is empty")).toBeTruthy());
+				const emptyState = body
+					.getByRole("heading", { name: "All Workouts is empty" })
+					.closest("section");
+				assert(emptyState instanceof HTMLElement);
+				fireEvent.click(within(emptyState).getByRole("button", { name: "Start workout" }));
 				yield* settle(() =>
 					expect(page.clientMessages().some(({ type }) => type === "navigate")).toBe(true),
 				);
@@ -423,16 +445,80 @@ describe("all workouts page", () => {
 			Effect.gen(function* () {
 				const { page, answerPending } = openPage({ list: () => rows([]) }, exerciseFilter);
 				answerCurrent = answerPending;
-				yield* settle(() => expect(body.getByText("No matching workouts")).toBeTruthy());
-				expect(body.queryByText("No workouts yet")).toBeNull();
+				yield* settle(() => expect(body.getByText("No matches in All Workouts")).toBeTruthy());
+				expect(body.queryByText("All Workouts is empty")).toBeNull();
 				fireEvent.click(body.getByRole("button", { name: "Clear filters" }));
 				yield* settle(() =>
 					expect(
 						page
 							.clientMessages()
 							.flatMap((message) => (message.type === "page-search" ? [message.update] : [])),
-					).toEqual([{ filters: null }]),
+					).toEqual([{ sort: null, search: null, filters: null }]),
 				);
+			}),
+		testTimeout,
+	);
+	it.live(
+		"adds selected workouts to a collection through the kernel members screen",
+		() =>
+			Effect.gen(function* () {
+				const { page, answerPending } = openPage();
+				answerCurrent = answerPending;
+				yield* settle(() => expect(body.getByRole("button", { name: "Select" })).toBeTruthy());
+				fireEvent.click(body.getByRole("button", { name: "Select" }));
+				fireEvent.click(body.getByRole("checkbox", { name: "Select Legs" }));
+				expect(body.getByRole("region", { name: "Selection" }).textContent).toContain("1 selected");
+				fireEvent.click(body.getByRole("button", { name: "Add to collection" }));
+				const change = yield* changeMembersRequest(page);
+				expect(change).toMatchObject({ kind: "add", entityIds: ["w1"] });
+				page.send({
+					outcome: "success",
+					value: { kind: "changed" },
+					requestId: change.requestId,
+					type: "change-collection-members-screen-result",
+				});
+				yield* settle(() => expect(body.queryByRole("region", { name: "Selection" })).toBeNull());
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"resolves every matching workout except excluded ones through the ids query",
+		() =>
+			Effect.gen(function* () {
+				const cursors: Array<string | undefined> = [];
+				const { page, answerPending } = openPage({
+					total: 3,
+					list: (after) =>
+						after === undefined
+							? rows([listWorkout("w1", "Legs", hoursAgo(1))], "older")
+							: rows([]),
+					ids: (after) => {
+						cursors.push(after);
+						return after === undefined
+							? rows([{ entityId: "w1" }, { entityId: "w2" }], "more")
+							: rows([{ entityId: "w3" }]);
+					},
+				});
+				answerCurrent = answerPending;
+				yield* settle(() => expect(body.getByRole("button", { name: "Select" })).toBeTruthy());
+				fireEvent.click(body.getByRole("button", { name: "Select" }));
+				fireEvent.click(body.getByRole("button", { name: "Select all matching" }));
+				yield* settle(() =>
+					expect(body.getByRole("region", { name: "Selection" }).textContent).toContain(
+						"3 selected",
+					),
+				);
+				fireEvent.click(body.getByRole("checkbox", { name: "Select Legs" }));
+				yield* settle(() =>
+					expect(body.getByRole("region", { name: "Selection" }).textContent).toContain(
+						"2 selected",
+					),
+				);
+				fireEvent.click(body.getByRole("button", { name: "Add to collection" }));
+				const change = yield* changeMembersRequest(page);
+				expect(change).toMatchObject({ kind: "add", entityIds: ["w2", "w3"] });
+				expect(cursors).toEqual([undefined, "more"]);
 			}),
 		testTimeout,
 	);

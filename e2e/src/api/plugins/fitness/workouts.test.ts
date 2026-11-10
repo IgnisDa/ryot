@@ -365,39 +365,41 @@ describe("Workouts E2E", () => {
 			});
 			const page = yield* pollUntil("ready workout card projections", readReadyCards);
 			expect(
-				page.items.map(({ id, volume, setCount, repeatedFromId, previousTemplateWorkoutId }) => ({
-					id,
-					volume,
-					setCount,
-					repeatedFromId,
-					previousTemplateWorkoutId,
-				})),
+				page.items.map(
+					({ volume, entityId, setCount, repeatedFromId, previousTemplateWorkoutId }) => ({
+						volume,
+						entityId,
+						setCount,
+						repeatedFromId,
+						previousTemplateWorkoutId,
+					}),
+				),
 			).toEqual([
 				{
 					setCount: 2,
 					volume: 1050,
-					id: repeatedLegs,
 					repeatedFromId: legs,
+					entityId: repeatedLegs,
 					previousTemplateWorkoutId: null,
 				},
 				{
 					setCount: 0,
 					volume: null,
-					id: secondPull,
+					entityId: secondPull,
 					repeatedFromId: null,
 					previousTemplateWorkoutId: firstPull,
 				},
 				{
-					id: legs,
 					volume: 500,
 					setCount: 1,
+					entityId: legs,
 					repeatedFromId: null,
 					previousTemplateWorkoutId: null,
 				},
 				{
 					volume: 400,
 					setCount: 1,
-					id: firstPull,
+					entityId: firstPull,
 					repeatedFromId: null,
 					previousTemplateWorkoutId: null,
 				},
@@ -408,7 +410,7 @@ describe("Workouts E2E", () => {
 				(yield* executeRyotQLRecipe(
 					client,
 					workoutCardsRecipe({ reference, search: "pul", workoutIds: [secondPull, legs] }),
-				)).items.map(({ id }) => id),
+				)).items.map(({ entityId }) => entityId),
 			).toEqual([secondPull]);
 			expect(
 				yield* executeRyotQLRecipe(client, workoutCountRecipe({ reference, search: "pul" })),

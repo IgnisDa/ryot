@@ -236,10 +236,10 @@ export const workoutCardsRecipe = defineRecipe(
 					),
 					selection: {
 						volume: workoutVolume(workout),
-						id: selectedField(column(workout, "id"), Schema.String),
 						setCount: selectedField(totals.setCount, Schema.Finite),
 						name: selectedField(column(workout, "name"), Schema.String),
 						startedAt: selectedField(startedAt(workout), nullableString),
+						entityId: selectedField(column(workout, "id"), Schema.String),
 						exerciseCount: selectedField(totals.exerciseCount, Schema.Finite),
 						processing: selectedField(totals.processing, ProjectionProcessing),
 						personalBests: selectedField(totals.personalBests, NullableNumber),
@@ -273,6 +273,34 @@ export const workoutCountRecipe = defineRecipe(
 				total: selectedAggregate(workout, {
 					measures: { workouts: countAll },
 					where: workoutWhere(workout, input.reference, input.search, input.filter),
+				}),
+			},
+		};
+	},
+);
+
+export const workoutIdsRecipe = defineRecipe(
+	(input: {
+		readonly limit: number;
+		readonly search: string;
+		readonly reference: Reference;
+		readonly after?: string | undefined;
+		readonly filter?: undefined | WorkoutFilterPredicate;
+	}) => {
+		const workout = table("entity", LIST_WORKOUT_ALIAS);
+		return {
+			map: ({ workoutIds }) =>
+				Result.succeed({
+					pageInfo: workoutIds.pageInfo,
+					items: workoutIds.items.map(({ entityId }) => entityId),
+				}),
+			queries: {
+				workoutIds: selectedRows(workout, {
+					after: input.after,
+					limit: input.limit,
+					orderBy: [ascending(column(workout, "id"))],
+					where: workoutWhere(workout, input.reference, input.search, input.filter),
+					selection: { entityId: selectedField(column(workout, "id"), Schema.String) },
 				}),
 			},
 		};

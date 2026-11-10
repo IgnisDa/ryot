@@ -196,7 +196,7 @@ it.live("retries a committed workout after a lost response and reload without du
 			"Expected the saved workout URL",
 		);
 		const saved = yield* readWorkoutDetails(client, workoutId);
-		expect(committed[0]?.id).toBe(workoutId);
+		expect(committed[0]?.entityId).toBe(workoutId);
 		expect(
 			(yield* executeRyotQLRecipe(client, recipe)).items.filter((item) => item.name === name),
 		).toHaveLength(1);

@@ -1,5 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { useHostScreen, useRyot } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Card } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { useState } from "react";
@@ -8,7 +8,6 @@ import type { MuscleCount } from "../../shared/fitness-metrics";
 import type { WorkoutDetails } from "../../shared/workout-details-recipes";
 import { fitnessRoute } from "../../shared/workout-editor-routes";
 import { displayMeasure, type EnergyUnit } from "../../shared/workout-units";
-import { useAddToCollection } from "../collections";
 import { DeleteFitnessEntity } from "../entity-delete";
 import { HeaderActionsMenu } from "../header-actions-menu";
 import { ProcessingNote } from "../workout-processing";
@@ -113,7 +112,7 @@ function WorkoutActions(props: {
 	const client = useRyot();
 	const [adjustingTime, setAdjustingTime] = useState(false);
 	const [action, setAction] = useState<"delete">();
-	const addToCollection = useAddToCollection();
+	const openScreen = useHostScreen();
 	const openEditor = (editorAction: string) => () => {
 		client.navigation.push(
 			fitnessRoute(`/workouts/${encodeURIComponent(props.entityId)}/${editorAction}`),
@@ -140,7 +139,8 @@ function WorkoutActions(props: {
 					{
 						key: "collections",
 						label: "Add to collection",
-						onSelect: () => addToCollection(props.entityId),
+						onSelect: () =>
+							openScreen(client.screens.addToCollection({ entityId: props.entityId })),
 					},
 					{
 						key: "delete",

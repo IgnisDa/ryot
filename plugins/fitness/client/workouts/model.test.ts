@@ -52,11 +52,11 @@ const set = (
 });
 
 const workout = (overrides: Partial<WorkoutListItem> = {}): WorkoutListItem => ({
-	id: "w1",
 	sets: [],
 	setCount: 0,
 	name: "Legs",
 	volume: 1000,
+	entityId: "w1",
 	template: null,
 	exerciseCount: 0,
 	personalBests: 0,
@@ -181,9 +181,9 @@ describe("groupByWeek", () => {
 				},
 			],
 			cards: cards([
-				workout({ id: "a", startedAt: "2026-10-14T17:00:00.000Z" }),
-				workout({ id: "b", startedAt: "2026-10-08T17:00:00.000Z" }),
-				workout({ id: "c", startedAt: "2026-09-29T17:00:00.000Z" }),
+				workout({ entityId: "a", startedAt: "2026-10-14T17:00:00.000Z" }),
+				workout({ entityId: "b", startedAt: "2026-10-08T17:00:00.000Z" }),
+				workout({ entityId: "c", startedAt: "2026-09-29T17:00:00.000Z" }),
 			]),
 		});
 		expect(sections.map(({ title, range, totals }) => ({ title, range, totals }))).toEqual<unknown>(

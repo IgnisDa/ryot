@@ -1,5 +1,5 @@
 import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
-import { Badge, Card } from "@ryot-app/plugin-ui-sdk";
+import { Badge, Card, type ItemSelection, SelectableItem } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, useState } from "react";
@@ -32,6 +32,7 @@ const muscleList = (card: WorkoutCard) =>
 export function WorkoutWeeks(props: {
 	readonly layout: "grid" | "list";
 	readonly sections: readonly WeekSection[];
+	readonly selection: undefined | ItemSelection;
 }) {
 	return (
 		<div className="flex min-w-0 flex-col gap-7 font-ui">
@@ -53,13 +54,27 @@ export function WorkoutWeeks(props: {
 					{props.layout === "grid" ? (
 						<div className="grid grid-cols-[repeat(auto-fill,minmax(320px,1fr))] gap-3.5">
 							{section.cards.map((card) => (
-								<WorkoutGridCard card={card} key={card.id} />
+								<SelectableItem
+									id={card.id}
+									key={card.id}
+									label={card.name}
+									selection={props.selection}
+								>
+									<WorkoutGridCard card={card} />
+								</SelectableItem>
 							))}
 						</div>
 					) : (
 						<div className="flex flex-col">
 							{section.cards.map((card) => (
-								<WorkoutListRow card={card} key={card.id} />
+								<SelectableItem
+									id={card.id}
+									key={card.id}
+									label={card.name}
+									selection={props.selection}
+								>
+									<WorkoutListRow card={card} />
+								</SelectableItem>
 							))}
 						</div>
 					)}
@@ -300,7 +315,10 @@ function Comparison(props: { readonly card: WorkoutCard }) {
 
 const numericHeader = clsx(tableHeaderClass, "text-right");
 
-export function WorkoutTable(props: { readonly cards: readonly WorkoutCard[] }) {
+export function WorkoutTable(props: {
+	readonly cards: readonly WorkoutCard[];
+	readonly selection: undefined | ItemSelection;
+}) {
 	return (
 		<Card padding="none" className="overflow-x-auto font-ui">
 			<table className="w-full min-w-235 border-collapse text-[14px] tabular-nums">
@@ -340,7 +358,9 @@ export function WorkoutTable(props: { readonly cards: readonly WorkoutCard[] }) 
 								<span className="text-[12px] text-text-subtle">{card.time}</span>
 							</td>
 							<td className="px-3 py-2.5">
-								<WorkoutName card={card} />
+								<SelectableItem id={card.id} label={card.name} selection={props.selection}>
+									<WorkoutName card={card} />
+								</SelectableItem>
 							</td>
 							<td className="px-3 py-2.5 text-[13px] text-text-muted">
 								{card.muscles.join(", ") || "—"}
