@@ -24,10 +24,15 @@ and add FAB. Entity-browser cards come from registered entity presentations, and
 entity art from a `managed-asset` table column. Collection-browser reuses the shared controller and
 renders kernel collection cards with batched member counts.
 
-`entity-browser-controller.tsx` owns the shared browser controls, URL state, chrome,
-states, and result layouts. Saved views adapt their configured recipe and optional provider Add flow;
-collections adapt the collections recipe, never expose Add, and pass `{ collectionId }` as the entity
-presentation context.
+The shared browser controller lives in `@ryot-app/plugin-client-sdk/browser` (see the client SDK
+README). Renderers adapt it: saved views supply their configured recipe, count, ID pages, and optional
+provider Add flow, and render results through `EntityBrowserResults`; collections adapt the
+collections recipe, never expose Add, and pass `{ collectionId }` as the entity presentation context.
+
+Saved views, the collections list, and collection detail offer **Select**. Selected results, or every
+result matching the current search and filters, go to the kernel collection members screen through
+`screens.changeCollectionMembers`: saved views and the collections list offer **Add to collection**,
+and collection detail also offers **Remove**. Publications offer no selection.
 
 The publication renderer reuses the entity browser over a publication's subjects in published
 order, under a summary of the description, the owner's name when shown, and the item count that the
@@ -73,7 +78,7 @@ direction. The shipped Name sort defaults to A–Z; shipped count, rating, and d
 descending. The **Default order** choice retains the full source query order and disables direction.
 The rules panel, the chips row, the filters sheet, and the relationship choices queries come from
 `@ryot-app/plugin-client-sdk/filters`;
-`entity-browser-controller.tsx` composes them and owns the state. Renderer sources import filter
+the shared browser controller composes them and owns the state. Renderer sources import filter
 helpers only from `@ryot-app/ryotql-recipes/filters`, never from the contract.
 
 The results table reuses the panel and chips for its authored value `filterFields` only (no Collections

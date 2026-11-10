@@ -10,6 +10,7 @@ it("derives the exact trusted and neutral client import policies from the regist
 		"react-dom/client",
 		"react/jsx-runtime",
 		"@ryot-app/plugin-client-sdk",
+		"@ryot-app/plugin-client-sdk/browser",
 		"@ryot-app/plugin-client-sdk/effect",
 		"@ryot-app/plugin-client-sdk/entity-editor",
 		"@ryot-app/plugin-client-sdk/filters",

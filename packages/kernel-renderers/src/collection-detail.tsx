@@ -1,9 +1,22 @@
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
+import {
+	addToCollectionAction,
+	BrowserInlineError,
+	type BrowserQueryInput,
+	EntityBrowserController,
+	EntityBrowserResults,
+	removeFromCollectionAction,
+} from "@ryot-app/plugin-client-sdk/browser";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
-import { createRyotQuery, useRyot, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import {
+	createRyotQuery,
+	useHostScreen,
+	useRyot,
+	useRyotQuery,
+} from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	type BrowseSchema,
@@ -14,26 +27,20 @@ import {
 	collectionHeaderRecipe,
 	type CollectionHeaderResult,
 	collectionMemberControls,
-	type CollectionMemberFields,
+	collectionMemberIdsRecipe,
 	collectionMembersAggregateRecipe,
 	type CollectionMembersAggregateResult,
 	collectionMembersCountRecipe,
 	collectionMembersRecipe,
+	type CollectionMembersResult,
 	collectionMemberTableColumns,
 	collectionPageLinks,
 	collectionPluginPagesRecipe,
 	type CollectionPluginPagesResult,
 } from "@ryot-app/ryotql-recipes/collections";
-import { useEffect, useEffectEvent, useState } from "react";
+import { useState } from "react";
 
-import { BrowserInlineError } from "./browser-states";
 import { CollectionOrder } from "./collection-order";
-import {
-	type BrowserQueryInput,
-	type BrowserQueryPage,
-	EntityBrowserController,
-} from "./entity-browser-controller";
-import { useHostScreen } from "./host-screen";
 
 const headerQuery = createRyotQuery<string, CollectionHeaderResult>(({ input, client }) =>
 	client.data.query(collectionHeaderRecipe({ collectionId: input })),
@@ -61,55 +68,6 @@ const pluginPagesQuery = createRyotQuery<readonly string[], CollectionPluginPage
 			: client.data.query(collectionPluginPagesRecipe({ pluginIds: [first, ...rest] }));
 	},
 );
-
-const CollectionCount = ({
-	filter,
-	fields,
-	onTotal,
-	searchText,
-	collectionId,
-}: {
-	readonly searchText: string;
-	readonly collectionId: string;
-	readonly fields: CollectionMemberFields;
-	readonly filter: BrowserQueryInput["filter"];
-	readonly onTotal: (total: number | undefined) => void;
-}) => {
-	const [query] = useState(() =>
-		createRyotQuery<Pick<BrowserQueryInput, "filter" | "searchText">, number>(
-			({ client, input: { filter: applied, searchText: search } }) =>
-				Effect.gen(function* () {
-					const now = yield* DateTime.now;
-					return yield* client.data.query(
-						collectionMembersCountRecipe({
-							fields,
-							collectionId,
-							...(search === "" ? {} : { searchText: search }),
-							...(applied === null ? {} : { now, filter: applied }),
-						}),
-					);
-				}),
-		),
-	);
-	const result = useRyotQuery(query, { filter, searchText });
-	const report = useEffectEvent((total: number | undefined) => onTotal(total));
-	useEffect(() => report(result.data), [result.data]);
-	if (result.isPending) {
-		return (
-			<Button disabled variant="link">
-				Counting...
-			</Button>
-		);
-	}
-	if (result.isError) {
-		return (
-			<Button variant="link" onClick={result.refetch}>
-				Retry count
-			</Button>
-		);
-	}
-	return null;
-};
 
 const CollectionBrowser = ({
 	total,
@@ -163,7 +121,7 @@ const CollectionBrowser = ({
 	const fields = { groups, schemas, membershipPropertiesSchema };
 	const { sortChoices, filterFields } = collectionMemberControls(fields);
 	const [query] = useState(() =>
-		createRyotQuery<BrowserQueryInput, BrowserQueryPage<null>>(
+		createRyotQuery<BrowserQueryInput, CollectionMembersResult>(
 			({ client, input: { filter, searchText, sortChoice, cursor: after } }) =>
 				Effect.gen(function* () {
 					const now = yield* DateTime.now;
@@ -180,11 +138,16 @@ const CollectionBrowser = ({
 					if (members.stale) {
 						return yield* new RyotClientError({ reason: "collection-stale" });
 					}
-					return { meta: null, result: members };
+					return members;
 				}),
 			{ cancelOnUnmount: true },
 		),
 	);
+	const members = (searchText: string) => ({
+		fields,
+		collectionId,
+		...(searchText === "" ? {} : { searchText }),
+	});
 	return (
 		<EntityBrowserController
 			query={query}
@@ -194,34 +157,23 @@ const CollectionBrowser = ({
 			identityKey={identityKey}
 			sortChoices={sortChoices}
 			filterFields={filterFields}
-			viewContext={{ collectionId }}
+			name={header?.name ?? "Collection"}
 			layouts={["grid", "list", "table"]}
 			defaultSortLabel="Collection order"
 			errorTitle="Collection unavailable"
 			emptyMessage="This collection is empty."
-			name={() => header?.name ?? "Collection"}
 			errorMessage="The collection could not be loaded."
-			tableColumns={collectionMemberTableColumns(membershipPropertiesSchema)}
-			renderItemActions={(item) => (
-				<IconButton
-					size="sm"
-					onClick={() => memberDetails(item.entityId)}
-					label={`Collection details for ${item.name ?? "item"}`}
-				>
-					<AppIcon size={16} name="more-horizontal" />
-				</IconButton>
-			)}
-			// oxlint-disable-next-line react/no-unstable-nested-components -- The slot needs this collection ID.
-			count={({ filter, onTotal, searchText: search }) => (
-				<CollectionCount
-					fields={fields}
-					onTotal={onTotal}
-					searchText={search}
-					filter={filter ?? null}
-					collectionId={collectionId}
-					key={JSON.stringify([collectionId, search, filter])}
-				/>
-			)}
+			count={(client, { filter, searchText }) =>
+				Effect.gen(function* () {
+					const now = yield* DateTime.now;
+					return yield* client.data.query(
+						collectionMembersCountRecipe({
+							...members(searchText),
+							...(filter === null ? {} : { now, filter }),
+						}),
+					);
+				})
+			}
 			headerActions={[
 				...pageActions,
 				{
@@ -233,6 +185,39 @@ const CollectionBrowser = ({
 				{ run: share, icon: "share", label: "Share" },
 				{ icon: "pencil", run: editCollection, label: "Edit collection" },
 			]}
+			selection={{
+				actions: [addToCollectionAction(ryot), removeFromCollectionAction(ryot, collectionId)],
+				readIds: (client, { after, filter, searchText }) =>
+					Effect.gen(function* () {
+						const now = yield* DateTime.now;
+						return yield* client.data.query(
+							collectionMemberIdsRecipe({
+								...members(searchText),
+								...(after === undefined ? {} : { after }),
+								...(filter === null ? {} : { now, filter }),
+							}),
+						);
+					}),
+			}}
+			renderResults={(results) => (
+				<EntityBrowserResults
+					items={results.items}
+					layout={results.layout}
+					settled={results.settled}
+					selection={results.selection}
+					viewContext={{ collectionId }}
+					columns={collectionMemberTableColumns(membershipPropertiesSchema)}
+					renderItemActions={(item) => (
+						<IconButton
+							size="sm"
+							onClick={() => memberDetails(item.entityId)}
+							label={`Collection details for ${item.name ?? "item"}`}
+						>
+							<AppIcon size={16} name="more-horizontal" />
+						</IconButton>
+					)}
+				/>
+			)}
 			renderSummary={() => (
 				<>
 					{header?.description ? (

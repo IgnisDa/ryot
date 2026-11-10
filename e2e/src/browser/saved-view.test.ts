@@ -64,9 +64,9 @@ const providerChip = (page: Playwright.Page) =>
 	dialog(page).getByRole("radio", { name: PROVIDER_NAME });
 const runtimeOf = (page: Playwright.Page) => page.locator("iframe").contentFrame();
 const fab = (runtime: Playwright.FrameLocator) =>
-	runtime.getByRole("button", { name: "Add to this view" });
+	runtime.getByRole("button", { name: "Add", exact: true }).filter({ hasNotText: "Add" });
 const headerAdd = (runtime: Playwright.FrameLocator) =>
-	runtime.getByRole("button", { name: "Add", exact: true });
+	runtime.getByRole("button", { name: "Add", exact: true }).filter({ hasText: "Add" });
 const pageSearch = (runtime: Playwright.FrameLocator) =>
 	runtime.getByRole("searchbox", { name: `Search ${VIEW_NAME}` });
 const closeModal = (page: Playwright.Page) =>

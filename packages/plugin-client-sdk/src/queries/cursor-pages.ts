@@ -2,7 +2,7 @@ import { Effect } from "effect";
 
 import { RyotClientError } from "../client/errors";
 
-export const readCursorPages = <A>(
+export const readCursorPages = <A, E>(
 	read: (
 		after: string | undefined,
 	) => Effect.Effect<
@@ -10,7 +10,7 @@ export const readCursorPages = <A>(
 			readonly items: readonly A[];
 			readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 		},
-		RyotClientError
+		E
 	>,
 	options: { readonly maxPages?: number } = {},
 ) =>

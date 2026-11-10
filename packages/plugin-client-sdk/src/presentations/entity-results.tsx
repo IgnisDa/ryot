@@ -3,8 +3,10 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	Button,
 	Eyebrow,
+	type ItemSelection,
 	resultsLayoutClasses,
 	schemaSlugLabel,
+	SelectableItem,
 	StatusMessage,
 } from "@ryot-app/plugin-ui-sdk";
 import {
@@ -500,6 +502,7 @@ const PendingPresentation = ({
 
 export const EntityResults = ({
 	layout,
+	selection,
 	references,
 	viewContext,
 	presentations,
@@ -507,6 +510,7 @@ export const EntityResults = ({
 }: {
 	readonly viewContext: JsonValue;
 	readonly layout: EntityResultsLayout;
+	readonly selection?: undefined | ItemSelection;
 	readonly references: readonly EntityReference[];
 	readonly presentations: ReadonlyMap<string, EntityPresentationSource>;
 	readonly renderItemActions?: undefined | ((reference: EntityReference) => ReactNode);
@@ -726,28 +730,34 @@ export const EntityResults = ({
 						reason={settled.get(item.reference.entityId)}
 					>
 						<ObservedEntity register={register} entityId={item.reference.entityId}>
-							{renderItemActions === undefined ? (
-								<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
-							) : (
-								<div
-									className={
-										layout === "grid" ? "relative min-w-0" : "flex min-w-0 items-center gap-2"
-									}
-								>
-									<div className="min-w-0 flex-1">
-										<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
-									</div>
+							<SelectableItem
+								selection={selection}
+								id={item.reference.entityId}
+								label={item.reference.name ?? schemaSlugLabel(item.reference.entitySchemaSlug)}
+							>
+								{renderItemActions === undefined || selection !== undefined ? (
+									<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+								) : (
 									<div
 										className={
-											layout === "grid"
-												? "absolute top-2 right-2 rounded-sm bg-raised/90 shadow-sm backdrop-blur-sm"
-												: undefined
+											layout === "grid" ? "relative min-w-0" : "flex min-w-0 items-center gap-2"
 										}
 									>
-										{renderItemActions(item.reference)}
+										<div className="min-w-0 flex-1">
+											<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+										</div>
+										<div
+											className={
+												layout === "grid"
+													? "absolute top-2 right-2 rounded-sm bg-raised/90 shadow-sm backdrop-blur-sm"
+													: undefined
+											}
+										>
+											{renderItemActions(item.reference)}
+										</div>
 									</div>
-								</div>
-							)}
+								)}
+							</SelectableItem>
 						</ObservedEntity>
 					</SettleHighlight>
 				))}

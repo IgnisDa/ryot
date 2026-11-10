@@ -1,4 +1,4 @@
-import { readCursorPages } from "@ryot-app/plugin-client-sdk";
+import { readCursorPages, type RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
@@ -11,7 +11,7 @@ import {
 } from "../../shared/workout-details-recipes";
 import { workoutTaxonomyRecipe } from "../../shared/workout-taxonomy-recipes";
 
-const readItems = <A>(read: Parameters<typeof readCursorPages<A>>[0]) =>
+const readItems = <A>(read: Parameters<typeof readCursorPages<A, RyotClientError>>[0]) =>
 	Effect.map(readCursorPages(read), ({ items }) => items);
 
 export const workoutDetailsQuery = createRyotQuery<

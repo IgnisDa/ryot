@@ -1,11 +1,12 @@
-import { useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
 import { EntityArtWell, type FieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import type { EntityBrowserResult } from "@ryot-app/ryotql-recipes/saved-views";
 
-export type SavedViewCellValue = SavedViewCell["value"];
-export type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];
-export type SavedViewCellAsset = Extract<
+import { useAssetUrl } from "../assets/provider";
+
+type SavedViewCellValue = SavedViewCell["value"];
+type SavedViewCell = EntityBrowserResult["items"][number]["cells"][number];
+type SavedViewCellAsset = Extract<
 	SavedViewCellValue,
 	{ readonly displayKind: "managed-asset" }
 >["value"];

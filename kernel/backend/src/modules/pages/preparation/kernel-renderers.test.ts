@@ -27,11 +27,11 @@ it("looks up each supported kernel renderer with its compilation policy", () => 
 	expect(collection?.definition.entry).toBe("client/collection-detail.tsx");
 	expect(collection?.definition.automaticEntityPresentations).toBe(true);
 	expect(table?.sourceHash).not.toBe(browser?.sourceHash);
-	expect(Object.keys(browser?.files ?? {})).toContain("client/display-value.tsx");
+	expect(Object.keys(browser?.files ?? {})).toEqual(["client/entity-browser.tsx"]);
 	expect(Object.keys(collectionBrowser?.files ?? {})).toContain(
 		"client/collection-card-results.tsx",
 	);
-	expect(Object.keys(collection?.files ?? {})).toContain("client/entity-browser-controller.tsx");
+	expect(Object.keys(collection?.files ?? {})).toContain("client/collection-order.tsx");
 	expect(getKernelClientRenderer("unknown")).toBeUndefined();
 	expect(getKernelEntityRenderer("unknown")).toBeUndefined();
 });

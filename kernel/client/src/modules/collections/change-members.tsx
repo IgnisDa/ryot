@@ -3,6 +3,7 @@ import type {
 	ChangeCollectionMembersOutcome,
 	ChangeCollectionMembersRequest,
 } from "@ryot-app/plugin-client-contract";
+import { countLabel } from "@ryot-app/plugin-client-sdk/browser";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -32,8 +33,6 @@ import {
 
 type Complete = (outcome: ChangeCollectionMembersOutcome) => void;
 
-const itemCount = (count: number) => `${count.toLocaleString()} item${count === 1 ? "" : "s"}`;
-
 const copy = {
 	add: { done: "Added", active: "Adding", failed: "could not be added" },
 	remove: { done: "Removed", active: "Removing", failed: "could not be removed" },
@@ -54,7 +53,7 @@ export function ChangeCollectionMembers(props: {
 				onClose={cancel}
 				onChosen={setCollectionId}
 				closeLabel="Close collections"
-				title={`Add ${itemCount(request.entityIds.length)} to a collection`}
+				title={`Add ${countLabel(request.entityIds.length)} to a collection`}
 				footer={
 					<Button variant="ghost" onClick={cancel}>
 						Cancel
@@ -90,7 +89,7 @@ function RemoveConfirmation(props: {
 			pendingLabel="Removing..."
 			onConfirm={props.onConfirm}
 			actionLabel="Remove from collection"
-			title={`Remove ${itemCount(props.count)} from ${props.name}?`}
+			title={`Remove ${countLabel(props.count)} from ${props.name}?`}
 			detail="The items stay in your library; only their memberships and details are removed."
 		/>
 	);
@@ -115,10 +114,10 @@ function AddConfirmation(props: {
 		<Dialog
 			onClose={props.onClose}
 			closeLabel="Close collection"
-			title={`Add ${itemCount(props.count)} to ${props.header.name}`}
+			title={`Add ${countLabel(props.count)} to ${props.header.name}`}
 			description={
 				hasFields
-					? `The details below will be applied to all ${itemCount(props.count)}.`
+					? `The details below will be applied to all ${countLabel(props.count)}.`
 					: "Items already in this collection keep their details."
 			}
 			footer={
@@ -169,12 +168,12 @@ function MembershipProgress(props: {
 				{run.running ? (
 					<>
 						<p role="status">
-							{`${words.active} ${settled.toLocaleString()} of ${itemCount(run.total)}…`}
+							{`${words.active} ${settled.toLocaleString()} of ${countLabel(run.total)}…`}
 						</p>
 						<ProgressBar tone="accent" label={title} max={run.total} value={settled} />
 					</>
 				) : (
-					<p role="status">{`${words.done} ${itemCount(run.succeeded)}.`}</p>
+					<p role="status">{`${words.done} ${countLabel(run.succeeded)}.`}</p>
 				)}
 				{!run.running && run.failed.length > 0 ? (
 					<Notice
@@ -185,7 +184,7 @@ function MembershipProgress(props: {
 							</Button>
 						}
 					>
-						{`${itemCount(run.failed.length)} ${words.failed}.`}
+						{`${countLabel(run.failed.length)} ${words.failed}.`}
 					</Notice>
 				) : null}
 			</div>

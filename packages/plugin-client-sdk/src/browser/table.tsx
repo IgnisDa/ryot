@@ -1,5 +1,4 @@
-import type { EntitySettle } from "@ryot-app/plugin-client-sdk";
-import { PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
+import { type ItemSelection, SelectableItem } from "@ryot-app/plugin-ui-sdk";
 import {
 	fieldSyncState,
 	isTitleProvisional,
@@ -13,6 +12,8 @@ import type {
 } from "@ryot-app/ryotql-recipes/saved-views";
 import type { ReactNode } from "react";
 
+import { PluginLink } from "../navigation/routing";
+import type { EntitySettle } from "../refresh/settle";
 import { CellThumbnail, CellValue, isAssetCell } from "./display-value";
 
 export type BrowserColumns = readonly DeclaredBrowserColumns[number][];
@@ -37,6 +38,7 @@ const VALUE_COLUMN = {
 const browserColumns = (
 	declared: null | BrowserColumns,
 	settled: EntitySettle,
+	selection: undefined | ItemSelection,
 ): readonly DataTableColumn<BrowserItem>[] =>
 	(declared ?? [])
 		.filter(({ displayKind }) => displayKind !== "managed-asset")
@@ -68,23 +70,25 @@ const browserColumns = (
 				const asset = rowThumbnail(item);
 				return (
 					<SettleHighlight className="rounded" reason={settled.get(item.entityId)}>
-						<PluginLink
-							to={{ kind: "entity", entityId: item.entityId }}
-							className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
-						>
-							{asset !== undefined && (
-								<CellThumbnail
-									asset={asset}
-									monogram={item.name}
-									className="h-13 w-9 shrink-0 rounded-sm"
-									state={fieldSyncState(asset, item.sync)}
-								/>
-							)}
-							<span className="truncate text-body text-text">
-								{value === undefined ? "" : displayValueText(value)}
-							</span>
-							{isTitleProvisional(item.sync) && <SyncPip reason="translating" />}
-						</PluginLink>
+						<SelectableItem label={item.name} id={item.entityId} selection={selection}>
+							<PluginLink
+								to={{ kind: "entity", entityId: item.entityId }}
+								className="flex h-13 min-w-0 items-center gap-3 rounded outline-none focus-visible:ring-2 focus-visible:ring-focus"
+							>
+								{asset !== undefined && (
+									<CellThumbnail
+										asset={asset}
+										monogram={item.name}
+										className="h-13 w-9 shrink-0 rounded-sm"
+										state={fieldSyncState(asset, item.sync)}
+									/>
+								)}
+								<span className="truncate text-body text-text">
+									{value === undefined ? "" : displayValueText(value)}
+								</span>
+								{isTitleProvisional(item.sync) && <SyncPip reason="translating" />}
+							</PluginLink>
+						</SelectableItem>
 					</SettleHighlight>
 				);
 			},
@@ -107,14 +111,16 @@ export function BrowserTable({
 	items,
 	settled,
 	columns,
+	selection,
 	renderItemActions,
 }: {
 	readonly settled: EntitySettle;
 	readonly items: readonly BrowserItem[];
 	readonly columns: null | BrowserColumns;
+	readonly selection: undefined | ItemSelection;
 	readonly renderItemActions?: undefined | BrowserItemActions;
 }) {
-	const declared = browserColumns(columns, settled);
+	const declared = browserColumns(columns, settled, selection);
 	return (
 		<div className="w-full max-w-6xl overflow-x-auto">
 			<DataTable
@@ -124,7 +130,7 @@ export function BrowserTable({
 				className="w-full border-collapse text-left"
 				headerClassName="border-b border-border text-xs text-text-muted"
 				columns={
-					renderItemActions === undefined
+					renderItemActions === undefined || selection !== undefined
 						? declared
 						: [...declared, actionsColumn(renderItemActions)]
 				}

@@ -100,7 +100,7 @@ describe("publication renderer", () => {
 	afterEach(disposePluginBridges);
 
 	it.live(
-		"introduces the published items with the owner's description and name",
+		"introduces the published items with the owner's description and name without selection",
 		() =>
 			Effect.gen(function* () {
 				openPublication();
@@ -108,6 +108,7 @@ describe("publication renderer", () => {
 				expect(screen.getByText("Ada")).toBeTruthy();
 				expect(screen.getByText("2 items")).toBeTruthy();
 				yield* Effect.promise(() => screen.findByText("Beta"));
+				expect(screen.queryByRole("button", { name: "Select" })).toBeNull();
 			}),
 		testTimeout,
 	);

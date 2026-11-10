@@ -1,3 +1,4 @@
+import { BrowserInlineError, countLabel } from "@ryot-app/plugin-client-sdk/browser";
 import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext, usePluginSearch } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
@@ -12,8 +13,6 @@ import {
 	publicationSubjectSchemasRecipe,
 } from "@ryot-app/ryotql-recipes/publication-browse";
 
-import { BrowserInlineError } from "./browser-states";
-import { countLabel } from "./display-value";
 import { EntityBrowserView } from "./entity-browser";
 import { PublicationItem } from "./publication-item";
 
@@ -107,6 +106,7 @@ const PublicationBrowser = ({ input }: { readonly input: typeof PublicationPageI
 	}
 	return (
 		<EntityBrowserView
+			selectable={false}
 			browse={subjects.data.browse}
 			key={JSON.stringify(subjects.data)}
 			errorTitle="Publication unavailable"

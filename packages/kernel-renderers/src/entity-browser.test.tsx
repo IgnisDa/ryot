@@ -14,6 +14,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
@@ -200,6 +201,71 @@ describe("entity browser", () => {
 				expect(share).toMatchObject({
 					source: { kind: "saved-view", reference: { kind: "kernel", slug: "shared-view" } },
 				});
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"adds every loaded result to a collection through the kernel collection members screen",
+		() =>
+			Effect.gen(function* () {
+				const answered = new Set<string>();
+				const page = openBrowser();
+				yield* Effect.promise(() =>
+					answerBrowser(page, answered, [
+						browserRow("item-1", "Example"),
+						browserRow("item-2", "Second"),
+					]),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
+				);
+				const selection = screen.getByRole("region", { name: "Selection" });
+				expect(within(selection).getByRole("button", { name: "Add to collection" })).toHaveProperty(
+					"disabled",
+					true,
+				);
+				fireEvent.click(within(selection).getByRole("button", { name: "Select all 2" }));
+				expect(selection.textContent).toContain("2 selected");
+				fireEvent.click(within(selection).getByRole("button", { name: "Add to collection" }));
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({
+								kind: "add",
+								entityIds: ["item-1", "item-2"],
+								type: "change-collection-members-screen",
+							}),
+						),
+					),
+				);
+				expect(page.queryRequests("entityBrowserIds")).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"offers New collection instead of an online search from an empty collections list",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollectionBrowser();
+				yield* Effect.promise(() => answerBrowser(page, new Set(), []));
+				yield* Effect.promise(() =>
+					screen.findByText("No items have been added to this view yet."),
+				);
+				expect(screen.queryByRole("button", { name: "Search online" })).toBeNull();
+				const create = screen.getAllByRole("button", { name: "New collection" });
+				expect(create).toHaveLength(2);
+				const fromEmptyState = create.at(-1);
+				assert(fromEmptyState !== undefined);
+				fireEvent.click(fromEmptyState);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(page.clientMessages()).toContainEqual<unknown>(
+							objectContaining({ type: "edit-collection-screen" }),
+						),
+					),
+				);
 			}),
 		testTimeout,
 	);
@@ -507,11 +573,8 @@ describe("entity browser", () => {
 				);
 
 				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByRole("button", { name: "Add to this view" })).toBeTruthy(),
-					),
+					waitFor(() => expect(screen.getAllByRole("button", { name: "Add" })).toHaveLength(1)),
 				);
-				expect(screen.queryByRole("button", { name: /^Add$/ })).toBeNull();
 				fireEvent.click(screen.getByRole("button", { name: "View options, 0 active filters" }));
 				const sheet = yield* Effect.promise(() =>
 					waitFor(() => screen.getByRole("dialog", { name: "View options" })),

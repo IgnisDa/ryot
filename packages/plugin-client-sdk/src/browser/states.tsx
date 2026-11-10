@@ -1,6 +1,12 @@
 import { Button, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 
+export type AddAction = {
+	readonly label: string;
+	readonly searchesOnline: boolean;
+	readonly open: (initialQuery?: string) => void;
+};
+
 const panel = "grid min-h-96 place-content-center justify-items-center gap-2 text-center";
 
 export function BrowserSearching() {
@@ -33,14 +39,12 @@ export function BrowserInlineError({
 }
 
 export function BrowserEmpty({
+	add,
 	name,
-	onAdd,
-	canAdd,
 	message,
 }: {
 	readonly name: string;
-	readonly canAdd: boolean;
-	readonly onAdd: () => void;
+	readonly add: undefined | AddAction;
 	readonly message?: string | undefined;
 }) {
 	return (
@@ -49,14 +53,17 @@ export function BrowserEmpty({
 			<h2 className="text-xl font-semibold">{name} is empty</h2>
 			<p className="text-sm text-text-muted">
 				{message ??
-					(canAdd
+					(add?.searchesOnline
 						? "Search online to add your first item."
 						: "No items have been added to this view yet.")}
 			</p>
-			{canAdd && (
-				<Button onClick={onAdd} className="mt-2 flex items-center gap-2 rounded-pill py-2">
-					<AppIcon size={16} name="search" />
-					Search online
+			{add && (
+				<Button
+					onClick={() => add.open()}
+					className="mt-2 flex items-center gap-2 rounded-pill py-2"
+				>
+					<AppIcon size={16} name={add.searchesOnline ? "search" : "plus"} />
+					{add.searchesOnline ? "Search online" : add.label}
 				</Button>
 			)}
 		</section>
@@ -99,19 +106,17 @@ export function BrowserPagination({
 }
 
 export function BrowserNoMatches({
+	add,
 	name,
 	query,
-	onAdd,
-	canAdd,
 	filtered,
 	onClearFilters,
 }: {
 	readonly name: string;
 	readonly query: string;
-	readonly canAdd: boolean;
 	readonly filtered: boolean;
-	readonly onAdd: () => void;
 	readonly onClearFilters: () => void;
+	readonly add: undefined | AddAction;
 }) {
 	const searched = query !== "";
 	let message = "No items in this view match the current filters.";
@@ -130,11 +135,11 @@ export function BrowserNoMatches({
 					Clear filters
 				</Button>
 			)}
-			{canAdd && searched && (
+			{add?.searchesOnline && searched && (
 				<div className="mt-2 grid w-full max-w-md justify-items-center gap-2">
 					<button
 						type="button"
-						onClick={onAdd}
+						onClick={() => add.open(query)}
 						className="flex w-full items-center gap-2 rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-left"
 					>
 						<AppIcon size={16} name="globe" className="text-accent-text" />

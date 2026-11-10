@@ -1,13 +1,12 @@
-import { useRyot } from "@ryot-app/plugin-client-sdk/react";
+import { useHostScreen, useRyot } from "@ryot-app/plugin-client-sdk/react";
 
 import { CollectionCardResults } from "./collection-card-results";
-import EntityBrowserPage from "./entity-browser";
-import type { BrowserResultsRenderer } from "./entity-browser-controller";
-import { useHostScreen } from "./host-screen";
+import EntityBrowserPage, { type EntityBrowserResultsRenderer } from "./entity-browser";
 
-const renderCollectionResults: BrowserResultsRenderer = ({ items, layout, references }) => (
-	<CollectionCardResults items={items} layout={layout} references={references} />
-);
+const renderCollectionResults: EntityBrowserResultsRenderer = ({ items, layout, selection }) =>
+	layout === "table" ? undefined : (
+		<CollectionCardResults items={items} layout={layout} selection={selection} />
+	);
 
 export default function CollectionBrowserPage() {
 	const ryot = useRyot();
@@ -22,7 +21,7 @@ export default function CollectionBrowserPage() {
 		<EntityBrowserPage
 			shareable={false}
 			renderResults={renderCollectionResults}
-			add={{ open: newCollection, label: "New collection" }}
+			add={{ open: newCollection, searchesOnline: false, label: "New collection" }}
 		/>
 	);
 }

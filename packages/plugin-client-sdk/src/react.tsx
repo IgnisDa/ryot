@@ -1,5 +1,6 @@
 export { localDay } from "./local-day";
 export { ActiveScreenContext } from "./active-screen";
+export { useHostScreen } from "./queries/host-screen";
 export type { RyotSubmission } from "./queries/submission";
 export { useRyotSubmission } from "./queries/submission-hook";
 export { useRequestEntityEnrichment } from "./queries/entity-enrichment";

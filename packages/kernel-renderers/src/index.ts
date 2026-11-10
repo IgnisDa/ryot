@@ -11,36 +11,20 @@ type KernelRendererPath = keyof typeof kernelRendererSources;
 
 const encoder = new TextEncoder();
 
-const SHARED_PATHS = ["client/display-value.tsx"] as const satisfies readonly KernelRendererPath[];
-
-const BROWSER_PATHS = [
-	"client/host-screen.ts",
-	"client/browser-states.tsx",
-	"client/browser-table.tsx",
-	"client/entity-browser-controller.tsx",
-] as const satisfies readonly KernelRendererPath[];
-
-const RESULTS_TABLE_PATHS = [
-	"client/browser-states.tsx",
-] as const satisfies readonly KernelRendererPath[];
-
 const ANALYTICS_PATHS = [
 	"client/analytics-controls.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
 const PUBLICATION_PATHS = [
-	...BROWSER_PATHS,
 	"client/entity-browser.tsx",
 	"client/publication-item.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
 const COLLECTION_PATHS = [
-	...BROWSER_PATHS,
 	"client/collection-order.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 
 const COLLECTION_BROWSER_PATHS = [
-	...COLLECTION_PATHS,
 	"client/collection-card-results.tsx",
 	"client/entity-browser.tsx",
 ] as const satisfies readonly KernelRendererPath[];
@@ -66,7 +50,7 @@ const renderer = (
 	automaticEntityPresentations: boolean,
 	analyticsSections = false,
 ) => {
-	const included = [...new Set([entry, ...paths, ...SHARED_PATHS])].sort();
+	const included = [...new Set([entry, ...paths])].sort();
 	const hasher = createSha256Hasher();
 	for (const path of included) {
 		const source = kernelRendererSources[path];
@@ -86,7 +70,7 @@ const renderer = (
 export const kernelEntityBrowserRenderer = renderer(
 	"Entity browser",
 	"client/entity-browser.tsx",
-	BROWSER_PATHS,
+	[],
 	true,
 );
 
@@ -100,7 +84,7 @@ export const kernelCollectionBrowserRenderer = renderer(
 export const kernelResultsTableRenderer = renderer(
 	"Results table",
 	"client/results-table.tsx",
-	RESULTS_TABLE_PATHS,
+	[],
 	false,
 );
 

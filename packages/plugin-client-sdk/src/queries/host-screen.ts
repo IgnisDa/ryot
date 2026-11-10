@@ -1,5 +1,6 @@
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import { Effect } from "effect";
+
+import { useRyotSchedule } from "./provider";
 
 export const useHostScreen = () => {
 	const schedule = useRyotSchedule();

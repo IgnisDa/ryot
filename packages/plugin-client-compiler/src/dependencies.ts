@@ -28,6 +28,7 @@ const CLIENT_DEPENDENCY_REGISTRY = [
 		specifier: "react/jsx-runtime",
 	},
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk" },
+	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/browser" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/effect" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/entity-editor" },
 	{ policy: "trusted", specifier: "@ryot-app/plugin-client-sdk/filters" },

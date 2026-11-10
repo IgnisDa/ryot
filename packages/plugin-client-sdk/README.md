@@ -380,6 +380,25 @@ render failures, with Retry for load/render failures and page reload for unavail
 This is shared-realm composition: contributor bindings scope host capabilities, not isolation between
 mutually trusting modules. Page freshness continues to require explicit reload after catalog changes.
 
+## Entity Browser
+
+`@ryot-app/plugin-client-sdk/browser` is the shared browsing screen used by kernel renderers and plugin
+pages. `EntityBrowserController` owns search, layout, sort, filters and their URL state, the result
+and sync count line, Count all, pagination, empty and error states, and the screen chrome. Callers
+supply an infinite query whose pages contain `items` with `entityId`, `name`, and optional `sync`,
+and render results for every layout; `EntityBrowserResults` renders entity presentations and the
+declared table columns for saved-view items. `count` reads the total for the current search and
+filter on demand. An `add` action names its button and states whether it searches online; only
+online-search actions offer "Search online" from empty and no-match states.
+
+Passing `selection` adds **Select**. Items become toggles that block their own links and actions,
+and a selection bar offers the caller's bulk actions. A selection holds explicit IDs, or every match
+of the current search and filter minus exclusions; changing search, sort, or filters clears it.
+Before an action runs, `readIds` pages through matching IDs (`ENTITY_IDS_PAGE_SIZE` per page from
+`@ryot-app/ryotql-recipes/browse`) and exclusions are removed. An action returns whether it
+completed, which ends selection mode. `addToCollectionAction` and `removeFromCollectionAction` open
+the kernel collection members screen.
+
 ## Entity Presentations
 
 `defineEntityPresentation` accepts an Effect-returning loader. Its context has only `client` and

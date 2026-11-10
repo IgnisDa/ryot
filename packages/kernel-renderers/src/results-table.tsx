@@ -1,3 +1,8 @@
+import {
+	BrowserNoMatches,
+	CellValue,
+	managedCellAssets,
+} from "@ryot-app/plugin-client-sdk/browser";
 import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	FilterChips,
@@ -26,9 +31,6 @@ import {
 	type ResultsTableResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { useRef, useState } from "react";
-
-import { BrowserNoMatches } from "./browser-states";
-import { CellValue, managedCellAssets } from "./display-value";
 
 type TableItem = ResultsTableResult["items"][number];
 
@@ -160,9 +162,8 @@ const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.
 						<BrowserNoMatches
 							query=""
 							filtered
-							canAdd={false}
+							add={undefined}
 							name={viewName}
-							onAdd={() => undefined}
 							onClearFilters={() => setFilter(undefined)}
 						/>
 					)}

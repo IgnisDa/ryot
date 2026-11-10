@@ -1,10 +1,17 @@
+import { browserResultEntries, countLabel } from "@ryot-app/plugin-client-sdk/browser";
 import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type EntityBrowserLayout,
 	type EntityReference,
 	PluginLink,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { Eyebrow, resultsLayoutClasses, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
+import {
+	Eyebrow,
+	type ItemSelection,
+	resultsLayoutClasses,
+	schemaSlugLabel,
+	SelectableItem,
+} from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
 	fieldSyncState,
@@ -12,8 +19,6 @@ import {
 	SyncPip,
 } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
-
-import { countLabel } from "./display-value";
 
 const CollectionPresentation = Schema.Struct({ presentationMemberCount: Schema.Finite });
 
@@ -73,12 +78,13 @@ const CollectionCard = ({
 export const CollectionCardResults = ({
 	items,
 	layout,
-	references,
+	selection,
 }: {
-	readonly references: readonly EntityReference[];
+	readonly selection: undefined | ItemSelection;
 	readonly items: readonly EntityBrowserResultItem[];
 	readonly layout: Exclude<EntityBrowserLayout, "table">;
 }) => {
+	const { references } = browserResultEntries(items);
 	const counts = new Map(
 		items.map(({ entityId, presentation }) => [
 			entityId,
@@ -92,12 +98,18 @@ export const CollectionCardResults = ({
 		<div className="@container">
 			<div className={resultsLayoutClasses[layout]}>
 				{references.map((reference) => (
-					<CollectionCard
-						layout={layout}
-						reference={reference}
+					<SelectableItem
+						selection={selection}
+						label={reference.name}
+						id={reference.entityId}
 						key={reference.entityId}
-						count={counts.get(reference.entityId)}
-					/>
+					>
+						<CollectionCard
+							layout={layout}
+							reference={reference}
+							count={counts.get(reference.entityId)}
+						/>
+					</SelectableItem>
 				))}
 			</div>
 		</div>

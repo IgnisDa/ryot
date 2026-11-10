@@ -186,6 +186,30 @@ const hostScreenRequest = (
 		}),
 	);
 
+const changeMembersRequest = (page: ReturnType<typeof mountPluginPage>) =>
+	Effect.promise(() =>
+		waitFor(() => {
+			const found = page
+				.clientMessages()
+				.find((message) => message.type === "change-collection-members-screen");
+			assert(found?.type === "change-collection-members-screen");
+			return found;
+		}),
+	);
+
+const memberIdsReply = (entityIds: readonly string[], nextCursor: null | string) => ({
+	outcome: "success" as const,
+	response: {
+		data: {
+			memberIds: {
+				type: "rows" as const,
+				items: entityIds.map((entityId) => ({ entityId })),
+				pageInfo: { nextCursor, limit: 100, hasMore: nextCursor !== null },
+			},
+		},
+	},
+});
+
 const itemMember = {
 	name: "Sample",
 	properties: {},
@@ -505,6 +529,91 @@ describe("collection detail", () => {
 							}),
 						),
 					),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"removes selected members through the kernel collection members screen",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection();
+				yield* answerCollection(page, {
+					name: "Road Trips",
+					members: [itemMember, { ...itemMember, name: "Other", entityId: "item-2" }],
+				});
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
+				);
+				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
+				expect(
+					screen.getByRole("checkbox", { name: "Select Sample" }).getAttribute("aria-checked"),
+				).toBe("true");
+				expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+					"1 selected",
+				);
+				expect(screen.queryByRole("button", { name: "Collection details for Sample" })).toBeNull();
+				fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+				const change = yield* changeMembersRequest(page);
+				expect(change).toEqual<unknown>(
+					objectContaining({ kind: "remove", collectionId: "col-1", entityIds: ["item-1"] }),
+				);
+				page.send({
+					outcome: "success",
+					value: { kind: "changed" },
+					requestId: change.requestId,
+					type: "change-collection-members-screen-result",
+				});
+				yield* Effect.promise(() =>
+					waitFor(() => expect(screen.queryByRole("region", { name: "Selection" })).toBeNull()),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"adds every matching member except excluded ones to another collection",
+		() =>
+			Effect.gen(function* () {
+				const page = openCollection("col-1", "search=sample");
+				yield* answerCollection(page, { name: "Items", hasMore: true, members: [itemMember] });
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Select all matching" }));
+				const count = yield* Effect.promise(() =>
+					waitFor(() => {
+						const found = page
+							.queryRequests("count")
+							.find((candidate) => JSON.stringify(candidate.document).includes("sample"));
+						assert(found !== undefined);
+						return found;
+					}),
+				);
+				page.replyQuery(count.requestId, {
+					outcome: "success",
+					response: { data: { count: { type: "aggregate", items: [{ total: 3 }] } } },
+				});
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+							"3 selected",
+						),
+					),
+				);
+				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
+				expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
+					"2 selected",
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Add to collection" }));
+				const first = yield* request(page, "memberIds");
+				expect(yield* encodeJson(first.document)).toContain("sample");
+				page.replyQuery(first.requestId, memberIdsReply(["item-1", "item-2"], "ids-2"));
+				const second = yield* request(page, "memberIds", 1);
+				page.replyQuery(second.requestId, memberIdsReply(["item-3"], null));
+				expect(yield* changeMembersRequest(page)).toEqual<unknown>(
+					objectContaining({ kind: "add", entityIds: ["item-2", "item-3"] }),
 				);
 			}),
 		testTimeout,
