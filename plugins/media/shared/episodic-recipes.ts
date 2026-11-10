@@ -339,7 +339,7 @@ const episodicEpisodeEventScope = (
 	),
 });
 
-export const episodicSeasonReviewEventsQuery = (input: {
+const episodicSeasonReviewEventsQuery = (input: {
 	readonly limit: number;
 	readonly alias: string;
 	readonly entityId: string;
@@ -596,7 +596,7 @@ export const episodicWatchDaysQuery = <const EpisodeFields extends SelectedSelec
 };
 
 /** The watch-day completions that reviews name, keyed like the watch days they belong to. */
-export const episodicWatchDayReviewsQuery = (input: EpisodicWatchDayInput) => {
+const episodicWatchDayReviewsQuery = (input: EpisodicWatchDayInput) => {
 	const review = table("event", `${input.alias}Review`);
 	const event = table("event", `${input.alias}Event`);
 	const episode = table("entity", `${input.alias}Episode`);

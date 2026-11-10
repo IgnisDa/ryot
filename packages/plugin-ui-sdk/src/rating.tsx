@@ -30,7 +30,7 @@ const stepDecimals = (step: number) => String(step).split(".")[1]?.length ?? 0;
 const isStepMultiple = (value: number, step: number) =>
 	Math.abs(value / step - Math.round(value / step)) < 1e-9;
 
-export const ratingLabel = (rating: number, scale: RatingScale) => {
+const ratingLabel = (rating: number, scale: RatingScale) => {
 	if (scale === "three-point") {
 		return formatRating(rating, scale);
 	}

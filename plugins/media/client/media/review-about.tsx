@@ -19,7 +19,7 @@ const REVIEWABLE_OCCURRENCE_LIMIT = 20;
 
 const NO_OCCURRENCE = "none";
 
-export const reviewableOccurrencesQuery = createRyotQuery<
+const reviewableOccurrencesQuery = createRyotQuery<
 	{ readonly entityId: string },
 	readonly MediaReviewOccurrence[]
 >(({ input, client }) =>

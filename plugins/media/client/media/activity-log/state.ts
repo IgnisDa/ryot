@@ -21,24 +21,11 @@ export type ActivityWhenKind = "now" | "date" | "unknown";
 
 export type ActivityEntryDraft = EntryDraftShape<MediaActivityEntry>;
 
-export type ActivityDateTimeDraft = {
-	readonly value: string;
-	readonly original?: string;
-	readonly occurrence?: string;
-};
-
 /** A local date and time in the user's time zone, written as an exact instant. */
 export type ActivityTimeDraft = {
 	readonly timeZone: string;
 	readonly started: ActivityDateTimeDraft;
 	readonly finished: ActivityDateTimeDraft;
-};
-
-export type MediaPositionLogUnit = {
-	readonly label: string;
-	readonly plural: string;
-	readonly singular: string;
-	readonly value: MediaPosition["unit"];
 };
 
 export type ActivityEpisode = {
@@ -87,6 +74,12 @@ type ActivityIntent = "status" | "episode" | "finished" | "progress";
 
 type PositionalLogger = Extract<MediaActivityLogger, { family: "positional" }>;
 
+type ActivityDateTimeDraft = {
+	readonly value: string;
+	readonly original?: string;
+	readonly occurrence?: string;
+};
+
 type MediaActivityLogUnit = {
 	readonly plural: string;
 	readonly singular: string;
@@ -98,6 +91,13 @@ type MediaActivityLogCopy = {
 	readonly noun: string;
 	readonly gerund: string;
 	readonly participle: string;
+};
+
+type MediaPositionLogUnit = {
+	readonly label: string;
+	readonly plural: string;
+	readonly singular: string;
+	readonly value: MediaPosition["unit"];
 };
 
 type EntryDraftShape<Entry> = Entry extends { readonly when: MediaActivityWhen }

@@ -200,7 +200,7 @@ export const bookPercentProgress = (page: number, pagesCount: number) => {
 	return progressPercent > 0 ? { progressPercent } : undefined;
 };
 
-export const komgaChapterProgress = (input: {
+const komgaChapterProgress = (input: {
 	page: number;
 	pagesCount: number;
 	chapter: number | undefined;

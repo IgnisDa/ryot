@@ -49,12 +49,6 @@ export type MediaEpisodicParentEvent = MediaActivityEventRow & {
 	readonly eventSchemaSlug: "review" | "complete" | MediaEpisodicBeat | "add-to-media-library";
 };
 
-export type MediaEpisodicSeasonEvent = SelectedRow<ReturnType<typeof mediaReviewEventSelection>> & {
-	readonly kind: "season";
-	readonly eventSchemaSlug: "review";
-	readonly season: { readonly id: string; readonly name: string; readonly seasonNumber: number };
-};
-
 export type MediaEpisodicCollectionEvent = {
 	readonly id: string;
 	readonly createdAt: string;
@@ -83,6 +77,12 @@ export type MediaEpisodicHistoryEvent<Episode> =
 type MediaEpisodicEpisodeVocabulary<Episode> = {
 	readonly origin: (episode: Episode) => string;
 	readonly order: (episode: Episode) => readonly number[];
+};
+
+type MediaEpisodicSeasonEvent = SelectedRow<ReturnType<typeof mediaReviewEventSelection>> & {
+	readonly kind: "season";
+	readonly eventSchemaSlug: "review";
+	readonly season: { readonly id: string; readonly name: string; readonly seasonNumber: number };
 };
 
 export const mediaEpisodicActivityRow = <Episode extends MediaEpisodicEpisodeValue>(
@@ -172,11 +172,6 @@ export type MediaEpisodicCoverageRow = {
 	readonly percent: number | undefined;
 };
 
-export type MediaEpisodicReviewSubject =
-	| { readonly on: "parent" }
-	| { readonly name: string; readonly on: "season" }
-	| { readonly name: string; readonly on: "episode"; readonly origin: string };
-
 export type MediaEpisodicRow =
 	| MediaEpisodicWatchRow
 	| MediaEpisodicReviewRow
@@ -251,6 +246,11 @@ export type MediaEpisodicWatchRow = {
 	readonly events: readonly MediaActivityEventRef[];
 	readonly episodes: NonEmpty<MediaEpisodicWatchedEpisode>;
 };
+
+type MediaEpisodicReviewSubject =
+	| { readonly on: "parent" }
+	| { readonly name: string; readonly on: "season" }
+	| { readonly name: string; readonly on: "episode"; readonly origin: string };
 
 export const mediaEpisodicCoveragePercent = (watched: number, total: number) =>
 	total === 0 ? undefined : Math.min(Math.round((watched / total) * 100), 100);

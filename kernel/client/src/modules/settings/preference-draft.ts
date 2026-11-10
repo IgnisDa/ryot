@@ -6,7 +6,7 @@ import type {
 } from "@ryot-app/contract/schema/user-preferences";
 import { Option, Schema } from "effect";
 
-export type PreferenceDraft = {
+type PreferenceDraft = {
 	readonly language: string;
 	readonly ratingScale: RatingScale;
 	readonly reportingTimeZone: string;
