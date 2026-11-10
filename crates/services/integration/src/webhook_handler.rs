@@ -7,13 +7,16 @@ use database_models::{integration, prelude::Integration};
 use database_utils::user_by_id;
 use dependent_import_utils::process_import;
 use dependent_models::{ImportCompletedItem, ImportResult};
-use enum_models::IntegrationProvider;
+use enum_models::{IntegrationLot, IntegrationProvider};
 use rust_decimal::dec;
 use sea_orm::EntityTrait;
 use supporting_service::SupportingService;
 use uuid::Uuid;
 
-use crate::{integration_operations::set_trigger_result, sink};
+use crate::{
+    integration_operations::{set_trigger_result, set_trigger_result_with_partial_success},
+    sink,
+};
 
 // TEMP(1611): debug instrumentation for duplicate seen records; remove after investigation completes
 fn log_import_result_details(import_result: &ImportResult, context: &str, tag: &str) {
@@ -83,11 +86,13 @@ pub async fn integration_progress_update(
         progress_update_id,
         import.completed.len()
     );
+    let mut partial_success = false;
     let result = process_import(false, &integration.user_id, import, ss, |_| async {
         Ok(())
     })
     .await
-    .and_then(|(_, details)| {
+    .and_then(|(_, details, successful_items)| {
+        partial_success = integration.lot == IntegrationLot::Yank && successful_items > 0;
         if details.failed_items.is_empty() {
             Ok(())
         } else {
@@ -103,10 +108,11 @@ pub async fn integration_progress_update(
         progress_update_id,
         if result.is_ok() { "success" } else { "error" }
     );
-    set_trigger_result(
+    set_trigger_result_with_partial_success(
         ss,
         result.as_ref().err().map(|e| e.to_string()),
         &integration,
+        partial_success,
     )
     .await?;
     result?;

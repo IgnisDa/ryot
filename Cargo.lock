@@ -2246,6 +2246,7 @@ dependencies = [
  "serde_json",
  "supporting-service",
  "tracing",
+ "user-models",
  "uuid",
 ]
 

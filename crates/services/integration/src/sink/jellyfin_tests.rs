@@ -321,3 +321,63 @@ fn nested_movie_ticks_completion_and_user_filter_are_preserved() {
             .is_none()
     );
 }
+
+#[test]
+fn historical_played_flags_do_not_complete_a_rewatch() {
+    for event in [
+        "Play",
+        "Progress",
+        "Pause",
+        "Resume",
+        "Stop",
+        "PlaybackStop",
+    ] {
+        let payload = json!({
+            "Event": event,
+            "Played": true,
+            "PlayedToCompletion": false,
+            "Item": {
+                "Type": "Movie", "Played": true, "UserData": {"Played": true},
+                "RunTimeTicks": 1000, "ProviderIds": {"Tmdb": "123"}
+            },
+            "Session": {"PlayState": {"PositionTicks": 250}}
+        });
+        assert_eq!(
+            seen_progress(&run_official(payload.clone(), None, None).unwrap()),
+            Some(dec!(25)),
+            "{event}"
+        );
+        let mut without_completion = payload;
+        without_completion
+            .as_object_mut()
+            .unwrap()
+            .remove("PlayedToCompletion");
+        assert_eq!(
+            seen_progress(&run_official(without_completion, None, None).unwrap()),
+            Some(dec!(25)),
+            "{event}"
+        );
+    }
+}
+
+#[test]
+fn nested_playback_completes_from_current_position_or_explicit_signal() {
+    let mut payload = json!({
+        "Event": "Stop",
+        "Item": {
+            "Type": "Movie", "RunTimeTicks": 1000, "ProviderIds": {"Tmdb": "123"},
+            "UserData": {"Played": false}
+        },
+        "PositionTicks": 1000
+    });
+    assert_eq!(
+        seen_progress(&run_official(payload.clone(), None, None).unwrap()),
+        Some(dec!(100))
+    );
+    payload["PositionTicks"] = json!(250);
+    payload["PlayedToCompletion"] = json!(true);
+    assert_eq!(
+        seen_progress(&run_official(payload, None, None).unwrap()),
+        Some(dec!(100))
+    );
+}

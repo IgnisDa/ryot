@@ -78,6 +78,7 @@ pub async fn commit_import_seen_item(
                 )),
             },
             None,
+            None,
         )
         .await;
     }
@@ -142,31 +143,10 @@ pub async fn commit_import_seen_item(
             change,
             metadata_id: metadata_id.clone(),
         },
-        Some(previous.clone()),
+        Some(previous),
+        input.progress,
     )
     .await?;
-    if previous.is_none() && !finished && input.progress.is_some_and(|p| p > dec!(0)) {
-        let created = Seen::find()
-            .filter(seen::Column::UserId.eq(user_id))
-            .filter(seen::Column::MetadataId.eq(metadata_id))
-            .order_by_desc(seen::Column::LastUpdatedOn)
-            .all(&ss.db)
-            .await?
-            .into_iter()
-            .find(|seen| seen.progress < dec!(100) && matches_episode(seen, &extra));
-        metadata_progress_update_inner(
-            user_id,
-            ss,
-            MetadataProgressUpdateInput {
-                metadata_id: metadata_id.clone(),
-                change: MetadataProgressUpdateChange::ChangeLatestInProgress(
-                    input.progress.unwrap(),
-                ),
-            },
-            Some(created),
-        )
-        .await?;
-    }
     if finished {
         cache_service::set_key(
             ss,

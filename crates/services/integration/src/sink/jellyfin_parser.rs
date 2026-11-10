@@ -179,18 +179,13 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
     });
     let runtime_ticks = decimal_field(value, &["RunTimeTicks", "RuntimeTicks"], &["RunTimeTicks"]);
     let played_to_completion =
-        bool_field(value, &["PlayedToCompletion", "Played"], &["Played"]).unwrap_or(false);
+        bool_field(value, &["PlayedToCompletion"], &["PlayedToCompletion"]).unwrap_or(false);
     let username = string_field(value, &["NotificationUsername", "Username"], &[]).or_else(|| {
         child(value, "User")
             .and_then(|u| u.as_object())
             .and_then(|m| first_flat(m, &["Name"]))
             .and_then(as_string)
     });
-    let played_flag = child(value, "Item")
-        .and_then(|i| child(i, "UserData"))
-        .and_then(|u| child(u, "Played"))
-        .and_then(as_bool)
-        .unwrap_or(false);
     let is_episode = item_type.eq_ignore_ascii_case("Episode");
     let media_id = |provider| match is_episode {
         true => series_provider_id(value, provider),
@@ -207,6 +202,7 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
         event_name,
         runtime_ticks,
         position_ticks,
+        played_to_completion,
         tmdb_id: media_id("tmdb"),
         tvdb_id: media_id("tvdb"),
         imdb_id: media_id("imdb"),
@@ -222,7 +218,6 @@ pub fn parse_official_payload(value: &Value) -> Result<OfficialPlayback> {
                 })
             })
             .flatten(),
-        played_to_completion: played_to_completion || played_flag,
         episode_number: integer_field(
             value,
             &[

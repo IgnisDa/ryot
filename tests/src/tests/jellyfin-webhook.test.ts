@@ -65,6 +65,7 @@ describe.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
 								IndexNumber: 2,
 								RunTimeTicks: 1000,
 								ParentIndexNumber: 1,
+								UserData: { Played: true },
 								ProviderIds: { Tmdb: "2438351" },
 								Name: "Best Friends, For Never",
 							},
@@ -116,6 +117,7 @@ describe.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
 			const resumed = await history();
 			expect(resumed).toHaveLength(1);
 			expect(Number(resumed[0].progress)).toBe(25);
+			expect(resumed[0].numTimesUpdated).toBe(1);
 			await client.request(
 				DeleteSeenItemDocument,
 				{ seenId: resumed[0].id },
@@ -124,6 +126,8 @@ describe.skipIf(!process.env.MOVIES_AND_SHOWS_TMDB_ACCESS_TOKEN)(
 			await send("Progress");
 			const recreated = await history();
 			expect(recreated).toHaveLength(1);
+			expect(Number(recreated[0].progress)).toBe(25);
+			expect(recreated[0].numTimesUpdated).toBe(1);
 			expect(recreated[0].id).not.toBe(resumed[0].id);
 		}, 60000);
 	},

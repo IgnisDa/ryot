@@ -150,7 +150,7 @@ pub async fn metadata_progress_update(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateInput,
 ) -> Result<()> {
-    metadata_progress_update_inner(user_id, ss, input, None).await
+    metadata_progress_update_inner(user_id, ss, input, None, None).await
 }
 
 async fn metadata_progress_update_inner(
@@ -158,6 +158,7 @@ async fn metadata_progress_update_inner(
     ss: &Arc<SupportingService>,
     input: MetadataProgressUpdateInput,
     matching_seen: Option<Option<seen::Model>>,
+    initial_progress: Option<Decimal>,
 ) -> Result<()> {
     let progress_update_exec_id = Uuid::new_v4();
     ryot_log!(
@@ -275,12 +276,12 @@ async fn metadata_progress_update_inner(
             commit(CommitInput {
                 ss,
                 user_id,
-                progress: dec!(0),
                 finished_on: None,
                 metadata_lot: meta.lot,
                 state: SeenState::InProgress,
                 metadata_id: &input.metadata_id,
                 payload: create_new_in_progress.data,
+                progress: initial_progress.unwrap_or_default(),
                 started_on: Some(create_new_in_progress.started_on),
             })
             .await?
