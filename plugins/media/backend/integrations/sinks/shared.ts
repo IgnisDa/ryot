@@ -12,7 +12,6 @@ import {
 	progressPercent,
 	progressResult,
 	showEpisodeRef,
-	textValue,
 	truthy,
 } from "../shared";
 
@@ -36,8 +35,7 @@ const jellyfinCompletion = (payload: unknown) => {
 	return (
 		event === "markplayed" ||
 		truthy(pathValue(payload, ["PlayedToCompletion"])) ||
-		truthy(pathValue(payload, ["Played"])) ||
-		truthy(pathValue(payload, ["Item", "UserData", "Played"]))
+		truthy(pathValue(payload, ["Item", "PlayedToCompletion"]))
 	);
 };
 
@@ -105,23 +103,8 @@ export const parseMediaServer = (
 				}
 				const metadataProvider =
 					provider === "Jellyfin" && settings?.["metadataProvider"] === "tvdb" ? "tvdb" : "tmdb";
-				const itemKeys = [`Provider_${metadataProvider}`, metadataProvider];
-				const officialEpisode =
-					provider === "Jellyfin" &&
-					entitySchemaSlug === "show" &&
-					textValue(pathValue(payload, ["NotificationType"])) !== undefined;
-				const embyEpisode = provider === "Emby" && entitySchemaSlug === "show";
-				const payloadId =
-					entitySchemaSlug === "show"
-						? (nestedString(payload, [
-								`SeriesProvider_${metadataProvider}`,
-								`SeriesProvider${metadataProvider}`,
-							]) ??
-							textValue(pathValue(payload, ["Series", "ProviderIds", metadataProvider])) ??
-							nestedString(payload, itemKeys))
-						: nestedString(payload, itemKeys);
 				const id =
-					officialEpisode || embyEpisode
+					entitySchemaSlug === "show"
 						? yield* findShow(payload, metadataProvider).pipe(
 								Effect.catch((error) =>
 									Effect.succeed(
@@ -132,16 +115,16 @@ export const parseMediaServer = (
 									),
 								),
 							)
-						: payloadId;
+						: nestedString(payload, [`Provider_${metadataProvider}`, metadataProvider]);
 				if (typeof id === "object") {
 					return id;
 				}
 				if (!id) {
 					return failureResult(
-						embyEpisode
+						provider === "Emby" && entitySchemaSlug === "show"
 							? "Could not resolve Emby episode to a TMDB show"
 							: `${provider} webhook payload is missing a ${metadataProvider.toUpperCase()} identifier`,
-						officialEpisode || embyEpisode ? "provider_resolution" : "input_transformation",
+						entitySchemaSlug === "show" ? "provider_resolution" : "input_transformation",
 					);
 				}
 				const label =

@@ -322,7 +322,7 @@ describe("Emby episode show resolution", () => {
 	);
 
 	it.effect(
-		"preserves Emby movie and unofficial Jellyfin episode behavior without lookups",
+		"preserves Emby movie IDs and rejects unresolved Jellyfin episode IDs",
 		() =>
 			Effect.gen(function* () {
 				const requests: string[] = [];
@@ -343,12 +343,9 @@ describe("Emby episode show resolution", () => {
 					externalId: "42",
 					providerSlug: "movie.tmdb",
 				});
-				expect(jellyfin.failures).toEqual([]);
-				expect(jellyfin.entityGroups[0]?.entityRef).toMatchObject({
-					externalId: "episode-42",
-					providerSlug: "show.tmdb",
-				});
-				expect(requests).toEqual([]);
+				expect(jellyfin.entityGroups).toEqual([]);
+				expect(jellyfin.failures[0]?.stage).toBe("provider_resolution");
+				expect(requests.length).toBeGreaterThan(0);
 			}),
 		testTimeout,
 	);

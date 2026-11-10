@@ -24,6 +24,7 @@ export const findJellyfinShow = Effect.fnUntraced(function* (
 ) {
 	const seriesId =
 		textValue(pathValue(payload, [`SeriesProvider_${provider}`])) ??
+		textValue(pathValue(payload, [`SeriesProvider${provider}`])) ??
 		textValue(pathValue(payload, ["Series", "ProviderIds", provider]));
 	if (seriesId) {
 		return seriesId;

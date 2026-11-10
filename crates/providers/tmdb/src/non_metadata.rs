@@ -60,7 +60,8 @@ impl MediaProvider for NonMediaTmdbService {
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let search: TmdbListResponse = rsp.json().await?;
         let items = search
             .results
@@ -101,6 +102,7 @@ impl MediaProvider for NonMediaTmdbService {
             .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?
+            .error_for_status()?
             .json()
             .await?;
         let mut images = vec![];
@@ -213,7 +215,8 @@ impl MediaProvider for NonMediaTmdbService {
             .get(format!("{URL}/{person_type}/{identifier}"))
             .query(&[("language", target_language)])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let data: TmdbNonMediaEntity = rsp.json().await?;
         Ok(EntityTranslationDetails {
             title: Some(data.name),
@@ -239,6 +242,7 @@ impl NonMediaTmdbService {
             ])
             .send()
             .await?
+            .error_for_status()?
             .json()
             .await?;
         Ok(details)
@@ -287,6 +291,7 @@ impl NonMediaTmdbService {
             ])
             .send()
             .await?
+            .error_for_status()?
             .json()
             .await?;
         for show in search.results.iter().take(5) {

@@ -565,10 +565,11 @@ rejected at ingress, not retained as recoverable source work.
   receipt-confirmed creations claim `["media.spotify-play", integrationId, trackId, playedAt]`, expiring
   30 days after collection began. Confirmation replay neither refetches nor extends claims; HTTP
   failures expose status only.
-- **Jellyfin:** official episode webhooks use series-level provider IDs only. Missing show IDs are
+- **Jellyfin:** both official and nested episode webhooks use series-level provider IDs only. Missing show IDs are
   resolved through TVDB's episode endpoint, or TMDB's IMDb/TVDB episode lookup followed by a
   series-name search verified against the season's episode IDs. Lookups are cached for one day;
-  external-ID-only misses are retried on the next event. Unofficial payload handling is unchanged.
+  external-ID-only misses are retried on the next event. Completion uses `MarkPlayed` or
+  `PlayedToCompletion`; historical `Played` flags do not complete a current rewatch.
 - **Plex:** accepts JSON or the multipart `payload` field, ignoring thumbnail parts. Scrobble always
   reports 100%, even with an offset. Play without an offset reports zero; stop, pause, and resume
   without an offset are skipped before provider lookups. Shared admission filters zero progress.

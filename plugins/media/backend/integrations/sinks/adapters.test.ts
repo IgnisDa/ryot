@@ -365,9 +365,9 @@ describe("Jellyfin official webhook plugin", () => {
 					NotificationType: "PlaybackStop",
 				});
 				const yes = yield* runJellyfin({
-					Played: "yes",
 					ItemType: "Movie",
 					Provider_tmdb: "707",
+					PlayedToCompletion: "yes",
 					NotificationType: "PlaybackStop",
 				});
 				expect(numeric.entityGroups[0]?.events[0]?.properties).toMatchObject({
@@ -420,7 +420,7 @@ describe("Jellyfin official webhook plugin", () => {
 	);
 
 	it.live(
-		"reads the played flag only from the item user data",
+		"ignores historical played flags during a rewatch",
 		() =>
 			Effect.gen(function* () {
 				const item = { Type: "Movie", RunTimeTicks: 100, ProviderIds: { Tmdb: "909" } };
@@ -430,6 +430,7 @@ describe("Jellyfin official webhook plugin", () => {
 					Session: { UserData: { Played: true }, PlayState: { PositionTicks: 40 } },
 				});
 				const itemPlayed = yield* runJellyfin({
+					Played: true,
 					Event: "Stop",
 					Item: { ...item, UserData: { Played: true } },
 					Session: { PlayState: { PositionTicks: 40 } },
@@ -438,7 +439,7 @@ describe("Jellyfin official webhook plugin", () => {
 					progressPercent: 40,
 				});
 				expect(itemPlayed.entityGroups[0]?.events[0]?.properties).toMatchObject({
-					progressPercent: 100,
+					progressPercent: 40,
 				});
 			}),
 		testTimeout,
@@ -524,6 +525,50 @@ const jellyfinLookupHost = (
 });
 
 describe("Jellyfin episode show resolution", () => {
+	it.live.each(["tmdb", "tvdb"])(
+		"resolves nested episode IDs through the parent show on %s",
+		(metadataProvider) =>
+			Effect.gen(function* () {
+				const payload = {
+					Event: "Stop",
+					Session: { PlayState: { PositionTicks: 25 } },
+					Item: {
+						IndexNumber: 2,
+						Type: "Episode",
+						RunTimeTicks: 100,
+						ParentIndexNumber: 1,
+						ProviderIds: { Tmdb: "999", Tvdb: "888", Imdb: "tt123" },
+					},
+				};
+				const result = yield* runJellyfin(
+					payload,
+					{ metadataProvider },
+					jellyfinLookupHost({
+						"/v4/episodes/888": { data: { seriesId: 101 } },
+						"/3/find/tt123?external_source=imdb_id": { tv_episode_results: [{ show_id: 101 }] },
+					}),
+				);
+				expect(result.failures).toEqual([]);
+				expect(result.entityGroups[0]).toMatchObject({
+					entityRef: { externalId: "101", providerSlug: `show.${metadataProvider}` },
+					events: [
+						{
+							properties: { progressPercent: 25 },
+							unresolvedEpisode: { seasonNumber: 1, episodeNumber: 2 },
+						},
+					],
+				});
+				const unresolved = yield* runJellyfin(
+					payload,
+					{ metadataProvider },
+					jellyfinLookupHost({}),
+				);
+				expect(unresolved.entityGroups).toEqual([]);
+				expect(unresolved.failures[0]?.stage).toBe("provider_resolution");
+			}),
+		testTimeout,
+	);
+
 	it.live.each(["tmdb", "tvdb"])(
 		"resolves and caches the show on %s",
 		(metadataProvider) =>

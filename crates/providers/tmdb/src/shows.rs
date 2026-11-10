@@ -50,7 +50,8 @@ impl MediaProvider for TmdbShowService {
                 ("language", &self.0.get_default_language()),
             ])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let show_data: TmdbMediaEntry = rsp.json().await?;
         let mut remote_videos = vec![];
         if let Some(vid) = show_data.videos {
@@ -259,7 +260,8 @@ impl MediaProvider for TmdbShowService {
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let search: TmdbListResponse = rsp.json().await?;
         let resp = search
             .results
@@ -365,8 +367,8 @@ pub async fn fetch_season_with_credits(
 
     let (season_resp, credits_resp) = try_join!(season_data_future, season_credits_future)?;
 
-    let mut season_data: TmdbSeason = season_resp.json().await?;
-    let credits: TmdbSeasonCredit = credits_resp.json().await?;
+    let mut season_data: TmdbSeason = season_resp.error_for_status()?.json().await?;
+    let credits: TmdbSeasonCredit = credits_resp.error_for_status()?.json().await?;
 
     for episode in season_data.episodes.iter_mut() {
         episode.guest_stars.extend(credits.cast.clone());
