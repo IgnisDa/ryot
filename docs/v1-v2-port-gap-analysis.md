@@ -277,7 +277,7 @@ were addressed and the main-session cleanup is complete.
 Ratings are stored on 0–100 and shown in the user's kernel `ratingScale` preference (100, 10, five
 half-stars or a three-point smiley) on every rating surface, filters and browse values; plugins
 read it through the `user-preferences` bridge capability and a shared preferences gate with retry,
-and publication visitors get defaults. Media has one `position` model (`episodes`, `chapters`
+and publication visitors get defaults. Media title tables show a **Your rating** column. Media has one `position` model (`episodes`, `chapters`
 including fractional chapters with optional volume context, `volumes`). Anime and Manga reviews
 can name a position; show, season, episode and podcast-episode reviews land on the child entity,
 and season reviews appear in show activity and history. A review may name one completion,
