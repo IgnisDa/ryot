@@ -13,6 +13,7 @@ import {
 	mapScalarExpression,
 	type OrderBy,
 	type Predicate,
+	type RowsPageInfo,
 	type ScalarExpression,
 	type TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
@@ -50,10 +51,17 @@ export const reservedBrowseFieldKeys: readonly string[] = [
 	NAME_SORT_KEY,
 ];
 
+export const ENTITY_IDS_PAGE_SIZE = 100;
+
 export type BrowseSortChoice = BrowseSort & { readonly key: string };
 
 export type SortTarget = BrowseSortChoice & {
 	readonly branches: readonly [SortBranch, ...SortBranch[]];
+};
+
+export type EntityIdsResult = {
+	readonly items: readonly string[];
+	readonly pageInfo: typeof RowsPageInfo.Type;
 };
 
 export type BrowseSchema = {

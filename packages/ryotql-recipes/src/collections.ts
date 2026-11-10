@@ -60,6 +60,8 @@ import {
 	type BrowseSchema,
 	browseTargets,
 	compileSort,
+	ENTITY_IDS_PAGE_SIZE,
+	type EntityIdsResult,
 	nameSortTarget,
 	sortChoices,
 	type SortTarget,
@@ -391,7 +393,7 @@ export const collectionMembershipTargetRecipe = defineRecipe(
 );
 
 export const collectionPickerRecipe = defineRecipe(
-	(input: { readonly search: string; readonly after?: string; readonly entityId: string }) => {
+	(input: { readonly search: string; readonly after?: string; readonly entityId?: string }) => {
 		const collection = table("entity", "collectionOption");
 		const membership = table("relationship", "optionMembership");
 		return {
@@ -412,13 +414,15 @@ export const collectionPickerRecipe = defineRecipe(
 						id: selectedField(column(collection, "id"), EntityId),
 						name: selectedField(column(collection, "name"), Schema.String),
 						added: selectedField(
-							exists(membership, {
-								where: and(
-									relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
-									eq(column(membership, "sourceEntityId"), literal(input.entityId)),
-									eq(column(membership, "targetEntityId"), column(collection, "id")),
-								),
-							}),
+							input.entityId === undefined
+								? literal(false)
+								: exists(membership, {
+										where: and(
+											relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
+											eq(column(membership, "sourceEntityId"), literal(input.entityId)),
+											eq(column(membership, "targetEntityId"), column(collection, "id")),
+										),
+									}),
 							Schema.Boolean,
 						),
 					},
@@ -615,6 +619,44 @@ export const collectionMembersRecipe = defineRecipe(
 );
 
 export type CollectionMembersResult = Recipe.Success<typeof collectionMembersRecipe>;
+
+export const collectionMemberIdsRecipe = defineRecipe(
+	(
+		input: FilterInput & {
+			readonly collectionId: string;
+			readonly after?: string | undefined;
+			readonly searchText?: string | undefined;
+			readonly fields?: undefined | CollectionMemberFields;
+		},
+	) => {
+		const tables = collectionMembershipTables();
+		const { entity, membership, entityJoin } = tables;
+		const { predicate } = collectionMemberQuery(tables, input);
+		return {
+			map: ({ memberIds }): Result.Result<EntityIdsResult> =>
+				Result.succeed({
+					pageInfo: memberIds.pageInfo,
+					items: memberIds.items.map(({ entityId }) => entityId),
+				}),
+			queries: {
+				memberIds: selectedRows(membership, {
+					after: input.after,
+					joins: [entityJoin],
+					limit: ENTITY_IDS_PAGE_SIZE,
+					orderBy: [ascending(column(entity, "id"))],
+					selection: { entityId: selectedField(column(entity, "id"), EntityId) },
+					where: collectionMembershipWhere(
+						membership,
+						entity,
+						input.collectionId,
+						input.searchText,
+						predicate,
+					),
+				}),
+			},
+		};
+	},
+);
 
 export const collectionMembersCountRecipe = defineRecipe(
 	(

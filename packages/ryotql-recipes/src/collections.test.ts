@@ -23,6 +23,7 @@ import {
 	collectionMembersRecipe,
 	collectionMemberTableColumns,
 	collectionPageLinks,
+	collectionPickerRecipe,
 	collectionPluginPagesRecipe,
 } from "./collections";
 import type { FilterInput } from "./filters";
@@ -108,6 +109,12 @@ const collectionPage = (entitySchemaSlugs: readonly string[]) => ({
 	route: "/collections/$collectionId/related",
 });
 
+const pickerOutput = (entityId?: string) =>
+	JSON.stringify(
+		collectionPickerRecipe({ search: "", ...(entityId === undefined ? {} : { entityId }) }).document
+			.queries.collections?.output,
+	);
+
 describe("collections recipes", () => {
 	it("selects the membership target name for the collection manager", () => {
 		const recipe = collectionMembershipTargetRecipe({ entityId: "entity-1" });
@@ -125,6 +132,10 @@ describe("collections recipes", () => {
 		expect(
 			Result.getOrThrow(recipe.decode({ data: { target: { pageInfo, items: [], type: "rows" } } })),
 		).toBeNull();
+	});
+	it("checks picker membership only for a target entity", () => {
+		expect(pickerOutput("entity-1")).toContain('"value":"entity-1"');
+		expect(pickerOutput()).not.toContain("optionMembership");
 	});
 	it("prepares and decodes the paginated collection list", () => {
 		const recipe = allCollectionsRecipe({ limit: 7, after: "cursor" });

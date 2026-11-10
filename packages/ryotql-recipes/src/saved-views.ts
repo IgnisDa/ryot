@@ -45,6 +45,8 @@ import {
 	type BrowseSchema,
 	browseTargets,
 	compileSort,
+	ENTITY_IDS_PAGE_SIZE,
+	type EntityIdsResult,
 	nameSortTarget,
 	sortChoices,
 } from "./browse";
@@ -263,34 +265,49 @@ export const subjectSchemaPredicate = (subject: SavedViewSubject, entity: TableR
 		),
 	);
 
+type EntityBrowserSelectionInput = FilterInput & {
+	readonly searchText?: string | undefined;
+	readonly browse: readonly BrowseSchema[];
+};
+
+const entityBrowserSelection = (
+	queryDocument: RyotQLDocument,
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "subject" | "sourceName" | "searchFields">,
+	input: EntityBrowserSelectionInput,
+) =>
+	Result.gen(function* () {
+		const source = yield* getNamedRowsQuery(queryDocument, settings.sourceName);
+		const entity = table("entity", settings.subject.entityAlias);
+		const targets = browserTargets(entity.alias, new Set(queryAliases(source)), input.browse);
+		const search = yield* browserSearchPredicate(source, settings, input.searchText);
+		const filter = yield* compileOptionalFilter(input, {
+			source,
+			targets: targets.filters,
+			subject: settings.subject,
+		});
+		const where = combineWhere(
+			combineWhere(
+				combineWhere(source.where, subjectSchemaPredicate(settings.subject, entity)),
+				search,
+			),
+			filter,
+		);
+		return { where, entity, source, sorts: targets.sorts };
+	});
+
 export const entityBrowserRecipe = (
 	input: EntityBrowserRecipeInput,
 ): Result.Result<PreparedRecipe<EntityBrowserResult>, Error> =>
-	Result.flatMap(getNamedRowsQuery(input.queryDocument, input.settings.sourceName), (source) => {
+	Result.gen(function* () {
+		const { where, sorts, entity, source } = yield* entityBrowserSelection(
+			input.queryDocument,
+			input.settings,
+			input,
+		);
 		const fields = selectedFields(source);
-		const entity = table("entity", input.settings.subject.entityAlias);
-		const searchResult = browserSearchPredicate(source, input.settings, input.searchText);
-		if (Result.isFailure(searchResult)) {
-			return Result.fail(searchResult.failure);
-		}
-		const targets = browserTargets(entity.alias, new Set(queryAliases(source)), input.browse);
-		const orderByResult =
-			input.sortChoice === undefined
-				? Result.succeed([...source.output.orderBy, ascending(column(entity, "id"))])
-				: compileSort(targets.sorts, input.sortChoice, column(entity, "id"));
-		if (Result.isFailure(orderByResult)) {
-			return Result.fail(orderByResult.failure);
-		}
-		const filterResult = compileOptionalFilter(input, {
-			source,
-			targets: targets.filters,
-			subject: input.settings.subject,
-		});
-		if (Result.isFailure(filterResult)) {
-			return Result.fail(filterResult.failure);
-		}
-		const search = searchResult.success;
-		const orderBy = orderByResult.success;
+		const orderBy = yield* input.sortChoice === undefined
+			? Result.succeed([...source.output.orderBy, ascending(column(entity, "id"))])
+			: compileSort(sorts, input.sortChoice, column(entity, "id"));
 		const nameField = unusedFieldKey(fields, "__entityBrowserName");
 		const idField = unusedFieldKey(fields, "__entityBrowserId");
 		const ownerField = unusedFieldKey(fields, "__entityBrowserOwnerPluginId");
@@ -299,13 +316,7 @@ export const entityBrowserRecipe = (
 		const translationField = unusedFieldKey(fields, "__entityBrowserTranslationStatus");
 		const query = {
 			...source,
-			where: combineWhere(
-				combineWhere(
-					combineWhere(source.where, subjectSchemaPredicate(input.settings.subject, entity)),
-					search,
-				),
-				filterResult.success,
-			),
+			where,
 			output: {
 				...source.output,
 				orderBy,
@@ -378,55 +389,66 @@ export const entityBrowserRecipe = (
 				},
 			},
 		}));
-		return Result.succeed(recipe());
+		return recipe();
 	});
+
+const entityBrowserIdRows = rowsResultSchema(Schema.Struct({ entityId: Schema.String }));
+
+export const entityBrowserIdsRecipe = (
+	queryDocument: RyotQLDocument,
+	settings: Pick<EntityBrowserSavedViewSettingsValue, "subject" | "sourceName" | "searchFields">,
+	input: EntityBrowserSelectionInput & { readonly after?: string | undefined },
+): Result.Result<PreparedRecipe<EntityIdsResult>, Error> =>
+	Result.map(entityBrowserSelection(queryDocument, settings, input), ({ where, entity, source }) =>
+		defineRecipe(() => ({
+			map: ({ entityBrowserIds }) => Result.succeed(entityBrowserIds),
+			queries: {
+				entityBrowserIds: {
+					decodeResult: (result: unknown) =>
+						Result.map(
+							Schema.decodeUnknownResult(entityBrowserIdRows)(result),
+							({ items, pageInfo }) => ({ pageInfo, items: items.map(({ entityId }) => entityId) }),
+						),
+					document: {
+						...source,
+						where,
+						output: {
+							...source.output,
+							orderBy: [ascending(column(entity, "id"))],
+							fields: [field("entityId", column(entity, "id"))],
+							pagination: {
+								limit: ENTITY_IDS_PAGE_SIZE,
+								...(input.after === undefined ? {} : { after: input.after }),
+							},
+						},
+					},
+				},
+			},
+		}))(),
+	);
 
 export const entityBrowserCountRecipe = (
 	queryDocument: RyotQLDocument,
 	settings: Pick<EntityBrowserSavedViewSettingsValue, "subject" | "sourceName" | "searchFields">,
-	input: FilterInput & {
-		readonly searchText?: string | undefined;
-		readonly browse: readonly BrowseSchema[];
-	},
+	input: EntityBrowserSelectionInput,
 ): Result.Result<PreparedRecipe<number>, Error> =>
-	Result.flatMap(getNamedRowsQuery(queryDocument, settings.sourceName), (query) => {
-		const entity = table("entity", settings.subject.entityAlias);
-		const searchResult = browserSearchPredicate(query, settings, input.searchText);
-		if (Result.isFailure(searchResult)) {
-			return Result.fail(searchResult.failure);
-		}
-		const filterResult = compileOptionalFilter(input, {
-			source: query,
-			subject: settings.subject,
-			targets: browserTargets(entity.alias, new Set(queryAliases(query)), input.browse).filters,
-		});
-		if (Result.isFailure(filterResult)) {
-			return Result.fail(filterResult.failure);
-		}
-		const search = searchResult.success;
-		const recipe = defineRecipe(() => ({
+	Result.map(entityBrowserSelection(queryDocument, settings, input), ({ where, entity, source }) =>
+		defineRecipe(() => ({
 			map: ({ entityBrowserCount }) => Result.succeed(entityBrowserCount.total),
 			queries: {
-				entityBrowserCount: selectedAggregate(query.from, {
-					joins: query.joins,
+				entityBrowserCount: selectedAggregate(source.from, {
+					where,
+					joins: source.joins,
 					measures: {
 						total: selectedMeasure(
 							{ function: "countDistinct", expr: column(entity, "id") },
 							Schema.Finite,
 						),
 					},
-					where: combineWhere(
-						combineWhere(
-							combineWhere(query.where, subjectSchemaPredicate(settings.subject, entity)),
-							search,
-						),
-						filterResult.success,
-					),
 				}),
 			},
-		}));
-		return Result.succeed(recipe());
-	});
+		}))(),
+	);
 
 export const LibrarySearchHit = Schema.Struct({
 	name: Schema.String,
