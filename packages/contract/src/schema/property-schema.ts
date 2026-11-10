@@ -728,6 +728,12 @@ export const getOrderedAppSchemaFieldEntries = (fields: AppSchemaFields) =>
 export const isAppPropertyRequired = (property: AppPropertyDefinition) =>
 	property.validation?.required === true;
 
+export const isEventReferenceProperty = (
+	property: undefined | AppPropertyDefinition,
+): property is AppStringProperty & {
+	readonly reference: AppStringPropertyReference & { readonly kind: "event-id" };
+} => property?.type === "string" && property.reference?.kind === "event-id";
+
 export const getAppPropertyDefinitionAtPath = (
 	fields: AppSchemaFields,
 	path: AppSchemaRulePath,

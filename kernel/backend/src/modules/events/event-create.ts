@@ -160,17 +160,19 @@ const createResult = (outcomes: ReadonlyArray<EventCreateItemOutcome>): CreateEv
 };
 
 const commitRejection = (error: { readonly _tag: string; readonly reason?: unknown }) => {
-	const code =
-		error._tag === "EventBadRequest" &&
-		typeof error.reason === "object" &&
-		error.reason !== null &&
-		"code" in error.reason
-			? error.reason.code
-			: undefined;
-	if (code === "asset-forbidden" || code === "invalid-properties") {
-		return { code } as const;
+	if (error._tag === "EventReferenceUnavailable") {
+		return { code: "invalid-properties" as const };
 	}
-	return { code: "mutation-conflict" as const };
+	return {
+		code:
+			error._tag === "EventBadRequest" &&
+			typeof error.reason === "object" &&
+			error.reason !== null &&
+			"code" in error.reason &&
+			error.reason.code === "asset-forbidden"
+				? ("asset-forbidden" as const)
+				: ("mutation-conflict" as const),
+	};
 };
 
 /**

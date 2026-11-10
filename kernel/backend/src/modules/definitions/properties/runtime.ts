@@ -7,6 +7,7 @@ import {
 	type AppSchemaRuleValue,
 	createPropertySchemaMessage,
 	getAppPropertyDefinitionAtPath,
+	isEventReferenceProperty,
 	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "@ryot-app/contract/schema/property-schema";
@@ -132,9 +133,6 @@ const collectFormatDefinitionIssues = (
 	return [];
 };
 
-const isEventReference = (property: AppPropertyDefinition) =>
-	property.type === "string" && property.reference?.kind === "event-id";
-
 const collectEventReferenceIssues = (
 	property: AppPropertyDefinition,
 	path: ReadonlyArray<string>,
@@ -148,7 +146,7 @@ const collectEventReferenceIssues = (
 			collectEventReferenceIssues(value, [...path, "properties", key], false),
 		);
 	}
-	if (property.type !== "string" || property.reference?.kind !== "event-id") {
+	if (!isEventReferenceProperty(property)) {
 		return [];
 	}
 	if (!allowed) {
@@ -188,7 +186,7 @@ export const validateAppSchemaDefinition = (
 	});
 	const requiredReferenceIssues = (schema.rules ?? []).flatMap((rule, index) => {
 		const property = getAppPropertyDefinitionAtPath(schema.fields, rule.path);
-		return rule.kind === "validation" && property !== undefined && isEventReference(property)
+		return rule.kind === "validation" && isEventReferenceProperty(property)
 			? [
 					{
 						path: ["rules", String(index), "path"],

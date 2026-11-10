@@ -46,9 +46,10 @@ an edit or deletion that changed after preparation fails as stale.
 
 `EventsRepository.lockMutationReferences({ eventIds, sources? })` is the batch pre-lock entrypoint.
 `sources` contains every proposed source draft with its user, plugin, schema, entity, session, and
-properties. Current rows for `eventIds` supply the old references. Call it after account/catalog
-admission and before taking any entity/session row locks. It locks old and new entity, session, and
-selected input references in entity-ID order using `FOR NO KEY UPDATE`.
+properties. Current rows for `eventIds` and the events that reference them supply the old references,
+so a deletion holds its referrers' entity rows before the deferred clear updates them. Call it after
+account/catalog admission and before taking any entity/session row locks. It locks old and new entity,
+session, and selected input references in entity-ID order using `FOR NO KEY UPDATE`.
 
 Then acquire any group-owned entity/session locks, call `lockEventRows` with the same complete batch,
 and persist the writes. Stream locks are sorted before event-row locks. Single-row repository writers
@@ -103,15 +104,19 @@ Creates and updates require each referenced event to exist, belong to the same u
 the referrer. The write takes `FOR KEY SHARE` on the targets and fails as an `invalid-properties`
 `EventBadRequest`. `EventsRepository` keeps the reverse index in `event_reference`, one row per
 referrer and property, rewritten with each create and update; deleting a referrer cascades its rows.
+An update rechecks only references that differ from the referrer's index rows. A reference whose
+target this transaction already deleted is neither checked nor indexed; the pending clear removes it.
 
-Deleting a referenced event removes its index rows after the event row, so a concurrent referrer that
-locked the target is seen once it commits. The events transaction collects the released referrers
+Deleting a referenced event locks its referrers' entity rows with its own before the event row, and
+removes its index rows after the event row, so a concurrent referrer that locked the target is seen
+once it commits. The events transaction collects the released referrers
 and, after its work and after each applied fold change, removes those properties from referrers that
 still hold them: their revision advances, their scopes are touched and their subjects refold before
 the transaction settles. The clear runs no policies or hooks. This covers direct and batch deletes,
 events a fold deletes, entity cascades and user-data clears; a referrer deleted in the same
 transaction is simply gone. A delete outside an events transaction clears immediately. Merges move
-events by ID, so their references stay valid.
+events by ID, so references to moved events stay valid; references to the transient evidence a merge
+resets are cleared.
 
 Restore resolves each reference through the archive's staged event mappings, drops a reference
 whose event is not in the archive, and writes index rows with each restored event batch. The index has

@@ -1,4 +1,8 @@
-import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { EventBadRequest } from "@ryot-app/contract/modules/events/schemas";
+import {
+	type AppSchema,
+	isEventReferenceProperty,
+} from "@ryot-app/contract/schema/property-schema";
 import { Context, Schema } from "effect";
 
 export type ClearedEventReference = EventPropertyReference & {
@@ -15,6 +19,9 @@ export class EventReferenceUnavailable extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("EventReferenceUnavailable", { message: Schema.String }) {}
 
+export const eventReferenceBadRequest = (error: EventReferenceUnavailable) =>
+	new EventBadRequest({ reason: { message: error.message, code: "invalid-properties" } });
+
 /** References a transaction's deletions removed, cleared from their referrers before it settles. */
 export const PendingEventReferenceClears = Context.Reference<null | Array<ClearedEventReference>>(
 	"EventReferences.PendingClears",
@@ -27,9 +34,7 @@ export const eventPropertyReferences = (
 ): ReadonlyArray<EventPropertyReference> =>
 	Object.entries(schema.fields).flatMap(([property, definition]) => {
 		const value = properties[property];
-		return definition.type === "string" &&
-			definition.reference?.kind === "event-id" &&
-			typeof value === "string"
+		return isEventReferenceProperty(definition) && typeof value === "string"
 			? [{ property, referencedEventId: value }]
 			: [];
 	});

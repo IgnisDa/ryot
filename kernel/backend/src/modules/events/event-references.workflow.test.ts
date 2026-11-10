@@ -14,8 +14,8 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, inArray } from "drizzle-orm";
-import { Effect, Layer } from "effect";
+import { eq, inArray, sql } from "drizzle-orm";
+import { Deferred, Effect, Fiber, Layer } from "effect";
 
 import { Folds } from "#modules/derived-values/service";
 import { unfoldedFolds } from "#modules/derived-values/test-support";
@@ -57,8 +57,10 @@ const referenceSchemas = [
 
 const subjectSchemaSlug = EntitySchemaSlug.make("subject");
 
-const referenceFixture = Effect.fnUntraced(function* () {
-	const fixture = yield* eventGroupFixture(referenceSchemas);
+const referenceFixture = Effect.fnUntraced(function* (
+	declarations?: Parameters<typeof eventGroupFixture>[1],
+) {
+	const fixture = yield* eventGroupFixture(referenceSchemas, declarations);
 	const nextCommand = Effect.map(randomUuid, (id) => ({
 		...fixture.command,
 		...command(id),
@@ -104,7 +106,23 @@ const referenceFixture = Effect.fnUntraced(function* () {
 		);
 		return row;
 	});
-	return { ...fixture, create, stored, createId, references, nextCommand };
+	const insertSubject = Effect.fnUntraced(function* (slug: "session" | "subject") {
+		const [entity] = yield* (yield* EntitiesRepository).insertEntities([
+			{
+				scope: "user",
+				name: "Other",
+				properties: {},
+				populatedAt: null,
+				userId: fixture.userId,
+				id: EntityId.make(yield* randomUuid),
+				entitySchemaSlug: EntitySchemaSlug.make(slug),
+				entitySchemaPluginId: fixture.installed.pluginId,
+			},
+		]);
+		assert(entity);
+		return entity.id;
+	});
+	return { ...fixture, create, stored, createId, references, nextCommand, insertSubject };
 });
 
 layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))((test) => {
@@ -247,22 +265,9 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 		() =>
 			Effect.gen(function* () {
 				const fixture = yield* referenceFixture();
-				const entities = yield* EntitiesRepository;
-				const [other] = yield* entities.insertEntities([
-					{
-						scope: "user",
-						name: "Other",
-						properties: {},
-						populatedAt: null,
-						userId: fixture.userId,
-						entitySchemaSlug: subjectSchemaSlug,
-						id: EntityId.make(yield* randomUuid),
-						entitySchemaPluginId: fixture.installed.pluginId,
-					},
-				]);
-				assert(other);
+				const other = yield* fixture.insertSubject("subject");
 				const createOn = Effect.fnUntraced(function* (properties: Record<string, unknown>) {
-					const [outcome] = (yield* fixture.create("occurrence", properties, other.id)).outcomes;
+					const [outcome] = (yield* fixture.create("occurrence", properties, other)).outcomes;
 					assert(outcome?.status === "written");
 					return outcome.eventId;
 				});
@@ -271,7 +276,7 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const clearedNote = yield* fixture.createId("note", { about: cleared });
 				yield* (yield* EntityUserDataService).clearEntityUserDataForCommand(
 					fixture.userId,
-					{ entityId: other.id, entitySchemaSlug: subjectSchemaSlug },
+					{ entityId: other, entitySchemaSlug: subjectSchemaSlug },
 					yield* fixture.nextCommand,
 				);
 				expect((yield* fixture.stored(clearedNote))?.properties).toEqual({});
@@ -279,12 +284,180 @@ layer(Layer.provideMerge(eventGroupWorkflowLayer, BunCrypto.layerSecureRandom))(
 				const cascaded = yield* createOn({ amount: 2 });
 				const cascadedNote = yield* fixture.createId("note", { about: cascaded });
 				expect(
-					(yield* (yield* EntitiesService).deleteByIds([other.id], yield* fixture.nextCommand))
+					(yield* (yield* EntitiesService).deleteByIds([other], yield* fixture.nextCommand))
 						.deletedCount,
 				).toBe(1);
 				expect((yield* fixture.stored(cascadedNote))?.properties).toEqual({});
 				expect(yield* fixture.references([clearedNote, cascadedNote])).toEqual([]);
 			}),
+		testTimeout,
+	);
+	test.effect(
+		"applies a delete and a later update of its referrer in one batch",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* referenceFixture();
+				const occurrence = yield* fixture.createId("occurrence", { amount: 1 });
+				const note = yield* fixture.createId("note", { text: "Draft", about: occurrence });
+				const foldCommand = yield* fixture.nextCommand;
+				const mutations = yield* EventMutations.make.pipe(
+					Effect.provideService(Folds, {
+						...unfoldedFolds,
+						within: (work, apply) =>
+							Effect.gen(function* () {
+								const result = yield* work;
+								yield* apply({
+									command: foldCommand,
+									userId: fixture.userId,
+									changes: [
+										{ kind: "delete", eventId: occurrence, itemIdentity: "fold-delete" },
+										{
+											kind: "update",
+											itemIdentity: "fold-update",
+											item: {
+												eventId: note,
+												patch: { properties: { remove: [], set: { text: "Edited" } } },
+											},
+										},
+									],
+								}).pipe(Effect.orDie);
+								return result;
+							}),
+					}),
+				);
+				yield* mutations.transaction(Effect.void);
+				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Edited" });
+				expect(yield* fixture.references([note])).toEqual([]);
+				expect(yield* fixture.stored(occurrence)).toBeUndefined();
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"merges an event that references transient evidence the merge resets",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* referenceFixture({
+					sessionEventSchemas: [
+						{
+							slug: "trace",
+							name: "Trace",
+							propertiesSchema: {
+								fields: {
+									subjectId: {
+										type: "string",
+										label: "Subject",
+										description: "Subject",
+										reference: { kind: "entity-id" },
+									},
+								},
+							},
+						},
+					],
+					userState: {
+						deniedOperations: [],
+						evidence: [
+							{
+								transient: true,
+								subjectProperty: "subjectId",
+								eventSchema: {
+									owner: { kind: "self" },
+									slug: EventSchemaSlug.make("trace"),
+									entitySchemaSlug: EntitySchemaSlug.make("session"),
+								},
+							},
+						],
+					},
+				});
+				const holder = yield* fixture.insertSubject("session");
+				const destination = yield* fixture.insertSubject("subject");
+				const traced = yield* createGroupEvents({
+					userId: fixture.userId,
+					command: yield* fixture.nextCommand,
+					payload: [
+						{
+							entityId: holder,
+							properties: { subjectId: fixture.subjectId },
+							eventSchemaSlug: EventSchemaSlug.make("trace"),
+						},
+					],
+				});
+				const [trace] = traced.outcomes;
+				assert(trace?.status === "written");
+				const note = yield* fixture.createId("note", { text: "Moved", about: trace.eventId });
+				const merged = yield* (yield* EntityUserDataService).mergeEntityUserDataForCommand(
+					fixture.userId,
+					{
+						mergeInto: destination,
+						mergeFrom: fixture.subjectId,
+						entitySchemaSlug: subjectSchemaSlug,
+					},
+					yield* fixture.nextCommand,
+				);
+				expect(merged.movedEventsCount).toBe(1);
+				expect(yield* fixture.stored(trace.eventId)).toBeUndefined();
+				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Moved" });
+				expect(yield* fixture.references([note])).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"locks a referrer's entity before deleting the event it references",
+		() =>
+			Effect.gen(function* () {
+				const fixture = yield* referenceFixture();
+				const other = yield* fixture.insertSubject("subject");
+				const [created] = (yield* fixture.create("occurrence", { amount: 1 }, other)).outcomes;
+				assert(created?.status === "written");
+				const occurrence = created.eventId;
+				const note = yield* fixture.createId("note", { text: "Kept", about: occurrence });
+				const database = yield* DatabaseSession;
+				const locked = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const referrer = yield* Effect.forkScoped(
+					database.transaction(
+						Effect.gen(function* () {
+							yield* database.run((db) =>
+								db.execute(
+									sql`select id from entity where id = ${fixture.subjectId} for no key update`,
+								),
+							);
+							yield* Deferred.succeed(locked, undefined);
+							yield* Deferred.await(release);
+						}),
+					),
+				);
+				yield* Deferred.await(locked);
+				const deletion = yield* Effect.forkScoped(
+					Effect.flatMap(fixture.nextCommand, (deleteCommand) =>
+						Effect.flatMap(EventsService, (events) =>
+							events.delete({ eventId: occurrence, userId: fixture.userId }, deleteCommand),
+						),
+					),
+				);
+				yield* database
+					.run((db) =>
+						db.execute<{ waiting: boolean }>(
+							sql`select exists(select 1 from pg_locks
+								where locktype = 'tuple' and relation = 'entity'::regclass) as waiting`,
+							"objects",
+						),
+					)
+					.pipe(Effect.repeat({ until: ([row]) => row?.waiting === true }));
+				expect(
+					yield* database.run((db) =>
+						db.execute<{ id: string }>(
+							sql`select id from event where id = ${occurrence} for key share nowait`,
+							"objects",
+						),
+					),
+				).toEqual([{ id: occurrence }]);
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(referrer);
+				yield* Fiber.join(deletion);
+				expect((yield* fixture.stored(note))?.properties).toEqual({ text: "Kept" });
+			}).pipe(Effect.scoped),
 		testTimeout,
 	);
 });

@@ -42,6 +42,7 @@ import {
 	type DomainLifecycleCommand,
 	reuseLockedWriteChecks,
 } from "#modules/entities/write-context";
+import { eventReferenceBadRequest } from "#modules/events/event-references";
 import {
 	EventMutations,
 	eventPolicyItems,
@@ -320,13 +321,15 @@ export class UserCommands extends Context.Service<UserCommands>()(
 								yield* planner.prepareBatch({ ...eventBatch, scopes: [userId] });
 								let eventOffset = 0;
 								for (const prepared of preparedBatches) {
-									const work = yield* events.persist({
-										userId,
-										...prepared,
-										sealBatch: false,
-										batch: eventBatch,
-										batchIndexOffset: eventOffset,
-									});
+									const work = yield* events
+										.persist({
+											userId,
+											...prepared,
+											sealBatch: false,
+											batch: eventBatch,
+											batchIndexOffset: eventOffset,
+										})
+										.pipe(Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest));
 									eventOffset += prepared.prepared.items.length;
 									written.push(...work.results);
 									dispatch.push(...work.dispatch);

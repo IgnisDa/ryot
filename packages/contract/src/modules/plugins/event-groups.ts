@@ -1,6 +1,10 @@
 import { Schema } from "effect";
 
-import type { AppPropertyDefinition, AppSchema } from "../../schema/property-schema";
+import {
+	type AppPropertyDefinition,
+	type AppSchema,
+	isEventReferenceProperty,
+} from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 
 const propertyNames = Schema.Array(Schema.NonEmptyString).check(
@@ -34,7 +38,7 @@ const scalarKind = (property: undefined | AppPropertyDefinition): string | undef
 		return undefined;
 	}
 	if (property.type === "string") {
-		return property.reference?.kind === "event-id"
+		return isEventReferenceProperty(property)
 			? undefined
 			: `string:${property.reference?.kind ?? "value"}`;
 	}
@@ -69,7 +73,7 @@ export const pluginEventGroupIssue = (
 			if (!property) {
 				return `Event group ${anchor.slug} immutable property ${key} is not declared`;
 			}
-			if (property.type === "string" && property.reference?.kind === "event-id") {
+			if (isEventReferenceProperty(property)) {
 				return `Event group ${anchor.slug} immutable property ${key} cannot be an event reference`;
 			}
 		}

@@ -1,6 +1,10 @@
 import { type AssetLocator, ManagedAssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import {
+	type AppPropertyDefinition,
+	type AppSchema,
+	isEventReferenceProperty,
+} from "@ryot-app/contract/schema/property-schema";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Effect, Schema } from "effect";
 
@@ -159,8 +163,7 @@ export const rewritePropertyReferences = Effect.fn(function* (
 		if (
 			eventId &&
 			typeof property === "string" &&
-			definition.type === "string" &&
-			definition.reference?.kind === "event-id" &&
+			isEventReferenceProperty(definition) &&
 			eventId(property) === undefined
 		) {
 			delete rewritten[key];

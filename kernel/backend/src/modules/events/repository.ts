@@ -146,6 +146,9 @@ const referenceMatches = (cleared: ReadonlyArray<ClearedEventReference>) =>
 			and current.properties ->> r.property = r."referencedEventId"
 		group by 1`;
 
+const referenceKey = (referencingEventId: string, reference: EventPropertyReference) =>
+	JSON.stringify([referencingEventId, reference.property, reference.referencedEventId]);
+
 /** Locks the entity and session rows of event sources in ID order, before any event row. */
 export const lockEventReferences = (
 	session: DatabaseSession["Service"],
@@ -243,7 +246,18 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 							eventSchemaPluginId: schema.event.eventSchemaPluginId,
 						})
 						.from(schema.event)
-						.where(inArray(schema.event.id, ids)),
+						.where(
+							or(
+								inArray(schema.event.id, ids),
+								inArray(
+									schema.event.id,
+									db
+										.select({ id: schema.eventReference.referencingEventId })
+										.from(schema.eventReference)
+										.where(inArray(schema.eventReference.referencedEventId, ids)),
+								),
+							),
+						),
 				);
 				return [...sources, ...rows.map(eventSourceOf)];
 			});
@@ -275,30 +289,51 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				rows: ReadonlyArray<{
 					userId: string;
 					eventId: string;
+					indexed?: ReadonlyArray<EventPropertyReference>;
 					references: ReadonlyArray<EventPropertyReference>;
 				}>,
 			) {
-				const references = rows.flatMap((row) =>
-					row.references.map((reference) => ({
-						...reference,
-						userId: row.userId,
-						referencingEventId: row.eventId,
-					})),
+				const pending = new Set(
+					(yield* PendingEventReferenceClears)?.map((cleared) =>
+						referenceKey(cleared.referencingEventId, cleared),
+					),
 				);
+				const references = rows.flatMap((row) => {
+					const indexed = new Set(
+						row.indexed?.map((reference) => referenceKey(row.eventId, reference)),
+					);
+					return row.references.flatMap((reference) => {
+						const key = referenceKey(row.eventId, reference);
+						return pending.has(key)
+							? []
+							: [
+									{
+										...reference,
+										userId: row.userId,
+										indexed: indexed.has(key),
+										referencingEventId: row.eventId,
+									},
+								];
+					});
+				});
 				if (references.length === 0) {
 					return yield* Effect.void;
 				}
-				const targetIds = [...new Set(references.map((row) => row.referencedEventId))].sort();
-				const targets = yield* session.run((db) =>
-					db.execute<{ id: string; userId: string }>(
-						sql`select id, user_id as "userId" from event
-							where id in (select jsonb_array_elements_text(${JSON.stringify(targetIds)}::jsonb))
-							order by id for key share`,
-						"objects",
-					),
-				);
+				const unverified = references.filter((row) => !row.indexed);
+				const targetIds = [...new Set(unverified.map((row) => row.referencedEventId))].sort();
+				const targets =
+					targetIds.length === 0
+						? []
+						: yield* session.run((db) =>
+								db.execute<{ id: string; userId: string }>(
+									sql`select id, user_id as "userId" from event
+										where id in (select jsonb_array_elements_text(${JSON.stringify(targetIds)}::jsonb))
+										order by id for key share`,
+									"objects",
+								),
+							);
 				const owners = new Map(targets.map((target) => [target.id, target.userId]));
-				const unavailable = references.find(
+				const unavailable = unverified.find(
 					(row) =>
 						row.referencedEventId === row.referencingEventId ||
 						owners.get(row.referencedEventId) !== row.userId,
@@ -326,6 +361,13 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 				if (cleared.length === 0) {
 					return;
 				}
+				yield* session.run((db) =>
+					db.execute(sql`delete from event_reference r
+						using jsonb_to_recordset(${JSON.stringify(cleared)}::jsonb)
+							as c("referencingEventId" text, property text, "referencedEventId" text)
+						where r.referencing_event_id = c."referencingEventId" and r.property = c.property
+							and r.referenced_event_id = c."referencedEventId"`),
+				);
 				const matches = referenceMatches(cleared);
 				const referrers = yield* session.run((db) =>
 					db.execute<{
@@ -670,7 +712,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					return null;
 				}
 				const streamKey = eventSourceOf(current);
-				yield* lockEventReferences(session, [streamKey]);
+				yield* lockEventReferences(session, yield* sourcesForEvents([input.eventId], [streamKey]));
 				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.event)
@@ -701,7 +743,7 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					return null;
 				}
 				const streamKey = eventSourceOf(current);
-				yield* lockEventReferences(session, [streamKey]);
+				yield* lockEventReferences(session, yield* sourcesForEvents([input.eventId], [streamKey]));
 				const [row] = yield* session.run((db) =>
 					db
 						.delete(schema.event)
@@ -829,13 +871,18 @@ export class EventsRepository extends Context.Service<EventsRepository>()(
 					),
 				);
 				if (row) {
-					yield* session.run((db) =>
+					const indexed = yield* session.run((db) =>
 						db
 							.delete(schema.eventReference)
-							.where(eq(schema.eventReference.referencingEventId, row.id)),
+							.where(eq(schema.eventReference.referencingEventId, row.id))
+							.returning({
+								property: schema.eventReference.property,
+								referencedEventId: schema.eventReference.referencedEventId,
+							}),
 					);
 					yield* writeReferences([
 						{
+							indexed,
 							eventId: row.id,
 							userId: input.userId,
 							references: eventPropertyReferences(input.propertiesSchema, input.draft.properties),

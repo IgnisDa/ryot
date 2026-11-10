@@ -65,6 +65,7 @@ import {
 } from "./event-creation";
 import type { CapturedEventReferences } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
+import { eventReferenceBadRequest } from "./event-references";
 import { EventMutations } from "./mutations";
 import {
 	type EventIdentityInput,
@@ -1216,11 +1217,7 @@ export class EventsService extends Context.Service<EventsService>()(
 							propertiesSchema: prepared.propertiesSchema,
 							updatedAt: DateTime.toDate(DateTime.makeUnsafe(prepared.command.occurredAt)),
 						})
-						.pipe(
-							Effect.catchTag("EventReferenceUnavailable", (error) =>
-								eventBadRequest("invalid-properties", error.message),
-							),
-						);
+						.pipe(Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest));
 					if (!updated) {
 						return yield* new EventStale({
 							reason: { code: "event-stale", eventId: prepared.input.eventId },

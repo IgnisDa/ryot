@@ -56,7 +56,7 @@ import { readEventCreateChunkScopes } from "./event-creation";
 import { EventGroupConstraints } from "./event-group-constraints";
 import {
 	type ClearedEventReference,
-	type EventReferenceUnavailable,
+	eventReferenceBadRequest,
 	PendingEventReferenceClears,
 } from "./event-references";
 import { EventsRepository } from "./repository";
@@ -215,9 +215,6 @@ const sameExpected = (
 			stableStringify(before.properties[key]) === stableStringify(value),
 	) &&
 	expected.absentProperties.every((key) => !Object.hasOwn(before.properties, key));
-
-const unavailableReference = (error: EventReferenceUnavailable) =>
-	bad("invalid-properties", error.message);
 
 export class EventMutations extends Context.Service<EventMutations>()(
 	"@ryot-app/kernel-backend/modules/events/mutations/EventMutations",
@@ -665,20 +662,18 @@ export class EventMutations extends Context.Service<EventMutations>()(
 						),
 					);
 				const creates = validatedRows.filter(({ row }) => row.change.kind === "create");
-				yield* repository
-					.createEvents(
-						creates.map(({ row, draft, schema }) => ({
-							order: row.order ?? undefined,
-							...draft,
-							userId: input.userId,
-							id: preparedEventId(row),
-							eventSchemaName: schema.name,
-							propertiesSchema: schema.propertiesSchema,
-							sessionEntityId: draft.sessionEntityId ?? undefined,
-							occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
-						})),
-					)
-					.pipe(Effect.catchTag("EventReferenceUnavailable", unavailableReference));
+				yield* repository.createEvents(
+					creates.map(({ row, draft, schema }) => ({
+						order: row.order ?? undefined,
+						...draft,
+						userId: input.userId,
+						id: preparedEventId(row),
+						eventSchemaName: schema.name,
+						propertiesSchema: schema.propertiesSchema,
+						sessionEntityId: draft.sessionEntityId ?? undefined,
+						occurredAt: DateTime.toDate(DateTime.makeUnsafe(draft.occurredAt)),
+					})),
+				);
 				const snapshots = yield* repository.getEventSnapshots(
 					input.userId,
 					creates.map(({ row }) => preparedEventId(row)),
@@ -726,15 +721,13 @@ export class EventMutations extends Context.Service<EventMutations>()(
 							};
 						} else {
 							if (
-								!(yield* repository
-									.updatePreparedEvent({
-										...identity,
-										draft,
-										order: row.order,
-										propertiesSchema: schema.propertiesSchema,
-										updatedAt: DateTime.toDate(DateTime.makeUnsafe(command.occurredAt)),
-									})
-									.pipe(Effect.catchTag("EventReferenceUnavailable", unavailableReference)))
+								!(yield* repository.updatePreparedEvent({
+									...identity,
+									draft,
+									order: row.order,
+									propertiesSchema: schema.propertiesSchema,
+									updatedAt: DateTime.toDate(DateTime.makeUnsafe(command.occurredAt)),
+								}))
 							) {
 								return yield* new EventStale({ reason: { eventId, code: "event-stale" } });
 							}
@@ -789,7 +782,9 @@ export class EventMutations extends Context.Service<EventMutations>()(
 					},
 					null,
 				);
-				yield* persist({ ...input, prepared, validated, derived: true });
+				yield* persist({ ...input, prepared, validated, derived: true }).pipe(
+					Effect.catchTag("EventReferenceUnavailable", eventReferenceBadRequest),
+				);
 			});
 			const clearPendingReferences = Effect.gen(function* () {
 				const pending = yield* PendingEventReferenceClears;
