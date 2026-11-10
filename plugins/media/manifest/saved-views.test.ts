@@ -26,6 +26,7 @@ describe("media saved views", () => {
 			"name",
 			"publishYear",
 			"productionStatus",
+			"userRating",
 			"ownerPluginId",
 			"entitySchemaSlug",
 			"id",
