@@ -321,10 +321,19 @@ pub async fn update_metadata_and_notify_users(
     ss: &Arc<SupportingService>,
 ) -> Result<UpdateMediaEntityResult> {
     let result = update_metadata(metadata_id, ss).await?;
-    if !result.notifications.is_empty() {
+    notify_metadata_updated(metadata_id, &result.notifications, ss).await?;
+    Ok(result)
+}
+
+pub async fn notify_metadata_updated(
+    metadata_id: &String,
+    notifications: &[UserNotificationContent],
+    ss: &Arc<SupportingService>,
+) -> Result<()> {
+    if !notifications.is_empty() {
         let users_to_notify =
             get_users_and_cte_monitoring_entity(metadata_id, EntityLot::Metadata, ss).await?;
-        for notification in result.notifications.iter() {
+        for notification in notifications.iter() {
             for (user_id, cte_id) in users_to_notify.iter() {
                 send_notification_for_user(user_id, ss, notification.clone())
                     .await
@@ -335,7 +344,7 @@ pub async fn update_metadata_and_notify_users(
             }
         }
     }
-    Ok(result)
+    Ok(())
 }
 
 pub async fn update_person_and_notify_users(

@@ -11,7 +11,6 @@ use enum_models::IntegrationProvider;
 use rust_decimal::dec;
 use sea_orm::EntityTrait;
 use supporting_service::SupportingService;
-use traits::TraceOk;
 use uuid::Uuid;
 
 use crate::{integration_operations::set_trigger_result, sink};
@@ -87,14 +86,30 @@ pub async fn integration_progress_update(
     let result = process_import(false, &integration.user_id, import, ss, |_| async {
         Ok(())
     })
-    .await;
+    .await
+    .and_then(|(_, details)| {
+        if details.failed_items.is_empty() {
+            Ok(())
+        } else {
+            Err(anyhow::anyhow!(
+                "Progress import failed: {:?}",
+                details.failed_items
+            ))
+        }
+    });
     ryot_log!(
         debug,
         "[1611 PROGRESS {}] process_import completed, result: {}",
         progress_update_id,
         if result.is_ok() { "success" } else { "error" }
     );
-    set_trigger_result(ss, result.err().map(|e| e.to_string()), &integration).await?;
+    set_trigger_result(
+        ss,
+        result.as_ref().err().map(|e| e.to_string()),
+        &integration,
+    )
+    .await?;
+    result?;
     ryot_log!(
         debug,
         "[1611 PROGRESS {}] Completed integration_progress_update",
@@ -178,9 +193,7 @@ pub async fn process_integration_webhook(
                 "[1611 JOB {}] Calling integration_progress_update",
                 webhook_job_id
             );
-            integration_progress_update(ss, integration, pu)
-                .await
-                .trace_ok();
+            integration_progress_update(ss, integration, pu).await?;
             ryot_log!(
                 debug,
                 "[1611 JOB {}] Completed webhook processing successfully",

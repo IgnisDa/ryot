@@ -53,7 +53,8 @@ impl MediaProvider for TmdbMovieService {
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let search: TmdbListResponse = rsp.json().await?;
 
         let resp = search
@@ -86,7 +87,8 @@ impl MediaProvider for TmdbMovieService {
                 ("language", &self.0.get_default_language()),
             ])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let data: TmdbMediaEntry = rsp.json().await?;
         let mut remote_videos = vec![];
         if let Some(vid) = data.videos {
@@ -101,7 +103,8 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("{URL}/movie/{identifier}/credits"))
             .query(&[("language", &self.0.get_default_language())])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let credits: TmdbCreditsResponse = rsp.json().await?;
         let mut people = vec![];
         people.extend(
@@ -248,7 +251,8 @@ impl MediaProvider for TmdbMovieService {
                 ("include_adult", &display_nsfw.to_string()),
             ])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let search: TmdbListResponse = rsp.json().await?;
         let resp = search
             .results
@@ -281,6 +285,7 @@ impl MediaProvider for TmdbMovieService {
             .query(&[("language", &self.0.get_default_language())])
             .send()
             .await?
+            .error_for_status()?
             .json()
             .await?;
         let mut images = vec![];
@@ -348,7 +353,8 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("{URL}/movie/{identifier}"))
             .query(&[("language", target_language)])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let data: TmdbMediaEntry = rsp.json().await?;
         Ok(EntityTranslationDetails {
             title: data.title,
@@ -368,7 +374,8 @@ impl MediaProvider for TmdbMovieService {
             .get(format!("{URL}/collection/{identifier}"))
             .query(&[("language", target_language)])
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         let data: TmdbCollection = rsp.json().await?;
         Ok(EntityTranslationDetails {
             title: Some(data.name),
