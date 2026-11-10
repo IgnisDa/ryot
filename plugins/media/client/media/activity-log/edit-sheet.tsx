@@ -165,7 +165,7 @@ function EditFields(props: {
 }) {
 	const { draft, today, logger, context } = props;
 	const errors = activityDraftErrors({ draft, today, logger, context });
-	const item = draft.consumedItem;
+	const item = draft.item;
 	return (
 		<>
 			{item !== undefined && logger.family === "positional" ? (
@@ -179,7 +179,7 @@ function EditFields(props: {
 						onChange={(value) => {
 							const unit = logger.itemUnits?.find((candidate) => candidate.value === value);
 							if (unit !== undefined) {
-								props.onChange({ consumedItem: { unit: unit.value, position: item.position } });
+								props.onChange({ item: { unit: unit.value, position: item.position } });
 							}
 						}}
 					/>
@@ -193,7 +193,7 @@ function EditFields(props: {
 								value={Number.isFinite(item.position) ? String(item.position) : ""}
 								onChange={(event) =>
 									props.onChange({
-										consumedItem: {
+										item: {
 											...item,
 											position: event.target.value === "" ? Number.NaN : Number(event.target.value),
 										},
@@ -213,7 +213,7 @@ function EditFields(props: {
 									value={item.volume === undefined ? "" : String(item.volume)}
 									onChange={(event) =>
 										props.onChange({
-											consumedItem: {
+											item: {
 												unit: item.unit,
 												position: item.position,
 												...(event.target.value === ""

@@ -11,10 +11,7 @@ export const animeRecipes = mediaFlatRecipes({
 	consumptionUnit: "episodes",
 	extraOverviewQueries: () => ({}),
 	presentationFields: (entity) => ({ episodes: mediaNumberField(entity, "episodes") }),
-	activityEventFields: (event) => ({
-		listState: listStateActivityPropertiesField(event),
-		animeEpisode: mediaNumberField(event, "animeEpisode"),
-	}),
+	activityEventFields: (event) => ({ listState: listStateActivityPropertiesField(event) }),
 	summaryFields: (entity) => ({
 		episodes: mediaNumberField(entity, "episodes"),
 		airingSchedule: selectedField(propertyJson(entity, "airingSchedule"), AiringScheduleListSchema),

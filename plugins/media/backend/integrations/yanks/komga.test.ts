@@ -163,7 +163,7 @@ describe("Komga collection", () => {
 				const { host } = setup([{ content: [book("partial", mangaLink, "12")] }]);
 				const result = yield* runIntegrationTestScript(definition, {}, host, execution);
 				expect(result.entityGroups.map(({ events }) => events[0]?.properties)).toEqual([
-					{ mangaChapter: 11, consumedOn: "Komga" },
+					{ consumedOn: "Komga", position: { position: 11, unit: "chapters" } },
 				]);
 			}),
 		testTimeout,
@@ -183,8 +183,8 @@ describe("Komga collection", () => {
 				]);
 				const result = yield* runIntegrationTestScript(definition, {}, host, execution);
 				expect(result.entityGroups.map(({ events }) => events[0]?.properties)).toEqual([
-					{ mangaChapter: 12, consumedOn: "Komga" },
-					{ mangaChapter: 12.5, consumedOn: "Komga" },
+					{ consumedOn: "Komga", position: { position: 12, unit: "chapters" } },
+					{ consumedOn: "Komga", position: { position: 12.5, unit: "chapters" } },
 				]);
 			}),
 		testTimeout,

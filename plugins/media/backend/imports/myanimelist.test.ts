@@ -15,7 +15,10 @@ describe("adaptMyanimelistExports", () => {
 			),
 		});
 		expect(result.entityGroups[0]?.events).toMatchObject([
-			{ eventSchemaSlug: "progress", properties: { dateUnknown: true, mangaChapter: 12.5 } },
+			{
+				eventSchemaSlug: "progress",
+				properties: { dateUnknown: true, position: { position: 12.5, unit: "chapters" } },
+			},
 		]);
 		expect(result.failures).toHaveLength(1);
 	});
@@ -59,8 +62,8 @@ describe("adaptMyanimelistExports", () => {
 			events: [
 				{
 					eventSchemaSlug: "progress",
-					properties: { animeEpisode: 2 },
 					occurredAt: "2026-01-02T00:00:00.000Z",
+					properties: { position: { position: 2, unit: "episodes" } },
 				},
 				{
 					eventSchemaSlug: "complete",
@@ -97,7 +100,7 @@ describe("adaptMyanimelistExports", () => {
 			{
 				eventSchemaSlug: "progress",
 				occurredAt: "2026-01-01T00:00:00.000Z",
-				properties: { animeEpisode: 1, dateUnknown: true },
+				properties: { dateUnknown: true, position: { position: 1, unit: "episodes" } },
 			},
 			{
 				eventSchemaSlug: "dropped",
@@ -108,25 +111,22 @@ describe("adaptMyanimelistExports", () => {
 	});
 
 	it.each([
-		["anime", "my_watched_episodes", "animeEpisode"],
-		["manga", "my_read_chapters", "mangaChapter"],
-	] as const)(
-		"writes one cumulative %s progress event for an 800-unit entry",
-		(lot, tag, property) => {
-			const body = `<${lot === "anime" ? "series_animedb_id" : "manga_mangadb_id"}>9</${lot === "anime" ? "series_animedb_id" : "manga_mangadb_id"}><${tag}>800</${tag}><my_score>0</my_score><my_status>Watching</my_status>`;
-			const result = adaptMyanimelistExports(
-				lot === "anime"
-					? { animeXml: anime(body) }
-					: { mangaXml: `<myanimelist><manga>${body}</manga></myanimelist>` },
-			);
-			expect(result.failures).toEqual([]);
-			const events = result.entityGroups.flatMap((group) => group.events);
-			expect(events.map((event) => [event.eventSchemaSlug, event.properties])).toEqual([
-				["progress", { [property]: 800, dateUnknown: true }],
-				["progress", { dateUnknown: true }],
-			]);
-		},
-	);
+		["anime", "my_watched_episodes", "episodes"],
+		["manga", "my_read_chapters", "chapters"],
+	] as const)("writes one cumulative %s progress event for an 800-unit entry", (lot, tag, unit) => {
+		const body = `<${lot === "anime" ? "series_animedb_id" : "manga_mangadb_id"}>9</${lot === "anime" ? "series_animedb_id" : "manga_mangadb_id"}><${tag}>800</${tag}><my_score>0</my_score><my_status>Watching</my_status>`;
+		const result = adaptMyanimelistExports(
+			lot === "anime"
+				? { animeXml: anime(body) }
+				: { mangaXml: `<myanimelist><manga>${body}</manga></myanimelist>` },
+		);
+		expect(result.failures).toEqual([]);
+		const events = result.entityGroups.flatMap((group) => group.events);
+		expect(events.map((event) => [event.eventSchemaSlug, event.properties])).toEqual([
+			["progress", { dateUnknown: true, position: { unit, position: 800 } }],
+			["progress", { dateUnknown: true }],
+		]);
+	});
 
 	it("records malformed XML items as row failures", () => {
 		const result = adaptMyanimelistExports({

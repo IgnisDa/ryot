@@ -293,13 +293,12 @@ export const mediaLifecycleExpressions = (entity: TableReference, alias = "media
 	const progressProperty = (name: string) =>
 		castNumber(jsonPath(column(progressEvent, "properties"), name));
 	const entityProperty = (name: string) => castNumber(jsonPath(column(entity, "properties"), name));
-	const hasPosition = or(
-		isNotNull(progressProperty("animeEpisode")),
-		isNotNull(progressProperty("mangaChapter")),
+	const progressPosition = castNumber(
+		jsonPath(column(progressEvent, "properties"), "position", "position"),
 	);
 	const latestPosition = latestLifecycleField(progressEvent, {
-		where: and(progressWhere, hasPosition),
-		select: coalesce(progressProperty("animeEpisode"), progressProperty("mangaChapter")),
+		select: progressPosition,
+		where: and(progressWhere, isNotNull(progressPosition)),
 	});
 	const boundaryCompleteEvent = latestEntityCompletionExpressions(entity, `${alias}Boundary`);
 	const progressBoundaryAlias = `${alias}ProgressBoundary`;

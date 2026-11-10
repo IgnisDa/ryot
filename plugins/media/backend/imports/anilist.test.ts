@@ -103,8 +103,8 @@ describe("adaptAnilistExport", () => {
 					events: [
 						{
 							eventSchemaSlug: "progress",
-							properties: { animeEpisode: 2 },
 							occurredAt: "2026-01-02T13:00:00.000Z",
+							properties: { position: { position: 2, unit: "episodes" } },
 						},
 						{
 							eventSchemaSlug: "review",
@@ -120,15 +120,18 @@ describe("adaptAnilistExport", () => {
 				});
 				expect(result.entityGroups[1]).toMatchObject({
 					collectionMemberships: [{ collectionName: "Book Club" }, { collectionName: "Favorite" }],
-					events: [
-						{ eventSchemaSlug: "progress", properties: { mangaVolume: 1, mangaChapter: 3 } },
-					],
 					entityRef: {
 						kind: "resolved",
 						externalId: "200",
 						entitySchemaSlug: "manga",
 						providerSlug: "manga.anilist",
 					},
+					events: [
+						{
+							eventSchemaSlug: "progress",
+							properties: { position: { volume: 1, position: 3, unit: "chapters" } },
+						},
+					],
 				});
 				expect(result.entityGroups[1]?.events).toHaveLength(1);
 			}),
@@ -241,7 +244,7 @@ describe("adaptAnilistExport", () => {
 	);
 
 	it.effect(
-		"preserves volume-only progress without fabricating manga chapters",
+		"writes no chapter progress for volume-only manga progress",
 		() =>
 			Effect.gen(function* () {
 				const exportJson = yield* encodeJson({
@@ -268,6 +271,7 @@ describe("adaptAnilistExport", () => {
 				expect(result.failures).toEqual([]);
 				expect(result.entityGroups).toEqual([
 					{
+						events: [],
 						itemIndex: 0,
 						collectionMemberships: [],
 						entityRef: {
@@ -277,13 +281,6 @@ describe("adaptAnilistExport", () => {
 							entitySchemaSlug: "manga",
 							providerSlug: "manga.anilist",
 						},
-						events: [
-							{
-								eventSchemaSlug: "progress",
-								occurredAt: "2026-01-03T09:00:00.000Z",
-								properties: { mangaVolume: 3, dateUnknown: true },
-							},
-						],
 					},
 				]);
 			}),

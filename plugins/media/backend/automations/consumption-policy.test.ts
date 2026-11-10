@@ -45,7 +45,7 @@ describe("consumption policy", () => {
 						entitySchemaSlug: "anime",
 						properties: {
 							sourceRun: "seen:a",
-							consumedItem: { position: 12, unit: "episodes" },
+							position: { position: 12, unit: "episodes" },
 							consumptionBasis: { unit: "episodes", property: "episodes" },
 						},
 					},
@@ -53,21 +53,21 @@ describe("consumption policy", () => {
 						entitySchemaSlug: "anime",
 						properties: {
 							sourceRun: "seen:b",
-							consumedItem: { position: 12, unit: "episodes" },
+							position: { position: 12, unit: "episodes" },
 							consumptionBasis: { unit: "episodes", property: "episodes" },
 						},
 					},
 					{
 						entitySchemaSlug: "manga",
 						properties: {
+							position: { volume: 7, position: 42.5, unit: "chapters" },
 							consumptionBasis: { unit: "chapters", property: "chapters" },
-							consumedItem: { volume: 7, position: 42.5, unit: "chapters" },
 						},
 					},
 					{
 						entitySchemaSlug: "manga",
 						properties: {
-							consumedItem: { position: 8, unit: "volumes" },
+							position: { position: 8, unit: "volumes" },
 							consumptionBasis: { unit: "chapters", property: "chapters" },
 						},
 					},
@@ -91,11 +91,17 @@ describe("consumption policy", () => {
 				const inputs: Parameters<typeof policyAutomationContext>[0][] = [
 					{
 						entitySchemaSlug: "manga",
-						properties: { consumedItem: { volume: 1, position: 1, unit: "volumes" } },
+						properties: { position: { volume: 1, position: 1, unit: "volumes" } },
 					},
 					{
 						entitySchemaSlug: "anime",
-						properties: { animeEpisode: 1, consumedItem: { position: 1, unit: "episodes" } },
+						properties: { progressPercent: 50, position: { position: 1, unit: "episodes" } },
+					},
+					{
+						entitySchemaSlug: "manga",
+						properties: {
+							sourceProgress: { volume: 1, percent: 50, position: 1, unit: "volumes" },
+						},
 					},
 				];
 				for (const input of inputs) {

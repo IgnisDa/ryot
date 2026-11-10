@@ -150,14 +150,12 @@ export const buildSeenConsumptionFactsSql = (mediaPluginId: string) => `
 	${buildAbortOnRowsSql({
 		countVariable: "invalid_source_rows",
 		sampleVariable: "invalid_source_sample",
-		message:
-			"seen -> event: % source position(s) cannot be represented by the canonical integer fields: %. Anime episode numbers and partial chapter volume context require integers. Keep the dump and report this schema mismatch; do not round or discard source evidence.",
 		source: `
 			SELECT seen_id AS label FROM _legacy_seen_consumption
-			WHERE (entity_schema_slug = 'anime' AND source_position::numeric <> trunc(source_position::numeric))
-				OR (item_unit = 'chapters' AND source_volume::numeric <> trunc(source_volume::numeric)
-					AND NOT (state = 'completed' OR (state = 'in_progress' AND progress = 100)))
+			WHERE entity_schema_slug = 'anime' AND source_position::numeric <> trunc(source_position::numeric)
 		`,
+		message:
+			"seen -> event: % anime episode number(s) are not integers: %. Anime positions require integer episodes. Keep the dump and report this schema mismatch; do not round or discard source evidence.",
 	})}
 
 	${buildAbortOnRowsSql({
@@ -196,6 +194,7 @@ export const seenConsumptionPropertiesSql = (
 	'sourceProgress', CASE WHEN ${alias}.item_unit IS NOT NULL THEN jsonb_build_object(
 		'unit', ${alias}.item_unit,
 		'position', COALESCE(${alias}.source_position, ${alias}.source_volume)::numeric,
+		'volume', CASE WHEN ${alias}.item_unit = 'chapters' THEN ${alias}.source_volume::numeric END,
 		'percent', ${alias}.progress
 	) END
 )))`;

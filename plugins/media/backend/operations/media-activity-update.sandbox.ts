@@ -3,10 +3,10 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation, OperationRejectedError } from "@ryot-app/plugin-backend-sdk/operation";
 
+import { mediaPositionError } from "../../shared/consumption";
 import {
 	mediaActivityDeclaredProperties,
 	mediaActivityPatchableProperties,
-	mediaProgressPositionProperty,
 	mediaProgressRuleError,
 } from "../../shared/media-activity-fields";
 import {
@@ -62,9 +62,17 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 			return yield* reject(progressError);
 		}
 		const properties: PropertiesPatch = { set: {}, remove: [] };
-		if (patch.consumedItem !== undefined) {
-			yield* allow("consumedItem");
-			properties.set["consumedItem"] = patch.consumedItem;
+		if (patch.position !== undefined) {
+			yield* allow("position");
+			const positionError = mediaPositionError(
+				target.entitySchemaSlug,
+				target.eventSchemaSlug,
+				patch.position,
+			);
+			if (positionError !== undefined) {
+				return yield* reject(positionError);
+			}
+			properties.set["position"] = patch.position;
 		}
 		let occurredAt: string | undefined;
 		if (patch.when?.kind === "unknown") {
@@ -119,11 +127,6 @@ const buildPatch = (target: EditTarget, patch: MediaActivityPatch) =>
 			if (patch.progressPages !== null) {
 				properties.remove.push("progressPercent");
 			}
-		}
-		const position = mediaProgressPositionProperty(target.entitySchemaSlug);
-		if (patch.position !== undefined && position !== undefined) {
-			yield* allow(position);
-			properties.set[position] = patch.position;
 		}
 		const hasProperties = properties.remove.length > 0 || Object.keys(properties.set).length > 0;
 		return {

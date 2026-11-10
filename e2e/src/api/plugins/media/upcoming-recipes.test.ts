@@ -200,9 +200,9 @@ describe("Upcoming", () => {
 			}
 			yield* createEventFixture(client, {
 				entityId: watching.id,
-				properties: { animeEpisode: 1 },
 				eventSchemaSlug: schemas.animeProgress,
 				occurredAt: "2026-01-01T00:00:00.000Z",
+				properties: { position: { position: 1, unit: "episodes" } },
 			});
 			yield* Effect.forEach(all, ({ id }) => waitForLibrarySummary(client, id));
 

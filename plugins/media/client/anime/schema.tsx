@@ -21,11 +21,6 @@ type AnimeListStateSnapshot = Pick<
 	"listState"
 >;
 
-type AnimeProgressPosition = Pick<
-	Extract<MediaActivityEventOf<typeof animeRecipes>, { readonly kind: "media" }>,
-	"animeEpisode"
->;
-
 export const animeSummaryFacts = (anime: AnimeSummary): readonly MediaSummaryFact[] => {
 	const [next] = animeUpcomingEpisodes(anime.airingSchedule);
 	return [
@@ -38,23 +33,6 @@ export const animeSummaryFacts = (anime: AnimeSummary): readonly MediaSummaryFac
 
 export const animePresentationFacts = (anime: AnimePresentation) =>
 	mediaCountLabels(anime.episodes, "episode");
-
-export const animeProgressLabel = (
-	percent: string | undefined,
-	position: AnimeProgressPosition,
-): string => {
-	if (position.animeEpisode !== null) {
-		return `Episode ${position.animeEpisode}`;
-	}
-	return percent === undefined ? "Part-way through the anime" : `${percent}% through the anime`;
-};
-
-export const animeListStateDetail = (event: AnimeListStateSnapshot) => {
-	const episode = event.listState?.animeEpisode;
-	return mediaListStateDetail(event.listState, [
-		episode === undefined ? undefined : `Episode ${episode}`,
-	]);
-};
 
 export const animeSchema = defineFlatMediaSchema({
 	recipes: animeRecipes,
@@ -70,17 +48,15 @@ export const animeSchema = defineFlatMediaSchema({
 		people: "Cast & crew",
 		notice: "Studios and recommendations",
 	},
+	activityCopy: mediaFlatActivityCopy<AnimeListStateSnapshot>({
+		verb: "watch",
+		noun: "anime",
+		snapshot: { label: "Synced from AniList", detail: mediaListStateDetail },
+	}),
 	logActivity: {
 		family: "positional",
 		itemUnits: [{ label: "Episode", value: "episodes" }],
 		progressUnit: { field: "episodes", plural: "episodes", singular: "episode" },
 		copy: { verb: "watch", noun: "anime", gerund: "watching", participle: "watched" },
 	},
-	activityCopy: mediaFlatActivityCopy<AnimeProgressPosition & AnimeListStateSnapshot>({
-		verb: "watch",
-		noun: "anime",
-		progress: animeProgressLabel,
-		itemLabel: (item) => `Episode ${item.position} watched`,
-		snapshot: { label: "Synced from AniList", detail: animeListStateDetail },
-	}),
 });

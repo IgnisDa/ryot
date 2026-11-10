@@ -23,9 +23,11 @@ import { calendarDaysBetween, jsonValueEquals } from "@ryot-app/plugin-kit/schem
 
 import {
 	CALENDAR_DATE_TOLERANCE_DAYS,
-	ConsumedItem,
 	ConsumptionBasis,
 	consumptionBasisFor,
+	hasStrayVolume,
+	MediaPosition,
+	SourceProgress,
 } from "../../shared/consumption";
 
 export const manifest = defineManifest({
@@ -41,14 +43,11 @@ export const manifest = defineManifest({
 				"dateUnknown",
 				"progressPages",
 				"progressPercent",
-				"animeEpisode",
-				"mangaChapter",
-				"mangaVolume",
+				"position",
 				"timeSpent",
 				"completionKey",
 				"sourceRun",
 				"sourceProgress",
-				"consumedItem",
 			],
 		},
 	},
@@ -89,9 +88,13 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	}
 	const { draft } = payload;
 	const properties = draft.properties;
-	const item = Schema.decodeUnknownOption(ConsumedItem)(properties["consumedItem"]);
-	if (item._tag === "Some" && item.value.volume !== undefined && item.value.unit !== "chapters") {
-		return reject("Volume context belongs to a chapter occurrence");
+	const position = Schema.decodeUnknownOption(MediaPosition)(properties["position"]);
+	const sourceProgress = Schema.decodeUnknownOption(SourceProgress)(properties["sourceProgress"]);
+	if (
+		(position._tag === "Some" && hasStrayVolume(position.value)) ||
+		(sourceProgress._tag === "Some" && hasStrayVolume(sourceProgress.value))
+	) {
+		return reject("Volume context belongs to a chapter position");
 	}
 	if (
 		payload.operation === "update" &&
@@ -120,16 +123,14 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	) {
 		return reject("A calendar date must be within one day of the occurrence time");
 	}
-	const progress = ["progressPages", "progressPercent", "animeEpisode", "mangaChapter"].filter(
+	const item = draft.eventSchemaSlug === "item-complete";
+	const progress = ["progressPages", "progressPercent", ...(item ? [] : ["position"])].filter(
 		(key) => properties[key] !== undefined,
 	);
 	if (progress.length > 1) {
 		return reject("Supply one cumulative progress quantity");
 	}
-	if (
-		draft.eventSchemaSlug === "item-complete" &&
-		(progress.length > 0 || properties["mangaVolume"] !== undefined)
-	) {
+	if (item && progress.length > 0) {
 		return reject("An item occurrence is not cumulative progress");
 	}
 	if (

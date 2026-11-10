@@ -21,6 +21,7 @@ import {
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
+import { MediaPosition } from "./consumption";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -40,6 +41,7 @@ import {
 	mediaLifecycleExpressions,
 	type MediaLifecycleState,
 	MediaLifecycleStateSchema,
+	type ScalarExpression,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import { builtinMediaEntitySchemaSlugs, flatMediaSchemaSlugs } from "./media-schema-slugs";
@@ -51,18 +53,21 @@ const listedMediaSelection = (entity: Table) => ({
 	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
 });
 
-/** The position property of the latest progress or list-state event that carries one. */
-export const latestPosition = (entity: Table, property: string) => {
+const latestPositionField = (entity: Table, select: (event: Table) => ScalarExpression) => {
 	const positionEvent = table("event", "listLatestPosition");
 	return latestEventField(positionEvent, {
-		select: propertyNumber(positionEvent, property),
+		select: select(positionEvent),
 		where: and(
 			eq(column(positionEvent, "entityId"), column(entity, "id")),
 			eventSlugIsOneOf(positionEvent, ["progress", "list-state"]),
-			isNotNull(propertyNumber(positionEvent, property)),
+			isNotNull(propertyNumber(positionEvent, "position", "position")),
 		),
 	});
 };
+
+/** The position number of the latest progress or list-state event that carries one. */
+export const latestPosition = (entity: Table) =>
+	latestPositionField(entity, (event) => propertyNumber(event, "position", "position"));
 
 const isOneOf = (expression: Parameters<typeof inArray>[0], values: readonly string[]) =>
 	inArray(
@@ -145,8 +150,6 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 		const library = libraryMembershipJoin(entity, "listLibrary");
 		const summary = librarySummary(library.membership);
 		const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
-		const selectedPosition = (property: string) =>
-			selectedField(latestPosition(entity, property), Schema.NullOr(Schema.Finite));
 		return {
 			map: ({ items }) => Result.succeed(items),
 			queries: {
@@ -161,12 +164,13 @@ export const flatByLifecycleStateRecipe = defineRecipe(
 					),
 					selection: {
 						...listedMediaSelection(entity),
-						mangaVolume: selectedPosition("mangaVolume"),
-						animeEpisode: selectedPosition("animeEpisode"),
-						mangaChapter: selectedPosition("mangaChapter"),
 						state: selectedField(summary.lifecycleState, MediaLifecycleStateSchema),
 						latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
 						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
+						position: selectedField(
+							latestPositionField(entity, (event) => propertyJson(event, "position")),
+							Schema.NullOr(MediaPosition),
+						),
 					},
 				}),
 			},

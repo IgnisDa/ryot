@@ -1,7 +1,7 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { reviewPropertyFields } from "@ryot-app/plugin-kit/schema";
 
-import { consumedItemField, withConsumptionFacts } from "./consumption";
+import { mediaPositionField, withConsumptionFacts } from "./consumption";
 import {
 	animePropertiesSchema,
 	audiobookPropertiesSchema,
@@ -84,30 +84,14 @@ const progressPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined):
 				},
 			};
 		case "anime":
-			return {
-				fields: {
-					...progressPercentPropertiesSchema().fields,
-					animeEpisode: {
-						label: "Anime episode",
-						type: "integer" as const,
-						description: "Episode number of the anime being tracked",
-					},
-				},
-			};
 		case "manga":
 			return {
 				fields: {
 					...progressPercentPropertiesSchema().fields,
-					mangaVolume: {
-						label: "Manga volume",
-						type: "integer" as const,
-						description: "Volume number of the manga being tracked",
-					},
-					mangaChapter: {
-						label: "Manga chapter",
-						type: "number" as const,
-						description: "Chapter number of the manga being tracked",
-					},
+					position: mediaPositionField(entitySchemaSlug, "progress", {
+						label: "Position",
+						description: "Cumulative position consumed through",
+					}),
 				},
 			};
 		default:
@@ -156,6 +140,13 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 				"The partial completion date AniList reports, without inferred components",
 				7,
 			),
+			position: {
+				...mediaPositionField(entitySchemaSlug, "list-state", {
+					label: "Position",
+					description: "The position AniList reports",
+				}),
+				position: 8,
+			},
 			repeatCount: {
 				position: 5,
 				label: "Repeat count",
@@ -209,32 +200,6 @@ const listStateEventSchema = (entitySchemaSlug: "anime" | "manga") => ({
 					],
 				},
 			},
-			...(entitySchemaSlug === "anime"
-				? {
-						animeEpisode: {
-							position: 8,
-							label: "Anime episode",
-							type: "integer" as const,
-							validation: { minimum: 0 },
-							description: "Episode number AniList reports for this anime",
-						},
-					}
-				: {
-						mangaVolume: {
-							position: 8,
-							label: "Manga volume",
-							type: "integer" as const,
-							validation: { minimum: 0 },
-							description: "Volume number AniList reports for this manga",
-						},
-						mangaChapter: {
-							position: 9,
-							label: "Manga chapter",
-							type: "number" as const,
-							validation: { minimum: 0 },
-							description: "Chapter number AniList reports for this manga",
-						},
-					}),
 		},
 	},
 });
@@ -257,30 +222,14 @@ const reviewPropertiesSchemaByEntity = (entitySchemaSlug: string | undefined): A
 	const fields = reviewPropertyFields("Your written thoughts or notes about this media");
 	switch (entitySchemaSlug) {
 		case "anime":
-			return {
-				fields: {
-					...fields,
-					animeEpisode: {
-						label: "Anime episode",
-						type: "integer" as const,
-						description: "Episode number of the anime being reviewed",
-					},
-				},
-			};
 		case "manga":
 			return {
 				fields: {
 					...fields,
-					mangaVolume: {
-						label: "Manga volume",
-						type: "integer" as const,
-						description: "Volume number of the manga being reviewed",
-					},
-					mangaChapter: {
-						label: "Manga chapter",
-						type: "number" as const,
-						description: "Chapter number of the manga being reviewed",
-					},
+					position: mediaPositionField(entitySchemaSlug, "review", {
+						label: "Reviewed item",
+						description: "The episode, chapter or volume being reviewed",
+					}),
 				},
 			};
 		case undefined:
@@ -356,7 +305,12 @@ const mediaLifecycleEventSchemas = (entitySchemaSlug?: string) => [
 							...consumedOnField,
 							timeSpent: timeSpentField,
 							startedOn: startedOnField,
-							consumedItem: consumedItemField(entitySchemaSlug),
+							position: mediaPositionField(entitySchemaSlug, "item-complete", {
+								required: true,
+								label: "Consumed item",
+								description:
+									"One independent numbered occurrence, not cumulative progress or title completion",
+							}),
 						},
 					}),
 				},

@@ -267,7 +267,7 @@ describe("Media analytics recipes", () => {
 							eventType: "item-complete",
 							occurredAt: "2026-10-10T00:00:00Z",
 							orderCreatedAt: "2026-10-10T00:00:00Z",
-							facts: { consumedItem: { position: 12, unit: "episodes" } },
+							facts: { position: { position: 12, unit: "episodes" } },
 							contribution: {
 								titleCompletions: 0,
 								episodeCompletions: 0,
@@ -280,7 +280,7 @@ describe("Media analytics recipes", () => {
 				},
 			}),
 		);
-		expect(result.items[0]?.facts.consumedItem?.position).toBe(12);
+		expect(result.items[0]?.facts.position?.position).toBe(12);
 		expect(result.items[0]?.contribution.episodes?.recorded).toBe(1);
 	});
 });

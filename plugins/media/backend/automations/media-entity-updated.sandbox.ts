@@ -3,7 +3,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
+import { isPositional } from "../../shared/media-schema-slugs";
 import { refoldLibraryTitles } from "../lib/library-titles";
 import { getSeasonContext, isSpecialSeason } from "./season-context";
 
@@ -109,15 +109,15 @@ export default defineAutomation({
 
 			const entitySchemaSlug: string = after.entitySchemaSlug;
 			if (isPositional(entitySchemaSlug)) {
-				const contentKey = positionalProperties[entitySchemaSlug].total;
-				const oldCount = numberValue(before.properties[contentKey]);
-				const newCount = numberValue(after.properties[contentKey]);
+				const contentType = entitySchemaSlug === "anime" ? "episodes" : "chapters";
+				const oldCount = numberValue(before.properties[contentType]);
+				const newCount = numberValue(after.properties[contentType]);
 				if (oldCount !== null && newCount !== null && oldCount !== newCount) {
 					emit("media.content-count.changed", `${after.id}:content-count`, {
 						oldCount,
 						newCount,
+						contentType,
 						entityName: scope.name,
-						contentType: after.entitySchemaSlug === "anime" ? "episodes" : "chapters",
 					});
 				}
 			}

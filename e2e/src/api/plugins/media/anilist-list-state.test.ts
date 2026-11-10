@@ -111,9 +111,9 @@ describe("AniList list-state media queries", () => {
 
 				yield* createEventFixture(client, {
 					entityId: anime.id,
-					properties: { animeEpisode: 8 },
 					occurredAt: "2026-01-01T00:00:00.000Z",
 					eventSchemaSlug: schemas.anime.progress,
+					properties: { position: { position: 8, unit: "episodes" } },
 				});
 				yield* createListStateSnapshot(client, {
 					entityId: anime.id,
@@ -121,12 +121,12 @@ describe("AniList list-state media queries", () => {
 					eventSchemaSlug: schemas.anime.listState,
 					properties: {
 						repeatCount: 2,
-						animeEpisode: 0,
 						source: "anilist",
 						state: "in_progress",
 						sourceEntryId: "entry",
 						sourceAccountId: "acct",
 						startedDate: { year: 2020 },
+						position: { position: 0, unit: "episodes" },
 						sourceUpdatedAt: "2020-01-01T00:00:00.000Z",
 					},
 				});
@@ -135,14 +135,13 @@ describe("AniList list-state media queries", () => {
 					occurredAt: "2026-01-02T00:00:00.000Z",
 					eventSchemaSlug: schemas.manga.listState,
 					properties: {
-						mangaVolume: 0,
 						repeatCount: 0,
-						mangaChapter: 0,
 						state: "on_hold",
 						source: "anilist",
 						sourceAccountId: "acct",
 						sourceEntryId: "manga-entry",
 						sourceUpdatedAt: "2020-01-01T00:00:00.000Z",
+						position: { volume: 0, position: 0, unit: "chapters" },
 					},
 				});
 
@@ -165,11 +164,14 @@ describe("AniList list-state media queries", () => {
 				assertPresent(initialAnime, "Expected the anime in the flat lifecycle list");
 				assertPresent(initialManga, "Expected the manga in the flat lifecycle list");
 				expect(initialAnime).toMatchObject({
-					animeEpisode: 0,
 					state: "in_progress",
 					progressPercent: null,
+					position: { position: 0, unit: "episodes" },
 				});
-				expect(initialManga).toMatchObject({ mangaVolume: 0, mangaChapter: 0, state: "on_hold" });
+				expect(initialManga).toMatchObject({
+					state: "on_hold",
+					position: { volume: 0, position: 0, unit: "chapters" },
+				});
 
 				yield* createEventFixture(client, {
 					entityId: anime.id,
@@ -187,16 +189,16 @@ describe("AniList list-state media queries", () => {
 					flatByLifecycleStateRecipe({ limit: 20, states: ["on_hold"], reference: animeReference }),
 				);
 				expect(heldFlat.items.find((item) => item.id === anime.id)).toMatchObject({
-					animeEpisode: 0,
 					state: "on_hold",
 					progressPercent: null,
+					position: { position: 0, unit: "episodes" },
 				});
 
 				yield* createEventFixture(client, {
 					entityId: anime.id,
-					properties: { animeEpisode: 6 },
 					occurredAt: "2026-01-03T00:00:00.000Z",
 					eventSchemaSlug: schemas.anime.progress,
+					properties: { position: { position: 6, unit: "episodes" } },
 				});
 				const resumedSummary = yield* readAnimeSummary(client, animeReference, anime.id);
 				expect(resumedSummary).toMatchObject({ progressPercent: 25, state: "in_progress" });
@@ -211,7 +213,7 @@ describe("AniList list-state media queries", () => {
 				);
 				const resumedAnime = resumedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(resumedAnime, "Expected the resumed anime in the flat lifecycle list");
-				expect(resumedAnime).toMatchObject({ animeEpisode: 6 });
+				expect(resumedAnime).toMatchObject({ position: { position: 6, unit: "episodes" } });
 
 				yield* createListStateSnapshot(client, {
 					entityId: anime.id,
@@ -219,11 +221,11 @@ describe("AniList list-state media queries", () => {
 					eventSchemaSlug: schemas.anime.listState,
 					properties: {
 						repeatCount: 2,
-						animeEpisode: 1,
 						source: "anilist",
 						state: "complete",
 						sourceEntryId: "entry",
 						sourceAccountId: "acct",
+						position: { position: 1, unit: "episodes" },
 						sourceUpdatedAt: "2020-01-01T00:00:00.000Z",
 					},
 				});
@@ -240,7 +242,10 @@ describe("AniList list-state media queries", () => {
 				);
 				const completedAnime = completedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(completedAnime, "Expected the completed anime in the flat lifecycle list");
-				expect(completedAnime).toMatchObject({ animeEpisode: 1, state: "complete" });
+				expect(completedAnime).toMatchObject({
+					state: "complete",
+					position: { position: 1, unit: "episodes" },
+				});
 
 				const snapshots = yield* executeRyotQLRecipe(
 					client,
@@ -267,12 +272,12 @@ describe("AniList list-state media queries", () => {
 				assertPresent(startedSnapshot, "Expected the AniList in-progress snapshot");
 				expect(startedSnapshot.properties).toMatchObject({
 					repeatCount: 2,
-					animeEpisode: 0,
 					source: "anilist",
 					state: "in_progress",
 					sourceEntryId: "entry",
 					sourceAccountId: "acct",
 					startedDate: { year: 2020 },
+					position: { position: 0, unit: "episodes" },
 					sourceUpdatedAt: "2020-01-01T00:00:00.000Z",
 				});
 				const otherAccountSnapshots = yield* executeRyotQLRecipe(
@@ -322,21 +327,24 @@ describe("AniList list-state media queries", () => {
 				);
 				expect(animeListStates).toEqual<unknown>(
 					arrayContaining([
-						objectContaining({ animeEpisode: 1, state: "complete", sourceEntryId: "entry" }),
 						objectContaining({
-							animeEpisode: 0,
+							state: "complete",
+							sourceEntryId: "entry",
+							position: { position: 1, unit: "episodes" },
+						}),
+						objectContaining({
 							state: "in_progress",
 							sourceEntryId: "entry",
 							startedDate: { year: 2020 },
+							position: { position: 0, unit: "episodes" },
 						}),
 					]),
 				);
 				expect(mangaListStates).toEqual<unknown>([
 					objectContaining({
-						mangaVolume: 0,
-						mangaChapter: 0,
 						state: "on_hold",
 						sourceEntryId: "manga-entry",
+						position: { volume: 0, position: 0, unit: "chapters" },
 					}),
 				]);
 				for (const activity of [animeActivity, mangaActivity]) {

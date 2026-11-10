@@ -292,9 +292,17 @@ function SourceFacts(props: {
 }) {
 	const { facts } = props.row;
 	const lines = [
-		...(props.modeled.item === null
+		...(props.modeled.position === null
 			? []
-			: [{ value: props.modeled.item, label: "Consumed item position" }]),
+			: [
+					{
+						value: props.modeled.position,
+						label:
+							props.row.eventType === "item-complete"
+								? "Consumed item position"
+								: "Source position",
+					},
+				]),
 		...(props.modeled.manualMinutes === null
 			? []
 			: [
@@ -345,15 +353,6 @@ function SourceFacts(props: {
 			? []
 			: [{ value: facts.consumedOn, label: "Original consumed-on value" }]),
 		...(facts.dateUnknown === true ? [{ label: "Source date", value: "Marked unknown" }] : []),
-		...(facts.animeEpisode === undefined
-			? []
-			: [{ label: "Source anime episode", value: exact(facts.animeEpisode) }]),
-		...(facts.mangaChapter === undefined
-			? []
-			: [{ label: "Source manga chapter", value: exact(facts.mangaChapter) }]),
-		...(facts.mangaVolume === undefined
-			? []
-			: [{ label: "Source manga volume", value: exact(facts.mangaVolume) }]),
 		...(facts.completionKey === undefined
 			? []
 			: [{ value: facts.completionKey, label: "Source completion key" }]),

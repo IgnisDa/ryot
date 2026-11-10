@@ -203,11 +203,19 @@ describe("complete activity history recipes", () => {
 				.decode({
 					data: {
 						collectionEvents: rows([]),
-						events: rows([{ ...flatProgressEventRow, animeEpisode: 7, listState: null }]),
+						events: rows([
+							{
+								...flatProgressEventRow,
+								listState: null,
+								position: { position: 7, unit: "episodes" },
+							},
+						]),
 					},
 				}),
 		);
-		expect(page.items).toMatchObject([{ kind: "media", animeEpisode: 7 }]);
+		expect(page.items).toMatchObject([
+			{ kind: "media", position: { position: 7, unit: "episodes" } },
+		]);
 	});
 
 	it("uses the review-only event set for creators", () => {

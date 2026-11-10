@@ -8,14 +8,14 @@ import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
-import type { ConsumedItem } from "../../shared/consumption";
+import type { MediaPosition } from "../../shared/consumption";
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
 import type {
 	MediaFlatActivityEvent,
 	MediaUnlinkedCreatorsOverview,
 } from "../../shared/media-recipes";
-import { mediaActivityRunLabel } from "./activity-copy";
+import { mediaActivityRunLabel, mediaPositionLabel } from "./activity-copy";
 import { createMediaHistoryQuery, type MediaHistoryRecipe } from "./activity-history";
 import type { MediaActivityLogger } from "./activity-log/state";
 import {
@@ -46,6 +46,7 @@ import { MediaEntityRailSection } from "./entity-rail";
 import {
 	type MediaFlatActivityBeat,
 	mediaFlatActivityFigures,
+	type MediaFlatActivityProgressRow,
 	type MediaFlatActivityRow,
 	mediaFlatActivityRow,
 	type MediaFlatActivitySummary,
@@ -145,7 +146,7 @@ export type MediaFlatSchemaDescriptor<
 		readonly progressVerb: string;
 		readonly loadingDetail: string;
 		readonly completionsLabel: string;
-		readonly itemLabel?: (item: ConsumedItem) => string;
+		readonly itemLabel?: (item: MediaPosition) => string;
 		readonly beats: Record<Exclude<MediaFlatActivityBeat, "backlog">, string>;
 		readonly snapshot?: {
 			readonly label: string;
@@ -278,10 +279,13 @@ export const defineFlatMediaSchema = <
 		select: ({ summary }) => summary,
 	});
 
+	const progressLabel = (row: MediaFlatActivityProgressRow<Extra>, percent?: string) =>
+		row.position === null
+			? activityCopy.rowLabels.progress(percent, row.extra)
+			: mediaPositionLabel(row.position);
+
 	const mergeRuns = mergeFlatRuns<FlatReviewSubject, Extra>(
-		(current, next) =>
-			activityCopy.rowLabels.progress(undefined, current) ===
-			activityCopy.rowLabels.progress(undefined, next),
+		(current, next) => progressLabel(current) === progressLabel(next),
 	);
 
 	const activityView = (result: MediaFlatActivityResult<Extra>) =>
@@ -314,10 +318,7 @@ export const defineFlatMediaSchema = <
 			return row.beat === "backlog" ? "Added to backlog" : activityCopy.beats[row.beat];
 		}
 		if (row.type === "progress") {
-			return activityCopy.rowLabels.progress(
-				row.percent === undefined ? undefined : decimalLabel(row.percent),
-				row.extra,
-			);
+			return progressLabel(row, row.percent === undefined ? undefined : decimalLabel(row.percent));
 		}
 		if (row.type === "snapshot") {
 			return activityCopy.snapshot?.label ?? "Synced";

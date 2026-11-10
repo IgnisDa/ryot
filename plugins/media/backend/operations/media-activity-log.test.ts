@@ -319,26 +319,44 @@ describe("media activity log", () => {
 		() =>
 			Effect.gen(function* () {
 				const anime = recordingHost({ schemaSlug: "anime" });
-				yield* run({ entry: { position: 7, kind: "progress", entityId: "anime-1" } }, anime.host);
+				yield* run(
+					{
+						entry: {
+							kind: "progress",
+							entityId: "anime-1",
+							position: { position: 7, unit: "episodes" },
+						},
+					},
+					anime.host,
+				);
 				expect(anime.creates).toEqual([
 					[
 						{
 							entityId: "anime-1",
 							occurredAt: submittedAt,
 							eventSchemaSlug: "progress",
-							properties: { animeEpisode: 7 },
+							properties: { position: { position: 7, unit: "episodes" } },
 						},
 					],
 				]);
 				const manga = recordingHost({ schemaSlug: "manga" });
-				yield* run({ entry: { position: 113, kind: "progress", entityId: "manga-1" } }, manga.host);
+				yield* run(
+					{
+						entry: {
+							kind: "progress",
+							entityId: "manga-1",
+							position: { position: 113.5, unit: "chapters" },
+						},
+					},
+					manga.host,
+				);
 				expect(manga.creates).toEqual([
 					[
 						{
 							entityId: "manga-1",
 							occurredAt: submittedAt,
 							eventSchemaSlug: "progress",
-							properties: { mangaChapter: 113 },
+							properties: { position: { position: 113.5, unit: "chapters" } },
 						},
 					],
 				]);
@@ -363,13 +381,29 @@ describe("media activity log", () => {
 				);
 				yield* rejects(
 					"SchemaError",
-					{ position: 2, kind: "progress", entityId: "anime-1", progressPercent: 50 },
+					{
+						kind: "progress",
+						entityId: "anime-1",
+						progressPercent: 50,
+						position: { position: 2, unit: "episodes" },
+					},
 					anime.host,
+				);
+				yield* rejects(
+					"OperationRejectedError",
+					{ kind: "progress", entityId: "anime-1", position: { position: 2.5, unit: "episodes" } },
+					anime.host,
+				);
+				const manga = recordingHost({ schemaSlug: "manga" });
+				yield* rejects(
+					"OperationRejectedError",
+					{ kind: "progress", entityId: "manga-1", position: { position: 2, unit: "volumes" } },
+					manga.host,
 				);
 				const book = recordingHost({ schemaSlug: "book" });
 				yield* rejects(
 					"OperationRejectedError",
-					{ position: 2, kind: "progress", entityId: "book-1" },
+					{ kind: "progress", entityId: "book-1", position: { position: 2, unit: "episodes" } },
 					book.host,
 				);
 				const show = recordingHost({ schemaSlug: "show" });
@@ -394,7 +428,7 @@ describe("media activity log", () => {
 					{ kind: "status", entityId: "gone", status: "dropped" },
 					missing.host,
 				);
-				for (const { creates } of [anime, book, show, missing]) {
+				for (const { creates } of [anime, manga, book, show, missing]) {
 					expect(creates).toEqual([]);
 				}
 			}),
@@ -616,10 +650,10 @@ describe("media activity log", () => {
 				yield* run(
 					{
 						entry: {
-							position: 3,
 							kind: "progress",
 							entityId: "anime-1",
 							consumedOn: "Crunchyroll",
+							position: { position: 3, unit: "episodes" },
 						},
 					},
 					progress.host,

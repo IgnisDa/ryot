@@ -62,6 +62,16 @@ export type MediaFlatActivityRow<Subject, Extra = unknown> =
 	| MediaFlatActivitySnapshotRow<Extra>
 	| MediaActivityBeatRow<MediaFlatActivityBeat>;
 
+export type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
+	readonly extra: Extra;
+	readonly type: "progress";
+	readonly source: string | undefined;
+	readonly percent: number | undefined;
+	readonly run?: MediaActivityProgressRun;
+	readonly events: readonly MediaActivityEventRef[];
+	readonly position: MediaFlatActivityMediaEvent["position"];
+};
+
 type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
 	readonly extra: Extra;
 	readonly type: "snapshot";
@@ -70,16 +80,7 @@ type MediaFlatActivitySnapshotRow<Extra> = ActivityAnchor & {
 type MediaFlatActivityItemRow = ActivityAnchor & {
 	readonly type: "item";
 	readonly events: readonly MediaActivityEventRef[];
-	readonly item: MediaFlatActivityMediaEvent["consumedItem"];
-};
-
-type MediaFlatActivityProgressRow<Extra> = ActivityAnchor & {
-	readonly extra: Extra;
-	readonly type: "progress";
-	readonly source: string | undefined;
-	readonly percent: number | undefined;
-	readonly run?: MediaActivityProgressRun;
-	readonly events: readonly MediaActivityEventRef[];
+	readonly item: MediaFlatActivityMediaEvent["position"];
 };
 
 const parentRow = <Subject, Extra>(
@@ -96,7 +97,7 @@ const parentRow = <Subject, Extra>(
 		return {
 			...anchorOf(event, "item"),
 			type: "item",
-			item: event.consumedItem,
+			item: event.position,
 			events: [eventRef(event)],
 		};
 	}
@@ -108,6 +109,7 @@ const parentRow = <Subject, Extra>(
 			...anchorOf(event, "progress"),
 			extra: event,
 			type: "progress",
+			position: event.position,
 			events: [eventRef(event)],
 			source: optionalText(event.consumedOn),
 			percent: event.progressPercent ?? undefined,
@@ -139,13 +141,18 @@ const latestProgressPercent = (rows: readonly MediaFlatActivityRow<unknown>[]) =
 };
 
 export const mergeFlatRuns =
-	<Subject, Extra>(sameTarget: (current: Extra, next: Extra) => boolean) =>
+	<Subject, Extra>(
+		sameTarget: (
+			current: MediaFlatActivityProgressRow<Extra>,
+			next: MediaFlatActivityProgressRow<Extra>,
+		) => boolean,
+	) =>
 	(
 		current: MediaFlatActivityRow<Subject, Extra>,
 		next: MediaFlatActivityRow<Subject, Extra>,
 	): undefined | MediaFlatActivityRow<Subject, Extra> => {
 		if (current.type === "progress" && next.type === "progress") {
-			return sameTarget(current.extra, next.extra) ? mergeProgressRuns(current, next) : undefined;
+			return sameTarget(current, next) ? mergeProgressRuns(current, next) : undefined;
 		}
 		return current.type === "completion" &&
 			next.type === "progress" &&

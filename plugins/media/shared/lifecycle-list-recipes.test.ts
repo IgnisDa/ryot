@@ -149,9 +149,8 @@ describe("flat lifecycle list recipe", () => {
 			return JSON.stringify(output.fields.find((entry) => "key" in entry && entry.key === key));
 		};
 
-		expect(field("animeEpisode")).toContain('"type":"isNotNull"');
-		expect(field("mangaChapter")).toContain('"type":"isNotNull"');
-		expect(field("mangaVolume")).toContain('"type":"isNotNull"');
+		expect(field("position")).toContain('"type":"isNotNull"');
+		expect(field("position")).toContain('"path":["position","position"]');
 	});
 
 	it("derives the in-progress percent from the cumulative position over the total", () => {
@@ -169,8 +168,7 @@ describe("flat lifecycle list recipe", () => {
 		);
 
 		expect(percent).toContain('"operator":"divide"');
-		expect(percent).toContain('"animeEpisode"');
-		expect(percent).toContain('"mangaChapter"');
+		expect(percent).toContain('"path":["position","position"]');
 		expect(percent).toContain('"episodes"');
 		expect(percent).toContain('"chapters"');
 		expect(percent).toContain('"progressPercent"');

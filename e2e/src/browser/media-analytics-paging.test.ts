@@ -37,7 +37,7 @@ const displayedRows = (table: Playwright.Locator) =>
 
 const expectedDisplayedRows = (records: readonly MediaRecord[], dateLabels: readonly string[]) =>
 	records.map((record, index) => {
-		const item = requirePresent(record.facts.consumedItem, "Expected consumed item facts");
+		const item = requirePresent(record.facts.position, "Expected consumed item facts");
 		const basis = requirePresent(record.facts.consumptionBasis, "Expected frozen basis facts");
 		const episodes = requirePresent(record.contribution.episodes, "Expected episode contribution");
 		const attribution = record.contribution.attribution;
@@ -51,7 +51,7 @@ const expectedDisplayedRows = (records: readonly MediaRecord[], dateLabels: read
 				record.eventType,
 				requirePresent(dateLabels[index], "Expected browser-formatted UTC date"),
 				[
-					`Consumed item position: ${item.unit} position ${item.position}`,
+					`Consumed item position: Ep ${item.position}`,
 					`Frozen consumption basis: ${basis.unit} · total ${basis.total} · source property ${basis.property}`,
 				].join("\n"),
 				[
@@ -76,7 +76,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 				eventSchemaSlug: requireEventSchemaBySlug(entities.anime.eventSchemas, "item-complete").id,
 				properties: {
 					sourceRun,
-					consumedItem: { position: 7, unit: "episodes" },
+					position: { position: 7, unit: "episodes" },
 					consumptionBasis: consumptionBasisFor("anime", { episodes: 12 }),
 				},
 			})),
@@ -165,7 +165,7 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 			expect(record.mediaType).toBe("anime");
 			expect(record.facts).toEqual({
 				sourceRun: source.sourceRun,
-				consumedItem: { position: 7, unit: "episodes" },
+				position: { position: 7, unit: "episodes" },
 				consumptionBasis: { total: 12, unit: "episodes", property: "episodes" },
 			});
 			expect(record.contribution).toEqual({

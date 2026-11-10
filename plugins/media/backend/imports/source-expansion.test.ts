@@ -96,8 +96,8 @@ it.live(
 			expect(
 				events
 					.filter((event) => event.eventSchemaSlug === "progress")
-					.map((event) => event.properties["mangaChapter"]),
-			).toEqual([513]);
+					.map((event) => event.properties["position"]),
+			).toEqual([{ position: 513, unit: "chapters" }]);
 			expect(events.filter((event) => event.eventSchemaSlug === "backlog")).toHaveLength(1);
 			expect(new Set(events.map((event) => event.operationId)).size).toBe(2);
 			expect(records[0]?.group?.entityRef.sourceLabel).toBe("Title </manga> é");

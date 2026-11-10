@@ -181,7 +181,7 @@ describe("Media analytics presentation model", () => {
 			orderCreatedAt: "2026-10-01T00:00:00Z",
 			facts: {
 				timeSpent: 0,
-				consumedItem: { position: 12, unit: "episodes" },
+				position: { position: 12, unit: "episodes" },
 				sourceProgress: { percent: 50, position: 12, unit: "episodes" },
 			},
 			contribution: {
@@ -193,7 +193,7 @@ describe("Media analytics presentation model", () => {
 			},
 		} as const;
 		const model = recordModel(row);
-		expect(model.item).toBe("episodes position 12");
+		expect(model.position).toBe("Ep 12");
 		expect(model.sourceProgress).toContain("not an allocated amount");
 		expect(model.manualMinutes).toBe(0);
 		expect(model.date).toBe("Unknown date");

@@ -17,12 +17,7 @@ import {
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import {
-	animePresentationFacts,
-	animeProgressLabel,
-	animeSchema,
-	animeSummaryFacts,
-} from "./schema";
+import { animePresentationFacts, animeSchema, animeSummaryFacts } from "./schema";
 import { AnimeAiringScheduleSection, animeUpcomingEpisodes } from "./sections";
 
 const noopAdapter = {
@@ -45,9 +40,7 @@ const PROGRESS_EVENT = {
 	startedOn: null,
 	isSpoiler: null,
 	listState: null,
-	animeEpisode: 12,
 	dateUnknown: null,
-	consumedItem: null,
 	progressPercent: 62,
 	entityId: "entity-1",
 	id: "anime-progress",
@@ -56,6 +49,7 @@ const PROGRESS_EVENT = {
 	eventSchemaSlug: "progress",
 	createdAt: "2025-11-03T12:00:05.000Z",
 	occurredAt: "2025-11-03T12:00:00.000Z",
+	position: { position: 12, unit: "episodes" },
 };
 
 const animeSummary = (overrides: Record<string, unknown> = {}) =>
@@ -111,14 +105,6 @@ describe("anime schema", () => {
 		).toEqual([]);
 	});
 
-	it("names the episode a progress event recorded, and falls back to the percent", () => {
-		expect(animeProgressLabel("62", { animeEpisode: 12 })).toBe("Episode 12");
-		expect(animeProgressLabel("62", { animeEpisode: null })).toBe("62% through the anime");
-		expect(animeProgressLabel(undefined, { animeEpisode: null })).toBe(
-			"Part-way through the anime",
-		);
-	});
-
 	it("labels each recorded episode on its own activity row", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
@@ -132,10 +118,10 @@ describe("anime schema", () => {
 							PROGRESS_EVENT,
 							{
 								...PROGRESS_EVENT,
-								animeEpisode: 13,
 								id: "anime-progress-13",
 								createdAt: "2025-11-04T12:00:05.000Z",
 								occurredAt: "2025-11-04T12:00:00.000Z",
+								position: { position: 13, unit: "episodes" },
 							},
 						]),
 					),
@@ -143,8 +129,8 @@ describe("anime schema", () => {
 			/>,
 		);
 
-		expect(container.textContent).toContain("Episode 12");
-		expect(container.textContent).toContain("Episode 13");
+		expect(container.textContent).toContain("Ep 12");
+		expect(container.textContent).toContain("Ep 13");
 		expect(container.textContent).not.toContain("62% through the anime");
 		expect(container.textContent).toContain("Episodes");
 		expect(container.textContent).toContain("24");
@@ -161,10 +147,8 @@ describe("anime schema", () => {
 					timeSpent: null,
 					startedOn: null,
 					isSpoiler: null,
-					animeEpisode: 0,
 					consumedOn: null,
 					dateUnknown: null,
-					consumedItem: null,
 					entityId: "entity-1",
 					sessionEntityId: null,
 					progressPercent: null,
@@ -172,13 +156,14 @@ describe("anime schema", () => {
 					eventSchemaSlug: "list-state",
 					createdAt: "2026-05-02T10:00:05.000Z",
 					occurredAt: "2026-05-02T10:00:00.000Z",
+					position: { position: 0, unit: "episodes" },
 					listState: {
 						repeatCount: 2,
-						animeEpisode: 0,
 						source: "anilist",
 						state: "in_progress",
 						sourceEntryId: "entry-1",
 						sourceAccountId: "account-1",
+						position: { position: 0, unit: "episodes" },
 						sourceUpdatedAt: "2026-05-01T10:00:00.000Z",
 					},
 				},
@@ -200,8 +185,7 @@ describe("anime schema", () => {
 		);
 		expect(container.textContent).toContain("Synced from AniList");
 		expect(container.textContent).toContain("In progress");
-		expect(container.textContent).toContain("Episode 0");
-		expect(container.textContent).toContain("Repeat count 2");
+		expect(container.textContent).toContain("In progress · Ep 0 · Repeat count 2");
 		expect(container.textContent).not.toContain("Finished the anime");
 		unmount();
 	});

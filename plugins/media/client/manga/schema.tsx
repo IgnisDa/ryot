@@ -5,7 +5,7 @@ import type {
 	MediaSummaryOf,
 } from "../../shared/media-recipes";
 import { mediaFlatActivityCopy, mediaListStateDetail } from "../media/activity-copy";
-import { decimalLabel, mediaActivityCountFigure } from "../media/activity-timeline";
+import { mediaActivityCountFigure } from "../media/activity-timeline";
 import { defineFlatMediaSchema } from "../media/flat-schema";
 import { mediaCountFact, mediaCountLabels, type MediaSummaryFact } from "../media/summary-state";
 import { mediaSchemaAspects } from "../schema-aspects";
@@ -19,11 +19,6 @@ type MangaListStateSnapshot = Pick<
 	"listState"
 >;
 
-type MangaProgressPosition = Pick<
-	Extract<MediaActivityEventOf<typeof mangaRecipes>, { readonly kind: "media" }>,
-	"mangaVolume" | "mangaChapter"
->;
-
 export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFact[] =>
 	[
 		mediaCountFact(manga.chapters, "Chapter", "book-open"),
@@ -32,34 +27,6 @@ export const mangaSummaryFacts = (manga: MangaSummary): readonly MediaSummaryFac
 
 export const mangaPresentationFacts = (manga: MangaPresentation) =>
 	mediaCountLabels(manga.chapters, "chapter");
-
-export const mangaProgressLabel = (
-	percent: string | undefined,
-	position: MangaProgressPosition,
-): string => {
-	const volume = position.mangaVolume === null ? undefined : `Volume ${position.mangaVolume}`;
-	const chapter =
-		position.mangaChapter === null ? undefined : `Chapter ${decimalLabel(position.mangaChapter)}`;
-	if (volume !== undefined && chapter !== undefined) {
-		return `${volume}, ${chapter}`;
-	}
-	if (chapter !== undefined) {
-		return chapter;
-	}
-	if (volume !== undefined) {
-		return volume;
-	}
-	return percent === undefined ? "Part-way through the manga" : `${percent}% through the manga`;
-};
-
-export const mangaListStateDetail = (event: MangaListStateSnapshot) => {
-	const volume = event.listState?.mangaVolume;
-	const chapter = event.listState?.mangaChapter;
-	return mediaListStateDetail(event.listState, [
-		volume === undefined ? undefined : `Volume ${volume}`,
-		chapter === undefined ? undefined : `Chapter ${decimalLabel(chapter)}`,
-	]);
-};
 
 export const mangaSchema = defineFlatMediaSchema({
 	recipes: mangaRecipes,
@@ -74,6 +41,11 @@ export const mangaSchema = defineFlatMediaSchema({
 		people: "Authors & artists",
 		notice: "Credits and recommendations",
 	},
+	activityCopy: mediaFlatActivityCopy<MangaListStateSnapshot>({
+		verb: "read",
+		noun: "manga",
+		snapshot: { label: "Synced from AniList", detail: mediaListStateDetail },
+	}),
 	logActivity: {
 		family: "positional",
 		itemContextLabel: "Volume context",
@@ -84,14 +56,4 @@ export const mangaSchema = defineFlatMediaSchema({
 			{ label: "Volume", value: "volumes" },
 		],
 	},
-	activityCopy: mediaFlatActivityCopy<MangaProgressPosition & MangaListStateSnapshot>({
-		verb: "read",
-		noun: "manga",
-		progress: mangaProgressLabel,
-		snapshot: { label: "Synced from AniList", detail: mangaListStateDetail },
-		itemLabel: (item) =>
-			item.unit === "volumes"
-				? `Volume ${item.position} read`
-				: `Chapter ${item.position} read${item.volume === undefined ? "" : ` · Volume ${item.volume}`}`,
-	}),
 });

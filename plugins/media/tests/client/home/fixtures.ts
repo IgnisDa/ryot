@@ -1,6 +1,7 @@
 import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Result } from "@ryot-app/plugin-kit/effect";
 
+import type { MediaPosition } from "../../../shared/consumption";
 import { rowsResult } from "../query-result-fixture";
 
 export const includeResult = (items: readonly unknown[]) => ({
@@ -26,18 +27,14 @@ export const flatRow = (
 	name: string,
 	schemaSlug: string,
 	fields: {
-		readonly mangaVolume?: number;
-		readonly animeEpisode?: number;
-		readonly mangaChapter?: number;
+		readonly position?: MediaPosition;
 		readonly latestActivityAt: string;
 		readonly progressPercent?: number;
 	},
 ) => ({
 	...mediaIdentity(id, name, schemaSlug),
 	state: "in_progress",
-	mangaVolume: fields.mangaVolume ?? null,
-	animeEpisode: fields.animeEpisode ?? null,
-	mangaChapter: fields.mangaChapter ?? null,
+	position: fields.position ?? null,
 	latestActivityAt: fields.latestActivityAt,
 	progressPercent: fields.progressPercent ?? null,
 });

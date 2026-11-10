@@ -252,7 +252,7 @@ describe("Media analytics supplemental SQL recipes", () => {
 							.id,
 						properties: {
 							sourceRun,
-							consumedItem: { position: 7, unit: "episodes" },
+							position: { position: 7, unit: "episodes" },
 							consumptionBasis: consumptionBasisFor("anime", { episodes: 12 }),
 						},
 					})),
@@ -330,11 +330,10 @@ describe("Media analytics supplemental SQL recipes", () => {
 						episodes: { recorded: 1, estimated: 0, missing: false },
 					},
 					facts: {
-						consumedItem: { position: 7, unit: "episodes" },
+						position: { position: 7, unit: "episodes" },
 						consumptionBasis: { total: 12, unit: "episodes", property: "episodes" },
 					},
 				});
-				expect(row.facts).not.toHaveProperty("animeEpisode");
 				expect(row.facts).not.toHaveProperty("progressPercent");
 			}
 			const movieRecords = yield* executeRyotQLRecipe(

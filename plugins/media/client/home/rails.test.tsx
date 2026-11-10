@@ -152,17 +152,16 @@ describe("ContinueRail", () => {
 					latestActivityAt: "2026-09-20T10:00:00.000Z",
 				}),
 				flatRow("anime-1", "Frieren", "anime", {
-					animeEpisode: 12,
 					progressPercent: 40,
+					position: { position: 12, unit: "episodes" },
 					latestActivityAt: "2026-09-24T10:00:00.000Z",
 				}),
 				flatRow("manga-1", "Berserk", "manga", {
-					mangaVolume: 3,
-					mangaChapter: 21,
 					latestActivityAt: "2026-09-22T10:00:00.000Z",
+					position: { volume: 3, position: 21, unit: "chapters" },
 				}),
 				flatRow("manga-2", "Vagabond", "manga", {
-					mangaChapter: 7,
+					position: { position: 7, unit: "chapters" },
 					latestActivityAt: "2026-09-21T10:00:00.000Z",
 				}),
 			],
@@ -175,9 +174,9 @@ describe("ContinueRail", () => {
 
 		expect(tileLines(view.container)).toEqual([
 			["Open Severance", "Severance", "Trojan's Horse", "S2 E5"],
-			["Open Frieren", "Frieren", "Episode 12"],
+			["Open Frieren", "Frieren", "Ep 12"],
 			["Open Hardcore History", "Hardcore History", "Resume · 2 days ago"],
-			["Open Berserk", "Berserk", "Vol 3, Ch 21"],
+			["Open Berserk", "Berserk", "Ch 21 · Vol 3"],
 			["Open Vagabond", "Vagabond", "Ch 7"],
 			["Open Heat", "Heat", "42%"],
 			["Open The Rest Is History", "The Rest Is History", "The Fall of Rome", "Ep 71"],

@@ -61,12 +61,11 @@ describe("media anime query recipes", () => {
 		expect(animeRecipes.presentationSource.fields.map(({ key }) => key)).toContain("episodes");
 	});
 
-	it("carries the recorded episode on every activity event", () => {
-		expect(keys(ACTIVITY_RECIPE, "events").at(-1)).toBe("animeEpisode");
-		expect(fieldExpr(ACTIVITY_RECIPE, "events", "animeEpisode")).toMatchObject({
+	it("carries the recorded position on every activity event", () => {
+		expect(fieldExpr(ACTIVITY_RECIPE, "events", "position")).toMatchObject({
 			type: "cast",
-			target: "number",
-			expr: { type: "jsonPath", path: ["animeEpisode"] },
+			target: "json",
+			expr: { type: "jsonPath", path: ["position"] },
 		});
 	});
 

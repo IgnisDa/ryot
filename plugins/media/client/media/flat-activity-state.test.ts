@@ -47,14 +47,14 @@ describe("flat media activity state", () => {
 					id: "one",
 					eventSchemaSlug: "item-complete",
 					properties: { calendarDate: "2025-11-02" },
-					consumedItem: { position: 12.5, unit: "chapters" },
+					position: { position: 12.5, unit: "chapters" },
 				},
 				{
 					...flatProgressEventRow,
 					id: "two",
 					eventSchemaSlug: "item-complete",
 					properties: { dateUnknown: true },
-					consumedItem: { position: 12.5, unit: "chapters" },
+					position: { position: 12.5, unit: "chapters" },
 				},
 			],
 		});

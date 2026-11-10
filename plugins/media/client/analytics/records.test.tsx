@@ -261,7 +261,7 @@ describe("Media analytics records drill", () => {
 									progressPercent: 42.5,
 									calendarDate: "2026-09-04",
 									completionKey: "source/independent-item",
-									consumedItem: { position: 12, unit: "episodes" },
+									position: { position: 12, unit: "episodes" },
 									sourceProgress: { position: 12, percent: 42.5, unit: "episodes" },
 									consumptionBasis: { total: 24, unit: "episodes", property: "episodes" },
 								},
@@ -285,7 +285,7 @@ describe("Media analytics records drill", () => {
 					expect(within(itemRow).getByText("Show episode")).toBeDefined();
 					expect(within(itemRow).getByText("item-complete")).toBeDefined();
 					expect(within(itemRow).getByText("Consumed item position:")).toBeDefined();
-					expect(within(itemRow).getByText("episodes position 12")).toBeDefined();
+					expect(within(itemRow).getByText("Ep 12")).toBeDefined();
 					expect(within(itemRow).getByText("Manually recorded time:")).toBeDefined();
 					expect(within(itemRow).getByText("0s")).toBeDefined();
 					expect(within(itemRow).getByText("Source progress:")).toBeDefined();
@@ -337,7 +337,7 @@ describe("Media analytics records drill", () => {
 						response: recordsResponse(null, [
 							recordRow("pending-item", "Pending source title", {
 								eventType: "item-complete",
-								facts: { timeSpent: 0, consumedItem: { position: 3, unit: "chapters" } },
+								facts: { timeSpent: 0, position: { position: 3, unit: "chapters" } },
 							}),
 						]),
 					});
@@ -348,7 +348,7 @@ describe("Media analytics records drill", () => {
 						screen.getByRole("table", { name: "Media analytics records" }),
 					).getByRole("row", { name: /Pending source title/ });
 					expect(within(row).getByText("item-complete")).toBeDefined();
-					expect(within(row).getByText("chapters position 3")).toBeDefined();
+					expect(within(row).getByText("Ch 3")).toBeDefined();
 					expect(within(row).getByText("0s")).toBeDefined();
 					expect(within(row).getByText("Active observation:")).toBeDefined();
 				} finally {

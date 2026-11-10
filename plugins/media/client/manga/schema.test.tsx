@@ -16,13 +16,7 @@ import {
 import { readyQueryResult, rowsResult } from "../../tests/client/query-result-fixture";
 import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { mountRyotClient } from "../../tests/client/test-support";
-import {
-	mangaListStateDetail,
-	mangaPresentationFacts,
-	mangaProgressLabel,
-	mangaSchema,
-	mangaSummaryFacts,
-} from "./schema";
+import { mangaPresentationFacts, mangaSchema, mangaSummaryFacts } from "./schema";
 
 const noopAdapter = {
 	query: () => Effect.succeed({}),
@@ -32,15 +26,12 @@ const noopAdapter = {
 const PROGRESS_EVENT = {
 	text: null,
 	rating: null,
-	mangaVolume: 3,
 	properties: {},
 	timeSpent: null,
 	startedOn: null,
 	isSpoiler: null,
 	listState: null,
-	mangaChapter: 45,
 	dateUnknown: null,
-	consumedItem: null,
 	progressPercent: 62,
 	entityId: "entity-1",
 	id: "manga-progress",
@@ -49,6 +40,7 @@ const PROGRESS_EVENT = {
 	eventSchemaSlug: "progress",
 	createdAt: "2025-11-03T12:00:05.000Z",
 	occurredAt: "2025-11-03T12:00:00.000Z",
+	position: { volume: 3, position: 45, unit: "chapters" },
 };
 
 const mangaSummary = (overrides: Record<string, unknown> = {}) =>
@@ -99,39 +91,6 @@ describe("manga schema", () => {
 		expect(mangaSummaryFacts(mangaSummary({ volumes: null, chapters: null }))).toEqual([]);
 	});
 
-	it("names the volume and chapter a progress event recorded, and falls back to the percent", () => {
-		expect(mangaProgressLabel("62", { mangaVolume: 3, mangaChapter: 45 })).toBe(
-			"Volume 3, Chapter 45",
-		);
-		expect(mangaProgressLabel("62", { mangaVolume: null, mangaChapter: 45.5 })).toBe(
-			"Chapter 45.5",
-		);
-		expect(mangaProgressLabel("62", { mangaVolume: 3, mangaChapter: null })).toBe("Volume 3");
-		expect(mangaProgressLabel("62", { mangaVolume: null, mangaChapter: null })).toBe(
-			"62% through the manga",
-		);
-		expect(mangaProgressLabel(undefined, { mangaVolume: null, mangaChapter: null })).toBe(
-			"Part-way through the manga",
-		);
-	});
-
-	it("shows the AniList observation state, snapshot positions, and repeat metadata", () => {
-		expect(
-			mangaListStateDetail({
-				listState: {
-					mangaVolume: 0,
-					repeatCount: 2,
-					mangaChapter: 0,
-					source: "anilist",
-					state: "in_progress",
-					sourceEntryId: "entry-1",
-					sourceAccountId: "account-1",
-					sourceUpdatedAt: "2026-05-01T10:00:00.000Z",
-				},
-			}),
-		).toBe("In progress · Volume 0 · Chapter 0 · Repeat count 2");
-	});
-
 	it("labels each imported chapter on its own activity row", () => {
 		const { unmount, container } = mountRyotClient(
 			noopAdapter,
@@ -145,11 +104,10 @@ describe("manga schema", () => {
 							PROGRESS_EVENT,
 							{
 								...PROGRESS_EVENT,
-								mangaChapter: 46,
-								mangaVolume: null,
 								id: "manga-progress-46",
 								createdAt: "2025-11-04T12:00:05.000Z",
 								occurredAt: "2025-11-04T12:00:00.000Z",
+								position: { position: 46.5, unit: "chapters" },
 							},
 						]),
 					),
@@ -157,8 +115,8 @@ describe("manga schema", () => {
 			/>,
 		);
 
-		expect(container.textContent).toContain("Volume 3, Chapter 45");
-		expect(container.textContent).toContain("Chapter 46");
+		expect(container.textContent).toContain("Ch 45 · Vol 3");
+		expect(container.textContent).toContain("Ch 46.5");
 		expect(container.textContent).not.toContain("62% through the manga");
 		expect(container.textContent).toContain("Chapters");
 		expect(container.textContent).toContain("120");

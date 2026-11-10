@@ -7,13 +7,9 @@ export const mangaRecipes = mediaFlatRecipes({
 	consumptionUnit: "chapters",
 	extraOverviewQueries: () => ({}),
 	presentationFields: (entity) => ({ chapters: mediaNumberField(entity, "chapters") }),
+	activityEventFields: (event) => ({ listState: listStateActivityPropertiesField(event) }),
 	summaryFields: (entity) => ({
 		volumes: mediaNumberField(entity, "volumes"),
 		chapters: mediaNumberField(entity, "chapters"),
-	}),
-	activityEventFields: (event) => ({
-		listState: listStateActivityPropertiesField(event),
-		mangaVolume: mediaNumberField(event, "mangaVolume"),
-		mangaChapter: mediaNumberField(event, "mangaChapter"),
 	}),
 });

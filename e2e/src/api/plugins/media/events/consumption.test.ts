@@ -1,6 +1,6 @@
 import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { ConsumedItem, ConsumptionBasis } from "@ryot-app/media-plugin/shared/consumption";
+import { ConsumptionBasis, MediaPosition } from "@ryot-app/media-plugin/shared/consumption";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
 
@@ -325,7 +325,7 @@ describe("Media consumption projection and reporting", () => {
 						occurredAt: `2026-01-0${index + 1}T12:00:00.000Z`,
 						properties: {
 							sourceRun: `${sourceRun}-${crypto.randomUUID()}`,
-							consumedItem: { volume: 2, position: 12.5, unit: "chapters" },
+							position: { volume: 2, position: 12.5, unit: "chapters" },
 							consumptionBasis: { total: 100, unit: "chapters", property: "chapters" },
 						},
 					})),
@@ -360,10 +360,9 @@ describe("Media consumption projection and reporting", () => {
 			expect(new Set(sourceRuns).size).toBe(2);
 			for (const event of itemEvents) {
 				expect(
-					yield* Schema.decodeUnknownEffect(ConsumedItem)(event.properties["consumedItem"]),
+					yield* Schema.decodeUnknownEffect(MediaPosition)(event.properties["position"]),
 				).toEqual({ volume: 2, position: 12.5, unit: "chapters" });
-				expect(event.properties).not.toHaveProperty("mangaChapter");
-				expect(event.properties).not.toHaveProperty("mangaVolume");
+				expect(event.properties).not.toHaveProperty("progressPages");
 				expect(event.properties).not.toHaveProperty("progressPercent");
 			}
 			expect(

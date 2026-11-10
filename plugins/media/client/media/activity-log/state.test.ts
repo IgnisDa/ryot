@@ -54,6 +54,11 @@ const positional: MediaActivityLogger = {
 	family: "positional",
 	progressUnit: { field: "episodes", plural: "episodes", singular: "episode" },
 };
+const manga: MediaActivityLogger = {
+	family: "positional",
+	progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
+	copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
+};
 const show: MediaActivityLogger = { copy, family: "show" };
 const podcast: MediaActivityLogger = { copy, family: "podcast" };
 
@@ -280,6 +285,8 @@ describe("validation", () => {
 		);
 		expect(errors({ ...position, position: 28 }, positional, { episodes: 28 })).toEqual({});
 		expect(errors({ ...position, position: 500 }, positional)).toEqual({});
+		expect(errors({ ...position, position: 2.5 }, positional).position).toBeDefined();
+		expect(errors({ ...position, position: 2.5 }, manga)).toEqual({});
 		expect(errors(draft({ hours: "1.5" })).time).toBeDefined();
 		expect(errors(draft({ minutes: "-5" })).time).toBeDefined();
 		expect(errors(draft({ consumedOn: "x".repeat(101) })).consumedOn).toBeDefined();
@@ -424,11 +431,11 @@ describe("entries", () => {
 		expect(
 			entry({ position: 13, intent: "progress", consumedOn: "Crunchyroll" }, positional),
 		).toEqual({
-			position: 13,
 			kind: "progress",
 			entityId: "entity-1",
 			when: { kind: "now" },
 			consumedOn: "Crunchyroll",
+			position: { position: 13, unit: "episodes" },
 		});
 	});
 
@@ -618,11 +625,6 @@ const episodes = (seasonNumber: null | number) => ({
 
 describe("quick actions", () => {
 	const anime: MediaActivityLogger = positional;
-	const manga: MediaActivityLogger = {
-		family: "positional",
-		progressUnit: { field: "chapters", plural: "chapters", singular: "chapter" },
-		copy: { verb: "read", noun: "manga", gerund: "reading", participle: "read" },
-	};
 
 	it("marks the next-up show episode watched now", () => {
 		expect(activityQuickAction(show, loaded({ showNextUp: episodes(2) }))).toEqual({
@@ -654,17 +656,21 @@ describe("quick actions", () => {
 		expect(activityQuickAction(anime, loaded({ episodes: 12 }))).toEqual({
 			text: "Episode 1 watched.",
 			label: "Mark episode 1 watched",
-			entry: { position: 1, kind: "progress", entityId: "entity-1" },
+			entry: {
+				kind: "progress",
+				entityId: "entity-1",
+				position: { position: 1, unit: "episodes" },
+			},
 		});
 	});
 
 	it("advances an anime mid-way and when the total is unknown", () => {
 		expect(activityQuickAction(anime, loaded({ position: 12, episodes: 28 }))).toMatchObject({
-			entry: { position: 13 },
 			label: "Mark episode 13 watched",
+			entry: { position: { position: 13 } },
 		});
 		expect(activityQuickAction(anime, loaded({ position: 12 }))).toMatchObject({
-			entry: { position: 13 },
+			entry: { position: { position: 13 } },
 		});
 	});
 
@@ -679,6 +685,7 @@ describe("quick actions", () => {
 		expect(activityQuickAction(manga, loaded({ position: 113, chapters: 200 }))).toMatchObject({
 			text: "Chapter 114 read.",
 			label: "Mark chapter 114 read",
+			entry: { position: { position: 114, unit: "chapters" } },
 		});
 	});
 
@@ -727,7 +734,7 @@ describe("activity edits", () => {
 			timeSpent: 61.25,
 			sourceRun: "original",
 			calendarDate: "2026-10-09",
-			consumedItem: { volume: 2, position: 12.5, unit: "chapters" },
+			position: { volume: 2, position: 12.5, unit: "chapters" },
 		});
 		const initial = activityEditDraft({
 			ref: record,
@@ -740,7 +747,7 @@ describe("activity edits", () => {
 			hours: "1",
 			minutes: "1.25",
 			finishedDay: "2026-10-09",
-			consumedItem: { volume: 2, position: 12.5, unit: "chapters" },
+			item: { volume: 2, position: 12.5, unit: "chapters" },
 		});
 		expect(
 			edit({
@@ -748,9 +755,9 @@ describe("activity edits", () => {
 				intent: "finished",
 				logger: positional,
 				schemaSlug: "manga",
-				change: { consumedItem: { position: 3.5, unit: "volumes" } },
+				change: { item: { position: 3.5, unit: "volumes" } },
 			}),
-		).toEqual({ consumedItem: { position: 3.5, unit: "volumes" } });
+		).toEqual({ position: { position: 3.5, unit: "volumes" } });
 		expect(edit({ record, intent: "finished", change: { minutes: "1.75" } })).toEqual({
 			timeSpent: 61.75,
 		});
@@ -800,9 +807,18 @@ describe("activity edits", () => {
 				logger: positional,
 				schemaSlug: "anime",
 				change: { position: 7 },
-				record: stored({ animeEpisode: 5 }),
+				record: stored({ position: { position: 5, unit: "episodes" } }),
 			}),
-		).toEqual({ position: 7 });
+		).toEqual({ position: { position: 7, unit: "episodes" } });
+		expect(
+			edit({
+				logger: manga,
+				intent: "progress",
+				schemaSlug: "manga",
+				change: { position: 12.5 },
+				record: stored({ position: { volume: 2, position: 12, unit: "chapters" } }),
+			}),
+		).toEqual({ position: { volume: 2, position: 12.5, unit: "chapters" } });
 	});
 
 	it.effect(

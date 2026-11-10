@@ -1,7 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { CalendarDate, EntityId } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumedItem } from "./consumption";
+import { MediaPosition } from "./consumption";
 
 export const mediaActivityStatuses = ["backlog", "on_hold", "dropped"] as const;
 
@@ -31,8 +31,6 @@ const ConsumedOnText = Schema.Trim.pipe(
 const ConsumedOn = Schema.optional(ConsumedOnText);
 
 const TimeSpent = Schema.Finite.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)));
-
-const ProgressPosition = Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)));
 
 const ProgressPercent = Schema.Finite.pipe(
 	Schema.check(Schema.isGreaterThan(0)),
@@ -68,7 +66,7 @@ export const MediaActivityEntry = Schema.Union([
 		kind: Schema.Literal("progress"),
 		timeSpent: Schema.optional(TimeSpent),
 		when: Schema.optional(MediaActivityWhen),
-		position: Schema.optional(ProgressPosition),
+		position: Schema.optional(MediaPosition),
 		progressPercent: Schema.optional(ProgressPercent),
 		progressPages: Schema.optional(Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0))),
 	}).pipe(
@@ -164,8 +162,7 @@ export const MediaEventSnapshot = Schema.Struct({
 export type MediaEventSnapshot = typeof MediaEventSnapshot.Type;
 
 export const MediaActivityPatch = Schema.Struct({
-	consumedItem: Schema.optional(ConsumedItem),
-	position: Schema.optional(ProgressPosition),
+	position: Schema.optional(MediaPosition),
 	when: Schema.optional(MediaActivityEditWhen),
 	timeSpent: Schema.optional(Schema.NullOr(TimeSpent)),
 	consumedOn: Schema.optional(Schema.NullOr(ConsumedOnText)),

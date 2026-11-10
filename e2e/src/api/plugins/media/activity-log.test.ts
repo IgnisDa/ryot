@@ -6,6 +6,7 @@ import {
 	showSeasonChoicesRecipe,
 	showSeasonEpisodeChoicesRecipe,
 } from "@ryot-app/media-plugin/shared/activity-log-recipes";
+import type { MediaPosition } from "@ryot-app/media-plugin/shared/consumption";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
@@ -290,7 +291,7 @@ describe("Media activity log operation", () => {
 				logMediaActivity(client, {
 					submittedAt: nowIso(),
 					submissionId: crypto.randomUUID(),
-					entry: { entityId, position, kind: "progress" },
+					entry: { entityId, kind: "progress", position: { position, unit: "episodes" } },
 				});
 
 			yield* progress(1);
@@ -304,15 +305,41 @@ describe("Media activity log operation", () => {
 			const progressEvents = yield* readEvents(client, entityId, "progress");
 			expect(progressEvents).toHaveLength(2);
 			expect(progressEvents.map((event) => event.properties)).toContainEqual({
-				animeEpisode: 1,
+				position: { position: 1, unit: "episodes" },
 				consumptionBasis: { total: 3, unit: "episodes", property: "episodes" },
 			});
 			expect(progressEvents.map((event) => event.properties)).toContainEqual({
-				animeEpisode: 3,
+				position: { position: 3, unit: "episodes" },
 				consumptionBasis: { total: 3, unit: "episodes", property: "episodes" },
 			});
 			expect(yield* readEvents(client, entityId, "complete")).toHaveLength(1);
 			expect((yield* readContext(client, entityId)).state).toBe("complete");
+		}),
+	);
+
+	it.live("logs a fractional manga chapter and refuses a volume position", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const { entityId } = yield* createBuiltinMediaLifecycleFixture(client, {
+				entitySchemaSlug: "manga",
+				properties: { chapters: 20 },
+			});
+			const progress = (position: MediaPosition) =>
+				logMediaActivity(client, {
+					submittedAt: nowIso(),
+					submissionId: crypto.randomUUID(),
+					entry: { entityId, position, kind: "progress" },
+				});
+
+			yield* progress({ position: 10.5, unit: "chapters" });
+			const context = yield* readContext(client, entityId);
+			expect(context.position).toBe(10.5);
+			expect(context.progressPercent).toBe(52.5);
+			assertTaggedError(
+				yield* Effect.flip(progress({ position: 2, unit: "volumes" })),
+				"PluginOperationRejected",
+			);
+			expect(yield* readEvents(client, entityId, "progress")).toHaveLength(1);
 		}),
 	);
 
@@ -632,7 +659,11 @@ describe("Media activity log operation", () => {
 					parentEntityId: show.show.id,
 					episodeEntityIds: [otherShow.episodeId(1, 1)],
 				}),
-				attempt({ position: 2, kind: "progress", entityId: movie.entityId }),
+				attempt({
+					kind: "progress",
+					entityId: movie.entityId,
+					position: { position: 2, unit: "episodes" },
+				}),
 				attempt({ kind: "progress", progressPercent: 50, entityId: anime.entityId }),
 				attempt({ kind: "progress", entityId: anime.entityId }),
 				attempt({ kind: "status", status: "dropped", entityId: yield* randomUuid }),

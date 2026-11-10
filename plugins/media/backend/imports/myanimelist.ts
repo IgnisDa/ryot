@@ -173,7 +173,7 @@ const adaptLot = (
 					eventSchemaSlug: "progress",
 					properties: {
 						dateUnknown: true,
-						...(input.lot === "anime" ? { animeEpisode: done } : { mangaChapter: done }),
+						position: { position: done, unit: input.lot === "anime" ? "episodes" : "chapters" },
 					},
 				});
 			}

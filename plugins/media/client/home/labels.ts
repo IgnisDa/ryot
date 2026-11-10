@@ -1,5 +1,7 @@
 import { DateTime } from "@ryot-app/plugin-client-sdk/effect";
 
+import type { MediaPosition } from "../../shared/consumption";
+import { mediaPositionLabel } from "../media/activity-copy";
 import { formatLocalDateKey } from "../media/date";
 
 const DAY_MS = 86_400_000;
@@ -18,22 +20,11 @@ export const episodePositionLabel = (episode: {
 		: `S${episode.seasonNumber} E${episode.episodeNumber}`;
 
 export const flatProgressLabel = (item: {
-	readonly schemaSlug: string;
-	readonly mangaVolume: null | number;
-	readonly animeEpisode: null | number;
-	readonly mangaChapter: null | number;
+	readonly position: null | MediaPosition;
 	readonly progressPercent: null | number;
 }) => {
-	if (item.schemaSlug === "anime" && item.animeEpisode !== null) {
-		return `Episode ${item.animeEpisode}`;
-	}
-	if (item.schemaSlug === "manga" && (item.mangaVolume !== null || item.mangaChapter !== null)) {
-		return [
-			item.mangaVolume === null ? undefined : `Vol ${item.mangaVolume}`,
-			item.mangaChapter === null ? undefined : `Ch ${item.mangaChapter}`,
-		]
-			.filter((part) => part !== undefined)
-			.join(", ");
+	if (item.position !== null) {
+		return mediaPositionLabel(item.position);
 	}
 	return item.progressPercent === null ? undefined : `${Math.round(item.progressPercent)}%`;
 };

@@ -72,17 +72,17 @@ const getSeriesTarget = (seriesType: number) => {
 	if (seriesType === 0) {
 		return {
 			sourceLabelPrefix: "Anime",
+			positionUnit: "episodes" as const,
 			entitySchemaSlug: "anime" as const,
 			providerSlug: "anime.anilist" as const,
-			positionProperty: "animeEpisode" as const,
 		};
 	}
 	if (seriesType === 1) {
 		return {
 			sourceLabelPrefix: "Manga",
+			positionUnit: "chapters" as const,
 			entitySchemaSlug: "manga" as const,
 			providerSlug: "manga.anilist" as const,
-			positionProperty: "mangaChapter" as const,
 		};
 	}
 	return undefined;
@@ -162,14 +162,17 @@ export const adaptAnilistExport = (jsonText: string, timezone: string, importedA
 					},
 					itemIndex,
 				);
-				if (item.progress > 0 || volumeProgress > 0) {
+				if (item.progress > 0) {
 					group.events.push({
 						occurredAt,
 						eventSchemaSlug: "progress",
 						properties: {
 							dateUnknown: true,
-							...(item.progress > 0 ? { [target.positionProperty]: item.progress } : {}),
-							...(volumeProgress > 0 ? { mangaVolume: volumeProgress } : {}),
+							position: {
+								position: item.progress,
+								unit: target.positionUnit,
+								...(volumeProgress > 0 ? { volume: volumeProgress } : {}),
+							},
 						},
 					});
 				}

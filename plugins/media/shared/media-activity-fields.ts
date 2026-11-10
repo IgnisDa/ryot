@@ -1,10 +1,6 @@
 import { reviewPropertyKeys } from "@ryot-app/plugin-kit/schema";
 
-import {
-	builtinMediaEntitySchemaSlugs,
-	isPositional,
-	positionalProperties,
-} from "./media-schema-slugs";
+import { builtinMediaEntitySchemaSlugs, isPositional } from "./media-schema-slugs";
 
 export const mediaActivityEventSchemaSlugs = [
 	"complete",
@@ -37,22 +33,16 @@ export const mediaActivityPatchableKeys = [
 	"consumptionBasis",
 	"sourceRun",
 	"sourceProgress",
-	"consumedItem",
-	positionalProperties.anime.position,
-	positionalProperties.manga.position,
+	"position",
 ] as const;
 
 const progressFields = (entitySchemaSlug: string): readonly string[] => {
 	if (entitySchemaSlug === "book" || entitySchemaSlug === "comic-book") {
 		return ["consumedOn", "progressPercent", "progressPages"];
 	}
-	if (entitySchemaSlug === "anime") {
-		return ["consumedOn", "progressPercent", "animeEpisode"];
-	}
-	if (entitySchemaSlug === "manga") {
-		return ["consumedOn", "progressPercent", "mangaVolume", "mangaChapter"];
-	}
-	return ["consumedOn", "progressPercent"];
+	return isPositional(entitySchemaSlug)
+		? ["consumedOn", "progressPercent", "position"]
+		: ["consumedOn", "progressPercent"];
 };
 
 /** The properties the manifest declares for an activity event, or `undefined` when it has none. */
@@ -110,7 +100,7 @@ export const mediaActivityDeclaredProperties = (
 				? [
 						...DATE_FIELDS,
 						...DETAIL_FIELDS,
-						"consumedItem",
+						"position",
 						"consumptionBasis",
 						"sourceRun",
 						"sourceProgress",
@@ -121,16 +111,13 @@ export const mediaActivityDeclaredProperties = (
 	}
 };
 
-export const mediaProgressPositionProperty = (entitySchemaSlug: string) =>
-	isPositional(entitySchemaSlug) ? positionalProperties[entitySchemaSlug].position : undefined;
-
 /** Progress is a cumulative position on positional media and a percent everywhere else. */
 export const mediaProgressRuleError = (
 	entitySchemaSlug: string,
 	progress: { readonly percent: boolean; readonly position: boolean },
 	requirePosition: boolean,
 ) => {
-	const positional = mediaProgressPositionProperty(entitySchemaSlug) !== undefined;
+	const positional = isPositional(entitySchemaSlug);
 	if (!positional && progress.position) {
 		return "This media type tracks progress as a percent";
 	}
@@ -145,23 +132,14 @@ export const mediaActivityPatchableProperties = (
 	entitySchemaSlug: string,
 	eventSchemaSlug: string,
 ): readonly string[] => {
-	const position = mediaProgressPositionProperty(entitySchemaSlug);
-	const progress = position ?? "progressPercent";
+	const progress = isPositional(entitySchemaSlug) ? "position" : "progressPercent";
 	return (mediaActivityDeclaredProperties(entitySchemaSlug, eventSchemaSlug) ?? []).filter(
 		(key) =>
 			key === progress ||
 			key === "progressPages" ||
-			key === "consumedItem" ||
 			[...DATE_FIELDS, ...DETAIL_FIELDS].some((field) => field === key),
 	);
 };
 
-export const mediaReviewDeclaredProperties = (entitySchemaSlug: string): readonly string[] => {
-	if (entitySchemaSlug === "anime") {
-		return [...reviewPropertyKeys, "animeEpisode"];
-	}
-	if (entitySchemaSlug === "manga") {
-		return [...reviewPropertyKeys, "mangaVolume", "mangaChapter"];
-	}
-	return reviewPropertyKeys;
-};
+export const mediaReviewDeclaredProperties = (entitySchemaSlug: string): readonly string[] =>
+	isPositional(entitySchemaSlug) ? [...reviewPropertyKeys, "position"] : reviewPropertyKeys;

@@ -1,7 +1,7 @@
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import { CalendarDate } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumedItem, ConsumptionBasis, SourceProgress } from "./consumption";
+import { ConsumptionBasis, MediaPosition, SourceProgress } from "./consumption";
 
 const Nonnegative = Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -21,11 +21,8 @@ export const ConsumptionObservation = Schema.Struct({
 	properties: Schema.Struct({
 		consumptionBasis: ConsumptionBasis,
 		timeSpent: Schema.optionalKey(Nonnegative),
+		position: Schema.optionalKey(MediaPosition),
 		sourceRun: Schema.optionalKey(Schema.String),
-		mangaVolume: Schema.optionalKey(Nonnegative),
-		animeEpisode: Schema.optionalKey(Nonnegative),
-		mangaChapter: Schema.optionalKey(Nonnegative),
-		consumedItem: Schema.optionalKey(ConsumedItem),
 		progressPages: Schema.optionalKey(Nonnegative),
 		calendarDate: Schema.optionalKey(CalendarDate),
 		dateUnknown: Schema.optionalKey(Schema.Boolean),
@@ -126,14 +123,15 @@ const recordedAmount = (observation: ConsumptionObservation, unit: ConsumptionMe
 	if (observation.automatic !== undefined || isParent(observation)) {
 		return undefined;
 	}
-	const fields = {
-		volumes: undefined,
-		minutes: observation.properties.timeSpent,
-		pages: observation.properties.progressPages,
-		episodes: observation.properties.animeEpisode,
-		chapters: observation.properties.mangaChapter,
-	};
-	return fields[unit];
+	if (unit === "minutes") {
+		return observation.properties.timeSpent;
+	}
+	if (unit === "pages") {
+		return observation.properties.progressPages;
+	}
+	const position =
+		observation.eventSchemaSlug === "item-complete" ? undefined : observation.properties.position;
+	return position?.unit === unit ? position.position : undefined;
 };
 
 export const planConsumptionObservation = (
@@ -189,9 +187,7 @@ export const allocateConsumptionObservation = (
 	const quantities: ConsumptionAllocation["quantities"][number][] = [];
 	const units = { ...state.units };
 	const item =
-		observation.eventSchemaSlug === "item-complete"
-			? observation.properties.consumedItem
-			: undefined;
+		observation.eventSchemaSlug === "item-complete" ? observation.properties.position : undefined;
 	if (observation.eventSchemaSlug === "item-complete" && item === undefined) {
 		throw new Error("Item occurrence is missing its identity");
 	}

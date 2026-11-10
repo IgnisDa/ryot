@@ -1385,8 +1385,8 @@ describe("Media lifecycle list recipes", () => {
 				yield* insertLibraryMembership(client, { mediaEntityId: anime.id });
 				yield* createEventFixture(client, {
 					entityId: anime.id,
-					properties: { animeEpisode: 12 },
 					occurredAt: "2026-06-05T01:00:00.000Z",
+					properties: { position: { position: 12, unit: "episodes" } },
 					eventSchemaSlug: requireEventSchemaBySlug(animeEvents, "progress").id,
 				});
 
@@ -1443,8 +1443,8 @@ describe("Media lifecycle list recipes", () => {
 			);
 			yield* createEventFixture(client, {
 				entityId: anime.id,
-				properties: { animeEpisode: 4 },
 				occurredAt: "2026-06-04T02:00:00.000Z",
+				properties: { position: { position: 4, unit: "episodes" } },
 				eventSchemaSlug: requireEventSchemaBySlug(animeEvents, "progress").id,
 			});
 			yield* createEventFixture(client, {
@@ -1469,11 +1469,11 @@ describe("Media lifecycle list recipes", () => {
 				inProgress.items.map((item) => [
 					item.id,
 					item.progressPercent,
-					item.animeEpisode,
+					item.position,
 					item.latestActivityAt,
 				]),
 			).toEqual([
-				[anime.id, 40, 4, "2026-06-04T02:00:00.000Z"],
+				[anime.id, 40, { position: 4, unit: "episodes" }, "2026-06-04T02:00:00.000Z"],
 				[movie.id, 50, null, "2026-06-04T01:00:00.000Z"],
 			]);
 

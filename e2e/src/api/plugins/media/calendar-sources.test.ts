@@ -233,16 +233,16 @@ describe("Media calendar sources", () => {
 			yield* createEventFixture(client, {
 				entityId: anime.id,
 				eventSchemaSlug: progress,
-				properties: { animeEpisode: 2 },
 				occurredAt: "2026-09-14T00:00:00.000Z",
+				properties: { position: { position: 2, unit: "episodes" } },
 			});
 			expect(yield* airings()).toEqual(expectedAirings(true, false));
 
 			yield* createEventFixture(client, {
 				entityId: anime.id,
 				eventSchemaSlug: progress,
-				properties: { animeEpisode: 1 },
 				occurredAt: "2026-09-15T00:00:00.000Z",
+				properties: { position: { position: 1, unit: "episodes" } },
 			});
 			expect(yield* airings()).toEqual(expectedAirings(false, false));
 

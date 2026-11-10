@@ -61,12 +61,11 @@ describe("media manga query recipes", () => {
 		expect(mangaRecipes.presentationSource.fields.map(({ key }) => key)).toContain("chapters");
 	});
 
-	it("carries the recorded volume and chapter on every activity event", () => {
-		expect(keys(ACTIVITY_RECIPE, "events").slice(-2)).toEqual(["mangaVolume", "mangaChapter"]);
-		expect(fieldExpr(ACTIVITY_RECIPE, "events", "mangaChapter")).toMatchObject({
+	it("carries the recorded position on every activity event", () => {
+		expect(fieldExpr(ACTIVITY_RECIPE, "events", "position")).toMatchObject({
 			type: "cast",
-			target: "number",
-			expr: { type: "jsonPath", path: ["mangaChapter"] },
+			target: "json",
+			expr: { type: "jsonPath", path: ["position"] },
 		});
 	});
 

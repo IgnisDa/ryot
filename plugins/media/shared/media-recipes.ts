@@ -45,7 +45,7 @@ import {
 	type PluginIdentityReference,
 } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumedItem } from "./consumption";
+import { MediaPosition } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
 import {
@@ -690,7 +690,7 @@ export const mediaFlatActivityParentSlugs = [
 	"list-state",
 ] as const;
 
-const mediaFlatActivityEventSelection = (event: Table, numberedItems: boolean) => ({
+const mediaFlatActivityEventSelection = (event: Table, positional: boolean) => ({
 	...mediaActivityEventSelection(event),
 	startedOn: selectedField(propertyText(event, "startedOn"), Schema.NullOr(IsoDateString)),
 	dateUnknown: selectedField(propertyBoolean(event, "dateUnknown"), Schema.NullOr(Schema.Boolean)),
@@ -702,9 +702,9 @@ const mediaFlatActivityEventSelection = (event: Table, numberedItems: boolean) =
 		column(event, "eventSchemaSlug"),
 		Schema.Literals(mediaFlatActivityParentSlugs),
 	),
-	consumedItem: selectedField(
-		numberedItems ? propertyJson(event, "consumedItem") : literal(null),
-		Schema.NullOr(ConsumedItem),
+	position: selectedField(
+		positional ? propertyJson(event, "position") : literal(null),
+		Schema.NullOr(MediaPosition),
 	),
 });
 

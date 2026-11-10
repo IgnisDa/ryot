@@ -221,7 +221,7 @@ const animeWindow = (
 	airingAt: ScalarExpression,
 	input: UpcomingInput,
 ) => {
-	const watched = latestPosition(anime, "animeEpisode");
+	const watched = latestPosition(anime);
 	const premiere = publishDate(anime);
 	return and(
 		or(isNull(watched), gt(castNumber(jsonPath(entry, "episode")), watched)),

@@ -3,7 +3,7 @@ import { DateTime, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { eventReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 
-import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
+import { isPositional } from "../../shared/media-schema-slugs";
 import { MediaSandboxError } from "../lib/failures";
 import { eventTimestamp, jsonObject } from "../lib/records";
 import type { MediaProgressEvent } from "../lib/ryotql";
@@ -34,10 +34,10 @@ const toFiniteNumber = (value: unknown) => {
 };
 
 const progressPosition = (entitySchemaSlug: string, properties: Properties) => {
-	if (!isPositional(entitySchemaSlug)) {
-		return null;
-	}
-	return parseProgressPercent(properties[positionalProperties[entitySchemaSlug].position]);
+	const position = properties["position"];
+	const value =
+		isPositional(entitySchemaSlug) && position !== undefined ? jsonObject(position) : null;
+	return value === null ? null : parseProgressPercent(value["position"]);
 };
 
 const consumedOnValue = (properties: Properties) =>

@@ -149,8 +149,8 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(2),
-							properties: { animeEpisode: 2 },
 							eventSchemaSlug: progressEventSchemaSlug,
+							properties: { position: { position: 2, unit: "episodes" } },
 						},
 					],
 				}),
@@ -182,8 +182,8 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoMinuteAt(100),
-							properties: { animeEpisode: 101 },
 							eventSchemaSlug: progressEventSchemaSlug,
+							properties: { position: { position: 101, unit: "episodes" } },
 						},
 					],
 				}),
@@ -204,15 +204,15 @@ describe("Event automations", () => {
 				client,
 				{ entitySchemaSlug: "anime", properties: { images: [], episodes: 28 } },
 			);
-			const progress = (animeEpisode: number, occurredAt: string) =>
+			const progress = (episode: number, occurredAt: string) =>
 				client.call((c) =>
 					c.events.create({
 						payload: [
 							{
 								entityId,
 								occurredAt,
-								properties: { animeEpisode },
 								eventSchemaSlug: progressEventSchemaSlug,
+								properties: { position: { unit: "episodes", position: episode } },
 							},
 						],
 					}),
@@ -244,8 +244,8 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
-							properties: { animeEpisode: 1 },
 							eventSchemaSlug: progressEventSchemaSlug,
+							properties: { position: { position: 1, unit: "episodes" } },
 						},
 					],
 				}),
@@ -270,7 +270,11 @@ describe("Event automations", () => {
 			yield* client.call((c) =>
 				c.events.create({
 					payload: [
-						{ entityId, properties: { mangaChapter: 2 }, eventSchemaSlug: progressEventSchemaSlug },
+						{
+							entityId,
+							eventSchemaSlug: progressEventSchemaSlug,
+							properties: { position: { position: 2, unit: "chapters" } },
+						},
 					],
 				}),
 			);
@@ -296,8 +300,8 @@ describe("Event automations", () => {
 						{
 							entityId,
 							occurredAt: isoAt(1),
-							properties: { mangaChapter: 1 },
 							eventSchemaSlug: progressEventSchemaSlug,
+							properties: { position: { position: 1, unit: "chapters" } },
 						},
 					],
 				}),

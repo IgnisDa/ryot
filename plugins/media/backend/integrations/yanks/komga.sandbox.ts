@@ -200,7 +200,7 @@ export const bookPercentProgress = (page: number, pagesCount: number) => {
 	return progressPercent > 0 ? { progressPercent } : undefined;
 };
 
-export const mangaChapterProgress = (input: {
+export const komgaChapterProgress = (input: {
 	page: number;
 	pagesCount: number;
 	chapter: number | undefined;
@@ -210,9 +210,11 @@ export const mangaChapterProgress = (input: {
 		return undefined;
 	}
 	if (input.page >= input.pagesCount) {
-		return { mangaChapter: chapter };
+		return { position: { unit: "chapters", position: chapter } };
 	}
-	return Number.isInteger(chapter) && chapter > 1 ? { mangaChapter: chapter - 1 } : undefined;
+	return Number.isInteger(chapter) && chapter > 1
+		? { position: { unit: "chapters", position: chapter - 1 } }
+		: undefined;
 };
 
 export default defineScript({
@@ -315,7 +317,7 @@ export default defineScript({
 				const chapter = book.metadata?.number?.trim();
 				const progressProperties =
 					ref.entitySchemaSlug === "manga"
-						? mangaChapterProgress({
+						? komgaChapterProgress({
 								page: progress.page,
 								pagesCount: book.media.pagesCount,
 								chapter: chapter && /^\d+(?:\.\d+)?$/.test(chapter) ? Number(chapter) : undefined,

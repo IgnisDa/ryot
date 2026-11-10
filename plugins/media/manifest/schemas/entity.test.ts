@@ -26,6 +26,10 @@ const accepts = (entity: string, event: string, properties: Record<string, unkno
 	parseAppSchemaPropertiesSafe({ properties, propertiesSchema: propertiesSchemaOf(entity, event) })
 		.success;
 
+const position = (unit: string, value: number, volume?: number) => ({
+	position: { unit, position: value, ...(volume === undefined ? {} : { volume }) },
+});
+
 describe("media lifecycle event schemas", () => {
 	it.each(["progress", "dropped", "on_hold"])(
 		"accepts a book %s event without a progress percent",
@@ -46,11 +50,16 @@ describe("media lifecycle event schemas", () => {
 	);
 
 	it("records anime and manga positions without a percent", () => {
-		expect(accepts("anime", "progress", { animeEpisode: 12 })).toBe(true);
-		expect(accepts("manga", "progress", { mangaChapter: 12.5 })).toBe(true);
-		expect(accepts("manga", "progress", { mangaVolume: 2, mangaChapter: 12 })).toBe(true);
-		expect(accepts("manga", "list-state", validListState({ mangaChapter: 12.5 }))).toBe(true);
-		expect(accepts("manga", "list-state", validListState({ mangaChapter: -1 }))).toBe(false);
+		expect(accepts("anime", "progress", position("episodes", 12))).toBe(true);
+		expect(accepts("anime", "progress", position("episodes", 12.5))).toBe(false);
+		expect(accepts("manga", "progress", position("chapters", 12.5))).toBe(true);
+		expect(accepts("manga", "progress", position("chapters", 12, 2))).toBe(true);
+		expect(accepts("manga", "progress", position("volumes", 2))).toBe(false);
+		expect(accepts("manga", "item-complete", position("volumes", 2))).toBe(true);
+		expect(accepts("anime", "item-complete", position("chapters", 2))).toBe(false);
+		expect(accepts("manga", "list-state", validListState(position("chapters", 12.5)))).toBe(true);
+		expect(accepts("manga", "list-state", validListState(position("volumes", 3)))).toBe(true);
+		expect(accepts("manga", "list-state", validListState(position("chapters", -1)))).toBe(false);
 	});
 
 	it("accepts a completion with an optional unknown-date flag", () => {

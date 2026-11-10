@@ -1,6 +1,7 @@
 import { DateTime, Option, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { IsoDateString } from "@ryot-app/plugin-backend-sdk/ryotql";
 
+import { type MediaPosition, sameMediaPosition } from "../../../shared/consumption";
 import { type ListStateProperties, ListStatePropertiesSchema } from "../../../shared/list-state";
 import { anilistListState } from "../../lib/anilist-list";
 
@@ -91,6 +92,25 @@ const partialDate = (value: null | typeof AniListDate.Type) => {
 	return Object.keys(date).length ? date : undefined;
 };
 
+const listStatePosition = (
+	entry: typeof AniListEntry.Type,
+	mediaType: AniListMediaType,
+): undefined | MediaPosition => {
+	if (mediaType === "ANIME") {
+		return entry.progress === null ? undefined : { unit: "episodes", position: entry.progress };
+	}
+	if (entry.progress !== null) {
+		return {
+			unit: "chapters",
+			position: entry.progress,
+			...(entry.progressVolumes === null ? {} : { volume: entry.progressVolumes }),
+		};
+	}
+	return entry.progressVolumes === null
+		? undefined
+		: { unit: "volumes", position: entry.progressVolumes };
+};
+
 export const parseAniListEntry = (
 	value: unknown,
 	input: { sourceAccountId: string; mediaType: AniListMediaType },
@@ -107,17 +127,10 @@ export const parseAniListEntry = (
 	}
 	const completedDate = partialDate(entry.completedAt);
 	const startedDate = partialDate(entry.startedAt);
+	const position = listStatePosition(entry, input.mediaType);
 	const properties = {
-		...(input.mediaType === "ANIME" && entry.progress !== null
-			? { animeEpisode: entry.progress }
-			: {}),
+		...(position === undefined ? {} : { position }),
 		...(completedDate ? { completedDate } : {}),
-		...(input.mediaType === "MANGA" && entry.progress !== null
-			? { mangaChapter: entry.progress }
-			: {}),
-		...(input.mediaType === "MANGA" && entry.progressVolumes !== null
-			? { mangaVolume: entry.progressVolumes }
-			: {}),
 		source: "anilist",
 		repeatCount: entry.repeat,
 		sourceEntryId: String(entry.id),
@@ -147,8 +160,6 @@ const sameDate = (
 export const sameAniListState = (left: ListStateProperties, right: ListStateProperties) =>
 	left.state === right.state &&
 	left.repeatCount === right.repeatCount &&
-	left.animeEpisode === right.animeEpisode &&
-	left.mangaChapter === right.mangaChapter &&
-	left.mangaVolume === right.mangaVolume &&
+	sameMediaPosition(left.position, right.position) &&
 	sameDate(left.startedDate, right.startedDate) &&
 	sameDate(left.completedDate, right.completedDate);

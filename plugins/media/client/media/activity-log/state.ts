@@ -2,9 +2,8 @@ import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { localDay } from "@ryot-app/plugin-client-sdk/react";
 
 import type { MediaActivityLogContext } from "../../../shared/activity-log-recipes";
-import { ConsumedItem } from "../../../shared/consumption";
+import { MediaPosition, mediaPositionError, sameMediaPosition } from "../../../shared/consumption";
 import type { EpisodeLifecycleState } from "../../../shared/lifecycle-expressions";
-import { mediaProgressPositionProperty } from "../../../shared/media-activity-fields";
 import {
 	MAX_ACTIVITY_EPISODES,
 	type MediaActivityEntry,
@@ -35,9 +34,9 @@ export type ActivityDraft = {
 	readonly startedDay: string;
 	readonly consumedOn: string;
 	readonly finishedDay: string;
+	readonly item?: MediaPosition;
 	readonly intent: ActivityIntent;
 	readonly when: ActivityWhenKind;
-	readonly consumedItem?: ConsumedItem;
 	readonly status: MediaActivityStatus;
 	readonly position: number | undefined;
 	readonly amountUnit: "unit" | "percent";
@@ -56,11 +55,13 @@ export type MediaActivityLogger =
 			readonly family: "positional";
 			readonly itemContextLabel?: string;
 			readonly copy: MediaActivityLogCopy;
-			readonly progressUnit: MediaActivityLogUnit;
 			readonly itemUnits?: readonly {
 				readonly label: string;
-				readonly value: ConsumedItem["unit"];
+				readonly value: MediaPosition["unit"];
 			}[];
+			readonly progressUnit: MediaActivityLogUnit & {
+				readonly field: Extract<MediaPosition["unit"], "episodes" | "chapters">;
+			};
 	  };
 
 type MediaActivityStatus = (typeof mediaActivityStatuses)[number];
@@ -98,6 +99,7 @@ export const BACKFILL_LIMIT = MAX_ACTIVITY_EPISODES - 1;
 const CONSUMED_ON_LIMIT = 100;
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 const WHOLE_NUMBER = /^\d+$/;
+const DECIMAL_NUMBER = /^\d+(?:\.\d+)?$/;
 
 const INTENT_LABELS: Record<ActivityIntent, string> = {
 	status: "Status",
@@ -308,14 +310,19 @@ export const activityDraftErrors = (input: {
 	if (draft.intent === "progress" && logger.family === "positional") {
 		const total = activityPositionTotal(logger, context);
 		const { position } = draft;
-		if (position === undefined || position < 1 || (total !== null && position > total)) {
+		if (
+			position === undefined ||
+			position < 1 ||
+			(total !== null && position > total) ||
+			(logger.progressUnit.field === "episodes" && !Number.isInteger(position))
+		) {
 			errors.position = `Enter a ${logger.progressUnit.singular} number${total === null ? "" : ` from 1 to ${total}`}.`;
 		}
 	}
 	if (
-		draft.consumedItem !== undefined &&
-		(Option.isNone(Schema.decodeOption(ConsumedItem)(draft.consumedItem)) ||
-			(draft.consumedItem.unit === "episodes" && !Number.isInteger(draft.consumedItem.position)))
+		draft.item !== undefined &&
+		(Option.isNone(Schema.decodeOption(MediaPosition)(draft.item)) ||
+			mediaPositionError(context.schemaSlug, "item-complete", draft.item) !== undefined)
 	) {
 		errors.position = "Enter a valid item number.";
 	}
@@ -377,7 +384,7 @@ export const activityEntryDraft = (input: {
 			...(timeSpent === undefined || timeSpent === null ? {} : { timeSpent }),
 			...(pages ? { progressPages: Number(draft.amount) } : {}),
 			...(input.logger.family === "positional" && draft.position !== undefined
-				? { position: draft.position }
+				? { position: { position: draft.position, unit: input.logger.progressUnit.field } }
 				: {}),
 			...(!pages &&
 			input.logger.family === "flat" &&
@@ -520,7 +527,11 @@ export const activityQuickAction = (
 		return {
 			label: `Mark ${singular} ${position} ${participle}`,
 			text: `${capitalized(singular)} ${position} ${participle}.`,
-			entry: { position, kind: "progress", entityId: context.id },
+			entry: {
+				kind: "progress",
+				entityId: context.id,
+				position: { position, unit: logger.progressUnit.field },
+			},
 		};
 	}
 	return null;
@@ -659,10 +670,16 @@ export const consumedOnSuggestions = (userList: unknown, history: readonly strin
 
 export type ActivityEditIntent = Extract<ActivityIntent, "episode" | "finished" | "progress">;
 
-const numberProperty = (ref: MediaActivityEventRef, key: string | undefined) => {
-	const value = key === undefined ? undefined : ref.properties[key];
+const numberProperty = (ref: MediaActivityEventRef, key: string) => {
+	const value = ref.properties[key];
 	return typeof value === "number" ? value : undefined;
 };
+
+const storedPosition = (ref: MediaActivityEventRef) =>
+	Option.getOrUndefined(Schema.decodeUnknownOption(MediaPosition)(ref.properties["position"]));
+
+export const parsePositionNumber = (unit: MediaPosition["unit"], text: string) =>
+	(unit === "episodes" ? WHOLE_NUMBER : DECIMAL_NUMBER).test(text) ? Number(text) : undefined;
 
 const textProperty = (ref: MediaActivityEventRef, key: string) => {
 	const value = ref.properties[key];
@@ -686,13 +703,12 @@ export const activityEditDraft = (input: {
 	const pages = numberProperty(ref, "progressPages");
 	const amount = pages ?? percent;
 	const startedOn = textProperty(ref, "startedOn");
-	const item = Option.getOrUndefined(
-		Schema.decodeUnknownOption(ConsumedItem)(ref.properties["consumedItem"]),
-	);
+	const stored = storedPosition(ref);
 	return {
 		...base,
-		...(item === undefined ? {} : { consumedItem: item }),
+		...(input.intent === "finished" && stored !== undefined ? { item: stored } : {}),
 		intent: input.intent,
+		position: stored?.position ?? base.position,
 		consumedOn: textProperty(ref, "consumedOn") ?? "",
 		amountUnit: pages === undefined ? "percent" : "unit",
 		minutes: minutes === undefined ? "" : String(minutes % 60),
@@ -702,8 +718,6 @@ export const activityEditDraft = (input: {
 		hours: minutes === undefined ? "" : String(Math.floor(minutes / 60)),
 		finishedDay: textProperty(ref, "calendarDate") ?? dayOf(ref.occurredAt),
 		progressMode: percent === undefined && pages === undefined ? "started" : "amount",
-		position:
-			numberProperty(ref, mediaProgressPositionProperty(input.context.schemaSlug)) ?? base.position,
 	};
 };
 
@@ -759,18 +773,17 @@ export const activityEditPatch = (input: {
 }): undefined | MediaActivityPatch => {
 	const { ref, draft, initial } = input;
 	const patch: { -readonly [Key in keyof MediaActivityPatch]: MediaActivityPatch[Key] } = {};
-	if (
-		draft.consumedItem !== undefined &&
-		(draft.consumedItem.unit !== initial.consumedItem?.unit ||
-			draft.consumedItem.position !== initial.consumedItem.position ||
-			draft.consumedItem.volume !== initial.consumedItem.volume)
-	) {
-		patch.consumedItem = draft.consumedItem;
+	if (draft.item !== undefined && !sameMediaPosition(draft.item, initial.item)) {
+		patch.position = draft.item;
 	}
 	if (draft.intent === "progress") {
 		if (input.logger.family === "positional" && ref.entityId === input.context.id) {
 			if (draft.position !== undefined && draft.position !== initial.position) {
-				patch.position = draft.position;
+				patch.position = {
+					...storedPosition(ref),
+					position: draft.position,
+					unit: input.logger.progressUnit.field,
+				};
 			}
 		} else {
 			const pages =

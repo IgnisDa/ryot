@@ -207,11 +207,15 @@ it.live(
 				events: [
 					eventRecord({
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						properties: { mangaChapter: 10, consumedOn: "Komga" },
+						properties: { consumedOn: "Komga", position: { position: 10, unit: "chapters" } },
 					}),
 				],
 			});
-			const advanced = input({ mangaChapter: 11, consumedOn: "Komga" }, {}, manga);
+			const advanced = input(
+				{ consumedOn: "Komga", position: { position: 11, unit: "chapters" } },
+				{},
+				manga,
+			);
 			const repeated = {
 				...advanced,
 				entityGroups: advanced.entityGroups.map((group) => ({
@@ -224,7 +228,7 @@ it.live(
 				events: [
 					eventRecord({
 						occurredAt: "2026-01-01T00:00:00.000Z",
-						properties: { mangaChapter: 11, consumedOn: "Komga" },
+						properties: { consumedOn: "Komga", position: { position: 11, unit: "chapters" } },
 					}),
 				],
 			});
@@ -245,7 +249,7 @@ it.live(
 				host,
 			);
 			const wrongSchema = yield* admitIntegrationProgress(
-				input({ mangaChapter: 3, consumedOn: "Komga" }),
+				input({ consumedOn: "Komga", position: { position: 3, unit: "chapters" } }),
 				host,
 			);
 			expect(empty.entityGroups[0]?.events).toEqual([]);

@@ -158,15 +158,15 @@ describe("media activity update", () => {
 							eventSchemaSlug: "item-complete",
 							properties: {
 								sourceRun: "original",
-								consumedItem: { position: 12.5, unit: "chapters" },
+								position: { position: 12.5, unit: "chapters" },
 								consumptionBasis: { unit: "chapters", property: "chapters" },
 							},
 						},
 					],
 				});
-				yield* update({ consumedItem: { position: 3.5, unit: "volumes" } }, host);
+				yield* update({ position: { position: 3.5, unit: "volumes" } }, host);
 				expect(updates[0]?.items[0]?.patch).toEqual({
-					properties: { remove: [], set: { consumedItem: { position: 3.5, unit: "volumes" } } },
+					properties: { remove: [], set: { position: { position: 3.5, unit: "volumes" } } },
 				});
 			}),
 		testTimeout,
@@ -238,9 +238,12 @@ describe("media activity update", () => {
 						},
 					],
 				});
-				yield* update({ position: 12 }, host);
+				yield* update({ position: { volume: 2, position: 12.5, unit: "chapters" } }, host);
 				expect(updates[0]?.items[0]?.patch).toEqual({
-					properties: { remove: [], set: { mangaChapter: 12 } },
+					properties: {
+						remove: [],
+						set: { position: { volume: 2, position: 12.5, unit: "chapters" } },
+					},
 				});
 			}),
 		testTimeout,
@@ -378,9 +381,19 @@ describe("media activity update", () => {
 			event: { entitySchemaSlug: "anime", eventSchemaSlug: "progress" },
 		},
 		{
-			patch: { position: 3 },
 			name: "a position on percent media",
+			patch: { position: { position: 3, unit: "episodes" } },
 			event: { entitySchemaSlug: "book", eventSchemaSlug: "progress" },
+		},
+		{
+			name: "a volume position on manga progress",
+			patch: { position: { position: 3, unit: "volumes" } },
+			event: { entitySchemaSlug: "manga", eventSchemaSlug: "progress" },
+		},
+		{
+			name: "a fractional anime episode",
+			patch: { position: { position: 3.5, unit: "episodes" } },
+			event: { entitySchemaSlug: "anime", eventSchemaSlug: "progress" },
 		},
 	] satisfies readonly {
 		readonly name: string;

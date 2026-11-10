@@ -188,7 +188,7 @@ const animeAirings = () => {
 						asTrue(
 							or(
 								eq(lifecycle.state, literal("complete")),
-								gte(latestPosition(anime, "animeEpisode"), episodeNumber),
+								gte(latestPosition(anime), episodeNumber),
 							),
 						),
 					),

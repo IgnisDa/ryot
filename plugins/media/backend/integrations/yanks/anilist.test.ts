@@ -246,7 +246,10 @@ describe("AniList yank", () => {
 					responses: [
 						viewerResponse(),
 						collectionResponse(animeEntries),
-						collectionResponse([entry(7, 207, "COMPLETED", { progress: 0, progressVolumes: 0 })]),
+						collectionResponse([
+							entry(7, 207, "COMPLETED", { progress: 0, progressVolumes: 0 }),
+							entry(8, 208, "CURRENT", { progress: null, progressVolumes: 3 }),
+						]),
 					],
 				});
 				const result = yield* runWindows(state, [execution.startedAt, "2026-01-02T00:00:00.000Z"]);
@@ -264,6 +267,7 @@ describe("AniList yank", () => {
 						["106", "dropped"],
 						["104", "complete"],
 						["207", "complete"],
+						["208", "in_progress"],
 						["102", "in_progress"],
 						["103", "in_progress"],
 					]),
@@ -273,12 +277,12 @@ describe("AniList yank", () => {
 				);
 				expect(currentAnime?.events[0]?.properties).toMatchObject({
 					repeatCount: 0,
-					animeEpisode: 0,
 					source: "anilist",
 					sourceEntryId: "2",
 					state: "in_progress",
 					sourceAccountId: "42",
 					startedDate: { day: 4, year: 2021 },
+					position: { position: 0, unit: "episodes" },
 				});
 				expect(currentAnime?.events[0]?.properties["startedDate"]).toEqual({ day: 4, year: 2021 });
 				expect(currentAnime?.events[0]?.properties["sourceUpdatedAt"]).toBe(
@@ -300,12 +304,18 @@ describe("AniList yank", () => {
 					providerSlug: "manga.anilist",
 				});
 				expect(currentManga?.events[0]?.properties).toMatchObject({
-					mangaVolume: 0,
 					repeatCount: 0,
-					mangaChapter: 0,
 					state: "complete",
+					position: { volume: 0, position: 0, unit: "chapters" },
 				});
 				expect(currentManga?.events[0]?.properties).not.toHaveProperty("startedDate");
+				const volumeOnlyManga = captured.find(
+					({ entityRef }) => entityRef.kind === "resolved" && entityRef.externalId === "208",
+				);
+				expect(volumeOnlyManga?.events[0]?.properties["position"]).toEqual({
+					position: 3,
+					unit: "volumes",
+				});
 				expect(currentManga?.events[0]?.properties).not.toHaveProperty("completedDate");
 				expect(
 					events(result.records).every(({ eventSchemaSlug }) => eventSchemaSlug === "list-state"),
@@ -315,7 +325,7 @@ describe("AniList yank", () => {
 				).toBe(true);
 				expect(Object.keys(currentAnime?.events[0]?.properties ?? {}).sort()).toEqual(
 					[
-						"animeEpisode",
+						"position",
 						"repeatCount",
 						"source",
 						"sourceAccountId",
@@ -472,7 +482,9 @@ describe("AniList yank", () => {
 			Effect.gen(function* () {
 				const state = setup({
 					settings: { syncManga: false },
-					snapshotPages: [snapshotPage([snapshot("20", { animeEpisode: 5 })])],
+					snapshotPages: [
+						snapshotPage([snapshot("20", { position: { position: 5, unit: "episodes" } })]),
+					],
 					responses: [
 						viewerResponse(),
 						collectionResponse([entry(20, 120, "CURRENT", { progress: 5 })]),
@@ -490,7 +502,9 @@ describe("AniList yank", () => {
 			Effect.gen(function* () {
 				const state = setup({
 					settings: { syncManga: false },
-					snapshotPages: [snapshotPage([snapshot("21", { animeEpisode: 10 })])],
+					snapshotPages: [
+						snapshotPage([snapshot("21", { position: { position: 10, unit: "episodes" } })]),
+					],
 					responses: [
 						viewerResponse(),
 						collectionResponse([entry(21, 121, "CURRENT", { progress: 5 })]),
@@ -499,9 +513,9 @@ describe("AniList yank", () => {
 				const result = yield* runWindows(state);
 				expect(events(result.records)).toHaveLength(1);
 				expect(events(result.records)[0]?.properties).toMatchObject({
-					animeEpisode: 5,
 					sourceEntryId: "21",
 					state: "in_progress",
+					position: { position: 5, unit: "episodes" },
 				});
 			}),
 		testTimeout,
@@ -520,12 +534,15 @@ describe("AniList yank", () => {
 					snapshotPages: [
 						snapshotPage(
 							[
-								snapshot("30", { animeEpisode: 0 }),
-								snapshot("30", { animeEpisode: 1, sourceUpdatedAt: "2025-12-30T12:00:00.000Z" }),
+								snapshot("30", { position: { position: 0, unit: "episodes" } }),
+								snapshot("30", {
+									position: { position: 1, unit: "episodes" },
+									sourceUpdatedAt: "2025-12-30T12:00:00.000Z",
+								}),
 							],
 							{ limit: 100, hasMore: true, nextCursor: "snapshot-page-2" },
 						),
-						snapshotPage([snapshot("31", { animeEpisode: 0 })]),
+						snapshotPage([snapshot("31", { position: { position: 0, unit: "episodes" } })]),
 					],
 				});
 				const result = yield* runWindows(state);

@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { mediaEpisodicActivityCopy, mediaFlatActivityCopy } from "./activity-copy";
+import {
+	mediaEpisodicActivityCopy,
+	mediaFlatActivityCopy,
+	mediaListStateDetail,
+	mediaPositionLabel,
+} from "./activity-copy";
 
 describe("media activity copy", () => {
 	it("names the noun and the verb in every flat string", () => {
@@ -31,6 +36,35 @@ describe("media activity copy", () => {
 
 		expect(copy.completionsLabel).toBe("Playthroughs");
 		expect(copy.rowLabels.progress("62", { chapter: 3 })).toBe("Chapter 3");
+	});
+
+	it("names positions by unit, with chapter volume context", () => {
+		expect(mediaPositionLabel({ position: 5, unit: "episodes" })).toBe("Ep 5");
+		expect(mediaPositionLabel({ position: 10.5, unit: "chapters" })).toBe("Ch 10.5");
+		expect(mediaPositionLabel({ position: 3, unit: "volumes" })).toBe("Vol 3");
+		expect(mediaPositionLabel({ volume: 2, position: 12, unit: "chapters" })).toBe("Ch 12 · Vol 2");
+		expect(
+			mediaFlatActivityCopy({ verb: "read", noun: "manga" }).itemLabel({
+				position: 3,
+				unit: "volumes",
+			}),
+		).toBe("Read Vol 3");
+	});
+
+	it("shows the AniList observation state, snapshot position, and repeat metadata", () => {
+		expect(
+			mediaListStateDetail({
+				listState: {
+					repeatCount: 2,
+					source: "anilist",
+					state: "in_progress",
+					sourceEntryId: "entry-1",
+					sourceAccountId: "account-1",
+					sourceUpdatedAt: "2026-05-01T10:00:00.000Z",
+					position: { volume: 0, position: 0, unit: "chapters" },
+				},
+			}),
+		).toBe("In progress · Ch 0 · Vol 0 · Repeat count 2");
 	});
 
 	it("hints progress with the verb's participle", () => {

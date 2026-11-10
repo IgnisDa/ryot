@@ -67,6 +67,7 @@ import {
 	hasActivityErrors,
 	initialActivityDraft,
 	type MediaActivityLogger,
+	parsePositionNumber,
 	seasonLabel,
 	selectedEpisode,
 } from "./state";
@@ -286,6 +287,7 @@ export function PositionProgress(props: {
 					decrementIcon={<AppIcon size={16} name="minus" />}
 					onChange={(position) => props.onChange({ position })}
 					label={`${capitalized(logger.copy.participle)} through ${singular}`}
+					parse={(text) => parsePositionNumber(logger.progressUnit.field, text)}
 				/>
 				{total === null ? null : <span className="text-text-muted">of {total}</span>}
 			</div>

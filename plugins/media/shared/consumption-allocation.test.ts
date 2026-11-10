@@ -324,7 +324,7 @@ describe("canonical consumption allocation", () => {
 					id,
 					{
 						sourceRun: id,
-						consumedItem: { position: 12, unit: "episodes" },
+						position: { position: 12, unit: "episodes" },
 						consumptionBasis: { total: 12, unit: "episodes", property: "episodes" },
 					},
 					{ entityId: "anime", entitySchemaSlug: "anime", eventSchemaSlug: "item-complete" },
@@ -340,7 +340,7 @@ describe("canonical consumption allocation", () => {
 			observation(
 				"chapter",
 				{
-					consumedItem: { volume: 7, position: 42.5, unit: "chapters" },
+					position: { volume: 7, position: 42.5, unit: "chapters" },
 					consumptionBasis: { total: 50, unit: "chapters", property: "chapters" },
 				},
 				{ entitySchemaSlug: "manga", eventSchemaSlug: "item-complete" },
@@ -348,7 +348,7 @@ describe("canonical consumption allocation", () => {
 			observation(
 				"volume",
 				{
-					consumedItem: { position: 8, unit: "volumes" },
+					position: { position: 8, unit: "volumes" },
 					consumptionBasis: { total: 50, unit: "chapters", property: "chapters" },
 				},
 				{ entitySchemaSlug: "manga", eventSchemaSlug: "item-complete" },
@@ -362,13 +362,21 @@ describe("canonical consumption allocation", () => {
 		const basis = { total: 24, unit: "episodes", property: "episodes" } as const;
 		const options = { entityId: "anime", entitySchemaSlug: "anime" };
 		const result = allocate([
-			observation("3", { animeEpisode: 3, consumptionBasis: basis }, options),
+			observation(
+				"3",
+				{ consumptionBasis: basis, position: { position: 3, unit: "episodes" } },
+				options,
+			),
 			observation(
 				"item17",
-				{ consumptionBasis: basis, consumedItem: { position: 17, unit: "episodes" } },
+				{ consumptionBasis: basis, position: { position: 17, unit: "episodes" } },
 				{ ...options, eventSchemaSlug: "item-complete" },
 			),
-			observation("5", { animeEpisode: 5, consumptionBasis: basis }, options),
+			observation(
+				"5",
+				{ consumptionBasis: basis, position: { position: 5, unit: "episodes" } },
+				options,
+			),
 		]);
 		expect(amounts(result, "episodes")).toEqual([3, 1, 2]);
 	});
@@ -475,8 +483,7 @@ describe("canonical consumption allocation", () => {
 			observation(
 				"chapter",
 				{
-					mangaVolume: 3,
-					mangaChapter: 10,
+					position: { volume: 3, position: 10, unit: "chapters" },
 					consumptionBasis: { unit: "chapters", property: "chapters" },
 				},
 				{ entitySchemaSlug: "manga" },

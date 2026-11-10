@@ -1,9 +1,10 @@
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 
 import {
-	ConsumedItemUnit,
 	ConsumptionBasisProperty,
 	ConsumptionUnit,
+	MediaPositionUnit,
+	mediaPositionUnits,
 } from "../../shared/consumption";
 
 const staticChoices = (values: ReadonlyArray<string>) => ({
@@ -45,41 +46,44 @@ export const calendarDateField = {
 	description: "Recorded YYYY-MM-DD date without time-of-day evidence",
 };
 
-const itemPositionField = {
-	label: "Item number",
-	validation: { minimum: 0, required: true as const },
-	description: "Number identifying the item, never a consumed quantity",
-};
-
-const itemUnitField = (units: ReadonlyArray<typeof ConsumedItemUnit.Type>) => ({
-	label: "Item unit",
-	type: "enum" as const,
-	choices: staticChoices(units),
-	validation: { required: true as const },
-	description: "Unit of this single occurrence",
-});
-
-export const consumedItemField = (entitySchemaSlug: "anime" | "manga") => {
-	const properties: AppSchema["fields"] =
-		entitySchemaSlug === "anime"
-			? { unit: itemUnitField(["episodes"]), position: { ...itemPositionField, type: "integer" } }
-			: {
-					unit: itemUnitField(["chapters", "volumes"]),
-					position: { ...itemPositionField, type: "number" },
+export const mediaPositionField = (
+	entitySchemaSlug: "anime" | "manga",
+	eventSchemaSlug: string,
+	copy: { readonly label: string; readonly required?: true; readonly description: string },
+) => {
+	const units = mediaPositionUnits(entitySchemaSlug, eventSchemaSlug);
+	const properties: AppSchema["fields"] = {
+		unit: {
+			type: "enum",
+			label: "Unit",
+			choices: staticChoices(units),
+			validation: { required: true },
+			description: "Unit of the episode, chapter or volume number",
+		},
+		position: {
+			label: "Number",
+			validation: { minimum: 0, required: true },
+			description: "Episode, chapter or volume number",
+			type: entitySchemaSlug === "anime" ? "integer" : "number",
+		},
+		...(units.includes("chapters")
+			? {
 					volume: {
 						type: "number",
 						label: "Volume context",
 						validation: { minimum: 0 },
-						description: "Containing volume, not a consumed volume count",
+						description: "Containing volume of a chapter, not a consumed volume count",
 					},
-				};
+				}
+			: {}),
+	};
 	return {
 		properties,
-		label: "Consumed item",
+		label: copy.label,
 		type: "object" as const,
+		description: copy.description,
 		unknownKeys: "strict" as const,
-		validation: { required: true as const },
-		description: "One independent numbered occurrence, not cumulative progress or title completion",
+		...(copy.required ? { validation: { required: true as const } } : {}),
 	};
 };
 
@@ -95,6 +99,12 @@ export const sourceProgressField = {
 			description: "Unmodified source position",
 			validation: { minimum: 0, required: true as const },
 		},
+		volume: {
+			type: "number" as const,
+			validation: { minimum: 0 },
+			label: "Source volume context",
+			description: "Unmodified containing volume of a source chapter",
+		},
 		percent: {
 			type: "number" as const,
 			label: "Source percent",
@@ -106,7 +116,7 @@ export const sourceProgressField = {
 			type: "enum" as const,
 			description: "Source position unit",
 			validation: { required: true as const },
-			choices: staticChoices(ConsumedItemUnit.literals),
+			choices: staticChoices(MediaPositionUnit.literals),
 		},
 	},
 };

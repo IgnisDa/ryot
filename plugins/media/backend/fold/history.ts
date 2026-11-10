@@ -2,8 +2,8 @@ import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
 import { jsonValueEquals } from "@ryot-app/plugin-kit/schema";
 
-import { ConsumptionBasis } from "../../shared/consumption";
-import { isPositional, positionalProperties } from "../../shared/media-schema-slugs";
+import { ConsumptionBasis, MediaPosition } from "../../shared/consumption";
+import { isPositional } from "../../shared/media-schema-slugs";
 
 export type FoldEvent = {
 	readonly id: string;
@@ -279,7 +279,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		const key = `progress:${source.id}`;
 		const prior = previous.get(key);
 		const positional = isPositional(source.entitySchemaSlug);
-		const position = positional ? positionalProperties[source.entitySchemaSlug] : undefined;
+		const position = Schema.decodeUnknownOption(MediaPosition)(source.properties["position"]);
 		const basis = Schema.decodeUnknownOption(ConsumptionBasis)(
 			source.properties["consumptionBasis"],
 		);
@@ -304,9 +304,7 @@ export const deriveHistory = Effect.fn("deriveHistory")(function* <E, R>(input: 
 		const full =
 			(source.properties["progressPercent"] === 100 ||
 				(total > 0 && positive(source.properties["progressPages"]) >= total) ||
-				(position !== undefined &&
-					total > 0 &&
-					positive(source.properties[position.position]) >= total)) &&
+				(position._tag === "Some" && total > 0 && position.value.position >= total)) &&
 			!blocked &&
 			!sameTime;
 		if (!full) {

@@ -828,11 +828,11 @@ it.live(
 				yield* submitted(mounted);
 				expect(mounted.requests).toEqual<unknown>([
 					operation({
-						position: 14,
 						kind: "progress",
 						entityId: "entity-1",
 						when: { kind: "now" },
 						consumedOn: "Crunchyroll",
+						position: { position: 14, unit: "episodes" },
 					}),
 				]);
 				yield* closedWith(mounted, "Now watched through episode 14.");
@@ -1811,7 +1811,7 @@ for (const [name, logger, target, label, text, position] of [
 		{ position: 12, episodes: 28 },
 		"Mark episode 13 watched",
 		"Episode 13 watched.",
-		13,
+		{ position: 13, unit: "episodes" },
 	],
 	[
 		"manga",
@@ -1819,7 +1819,7 @@ for (const [name, logger, target, label, text, position] of [
 		{ position: 113, chapters: 200 },
 		"Mark chapter 114 read",
 		"Chapter 114 read.",
-		114,
+		{ position: 114, unit: "chapters" },
 	],
 ] as const) {
 	it.live(

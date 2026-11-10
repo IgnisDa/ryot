@@ -112,10 +112,22 @@ BEGIN
 					'rating', CASE WHEN r.rating IS NOT NULL THEN LEAST(r.rating, 100) END,
 					'text',   NULLIF(r.text, '')
 				) || CASE WHEN r.entity_schema_slug = 'exercise' THEN '{}'::jsonb ELSE jsonb_build_object(
-					'isSpoiler',    r.is_spoiler,
-					'animeEpisode', (r.anime_extra_information ->> 'episode')::int,
-					'mangaVolume',  (r.manga_extra_information ->> 'volume')::int,
-					'mangaChapter', NULLIF(r.manga_extra_information ->> 'chapter', '')::float8
+					'isSpoiler', r.is_spoiler,
+					'position',  CASE
+						WHEN r.anime_extra_information ->> 'episode' IS NOT NULL THEN jsonb_build_object(
+							'unit', 'episodes',
+							'position', (r.anime_extra_information ->> 'episode')::int
+						)
+						WHEN NULLIF(r.manga_extra_information ->> 'chapter', '') IS NOT NULL THEN jsonb_build_object(
+							'unit', 'chapters',
+							'position', (r.manga_extra_information ->> 'chapter')::float8,
+							'volume', (r.manga_extra_information ->> 'volume')::int
+						)
+						WHEN r.manga_extra_information ->> 'volume' IS NOT NULL THEN jsonb_build_object(
+							'unit', 'volumes',
+							'position', (r.manga_extra_information ->> 'volume')::int
+						)
+					END
 				) END
 			),
 			r.posted_on,

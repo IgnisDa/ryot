@@ -17,6 +17,7 @@ import type {
 	mediaAnalyticsTrendRecipe,
 } from "../../shared/analytics-recipes";
 import type { ConsumptionMeasureUnit } from "../../shared/consumption-allocation";
+import { mediaPositionLabel } from "../media/activity-copy";
 
 export type SummaryChartsProps = RankingsRecordsProps;
 export type MediaAnalyticsRecord = MediaAnalyticsRecords["items"][number];
@@ -188,16 +189,13 @@ export const consistencyModel = (trend: MediaAnalyticsTrend, timeZone: TimeZone)
 export const recordModel = (row: MediaAnalyticsRecord) => ({
 	source: row,
 	manualMinutes: row.facts.timeSpent ?? null,
+	position: row.facts.position === undefined ? null : mediaPositionLabel(row.facts.position),
 	date:
 		row.contribution.attribution.kind === "unknown"
 			? "Unknown date"
 			: row.contribution.attribution.value,
-	item:
-		row.facts.consumedItem === undefined
-			? null
-			: `${row.facts.consumedItem.unit} position ${row.facts.consumedItem.position}${row.facts.consumedItem.volume === undefined ? "" : `, volume ${row.facts.consumedItem.volume}`}`,
 	sourceProgress:
 		row.facts.sourceProgress === undefined
 			? null
-			: `Original source progress: ${row.facts.sourceProgress.unit} position ${row.facts.sourceProgress.position}, ${row.facts.sourceProgress.percent}% (not an allocated amount)`,
+			: `Original source progress: ${mediaPositionLabel(row.facts.sourceProgress)}, ${row.facts.sourceProgress.percent}% (not an allocated amount)`,
 });

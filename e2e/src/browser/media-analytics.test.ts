@@ -128,10 +128,10 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		});
 		expect(
 			yield* reviewTable.getByRole("row", { name: "Book" }).getByRole("cell").allTextContents(),
-		).toEqual(["1", "1", "0/100"]);
+		).toEqual(["1", "1", "0 / 100"]);
 		expect(
 			yield* reviewTable.getByRole("row", { name: "Movie" }).getByRole("cell").nth(2).innerText(),
-		).toBe("80/100");
+		).toBe("80 / 100");
 		const initialSummary = yield* summary.innerText();
 		expect(initialSummary).not.toContain("Infinity");
 		expect(initialSummary).not.toContain("NaN");
@@ -577,7 +577,7 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 			.filter({ hasText: "item-complete" });
 		expect(yield* animeRow.getByRole("cell").nth(2).innerText()).toBe("item-complete");
 		expect(yield* animeRow.getByRole("cell").nth(4).innerText()).toContain(
-			"Consumed item position: episodes position 7",
+			"Consumed item position: Ep 7",
 		);
 		expect(yield* animeRow.getByRole("cell").nth(5).innerText()).toContain("Title completions: 0");
 		expect(yield* animeRow.getByRole("cell").nth(5).innerText()).toContain(

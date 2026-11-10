@@ -26,12 +26,12 @@ const LegacyProgressCacheRow = Schema.Struct({
 	cacheId: Schema.String,
 	expiresAtMs: Schema.Finite,
 	validValue: Schema.Boolean,
+	volume: Schema.NullOr(Schema.String),
+	episode: Schema.NullOr(Schema.String),
+	chapter: Schema.NullOr(Schema.String),
 	entityId: Schema.NullOr(Schema.String),
 	parentName: Schema.NullOr(Schema.String),
 	metadataId: Schema.NullOr(Schema.String),
-	mangaVolume: Schema.NullOr(Schema.String),
-	animeEpisode: Schema.NullOr(Schema.String),
-	mangaChapter: Schema.NullOr(Schema.String),
 	entitySchemaSlug: Schema.NullOr(Schema.String),
 	providersConsumedOn: Schema.NullOr(Schema.Array(Schema.String)),
 });
@@ -78,9 +78,9 @@ SELECT
 		WHEN e."entity_schema_slug" = 'podcast' THEN 'podcast-episode'
 		ELSE e."entity_schema_slug"
 	END AS "entitySchemaSlug",
-	cr.common->>'anime_episode_number' AS "animeEpisode",
-	cr.common->>'manga_chapter_number' AS "mangaChapter",
-	cr.common->>'manga_volume_number' AS "mangaVolume",
+	cr.common->>'anime_episode_number' AS "episode",
+	cr.common->>'manga_chapter_number' AS "chapter",
+	cr.common->>'manga_volume_number' AS "volume",
 	extract(epoch FROM cr.expires_at)::double precision * 1000 AS "expiresAtMs",
 	cr.common->'providers_consumed_on' AS "providersConsumedOn",
 	cr.valid_value AS "validValue"
@@ -311,9 +311,9 @@ export const resolveIntegrationProgressClaims = (input: {
 		}
 
 		const parts = [
-			integerFingerprintPart("animeEpisode", row.animeEpisode),
-			integerFingerprintPart("mangaVolume", row.mangaVolume),
-			numberFingerprintPart("mangaChapter", row.mangaChapter),
+			integerFingerprintPart("episodes", row.episode),
+			integerFingerprintPart("volume", row.volume),
+			numberFingerprintPart("chapters", row.chapter),
 		].filter((part) => part !== null);
 		const claimKey = JSON.stringify([
 			"media.integration-progress.v1",

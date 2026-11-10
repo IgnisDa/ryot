@@ -1,5 +1,6 @@
-import type { ConsumedItem } from "../../shared/consumption";
+import type { MediaPosition } from "../../shared/consumption";
 import type { ListStateProperties } from "../../shared/list-state";
+import { capitalized } from "./activity-log/state";
 import { decimalLabel, type MediaActivityProgressRun } from "./activity-timeline";
 
 type MediaActivityVerb = "read" | "play" | "watch" | "listen";
@@ -12,15 +13,28 @@ const MEDIA_LIST_STATE_LABELS: Record<ListStateProperties["state"], string> = {
 	in_progress: "In progress",
 };
 
-export const mediaListStateDetail = (
-	listState: null | ListStateProperties,
-	positions: readonly (string | undefined)[],
-) =>
+const MEDIA_POSITION_LABELS: Record<MediaPosition["unit"], string> = {
+	episodes: "Ep",
+	chapters: "Ch",
+	volumes: "Vol",
+};
+
+export const mediaPositionLabel = (position: MediaPosition) =>
+	[
+		`${MEDIA_POSITION_LABELS[position.unit]} ${decimalLabel(position.position)}`,
+		...(position.volume === undefined ? [] : [`Vol ${decimalLabel(position.volume)}`]),
+	].join(" · ");
+
+export const mediaListStateDetail = ({
+	listState,
+}: {
+	readonly listState: null | ListStateProperties;
+}) =>
 	listState === null
 		? undefined
 		: [
 				MEDIA_LIST_STATE_LABELS[listState.state],
-				...positions.filter((position) => position !== undefined),
+				...(listState.position === undefined ? [] : [mediaPositionLabel(listState.position)]),
 				`Repeat count ${listState.repeatCount}`,
 			].join(" · ");
 
@@ -85,7 +99,6 @@ const mediaActivityBeats = (verb: MediaActivityVerbCopy, noun: string) => ({
 export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 	readonly noun: string;
 	readonly verb: MediaActivityVerb;
-	readonly itemLabel?: (item: ConsumedItem) => string;
 	readonly progress?: (percent: string | undefined, extra: Extra) => string;
 	readonly snapshot?: {
 		readonly label: string;
@@ -106,8 +119,9 @@ export const mediaFlatActivityCopy = <Extra = unknown>(input: {
 		rowLabels: { ...rowLabels, progress },
 		completionsLabel: verb.completionsLabel,
 		beats: mediaActivityBeats(verb, input.noun),
-		itemLabel: input.itemLabel ?? (() => "Item consumed"),
 		snapshot: input.snapshot ?? { label: "Synced", detail: () => undefined },
+		itemLabel: (item: MediaPosition) =>
+			`${capitalized(verb.participle)} ${mediaPositionLabel(item)}`,
 	};
 };
 

@@ -24,6 +24,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 import { CONSUMED_ON_LIST_LIMIT, consumedOnSettingKey } from "../../shared/consumed-on-settings";
+import { mediaPositionError } from "../../shared/consumption";
 import { entityId } from "../../shared/entity-selections";
 import { episodicEpisodeMembership } from "../../shared/episodic-recipes";
 import {
@@ -31,10 +32,7 @@ import {
 	podcastEpisodicKindConfig,
 	showEpisodicKindConfig,
 } from "../../shared/lifecycle-expressions";
-import {
-	mediaProgressPositionProperty,
-	mediaProgressRuleError,
-} from "../../shared/media-activity-fields";
+import { mediaProgressRuleError } from "../../shared/media-activity-fields";
 import {
 	MediaActivityLogInput,
 	MediaActivityLogOutput,
@@ -173,7 +171,6 @@ const buildEvents = (
 			if (!lifecycleSchemaSlugs.has(schemaSlug)) {
 				return yield* reject("This media type has no progress");
 			}
-			const positionProperty = mediaProgressPositionProperty(schemaSlug);
 			if (
 				entry.progressPages !== undefined &&
 				(!["book", "comic-book"].includes(schemaSlug) ||
@@ -191,6 +188,13 @@ const buildEvents = (
 			);
 			if (progressError !== undefined) {
 				return yield* reject(progressError);
+			}
+			const positionError =
+				entry.position === undefined
+					? undefined
+					: mediaPositionError(schemaSlug, "progress", entry.position);
+			if (positionError !== undefined) {
+				return yield* reject(positionError);
 			}
 			return {
 				schemaSlug,
@@ -210,9 +214,7 @@ const buildEvents = (
 							...(entry.progressPercent === undefined
 								? {}
 								: { progressPercent: entry.progressPercent }),
-							...(positionProperty === undefined || entry.position === undefined
-								? {}
-								: { [positionProperty]: entry.position }),
+							...(entry.position === undefined ? {} : { position: entry.position }),
 						},
 					},
 				],

@@ -357,15 +357,18 @@ describe("GET /event-schemas", () => {
 			const animeProgressSchema = yield* getProgressSchema("anime");
 			expect(animeProgressSchema).toMatchObject({
 				fields: {
-					animeEpisode: {
-						type: "integer",
-						label: "Anime episode",
-						description: "Episode number of the anime being tracked",
-					},
 					progressPercent: {
 						type: "number",
 						label: "Progress percent",
 						description: "Percentage of the media completed so far (0 to 100)",
+					},
+					position: {
+						type: "object",
+						label: "Position",
+						properties: {
+							position: { type: "integer" },
+							unit: { type: "enum", choices: { values: [{ value: "episodes" }] } },
+						},
 					},
 				},
 			});
@@ -373,20 +376,19 @@ describe("GET /event-schemas", () => {
 			const mangaProgressSchema = yield* getProgressSchema("manga");
 			expect(mangaProgressSchema).toMatchObject({
 				fields: {
-					mangaVolume: {
-						type: "integer",
-						label: "Manga volume",
-						description: "Volume number of the manga being tracked",
-					},
-					mangaChapter: {
-						type: "number",
-						label: "Manga chapter",
-						description: "Chapter number of the manga being tracked",
-					},
 					progressPercent: {
 						type: "number",
 						label: "Progress percent",
 						description: "Percentage of the media completed so far (0 to 100)",
+					},
+					position: {
+						type: "object",
+						label: "Position",
+						properties: {
+							volume: { type: "number" },
+							position: { type: "number" },
+							unit: { type: "enum", choices: { values: [{ value: "chapters" }] } },
+						},
 					},
 				},
 			});
@@ -516,8 +518,7 @@ describe("GET /event-schemas", () => {
 			]) {
 				const parentFields = requireObjectRecord(parentSchema["fields"], "Expected fields");
 				expect(Object.keys(parentFields)).not.toContain("progressPercent");
-				expect(Object.keys(parentFields)).not.toContain("animeEpisode");
-				expect(Object.keys(parentFields)).not.toContain("mangaChapter");
+				expect(Object.keys(parentFields)).not.toContain("position");
 			}
 			expect(showOnHoldSchema).toMatchObject(showDroppedSchema);
 			expect(podcastDroppedSchema).toMatchObject(showDroppedSchema);

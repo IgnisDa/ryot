@@ -95,7 +95,7 @@ export const createMediaAnalyticsFixture = Effect.fn("createMediaAnalyticsFixtur
 			properties: {
 				consumptionBasis: animeBasis,
 				sourceRun: yield* randomUuid,
-				consumedItem: { position: 7, unit: "episodes" },
+				position: { position: 7, unit: "episodes" },
 			},
 		},
 		{

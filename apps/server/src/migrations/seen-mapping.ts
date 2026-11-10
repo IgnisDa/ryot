@@ -104,8 +104,7 @@ BEGIN
 			COALESCE(r.episode_entity_id, r.metadata_id), 'progress', ${quoteSqlString(mediaPluginId)},
 			r.episode_session_id,
 			${seenConsumptionPropertiesSql("r", null)} || jsonb_strip_nulls(jsonb_build_object(
-				'progressPercent', CASE WHEN r.item_unit IS NULL AND r.progress > 0 THEN r.progress END,
-				'mangaVolume', CASE WHEN r.item_unit = 'chapters' THEN r.source_volume::numeric END
+				'progressPercent', CASE WHEN r.item_unit IS NULL AND r.progress > 0 THEN r.progress END
 			)),
 			r.ordering_time, r.ordering_time
 		FROM _legacy_seen_consumption r
@@ -129,7 +128,7 @@ BEGIN
 			${quoteSqlString(mediaPluginId)}, r.episode_session_id,
 			CASE WHEN r.item_unit IS NOT NULL THEN
 				(${seenConsumptionPropertiesSql("r", "r.finished_on")} - 'sourceProgress') || jsonb_build_object(
-					'consumedItem', jsonb_strip_nulls(jsonb_build_object(
+					'position', jsonb_strip_nulls(jsonb_build_object(
 						'unit', r.item_unit,
 						'position', COALESCE(r.source_position, r.source_volume)::numeric,
 						'volume', CASE WHEN r.item_unit = 'chapters' THEN r.source_volume::numeric END
@@ -165,8 +164,7 @@ BEGIN
 					'startedOn', to_char(r.started_on AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
 				))
 			ELSE ${seenConsumptionPropertiesSql("r", null)} || jsonb_strip_nulls(jsonb_build_object(
-				'progressPercent', CASE WHEN r.item_unit IS NULL AND r.progress > 0 THEN r.progress END,
-				'mangaVolume', CASE WHEN r.item_unit = 'chapters' THEN r.source_volume::numeric END
+				'progressPercent', CASE WHEN r.item_unit IS NULL AND r.progress > 0 THEN r.progress END
 			)) END,
 			r.ordering_time + interval '1 millisecond', r.ordering_time
 		FROM _legacy_seen_consumption r
@@ -190,8 +188,8 @@ BEGIN
 			GROUP BY source.seen_id
 			HAVING count(event.id) <> 1
 				OR bool_or(event.event_schema_slug <> 'item-complete'
-					OR event.properties ?| ARRAY['progressPercent', 'progressPages', 'animeEpisode',
-						'mangaChapter', 'mangaVolume', 'completionKey', 'sourceProgress'])`,
+					OR event.properties ?| ARRAY['progressPercent', 'progressPages', 'completionKey',
+						'sourceProgress'])`,
 	})}
 	SELECT count(*) INTO item_inserted FROM _legacy_seen_events WHERE event_schema_slug = 'item-complete';
 	complete_inserted := complete_inserted - item_inserted;
