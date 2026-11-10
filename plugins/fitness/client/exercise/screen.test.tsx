@@ -378,7 +378,7 @@ describe("exercise details view", () => {
 	);
 
 	it.live(
-		"lists merge only for custom exercises and duplicates from the menu",
+		"offers merge for global and custom exercises and duplicates from the menu",
 		() =>
 			Effect.gen(function* () {
 				for (const userId of [null, "user-1"]) {
@@ -392,7 +392,7 @@ describe("exercise details view", () => {
 						"Preferences",
 						"Post a review",
 						"Duplicate",
-						...(userId === null ? [] : ["Merge into…"]),
+						"Merge into…",
 					]);
 					click(screen.getByRole("menuitem", { name: "Duplicate" }));
 					expect(yield* navigations(page)).toEqual<unknown>([

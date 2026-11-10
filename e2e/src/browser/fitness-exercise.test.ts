@@ -120,13 +120,7 @@ it.live("offers the same menu actions for global and custom exercises", () =>
 			).toBe(0);
 			yield* visible(detail.getByRole("button", { exact: true, name: "Add to collection" }));
 			yield* openActionsMenu(detail);
-			const items = [
-				"Reminders",
-				"Preferences",
-				"Post a review",
-				"Duplicate",
-				...(editable ? ["Merge into…"] : []),
-			];
+			const items = ["Reminders", "Preferences", "Post a review", "Duplicate", "Merge into…"];
 			for (const item of items) {
 				yield* visible(detail.getByRole("menuitem", { name: item, exact: true }));
 			}
@@ -290,98 +284,136 @@ it.live("edits the name, targets, and images while keeping the kind read-only", 
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
 
-it.live("merges a custom exercise into another, moving history, records, and templates", () =>
-	Effect.gen(function* () {
-		const frontendUrl = getFrontendUrl();
-		const { email, client, password } = yield* createAuthenticatedClient();
-		const id = yield* randomUuid;
-		const { exerciseId: sourceId } = yield* createExerciseEntityFixture(client, {
-			name: `Merge source ${id}`,
-		});
-		const { exerciseId: targetId } = yield* createExerciseEntityFixture(client, {
-			name: `Merge target ${id}`,
-		});
-		const { workoutId } = yield* seedExerciseWorkout(client, {
-			exerciseId: sourceId,
-			name: `Merge push day ${id}`,
-			endedAt: "2026-06-30T14:00:00.000Z",
-			startedAt: "2026-06-30T13:00:00.000Z",
-			sets: [
-				{ properties: { reps: 8, weight: 90 }, occurredAt: "2026-06-30T13:00:00.000Z" },
-				{ properties: { reps: 5, weight: 100 }, occurredAt: "2026-06-30T13:05:00.000Z" },
-			],
-		});
-		yield* pollUntil(
-			"records for the source workout",
-			readWorkoutDetails(client, workoutId).pipe(
-				Effect.map(({ exercises }) => {
-					const sets = exercises.items.flatMap((exercise) => exercise.sets.items);
-					return sets.length > 0 && sets.every((set) => set.recordStatus === "ready") ? sets : null;
-				}),
-			),
-		);
-		const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client, {
-			exerciseId: sourceId,
-		});
+for (const sourceKind of ["custom", "global"] as const) {
+	it.live(`merges a ${sourceKind} exercise, preserving other users and the source metadata`, () =>
+		Effect.gen(function* () {
+			const frontendUrl = getFrontendUrl();
+			const { email, client, password } = yield* createAuthenticatedClient();
+			const id = yield* randomUuid;
+			const { schema } = yield* findFitnessEntitySchema(client, "exercise");
+			const source =
+				sourceKind === "custom"
+					? (yield* createExerciseEntityFixture(client, { name: `Merge source ${id}` })).exercise
+					: yield* seedPopulatedEntity({
+							providerId: null,
+							name: `Merge source ${id}`,
+							entitySchema: schema.reference,
+							externalId: `merge-source-${id}`,
+							properties: { kind: "reps_and_weight" },
+						});
+			const sourceId = source.id;
+			const { client: otherClient } = yield* createAuthenticatedClient();
+			const otherWorkout =
+				sourceKind === "global"
+					? yield* seedExerciseWorkout(otherClient, {
+							exerciseId: sourceId,
+							name: `Other workout ${id}`,
+							endedAt: "2026-06-30T14:00:00.000Z",
+							startedAt: "2026-06-30T13:00:00.000Z",
+							sets: [
+								{ properties: { reps: 3, weight: 20 }, occurredAt: "2026-06-30T13:00:00.000Z" },
+							],
+						})
+					: null;
+			const sourceBefore = yield* getEntity(client, sourceId);
+			const { exerciseId: targetId } = yield* createExerciseEntityFixture(client, {
+				name: `Merge target ${id}`,
+			});
+			const { workoutId } = yield* seedExerciseWorkout(client, {
+				exerciseId: sourceId,
+				name: `Merge push day ${id}`,
+				endedAt: "2026-06-30T14:00:00.000Z",
+				startedAt: "2026-06-30T13:00:00.000Z",
+				sets: [
+					{ properties: { reps: 8, weight: 90 }, occurredAt: "2026-06-30T13:00:00.000Z" },
+					{ properties: { reps: 5, weight: 100 }, occurredAt: "2026-06-30T13:05:00.000Z" },
+				],
+			});
+			yield* pollUntil(
+				"records for the source workout",
+				readWorkoutDetails(client, workoutId).pipe(
+					Effect.map(({ exercises }) => {
+						const sets = exercises.items.flatMap((exercise) => exercise.sets.items);
+						return sets.length > 0 && sets.every((set) => set.recordStatus === "ready")
+							? sets
+							: null;
+					}),
+				),
+			);
+			const { workoutTemplateId } = yield* createWorkoutTemplateEntityFixture(client, {
+				exerciseId: sourceId,
+			});
 
-		const browser = yield* Playwright.Browser;
-		const page = yield* browser.newPage();
-		yield* signInThroughHostedOAuth(page, email, password);
-		yield* page.goto(`${frontendUrl}/e/${sourceId}`);
-		const frame = page.locator("iframe:visible").contentFrame();
-		yield* visible(
-			frame.getByRole("heading", { level: 1, exact: true, name: `Merge source ${id}` }),
-		);
-		yield* visible(frame.getByText("Personal bests", { exact: true }));
-		yield* openActionsMenu(frame);
-		yield* frame.getByRole("menuitem", { exact: true, name: "Merge into…" }).click();
+			const browser = yield* Playwright.Browser;
+			const page = yield* browser.newPage();
+			yield* signInThroughHostedOAuth(page, email, password);
+			yield* page.goto(`${frontendUrl}/e/${sourceId}`);
+			const frame = page.locator("iframe:visible").contentFrame();
+			yield* visible(
+				frame.getByRole("heading", { level: 1, exact: true, name: `Merge source ${id}` }),
+			);
+			yield* visible(frame.getByText("Personal bests", { exact: true }));
+			yield* openActionsMenu(frame);
+			yield* frame.getByRole("menuitem", { exact: true, name: "Merge into…" }).click();
 
-		const picker = frame.getByRole("dialog", {
-			exact: true,
-			name: `Merge Merge source ${id} into…`,
-		});
-		yield* visible(picker.getByRole("radio", { exact: true, name: `Merge target ${id}` }));
-		expect(
-			yield* picker.getByRole("radio", { exact: true, name: `Merge source ${id}` }).count,
-		).toBe(0);
-		yield* picker.getByRole("radio", { exact: true, name: `Merge target ${id}` }).click();
-		yield* picker.getByRole("button", { exact: true, name: "Merge into" }).click();
-		const confirmation = frame.getByRole("dialog", { exact: true, name: "Merge exercise?" });
-		yield* visible(confirmation);
-		yield* confirmation.getByRole("button", { exact: true, name: "Merge" }).click();
+			const picker = frame.getByRole("dialog", {
+				exact: true,
+				name: `Merge Merge source ${id} into…`,
+			});
+			yield* visible(picker.getByRole("radio", { exact: true, name: `Merge target ${id}` }));
+			expect(
+				yield* picker.getByRole("radio", { exact: true, name: `Merge source ${id}` }).count,
+			).toBe(0);
+			yield* picker.getByRole("radio", { exact: true, name: `Merge target ${id}` }).click();
+			yield* picker.getByRole("button", { exact: true, name: "Merge into" }).click();
+			const confirmation = frame.getByRole("dialog", { exact: true, name: "Merge exercise?" });
+			yield* visible(confirmation);
+			yield* confirmation.getByRole("button", { exact: true, name: "Merge" }).click();
 
-		yield* visible(
-			frame.getByRole("heading", { level: 1, exact: true, name: `Merge target ${id}` }),
-		);
-		yield* visible(frame.getByRole("link", { exact: true, name: `Merge push day ${id}` }));
-		yield* visible(frame.getByText("13", { exact: true }));
-		yield* pollUntil(
-			"records for the moved sets",
-			readWorkoutDetails(client, workoutId).pipe(
-				Effect.map(({ exercises }) => {
-					const sets = exercises.items.flatMap((exercise) => exercise.sets.items);
-					return sets.length === 2 &&
-						sets.every(
-							(set) =>
-								set.exerciseId === targetId &&
-								set.recordStatus === "ready" &&
-								set.personalBests?.includes("weight") !== undefined,
-						)
-						? sets
-						: null;
-				}),
-			),
-		);
-		yield* page.reload;
-		yield* visible(frame.getByText("Personal bests", { exact: true }));
-		yield* visible(frame.getByText("Heaviest weight", { exact: true }));
-		yield* visible(frame.getByText("100 kg", { exact: true }).first());
+			yield* visible(
+				frame.getByRole("heading", { level: 1, exact: true, name: `Merge target ${id}` }),
+			);
+			yield* visible(frame.getByRole("link", { exact: true, name: `Merge push day ${id}` }));
+			yield* visible(frame.getByText("13", { exact: true }));
+			yield* pollUntil(
+				"records for the moved sets",
+				readWorkoutDetails(client, workoutId).pipe(
+					Effect.map(({ exercises }) => {
+						const sets = exercises.items.flatMap((exercise) => exercise.sets.items);
+						return sets.length === 2 &&
+							sets.every(
+								(set) =>
+									set.exerciseId === targetId &&
+									set.recordStatus === "ready" &&
+									set.personalBests?.includes("weight") !== undefined,
+							)
+							? sets
+							: null;
+					}),
+				),
+			);
+			yield* page.reload;
+			yield* visible(frame.getByText("Personal bests", { exact: true }));
+			yield* visible(frame.getByText("Heaviest weight", { exact: true }));
+			yield* visible(frame.getByText("100 kg", { exact: true }).first());
 
-		const template = yield* getEntity(client, workoutTemplateId);
-		expect(template.properties).toMatchObject({ exercises: [{ exerciseId: targetId }] });
+			const sourceAfter = yield* getEntity(client, sourceId);
+			expect(sourceAfter.name).toBe(sourceBefore.name);
+			expect(sourceAfter.properties).toEqual(sourceBefore.properties);
+			if (otherWorkout !== null) {
+				const otherDetails = yield* readWorkoutDetails(otherClient, otherWorkout.workoutId);
+				expect(
+					otherDetails.exercises.items
+						.flatMap((exercise) => exercise.sets.items)
+						.map((set) => set.exerciseId),
+				).toEqual([sourceId]);
+			}
+			const template = yield* getEntity(client, workoutTemplateId);
+			expect(template.properties).toMatchObject({ exercises: [{ exerciseId: targetId }] });
 
-		yield* page.goto(`${frontendUrl}/v/p/ryot/fitness/all-exercises`);
-		yield* visible(frame.getByText(`Merge target ${id}`, { exact: true }));
-		expect(yield* frame.getByText(`Merge source ${id}`, { exact: true }).count).toBe(0);
-	}).pipe(PlaywrightSpawner.withBrowser),
-);
+			yield* page.goto(`${frontendUrl}/v/p/ryot/fitness/all-exercises`);
+			yield* visible(frame.getByText(`Merge target ${id}`, { exact: true }));
+			expect(yield* frame.getByText(`Merge source ${id}`, { exact: true }).count).toBe(0);
+		}).pipe(PlaywrightSpawner.withBrowser),
+	);
+}

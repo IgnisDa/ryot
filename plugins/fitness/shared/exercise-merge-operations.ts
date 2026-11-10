@@ -7,7 +7,6 @@ export const ExerciseMergeInputSchema = Schema.Struct({ mergeFrom: EntityId, mer
 
 export const ExerciseMergeOutputSchema = Schema.Union([
 	Schema.Struct({ mergeInto: EntityId, kind: Schema.Literal("merged") }),
-	Schema.Struct({ kind: Schema.Literal("not-custom") }),
 	Schema.Struct({ kind: Schema.Literal("kind-mismatch") }),
 	Schema.Struct({ kind: Schema.Literal("missing") }),
 	Schema.Struct({ kind: Schema.Literal("same") }),

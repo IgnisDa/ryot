@@ -241,7 +241,7 @@ function ExerciseActions(props: {
 	const exerciseKind = exercise.kind;
 	const inDraft = draft?.exerciseIds.includes(exercise.id) === true;
 	const mergeItem =
-		isCustomExercise(exercise) && exerciseKind !== null
+		exerciseKind !== null
 			? [
 					{
 						key: "merge",

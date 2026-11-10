@@ -38,15 +38,14 @@ export const exerciseMergeSubjectsRecipe = defineRecipe(
 				exercises: selectedRows(exercise, {
 					limit: 2,
 					orderBy: [ascending(column(exercise, "id"))],
+					selection: {
+						id: selectedField(column(exercise, "id"), EntityId),
+						kind: selectedField(property(exercise, "kind"), Schema.NullOr(Schema.String)),
+					},
 					where: and(
 						entitySchemaPredicate(exercise, "exercise", input.reference),
 						inArray(column(exercise, "id"), [input.mergeFrom, input.mergeInto].map(literal)),
 					),
-					selection: {
-						id: selectedField(column(exercise, "id"), EntityId),
-						kind: selectedField(property(exercise, "kind"), Schema.NullOr(Schema.String)),
-						userId: selectedField(column(exercise, "userId"), Schema.NullOr(Schema.String)),
-					},
 				}),
 			},
 		};

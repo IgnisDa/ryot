@@ -38,7 +38,6 @@ const mergeMutation = createRyotMutation<
 const failureMessages: Record<MergeFailure, string> = {
 	same: "An exercise can't be merged into itself.",
 	missing: "One of the exercises no longer exists.",
-	"not-custom": "Only exercises you created can be merged into another exercise.",
 	"kind-mismatch": "Exercises can only be merged into an exercise of the same kind.",
 };
 

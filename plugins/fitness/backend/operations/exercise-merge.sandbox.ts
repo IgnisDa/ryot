@@ -65,9 +65,6 @@ export default defineOperation({
 			if (!source || !target) {
 				return { kind: "missing" } as const;
 			}
-			if (source.userId === null) {
-				return { kind: "not-custom" } as const;
-			}
 			if (source.kind !== target.kind) {
 				return { kind: "kind-mismatch" } as const;
 			}

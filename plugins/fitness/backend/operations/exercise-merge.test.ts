@@ -12,7 +12,7 @@ type Row = Readonly<Record<string, unknown>>;
 const mergeFrom = EntityId.make("custom-1");
 const mergeInto = EntityId.make("global-1");
 
-const subject = (id: string, userId: null | string, kind = "reps_weight") => ({ id, kind, userId });
+const subject = (id: string, kind = "reps_weight") => ({ id, kind });
 
 const rowsFor = (
 	document: RyotQLDocument,
@@ -80,16 +80,11 @@ it("returns a typed failure for each invalid merge without writing", () =>
 		Effect.gen(function* () {
 			const cases = [
 				[{ mergeFrom, mergeInto: mergeFrom }, {}, "same"],
-				[{ mergeFrom, mergeInto }, { exercises: [subject(mergeInto, null)] }, "missing"],
-				[{ mergeFrom, mergeInto }, { exercises: [subject(mergeFrom, "user-1")] }, "missing"],
+				[{ mergeFrom, mergeInto }, { exercises: [subject(mergeInto)] }, "missing"],
+				[{ mergeFrom, mergeInto }, { exercises: [subject(mergeFrom)] }, "missing"],
 				[
 					{ mergeFrom, mergeInto },
-					{ exercises: [subject(mergeFrom, null), subject(mergeInto, null)] },
-					"not-custom",
-				],
-				[
-					{ mergeFrom, mergeInto },
-					{ exercises: [subject(mergeFrom, "user-1"), subject(mergeInto, null, "duration")] },
+					{ exercises: [subject(mergeFrom), subject(mergeInto, "duration")] },
 					"kind-mismatch",
 				],
 			] as const;
@@ -101,13 +96,13 @@ it("returns a typed failure for each invalid merge without writing", () =>
 		}),
 	));
 
-it("detaches the source, merges its data, and swaps template references", () =>
+it("merges source data and swaps template references", () =>
 	Effect.runPromise(
 		Effect.gen(function* () {
 			const matching = template("template-1", ["other", mergeFrom, mergeFrom]);
 			const { output, writes } = yield* run({
+				exercises: [subject(mergeFrom), subject(mergeInto)],
 				templates: [matching, template("template-2", ["other"])],
-				exercises: [subject(mergeFrom, "user-1"), subject(mergeInto, null)],
 				links: [
 					{ slug: "in-fitness-library", targetEntityId: "library-1" },
 					{ targetEntityId: "chest", slug: "exercise-targets" },
@@ -167,7 +162,7 @@ it("completes when re-run after the source was already detached", () =>
 			const { output, writes } = yield* run({
 				links: [],
 				templates: [],
-				exercises: [subject(mergeFrom, "user-1"), subject(mergeInto, null)],
+				exercises: [subject(mergeFrom), subject(mergeInto)],
 			});
 
 			expect(output).toEqual({ mergeInto, kind: "merged" });
