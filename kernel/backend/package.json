@@ -66,9 +66,9 @@
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},
 	"dependencies": {
-		"@better-auth/api-key": "1.7.16",
-		"@better-auth/core": "1.7.16",
-		"@better-auth/oauth-provider": "1.7.16",
+		"@better-auth/api-key": "1.7.21",
+		"@better-auth/core": "1.7.21",
+		"@better-auth/oauth-provider": "1.7.21",
 		"@dicebear/core": "10.7.0",
 		"@dicebear/styles": "10.6.0",
 		"@effect/platform-bun": "4.1.2",
@@ -87,7 +87,7 @@
 		"@ryot-app/ts-utils": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
 		"@unkey/api": "2.5.6",
-		"better-auth": "1.7.16",
+		"better-auth": "1.7.21",
 		"drizzle-orm": "1.0.0-rc.5",
 		"effect": "4.1.2",
 		"fflate": "0.8.3",

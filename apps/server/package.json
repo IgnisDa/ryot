@@ -9,7 +9,7 @@
 		"run-migration": "bun turbo --filter=@ryot-app/kernel-backend --filter=@ryot-app/kernel-renderers build && RUN_MIGRATION_ONLY=true bun run src/main.ts"
 	},
 	"dependencies": {
-		"@better-auth/core": "1.7.16",
+		"@better-auth/core": "1.7.21",
 		"@effect/platform-bun": "4.1.2",
 		"@effect/sql-pg": "4.1.2",
 		"@ryot-app/contract": "workspace:*",

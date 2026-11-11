@@ -1,7 +1,6 @@
 import {
 	getOAuthEndpoint,
 	getOAuthIssuer,
-	isLoopbackOrigin,
 	OAUTH_AUTHORIZE_PATH,
 	OAUTH_PKCE_METHOD,
 	OAUTH_TOKEN_PATH,
@@ -11,12 +10,6 @@ import { Effect } from "effect";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
 import { webRequest } from "~/support/web-request";
-
-// Better Auth coerces a non-loopback http issuer to https; issued tokens keep http.
-const advertisedIssuer = (origin: string) =>
-	isLoopbackOrigin(origin)
-		? getOAuthIssuer(origin)
-		: getOAuthIssuer(origin).replace(/^http:\/\//, "https://");
 
 describe("GET /auth/.well-known/openid-configuration", () => {
 	it.live("serves JSON discovery for the path-ful issuer", () =>
@@ -28,7 +21,7 @@ describe("GET /auth/.well-known/openid-configuration", () => {
 			expect(response.status).toBe(200);
 			expect(response.headers.get("content-type")).toContain("application/json");
 			expect(yield* Effect.promise(() => response.json())).toMatchObject({
-				issuer: advertisedIssuer(frontendOrigin),
+				issuer: getOAuthIssuer(frontendOrigin),
 				code_challenge_methods_supported: [OAUTH_PKCE_METHOD],
 				token_endpoint: getOAuthEndpoint(frontendOrigin, OAUTH_TOKEN_PATH),
 				authorization_endpoint: getOAuthEndpoint(frontendOrigin, OAUTH_AUTHORIZE_PATH),

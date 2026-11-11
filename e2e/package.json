@@ -8,7 +8,7 @@
 	},
 	"devDependencies": {
 		"@aws-sdk/client-s3": "3.1161.0",
-		"@better-auth/api-key": "1.7.16",
+		"@better-auth/api-key": "1.7.21",
 		"@effect/platform-bun": "4.1.2",
 		"@faker-js/faker": "10.6.0",
 		"@ryot-app/contract": "workspace:*",
@@ -28,7 +28,7 @@
 		"@ryot-app/ts-utils": "workspace:*",
 		"@testcontainers/postgresql": "12.2.1",
 		"@voila.dev/effect-bun-test": "4.0.4",
-		"better-auth": "1.7.16",
+		"better-auth": "1.7.21",
 		"dotenv": "18.0.9",
 		"effect": "4.1.2",
 		"effect-playwright": "0.8.0",

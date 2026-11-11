@@ -18,7 +18,7 @@
 	},
 	"dependencies": {
 		"@aparajita/capacitor-secure-storage": "8.0.1",
-		"@better-auth/oauth-provider": "1.7.16",
+		"@better-auth/oauth-provider": "1.7.21",
 		"@capacitor-community/keep-awake": "8.0.1",
 		"@capacitor/android": "8.6.0",
 		"@capacitor/app": "8.1.2",
@@ -44,7 +44,7 @@
 		"@tailwindcss/vite": "4.3.4",
 		"@tanstack/react-form": "2.0.0-alpha.3",
 		"@tanstack/react-router": "1.170.46",
-		"better-auth": "1.7.16",
+		"better-auth": "1.7.21",
 		"clsx": "2.1.1",
 		"effect": "4.1.2",
 		"motion": "14.9.1",
