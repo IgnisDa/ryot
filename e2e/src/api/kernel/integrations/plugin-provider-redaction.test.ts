@@ -76,7 +76,7 @@ describe("third-party integration provider redaction", () => {
 			);
 			const listed = requirePresent(
 				Option.getOrUndefined(
-					yield* executeRyotQLRecipe(client, integrationRecipe({ id: created.id })),
+					yield* executeRyotQLRecipe(client, integrationRecipe, { id: created.id }),
 				),
 				"Expected created integration",
 			);
@@ -100,7 +100,7 @@ describe("third-party integration provider redaction", () => {
 			expect(updated).toEqual({ id: created.id });
 			const detail = requirePresent(
 				Option.getOrUndefined(
-					yield* executeRyotQLRecipe(client, integrationRecipe({ id: created.id })),
+					yield* executeRyotQLRecipe(client, integrationRecipe, { id: created.id }),
 				),
 				"Expected updated integration",
 			);

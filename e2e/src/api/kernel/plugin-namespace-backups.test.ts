@@ -1,4 +1,4 @@
-import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
+import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	EntitySchemaSlug,
 	pluginPackageSegments,
@@ -16,7 +16,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -91,6 +91,10 @@ describe("plugin namespace backups", () => {
 						columns: [{ label: "Opaque", field: "opaque", displayKind: "text" }],
 					},
 				});
+				const canonicalQuery = requirePresent(
+					(yield* findSavedViewById(source.client, created.id)).dataSources,
+					"Saved query missing",
+				);
 				yield* source.client.call((contract) =>
 					contract.plugins.setHomeView({
 						params: { installationId: a.id },
@@ -160,12 +164,16 @@ describe("plugin namespace backups", () => {
 				expect(view.id).not.toBe(created.id);
 				const restoredQuery = requirePresent(view.dataSources, "Retained query missing");
 				expect(restoredQuery).toEqual<unknown>(
-					mapPluginIdentityReferences(query, () => ({
-						kind: "local",
-						pluginId: restored.pluginId,
-					})),
+					Result.getOrThrow(
+						mapPluginIdentityReferences(canonicalQuery, () => ({
+							kind: "local",
+							pluginId: restored.pluginId,
+						})),
+					),
 				);
-				const unavailable = yield* executeRyotQLError(target.client, restoredQuery);
+				const unavailable = yield* executeRyotQLError(target.client, {
+					source: { kind: "inline", document: restoredQuery },
+				});
 				assertTaggedError(unavailable, "RyotQLBadRequest");
 				expect(unavailable.reason).toEqual({
 					issue: "unavailable",
@@ -198,6 +206,7 @@ describe("plugin namespace backups", () => {
 					(yield* executeRyotQLRecipe(
 						target.client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: restored.pluginId } }),
+						{},
 					)).map(({ name }) => name),
 				).toEqual(["A1 bottle"]);
 			}),
@@ -304,6 +313,7 @@ describe("plugin namespace backups", () => {
 						(yield* executeRyotQLRecipe(
 							source.client,
 							namespaceProvidersRecipe({ kind: "local", pluginId: installed.pluginId }),
+							{},
 						))[0],
 						"Source provider missing",
 					);
@@ -427,6 +437,7 @@ describe("plugin namespace backups", () => {
 						namespaceBottlesRecipe({
 							reference: { kind: "local", pluginId: installation.pluginId },
 						}),
+						{},
 					);
 					expect(bottles).toHaveLength(2);
 					expect(bottles).toEqual<unknown>(
@@ -439,12 +450,13 @@ describe("plugin namespace backups", () => {
 					);
 					const reference = { kind: "local" as const, pluginId: installation.pluginId };
 					const provider = requirePresent(
-						(yield* executeRyotQLRecipe(target.client, namespaceProvidersRecipe(reference)))[0],
+						(yield* executeRyotQLRecipe(target.client, namespaceProvidersRecipe(reference), {}))[0],
 						"Restored provider missing",
 					);
 					const graph = yield* executeRyotQLRecipe(
 						target.client,
 						namespaceEntityGraphRecipe(reference),
+						{},
 					);
 					expect(graph).toHaveLength(5);
 					expect(graph.every(({ userId }) => userId === target.userId)).toBe(true);
@@ -461,6 +473,7 @@ describe("plugin namespace backups", () => {
 					const relationships = yield* executeRyotQLRecipe(
 						target.client,
 						namespaceRelationshipsRecipe(reference),
+						{},
 					);
 					expect(relationships).toHaveLength(2);
 					expect(
@@ -482,6 +495,7 @@ describe("plugin namespace backups", () => {
 						yield* executeRyotQLRecipe(
 							target.client,
 							namespaceSubscriptionsRecipe({ kind: "local", pluginId: restored.pluginId }),
+							{},
 						),
 					).toEqual([{ isActive: true, pluginId: restored.pluginId }]);
 				}
@@ -547,7 +561,8 @@ describe("plugin namespace backups", () => {
 				expect(restoredView.id).not.toBe(view.id);
 				const associations = yield* executeRyotQLRecipe(
 					target.client,
-					workspaceSavedViewRecordsRecipe(),
+					workspaceSavedViewRecordsRecipe,
+					{},
 				);
 				expect(associations).toEqual<unknown>(
 					arrayContaining([
@@ -565,7 +580,7 @@ describe("plugin namespace backups", () => {
 							}
 						: reference,
 				);
-				expect(restoredQuery).toEqual(expected);
+				expect(restoredQuery).toMatchObject(Result.getOrThrow(expected));
 			}),
 	);
 

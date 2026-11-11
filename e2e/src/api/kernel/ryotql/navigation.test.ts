@@ -56,7 +56,7 @@ describe("RyotQL navigation", () => {
 				name: `Second Navigation Collection ${yield* randomUuid}`,
 			});
 
-			const data = yield* executeRyotQLRecipe(first.client, navigationRecipe());
+			const data = yield* executeRyotQLRecipe(first.client, navigationRecipe, {});
 			const viewNames = data.savedViews.map((item) => item.name);
 			expect(viewNames).toContain(firstViewName);
 			expect(viewNames).toContain(orderedViewName);

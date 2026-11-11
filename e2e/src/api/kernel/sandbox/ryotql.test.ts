@@ -260,7 +260,7 @@ describe("sandbox RyotQL reads", () => {
 
 			const response = yield* pollUntil(
 				"system RyotQL probe",
-				executeRyotQL(client, query).pipe(
+				executeRyotQL(client, { source: { kind: "inline", document: query } }).pipe(
 					Effect.map((result) => {
 						const entityRowsResult = result.data.entities;
 						if (entityRowsResult?.type !== "rows") {

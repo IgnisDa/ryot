@@ -61,6 +61,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			const searchable = yield* executeRyotQLRecipe(
 				client,
 				providerSearchRecipe({ schema: schema.reference }),
+				{},
 			);
 			const provider = searchable.items.find((row) => row.providerSlug === PROVIDER_SLUG);
 			assertPresent(provider, "Expected the fixture PokeAPI provider on the pokemon schema");
@@ -202,6 +203,7 @@ describe.skipIf(!RUN_LIVE)("live fixture provider smoke (real external APIs)", (
 			const searchable = yield* executeRyotQLRecipe(
 				client,
 				providerSearchRecipe({ schema: schema.reference }),
+				{},
 			);
 			const provider = searchable.items.find((row) => row.providerSlug === MOVE_PROVIDER_SLUG);
 			assertPresent(provider, "Expected the fixture PokeAPI provider on the move schema");

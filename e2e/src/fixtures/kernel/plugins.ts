@@ -12,9 +12,7 @@ import { collectRyotQLRecipeItems } from "./ryotql";
 export const createPluginScope = (slug = `plugin-${crypto.randomUUID()}`) => slug;
 
 export const listInstalledPlugins = (client: Client, options: { includeHidden?: boolean } = {}) =>
-	collectRyotQLRecipeItems(client, (after) =>
-		pluginInstallationsRecipe({ after, limit: 100 }),
-	).pipe(
+	collectRyotQLRecipeItems(client, pluginInstallationsRecipe, {}, "installations").pipe(
 		Effect.map((plugins) =>
 			options.includeHidden ? plugins : plugins.filter((plugin) => !plugin.isHidden),
 		),

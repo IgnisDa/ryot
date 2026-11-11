@@ -1,9 +1,11 @@
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import type { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	ascending,
+	castNumber,
+	castText,
 	column,
 	document,
 	field,
@@ -15,13 +17,10 @@ import {
 } from "@ryot-app/ryotql";
 import type { BrowseSchema } from "@ryot-app/ryotql-recipes/browse";
 import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
-import {
-	entityBrowserCountRecipe,
-	entityBrowserRecipe,
-} from "@ryot-app/ryotql-recipes/saved-views";
+import { decodeSavedViewCount, decodeSavedViewIds } from "@ryot-app/ryotql-recipes/saved-views";
 import { randomUuid } from "@ryot-app/testing/random";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
-import { DateTime, Effect, Schema } from "effect";
+import { Effect } from "effect";
 
 import {
 	buildSavedViewDataSources,
@@ -39,6 +38,8 @@ import {
 	listInstalledPlugins,
 	rowsFields,
 } from "~/fixtures/kernel";
+import { setTestEntitySchemaBrowse } from "~/fixtures/kernel/entity-schemas";
+import { executeRyotQL } from "~/fixtures/kernel/ryotql";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
@@ -50,18 +51,15 @@ import { describe, expect, it } from "~/support/effect-test";
 const subject = table("entity", "subject");
 
 const countSavedView = Effect.fn(function* (
-	client: Parameters<typeof executeRyotQLRecipe>[0],
-	view: {
-		readonly dataSources: null | RyotQLDocument;
-		readonly settings: Readonly<Record<string, unknown>>;
-	},
+	client: Parameters<typeof executeRyotQL>[0],
+	view: { readonly reference: SavedViewReference },
+	filter?: Filter,
 ) {
-	const settings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(view.settings);
-	const dataSources = requirePresent(view.dataSources, "Saved view has no data sources");
-	const recipe = yield* Effect.fromResult(
-		entityBrowserCountRecipe(dataSources, settings, { browse: [] }),
-	);
-	return yield* executeRyotQLRecipe(client, recipe);
+	const response = yield* executeRyotQL(client, {
+		filter,
+		source: { query: "count", kind: "savedView", reference: view.reference },
+	});
+	return yield* Effect.fromResult(decodeSavedViewCount(response));
 });
 
 const choices = (values: readonly string[]) => ({
@@ -218,19 +216,23 @@ describe("saved views execution", () => {
 			const entityProperties = column(entity, "properties");
 			const base = buildSavedViewDataSources([schemaId], { pluginId, kind: "local" });
 			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");
-			const dataSources = document({
-				savedView: rows(entity, {
-					limit: 2,
-					where: query.where,
-					orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
-					fields: [
-						...rowsFields,
-						field("reps", jsonPath(entityProperties, "reps")),
-						field("level", jsonPath(entityProperties, "level")),
-						field("muscles", jsonPath(entityProperties, "muscles")),
-					],
+			const dataSources = {
+				...base,
+				...document({
+					savedView: rows(entity, {
+						limit: 2,
+						maxLimit: 1000,
+						where: query.where,
+						orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+						fields: [
+							...rowsFields,
+							field("reps", jsonPath(entityProperties, "reps")),
+							field("level", jsonPath(entityProperties, "level")),
+							field("muscles", jsonPath(entityProperties, "muscles")),
+						],
+					}),
 				}),
-			});
+			};
 			const browse: readonly BrowseSchema[] = [
 				{
 					pluginId,
@@ -242,22 +244,22 @@ describe("saved views execution", () => {
 								label: "Reps",
 								kind: "value" as const,
 								type: "number" as const,
-								expression: jsonPath(column(subject, "properties"), "reps"),
+								expression: castNumber(jsonPath(column(subject, "properties"), "reps")),
 							},
 							{
 								key: "level",
 								label: "Level",
 								type: "enum" as const,
 								kind: "value" as const,
-								expression: jsonPath(column(subject, "properties"), "level"),
+								expression: castText(jsonPath(column(subject, "properties"), "level")),
 								choices: [
 									{ value: "beginner", label: "Beginner" },
 									{ value: "advanced", label: "Advanced" },
 								],
 							},
 							{
-								key: "muscles",
 								label: "Muscles",
+								key: "testMuscles",
 								kind: "value" as const,
 								type: "enum-list" as const,
 								expression: jsonPath(column(subject, "properties"), "muscles"),
@@ -271,6 +273,14 @@ describe("saved views execution", () => {
 					},
 				},
 			];
+			yield* setTestEntitySchemaBrowse(
+				client,
+				reference,
+				requirePresent(
+					requirePresent(browse[0], "Browse schema missing").browse,
+					"Browse metadata missing",
+				),
+			);
 			const settings: EntityBrowserSavedViewSettings = {
 				...entityBrowserSettings(pluginId),
 				pageSize: 50,
@@ -286,33 +296,16 @@ describe("saved views execution", () => {
 				workspaceInstallationId: workspace.installationId,
 			});
 			const persisted = yield* findSavedViewById(client, created.id);
-			const persistedSettings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
-				persisted.settings,
-			);
-			const persistedSources = requirePresent(
-				persisted.dataSources,
-				"Saved view has no data sources",
-			);
-			const now = yield* DateTime.now;
 
 			const matching = Effect.fn(function* (filter: Filter) {
-				const page = yield* Effect.fromResult(
-					entityBrowserRecipe({
-						now,
-						browse,
-						filter,
-						settings: persistedSettings,
-						queryDocument: persistedSources,
-					}),
-				);
-				const count = yield* Effect.fromResult(
-					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, browse, filter }),
-				);
-				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(
-					({ entityId }) => entityId,
-				);
-				expect(yield* executeRyotQLRecipe(client, count)).toBe(ids.length);
-				return sortBy(ids);
+				const response = yield* executeRyotQL(client, {
+					filter,
+					pages: { ids: { limit: 50 } },
+					source: { query: "ids", kind: "savedView", reference: persisted.reference },
+				});
+				const page = yield* Effect.fromResult(decodeSavedViewIds(response));
+				expect(yield* countSavedView(client, persisted, filter)).toBe(page.items.length);
+				return sortBy(page.items);
 			});
 
 			expect(
@@ -320,7 +313,7 @@ describe("saved views execution", () => {
 					type: "and",
 					filters: [
 						{ field: "level", operator: "anyOf", values: ["beginner"] },
-						{ field: "muscles", operator: "anyOf", values: ["chest"] },
+						{ operator: "anyOf", values: ["chest"], field: "testMuscles" },
 					],
 				}),
 			).toEqual(expected(first));
@@ -334,9 +327,11 @@ describe("saved views execution", () => {
 				expected(second, fourth),
 			);
 			expect(
-				yield* matching({ field: "muscles", operator: "allOf", values: ["chest", "back"] }),
+				yield* matching({ operator: "allOf", field: "testMuscles", values: ["chest", "back"] }),
 			).toEqual(expected(first));
-			expect(yield* matching({ field: "muscles", operator: "empty" })).toEqual(expected(fourth));
+			expect(yield* matching({ operator: "empty", field: "testMuscles" })).toEqual(
+				expected(fourth),
+			);
 			expect(yield* matching({ min: 6, max: 20, field: "reps", operator: "between" })).toEqual(
 				expected(second, third),
 			);
@@ -354,7 +349,7 @@ describe("saved views execution", () => {
 					type: "and",
 					filters: [
 						{ operator: "noneOf", field: "collections", values: [collection.id] },
-						{ type: "not", filter: { field: "muscles", values: ["back"], operator: "anyOf" } },
+						{ type: "not", filter: { values: ["back"], operator: "anyOf", field: "testMuscles" } },
 					],
 				}),
 			).toEqual(expected(second, fourth));
@@ -428,17 +423,29 @@ describe("saved views execution", () => {
 					},
 				},
 			];
+			yield* setTestEntitySchemaBrowse(
+				client,
+				workoutSchema.reference,
+				requirePresent(
+					requirePresent(browse[0], "Browse schema missing").browse,
+					"Browse metadata missing",
+				),
+			);
 			const entity = table("entity", "entity");
 			const base = buildSavedViewDataSources([workoutSchema.schemaId], { pluginId, kind: "local" });
 			const query = requirePresent(base.queries.savedView, "Saved-view query is missing");
-			const dataSources = document({
-				savedView: rows(entity, {
-					limit: 20,
-					where: query.where,
-					fields: rowsFields,
-					orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+			const dataSources = {
+				...base,
+				...document({
+					savedView: rows(entity, {
+						limit: 20,
+						maxLimit: 1000,
+						where: query.where,
+						fields: rowsFields,
+						orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+					}),
 				}),
-			});
+			};
 			const created = yield* createSavedView(client, {
 				dataSources,
 				name: `Saved View Session ${yield* randomUuid}`,
@@ -455,33 +462,16 @@ describe("saved views execution", () => {
 				},
 			});
 			const persisted = yield* findSavedViewById(client, created.id);
-			const persistedSettings = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
-				persisted.settings,
-			);
-			const persistedSources = requirePresent(
-				persisted.dataSources,
-				"Saved view has no data sources",
-			);
-			const now = yield* DateTime.now;
 
 			const matching = Effect.fn(function* (filter: Filter) {
-				const page = yield* Effect.fromResult(
-					entityBrowserRecipe({
-						now,
-						browse,
-						filter,
-						settings: persistedSettings,
-						queryDocument: persistedSources,
-					}),
-				);
-				const count = yield* Effect.fromResult(
-					entityBrowserCountRecipe(persistedSources, persistedSettings, { now, browse, filter }),
-				);
-				const ids = (yield* executeRyotQLRecipe(client, page)).items.map(
-					({ entityId }) => entityId,
-				);
-				expect(yield* executeRyotQLRecipe(client, count)).toBe(ids.length);
-				return sortBy(ids);
+				const response = yield* executeRyotQL(client, {
+					filter,
+					pages: { ids: { limit: 50 } },
+					source: { query: "ids", kind: "savedView", reference: persisted.reference },
+				});
+				const page = yield* Effect.fromResult(decodeSavedViewIds(response));
+				expect(yield* countSavedView(client, persisted, filter)).toBe(page.items.length);
+				return sortBy(page.items);
 			});
 
 			expect(
@@ -510,12 +500,12 @@ describe("saved views execution", () => {
 				executeRyotQLRecipe(
 					client,
 					linkedFilterChoicesRecipe({
-						...input,
 						link: {
 							kind: "session-event",
 							event: { ...event, owner: { pluginId, kind: "local" } },
 						},
 					}),
+					{ ...input },
 				);
 			expect(sortBy((yield* choiceList({})).map(({ value }) => value))).toEqual(
 				expected(bench, squat),

@@ -53,61 +53,70 @@ export const queryUserEntityStateCounts = (input: {
 	relationships: readonly [RelationshipRoot, ...RelationshipRoot[]];
 }) =>
 	Effect.gen(function* () {
-		const eventCountDocument = (filter: { entityId?: string; sessionEntityId?: string }) => {
+		const eventCountDocument = () => {
 			const history = eventHistoryRecipe({
-				limit: 1,
 				owner: input.owner,
-				...filter,
 				eventSchemaSlugs: input.eventSchemaSlugs,
 				entitySchemaSlugs: input.entitySchemaSlugs,
 			});
 			const events = requirePresent(history.document.queries.events, "Expected event query");
-			return document({
-				events: aggregate(events.from, {
-					measures: [measure("count", { function: "count" })],
-					...(events.where ? { where: events.where } : {}),
-					...(events.joins ? { joins: events.joins } : {}),
+			return {
+				...document({
+					events: aggregate(events.from, {
+						measures: [measure("count", { function: "count" })],
+						...(events.where ? { where: events.where } : {}),
+						...(events.joins ? { joins: events.joins } : {}),
+					}),
 				}),
-			});
+				parameters: history.parameters,
+			};
 		};
 		const [entityEvents, sessionEvents, ...relationships] = yield* Effect.all([
-			executeRyotQL(input.client, eventCountDocument({ entityId: input.entityId })),
-			executeRyotQL(input.client, eventCountDocument({ sessionEntityId: input.entityId })),
+			executeRyotQL(input.client, {
+				arguments: { entityId: input.entityId },
+				source: { kind: "inline", document: eventCountDocument() },
+			}),
+			executeRyotQL(input.client, {
+				arguments: { sessionEntityId: input.entityId },
+				source: { kind: "inline", document: eventCountDocument() },
+			}),
 			...input.relationships.map((relationship) =>
-				executeRyotQL(
-					input.client,
-					document({
-						relationships: (() => {
-							const relationshipTable = table("relationship", "relationship");
-							const source = table("entity", "source");
-							const target = table("entity", "target");
-							return aggregate(relationshipTable, {
-								measures: [measure("count", { function: "count" })],
-								joins: [
-									join(
-										"inner",
-										source,
-										eq(column(relationshipTable, "sourceEntityId"), column(source, "id")),
+				executeRyotQL(input.client, {
+					source: {
+						kind: "inline",
+						document: document({
+							relationships: (() => {
+								const relationshipTable = table("relationship", "relationship");
+								const source = table("entity", "source");
+								const target = table("entity", "target");
+								return aggregate(relationshipTable, {
+									measures: [measure("count", { function: "count" })],
+									joins: [
+										join(
+											"inner",
+											source,
+											eq(column(relationshipTable, "sourceEntityId"), column(source, "id")),
+										),
+										join(
+											"inner",
+											target,
+											eq(column(relationshipTable, "targetEntityId"), column(target, "id")),
+										),
+									],
+									where: and(
+										eq(
+											column(relationshipTable, "relationshipSchemaSlug"),
+											literal(relationship.schema),
+										),
+										eq(column(source, "id"), literal(input.entityId)),
+										eq(column(source, "entitySchemaSlug"), literal(relationship.sourceSchema)),
+										eq(column(target, "entitySchemaSlug"), literal(relationship.targetSchema)),
 									),
-									join(
-										"inner",
-										target,
-										eq(column(relationshipTable, "targetEntityId"), column(target, "id")),
-									),
-								],
-								where: and(
-									eq(
-										column(relationshipTable, "relationshipSchemaSlug"),
-										literal(relationship.schema),
-									),
-									eq(column(source, "id"), literal(input.entityId)),
-									eq(column(source, "entitySchemaSlug"), literal(relationship.sourceSchema)),
-									eq(column(target, "entitySchemaSlug"), literal(relationship.targetSchema)),
-								),
-							});
-						})(),
-					}),
-				),
+								});
+							})(),
+						}),
+					},
+				}),
 			),
 		]);
 

@@ -216,6 +216,7 @@ describe("plugin package conflicts", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: installed.pluginId } }),
+						{},
 					)).map(({ name }) => name),
 				).toEqual(["A1 bottle"]);
 			}),
@@ -231,6 +232,7 @@ describe("plugin package conflicts", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
+						{},
 					))[0],
 					"A bottle missing",
 				);
@@ -415,6 +417,7 @@ describe("plugin package conflicts", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
+						{},
 					)).map(({ name }) => name),
 				).toEqual(["A1 bottle"]);
 			}),

@@ -75,11 +75,13 @@ describe("Video game relationships", () => {
 
 			const parentOverview = yield* executeRyotQLRecipe(
 				client,
-				videoGameRecipes.overviewRecipe({ ...OVERVIEW_INPUT, reference, entityId: parent.id }),
+				videoGameRecipes.overviewRecipe({ reference }),
+				{ ...OVERVIEW_INPUT, entityId: parent.id },
 			);
 			const childOverview = yield* executeRyotQLRecipe(
 				client,
-				videoGameRecipes.overviewRecipe({ ...OVERVIEW_INPUT, reference, entityId: port.id }),
+				videoGameRecipes.overviewRecipe({ reference }),
+				{ ...OVERVIEW_INPUT, entityId: port.id },
 			);
 
 			expect(parentOverview.derivatives.items).toHaveLength(60);

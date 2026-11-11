@@ -23,11 +23,16 @@ import { getApiUrl } from "~/support/harness-target";
 const WRONG_TOKEN = "wrong-token";
 
 const listPluginsWithHeaders = (headers: Record<string, string>) =>
-	collectRyotQLRecipeItems(makeSession(undefined, headers), (after) =>
-		pluginInstallationsRecipe({ after, limit: 100 }),
+	collectRyotQLRecipeItems(
+		makeSession(undefined, headers),
+		pluginInstallationsRecipe,
+		{},
+		"installations",
 	);
 const listUsers = (search?: string) =>
-	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ search, limit: 50 }));
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe, { search }, undefined, {
+		pages: { users: { limit: 50 } },
+	});
 const uniqueTimestamp = () => DateTime.toEpochMillis(DateTime.nowUnsafe());
 
 const getUserIdByEmail = (email: string) =>
@@ -75,7 +80,12 @@ describe("God-mode admin token enforcement", () => {
 			const client = getApiClient();
 			const error = yield* Effect.flip(
 				client.call((c) =>
-					c.adminRyotql.execute({ payload: instanceAdminUsersRecipe({ limit: 50 }).document }),
+					c.adminRyotql.execute({
+						payload: {
+							arguments: {},
+							source: { kind: "inline", document: instanceAdminUsersRecipe.document },
+						},
+					}),
 				),
 			);
 			assertTaggedError(error, "AuthUnauthorized");
@@ -88,7 +98,12 @@ describe("God-mode admin token enforcement", () => {
 			const error = yield* Effect.flip(
 				client.call(
 					(c) =>
-						c.adminRyotql.execute({ payload: instanceAdminUsersRecipe({ limit: 50 }).document }),
+						c.adminRyotql.execute({
+							payload: {
+								arguments: {},
+								source: { kind: "inline", document: instanceAdminUsersRecipe.document },
+							},
+						}),
 					adminAccessTokenHeaders(WRONG_TOKEN),
 				),
 			);

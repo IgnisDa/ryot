@@ -2,6 +2,7 @@ import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client
 import { IntegrationId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { mediaPlugin } from "@ryot-app/media-plugin";
+import type { Recipe } from "@ryot-app/ryotql";
 import { integrationRecipe, integrationsRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { Effect, Option } from "effect";
 
@@ -52,19 +53,17 @@ export const createAudiobookshelfIntegration = (client: Client) =>
 
 export const listIntegrations = (
 	client: Client,
-	options: Partial<Parameters<typeof integrationsRecipe>[0]> = {},
+	options: Partial<Recipe.Arguments<typeof integrationsRecipe>> = {},
 ) =>
-	collectRyotQLRecipeItems(client, (after) =>
-		integrationsRecipe({
-			provider: options.provider,
-			after: after ?? options.after,
-			isDisabled: options.isDisabled,
-			limit: Math.min(options.limit ?? 100, 100),
-		}),
+	collectRyotQLRecipeItems(
+		client,
+		integrationsRecipe,
+		{ provider: options.provider, isDisabled: options.isDisabled },
+		"integrations",
 	);
 
 export const getIntegration = (client: Client, id: string) =>
-	executeRyotQLRecipe(client, integrationRecipe({ id }));
+	executeRyotQLRecipe(client, integrationRecipe, { id });
 
 export const deleteIntegration = (client: Client, id: string) =>
 	client.call((c) => c.integrations.delete({ params: { integrationId: IntegrationId.make(id) } }));

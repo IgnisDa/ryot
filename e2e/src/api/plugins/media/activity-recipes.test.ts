@@ -1,5 +1,4 @@
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaActivityRecipe } from "@ryot-app/media-plugin/shared/activity-recipes";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
@@ -20,10 +19,10 @@ import { findMediaEntitySchema, seedMediaEntity } from "~/fixtures/plugins/media
 import { describe, expect, it } from "~/support/effect-test";
 
 const WINDOW = {
-	from: "2026-01-01T05:00:00.000Z",
-	until: "2026-02-01T05:00:00.000Z",
-	timeZone: TimeZone.make("America/New_York"),
-};
+	range: "custom",
+	customEndDate: "2026-01-31",
+	customStartDate: "2026-01-01",
+} as const;
 
 const COMPLETE = {};
 
@@ -71,7 +70,7 @@ const link = (
 describe("Media activity recipe", () => {
 	it.live("counts figures, local day buckets, and media types within the window", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(undefined, "America/New_York");
 			const movie = yield* seed(client, "movie", { runtime: 120 });
 			const book = yield* seed(client, "book", {});
 			const show = yield* seed(client, "show", {});
@@ -101,7 +100,8 @@ describe("Media activity recipe", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				mediaActivityRecipe({ reference: { kind: "local", pluginId: movie.pluginId }, ...WINDOW }),
+				mediaActivityRecipe({ kind: "local", pluginId: movie.pluginId }),
+				WINDOW,
 			);
 
 			expect(activity.figures).toEqual({
@@ -124,7 +124,7 @@ describe("Media activity recipe", () => {
 
 	it.live("excludes dateUnknown completions from windowed figures, days, and media types", () =>
 		Effect.gen(function* () {
-			const { client } = yield* createAuthenticatedClient();
+			const { client } = yield* createAuthenticatedClient(undefined, "America/New_York");
 			const movie = yield* seed(client, "movie", { runtime: 120 });
 			const book = yield* seed(client, "book", {});
 
@@ -134,7 +134,8 @@ describe("Media activity recipe", () => {
 
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				mediaActivityRecipe({ reference: { kind: "local", pluginId: movie.pluginId }, ...WINDOW }),
+				mediaActivityRecipe({ kind: "local", pluginId: movie.pluginId }),
+				WINDOW,
 			);
 
 			expect(activity.figures).toEqual({

@@ -22,7 +22,12 @@ describe("RyotQL collections tracer", () => {
 			]);
 			yield* createCollection(second.client, { name: "Another User Collection" });
 
-			const result = yield* executeRyotQLRecipe(first.client, allCollectionsRecipe({ limit: 10 }));
+			const result = yield* executeRyotQLRecipe(
+				first.client,
+				allCollectionsRecipe,
+				{},
+				{ pages: { collections: { limit: 10 } } },
+			);
 
 			expect(result.pageInfo).toEqual({ limit: 10, hasMore: false, nextCursor: null });
 			expect(result.items.map((item) => item.id)).toEqual<unknown>(
@@ -43,11 +48,18 @@ describe("RyotQL collections tracer", () => {
 				createCollection(client, { name: "RyotQL Total Two" }),
 			]);
 
-			const first = yield* executeRyotQLRecipe(client, allCollectionsRecipe({ limit: 1 }));
+			const first = yield* executeRyotQLRecipe(
+				client,
+				allCollectionsRecipe,
+				{},
+				{ pages: { collections: { limit: 1 } } },
+			);
 			expect(first.pageInfo.nextCursor).not.toBeNull();
 			const second = yield* executeRyotQLRecipe(
 				client,
-				allCollectionsRecipe({ limit: 1, after: first.pageInfo.nextCursor ?? undefined }),
+				allCollectionsRecipe,
+				{},
+				{ pages: { collections: { limit: 1, after: first.pageInfo.nextCursor ?? undefined } } },
 			);
 			expect(second.pageInfo).toEqual({ limit: 1, hasMore: false, nextCursor: null });
 			expect(second.items.map((item) => item.name)).toEqual(["RyotQL Total Two"]);
@@ -56,11 +68,9 @@ describe("RyotQL collections tracer", () => {
 
 	it.live("requires authentication", () =>
 		Effect.gen(function* () {
-			const response = yield* postApiJson(
-				getApiClient(),
-				"/ryotql/execute",
-				allCollectionsRecipe().document,
-			);
+			const response = yield* postApiJson(getApiClient(), "/ryotql/execute", {
+				source: { kind: "inline", document: allCollectionsRecipe.document },
+			});
 
 			expect(response.status).toBe(401);
 		}),

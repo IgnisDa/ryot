@@ -1,6 +1,6 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type { PluginId } from "@ryot-app/contract/schema/brands";
 import {
 	EntityId,
@@ -79,9 +79,10 @@ const authorizationProbeSource = (
 	input: AuthorizationProbe & { readonly markerSchemaSlug: string },
 ) => `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
-import { ryotqlDocumentSchema } from "@ryot-app/plugin-backend-sdk/core";
+
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { jsonValueSchema } from "@ryot-app/plugin-backend-sdk/wire";
+import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 
 export const manifest = defineManifest({
   kind: "script",
@@ -89,9 +90,7 @@ export const manifest = defineManifest({
   slug: ${JSON.stringify(input.slug)},
 });
 
-const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${JSON.stringify(
-	JSON.stringify(input.query),
-)}));
+const query: RyotQLDocument = ${JSON.stringify(input.query)};
 
 const errorReasonCode = (error: unknown) => {
 	if (typeof error !== "object" || error === null || !("data" in error)) return null;
@@ -105,7 +104,7 @@ export default defineScript({
   input: Schema.Struct({}),
   output: Schema.Struct({ ok: Schema.Boolean }),
   run: (_input, host) => Effect.gen(function* () {
-    const outcome = yield* host.executeRyotql(query).pipe(
+    const outcome = yield* host.executeRyotql({ source: { kind: "inline", document: query } }).pipe(
       Effect.flatMap((value) => Schema.decodeUnknownEffect(jsonValueSchema)(value)),
       Effect.map((result) => ({ error: null, ok: true as const, result })),
       Effect.catch((error) => Effect.succeed({ error: errorReasonCode(error), ok: false as const, result: null })),
@@ -698,7 +697,9 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 					}
 					const response = yield* pollUntil(
 						`RyotQL authorization probe '${probe.name}'`,
-						executeRyotQL(userA.client, markerDocument(probe.externalId)).pipe(
+						executeRyotQL(userA.client, {
+							source: { kind: "inline", document: markerDocument(probe.externalId) },
+						}).pipe(
 							Effect.map((result) =>
 								result.data.marker?.type === "rows" && result.data.marker.items.length > 0
 									? result
@@ -802,7 +803,9 @@ describe("sandbox RyotQL pinned-plugin authorization", () => {
 			expect(applicationTable["error"]).toBe("invalid-query");
 
 			const httpUserRows = responseRows(
-				yield* executeRyotQL(userA.client, pluginEntityDocument),
+				yield* executeRyotQL(userA.client, {
+					source: { kind: "inline", document: pluginEntityDocument },
+				}),
 				"entities",
 			);
 			expect(httpUserRows.map((row) => requirePlainValue(row, "id"))).toContain(userARoot.id);

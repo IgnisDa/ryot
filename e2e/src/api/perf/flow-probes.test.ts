@@ -442,7 +442,7 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 				// Fifty reads per sample: one read is below the CPU sampler's 10 ms resolution.
 				yield* repeat("read-entity-x50", 3, () =>
 					Effect.forEach(Array.from({ length: 50 }), () =>
-						executeRyotQLRecipe(client, entityReadRecipe({ entityIds: [entityId] })),
+						executeRyotQLRecipe(client, entityReadRecipe, { entityIds: [entityId] }),
 					),
 				);
 				yield* repeat("read-media-list-x50", 3, () =>
@@ -450,10 +450,10 @@ describe.skipIf(!RUN_FLOW_PROBES)("flow probes", () => {
 						executeRyotQLRecipe(
 							client,
 							flatByLifecycleStateRecipe({
-								limit: 20,
-								states: ["backlog", "in_progress", "complete"],
 								reference: { kind: "local", pluginId: movieSchema.pluginId },
 							}),
+							{ states: ["backlog", "in_progress", "complete"] },
+							{ pages: { items: { limit: 20 } } },
 						),
 					),
 				);

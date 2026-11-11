@@ -55,13 +55,15 @@ describe("RyotQL currentDate", () => {
 					orderBy: [ascending(column(entity, "name"))],
 					fields: [field("name", column(entity, "name")), field("today", currentDate())],
 				});
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					aired: query(lte(publishDate, currentDate())),
-					upcoming: query(gt(publishDate, currentDate())),
-				}),
-			);
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						aired: query(lte(publishDate, currentDate())),
+						upcoming: query(gt(publishDate, currentDate())),
+					}),
+				},
+			});
 
 			const aired = requireRows(result.data["aired"], "aired").items;
 			const upcoming = requireRows(result.data["upcoming"], "upcoming").items;

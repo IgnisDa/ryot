@@ -95,7 +95,20 @@ export const privatePluginPackage = (
 				auth: "user",
 				slug: operationSlug,
 				demoAccess: "allowed",
+				hints: { readOnly: true, idempotent: true, destructive: false },
 				description: "Returns a value derived from the caller's own plugin config",
+				output: {
+					type: "object",
+					required: ["label"],
+					additionalProperties: false,
+					properties: { label: { type: "string" } },
+				},
+				input: {
+					type: "object",
+					required: ["prefix"],
+					additionalProperties: false,
+					properties: { prefix: { type: "string" } },
+				},
 			},
 		],
 	});
@@ -173,15 +186,6 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 	const manifest = testPluginManifest({
 		pluginSlug,
 		userBootstrap: [{ description: name, slug: bootstrapSlug, scriptSlug: bootstrapScriptSlug }],
-		operations: [
-			{
-				auth: "user",
-				description: name,
-				slug: operationSlug,
-				demoAccess: "allowed",
-				scriptSlug: operationScriptSlug,
-			},
-		],
 		scripts: [
 			{
 				name,
@@ -198,6 +202,28 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 				entry: operationEntry,
 				slug: operationScriptSlug,
 				requiredPluginConfigKeys: [],
+			},
+		],
+		operations: [
+			{
+				auth: "user",
+				description: name,
+				slug: operationSlug,
+				demoAccess: "allowed",
+				scriptSlug: operationScriptSlug,
+				hints: { readOnly: true, idempotent: true, destructive: false },
+				input: {
+					type: "object",
+					required: ["titles"],
+					additionalProperties: false,
+					properties: { titles: { type: "array", items: { type: "string" } } },
+				},
+				output: {
+					type: "object",
+					required: ["results"],
+					additionalProperties: false,
+					properties: { results: { type: "array", items: { type: "string" } } },
+				},
 			},
 		],
 	});
@@ -386,14 +412,6 @@ export const privateIntegrationPluginPackage = (
 	const manifest = testPluginManifest({
 		pluginSlug,
 		packageId: input.packageId,
-		operations: [
-			{
-				scriptSlug,
-				slug: operationSlug,
-				auth: "integration",
-				description: "Reads the integration that authenticated the call",
-			},
-		],
 		integrationProviders: [
 			{
 				name,
@@ -411,6 +429,27 @@ export const privateIntegrationPluginPackage = (
 				kind: "operation",
 				requiredPluginConfigKeys: [],
 				name: "E2E private integration operation",
+			},
+		],
+		operations: [
+			{
+				scriptSlug,
+				slug: operationSlug,
+				auth: "integration",
+				hints: { readOnly: true, idempotent: true, destructive: false },
+				description: "Reads the integration that authenticated the call",
+				input: {
+					type: "object",
+					required: ["integrationId"],
+					additionalProperties: false,
+					properties: { integrationId: { type: "string" } },
+				},
+				output: {
+					type: "object",
+					required: ["integrationId"],
+					additionalProperties: false,
+					properties: { integrationId: { type: "string" } },
+				},
 			},
 		],
 	});

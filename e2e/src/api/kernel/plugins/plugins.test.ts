@@ -43,10 +43,10 @@ runFileOnIsolatedServer("Plugins");
 type PluginScript = TestPluginScript & { readonly entry: string };
 
 const listEntities = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, entityDefinitionsRecipe, {}, "entities");
 
 const listPlugins = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, pluginInstallationsRecipe, {}, "installations");
 
 const uninstallSystemPlugin = (pluginId: PluginId, activationId: string) =>
 	getApiClient().adminCall((c) =>
@@ -555,7 +555,12 @@ export default defineAutomation({
 			const failures = yield* Effect.all([
 				Effect.flip(
 					client.call((c) =>
-						c.adminRyotql.execute({ payload: adminSystemPluginsRecipe({}).document }),
+						c.adminRyotql.execute({
+							payload: {
+								arguments: {},
+								source: { kind: "inline", document: adminSystemPluginsRecipe.document },
+							},
+						}),
 					),
 				),
 				Effect.flip(

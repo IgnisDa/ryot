@@ -2,6 +2,7 @@ import {
 	type CalendarOccurrence,
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
+	calendarWindowBounds,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
@@ -40,13 +41,19 @@ const coverImage = (name: string) => ({ ...remoteAsset(name), purpose: "cover" }
 
 const occurrences = (client: Client, slug: string) =>
 	Effect.gen(function* () {
-		const sources = yield* executeRyotQLRecipe(client, calendarSourcesRecipe());
+		const sources = yield* executeRyotQLRecipe(client, calendarSourcesRecipe, {});
 		const source = sources.find((candidate) => candidate.slug === slug);
 		if (source === undefined) {
 			throw new Error(`Missing calendar source '${slug}'`);
 		}
-		return yield* collectRyotQLRecipeItems(client, (after) =>
-			Result.getOrThrow(calendarOccurrencesPageRecipe({ after, source, window })),
+		return yield* collectRyotQLRecipeItems(
+			client,
+			Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
+			{
+				windowEnd: calendarWindowBounds(source.precision, window).end,
+				windowStart: calendarWindowBounds(source.precision, window).start,
+			},
+			"calendarOccurrences",
 		);
 	});
 

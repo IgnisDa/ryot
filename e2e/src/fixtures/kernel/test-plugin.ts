@@ -15,11 +15,11 @@ import {
 	defineRecipe,
 	eq,
 	join,
-	literal,
 	selectedField,
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { randomUuid } from "@ryot-app/testing/random";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect, Result, Schema } from "effect";
@@ -204,6 +204,7 @@ export const findTestEntitySchema = (client: Client, reference: EntitySchemaRefe
 };
 
 export const testPluginManifest = (input: TestPluginManifestInput): TestPluginManifest => ({
+	queries: {},
 	crons: input.crons ?? [],
 	hooks: input.hooks ?? [],
 	workflows: input.workflows ?? [],
@@ -300,40 +301,57 @@ const installedSourceHash = (
 const privateInstallationTable = table("pluginInstallation", "installation");
 const privatePluginTable = table("plugin", "plugin");
 
-const privatePluginOperationRecipe = defineRecipe((installationId: string) => ({
-	map: ({ operation }) => Result.succeed(operation),
-	queries: {
-		operation: selectedOptionalRow(privateInstallationTable, {
-			orderBy: [ascending(column(privateInstallationTable, "id"))],
-			where: eq(column(privateInstallationTable, "id"), literal(installationId)),
-			joins: [
-				join(
-					"inner",
-					privatePluginTable,
-					eq(column(privatePluginTable, "id"), column(privateInstallationTable, "pluginId")),
-				),
-			],
-			selection: {
-				pluginId: selectedField(column(privatePluginTable, "id"), PluginId),
-				installationId: selectedField(column(privateInstallationTable, "id"), Schema.String),
-				activationId: selectedField(column(privatePluginTable, "activationId"), Schema.String),
-				activePluginRevisionId: selectedField(
-					column(privatePluginTable, "activeRevisionId"),
-					PluginRevisionId,
-				),
-				configRevisionId: selectedField(
-					column(privateInstallationTable, "activeConfigRevisionId"),
-					Schema.NullOr(PluginConfigRevisionId),
-				),
+const privatePluginOperationRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			installationId: {
+				type: "string",
+				label: "installationId",
+				description: "Query argument",
+				validation: { required: true },
 			},
-		}),
-	},
-}));
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ operation }) => Result.succeed(operation),
+		queries: {
+			operation: selectedOptionalRow(privateInstallationTable, {
+				orderBy: [ascending(column(privateInstallationTable, "id"))],
+				where: eq(column(privateInstallationTable, "id"), recipeParameters.value("installationId")),
+				joins: [
+					join(
+						"inner",
+						privatePluginTable,
+						eq(column(privatePluginTable, "id"), column(privateInstallationTable, "pluginId")),
+					),
+				],
+				selection: {
+					pluginId: selectedField(column(privatePluginTable, "id"), PluginId),
+					installationId: selectedField(column(privateInstallationTable, "id"), Schema.String),
+					activationId: selectedField(column(privatePluginTable, "activationId"), Schema.String),
+					activePluginRevisionId: selectedField(
+						column(privatePluginTable, "activeRevisionId"),
+						PluginRevisionId,
+					),
+					configRevisionId: selectedField(
+						column(privateInstallationTable, "activeConfigRevisionId"),
+						Schema.NullOr(PluginConfigRevisionId),
+					),
+				},
+			}),
+		},
+	});
+})();
 
 const privatePluginOperationResult = (installationId: string, target: HarnessTarget) =>
 	Effect.gen(function* () {
 		const operation = requirePresent(
-			yield* executeAdminRyotQLRecipe(privatePluginOperationRecipe(installationId), target),
+			yield* executeAdminRyotQLRecipe(
+				privatePluginOperationRecipe,
+				{ installationId: installationId },
+				target,
+			),
 			`Private plugin installation '${installationId}' was not found`,
 		);
 		const scripts = yield* listAdminSandboxScripts(operation.activePluginRevisionId, target);

@@ -24,8 +24,11 @@ describe("Native data JSON webhooks", () => {
 	it.live("lists and creates the native integration without installing a plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const providers = yield* collectRyotQLRecipeItems(client, (after) =>
-				integrationProvidersRecipe({ after, limit: 100 }),
+			const providers = yield* collectRyotQLRecipeItems(
+				client,
+				integrationProvidersRecipe,
+				{},
+				"providers",
 			);
 			const provider = requirePresent(
 				providers.find(({ slug }) => slug === "data-json"),

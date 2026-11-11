@@ -84,19 +84,21 @@ describe("Fitness preferences", () => {
 			const { pluginId } = yield* findFitnessEntitySchema(client, "fitness-library");
 			const relationshipSchema = yield* findFitnessRelationshipSchema(client, "in-fitness-library");
 			const library = table("entity", "fitnessLibrary");
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					library: rows(library, {
-						limit: 1,
-						fields: [field("id", column(library, "id"))],
-						where: and(
-							eq(column(library, "entitySchemaPluginId"), literal(pluginId)),
-							eq(column(library, "entitySchemaSlug"), literal("fitness-library")),
-						),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						library: rows(library, {
+							limit: 1,
+							fields: [field("id", column(library, "id"))],
+							where: and(
+								eq(column(library, "entitySchemaPluginId"), literal(pluginId)),
+								eq(column(library, "entitySchemaSlug"), literal("fitness-library")),
+							),
+						}),
 					}),
-				}),
-			);
+				},
+			});
 			const libraryId = requireRyotQLText(
 				requirePresent(
 					requireRows(result.data.library, "library").items[0],

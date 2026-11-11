@@ -28,7 +28,7 @@ const adminSession = () => makeSession(target);
 
 const fixtureCatalogEntry = (client: Parameters<typeof executeRyotQLRecipe>[0]) =>
 	Effect.gen(function* () {
-		const catalog = yield* executeRyotQLRecipe(client, pluginClientCatalogRecipe());
+		const catalog = yield* executeRyotQLRecipe(client, pluginClientCatalogRecipe, {});
 		return requirePresent(
 			catalog.items.find((entry) => entry.scope === "user"),
 			"Fixture client plugin was not listed in the client catalog",

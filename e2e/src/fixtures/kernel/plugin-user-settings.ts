@@ -92,7 +92,7 @@ export const preferencePrivatePluginPackage = (
 };
 
 export const listPluginUserSettings = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => pluginUserSettingsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, pluginUserSettingsRecipe, {}, "installations");
 
 export const installPreferencePrivatePlugin = (input: {
 	readonly client: Client;

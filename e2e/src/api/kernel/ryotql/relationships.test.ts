@@ -140,9 +140,8 @@ describe("RyotQL relationship rows and includes", () => {
 				const joinedCourse = table("entity", "joinedCourse");
 				const membership = table("relationship", "membership");
 				const multipliedMembership = table("relationship", "multipliedMembership");
-				const multipliedPage = (after?: string) =>
+				const multipliedPage = () =>
 					rows(courseRoot, {
-						after,
 						limit: 1,
 						orderBy: [ascending(column(courseRoot, "id"))],
 						where: eq(column(courseRoot, "id"), literal(course.id)),
@@ -158,37 +157,39 @@ describe("RyotQL relationship rows and includes", () => {
 							),
 						],
 					});
-				const result = yield* executeRyotQL(
-					client,
-					document({
-						multiplied: multipliedPage(),
-						memberships: rows(membership, {
-							orderBy: [ascending(column(member, "name"))],
-							fields: [
-								field("memberName", column(member, "name")),
-								field("courseName", column(joinedCourse, "name")),
-								field("role", castText(jsonPath(column(membership, "properties"), "role"))),
-							],
-							where: and(
-								eq(column(membership, "relationshipSchemaSlug"), literal(relationshipSlug)),
-								eq(column(member, "entitySchemaSlug"), literal(memberSlug)),
-								eq(column(joinedCourse, "entitySchemaSlug"), literal(courseSlug)),
-							),
-							joins: [
-								join(
-									"inner",
-									member,
-									eq(column(membership, "sourceEntityId"), column(member, "id")),
+				const result = yield* executeRyotQL(client, {
+					source: {
+						kind: "inline",
+						document: document({
+							multiplied: multipliedPage(),
+							memberships: rows(membership, {
+								orderBy: [ascending(column(member, "name"))],
+								fields: [
+									field("memberName", column(member, "name")),
+									field("courseName", column(joinedCourse, "name")),
+									field("role", castText(jsonPath(column(membership, "properties"), "role"))),
+								],
+								where: and(
+									eq(column(membership, "relationshipSchemaSlug"), literal(relationshipSlug)),
+									eq(column(member, "entitySchemaSlug"), literal(memberSlug)),
+									eq(column(joinedCourse, "entitySchemaSlug"), literal(courseSlug)),
 								),
-								join(
-									"inner",
-									joinedCourse,
-									eq(column(membership, "targetEntityId"), column(joinedCourse, "id")),
-								),
-							],
+								joins: [
+									join(
+										"inner",
+										member,
+										eq(column(membership, "sourceEntityId"), column(member, "id")),
+									),
+									join(
+										"inner",
+										joinedCourse,
+										eq(column(membership, "targetEntityId"), column(joinedCourse, "id")),
+									),
+								],
+							}),
 						}),
-					}),
-				);
+					},
+				});
 
 				const memberships = requireRows(result.data["memberships"], "memberships");
 				expect(memberships.items.map((item) => requirePlainValue(item, "memberName"))).toEqual([
@@ -204,12 +205,9 @@ describe("RyotQL relationship rows and includes", () => {
 				expect(requirePlainValue(firstMembership, "courseName")).toBe("Relationship Course");
 				const multipliedPageOne = requireRows(result.data["multiplied"], "multiplied");
 				expect(multipliedPageOne.pageInfo.nextCursor).not.toBeNull();
-				const next = yield* executeRyotQL(
-					client,
-					document({
-						multiplied: multipliedPage(multipliedPageOne.pageInfo.nextCursor ?? undefined),
-					}),
-				);
+				const next = yield* executeRyotQL(client, {
+					source: { kind: "inline", document: document({ multiplied: multipliedPage() }) },
+				});
 				const multipliedPageTwo = requireRows(next.data["multiplied"], "multiplied");
 				expect(multipliedPageTwo.pageInfo).toEqual({ limit: 1, hasMore: false, nextCursor: null });
 				const multipliedItems = [multipliedPageOne, multipliedPageTwo].flatMap(
@@ -395,17 +393,19 @@ describe("RyotQL relationship rows and includes", () => {
 					eq(column(courseModule, "relationshipSchemaSlug"), literal(courseModuleSlug)),
 				),
 			});
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					courses: rows(courseTable, {
-						include: [modules],
-						orderBy: [ascending(column(courseTable, "name"))],
-						fields: [field("name", column(courseTable, "name"))],
-						where: eq(column(courseTable, "entitySchemaSlug"), literal(courseSlug)),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						courses: rows(courseTable, {
+							include: [modules],
+							orderBy: [ascending(column(courseTable, "name"))],
+							fields: [field("name", column(courseTable, "name"))],
+							where: eq(column(courseTable, "entitySchemaSlug"), literal(courseSlug)),
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const courses = requireRows(result.data["courses"], "courses");
 			const populatedCourse = courses.items.find(
@@ -533,56 +533,58 @@ describe("RyotQL relationship rows and includes", () => {
 					field("hiddenName", column(includedHiddenEndpoint, "name")),
 				],
 			});
-			const result = yield* executeRyotQL(
-				userA.client,
-				document({
-					securedIncludes: rows(securedRoot, {
-						fields: [],
-						include: [securedRelationships],
-						where: eq(column(securedRoot, "id"), literal(ownSource.id)),
+			const result = yield* executeRyotQL(userA.client, {
+				source: {
+					kind: "inline",
+					document: document({
+						securedIncludes: rows(securedRoot, {
+							fields: [],
+							include: [securedRelationships],
+							where: eq(column(securedRoot, "id"), literal(ownSource.id)),
+						}),
+						visibleOnly: rows(visibleRelationship, {
+							fields: [field("slug", column(visibleRelationship, "relationshipSchemaSlug"))],
+							where: inArray(column(visibleRelationship, "relationshipSchemaSlug"), [
+								literal(ownRelationshipSlug),
+								literal(otherRelationshipSlug),
+							]),
+						}),
+						leftJoinHiddenRelationship: rows(entityRoot, {
+							where: eq(column(entityRoot, "id"), literal(ownSource.id)),
+							fields: [
+								field("name", column(entityRoot, "name")),
+								field("hiddenProperties", column(hiddenRelationship, "properties")),
+							],
+							joins: [
+								join(
+									"left",
+									hiddenRelationship,
+									eq(column(hiddenRelationship, "id"), literal(otherRelationship.id)),
+								),
+							],
+						}),
+						partialEndpoints: rows(visibleRelationship, {
+							where: eq(column(visibleRelationship, "id"), literal(ownRelationship.id)),
+							fields: [
+								field("sourceName", column(visibleSource, "name")),
+								field("hiddenName", column(hiddenEndpoint, "name")),
+							],
+							joins: [
+								join(
+									"inner",
+									visibleSource,
+									eq(column(visibleRelationship, "sourceEntityId"), column(visibleSource, "id")),
+								),
+								join(
+									"left",
+									hiddenEndpoint,
+									eq(column(hiddenEndpoint, "id"), literal(otherTarget.id)),
+								),
+							],
+						}),
 					}),
-					visibleOnly: rows(visibleRelationship, {
-						fields: [field("slug", column(visibleRelationship, "relationshipSchemaSlug"))],
-						where: inArray(column(visibleRelationship, "relationshipSchemaSlug"), [
-							literal(ownRelationshipSlug),
-							literal(otherRelationshipSlug),
-						]),
-					}),
-					leftJoinHiddenRelationship: rows(entityRoot, {
-						where: eq(column(entityRoot, "id"), literal(ownSource.id)),
-						fields: [
-							field("name", column(entityRoot, "name")),
-							field("hiddenProperties", column(hiddenRelationship, "properties")),
-						],
-						joins: [
-							join(
-								"left",
-								hiddenRelationship,
-								eq(column(hiddenRelationship, "id"), literal(otherRelationship.id)),
-							),
-						],
-					}),
-					partialEndpoints: rows(visibleRelationship, {
-						where: eq(column(visibleRelationship, "id"), literal(ownRelationship.id)),
-						fields: [
-							field("sourceName", column(visibleSource, "name")),
-							field("hiddenName", column(hiddenEndpoint, "name")),
-						],
-						joins: [
-							join(
-								"inner",
-								visibleSource,
-								eq(column(visibleRelationship, "sourceEntityId"), column(visibleSource, "id")),
-							),
-							join(
-								"left",
-								hiddenEndpoint,
-								eq(column(hiddenEndpoint, "id"), literal(otherTarget.id)),
-							),
-						],
-					}),
-				}),
-			);
+				},
+			});
 
 			const visibleOnly = requireRows(result.data["visibleOnly"], "visibleOnly");
 			expect(visibleOnly.items.map((item) => requirePlainValue(item, "slug"))).toEqual([

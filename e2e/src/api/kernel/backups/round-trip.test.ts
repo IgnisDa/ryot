@@ -82,7 +82,7 @@ import { getSharedHarnessTarget } from "~/support/harness-target";
 type PluginUserSettingsRecord = PluginUserSettingsPage["items"][number];
 
 const getPluginUserSettings = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => pluginUserSettingsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, pluginUserSettingsRecipe, {}, "installations");
 
 const requireSettingsForField = (
 	settings: ReadonlyArray<PluginUserSettingsRecord>,

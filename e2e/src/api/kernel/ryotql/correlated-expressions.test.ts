@@ -196,41 +196,43 @@ describe("RyotQL correlated expressions", () => {
 
 			const completed = completionExpressions("Filter");
 			const longLesson = durationExpressions("Long");
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					allCourses: rows(course, {
-						fields: courseFields(),
-						orderBy: [ascending(column(course, "name"))],
-						where: eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
-					}),
-					completedCourses: rows(course, {
-						fields: [field("name", column(course, "name"))],
-						where: and(
-							eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
-							gte(
-								countDistinct(
-									completed.courseModule,
-									column(completed.completion, "entityId"),
-									completed.query,
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						allCourses: rows(course, {
+							fields: courseFields(),
+							orderBy: [ascending(column(course, "name"))],
+							where: eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
+						}),
+						completedCourses: rows(course, {
+							fields: [field("name", column(course, "name"))],
+							where: and(
+								eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
+								gte(
+									countDistinct(
+										completed.courseModule,
+										column(completed.completion, "entityId"),
+										completed.query,
+									),
+									literal(2),
 								),
-								literal(2),
 							),
-						),
+						}),
+						longCourses: rows(course, {
+							orderBy: [ascending(column(course, "name"))],
+							fields: [field("name", column(course, "name"))],
+							where: and(
+								eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
+								exists(longLesson.courseModule, {
+									...longLesson.query,
+									where: and(longLesson.query.where, gt(longLesson.duration, literal(45))),
+								}),
+							),
+						}),
 					}),
-					longCourses: rows(course, {
-						orderBy: [ascending(column(course, "name"))],
-						fields: [field("name", column(course, "name"))],
-						where: and(
-							eq(column(course, "entitySchemaSlug"), literal(courseSlug)),
-							exists(longLesson.courseModule, {
-								...longLesson.query,
-								where: and(longLesson.query.where, gt(longLesson.duration, literal(45))),
-							}),
-						),
-					}),
-				}),
-			);
+				},
+			});
 
 			const allCourses = requireRows(result.data["allCourses"], "allCourses");
 			expect(allCourses.items).toHaveLength(3);
@@ -288,54 +290,56 @@ describe("RyotQL correlated expressions", () => {
 			const selectedCourseQuery = {
 				where: eq(column(selectedCourse, "id"), column(course, "id")),
 			} as const;
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					courses: rows(course, {
-						where: eq(column(course, "entitySchemaSlug"), literal(slug)),
-						fields: [
-							field(
-								"ratio",
-								divide(
-									castNumber(jsonPath(column(course, "properties"), "completed")),
-									castNumber(jsonPath(column(course, "properties"), "total")),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						courses: rows(course, {
+							where: eq(column(course, "entitySchemaSlug"), literal(slug)),
+							fields: [
+								field(
+									"ratio",
+									divide(
+										castNumber(jsonPath(column(course, "properties"), "completed")),
+										castNumber(jsonPath(column(course, "properties"), "total")),
+									),
 								),
-							),
-							field("invalid", divide(literal("invalid"), literal(1))),
-							field("sum", add(literal(2), literal(3))),
-							field("product", multiply(literal(2), literal(3))),
-							field("difference", subtract(literal(5), literal(3))),
-							field("coalescedRatio", divide(coalesce(literal("6"), literal(0)), literal(2))),
-							field(
-								"invalidCoalescedRatio",
-								divide(coalesce(literal("invalid"), literal(6)), literal(2)),
-							),
-							field(
-								"firstCoalescedRatio",
-								divide(
-									first(selectedCourse, {
-										...selectedCourseQuery,
-										select: coalesce(literal("6"), literal(0)),
-										orderBy: [ascending(column(selectedCourse, "id"))],
-									}),
-									literal(2),
+								field("invalid", divide(literal("invalid"), literal(1))),
+								field("sum", add(literal(2), literal(3))),
+								field("product", multiply(literal(2), literal(3))),
+								field("difference", subtract(literal(5), literal(3))),
+								field("coalescedRatio", divide(coalesce(literal("6"), literal(0)), literal(2))),
+								field(
+									"invalidCoalescedRatio",
+									divide(coalesce(literal("invalid"), literal(6)), literal(2)),
 								),
-							),
-							field(
-								"invalidFirstCoalescedRatio",
-								divide(
-									first(selectedCourse, {
-										...selectedCourseQuery,
-										select: coalesce(literal("invalid"), literal(6)),
-										orderBy: [ascending(column(selectedCourse, "id"))],
-									}),
-									literal(2),
+								field(
+									"firstCoalescedRatio",
+									divide(
+										first(selectedCourse, {
+											...selectedCourseQuery,
+											select: coalesce(literal("6"), literal(0)),
+											orderBy: [ascending(column(selectedCourse, "id"))],
+										}),
+										literal(2),
+									),
 								),
-							),
-						],
+								field(
+									"invalidFirstCoalescedRatio",
+									divide(
+										first(selectedCourse, {
+											...selectedCourseQuery,
+											select: coalesce(literal("invalid"), literal(6)),
+											orderBy: [ascending(column(selectedCourse, "id"))],
+										}),
+										literal(2),
+									),
+								),
+							],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const item = requireRows(result.data["courses"], "courses").items[0];
 			assertPresent(item, "Expected arithmetic course");
@@ -381,40 +385,42 @@ describe("RyotQL correlated expressions", () => {
 				where: eq(column(candidate, "id"), literal(ownEntity.id)),
 				joins: [join("inner", hiddenJoin, eq(column(hiddenJoin, "id"), literal(hiddenEntity.id)))],
 			} as const;
-			const result = yield* executeRyotQL(
-				owner.client,
-				document({
-					entities: rows(root, {
-						where: eq(column(root, "id"), literal(ownEntity.id)),
-						fields: [
-							field("exists", exists(hidden, hiddenQuery)),
-							field("count", count(hidden, hiddenQuery)),
-							field("sum", sum(hidden, literal(1), hiddenQuery)),
-							field("average", average(hidden, literal(1), hiddenQuery)),
-							field("minimum", minimum(hidden, literal(1), hiddenQuery)),
-							field("maximum", maximum(hidden, literal(1), hiddenQuery)),
-							field("joinedExists", exists(candidate, hiddenJoinQuery)),
-							field("joinedCount", count(candidate, hiddenJoinQuery)),
-							field(
-								"first",
-								first(hidden, {
-									...hiddenQuery,
-									select: column(hidden, "name"),
-									orderBy: [ascending(column(hidden, "id"))],
-								}),
-							),
-							field(
-								"joinedFirst",
-								first(candidate, {
-									...hiddenJoinQuery,
-									select: column(hiddenJoin, "name"),
-									orderBy: [ascending(column(candidate, "id"))],
-								}),
-							),
-						],
+			const result = yield* executeRyotQL(owner.client, {
+				source: {
+					kind: "inline",
+					document: document({
+						entities: rows(root, {
+							where: eq(column(root, "id"), literal(ownEntity.id)),
+							fields: [
+								field("exists", exists(hidden, hiddenQuery)),
+								field("count", count(hidden, hiddenQuery)),
+								field("sum", sum(hidden, literal(1), hiddenQuery)),
+								field("average", average(hidden, literal(1), hiddenQuery)),
+								field("minimum", minimum(hidden, literal(1), hiddenQuery)),
+								field("maximum", maximum(hidden, literal(1), hiddenQuery)),
+								field("joinedExists", exists(candidate, hiddenJoinQuery)),
+								field("joinedCount", count(candidate, hiddenJoinQuery)),
+								field(
+									"first",
+									first(hidden, {
+										...hiddenQuery,
+										select: column(hidden, "name"),
+										orderBy: [ascending(column(hidden, "id"))],
+									}),
+								),
+								field(
+									"joinedFirst",
+									first(candidate, {
+										...hiddenJoinQuery,
+										select: column(hiddenJoin, "name"),
+										orderBy: [ascending(column(candidate, "id"))],
+									}),
+								),
+							],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const item = requireRows(result.data["entities"], "entities").items[0];
 			assertPresent(item, "Expected visible root");
@@ -463,22 +469,24 @@ describe("RyotQL correlated expressions", () => {
 			const latestOccurredAt = maximum(latest, column(latest, "occurredAt"), {
 				where: eq(column(latest, "entityId"), column(event, "entityId")),
 			});
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					latestEvents: rows(event, {
-						orderBy: [ascending(column(event, "occurredAt"))],
-						fields: [
-							field("occurredAt", column(event, "occurredAt")),
-							field("latestOccurredAt", latestOccurredAt),
-						],
-						where: and(
-							eq(column(event, "entityId"), literal(entity.id)),
-							eq(column(event, "occurredAt"), latestOccurredAt),
-						),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						latestEvents: rows(event, {
+							orderBy: [ascending(column(event, "occurredAt"))],
+							fields: [
+								field("occurredAt", column(event, "occurredAt")),
+								field("latestOccurredAt", latestOccurredAt),
+							],
+							where: and(
+								eq(column(event, "entityId"), literal(entity.id)),
+								eq(column(event, "occurredAt"), latestOccurredAt),
+							),
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const items = requireRows(result.data["latestEvents"], "latestEvents").items;
 			expect(items).toHaveLength(1);

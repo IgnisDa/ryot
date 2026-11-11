@@ -51,69 +51,71 @@ export const queryInMediaLibraryRelationship = (
 		const membership = table("relationship", "membership");
 		const mediaLibrary = table("entity", "mediaLibrary");
 		const existingLibrary = table("entity", "existingLibrary");
-		return yield* executeRyotQL(
-			client,
-			document({
-				entity: rows(entity, {
-					limit: 1,
-					fields: [field("id", column(entity, "id"))],
-					where: and(
-						eq(column(entity, "id"), literal(entityId)),
-						eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
-						eq(
-							column(entity, "entitySchemaPluginId"),
-							literal(selectedEntity.entitySchemaPluginId),
+		return yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					entity: rows(entity, {
+						limit: 1,
+						fields: [field("id", column(entity, "id"))],
+						where: and(
+							eq(column(entity, "id"), literal(entityId)),
+							eq(column(entity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+							eq(
+								column(entity, "entitySchemaPluginId"),
+								literal(selectedEntity.entitySchemaPluginId),
+							),
+							exists(membership, {
+								joins: [
+									join(
+										"inner",
+										existingLibrary,
+										eq(column(membership, "targetEntityId"), column(existingLibrary, "id")),
+									),
+								],
+								where: and(
+									eq(column(membership, "sourceEntityId"), column(entity, "id")),
+									eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+									eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
+									eq(column(existingLibrary, "entitySchemaSlug"), literal("media-library")),
+									eq(column(existingLibrary, "entitySchemaPluginId"), literal(mediaPluginId)),
+								),
+							}),
 						),
-						exists(membership, {
-							joins: [
-								join(
-									"inner",
-									existingLibrary,
-									eq(column(membership, "targetEntityId"), column(existingLibrary, "id")),
+						include: [
+							include(membership, {
+								limit: 1,
+								key: "libraries",
+								orderBy: [ascending(column(membership, "id"))],
+								joins: [
+									join(
+										"inner",
+										mediaLibrary,
+										eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
+									),
+								],
+								where: and(
+									eq(column(membership, "sourceEntityId"), column(entity, "id")),
+									eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+									eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
 								),
-							],
-							where: and(
-								eq(column(membership, "sourceEntityId"), column(entity, "id")),
-								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-								eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
-								eq(column(existingLibrary, "entitySchemaSlug"), literal("media-library")),
-								eq(column(existingLibrary, "entitySchemaPluginId"), literal(mediaPluginId)),
-							),
-						}),
-					),
-					include: [
-						include(membership, {
-							limit: 1,
-							key: "libraries",
-							orderBy: [ascending(column(membership, "id"))],
-							joins: [
-								join(
-									"inner",
-									mediaLibrary,
-									eq(column(membership, "targetEntityId"), column(mediaLibrary, "id")),
-								),
-							],
-							where: and(
-								eq(column(membership, "sourceEntityId"), column(entity, "id")),
-								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-								eq(column(membership, "relationshipSchemaPluginId"), literal(mediaPluginId)),
-							),
-							fields: [
-								field("owned", jsonPath(column(membership, "properties"), "owned")),
-								field(
-									"ownershipSources",
-									jsonPath(column(membership, "properties"), "ownershipSources"),
-								),
-								field(
-									"ownershipSyncedAt",
-									jsonPath(column(membership, "properties"), "ownershipSyncedAt"),
-								),
-							],
-						}),
-					],
+								fields: [
+									field("owned", jsonPath(column(membership, "properties"), "owned")),
+									field(
+										"ownershipSources",
+										jsonPath(column(membership, "properties"), "ownershipSources"),
+									),
+									field(
+										"ownershipSyncedAt",
+										jsonPath(column(membership, "properties"), "ownershipSyncedAt"),
+									),
+								],
+							}),
+						],
+					}),
 				}),
-			}),
-		);
+			},
+		});
 	});
 };
 
@@ -996,16 +998,18 @@ export const insertMediaMonitoring = (client: Client, entityId: string) =>
 export const getMediaLibraryEntityId = (client: Client) =>
 	Effect.gen(function* () {
 		const mediaLibrary = table("entity", "mediaLibrary");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				libraries: rows(mediaLibrary, {
-					limit: 1,
-					fields: [field("id", column(mediaLibrary, "id"))],
-					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					libraries: rows(mediaLibrary, {
+						limit: 1,
+						fields: [field("id", column(mediaLibrary, "id"))],
+						where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const libraries = requireRows(result.data.libraries, "libraries");
 		return requireRyotQLText(requirePresent(libraries.items[0], "Missing library entity"), "id");
 	});

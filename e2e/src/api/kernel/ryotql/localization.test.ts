@@ -16,6 +16,7 @@ import {
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Effect, Result } from "effect";
 
 import {
@@ -62,26 +63,38 @@ const localizedDocument = (schemaSlug: string) => {
 	});
 };
 
-const statusRecipe = defineRecipe((entityId: string) => {
+const statusRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "entityId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+
 	const entity = table("entity", "entity");
-	return {
+	return defineRecipe({
+		parameters: recipeParameters.schema,
 		map: ({ entity: row }) => Result.succeed(row?.translationStatus),
 		queries: {
 			entity: selectedOptionalRow(entity, {
-				where: eq(column(entity, "id"), literal(entityId)),
+				where: eq(column(entity, "id"), recipeParameters.value("entityId")),
 				selection: {
 					translationStatus: selectedField(column(entity, "translationStatus"), EnrichmentState),
 				},
 			}),
 		},
-	};
-});
+	});
+})();
 
 const readStatus = Effect.fnUntraced(function* (
 	client: Parameters<typeof executeRyotQLRecipe>[0],
 	entityId: string,
 ) {
-	const status = yield* executeRyotQLRecipe(client, statusRecipe(entityId));
+	const status = yield* executeRyotQLRecipe(client, statusRecipe, { entityId: entityId });
 	assertPresent(status, `Expected entity '${entityId}'`);
 	return status;
 });
@@ -122,7 +135,9 @@ describe("RyotQL entity localization", () => {
 				properties: { description: "Resumen traducido de Alpha" },
 			});
 
-			const canonical = yield* executeRyotQL(client, localizedDocument(slug));
+			const canonical = yield* executeRyotQL(client, {
+				source: { kind: "inline", document: localizedDocument(slug) },
+			});
 			expect(
 				requireRows(canonical.data["entities"], "entities").items.map((item) => [
 					requireRyotQLValue(item, "name"),
@@ -134,7 +149,9 @@ describe("RyotQL entity localization", () => {
 			]);
 
 			yield* setUserLanguage(client, "es");
-			const localized = yield* executeRyotQL(client, localizedDocument(slug));
+			const localized = yield* executeRyotQL(client, {
+				source: { kind: "inline", document: localizedDocument(slug) },
+			});
 			expect(
 				requireRows(localized.data["entities"], "entities").items.map((item) => [
 					requireRyotQLValue(item, "name"),

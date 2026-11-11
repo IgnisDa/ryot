@@ -67,11 +67,17 @@ export const loadWorkoutBaseline = (
 	Effect.gen(function* () {
 		const reference = yield* workoutReference(client);
 		const entity = requirePresent(
-			yield* executeRyotQLRecipe(client, workoutEditorEntityRecipe({ kind, entityId, reference })),
+			yield* executeRyotQLRecipe(client, workoutEditorEntityRecipe({ reference }), {
+				kind,
+				entityId,
+			}),
 			`Expected workout editor entity ${entityId}`,
 		);
-		const sets = yield* collectRyotQLRecipeItems(client, (after) =>
-			workoutEditorSetsRecipe({ after, reference, workoutId: entityId }),
+		const sets = yield* collectRyotQLRecipeItems(
+			client,
+			workoutEditorSetsRecipe({ reference }),
+			{ workoutId: entityId },
+			"sets",
 		);
 		const baseline: WorkoutEditorBaseline = { sets, entity };
 		const conflictToken = yield* Effect.fromResult(encodeWorkoutEditorBaseline(baseline)).pipe(

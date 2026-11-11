@@ -157,7 +157,7 @@ beforeAll(() =>
 				pageSize: 10,
 				tableColumns: null,
 				sourceName: "entities",
-				searchFields: ["name"],
+				controls: { search: "search" },
 				defaultLayout: "grid" as const,
 				layouts: ["grid", "list"] as const,
 				summary: { image: null, subtitle: null },

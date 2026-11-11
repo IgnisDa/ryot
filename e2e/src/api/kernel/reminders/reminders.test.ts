@@ -104,7 +104,7 @@ describe("entity reminder commands and delivery", () => {
 				yield* createNotificationChannel(client, {
 					channelSpecifics: { key: "local", kind: "apprise", baseUrl: provider.url },
 				});
-				const readiness = yield* executeRyotQLRecipe(client, reminderReadinessRecipe());
+				const readiness = yield* executeRyotQLRecipe(client, reminderReadinessRecipe, {});
 				expect(readiness.subscriptionEnabled).toBe(true);
 				const entity = yield* createCollection(client);
 				const created = yield* createReminder(client, {
@@ -139,7 +139,7 @@ describe("entity reminder commands and delivery", () => {
 			yield* createNotificationChannel(client, {
 				channelSpecifics: { key: "local", kind: "apprise", baseUrl: provider.url },
 			});
-			const readiness = yield* executeRyotQLRecipe(client, reminderReadinessRecipe());
+			const readiness = yield* executeRyotQLRecipe(client, reminderReadinessRecipe, {});
 			const subscriptionId = requirePresent(readiness.subscriptionId, "Reminder subscription");
 			yield* setNotificationRuleActive(client, subscriptionId, false);
 			const entity = yield* createCollection(client);

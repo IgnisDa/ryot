@@ -29,14 +29,6 @@ describe("sandbox integration reads", () => {
 						providerSlug,
 						name: "Integration read",
 					}),
-					operations: [
-						{
-							slug: "read",
-							scriptSlug: slug,
-							auth: "integration",
-							description: "Reads integration scope",
-						},
-					],
 					script: {
 						slug,
 						kind: "operation",
@@ -54,6 +46,30 @@ describe("sandbox integration reads", () => {
 								unknownKeys: "strict",
 								fields: {
 									endpoint: { type: "string", label: "Endpoint", description: "Provider URL" },
+								},
+							},
+						},
+					],
+					operations: [
+						{
+							slug: "read",
+							scriptSlug: slug,
+							auth: "integration",
+							description: "Reads integration scope",
+							hints: { readOnly: true, idempotent: true, destructive: false },
+							input: {
+								type: "object",
+								additionalProperties: false,
+								required: ["integrationId"],
+								properties: { integrationId: { type: "string" } },
+							},
+							output: {
+								type: "object",
+								additionalProperties: false,
+								required: ["current", "enabled"],
+								properties: {
+									current: { type: "object" },
+									enabled: { type: "array", items: { type: "object" } },
 								},
 							},
 						},

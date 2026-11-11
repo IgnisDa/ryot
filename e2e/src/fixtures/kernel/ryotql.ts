@@ -1,7 +1,9 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import type { RowItem, RowsResult, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
-import { Effect } from "effect";
+import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/ryotql";
+import { Effect, Schema } from "effect";
 
 import { requireString } from "~/support/assertions";
 import type { HarnessTarget } from "~/support/harness-target";
@@ -12,27 +14,53 @@ import { getApiClient } from "./contract-client";
 export type RyotQLPayload = ContractPayload<"ryotql", "execute">;
 export type RyotQLResponse = ContractSuccess<"ryotql", "execute">;
 
-export const executeRyotQL = (client: Client, document: RyotQLPayload) =>
-	client.call((contract) => contract.ryotql.execute({ payload: document }));
+export const executeRyotQL = (client: Client, request: RyotQLPayload) =>
+	client.call((contract) => contract.ryotql.execute({ payload: request }));
 
-export const executeRyotQLRecipe = <Success>(client: Client, recipe: PreparedRecipe<Success>) =>
+type RequestOptions = Omit<RyotQLPayload, "source" | "arguments">;
+
+const recipeRequest = <Success, const Parameters extends AppSchema>(
+	recipe: Recipe<Success, Parameters>,
+	arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+	options: RequestOptions,
+) =>
+	Schema.decodeUnknownEffect(ExecutionRequest)({
+		...options,
+		arguments: Object.fromEntries(
+			Object.entries(arguments_).filter(([, value]) => value !== undefined),
+		),
+		source: {
+			kind: "inline",
+			document: recipe.document,
+			...(recipe.query === undefined ? {} : { query: recipe.query }),
+		},
+	});
+
+export const executeRyotQLRecipe = <Success, const Parameters extends AppSchema>(
+	client: Client,
+	recipe: Recipe<Success, Parameters>,
+	arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+	options: RequestOptions = {},
+) =>
 	Effect.gen(function* () {
-		const response = yield* executeRyotQL(client, recipe.document);
+		const request = yield* recipeRequest(recipe, arguments_, options).pipe(Effect.orDie);
+		const response = yield* executeRyotQL(client, request);
 		return yield* Effect.fromResult(recipe.decode(response)).pipe(Effect.orDie);
 	});
 
-export const executeAdminRyotQLRecipe = <Success>(
-	recipe: PreparedRecipe<Success>,
+export const executeAdminRyotQLRecipe = <Success, const Parameters extends AppSchema>(
+	recipe: Recipe<Success, Parameters>,
+	arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
 	target?: HarnessTarget,
+	options: RequestOptions = {},
 ) =>
 	Effect.gen(function* () {
+		const request = yield* recipeRequest(recipe, arguments_, options).pipe(Effect.orDie);
 		const response = yield* getApiClient(target).adminCall((contract) =>
-			contract.adminRyotql.execute({ payload: recipe.document }),
+			contract.adminRyotql.execute({ payload: request }),
 		);
 		return yield* Effect.fromResult(recipe.decode(response)).pipe(Effect.orDie);
 	});
-
-type PagedRecipe<Item> = (after: string | undefined) => PreparedRecipe<RecipePage<Item>>;
 
 type RecipePage<Item> = {
 	readonly items: ReadonlyArray<Item>;
@@ -40,17 +68,14 @@ type RecipePage<Item> = {
 };
 
 const collectRecipeItems = <Item, Error, Requirements>(
-	recipe: PagedRecipe<Item>,
-	execute: (
-		prepared: PreparedRecipe<RecipePage<Item>>,
-	) => Effect.Effect<RecipePage<Item>, Error, Requirements>,
+	execute: (after: string | undefined) => Effect.Effect<RecipePage<Item>, Error, Requirements>,
 ) =>
 	Effect.gen(function* () {
 		const items: Item[] = [];
 		let after: string | undefined;
 		let hasMore: boolean;
 		do {
-			const page = yield* execute(recipe(after));
+			const page = yield* execute(after);
 			items.push(...page.items);
 			hasMore = page.pageInfo.hasMore;
 			if (hasMore) {
@@ -63,13 +88,27 @@ const collectRecipeItems = <Item, Error, Requirements>(
 		return items;
 	});
 
-export const collectRyotQLRecipeItems = <Item>(client: Client, recipe: PagedRecipe<Item>) =>
-	collectRecipeItems(recipe, (prepared) => executeRyotQLRecipe(client, prepared));
+export const collectRyotQLRecipeItems = <Item, const Parameters extends AppSchema>(
+	client: Client,
+	recipe: Recipe<RecipePage<Item>, Parameters>,
+	arguments_: NoInfer<Recipe.Arguments<Recipe<RecipePage<Item>, Parameters>>>,
+	query: string,
+	limit = 100,
+) =>
+	collectRecipeItems((after) =>
+		executeRyotQLRecipe(client, recipe, arguments_, { pages: { [query]: { after, limit } } }),
+	);
 
-export const collectAdminRyotQLRecipeItems = <Item>(
-	recipe: PagedRecipe<Item>,
+export const collectAdminRyotQLRecipeItems = <Item, const Parameters extends AppSchema>(
+	recipe: Recipe<RecipePage<Item>, Parameters>,
+	arguments_: NoInfer<Recipe.Arguments<Recipe<RecipePage<Item>, Parameters>>>,
+	query: string,
 	target?: HarnessTarget,
-) => collectRecipeItems(recipe, (prepared) => executeAdminRyotQLRecipe(prepared, target));
+	limit = 100,
+) =>
+	collectRecipeItems((after) =>
+		executeAdminRyotQLRecipe(recipe, arguments_, target, { pages: { [query]: { after, limit } } }),
+	);
 
 export const requireRows = (result: undefined | RyotQLResult, key: string): RowsResult => {
 	if (result?.type !== "rows") {
@@ -91,5 +130,5 @@ export const requireRyotQLText = (item: RowItem, key: string) =>
 export const requireRyotQLDate = (item: RowItem, key: string) =>
 	requireString(requireRyotQLValue(item, key), `Expected '${key}' to contain a date`);
 
-export const executeRyotQLError = (client: Client, document: RyotQLPayload) =>
-	Effect.flip(executeRyotQL(client, document));
+export const executeRyotQLError = (client: Client, request: RyotQLPayload) =>
+	Effect.flip(executeRyotQL(client, request));

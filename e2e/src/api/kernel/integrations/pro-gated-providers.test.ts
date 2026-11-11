@@ -33,7 +33,7 @@ const settingsSchema = {
 const providerSpecifics = { endpoint: "https://pro-gated.example.com" };
 
 const listProviders = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => integrationProvidersRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, integrationProvidersRecipe, {}, "providers");
 
 const unkeyEnvelope = (data: { code: string; valid: boolean; meta?: Record<string, unknown> }) =>
 	Response.json({ data, meta: { requestId: crypto.randomUUID() } });

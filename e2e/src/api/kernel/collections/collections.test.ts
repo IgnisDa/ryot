@@ -46,16 +46,18 @@ const ownedFields = [
 const countRows = (client: Client, tableName: "entity" | "relationship", key: string, id: string) =>
 	Effect.gen(function* () {
 		const source = table(tableName, "counted");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				counted: rows(source, {
-					limit: 10,
-					where: eq(column(source, key), literal(id)),
-					fields: [field("id", column(source, "id"))],
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					counted: rows(source, {
+						limit: 10,
+						where: eq(column(source, key), literal(id)),
+						fields: [field("id", column(source, "id"))],
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		return requireRows(result.data.counted, "counted").items.length;
 	});
 

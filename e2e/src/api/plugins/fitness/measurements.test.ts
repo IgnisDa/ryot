@@ -375,10 +375,9 @@ describe("Measurements E2E", () => {
 				expect(yield* listEventsForEntity(client, metric.entityId, undefined, 100)).toEqual([]);
 			}
 
-			const summary = yield* executeRyotQLRecipe(
-				client,
-				measurementSummaryRecipe({ reference, rangeStart: "1970-01-01T00:00:00.000Z" }),
-			);
+			const summary = yield* executeRyotQLRecipe(client, measurementSummaryRecipe({ reference }), {
+				range: "all-time",
+			});
 			expect(summary.items).toEqual<unknown>(
 				arrayContaining([
 					objectContaining({
@@ -411,7 +410,8 @@ describe("Measurements E2E", () => {
 			const { client: otherClient } = yield* createAuthenticatedClient();
 			const otherSummary = yield* executeRyotQLRecipe(
 				otherClient,
-				measurementSummaryRecipe({ reference, rangeStart: "1970-01-01T00:00:00.000Z" }),
+				measurementSummaryRecipe({ reference }),
+				{ range: "all-time" },
 			);
 			expect(otherSummary.items).toEqual([]);
 		}),
@@ -427,10 +427,9 @@ describe("Measurements E2E", () => {
 			const hip = yield* createMeasurementMetric(client, { name: "Hip" });
 			const bmi = yield* createMeasurementMetric(client, { name: "BMI" });
 			const pinnedIds = () =>
-				executeRyotQLRecipe(
-					client,
-					measurementSummaryRecipe({ reference, rangeStart: "1970-01-01T00:00:00.000Z" }),
-				).pipe(
+				executeRyotQLRecipe(client, measurementSummaryRecipe({ reference }), {
+					range: "all-time",
+				}).pipe(
 					Effect.map(({ items }) =>
 						items
 							.flatMap(({ id, pinnedAt }) => (pinnedAt === null ? [] : [{ id, pinnedAt }]))
@@ -485,21 +484,18 @@ describe("Measurements E2E", () => {
 				{ concurrency: 4 },
 			);
 
-			const first = yield* executeRyotQLRecipe(
-				client,
-				measurementSummaryRecipe({ reference, rangeStart: "1970-01-01T00:00:00.000Z" }),
-			);
+			const first = yield* executeRyotQLRecipe(client, measurementSummaryRecipe({ reference }), {
+				range: "all-time",
+			});
 			expect(first.items).toHaveLength(100);
 			expect(first.pageInfo.hasMore).toBe(true);
 			const nextCursor = requirePresent(first.pageInfo.nextCursor, "Expected next metric cursor");
 
 			const second = yield* executeRyotQLRecipe(
 				client,
-				measurementSummaryRecipe({
-					reference,
-					after: nextCursor,
-					rangeStart: "1970-01-01T00:00:00.000Z",
-				}),
+				measurementSummaryRecipe({ reference }),
+				{ range: "all-time" },
+				{ pages: { metrics: { after: nextCursor } } },
 			);
 			expect(second.items).toHaveLength(1);
 			expect(second.pageInfo.hasMore).toBe(false);
@@ -520,16 +516,19 @@ describe("Measurements E2E", () => {
 					occurredAt: DateTime.formatIso(DateTime.makeUnsafe(Date.UTC(2026, 0, 1, 0, value))),
 				});
 			}
-			const first = yield* readMeasurementLogReadings(client, { reference, limit: 100 });
+			const first = yield* readMeasurementLogReadings(client, { reference }, { limit: 100 });
 			expect(first.items.map(({ value }) => value)).toEqual(
 				Array.from({ length: 100 }, (_, index) => 100 - index),
 			);
 			expect(first.pageInfo.hasMore).toBe(true);
-			const second = yield* readMeasurementLogReadings(client, {
-				reference,
-				limit: 100,
-				after: requirePresent(first.pageInfo.nextCursor, "Expected next reading cursor"),
-			});
+			const second = yield* readMeasurementLogReadings(
+				client,
+				{ reference },
+				{
+					limit: 100,
+					after: requirePresent(first.pageInfo.nextCursor, "Expected next reading cursor"),
+				},
+			);
 			expect(second.items.map(({ value }) => value)).toEqual([0]);
 			expect(second.pageInfo.hasMore).toBe(false);
 			expect(second.pageInfo.nextCursor).toBeNull();

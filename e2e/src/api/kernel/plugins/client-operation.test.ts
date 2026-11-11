@@ -22,15 +22,6 @@ const installOtherOperationPlugin = (client: Client) => {
 	const manifest = testPluginManifest({
 		pluginSlug,
 		configSchema: { fields: {}, unknownKeys: "strict" },
-		operations: [
-			{
-				scriptSlug,
-				auth: "user",
-				slug: "echo",
-				demoAccess: "allowed",
-				description: "Uppercases every requested title",
-			},
-		],
 		scripts: [
 			{
 				entry,
@@ -39,6 +30,28 @@ const installOtherOperationPlugin = (client: Client) => {
 				kind: "operation",
 				name: "E2E Echo Operation",
 				requiredPluginConfigKeys: [],
+			},
+		],
+		operations: [
+			{
+				scriptSlug,
+				auth: "user",
+				slug: "echo",
+				demoAccess: "allowed",
+				description: "Uppercases every requested title",
+				hints: { readOnly: true, idempotent: true, destructive: false },
+				input: {
+					type: "object",
+					required: ["titles"],
+					additionalProperties: false,
+					properties: { titles: { type: "array", items: { type: "string" } } },
+				},
+				output: {
+					type: "object",
+					required: ["results"],
+					additionalProperties: false,
+					properties: { results: { type: "array", items: { type: "string" } } },
+				},
 			},
 		],
 	});

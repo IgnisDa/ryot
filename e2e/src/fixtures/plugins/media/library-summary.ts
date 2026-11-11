@@ -28,26 +28,27 @@ export const waitForLibrarySummary = (client: Client, entityId: string) =>
 		return yield* pollUntil(
 			`library summary for ${entityId}`,
 			Effect.gen(function* () {
-				const [live] = yield* executeRyotQLRecipe(
-					client,
-					librarySummarySourceRecipe({ kind, entityIds: [entityId] }),
-				);
-				const result = yield* executeRyotQL(
-					client,
-					document({
-						memberships: rows(membership, {
-							limit: 1,
-							fields: [
-								field("projection", column(membership, "projection")),
-								field("status", column(membership, "projectionStatus")),
-							],
-							where: and(
-								eq(column(membership, "sourceEntityId"), literal(entityId)),
-								eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
-							),
+				const [live] = yield* executeRyotQLRecipe(client, librarySummarySourceRecipe({ kind }), {
+					entityIds: [entityId],
+				});
+				const result = yield* executeRyotQL(client, {
+					source: {
+						kind: "inline",
+						document: document({
+							memberships: rows(membership, {
+								limit: 1,
+								fields: [
+									field("projection", column(membership, "projection")),
+									field("status", column(membership, "projectionStatus")),
+								],
+								where: and(
+									eq(column(membership, "sourceEntityId"), literal(entityId)),
+									eq(column(membership, "relationshipSchemaSlug"), literal("in-media-library")),
+								),
+							}),
 						}),
-					}),
-				);
+					},
+				});
 				const [stored] = requireRows(result.data.memberships, "memberships").items;
 				return live &&
 					stored &&

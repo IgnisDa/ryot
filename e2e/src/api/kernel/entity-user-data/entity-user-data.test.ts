@@ -64,16 +64,18 @@ const mediaSuggestionSchemaReference = (client: Client) =>
 const getMediaLibraryEntityId = (client: Client) =>
 	Effect.gen(function* () {
 		const mediaLibrary = table("entity", "mediaLibrary");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				libraries: rows(mediaLibrary, {
-					limit: 1,
-					fields: [field("id", column(mediaLibrary, "id"))],
-					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					libraries: rows(mediaLibrary, {
+						limit: 1,
+						fields: [field("id", column(mediaLibrary, "id"))],
+						where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const libraries = requireRows(result.data.libraries, "libraries");
 		const libraryRow = libraries.items[0];
 		assertPresent(libraryRow, "Missing library entity");

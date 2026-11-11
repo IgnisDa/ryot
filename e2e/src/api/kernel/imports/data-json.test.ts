@@ -51,16 +51,18 @@ const findEntityId = (
 ) =>
 	Effect.gen(function* () {
 		const entity = table("entity", "dataJsonEntity");
-		const response = yield* executeRyotQL(
-			client,
-			queryDocument({
-				entities: rows(entity, {
-					limit: 100,
-					where: eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
-					fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
+		const response = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: queryDocument({
+					entities: rows(entity, {
+						limit: 100,
+						where: eq(column(entity, "entitySchemaSlug"), literal(schemaSlug)),
+						fields: [field("id", column(entity, "id")), field("name", column(entity, "name"))],
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const row = requirePresent(
 			requireRows(response.data.entities, "entities").items.find(
 				(item) => requireRyotQLText(item, "name") === name,
@@ -168,9 +170,7 @@ describe("Native data JSON imports", () => {
 	it.live("lists the native source as startable without a plugin", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const sources = yield* collectRyotQLRecipeItems(client, (after) =>
-				importSourcesRecipe({ after, limit: 100 }),
-			);
+			const sources = yield* collectRyotQLRecipeItems(client, importSourcesRecipe, {}, "sources");
 			const source = requirePresent(
 				sources.find(({ slug }) => slug === dataJsonSource),
 				"Expected native data JSON import source",
@@ -259,23 +259,25 @@ describe("Native data JSON imports", () => {
 			expect(alpha.properties.relatedEntity).toBe(betaId);
 
 			const relationship = table("relationship", "dataJsonRelationship");
-			const relationshipResponse = yield* executeRyotQL(
-				user.client,
-				queryDocument({
-					relationships: rows(relationship, {
-						limit: 10,
-						where: eq(
-							column(relationship, "relationshipSchemaSlug"),
-							literal(graph.relationship.id),
-						),
-						fields: [
-							field("id", column(relationship, "id")),
-							field("sourceEntityId", column(relationship, "sourceEntityId")),
-							field("targetEntityId", column(relationship, "targetEntityId")),
-						],
+			const relationshipResponse = yield* executeRyotQL(user.client, {
+				source: {
+					kind: "inline",
+					document: queryDocument({
+						relationships: rows(relationship, {
+							limit: 10,
+							where: eq(
+								column(relationship, "relationshipSchemaSlug"),
+								literal(graph.relationship.id),
+							),
+							fields: [
+								field("id", column(relationship, "id")),
+								field("sourceEntityId", column(relationship, "sourceEntityId")),
+								field("targetEntityId", column(relationship, "targetEntityId")),
+							],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 			const relationshipRow = requirePresent(
 				requireRows(relationshipResponse.data.relationships, "relationships").items[0],
 				"Expected imported relationship",

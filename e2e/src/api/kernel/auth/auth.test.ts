@@ -38,15 +38,16 @@ describe("Email sign-up", () => {
 			Effect.gen(function* () {
 				const { token, email, password } = yield* createTestUser();
 				const client = makeSession(undefined, { Authorization: `Bearer ${token}` });
-				const plugins = yield* collectRyotQLRecipeItems(client, (after) =>
-					pluginInstallationsRecipe({ after, limit: 100 }),
+				const plugins = yield* collectRyotQLRecipeItems(
+					client,
+					pluginInstallationsRecipe,
+					{},
+					"installations",
 				);
 				expect(plugins.length).toBeGreaterThan(0);
 
 				const [catalog, rules] = yield* Effect.all([
-					collectRyotQLRecipeItems(client, (after) =>
-						activeSignalSchemasRecipe({ after, limit: 100 }),
-					),
+					collectRyotQLRecipeItems(client, activeSignalSchemasRecipe, {}, "signals"),
 					listNotificationSubscriptions(client, { limit: 100 }),
 				]);
 				expect(rules).toHaveLength(catalog.length);
@@ -61,16 +62,21 @@ describe("Email sign-up", () => {
 				const mediaLibrary = table("entity", "mediaLibrary");
 				const libraryResponse = yield* executeRyotQL(
 					makeSession(undefined, { Authorization: `Bearer ${retryToken ?? token}` }),
-					document({
-						libraries: rows(mediaLibrary, {
-							where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
-							fields: [
-								field("id", column(mediaLibrary, "id")),
-								field("name", column(mediaLibrary, "name")),
-								field("properties", column(mediaLibrary, "properties")),
-							],
-						}),
-					}),
+					{
+						source: {
+							kind: "inline",
+							document: document({
+								libraries: rows(mediaLibrary, {
+									where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+									fields: [
+										field("id", column(mediaLibrary, "id")),
+										field("name", column(mediaLibrary, "name")),
+										field("properties", column(mediaLibrary, "properties")),
+									],
+								}),
+							}),
+						},
+					},
 				);
 				const libraries = requireRows(libraryResponse.data.libraries, "libraries");
 				expect(libraries.items).toHaveLength(1);

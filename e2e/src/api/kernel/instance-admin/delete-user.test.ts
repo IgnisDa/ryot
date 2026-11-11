@@ -53,8 +53,11 @@ import { webRequest } from "~/support/web-request";
 const WRONG_TOKEN = "wrong-token";
 
 const listPluginsWithHeaders = (headers: Record<string, string>) =>
-	collectRyotQLRecipeItems(makeSession(target, headers), (after) =>
-		pluginInstallationsRecipe({ after, limit: 100 }),
+	collectRyotQLRecipeItems(
+		makeSession(target, headers),
+		pluginInstallationsRecipe,
+		{},
+		"installations",
 	);
 
 let harness: undefined | Effect.Success<ReturnType<typeof startIsolatedHarness>>;
@@ -165,13 +168,18 @@ describe("Delete user", () => {
 			expect(deleted).toMatchObject({ userId, failure: null, kind: "delete", status: "completed" });
 
 			const listed = yield* executeAdminRyotQLRecipe(
-				instanceAdminUsersRecipe({ limit: 50, search: email }),
+				instanceAdminUsersRecipe,
+				{ search: email },
 				target,
+				{ pages: { users: { limit: 50 } } },
 			);
 			expect(listed.items).toHaveLength(0);
 
-			const plugins = yield* collectRyotQLRecipeItems(observerClient, (after) =>
-				pluginInstallationsRecipe({ after, limit: 100 }),
+			const plugins = yield* collectRyotQLRecipeItems(
+				observerClient,
+				pluginInstallationsRecipe,
+				{},
+				"installations",
 			);
 			expect(plugins.some((candidate) => candidate.packageId === plugin.packageId)).toBe(true);
 		}),

@@ -7,12 +7,12 @@ import { executeRyotQLRecipe } from "./ryotql";
 type UpdateAccountPreferencesBody = ContractPayload<"account", "updatePreferences">;
 
 export const getUserSettings = (client: Client) =>
-	executeRyotQLRecipe(client, userSettingsRecipe());
+	executeRyotQLRecipe(client, userSettingsRecipe, {});
 
 export const refreshUserAvatar = (client: Client) => client.call((c) => c.account.refreshAvatar());
 
 export const getTwoFactorStatus = (client: Client) =>
-	executeRyotQLRecipe(client, twoFactorStatusRecipe());
+	executeRyotQLRecipe(client, twoFactorStatusRecipe, {});
 
 export const updateUserSettingsPreferences = (
 	client: Client,

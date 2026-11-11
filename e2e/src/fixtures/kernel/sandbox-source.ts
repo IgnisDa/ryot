@@ -197,9 +197,7 @@ export function entityRowsSandboxSource(input: SandboxSourceIdentity) {
 		inputSchema: "Schema.Struct({ ids: Schema.Array(Schema.String) })",
 		run: `(input, host) => input.ids.length === 0
     ? Effect.succeed([])
-	    : executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({
-				entityIds: input.ids as [string, ...string[]],
-		      })).pipe(Effect.map((result) => result.items))`,
+	    : executeRyotqlRecipe(host.executeRyotql, entityReadRecipe, { entityIds: input.ids }).pipe(Effect.map((result) => result.items))`,
 	});
 }
 
@@ -212,10 +210,9 @@ export function eventRowsSandboxSource(input: SandboxSourceIdentity) {
 			"Schema.Struct({ entityId: Schema.String, entitySchemaSlug: Schema.String, eventSchemaSlug: Schema.String })",
 		run: `(input, host) => executeRyotqlRecipe(host.executeRyotql, eventReadRecipe({
         owner: { kind: "self" },
-        entityId: input.entityId,
         entitySchemaSlug: input.entitySchemaSlug,
         eventSchemaSlug: input.eventSchemaSlug,
-	      })).pipe(Effect.map((result) => result.items))`,
+	      }), { entityId: input.entityId }).pipe(Effect.map((result) => result.items))`,
 	});
 }
 
@@ -317,6 +314,27 @@ export function observabilitySandboxSource(input: SandboxSourceIdentity) {
 	});
 }
 
+export function ryotqlSandboxSource(
+	input: SandboxSourceIdentity & { readonly query: JsonValue; readonly queryName: string },
+) {
+	return scriptModuleSource({
+		...input,
+		inputSchema: "Schema.Struct({})",
+		ryotqlImports: ["type RyotQLDocument"],
+		outputSchema: "Schema.Array(Schema.Unknown)",
+		declarations: `const queryName = ${sourceLiteral(input.queryName)};
+const query: RyotQLDocument = ${JSON.stringify(input.query)};`,
+		run: `(_input, host) => Effect.gen(function* () {
+    const result = yield* host.executeRyotql({ source: { kind: "inline", document: query } });
+    const envelope = yield* Schema.decodeUnknownEffect(Schema.Struct({ data: Schema.Record(Schema.String, Schema.Struct({ type: Schema.Literal("rows"), items: Schema.Array(Schema.Unknown) })) }))(result);
+    const rows = envelope.data[queryName];
+    if (!rows) return yield* Effect.fail(new Error("Expected a rows result"));
+    const items = rows.items;
+    return items;
+   })`,
+	});
+}
+
 export function pluginConfigOperationSandboxSource(
 	input: SandboxSourceIdentity & { readonly configKey: string; readonly transform?: string },
 ) {
@@ -376,33 +394,6 @@ export default defineOperation({
 `;
 }
 
-export function ryotqlSandboxSource(
-	input: SandboxSourceIdentity & { readonly query: JsonValue; readonly queryName: string },
-) {
-	return scriptModuleSource({
-		...input,
-		inputSchema: "Schema.Struct({})",
-		sdkImports: ["ryotqlDocumentSchema"],
-		outputSchema: "Schema.Array(Schema.Unknown)",
-		declarations: `const queryName = ${sourceLiteral(input.queryName)};
-const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${sourceLiteral(JSON.stringify(input.query))}));`,
-		run: `(_input, host) => Effect.gen(function* () {
-    const result = yield* host.executeRyotql(query);
-     const data = result && typeof result === "object" && "data" in result ? result.data : null;
-     const queryResults = data && typeof data === "object" ? data as Record<string, unknown> : null;
-     const rows = queryResults?.[queryName];
-     if (!rows || typeof rows !== "object") {
-       throw new Error("Expected a rows result");
-     }
-     const rowResult = rows as Record<string, unknown>;
-     if (rowResult.type !== "rows" || !Array.isArray(rowResult.items)) {
-       throw new Error("Expected a rows result");
-     }
-     return rowResult.items;
-   })`,
-	});
-}
-
 export function systemRyotqlProbeSandboxSource(
 	input: SandboxSourceIdentity & {
 		readonly query: JsonValue;
@@ -413,23 +404,16 @@ export function systemRyotqlProbeSandboxSource(
 	return scriptModuleSource({
 		...input,
 		inputSchema: "Schema.Struct({})",
-		sdkImports: ["ryotqlDocumentSchema"],
+		ryotqlImports: ["type RyotQLDocument"],
 		outputSchema: "Schema.Struct({ count: Schema.Number })",
 		declarations: `const queryName = ${sourceLiteral(input.queryName)};
-const query = Schema.decodeSync(ryotqlDocumentSchema)(JSON.parse(${sourceLiteral(JSON.stringify(input.query))}));`,
+const query: RyotQLDocument = ${JSON.stringify(input.query)};`,
 		run: `(_input, host) => Effect.gen(function* () {
-    const result = yield* host.executeRyotql(query);
-     const data = result && typeof result === "object" && "data" in result ? result.data : null;
-     const queryResults = data && typeof data === "object" ? data as Record<string, unknown> : null;
-     const rowResult = queryResults?.[queryName];
-     if (!rowResult || typeof rowResult !== "object") {
-       throw new Error("Expected a rows result");
-     }
-     const rows = rowResult as Record<string, unknown>;
-     const items = rows.items;
-     if (rows.type !== "rows" || !Array.isArray(items)) {
-       throw new Error("Expected a rows result");
-     }
+    const result = yield* host.executeRyotql({ source: { kind: "inline", document: query } });
+    const envelope = yield* Schema.decodeUnknownEffect(Schema.Struct({ data: Schema.Record(Schema.String, Schema.Struct({ type: Schema.Literal("rows"), items: Schema.Array(Schema.Unknown) })) }))(result);
+    const rows = envelope.data[queryName];
+    if (!rows) return yield* Effect.fail(new Error("Expected a rows result"));
+    const items = rows.items;
     yield* host.upsertGlobalEntities([{
       entitySchemaSlug: ${sourceLiteral(input.entitySchemaSlug)},
       externalId: "system-ryotql-probe",

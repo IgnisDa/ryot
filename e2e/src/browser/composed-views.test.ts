@@ -2,6 +2,8 @@ import { savedViewPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
+import { ascending, column, table } from "@ryot-app/ryotql";
+import { sort } from "@ryot-app/ryotql/authoring";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Option, Schema } from "effect";
@@ -28,7 +30,7 @@ import {
 } from "~/fixtures/kernel";
 import { createExerciseEntityFixture, seedExerciseWorkout } from "~/fixtures/plugins/fitness";
 import { findMediaEntitySchema, seedGlobalShowEpisodeTree } from "~/fixtures/plugins/media";
-import { requirePresent } from "~/support/assertions";
+import { assertCondition, requirePresent } from "~/support/assertions";
 import { signInThroughHostedOAuth, waitForSearchParam } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
@@ -231,17 +233,20 @@ it.live("keeps configured entity-browser controls within their declared source",
 			}),
 		]);
 		const base = buildEntityBrowserSavedViewPayload({}, [alpha.id, zulu.id]);
+		const source = requirePresent(base.dataSources.queries.entities, "Browser source missing");
+		assertCondition(source.output.type === "rows", "Expected browser rows");
+		const entity = table("entity", "browserEntity");
 		const view = yield* createEntityBrowserSavedView(client, {
-			dataSources: base.dataSources,
+			arguments: base.arguments,
 			name: "Configured entity browser",
 			settings: {
 				pageSize: 10,
 				addAction: null,
 				defaultLayout: "grid",
 				sourceName: "entities",
-				searchFields: ["name"],
 				layouts: ["grid", "list", "table"],
 				summary: { image: null, subtitle: null },
+				controls: { sort: true, search: "search" },
 				subject: {
 					entityAlias: "browserEntity",
 					schemas: [{ slug: schema.reference.slug, owner: schema.reference.owner }],
@@ -250,6 +255,39 @@ it.live("keeps configured entity-browser controls within their declared source",
 					{ label: "Schema", displayKind: "text", field: "entitySchemaSlug" },
 					{ field: "name", label: "Name", displayKind: "text" },
 				],
+			},
+			dataSources: {
+				...base.dataSources,
+				queries: {
+					entities: {
+						...source,
+						output: {
+							...source.output,
+							orderBy: sort([ascending(column(entity, "name")), ascending(column(entity, "id"))]),
+						},
+					},
+				},
+				controls: {
+					sort: {
+						kind: "outputs",
+						query: "entities",
+						fields: [
+							{
+								key: "name",
+								type: "text",
+								kind: "value",
+								field: "name",
+								label: "Name",
+								sort: {
+									label: "Name",
+									ascending: "A–Z",
+									descending: "Z–A",
+									defaultDirection: "asc",
+								},
+							},
+						],
+					},
+				},
 			},
 		});
 		const viewRecord = yield* findSavedViewById(client, view.id);
@@ -281,6 +319,7 @@ it.live("keeps configured entity-browser controls within their declared source",
 		yield* runtime.getByRole("button", { name: /Filters/ }).click();
 		yield* runtime.getByRole("button", { name: "Sort by: Default order" }).click();
 		yield* runtime.getByRole("radio", { exact: true, name: "Name" }).click();
+		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-asc");
 		yield* runtime.getByRole("button", { name: "Sort direction: A–Z" }).click();
 		yield* page.waitForURL((url) => url.searchParams.get("sort") === "name-desc");
 		yield* page.keyboard.press("Escape");

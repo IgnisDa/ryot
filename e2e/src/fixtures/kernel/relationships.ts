@@ -59,24 +59,29 @@ export const findRelationshipBySchema = (
 			owner,
 		);
 		const relationshipTable = table("relationship", "relationship");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				relationships: rows(relationshipTable, {
-					limit: 1,
-					fields: [
-						field("properties", column(relationshipTable, "properties")),
-						field("sourceEntityId", column(relationshipTable, "sourceEntityId")),
-						field("targetEntityId", column(relationshipTable, "targetEntityId")),
-					],
-					where: and(
-						eq(column(relationshipTable, "sourceEntityId"), literal(input.sourceEntityId)),
-						eq(column(relationshipTable, "targetEntityId"), literal(input.targetEntityId)),
-						eq(column(relationshipTable, "relationshipSchemaSlug"), literal(relationshipSchema.id)),
-					),
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					relationships: rows(relationshipTable, {
+						limit: 1,
+						fields: [
+							field("properties", column(relationshipTable, "properties")),
+							field("sourceEntityId", column(relationshipTable, "sourceEntityId")),
+							field("targetEntityId", column(relationshipTable, "targetEntityId")),
+						],
+						where: and(
+							eq(column(relationshipTable, "sourceEntityId"), literal(input.sourceEntityId)),
+							eq(column(relationshipTable, "targetEntityId"), literal(input.targetEntityId)),
+							eq(
+								column(relationshipTable, "relationshipSchemaSlug"),
+								literal(relationshipSchema.id),
+							),
+						),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const relationship = requirePresent(
 			requireRows(result.data.relationships, "relationships").items[0],
 			`Missing relationship '${input.relationshipSchemaSlug}' for '${input.sourceEntityId}' -> '${input.targetEntityId}'`,

@@ -1,5 +1,4 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	workoutCardsRecipe,
 	workoutComparisonsRecipe,
@@ -18,6 +17,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
@@ -52,37 +52,46 @@ import {
 import { assertCondition, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const workoutSessionSetsRecipe = defineRecipe(
-	(input: {
-		readonly workoutId: string;
-		readonly reference: Parameters<typeof workoutCardsRecipe>[0]["reference"];
-	}) => {
-		const set = table("event", "workoutSessionSet");
-		return {
-			map: ({ sets }) => Result.succeed(sets.items),
-			queries: {
-				sets: selectedRows(set, {
-					limit: 100,
-					orderBy: [],
-					where: and(
-						schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
-						eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-						eq(column(set, "sessionEntityId"), literal(input.workoutId)),
-					),
-					selection: {
-						entityId: selectedField(column(set, "entityId"), Schema.String),
-						eventSchemaSlug: selectedField(column(set, "eventSchemaSlug"), Schema.String),
-						sessionEntityId: selectedField(column(set, "sessionEntityId"), Schema.String),
-						properties: selectedField(
-							column(set, "properties"),
-							Schema.Record(Schema.String, Schema.Unknown),
-						),
-					},
-				}),
+const workoutSessionSetsRecipe = (input: {
+	readonly reference: Parameters<typeof workoutCardsRecipe>[0]["reference"];
+}) => {
+	const recipeParameters = parameters({
+		fields: {
+			workoutId: {
+				type: "string",
+				label: "workoutId",
+				description: "Query argument",
+				validation: { required: true },
 			},
-		};
-	},
-);
+		},
+	});
+
+	const set = table("event", "workoutSessionSet");
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ sets }) => Result.succeed(sets.items),
+		queries: {
+			sets: selectedRows(set, {
+				limit: 100,
+				orderBy: [],
+				where: and(
+					schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
+					eq(column(set, "eventSchemaSlug"), literal("workout-set")),
+					eq(column(set, "sessionEntityId"), recipeParameters.value("workoutId")),
+				),
+				selection: {
+					entityId: selectedField(column(set, "entityId"), Schema.String),
+					eventSchemaSlug: selectedField(column(set, "eventSchemaSlug"), Schema.String),
+					sessionEntityId: selectedField(column(set, "sessionEntityId"), Schema.String),
+					properties: selectedField(
+						column(set, "properties"),
+						Schema.Record(Schema.String, Schema.Unknown),
+					),
+				},
+			}),
+		},
+	});
+};
 
 const saveWorkoutMeasurements = (
 	client: Client,
@@ -350,10 +359,9 @@ describe("Workouts E2E", () => {
 			}
 
 			const readReadyCards = Effect.gen(function* () {
-				const cards = yield* executeRyotQLRecipe(
-					client,
-					workoutCardsRecipe({ reference, search: "" }),
-				);
+				const cards = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+					search: "",
+				});
 				assertCondition(
 					cards.items.every(({ processing }) => processing !== "failed"),
 					"Workout record processing failed",
@@ -407,47 +415,38 @@ describe("Workouts E2E", () => {
 			expect(page.items[0]?.sets.map(({ weight }) => weight)).toEqual([110, 100]);
 			expect(page.items[1]?.template?.name).toBe("Pull B");
 			expect(
-				(yield* executeRyotQLRecipe(
-					client,
-					workoutCardsRecipe({ reference, search: "pul", workoutIds: [secondPull, legs] }),
-				)).items.map(({ entityId }) => entityId),
+				(yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+					search: "pul",
+					workoutIds: [secondPull, legs],
+				})).items.map(({ entityId }) => entityId),
 			).toEqual([secondPull]);
 			expect(
-				yield* executeRyotQLRecipe(client, workoutCountRecipe({ reference, search: "pul" })),
+				yield* executeRyotQLRecipe(client, workoutCountRecipe({ reference }), { search: "pul" }),
 			).toBe(2);
 			expect(
-				yield* executeRyotQLRecipe(
-					client,
-					workoutComparisonsRecipe({ reference, workoutIds: [legs] }),
-				),
+				yield* executeRyotQLRecipe(client, workoutComparisonsRecipe({ reference }), {
+					workoutIds: [legs],
+				}),
 			).toEqual<unknown>([{ id: legs, volume: 500, startedAt: anyOf(String) }]);
 
-			const weeks = yield* executeRyotQLRecipe(
-				client,
-				workoutWeeksRecipe({
-					reference,
-					search: "",
-					endAt: "2026-10-19T00:00:00Z",
-					timeZone: TimeZone.make("UTC"),
-					startAt: "2026-09-28T00:00:00Z",
-				}),
-			);
+			const weeks = yield* executeRyotQLRecipe(client, workoutWeeksRecipe({ reference }), {
+				search: "",
+				endAt: "2026-10-19T00:00:00Z",
+				startAt: "2026-09-28T00:00:00Z",
+			});
 			expect(weeks.map(({ volume, workouts }) => ({ volume, workouts }))).toEqual([
 				{ workouts: 1, volume: 400 },
 				{ workouts: 2, volume: 500 },
 				{ workouts: 1, volume: 1050 },
 			]);
 
-			const summary = yield* executeRyotQLRecipe(
-				client,
-				workoutSummaryRecipe({
-					reference,
-					timeZone: TimeZone.make("UTC"),
-					days: { endAt: "2026-10-19T00:00:00Z", startAt: "2026-09-28T00:00:00Z" },
-					current: { endAt: "2026-10-16T00:00:00Z", startAt: "2026-10-09T00:00:00Z" },
-					previous: { endAt: "2026-10-09T00:00:00Z", startAt: "2026-10-02T00:00:00Z" },
-				}),
-			);
+			const summary = yield* executeRyotQLRecipe(client, workoutSummaryRecipe({ reference }), {
+				range: "custom",
+				customEndDate: "2026-10-15",
+				customStartDate: "2026-10-09",
+				customPreviousEndDate: "2026-10-08",
+				customPreviousStartDate: "2026-10-02",
+			});
 			expect(summary.current).toMatchObject({ workouts: 1, volume: 1050 });
 			expect(summary.previous).toMatchObject({ workouts: 2, volume: 500 });
 			expect(summary.days.map(({ workouts }) => workouts)).toEqual([1, 1, 1, 1]);
@@ -479,10 +478,9 @@ describe("Workouts E2E", () => {
 			expect(created.sets).toHaveLength(1);
 
 			const reference = yield* workoutReference(client);
-			const events = yield* executeRyotQLRecipe(
-				client,
-				workoutSessionSetsRecipe({ reference, workoutId }),
-			);
+			const events = yield* executeRyotQLRecipe(client, workoutSessionSetsRecipe({ reference }), {
+				workoutId,
+			});
 			expect(events).toHaveLength(1);
 			expect(events[0]?.sessionEntityId).toBe(workoutId);
 			expect(events[0]?.entityId).toBe(exerciseId);
@@ -505,7 +503,8 @@ describe("Workouts E2E", () => {
 			const reference = yield* workoutReference(client);
 			const workoutOneEvents = yield* executeRyotQLRecipe(
 				client,
-				workoutSessionSetsRecipe({ reference, workoutId: workoutOneId }),
+				workoutSessionSetsRecipe({ reference }),
+				{ workoutId: workoutOneId },
 			);
 			expect(workoutOneEvents).toHaveLength(2);
 			expect(workoutOneEvents.every((event) => event.sessionEntityId === workoutOneId)).toBe(true);

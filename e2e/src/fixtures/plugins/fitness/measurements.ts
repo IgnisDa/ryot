@@ -23,6 +23,7 @@ import {
 	type RecipeEncodedInput,
 	type RecipeInput,
 } from "~/fixtures/kernel/operations";
+import type { RyotQLPayload } from "~/fixtures/kernel/ryotql";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 
 import { findFitnessEntitySchema } from "./exercises";
@@ -102,18 +103,22 @@ export const createMeasurementReadingFixture = (client: Client) =>
 export const readMeasurementLogReadings = Effect.fn(function* (
 	client: Client,
 	input: Parameters<typeof measurementEntryListRecipe>[0],
+	requestPage: NonNullable<RyotQLPayload["pages"]>[string] = {},
 ) {
-	const entries = yield* executeRyotQLRecipe(client, measurementEntryListRecipe(input));
+	const entries = yield* executeRyotQLRecipe(
+		client,
+		measurementEntryListRecipe(input),
+		{},
+		{ pages: { entries: requestPage } },
+	);
 	const metrics = new Map<string, MeasurementSummary>();
 	let after: string | undefined;
 	do {
 		const page = yield* executeRyotQLRecipe(
 			client,
-			measurementSummaryRecipe({
-				after,
-				reference: input.reference,
-				rangeStart: "1970-01-01T00:00:00.000Z",
-			}),
+			measurementSummaryRecipe({ reference: input.reference }),
+			{ range: "all-time" },
+			{ pages: { metrics: { after } } },
 		);
 		for (const metric of page.items) {
 			metrics.set(metric.id, metric);
@@ -125,11 +130,9 @@ export const readMeasurementLogReadings = Effect.fn(function* (
 	do {
 		const page = yield* executeRyotQLRecipe(
 			client,
-			measurementPageReadingsRecipe({
-				after: readingsAfter,
-				reference: input.reference,
-				entryIds: entries.items.map((entry) => entry.id),
-			}),
+			measurementPageReadingsRecipe({ reference: input.reference }),
+			{ entryIds: entries.items.map((entry) => entry.id) },
+			{ pages: { readings: { after: readingsAfter } } },
 		);
 		readings.push(...page.items);
 		readingsAfter = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;

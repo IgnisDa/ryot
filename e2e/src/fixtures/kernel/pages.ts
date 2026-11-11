@@ -10,6 +10,7 @@ import {
 	and,
 	ascending,
 	column,
+	contains,
 	document,
 	eq,
 	field,
@@ -20,6 +21,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { filter, parameters } from "@ryot-app/ryotql/authoring";
 import { normalizeSlug } from "@ryot-app/ts-utils/slug";
 import { Effect } from "effect";
 
@@ -107,43 +109,51 @@ export const buildEntityBrowserSavedViewPayload = (
 	schemas: SubjectSchemas = defaultSubjectSchemas,
 ): KernelSavedViewPayload => {
 	const entity = table("entity", "browserEntity");
-	const predicates =
-		entityIds.length === 0
-			? []
-			: [
-					inArray(
-						column(entity, "id"),
-						entityIds.map((entityId) => literal(entityId)),
-					),
-				];
+	const inputs = parameters({
+		fields: {
+			search: { type: "string", label: "Search", description: "Entity name contains" },
+			ids: {
+				type: "array",
+				label: "Entities",
+				description: "Selected entity identities",
+				items: { type: "string", label: "Identity", description: "Entity identity" },
+			},
+		},
+	});
 	return {
 		icon: "library",
 		name: `Entity browser ${crypto.randomUUID()}`,
 		renderer: { kind: "kernel", name: "entity-browser" },
+		arguments: entityIds.length === 0 ? {} : { ids: entityIds },
 		settings: {
 			pageSize: 2,
 			addAction: null,
-			searchFields: [],
 			tableColumns: null,
 			defaultLayout: "grid",
 			sourceName: "entities",
 			layouts: ["grid", "list"],
+			controls: { search: "search" },
 			summary: { image: null, subtitle: null },
 			subject: { schemas, entityAlias: "browserEntity" },
 		},
-		dataSources: document({
-			entities: rows(entity, {
-				limit: 2,
-				...(predicates.length === 0
-					? {}
-					: { where: predicates.length === 1 ? predicates[0] : and(...predicates) }),
-				orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
-				fields: [
-					field("name", column(entity, "name")),
-					field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-				],
+		dataSources: {
+			parameters: inputs.schema,
+			...document({
+				entities: rows(entity, {
+					limit: 2,
+					maxLimit: 1000,
+					orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
+					fields: [
+						field("name", column(entity, "name")),
+						field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+					],
+					where: and(
+						inputs.whenSet("ids", inArray(column(entity, "id"), inputs.list("ids"))),
+						inputs.whenSet("search", contains(column(entity, "name"), inputs.value("search"))),
+					),
+				}),
 			}),
-		}),
+		},
 		...overrides,
 	};
 };
@@ -181,6 +191,16 @@ export const createResultsTableSavedView = (
 	client: Client,
 	input: { readonly entityId: string; readonly eventSchemaSlug: string },
 ) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "Entity",
+				description: "Event owner",
+				validation: { required: true },
+			},
+		},
+	});
 	const event = table("event", "resultEvent");
 	const entity = table("entity", "resultEntity");
 	return client
@@ -188,39 +208,51 @@ export const createResultsTableSavedView = (
 			contract.savedViews.create({
 				payload: {
 					icon: "table",
+					arguments: { entityId: input.entityId },
 					name: `Results table ${crypto.randomUUID()}`,
 					renderer: { kind: "kernel", name: "results-table" },
 					settings: {
 						pageSize: 10,
 						sourceName: "events",
+						controls: { filter: true },
 						rowKeyFields: ["entityId", "occurredAt"],
 						entityLink: { entityIdField: "entityId" },
-						filterFields: [
-							{ key: "note", type: "text", label: "Note", field: "note", kind: "value" },
-						],
 						columns: [
 							{ field: "note", label: "Note", displayKind: "text" },
 							{ label: "Occurred", field: "occurredAt", displayKind: "date" },
 							{ field: "missing", label: "Missing", displayKind: "managed-asset" },
 						],
 					},
-					dataSources: document({
-						events: rows(event, {
-							limit: 10,
-							orderBy: [ascending(column(event, "occurredAt"))],
-							joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
-							where: and(
-								eq(column(event, "entityId"), literal(input.entityId)),
-								eq(column(event, "eventSchemaSlug"), literal(input.eventSchemaSlug)),
-							),
-							fields: [
-								field("entityId", column(entity, "id")),
-								field("occurredAt", column(event, "occurredAt")),
-								field("note", jsonPath(column(event, "properties"), "note")),
-								field("missing", jsonPath(column(event, "properties"), "missing")),
-							],
+					dataSources: {
+						parameters: inputParameters.schema,
+						controls: {
+							filter: {
+								kind: "outputs",
+								query: "events",
+								fields: [
+									{ key: "note", type: "text", label: "Note", field: "note", kind: "value" },
+								],
+							},
+						},
+						...document({
+							events: rows(event, {
+								limit: 10,
+								orderBy: [ascending(column(event, "occurredAt"))],
+								joins: [join("inner", entity, eq(column(entity, "id"), column(event, "entityId")))],
+								where: and(
+									eq(column(event, "entityId"), inputParameters.value("entityId")),
+									filter(),
+									eq(column(event, "eventSchemaSlug"), literal(input.eventSchemaSlug)),
+								),
+								fields: [
+									field("entityId", column(entity, "id")),
+									field("occurredAt", column(event, "occurredAt")),
+									field("note", jsonPath(column(event, "properties"), "note")),
+									field("missing", jsonPath(column(event, "properties"), "missing")),
+								],
+							}),
 						}),
-					}),
+					},
 				},
 			}),
 		)
@@ -237,7 +269,7 @@ export const collectionWorkflowRendererSource = `
 import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { EntityResults, PluginPackageId, usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotMutation, createRyotQuery, nextPageCursor, paginationItems, useRyotInfiniteQuery, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
-import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { and, ascending, column, defineRecipe, eq, groupAscending, join, literal, parameters, selectedAggregate, selectedField, selectedMeasure, selectedRows, table, type Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import PokemonPicker from "@ryot-app/plugins/fixture/pokemon-picker";
@@ -256,7 +288,8 @@ type CollectionPageInput = {
 const syncStatus = (status: string): "pending" | "ready" | "none" =>
   status === "pending" || status === "ready" ? status : "none";
 
-const collectionPageRecipe = defineRecipe((input: CollectionPageInput) => {
+const collectionPageRecipe = (() => {
+  const input = parameters({ fields: { collectionId: { type: "string", label: "Collection", description: "Collection identity", validation: { required: true } } } });
   const membership = table("relationship", "collectionMembership");
   const entity = table("entity", "collectionEntity");
   const ownerPlugin = table("plugin", "ownerPlugin");
@@ -265,16 +298,16 @@ const collectionPageRecipe = defineRecipe((input: CollectionPageInput) => {
     join("left", ownerPlugin, eq(column(entity, "entitySchemaPluginId"), column(ownerPlugin, "id"))),
   ];
   const where = and(
-    eq(column(membership, "targetEntityId"), literal(input.collectionId)),
+    eq(column(membership, "targetEntityId"), input.value("collectionId")),
     eq(column(membership, "relationshipSchemaSlug"), literal("member-of")),
   );
-  return {
+  return defineRecipe({
+    parameters: input.schema,
     queries: {
       members: selectedRows(membership, {
-        after: input.after,
         joins,
         where,
-        limit: input.pageSize,
+        limit: 20, maxLimit: 1000,
         orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
         selection: {
           entityId: selectedField(column(entity, "id"), Schema.String),
@@ -310,12 +343,12 @@ const collectionPageRecipe = defineRecipe((input: CollectionPageInput) => {
         })),
       },
     }),
-  };
-});
+  });
+})();
 
 type CollectionPageData = Recipe.Success<typeof collectionPageRecipe>;
 const collectionPageQuery = createRyotQuery<CollectionPageInput, CollectionPageData>(
-  ({ client, input }) => client.data.query(collectionPageRecipe(input)),
+  ({ client, input }) => client.data.query(collectionPageRecipe, { collectionId: input.collectionId }, { pages: { members: { after: input.after, limit: input.pageSize } } }),
   { cancelOnUnmount: true },
 );
 const greetingMutation = createRyotMutation(({ client }) => client.operations.invoke({

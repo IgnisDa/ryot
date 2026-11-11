@@ -146,35 +146,27 @@ describe("Fitness taxonomy E2E", () => {
 			const [ownerTargets, ownerFascia, ownerEquipment, ownerMat] = yield* Effect.all([
 				executeRyotQLRecipe(
 					owner.client,
-					targetListRecipe({
-						limit: 1,
-						name: "Pelvic floor",
-						reference: { pluginId, kind: "local" },
-					}),
+					targetListRecipe({ reference: { pluginId, kind: "local" } }),
+					{ name: "Pelvic floor" },
+					{ pages: { targets: { limit: 1 } } },
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					targetListRecipe({
-						limit: 1,
-						name: "Plantar fascia",
-						reference: { pluginId, kind: "local" },
-					}),
+					targetListRecipe({ reference: { pluginId, kind: "local" } }),
+					{ name: "Plantar fascia" },
+					{ pages: { targets: { limit: 1 } } },
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					equipmentListRecipe({
-						limit: 1,
-						name: "Bands with door anchor",
-						reference: { pluginId, kind: "local" },
-					}),
+					equipmentListRecipe({ reference: { pluginId, kind: "local" } }),
+					{ name: "Bands with door anchor" },
+					{ pages: { equipment: { limit: 1 } } },
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					equipmentListRecipe({
-						limit: 1,
-						name: `Workout mat ${suffix}`,
-						reference: { pluginId, kind: "local" },
-					}),
+					equipmentListRecipe({ reference: { pluginId, kind: "local" } }),
+					{ name: `Workout mat ${suffix}` },
+					{ pages: { equipment: { limit: 1 } } },
 				),
 			]);
 			const privateTarget = requirePresent(
@@ -202,35 +194,27 @@ describe("Fitness taxonomy E2E", () => {
 				yield* Effect.all([
 					executeRyotQLRecipe(
 						otherUser.client,
-						targetListRecipe({
-							limit: 1,
-							name: "Pelvic floor",
-							reference: { pluginId, kind: "local" },
-						}),
+						targetListRecipe({ reference: { pluginId, kind: "local" } }),
+						{ name: "Pelvic floor" },
+						{ pages: { targets: { limit: 1 } } },
 					),
 					executeRyotQLRecipe(
 						otherUser.client,
-						targetListRecipe({
-							limit: 1,
-							name: "Plantar fascia",
-							reference: { pluginId, kind: "local" },
-						}),
+						targetListRecipe({ reference: { pluginId, kind: "local" } }),
+						{ name: "Plantar fascia" },
+						{ pages: { targets: { limit: 1 } } },
 					),
 					executeRyotQLRecipe(
 						otherUser.client,
-						equipmentListRecipe({
-							limit: 1,
-							name: "Bands with door anchor",
-							reference: { pluginId, kind: "local" },
-						}),
+						equipmentListRecipe({ reference: { pluginId, kind: "local" } }),
+						{ name: "Bands with door anchor" },
+						{ pages: { equipment: { limit: 1 } } },
 					),
 					executeRyotQLRecipe(
 						otherUser.client,
-						equipmentListRecipe({
-							limit: 1,
-							name: `Workout mat ${suffix}`,
-							reference: { pluginId, kind: "local" },
-						}),
+						equipmentListRecipe({ reference: { pluginId, kind: "local" } }),
+						{ name: `Workout mat ${suffix}` },
+						{ pages: { equipment: { limit: 1 } } },
 					),
 				]);
 			expect(otherUserTargets.items).toEqual([]);
@@ -241,30 +225,24 @@ describe("Fitness taxonomy E2E", () => {
 			const graphBeforeRejections = yield* Effect.all([
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseTargetsRecipe({
-						limit: 100,
-						exerciseId: exercise.id,
-						reference: { pluginId, kind: "local" },
-					}),
+					exerciseTargetsRecipe({ reference: { pluginId, kind: "local" } }),
+					{ exerciseId: exercise.id },
+					{ pages: { targets: { limit: 100 } } },
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseEquipmentRecipe({
-						limit: 100,
-						exerciseId: exercise.id,
-						reference: { pluginId, kind: "local" },
-					}),
+					exerciseEquipmentRecipe({ reference: { pluginId, kind: "local" } }),
+					{ exerciseId: exercise.id },
+					{ pages: { equipment: { limit: 100 } } },
 				),
 			]);
 			expect(graphBeforeRejections.map(({ items }) => items.length)).toEqual([2, 2]);
 			const listedExercise = requirePresent(
 				(yield* executeRyotQLRecipe(
 					owner.client,
-					exerciseListRecipe({
-						limit: 1,
-						entityId: exercise.id,
-						reference: { pluginId, kind: "local" },
-					}),
+					exerciseListRecipe({ reference: { pluginId, kind: "local" } }),
+					{ entityId: exercise.id },
+					{ pages: { exercises: { limit: 1 } } },
 				)).items[0],
 				"Expected the exercise with its equipment links",
 			);
@@ -309,19 +287,15 @@ describe("Fitness taxonomy E2E", () => {
 			const graphAfterRejections = yield* Effect.all([
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseTargetsRecipe({
-						limit: 100,
-						exerciseId: exercise.id,
-						reference: { pluginId, kind: "local" },
-					}),
+					exerciseTargetsRecipe({ reference: { pluginId, kind: "local" } }),
+					{ exerciseId: exercise.id },
+					{ pages: { targets: { limit: 100 } } },
 				),
 				executeRyotQLRecipe(
 					owner.client,
-					exerciseEquipmentRecipe({
-						limit: 100,
-						exerciseId: exercise.id,
-						reference: { pluginId, kind: "local" },
-					}),
+					exerciseEquipmentRecipe({ reference: { pluginId, kind: "local" } }),
+					{ exerciseId: exercise.id },
+					{ pages: { equipment: { limit: 100 } } },
 				),
 			]);
 			expect(graphAfterRejections).toEqual(graphBeforeRejections);
@@ -419,11 +393,9 @@ describe("Fitness taxonomy E2E", () => {
 
 			const ownerTargets = yield* executeRyotQLRecipe(
 				client,
-				exerciseTargetsRecipe({
-					limit: 100,
-					exerciseId: root.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				exerciseTargetsRecipe({ reference: { pluginId, kind: "local" } }),
+				{ exerciseId: root.id },
+				{ pages: { targets: { limit: 100 } } },
 			);
 			const chest = requirePresent(
 				ownerTargets.items.find(({ name }) => name === "Chest"),
@@ -449,21 +421,17 @@ describe("Fitness taxonomy E2E", () => {
 			expect(
 				(yield* executeRyotQLRecipe(
 					client,
-					exerciseTargetsRecipe({
-						limit: 100,
-						exerciseId: root.id,
-						reference: { pluginId, kind: "local" },
-					}),
+					exerciseTargetsRecipe({ reference: { pluginId, kind: "local" } }),
+					{ exerciseId: root.id },
+					{ pages: { targets: { limit: 100 } } },
 				)).items.filter(({ id }) => id === chest.id),
 			).toEqual([chest]);
 
 			const ownerEquipment = yield* executeRyotQLRecipe(
 				client,
-				exerciseEquipmentRecipe({
-					limit: 100,
-					exerciseId: root.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				exerciseEquipmentRecipe({ reference: { pluginId, kind: "local" } }),
+				{ exerciseId: root.id },
+				{ pages: { equipment: { limit: 100 } } },
 			);
 			const barbell = requirePresent(
 				ownerEquipment.items.find(({ name }) => name === "Barbell"),
@@ -479,19 +447,15 @@ describe("Fitness taxonomy E2E", () => {
 			const otherUser = yield* createAuthenticatedClient(target);
 			const otherUserTargets = yield* executeRyotQLRecipe(
 				otherUser.client,
-				exerciseTargetsRecipe({
-					limit: 100,
-					exerciseId: root.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				exerciseTargetsRecipe({ reference: { pluginId, kind: "local" } }),
+				{ exerciseId: root.id },
+				{ pages: { targets: { limit: 100 } } },
 			);
 			const otherUserEquipment = yield* executeRyotQLRecipe(
 				otherUser.client,
-				exerciseEquipmentRecipe({
-					limit: 100,
-					exerciseId: root.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				exerciseEquipmentRecipe({ reference: { pluginId, kind: "local" } }),
+				{ exerciseId: root.id },
+				{ pages: { equipment: { limit: 100 } } },
 			);
 			expect(otherUserTargets.items.map(({ name }) => name)).toEqual<unknown>(
 				arrayContaining(["Chest", "Triceps"]),
@@ -511,19 +475,15 @@ describe("Fitness taxonomy E2E", () => {
 
 			const reimportedTargets = yield* executeRyotQLRecipe(
 				client,
-				exerciseTargetsRecipe({
-					limit: 100,
-					exerciseId: root.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				exerciseTargetsRecipe({ reference: { pluginId, kind: "local" } }),
+				{ exerciseId: root.id },
+				{ pages: { targets: { limit: 100 } } },
 			);
 			const reimportedEquipment = yield* executeRyotQLRecipe(
 				client,
-				exerciseEquipmentRecipe({
-					limit: 100,
-					exerciseId: root.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				exerciseEquipmentRecipe({ reference: { pluginId, kind: "local" } }),
+				{ exerciseId: root.id },
+				{ pages: { equipment: { limit: 100 } } },
 			);
 			expect(reimportedTargets).toEqual(ownerTargets);
 			expect(reimportedEquipment).toEqual(ownerEquipment);

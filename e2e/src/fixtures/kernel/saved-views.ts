@@ -5,7 +5,7 @@ import type {
 	QueryOwnerReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	AuthoredEntityBrowserSavedViewSettings,
 	EntityBrowserSavedViewSettings,
@@ -21,6 +21,7 @@ import {
 	ascending,
 	castJson,
 	column,
+	contains,
 	defineRecipe,
 	document,
 	field,
@@ -36,7 +37,9 @@ import {
 import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
+	savedViewReferenceArguments,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
+import { filter, parameters } from "@ryot-app/ryotql/authoring";
 import { Effect, Result, Schema } from "effect";
 
 import { requirePresent } from "~/support/assertions";
@@ -63,16 +66,26 @@ export const rowsFields = [
 	field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
 ];
 
+const browserParameters = parameters({
+	fields: { search: { type: "string", label: "Search", description: "Entity name contains" } },
+});
+
 export const buildSavedViewDataSources = (
 	entitySchemaSlugs: readonly [string, ...string[]],
 	owner: QueryOwnerReference,
-): RyotQLDocument =>
-	document({
+): RyotQLDocument => ({
+	...document({
 		savedView: rows(entity, {
 			limit: 2,
+			maxLimit: 1000,
 			fields: rowsFields,
 			orderBy: [ascending(column(entity, "name")), ascending(column(entity, "id"))],
 			where: and(
+				filter(),
+				browserParameters.whenSet(
+					"search",
+					contains(column(entity, "name"), browserParameters.value("search")),
+				),
 				inArray(
 					column(entity, "entitySchemaSlug"),
 					entitySchemaSlugs.map((slug) => literal(slug)),
@@ -80,7 +93,19 @@ export const buildSavedViewDataSources = (
 				schemaOwnerPredicate(entity, "entitySchemaPluginId", owner),
 			),
 		}),
-	});
+	}),
+	parameters: browserParameters.schema,
+	controls: {
+		filter: {
+			kind: "browse",
+			alias: "entity",
+			schemas: [
+				{ owner, slug: entitySchemaSlugs[0] },
+				...entitySchemaSlugs.slice(1).map((slug) => ({ slug, owner })),
+			],
+		},
+	},
+});
 
 const mediaPluginOwner: PluginIdentityReference = {
 	kind: "package",
@@ -94,10 +119,10 @@ const entityBrowserSettingsBase = {
 	pageSize: 2,
 	addAction: null,
 	defaultLayout: "grid",
-	searchFields: ["name"],
 	sourceName: "savedView",
 	layouts: ["grid", "list", "table"],
 	summary: { image: null, subtitle: null },
+	controls: { filter: true, search: "search" },
 	tableColumns: [
 		{ label: "Name", field: "name", displayKind: "text" },
 		{ label: "Year", field: "year", displayKind: "number" },
@@ -215,22 +240,24 @@ export const createTableSavedView = (
 		.pipe(Effect.map(customViewResult));
 
 const workspaceView = table("savedView", "workspaceView");
-export const workspaceSavedViewRecordsRecipe = defineRecipe(() => ({
-	map: ({ views }) => Result.succeed(views.items),
-	queries: {
-		views: selectedRows(workspaceView, {
-			limit: 100,
-			orderBy: [ascending(column(workspaceView, "id"))],
-			selection: {
-				id: selectedField(column(workspaceView, "id"), Schema.String),
-				installationId: selectedField(
-					column(workspaceView, "pluginInstallationId"),
-					Schema.NullOr(Schema.String),
-				),
-			},
-		}),
-	},
-}));
+export const workspaceSavedViewRecordsRecipe = (() => {
+	return defineRecipe({
+		map: ({ views }) => Result.succeed(views.items),
+		queries: {
+			views: selectedRows(workspaceView, {
+				limit: 100,
+				orderBy: [ascending(column(workspaceView, "id"))],
+				selection: {
+					id: selectedField(column(workspaceView, "id"), Schema.String),
+					installationId: selectedField(
+						column(workspaceView, "pluginInstallationId"),
+						Schema.NullOr(Schema.String),
+					),
+				},
+			}),
+		},
+	});
+})();
 
 export const listSavedViews = (
 	client: Client,
@@ -239,16 +266,14 @@ export const listSavedViews = (
 	Effect.gen(function* () {
 		const result = yield* executeRyotQLRecipe(
 			client,
-			savedViewRecordsRecipe({
-				limit: 100,
-				pluginId: options.pluginId,
-				includeHidden: options.includeHidden,
-			}),
+			savedViewRecordsRecipe,
+			{ pluginId: options.pluginId, includeHidden: options.includeHidden },
+			{ pages: { savedViews: { limit: 100 } } },
 		);
 		if (!options.installationId) {
 			return result.items;
 		}
-		const associations = yield* executeRyotQLRecipe(client, workspaceSavedViewRecordsRecipe());
+		const associations = yield* executeRyotQLRecipe(client, workspaceSavedViewRecordsRecipe, {});
 		return result.items.filter((view) =>
 			associations.some(
 				(association) =>
@@ -291,7 +316,11 @@ export const findBuiltinSavedView = (client: Client, reference: BuiltinSavedView
 
 export const getSavedView = (client: Client, reference: SavedViewReference) =>
 	Effect.gen(function* () {
-		const decoded = yield* executeRyotQLRecipe(client, savedViewRecordRecipe(reference));
+		const decoded = yield* executeRyotQLRecipe(
+			client,
+			savedViewRecordRecipe,
+			savedViewReferenceArguments(reference),
+		);
 		if (!decoded) {
 			return yield* new SavedViewFixtureError({ message: "Saved view not found" });
 		}

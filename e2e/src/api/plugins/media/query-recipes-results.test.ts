@@ -1,5 +1,4 @@
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { podcastEpisodicKindConfig } from "@ryot-app/media-plugin/shared/lifecycle-expressions";
 import { episodicByLifecycleStateRecipe } from "@ryot-app/media-plugin/shared/lifecycle-list-recipes";
 import { personRecipes } from "@ryot-app/media-plugin/shared/person-recipes";
@@ -144,14 +143,13 @@ const seedActivityShowFixture = (client: Client) =>
 		};
 	});
 
-const ACTIVITY_LIMITS = {
-	coverageLimit: 100,
-	watchDayLimit: 500,
-	parentEventLimit: 60,
-	episodeEventLimit: 100,
-	collectionEventLimit: 60,
-	episodeProgressLimit: 100,
-	timeZone: TimeZone.make("UTC"),
+const ACTIVITY_PAGES = {
+	coverage: { limit: 100 },
+	watchDays: { limit: 500 },
+	parentEvents: { limit: 60 },
+	episodeEvents: { limit: 100 },
+	collectionEvents: { limit: 60 },
+	episodeProgress: { limit: 100 },
 } as const;
 
 describe("Media RyotQL query recipe results", () => {
@@ -318,7 +316,9 @@ describe("Media RyotQL query recipe results", () => {
 
 			const showRow = yield* executeRyotQLRecipe(
 				client,
-				showSeasonsRecipe({ reference, seasonLimit: 2, entityId: show.id }),
+				showSeasonsRecipe({ reference }),
+				{ entityId: show.id },
+				{ pages: { seasons: { limit: 2 } } },
 			);
 			assertPresent(showRow, "Expected show row");
 			const seasons = showRow.seasons;
@@ -330,11 +330,15 @@ describe("Media RyotQL query recipe results", () => {
 			assertPresent(secondSeasonResult, "Expected second season");
 			const firstSeason = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ limit: 1, reference, containerId: firstSeasonResult.id }),
+				showSeasonEpisodesRecipe({ reference }),
+				{ containerId: firstSeasonResult.id },
+				{ pages: { episodes: { limit: 1 } } },
 			);
 			const secondSeason = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodesRecipe({ limit: 1, reference, containerId: secondSeasonResult.id }),
+				showSeasonEpisodesRecipe({ reference }),
+				{ containerId: secondSeasonResult.id },
+				{ pages: { episodes: { limit: 1 } } },
 			);
 			expect(firstSeason.items).toHaveLength(1);
 			expect(secondSeason.items).toHaveLength(1);
@@ -414,10 +418,9 @@ describe("Media RyotQL query recipe results", () => {
 				}),
 			);
 
-			const summary = yield* executeRyotQLRecipe(
-				client,
-				showRecipes.summaryRecipe({ reference, entityId: show.id, collectionLimit: 5 }),
-			);
+			const summary = yield* executeRyotQLRecipe(client, showRecipes.summaryRecipe({ reference }), {
+				entityId: show.id,
+			});
 			const summaryRow = summary.summary;
 			assertPresent(summaryRow, "Expected show summary row");
 
@@ -574,14 +577,8 @@ describe("Media RyotQL query recipe results", () => {
 				insertLibraryMembership(otherClient, { mediaEntityId: suggestedSecond.id }),
 			]);
 
-			const overviewRecipe = showRecipes.overviewRecipe({
-				reference,
-				peopleLimit: 12,
-				companyLimit: 6,
-				entityId: show.id,
-				recommendationLimit: 12,
-			});
-			const overview = yield* executeRyotQLRecipe(client, overviewRecipe);
+			const overviewRecipe = showRecipes.overviewRecipe({ reference });
+			const overview = yield* executeRyotQLRecipe(client, overviewRecipe, { entityId: show.id });
 
 			expect(overview.people.items.map((person) => person.name)).toEqual([lead.name, writer.name]);
 			const leadCredit = overview.people.items[0];
@@ -625,7 +622,9 @@ describe("Media RyotQL query recipe results", () => {
 				true,
 				false,
 			]);
-			const otherOverview = yield* executeRyotQLRecipe(otherClient, overviewRecipe);
+			const otherOverview = yield* executeRyotQLRecipe(otherClient, overviewRecipe, {
+				entityId: show.id,
+			});
 			expect(otherOverview.people.items.map((item) => item.isInMediaLibrary)).toEqual([
 				false,
 				false,
@@ -669,13 +668,11 @@ describe("Media RyotQL query recipe results", () => {
 
 			const overview = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.overviewRecipe({
-					reference,
-					peopleLimit: 12,
-					companyLimit: 6,
-					entityId: show.id,
-					recommendationLimit: 12,
-				}),
+				showRecipes.overviewRecipe({ reference }),
+				{ entityId: show.id },
+				{
+					pages: { people: { limit: 12 }, companies: { limit: 6 }, recommendations: { limit: 12 } },
+				},
 			);
 
 			expect(overview.people.items).toEqual([]);
@@ -761,7 +758,9 @@ describe("Media RyotQL query recipe results", () => {
 
 			const overview = yield* executeRyotQLRecipe(
 				client,
-				personRecipes.overviewRecipe({ reference, creditLimit: 12, entityId: person.id }),
+				personRecipes.overviewRecipe({ reference }),
+				{ entityId: person.id },
+				{ pages: { credits: { limit: 12 } } },
 			);
 
 			expect(overview.movie.items.map((item) => item.id)).toEqual([
@@ -789,10 +788,9 @@ describe("Media RyotQL query recipe results", () => {
 			});
 			const reference: MediaReference = { kind: "local", pluginId: book.pluginId };
 
-			const summary = yield* executeRyotQLRecipe(
-				client,
-				showRecipes.summaryRecipe({ reference, collectionLimit: 5, entityId: book.entity.id }),
-			);
+			const summary = yield* executeRyotQLRecipe(client, showRecipes.summaryRecipe({ reference }), {
+				entityId: book.entity.id,
+			});
 
 			expect(summary.summary).toBeNull();
 			expect(summary.entitySchemaSlug).toBe(EntitySchemaSlug.make("book"));
@@ -805,14 +803,9 @@ describe("Media RyotQL query recipe results", () => {
 			const { pluginId } = yield* findMediaEntitySchema(client, "show");
 			const reference: MediaReference = { pluginId, kind: "local" };
 
-			const summary = yield* executeRyotQLRecipe(
-				client,
-				showRecipes.summaryRecipe({
-					reference,
-					collectionLimit: 5,
-					entityId: `missing-${yield* randomUuid}`,
-				}),
-			);
+			const summary = yield* executeRyotQLRecipe(client, showRecipes.summaryRecipe({ reference }), {
+				entityId: `missing-${yield* randomUuid}`,
+			});
 
 			expect(summary.summary).toBeNull();
 			expect(summary.entitySchemaSlug).toBeNull();
@@ -840,11 +833,9 @@ describe("Media RyotQL query recipe results", () => {
 
 			const episodes = yield* executeRyotQLRecipe(
 				client,
-				podcastEpisodesRecipe({
-					limit: 2,
-					reference: seeded.reference,
-					containerId: seeded.podcast.id,
-				}),
+				podcastEpisodesRecipe({ reference: seeded.reference }),
+				{ containerId: seeded.podcast.id },
+				{ pages: { episodes: { limit: 2 } } },
 			);
 			expect(episodes.items.map((episode) => [episode.episodeNumber, episode.state])).toEqual([
 				[3, "untracked"],
@@ -853,11 +844,8 @@ describe("Media RyotQL query recipe results", () => {
 			expect(episodes.pageInfo.hasMore).toBe(true);
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				podcastRecipes.summaryRecipe({
-					collectionLimit: 1,
-					reference: seeded.reference,
-					entityId: seeded.podcast.id,
-				}),
+				podcastRecipes.summaryRecipe({ reference: seeded.reference }),
+				{ entityId: seeded.podcast.id },
 			);
 			expect(summary.summary).toMatchObject({
 				watchedEpisodes: 1,
@@ -894,12 +882,11 @@ describe("Media RyotQL query recipe results", () => {
 							executeRyotQLRecipe(
 								client,
 								episodicByLifecycleStateRecipe({
-									limit: 10,
-									states: [state],
 									reference: seeded.reference,
-									entityId: seeded.podcast.id,
 									config: podcastEpisodicKindConfig,
 								}),
+								{ states: [state], entityId: seeded.podcast.id },
+								{ pages: { items: { limit: 10 } } },
 							),
 						),
 					);
@@ -1001,11 +988,9 @@ describe("Media RyotQL query recipe results", () => {
 				"show activity canonical consumption ready",
 				executeRyotQLRecipe(
 					client,
-					showRecipes.activityRecipe({
-						...ACTIVITY_LIMITS,
-						entityId: seeded.show.id,
-						reference: seeded.reference,
-					}),
+					showRecipes.activityRecipe({ reference: seeded.reference }),
+					{ entityId: seeded.show.id },
+					{ pages: ACTIVITY_PAGES },
 				).pipe(Effect.map((result) => (result.consumptionProcessing === "ready" ? result : null))),
 			);
 			const identity = activity.events.map((event) => ({
@@ -1124,11 +1109,9 @@ describe("Media RyotQL query recipe results", () => {
 			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({
-					...ACTIVITY_LIMITS,
-					entityId: seeded.show.id,
-					reference: seeded.reference,
-				}),
+				showRecipes.activityRecipe({ reference: seeded.reference }),
+				{ entityId: seeded.show.id },
+				{ pages: ACTIVITY_PAGES },
 			);
 
 			expect(activity.events).toHaveLength(1);
@@ -1161,11 +1144,9 @@ describe("Media RyotQL query recipe results", () => {
 			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({
-					...ACTIVITY_LIMITS,
-					entityId: seeded.show.id,
-					reference: seeded.reference,
-				}),
+				showRecipes.activityRecipe({ reference: seeded.reference }),
+				{ entityId: seeded.show.id },
+				{ pages: ACTIVITY_PAGES },
 			);
 
 			expect(activity.watchDays[0]).toMatchObject({
@@ -1201,11 +1182,9 @@ describe("Media RyotQL query recipe results", () => {
 			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({
-					...ACTIVITY_LIMITS,
-					entityId: seeded.show.id,
-					reference: seeded.reference,
-				}),
+				showRecipes.activityRecipe({ reference: seeded.reference }),
+				{ entityId: seeded.show.id },
+				{ pages: ACTIVITY_PAGES },
 			);
 
 			expect(activity.events).toHaveLength(0);
@@ -1234,12 +1213,9 @@ describe("Media RyotQL query recipe results", () => {
 			yield* waitForEventProjections(client);
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				showRecipes.activityRecipe({
-					...ACTIVITY_LIMITS,
-					parentEventLimit: 2,
-					entityId: seeded.show.id,
-					reference: seeded.reference,
-				}),
+				showRecipes.activityRecipe({ reference: seeded.reference }),
+				{ entityId: seeded.show.id },
+				{ pages: { ...ACTIVITY_PAGES, parentEvents: { limit: 2 } } },
 			);
 
 			expect(activity.truncated).toBe(true);

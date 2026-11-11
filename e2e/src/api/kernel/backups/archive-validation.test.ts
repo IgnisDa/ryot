@@ -22,15 +22,17 @@ import { assert, describe, expect, it } from "~/support/effect-test";
 
 const getMediaLibraryId = Effect.fn(function* (client: Client) {
 	const mediaLibrary = table("entity", "mediaLibrary");
-	const result = yield* executeRyotQL(
-		client,
-		document({
-			libraries: rows(mediaLibrary, {
-				fields: [field("id", column(mediaLibrary, "id"))],
-				where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+	const result = yield* executeRyotQL(client, {
+		source: {
+			kind: "inline",
+			document: document({
+				libraries: rows(mediaLibrary, {
+					fields: [field("id", column(mediaLibrary, "id"))],
+					where: eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+				}),
 			}),
-		}),
-	);
+		},
+	});
 	const libraries = requireRows(result.data.libraries, "libraries");
 	expect(libraries.items).toHaveLength(1);
 	const row = libraries.items[0];

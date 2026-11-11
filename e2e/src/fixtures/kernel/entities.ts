@@ -49,31 +49,33 @@ export const createEntity = (client: Client, body: CreateEntityInput) =>
 export const getEntity = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
 		const entityTable = table("entity", "entity");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				entity: rows(entityTable, {
-					limit: 1,
-					where: eq(column(entityTable, "id"), literal(entityId)),
-					fields: [
-						field("id", column(entityTable, "id")),
-						field("name", column(entityTable, "name")),
-						field("createdAt", column(entityTable, "createdAt")),
-						field("updatedAt", column(entityTable, "updatedAt")),
-						field("properties", column(entityTable, "properties")),
-						field("entitySchemaSlug", column(entityTable, "entitySchemaSlug")),
-						field("entitySchemaPluginId", column(entityTable, "entitySchemaPluginId")),
-						field("externalId", column(entityTable, "externalId")),
-						field("populatedAt", column(entityTable, "populatedAt")),
-						field("providerCheckedAt", column(entityTable, "providerCheckedAt")),
-						field("providerId", column(entityTable, "providerId")),
-						field("populationStatus", column(entityTable, "populationStatus")),
-						field("translationStatus", column(entityTable, "translationStatus")),
-						field("relatedPopulationStatus", column(entityTable, "relatedPopulationStatus")),
-					],
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					entity: rows(entityTable, {
+						limit: 1,
+						where: eq(column(entityTable, "id"), literal(entityId)),
+						fields: [
+							field("id", column(entityTable, "id")),
+							field("name", column(entityTable, "name")),
+							field("createdAt", column(entityTable, "createdAt")),
+							field("updatedAt", column(entityTable, "updatedAt")),
+							field("properties", column(entityTable, "properties")),
+							field("entitySchemaSlug", column(entityTable, "entitySchemaSlug")),
+							field("entitySchemaPluginId", column(entityTable, "entitySchemaPluginId")),
+							field("externalId", column(entityTable, "externalId")),
+							field("populatedAt", column(entityTable, "populatedAt")),
+							field("providerCheckedAt", column(entityTable, "providerCheckedAt")),
+							field("providerId", column(entityTable, "providerId")),
+							field("populationStatus", column(entityTable, "populationStatus")),
+							field("translationStatus", column(entityTable, "translationStatus")),
+							field("relatedPopulationStatus", column(entityTable, "relatedPopulationStatus")),
+						],
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const row = requirePresent(
 			requireRows(result.data.entity, "entity").items[0],
 			`Entity '${entityId}' not found`,
@@ -122,27 +124,29 @@ export const findEntityIdByName = (
 ) =>
 	Effect.gen(function* () {
 		const entity = table("entity", "entity");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				entities: rows(entity, {
-					limit: 2,
-					fields: [field("id", column(entity, "id"))],
-					where: and(
-						eq(column(entity, "name"), literal(input.name)),
-						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchema.slug)),
-						eq(
-							column(entity, "entitySchemaPluginId"),
-							literal(
-								input.entitySchema.owner.kind === "plugin"
-									? input.entitySchema.owner.pluginId
-									: null,
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					entities: rows(entity, {
+						limit: 2,
+						fields: [field("id", column(entity, "id"))],
+						where: and(
+							eq(column(entity, "name"), literal(input.name)),
+							eq(column(entity, "entitySchemaSlug"), literal(input.entitySchema.slug)),
+							eq(
+								column(entity, "entitySchemaPluginId"),
+								literal(
+									input.entitySchema.owner.kind === "plugin"
+										? input.entitySchema.owner.pluginId
+										: null,
+								),
 							),
 						),
-					),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const [row, ...others] = requireRows(result.data.entities, "entities").items;
 		if (others.length > 0) {
 			throw new Error(`Entity name '${input.name}' is not unique in its schema`);
@@ -250,25 +254,27 @@ const getEntityByProvenance = (
 ) =>
 	Effect.gen(function* () {
 		const entity = table("entity", "entity");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				entities: rows(entity, {
-					limit: 1,
-					fields: [
-						field("id", column(entity, "id")),
-						field("name", column(entity, "name")),
-						field("populatedAt", column(entity, "populatedAt")),
-					],
-					where: and(
-						eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-						eq(column(entity, "externalId"), literal(input.externalId)),
-						eq(column(entity, "providerId"), literal(input.providerId)),
-						...(globalOnly ? [isNull(column(entity, "userId"))] : []),
-					),
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					entities: rows(entity, {
+						limit: 1,
+						fields: [
+							field("id", column(entity, "id")),
+							field("name", column(entity, "name")),
+							field("populatedAt", column(entity, "populatedAt")),
+						],
+						where: and(
+							eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+							eq(column(entity, "externalId"), literal(input.externalId)),
+							eq(column(entity, "providerId"), literal(input.providerId)),
+							...(globalOnly ? [isNull(column(entity, "userId"))] : []),
+						),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const entities = requireRows(result.data.entities, "entities");
 		const entityRow = requirePresent(
 			entities.items[0],

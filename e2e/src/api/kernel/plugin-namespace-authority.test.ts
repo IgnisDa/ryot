@@ -47,21 +47,23 @@ import { describe, expect, it } from "~/support/effect-test";
 import { startFakeHttpServerScoped } from "~/support/fake-http-server";
 
 const entity = table("entity", "namespaceGraph");
-const graphRecipe = defineRecipe((owner: Parameters<typeof pluginId>[0]) => ({
-	map: ({ graph }) => Result.succeed(graph.items),
-	queries: {
-		graph: selectedRows(entity, {
-			limit: 100,
-			orderBy: [ascending(column(entity, "id"))],
-			where: eq(column(entity, "entitySchemaPluginId"), pluginId(owner)),
-			selection: {
-				id: selectedField(column(entity, "id"), EntityId),
-				schema: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-				userId: selectedField(column(entity, "userId"), Schema.NullOr(Schema.String)),
-			},
-		}),
-	},
-}));
+const graphRecipe = (owner: Parameters<typeof pluginId>[0]) => {
+	return defineRecipe({
+		map: ({ graph }) => Result.succeed(graph.items),
+		queries: {
+			graph: selectedRows(entity, {
+				limit: 100,
+				orderBy: [ascending(column(entity, "id"))],
+				where: eq(column(entity, "entitySchemaPluginId"), pluginId(owner)),
+				selection: {
+					id: selectedField(column(entity, "id"), EntityId),
+					schema: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+					userId: selectedField(column(entity, "userId"), Schema.NullOr(Schema.String)),
+				},
+			}),
+		},
+	});
+};
 
 describe("plugin namespace authority", () => {
 	it.live(
@@ -76,6 +78,7 @@ describe("plugin namespace authority", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
+						{},
 					))[0],
 					"A bottle missing",
 				);
@@ -83,6 +86,7 @@ describe("plugin namespace authority", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: b.pluginId } }),
+						{},
 					))[0],
 					"B bottle missing",
 				);
@@ -134,12 +138,14 @@ describe("plugin namespace authority", () => {
 				const graph = yield* executeRyotQLRecipe(
 					client,
 					namespaceEntityGraphRecipe({ kind: "local", pluginId: a.pluginId }),
+					{},
 				);
 				expect(graph).toHaveLength(3);
 				expect(graph.every((row) => row.userId === userId)).toBe(true);
 				const ownBottles = yield* executeRyotQLRecipe(
 					client,
 					namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
+					{},
 				);
 				expect(ownBottles.map(({ name }) => name).sort()).toEqual(["A1 bottle", "A1 kernel child"]);
 				const child = requirePresent(
@@ -156,6 +162,7 @@ describe("plugin namespace authority", () => {
 					yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: b.pluginId } }),
+						{},
 					),
 				).toEqual([foreign]);
 			}),
@@ -230,6 +237,7 @@ describe("plugin namespace authority", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: installed.pluginId } }),
+						{},
 					))[0],
 					"Owned bottle missing",
 				);
@@ -283,6 +291,7 @@ describe("plugin namespace authority", () => {
 				(yield* executeRyotQLRecipe(
 					client,
 					namespaceBottlesRecipe({ reference: { kind: "local", pluginId: b.pluginId } }),
+					{},
 				))[0],
 				"B bottle missing",
 			);
@@ -290,6 +299,7 @@ describe("plugin namespace authority", () => {
 				(yield* executeRyotQLRecipe(
 					client,
 					namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
+					{},
 				))[0],
 				"A bottle missing",
 			);
@@ -297,6 +307,7 @@ describe("plugin namespace authority", () => {
 				(yield* executeRyotQLRecipe(
 					client,
 					graphRecipe({ kind: "local", pluginId: b.pluginId }),
+					{},
 				)).find(({ schema }) => schema === "distillery"),
 				"B distillery missing",
 			);
@@ -327,6 +338,7 @@ describe("plugin namespace authority", () => {
 				const bottles = yield* executeRyotQLRecipe(
 					client,
 					namespaceBottlesRecipe({ reference: { kind: "local", pluginId: installed.pluginId } }),
+					{},
 				);
 				bottleNames.push(...bottles.map(({ name }) => name));
 			}
@@ -349,7 +361,7 @@ describe("plugin namespace authority", () => {
 			for (const installed of [a, b]) {
 				const reference = { kind: "local" as const, pluginId: installed.pluginId };
 				const selected = requirePresent(
-					(yield* executeRyotQLRecipe(client, namespaceProvidersRecipe(reference)))[0],
+					(yield* executeRyotQLRecipe(client, namespaceProvidersRecipe(reference), {}))[0],
 					"Exact provider missing",
 				);
 				expect(selected.root).toBe("bottle");
@@ -361,7 +373,7 @@ describe("plugin namespace authority", () => {
 				assertCompleted(result, "private namespace import");
 				yield* populateRelatedInteractively({ client }, result.data.id);
 				roots.push(result.data.id);
-				const graph = yield* executeRyotQLRecipe(client, graphRecipe(reference));
+				const graph = yield* executeRyotQLRecipe(client, graphRecipe(reference), {});
 				expect(graph.every((row) => row.userId === userId)).toBe(true);
 				expect(graph.map(({ schema }) => schema).sort()).toEqual(
 					[
@@ -375,6 +387,7 @@ describe("plugin namespace authority", () => {
 				const relationships = yield* executeRyotQLRecipe(
 					client,
 					namespaceRelationshipsRecipe(reference),
+					{},
 				);
 				expect(relationships).toHaveLength(2);
 				expect(

@@ -12,6 +12,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
 
@@ -79,16 +80,36 @@ const mediaLibraryRows = (client: Client, entityId: string, schemaSlug: string) 
 
 const collectionMembership = table("relationship", "collectionMembership");
 
-const collectionMembershipsRecipe = defineRecipe(
-	(input: { readonly entityId: string; readonly collectionId: string }) => ({
+const collectionMembershipsRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "entityId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+			collectionId: {
+				type: "string",
+				label: "collectionId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
 		map: ({ memberships }) => Result.succeed(memberships.items),
 		queries: {
 			memberships: selectedRows(collectionMembership, {
 				limit: 100,
 				orderBy: [ascending(column(collectionMembership, "id"))],
 				where: and(
-					eq(column(collectionMembership, "sourceEntityId"), literal(input.entityId)),
-					eq(column(collectionMembership, "targetEntityId"), literal(input.collectionId)),
+					eq(column(collectionMembership, "sourceEntityId"), recipeParameters.value("entityId")),
+					eq(
+						column(collectionMembership, "targetEntityId"),
+						recipeParameters.value("collectionId"),
+					),
 					eq(column(collectionMembership, "relationshipSchemaSlug"), literal("member-of")),
 				),
 				selection: {
@@ -101,20 +122,39 @@ const collectionMembershipsRecipe = defineRecipe(
 				},
 			}),
 		},
-	}),
-);
+	});
+})();
 
 const collectionMemberships = (client: Client, entityId: string, collectionId: string) =>
-	executeRyotQLRecipe(client, collectionMembershipsRecipe({ entityId, collectionId }));
+	executeRyotQLRecipe(client, collectionMembershipsRecipe, { entityId, collectionId });
 
 const mediaRelationship = table("relationship", "mediaUserDataRelationship");
 
-const mediaRelationshipsRecipe = defineRecipe(
-	(input: {
-		readonly sourceEntityId: string;
-		readonly targetEntityId: string;
-		readonly relationshipSchemaSlug: string;
-	}) => ({
+const mediaRelationshipsRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			sourceEntityId: {
+				type: "string",
+				label: "sourceEntityId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+			targetEntityId: {
+				type: "string",
+				label: "targetEntityId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+			relationshipSchemaSlug: {
+				type: "string",
+				description: "Query argument",
+				validation: { required: true },
+				label: "relationshipSchemaSlug",
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
 		map: ({ relationships }) => Result.succeed(relationships.items),
 		queries: {
 			relationships: selectedRows(mediaRelationship, {
@@ -122,17 +162,17 @@ const mediaRelationshipsRecipe = defineRecipe(
 				orderBy: [ascending(column(mediaRelationship, "id"))],
 				selection: { id: selectedField(column(mediaRelationship, "id"), Schema.String) },
 				where: and(
-					eq(column(mediaRelationship, "sourceEntityId"), literal(input.sourceEntityId)),
-					eq(column(mediaRelationship, "targetEntityId"), literal(input.targetEntityId)),
+					eq(column(mediaRelationship, "sourceEntityId"), recipeParameters.value("sourceEntityId")),
+					eq(column(mediaRelationship, "targetEntityId"), recipeParameters.value("targetEntityId")),
 					eq(
 						column(mediaRelationship, "relationshipSchemaSlug"),
-						literal(input.relationshipSchemaSlug),
+						recipeParameters.value("relationshipSchemaSlug"),
 					),
 				),
 			}),
 		},
-	}),
-);
+	});
+})();
 
 const mediaRelationshipCount = (
 	client: Client,
@@ -143,7 +183,7 @@ const mediaRelationshipCount = (
 	},
 ) =>
 	Effect.map(
-		executeRyotQLRecipe(client, mediaRelationshipsRecipe(input)),
+		executeRyotQLRecipe(client, mediaRelationshipsRecipe, input),
 		(relationships) => relationships.length,
 	);
 

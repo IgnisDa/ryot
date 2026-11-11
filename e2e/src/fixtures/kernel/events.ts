@@ -44,21 +44,21 @@ import {
 } from "./ryotql";
 import { testPluginEntitySchema } from "./test-plugin";
 
-const eventProjectionsRecipe = defineRecipe(() => {
+const eventProjectionsRecipe = (() => {
 	const event = table("event", "settledEvent");
-	return {
+	return defineRecipe({
 		map: ({ processing }) => Result.succeed(projectionProcessingState(processing)),
 		queries: {
 			processing: selectedAggregate(event, { measures: projectionStatusMeasures(event) }),
 		},
-	};
-});
+	});
+})();
 
 /** Writes outside an events transaction, such as imports and restores, fold in jobs; readers wait for them. */
 export const waitForEventProjections = (client: Client) =>
 	pollUntil(
 		"event projections settled",
-		executeRyotQLRecipe(client, eventProjectionsRecipe()).pipe(
+		executeRyotQLRecipe(client, eventProjectionsRecipe, {}).pipe(
 			Effect.map((state) => (state === "pending" ? null : state)),
 		),
 	).pipe(Effect.tap((state) => Effect.sync(() => expect(state).toBe("ready"))));
@@ -196,28 +196,30 @@ export const listEventsForEntity = (
 		const where = options.eventSchemaSlug
 			? and(entityPredicate, eq(column(event, "eventSchemaSlug"), literal(options.eventSchemaSlug)))
 			: entityPredicate;
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				events: rows(event, {
-					after,
-					limit,
-					where,
-					orderBy: [
-						descending(column(event, "occurredAt")),
-						descending(column(event, "createdAt")),
-						descending(column(event, "id")),
-					],
-					fields: [
-						field("id", column(event, "id")),
-						field("occurredAt", column(event, "occurredAt")),
-						field("properties", column(event, "properties")),
-						field("eventSchemaSlug", column(event, "eventSchemaSlug")),
-						field("sessionEntityId", column(event, "sessionEntityId")),
-					],
+		const result = yield* executeRyotQL(client, {
+			pages: { events: { after: after } },
+			source: {
+				kind: "inline",
+				document: document({
+					events: rows(event, {
+						limit,
+						where,
+						orderBy: [
+							descending(column(event, "occurredAt")),
+							descending(column(event, "createdAt")),
+							descending(column(event, "id")),
+						],
+						fields: [
+							field("id", column(event, "id")),
+							field("occurredAt", column(event, "occurredAt")),
+							field("properties", column(event, "properties")),
+							field("eventSchemaSlug", column(event, "eventSchemaSlug")),
+							field("sessionEntityId", column(event, "sessionEntityId")),
+						],
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const events = requireRows(result.data.events, "events");
 
 		return events.items.map((item) => {

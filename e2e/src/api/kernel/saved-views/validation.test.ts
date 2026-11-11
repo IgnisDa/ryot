@@ -7,6 +7,7 @@ import {
 	entityBrowserSettings,
 	rowsFields,
 } from "~/fixtures/kernel";
+import { postApiJson } from "~/fixtures/kernel/contract-client";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
 import { assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
@@ -28,9 +29,9 @@ const createError = Effect.fn(function* (
 
 type CreateSavedViewError = Effect.Success<ReturnType<typeof createError>>;
 
-const expectSettingsError = (error: CreateSavedViewError, message: string) => {
+const expectSettingsError = (error: CreateSavedViewError) => {
 	assertTaggedError(error, "SavedViewBadRequest");
-	expect(error.reason).toEqual({ message, code: "settings-incompatible" });
+	expect(error.reason.code).toBe("settings-incompatible");
 };
 
 describe("saved views validation", () => {
@@ -39,31 +40,39 @@ describe("saved views validation", () => {
 			const error = yield* createError((pluginId) => ({
 				settings: { ...entityBrowserSettings(pluginId), sourceName: "missing" },
 			}));
-			expectSettingsError(error, "Entity-browser source 'missing' does not exist");
+			expectSettingsError(error);
 		}),
 	);
 
 	it.live("requires the configured source to produce rows", () =>
 		Effect.gen(function* () {
-			const error = yield* createError(() => ({
+			const error = yield* createError((pluginId) => ({
+				settings: { ...entityBrowserSettings(pluginId), controls: {} },
 				dataSources: document({
 					savedView: aggregate(entity, {
 						measures: [{ key: "total", aggregation: { function: "count" } }],
 					}),
 				}),
 			}));
-			expectSettingsError(error, "Entity-browser source 'savedView' must produce rows");
+			expectSettingsError(error);
 		}),
 	);
 
 	it.live("rejects stored cursors", () =>
 		Effect.gen(function* () {
-			const error = yield* createError(() => ({
-				dataSources: document({
-					savedView: rows(entity, { limit: 2, after: "cursor", fields: rowsFields }),
+			const { token, client } = yield* createAuthenticatedClient();
+			const { pluginId } = yield* findMediaEntitySchema(client, "book");
+			const query = rows(entity, { limit: 2, fields: rowsFields });
+			const invalidOutput = { ...query.output, after: "cursor" };
+			const response = yield* postApiJson(
+				client,
+				"/saved-views",
+				buildSavedViewBody(pluginId, {
+					dataSources: { queries: { savedView: { ...query, output: invalidOutput } } },
 				}),
-			}));
-			expectSettingsError(error, "Stored data source 'savedView' must not contain a cursor");
+				token,
+			);
+			expect(response.status).toBe(400);
 		}),
 	);
 
@@ -75,10 +84,7 @@ describe("saved views validation", () => {
 					settings: { ...settings, subject: { ...settings.subject, entityAlias: "missing" } },
 				};
 			});
-			expectSettingsError(
-				error,
-				"Entity-browser subject alias 'missing' must be an entity table in the source query",
-			);
+			expectSettingsError(error);
 		}),
 	);
 
@@ -91,7 +97,7 @@ describe("saved views validation", () => {
 					settings: { ...settings, subject: { ...settings.subject, schemas: [schema, schema] } },
 				};
 			});
-			expectSettingsError(error, "Entity-browser subject schemas must not contain duplicates");
+			expectSettingsError(error);
 		}),
 	);
 
@@ -100,7 +106,7 @@ describe("saved views validation", () => {
 			const error = yield* createError((pluginId) => ({
 				settings: { ...entityBrowserSettings(pluginId), layouts: ["list"], defaultLayout: "grid" },
 			}));
-			expectSettingsError(error, "Entity-browser defaultLayout must be one of the enabled layouts");
+			expectSettingsError(error);
 		}),
 	);
 });

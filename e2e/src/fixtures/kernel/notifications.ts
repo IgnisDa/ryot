@@ -16,7 +16,12 @@ export const createNotificationChannel = (client: Client, payload: CreateNotific
 
 export const listNotificationChannels = (client: Client) =>
 	Effect.gen(function* () {
-		const result = yield* executeRyotQLRecipe(client, notificationChannelsRecipe({ limit: 100 }));
+		const result = yield* executeRyotQLRecipe(
+			client,
+			notificationChannelsRecipe,
+			{},
+			{ pages: { notificationChannels: { limit: 100 } } },
+		);
 		return result.items;
 	});
 

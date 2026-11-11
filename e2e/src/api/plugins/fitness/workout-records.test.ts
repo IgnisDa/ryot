@@ -3,11 +3,11 @@ import {
 	column,
 	defineRecipe,
 	eq,
-	literal,
 	selectedField,
 	selectedOptionalRow,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { Effect, Result, Schema, Struct } from "effect";
 
@@ -59,14 +59,26 @@ const waitForReadyWorkoutSets = (
 
 const isoString = (value: Date | string) => new Date(value).toISOString();
 
-const workoutSourceRecipe = defineRecipe((input: { readonly eventId: string }) => {
+const workoutSourceRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			eventId: {
+				type: "string",
+				label: "eventId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+
 	const source = table("event", "source");
-	return {
+	return defineRecipe({
+		parameters: recipeParameters.schema,
 		map: ({ event }) => Result.succeed(event),
 		queries: {
 			event: selectedOptionalRow(source, {
 				orderBy: [],
-				where: eq(column(source, "id"), literal(input.eventId)),
+				where: eq(column(source, "id"), recipeParameters.value("eventId")),
 				selection: {
 					updatedAt: selectedField(column(source, "updatedAt"), Schema.String),
 					properties: selectedField(
@@ -76,10 +88,10 @@ const workoutSourceRecipe = defineRecipe((input: { readonly eventId: string }) =
 				},
 			}),
 		},
-	};
-});
+	});
+})();
 const storedWorkoutSource = (client: Client, eventId: string) =>
-	executeRyotQLRecipe(client, workoutSourceRecipe({ eventId })).pipe(
+	executeRyotQLRecipe(client, workoutSourceRecipe, { eventId }).pipe(
 		Effect.map((source) => requirePresent(source, "Expected the stored source event")),
 	);
 

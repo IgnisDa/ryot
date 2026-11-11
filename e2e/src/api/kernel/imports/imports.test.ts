@@ -64,9 +64,7 @@ describe("Plugin Import Public Boundary", () => {
 		Effect.gen(function* () {
 			assertPresent(fixtureImportPlugin, "Fixture import plugin is missing");
 			const { client } = yield* createAuthenticatedClient();
-			const sources = yield* collectRyotQLRecipeItems(client, (after) =>
-				importSourcesRecipe({ after, limit: 100 }),
-			);
+			const sources = yield* collectRyotQLRecipeItems(client, importSourcesRecipe, {}, "sources");
 			const fixtureSource = fixtureImportPlugin.manifest.importSources.find(
 				({ slug }) => slug === FIXTURE_IMPORT_SOURCE,
 			);

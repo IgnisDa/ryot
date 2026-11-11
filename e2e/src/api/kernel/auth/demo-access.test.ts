@@ -246,7 +246,7 @@ beforeAll(() =>
 				integrationId = integration.id;
 				const detail = requirePresent(
 					Option.getOrUndefined(
-						yield* executeRyotQLRecipe(owner, integrationRecipe({ id: integrationId })),
+						yield* executeRyotQLRecipe(owner, integrationRecipe, { id: integrationId }),
 					),
 					"Seeded integration detail is missing",
 				);
@@ -551,22 +551,24 @@ describe("shared demo access acceptance", () => {
 
 			const entityTable = table("entity", "entity");
 			const relationshipTable = table("relationship", "relationship");
-			const result = yield* executeRyotQL(
-				ownerClient,
-				document({
-					entities: rows(entityTable, {
-						fields: [field("id", column(entityTable, "id"))],
-						where: eq(column(entityTable, "name"), literal(entityName)),
+			const result = yield* executeRyotQL(ownerClient, {
+				source: {
+					kind: "inline",
+					document: document({
+						entities: rows(entityTable, {
+							fields: [field("id", column(entityTable, "id"))],
+							where: eq(column(entityTable, "name"), literal(entityName)),
+						}),
+						relationships: rows(relationshipTable, {
+							fields: [field("id", column(relationshipTable, "id"))],
+							where: and(
+								eq(column(relationshipTable, "sourceEntityId"), literal(source.id)),
+								eq(column(relationshipTable, "targetEntityId"), literal(target.id)),
+							),
+						}),
 					}),
-					relationships: rows(relationshipTable, {
-						fields: [field("id", column(relationshipTable, "id"))],
-						where: and(
-							eq(column(relationshipTable, "sourceEntityId"), literal(source.id)),
-							eq(column(relationshipTable, "targetEntityId"), literal(target.id)),
-						),
-					}),
-				}),
-			);
+				},
+			});
 			expect(requireRows(result.data.entities, "entities").items).toHaveLength(0);
 			expect(requireRows(result.data.relationships, "relationships").items).toHaveLength(0);
 		}),
@@ -580,9 +582,18 @@ describe("shared demo access acceptance", () => {
 				const token = yield* getDemoToken(sessionCookie);
 				const demoClient = makeSession(harnessTarget, { Authorization: `Bearer ${token}` });
 
-				const detailRecipe = integrationRecipe({ id: integrationId });
+				const detailRecipeOptions = {},
+					detailRecipe = integrationRecipe,
+					detailRecipeArguments = { id: integrationId };
 				const restricted = yield* Effect.flip(
-					demoClient.call((c) => c.ryotql.executePlugin({ payload: detailRecipe.document })),
+					demoClient.call((c) =>
+						c.ryotql.executePlugin({
+							payload: {
+								arguments: detailRecipeArguments,
+								source: { kind: "inline", document: detailRecipe.document },
+							},
+						}),
+					),
 				);
 				assertTaggedError(restricted, "RyotQLBadRequest");
 				expect(restricted.reason.code).toBe("invalid-query");
@@ -592,7 +603,9 @@ describe("shared demo access acceptance", () => {
 					),
 				).toBe(false);
 
-				const outcome = yield* Effect.result(executeRyotQLRecipe(demoClient, detailRecipe));
+				const outcome = yield* Effect.result(
+					executeRyotQLRecipe(demoClient, detailRecipe, detailRecipeArguments, detailRecipeOptions),
+				);
 				if (Result.isSuccess(outcome)) {
 					throw new Error("Demo credentials read protected kernel integration detail");
 				}
@@ -606,15 +619,17 @@ describe("shared demo access acceptance", () => {
 				).toBe(false);
 
 				const collectionEntity = table("entity", "demoCollection");
-				const result = yield* executeRyotQL(
-					demoClient,
-					document({
-						collection: rows(collectionEntity, {
-							fields: [field("name", column(collectionEntity, "name"))],
-							where: eq(column(collectionEntity, "name"), literal(DEMO_COLLECTION_NAME)),
+				const result = yield* executeRyotQL(demoClient, {
+					source: {
+						kind: "inline",
+						document: document({
+							collection: rows(collectionEntity, {
+								fields: [field("name", column(collectionEntity, "name"))],
+								where: eq(column(collectionEntity, "name"), literal(DEMO_COLLECTION_NAME)),
+							}),
 						}),
-					}),
-				);
+					},
+				});
 				const collections = requireRows(result.data.collection, "collection");
 				expect(collections.items).toHaveLength(1);
 				expect(

@@ -1,10 +1,8 @@
-import {
-	type ReportingSelection,
-	resolveReportingSelection,
-} from "@ryot-app/contract/modules/analytics/reporting";
+import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessMeasurementReadingsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
-import { Clock, Effect } from "effect";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
+import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import {
@@ -233,17 +231,13 @@ it.live(
 			yield* page.keyboard.press("Escape");
 			yield* dialog.waitFor({ state: "hidden" });
 
-			const readingsNow = yield* Clock.currentTimeMillis;
 			const readings = yield* executeRyotQLRecipe(
 				fixture.account.client,
-				fitnessMeasurementReadingsRecipe({
-					reference: fixture.reference,
+				fitnessMeasurementReadingsRecipe({ reference: fixture.reference }),
+				{
 					metricId: fixture.measurementMetricId,
-					reporting: resolveReportingSelection(fixture.reportingSelection, {
-						now: readingsNow,
-						timeZone: TimeZone.make("UTC"),
-					}),
-				}),
+					...reportingArguments(fixture.reportingSelection),
+				},
 			);
 			const editedReading = requirePresent(
 				readings.items.find(({ occurredAt }) => occurredAt === "2026-09-04T12:00:00.000Z"),

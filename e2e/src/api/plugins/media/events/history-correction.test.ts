@@ -125,7 +125,8 @@ describe("Media history correction", () => {
 				const reference = yield* mediaReferenceForEntity(client, movie.entityId);
 				const context = yield* executeRyotQLRecipe(
 					client,
-					mediaActivityLogContextRecipe({ reference, entityId: movie.entityId }),
+					mediaActivityLogContextRecipe({ reference }),
+					{ entityId: movie.entityId },
 				);
 				expect(context).toMatchObject({ progressPercent: 50, state: "in_progress" });
 			}),

@@ -1,8 +1,7 @@
-import { resolveReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { fitnessAnalyticsTotalsRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Clock, Effect } from "effect";
+import { Effect } from "effect";
 
 import { analyticsFixtureSelection } from "~/fixtures/kernel/analytics-location";
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
@@ -119,19 +118,11 @@ export const createFitnessAnalyticsFixture = Effect.fn("createFitnessAnalyticsFi
 			);
 		}
 
-		const now = yield* Clock.currentTimeMillis;
 		yield* pollUntil(
 			"Fitness analytics workout sets to be processed",
-			executeRyotQLRecipe(
-				client,
-				fitnessAnalyticsTotalsRecipe({
-					reference,
-					reporting: resolveReportingSelection(analyticsFixtureSelection, {
-						now,
-						timeZone: TimeZone.make("UTC"),
-					}),
-				}),
-			).pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
+			executeRyotQLRecipe(client, fitnessAnalyticsTotalsRecipe({ reference }), {
+				...reportingArguments(analyticsFixtureSelection),
+			}).pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
 		);
 
 		return {

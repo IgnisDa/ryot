@@ -1,13 +1,12 @@
-import { resolveReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { historicalFitnessRankingRecipe } from "@ryot-app/fitness-plugin/analytics-recipes";
 import {
 	exerciseEquipmentRecipe,
 	exerciseTargetsRecipe,
 } from "@ryot-app/fitness-plugin/taxonomy-recipes";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { randomUuid } from "@ryot-app/testing/random";
-import { Clock, Effect, Result } from "effect";
+import { Effect, Result } from "effect";
 
 import { type Client, createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { getEntity } from "~/fixtures/kernel/entities";
@@ -82,17 +81,17 @@ const readRankings = (
 	kind: "targets" | "equipment" | "exercises",
 ) =>
 	Effect.gen(function* () {
-		const now = yield* Clock.currentTimeMillis;
 		const { items } = yield* executeRyotQLRecipe(
 			client,
-			historicalFitnessRankingRecipe({
+			historicalFitnessRankingRecipe({ reference }),
+			{
 				kind,
-				reference,
-				reporting: resolveReportingSelection(
-					{ grouping: "auto", comparison: "none", range: { kind: "all-time" } },
-					{ now, timeZone: TimeZone.make("UTC") },
-				),
-			}),
+				...reportingArguments({
+					grouping: "auto",
+					comparison: "none",
+					range: { kind: "all-time" },
+				}),
+			},
 		);
 		return items;
 	});
@@ -625,8 +624,18 @@ it.live(
 			).toHaveLength(1);
 
 			const [targets, equipment] = yield* Effect.all([
-				executeRyotQLRecipe(client, exerciseTargetsRecipe({ reference, limit: 100, exerciseId })),
-				executeRyotQLRecipe(client, exerciseEquipmentRecipe({ reference, limit: 100, exerciseId })),
+				executeRyotQLRecipe(
+					client,
+					exerciseTargetsRecipe({ reference }),
+					{ exerciseId },
+					{ pages: { targets: { limit: 100 } } },
+				),
+				executeRyotQLRecipe(
+					client,
+					exerciseEquipmentRecipe({ reference }),
+					{ exerciseId },
+					{ pages: { equipment: { limit: 100 } } },
+				),
 			]);
 			expect(targets.items.map(({ id, role }) => ({ role, entityId: id }))).toEqual(
 				[...taxonomy.targets].sort((left, right) => left.entityId.localeCompare(right.entityId)),

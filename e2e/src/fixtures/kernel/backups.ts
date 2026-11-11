@@ -20,7 +20,7 @@ export const pollBackupRunUntilTerminal = (client: Client, runId: string) =>
 		`Backup run '${runId}' to complete`,
 		Effect.gen(function* () {
 			const run = Option.getOrUndefined(
-				yield* executeRyotQLRecipe(client, backupRunRecipe({ id: runId })),
+				yield* executeRyotQLRecipe(client, backupRunRecipe, { id: runId }),
 			);
 			if (run === undefined) {
 				throw new Error(`Backup run '${runId}' not found`);

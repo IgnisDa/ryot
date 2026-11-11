@@ -236,8 +236,8 @@ describe("Workout Templates E2E", () => {
 					reference: builtinSavedViewReference(pluginId, "all-workout-templates"),
 					settings: {
 						defaultLayout: "grid",
-						searchFields: ["name"],
 						sourceName: "savedView",
+						controls: { search: "search" },
 						layouts: ["grid", "list", "table"],
 						summary: { image: null, subtitle: null },
 						subject: {
@@ -326,10 +326,8 @@ describe("Workout Templates E2E", () => {
 					yield* createWorkoutTemplateEntityFixture(client);
 				const result = yield* executeRyotQLRecipe(
 					client,
-					workoutTemplateListRecipe({
-						entityId: workoutTemplateId,
-						reference: { pluginId, kind: "local" },
-					}),
+					workoutTemplateListRecipe({ reference: { pluginId, kind: "local" } }),
+					{ entityId: workoutTemplateId },
 				);
 
 				const firstTemplate = result.items[0];
@@ -479,11 +477,8 @@ describe("Workout Templates E2E", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				workoutDetailRecipe({
-					templateLimit: 1,
-					entityId: workoutId,
-					reference: { pluginId, kind: "local" },
-				}),
+				workoutDetailRecipe({ reference: { pluginId, kind: "local" } }),
+				{ entityId: workoutId },
 			);
 			const workoutRow = requirePresent(result, "Expected workout row");
 			const template = requireRyotQLInclude(workoutRow, "template").items[0];
@@ -523,11 +518,8 @@ describe("Workout Templates E2E", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				workoutTemplateDetailRecipe({
-					workoutLimit: 10,
-					entityId: workoutTemplateId,
-					reference: { pluginId, kind: "local" },
-				}),
+				workoutTemplateDetailRecipe({ reference: { pluginId, kind: "local" } }),
+				{ entityId: workoutTemplateId },
 			);
 			const templateRow = requirePresent(result, "Expected workout template row");
 			const workout = requireRyotQLInclude(templateRow, "workouts").items[0];

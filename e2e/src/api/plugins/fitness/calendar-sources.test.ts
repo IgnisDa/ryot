@@ -1,6 +1,7 @@
 import {
 	calendarOccurrencesPageRecipe,
 	calendarSourcesRecipe,
+	calendarWindowBounds,
 } from "@ryot-app/ryotql-recipes/calendar";
 import { Effect, Result } from "effect";
 
@@ -29,13 +30,19 @@ const window = {
 
 const occurrences = (client: Client) =>
 	Effect.gen(function* () {
-		const sources = yield* executeRyotQLRecipe(client, calendarSourcesRecipe());
+		const sources = yield* executeRyotQLRecipe(client, calendarSourcesRecipe, {});
 		const source = sources.find((candidate) => candidate.slug === "workouts");
 		if (source === undefined) {
 			throw new Error("Missing calendar source 'workouts'");
 		}
-		return yield* collectRyotQLRecipeItems(client, (after) =>
-			Result.getOrThrow(calendarOccurrencesPageRecipe({ after, source, window })),
+		return yield* collectRyotQLRecipeItems(
+			client,
+			Result.getOrThrow(calendarOccurrencesPageRecipe({ source })),
+			{
+				windowEnd: calendarWindowBounds(source.precision, window).end,
+				windowStart: calendarWindowBounds(source.precision, window).start,
+			},
+			"calendarOccurrences",
 		);
 	});
 

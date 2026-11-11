@@ -40,10 +40,9 @@ export const removeReminder = (
 export const listReminders = (client: Client) =>
 	executeRyotQLRecipe(
 		client,
-		remindersRecipe({
-			limit: 100,
-			states: ["scheduled", "processing", "needs-scheduling", "settled", "cancelled"],
-		}),
+		remindersRecipe,
+		{ states: ["scheduled", "processing", "needs-scheduling", "settled", "cancelled"] },
+		{ pages: { reminders: { limit: 100 } } },
 	);
 
 export const runReminderScan = (client: Client) =>

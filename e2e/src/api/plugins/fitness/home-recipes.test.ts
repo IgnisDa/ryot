@@ -124,11 +124,12 @@ describe("Home muscle activity recipe", () => {
 				yield* log(client, untyped.exerciseId, weekStartAt);
 				yield* log(client, stabilizer.exerciseId, stabilizerAt);
 				yield* log(other.client, primary.id, "2026-10-21T09:00:00.000Z");
-				const recipe = muscleActivityRecipe({
-					weekStartAt,
-					reference: { pluginId, kind: "local" },
+				const recipe = muscleActivityRecipe({ reference: { pluginId, kind: "local" } });
+				const activity = yield* executeRyotQLRecipe(client, recipe, {
+					range: "custom",
+					customStartDate: weekStartAt.slice(0, 10),
+					customEndDate: DateTime.formatIsoDate(yield* DateTime.now),
 				});
-				const activity = yield* executeRyotQLRecipe(client, recipe);
 				const ids = new Set<string>([
 					idle.id,
 					shared.id,
@@ -151,10 +152,12 @@ describe("Home muscle activity recipe", () => {
 				]);
 				const later = yield* executeRyotQLRecipe(
 					client,
-					muscleActivityRecipe({
-						reference: { pluginId, kind: "local" },
-						weekStartAt: "2026-10-22T00:00:00.000Z",
-					}),
+					muscleActivityRecipe({ reference: { pluginId, kind: "local" } }),
+					{
+						range: "custom",
+						customStartDate: "2026-10-22",
+						customEndDate: DateTime.formatIsoDate(yield* DateTime.now),
+					},
 				);
 				expect(later.filter(({ id }) => ids.has(id))).toEqual(
 					activity
@@ -166,7 +169,11 @@ describe("Home muscle activity recipe", () => {
 							name: targetName,
 						})),
 				);
-				const otherActivity = yield* executeRyotQLRecipe(other.client, recipe);
+				const otherActivity = yield* executeRyotQLRecipe(other.client, recipe, {
+					range: "custom",
+					customStartDate: weekStartAt.slice(0, 10),
+					customEndDate: DateTime.formatIsoDate(yield* DateTime.now),
+				});
 				expect(otherActivity.filter(({ id }) => ids.has(id))).toEqual([
 					{ weeklySets: 0, id: foreign.id, name: foreign.name, lastTrainedAt: null },
 					{ name, id: shared.id, weeklySets: 1, lastTrainedAt: "2026-10-21T09:00:00.000Z" },

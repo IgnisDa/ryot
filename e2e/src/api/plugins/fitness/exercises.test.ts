@@ -96,8 +96,8 @@ describe("Exercises E2E", () => {
 				settings: {
 					pageSize: 20,
 					defaultLayout: "grid",
-					searchFields: ["name"],
 					sourceName: "savedView",
+					controls: { search: "search" },
 					layouts: ["grid", "list", "table"],
 					summary: { image: "image", subtitle: { field: "level", displayKind: "text" } },
 					tableColumns: [
@@ -193,11 +193,9 @@ describe("Exercises E2E", () => {
 				const exercise = requirePresent(
 					(yield* executeRyotQLRecipe(
 						client,
-						exerciseListRecipe({
-							limit: 1,
-							name: exerciseName,
-							reference: { pluginId, kind: "local" },
-						}),
+						exerciseListRecipe({ reference: { pluginId, kind: "local" } }),
+						{ name: exerciseName },
+						{ pages: { exercises: { limit: 1 } } },
 					)).items[0],
 					"Expected the created exercise in the exercise list",
 				);
@@ -220,7 +218,8 @@ describe("Exercises E2E", () => {
 				const sourceName = savedView.settings["sourceName"];
 				assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
 				const savedViewResult = requireRows(
-					(yield* executeRyotQL(client, dataSources)).data[sourceName],
+					(yield* executeRyotQL(client, { source: { kind: "inline", document: dataSources } }))
+						.data[sourceName],
 					sourceName,
 				);
 				const savedViewExercise = savedViewResult.items.find(
@@ -308,7 +307,9 @@ describe("Exercises E2E", () => {
 			const sourceName = savedView.settings["sourceName"];
 			assertCondition(typeof sourceName === "string", "Expected a named saved-view source");
 			const result = requireRows(
-				(yield* executeRyotQL(client, dataSources)).data[sourceName],
+				(yield* executeRyotQL(client, { source: { kind: "inline", document: dataSources } })).data[
+					sourceName
+				],
 				sourceName,
 			);
 

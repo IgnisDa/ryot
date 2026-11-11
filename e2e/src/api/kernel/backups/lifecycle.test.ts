@@ -43,10 +43,8 @@ describe("backup lifecycle", () => {
 				);
 			}
 
-			const fetched = yield* executeRyotQLRecipe(owner.client, backupRunRecipe({ id: runId }));
-			const listed = yield* collectRyotQLRecipeItems(owner.client, (after) =>
-				backupRunsRecipe({ after, limit: 100 }),
-			);
+			const fetched = yield* executeRyotQLRecipe(owner.client, backupRunRecipe, { id: runId });
+			const listed = yield* collectRyotQLRecipeItems(owner.client, backupRunsRecipe, {}, "runs");
 
 			expect(Option.getOrUndefined(fetched)).toEqual(completed);
 			expect(listed.find(({ id }) => id === runId)).toEqual(completed);
@@ -70,7 +68,7 @@ describe("backup lifecycle", () => {
 			);
 
 			expect(
-				Option.isNone(yield* executeRyotQLRecipe(other.client, backupRunRecipe({ id: runId }))),
+				Option.isNone(yield* executeRyotQLRecipe(other.client, backupRunRecipe, { id: runId })),
 			).toBe(true);
 			const deleteError = yield* Effect.flip(
 				other.client.call((c) => c.backups.deleteRun({ params: { id: BackupRunId.make(runId) } })),
@@ -95,12 +93,12 @@ describe("backup lifecycle", () => {
 				),
 			).toEqual({ id: runId });
 			expect(
-				Option.isNone(yield* executeRyotQLRecipe(owner.client, backupRunRecipe({ id: runId }))),
+				Option.isNone(yield* executeRyotQLRecipe(owner.client, backupRunRecipe, { id: runId })),
 			).toBe(true);
 			expect(
-				(yield* collectRyotQLRecipeItems(owner.client, (after) =>
-					backupRunsRecipe({ after, limit: 100 }),
-				)).some(({ id }) => id === runId),
+				(yield* collectRyotQLRecipeItems(owner.client, backupRunsRecipe, {}, "runs")).some(
+					({ id }) => id === runId,
+				),
 			).toBe(false);
 		}),
 	);

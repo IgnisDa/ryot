@@ -94,16 +94,18 @@ describe("RyotQL wildcard projections", () => {
 			const event = table("event", "event");
 			const entity = table("entity", "entity");
 
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					events: rows(event, {
-						fields: [star(event), field("entityName", column(entity, "name"))],
-						where: eq(column(event, "eventSchemaSlug"), literal(fixture.eventSchemaSlug)),
-						joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						events: rows(event, {
+							fields: [star(event), field("entityName", column(entity, "name"))],
+							where: eq(column(event, "eventSchemaSlug"), literal(fixture.eventSchemaSlug)),
+							joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const events = requireRows(result.data["events"], "events");
 			const item = events.items[0];
@@ -154,16 +156,18 @@ describe("RyotQL wildcard projections", () => {
 				orderBy: [{ direction: "asc", expr: column(event, "occurredAt") }],
 			});
 
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					entities: rows(entity, {
-						include: [events],
-						fields: [star(entity)],
-						where: eq(column(entity, "id"), literal(fixture.entity.id)),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						entities: rows(entity, {
+							include: [events],
+							fields: [star(entity)],
+							where: eq(column(entity, "id"), literal(fixture.entity.id)),
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const entities = requireRows(result.data["entities"], "entities");
 			const entityItem = entities.items[0];

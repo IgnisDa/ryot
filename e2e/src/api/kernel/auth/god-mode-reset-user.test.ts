@@ -28,11 +28,16 @@ import { describe, expect, it } from "~/support/effect-test";
 const WRONG_TOKEN = "wrong-token";
 
 const listPluginsWithHeaders = (headers: Record<string, string>) =>
-	collectRyotQLRecipeItems(makeSession(undefined, headers), (after) =>
-		pluginInstallationsRecipe({ after, limit: 100 }),
+	collectRyotQLRecipeItems(
+		makeSession(undefined, headers),
+		pluginInstallationsRecipe,
+		{},
+		"installations",
 	);
 const listUsers = (search: string) =>
-	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ search, limit: 50 }));
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe, { search }, undefined, {
+		pages: { users: { limit: 50 } },
+	});
 const unique = () => crypto.randomUUID();
 
 const getUserIdByEmail = (email: string) =>

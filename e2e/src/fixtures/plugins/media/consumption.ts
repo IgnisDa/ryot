@@ -1,10 +1,8 @@
-import {
-	type ReportingSelection,
-	resolveReportingSelection,
-} from "@ryot-app/contract/modules/analytics/reporting";
+import type { ReportingSelection } from "@ryot-app/contract/modules/analytics/reporting";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { mediaAnalyticsSummaryRecipe } from "@ryot-app/media-plugin/shared/analytics-recipes";
 import type { Recipe } from "@ryot-app/ryotql";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { Effect, Schema } from "effect";
 
 import type { Client } from "~/fixtures/kernel/auth";
@@ -12,25 +10,28 @@ import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
 import { requirePresent } from "~/support/assertions";
 
-export type MediaConsumptionReportInput = Omit<
+export type MediaConsumptionReportInput = { readonly entityId?: string } & Omit<
 	Parameters<typeof mediaAnalyticsSummaryRecipe>[0],
-	"reporting"
+	never
 > & { readonly now: number; readonly timeZone: TimeZone; readonly selection: ReportingSelection };
 
 export const mediaAnalyticsInput = <Input extends MediaConsumptionReportInput>({
-	now,
-	timeZone,
+	now: _now,
 	selection,
+	timeZone: _timeZone,
+	reference: _reference,
 	...input
-}: Input) => ({ ...input, reporting: resolveReportingSelection(selection, { now, timeZone }) });
-type MediaConsumptionReport = Recipe.Success<typeof mediaAnalyticsSummaryRecipe>;
+}: Input) => ({ ...input, ...reportingArguments(selection) });
+type MediaConsumptionReport = Recipe.Success<ReturnType<typeof mediaAnalyticsSummaryRecipe>>;
 
 export const waitForMediaConsumptionReport = (client: Client, input: MediaConsumptionReportInput) =>
 	pollUntil(
 		"canonical media consumption report ready",
-		executeRyotQLRecipe(client, mediaAnalyticsSummaryRecipe(mediaAnalyticsInput(input))).pipe(
-			Effect.map((report) => (report.processing === "ready" ? report : null)),
-		),
+		executeRyotQLRecipe(
+			client,
+			mediaAnalyticsSummaryRecipe({ reference: input.reference }),
+			mediaAnalyticsInput(input),
+		).pipe(Effect.map((report) => (report.processing === "ready" ? report : null))),
 	);
 
 export const requireMediaConsumptionGroup = (report: MediaConsumptionReport, mediaType: string) =>

@@ -45,7 +45,7 @@ let target: Effect.Success<ReturnType<typeof startIsolatedHarness>>["target"];
 const adminSession = () => makeSession(target);
 
 const listPlugins = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, pluginInstallationsRecipe, {}, "installations");
 
 const reconcilePluginInstallations = () =>
 	adminSession().adminCall((c) => c.testSupport.reconcilePluginInstallations());
@@ -98,24 +98,26 @@ const installationRows = (client: Client, packageId: PluginPackageId, scope: "us
 	Effect.gen(function* () {
 		const plugin = table("plugin", "plugin");
 		const installation = table("pluginInstallation", "installation");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				installations: rows(installation, {
-					joins: [
-						join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
-					],
-					fields: [
-						field("id", column(installation, "id")),
-						field("health", column(installation, "health")),
-					],
-					where: and(
-						eq(column(plugin, "scope"), literal(scope)),
-						eq(column(plugin, "packageId"), literal(packageId)),
-					),
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					installations: rows(installation, {
+						joins: [
+							join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
+						],
+						fields: [
+							field("id", column(installation, "id")),
+							field("health", column(installation, "health")),
+						],
+						where: and(
+							eq(column(plugin, "scope"), literal(scope)),
+							eq(column(plugin, "packageId"), literal(packageId)),
+						),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		return requireRows(result.data.installations, "installations").items;
 	});
 

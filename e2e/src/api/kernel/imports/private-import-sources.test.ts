@@ -17,7 +17,7 @@ import { assertTaggedError, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const listSources = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => importSourcesRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, importSourcesRecipe, {}, "sources");
 
 describe("private import sources", () => {
 	it.live("surfaces a private import source only to its owner", () =>

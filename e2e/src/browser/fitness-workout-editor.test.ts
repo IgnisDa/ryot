@@ -185,10 +185,15 @@ it.live("retries a committed workout after a lost response and reload without du
 			.getByRole("button", { exact: true, disabled: true, name: "Details" })
 			.waitFor({ state: "visible" });
 		const { pluginId } = yield* findFitnessEntitySchema(client, "workout");
-		const recipe = workoutCardsRecipe({ search: name, reference: { pluginId, kind: "local" } });
-		const committed = (yield* executeRyotQLRecipe(client, recipe)).items.filter(
-			(item) => item.name === name,
-		);
+		const recipeOptions = {},
+			recipeArguments = { search: name },
+			recipe = workoutCardsRecipe({ reference: { pluginId, kind: "local" } });
+		const committed = (yield* executeRyotQLRecipe(
+			client,
+			recipe,
+			recipeArguments,
+			recipeOptions,
+		)).items.filter((item) => item.name === name);
 		expect(committed).toHaveLength(1);
 		yield* page.reload;
 		yield* frame.getByRole("button", { exact: true, name: "Retry save" }).click();
@@ -201,7 +206,9 @@ it.live("retries a committed workout after a lost response and reload without du
 		const saved = yield* readWorkoutDetails(client, workoutId);
 		expect(committed[0]?.entityId).toBe(workoutId);
 		expect(
-			(yield* executeRyotQLRecipe(client, recipe)).items.filter((item) => item.name === name),
+			(yield* executeRyotQLRecipe(client, recipe, recipeArguments, recipeOptions)).items.filter(
+				(item) => item.name === name,
+			),
 		).toHaveLength(1);
 		const sets = saved.exercises.items
 			.flatMap((exercise) => exercise.sets.items.map((set) => ({ ...set, name: exercise.name })))

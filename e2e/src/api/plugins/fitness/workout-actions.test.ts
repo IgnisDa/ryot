@@ -72,10 +72,10 @@ it.live(
 				}),
 			);
 			expect(
-				(yield* executeRyotQLRecipe(
-					client,
-					collectionPickerRecipe({ entityId: olderWorkoutId, search: "Workout archive" }),
-				)).items,
+				(yield* executeRyotQLRecipe(client, collectionPickerRecipe, {
+					entityId: olderWorkoutId,
+					search: "Workout archive",
+				})).items,
 			).toContainEqual({ added: true, id: collection.id, name: collection.name });
 			const entity = yield* getEntity(client, olderWorkoutId);
 			const pluginId = requirePresent(entity.entitySchemaPluginId, "Expected workout plugin");
@@ -89,11 +89,8 @@ it.live(
 			expect(
 				yield* executeRyotQLRecipe(
 					client,
-					workoutEditorEntityRecipe({
-						kind: "workout",
-						entityId: olderWorkoutId,
-						reference: { pluginId, kind: "local" },
-					}),
+					workoutEditorEntityRecipe({ reference: { pluginId, kind: "local" } }),
+					{ kind: "workout", entityId: olderWorkoutId },
 				),
 			).toBeNull();
 			expect((yield* getEntity(client, exerciseId)).id).toBe(exerciseId);
@@ -117,10 +114,10 @@ it.live(
 				120000,
 			);
 			expect(recomputed.personalBests).toEqual(["reps", "one_rm", "volume", "weight"]);
-			const options = yield* executeRyotQLRecipe(
-				client,
-				collectionPickerRecipe({ entityId: olderWorkoutId, search: "Workout archive" }),
-			);
+			const options = yield* executeRyotQLRecipe(client, collectionPickerRecipe, {
+				entityId: olderWorkoutId,
+				search: "Workout archive",
+			});
 			expect(options.items).toContainEqual({
 				added: false,
 				id: collection.id,

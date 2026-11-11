@@ -38,12 +38,8 @@ it.live(
 			const reference = { pluginId, kind: "local" as const };
 			const selected = yield* executeRyotQLRecipe(
 				client,
-				workoutExercisePickerRecipe({
-					reference,
-					search: "EDITOR",
-					sort: "recently-added",
-					kinds: ["reps_and_weight"],
-				}),
+				workoutExercisePickerRecipe({ reference }),
+				{ search: "EDITOR", sort: "recently-added", kinds: ["reps_and_weight"] },
 			);
 			expect(selected.items).toMatchObject([
 				{
@@ -56,7 +52,9 @@ it.live(
 			expect(
 				(yield* executeRyotQLRecipe(
 					client,
-					exerciseTargetsRecipe({ reference, exerciseId, limit: 100 }),
+					exerciseTargetsRecipe({ reference }),
+					{ exerciseId },
+					{ pages: { targets: { limit: 100 } } },
 				)).items,
 			).toEqual([]);
 			for (const [day, weights] of [
@@ -89,48 +87,44 @@ it.live(
 				);
 				assertCondition(saved.kind === "saved", "Expected a saved workout");
 			}
-			const history = yield* executeRyotQLRecipe(
-				client,
-				workoutHistoryRecipe({
-					reference,
-					exerciseId,
-					beforeStartedAt: "2026-10-03T10:00:00.000Z",
-				}),
-			);
+			const history = yield* executeRyotQLRecipe(client, workoutHistoryRecipe({ reference }), {
+				exerciseId,
+				beforeStartedAt: "2026-10-03T10:00:00.000Z",
+			});
 			expect(history.items.map(({ name }) => name)).toEqual([
 				"Session 2026-10-02",
 				"Session 2026-10-01",
 			]);
 			const latest = history.items[0];
 			assertCondition(latest !== undefined, "Expected the latest session");
-			const sets = yield* executeRyotQLRecipe(
-				client,
-				workoutHistorySetsRecipe({ reference, exerciseId, workoutId: latest.id }),
-			);
+			const sets = yield* executeRyotQLRecipe(client, workoutHistorySetsRecipe({ reference }), {
+				exerciseId,
+				workoutId: latest.id,
+			});
 			expect(sets.items.map(({ weight, exerciseOrder }) => ({ weight, exerciseOrder }))).toEqual([
 				{ weight: 30, exerciseOrder: 0 },
 				{ weight: 40, exerciseOrder: 1 },
 			]);
 			const previous = yield* executeRyotQLRecipe(
 				client,
-				workoutExercisePreviousValuesRecipe({
-					reference,
+				workoutExercisePreviousValuesRecipe({ reference }),
+				{
 					exerciseId,
 					recordedKind: "reps_and_weight",
 					excludeWorkoutId: "current-draft",
 					beforeStartedAt: "2026-10-03T10:00:00.000Z",
-				}),
+				},
 			);
 			expect(previous.items.map(({ weight }) => weight)).toEqual([30, 40, 20]);
 			const excluded = yield* executeRyotQLRecipe(
 				client,
-				workoutExercisePreviousValuesRecipe({
-					reference,
+				workoutExercisePreviousValuesRecipe({ reference }),
+				{
 					exerciseId,
 					excludeWorkoutId: latest.id,
 					recordedKind: "reps_and_weight",
 					beforeStartedAt: "2026-10-03T10:00:00.000Z",
-				}),
+				},
 			);
 			expect(excluded.items.map(({ weight }) => weight)).toEqual([20]);
 		}),

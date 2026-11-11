@@ -371,8 +371,11 @@ describe("automation retries", () => {
 			assertTaggedError(failure, "PluginArchiveError");
 			expect(failure.reason).toBe("manifest-invalid");
 			expect(
-				(yield* collectRyotQLRecipeItems(client, (after) =>
-					pluginInstallationsRecipe({ after, limit: 100 }),
+				(yield* collectRyotQLRecipeItems(
+					client,
+					pluginInstallationsRecipe,
+					{},
+					"installations",
 				)).some((candidate) => candidate.packageId === packageId),
 			).toBe(false);
 		}),

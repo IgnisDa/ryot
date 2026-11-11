@@ -44,9 +44,7 @@ export default defineOperation({
   run: (input, host, execution) => Effect.gen(function* () {
     yield* host.log([{ level: "info", message: "durable tracer started" }]);
     const preferences = yield* host.getUserPreferences();
-     const { items: rows } = yield* executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({
-       entityIds: [input.entityId],
-     }));
+     const { items: rows } = yield* executeRyotqlRecipe(host.executeRyotql, entityReadRecipe, { entityIds: [input.entityId] });
     const claim = yield* host.claimPersistentValue(
       "durable-tracer-" + input.entityId,
       { executionId: execution.sandboxScriptId },
@@ -132,15 +130,6 @@ describe("universal durable sandbox tracer", () => {
 						[childEntry]: childSource({ slug: childSlug, name: "Durable tracer child" }),
 						[operationEntry]: operationSource({ slug: operationSlug, name: "Durable tracer" }),
 					},
-					operations: [
-						{
-							auth: "user",
-							demoAccess: "allowed",
-							slug: "durable-tracer",
-							scriptSlug: operationSlug,
-							description: "Exercises the universal durable host protocol",
-						},
-					],
 					scripts: [
 						{
 							kind: "operation",
@@ -166,6 +155,28 @@ describe("universal durable sandbox tracer", () => {
 							entry: childEntry,
 							name: "Durable tracer child",
 							requiredPluginConfigKeys: [],
+						},
+					],
+					operations: [
+						{
+							output: {},
+							auth: "user",
+							demoAccess: "allowed",
+							slug: "durable-tracer",
+							scriptSlug: operationSlug,
+							description: "Exercises the universal durable host protocol",
+							hints: { readOnly: false, idempotent: false, destructive: false },
+							input: {
+								type: "object",
+								additionalProperties: false,
+								required: ["entityId", "successUrl", "failureUrl", "eventSchemaSlug"],
+								properties: {
+									entityId: { type: "string" },
+									successUrl: { type: "string" },
+									failureUrl: { type: "string" },
+									eventSchemaSlug: { type: "string" },
+								},
+							},
 						},
 					],
 				}),

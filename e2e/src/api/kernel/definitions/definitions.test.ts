@@ -24,13 +24,13 @@ import { assertPresent, assertTaggedError } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const listEntities = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, entityDefinitionsRecipe, {}, "entities");
 
 const listRelationships = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => relationshipDefinitionsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, relationshipDefinitionsRecipe, {}, "relationships");
 
 const listPlugins = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, pluginInstallationsRecipe, {}, "installations");
 
 describe("Definitions E2E", () => {
 	it.live("lists installed entity definitions", () =>
@@ -89,6 +89,7 @@ describe("Definitions E2E", () => {
 						owner: definitionOwner(provider.pluginId),
 					},
 				}),
+				{},
 			);
 			expect(providers.items).toContainEqual<unknown>(
 				objectContaining({ providerName, providerId: provider.providerId }),
@@ -106,6 +107,7 @@ describe("Definitions E2E", () => {
 							owner: definitionOwner(provider.pluginId),
 						},
 					}),
+					{},
 				),
 			);
 			assertTaggedError(outsiderFailure, "RyotQLBadRequest");

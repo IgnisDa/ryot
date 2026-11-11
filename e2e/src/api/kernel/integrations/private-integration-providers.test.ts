@@ -23,7 +23,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const providerSpecifics = { endpoint: "https://private.example.com" };
 
 const listProviders = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => integrationProvidersRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, integrationProvidersRecipe, {}, "providers");
 
 const scopedIntegration = (
 	client: Client,

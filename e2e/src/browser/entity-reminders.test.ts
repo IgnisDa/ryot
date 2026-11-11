@@ -189,7 +189,8 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 		const destination = yield* createAuthenticatedClient();
 		const readinessBefore = yield* executeRyotQLRecipe(
 			destination.client,
-			reminderReadinessRecipe(),
+			reminderReadinessRecipe,
+			{},
 		);
 		expect(readinessBefore.enabledChannels).toBe(0);
 		const { run } = yield* restoreBackup(destination.client, bytes);
@@ -224,7 +225,8 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 		});
 		const readinessAfterRestore = yield* executeRyotQLRecipe(
 			destination.client,
-			reminderReadinessRecipe(),
+			reminderReadinessRecipe,
+			{},
 		);
 		expect(readinessAfterRestore.enabledChannels).toBe(0);
 		expect(readinessAfterRestore.subscriptionEnabled).toBe(readinessBefore.subscriptionEnabled);
@@ -261,7 +263,8 @@ it.live("restores an imported reminder as needs-scheduling until it is reschedul
 
 		const readinessAfterSchedule = yield* executeRyotQLRecipe(
 			destination.client,
-			reminderReadinessRecipe(),
+			reminderReadinessRecipe,
+			{},
 		);
 		expect(readinessAfterSchedule.enabledChannels).toBe(0);
 		expect(readinessAfterSchedule.subscriptionEnabled).toBe(readinessBefore.subscriptionEnabled);

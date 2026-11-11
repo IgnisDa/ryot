@@ -15,12 +15,12 @@ import {
 	entitySchemaPredicate,
 	eq,
 	join,
-	literal,
 	relationshipSchemaPredicate,
 	selectedField,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result, Schema } from "effect";
@@ -35,12 +35,12 @@ import {
 	populateRelatedInteractively,
 } from "~/fixtures/kernel";
 import type { Client } from "~/fixtures/kernel/auth";
+import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import {
 	fakeProviderDetailsResult,
 	installTestProviders,
 	uninstallTestProvider,
 } from "~/fixtures/kernel/sandbox-provider";
-import type { InstalledTestProvider } from "~/fixtures/kernel/sandbox-provider";
 import { assertCompleted, assertTaggedError, requirePresent } from "~/support/assertions";
 import { afterAll, beforeAll, describe, expect, it, runPromise } from "~/support/effect-test";
 
@@ -55,35 +55,45 @@ const ITEM_EXTERNAL_ID = `source-owner-item-${crypto.randomUUID()}`;
 const LABEL_EXTERNAL_ID = `source-owner-label-${crypto.randomUUID()}`;
 const PLUGIN_SLUG = `relationship-source-ownership-${crypto.randomUUID()}`;
 
-const itemLabelTargetsRecipe = defineRecipe(
-	(input: { readonly sourceEntityId: EntityId; readonly owner: PluginIdentityReference }) => {
-		const relationship = table("relationship", "itemLabelRelationship");
-		const label = table("entity", "label");
-
-		return {
-			map: ({ targets }) => Result.succeed(targets.items),
-			queries: {
-				targets: selectedRows(relationship, {
-					limit: 100,
-					orderBy: [ascending(column(relationship, "id"))],
-					joins: [
-						join("inner", label, eq(column(relationship, "targetEntityId"), column(label, "id"))),
-					],
-					selection: {
-						id: selectedField(column(label, "id"), EntityId),
-						name: selectedField(column(label, "name"), Schema.String),
-						externalId: selectedField(column(label, "externalId"), Schema.NullOr(Schema.String)),
-					},
-					where: and(
-						relationshipSchemaPredicate(relationship, RELATIONSHIP_SCHEMA_SLUG, input.owner),
-						eq(column(relationship, "sourceEntityId"), literal(input.sourceEntityId)),
-						entitySchemaPredicate(label, LABEL_SCHEMA_SLUG, input.owner),
-					),
-				}),
+const itemLabelTargetsRecipe = (input: { readonly owner: PluginIdentityReference }) => {
+	const recipeParameters = parameters({
+		fields: {
+			sourceEntityId: {
+				type: "string",
+				label: "sourceEntityId",
+				description: "Query argument",
+				validation: { required: true },
 			},
-		};
-	},
-);
+		},
+	});
+
+	const relationship = table("relationship", "itemLabelRelationship");
+	const label = table("entity", "label");
+
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ targets }) => Result.succeed(targets.items),
+		queries: {
+			targets: selectedRows(relationship, {
+				limit: 100,
+				orderBy: [ascending(column(relationship, "id"))],
+				joins: [
+					join("inner", label, eq(column(relationship, "targetEntityId"), column(label, "id"))),
+				],
+				selection: {
+					id: selectedField(column(label, "id"), EntityId),
+					name: selectedField(column(label, "name"), Schema.String),
+					externalId: selectedField(column(label, "externalId"), Schema.NullOr(Schema.String)),
+				},
+				where: and(
+					relationshipSchemaPredicate(relationship, RELATIONSHIP_SCHEMA_SLUG, input.owner),
+					eq(column(relationship, "sourceEntityId"), recipeParameters.value("sourceEntityId")),
+					entitySchemaPredicate(label, LABEL_SCHEMA_SLUG, input.owner),
+				),
+			}),
+		},
+	});
+};
 
 let client: Client;
 let itemProvider: InstalledTestProvider;
@@ -173,10 +183,9 @@ describe("relationship source ownership", () => {
 			yield* populateRelatedInteractively({ client }, imported.data.id);
 
 			const owner = { kind: "local" as const, pluginId: itemProvider.pluginId };
-			const targets = yield* executeRyotQLRecipe(
-				client,
-				itemLabelTargetsRecipe({ owner, sourceEntityId: imported.data.id }),
-			);
+			const targets = yield* executeRyotQLRecipe(client, itemLabelTargetsRecipe({ owner }), {
+				sourceEntityId: imported.data.id,
+			});
 			expect(targets).toEqual<unknown>([
 				{ name: LABEL_NAME, id: anyOf(String), externalId: LABEL_EXTERNAL_ID },
 			]);

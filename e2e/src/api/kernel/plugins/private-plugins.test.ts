@@ -47,7 +47,7 @@ import { describe, expect, it } from "~/support/effect-test";
 const mediaPackageId = mediaPlugin.metadata.packageId;
 
 const listPlugins = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => pluginInstallationsRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, pluginInstallationsRecipe, {}, "installations");
 
 describe("private plugins", () => {
 	it.live(
@@ -95,29 +95,31 @@ describe("private plugins", () => {
 			const installation = table("pluginInstallation", "installation");
 
 			const readShipped = Effect.gen(function* () {
-				const result = yield* executeRyotQL(
-					client,
-					document({
-						installations: rows(installation, {
-							joins: [
-								join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
-							],
-							where: and(
-								eq(column(plugin, "scope"), literal("system")),
-								inArray(column(plugin, "packageId"), [
-									literal("ryot/media"),
-									literal("ryot/fitness"),
-								]),
-							),
-							fields: [
-								field("health", column(installation, "health")),
-								field("packageId", column(plugin, "packageId")),
-								field("sortOrder", column(installation, "sortOrder")),
-								field("isHidden", column(installation, "isHidden")),
-							],
+				const result = yield* executeRyotQL(client, {
+					source: {
+						kind: "inline",
+						document: document({
+							installations: rows(installation, {
+								joins: [
+									join("inner", plugin, eq(column(installation, "pluginId"), column(plugin, "id"))),
+								],
+								where: and(
+									eq(column(plugin, "scope"), literal("system")),
+									inArray(column(plugin, "packageId"), [
+										literal("ryot/media"),
+										literal("ryot/fitness"),
+									]),
+								),
+								fields: [
+									field("health", column(installation, "health")),
+									field("packageId", column(plugin, "packageId")),
+									field("sortOrder", column(installation, "sortOrder")),
+									field("isHidden", column(installation, "isHidden")),
+								],
+							}),
 						}),
-					}),
-				);
+					},
+				});
 				return requireRows(result.data.installations, "installations").items;
 			});
 			const items = yield* pollUntil(
@@ -304,28 +306,30 @@ describe("private plugins", () => {
 			const plugin = table("plugin", "plugin");
 			const installation = table("pluginInstallation", "installation");
 			const identities = () =>
-				executeRyotQL(
-					client,
-					document({
-						plugins: rows(plugin, {
-							where: eq(
-								column(plugin, "packageId"),
-								literal(installed.manifest.metadata.packageId),
-							),
-							fields: [
-								field("pluginId", column(plugin, "id")),
-								field("installationId", column(installation, "id")),
-							],
-							joins: [
-								join(
-									"inner",
-									installation,
-									eq(column(installation, "pluginId"), column(plugin, "id")),
+				executeRyotQL(client, {
+					source: {
+						kind: "inline",
+						document: document({
+							plugins: rows(plugin, {
+								where: eq(
+									column(plugin, "packageId"),
+									literal(installed.manifest.metadata.packageId),
 								),
-							],
+								fields: [
+									field("pluginId", column(plugin, "id")),
+									field("installationId", column(installation, "id")),
+								],
+								joins: [
+									join(
+										"inner",
+										installation,
+										eq(column(installation, "pluginId"), column(plugin, "id")),
+									),
+								],
+							}),
 						}),
-					}),
-				);
+					},
+				});
 			const before = requirePresent(
 				requireRows((yield* identities()).data.plugins, "plugins").items[0],
 				"Private plugin identities were not found",

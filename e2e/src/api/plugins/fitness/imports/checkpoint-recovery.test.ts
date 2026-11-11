@@ -153,11 +153,11 @@ describe.skipIf(!RUN_OPERATIONAL_GATES)("Fitness import checkpoint recovery at s
 				const readings = [];
 				let after: string | undefined;
 				do {
-					const page = yield* readMeasurementLogReadings(client, {
-						after,
-						limit: 100,
-						reference: { pluginId, kind: "local" },
-					});
+					const page = yield* readMeasurementLogReadings(
+						client,
+						{ reference: { pluginId, kind: "local" } },
+						{ after, limit: 100 },
+					);
 					readings.push(...page.items);
 					after = page.pageInfo.hasMore ? (page.pageInfo.nextCursor ?? undefined) : undefined;
 				} while (after !== undefined);

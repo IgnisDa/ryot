@@ -68,10 +68,9 @@ const createListStateSnapshot = (
 
 const readAnimeSummary = (client: Client, reference: MediaReference, entityId: string) =>
 	Effect.gen(function* () {
-		const result = yield* executeRyotQLRecipe(
-			client,
-			animeRecipes.summaryRecipe({ entityId, reference, collectionLimit: 1 }),
-		);
+		const result = yield* executeRyotQLRecipe(client, animeRecipes.summaryRecipe({ reference }), {
+			entityId,
+		});
 		assertPresent(result.summary, "Expected an anime summary row");
 		return result.summary;
 	});
@@ -153,11 +152,9 @@ describe("AniList list-state media queries", () => {
 				]);
 				const initialFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({
-						limit: 20,
-						reference: animeReference,
-						states: ["in_progress", "on_hold"],
-					}),
+					flatByLifecycleStateRecipe({ reference: animeReference }),
+					{ states: ["in_progress", "on_hold"] },
+					{ pages: { items: { limit: 20 } } },
 				);
 				const initialAnime = initialFlat.items.find((item) => item.id === anime.id);
 				const initialManga = initialFlat.items.find((item) => item.id === manga.id);
@@ -186,7 +183,9 @@ describe("AniList list-state media queries", () => {
 				yield* waitForLibrarySummary(client, anime.id);
 				const heldFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({ limit: 20, states: ["on_hold"], reference: animeReference }),
+					flatByLifecycleStateRecipe({ reference: animeReference }),
+					{ states: ["on_hold"] },
+					{ pages: { items: { limit: 20 } } },
 				);
 				expect(heldFlat.items.find((item) => item.id === anime.id)).toMatchObject({
 					state: "on_hold",
@@ -205,11 +204,9 @@ describe("AniList list-state media queries", () => {
 				yield* waitForLibrarySummary(client, anime.id);
 				const resumedFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({
-						limit: 20,
-						states: ["in_progress"],
-						reference: animeReference,
-					}),
+					flatByLifecycleStateRecipe({ reference: animeReference }),
+					{ states: ["in_progress"] },
+					{ pages: { items: { limit: 20 } } },
 				);
 				const resumedAnime = resumedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(resumedAnime, "Expected the resumed anime in the flat lifecycle list");
@@ -234,11 +231,9 @@ describe("AniList list-state media queries", () => {
 				yield* waitForLibrarySummary(client, anime.id);
 				const completedFlat = yield* executeRyotQLRecipe(
 					client,
-					flatByLifecycleStateRecipe({
-						limit: 20,
-						states: ["complete"],
-						reference: animeReference,
-					}),
+					flatByLifecycleStateRecipe({ reference: animeReference }),
+					{ states: ["complete"] },
+					{ pages: { items: { limit: 20 } } },
 				);
 				const completedAnime = completedFlat.items.find((item) => item.id === anime.id);
 				assertPresent(completedAnime, "Expected the completed anime in the flat lifecycle list");
@@ -249,12 +244,9 @@ describe("AniList list-state media queries", () => {
 
 				const snapshots = yield* executeRyotQLRecipe(
 					client,
-					listStateSnapshotsRecipe({
-						limit: 20,
-						sourceAccountId: "acct",
-						reference: animeReference,
-						sourceEntryIds: ["entry", "manga-entry"],
-					}),
+					listStateSnapshotsRecipe({ reference: animeReference }),
+					{ sourceAccountId: "acct", sourceEntryIds: ["entry", "manga-entry"] },
+					{ pages: { snapshots: { limit: 20 } } },
 				);
 				expect(snapshots.items).toHaveLength(3);
 				expect(snapshots.items.map(({ properties }) => properties.sourceEntryId).sort()).toEqual([
@@ -282,33 +274,24 @@ describe("AniList list-state media queries", () => {
 				});
 				const otherAccountSnapshots = yield* executeRyotQLRecipe(
 					client,
-					listStateSnapshotsRecipe({
-						limit: 20,
-						reference: animeReference,
-						sourceAccountId: "other-account",
-						sourceEntryIds: ["entry", "manga-entry"],
-					}),
+					listStateSnapshotsRecipe({ reference: animeReference }),
+					{ sourceAccountId: "other-account", sourceEntryIds: ["entry", "manga-entry"] },
+					{ pages: { snapshots: { limit: 20 } } },
 				);
 				expect(otherAccountSnapshots.items).toEqual([]);
 
 				const [animeActivity, mangaActivity] = yield* Effect.all([
 					executeRyotQLRecipe(
 						client,
-						animeRecipes.activityRecipe({
-							eventLimit: 20,
-							entityId: anime.id,
-							collectionEventLimit: 20,
-							reference: animeReference,
-						}),
+						animeRecipes.activityRecipe({ reference: animeReference }),
+						{ entityId: anime.id },
+						{ pages: { events: { limit: 20 }, collectionEvents: { limit: 20 } } },
 					),
 					executeRyotQLRecipe(
 						client,
-						mangaRecipes.activityRecipe({
-							eventLimit: 20,
-							entityId: manga.id,
-							collectionEventLimit: 20,
-							reference: mangaReference,
-						}),
+						mangaRecipes.activityRecipe({ reference: mangaReference }),
+						{ entityId: manga.id },
+						{ pages: { events: { limit: 20 }, collectionEvents: { limit: 20 } } },
 					),
 				]);
 				const animeListStates = animeActivity.events.flatMap((event) =>

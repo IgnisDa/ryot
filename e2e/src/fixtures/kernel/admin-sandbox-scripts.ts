@@ -5,12 +5,12 @@ import {
 	column,
 	defineRecipe,
 	eq,
-	literal,
 	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
 import type { HarnessTarget } from "~/support/harness-target";
@@ -19,18 +19,27 @@ import { collectAdminRyotQLRecipeItems } from "./ryotql";
 
 const script = table("sandboxScript", "script");
 
-const adminSandboxScriptsRecipe = defineRecipe(
-	(input: { readonly after?: string; readonly pluginRevisionId?: string }) => ({
+const adminSandboxScriptsRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			pluginRevisionId: {
+				type: "string",
+				label: "pluginRevisionId",
+				description: "Query argument",
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
 		map: ({ scripts }) => Result.succeed(scripts),
 		queries: {
 			scripts: selectedRows(script, {
 				limit: 100,
-				after: input.after,
 				orderBy: [ascending(column(script, "id"))],
-				where:
-					input.pluginRevisionId === undefined
-						? undefined
-						: eq(column(script, "pluginRevisionId"), literal(input.pluginRevisionId)),
+				where: recipeParameters.whenSet(
+					"pluginRevisionId",
+					eq(column(script, "pluginRevisionId"), recipeParameters.value("pluginRevisionId")),
+				),
 				selection: {
 					id: selectedField(column(script, "id"), SandboxScriptId),
 					slug: selectedField(column(script, "slug"), Schema.String),
@@ -46,13 +55,10 @@ const adminSandboxScriptsRecipe = defineRecipe(
 				},
 			}),
 		},
-	}),
-);
+	});
+})();
 
 export type AdminSandboxScript = Recipe.Success<typeof adminSandboxScriptsRecipe>["items"][number];
 
 export const listAdminSandboxScripts = (pluginRevisionId?: string, target?: HarnessTarget) =>
-	collectAdminRyotQLRecipeItems(
-		(after) => adminSandboxScriptsRecipe({ after, pluginRevisionId }),
-		target,
-	);
+	collectAdminRyotQLRecipeItems(adminSandboxScriptsRecipe, { pluginRevisionId }, "scripts", target);

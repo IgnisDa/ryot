@@ -56,7 +56,9 @@ describe("Latest completion suggestions", () => {
 			const reference: MediaReference = { pluginId, kind: "local" };
 			const result = yield* executeRyotQLRecipe(
 				client,
-				latestCompletionSuggestionsRecipe({ reference, limit: 20 }),
+				latestCompletionSuggestionsRecipe({ reference }),
+				{},
+				{ pages: { source: { limit: 20 } } },
 			);
 			expect(result).toEqual({ items: [], source: null });
 		}),
@@ -120,7 +122,9 @@ describe("Latest completion suggestions", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				latestCompletionSuggestionsRecipe({ reference, limit: 20 }),
+				latestCompletionSuggestionsRecipe({ reference }),
+				{},
+				{ pages: { source: { limit: 20 } } },
 			);
 			expect(result.source?.id).toBe(older.id);
 			expect(result.items.map((item) => item.id)).toEqual([fresh.id, unknownRating.id]);
@@ -177,11 +181,9 @@ describe("Trending latest media", () => {
 
 			const result = yield* executeRyotQLRecipe(
 				client,
-				trendingLatestMediaRecipe({
-					limit: 20,
-					entitySchemaSlugs: ["movie", "show"],
-					reference: { pluginId, kind: "local" },
-				}),
+				trendingLatestMediaRecipe({ reference: { pluginId, kind: "local" } }),
+				{ entitySchemaSlugs: ["movie", "show"] },
+				{ pages: { trending: { limit: 20 } } },
 			);
 			expect(result.items.map((item) => [item.id, item.rank, item.fetchedAt])).toEqual([
 				[movieOne.id, 1, at(0)],
@@ -245,12 +247,15 @@ describe("Collection recommendations", () => {
 			}) =>
 				executeRyotQLRecipe(
 					client,
-					collectionRecommendationsRecipe({ ...input, reference, collectionId: collection.id }),
+					collectionRecommendationsRecipe({ reference }),
+					{ collectionId: collection.id, searchText: input.searchText },
+					{ pages: { recommendations: { after: input.after, limit: input.limit } } },
 				);
 
 			const sources = yield* executeRyotQLRecipe(
 				client,
-				collectionRecommendationSourcesRecipe({ reference, collectionId: collection.id }),
+				collectionRecommendationSourcesRecipe({ reference }),
+				{ collectionId: collection.id },
 			);
 			expect(sources).toEqual({ sourceCount: 2, id: collection.id, name: collection.name });
 			const all = yield* recommendations({ limit: 20 });
@@ -283,10 +288,8 @@ describe("Collection recommendations", () => {
 			const collection = yield* createCollection(owner);
 			const sources = yield* executeRyotQLRecipe(
 				other,
-				collectionRecommendationSourcesRecipe({
-					collectionId: collection.id,
-					reference: { pluginId, kind: "local" },
-				}),
+				collectionRecommendationSourcesRecipe({ reference: { pluginId, kind: "local" } }),
+				{ collectionId: collection.id },
 			);
 			expect(sources).toBeNull();
 		}),

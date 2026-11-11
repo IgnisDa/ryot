@@ -676,14 +676,25 @@ export const uploadImportFile = (
 	});
 
 export const listManualImportRuns = (client: Client, after: string | undefined, limit: number) =>
-	executeRyotQLRecipe(client, manualImportRunsRecipe({ after, limit }));
+	executeRyotQLRecipe(
+		client,
+		manualImportRunsRecipe,
+		{},
+		{ pages: { importRuns: { after, limit } } },
+	);
 
 export const listIntegrationImportRuns = (
 	client: Client,
 	integrationId: string,
 	after: string | undefined,
 	limit: number,
-) => executeRyotQLRecipe(client, integrationImportRunsRecipe({ after, limit, integrationId }));
+) =>
+	executeRyotQLRecipe(
+		client,
+		integrationImportRunsRecipe,
+		{ integrationId },
+		{ pages: { importRuns: { after, limit } } },
+	);
 
 export const getImportRun = (
 	client: Client,
@@ -692,29 +703,33 @@ export const getImportRun = (
 	issueLimit: number,
 ) =>
 	Effect.gen(function* () {
-		const detail = yield* executeRyotQLRecipe(client, importRunRecipe({ runId }));
+		const detail = yield* executeRyotQLRecipe(client, importRunRecipe, { runId });
 		const issues = yield* executeRyotQLRecipe(
 			client,
-			importIssuesRecipe({ runId, after: issueAfter, limit: issueLimit }),
+			importIssuesRecipe,
+			{ runId },
+			{ pages: { issues: { after: issueAfter, limit: issueLimit } } },
 		);
 		return { ...detail, issues };
 	});
 
 const importedEntity = table("entity", "importedEntity");
-const importedEntityNamesRecipe = defineRecipe((entitySchemaSlug: string) => ({
-	map: ({ entities }) => Result.succeed(entities),
-	queries: {
-		entities: selectedRows(importedEntity, {
-			limit: 100,
-			orderBy: [ascending(column(importedEntity, "name"))],
-			where: eq(column(importedEntity, "entitySchemaSlug"), literal(entitySchemaSlug)),
-			selection: { name: selectedField(column(importedEntity, "name"), Schema.String) },
-		}),
-	},
-}));
+const importedEntityNamesRecipe = (entitySchemaSlug: string) => {
+	return defineRecipe({
+		map: ({ entities }) => Result.succeed(entities),
+		queries: {
+			entities: selectedRows(importedEntity, {
+				limit: 100,
+				orderBy: [ascending(column(importedEntity, "name"))],
+				where: eq(column(importedEntity, "entitySchemaSlug"), literal(entitySchemaSlug)),
+				selection: { name: selectedField(column(importedEntity, "name"), Schema.String) },
+			}),
+		},
+	});
+};
 
 export const listImportedEntityNames = (client: Client, entitySchemaSlug: string) =>
-	executeRyotQLRecipe(client, importedEntityNamesRecipe(entitySchemaSlug)).pipe(
+	executeRyotQLRecipe(client, importedEntityNamesRecipe(entitySchemaSlug), {}).pipe(
 		Effect.map(({ items }) => items.map(({ name }) => name)),
 	);
 

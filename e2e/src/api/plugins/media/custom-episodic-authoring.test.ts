@@ -104,7 +104,8 @@ const nextUpOf = (client: Client, entityId: string) =>
 		const reference = yield* mediaReferenceForEntity(client, entityId);
 		const context = yield* executeRyotQLRecipe(
 			client,
-			mediaActivityLogContextRecipe({ entityId, reference }),
+			mediaActivityLogContextRecipe({ reference }),
+			{ entityId },
 		);
 		return context?.nextUp?.id ?? null;
 	});
@@ -112,16 +113,18 @@ const nextUpOf = (client: Client, entityId: string) =>
 const entityExists = (client: Client, entityId: string) =>
 	Effect.gen(function* () {
 		const entity = table("entity", "entity");
-		const result = yield* executeRyotQL(
-			client,
-			document({
-				entity: rows(entity, {
-					limit: 1,
-					fields: [field("id", column(entity, "id"))],
-					where: eq(column(entity, "id"), literal(entityId)),
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: document({
+					entity: rows(entity, {
+						limit: 1,
+						fields: [field("id", column(entity, "id"))],
+						where: eq(column(entity, "id"), literal(entityId)),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		return requireRows(result.data.entity, "entity").items.length === 1;
 	});
 

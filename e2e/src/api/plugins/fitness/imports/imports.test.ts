@@ -41,10 +41,11 @@ describe("OpenScale Import E2E", () => {
 				yield* pollImportRunUntilTerminal(client, runId),
 				"OpenScale timezone import",
 			);
-			const readings = yield* readMeasurementLogReadings(client, {
-				limit: 20,
-				reference: { pluginId, kind: "local" },
-			});
+			const readings = yield* readMeasurementLogReadings(
+				client,
+				{ reference: { pluginId, kind: "local" } },
+				{ limit: 20 },
+			);
 			expect(readings.items.map(({ occurredAt }) => occurredAt)).toEqual([
 				"2026-04-02T06:00:00.000Z",
 				"2026-04-01T02:30:00.000Z",
@@ -66,10 +67,11 @@ describe("OpenScale Import E2E", () => {
 			});
 			yield* runOpenScaleImportFixture(client);
 
-			const readings = yield* readMeasurementLogReadings(client, {
-				limit: 20,
-				reference: { pluginId, kind: "local" },
-			});
+			const readings = yield* readMeasurementLogReadings(
+				client,
+				{ reference: { pluginId, kind: "local" } },
+				{ limit: 20 },
+			);
 			const weightReadings = readings.items.filter(({ metricKey }) => metricKey === "weight");
 			expect(weightReadings).toHaveLength(3);
 			expect(weightReadings.map(({ metricId }) => metricId)).toEqual([
@@ -81,10 +83,8 @@ describe("OpenScale Import E2E", () => {
 
 			const summary = yield* executeRyotQLRecipe(
 				client,
-				measurementSummaryRecipe({
-					rangeStart: "1970-01-01T00:00:00.000Z",
-					reference: { pluginId, kind: "local" },
-				}),
+				measurementSummaryRecipe({ reference: { pluginId, kind: "local" } }),
+				{ range: "all-time" },
 			);
 			expect(summary.items.filter(({ key }) => key === "weight").map(({ id }) => id)).toEqual([
 				weight.id,
@@ -130,10 +130,11 @@ describe("OpenScale Import E2E", () => {
 			expect(completedRun.startedAt).not.toBeNull();
 			expect(completedRun.finishedAt).not.toBeNull();
 
-			const result = yield* readMeasurementLogReadings(client, {
-				limit: 20,
-				reference: { pluginId, kind: "local" },
-			});
+			const result = yield* readMeasurementLogReadings(
+				client,
+				{ reference: { pluginId, kind: "local" } },
+				{ limit: 20 },
+			);
 			expect(result.items).toHaveLength(15);
 			expect(new Set(result.items.map(({ metricId }) => metricId)).size).toBe(5);
 			const weightReadings = result.items.filter(({ metricKey }) => metricKey === "weight");

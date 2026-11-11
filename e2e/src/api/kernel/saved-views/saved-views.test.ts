@@ -1,4 +1,5 @@
 import { column, eq, literal, table } from "@ryot-app/ryotql";
+import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 
@@ -14,7 +15,7 @@ import {
 	updateSavedView,
 } from "~/fixtures/kernel";
 import { findMediaEntitySchema } from "~/fixtures/plugins/media";
-import { requirePresent } from "~/support/assertions";
+import { assertCondition, requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
 const entity = table("entity", "entity");
@@ -74,9 +75,20 @@ describe("saved view definitions", () => {
 
 			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 			expect(stored.settings).toEqual(entityBrowserSettings(pluginId));
-			expect(stored.dataSources).toEqual(
-				buildSavedViewDataSources(["book"], { pluginId, kind: "local" }),
-			);
+			const authored = rowsDataSources;
+			const source = requirePresent(authored.queries.savedView, "Authored source missing");
+			assertCondition(source.output.type === "rows", "Expected authored rows");
+			expect(stored.dataSources).toMatchObject({
+				controls: authored.controls,
+				parameters: authored.parameters,
+			});
+			expect(stored.dataSources?.queries.savedView).toMatchObject({
+				from: source.from,
+				where: { type: "and", predicates: arrayContaining([source.where]) },
+				output: { ...source.output, fields: arrayContaining(source.output.fields) },
+			});
+			expect(stored.dataSources?.queries.count?.output.type).toBe("aggregate");
+			expect(stored.dataSources?.queries.ids?.output.type).toBe("rows");
 			expect(fetched).toMatchObject({
 				id: created.id,
 				renderer: stored.renderer,
@@ -101,7 +113,21 @@ describe("saved view definitions", () => {
 
 			expect(updated.id).toBe(created.id);
 			expect(fetched.settings).toEqual(settings);
-			expect(fetched.dataSources).toEqual(alternateDataSources);
+			assertCondition(savedViewQuery.output.type === "rows", "Expected authored rows");
+			expect(fetched.dataSources).toMatchObject({
+				controls: alternateDataSources.controls,
+				parameters: alternateDataSources.parameters,
+			});
+			expect(fetched.dataSources?.queries.savedView).toMatchObject({
+				from: savedViewQuery.from,
+				output: { ...savedViewQuery.output, fields: arrayContaining(savedViewQuery.output.fields) },
+				where: {
+					type: "and",
+					predicates: arrayContaining([alternateDataSources.queries.savedView.where]),
+				},
+			});
+			expect(fetched.dataSources?.queries.count?.output.type).toBe("aggregate");
+			expect(fetched.dataSources?.queries.ids?.output.type).toBe("rows");
 		}),
 	);
 
@@ -113,17 +139,28 @@ describe("saved view definitions", () => {
 				schema.reference.owner.kind === "plugin" ? schema.reference.owner.pluginId : undefined,
 				"Media book schema must have a plugin owner",
 			);
-			const dataSources = buildSavedViewDataSources(["does-not-exist"], {
-				pluginId,
-				kind: "local",
-			});
+			const dataSources = {
+				...buildSavedViewDataSources(["does-not-exist"], { pluginId, kind: "local" }),
+				controls: {
+					filter: {
+						alias: "entity",
+						kind: "browse" as const,
+						schemas: [{ slug: "book", owner: { pluginId, kind: "local" as const } }] as const,
+					},
+				},
+			};
 			const created = yield* createSavedView(client, {
 				dataSources,
 				name: `Unknown Schema View ${yield* randomUuid}`,
 			});
 
 			const stored = yield* findSavedViewById(client, created.id);
-			expect(stored.dataSources).toEqual(dataSources);
+			expect(stored.dataSources?.queries.savedView?.where).toMatchObject({
+				type: "and",
+				predicates: arrayContaining([dataSources.queries.savedView?.where]),
+			});
+			expect(stored.dataSources?.queries.count?.output.type).toBe("aggregate");
+			expect(stored.dataSources?.queries.ids?.output.type).toBe("rows");
 			expect(stored.renderer).toEqual({ kind: "kernel", name: "entity-browser" });
 		}),
 	);

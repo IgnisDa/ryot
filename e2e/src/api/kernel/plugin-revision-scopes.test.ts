@@ -42,6 +42,7 @@ describe("plugin revision scopes", () => {
 					(yield* executeRyotQLRecipe(
 						client,
 						namespaceBottlesRecipe({ reference: { kind: "local", pluginId: a.pluginId } }),
+						{},
 					))[0],
 					"A bottle missing",
 				);
@@ -138,6 +139,7 @@ describe("plugin revision scopes", () => {
 						packageId: packages.a.manifest.metadata.packageId,
 					},
 				}),
+				{},
 			);
 			const bobRows = yield* executeRyotQLRecipe(
 				bob.client,
@@ -148,17 +150,22 @@ describe("plugin revision scopes", () => {
 						packageId: packages.a.manifest.metadata.packageId,
 					},
 				}),
+				{},
 			);
 			expect(aliceRows.map(({ owner }) => owner)).toEqual([a.pluginId]);
 			expect(bobRows.map(({ owner }) => owner)).toEqual([b.pluginId]);
 			expect(aliceRows[0]?.id).not.toBe(bobRows[0]?.id);
 			const aliceDefinitions = yield* executeRyotQLRecipe(
 				alice.client,
-				entityDefinitionsRecipe({ limit: 100 }),
+				entityDefinitionsRecipe,
+				{},
+				{ pages: { entities: { limit: 100 } } },
 			);
 			const bobDefinitions = yield* executeRyotQLRecipe(
 				bob.client,
-				entityDefinitionsRecipe({ limit: 100 }),
+				entityDefinitionsRecipe,
+				{},
+				{ pages: { entities: { limit: 100 } } },
 			);
 			const aliceBottle = requirePresent(
 				aliceDefinitions.items.find(

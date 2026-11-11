@@ -24,7 +24,7 @@ import { assertCondition, requirePresent, requireString } from "~/support/assert
 import { activePluginIframe, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 
-type MediaRecord = Recipe.Success<typeof mediaAnalyticsRecordsRecipe>["items"][number];
+type MediaRecord = Recipe.Success<ReturnType<typeof mediaAnalyticsRecordsRecipe>>["items"][number];
 
 const displayedRows = (table: Playwright.Locator) =>
 	table.evaluate((element) =>
@@ -135,7 +135,8 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		};
 		const first = yield* executeRyotQLRecipe(
 			client,
-			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(recordInput)),
+			mediaAnalyticsRecordsRecipe({ reference: recordInput.reference }),
+			mediaAnalyticsInput(recordInput),
 		);
 		expect(first.items).toHaveLength(100);
 		expect(first.pageInfo).toMatchObject({ limit: 100, hasMore: true });
@@ -145,7 +146,9 @@ it.live("loads the real second page of 102 independent Anime analytics records",
 		);
 		const second = yield* executeRyotQLRecipe(
 			client,
-			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput({ ...recordInput, after })),
+			mediaAnalyticsRecordsRecipe({ reference: recordInput.reference }),
+			mediaAnalyticsInput(recordInput),
+			{ pages: { records: { after } } },
 		);
 		expect(second.items).toHaveLength(2);
 		expect(second.pageInfo).toEqual({ limit: 100, hasMore: false, nextCursor: null });

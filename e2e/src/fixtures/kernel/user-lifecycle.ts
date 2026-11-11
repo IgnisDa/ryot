@@ -29,7 +29,7 @@ export const pollUserLifecycleOperation = (
 ) =>
 	pollUntil(
 		`User lifecycle operation '${operationId}' to complete`,
-		executeAdminRyotQLRecipe(userLifecycleOperationRecipe({ id: operationId }), target).pipe(
+		executeAdminRyotQLRecipe(userLifecycleOperationRecipe, { id: operationId }, target).pipe(
 			Effect.map((detail) => {
 				const operation = Option.getOrNull(detail);
 				return operation?.status === "completed" || operation?.status === "failed"

@@ -8,6 +8,10 @@ import {
 } from "@ryot-app/media-plugin/shared/activity-log-recipes";
 import type { MediaPosition } from "@ryot-app/media-plugin/shared/consumption";
 import {
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+} from "@ryot-app/media-plugin/shared/lifecycle-expressions";
+import {
 	type MediaActivityPatch,
 	MediaEventSnapshot,
 } from "@ryot-app/media-plugin/shared/media-activity-operations";
@@ -42,7 +46,8 @@ const readContext = (client: Parameters<typeof mediaReferenceForEntity>[0], enti
 		const reference = yield* mediaReferenceForEntity(client, entityId);
 		const context = yield* executeRyotQLRecipe(
 			client,
-			mediaActivityLogContextRecipe({ entityId, reference }),
+			mediaActivityLogContextRecipe({ reference }),
+			{ entityId },
 		);
 		assertPresent(context, "Expected an activity log context");
 		return context;
@@ -562,13 +567,9 @@ describe("Media activity log operation", () => {
 			const earlier = (anchor: string) =>
 				executeRyotQLRecipe(
 					client,
-					episodicEarlierUnwatchedRecipe({
-						reference,
-						limit: 100,
-						kind: "show",
-						parentEntityId: showId,
-						episodeEntityId: anchor,
-					}),
+					episodicEarlierUnwatchedRecipe({ reference, config: showEpisodicKindConfig }),
+					{ parentEntityId: showId, episodeEntityId: anchor },
+					{ pages: { episodes: { limit: 100 } } },
 				);
 
 			const initial = yield* readContext(client, showId);
@@ -576,7 +577,9 @@ describe("Media activity log operation", () => {
 			expect(initial.seasons.map((season) => season.seasonNumber)).toEqual([1]);
 			const seasonChoices = yield* executeRyotQLRecipe(
 				client,
-				showSeasonChoicesRecipe({ reference, limit: 100, entityId: showId }),
+				showSeasonChoicesRecipe({ reference }),
+				{ entityId: showId },
+				{ pages: { seasons: { limit: 100 } } },
 			);
 			expect(seasonChoices.items.map((season) => season.seasonNumber)).toEqual([0, 1, 2]);
 			expect(seasonChoices.items.map((season) => season.id)).toEqual(seasons.map(({ id }) => id));
@@ -592,12 +595,9 @@ describe("Media activity log operation", () => {
 
 			const choices = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodeChoicesRecipe({
-					reference,
-					limit: 100,
-					seasonNumber: 1,
-					showEntityId: showId,
-				}),
+				showSeasonEpisodeChoicesRecipe({ reference }),
+				{ seasonNumber: 1, showEntityId: showId },
+				{ pages: { episodes: { limit: 100 } } },
 			);
 			expect(choices.items.map((choice) => [choice.episodeNumber, choice.state])).toEqual([
 				[1, "untracked"],
@@ -607,12 +607,9 @@ describe("Media activity log operation", () => {
 			]);
 			const specials = yield* executeRyotQLRecipe(
 				client,
-				showSeasonEpisodeChoicesRecipe({
-					reference,
-					limit: 100,
-					seasonNumber: 0,
-					showEntityId: showId,
-				}),
+				showSeasonEpisodeChoicesRecipe({ reference }),
+				{ seasonNumber: 0, showEntityId: showId },
+				{ pages: { episodes: { limit: 100 } } },
 			);
 			expect(specials.items.map((choice) => choice.id)).toEqual([episodeId(0, 1)]);
 
@@ -719,13 +716,9 @@ describe("Media activity log operation", () => {
 			const earlier = (anchor: string) =>
 				executeRyotQLRecipe(
 					client,
-					episodicEarlierUnwatchedRecipe({
-						reference,
-						limit: 100,
-						kind: "podcast",
-						episodeEntityId: anchor,
-						parentEntityId: podcastId,
-					}),
+					episodicEarlierUnwatchedRecipe({ reference, config: podcastEpisodicKindConfig }),
+					{ episodeEntityId: anchor, parentEntityId: podcastId },
+					{ pages: { episodes: { limit: 100 } } },
 				);
 
 			expect((yield* readContext(client, podcastId)).nextUp?.id).toBe(third);

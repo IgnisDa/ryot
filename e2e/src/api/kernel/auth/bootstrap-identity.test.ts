@@ -80,25 +80,26 @@ it.live("joins creation and reset bootstrap for each recreated account", () =>
 					[entry]: `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Result, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import { ascending, column, defineRecipe, eq, executeRyotqlRecipe, literal, selectedField, selectedOptionalRow, table } from "@ryot-app/plugin-backend-sdk/ryotql";
-const bootstrapOwnerRecipe = defineRecipe((entityId: string) => {
+import { ascending, column, defineRecipe, eq, executeRyotqlRecipe, parameters, selectedField, selectedOptionalRow, table } from "@ryot-app/plugin-backend-sdk/ryotql";
+const bootstrapOwnerRecipe = (() => {
+ const input = parameters({ fields: { entityId: { type: "string", label: "Marker", description: "Bootstrap marker", validation: { required: true } } } });
  const entity = table("entity", "marker");
- return {
+ return defineRecipe({ parameters: input.schema,
   map: ({ owner }) => Result.succeed(owner),
   queries: { owner: selectedOptionalRow(entity, {
-   where: eq(column(entity, "id"), literal(entityId)),
+   where: eq(column(entity, "id"), input.value("entityId")),
    orderBy: [ascending(column(entity, "id"))],
    selection: { userId: selectedField(column(entity, "userId"), Schema.String) },
   }) },
- };
-});
+ });
+})();
 export const manifest = defineManifest({ kind: "script", slug: "${scriptSlug}", name: "Record bootstrap identity" });
 export default defineScript({
  manifest, input: Schema.Struct({}), output: Schema.Null,
  run: (_input, host) => Effect.gen(function* () {
   const [marker] = yield* host.ensureUserEntities([{ entitySchemaSlug: "bootstrap-marker", name: "Bootstrap marker", properties: {} }]);
   if (!marker) return yield* Effect.fail(new Error("Bootstrap marker missing"));
-  const owner = yield* executeRyotqlRecipe(host.executeRyotql, bootstrapOwnerRecipe(marker.entityId));
+  const owner = yield* executeRyotqlRecipe(host.executeRyotql, bootstrapOwnerRecipe, { entityId: marker.entityId });
   if (!owner) return yield* Effect.fail(new Error("Bootstrap marker owner missing"));
   yield* host.httpCall("POST", ${upstreamUrl} + "/" + encodeURIComponent(owner.userId) + "/" + encodeURIComponent(marker.entityId));
   return null;
@@ -135,16 +136,16 @@ export default defineScript({
 			const markerPath = yield* nextBootstrap();
 			const pending = Option.getOrThrow(
 				yield* executeAdminRyotQLRecipe(
-					userLifecycleOperationRecipe({ id: accepted.operationId }),
+					userLifecycleOperationRecipe,
+					{ id: accepted.operationId },
 					target,
 				),
 			);
 			expect(pending.status).toBe("running");
 			const user = requirePresent(
-				(yield* executeAdminRyotQLRecipe(
-					instanceAdminUsersRecipe({ limit: 10, search: email }),
-					target,
-				)).items.find((item) => item.id === userId),
+				(yield* executeAdminRyotQLRecipe(instanceAdminUsersRecipe, { search: email }, target, {
+					pages: { users: { limit: 10 } },
+				})).items.find((item) => item.id === userId),
 				"Recreated user is missing",
 			);
 			expect(user.disabledAt).not.toBeNull();
@@ -152,8 +153,10 @@ export default defineScript({
 			const completed = yield* pollUserLifecycleOperation(accepted.operationId, target);
 			assertCompleted(completed, `Reset operation ${accepted.operationId}`);
 			const enabled = yield* executeAdminRyotQLRecipe(
-				instanceAdminUsersRecipe({ limit: 10, search: email }),
+				instanceAdminUsersRecipe,
+				{ search: email },
 				target,
+				{ pages: { users: { limit: 10 } } },
 			);
 			expect(
 				requirePresent(

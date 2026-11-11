@@ -64,14 +64,23 @@ describe("publications", () => {
 			expect(page.context.target).toEqual({ publicationId, kind: "publication" });
 
 			const result = yield* visitor.call(
-				(c) => c.publicationVisits.ryotql({ payload: subjectIds }),
+				(c) =>
+					c.publicationVisits.ryotql({
+						payload: { source: { kind: "inline", document: subjectIds } },
+					}),
 				headers,
 			);
 			expect(requireRows(result.data["subjects"], "subjects").items).toEqual([{ id: member.id }]);
 
 			yield* client.call((c) => c.publications.revokeLink({ payload: { linkId: link.linkId } }));
 			const error = yield* Effect.flip(
-				visitor.call((c) => c.publicationVisits.ryotql({ payload: subjectIds }), headers),
+				visitor.call(
+					(c) =>
+						c.publicationVisits.ryotql({
+							payload: { source: { kind: "inline", document: subjectIds } },
+						}),
+					headers,
+				),
 			);
 			assertTaggedError(error, "PublicationUnavailable");
 			expect(error.reason).toEqual({ code: "revoked" });

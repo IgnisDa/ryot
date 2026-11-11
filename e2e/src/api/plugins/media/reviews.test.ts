@@ -226,12 +226,9 @@ describe("Media rating-only reviews", () => {
 			const reference = yield* mediaReferenceForEntity(client, entityId);
 			const activity = yield* executeRyotQLRecipe(
 				client,
-				movieRecipes.activityRecipe({
-					entityId,
-					reference,
-					eventLimit: 60,
-					collectionEventLimit: 60,
-				}),
+				movieRecipes.activityRecipe({ reference }),
+				{ entityId },
+				{ pages: { events: { limit: 60 }, collectionEvents: { limit: 60 } } },
 			);
 			expect(
 				activity.events.filter(

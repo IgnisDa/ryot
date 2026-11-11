@@ -216,57 +216,63 @@ describe("notification channel RyotQL authorization", () => {
 			const correlatedRoot = table("notificationChannel", "correlatedRoot");
 			const includedChannel = table("notificationChannel", "includedChannel");
 			const correlatedChannel = table("notificationChannel", "correlatedChannel");
-			const result = yield* executeRyotQL(
-				owner.client,
-				document({
-					directRoot: rows(directRoot, {
-						limit: 100,
-						fields: [field("id", column(directRoot, "id"))],
-						where: inArray(column(directRoot, "id"), [
-							literal(ownerChannelId),
-							literal(otherChannelId),
-						]),
-					}),
-					craftedJoin: rows(joinRoot, {
-						limit: 100,
-						where: eq(column(joinRoot, "id"), literal(ownerChannelId)),
-						joins: [
-							join("left", joinedChannel, eq(column(joinedChannel, "id"), literal(otherChannelId))),
-						],
-						fields: [
-							field("id", column(joinRoot, "id")),
-							field("otherDescription", column(joinedChannel, "description")),
-						],
-					}),
-					correlated: rows(correlatedRoot, {
-						limit: 100,
-						where: eq(column(correlatedRoot, "id"), literal(ownerChannelId)),
-						fields: [
-							field("id", column(correlatedRoot, "id")),
-							field(
-								"hasOtherChannel",
-								exists(correlatedChannel, {
-									where: eq(column(correlatedChannel, "id"), literal(otherChannelId)),
+			const result = yield* executeRyotQL(owner.client, {
+				source: {
+					kind: "inline",
+					document: document({
+						directRoot: rows(directRoot, {
+							limit: 100,
+							fields: [field("id", column(directRoot, "id"))],
+							where: inArray(column(directRoot, "id"), [
+								literal(ownerChannelId),
+								literal(otherChannelId),
+							]),
+						}),
+						correlated: rows(correlatedRoot, {
+							limit: 100,
+							where: eq(column(correlatedRoot, "id"), literal(ownerChannelId)),
+							fields: [
+								field("id", column(correlatedRoot, "id")),
+								field(
+									"hasOtherChannel",
+									exists(correlatedChannel, {
+										where: eq(column(correlatedChannel, "id"), literal(otherChannelId)),
+									}),
+								),
+							],
+						}),
+						craftedJoin: rows(joinRoot, {
+							limit: 100,
+							where: eq(column(joinRoot, "id"), literal(ownerChannelId)),
+							fields: [
+								field("id", column(joinRoot, "id")),
+								field("otherDescription", column(joinedChannel, "description")),
+							],
+							joins: [
+								join(
+									"left",
+									joinedChannel,
+									eq(column(joinedChannel, "id"), literal(otherChannelId)),
+								),
+							],
+						}),
+						craftedInclude: rows(includeRoot, {
+							limit: 100,
+							fields: [field("id", column(includeRoot, "id"))],
+							where: eq(column(includeRoot, "id"), literal(ownerChannelId)),
+							include: [
+								include(includedChannel, {
+									limit: 100,
+									key: "otherChannels",
+									orderBy: [ascending(column(includedChannel, "id"))],
+									fields: [field("id", column(includedChannel, "id"))],
+									where: eq(column(includedChannel, "id"), literal(otherChannelId)),
 								}),
-							),
-						],
+							],
+						}),
 					}),
-					craftedInclude: rows(includeRoot, {
-						limit: 100,
-						fields: [field("id", column(includeRoot, "id"))],
-						where: eq(column(includeRoot, "id"), literal(ownerChannelId)),
-						include: [
-							include(includedChannel, {
-								limit: 100,
-								key: "otherChannels",
-								orderBy: [ascending(column(includedChannel, "id"))],
-								fields: [field("id", column(includedChannel, "id"))],
-								where: eq(column(includedChannel, "id"), literal(otherChannelId)),
-							}),
-						],
-					}),
-				}),
-			);
+				},
+			});
 
 			const directRows = requireRows(result.data.directRoot, "directRoot");
 			expect(directRows.items.map((item) => requireRyotQLValue(item, "id"))).toEqual([
@@ -335,24 +341,28 @@ describe("notification delivery", () => {
 			);
 			const outcome = yield* pollUntil(
 				"settled notification outcome",
-				executeRyotQLRecipe(client, notificationOutcomeRecipe({ id: admitted.id })).pipe(
+				executeRyotQLRecipe(client, notificationOutcomeRecipe, { id: admitted.id }).pipe(
 					Effect.map((result) => (result?.state === "settled" ? result : null)),
 				),
 			);
 			expect(outcome.outcome).toBe("partial");
 			const deliveries = yield* executeRyotQLRecipe(
 				client,
-				notificationDeliveriesRecipe({ limit: 20, notificationId: admitted.id }),
+				notificationDeliveriesRecipe,
+				{ notificationId: admitted.id },
+				{ pages: { deliveries: { limit: 20 } } },
 			);
 			expect(deliveries.items.map((item) => item.status).sort()).toEqual(["accepted", "failed"]);
 			const other = yield* createAuthenticatedClient();
 			expect(
-				yield* executeRyotQLRecipe(other.client, notificationOutcomeRecipe({ id: admitted.id })),
+				yield* executeRyotQLRecipe(other.client, notificationOutcomeRecipe, { id: admitted.id }),
 			).toBeNull();
 			expect(
 				(yield* executeRyotQLRecipe(
 					other.client,
-					notificationDeliveriesRecipe({ limit: 20, notificationId: admitted.id }),
+					notificationDeliveriesRecipe,
+					{ notificationId: admitted.id },
+					{ pages: { deliveries: { limit: 20 } } },
 				)).items,
 			).toEqual([]);
 		}),
@@ -362,10 +372,9 @@ describe("notification delivery", () => {
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
 			const first = yield* client.call((c) => c.notifications.testChannels());
-			const outcome = yield* executeRyotQLRecipe(
-				client,
-				notificationOutcomeRecipe({ id: first.id }),
-			);
+			const outcome = yield* executeRyotQLRecipe(client, notificationOutcomeRecipe, {
+				id: first.id,
+			});
 			expect(outcome).toMatchObject({
 				state: "settled",
 				outcome: "not-sent",
@@ -414,7 +423,12 @@ describe("notification delivery", () => {
 
 			const error = yield* Effect.flip(
 				getApiClient().call((c) =>
-					c.ryotql.execute({ payload: notificationChannelsRecipe({ limit: 100 }).document }),
+					c.ryotql.execute({
+						payload: {
+							arguments: {},
+							source: { kind: "inline", document: notificationChannelsRecipe.document },
+						},
+					}),
 				),
 			);
 			assertTaggedError(error, "AuthUnauthorized");

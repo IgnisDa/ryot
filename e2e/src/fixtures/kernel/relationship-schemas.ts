@@ -76,9 +76,7 @@ export const listRelationshipSchemas = (
 		targetEntitySchemaSlug?: null | string;
 	} = {},
 ) =>
-	collectRyotQLRecipeItems(client, (after) =>
-		relationshipDefinitionsRecipe({ after, limit: 100 }),
-	).pipe(
+	collectRyotQLRecipeItems(client, relationshipDefinitionsRecipe, {}, "relationships").pipe(
 		Effect.map((schemas) =>
 			schemas
 				.filter(

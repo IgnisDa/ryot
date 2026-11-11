@@ -68,7 +68,7 @@ export const createEventSchema = (client: Client, body: CreateEventSchemaOptions
 	});
 
 export const listEventSchemas = (client: Client, reference: EntitySchemaReference) =>
-	collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 })).pipe(
+	collectRyotQLRecipeItems(client, entityDefinitionsRecipe, {}, "entities").pipe(
 		Effect.map((schemas) =>
 			requirePresent(
 				schemas.find(

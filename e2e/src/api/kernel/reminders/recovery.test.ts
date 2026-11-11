@@ -65,7 +65,9 @@ describe("reminder recovery after process loss", () => {
 					yield* runReminderScan(client);
 					const deliveries = yield* executeRyotQLRecipe(
 						client,
-						reminderDeliveriesRecipe({ limit: 100, reminderId: created.id }),
+						reminderDeliveriesRecipe,
+						{ reminderId: created.id },
+						{ pages: { deliveries: { limit: 100 } } },
 					);
 					return deliveries.items.some(({ status }) => status === "accepted") &&
 						deliveries.items.some(({ status }) => status === "sending") &&
@@ -91,7 +93,9 @@ describe("reminder recovery after process loss", () => {
 			expect(settled.outcome).toBe("unknown");
 			const deliveries = yield* executeRyotQLRecipe(
 				client,
-				reminderDeliveriesRecipe({ limit: 100, reminderId: created.id }),
+				reminderDeliveriesRecipe,
+				{ reminderId: created.id },
+				{ pages: { deliveries: { limit: 100 } } },
 			);
 			expect(deliveries.items.map(({ status }) => status).sort()).toEqual(["accepted", "unknown"]);
 			expect(provider.requests.filter(({ path }) => path.includes("/held/"))).toHaveLength(1);

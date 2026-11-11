@@ -23,17 +23,26 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 			kind: "local",
 		};
 		const workout = requirePresent(
-			yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ reference, workoutId })),
+			yield* executeRyotQLRecipe(client, workoutDetailsRecipe({ reference }), { workoutId }),
 			`Expected workout ${workoutId}`,
 		);
-		const exercises = yield* collectRyotQLRecipeItems(client, (after) =>
-			workoutDetailsExercisesRecipe({ after, reference, workoutId }),
+		const exercises = yield* collectRyotQLRecipeItems(
+			client,
+			workoutDetailsExercisesRecipe({ reference }),
+			{ workoutId },
+			"exercises",
 		);
-		const sets = yield* collectRyotQLRecipeItems(client, (after) =>
-			workoutDetailsSetsRecipe({ after, reference, workoutId }),
+		const sets = yield* collectRyotQLRecipeItems(
+			client,
+			workoutDetailsSetsRecipe({ reference }),
+			{ workoutId },
+			"sets",
 		);
-		const taxonomy = yield* collectRyotQLRecipeItems(client, (after) =>
-			workoutTaxonomyRecipe({ after, reference, workoutIds: [workoutId] }),
+		const taxonomy = yield* collectRyotQLRecipeItems(
+			client,
+			workoutTaxonomyRecipe({ reference }),
+			{ workoutIds: [workoutId] },
+			"taxonomy",
 		);
 		const detailsExercises = yield* Effect.forEach(exercises, (exercise) =>
 			Effect.gen(function* () {
@@ -41,13 +50,11 @@ export const readWorkoutDetails = (client: Client, workoutId: string) =>
 				const previousSets =
 					previousWorkoutId === null
 						? []
-						: yield* collectRyotQLRecipeItems(client, (after) =>
-								workoutDetailsSetsRecipe({
-									after,
-									reference,
-									exerciseId: exercise.id,
-									workoutId: previousWorkoutId,
-								}),
+						: yield* collectRyotQLRecipeItems(
+								client,
+								workoutDetailsSetsRecipe({ reference }),
+								{ exerciseId: exercise.id, workoutId: previousWorkoutId },
+								"sets",
 							);
 
 				return {

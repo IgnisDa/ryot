@@ -1,4 +1,3 @@
-import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { exerciseDetailsRecipe } from "@ryot-app/fitness-plugin/exercise-details-recipes";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { Effect } from "effect";
@@ -19,7 +18,6 @@ import {
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 
-const timeZone = TimeZone.make("Pacific/Auckland");
 type FitnessReference = Parameters<typeof exerciseDetailsRecipe>[0]["reference"];
 
 const exerciseDetails = (client: Client, exerciseId: string) =>
@@ -30,10 +28,7 @@ const exerciseDetails = (client: Client, exerciseId: string) =>
 			"Expected a Fitness exercise owner",
 		);
 		const reference: FitnessReference = { pluginId, kind: "local" };
-		return yield* executeRyotQLRecipe(
-			client,
-			exerciseDetailsRecipe({ timeZone, reference, exerciseId }),
-		);
+		return yield* executeRyotQLRecipe(client, exerciseDetailsRecipe({ reference }), { exerciseId });
 	});
 
 const waitForReadySets = (client: Client, workoutId: string) =>

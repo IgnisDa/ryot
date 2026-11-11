@@ -331,15 +331,6 @@ const installLifecyclePlugin = () =>
 		scope: "system",
 		pluginSlug: slugs.plugin,
 		workflows: [{ slug: slugs.replayPause, scriptSlug: slugs.replayPause }],
-		operations: [
-			{
-				auth: "user",
-				demoAccess: "allowed",
-				slug: slugs.replayOperation,
-				scriptSlug: slugs.replayOperation,
-				description: "Replays one lifecycle event workflow",
-			},
-		],
 		relationshipSchemas: [
 			{
 				slug: slugs.relationship,
@@ -362,6 +353,23 @@ const installLifecyclePlugin = () =>
 					eventSchema(slugs.asyncEvent, "Async event"),
 					eventSchema(slugs.replayEvent, "Replay event"),
 				],
+			},
+		],
+		operations: [
+			{
+				output: {},
+				auth: "user",
+				demoAccess: "allowed",
+				slug: slugs.replayOperation,
+				scriptSlug: slugs.replayOperation,
+				description: "Replays one lifecycle event workflow",
+				hints: { readOnly: false, idempotent: false, destructive: false },
+				input: {
+					type: "object",
+					additionalProperties: false,
+					required: ["entityId", "eventSchemaSlug"],
+					properties: { entityId: { type: "string" }, eventSchemaSlug: { type: "string" } },
+				},
 			},
 		],
 		files: {

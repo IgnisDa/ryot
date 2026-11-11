@@ -34,21 +34,24 @@ it.live("pages multiple collection reviews and protects edits and account owners
 		expect(created.count).toBe(2);
 		const first = yield* executeRyotQLRecipe(
 			client,
-			collectionReviewsRecipe({ limit: 1, collectionId: collection.id }),
+			collectionReviewsRecipe,
+			{ collectionId: collection.id },
+			{ pages: { reviews: { limit: 1 } } },
 		);
 		const review = requirePresent(first.items[0], "Expected latest review");
 		expect(review.properties).toEqual({ rating: 0, isSpoiler: true, text: "Later thoughts" });
 		const after = requirePresent(first.pageInfo.nextCursor, "Expected another review page");
 		const second = yield* executeRyotQLRecipe(
 			client,
-			collectionReviewsRecipe({ after, limit: 1, collectionId: collection.id }),
+			collectionReviewsRecipe,
+			{ collectionId: collection.id },
+			{ pages: { reviews: { after, limit: 1 } } },
 		);
 		expect(second.items.map((row) => row.properties)).toEqual([{ text: "Earlier thoughts" }]);
 		expect(second.pageInfo.hasMore).toBe(false);
-		const hidden = yield* executeRyotQLRecipe(
-			other,
-			collectionReviewsRecipe({ collectionId: collection.id }),
-		);
+		const hidden = yield* executeRyotQLRecipe(other, collectionReviewsRecipe, {
+			collectionId: collection.id,
+		});
 		expect(hidden.items).toEqual([]);
 		const forbidden = yield* other.call((c) =>
 			c.events.create({
@@ -105,18 +108,16 @@ it.live("pages multiple collection reviews and protects edits and account owners
 			),
 			"EventStale",
 		);
-		const updated = yield* executeRyotQLRecipe(
-			client,
-			collectionReviewsRecipe({ collectionId: collection.id }),
-		);
+		const updated = yield* executeRyotQLRecipe(client, collectionReviewsRecipe, {
+			collectionId: collection.id,
+		});
 		expect(updated.items[0]?.properties).toEqual({ isSpoiler: false, text: "Revised thoughts" });
 		expect(updated.items[0]?.occurredAt).toBe(review.occurredAt);
 		yield* client.call((c) => c.events.delete({ params: { eventId: review.id } }));
 		expect(
-			(yield* executeRyotQLRecipe(
-				client,
-				collectionReviewsRecipe({ collectionId: collection.id }),
-			)).items.map((row) => row.properties),
+			(yield* executeRyotQLRecipe(client, collectionReviewsRecipe, {
+				collectionId: collection.id,
+			})).items.map((row) => row.properties),
 		).toEqual([{ text: "Earlier thoughts" }]);
 	}),
 );

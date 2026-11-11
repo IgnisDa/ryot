@@ -1,5 +1,5 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
-import { collectionMembersRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { collectionArguments, collectionMembersRecipe } from "@ryot-app/ryotql-recipes/collections";
 import { Effect } from "effect";
 
 import {
@@ -38,14 +38,9 @@ describe("collection member ordering", () => {
 				return yield* Effect.die("Missing ordering fixture");
 			}
 			const read = (after?: string) =>
-				executeRyotQLRecipe(
-					client,
-					collectionMembersRecipe({
-						limit: 2,
-						collectionId: collection.id,
-						...(after === undefined ? {} : { after }),
-					}),
-				);
+				executeRyotQLRecipe(client, collectionMembersRecipe(), collectionArguments(collection.id), {
+					pages: { members: { after, limit: 2 } },
+				});
 			const first = yield* read();
 			expect(first.items.map((member) => member.name)).toEqual(["Delta", "Gamma"]);
 			const cursor = first.pageInfo.nextCursor;
@@ -119,7 +114,8 @@ describe("collection member ordering", () => {
 			}
 			const page = yield* executeRyotQLRecipe(
 				client,
-				collectionMembersRecipe({ collectionId: collection.id }),
+				collectionMembersRecipe(),
+				collectionArguments(collection.id),
 			);
 			const requests = members
 				.slice(0, 2)

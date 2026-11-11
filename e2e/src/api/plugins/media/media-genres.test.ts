@@ -3,10 +3,10 @@ import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { entitySchemaBrowseRecipe } from "@ryot-app/ryotql-recipes/browse";
 import { linkedFilterChoicesRecipe } from "@ryot-app/ryotql-recipes/filters";
-import { entityBrowserRecipe } from "@ryot-app/ryotql-recipes/saved-views";
+import { decodeSavedViewIds } from "@ryot-app/ryotql-recipes/saved-views";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
-import { DateTime, Effect, Schema } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
@@ -18,6 +18,7 @@ import {
 	listRelationshipSchemas,
 	requireRelationshipSchemaBySlug,
 } from "~/fixtures/kernel";
+import { executeRyotQL } from "~/fixtures/kernel/ryotql";
 import {
 	findMediaEntitySchema,
 	insertLibraryMembership,
@@ -45,6 +46,7 @@ describe("Media genres", () => {
 			const browse = yield* executeRyotQLRecipe(
 				userA.client,
 				entitySchemaBrowseRecipe({ schemas: [{ pluginId, slug: "movie" }] }),
+				{},
 			);
 			const genreFilter = requirePresent(
 				browse[0]?.browse?.fields.find(({ key }) => key === "genres"),
@@ -54,7 +56,7 @@ describe("Media genres", () => {
 				genreFilter.kind === "relationship",
 				"Movie genre filter is not a relationship filter",
 			);
-			const source = requirePresent(view.dataSources, "Movie saved view has no data source");
+
 			const relationshipSchema = requireRelationshipSchemaBySlug(
 				yield* listRelationshipSchemas(userA.client, {
 					slugs: ["movie-to-genre"],
@@ -112,25 +114,19 @@ describe("Media genres", () => {
 				}),
 			]);
 
-			const now = yield* DateTime.now;
 			const runFilter = (filter: Filter) =>
 				Effect.gen(function* () {
 					const ids: string[] = [];
 					let after: string | undefined;
 					for (;;) {
-						const recipe = yield* Effect.fromResult(
-							entityBrowserRecipe({
-								now,
-								after,
-								browse,
-								filter,
-								searchText: suffix,
-								queryDocument: source,
-								settings: { ...settings, pageSize: 100 },
-							}),
-						);
-						const page = yield* executeRyotQLRecipe(userA.client, recipe);
-						ids.push(...page.items.map(({ entityId }) => entityId));
+						const response = yield* executeRyotQL(userA.client, {
+							filter,
+							pages: { ids: { after, limit: 100 } },
+							arguments: { [settings.controls?.search ?? "search"]: suffix },
+							source: { query: "ids", kind: "savedView", reference: view.reference },
+						});
+						const page = yield* Effect.fromResult(decodeSavedViewIds(response));
+						ids.push(...page.items);
 						if (!page.pageInfo.hasMore) {
 							return ids;
 						}
@@ -177,12 +173,23 @@ describe("Media genres", () => {
 				sourceEntityId: EntityId.make(privateMovie.id),
 				targetEntityId: EntityId.make(privateGenre.id),
 			});
-			const choicesRecipe = linkedFilterChoicesRecipe({
-				ids: [privateGenre.id],
-				link: { kind: "relationship", direction: "outgoing", relationship: queryRelationship },
-			});
-			const userAChoices = yield* executeRyotQLRecipe(userA.client, choicesRecipe);
-			const userBChoices = yield* executeRyotQLRecipe(userB.client, choicesRecipe);
+			const choicesRecipeOptions = {},
+				choicesRecipeArguments = { ids: [privateGenre.id] },
+				choicesRecipe = linkedFilterChoicesRecipe({
+					link: { kind: "relationship", direction: "outgoing", relationship: queryRelationship },
+				});
+			const userAChoices = yield* executeRyotQLRecipe(
+				userA.client,
+				choicesRecipe,
+				choicesRecipeArguments,
+				choicesRecipeOptions,
+			);
+			const userBChoices = yield* executeRyotQLRecipe(
+				userB.client,
+				choicesRecipe,
+				choicesRecipeArguments,
+				choicesRecipeOptions,
+			);
 			expect(userAChoices).toEqual([{ value: privateGenre.id, label: privateGenreName }]);
 			expect(userBChoices).toEqual([]);
 		}),

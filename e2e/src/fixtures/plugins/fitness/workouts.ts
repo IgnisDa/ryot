@@ -56,25 +56,27 @@ export const waitForSessionEventCount = (
 		`${expectedCount} events on session ${sessionEntityId}`,
 		Effect.gen(function* () {
 			const event = table("event", "event");
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					events: rows(event, {
-						limit: 100,
-						where: eq(column(event, "sessionEntityId"), literal(sessionEntityId)),
-						orderBy: [
-							descending(column(event, "occurredAt")),
-							descending(column(event, "createdAt")),
-							descending(column(event, "id")),
-						],
-						fields: [
-							field("entityId", column(event, "entityId")),
-							field("sessionEntityId", column(event, "sessionEntityId")),
-							field("properties", column(event, "properties")),
-						],
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						events: rows(event, {
+							limit: 100,
+							where: eq(column(event, "sessionEntityId"), literal(sessionEntityId)),
+							orderBy: [
+								descending(column(event, "occurredAt")),
+								descending(column(event, "createdAt")),
+								descending(column(event, "id")),
+							],
+							fields: [
+								field("entityId", column(event, "entityId")),
+								field("sessionEntityId", column(event, "sessionEntityId")),
+								field("properties", column(event, "properties")),
+							],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 			const eventRows = requireRows(result.data.events, "events");
 			const events = eventRows.items.map((item) => {
 				const properties = requireRyotQLValue(item, "properties");

@@ -1,4 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
+import type { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	type DefinitionOwner,
@@ -25,7 +26,7 @@ import {
 } from "./plugins";
 import { pollUntil } from "./polling";
 import { collectRyotQLRecipeItems } from "./ryotql";
-import { installTestDefinitions } from "./test-plugin";
+import { findTestEntitySchema, installTestDefinitions } from "./test-plugin";
 
 type PluginEntitySchema = PluginManifest["entitySchemas"][number];
 type ImportProviderEntityBody = ContractPayload<"entityProviders", "import">;
@@ -70,7 +71,7 @@ export const listEntitySchemas = (
 ) =>
 	Effect.gen(function* () {
 		const [schemas, scripts] = yield* Effect.all([
-			collectRyotQLRecipeItems(client, (after) => entityDefinitionsRecipe({ after, limit: 100 })),
+			collectRyotQLRecipeItems(client, entityDefinitionsRecipe, {}, "entities"),
 			listAdminSandboxScripts(undefined, client.target),
 		]);
 		const providers = new Map<
@@ -146,8 +147,11 @@ export const findBuiltinSchemaBySlug = (client: Client, slug: string, owner: Def
 
 export const getBuiltinEntitySchemaSlug = (client: Client, slug: string, owner: DefinitionOwner) =>
 	Effect.gen(function* () {
-		const schemas = yield* collectRyotQLRecipeItems(client, (after) =>
-			entityDefinitionsRecipe({ after, limit: 100 }),
+		const schemas = yield* collectRyotQLRecipeItems(
+			client,
+			entityDefinitionsRecipe,
+			{},
+			"entities",
 		);
 		const pluginId = owner.kind === "kernel" ? null : owner.pluginId;
 		const schema = schemas.find(
@@ -208,4 +212,45 @@ export const createPluginSchema = (
 		const pluginSlug = createPluginScope();
 		const schema = yield* createEntitySchema(client, { ...options, pluginSlug });
 		return { ...schema, pluginSlug };
+	});
+
+const authoredBrowseOwner = (
+	value: DefinitionOwner,
+): { readonly kind: "self" } | { readonly kind: "kernel" } =>
+	value.kind === "kernel" ? { kind: "kernel" } : { kind: "self" };
+
+export const setTestEntitySchemaBrowse = (
+	client: Client,
+	reference: Parameters<typeof findTestEntitySchema>[1],
+	browse: EntitySchemaBrowse,
+) =>
+	Effect.gen(function* () {
+		const existing = requirePresent(
+			findTestEntitySchema(client, reference),
+			"Fixture schema missing",
+		);
+
+		const fields = browse.fields.map((field) => {
+			if (field.kind === "relationship") {
+				return {
+					...field,
+					relationship: {
+						...field.relationship,
+						owner: authoredBrowseOwner(field.relationship.owner),
+					},
+				};
+			}
+			if (field.kind === "session-event") {
+				return {
+					...field,
+					event: { ...field.event, owner: authoredBrowseOwner(field.event.owner) },
+				};
+			}
+			return field;
+		});
+		yield* installTestDefinitions({
+			client,
+			pluginSlug: existing.pluginSlug,
+			entitySchemas: [{ ...existing.schema, browse: { fields } }],
+		});
 	});

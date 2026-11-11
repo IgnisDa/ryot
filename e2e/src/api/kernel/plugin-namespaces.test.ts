@@ -43,10 +43,9 @@ describe("plugin namespaces", () => {
 					[{ scope: "user", kind: "package", packageId: testPluginPackageId() }, "missing"],
 				] as const;
 				for (const [reference, issue] of cases) {
-					const failure = yield* executeRyotQLError(
-						client,
-						namespaceBottlesRecipe({ reference }).document,
-					);
+					const failure = yield* executeRyotQLError(client, {
+						source: { kind: "inline", document: namespaceBottlesRecipe({ reference }).document },
+					});
 					assertTaggedError(failure, "RyotQLBadRequest");
 					expect(failure.reason).toEqual({ issue, reference, code: "unresolved-query-owner" });
 				}
@@ -126,6 +125,7 @@ describe("plugin namespaces", () => {
 							joinDefinitions: true,
 							reference: { kind: "local", pluginId: a.pluginId },
 						}),
+						{},
 					);
 					const bRows = yield* executeRyotQLRecipe(
 						client,
@@ -137,6 +137,7 @@ describe("plugin namespaces", () => {
 								packageId: packages.b.manifest.metadata.packageId,
 							},
 						}),
+						{},
 					);
 					expect(aRows).toEqual<unknown>([
 						objectContaining({
@@ -159,17 +160,24 @@ describe("plugin namespaces", () => {
 								a: { kind: "local", pluginId: a.pluginId },
 								b: { kind: "local", pluginId: b.pluginId },
 							}),
+							{},
 						),
 					).toEqual([{ aName: "A1 bottle", bName: "B1 bottle" }]);
-					const imports = (yield* collectRyotQLRecipeItems(client, (after) =>
-						importSourcesRecipe({ after, limit: 100 }),
+					const imports = (yield* collectRyotQLRecipeItems(
+						client,
+						importSourcesRecipe,
+						{},
+						"sources",
 					)).filter(
 						(entry) =>
 							entry.slug === "import" &&
 							(entry.pluginId === a.pluginId || entry.pluginId === b.pluginId),
 					);
-					const integrations = (yield* collectRyotQLRecipeItems(client, (after) =>
-						integrationProvidersRecipe({ after, limit: 100 }),
+					const integrations = (yield* collectRyotQLRecipeItems(
+						client,
+						integrationProvidersRecipe,
+						{},
+						"providers",
 					)).filter(
 						(entry) =>
 							entry.slug === "import" &&

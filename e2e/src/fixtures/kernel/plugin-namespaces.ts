@@ -44,121 +44,137 @@ const definition = table("entitySchema", "namespaceDefinition");
 const plugin = table("plugin", "namespacePlugin");
 const installationTable = table("pluginInstallation", "namespaceInstallation");
 
-export const namespaceInstallationsRecipe = defineRecipe(() => ({
-	map: ({ installations }) => Result.succeed(installations.items),
-	queries: {
-		installations: selectedRows(installationTable, {
-			limit: 100,
-			orderBy: [ascending(column(installationTable, "id"))],
-			where: eq(column(plugin, "status"), literal("active")),
-			joins: [
-				join("inner", plugin, eq(column(plugin, "id"), column(installationTable, "pluginId"))),
-			],
-			selection: {
-				pluginId: selectedField(column(plugin, "id"), PluginId),
-				name: selectedField(column(plugin, "name"), Schema.String),
-				version: selectedField(column(plugin, "version"), Schema.String),
-				id: selectedField(column(installationTable, "id"), Schema.String),
-				packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
-				contentHash: selectedField(column(plugin, "contentHash"), Schema.String),
-				activationId: selectedField(column(plugin, "activationId"), Schema.String),
-				isHidden: selectedField(column(installationTable, "isHidden"), Schema.Boolean),
-				scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),
-				activeRevisionId: selectedField(column(plugin, "activeRevisionId"), Schema.String),
-				health: selectedField(column(installationTable, "health"), PluginInstallationHealth),
-				isInitialized: selectedField(column(installationTable, "isInitialized"), Schema.Boolean),
-				homeSavedView: selectedField(
-					column(installationTable, "homeSavedView"),
-					Schema.NullOr(SavedViewReference),
-				),
-				incompatibilityReason: selectedField(
-					column(installationTable, "incompatibilityReason"),
-					Schema.NullOr(Schema.Literal("package-identity-conflict")),
-				),
-			},
-		}),
-	},
-}));
+export const namespaceInstallationsRecipe = (() => {
+	return defineRecipe({
+		map: ({ installations }) => Result.succeed(installations.items),
+		queries: {
+			installations: selectedRows(installationTable, {
+				limit: 100,
+				orderBy: [ascending(column(installationTable, "id"))],
+				where: eq(column(plugin, "status"), literal("active")),
+				joins: [
+					join("inner", plugin, eq(column(plugin, "id"), column(installationTable, "pluginId"))),
+				],
+				selection: {
+					pluginId: selectedField(column(plugin, "id"), PluginId),
+					name: selectedField(column(plugin, "name"), Schema.String),
+					version: selectedField(column(plugin, "version"), Schema.String),
+					id: selectedField(column(installationTable, "id"), Schema.String),
+					packageId: selectedField(column(plugin, "packageId"), PluginPackageId),
+					contentHash: selectedField(column(plugin, "contentHash"), Schema.String),
+					activationId: selectedField(column(plugin, "activationId"), Schema.String),
+					isHidden: selectedField(column(installationTable, "isHidden"), Schema.Boolean),
+					scope: selectedField(column(plugin, "scope"), Schema.Literals(["system", "user"])),
+					activeRevisionId: selectedField(column(plugin, "activeRevisionId"), Schema.String),
+					health: selectedField(column(installationTable, "health"), PluginInstallationHealth),
+					isInitialized: selectedField(column(installationTable, "isInitialized"), Schema.Boolean),
+					homeSavedView: selectedField(
+						column(installationTable, "homeSavedView"),
+						Schema.NullOr(SavedViewReference),
+					),
+					incompatibilityReason: selectedField(
+						column(installationTable, "incompatibilityReason"),
+						Schema.NullOr(Schema.Literal("package-identity-conflict")),
+					),
+				},
+			}),
+		},
+	});
+})();
 
 export const listNamespaceInstallations = (client: Client) =>
-	executeRyotQLRecipe(client, namespaceInstallationsRecipe());
+	executeRyotQLRecipe(client, namespaceInstallationsRecipe, {});
 
 const namespaceProvider = table("sandboxProvider", "namespaceProvider");
 const namespaceRelationship = table("relationship", "namespaceRelationship");
 const namespaceSubscription = table("notificationSubscription", "namespaceSubscription");
-export const namespaceProvidersRecipe = defineRecipe((reference: PluginIdentityReference) => ({
-	map: ({ providers }) => Result.succeed(providers.items),
-	queries: {
-		providers: selectedRows(namespaceProvider, {
-			limit: 100,
-			orderBy: [ascending(column(namespaceProvider, "id"))],
-			where: and(
-				eq(column(namespaceProvider, "pluginId"), pluginId(reference)),
-				eq(column(namespaceProvider, "slug"), literal("catalog")),
-			),
-			selection: {
-				id: selectedField(column(namespaceProvider, "id"), SandboxProviderId),
-				root: selectedField(column(namespaceProvider, "rootEntitySchemaSlug"), Schema.String),
-			},
-		}),
-	},
-}));
-export const namespaceRelationshipsRecipe = defineRecipe((reference: PluginIdentityReference) => ({
-	map: ({ relationships }) => Result.succeed(relationships.items),
-	queries: {
-		relationships: selectedRows(namespaceRelationship, {
-			limit: 100,
-			orderBy: [ascending(column(namespaceRelationship, "id"))],
-			where: eq(column(namespaceRelationship, "relationshipSchemaPluginId"), pluginId(reference)),
-			selection: {
-				sourceId: selectedField(column(namespaceRelationship, "sourceEntityId"), EntityId),
-				targetId: selectedField(column(namespaceRelationship, "targetEntityId"), EntityId),
-				slug: selectedField(column(namespaceRelationship, "relationshipSchemaSlug"), Schema.String),
-				userId: selectedField(
-					column(namespaceRelationship, "userId"),
-					Schema.NullOr(Schema.String),
+export const namespaceProvidersRecipe = (reference: PluginIdentityReference) => {
+	return defineRecipe({
+		map: ({ providers }) => Result.succeed(providers.items),
+		queries: {
+			providers: selectedRows(namespaceProvider, {
+				limit: 100,
+				orderBy: [ascending(column(namespaceProvider, "id"))],
+				where: and(
+					eq(column(namespaceProvider, "pluginId"), pluginId(reference)),
+					eq(column(namespaceProvider, "slug"), literal("catalog")),
 				),
-			},
-		}),
-	},
-}));
-export const namespaceEntityGraphRecipe = defineRecipe((reference: PluginIdentityReference) => ({
-	map: ({ entities }) => Result.succeed(entities.items),
-	queries: {
-		entities: selectedRows(entity, {
-			limit: 100,
-			orderBy: [ascending(column(entity, "id"))],
-			where: eq(column(entity, "entitySchemaPluginId"), pluginId(reference)),
-			selection: {
-				id: selectedField(column(entity, "id"), EntityId),
-				userId: selectedField(column(entity, "userId"), Schema.String),
-				slug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-				externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
-				providerId: selectedField(column(entity, "providerId"), Schema.NullOr(SandboxProviderId)),
-			},
-		}),
-	},
-}));
-export const namespaceSubscriptionsRecipe = defineRecipe((reference: PluginIdentityReference) => ({
-	map: ({ subscriptions }) => Result.succeed(subscriptions.items),
-	queries: {
-		subscriptions: selectedRows(namespaceSubscription, {
-			limit: 100,
-			orderBy: [ascending(column(namespaceSubscription, "id"))],
-			where: and(
-				eq(column(namespaceSubscription, "signalSchemaSlug"), literal("tasted")),
-				eq(column(namespaceSubscription, "signalSchemaPluginId"), pluginId(reference)),
-			),
-			selection: {
-				isActive: selectedField(column(namespaceSubscription, "isActive"), Schema.Boolean),
-				pluginId: selectedField(column(namespaceSubscription, "signalSchemaPluginId"), PluginId),
-			},
-		}),
-	},
-}));
+				selection: {
+					id: selectedField(column(namespaceProvider, "id"), SandboxProviderId),
+					root: selectedField(column(namespaceProvider, "rootEntitySchemaSlug"), Schema.String),
+				},
+			}),
+		},
+	});
+};
+export const namespaceRelationshipsRecipe = (reference: PluginIdentityReference) => {
+	return defineRecipe({
+		map: ({ relationships }) => Result.succeed(relationships.items),
+		queries: {
+			relationships: selectedRows(namespaceRelationship, {
+				limit: 100,
+				orderBy: [ascending(column(namespaceRelationship, "id"))],
+				where: eq(column(namespaceRelationship, "relationshipSchemaPluginId"), pluginId(reference)),
+				selection: {
+					sourceId: selectedField(column(namespaceRelationship, "sourceEntityId"), EntityId),
+					targetId: selectedField(column(namespaceRelationship, "targetEntityId"), EntityId),
+					slug: selectedField(
+						column(namespaceRelationship, "relationshipSchemaSlug"),
+						Schema.String,
+					),
+					userId: selectedField(
+						column(namespaceRelationship, "userId"),
+						Schema.NullOr(Schema.String),
+					),
+				},
+			}),
+		},
+	});
+};
+export const namespaceEntityGraphRecipe = (reference: PluginIdentityReference) => {
+	return defineRecipe({
+		map: ({ entities }) => Result.succeed(entities.items),
+		queries: {
+			entities: selectedRows(entity, {
+				limit: 100,
+				orderBy: [ascending(column(entity, "id"))],
+				where: eq(column(entity, "entitySchemaPluginId"), pluginId(reference)),
+				selection: {
+					id: selectedField(column(entity, "id"), EntityId),
+					userId: selectedField(column(entity, "userId"), Schema.String),
+					slug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+					externalId: selectedField(column(entity, "externalId"), Schema.NullOr(Schema.String)),
+					providerId: selectedField(column(entity, "providerId"), Schema.NullOr(SandboxProviderId)),
+				},
+			}),
+		},
+	});
+};
+export const namespaceSubscriptionsRecipe = (reference: PluginIdentityReference) => {
+	return defineRecipe({
+		map: ({ subscriptions }) => Result.succeed(subscriptions.items),
+		queries: {
+			subscriptions: selectedRows(namespaceSubscription, {
+				limit: 100,
+				orderBy: [ascending(column(namespaceSubscription, "id"))],
+				where: and(
+					eq(column(namespaceSubscription, "signalSchemaSlug"), literal("tasted")),
+					eq(column(namespaceSubscription, "signalSchemaPluginId"), pluginId(reference)),
+				),
+				selection: {
+					isActive: selectedField(column(namespaceSubscription, "isActive"), Schema.Boolean),
+					pluginId: selectedField(column(namespaceSubscription, "signalSchemaPluginId"), PluginId),
+				},
+			}),
+		},
+	});
+};
 
-export const namespaceBottlesRecipe = defineRecipe(
-	(input: { readonly joinDefinitions?: boolean; readonly reference: PluginIdentityReference }) => ({
+export const namespaceBottlesRecipe = (input: {
+	readonly joinDefinitions?: boolean;
+	readonly reference: PluginIdentityReference;
+}) => {
+	return defineRecipe({
 		map: ({ bottles }) => Result.succeed(bottles.items),
 		queries: {
 			bottles: selectedRows(entity, {
@@ -188,12 +204,15 @@ export const namespaceBottlesRecipe = defineRecipe(
 				},
 			}),
 		},
-	}),
-);
+	});
+};
 
 const otherEntity = table("entity", "namespaceOtherEntity");
-export const namespacePairRecipe = defineRecipe(
-	(input: { readonly a: PluginIdentityReference; readonly b: PluginIdentityReference }) => ({
+export const namespacePairRecipe = (input: {
+	readonly a: PluginIdentityReference;
+	readonly b: PluginIdentityReference;
+}) => {
+	return defineRecipe({
 		map: ({ pairs }) => Result.succeed(pairs.items),
 		queries: {
 			pairs: selectedRows(entity, {
@@ -219,8 +238,8 @@ export const namespacePairRecipe = defineRecipe(
 				],
 			}),
 		},
-	}),
-);
+	});
+};
 
 const operationSource = (label: string) => `
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
@@ -425,14 +444,14 @@ import { Schema, Result } from "@ryot-app/plugin-kit/effect";
 import { and, ascending, column, defineRecipe, eq, literal, pluginId, selectedField, selectedRows, table } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 const entity = table("entity", "contributorBottle");
-export const contributorBottlesRecipe = defineRecipe((reference: PluginIdentityReference) => ({
+export const contributorBottlesRecipe = (reference: PluginIdentityReference) => defineRecipe({
   map: ({ bottles }) => Result.succeed(bottles.items.map(({ name }) => name)),
   queries: { bottles: selectedRows(entity, {
     limit: 100, orderBy: [ascending(column(entity, "id"))],
     where: and(eq(column(entity, "entitySchemaSlug"), literal("bottle")), eq(column(entity, "entitySchemaPluginId"), pluginId(reference))),
     selection: { name: selectedField(column(entity, "name"), Schema.String) },
   }) },
-}));
+});
 `;
 
 const clientSource = (label: string, packageId: PluginPackageId, contributor: boolean) => `
@@ -443,7 +462,7 @@ import { PluginPackageId, type PluginIdentityReference } from "@ryot-app/plugin-
 import { contributorBottlesRecipe } from "../shared/query-recipes";
 ${contributor ? 'import Contributor from "@ryot-app/plugins/whiskey/catalog";' : ""}
 const invoke = createRyotMutation<{ packageId: typeof PluginPackageId.Type }, { label: string }>(({ input, client }) => client.operations.invoke({ packageId: input.packageId, slug: "inspect", input: {}, inputSchema: Schema.Struct({}), output: Schema.Struct({ label: Schema.String }) }));
-const bottlesQuery = createRyotQuery<PluginIdentityReference, readonly string[]>(({ input, client }) => client.data.query(contributorBottlesRecipe(input)));
+const bottlesQuery = createRyotQuery<PluginIdentityReference, readonly string[]>(({ input, client }) => client.data.query(contributorBottlesRecipe(input), {}));
 export const Catalog = () => {
   const identity = usePluginIdentity(PluginPackageId.make(${JSON.stringify(packageId)}));
   const storage = usePluginStorage({ pluginId: identity.pluginId, key: "selected", schema: Schema.String });
@@ -540,21 +559,6 @@ const namespacePackage = (input: {
 				propertiesSchema: {
 					fields: { label: { type: "string", label: "Label", description: "Exact emitter" } },
 				},
-			},
-		],
-		operations: [
-			{
-				auth: "integration",
-				slug: "inspect-integration",
-				scriptSlug: "inspect-integration",
-				description: "Inspect an exact integration installation",
-			},
-			{
-				auth: "user",
-				slug: "inspect",
-				scriptSlug: "inspect",
-				demoAccess: "allowed",
-				description: "Inspect exact namespace",
 			},
 		],
 		relationshipSchemas: [
@@ -733,6 +737,49 @@ const namespacePackage = (input: {
 				eventSchemas: [],
 				propertiesSchema: { fields: {}, unknownKeys: "strict" as const },
 			})),
+		],
+		operations: [
+			{
+				auth: "integration",
+				slug: "inspect-integration",
+				scriptSlug: "inspect-integration",
+				description: "Inspect an exact integration installation",
+				hints: { readOnly: true, idempotent: true, destructive: false },
+				input: {
+					type: "object",
+					additionalProperties: false,
+					required: ["integrationId"],
+					properties: { integrationId: { type: "string" } },
+				},
+				output: {
+					type: "object",
+					additionalProperties: false,
+					required: ["integrationId", "label"],
+					properties: { label: { type: "string" }, integrationId: { type: "string" } },
+				},
+			},
+			{
+				output: {},
+				auth: "user",
+				slug: "inspect",
+				scriptSlug: "inspect",
+				demoAccess: "allowed",
+				description: "Inspect exact namespace",
+				hints: { readOnly: false, idempotent: false, destructive: false },
+				input: {
+					required: [],
+					type: "object",
+					additionalProperties: false,
+					properties: {
+						kernelInput: {},
+						action: { type: "string" },
+						eventId: { type: "string" },
+						entityId: { type: "string" },
+						externalId: { type: "string" },
+						targetEntityId: { type: "string" },
+					},
+				},
+			},
 		],
 		scripts: [
 			{

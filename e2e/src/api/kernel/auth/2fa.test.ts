@@ -16,8 +16,11 @@ import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
 
 const listPluginsWithToken = (token: string) =>
-	collectRyotQLRecipeItems(makeSession(undefined, { Authorization: `Bearer ${token}` }), (after) =>
-		pluginInstallationsRecipe({ after, limit: 100 }),
+	collectRyotQLRecipeItems(
+		makeSession(undefined, { Authorization: `Bearer ${token}` }),
+		pluginInstallationsRecipe,
+		{},
+		"installations",
 	);
 
 describe("Two-factor sign-in flow", () => {

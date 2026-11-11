@@ -99,31 +99,33 @@ export const countMediaMonitoringRelationships = (input: {
 		const relationship = table("relationship", "relationship");
 		const media = table("entity", "media");
 		const mediaLibrary = table("entity", "mediaLibrary");
-		const result = yield* executeRyotQL(
-			input.client,
-			document({
-				relationships: aggregate(relationship, {
-					measures: [measure("count", { function: "count" })],
-					joins: [
-						join("inner", media, eq(column(relationship, "sourceEntityId"), column(media, "id"))),
-						join(
-							"inner",
-							mediaLibrary,
-							eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
+		const result = yield* executeRyotQL(input.client, {
+			source: {
+				kind: "inline",
+				document: document({
+					relationships: aggregate(relationship, {
+						measures: [measure("count", { function: "count" })],
+						joins: [
+							join("inner", media, eq(column(relationship, "sourceEntityId"), column(media, "id"))),
+							join(
+								"inner",
+								mediaLibrary,
+								eq(column(relationship, "targetEntityId"), column(mediaLibrary, "id")),
+							),
+						],
+						where: and(
+							eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
+							eq(column(relationship, "relationshipSchemaPluginId"), literal(pluginId)),
+							eq(column(media, "id"), literal(input.entityId)),
+							eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+							eq(column(media, "entitySchemaPluginId"), literal(pluginId)),
+							eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
+							eq(column(mediaLibrary, "entitySchemaPluginId"), literal(pluginId)),
 						),
-					],
-					where: and(
-						eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
-						eq(column(relationship, "relationshipSchemaPluginId"), literal(pluginId)),
-						eq(column(media, "id"), literal(input.entityId)),
-						eq(column(media, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-						eq(column(media, "entitySchemaPluginId"), literal(pluginId)),
-						eq(column(mediaLibrary, "entitySchemaSlug"), literal("media-library")),
-						eq(column(mediaLibrary, "entitySchemaPluginId"), literal(pluginId)),
-					),
+					}),
 				}),
-			}),
-		);
+			},
+		});
 		const relationships = result.data.relationships;
 		if (relationships?.type !== "aggregate") {
 			throw new Error("Expected 'relationships' aggregate");

@@ -104,42 +104,44 @@ describe("RyotQL JSON array operators", () => {
 				eq(column(entity, "entitySchemaSlug"), literal(schema.slug)),
 				jsonArrayExists(array, upcoming),
 			);
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					paged: rows(entity, {
-						limit: 1,
-						where: upcomingFilter,
-						orderBy: [ascending(nextAiringAt)],
-						fields: [field("name", column(entity, "name"))],
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						paged: rows(entity, {
+							limit: 1,
+							where: upcomingFilter,
+							orderBy: [ascending(nextAiringAt)],
+							fields: [field("name", column(entity, "name"))],
+						}),
+						counts: rows(entity, {
+							orderBy: [ascending(column(entity, "name"))],
+							where: eq(column(entity, "entitySchemaSlug"), literal(schema.slug)),
+							fields: [
+								field("name", column(entity, "name")),
+								field("upcomingCount", jsonArrayCount(array, upcoming)),
+								field("totalCount", jsonArrayCount(array)),
+							],
+						}),
+						upcoming: rows(entity, {
+							where: upcomingFilter,
+							orderBy: [ascending(nextAiringAt)],
+							fields: [
+								field("name", column(entity, "name")),
+								field("nextAiringAt", nextAiringAt),
+								field(
+									"nextEpisode",
+									jsonArrayFirst(array, {
+										select: episode,
+										where: upcoming,
+										orderBy: [ascending(airingAt)],
+									}),
+								),
+							],
+						}),
 					}),
-					counts: rows(entity, {
-						orderBy: [ascending(column(entity, "name"))],
-						where: eq(column(entity, "entitySchemaSlug"), literal(schema.slug)),
-						fields: [
-							field("name", column(entity, "name")),
-							field("upcomingCount", jsonArrayCount(array, upcoming)),
-							field("totalCount", jsonArrayCount(array)),
-						],
-					}),
-					upcoming: rows(entity, {
-						where: upcomingFilter,
-						orderBy: [ascending(nextAiringAt)],
-						fields: [
-							field("name", column(entity, "name")),
-							field("nextAiringAt", nextAiringAt),
-							field(
-								"nextEpisode",
-								jsonArrayFirst(array, {
-									select: episode,
-									where: upcoming,
-									orderBy: [ascending(airingAt)],
-								}),
-							),
-						],
-					}),
-				}),
-			);
+				},
+			});
 
 			expect(requireRows(result.data["upcoming"], "upcoming").items).toEqual([
 				{ nextEpisode: 1, name: "Show First", nextAiringAt: "2026-09-02T00:00:00.000Z" },
@@ -171,18 +173,20 @@ describe("RyotQL JSON array operators", () => {
 			expect(firstPage.pageInfo.hasMore).toBe(true);
 			expect(firstPage.pageInfo.nextCursor).toEqual<unknown>(anyOf(String));
 
-			const secondPage = yield* executeRyotQL(
-				client,
-				document({
-					paged: rows(entity, {
-						limit: 1,
-						where: upcomingFilter,
-						orderBy: [ascending(nextAiringAt)],
-						fields: [field("name", column(entity, "name"))],
-						after: firstPage.pageInfo.nextCursor ?? undefined,
+			const secondPage = yield* executeRyotQL(client, {
+				pages: { paged: { after: firstPage.pageInfo.nextCursor ?? undefined } },
+				source: {
+					kind: "inline",
+					document: document({
+						paged: rows(entity, {
+							limit: 1,
+							where: upcomingFilter,
+							orderBy: [ascending(nextAiringAt)],
+							fields: [field("name", column(entity, "name"))],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 			const secondItems = requireRows(secondPage.data["paged"], "paged");
 			expect(secondItems.items.map((item) => requireRyotQLValue(item, "name"))).toEqual([
 				"Show Early",

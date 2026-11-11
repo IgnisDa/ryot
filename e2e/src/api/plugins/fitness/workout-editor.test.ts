@@ -178,10 +178,9 @@ describe("Workout editor E2E", () => {
 			});
 
 			const reference = yield* workoutReference(client);
-			const workouts = yield* executeRyotQLRecipe(
-				client,
-				workoutCardsRecipe({ reference, search: name }),
-			);
+			const workouts = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+				search: name,
+			});
 			expect(workouts.items.filter(({ name: itemName }) => itemName === name)).toHaveLength(1);
 			const baseline = yield* loadWorkoutBaseline(client, saved.entityId);
 			expect(baseline.baseline.sets).toHaveLength(1);
@@ -429,7 +428,8 @@ describe("Workout editor E2E", () => {
 			).toEqual({ kind: "saved" });
 			const membership = yield* executeRyotQLRecipe(
 				client,
-				workoutEditorMembershipRecipe({ exerciseId, reference: yield* workoutReference(client) }),
+				workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
+				{ exerciseId },
 			);
 			expect(membership?.properties).toMatchObject({ normalRestTime: 45 });
 			expect(
@@ -441,7 +441,8 @@ describe("Workout editor E2E", () => {
 			expect(
 				(yield* executeRyotQLRecipe(
 					client,
-					workoutEditorMembershipRecipe({ exerciseId, reference: yield* workoutReference(client) }),
+					workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
+					{ exerciseId },
 				))?.properties,
 			).toMatchObject({ dropRestTime: 0, normalRestTime: 45, defaultDurationUnit: "minutes" });
 			expect(
@@ -453,7 +454,8 @@ describe("Workout editor E2E", () => {
 			expect(
 				(yield* executeRyotQLRecipe(
 					client,
-					workoutEditorMembershipRecipe({ exerciseId, reference: yield* workoutReference(client) }),
+					workoutEditorMembershipRecipe({ reference: yield* workoutReference(client) }),
+					{ exerciseId },
 				))?.properties,
 			).toMatchObject({ dropRestTime: 0, normalRestTime: null, defaultDurationUnit: null });
 		}),
@@ -585,18 +587,14 @@ describe("Workout editor E2E", () => {
 			expect(
 				yield* executeRyotQLRecipe(
 					other,
-					workoutEditorEntityRecipe({
-						kind: "workout",
-						reference: otherReference,
-						entityId: created.entityId,
-					}),
+					workoutEditorEntityRecipe({ reference: otherReference }),
+					{ kind: "workout", entityId: created.entityId },
 				),
 			).toBeNull();
 			expect(
-				(yield* executeRyotQLRecipe(
-					other,
-					workoutEditorSetsRecipe({ reference: otherReference, workoutId: created.entityId }),
-				)).items,
+				(yield* executeRyotQLRecipe(other, workoutEditorSetsRecipe({ reference: otherReference }), {
+					workoutId: created.entityId,
+				})).items,
 			).toEqual([]);
 
 			const originalSet = requirePresent(baseline.baseline.sets[0], "Expected owner's set");

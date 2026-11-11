@@ -96,15 +96,9 @@ const seedFlat = (
 const upcoming = (client: Client, schemas: Schemas, onePerTitle = true) =>
 	executeRyotQLRecipe(
 		client,
-		upcomingRecipe({
-			limit: 20,
-			onePerTitle,
-			fromDate: dayOffset(0),
-			untilDate: dayOffset(14),
-			fromInstant: instant(0, "00:00:00"),
-			untilInstant: instant(15, "00:00:00"),
-			reference: { kind: "local", pluginId: schemas.pluginId },
-		}),
+		upcomingRecipe({ reference: { kind: "local", pluginId: schemas.pluginId } }),
+		{ onePerTitle, daysAhead: 14 },
+		{ pages: { anime: { limit: 20 } } },
 	);
 
 const summarize = (titles: Effect.Success<ReturnType<typeof upcoming>>) =>

@@ -38,7 +38,9 @@ const OIDC_BUTTON_LABEL = "Sign in with TestOIDC";
 const clientDist = fileURLToPath(new URL("../../../../../kernel/client/dist", import.meta.url));
 const existingOidcUsername = `user-${crypto.randomUUID()}`;
 const listUsers = (target: HarnessTarget, email: string) =>
-	executeAdminRyotQLRecipe(instanceAdminUsersRecipe({ limit: 50, search: email }), target);
+	executeAdminRyotQLRecipe(instanceAdminUsersRecipe, { search: email }, target, {
+		pages: { users: { limit: 50 } },
+	});
 const attempt = <A>(run: () => Promise<A>) => Effect.promise(run);
 
 const countUsersByEmail = (target: HarnessTarget, email: string) =>
@@ -48,8 +50,11 @@ const findUserIdByEmail = (target: HarnessTarget, email: string) =>
 	listUsers(target, email).pipe(Effect.map((data) => data.items[0]?.id ?? null));
 
 const listPlugins = (target: HarnessTarget, token: string) =>
-	collectRyotQLRecipeItems(makeSession(target, { Authorization: `Bearer ${token}` }), (after) =>
-		pluginInstallationsRecipe({ after, limit: 100 }),
+	collectRyotQLRecipeItems(
+		makeSession(target, { Authorization: `Bearer ${token}` }),
+		pluginInstallationsRecipe,
+		{},
+		"installations",
 	);
 
 const listPluginCount = (target: HarnessTarget, token: string) =>
@@ -298,9 +303,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 			const headers = { Authorization: `Bearer ${sessionToken}` };
 			const client = makeSession(targetA(), headers);
 			const [catalog, rules] = yield* Effect.all([
-				collectRyotQLRecipeItems(client, (after) =>
-					activeSignalSchemasRecipe({ after, limit: 100 }),
-				),
+				collectRyotQLRecipeItems(client, activeSignalSchemasRecipe, {}, "signals"),
 				listNotificationSubscriptions(client, { limit: 100 }),
 			]);
 			expect(rules).toHaveLength(catalog.length);

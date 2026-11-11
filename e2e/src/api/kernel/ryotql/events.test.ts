@@ -73,34 +73,36 @@ describe("RyotQL event queries", () => {
 
 			const event = table("event", "event");
 			const entity = table("entity", "entity");
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					events: rows(event, {
-						orderBy: [descending(column(event, "occurredAt"))],
-						joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
-						where: and(
-							inArray(column(event, "eventSchemaSlug"), [
-								literal(first.eventSchemaSlug),
-								literal(second.eventSchemaSlug),
-							]),
-							inArray(column(entity, "entitySchemaSlug"), [
-								literal(first.entitySchemaSlug),
-								literal(second.entitySchemaSlug),
-							]),
-						),
-						fields: [
-							field("createdAt", column(event, "createdAt")),
-							field("updatedAt", column(event, "updatedAt")),
-							field("occurredAt", column(event, "occurredAt")),
-							field("sessionEntityId", column(event, "sessionEntityId")),
-							field("eventSchemaSlug", column(event, "eventSchemaSlug")),
-							field("entityName", column(entity, "name")),
-							field("rating", jsonPath(column(event, "properties"), "rating")),
-						],
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						events: rows(event, {
+							orderBy: [descending(column(event, "occurredAt"))],
+							joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
+							where: and(
+								inArray(column(event, "eventSchemaSlug"), [
+									literal(first.eventSchemaSlug),
+									literal(second.eventSchemaSlug),
+								]),
+								inArray(column(entity, "entitySchemaSlug"), [
+									literal(first.entitySchemaSlug),
+									literal(second.entitySchemaSlug),
+								]),
+							),
+							fields: [
+								field("createdAt", column(event, "createdAt")),
+								field("updatedAt", column(event, "updatedAt")),
+								field("occurredAt", column(event, "occurredAt")),
+								field("sessionEntityId", column(event, "sessionEntityId")),
+								field("eventSchemaSlug", column(event, "eventSchemaSlug")),
+								field("entityName", column(entity, "name")),
+								field("rating", jsonPath(column(event, "properties"), "rating")),
+							],
+						}),
 					}),
-				}),
-			);
+				},
+			});
 
 			const events = requireRows(result.data["events"], "events");
 			expect(events.items).toHaveLength(2);
@@ -134,9 +136,8 @@ describe("RyotQL event queries", () => {
 
 			const event = table("event", "event");
 			const rating = castNumber(jsonPath(column(event, "properties"), "rating"));
-			const page = (after?: string) =>
+			const page = () =>
 				rows(event, {
-					after,
 					limit: 2,
 					orderBy: [descending(rating)],
 					fields: [field("rating", rating)],
@@ -145,16 +146,18 @@ describe("RyotQL event queries", () => {
 						gte(rating, literal(3)),
 					),
 				});
-			const result = yield* executeRyotQL(client, document({ events: page() }));
+			const result = yield* executeRyotQL(client, {
+				source: { kind: "inline", document: document({ events: page() }) },
+			});
 
 			const firstPage = requireRows(result.data["events"], "events");
 			expect(firstPage.pageInfo).toMatchObject({ limit: 2, hasMore: true });
 			expect(firstPage.pageInfo.nextCursor).not.toBeNull();
 			expect(firstPage.items.map((item) => requireRyotQLValue(item, "rating"))).toEqual([5, 4]);
-			const next = yield* executeRyotQL(
-				client,
-				document({ events: page(firstPage.pageInfo.nextCursor ?? undefined) }),
-			);
+			const next = yield* executeRyotQL(client, {
+				source: { kind: "inline", document: document({ events: page() }) },
+				pages: { events: { after: firstPage.pageInfo.nextCursor ?? undefined } },
+			});
 			const secondPage = requireRows(next.data["events"], "events");
 			expect(secondPage.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
 			expect(secondPage.items.map((item) => requireRyotQLValue(item, "rating"))).toEqual([3]);
@@ -181,25 +184,31 @@ describe("RyotQL event queries", () => {
 			const event = table("event", "event");
 			const craftedEvent = table("event", "craftedEvent");
 			const hiddenEntity = table("entity", "hiddenEntity");
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					visibleEvents: rows(event, {
-						fields: [field("eventSchemaSlug", column(event, "eventSchemaSlug"))],
-						where: inArray(column(event, "eventSchemaSlug"), [
-							literal(own.eventSchemaSlug),
-							literal(other.eventSchemaSlug),
-						]),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						visibleEvents: rows(event, {
+							fields: [field("eventSchemaSlug", column(event, "eventSchemaSlug"))],
+							where: inArray(column(event, "eventSchemaSlug"), [
+								literal(own.eventSchemaSlug),
+								literal(other.eventSchemaSlug),
+							]),
+						}),
+						craftedJoin: rows(craftedEvent, {
+							fields: [field("hiddenName", column(hiddenEntity, "name"))],
+							where: eq(column(craftedEvent, "entityId"), literal(own.entity.id)),
+							joins: [
+								join(
+									"left",
+									hiddenEntity,
+									eq(column(hiddenEntity, "id"), literal(other.entity.id)),
+								),
+							],
+						}),
 					}),
-					craftedJoin: rows(craftedEvent, {
-						fields: [field("hiddenName", column(hiddenEntity, "name"))],
-						where: eq(column(craftedEvent, "entityId"), literal(own.entity.id)),
-						joins: [
-							join("left", hiddenEntity, eq(column(hiddenEntity, "id"), literal(other.entity.id))),
-						],
-					}),
-				}),
-			);
+				},
+			});
 
 			const visibleEvents = requireRows(result.data["visibleEvents"], "visibleEvents");
 			expect(

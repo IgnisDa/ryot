@@ -99,10 +99,12 @@ describe("RyotQL aggregate outputs", () => {
 						field("episodeName", column(episode, "name")),
 					],
 				});
-			const result = yield* executeRyotQL(
-				client,
-				document({ utc: query("UTC"), newYork: query("America/New_York") }),
-			);
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({ utc: query("UTC"), newYork: query("America/New_York") }),
+				},
+			});
 
 			expect(requireAggregate(result.data["newYork"], "newYork").items).toEqual([
 				{
@@ -202,58 +204,63 @@ describe("RyotQL aggregate outputs", () => {
 				measure("maximumDuration", { expr: duration, function: "maximum" }),
 			] as const;
 			const schemaFilter = eq(column(lesson, "entitySchemaSlug"), literal(slug));
-			const result = yield* executeRyotQL(
-				client,
-				document({
-					allLessons: aggregate(lesson, { measures, where: schemaFilter }),
-					emptyLessons: aggregate(lesson, {
-						measures,
-						where: eq(column(lesson, "entitySchemaSlug"), literal(`missing-${yield* randomUuid}`)),
+			const result = yield* executeRyotQL(client, {
+				source: {
+					kind: "inline",
+					document: document({
+						allLessons: aggregate(lesson, { measures, where: schemaFilter }),
+						emptyLessons: aggregate(lesson, {
+							measures,
+							where: eq(
+								column(lesson, "entitySchemaSlug"),
+								literal(`missing-${yield* randomUuid}`),
+							),
+						}),
+						difficultyGroups: aggregate(lesson, {
+							limit: 10,
+							where: schemaFilter,
+							orderBy: [measureDescending("count")],
+							groupBy: [field("difficulty", difficulty)],
+							measures: [measure("count", { function: "count" })],
+						}),
+						limitedDifficultyGroups: aggregate(lesson, {
+							limit: 1,
+							where: schemaFilter,
+							orderBy: [measureDescending("count")],
+							groupBy: [field("difficulty", difficulty)],
+							measures: [measure("count", { function: "count" })],
+						}),
+						nullMeasureAscending: aggregate(lesson, {
+							limit: 10,
+							where: schemaFilter,
+							groupBy: [field("difficulty", difficulty)],
+							orderBy: [measureAscending("totalDuration")],
+							measures: [measure("totalDuration", { expr: duration, function: "sum" })],
+						}),
+						nullMeasureDescending: aggregate(lesson, {
+							limit: 10,
+							where: schemaFilter,
+							groupBy: [field("difficulty", difficulty)],
+							orderBy: [measureDescending("totalDuration")],
+							measures: [measure("totalDuration", { expr: duration, function: "sum" })],
+						}),
+						kindGroup: aggregate(lesson, {
+							limit: 10,
+							orderBy: [measureDescending("count")],
+							measures: [measure("count", { function: "count" })],
+							where: eq(column(lesson, "id"), literal(lessons[0].id)),
+							groupBy: [
+								field("text", column(lesson, "name")),
+								field("number", duration),
+								field("boolean", castBoolean(jsonPath(properties, "featured"))),
+								field("date", column(lesson, "createdAt")),
+								field("json", jsonPath(properties, "metadata")),
+								field("missing", jsonPath(properties, "missing")),
+							],
+						}),
 					}),
-					difficultyGroups: aggregate(lesson, {
-						limit: 10,
-						where: schemaFilter,
-						orderBy: [measureDescending("count")],
-						groupBy: [field("difficulty", difficulty)],
-						measures: [measure("count", { function: "count" })],
-					}),
-					limitedDifficultyGroups: aggregate(lesson, {
-						limit: 1,
-						where: schemaFilter,
-						orderBy: [measureDescending("count")],
-						groupBy: [field("difficulty", difficulty)],
-						measures: [measure("count", { function: "count" })],
-					}),
-					nullMeasureAscending: aggregate(lesson, {
-						limit: 10,
-						where: schemaFilter,
-						groupBy: [field("difficulty", difficulty)],
-						orderBy: [measureAscending("totalDuration")],
-						measures: [measure("totalDuration", { expr: duration, function: "sum" })],
-					}),
-					nullMeasureDescending: aggregate(lesson, {
-						limit: 10,
-						where: schemaFilter,
-						groupBy: [field("difficulty", difficulty)],
-						orderBy: [measureDescending("totalDuration")],
-						measures: [measure("totalDuration", { expr: duration, function: "sum" })],
-					}),
-					kindGroup: aggregate(lesson, {
-						limit: 10,
-						orderBy: [measureDescending("count")],
-						measures: [measure("count", { function: "count" })],
-						where: eq(column(lesson, "id"), literal(lessons[0].id)),
-						groupBy: [
-							field("text", column(lesson, "name")),
-							field("number", duration),
-							field("boolean", castBoolean(jsonPath(properties, "featured"))),
-							field("date", column(lesson, "createdAt")),
-							field("json", jsonPath(properties, "metadata")),
-							field("missing", jsonPath(properties, "missing")),
-						],
-					}),
-				}),
-			);
+				},
+			});
 
 			const allLessons = requireAggregate(result.data["allLessons"], "allLessons");
 			expect(allLessons.pageInfo).toBeUndefined();
@@ -385,51 +392,53 @@ describe("RyotQL aggregate outputs", () => {
 
 			const entity = table("entity", "entity");
 			const relationship = table("relationship", "relationship");
-			const result = yield* executeRyotQL(
-				owner.client,
-				document({
-					hiddenLeftJoin: aggregate(entity, {
-						where: eq(column(entity, "id"), literal(ownerSource.id)),
-						joins: [
-							join(
-								"left",
-								relationship,
-								eq(column(relationship, "id"), literal(hiddenRelationship.id)),
+			const result = yield* executeRyotQL(owner.client, {
+				source: {
+					kind: "inline",
+					document: document({
+						hiddenLeftJoin: aggregate(entity, {
+							where: eq(column(entity, "id"), literal(ownerSource.id)),
+							joins: [
+								join(
+									"left",
+									relationship,
+									eq(column(relationship, "id"), literal(hiddenRelationship.id)),
+								),
+							],
+							measures: [
+								measure("rootCount", { function: "count" }),
+								measure("hiddenRelationshipCount", {
+									function: "countDistinct",
+									expr: column(relationship, "id"),
+								}),
+							],
+						}),
+						joined: aggregate(entity, {
+							joins: [
+								join(
+									"inner",
+									relationship,
+									eq(column(entity, "id"), column(relationship, "sourceEntityId")),
+								),
+							],
+							measures: [
+								measure("count", { function: "count" }),
+								measure("distinctEntities", {
+									function: "countDistinct",
+									expr: column(entity, "id"),
+								}),
+							],
+							where: and(
+								inArray(column(entity, "id"), [literal(ownerSource.id), literal(otherSource.id)]),
+								inArray(column(relationship, "relationshipSchemaSlug"), [
+									literal(ownerRelationship.id),
+									literal(otherRelationship.id),
+								]),
 							),
-						],
-						measures: [
-							measure("rootCount", { function: "count" }),
-							measure("hiddenRelationshipCount", {
-								function: "countDistinct",
-								expr: column(relationship, "id"),
-							}),
-						],
+						}),
 					}),
-					joined: aggregate(entity, {
-						joins: [
-							join(
-								"inner",
-								relationship,
-								eq(column(entity, "id"), column(relationship, "sourceEntityId")),
-							),
-						],
-						measures: [
-							measure("count", { function: "count" }),
-							measure("distinctEntities", {
-								function: "countDistinct",
-								expr: column(entity, "id"),
-							}),
-						],
-						where: and(
-							inArray(column(entity, "id"), [literal(ownerSource.id), literal(otherSource.id)]),
-							inArray(column(relationship, "relationshipSchemaSlug"), [
-								literal(ownerRelationship.id),
-								literal(otherRelationship.id),
-							]),
-						),
-					}),
-				}),
-			);
+				},
+			});
 
 			const item = requireAggregate(result.data["joined"], "joined").items[0];
 			assertPresent(item, "Expected joined aggregate item");

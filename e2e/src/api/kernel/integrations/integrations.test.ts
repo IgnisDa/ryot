@@ -91,8 +91,11 @@ describe("Integration CRUD", () => {
 	it.live("lists integration providers with server-owned form schemas", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const providers = yield* collectRyotQLRecipeItems(client, (after) =>
-				integrationProvidersRecipe({ after, limit: 100 }),
+			const providers = yield* collectRyotQLRecipeItems(
+				client,
+				integrationProvidersRecipe,
+				{},
+				"providers",
 			);
 			const radarr = requirePresent(
 				providers.find(({ slug }) => slug === "radarr"),

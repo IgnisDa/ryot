@@ -2,11 +2,11 @@ import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SignalSchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	column,
 	defineRecipe,
 	eq,
-	literal,
 	selectedAggregate,
 	selectedMeasure,
 	table,
@@ -16,6 +16,7 @@ import {
 	notificationSubscriptionRecipe,
 	notificationSubscriptionsRecipe,
 } from "@ryot-app/ryotql-recipes/notification-subscriptions";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Effect, Result, Schema } from "effect";
 
 import type { HarnessTarget } from "~/support/harness-target";
@@ -62,18 +63,18 @@ const collectAutomationRecords = <Item, Error, Requirements>(
 	});
 
 export const listAutomationCatalog = (client: Client) =>
-	collectRyotQLRecipeItems(client, (after) => activeSignalSchemasRecipe({ after, limit: 100 }));
+	collectRyotQLRecipeItems(client, activeSignalSchemasRecipe, {}, "signals");
 
 export const listNotificationSubscriptions = (
 	client: Client,
-	input: Parameters<typeof notificationSubscriptionsRecipe>[0],
+	input: Recipe.Arguments<typeof notificationSubscriptionsRecipe>,
 ) =>
-	executeRyotQLRecipe(client, notificationSubscriptionsRecipe(input)).pipe(
+	executeRyotQLRecipe(client, notificationSubscriptionsRecipe, input).pipe(
 		Effect.map((result) => result.items),
 	);
 
 export const getNotificationSubscription = (client: Client, ruleId: string) =>
-	executeRyotQLRecipe(client, notificationSubscriptionRecipe({ id: ruleId }));
+	executeRyotQLRecipe(client, notificationSubscriptionRecipe, { id: ruleId });
 
 export const installNotificationRule = (
 	client: Client,
@@ -288,15 +289,28 @@ export const pollTerminalAutomationRunAttempts = (
 
 const subscription = table("notificationSubscription", "subscription");
 
-const automationRuleCountRecipe = defineRecipe((userId: string) => ({
-	map: ({ rules }) => Result.succeed(rules.count),
-	queries: {
-		rules: selectedAggregate(subscription, {
-			where: eq(column(subscription, "userId"), literal(userId)),
-			measures: { count: selectedMeasure({ function: "count" }, Schema.Int) },
-		}),
-	},
-}));
+const automationRuleCountRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			userId: {
+				type: "string",
+				label: "userId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ rules }) => Result.succeed(rules.count),
+		queries: {
+			rules: selectedAggregate(subscription, {
+				measures: { count: selectedMeasure({ function: "count" }, Schema.Int) },
+				where: eq(column(subscription, "userId"), recipeParameters.value("userId")),
+			}),
+		},
+	});
+})();
 
 export const getAutomationRuleCount = (userId: string, target?: HarnessTarget) =>
-	executeAdminRyotQLRecipe(automationRuleCountRecipe(userId), target);
+	executeAdminRyotQLRecipe(automationRuleCountRecipe, { userId: userId }, target);

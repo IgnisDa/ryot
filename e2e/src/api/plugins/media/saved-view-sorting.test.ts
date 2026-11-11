@@ -52,10 +52,12 @@ const savedViewIds = (
 ) =>
 	Effect.gen(function* () {
 		const view = yield* getSavedView(client, { slug, pluginId, kind: "plugin" });
-		const result = yield* executeRyotQL(
-			client,
-			requirePresent(view.dataSources, "Expected saved-view data sources"),
-		);
+		const result = yield* executeRyotQL(client, {
+			source: {
+				kind: "inline",
+				document: requirePresent(view.dataSources, "Expected saved-view data sources"),
+			},
+		});
 		return requireRows(result.data.savedView, "savedView").items.map((item) =>
 			requireRyotQLValue(item, "entityId"),
 		);

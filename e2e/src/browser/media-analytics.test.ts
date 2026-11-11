@@ -75,7 +75,7 @@ it.live("accepts Media summary and exact charts across desktop and compact theme
 		expect(yield* page.evaluate(() => Intl.DateTimeFormat().resolvedOptions().timeZone)).toBe(
 			"America/New_York",
 		);
-		expect(fixture.timeZone).toBe(TimeZone.make("UTC"));
+		expect<string>(fixture.timeZone).toBe(TimeZone.make("UTC"));
 		expect(yield* frameElement.count).toBe(1);
 		expect(yield* frameElement.getAttribute("src")).toBeNull();
 		expect(yield* frameElement.getAttribute("srcdoc")).not.toBeNull();
@@ -434,7 +434,8 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		};
 		const ranking = yield* executeRyotQLRecipe(
 			fixture.account.client,
-			mediaAnalyticsRankingRecipe(mediaAnalyticsInput(input)),
+			mediaAnalyticsRankingRecipe({ reference: input.reference }),
+			mediaAnalyticsInput(input),
 		);
 		expect(ranking.pageInfo.hasMore).toBe(false);
 		const tiedIds = [fixture.entities.book.id, fixture.entities.movie.id].sort();
@@ -446,7 +447,8 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		]);
 		const records = yield* executeRyotQLRecipe(
 			fixture.account.client,
-			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput(input)),
+			mediaAnalyticsRecordsRecipe({ reference: input.reference }),
+			mediaAnalyticsInput(input),
 		);
 		expect(records.pageInfo.hasMore).toBe(false);
 		const activeSourceIds = [0, 1, 2, 3, 5].map((index) =>
@@ -652,7 +654,8 @@ it.live("accepts Media ranking records, real source correction, and offline refr
 		expect(corrected.current.reviews).toEqual(fixture.report.current.reviews);
 		const correctedRecords = yield* executeRyotQLRecipe(
 			fixture.account.client,
-			mediaAnalyticsRecordsRecipe(mediaAnalyticsInput({ ...input, now })),
+			mediaAnalyticsRecordsRecipe({ reference: { ...input, now }.reference }),
+			mediaAnalyticsInput({ ...input, now }),
 		);
 		expect(correctedRecords.items.map(({ id }) => id)).toEqual(records.items.map(({ id }) => id));
 		const correctedProgress = requirePresent(
