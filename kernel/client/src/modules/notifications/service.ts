@@ -41,7 +41,7 @@ export const notificationOutcomeQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data
-			.query(notificationOutcomeRecipe({ id: input }))
+			.query(notificationOutcomeRecipe, { id: input })
 			.pipe(Effect.mapError((cause) => new NotificationDeliveryLoadError({ cause }))),
 	{ cancelOnUnmount: true },
 );
@@ -55,7 +55,11 @@ export class NotificationChannelsService extends Context.Service<NotificationCha
 				input: { readonly limit: number },
 			) {
 				return yield* client.data
-					.query(notificationChannelsRecipe({ limit: input.limit }))
+					.query(
+						notificationChannelsRecipe,
+						{},
+						{ pages: { notificationChannels: { limit: input.limit } } },
+					)
 					.pipe(Effect.mapError((cause) => new NotificationChannelsLoadError({ cause })));
 			});
 

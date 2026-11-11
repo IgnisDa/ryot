@@ -73,3 +73,32 @@ it.effect(
 		}),
 	testTimeout,
 );
+
+it.effect(
+	"rejects stale and changed revisions before returning a selection",
+	() =>
+		Effect.gen(function* () {
+			for (const stale of [false, true]) {
+				const result = yield* readCursorPages((after) =>
+					Effect.succeed({
+						...page([after === undefined ? 1 : 2], after === undefined ? "next" : null),
+						pageInfo: {
+							hasMore: after === undefined,
+							stale: after !== undefined && stale,
+							nextCursor: after === undefined ? "next" : null,
+							sourceRevisions: { source: after === undefined ? 1 : 2 },
+						},
+					}),
+				).pipe(Effect.flip);
+				expect(result.reason).toBe("malformed-result");
+			}
+			const initial = yield* readCursorPages(() =>
+				Effect.succeed({
+					...page([], null),
+					pageInfo: { stale: true, hasMore: false, nextCursor: null },
+				}),
+			).pipe(Effect.flip);
+			expect(initial.reason).toBe("malformed-result");
+		}),
+	testTimeout,
+);

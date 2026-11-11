@@ -23,6 +23,7 @@ import {
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
+	collectionArguments,
 	collectionMembersRecipe,
 	type CollectionMembersResult,
 } from "@ryot-app/ryotql-recipes/collections";
@@ -55,16 +56,9 @@ export const CollectionOrder = ({
 	const [query] = useState(() =>
 		createRyotQuery<null | string, CollectionMembersResult>(
 			({ input, client }) =>
-				client.data
-					.query(
-						collectionMembersRecipe({ collectionId, ...(input === null ? {} : { after: input }) }),
-					)
-					.pipe(
-						Effect.filterOrFail(
-							(page) => !page.stale,
-							() => new RyotClientError({ reason: "collection-stale" }),
-						),
-					),
+				client.data.query(collectionMembersRecipe(), collectionArguments(collectionId), {
+					pages: { members: input === null ? {} : { after: input } },
+				}),
 			{ cancelOnUnmount: true },
 		),
 	);
@@ -87,6 +81,7 @@ export const CollectionOrder = ({
 	);
 	const busy =
 		move.isPending ||
+		result.stale ||
 		move.status === "retained" ||
 		result.isFetching ||
 		result.isError ||

@@ -8,6 +8,7 @@ import type {
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
@@ -41,7 +42,7 @@ const mountMembers = (
 	const adapter: Partial<RyotClientAdapter> = {
 		query: (document) =>
 			Effect.succeed(
-				"collections" in document.queries
+				"collections" in bindTestRequest(document).queries
 					? {
 							data: {
 								collections: rows([{ added: false, id: "collection-1", name: "Favourites" }]),

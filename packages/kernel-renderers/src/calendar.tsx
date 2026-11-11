@@ -36,6 +36,7 @@ import {
 	type CalendarSource,
 	calendarSourcesRecipe,
 	type CalendarWindow,
+	calendarWindowBounds,
 } from "@ryot-app/ryotql-recipes/calendar";
 import clsx from "clsx";
 import { type ReactNode, type RefObject, useCallback, useEffect, useRef, useState } from "react";
@@ -140,7 +141,7 @@ const compareEntries = (left: Entry, right: Entry) =>
 	left.occurrence.subject.name.localeCompare(right.occurrence.subject.name) ||
 	(left.occurrence.caption ?? "").localeCompare(right.occurrence.caption ?? "");
 
-const sourcesQuery = createRyotQuery(({ client }) => client.data.query(calendarSourcesRecipe()), {
+const sourcesQuery = createRyotQuery(({ client }) => client.data.query(calendarSourcesRecipe, {}), {
 	cancelOnUnmount: true,
 });
 
@@ -260,11 +261,18 @@ function SourceFeed({
 					const items: CalendarOccurrence[] = [];
 					let after: string | undefined;
 					for (;;) {
-						const recipe = calendarOccurrencesPageRecipe({ after, source, window: input });
+						const recipe = calendarOccurrencesPageRecipe({ source });
 						if (Result.isFailure(recipe)) {
 							return yield* Effect.fail(recipe.failure);
 						}
-						const page = yield* client.data.query(recipe.success);
+						const page = yield* client.data.query(
+							recipe.success,
+							{
+								windowEnd: calendarWindowBounds(source.precision, input).end,
+								windowStart: calendarWindowBounds(source.precision, input).start,
+							},
+							{ pages: { calendarOccurrences: after === undefined ? {} : { after } } },
+						);
 						items.push(...page.items);
 						const next = page.pageInfo.hasMore ? page.pageInfo.nextCursor : null;
 						if (next === null) {

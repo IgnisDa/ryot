@@ -26,7 +26,12 @@ import {
 	EntityUpdatedFrame,
 	MAX_INTEREST_ENTITY_IDS,
 } from "@ryot-app/contract/modules/live-updates/messages";
-import { RyotQLDocument, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	DescribeRequest,
+	DescribeResponse,
+	ExecutionRequest,
+} from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -721,15 +726,25 @@ export const PluginRyotQLFailureReason = Schema.Literals(["query-failed", "trans
 
 export type PluginRyotQLFailureReason = Schema.Schema.Type<typeof PluginRyotQLFailureReason>;
 
-export const PluginBridgeRyotQLRequest = strictStruct({
-	document: RyotQLDocument,
-	requestId: Schema.String,
-	type: Schema.Literal("ryotql-request"),
-});
-
-export type PluginRyotQLRequest = Pick<PluginBridgeRyotQLRequest, "document">;
+const ryotqlRequestFields = { requestId: Schema.String, type: Schema.Literal("ryotql-request") };
+export const PluginBridgeRyotQLRequest = Schema.Union([
+	strictStruct({
+		...ryotqlRequestFields,
+		request: ExecutionRequest,
+		action: Schema.Literal("execute"),
+	}),
+	strictStruct({
+		...ryotqlRequestFields,
+		request: DescribeRequest,
+		action: Schema.Literal("describe"),
+	}),
+]);
 
 export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRyotQLRequest>;
+
+export type PluginRyotQLRequest =
+	| { readonly action: "execute"; readonly request: ExecutionRequest }
+	| { readonly action: "describe"; readonly request: typeof DescribeRequest.Type };
 
 export const PluginBridgeRyotQLCancel = strictStruct({
 	requestId: Schema.String,
@@ -738,7 +753,10 @@ export const PluginBridgeRyotQLCancel = strictStruct({
 
 export type PluginBridgeRyotQLCancel = Schema.Schema.Type<typeof PluginBridgeRyotQLCancel>;
 
-const pluginRyotQLSuccessFields = { response: RyotQLResponse, outcome: Schema.Literal("success") };
+const pluginRyotQLSuccessFields = {
+	outcome: Schema.Literal("success"),
+	response: Schema.Union([RyotQLResponse, DescribeResponse]),
+};
 
 const pluginRyotQLFailureFields = {
 	reason: PluginRyotQLFailureReason,

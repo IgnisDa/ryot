@@ -10,6 +10,7 @@ import {
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	reminderDeliveriesRecipe,
 	type ReminderDeliveriesResult,
@@ -33,13 +34,17 @@ export class RemindersLoadError extends Schema.TaggedError<
 >()("RemindersLoadError", { cause: Schema.Unknown }) {}
 
 export const remindersQuery = createRyotQuery<
-	Parameters<typeof remindersRecipe>[0],
+	Recipe.Arguments<typeof remindersRecipe> & { readonly after?: string; readonly limit?: number },
 	RemindersResult,
 	RemindersLoadError
 >(
 	({ input, client }) =>
 		client.data
-			.query(remindersRecipe(input))
+			.query(
+				remindersRecipe,
+				{ states: input.states, entityId: input.entityId },
+				{ pages: { reminders: { after: input.after, limit: input.limit } } },
+			)
 			.pipe(Effect.mapError((cause) => new RemindersLoadError({ cause }))),
 	{ cancelOnUnmount: true },
 );
@@ -56,7 +61,7 @@ export const reminderReadinessQuery = createRyotHostQuery<
 	({ client, hostServices }) =>
 		Effect.all(
 			{
-				channels: client.data.query(reminderReadinessRecipe()),
+				channels: client.data.query(reminderReadinessRecipe, {}),
 				configuration: hostServices.runtime
 					.runSync(RemindersApi)
 					.deliveryConfiguration(hostServices.scope),
@@ -67,11 +72,20 @@ export const reminderReadinessQuery = createRyotHostQuery<
 );
 
 export const reminderDeliveriesQuery = createRyotQuery<
-	Parameters<typeof reminderDeliveriesRecipe>[0],
+	Recipe.Arguments<typeof reminderDeliveriesRecipe> & {
+		readonly after?: string;
+		readonly limit?: number;
+	},
 	ReminderDeliveriesResult
->(({ input, client }) => client.data.query(reminderDeliveriesRecipe(input)), {
-	cancelOnUnmount: true,
-});
+>(
+	({ input, client }) =>
+		client.data.query(
+			reminderDeliveriesRecipe,
+			{ reminderId: input.reminderId },
+			{ pages: { deliveries: { limit: input.limit, after: input.after } } },
+		),
+	{ cancelOnUnmount: true },
+);
 
 export const reminderSubscriptionMutation = createRyotHostMutation<
 	{ readonly enable: boolean; readonly id: null | NotificationSubscriptionId },

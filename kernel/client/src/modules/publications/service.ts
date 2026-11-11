@@ -12,6 +12,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
 import {
+	publicationSourceArguments,
 	publicationsRecipe,
 	type PublicationsResult,
 	type PublicationSummary,
@@ -21,6 +22,7 @@ import {
 	type SavedViewRecord,
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
+	savedViewReferenceArguments,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { Effect, Schema } from "effect";
 
@@ -43,7 +45,11 @@ export const publicationsQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data
-			.query(publicationsRecipe(input))
+			.query(
+				publicationsRecipe,
+				{},
+				{ pages: { publications: { limit: input.limit, after: input.after } } },
+			)
 			.pipe(Effect.mapError((cause) => new PublicationsLoadError({ cause }))),
 	{ cancelOnUnmount: true },
 );
@@ -55,7 +61,7 @@ export const sourcePublicationsQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data
-			.query(sourcePublicationsRecipe({ source: input }))
+			.query(sourcePublicationsRecipe, publicationSourceArguments(input), {})
 			.pipe(Effect.mapError((cause) => new PublicationsLoadError({ cause }))),
 	{ cancelOnUnmount: true },
 );
@@ -68,7 +74,7 @@ export const publicationSavedViewQuery = createRyotQuery<
 	PublicationsLoadError
 >(({ input, client }) =>
 	client.data
-		.query(savedViewRecordRecipe(input))
+		.query(savedViewRecordRecipe, savedViewReferenceArguments(input))
 		.pipe(
 			Effect.mapBoth({
 				onSuccess: (view) => view ?? null,
@@ -94,9 +100,15 @@ export const publicationSourcesQuery = createRyotQuery(
 	({ client }) =>
 		Effect.all(
 			{
-				collections: client.data.query(allCollectionsRecipe({ limit: SOURCE_LIMIT })),
+				collections: client.data.query(
+					allCollectionsRecipe,
+					{},
+					{ pages: { collections: { limit: SOURCE_LIMIT } } },
+				),
 				savedViews: client.data.query(
-					savedViewRecordsRecipe({ limit: SOURCE_LIMIT, includeHidden: true }),
+					savedViewRecordsRecipe,
+					{ includeHidden: true },
+					{ pages: { savedViews: { limit: SOURCE_LIMIT } } },
 				),
 			},
 			{ concurrency: 2 },

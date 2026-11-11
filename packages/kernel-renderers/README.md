@@ -8,9 +8,7 @@ embedded in backend code.
 `bun run build` walks `src/*.{ts,tsx}` and writes `src/sources.generated.ts`, a record from the
 archive path (`client/<file>`) to the exact source text. `src/index.ts` turns that record into the
 `{ files, name, sourceHash, definition }` shape `kernel/backend` hands to the client plugin
-compiler, so `sourceHash` covers precisely the bytes that get compiled. The generator runs from this
-package's `test` and `check`, and from `apps/server`'s `build` and `run-migration`, alongside the
-sandbox runner compiler.
+compiler, so `sourceHash` covers precisely the bytes that get compiled. Regenerate sources after renderer changes with `bun run build`.
 
 Renderers obey the client plugin import allowlist, so they may only reach React, `clsx`, the client
 SDKs, and the matching `@ryot-app/ryotql-recipes` entrypoints. Tests mount them through `mountPluginPage` from
@@ -27,7 +25,7 @@ are loading or unavailable. Collection-browser reuses the shared controller and
 renders kernel collection cards with batched member counts.
 
 The shared browser controller lives in `@ryot-app/plugin-client-sdk/browser` (see the client SDK
-README). Renderers adapt it: saved views supply their configured recipe, count, ID pages, and optional
+README). Renderers adapt it: saved views supply named reference requests for rows, count, and IDs, plus the optional
 provider Add flow, and render results through `EntityBrowserResults`; collections adapt the
 collections recipe, never expose Add, and pass `{ collectionId }` as the entity presentation context.
 
@@ -39,7 +37,10 @@ and collection detail also offers **Remove**. Publications offer no selection.
 The publication renderer reuses the entity browser over a publication's subjects in published
 order, under a summary of the description, the owner's name when shown, and the item count that the
 host passes as renderer settings. It offers only fields and filters that read entity columns, because
-visitors cannot read events or the owner's collections. Opening a card sets the `item` page search
+visitors cannot read events or the owner's collections. Browsing waits for control metadata, with a
+retry state that preserves URL filters and sort. Inline executions retain the full authored document
+and select the requested query by name, including filtered counts that reference source controls.
+Opening a card sets the `item` page search
 parameter, which shows that item's card, its entity-column browse values, and the other published
 items it is linked to.
 
@@ -71,9 +72,9 @@ pages and require a refresh, so pages from different collection orders are never
 
 ## Filters
 
-Entity browsers load the subject schemas' browse fields through `entitySchemaBrowseRecipe` before
-their first page, then filter and sort through `entityBrowserControls` (those fields, the automatic
-Collections relationship, and a Name sort); the view query's full order is the default. **Sort by**
+Entity browsers request authorized control descriptions before their first page. Backend browse
+resolution supplies schema fields, the kernel Collections relationship, and a Name sort; the view
+query's full order is the default. **Sort by**
 selects a field; a separate button shows its current direction label and arrow. Choosing a new field
 uses that field's declared default direction, while reselecting the current field preserves its
 direction. The shipped Name sort defaults to A–Z; shipped count, rating, and date sorts default to
@@ -83,7 +84,7 @@ The rules panel, the chips row, the filters sheet, and the relationship choices 
 the shared browser controller composes them and owns the state. Renderer sources import filter
 helpers only from `@ryot-app/ryotql-recipes/filters`, never from the contract.
 
-The results table reuses the panel and chips for its authored value `filterFields` only (no Collections
+The results table reuses the panel and chips for its described value controls (no Collections
 relationship, sort, or layout) and reads the `filters` parameter straight from the page location.
 
 Filter state lives only in the `filters` search parameter: `base64url(JSON of Filter)`, written with
@@ -137,3 +138,10 @@ replaces content when there are none. Shared controls and section choices push p
 Unavailable modules, reporting-preference failures, and per-section load/render failures have
 separate states. Plugin sections receive `AnalyticsSectionProps` from the client SDK and own their
 data queries and retries.
+
+Saved-view browsers and tables execute named queries by reference and load control metadata with
+`describe`. They wait for metadata before mounting filter-driven data queries so URL filters apply
+to the first request. Typed recipe decoders consume fixed server-derived provenance keys.
+Collection controls combine browse fields and explicitly projected membership outputs; runtime
+arguments and pages travel independently of the full static document. Collection continuation
+identity, including order revision, is validated by the server.

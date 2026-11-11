@@ -5,6 +5,7 @@ import {
 	EntitySchemaReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
+import type { DescribeRequest, ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	type AddToCollectionRequest,
@@ -68,7 +69,6 @@ import {
 	type RyotClientErrorReason,
 	type SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
 import { Effect, Match, Result, Schema } from "effect";
 
 import type {
@@ -336,11 +336,29 @@ export const createPluginRuntime = (
 			});
 		});
 
-	const query = (document: PreparedRecipe<unknown>["document"]) =>
+	const query = (request: ExecutionRequest) =>
 		sendRequest(
 			"ryotql",
 			(requestId) =>
-				({ document, requestId, type: "ryotql-request" }) satisfies PluginBridgeRyotQLRequest,
+				({
+					request,
+					requestId,
+					action: "execute",
+					type: "ryotql-request",
+				}) satisfies PluginBridgeRyotQLRequest,
+			(requestId) => ({ requestId, type: "ryotql-cancel" }) satisfies PluginBridgeRyotQLCancel,
+		);
+
+	const describe = (request: typeof DescribeRequest.Type) =>
+		sendRequest(
+			"ryotql",
+			(requestId) =>
+				({
+					request,
+					requestId,
+					action: "describe",
+					type: "ryotql-request",
+				}) satisfies PluginBridgeRyotQLRequest,
 			(requestId) => ({ requestId, type: "ryotql-cancel" }) satisfies PluginBridgeRyotQLCancel,
 		);
 
@@ -674,6 +692,7 @@ export const createPluginRuntime = (
 	const client = createRyotClient({
 		query,
 		upload,
+		describe,
 		navigate,
 		saveEntity,
 		pickEntity,

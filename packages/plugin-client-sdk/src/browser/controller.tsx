@@ -1,4 +1,5 @@
 import type { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
+import type { RowsPageInfo } from "@ryot-app/contract/modules/ryotql/language";
 import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	Button,
@@ -22,7 +23,6 @@ import type { Effect } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import type { RyotClient } from "../client/client";
-import { RyotClientError } from "../client/errors";
 import {
 	activeFiltersPhrase,
 	FilterChips,
@@ -88,16 +88,17 @@ type BrowserItem = {
 	readonly sync?: undefined | EntitySyncState;
 };
 
-type BrowserPage = {
-	readonly items: readonly BrowserItem[];
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-};
-
 type BrowserControls = {
 	readonly sort: string;
 	readonly search: string;
 	readonly layout: EntityBrowserLayout;
 	readonly filter: undefined | ViewFilter;
+};
+
+type BrowserPage = {
+	readonly items: readonly BrowserItem[];
+	readonly pageInfo: Partial<typeof RowsPageInfo.Type> &
+		Pick<typeof RowsPageInfo.Type, "hasMore" | "nextCursor">;
 };
 
 type EntityBrowserControllerProps<Page extends BrowserPage, Failure extends Error> = {
@@ -218,7 +219,6 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const identity = browserIdentity(identityKey, searchText, sortChoice, filter);
-	const selecting = useEntitySelection(identity);
 	const result = useRyotInfiniteQuery(
 		query,
 		{ searchText, sortChoice, identityKey, filter: filter ?? null },
@@ -233,8 +233,15 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 			}),
 		},
 	);
-	const staleCollection =
-		result.error instanceof RyotClientError && result.error.reason === "collection-stale";
+	const selecting = useEntitySelection(
+		JSON.stringify([identity, result.pages[0]?.pageInfo.sourceRevisions]),
+	);
+	const staleCollection = result.stale;
+	useValueChange(staleCollection, () => {
+		if (staleCollection) {
+			selecting.exit();
+		}
+	});
 	const state = useMemo(
 		() =>
 			result.data === undefined
@@ -375,7 +382,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 		() => schedule.after(300, () => commitDraftSearch(draftSearch)),
 		[draftSearch, schedule],
 	);
-	const selectionActive = selecting.selection !== null;
+	const selectionActive = !staleCollection && selecting.selection !== null;
 	usePageShortcut("A", () => add?.open(), { enabled: add !== undefined && !selectionActive });
 	usePageShortcut("/", () => (compact ? setSearchOpen(true) : searchInput.current?.focus()), {
 		enabled: canSearch,
@@ -386,7 +393,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 		: undefined;
 	const screenActions: readonly HeaderAction[] = [
 		...(headerActions ?? []),
-		...(selection !== undefined && hasItems && !selectionActive
+		...(selection !== undefined && hasItems && !selectionActive && !staleCollection
 			? [{ label: "Select", icon: "circle-check", run: selecting.start }]
 			: []),
 	];
@@ -436,7 +443,7 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	}
 
 	let floatingAction: ReactNode;
-	if (selecting.selection !== null && selection !== undefined) {
+	if (!staleCollection && selecting.selection !== null && selection !== undefined) {
 		floatingAction = (
 			<BrowserSelectionBar
 				key={identity}

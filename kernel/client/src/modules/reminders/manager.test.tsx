@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import type { ContractRequest } from "@ryot-app/contract/client";
 import { ReminderConflict } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, NotificationSubscriptionId, ReminderId } from "@ryot-app/contract/schema/brands";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
@@ -25,7 +26,7 @@ const rowPage = (items: readonly unknown[], hasMore = false, nextCursor: null | 
 
 const remindersQueries = (
 	documents: ReturnType<typeof mountReminderTestScreen>["queryDocuments"],
-) => documents.filter((document) => "reminders" in document.queries);
+) => documents.filter((document) => "reminders" in bindTestRequest(document).queries);
 
 const waitForReadiness = () => screen.findByRole("switch", { name: /reminder subscription$/ });
 
@@ -58,8 +59,8 @@ it.live(
 							}),
 					},
 					query: (document) => {
-						if ("reminders" in document.queries) {
-							const serialized = JSON.stringify(document);
+						if ("reminders" in bindTestRequest(document).queries) {
+							const serialized = JSON.stringify(bindTestRequest(document));
 							let item: ReturnType<typeof makeReminderRow>;
 							if (serialized.includes('"needs-scheduling"')) {
 								item = source;
@@ -112,7 +113,7 @@ it.live(
 					},
 				});
 				const reminderFilters = remindersQueries(view.queryDocuments).map((document) =>
-					JSON.stringify(document),
+					JSON.stringify(bindTestRequest(document)),
 				);
 				expect(reminderFilters.some((query) => query.includes('"scheduled"'))).toBe(true);
 				expect(reminderFilters.some((query) => query.includes('"processing"'))).toBe(true);
@@ -120,7 +121,7 @@ it.live(
 				fireEvent.click(screen.getByRole("radio", { name: "History" }));
 				yield* Effect.promise(() => screen.findByText("History reminder"));
 				const historyFilters = remindersQueries(view.queryDocuments).map((document) =>
-					JSON.stringify(document),
+					JSON.stringify(bindTestRequest(document)),
 				);
 				expect(historyFilters.some((query) => query.includes('"settled"'))).toBe(true);
 				expect(historyFilters.some((query) => query.includes('"cancelled"'))).toBe(true);
@@ -141,7 +142,7 @@ it.live(
 				<ReminderManager entityId={EntityId.make("target-1")} />,
 				{
 					query: (document) =>
-						"reminders" in document.queries
+						"reminders" in bindTestRequest(document).queries
 							? Effect.succeed({ data: { reminders: rowPage([reminder]) } })
 							: Effect.succeed(defaultReminderQueryResponse(document)),
 					remindersApi: {
@@ -197,10 +198,10 @@ it.live(
 						}),
 				},
 				query: (document) => {
-					if (!("reminders" in document.queries)) {
+					if (!("reminders" in bindTestRequest(document).queries)) {
 						return Effect.succeed(defaultReminderQueryResponse(document));
 					}
-					const history = JSON.stringify(document).includes('"cancelled"');
+					const history = JSON.stringify(bindTestRequest(document)).includes('"cancelled"');
 					return Effect.succeed({
 						data: {
 							reminders: rowPage([
@@ -248,7 +249,7 @@ it.live(
 				<ReminderManager entityId={EntityId.make("target-1")} />,
 				{
 					query: (document) =>
-						"reminders" in document.queries
+						"reminders" in bindTestRequest(document).queries
 							? Effect.succeed({ data: { reminders: rowPage([reminder]) } })
 							: Effect.succeed(defaultReminderQueryResponse(document)),
 					remindersApi: {
@@ -320,7 +321,10 @@ it.live(
 						}),
 				},
 				query: (document) => {
-					if ("channels" in document.queries && "subscriptions" in document.queries) {
+					if (
+						"channels" in bindTestRequest(document).queries &&
+						"subscriptions" in bindTestRequest(document).queries
+					) {
 						return Effect.succeed({
 							data: {
 								channels: { type: "aggregate", items: [{ count: 0 }] },
@@ -357,7 +361,9 @@ it.live(
 				expect(activations).toEqual([]);
 				expect(installations).toEqual([]);
 				const before = view.queryDocuments.filter(
-					(document) => "channels" in document.queries && "subscriptions" in document.queries,
+					(document) =>
+						"channels" in bindTestRequest(document).queries &&
+						"subscriptions" in bindTestRequest(document).queries,
 				).length;
 				fireEvent.click(screen.getByRole("switch", { name: "Enable reminder subscription" }));
 				yield* Effect.promise(() => waitFor(() => expect(activations).toHaveLength(1)));
@@ -368,7 +374,9 @@ it.live(
 					waitFor(() =>
 						expect(
 							view.queryDocuments.filter(
-								(document) => "channels" in document.queries && "subscriptions" in document.queries,
+								(document) =>
+									"channels" in bindTestRequest(document).queries &&
+									"subscriptions" in bindTestRequest(document).queries,
 							).length,
 						).toBeGreaterThan(before),
 					),
@@ -418,10 +426,10 @@ it.live(
 							}),
 					},
 					query: (document) => {
-						if ("reminders" in document.queries) {
+						if ("reminders" in bindTestRequest(document).queries) {
 							return Effect.succeed({ data: { reminders: rowPage([reminder]) } });
 						}
-						if ("deliveries" in document.queries) {
+						if ("deliveries" in bindTestRequest(document).queries) {
 							deliveryCalls++;
 							if (deliveryCalls === 1) {
 								return Effect.succeed({

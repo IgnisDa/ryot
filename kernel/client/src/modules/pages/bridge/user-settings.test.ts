@@ -1,7 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { pluginInstallationUserSettingsRecipe } from "@ryot-app/ryotql-recipes/plugin-user-settings";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -56,13 +56,9 @@ const installedRows: Partial<Record<string, Readonly<Record<string, unknown>>>> 
 	[pluginC]: { settingsSchema, id: "installation-c", settings: { limit: 9, theme: "dark" } },
 };
 
-const rowsFor = (document: RyotQLDocument) => {
+const rowsFor = (request: ExecutionRequest) => {
 	const row = [pluginA, pluginB, pluginC]
-		.filter(
-			(pluginId) =>
-				JSON.stringify(pluginInstallationUserSettingsRecipe({ pluginId }).document) ===
-				JSON.stringify(document),
-		)
+		.filter((pluginId) => request.arguments?.["pluginId"] === pluginId)
 		.flatMap((pluginId) =>
 			installedRows[pluginId] === undefined ? [] : [installedRows[pluginId]],
 		);
@@ -78,13 +74,13 @@ const rowsFor = (document: RyotQLDocument) => {
 };
 
 const makeApi = (options: { readonly fail?: boolean; readonly onExecute?: () => void } = {}) => {
-	const executed: Array<{ readonly scope: ApiScope; readonly document: RyotQLDocument }> = [];
+	const executed: Array<{ readonly scope: ApiScope; readonly request: ExecutionRequest }> = [];
 	return {
 		executed,
 		api: {
-			execute: (requestScope: ApiScope, request: { readonly payload: RyotQLDocument }) =>
+			execute: (requestScope: ApiScope, request: { readonly payload: ExecutionRequest }) =>
 				Effect.suspend(() => {
-					executed.push({ scope: requestScope, document: request.payload });
+					executed.push({ scope: requestScope, request: request.payload });
 					options.onExecute?.();
 					return options.fail
 						? Effect.fail(new AuthenticatedApiError({ cause: "offline" }))
@@ -117,8 +113,20 @@ describe("plugin user settings bridge read", () => {
 					reason: "invalid-request",
 				});
 				expect(executed).toEqual([
-					{ scope, document: pluginInstallationUserSettingsRecipe({ pluginId: pluginA }).document },
-					{ scope, document: pluginInstallationUserSettingsRecipe({ pluginId: pluginB }).document },
+					{
+						scope,
+						request: {
+							arguments: { pluginId: pluginA },
+							source: { kind: "inline", document: pluginInstallationUserSettingsRecipe.document },
+						},
+					},
+					{
+						scope,
+						request: {
+							arguments: { pluginId: pluginB },
+							source: { kind: "inline", document: pluginInstallationUserSettingsRecipe.document },
+						},
+					},
 				]);
 			}),
 		testTimeout,

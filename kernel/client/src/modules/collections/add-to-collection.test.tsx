@@ -4,6 +4,7 @@ import { EntityId } from "@ryot-app/contract/schema/brands";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { RyotProvider } from "@ryot-app/plugin-client-sdk/react";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
@@ -57,13 +58,13 @@ const mountManager = (
 			}),
 		query: (document) =>
 			Effect.gen(function* () {
-				if ("target" in document.queries) {
+				if ("target" in bindTestRequest(document).queries) {
 					return { data: { target: rows([{ name: "Example item" }]) } };
 				}
-				if ("collections" in document.queries) {
-					const searching = (yield* encodeJson(document).pipe(Effect.orDie)).includes(
-						'"value":"Missing"',
-					);
+				if ("collections" in bindTestRequest(document).queries) {
+					const searching = (yield* encodeJson(bindTestRequest(document)).pipe(
+						Effect.orDie,
+					)).includes('"value":"Missing"');
 					return {
 						data: {
 							collections: rows(
@@ -74,7 +75,7 @@ const mountManager = (
 						},
 					};
 				}
-				if ("collection" in document.queries) {
+				if ("collection" in bindTestRequest(document).queries) {
 					return {
 						data: {
 							collection: rows([

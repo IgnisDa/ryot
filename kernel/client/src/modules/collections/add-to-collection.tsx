@@ -37,7 +37,7 @@ const membershipTarget = createRyotQuery(
 	}: {
 		readonly client: RyotClient;
 		readonly input: { readonly entityId: EntityId };
-	}) => client.data.query(collectionMembershipTargetRecipe(input)),
+	}) => client.data.query(collectionMembershipTargetRecipe, { entityId: input.entityId }),
 );
 
 const createMembershipDetailsQuery = () =>
@@ -45,8 +45,11 @@ const createMembershipDetailsQuery = () =>
 		({ input, client }: { readonly client: RyotClient; readonly input: MembershipTarget }) =>
 			Effect.all(
 				{
-					membership: client.data.query(collectionMembershipRecipe(input)),
-					header: client.data.query(collectionHeaderRecipe({ collectionId: input.collectionId })),
+					header: client.data.query(collectionHeaderRecipe, { collectionId: input.collectionId }),
+					membership: client.data.query(collectionMembershipRecipe, {
+						entityId: input.entityId,
+						collectionId: input.collectionId,
+					}),
 				},
 				{ concurrency: "unbounded" },
 			),

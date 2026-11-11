@@ -407,3 +407,74 @@ it.effect(
 		}),
 	testTimeout,
 );
+
+it.effect(
+	"rejects reordered continuations, retains visible rows, and reloads before retrying",
+	() =>
+		Effect.gen(function* () {
+			let revision = 1;
+			let stale = false;
+			const requests: (null | string)[] = [];
+			const pagination = createPagination({
+				initialPageParam: null,
+				getNextPageParam: nextPageCursor,
+				load: (after: null | string) =>
+					Effect.sync(() => {
+						requests.push(after);
+						return {
+							items: [revision],
+							pageInfo: {
+								stale,
+								hasMore: true,
+								nextCursor: `next-${revision}`,
+								sourceRevisions: { source: revision },
+							},
+						};
+					}),
+			});
+			yield* pagination.start();
+			const visible = pagination.snapshot().pages;
+			revision = 2;
+			yield* pagination.fetchNextPage();
+			expect(pagination.snapshot().pages).toEqual(visible);
+			expect(pagination.snapshot().stale).toBe(true);
+			yield* pagination.fetchNextPage();
+			expect(requests).toEqual([null, "next-1"]);
+			yield* pagination.retry();
+			expect(requests).toEqual([null, "next-1", null]);
+			expect(pagination.snapshot().pages[0]?.items).toEqual([2]);
+			expect(pagination.snapshot().stale).toBe(false);
+			stale = true;
+			yield* pagination.refresh();
+			expect(pagination.snapshot().stale).toBe(true);
+			expect(pagination.snapshot().pages[0]?.items).toEqual([2]);
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"rejects an initial stale page and retries from the beginning",
+	() =>
+		Effect.gen(function* () {
+			let stale = true;
+			const requests: boolean[] = [];
+			const pagination = createPagination({
+				initialPageParam: null,
+				getNextPageParam: nextPageCursor,
+				load: (_after: null | string, refresh) =>
+					Effect.sync(() => {
+						requests.push(refresh);
+						return { items: [1], pageInfo: { stale, hasMore: false, nextCursor: null } };
+					}),
+			});
+			yield* pagination.start();
+			expect(pagination.snapshot().pages).toEqual([]);
+			expect(pagination.snapshot().stale).toBe(true);
+			stale = false;
+			yield* pagination.retry();
+			expect(requests).toEqual([false, true]);
+			expect(pagination.snapshot().pages[0]?.items).toEqual([1]);
+			expect(pagination.snapshot().stale).toBe(false);
+		}),
+	testTimeout,
+);

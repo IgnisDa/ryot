@@ -8,7 +8,7 @@ import {
 	type ImportRunSummary,
 	manualImportRunsRecipe,
 } from "@ryot-app/ryotql-recipes/import-runs";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, bindTestRequest, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -177,7 +177,7 @@ const makeRun = (overrides: Partial<ImportRunSummary> = {}) => ({
 
 const decodeRuns = (runs: readonly unknown[], hasMore = false) =>
 	Result.getOrThrow(
-		manualImportRunsRecipe({ limit: LIMIT }).decode({
+		bindRecipe(manualImportRunsRecipe, { limit: LIMIT }).decode({
 			data: {
 				importRuns: rowsResult(runs, {
 					hasMore,
@@ -190,7 +190,7 @@ const decodeRuns = (runs: readonly unknown[], hasMore = false) =>
 
 const decodeRun = (runs: readonly unknown[]) =>
 	Result.getOrThrow(
-		importRunRecipe({ runId: "run_1" }).decode({
+		bindRecipe(importRunRecipe, { runId: "run_1" }).decode({
 			data: { run: rowsResult(runs, { limit: 2, hasMore: false, nextCursor: null }) },
 		}),
 	);
@@ -202,8 +202,8 @@ const makeImportSourceQueries = (
 ) =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
-			if ("issues" in request.payload.queries) {
-				const output = request.payload.queries.issues.output;
+			if ("issues" in bindTestRequest(request.payload).queries) {
+				const output = bindTestRequest(request.payload).queries.issues.output;
 				if (output.type !== "rows") {
 					return Effect.die("Expected issue rows");
 				}
@@ -224,10 +224,10 @@ const makeImportSourceQueries = (
 					},
 				});
 			}
-			if (!("sources" in request.payload.queries)) {
+			if (!("sources" in bindTestRequest(request.payload).queries)) {
 				return Effect.die("Unexpected RyotQL document");
 			}
-			const output = request.payload.queries.sources.output;
+			const output = bindTestRequest(request.payload).queries.sources.output;
 			if (output.type !== "rows") {
 				return Effect.die("Expected source rows");
 			}

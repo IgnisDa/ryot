@@ -36,7 +36,7 @@ const accountIdentityQuery = createRyotHostQuery<void, SettledAuthSession, Kerne
 );
 
 const twoFactorStatusQuery = createRyotQuery<void, TwoFactorStatus>(
-	({ client }) => client.data.query(twoFactorStatusRecipe()),
+	({ client }) => client.data.query(twoFactorStatusRecipe, {}),
 	{ cancelOnUnmount: true },
 );
 

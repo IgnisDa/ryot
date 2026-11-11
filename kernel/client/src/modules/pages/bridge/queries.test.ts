@@ -18,7 +18,7 @@ const document = {
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10, maxLimit: 10 } },
 		},
 	},
 } as const;
@@ -63,9 +63,14 @@ describe("plugin queries service", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* PluginQueriesService;
-					const outcome = yield* service.query({ scope, request: { document } });
+					const outcome = yield* service.query({
+						scope,
+						request: { action: "execute", request: { source: { document, kind: "inline" } } },
+					});
 
-					expect(yield* (yield* FakeRyotQLApi).requests).toEqual([{ payload: document }]);
+					expect(yield* (yield* FakeRyotQLApi).requests).toEqual([
+						{ payload: { source: { document, kind: "inline" } } },
+					]);
 					expect(outcome).toEqual({ response, outcome: "success" });
 				}),
 			testTimeout,
@@ -86,7 +91,10 @@ describe("plugin queries service", () => {
 				() =>
 					Effect.gen(function* () {
 						const service = yield* PluginQueriesService;
-						const outcome = yield* service.query({ scope, request: { document } });
+						const outcome = yield* service.query({
+							scope,
+							request: { action: "execute", request: { source: { document, kind: "inline" } } },
+						});
 
 						expect(outcome).toEqual({ outcome: "failure", reason: "query-failed" });
 					}),
@@ -101,7 +109,10 @@ describe("plugin queries service", () => {
 			() =>
 				Effect.gen(function* () {
 					const service = yield* PluginQueriesService;
-					const outcome = yield* service.query({ scope, request: { document } });
+					const outcome = yield* service.query({
+						scope,
+						request: { action: "execute", request: { source: { document, kind: "inline" } } },
+					});
 
 					expect(outcome).toEqual({ outcome: "failure", reason: "transport" });
 				}),

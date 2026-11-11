@@ -1,19 +1,11 @@
-import type * as Cause from "effect/Cause";
+import type { RowsPageInfo } from "@ryot-app/contract/modules/ryotql/language";
+import * as Cause from "effect/Cause";
 import * as Effect from "effect/Effect";
 import * as Equal from "effect/Equal";
 import * as Exit from "effect/Exit";
 import * as Schema from "effect/Schema";
 
 export type PaginationOperation = "append" | "initial" | "refresh";
-
-export type PaginationSnapshot<Page, Param> = {
-	readonly pages: readonly Page[];
-	readonly nextPageParam: null | Param;
-	readonly pageParams: readonly Param[];
-	readonly cause: null | Cause.Cause<unknown>;
-	readonly operation: null | PaginationOperation;
-	readonly errorOperation: null | PaginationOperation;
-};
 
 export type PaginationOptions<Page, Param> = {
 	readonly initialPageParam: Param;
@@ -22,14 +14,44 @@ export type PaginationOptions<Page, Param> = {
 	readonly getNextPageParam: (page: Page, param: Param, pages: readonly Page[]) => null | Param;
 };
 
+export type PaginationSnapshot<Page, Param> = {
+	readonly stale: boolean;
+	readonly pages: readonly Page[];
+	readonly nextPageParam: null | Param;
+	readonly pageParams: readonly Param[];
+	readonly cause: null | Cause.Cause<unknown>;
+	readonly operation: null | PaginationOperation;
+	readonly errorOperation: null | PaginationOperation;
+};
+
+type CursorPage = {
+	readonly pageInfo: Partial<typeof RowsPageInfo.Type> &
+		Pick<typeof RowsPageInfo.Type, "nextCursor">;
+};
+
 export class PaginationError extends Schema.TaggedError<
 	PaginationError,
 	{ readonly brand: unique symbol }
->()("PaginationError", { reason: Schema.Literal("cursor-did-not-advance") }) {}
+>()("PaginationError", { reason: Schema.Literals(["cursor-did-not-advance", "stale-page"]) }) {}
 
-export const nextPageCursor = (page: {
-	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: null | string };
-}) => {
+export const validateCursorPage = (page: CursorPage, first: CursorPage = page) => {
+	const revisions = page.pageInfo.sourceRevisions ?? {};
+	const initial = first.pageInfo.sourceRevisions ?? {};
+	if (
+		page.pageInfo.stale === true ||
+		Object.keys(revisions).length !== Object.keys(initial).length ||
+		Object.entries(revisions).some(([key, revision]) => initial[key] !== revision)
+	) {
+		throw new PaginationError({ reason: "stale-page" });
+	}
+};
+
+export const nextPageCursor = (
+	page: CursorPage,
+	_param?: unknown,
+	pages: readonly CursorPage[] = [page],
+) => {
+	validateCursorPage(page, pages[0]);
 	const { hasMore, nextCursor } = page.pageInfo;
 	if (hasMore === false) {
 		return null;
@@ -51,6 +73,7 @@ export const createPagination = <Page, Param>(initialOptions: PaginationOptions<
 	let snapshot: PaginationSnapshot<Page, Param> = {
 		pages: [],
 		cause: null,
+		stale: false,
 		pageParams: [],
 		operation: null,
 		nextPageParam: null,
@@ -162,9 +185,23 @@ export const createPagination = <Page, Param>(initialOptions: PaginationOptions<
 			}
 			running = false;
 			if (Exit.isSuccess(result)) {
-				publish({ ...result.value, cause: null, operation: null, errorOperation: null });
+				publish({
+					...result.value,
+					cause: null,
+					stale: false,
+					operation: null,
+					errorOperation: null,
+				});
 			} else {
-				publish({ ...previous, operation: null, cause: result.cause, errorOperation: operation });
+				const error = Cause.squash(result.cause);
+				publish({
+					...previous,
+					operation: null,
+					cause: result.cause,
+					errorOperation: operation,
+					stale:
+						previous.stale || (error instanceof PaginationError && error.reason === "stale-page"),
+				});
 			}
 			if (queuedRefresh) {
 				queuedRefresh = false;
@@ -197,13 +234,14 @@ export const createPagination = <Page, Param>(initialOptions: PaginationOptions<
 		stop,
 		refresh,
 		snapshot: () => snapshot,
-		fetchNextPage: () => execute("append"),
 		hasNextPage: () => snapshot.nextPageParam !== null,
+		fetchNextPage: () => (snapshot.stale ? Effect.void : execute("append")),
 		configure: (next: PaginationOptions<Page, Param>) => {
 			options = next;
 		},
-		retry: () => (snapshot.errorOperation === "append" ? execute("append") : refresh()),
 		start: () => (snapshot.pages.length === 0 && !running ? execute("initial") : Effect.void),
+		retry: () =>
+			snapshot.errorOperation === "append" && !snapshot.stale ? execute("append") : refresh(),
 		subscribe: (listener: () => void) => {
 			listeners.add(listener);
 			return () => {

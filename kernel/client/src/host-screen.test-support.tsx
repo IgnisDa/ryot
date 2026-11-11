@@ -16,7 +16,7 @@ import { type ReactNode, StrictMode } from "react";
 import { ServerOrigin } from "#/api/origin";
 import { testHostServices } from "#/host-services.test-support";
 
-export type HostedTestQueryDocument = Parameters<RyotClientAdapter["query"]>[0];
+export type HostedTestQueryRequest = Parameters<RyotClientAdapter["query"]>[0];
 
 export const mountHostedTestScreen = <Services,>(
 	content: ReactNode,
@@ -26,7 +26,7 @@ export const mountHostedTestScreen = <Services,>(
 		readonly serverUrl?: ServerOrigin;
 		readonly layer: Layer.Layer<Services>;
 		readonly routes?: Readonly<Record<string, ReactNode>>;
-		readonly query: (document: HostedTestQueryDocument) => Effect.Effect<unknown, RyotClientError>;
+		readonly query: (document: HostedTestQueryRequest) => Effect.Effect<unknown, RyotClientError>;
 	},
 ) => {
 	const runtime = ManagedRuntime.make(options.layer);

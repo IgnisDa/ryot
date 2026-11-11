@@ -38,9 +38,7 @@ const init: PluginBridgeInit = {
 	compositionHash: metadata.hash,
 	...metadata,
 };
-const document = { output: {}, queries: {} } as Parameters<
-	ReturnType<typeof createPluginRuntime>["client"]["data"]["query"]
->[0]["document"];
+const document = { queries: {} };
 const asset = { type: "local", key: "permanent/image.png" } as const;
 const resolution = {
 	asset,
@@ -105,10 +103,15 @@ const openRuntime = (page: ClientPageContext = runtimePage) =>
 		return { channel, runtime, messages };
 	});
 const query = (runtime: ReturnType<typeof createPluginRuntime>) =>
-	runtime.client.data.query({
-		document,
-		decode: (response): Result.Result<unknown, RyotClientError> => Result.succeed(response),
-	});
+	runtime.client.data.query(
+		{
+			document,
+			queries: {},
+			parameters: { fields: {} },
+			decode: (response): Result.Result<unknown, RyotClientError> => Result.succeed(response),
+		},
+		{},
+	);
 const providerSearch = (runtime: ReturnType<typeof createPluginRuntime>) =>
 	runtime.client.screens.pickEntity({
 		schema: { slug: "entry", owner: { kind: "plugin", pluginId: "fixture" } },
@@ -733,9 +736,10 @@ describe("plugin Effect request engine", () => {
 				const first = yield* Effect.forkChild(query(runtime), { startImmediately: true });
 				yield* waitForMessagePortMacrotask;
 				expect(sent(messages, "ryotql-request")).toContainEqual({
-					document,
+					action: "execute",
 					requestId: "ryotql-1",
 					type: "ryotql-request",
+					request: { arguments: {}, source: { document, kind: "inline" } },
 				});
 				channel.port1.postMessage({
 					outcome: "success",
@@ -782,9 +786,10 @@ describe("plugin Effect request engine", () => {
 				const next = yield* Effect.forkChild(query(runtime), { startImmediately: true });
 				yield* waitForMessagePortMacrotask;
 				expect(sent(messages, "ryotql-request")).toContainEqual({
-					document,
+					action: "execute",
 					requestId: "ryotql-2",
 					type: "ryotql-request",
+					request: { arguments: {}, source: { document, kind: "inline" } },
 				});
 				channel.port1.postMessage({
 					outcome: "success",

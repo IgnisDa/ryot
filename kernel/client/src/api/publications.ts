@@ -85,6 +85,10 @@ export class PublicationVisitsApi extends Context.Service<PublicationVisitsApi>(
 					origin: ServerOrigin,
 					request: ContractRequest<"publicationVisits", "exchange">,
 				) => run(origin, {}, (client) => client.publicationVisits.exchange(request)),
+				describe: (
+					scope: PublicationVisitScope,
+					request: ContractRequest<"publicationVisits", "describe">,
+				) => visit(scope, (client) => client.publicationVisits.describe(request)),
 				document: (
 					scope: PublicationVisitScope,
 					request: ContractRequest<"publicationVisits", "document">,

@@ -60,7 +60,7 @@ const document = {
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10, maxLimit: 10 } },
 		},
 	},
 } as const;
@@ -660,17 +660,20 @@ describe("plugin client bridge contract", () => {
 		expect(Result.isFailure(decodeClient({ type: "theme-applied" }))).toBe(true);
 	});
 
-	it("decodes a strict RyotQL request", () => {
+	it("decodes strict execution and describe requests", () => {
 		const decode = Schema.decodeUnknownResult(PluginBridgeClientMessage);
-
+		const request = {
+			action: "execute",
+			requestId: "request-1",
+			type: "ryotql-request",
+			request: { source: { document, kind: "inline" } },
+		};
+		expect(Result.isSuccess(decode(request))).toBe(true);
+		expect(Result.isFailure(decode({ ...request, userId: "user-1" }))).toBe(true);
 		expect(
-			Result.isSuccess(decode({ document, requestId: "request-1", type: "ryotql-request" })),
+			Result.isFailure(decode({ document, requestId: "request-1", type: "ryotql-request" })),
 		).toBe(true);
-		expect(
-			Result.isFailure(
-				decode({ document, userId: "user-1", requestId: "request-1", type: "ryotql-request" }),
-			),
-		).toBe(true);
+		expect(Result.isSuccess(decode({ ...request, action: "describe" }))).toBe(true);
 	});
 
 	it("decodes strict entity editor saves and typed results", () => {

@@ -83,9 +83,9 @@ const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const browserRequest = (page: ReturnType<typeof mountPluginPage>, index: number) =>
 	Effect.gen(function* () {
 		yield* Effect.promise(() =>
-			waitFor(() => expect(page.queryRequests("entityBrowser").length).toBeGreaterThan(index)),
+			waitFor(() => expect(page.queryRequests("savedView").length).toBeGreaterThan(index)),
 		);
-		const request = page.queryRequests("entityBrowser")[index];
+		const request = page.queryRequests("savedView")[index];
 		if (!request) {
 			return yield* Effect.die(new Error(`Entity browser request ${index} was not issued`));
 		}
@@ -120,7 +120,7 @@ const answerBrowser = (
 ) =>
 	waitFor(() => {
 		const pending = page
-			.queryRequests("entityBrowser")
+			.queryRequests("savedView")
 			.filter(({ requestId }) => !answered.has(requestId));
 		expect(pending.length).toBeGreaterThan(0);
 		for (const request of pending) {
@@ -239,7 +239,7 @@ describe("entity browser", () => {
 						),
 					),
 				);
-				expect(page.queryRequests("entityBrowserIds")).toEqual([]);
+				expect(page.queryRequests("ids")).toEqual([]);
 			}),
 		testTimeout,
 	);
@@ -341,7 +341,7 @@ describe("entity browser", () => {
 						expect(page.container?.textContent).toContain("Presented SecondPresented First"),
 					),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -440,15 +440,15 @@ describe("entity browser", () => {
 				);
 				fireEvent.click(screen.getByRole("button", { name: "Count all" }));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
+					waitFor(() => expect(page.queryRequests("count")).toHaveLength(1)),
 				);
-				const count = page.queryRequests("entityBrowserCount")[0];
+				const count = page.queryRequests("count")[0];
 				if (!count) {
 					throw new Error("The count action never issued a request");
 				}
 				page.replyQuery(count.requestId, {
 					outcome: "success",
-					response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 42 }] } } },
+					response: { data: { count: { type: "aggregate", items: [{ count: 42 }] } } },
 				});
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("1 of 42 results")),
@@ -479,7 +479,7 @@ describe("entity browser", () => {
 						).toContain("0 items");
 					}),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
 			}),
 		testTimeout,
 	);
@@ -609,13 +609,13 @@ describe("entity browser", () => {
 				fireEvent.change(search, { target: { value: "p" } });
 				fireEvent.change(search, { target: { value: "pi" } });
 				fireEvent.change(search, { target: { value: "pir" } });
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
 				yield* Effect.promise(() => clock.advance(299));
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
 
 				yield* Effect.promise(() => clock.advance(1));
 				const request = yield* browserRequest(page, 1);
-				expect(yield* encodeJson(request.document)).toContain("pir");
+				expect(yield* encodeJson(request.request)).toContain("pir");
 				replyBrowser(page, request.requestId, [browserRow("item-2", "Pirate Cinema")]);
 				yield* Effect.promise(() =>
 					waitFor(() =>
@@ -661,7 +661,7 @@ describe("entity browser", () => {
 				expect(document.activeElement).toBe(search);
 				yield* Effect.promise(() => clock.advance(300));
 				const next = yield* browserRequest(page, 2);
-				expect(yield* encodeJson(next.document)).toContain("the office");
+				expect(yield* encodeJson(next.request)).toContain("the office");
 			}),
 		testTimeout,
 	);
@@ -740,7 +740,7 @@ describe("entity browser", () => {
 						).toBe(""),
 					),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(2);
+				expect(page.queryRequests("savedView")).toHaveLength(2);
 
 				yield* Effect.promise(() => clock.advance(300));
 				yield* browserRequest(page, 2);
@@ -793,7 +793,7 @@ describe("entity browser", () => {
 					),
 				);
 				const request = yield* browserRequest(page, 1);
-				expect(yield* encodeJson(request.document)).toContain("external");
+				expect(yield* encodeJson(request.request)).toContain("external");
 			}),
 		testTimeout,
 	);
@@ -810,23 +810,23 @@ describe("entity browser", () => {
 						expect(screen.getByRole("button", { name: "Load more results" })).toBeTruthy(),
 					),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
 
 				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 				const second = yield* browserRequest(page, 1);
 				expect(
 					screen.getByRole("button", { name: "Loading more results" }).getAttribute("aria-busy"),
 				).toBe("true");
-				expect(yield* encodeJson(second.document)).toContain("cursor-1");
+				expect(yield* encodeJson(second.request)).toContain("cursor-1");
 				replyBrowser(page, second.requestId, [browserRow("item-2", "Two")], true, "cursor-2");
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("2+ results")),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(2);
+				expect(page.queryRequests("savedView")).toHaveLength(2);
 
 				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 				const third = yield* browserRequest(page, 2);
-				expect(yield* encodeJson(third.document)).toContain("cursor-2");
+				expect(yield* encodeJson(third.request)).toContain("cursor-2");
 			}),
 		testTimeout,
 	);
@@ -859,7 +859,7 @@ describe("entity browser", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("Refreshed")),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(2);
+				expect(page.queryRequests("savedView")).toHaveLength(2);
 			}),
 		testTimeout,
 	);
@@ -893,7 +893,7 @@ describe("entity browser", () => {
 					"fresh-1",
 				);
 				const replaySecond = yield* browserRequest(page, 3);
-				expect(yield* encodeJson(replaySecond.document)).toContain("fresh-1");
+				expect(yield* encodeJson(replaySecond.request)).toContain("fresh-1");
 				replyBrowser(
 					page,
 					replaySecond.requestId,
@@ -904,7 +904,7 @@ describe("entity browser", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("Two updated")),
 				);
-				expect(page.queryRequests("entityBrowser")).toHaveLength(4);
+				expect(page.queryRequests("savedView")).toHaveLength(4);
 			}),
 		testTimeout,
 	);
@@ -960,7 +960,7 @@ describe("entity browser", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(secondPage.container?.textContent).toContain("New mount refreshed")),
 				);
-				expect(secondPage.queryRequests("entityBrowser")).toHaveLength(2);
+				expect(secondPage.queryRequests("savedView")).toHaveLength(2);
 			}),
 		testTimeout,
 	);
@@ -1033,6 +1033,65 @@ describe("entity browser sorting", () => {
 	afterEach(() => disposePluginBridges());
 
 	it.live(
+		"publishes a persisted-source sort only after a successful retry and restores it on navigation",
+		() =>
+			Effect.gen(function* () {
+				const search = `keep=1&layout=table&search=sample&${filtersParam(statusRule)}`;
+				const page = openBrowser({ search });
+				const first = yield* browserRequest(page, 0);
+				replyBrowser(page, first.requestId, [browserRow("one", "Sample")]);
+				yield* openFilters();
+				yield* selectBrowserSort("Name");
+				const sorted = yield* browserRequest(page, 1);
+				expect(sorted.request).toEqual({ ...first.request, sort: "name-asc" });
+				page.replyQuery(sorted.requestId, { outcome: "failure", reason: "query-failed" });
+				yield* Effect.promise(() =>
+					screen.findByText("The saved view results could not be loaded."),
+				);
+				expect(pageSearchUpdates(page)).toEqual([]);
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+				const retried = yield* browserRequest(page, 2);
+				expect(retried.request).toEqual(sorted.request);
+				replyBrowser(page, retried.requestId, [browserRow("one", "Sample")]);
+				yield* Effect.promise(() => waitFor(() => expect(pageSearchUpdates(page)).toHaveLength(1)));
+				expect(pageSearchUpdates(page)[0]).toMatchObject({
+					mode: "replace",
+					update: { sort: "name-asc", search: "sample" },
+				});
+				expect(decodeFiltersUpdate(lastFiltersUpdate(page))).toEqual(statusRule);
+				expect(Object.keys(pageSearchUpdates(page)[0]?.update ?? {}).sort()).toEqual([
+					"filters",
+					"search",
+					"sort",
+				]);
+				const published = `${search}&sort=name-asc`;
+				page.navigate(routeLocation("/v/all-items", published));
+				yield* openFilters();
+				fireEvent.click(screen.getByRole("button", { name: "Sort direction: A–Z" }));
+				const descending = yield* browserRequest(page, 3);
+				expect(descending.request).toEqual({ ...first.request, sort: "name-desc" });
+				page.navigate(routeLocation("/v/all-items", search));
+				yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Sort by: Default order" }),
+				);
+				replyBrowser(page, descending.requestId, [browserRow("two", "Sample Z")]);
+				page.navigate(routeLocation("/v/all-items", published));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Sort direction: A–Z" }));
+				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
+				expect(screen.getByRole("radio", { name: "Table view" }).getAttribute("aria-checked")).toBe(
+					"true",
+				);
+				expect(
+					screen.getByRole("searchbox", { name: "Search All Items" }).getAttribute("value"),
+				).toBe("sample");
+				yield* waitForMessagePortMacrotask;
+				expect(pageSearchUpdates(page)).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+
+	it.live(
 		"selects one field, toggles direction, and uses the next field's preferred direction",
 		() =>
 			Effect.gen(function* () {
@@ -1060,15 +1119,11 @@ describe("entity browser sorting", () => {
 				).toEqual(["Default order", "Name", "Release year"]);
 				fireEvent.click(screen.getByRole("radio", { name: "Release year" }));
 				const descending = yield* browserRequest(page, 2);
-				const sorted = descending.document.queries["entityBrowser"];
-				expect(sorted?.output).toMatchObject({
-					pagination: { limit: 2 },
-					orderBy: [
-						{ direction: "desc", expr: { path: ["publishYear"] } },
-						{ direction: "asc", expr: { field: "id" } },
-					],
+				expect(descending.request).toMatchObject({
+					sort: "year-desc",
+					pages: { savedView: { limit: 2 } },
 				});
-				const encoded = yield* encodeJson(descending.document);
+				const encoded = yield* encodeJson(descending.request);
 				expect(encoded).toContain("sample");
 				expect(encoded).toContain('"read"');
 				expect(encoded).not.toContain("old-page");
@@ -1085,9 +1140,7 @@ describe("entity browser sorting", () => {
 				).not.toBeNull();
 				fireEvent.click(screen.getByRole("button", { name: "Sort direction: Newest first" }));
 				const ascending = yield* browserRequest(page, 3);
-				expect(ascending.document.queries["entityBrowser"]?.output).toMatchObject({
-					orderBy: [{ direction: "asc" }, { direction: "asc" }],
-				});
+				expect(ascending.request.sort).toBe("year-asc");
 				replyBrowser(page, ascending.requestId, [browserRow("four", "Sample oldest")]);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(pageSearchUpdates(page).at(-1)?.update["sort"]).toBe("year-asc")),
@@ -1099,12 +1152,10 @@ describe("entity browser sorting", () => {
 						.getByRole("button", { name: "Sort direction: Oldest first" })
 						.querySelector('[data-app-icon="arrow-up"]'),
 				).not.toBeNull();
-				expect(page.queryRequests("entityBrowser")).toHaveLength(4);
+				expect(page.queryRequests("savedView")).toHaveLength(4);
 				yield* selectBrowserSort("Name");
 				const named = yield* browserRequest(page, 4);
-				expect(named.document.queries["entityBrowser"]?.output).toMatchObject({
-					orderBy: [{ direction: "asc", expr: { field: "name" } }, { direction: "asc" }],
-				});
+				expect(named.request.sort).toBe("name-asc");
 				replyBrowser(page, named.requestId, [browserRow("five", "Sample A")]);
 				yield* selectBrowserSort("Release year");
 				yield* Effect.promise(() =>
@@ -1160,7 +1211,7 @@ describe("entity browser filters", () => {
 				);
 				const count = yield* Effect.promise(() =>
 					waitFor(() => {
-						const request = page.queryRequests("entityBrowserCount")[0];
+						const request = page.queryRequests("count")[0];
 						if (request === undefined) {
 							throw new Error("Count request was not issued");
 						}
@@ -1171,21 +1222,21 @@ describe("entity browser filters", () => {
 				page.navigate(routeLocation("/v/all-items", `${search}&panel=details`));
 				yield* openFilters();
 				yield* waitForMessagePortMacrotask;
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-				expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
+				expect(page.queryRequests("count")).toHaveLength(1);
 				expect(screen.getByRole("button", { name: "Counting..." })).toBeTruthy();
 
 				page.replyQuery(count.requestId, {
 					outcome: "success",
-					response: { data: { entityBrowserCount: { type: "aggregate", items: [{ total: 9 }] } } },
+					response: { data: { count: { type: "aggregate", items: [{ count: 9 }] } } },
 				});
 				yield* Effect.promise(() => screen.findByText("1 of 9 results"));
 				fireEvent.click(screen.getByRole("button", { name: "Close filters" }));
 				page.navigate(routeLocation("/v/all-items", search));
 				yield* openFilters();
 				yield* waitForMessagePortMacrotask;
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
-				expect(page.queryRequests("entityBrowserCount")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
+				expect(page.queryRequests("count")).toHaveLength(1);
 				expect(screen.getByText("1 of 9 results")).toBeTruthy();
 			}),
 		testTimeout,
@@ -1208,7 +1259,7 @@ describe("entity browser filters", () => {
 				);
 
 				const filtered = yield* browserRequest(page, 1);
-				const document = yield* encodeJson(filtered.document);
+				const document = yield* encodeJson(filtered.request);
 				expect(document).toContain('"read"');
 				expect(document).toContain("status");
 				replyBrowser(page, filtered.requestId, [browserRow("item-2", "Two")]);
@@ -1234,7 +1285,7 @@ describe("entity browser filters", () => {
 				yield* Effect.promise(() => answerBrowser(page, answered, [browserRow("item-1", "One")]));
 				yield* openFilters();
 				yield* addFilter("Year");
-				expect(page.queryRequests("entityBrowser")).toHaveLength(1);
+				expect(page.queryRequests("savedView")).toHaveLength(1);
 				expect(lastFiltersUpdate(page)).toBeUndefined();
 				expect(screen.getByRole("button", { name: "Filters, 0 active filters" })).toBeTruthy();
 			}),
@@ -1339,10 +1390,10 @@ describe("entity browser filters", () => {
 				);
 				fireEvent.click(screen.getByRole("button", { name: "Count all" }));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(page.queryRequests("entityBrowserCount")).toHaveLength(1)),
+					waitFor(() => expect(page.queryRequests("count")).toHaveLength(1)),
 				);
-				const count = page.queryRequests("entityBrowserCount")[0];
-				const document = yield* encodeJson(count?.document);
+				const count = page.queryRequests("count")[0];
+				const document = yield* encodeJson(count?.request);
 				expect(document).toContain('"read"');
 				expect(document).toContain("status");
 			}),
@@ -1391,7 +1442,7 @@ describe("entity browser filters", () => {
 						return found;
 					}),
 				);
-				const document = yield* encodeJson(lookup.document);
+				const document = yield* encodeJson(lookup.request);
 				expect(document).toContain("p-1");
 				expect(document).toContain("p-2");
 				expect(screen.getByRole("group", { name: "Active filters" }).textContent).toContain(

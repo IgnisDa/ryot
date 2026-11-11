@@ -19,9 +19,9 @@ export class PluginCatalogService extends Context.Service<PluginCatalogService>(
 	{
 		make: Effect.sync(() => {
 			const load = Effect.fn("PluginCatalogService.load")((ryot: KernelRyotClient) =>
-				loadAllPages((after) => ryot.data.query(pluginClientCatalogRecipe({ after }))).pipe(
-					Effect.mapError((cause) => new PluginCatalogError({ cause })),
-				),
+				loadAllPages((after) =>
+					ryot.data.query(pluginClientCatalogRecipe, {}, { pages: { installations: { after } } }),
+				).pipe(Effect.mapError((cause) => new PluginCatalogError({ cause }))),
 			);
 
 			return { load };

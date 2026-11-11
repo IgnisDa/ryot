@@ -1,6 +1,6 @@
 import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	EntityId,
 	EntitySchemaSlug,

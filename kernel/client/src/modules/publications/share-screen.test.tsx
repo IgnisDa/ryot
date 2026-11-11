@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { EntityId, PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
@@ -54,7 +55,7 @@ const mountSheet = () => {
 			query: (document) =>
 				Effect.succeed({
 					data:
-						"publications" in document.queries
+						"publications" in bindTestRequest(document).queries
 							? {
 									publications: {
 										type: "rows",

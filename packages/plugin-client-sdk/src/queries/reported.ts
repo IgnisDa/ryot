@@ -4,7 +4,10 @@ import {
 	type ReportingSelection,
 	type ResolvedReportingSelection,
 } from "@ryot-app/contract/modules/analytics/reporting";
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import type { Recipe } from "@ryot-app/ryotql";
 import * as Effect from "effect/Effect";
 
 import { consistencySelection } from "../analytics/reporting";
@@ -14,14 +17,11 @@ import { createRyotQuery, type RyotQuery, type RyotQueryOptions } from "./defini
 import { nextPageCursor } from "./pagination";
 
 export type ReportedPageInput<Input> = Input & { readonly page: ReportingPageParam };
-
 export type Compared<Data> = Reported<{ readonly current: Data; readonly previous: null | Data }>;
-
 export type ReportingInput = {
 	readonly timeZone: TimeZone;
 	readonly selection: ReportingSelection;
 };
-
 export type ReportingPageParam = null | {
 	readonly after: string;
 	readonly selection: ReportingSelection;
@@ -29,47 +29,62 @@ export type ReportingPageParam = null | {
 
 type ReportedContext<Input> = {
 	readonly input: Input;
-	readonly client: RyotClient;
-	readonly reporting: ResolvedReportingSelection;
+	readonly selection: ReportingSelection;
+	readonly comparison: "current" | "previous";
+	readonly query: <Data, const Parameters extends AppSchema, Output>(
+		recipe: Recipe<Data, Parameters>,
+		arguments_: NoInfer<Recipe.Arguments<Recipe<Data, Parameters>>>,
+		options: undefined | Omit<ExecutionRequest, "source" | "arguments">,
+		project: (data: Data, reporting: ResolvedReportingSelection) => Output,
+	) => Effect.Effect<Reported<Output>, RyotClientError>;
 };
 
-/** Later pages reuse the first page's pinned selection so clock movement cannot shift the period. */
 export const reportingPageParam = (page: {
-	readonly reporting: { readonly selection: ReportingSelection };
+	readonly reporting: { readonly requestedSelection: ReportingSelection };
 	readonly pageInfo: { readonly hasMore?: boolean; readonly nextCursor: null | string };
 }): ReportingPageParam => {
 	const after = nextPageCursor(page);
-	return after === null ? null : { after, selection: page.reporting.selection };
+	return after === null ? null : { after, selection: page.reporting.requestedSelection };
 };
 
-const reportedQuery = <Input extends ReportingInput, Data extends object, Failure extends Error>(
-	window: (input: Input, now: number) => ReportingSelection,
-	read: (
-		context: ReportedContext<Input> & { readonly now: number },
-	) => Effect.Effect<Data, Failure>,
-	options: undefined | RyotQueryOptions<Input, Reported<Data>>,
-) =>
-	createRyotQuery<Input, Reported<Data>, Failure>(
-		({ input, client, schedule }) => {
-			const now = schedule.now();
-			const reporting = reportingExecution(window(input, now), { now, timeZone: input.timeZone });
-			return read({ now, input, client, reporting: reporting.resolved }).pipe(
-				Effect.map((data) => ({ ...data, reporting })),
-			);
-		},
-		{ cancelOnUnmount: true, ...options },
-	);
-
-const selected = (input: ReportingInput) => input.selection;
+const reportedContext = <Input extends ReportingInput>(
+	input: Input,
+	client: RyotClient,
+	selection: ReportingSelection,
+	consistency = false,
+	comparison: "current" | "previous" = "current",
+): ReportedContext<Input> => ({
+	input,
+	selection,
+	comparison,
+	query: (recipe, arguments_, options, project) =>
+		client.data.queryWithExecution(recipe, arguments_, options).pipe(
+			Effect.map(({ data, execution }) => {
+				const resolvedSelection = consistency
+					? consistencySelection({ selection, timeZone: execution.timeZone }, execution.now)
+							.selection
+					: selection;
+				const reporting = {
+					...reportingExecution(resolvedSelection, execution),
+					requestedSelection: selection,
+				};
+				return Object.assign({}, project(data, reporting.resolved), { reporting });
+			}),
+		),
+});
 
 export const createReportedQuery = <
 	Input extends ReportingInput,
 	Data extends object,
 	Failure extends Error = RyotClientError,
 >(
-	read: (context: ReportedContext<Input>) => Effect.Effect<Data, Failure>,
+	read: (context: ReportedContext<Input>) => Effect.Effect<Reported<Data>, Failure>,
 	options?: RyotQueryOptions<Input, Reported<Data>>,
-): RyotQuery<Input, Reported<Data>, Failure> => reportedQuery(selected, read, options);
+): RyotQuery<Input, Reported<Data>, Failure> =>
+	createRyotQuery(({ input, client }) => read(reportedContext(input, client, input.selection)), {
+		cancelOnUnmount: true,
+		...options,
+	});
 
 export const createReportedPageQuery = <
 	Input extends ReportingInput,
@@ -78,13 +93,16 @@ export const createReportedPageQuery = <
 >(
 	read: (
 		context: { readonly after: string | undefined } & ReportedContext<ReportedPageInput<Input>>,
-	) => Effect.Effect<Data, Failure>,
+	) => Effect.Effect<Reported<Data>, Failure>,
 	options?: RyotQueryOptions<ReportedPageInput<Input>, Reported<Data>>,
 ): RyotQuery<ReportedPageInput<Input>, Reported<Data>, Failure> =>
-	reportedQuery(
-		(input: ReportedPageInput<Input>) => input.page?.selection ?? input.selection,
-		(context) => read({ ...context, after: context.input.page?.after }),
-		options,
+	createRyotQuery(
+		({ input, client }) =>
+			read({
+				...reportedContext(input, client, input.page?.selection ?? input.selection),
+				after: input.page?.after,
+			}),
+		{ cancelOnUnmount: true, ...options },
 	);
 
 export const createComparedQuery = <
@@ -92,30 +110,37 @@ export const createComparedQuery = <
 	Data,
 	Failure extends Error = RyotClientError,
 >(
-	read: (context: ReportedContext<Input>) => Effect.Effect<Data, Failure>,
+	read: (context: ReportedContext<Input>) => Effect.Effect<Reported<Data>, Failure>,
 	options?: RyotQueryOptions<Input, Compared<Data>>,
 ): RyotQuery<Input, Compared<Data>, Failure> =>
-	reportedQuery(
-		selected,
-		(context) =>
+	createRyotQuery<Input, Compared<Data>, Failure>(
+		({ input, client }) =>
 			Effect.all(
 				{
-					current: read(context),
+					current: read(reportedContext(input, client, input.selection)),
 					previous:
-						context.reporting.previous === null
+						input.selection.comparison === "none" || input.selection.range.kind === "all-time"
 							? Effect.succeed(null)
-							: read({
-									...context,
-									reporting: {
-										...context.reporting,
-										previous: null,
-										current: context.reporting.previous,
-									},
-								}),
+							: read(reportedContext(input, client, input.selection, false, "previous")),
 				},
 				{ concurrency: 2 },
+			).pipe(
+				Effect.map(({ current, previous }) => ({
+					current,
+					previous,
+					reporting: {
+						...current.reporting,
+						resolved:
+							current.reporting.resolved.current === null
+								? current.reporting.resolved
+								: {
+										...current.reporting.resolved,
+										previous: previous?.reporting.resolved.previous ?? null,
+									},
+					},
+				})),
 			),
-		options,
+		{ cancelOnUnmount: true, ...options },
 	);
 
 export const createConsistencyQuery = <
@@ -123,17 +148,19 @@ export const createConsistencyQuery = <
 	Data extends object,
 	Failure extends Error = RyotClientError,
 >(
-	read: (context: ReportedContext<Input>) => Effect.Effect<Data, Failure>,
+	read: (context: ReportedContext<Input>) => Effect.Effect<Reported<Data>, Failure>,
 ): RyotQuery<Input, Reported<Data & { readonly clipped: boolean }>, Failure> =>
-	reportedQuery(
-		(input: Input, now) => consistencySelection(input, now).selection,
-		(context) =>
-			read(context).pipe(
+	createRyotQuery<Input, Reported<Data & { readonly clipped: boolean }>, Failure>(
+		({ input, client }) =>
+			read(reportedContext(input, client, input.selection, true)).pipe(
 				Effect.map((data) =>
 					Object.assign({}, data, {
-						clipped: consistencySelection(context.input, context.now).clipped,
+						clipped: consistencySelection(
+							{ selection: input.selection, timeZone: data.reporting.resolved.timeZone },
+							data.reporting.now,
+						).clipped,
 					}),
 				),
 			),
-		undefined,
+		{ cancelOnUnmount: true },
 	);

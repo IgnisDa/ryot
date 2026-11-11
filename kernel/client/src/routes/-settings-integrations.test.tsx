@@ -14,6 +14,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import type { IntegrationDetail, IntegrationSummary } from "@ryot-app/ryotql-recipes/integrations";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -249,7 +250,7 @@ const makeIntegrationQueries = (
 ): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
-			if ("user" in request.payload.queries) {
+			if ("user" in bindTestRequest(request.payload).queries) {
 				return Effect.succeed({
 					data: {
 						user: {
@@ -260,8 +261,8 @@ const makeIntegrationQueries = (
 					},
 				});
 			}
-			if ("integrations" in request.payload.queries) {
-				const integrations = request.payload.queries.integrations;
+			if ("integrations" in bindTestRequest(request.payload).queries) {
+				const integrations = bindTestRequest(request.payload).queries.integrations;
 				if (integrations.output.type !== "rows") {
 					return Effect.die("Expected integrations rows query");
 				}
@@ -270,8 +271,8 @@ const makeIntegrationQueries = (
 					Effect.succeed(options.list?.(integrations.output.pagination.limit) ?? listResponse([]))
 				);
 			}
-			if ("providers" in request.payload.queries) {
-				const output = request.payload.queries.providers.output;
+			if ("providers" in bindTestRequest(request.payload).queries) {
+				const output = bindTestRequest(request.payload).queries.providers.output;
 				if (output.type !== "rows") {
 					return Effect.die("Expected provider rows");
 				}
@@ -298,7 +299,7 @@ const makeIntegrationQueries = (
 					}),
 				);
 			}
-			if ("integration" in request.payload.queries) {
+			if ("integration" in bindTestRequest(request.payload).queries) {
 				return Effect.map(options.detail?.() ?? Effect.succeed(makeDetail()), (item) => ({
 					data: {
 						integration: {
@@ -309,8 +310,8 @@ const makeIntegrationQueries = (
 					},
 				}));
 			}
-			if ("importRuns" in request.payload.queries) {
-				const importRuns = request.payload.queries.importRuns;
+			if ("importRuns" in bindTestRequest(request.payload).queries) {
+				const importRuns = bindTestRequest(request.payload).queries.importRuns;
 				if (importRuns.output.type !== "rows") {
 					return Effect.die("Expected import runs rows query");
 				}

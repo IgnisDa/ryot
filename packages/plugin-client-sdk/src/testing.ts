@@ -1,6 +1,7 @@
 import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type { QueryExecution } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -183,6 +184,7 @@ export const createTestRyotClock = (
 		runtime,
 		bootstrap,
 		dispose: () => runtime.dispose(),
+		now: () => runtime.runSync(Clock.currentTimeMillis),
 		advance: (millis: Duration.Input) => act(() => runtime.runPromise(advanceRyotSchedule(millis))),
 		setTime: (timestamp: number) =>
 			act(() =>
@@ -317,6 +319,7 @@ export const mountPluginPage = (
 		readonly location?: undefined | PluginLogicalLocation;
 		/** Answers every user-preferences request with these preferences. */
 		readonly userPreferences?: undefined | PluginUserPreferences;
+		readonly queryExecution?: undefined | (() => QueryExecution);
 		readonly bootstrap?: undefined | ReturnType<typeof createClientBootstrap>;
 		readonly analyticsSections?: undefined | readonly AnalyticsSectionRegistration[];
 		readonly entityPresentations?: undefined | readonly EntityPresentationRegistration[];
@@ -419,12 +422,6 @@ export const mountPluginPage = (
 			clientMessagesOfType("calendar-source-visibility-request"),
 		replyAssets: (requestId: string, outcome: PluginAssetOutcome) =>
 			send({ ...outcome, requestId, type: "asset-result" }),
-		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) =>
-			send({ ...outcome, requestId, type: "ryotql-result" }),
-		queryRequests: (queryKey?: string) =>
-			clientMessagesOfType("ryotql-request").filter(
-				(request) => queryKey === undefined || queryKey in request.document.queries,
-			),
 		replyCalendarSourceVisibility: (
 			requestId: string,
 			outcome: PluginCalendarSourceVisibilityOutcome,
@@ -440,6 +437,40 @@ export const mountPluginPage = (
 			document.head.innerHTML = "";
 			document.body.innerHTML = "";
 		},
+		replyQuery: (requestId: string, outcome: PluginRyotQLOutcome) => {
+			const execution = options.queryExecution?.();
+			if (outcome.outcome === "success" && "data" in outcome.response && execution !== undefined) {
+				send({
+					...outcome,
+					requestId,
+					type: "ryotql-result",
+					response: { execution, ...outcome.response },
+				});
+			} else {
+				send({ ...outcome, requestId, type: "ryotql-result" });
+			}
+		},
+		queryRequests: (queryKey?: string) =>
+			clientMessagesOfType("ryotql-request").filter(
+				(
+					request,
+				): request is Extract<
+					PluginBridgeClientMessage,
+					{ readonly action: "execute"; readonly type: "ryotql-request" }
+				> => {
+					if (request.action !== "execute") {
+						return false;
+					}
+					if (queryKey === undefined) {
+						return true;
+					}
+					const source = request.request.source;
+					if (source.kind === "inline" && source.query === undefined) {
+						return queryKey in source.document.queries;
+					}
+					return source.query === queryKey;
+				},
+			),
 	};
 	mounted.push(page);
 	if (options.location !== undefined) {

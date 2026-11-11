@@ -2,18 +2,19 @@ import type { ReminderDeliveryConfiguration } from "@ryot-app/contract/modules/r
 import { EntityId, NotificationSubscriptionId, ReminderId } from "@ryot-app/contract/schema/brands";
 import type { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import type { RemindersResult } from "@ryot-app/ryotql-recipes/reminders";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { Effect, Layer } from "effect";
 import type { ReactNode } from "react";
 
 import type { AutomationsApi } from "#/api/automations";
 import { makeAutomationsApi, makeRemindersApi } from "#/api/ports.test-layer";
 import type { RemindersApi } from "#/api/reminders";
-import { type HostedTestQueryDocument, mountHostedTestScreen } from "#/host-screen.test-support";
+import { type HostedTestQueryRequest, mountHostedTestScreen } from "#/host-screen.test-support";
 
 export type ReminderTestRow = RemindersResult["items"][number];
 
 export type ReminderTestQuery = (
-	document: HostedTestQueryDocument,
+	document: HostedTestQueryRequest,
 ) => Effect.Effect<unknown, RyotClientError>;
 
 const page = (items: readonly unknown[], hasMore = false, nextCursor: null | string = null) => ({
@@ -43,11 +44,14 @@ export const makeReminderRow = (overrides: Partial<ReminderTestRow> = {}): Remin
 	...overrides,
 });
 
-export const defaultReminderQueryResponse = (document: HostedTestQueryDocument): unknown => {
-	if ("reminders" in document.queries) {
+export const defaultReminderQueryResponse = (document: HostedTestQueryRequest): unknown => {
+	if ("reminders" in bindTestRequest(document).queries) {
 		return { data: { reminders: page([]) } };
 	}
-	if ("channels" in document.queries && "subscriptions" in document.queries) {
+	if (
+		"channels" in bindTestRequest(document).queries &&
+		"subscriptions" in bindTestRequest(document).queries
+	) {
 		return {
 			data: {
 				channels: { type: "aggregate", items: [{ count: 1 }] },
@@ -60,7 +64,7 @@ export const defaultReminderQueryResponse = (document: HostedTestQueryDocument):
 			},
 		};
 	}
-	if ("deliveries" in document.queries) {
+	if ("deliveries" in bindTestRequest(document).queries) {
 		return { data: { deliveries: page([]) } };
 	}
 	return { data: {} };
@@ -81,7 +85,7 @@ export const mountReminderTestScreen = (
 		readonly deliveryConfiguration?: ReminderDeliveryConfiguration;
 	} = {},
 ) => {
-	const queryDocuments: HostedTestQueryDocument[] = [];
+	const queryDocuments: HostedTestQueryRequest[] = [];
 	const screen = mountHostedTestScreen(content, {
 		routes: {
 			"/e/$entityId": <p>Entity</p>,

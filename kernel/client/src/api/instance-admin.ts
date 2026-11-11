@@ -1,5 +1,7 @@
 import type { ContractRequest, ContractSuccess } from "@ryot-app/contract/client";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/ryotql";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { AdminApi } from "#/api/admin";
@@ -44,19 +46,6 @@ export class InstanceAdminApi extends Context.Service<InstanceAdminApi>()(
 					request: ContractRequest<"instanceAdmin", "startUserImpersonation">,
 				) =>
 					api.run(origin, token, (client) => client.instanceAdmin.startUserImpersonation(request)),
-				query: <A>(origin: ServerOrigin, token: string, recipe: PreparedRecipe<A>) =>
-					api
-						.run(origin, token, (client) =>
-							client.adminRyotql.execute({ payload: recipe.document }),
-						)
-						.pipe(
-							Effect.flatMap((response) => {
-								const decoded = recipe.decode(response);
-								return Result.isSuccess(decoded)
-									? Effect.succeed(decoded.success)
-									: Effect.fail(new InstanceAdminQueryError({ cause: decoded.failure }));
-							}),
-						),
 				downloadLogs: (
 					origin: ServerOrigin,
 					token: string,
@@ -74,6 +63,35 @@ export class InstanceAdminApi extends Context.Service<InstanceAdminApi>()(
 						Effect.flatMap(({ url }) => api.download(resolveApiUrl(origin, url), fileName)),
 					);
 				},
+				query: <A, Parameters extends AppSchema>(
+					origin: ServerOrigin,
+					token: string,
+					recipe: Recipe<A, Parameters>,
+					argumentsValue: NoInfer<Recipe.Arguments<Recipe<A, Parameters>>>,
+					options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+				) =>
+					api
+						.run(origin, token, (client) =>
+							client.adminRyotql.execute({
+								payload: {
+									...options,
+									arguments: argumentsValue,
+									source: {
+										kind: "inline",
+										document: recipe.document,
+										...(recipe.query === undefined ? {} : { query: recipe.query }),
+									},
+								},
+							}),
+						)
+						.pipe(
+							Effect.flatMap((response) => {
+								const decoded = recipe.decode(response);
+								return Result.isSuccess(decoded)
+									? Effect.succeed(decoded.success)
+									: Effect.fail(new InstanceAdminQueryError({ cause: decoded.failure }));
+							}),
+						),
 			};
 		}),
 	},

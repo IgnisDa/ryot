@@ -22,7 +22,11 @@ type SavePluginUserSettingsInput = {
 
 const loadPluginUserSettings = (client: Pick<KernelRyotClient, "data">) =>
 	loadAllPages((after) =>
-		client.data.query(pluginUserSettingsRecipe({ after, limit: PLUGIN_USER_SETTINGS_PAGE_SIZE })),
+		client.data.query(
+			pluginUserSettingsRecipe,
+			{},
+			{ pages: { installations: { after, limit: PLUGIN_USER_SETTINGS_PAGE_SIZE } } },
+		),
 	).pipe(Effect.mapError(() => new RyotClientError({ reason: "transport" })));
 
 export const pluginUserSettingsQuery = createRyotQuery<void, readonly PluginUserSetting[]>(

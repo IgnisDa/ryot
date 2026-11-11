@@ -57,6 +57,13 @@ export const createKernelRyotClient = (
 				.pipe(
 					Effect.mapError((error) => new RyotClientError({ reason: classifyRyotQLFailure(error) })),
 				),
+		describe: (request) =>
+			runtime
+				.runSync(RyotQLApi)
+				.describe(scope, { payload: request })
+				.pipe(
+					Effect.mapError((error) => new RyotClientError({ reason: classifyRyotQLFailure(error) })),
+				),
 		resolveAssets: (assets) =>
 			runtime
 				.runSync(UploadsApi)

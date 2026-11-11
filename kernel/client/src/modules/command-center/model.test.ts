@@ -1,16 +1,19 @@
 import { describe, expect } from "bun:test";
 
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	EntitySchemaSlug,
 	PluginId,
 	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
-import { aggregate, ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { ascending, column, document, field, rows, table } from "@ryot-app/ryotql";
+import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
 import type { LibrarySearchHit, LibrarySearchResult } from "@ryot-app/ryotql-recipes/saved-views";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -33,14 +36,55 @@ import {
 
 const entity = table("entity", "entity");
 
-const dataSources = document({
-	ignored: aggregate(entity, { measures: [{ key: "total", aggregation: { function: "count" } }] }),
-	selection: rows(entity, {
-		limit: 40,
-		orderBy: [ascending(column(entity, "createdAt"))],
-		fields: [field("nameAlias", column(entity, "name"))],
-	}),
+const search = parameters({
+	fields: {
+		search: {
+			type: "string",
+			label: "Search",
+			description: "Item search",
+			validation: { required: true },
+		},
+	},
 });
+const source = rows(entity, {
+	limit: 40,
+	orderBy: [ascending(column(entity, "createdAt"))],
+	fields: [field("nameAlias", column(entity, "name"))],
+});
+const dataSources = {
+	...document({
+		selection: source,
+		librarySearch: librarySearchQuery({
+			source,
+			entity,
+			search: search.value("search"),
+			searchExpressions: [column(entity, "name")],
+		}).document,
+	}),
+	parameters: search.schema,
+};
+const libraryTransport =
+	<Failure>(read: () => Effect.Effect<LibrarySearchResult, Failure>) =>
+	(request: ExecutionRequest) =>
+		read().pipe(
+			Effect.map((result) =>
+				request.source.kind === "savedView" && request.source.query === "librarySearchCount"
+					? {
+							data: { librarySearchCount: { type: "aggregate", items: [{ count: result.total }] } },
+						}
+					: {
+							data: {
+								librarySearch: {
+									type: "rows",
+									items: result.hits.map((item) => ({
+										...item,
+										subtitle: item.subtitle?.value ?? null,
+									})),
+								},
+							},
+						},
+			),
+		);
 
 const settings = {
 	pageSize: 20,
@@ -49,7 +93,7 @@ const settings = {
 	defaultLayout: "grid",
 	sourceName: "selection",
 	layouts: ["grid", "list"],
-	searchFields: ["nameAlias"],
+	controls: { search: "search" },
 	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
@@ -228,7 +272,7 @@ describe("command center library views", () => {
 			record("hidden", { isHidden: true }),
 			record("table", { renderer: { kind: "kernel", name: "results-table" } }),
 			record("no-sources", { dataSources: null }),
-			record("no-search", { settings: { ...settings, searchFields: [] } }),
+			record("no-search", { settings: { ...settings, controls: {} } }),
 			record("broken", { settings: { nope: true } }),
 		]);
 
@@ -249,11 +293,12 @@ describe("command center library search", () => {
 						query: "du",
 						views: views(),
 						onCommit: (commit) => commits.push(commit),
-						execute: () =>
+						execute: libraryTransport(() =>
 							Effect.sync(() => {
 								queries += 1;
 								return searchResult(hit("Dune"));
 							}),
+						),
 					}),
 				);
 
@@ -262,7 +307,7 @@ describe("command center library search", () => {
 				yield* TestClock.adjust(1);
 				yield* Fiber.join(fiber);
 
-				expect(queries).toBe(2);
+				expect(queries).toBe(4);
 				expect(commits.map(({ complete, outcomes }) => [complete, outcomes.length])).toEqual([
 					[true, 2],
 				]);
@@ -281,12 +326,12 @@ describe("command center library search", () => {
 						query: "du",
 						views: views(),
 						onCommit: (commit) => commits.push(commit),
-						execute: () => {
+						execute: libraryTransport(() => {
 							calls += 1;
 							return calls === 1
 								? Effect.sleep(COMMIT_BUDGET_MS * 2).pipe(Effect.as(searchResult(hit("Late"))))
 								: Effect.succeed(searchResult(hit("Early")));
-						},
+						}),
 					}),
 				);
 
@@ -315,11 +360,12 @@ describe("command center library search", () => {
 						query: "d",
 						views: views(),
 						onCommit: () => undefined,
-						execute: () =>
+						execute: libraryTransport(() =>
 							Effect.sync(() => {
 								queries += 1;
 								return searchResult();
 							}),
+						),
 					}),
 				);
 				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS - 1);
@@ -341,7 +387,7 @@ describe("command center library search", () => {
 						query: "d",
 						views: views(),
 						onCommit: () => undefined,
-						execute: () =>
+						execute: libraryTransport(() =>
 							Effect.never.pipe(
 								Effect.onInterrupt(() =>
 									Effect.sync(() => {
@@ -349,13 +395,14 @@ describe("command center library search", () => {
 									}),
 								),
 							),
+						),
 					}),
 				);
 				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS);
 				yield* Effect.yieldNow;
 				yield* Fiber.interrupt(fiber);
 
-				expect(interrupted).toBe(2);
+				expect(interrupted).toBe(4);
 			}),
 		testTimeout,
 	);
@@ -371,10 +418,10 @@ describe("command center library search", () => {
 						query: "d",
 						views: views(),
 						onCommit: (commit) => commits.push(commit),
-						execute: () => {
+						execute: libraryTransport(() => {
 							calls += 1;
 							return calls === 1 ? Effect.fail("boom") : Effect.succeed(searchResult(hit("ok")));
-						},
+						}),
 					}),
 				);
 				yield* TestClock.adjust(SEARCH_DEBOUNCE_MS);

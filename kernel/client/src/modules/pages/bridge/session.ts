@@ -741,7 +741,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	}
 
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
-		runRequest(request.requestId, "ryotql", () => options.onRyotQL({ document: request.document }));
+		runRequest(request.requestId, "ryotql", () => options.onRyotQL(request));
 	}
 
 	function handleRyotQLCancel(request: PluginBridgeRyotQLCancel) {

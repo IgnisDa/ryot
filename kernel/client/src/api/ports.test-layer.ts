@@ -42,7 +42,13 @@ export const makeEntityWatchService = (overrides: Partial<EntityWatchService["Se
 	});
 
 export const makeRyotQLApi = (overrides: Partial<RyotQLApi["Service"]> = {}) =>
-	Layer.succeed(RyotQLApi, { execute: unused, executePlugin: unused, ...overrides });
+	Layer.succeed(RyotQLApi, {
+		execute: unused,
+		describe: unused,
+		executePlugin: unused,
+		describePlugin: unused,
+		...overrides,
+	});
 
 export const makeEventsApi = (overrides: Partial<EventsApi["Service"]> = {}) =>
 	Layer.succeed(EventsApi, { create: unused, update: unused, delete: unused, ...overrides });
@@ -181,6 +187,7 @@ export const makePublicationVisitsApi = (
 		page: unused,
 		assets: unused,
 		ryotql: unused,
+		describe: unused,
 		document: unused,
 		exchange: unused,
 		...overrides,

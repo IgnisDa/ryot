@@ -104,7 +104,11 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 				client: Pick<KernelRyotClient, "data">,
 			) {
 				return yield* loadAllPages((after) =>
-					client.data.query(pluginInstallationsRecipe({ after, limit: 100 })),
+					client.data.query(
+						pluginInstallationsRecipe,
+						{},
+						{ pages: { installations: { after, limit: 100 } } },
+					),
 				).pipe(
 					Effect.mapError(
 						() => new PluginManagementError({ detail: "Could not load plugin installations." }),

@@ -64,7 +64,11 @@ const adapterFor = (
 				: { kind: "selected", entityIds: options.picked },
 		);
 	},
-	query: (document) => {
+	query: (request) => {
+		if (request.source.kind !== "inline") {
+			return Effect.die("Expected inline recipe request");
+		}
+		const document = request.source.document;
 		const data: Record<string, unknown> = {};
 		for (const key of Object.keys(document.queries)) {
 			if (key === "definition") {

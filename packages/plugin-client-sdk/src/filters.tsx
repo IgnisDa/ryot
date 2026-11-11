@@ -25,8 +25,6 @@ import {
 	editableGroup,
 	encodeFilterParam,
 	type FilterDraft,
-	type FilterFieldSpec,
-	filterOperatorsFor,
 	groupFilter,
 	type LinkedFilterChoices,
 	LinkedFilterChoicesInput,
@@ -36,6 +34,7 @@ import {
 	ratingDraftFromRule,
 	ratingDraftRule,
 } from "@ryot-app/ryotql-recipes/filters";
+import { type FilterFieldSpec, filterOperatorsFor } from "@ryot-app/ryotql/filters";
 import { Effect, Schema } from "effect";
 import { type ReactNode, type RefObject, useDeferredValue, useState } from "react";
 
@@ -111,7 +110,10 @@ const choicesQuery = createRyotQuery<string, LinkedFilterChoices>(({ input, clie
 		Effect.flatMap((request) =>
 			request.ids?.length === 0
 				? Effect.succeed<LinkedFilterChoices>([])
-				: client.data.query(linkedFilterChoicesRecipe(request)),
+				: client.data.query(linkedFilterChoicesRecipe({ link: request.link }), {
+						...(request.ids === undefined ? {} : { ids: request.ids }),
+						...(request.searchText === undefined ? {} : { searchText: request.searchText.trim() }),
+					}),
 		),
 	),
 );
@@ -783,3 +785,7 @@ function FilterChipsList({
 		</div>
 	);
 }
+
+export type { FilterTarget } from "@ryot-app/ryotql/filters";
+export { collectionsFilterField } from "@ryot-app/ryotql-recipes/filters";
+export type { QueryFilterField } from "@ryot-app/contract/modules/filters/schemas";

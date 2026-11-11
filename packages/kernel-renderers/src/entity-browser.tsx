@@ -1,3 +1,4 @@
+import type { DescribeResponse, ExecutionSource } from "@ryot-app/plugin-client-sdk";
 import {
 	type AddAction,
 	addToCollectionAction,
@@ -7,7 +8,7 @@ import {
 	EntityBrowserController,
 	EntityBrowserResults,
 } from "@ryot-app/plugin-client-sdk/browser";
-import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
@@ -18,17 +19,12 @@ import {
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
-	type BrowseSchema,
-	entitySchemaBrowseRecipe,
-	type EntitySchemaBrowseResult,
-} from "@ryot-app/ryotql-recipes/browse";
-import {
-	entityBrowserControls,
-	entityBrowserCountRecipe,
-	entityBrowserIdsRecipe,
+	decodeEntityBrowserResult,
+	decodeSavedViewCount,
+	decodeSavedViewIds,
 	EntityBrowserPageInput,
-	entityBrowserRecipe,
 	type EntityBrowserResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { type ComponentProps, type ReactNode, useState } from "react";
@@ -39,23 +35,17 @@ export type EntityBrowserResultsRenderer = (
 
 type ControllerProps = ComponentProps<typeof EntityBrowserController<EntityBrowserResult, Error>>;
 
-type BrowserViewInput = Pick<
+type BrowserViewInput = { readonly target?: typeof EntityBrowserPageInput.Type.target } & Pick<
 	typeof EntityBrowserPageInput.Type,
 	"view" | "settings" | "dataSources"
 >;
 
-const browseQuery = createRyotQuery<
-	typeof EntityBrowserPageInput.Type.settings.subject.schemas,
-	EntitySchemaBrowseResult
->(({ input, client }) => {
-	const [first, ...rest] = input.map(({ slug, owner }) => ({
-		slug,
-		pluginId: owner.kind === "plugin" ? owner.pluginId : null,
-	}));
-	return first === undefined
-		? Effect.succeed([])
-		: client.data.query(entitySchemaBrowseRecipe({ schemas: [first, ...rest] }));
-});
+const controlsQuery = createRyotQuery<
+	typeof EntityBrowserPageInput.Type.target,
+	typeof DescribeResponse.Type
+>(({ input, client }) =>
+	client.data.describe({ query: "count", kind: "savedView", reference: input.reference }),
+);
 
 type EntityBrowserPageProps = {
 	readonly add?: AddAction | undefined;
@@ -66,7 +56,6 @@ type EntityBrowserPageProps = {
 export const EntityBrowserView = ({
 	add,
 	input,
-	browse,
 	controls,
 	errorTitle,
 	selectable,
@@ -80,33 +69,49 @@ export const EntityBrowserView = ({
 	readonly selectable: boolean;
 	readonly errorMessage: string;
 	readonly input: BrowserViewInput;
-	readonly browse: readonly BrowseSchema[];
 	readonly headerActions?: ControllerProps["headerActions"];
 	readonly renderSummary?: ControllerProps["renderSummary"];
-	readonly controls: ReturnType<typeof entityBrowserControls>;
 	readonly viewContext: ComponentProps<typeof EntityBrowserResults>["viewContext"];
+	readonly controls: {
+		readonly sortChoices: typeof DescribeResponse.Type.sort;
+		readonly filterFields: ReturnType<typeof queryFilterFields>;
+	};
 }) => {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
+	const source = (query: string): ExecutionSource => {
+		if (input.target !== undefined) {
+			return { query, kind: "savedView", reference: input.target.reference };
+		}
+		const selected = input.dataSources.queries[query];
+		if (selected === undefined) {
+			throw new Error(`Missing publication query '${query}'`);
+		}
+		return { query, kind: "inline", document: input.dataSources };
+	};
+	const argumentsFor = (searchText: string) =>
+		input.settings.controls?.search === undefined
+			? {}
+			: { [input.settings.controls.search]: searchText };
 	const [query] = useState(() =>
 		createRyotQuery<BrowserQueryInput, EntityBrowserResult, Error>(
 			({ client, input: { filter, cursor, searchText, sortChoice } }) =>
-				Effect.gen(function* () {
-					const now = yield* DateTime.now;
-					return yield* client.data.query(
-						Result.getOrThrow(
-							entityBrowserRecipe({
-								browse,
-								settings: input.settings,
-								queryDocument: input.dataSources,
-								...(searchText === "" ? {} : { searchText }),
-								...(sortChoice === "" ? {} : { sortChoice }),
+				client.data.execute(
+					{
+						arguments: argumentsFor(searchText),
+						source: source(input.settings.sourceName),
+						...(filter === null ? {} : { filter }),
+						...(sortChoice === "" ? {} : { sort: sortChoice }),
+						pages: {
+							[input.settings.sourceName]: {
+								limit: input.settings.pageSize,
 								...(cursor === null ? {} : { after: cursor }),
-								...(filter === null ? {} : { now, filter }),
-							}),
-						),
-					);
-				}),
+							},
+						},
+					},
+					(response) =>
+						decodeEntityBrowserResult(response, input.settings.sourceName, input.settings),
+				),
 			{ cancelOnUnmount: true },
 		),
 	);
@@ -125,11 +130,21 @@ export const EntityBrowserView = ({
 			icon={input.view?.icon ?? "library"}
 			filterFields={controls.filterFields}
 			identityKey={JSON.stringify(viewContext)}
-			canSearch={input.settings.searchFields.length > 0}
+			canSearch={input.settings.controls?.search !== undefined}
 			defaultLayout={
 				input.settings.layouts.includes(input.settings.defaultLayout)
 					? input.settings.defaultLayout
 					: input.settings.layouts[0]
+			}
+			count={(client, { filter, searchText }) =>
+				client.data.execute(
+					{
+						source: source("count"),
+						arguments: argumentsFor(searchText),
+						...(filter === null ? {} : { filter }),
+					},
+					decodeSavedViewCount,
+				)
 			}
 			renderResults={(results) =>
 				renderResults?.(results) ?? (
@@ -143,38 +158,20 @@ export const EntityBrowserView = ({
 					/>
 				)
 			}
-			count={(client, { filter, searchText }) =>
-				Effect.gen(function* () {
-					const now = yield* DateTime.now;
-					return yield* client.data.query(
-						Result.getOrThrow(
-							entityBrowserCountRecipe(input.dataSources, input.settings, {
-								browse,
-								...(searchText === "" ? {} : { searchText }),
-								...(filter === null ? {} : { now, filter }),
-							}),
-						),
-					);
-				})
-			}
 			selection={
 				selectable
 					? {
 							actions: [addToCollectionAction(ryot)],
 							readIds: (client, { after, filter, searchText }) =>
-								Effect.gen(function* () {
-									const now = yield* DateTime.now;
-									return yield* client.data.query(
-										Result.getOrThrow(
-											entityBrowserIdsRecipe(input.dataSources, input.settings, {
-												browse,
-												...(after === undefined ? {} : { after }),
-												...(searchText === "" ? {} : { searchText }),
-												...(filter === null ? {} : { now, filter }),
-											}),
-										),
-									);
-								}),
+								client.data.execute(
+									{
+										source: source("ids"),
+										arguments: argumentsFor(searchText),
+										...(filter === null ? {} : { filter }),
+										pages: { ids: after === undefined ? {} : { after } },
+									},
+									decodeSavedViewIds,
+								),
 						}
 					: undefined
 			}
@@ -222,13 +219,13 @@ const BrowseDefinitions = ({
 }: EntityBrowserPageProps & { readonly input: typeof EntityBrowserPageInput.Type }) => {
 	const ryot = useRyot();
 	const openScreen = useHostScreen();
-	const browse = useRyotQuery(browseQuery, input.settings.subject.schemas);
-	if (browse.data === undefined) {
+	const controls = useRyotQuery(controlsQuery, input.target);
+	if (controls.data === undefined) {
 		return (
 			<PluginScreenFrame title={input.view?.name ?? "Entity browser"}>
-				{browse.isError ? (
+				{controls.isError ? (
 					<BrowserInlineError
-						onRetry={browse.refetch}
+						onRetry={controls.refetch}
 						title="Saved view unavailable"
 						message="The saved view filters could not be loaded."
 					/>
@@ -241,13 +238,15 @@ const BrowseDefinitions = ({
 			add={add}
 			selectable
 			input={input}
-			browse={browse.data}
 			renderResults={renderResults}
-			key={JSON.stringify(browse.data)}
+			key={JSON.stringify(controls.data)}
 			errorTitle="Saved view unavailable"
-			controls={entityBrowserControls(browse.data)}
 			viewContext={{ savedView: input.target.reference }}
 			errorMessage="The saved view results could not be loaded."
+			controls={{
+				sortChoices: controls.data.sort,
+				filterFields: queryFilterFields(controls.data.filter),
+			}}
 			headerActions={
 				shareable === false
 					? undefined

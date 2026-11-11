@@ -8,11 +8,13 @@ import type {
 } from "@ryot-app/contract/modules/entity-providers/schemas";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SandboxProviderId } from "@ryot-app/contract/schema/brands";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	entityPickerEntitiesRecipe,
 	entityPickerMaterializedRecipe,
 	entityPickerSchemaRecipe,
 } from "@ryot-app/ryotql-recipes/entity-picker";
+import { loadCompleteRows } from "@ryot-app/ryotql-recipes/paging";
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { providerSearchRecipe } from "@ryot-app/ryotql-recipes/provider-search";
 import type { ProviderSearchResult } from "@ryot-app/ryotql-recipes/provider-search";
@@ -61,19 +63,42 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				client: ProviderAddClient,
 				schema: EntitySchemaReference,
 			) {
-				return yield* query("schema", client.data.query(entityPickerSchemaRecipe({ schema })));
+				return yield* query("schema", client.data.query(entityPickerSchemaRecipe({ schema }), {}));
 			});
 			const loadEntities = Effect.fn("ProviderAddService.loadEntities")(function* (
 				client: ProviderAddClient,
-				input: Parameters<typeof entityPickerEntitiesRecipe>[0],
+				input: Parameters<typeof entityPickerEntitiesRecipe>[0] &
+					Recipe.Arguments<ReturnType<typeof entityPickerEntitiesRecipe>> & {
+						readonly after?: string;
+						readonly limit?: number;
+					},
 			) {
-				return yield* query("entities", client.data.query(entityPickerEntitiesRecipe(input)));
+				return yield* query(
+					"entities",
+					client.data.query(
+						entityPickerEntitiesRecipe({ schema: input.schema }),
+						{ query: input.query },
+						{ pages: { entities: { after: input.after } } },
+					),
+				);
 			});
 			const loadMaterialized = Effect.fn("ProviderAddService.loadMaterialized")(function* (
 				client: ProviderAddClient,
-				input: Parameters<typeof entityPickerMaterializedRecipe>[0],
+				input: Parameters<typeof entityPickerMaterializedRecipe>[0] &
+					Recipe.Arguments<ReturnType<typeof entityPickerMaterializedRecipe>>,
 			) {
-				return yield* query("links", client.data.query(entityPickerMaterializedRecipe(input)));
+				const recipe = entityPickerMaterializedRecipe({ schema: input.schema });
+				const rows = yield* query(
+					"links",
+					loadCompleteRows((after) =>
+						client.data.query(
+							recipe,
+							{ providerId: input.providerId, externalIds: input.externalIds },
+							{ pages: { materialized: { after } } },
+						),
+					),
+				);
+				return new Set(rows.map(({ externalId }) => externalId));
 			});
 			const createEntity = Effect.fn("ProviderAddService.createEntity")(function* (
 				scope: ApiScope,
@@ -102,18 +127,27 @@ export class ProviderAddService extends Context.Service<ProviderAddService>()(
 				rootEntitySchema: EntitySchemaReference,
 			) {
 				return yield* client.data
-					.query(providerSearchRecipe({ schema: rootEntitySchema }))
+					.query(providerSearchRecipe({ schema: rootEntitySchema }), {})
 					.pipe(
 						Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "providers" })),
 					);
 			});
 			const loadEntityLinks = Effect.fn("ProviderAddService.loadEntityLinks")(function* (
 				client: ProviderAddClient,
-				input: Parameters<typeof providerEntityLinksRecipe>[0],
+				input: Parameters<typeof providerEntityLinksRecipe>[0] &
+					Recipe.Arguments<ReturnType<typeof providerEntityLinksRecipe>>,
 			) {
-				return yield* client.data
-					.query(providerEntityLinksRecipe(input))
-					.pipe(Effect.mapError((cause) => new ProviderAddLoadError({ cause, stage: "links" })));
+				const recipe = providerEntityLinksRecipe(input);
+				return yield* query(
+					"links",
+					loadCompleteRows((after) =>
+						client.data.query(
+							recipe,
+							{ providerId: input.providerId, externalIds: input.externalIds },
+							{ pages: { links: { after } } },
+						),
+					),
+				);
 			});
 			const loadSearchOptions = Effect.fn("ProviderAddService.loadSearchOptions")(function* (
 				scope: ApiScope,

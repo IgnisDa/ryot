@@ -12,7 +12,7 @@ import { KernelHostServices } from "#/host-services";
 import { EntityWatchService } from "#/modules/entity-watches/service";
 
 export const preferencesQuery = createRyotQuery<void, UserPreferences>(({ client }) =>
-	Effect.map(client.data.query(userSettingsRecipe()), (settings) => settings.preferences),
+	Effect.map(client.data.query(userSettingsRecipe, {}), (settings) => settings.preferences),
 );
 
 export const updatePreferencesMutation = createRyotHostMutation<

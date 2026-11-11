@@ -112,13 +112,19 @@ truncate buckets. `selectionForPeriod` and `periodCaption` (readable ranges such
 are the shared reporting vocabulary; figures, units, and period-over-period changes format through
 the UI SDK's metric helpers.
 
-Reporting queries come from `@ryot-app/plugin-client-sdk/react`. `createReportedQuery` resolves the
-input's `selection` and `timeZone` against `schedule.now()` when it executes, passes the resolved
-selection to the read, and returns `Reported<Data>` so drills reuse its pinned `reporting.selection`.
-`createComparedQuery` also reads the previous period as `current`; `createConsistencyQuery` reads
-the daily window of at most `REPORTING_BUCKET_LIMIT` days ending at the period end or today and
-reports whether it was `clipped`. `createReportedPageQuery` reads one cursor page; `useReportedPages`
-pages it, and later pages resolve the first page's pinned selection. All are `cancelOnUnmount`.
+Reporting queries come from `@ryot-app/plugin-client-sdk/react`. Their read callbacks use `query`
+with a recipe, stable arguments, page options, and a projection receiving decoded data and resolved
+reporting metadata. `client.data.queryWithExecution` requires the response's execution clock and
+account time zone; missing metadata fails the query. No display period uses the client clock.
+`createReportedQuery` returns `Reported<Data>` with resolved display metadata and a pinned custom
+`selection` for drills. `createComparedQuery` reads both sides with the stable selection and resolves each
+side from its own execution metadata. `createConsistencyQuery` preserves the requested selection for
+execution. Authors bind `consistency: true`; the server forces daily grouping, disables comparison,
+and clips to `REPORTING_BUCKET_LIMIT` civil days ending at the selected period end (or server-local
+today for all time). Display metadata uses the same execution context and reports `clipped`.
+`createReportedPageQuery` reads one cursor page; `useReportedPages` preserves `requestedSelection`
+in continuation arguments so cursor identity stays stable, while every page carries its actual
+execution metadata. All are `cancelOnUnmount`.
 
 Recoverable drafts use the storage capability directly, not `usePluginStorage`: missing values are
 `null`, while inaccessible or malformed stored JSON fails without removing the original value.
@@ -137,8 +143,7 @@ when scheduling reports `scheduled` or `inexact`. Muting uses a silent alert ins
 
 `collections.reorderMembership` moves a member before/after an anchor or to the collection's start/end.
 Submit its loaded order revision and one immutable idempotency key/time. Transport retries retain that
-submission; `collection-stale` requires reloading the collection before a new move. Use the shared
-collection-members recipe's continuation cursor so stale pages cannot be appended to a different order.
+submission; `collection-stale` requires reloading the collection before a new move. The server includes the order revision in collection source cursor identity, so stale pages fail after reordering.
 
 `client.iosLiveActivities` provides `availability`, `start`, `update`, `end`, and `list` Effects. Every
 request includes `pluginId`; `start` and `update` also require a key and complete content, while
@@ -251,7 +256,12 @@ returned cursors, publishes the replacement atomically, and never fetches anothe
 depth. Increasing-limit refreshes retain their expanded limit. Failures preserve the previous pages
 and continuation; identity changes and unmount interrupt old work and reject late results.
 `nextPageCursor` and the shared core reject missing, empty, and repeated continuations instead of
-looping. Backend batch traversal remains separate from user-driven pagination.
+looping. Cursor pages also reject signed stale metadata or changed source revisions before publishing
+rows. Visible pages remain available while `stale` blocks continuation and selection; retry reloads
+from the initial cursor and clears that state only after a successful replacement. Selection traversal
+uses the same validation and fails before returning any mixed-revision IDs. Browsers clear selection
+when a successful refresh accepts a new source revision.
+Backend batch traversal remains separate from user-driven pagination.
 
 ## Retryable Submissions
 
@@ -414,7 +424,7 @@ the kernel collection members screen.
 loader: ({ client, references }) =>
 	Effect.gen(function* () {
 		// Load and return a record indexed by reference.entityId.
-		return yield* client.data.query(recipeFor(references));
+		return yield* client.data.query(recipeForIdentity, { entityIds: references.map(({ entityId }) => entityId) });
 	}),
 ```
 
@@ -492,3 +502,16 @@ Shared Layers construct synchronously and React context distributes their servic
 screen, and active-screen contexts remain per-screen because several retained screens coexist.
 `RyotNavigationService` exists only in plugin artifact runtimes; drawer requests and title publication
 belong to router navigation rather than public `RyotClient` capabilities.
+
+## Static data requests
+
+`client.data.query(recipe, arguments, options?)` sends an ExecutionRequest and decodes with the recipe.
+Options carry `pages`, `filter`, and `sort`; runtime values never rebuild the authored document.
+`selectRecipe(recipe, name)` retains the full document but executes and decodes one named result.
+`client.data.execute(request, decode)` supports stored references; `client.data.describe(source, arguments?)`
+returns server-authorized parameter and control metadata. Both preserve query cancellation across
+the iframe bridge. Publication adapters forward inline requests and descriptions in the visitor scope.
+
+`createRyotQuery(recipe)` keys its shared cache by document hash, selected query, and canonical request
+values. Pass `{ arguments, pages?, filter?, sort? }` as hook input. Keep rolling reporting/filter
+selections stable; the server supplies the execution clock.

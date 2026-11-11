@@ -1,5 +1,12 @@
+import { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
+import { FilterField } from "@ryot-app/contract/modules/filters/schemas";
+import { controlTargets } from "@ryot-app/contract/modules/ryotql/authored";
+import type { DescribeResponse } from "@ryot-app/contract/modules/ryotql/request";
 import { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
 import { ascending, column, document, field, jsonPath, rows, table } from "@ryot-app/ryotql";
+import { collectionsFilterField } from "@ryot-app/ryotql-recipes/filters";
+import { requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
+import { Result, Schema } from "effect";
 
 const entity = table("entity", "entity");
 
@@ -19,10 +26,10 @@ export const browserDataSources = document({
 export const browserSettings = {
 	pageSize: 2,
 	defaultLayout: "grid",
-	searchFields: ["name"],
 	sourceName: "savedView",
 	layouts: ["grid", "list", "table"],
 	summary: { image: null, subtitle: null },
+	controls: { sort: true, filter: true, search: "search" },
 	subject: {
 		entityAlias: "entity",
 		schemas: [{ slug: "item", owner: { kind: "plugin", pluginId: "fixture" } }],
@@ -97,13 +104,91 @@ export const browsePage = (items: readonly Record<string, unknown>[]) => ({
 
 export const mountBrowsingPage = (
 	component: Parameters<typeof mountPluginPage>[0],
-	options: Parameters<typeof mountPluginPage>[1],
+	options: Parameters<typeof mountPluginPage>[1] & {
+		readonly description?: typeof DescribeResponse.Type;
+	},
 	browse: readonly Record<string, unknown>[] = [browserBrowse],
 ) => {
 	const page: ReturnType<typeof mountPluginPage> = mountPluginPage(component, {
 		...options,
 		onClientMessage: (message) => {
-			if (message.type === "ryotql-request" && "schemas" in message.document.queries) {
+			if (message.type === "ryotql-request" && message.action === "describe") {
+				const fields = browse.flatMap(
+					(entry) =>
+						Result.getOrThrow(Schema.decodeUnknownResult(EntitySchemaBrowse)(entry["browse"]))
+							.fields,
+				);
+				const source = message.request.source;
+				const authoredDocument = source.kind === "inline" ? source.document : undefined;
+				const outputFields = (
+					authoredDocument?.controls?.filter === undefined
+						? []
+						: controlTargets(authoredDocument.controls.filter)
+				).flatMap((target) => (target.kind === "outputs" ? target.fields : []));
+				const outputSorts = (
+					authoredDocument?.controls?.sort === undefined
+						? []
+						: controlTargets(authoredDocument.controls.sort)
+				).flatMap((target) =>
+					target.kind === "outputs"
+						? target.fields.map((entry) => ({
+								key: entry.key,
+								...(entry.sort ?? {
+									label: entry.label,
+									ascending: "Ascending",
+									descending: "Descending",
+									defaultDirection: "asc" as const,
+								}),
+							}))
+						: [],
+				);
+				page.replyQuery(message.requestId, {
+					outcome: "success",
+					response: options.description ?? {
+						parameters: { fields: {} },
+						sort: [
+							{
+								key: "name",
+								label: "Name",
+								ascending: "A–Z",
+								descending: "Z–A",
+								defaultDirection: "asc",
+							},
+							...fields.flatMap((browseField) =>
+								(browseField.kind === "value" || browseField.kind === "sort") && browseField.sort
+									? [{ ...browseField.sort, key: browseField.key }]
+									: [],
+							),
+							...outputSorts,
+						],
+						filter: [
+							...fields.flatMap((browseField): readonly FilterField[] => {
+								if (browseField.kind === "sort") {
+									return [];
+								}
+								if (browseField.kind === "relationship" || browseField.kind === "session-event") {
+									return [browseField];
+								}
+								const { sort: _sort, expression: _expression, ...spec } = browseField;
+								return [
+									Result.getOrThrow(
+										Schema.decodeResult(FilterField)({ ...spec, field: browseField.key }),
+									),
+								];
+							}),
+							...outputFields.map(({ sort: _sort, ...entry }) => entry),
+
+							collectionsFilterField,
+						],
+					},
+				});
+			}
+			if (
+				message.type === "ryotql-request" &&
+				message.action === "execute" &&
+				message.request.source.kind === "inline" &&
+				"schemas" in requireInlineDocument(message.request).queries
+			) {
 				page.replyQuery(message.requestId, { outcome: "success", response: browsePage(browse) });
 			}
 		},
@@ -129,7 +214,7 @@ export const browserPage = (
 	nextCursor: null | string = null,
 ) => ({
 	data: {
-		entityBrowser: { items, type: "rows" as const, pageInfo: { hasMore, limit: 2, nextCursor } },
+		savedView: { items, type: "rows" as const, pageInfo: { hasMore, limit: 2, nextCursor } },
 	},
 });
 

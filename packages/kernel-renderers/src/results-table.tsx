@@ -1,9 +1,10 @@
+import type { DescribeResponse } from "@ryot-app/plugin-client-sdk";
 import {
 	BrowserNoMatches,
 	CellValue,
 	managedCellAssets,
 } from "@ryot-app/plugin-client-sdk/browser";
-import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	FilterChips,
 	FilterRules,
@@ -19,15 +20,16 @@ import {
 	nextPageCursor,
 	paginationItems,
 	useRyotInfiniteQuery,
+	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sdk/screen";
 import { Button, LoadMoreButton, ScreenBarButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn, displayValueText } from "@ryot-app/plugin-ui-sdk/table";
+import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import {
-	resultsTableFilterFields,
+	decodeResultsTableResult,
 	ResultsTablePageInput,
-	resultsTableRecipe,
 	type ResultsTableResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
 import { useRef, useState } from "react";
@@ -59,31 +61,66 @@ const resultsTableColumns = (
 		},
 	}));
 
+const controlsQuery = createRyotQuery<
+	typeof ResultsTablePageInput.Type.target,
+	typeof DescribeResponse.Type.filter
+>(({ input, client }) =>
+	client.data
+		.describe({ query: "count", kind: "savedView", reference: input.reference })
+		.pipe(Effect.map((description) => description.filter)),
+);
+
 const ResultsTable = ({ input }: { readonly input: typeof ResultsTablePageInput.Type }) => {
+	const controls = useRyotQuery(controlsQuery, input.target);
+	if (controls.data === undefined) {
+		return (
+			<PluginScreenFrame title={input.view?.name ?? "Results table"}>
+				{controls.error ? (
+					<StatusMessage tone="error" action={{ label: "Retry", onClick: controls.refetch }}>
+						The table controls could not be loaded.
+					</StatusMessage>
+				) : null}
+			</PluginScreenFrame>
+		);
+	}
+	return <ResultsTableContent input={input} fields={controls.data} />;
+};
+const ResultsTableContent = ({
+	input,
+	fields,
+}: {
+	readonly input: typeof ResultsTablePageInput.Type;
+	readonly fields: typeof DescribeResponse.Type.filter;
+}) => {
 	const viewName = input.view?.name ?? "Results table";
 	const viewIcon = input.view?.icon ?? "table";
 	const { compact } = useRyotViewport();
 	const [filtersOpen, setFiltersOpen] = useState(false);
 	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const filtersTrigger = useRef<HTMLButtonElement>(null);
-	const filterFields = resultsTableFilterFields(input.settings);
+	const filterFields = queryFilterFields(fields);
 	const { filter, setFilter, activeCount } = useViewFilter(filterFields);
 	const [query] = useState(() =>
 		createRyotQuery<QueryInput, ResultsTableResult>(
-			({ client, input: { after, filter: applied } }) =>
-				Effect.gen(function* () {
-					const now = yield* DateTime.now;
-					return yield* client.data.query(
-						Result.getOrThrow(
-							resultsTableRecipe({
-								settings: input.settings,
-								queryDocument: input.dataSources,
+			({ client, input: { after, filter: appliedFilter } }) =>
+				client.data.execute(
+					{
+						source: {
+							kind: "savedView",
+							query: input.settings.sourceName,
+							reference: input.target.reference,
+						},
+						...(appliedFilter === null ? {} : { filter: appliedFilter }),
+						pages: {
+							[input.settings.sourceName]: {
+								limit: input.settings.pageSize,
 								...(after === null ? {} : { after }),
-								...(applied === null ? {} : { now, filter: applied }),
-							}),
-						),
-					);
-				}),
+							},
+						},
+					},
+					(response) =>
+						decodeResultsTableResult(response, input.settings.sourceName, input.settings),
+				),
 			{ cancelOnUnmount: true },
 		),
 	);

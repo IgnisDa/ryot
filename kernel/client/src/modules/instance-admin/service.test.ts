@@ -3,7 +3,7 @@ import { describe, expect } from "bun:test";
 import type { ContractSuccess } from "@ryot-app/contract/client";
 import type { ImpersonationAuthorization } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Layer, Ref, Result } from "effect";
@@ -52,7 +52,7 @@ type InstanceAdminCall = {
 	readonly token: string;
 	readonly request?: unknown;
 	readonly origin: ServerOrigin;
-	readonly document?: PreparedRecipe<unknown>["document"];
+	readonly document?: ReturnType<typeof bindTestRequest>;
 };
 
 const resetResult = {
@@ -126,13 +126,17 @@ const instanceAdminLayer = () =>
 							pageInfo: { limit, hasMore: false, nextCursor: null },
 						})),
 					),
-				query: (requestedOrigin, token, recipe) =>
+				query: (requestedOrigin, token, recipe, argumentsValue, options) =>
 					Effect.gen(function* () {
 						yield* recordCall({
 							token,
 							name: "query",
 							origin: requestedOrigin,
-							document: recipe.document,
+							document: bindTestRequest({
+								...options,
+								arguments: argumentsValue,
+								source: { kind: "inline", document: recipe.document },
+							}),
 						});
 						const queries = recipe.document.queries;
 						let response: unknown;

@@ -5,6 +5,7 @@ import type {
 	OAuthConnectionStatus,
 } from "@ryot-app/contract/modules/oauth-connections/schemas";
 import { OAuthConnectionId } from "@ryot-app/contract/schema/brands";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Fiber, Layer } from "effect";
@@ -98,7 +99,7 @@ const makeHarness = (
 	const queries = makeRyotQLApi({
 		execute: (_scope, request) =>
 			Effect.suspend(() => {
-				if (!("connection" in request.payload.queries)) {
+				if (!("connection" in bindTestRequest(request.payload).queries)) {
 					return Effect.die("Unexpected RyotQL document");
 				}
 				state.reads += 1;

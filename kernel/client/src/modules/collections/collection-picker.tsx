@@ -17,6 +17,7 @@ import {
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	collectionPickerRecipe,
 	type CollectionPickerResult,
@@ -33,8 +34,19 @@ const collectionOptions = createRyotQuery(
 		client,
 	}: {
 		readonly client: RyotClient;
-		readonly input: Parameters<typeof collectionPickerRecipe>[0];
-	}) => client.data.query(collectionPickerRecipe(input)),
+		readonly input: Recipe.Arguments<typeof collectionPickerRecipe> & {
+			readonly after?: string;
+			readonly limit?: number;
+		};
+	}) =>
+		client.data.query(
+			collectionPickerRecipe,
+			{
+				search: input.search,
+				...(input.entityId === undefined ? {} : { entityId: input.entityId }),
+			},
+			{ pages: { collections: { after: input.after } } },
+		),
 );
 
 export function CollectionPicker(props: {

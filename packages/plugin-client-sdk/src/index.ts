@@ -16,6 +16,11 @@ export type {
 } from "@ryot-app/contract/modules/assets/schemas";
 
 export type {
+	ExecutionSource,
+	ExecutionRequest,
+	DescribeResponse,
+} from "@ryot-app/contract/modules/ryotql/request";
+export type {
 	EntityUpdate,
 	FileUploadRequest,
 	RyotClientAdapter,

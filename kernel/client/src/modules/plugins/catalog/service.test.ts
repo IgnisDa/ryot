@@ -4,6 +4,7 @@ import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -102,11 +103,11 @@ describe("plugin catalog service", () => {
 				expect(catalog).toEqual<unknown>([entry, nextEntry]);
 				expect(ryot.theme.getSnapshot()).toEqual(themeSnapshot);
 				expect(calls).toHaveLength(2);
-				expect(calls[0]?.payload.queries.installations).toMatchObject({
+				expect(bindTestRequest(calls[0]?.payload).queries.installations).toMatchObject({
 					output: { pagination: { limit: 100 } },
 					from: { alias: "installation", table: "pluginInstallation" },
 				});
-				expect(calls[1]?.payload.queries.installations).toMatchObject({
+				expect(bindTestRequest(calls[1]?.payload).queries.installations).toMatchObject({
 					output: { pagination: { limit: 100, after: "next-page" } },
 				});
 			}).pipe(Effect.ensuring(Effect.promise(() => runtime.dispose())));

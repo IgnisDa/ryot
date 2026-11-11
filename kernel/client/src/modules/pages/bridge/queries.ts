@@ -1,6 +1,7 @@
 import type { PluginRyotQLOutcome, PluginRyotQLRequest } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, Layer } from "effect";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import { classifyRyotQLFailure, RyotQLApi } from "#/api/ryotql";
 import type { ApiScope } from "#/api/scope";
 
@@ -13,15 +14,21 @@ export class PluginQueriesService extends Context.Service<PluginQueriesService>(
 				readonly scope: ApiScope;
 				readonly request: PluginRyotQLRequest;
 			}) {
-				const outcome = yield* api
-					.executePlugin(invocation.scope, { payload: invocation.request.document })
-					.pipe(
-						Effect.match({
-							onSuccess: (response) => ({ response, outcome: "success" }) as const,
-							onFailure: (error) =>
-								({ outcome: "failure", reason: classifyRyotQLFailure(error) }) as const,
-						}),
-					);
+				const request = invocation.request;
+				const program: Effect.Effect<
+					Extract<PluginRyotQLOutcome, { readonly outcome: "success" }>["response"],
+					AuthenticatedApiError
+				> =
+					request.action === "describe"
+						? api.describePlugin(invocation.scope, { payload: request.request })
+						: api.executePlugin(invocation.scope, { payload: request.request });
+				const outcome = yield* program.pipe(
+					Effect.match({
+						onSuccess: (response) => ({ response, outcome: "success" }) as const,
+						onFailure: (error) =>
+							({ outcome: "failure", reason: classifyRyotQLFailure(error) }) as const,
+					}),
+				);
 				return outcome satisfies PluginRyotQLOutcome;
 			});
 

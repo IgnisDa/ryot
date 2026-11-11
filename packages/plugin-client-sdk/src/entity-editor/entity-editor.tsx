@@ -96,6 +96,7 @@ const definitionsQuery = createRyotQuery(
 			const reference = client.pluginIdentity(input.packageId);
 			const entity = yield* client.data.query(
 				entityEditorEntityDefinitionRecipe({ reference, slug: input.entitySchemaSlug }),
+				{},
 			);
 			const declared = entity.editor?.relationships ?? [];
 			const found =
@@ -106,6 +107,7 @@ const definitionsQuery = createRyotQuery(
 								reference,
 								slugs: declared.map(({ slug }) => slug),
 							}),
+							{},
 						);
 			const relationships = declared.flatMap(({ slug, direction }) => {
 				const definition = found.find((candidate) => candidate.slug === slug);
@@ -144,9 +146,9 @@ const sourceQuery = createRyotQuery(
 				const [parent] = yield* client.data.query(
 					entityEditorTargetsRecipe({
 						reference,
-						entityIds: [EntityId.make(parentId)],
 						entitySchemaSlug: definition.relatedEntitySchemaSlug,
 					}),
+					{ entityIds: [EntityId.make(parentId)] },
 				);
 				if (parent !== undefined) {
 					relationships[definition.slug] = [
@@ -159,7 +161,8 @@ const sourceQuery = createRyotQuery(
 			}
 			const entityId = input.entityId;
 			const entity = yield* client.data.query(
-				entityEditorEntityRecipe({ entityId, reference, entitySchemaSlug: input.entitySchemaSlug }),
+				entityEditorEntityRecipe({ reference, entitySchemaSlug: input.entitySchemaSlug }),
+				{ entityId },
 			);
 			if (entity === null) {
 				return { entity: null, relationships };
@@ -174,7 +177,9 @@ const sourceQuery = createRyotQuery(
 					? Effect.succeed([])
 					: readCursorPages((after) =>
 							client.data.query(
-								entityEditorRelationshipsRecipe({ after, slugs, entityId, direction, reference }),
+								entityEditorRelationshipsRecipe({ slugs, direction, reference }),
+								{ entityId },
+								{ pages: { relationships: { after } } },
 							),
 						).pipe(Effect.map(({ items }) => items));
 			});

@@ -74,14 +74,26 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				limit: number,
 			) {
 				const { token, origin } = yield* credentials(sessionId);
-				return yield* api.query(origin, token, instanceAdminUsersRecipe({ limit, after, search }));
+				return yield* api.query(
+					origin,
+					token,
+					instanceAdminUsersRecipe,
+					{ search },
+					{ pages: { users: { limit, after } } },
+				);
 			});
 			const getMigrationReport = Effect.fn("InstanceAdminService.getMigrationReport")(function* (
 				sessionId: string,
 				after?: string,
 			) {
 				const { token, origin } = yield* credentials(sessionId);
-				return yield* api.query(origin, token, migrationReportRecipe({ after, limit: 50 }));
+				return yield* api.query(
+					origin,
+					token,
+					migrationReportRecipe,
+					{},
+					{ pages: { entries: { after, limit: 50 } } },
+				);
 			});
 			const resetUserPassword = Effect.fn("InstanceAdminService.resetUserPassword")(function* (
 				sessionId: string,
@@ -121,7 +133,7 @@ export class InstanceAdminService extends Context.Service<InstanceAdminService>(
 				const params = { userId: UserId.make(userId) };
 				return yield* runUserLifecycleOperation({
 					poll: (operationId) =>
-						api.query(origin, token, userLifecycleOperationRecipe({ id: operationId })),
+						api.query(origin, token, userLifecycleOperationRecipe, { id: operationId }),
 					start:
 						kind === "delete"
 							? api.deleteUser(origin, token, { params })

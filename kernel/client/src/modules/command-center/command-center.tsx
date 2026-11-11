@@ -2,7 +2,7 @@ import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { savedViewRecordsRecipe } from "@ryot-app/ryotql-recipes/saved-view-records";
-import { Effect } from "effect";
+import { Effect, Result } from "effect";
 import { useEffect, useMemo, useState } from "react";
 
 import type { ApiScope } from "#/api/scope";
@@ -72,7 +72,7 @@ export function CommandCenter(props: CommandCenterProps) {
 		}
 		return schedule.run(
 			ryot.data
-				.query(savedViewRecordsRecipe({ limit: SAVED_VIEW_LIMIT }))
+				.query(savedViewRecordsRecipe, {}, { pages: { savedViews: { limit: SAVED_VIEW_LIMIT } } })
 				.pipe(
 					Effect.match({
 						onFailure: () => setViewsState({ status: "failed" }),
@@ -102,7 +102,7 @@ export function CommandCenter(props: CommandCenterProps) {
 				onCommit: setCommit,
 				query: request.query,
 				views: viewsState.views,
-				execute: (recipe) => ryot.data.query(recipe),
+				execute: (execution) => ryot.data.execute(execution, Result.succeed),
 			}),
 			() => undefined,
 		);

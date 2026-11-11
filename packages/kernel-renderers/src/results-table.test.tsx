@@ -2,9 +2,9 @@ import { afterEach, describe, expect } from "bun:test";
 
 import type { PluginUserPreferences } from "@ryot-app/plugin-client-contract";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import type { mountPluginPage } from "@ryot-app/plugin-client-sdk/testing";
 import {
 	disposePluginBridges,
-	mountPluginPage,
 	routeLocation,
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
@@ -14,13 +14,10 @@ import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Option, Schema } from "effect";
 
-import { resultsDataSources, resultsSettings } from "./fixtures/saved-view";
+import { mountBrowsingPage, resultsDataSources, resultsSettings } from "./fixtures/saved-view";
 import ResultsTablePage from "./results-table";
 
-const filteredSettings = {
-	...resultsSettings,
-	filterFields: [{ key: "note", type: "text", label: "Note", field: "note", kind: "value" }],
-};
+const filteredSettings = { ...resultsSettings, controls: { filter: true } };
 
 const ratingSettings = {
 	...resultsSettings,
@@ -31,9 +28,14 @@ const ratingSettings = {
 };
 
 const mountRatings = (userPreferences?: PluginUserPreferences) =>
-	mountPluginPage(ResultsTablePage, {
+	mountBrowsingPage(ResultsTablePage, {
 		userPreferences,
 		location: routeLocation("/v/reading-log", ""),
+		description: {
+			sort: [],
+			parameters: { fields: {} },
+			filter: [{ key: "note", type: "text", kind: "value", field: "note", label: "Note" }],
+		},
 		page: savedViewPageContext({
 			settings: ratingSettings,
 			savedViewId: "view-table",
@@ -48,7 +50,7 @@ const answerRatings = (page: ReturnType<typeof mountPluginPage>, requestId: stri
 		outcome: "success",
 		response: {
 			data: {
-				resultsTable: {
+				readingLog: {
 					type: "rows",
 					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 					items: [
@@ -66,8 +68,13 @@ const decodeJson = Schema.decodeUnknownOption(Schema.fromJsonString(Schema.Unkno
 const noteRule = { value: "Fin", field: "note", operator: "contains" };
 
 const mountFiltered = (search = "") =>
-	mountPluginPage(ResultsTablePage, {
+	mountBrowsingPage(ResultsTablePage, {
 		location: routeLocation("/v/reading-log", search),
+		description: {
+			sort: [],
+			parameters: { fields: {} },
+			filter: [{ key: "note", type: "text", kind: "value", field: "note", label: "Note" }],
+		},
 		page: savedViewPageContext({
 			savedViewId: "view-table",
 			settings: filteredSettings,
@@ -92,7 +99,7 @@ const answerRows = (
 		outcome: "success",
 		response: {
 			data: {
-				resultsTable: {
+				readingLog: {
 					type: "rows",
 					pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 					items: items.map(({ note }) => ({ note, entityId: "item-1", occurredAt: "2026-08-12" })),
@@ -104,7 +111,7 @@ const answerRows = (
 const nextRequest = (page: ReturnType<typeof mountPluginPage>, count: number) =>
 	Effect.promise(() =>
 		waitFor(() => {
-			const requests = page.queryRequests("resultsTable");
+			const requests = page.queryRequests("readingLog");
 			expect(requests).toHaveLength(count);
 			const request = requests[count - 1];
 			if (request === undefined) {
@@ -163,8 +170,8 @@ describe("results table", () => {
 					screen.findByRole("button", { name: "Filters, 1 active filter" }),
 				);
 				yield* waitForMessagePortMacrotask;
-				expect(page.queryRequests("resultsTable")).toHaveLength(1);
-				expect(yield* encodeJson(first.document)).toContain("Fin");
+				expect(page.queryRequests("readingLog")).toHaveLength(1);
+				expect(yield* encodeJson(first.request)).toContain("Fin");
 				answerRows(page, first.requestId, [{ note: "Finished" }]);
 				yield* Effect.promise(() => screen.findByText("Finished"));
 
@@ -173,7 +180,7 @@ describe("results table", () => {
 					screen.findByRole("button", { name: "Filters, 1 active filter" }),
 				);
 				yield* waitForMessagePortMacrotask;
-				expect(page.queryRequests("resultsTable")).toHaveLength(1);
+				expect(page.queryRequests("readingLog")).toHaveLength(1);
 				expect(screen.getByText("1 result")).toBeTruthy();
 			}),
 		testTimeout,
@@ -217,7 +224,7 @@ describe("results table", () => {
 					),
 				);
 				const filtered = yield* nextRequest(page, 2);
-				expect(yield* encodeJson(filtered.document)).toContain("Fin");
+				expect(yield* encodeJson(filtered.request)).toContain("Fin");
 				answerRows(page, filtered.requestId, [{ note: "Finished" }]);
 				yield* Effect.promise(() =>
 					waitFor(() => screen.getByRole("button", { name: "Filters, 1 active filter" })),
@@ -256,8 +263,13 @@ describe("results table", () => {
 		"titles the screen with the saved view and renders its declared columns",
 		() =>
 			Effect.gen(function* () {
-				const page = mountPluginPage(ResultsTablePage, {
+				const page = mountBrowsingPage(ResultsTablePage, {
 					location: routeLocation("/v/reading-log", ""),
+					description: {
+						sort: [],
+						parameters: { fields: {} },
+						filter: [{ key: "note", type: "text", kind: "value", field: "note", label: "Note" }],
+					},
 					page: savedViewPageContext({
 						savedViewId: "view-table",
 						settings: resultsSettings,
@@ -271,7 +283,7 @@ describe("results table", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						const pending = page
-							.queryRequests("resultsTable")
+							.queryRequests("readingLog")
 							.filter(({ requestId }) => !answered.has(requestId));
 						expect(pending.length).toBeGreaterThan(0);
 						for (const request of pending) {
@@ -280,7 +292,7 @@ describe("results table", () => {
 								outcome: "success",
 								response: {
 									data: {
-										resultsTable: {
+										readingLog: {
 											type: "rows",
 											pageInfo: { limit: 10, hasMore: false, nextCursor: null },
 											items: [{ note: "Finished", entityId: "item-1", occurredAt: "2026-08-12" }],

@@ -38,9 +38,11 @@ export const userPreferencesOutcome = (input: {
 		if (!isCurrentScope(input.scope, input.currentScope)) {
 			return invalidRequest;
 		}
-		const recipe = userSettingsRecipe();
+		const recipe = userSettingsRecipe;
 		const response = yield* Effect.result(
-			input.api.execute(input.scope, { payload: recipe.document }),
+			input.api.execute(input.scope, {
+				payload: { source: { kind: "inline", document: recipe.document } },
+			}),
 		);
 		if (!isCurrentScope(input.scope, input.currentScope)) {
 			return invalidRequest;
@@ -73,9 +75,14 @@ export const pluginUserSettingsOutcome = (input: {
 		if (!hasPluginContributor(input.contributors, input.request.pluginId)) {
 			return invalidRequest;
 		}
-		const recipe = pluginInstallationUserSettingsRecipe({ pluginId: input.request.pluginId });
+		const recipe = pluginInstallationUserSettingsRecipe;
 		const response = yield* Effect.result(
-			input.api.execute(input.scope, { payload: recipe.document }),
+			input.api.execute(input.scope, {
+				payload: {
+					arguments: { pluginId: input.request.pluginId },
+					source: { kind: "inline", document: recipe.document },
+				},
+			}),
 		);
 		if (!isCurrent()) {
 			return invalidRequest;

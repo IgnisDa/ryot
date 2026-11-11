@@ -6,5 +6,5 @@ import {
 } from "@ryot-app/ryotql-recipes/collections";
 
 export const collectionHeaderQuery = createRyotQuery<EntityId, CollectionHeaderResult>(
-	({ input, client }) => client.data.query(collectionHeaderRecipe({ collectionId: input })),
+	({ input, client }) => client.data.query(collectionHeaderRecipe, { collectionId: input }),
 );

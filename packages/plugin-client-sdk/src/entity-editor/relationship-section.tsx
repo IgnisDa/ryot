@@ -65,7 +65,8 @@ export function RelationshipSection(props: {
 					return;
 				}
 				const found = yield* client.data.query(
-					entityEditorTargetsRecipe({ reference, entityIds, entitySchemaSlug: targetSlug }),
+					entityEditorTargetsRecipe({ reference, entitySchemaSlug: targetSlug }),
+					{ entityIds },
 				);
 				const names = new Map(found.map(({ id, name }) => [id, name]));
 				props.onChange([

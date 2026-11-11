@@ -28,8 +28,12 @@ export class RyotQLApi extends Context.Service<RyotQLApi>()(
 			return {
 				execute: (scope: ApiScope, request: ContractRequest<"ryotql", "execute">) =>
 					api.run(scope, (client) => client.ryotql.execute(request)),
+				describe: (scope: ApiScope, request: ContractRequest<"ryotql", "describe">) =>
+					api.run(scope, (client) => client.ryotql.describe(request)),
 				executePlugin: (scope: ApiScope, request: ContractRequest<"ryotql", "executePlugin">) =>
 					api.run(scope, (client) => client.ryotql.executePlugin(request)),
+				describePlugin: (scope: ApiScope, request: ContractRequest<"ryotql", "describePlugin">) =>
+					api.run(scope, (client) => client.ryotql.describePlugin(request)),
 			};
 		}),
 	},

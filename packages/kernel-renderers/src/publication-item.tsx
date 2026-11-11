@@ -3,7 +3,7 @@ import {
 	browserResultEntries,
 	CellValue,
 } from "@ryot-app/plugin-client-sdk/browser";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntityResults, usePluginChrome } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
@@ -22,7 +22,7 @@ import {
 	type PublicationSubjectSchema,
 } from "@ryot-app/ryotql-recipes/publication-browse";
 import {
-	entityBrowserRecipe,
+	decodeEntityBrowserResult,
 	type EntityBrowserResultItem,
 } from "@ryot-app/ryotql-recipes/saved-views";
 
@@ -37,17 +37,15 @@ const itemsQuery = createRyotQuery<ItemsInput, readonly EntityBrowserResultItem[
 		if (input.entityIds.length === 0) {
 			return Effect.succeed([]);
 		}
-		const source = publicationBrowserSource(input.schemas, input.entityIds);
+		const source = publicationBrowserSource(input.schemas);
 		return client.data
-			.query(
-				Result.getOrThrow(
-					entityBrowserRecipe({
-						browse: input.browse,
-						settings: source.settings,
-						pageSize: input.entityIds.length,
-						queryDocument: source.dataSources,
-					}),
-				),
+			.execute(
+				{
+					arguments: { ids: input.entityIds },
+					pages: { source: { limit: input.entityIds.length } },
+					source: { kind: "inline", query: "source", document: source.dataSources },
+				},
+				(response) => decodeEntityBrowserResult(response, "source", source.settings),
 			)
 			.pipe(
 				Effect.map(({ items }) => {
@@ -59,16 +57,18 @@ const itemsQuery = createRyotQuery<ItemsInput, readonly EntityBrowserResultItem[
 );
 
 const detailsQuery = createRyotQuery<
-	Parameters<typeof publicationItemDetailsRecipe>[0],
+	{ readonly entityId: string } & Parameters<typeof publicationItemDetailsRecipe>[0],
 	readonly PublicationItemDetail[]
 >(({ input, client }) =>
 	input.fields.length === 0
 		? Effect.succeed([])
-		: client.data.query(publicationItemDetailsRecipe(input)),
+		: client.data.query(publicationItemDetailsRecipe({ fields: input.fields }), {
+				entityId: input.entityId,
+			}),
 );
 
 const linksQuery = createRyotQuery<string, readonly string[]>(({ input, client }) =>
-	client.data.query(publicationItemLinksRecipe({ entityId: input })),
+	client.data.query(publicationItemLinksRecipe, { entityId: input }),
 );
 
 const ItemResults = ({

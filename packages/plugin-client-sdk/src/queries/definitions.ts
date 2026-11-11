@@ -1,12 +1,18 @@
+import { type ExecutionRequest, RequestValues } from "@ryot-app/contract/modules/ryotql/request";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import type { EntityWatch } from "@ryot-app/plugin-client-contract";
+import type { Recipe } from "@ryot-app/ryotql";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
+import * as Hash from "effect/Hash";
 import * as Option from "effect/Option";
 import * as Atom from "effect/reactivity/Atom";
 import * as AtomRegistry from "effect/reactivity/AtomRegistry";
+import * as Result from "effect/Result";
+import * as Schema from "effect/Schema";
 
 import type { RyotClient } from "../client/client";
-import type { RyotClientError } from "../client/errors";
+import { RyotClientError } from "../client/errors";
 import type { RyotSchedule } from "../schedule";
 
 const staleTime = 30 * 1_000;
@@ -165,8 +171,13 @@ const defineQuery = <Input, Data, Failure extends Error>(
 		hostServices: RyotHostServices,
 	) => Effect.Effect<Data, Failure>,
 	options: undefined | RyotQueryOptions<Input, Data>,
+	recipeIdentity?: { readonly documentHash: number; readonly query: string | undefined },
 ) => {
-	type QuerySelection = { readonly input: Input; readonly cancelOnUnmount: boolean };
+	type QuerySelection = {
+		readonly input: Input;
+		readonly cancelOnUnmount: boolean;
+		readonly recipeIdentity: typeof recipeIdentity;
+	};
 	type ClientQueries = {
 		schedule: RyotSchedule;
 		hostServices: RyotHostServices;
@@ -211,12 +222,19 @@ const defineQuery = <Input, Data, Failure extends Error>(
 			}
 			clientQueries.hostServices = hostServices;
 			clientQueries.schedule = schedule;
-			return clientQueries.inputs({ input, cancelOnUnmount });
+			return clientQueries.inputs({ input, recipeIdentity, cancelOnUnmount });
 		},
 		options?.entityWatch,
 	);
 };
 
+export type RecipeQueryInput<Parameters extends AppSchema> = Omit<
+	ExecutionRequest,
+	"source" | "arguments"
+> & { readonly arguments: Recipe.Arguments<Recipe<unknown, Parameters>> };
+export function createRyotQuery<Data, const Parameters extends AppSchema>(
+	recipe: Recipe<Data, Parameters>,
+): RyotQuery<RecipeQueryInput<Parameters>, Data>;
 export function createRyotQuery<Data, Failure extends Error = RyotClientError>(
 	query: (context: Omit<QueryContext<void>, "input">) => Effect.Effect<Data, Failure>,
 	options?: RyotQueryOptions<void, Data>,
@@ -226,9 +244,44 @@ export function createRyotQuery<Input, Data, Failure extends Error = RyotClientE
 	options?: RyotQueryOptions<Input, Data>,
 ): RyotQuery<Input, Data, Failure>;
 export function createRyotQuery<Input, Data, Failure extends Error = RyotClientError>(
-	query: (context: QueryContext<Input>) => Effect.Effect<Data, Failure>,
+	query: Recipe<Data, AppSchema> | ((context: QueryContext<Input>) => Effect.Effect<Data, Failure>),
 	options?: RyotQueryOptions<Input, Data>,
 ) {
+	if (typeof query !== "function") {
+		type Values = Omit<ExecutionRequest, "source">;
+		const decodeValues = Schema.decodeUnknownResult(
+			Schema.fromJsonString(Schema.Struct(RequestValues)),
+		);
+		const cached = defineQuery<Result.Result<Values, RyotClientError>, Data, RyotClientError>(
+			({ input, client }) =>
+				Effect.fromResult(input).pipe(
+					Effect.flatMap((values) =>
+						client.data.execute(
+							{
+								...values,
+								source: {
+									kind: "inline",
+									document: query.document,
+									...(query.query === undefined ? {} : { query: query.query }),
+								},
+							},
+							query.decode,
+						),
+					),
+				),
+			{ cancelOnUnmount: true },
+			{ query: query.query, documentHash: Hash.hash(query.document) },
+		);
+		return new QueryDefinition<RecipeQueryInput<AppSchema>, Data, RyotClientError>(
+			(registry, client, schedule, hostServices, input, cancelOnUnmount) => {
+				const values = Result.try(() => JSON.stringify(input)).pipe(
+					Result.flatMap(decodeValues),
+					Result.mapError(() => new RyotClientError({ reason: "invalid-input" })),
+				);
+				return cached.atom(registry, client, schedule, hostServices, values, cancelOnUnmount);
+			},
+		);
+	}
 	return defineQuery<Input, Data, Failure>(query, options);
 }
 

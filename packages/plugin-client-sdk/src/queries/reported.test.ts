@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 
 import { reportingPageParam } from "./reported";
 
-it("pins a reporting page's resolved selection with its continuation", () => {
+it("keeps the requested selection stable with its continuation", () => {
 	const selection = {
 		grouping: "day",
 		comparison: "none",
@@ -10,13 +10,13 @@ it("pins a reporting page's resolved selection with its continuation", () => {
 	} as const;
 	expect(
 		reportingPageParam({
-			reporting: { selection },
+			reporting: { requestedSelection: selection },
 			pageInfo: { hasMore: true, nextCursor: "next" },
 		}),
 	).toEqual({ selection, after: "next" });
 	expect(
 		reportingPageParam({
-			reporting: { selection },
+			reporting: { requestedSelection: selection },
 			pageInfo: { hasMore: false, nextCursor: null },
 		}),
 	).toBeNull();

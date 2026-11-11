@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { BackupConflict } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId } from "@ryot-app/contract/schema/brands";
 import type { BackupRunItem } from "@ryot-app/ryotql-recipes/backups";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -103,7 +104,7 @@ type RunsResponse = {
 const makeBackupQueries = (load: RunsLoad): Layer.Layer<RyotQLApi> =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
-			const runs = request.payload.queries.runs;
+			const runs = bindTestRequest(request.payload).queries.runs;
 			if (runs.output.type !== "rows") {
 				return Effect.die("Expected backup runs rows query");
 			}

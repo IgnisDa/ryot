@@ -1,4 +1,3 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import {
 	addToCollectionAction,
 	BrowserInlineError,
@@ -7,7 +6,7 @@ import {
 	EntityBrowserResults,
 	removeFromCollectionAction,
 } from "@ryot-app/plugin-client-sdk/browser";
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePluginLocation } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createRyotQuery,
@@ -20,13 +19,13 @@ import { IconButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	type BrowseSchema,
-	entitySchemaBrowseRecipe,
 	type EntitySchemaBrowseResult,
+	loadEntitySchemaBrowse,
 } from "@ryot-app/ryotql-recipes/browse";
 import {
+	collectionArguments,
 	collectionHeaderRecipe,
 	type CollectionHeaderResult,
-	collectionMemberControls,
 	collectionMemberIdsRecipe,
 	collectionMembersAggregateRecipe,
 	type CollectionMembersAggregateResult,
@@ -38,34 +37,30 @@ import {
 	collectionPluginPagesRecipe,
 	type CollectionPluginPagesResult,
 } from "@ryot-app/ryotql-recipes/collections";
+import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
 import { useState } from "react";
 
 import { CollectionOrder } from "./collection-order";
 
 const headerQuery = createRyotQuery<string, CollectionHeaderResult>(({ input, client }) =>
-	client.data.query(collectionHeaderRecipe({ collectionId: input })),
+	client.data.query(collectionHeaderRecipe, { collectionId: input }),
 );
 const groupsQuery = createRyotQuery<string, CollectionMembersAggregateResult>(({ input, client }) =>
-	client.data.query(collectionMembersAggregateRecipe({ collectionId: input })),
+	client.data.query(collectionMembersAggregateRecipe, collectionArguments(input)),
 );
 const browseQuery = createRyotQuery<
 	readonly Pick<BrowseSchema, "slug" | "pluginId">[],
 	EntitySchemaBrowseResult
->(({ input, client }) => {
-	const [first, ...rest] = input;
-	return first === undefined
-		? Effect.succeed([])
-		: client.data.query(entitySchemaBrowseRecipe({ schemas: [first, ...rest] }));
-});
+>(({ input, client }) => loadEntitySchemaBrowse(input, (recipe) => client.data.query(recipe, {})));
 const totalQuery = createRyotQuery<string, number>(({ input, client }) =>
-	client.data.query(collectionMembersCountRecipe({ collectionId: input })),
+	client.data.query(collectionMembersCountRecipe(), collectionArguments(input)),
 );
 const pluginPagesQuery = createRyotQuery<readonly string[], CollectionPluginPagesResult>(
 	({ input, client }) => {
 		const [first, ...rest] = input;
 		return first === undefined
 			? Effect.succeed([])
-			: client.data.query(collectionPluginPagesRecipe({ pluginIds: [first, ...rest] }));
+			: client.data.query(collectionPluginPagesRecipe, { pluginIds: [first, ...rest] });
 	},
 );
 
@@ -119,35 +114,50 @@ const CollectionBrowser = ({
 		openScreen(ryot.screens.addToCollection({ entityId, collectionId }));
 	const membershipPropertiesSchema = header?.membershipPropertiesSchema ?? null;
 	const fields = { groups, schemas, membershipPropertiesSchema };
-	const { sortChoices, filterFields } = collectionMemberControls(fields);
+	const [memberRecipe] = useState(() => collectionMembersRecipe({ fields }));
+	const [controlQuery] = useState(() =>
+		createRyotQuery(({ client }) =>
+			client.data.describe(
+				{ kind: "inline", query: "members", document: memberRecipe.document },
+				collectionArguments(collectionId),
+			),
+		),
+	);
+	const controls = useRyotQuery(controlQuery);
+	const sortChoices = controls.data?.sort ?? [];
+	const filterFields = queryFilterFields(controls.data?.filter ?? []).map((control) =>
+		control.key === "collections"
+			? Object.assign({}, control, { label: "Also in collection" })
+			: control,
+	);
 	const [query] = useState(() =>
 		createRyotQuery<BrowserQueryInput, CollectionMembersResult>(
-			({ client, input: { filter, searchText, sortChoice, cursor: after } }) =>
-				Effect.gen(function* () {
-					const now = yield* DateTime.now;
-					const members = yield* client.data.query(
-						collectionMembersRecipe({
-							fields,
-							collectionId,
-							...(searchText === "" ? {} : { searchText }),
-							...(sortChoice === "" ? {} : { sort: sortChoice }),
-							...(after === null ? {} : { after }),
-							...(filter === null ? {} : { now, filter }),
-						}),
-					);
-					if (members.stale) {
-						return yield* new RyotClientError({ reason: "collection-stale" });
-					}
-					return members;
-				}),
+			({ client, input: { filter, cursor, searchText, sortChoice } }) =>
+				client.data.query(
+					memberRecipe,
+					{ ...collectionArguments(collectionId), searchText },
+					{
+						...(filter === null ? {} : { filter }),
+						...(sortChoice === "" ? {} : { sort: sortChoice }),
+						pages: { members: cursor === null ? {} : { after: cursor } },
+					},
+				),
 			{ cancelOnUnmount: true },
 		),
 	);
-	const members = (searchText: string) => ({
-		fields,
-		collectionId,
-		...(searchText === "" ? {} : { searchText }),
-	});
+	if (controls.data === undefined) {
+		return (
+			<PluginScreenFrame title={header?.name ?? "Collection"}>
+				{controls.error ? (
+					<BrowserInlineError
+						onRetry={controls.refetch}
+						title="Collection unavailable"
+						message="The collection controls could not be loaded."
+					/>
+				) : null}
+			</PluginScreenFrame>
+		);
+	}
 	return (
 		<EntityBrowserController
 			query={query}
@@ -164,15 +174,11 @@ const CollectionBrowser = ({
 			emptyMessage="This collection is empty."
 			errorMessage="The collection could not be loaded."
 			count={(client, { filter, searchText }) =>
-				Effect.gen(function* () {
-					const now = yield* DateTime.now;
-					return yield* client.data.query(
-						collectionMembersCountRecipe({
-							...members(searchText),
-							...(filter === null ? {} : { now, filter }),
-						}),
-					);
-				})
+				client.data.query(
+					collectionMembersCountRecipe({ fields }),
+					{ ...collectionArguments(collectionId), searchText },
+					filter === null ? {} : { filter },
+				)
 			}
 			headerActions={[
 				...pageActions,
@@ -188,16 +194,14 @@ const CollectionBrowser = ({
 			selection={{
 				actions: [addToCollectionAction(ryot), removeFromCollectionAction(ryot, collectionId)],
 				readIds: (client, { after, filter, searchText }) =>
-					Effect.gen(function* () {
-						const now = yield* DateTime.now;
-						return yield* client.data.query(
-							collectionMemberIdsRecipe({
-								...members(searchText),
-								...(after === undefined ? {} : { after }),
-								...(filter === null ? {} : { now, filter }),
-							}),
-						);
-					}),
+					client.data.query(
+						collectionMemberIdsRecipe({ fields }),
+						{ ...collectionArguments(collectionId), searchText },
+						{
+							...(filter === null ? {} : { filter }),
+							pages: { memberIds: after === undefined ? {} : { after } },
+						},
+					),
 			}}
 			renderResults={(results) => (
 				<EntityBrowserResults

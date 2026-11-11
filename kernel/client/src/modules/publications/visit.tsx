@@ -12,7 +12,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { browserServerOrigin } from "#/api/origin";
 import { isPublicationVisitFailure, PublicationVisitsApi } from "#/api/publications";
-import { classifyRyotQLCause } from "#/api/ryotql";
 import {
 	classifyManagedAssetCause,
 	mapManagedAssetResolutions,
@@ -34,6 +33,7 @@ import type { ClientRuntime } from "#/runtime";
 
 import {
 	makeVisitSession,
+	queryPublication,
 	takeVisitCredentials,
 	unavailableCode,
 	type VisitCredentials,
@@ -261,6 +261,7 @@ function PublicationFrame(props: {
 			backInterceptors={props.backInterceptors}
 			onCheckFreshness={() => Effect.succeed(true)}
 			onPickEntity={() => refused({ kind: "cancelled" as const })}
+			onQuery={(request) => queryPublication(session, api, request)}
 			onSharePublication={() => refused({ kind: "closed" as const })}
 			onEditCollection={() => refused({ kind: "cancelled" as const })}
 			onAddToCollection={() => refused({ kind: "cancelled" as const })}
@@ -310,20 +311,6 @@ function PublicationFrame(props: {
 						api.document(scope, { payload: { compositionHash: page.composition.hash } }),
 					)
 					.pipe(Effect.map((document) => renderClientDocument(document, session.origin)))
-			}
-			onQuery={(request) =>
-				session
-					.run((scope) => api.ryotql(scope, { payload: request.document }))
-					.pipe(
-						Effect.match({
-							onSuccess: (response) => ({ response, outcome: "success" }) as const,
-							onFailure: (error) =>
-								({
-									outcome: "failure",
-									reason: classifyRyotQLCause(error.cause, isPublicationVisitFailure),
-								}) as const,
-						}),
-					)
 			}
 			onAssets={(request) =>
 				session

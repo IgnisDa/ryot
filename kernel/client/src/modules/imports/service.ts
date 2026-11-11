@@ -5,6 +5,7 @@ import {
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	type ImportIssuesPage,
 	importIssuesRecipe,
@@ -27,9 +28,18 @@ import { KernelHostServices } from "#/host-services";
 export const IMPORT_RUNS_PAGE_SIZE = 20;
 
 export const importIssuesQuery = createRyotQuery<
-	Parameters<typeof importIssuesRecipe>[0],
+	Recipe.Arguments<typeof importIssuesRecipe> & {
+		readonly after?: string;
+		readonly limit?: number;
+	},
 	ImportIssuesPage
->(({ input, client }) => client.data.query(importIssuesRecipe(input)));
+>(({ input, client }) =>
+	client.data.query(
+		importIssuesRecipe,
+		{ runId: input.runId },
+		{ pages: { issues: { limit: input.limit, after: input.after } } },
+	),
+);
 
 type ImportsClient = Pick<KernelRyotClient, "data">;
 
@@ -47,15 +57,18 @@ export class ImportsService extends Context.Service<ImportsService>()(
 				input: { readonly limit: number },
 			) {
 				return yield* client.data
-					.query(manualImportRunsRecipe({ limit: input.limit }))
+					.query(manualImportRunsRecipe, {}, { pages: { importRuns: { limit: input.limit } } })
 					.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "runs" })));
 			});
 			const loadRun = Effect.fn("ImportsService.loadRun")(function* (
 				client: ImportsClient,
-				input: Parameters<typeof importRunRecipe>[0],
+				input: Recipe.Arguments<typeof importRunRecipe> & {
+					readonly after?: string;
+					readonly limit?: number;
+				},
 			) {
 				return yield* client.data
-					.query(importRunRecipe(input))
+					.query(importRunRecipe, { runId: input.runId })
 					.pipe(Effect.mapError((cause) => new ImportsLoadError({ cause, stage: "run" })));
 			});
 
@@ -78,7 +91,7 @@ export const importRunsQuery = createRyotHostQuery<
 );
 
 export const importRunQuery = createRyotHostQuery<
-	Parameters<typeof importRunRecipe>[0],
+	Recipe.Arguments<typeof importRunRecipe> & { readonly after?: string; readonly limit?: number },
 	ImportRunDetail,
 	KernelHostServices,
 	ImportsLoadError
@@ -94,7 +107,9 @@ export const importSourcesQuery = createRyotQuery<void, readonly ImportSourceIte
 		let after: null | string | undefined;
 		do {
 			const page = yield* client.data.query(
-				importSourcesRecipe({ limit: 100, after: after ?? undefined }),
+				importSourcesRecipe,
+				{},
+				{ pages: { sources: { limit: 100, after: after ?? undefined } } },
 			);
 			sources.push(
 				...page.items.map(({ id: _id, exportHelp, ...source }) => ({

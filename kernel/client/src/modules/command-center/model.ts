@@ -1,17 +1,16 @@
 import type { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { displayValueText } from "@ryot-app/plugin-ui-sdk/table";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
+import { decodeLibrarySearch } from "@ryot-app/ryotql-recipes/library-search";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import type { SavedViewRecord } from "@ryot-app/ryotql-recipes/saved-view-records";
-import {
-	type LibrarySearchHit,
-	librarySearchRecipe,
-	type LibrarySearchResult,
-} from "@ryot-app/ryotql-recipes/saved-views";
+import type { LibrarySearchHit, LibrarySearchResult } from "@ryot-app/ryotql-recipes/saved-views";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Fiber, Result, Schema } from "effect";
 
@@ -65,6 +64,7 @@ export type LibraryView = {
 	readonly name: string;
 	readonly providerAdd: boolean;
 	readonly dataSources: RyotQLDocument;
+	readonly reference: SavedViewReference;
 	readonly settings: EntityBrowserSavedViewSettings;
 };
 
@@ -157,7 +157,8 @@ export const libraryViews = (records: readonly SavedViewRecord[]): readonly Libr
 		if (
 			Result.isFailure(settings) ||
 			href === undefined ||
-			settings.success.searchFields.length === 0
+			settings.success.controls?.search === undefined ||
+			!("librarySearch" in dataSources.queries)
 		) {
 			return [];
 		}
@@ -169,28 +170,47 @@ export const libraryViews = (records: readonly SavedViewRecord[]): readonly Libr
 				icon: record.icon,
 				name: record.name,
 				settings: settings.success,
+				reference: record.reference,
 				providerAdd: settings.success.addAction?.type === "provider-search",
 			},
 		];
 	});
 
-type LibraryExecute<Failure> = (
-	recipe: PreparedRecipe<LibrarySearchResult>,
-) => Effect.Effect<LibrarySearchResult, Failure>;
-
+type LibraryExecute<Failure> = (request: ExecutionRequest) => Effect.Effect<unknown, Failure>;
 const searchLibraryView = <Failure>(
 	view: LibraryView,
 	query: string,
 	execute: LibraryExecute<Failure>,
-): Effect.Effect<LibrarySearchResult, Error | Failure> => {
-	const prepared = librarySearchRecipe({
-		searchText: query,
-		settings: view.settings,
-		limit: LIBRARY_HITS_PER_VIEW,
-		queryDocument: view.dataSources,
+): Effect.Effect<LibrarySearchResult, Failure | RyotClientError> =>
+	Effect.gen(function* () {
+		const search = view.settings.controls?.search;
+		if (search === undefined) {
+			return yield* new RyotClientError({ reason: "invalid-input" });
+		}
+		const argumentsValue = { [search]: query };
+		const results = yield* Effect.all(
+			{
+				count: execute({
+					arguments: argumentsValue,
+					source: { kind: "savedView", reference: view.reference, query: "librarySearchCount" },
+				}),
+				hits: execute({
+					arguments: argumentsValue,
+					pages: { librarySearch: { limit: LIBRARY_HITS_PER_VIEW } },
+					source: { kind: "savedView", query: "librarySearch", reference: view.reference },
+				}),
+			},
+			{ concurrency: 2 },
+		);
+		const decoded = decodeLibrarySearch(
+			results.hits,
+			results.count,
+			view.settings.summary.subtitle?.displayKind ?? null,
+		);
+		return Result.isFailure(decoded)
+			? yield* new RyotClientError({ reason: "malformed-result" })
+			: decoded.success;
 	});
-	return Result.isFailure(prepared) ? Effect.fail(prepared.failure) : execute(prepared.success);
-};
 
 export const runLibrarySearch = <Failure>(input: {
 	readonly query: string;

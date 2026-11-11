@@ -236,21 +236,28 @@ export class OAuthConnectService extends Context.Service<OAuthConnectService>()(
 					);
 
 			const pollStatus = (scope: ApiScope, connectionId: OAuthConnectionId) => {
-				const recipe = oauthConnectionStatusRecipe({ id: connectionId });
-				const readOutcome = queries.execute(scope, { payload: recipe.document }).pipe(
-					Effect.flatMap((response) => {
-						const decoded = recipe.decode(response);
-						return Result.isSuccess(decoded)
-							? Effect.succeed(
-									Option.match(decoded.success, {
-										onNone: () => failed(MESSAGES.missing),
-										onSome: (status) => statusOutcome(status, connectionId),
-									}),
-								)
-							: Effect.fail(new OAuthConnectFailed({ message: MESSAGES.failed }));
-					}),
-					Effect.catch((error) => Effect.succeed(statusErrorOutcome(error))),
-				);
+				const recipe = oauthConnectionStatusRecipe;
+				const readOutcome = queries
+					.execute(scope, {
+						payload: {
+							arguments: { id: connectionId },
+							source: { kind: "inline", document: recipe.document },
+						},
+					})
+					.pipe(
+						Effect.flatMap((response) => {
+							const decoded = recipe.decode(response);
+							return Result.isSuccess(decoded)
+								? Effect.succeed(
+										Option.match(decoded.success, {
+											onNone: () => failed(MESSAGES.missing),
+											onSome: (status) => statusOutcome(status, connectionId),
+										}),
+									)
+								: Effect.fail(new OAuthConnectFailed({ message: MESSAGES.failed }));
+						}),
+						Effect.catch((error) => Effect.succeed(statusErrorOutcome(error))),
+					);
 				return Effect.acquireUseRelease(
 					Effect.gen(function* () {
 						const wakes = yield* Queue.sliding<void>(1);

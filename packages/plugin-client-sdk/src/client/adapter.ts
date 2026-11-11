@@ -2,6 +2,7 @@ import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/sche
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityUpdatedMessage } from "@ryot-app/contract/modules/live-updates/messages";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import type { DescribeRequest, ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	AddToCollectionRequest,
@@ -27,7 +28,6 @@ import type {
 	PluginUploadRequest,
 	SharePublicationRequest,
 } from "@ryot-app/plugin-client-contract";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
 import type { Effect, Schema } from "effect";
 
 import type { RyotClientError } from "./errors";
@@ -95,6 +95,7 @@ export type OperationInvocation<
 export type RyotClientAdapter = {
 	readonly readUserPreferences?: () => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
+	readonly query: (request: ExecutionRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
 	readonly upload: (request: PluginUploadRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly device?: (request: PluginDeviceRequest) => Effect.Effect<unknown, RyotClientError>;
@@ -107,6 +108,9 @@ export type RyotClientAdapter = {
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly accessStorage?: (
 		request: StorageAdapterRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly describe?: (
+		request: typeof DescribeRequest.Type,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly openExternalLink?: (
 		request: ExternalLinkRequest,
@@ -131,9 +135,6 @@ export type RyotClientAdapter = {
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly requestEnrichment?: (
 		request: PluginEnrichmentRequest,
-	) => Effect.Effect<unknown, RyotClientError>;
-	readonly query: (
-		document: PreparedRecipe<unknown>["document"],
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly resolveAssets?: (
 		assets: readonly ManagedAssetLocator[],

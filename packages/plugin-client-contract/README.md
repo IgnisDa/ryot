@@ -106,3 +106,9 @@ back down. Both realms register the same keys, so whichever document holds focus
 This package derives specialized fields from generic HTTP-contract schemas such as entity IDs, JSON,
 RyotQL documents, and asset locators. The dependency remains one-way: `@ryot-app/contract` must not
 import this package.
+
+RyotQL messages select `action: "execute" | "describe"`. Execute carries the canonical
+`ExecutionRequest`; describe carries its canonical source and optional arguments. Runtime paging,
+filter, and sort values remain outside the authored document. The shared cancellation message
+interrupts either action. Page-context data sources are authored definitions; binding belongs to
+the server execution boundary.

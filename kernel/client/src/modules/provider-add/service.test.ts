@@ -6,6 +6,7 @@ import {
 	EntityEditorRefused,
 	type EntityEditorSaveRequest,
 } from "@ryot-app/contract/modules/entities/editor";
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -119,7 +120,7 @@ const providerAddLayer = (offline = false) =>
 		}),
 	);
 
-const dataClient = (queries: unknown[]) =>
+const dataClient = (queries: ExecutionRequest[]) =>
 	createRyotClient(
 		createTestRyotAdapter({
 			query: (query) => {
@@ -144,9 +145,80 @@ const failingDataClient = () =>
 describe("ProviderAddService", () => {
 	layer(providerAddLayer())((test) => {
 		test.effect(
+			"loads every provider selection across bounded native pages",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* ProviderAddService;
+					const externalIds = [
+						...Array.from({ length: 205 }, (_, index) => `ext-${index}`),
+						"ext-0",
+						"missing",
+					];
+					const rows = Array.from({ length: 207 }, (_, index) => ({
+						externalId: `ext-${index % 205}`,
+						entityId: EntityId.make(`entity-${index}`),
+					}));
+					const requests: ExecutionRequest[] = [];
+					const client = createRyotClient(
+						createTestRyotAdapter({
+							query: (request) => {
+								requests.push(request);
+								if (request.source.kind !== "inline") {
+									return Effect.die("Expected inline provider lookup");
+								}
+								const name = "links" in request.source.document.queries ? "links" : "materialized";
+								const query = request.source.document.queries[name];
+								expect(query.output).toMatchObject({
+									type: "rows",
+									pagination: { limit: 100, maxLimit: 100 },
+								});
+								const offset = Number(request.pages?.[name]?.after ?? 0);
+								const items = rows.slice(offset, offset + 100);
+								const hasMore = offset + 100 < rows.length;
+								return Effect.succeed({
+									data: {
+										[name]: {
+											items,
+											type: "rows",
+											pageInfo: {
+												hasMore,
+												limit: 100,
+												nextCursor: hasMore ? String(offset + 100) : null,
+											},
+										},
+									},
+								});
+							},
+						}),
+					);
+					const links = yield* service.loadEntityLinks(client, {
+						providerId,
+						externalIds,
+						entitySchemaSlug,
+						relationshipSlug,
+						librarySchemaSlug,
+						reference: { kind: "local", pluginId: ownerPluginId },
+					});
+					const materialized = yield* service.loadMaterialized(client, {
+						providerId,
+						externalIds,
+						schema: { slug: entitySchemaSlug, owner: { kind: "plugin", pluginId: ownerPluginId } },
+					});
+					expect(links).toEqual(rows);
+					expect([...materialized]).toEqual(externalIds.slice(0, 205));
+					expect(materialized.has("missing")).toBe(false);
+					expect(requests).toHaveLength(6);
+					for (const request of requests) {
+						expect(request.arguments).toEqual({ providerId, externalIds });
+					}
+				}),
+			testTimeout,
+		);
+
+		test.effect(
 			"loads provider summaries and entity links through the RyotQL client",
 			() => {
-				const queries: unknown[] = [];
+				const queries: ExecutionRequest[] = [];
 				const client = dataClient(queries);
 
 				return Effect.gen(function* () {
@@ -167,27 +239,11 @@ describe("ProviderAddService", () => {
 					expect(providers.items).toEqual([providerRow]);
 					expect(links).toEqual<unknown>([{ externalId: "ext-1", entityId: "entity-1" }]);
 					expect(queries).toHaveLength(2);
-					expect(queries[0]).toMatchObject({
-						queries: {
-							providers: {
-								where: {
-									predicates: [
-										{},
-										{
-											left: { field: "pluginId", tableAlias: "provider" },
-											right: {
-												type: "pluginId",
-												reference: { kind: "local", pluginId: ownerPluginId },
-											},
-										},
-										{},
-										{},
-									],
-								},
-							},
-						},
+					expect(queries[0]?.source).toMatchObject({
+						kind: "inline",
+						document: { queries: { providers: { from: { table: "sandboxProvider" } } } },
 					});
-					expect(queries[1]).toMatchObject({ queries: { links: {} } });
+					expect(queries[1]?.arguments).toEqual({ providerId, externalIds: ["ext-1"] });
 				});
 			},
 			testTimeout,

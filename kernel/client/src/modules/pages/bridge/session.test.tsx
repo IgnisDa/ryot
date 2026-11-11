@@ -100,7 +100,7 @@ const document = {
 	queries: {
 		items: {
 			from: { alias: "item", table: "item" },
-			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10, maxLimit: 10 } },
 		},
 	},
 } as const;
@@ -108,7 +108,11 @@ const document = {
 const capabilityRequests = {
 	asset: { type: "asset-request", assets: [{ type: "local", key: "picture.png" }] },
 
-	ryotql: { document, type: "ryotql-request" },
+	ryotql: {
+		action: "execute",
+		type: "ryotql-request",
+		request: { source: { document, kind: "inline" } },
+	},
 
 	upload: {
 		action: "temporary",
@@ -681,7 +685,12 @@ describe("bridge page screens", () => {
 				});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toEqual([at()])));
-				pluginPort.postMessage({ document, type: "ryotql-request", requestId: "old-query" });
+				pluginPort.postMessage({
+					action: "execute",
+					type: "ryotql-request",
+					requestId: "old-query",
+					request: { source: { document, kind: "inline" } },
+				});
 				pluginPort.postMessage({ count: 1, type: "overlay-state" });
 				pluginPort.postMessage({ shortcuts: ["A"], type: "page-shortcuts" });
 				yield* Effect.promise(() => waitFor(() => expect(pageShortcuts).toContainEqual(["A"])));
@@ -2847,7 +2856,12 @@ describe("plugin bridge", () => {
 					requestId: "operation-1",
 					type: "operation-request",
 				});
-				pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "query-1",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
 
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
 				expect(received).toContainEqual({
@@ -3167,9 +3181,10 @@ describe("plugin bridge", () => {
 						});
 					} else {
 						pluginPort.postMessage({
-							document,
+							action: "execute",
 							type: "ryotql-request",
 							requestId: `request-${index}`,
+							request: { source: { document, kind: "inline" } },
 						});
 					}
 				}
@@ -3177,7 +3192,12 @@ describe("plugin bridge", () => {
 					waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS)),
 				);
 
-				pluginPort.postMessage({ document, requestId: "overflow", type: "ryotql-request" });
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "overflow",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
 				yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
 
 				expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS);
@@ -3276,7 +3296,12 @@ describe("plugin bridge", () => {
 					requestId: "operation-1",
 					type: "operation-request",
 				});
-				pluginPort.postMessage({ document, requestId: "query-1", type: "ryotql-request" });
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "query-1",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
 				yield* Effect.promise(() =>
 					waitFor(() => {
 						expect(querySignal).toBeDefined();
@@ -3371,8 +3396,18 @@ describe("plugin bridge", () => {
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-				pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
-				pluginPort.postMessage({ document, requestId: "query-b", type: "ryotql-request" });
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "query-a",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "query-b",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
 				yield* Effect.promise(() => waitFor(() => expect(calls).toHaveLength(2)));
 
 				calls[1]?.resolve({ outcome: "success", response: { data: {} } });
@@ -3418,7 +3453,12 @@ describe("plugin bridge", () => {
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
-				pluginPort.postMessage({ document, requestId: "shared-id", type: "ryotql-request" });
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "shared-id",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
 				pluginPort.postMessage({
 					input: null,
 					requestId: "shared-id",
@@ -3449,10 +3489,11 @@ describe("plugin bridge", () => {
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
 				pluginPort.postMessage({
-					document,
 					userId: "user-1",
+					action: "execute",
 					requestId: "query-a",
 					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
 				});
 				yield* Effect.promise(() => waitFor(() => expect(failures).toHaveLength(1)));
 
@@ -3477,7 +3518,12 @@ describe("plugin bridge", () => {
 				});
 				pluginPort.postMessage(readyFor(init));
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
-				pluginPort.postMessage({ document, requestId: "query-a", type: "ryotql-request" });
+				pluginPort.postMessage({
+					action: "execute",
+					requestId: "query-a",
+					type: "ryotql-request",
+					request: { source: { document, kind: "inline" } },
+				});
 				yield* Effect.promise(() => waitFor(() => expect(signal).toBeDefined()));
 
 				session.close();
@@ -3509,7 +3555,12 @@ describe("plugin bridge", () => {
 				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
 
 				for (let index = 0; index < CLIENT_BRIDGE_MAX_PENDING_REQUESTS; index += 1) {
-					pluginPort.postMessage({ document, type: "ryotql-request", requestId: `query-${index}` });
+					pluginPort.postMessage({
+						action: "execute",
+						type: "ryotql-request",
+						requestId: `query-${index}`,
+						request: { source: { document, kind: "inline" } },
+					});
 				}
 				yield* Effect.promise(() =>
 					waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS)),
@@ -3519,7 +3570,12 @@ describe("plugin bridge", () => {
 				pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
 				pluginPort.postMessage({ requestId: "query-0", type: "ryotql-cancel" });
 				yield* Effect.promise(() => waitFor(() => expect(signals[0]?.aborted).toBe(true)));
-				pluginPort.postMessage({ document, type: "ryotql-request", requestId: "replacement" });
+				pluginPort.postMessage({
+					action: "execute",
+					type: "ryotql-request",
+					requestId: "replacement",
+					request: { source: { document, kind: "inline" } },
+				});
 				yield* Effect.promise(() =>
 					waitFor(() => expect(signals).toHaveLength(CLIENT_BRIDGE_MAX_PENDING_REQUESTS + 1)),
 				);

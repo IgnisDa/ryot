@@ -3,14 +3,17 @@ import {
 	type PublicationUnavailableCode,
 } from "@ryot-app/contract/modules/publications/schemas";
 import { PublicationId } from "@ryot-app/contract/schema/brands";
+import type { PluginRyotQLOutcome, PluginRyotQLRequest } from "@ryot-app/plugin-client-contract";
 import { Clock, Effect, Option, Schema } from "effect";
 
 import type { ServerOrigin } from "#/api/origin";
 import {
+	isPublicationVisitFailure,
 	PublicationVisitApiError,
 	type PublicationVisitsApi,
 	type PublicationVisitScope,
 } from "#/api/publications";
+import { classifyRyotQLCause } from "#/api/ryotql";
 import { publicationVisitKey } from "#/persistence/storage";
 
 const SESSION_RENEWAL_MARGIN_MS = 30_000;
@@ -144,3 +147,35 @@ export const makeVisitSession = (input: {
 };
 
 export type VisitSession = ReturnType<typeof makeVisitSession>;
+
+export const queryPublication = Effect.fn("queryPublication")(function* (
+	session: VisitSession,
+	api: PublicationVisitsApi["Service"],
+	request: PluginRyotQLRequest,
+) {
+	const source = request.request.source;
+	if (source.kind !== "inline") {
+		return { outcome: "failure", reason: "query-failed" } as const;
+	}
+	const program = (
+		scope: PublicationVisitScope,
+	): Effect.Effect<
+		Extract<PluginRyotQLOutcome, { readonly outcome: "success" }>["response"],
+		PublicationVisitApiError
+	> =>
+		request.action === "describe"
+			? api.describe(scope, { payload: { ...request.request, source } })
+			: api.ryotql(scope, { payload: { ...request.request, source } });
+	return yield* session
+		.run(program)
+		.pipe(
+			Effect.match({
+				onSuccess: (response) => ({ response, outcome: "success" }) as const,
+				onFailure: (error) =>
+					({
+						outcome: "failure",
+						reason: classifyRyotQLCause(error.cause, isPublicationVisitFailure),
+					}) as const,
+			}),
+		);
+});

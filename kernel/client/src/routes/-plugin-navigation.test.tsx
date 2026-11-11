@@ -32,6 +32,7 @@ import {
 	PluginBridgeLocation,
 } from "@ryot-app/plugin-client-contract";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { anyOf, anything, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
@@ -618,7 +619,7 @@ describe("client page routes", () => {
 								renderer: { kind: "kernel", name: "Entity browser" },
 								settings: {
 									pageSize: 20,
-									searchFields: [],
+									controls: {},
 									tableColumns: null,
 									sourceName: "items",
 									defaultLayout: "list",
@@ -745,7 +746,7 @@ describe("client page routes", () => {
 								renderer: { kind: "kernel", name: "Entity browser" },
 								settings: {
 									pageSize: 20,
-									searchFields: [],
+									controls: {},
 									tableColumns: null,
 									sourceName: "items",
 									defaultLayout: "list",
@@ -857,7 +858,7 @@ describe("client page routes", () => {
 								renderer: { kind: "kernel", name: "Entity browser" },
 								settings: {
 									pageSize: 20,
-									searchFields: [],
+									controls: {},
 									tableColumns: null,
 									sourceName: "items",
 									defaultLayout: "list",
@@ -1169,7 +1170,7 @@ describe("client page routes", () => {
 						loadSchema: () =>
 							Effect.succeed({ name: "Unit", editor: null, propertiesSchema: { fields: {} } }),
 						loadEntities: (_client, input) => {
-							queries.push(input.query);
+							queries.push(input.query ?? "");
 							return Effect.succeed({
 								items: [{ id: entityId, name: "Sample" }],
 								pageInfo: { limit: 30, hasMore: false, nextCursor: null },
@@ -2326,7 +2327,7 @@ const ryotqlRows =
 	(_scope, request) =>
 		Effect.succeed({
 			data: Object.fromEntries(
-				Object.keys(request.payload.queries).map((name) => [
+				Object.keys(bindTestRequest(request.payload).queries).map((name) => [
 					name,
 					{
 						items: rows(name),

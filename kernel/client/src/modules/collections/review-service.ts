@@ -8,6 +8,7 @@ import type { EventWritePrecondition } from "@ryot-app/contract/modules/events/s
 import { EventSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { EntityId, EventId } from "@ryot-app/contract/schema/brands";
 import { createRyotHostMutation, createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/ryotql";
 import {
 	collectionReviewsRecipe,
 	type CollectionReviewsResult,
@@ -34,9 +35,18 @@ export class ReviewNotSaved extends Schema.TaggedError<
 >()("ReviewNotSaved", {}) {}
 
 export const collectionReviewsQuery = createRyotQuery<
-	Parameters<typeof collectionReviewsRecipe>[0],
+	Recipe.Arguments<typeof collectionReviewsRecipe> & {
+		readonly after?: string;
+		readonly limit?: number;
+	},
 	CollectionReviewsResult
->(({ input, client }) => client.data.query(collectionReviewsRecipe(input)));
+>(({ input, client }) =>
+	client.data.query(
+		collectionReviewsRecipe,
+		{ collectionId: input.collectionId },
+		{ pages: { reviews: { after: input.after, limit: input.limit } } },
+	),
+);
 
 const reviewPrecondition = (review: CollectionReview): EventWritePrecondition => {
 	const properties = review.properties;

@@ -4,6 +4,7 @@ import type { TwoFactorStatus } from "@ryot-app/contract/modules/account/schemas
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
@@ -59,10 +60,10 @@ const makeUserSettingsQueries = (
 ) =>
 	makeRyotQLApi({
 		execute: (_scope, request) => {
-			if (!("user" in request.payload.queries)) {
+			if (!("user" in bindTestRequest(request.payload).queries)) {
 				return Effect.die("Unexpected RyotQL document");
 			}
-			const userQuery = request.payload.queries.user;
+			const userQuery = bindTestRequest(request.payload).queries.user;
 			const selectsStatus =
 				userQuery.output.type === "rows" &&
 				userQuery.output.fields.some((field) => "key" in field && field.key === "status");

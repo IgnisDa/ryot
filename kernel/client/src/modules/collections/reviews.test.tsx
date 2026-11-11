@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { EventStale } from "@ryot-app/contract/modules/events/schemas";
 import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
@@ -49,11 +50,11 @@ const mountReviews = (overrides: Partial<EventsApi["Service"]> = {}) => {
 		/>,
 		{
 			query: (document) => {
-				if (Object.hasOwn(document.queries, "user")) {
+				if (Object.hasOwn(bindTestRequest(document).queries, "user")) {
 					return Effect.succeed({ data: { user: { pageInfo, type: "rows", items: [account] } } });
 				}
 				return Effect.succeed({
-					data: Object.hasOwn(document.queries, "collection")
+					data: Object.hasOwn(bindTestRequest(document).queries, "collection")
 						? {
 								collection: {
 									pageInfo,

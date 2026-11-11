@@ -49,7 +49,8 @@ const DOWNLOAD_FAILURE_DETAIL = "Could not download this backup. Try again.";
 const PAGE_SIZE = 50;
 
 const backupRunsQuery = createRyotQuery<string | undefined, BackupRunsPage>(
-	({ client, input: after }) => client.data.query(backupRunsRecipe({ after, limit: PAGE_SIZE })),
+	({ client, input: after }) =>
+		client.data.query(backupRunsRecipe, {}, { pages: { runs: { after, limit: PAGE_SIZE } } }),
 );
 
 const createBackupMutation = createRyotHostMutation<

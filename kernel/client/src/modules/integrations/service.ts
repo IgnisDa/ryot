@@ -57,7 +57,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				input: { readonly limit: number },
 			) {
 				return yield* client.data
-					.query(integrationsRecipe({ limit: input.limit }))
+					.query(integrationsRecipe, {}, { pages: { integrations: { limit: input.limit } } })
 					.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
 			});
 			const loadRuns = Effect.fn("IntegrationsService.loadRuns")(function* (
@@ -66,7 +66,9 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 			) {
 				return yield* client.data
 					.query(
-						integrationImportRunsRecipe({ limit: input.limit, integrationId: input.integrationId }),
+						integrationImportRunsRecipe,
+						{ integrationId: input.integrationId },
+						{ pages: { importRuns: { limit: input.limit } } },
 					)
 					.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "runs" })));
 			});
@@ -82,7 +84,11 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				let after: null | string | undefined;
 				do {
 					const page = yield* client.data
-						.query(integrationProvidersRecipe({ limit: 100, after: after ?? undefined }))
+						.query(
+							integrationProvidersRecipe,
+							{},
+							{ pages: { providers: { limit: 100, after: after ?? undefined } } },
+						)
 						.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
 					providers.push(
 						...page.items.map(({ id: _id, ...provider }) => ({
@@ -102,7 +108,7 @@ export class IntegrationsService extends Context.Service<IntegrationsService>()(
 				id: string,
 			) {
 				const result = yield* client.data
-					.query(integrationRecipe({ id }))
+					.query(integrationRecipe, { id })
 					.pipe(Effect.mapError((cause) => new IntegrationsLoadError({ cause, stage: "list" })));
 				if (Option.isNone(result)) {
 					return Option.none();

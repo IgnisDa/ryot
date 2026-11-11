@@ -14,7 +14,7 @@ export class NavigationService extends Context.Service<NavigationService>()(
 		make: Effect.sync(() => ({
 			load: Effect.fn("NavigationService.load")((ryot: KernelRyotClient) =>
 				ryot.data
-					.query(navigationRecipe())
+					.query(navigationRecipe, {})
 					.pipe(Effect.mapError((cause) => new NavigationLoadError({ cause }))),
 			),
 		})),

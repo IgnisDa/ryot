@@ -1,7 +1,18 @@
 import { describe, expect } from "bun:test";
 
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
+import {
+	column,
+	defineRecipe,
+	eq,
+	type Recipe,
+	selectedField,
+	selectedRows,
+	selectRecipe,
+	table,
+} from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
+import { bindDocument } from "@ryot-app/ryotql/binding";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Fiber, Result, Schema } from "effect";
@@ -10,15 +21,18 @@ import { createTestRyotAdapter } from "../testing";
 import { createRyotClient } from "./client";
 import { RyotClientError } from "./errors";
 
-const document = { output: {}, queries: {} } as PreparedRecipe<string>["document"];
-const recipe: PreparedRecipe<string> = {
+const document: Recipe<string>["document"] = { queries: {} };
+const recipe: Recipe<string> = {
 	document,
+	queries: {},
+	parameters: { fields: {} },
 	decode: (response) =>
 		Result.map(
 			Schema.decodeUnknownResult(Schema.Struct({ value: Schema.String }))(response),
 			({ value }) => value,
 		),
 };
+const bindingNow = new Date("2026-01-01T00:00:00Z");
 const asset = { type: "local", key: "permanent/image.png" } as const;
 const resolution = {
 	asset,
@@ -286,7 +300,7 @@ describe("Effect-native client capabilities", () => {
 		testTimeout,
 	);
 	it.live(
-		"sends only the query document and decodes the response",
+		"sends a canonical inline request and decodes the response",
 		() =>
 			Effect.gen(function* () {
 				const received: unknown[] = [];
@@ -299,8 +313,100 @@ describe("Effect-native client capabilities", () => {
 							}),
 					}),
 				);
-				expect(yield* client.data.query(recipe)).toBe("decoded");
-				expect(received).toEqual([document]);
+				expect(yield* client.data.query(recipe, {})).toBe("decoded");
+				expect(received).toEqual([{ arguments: {}, source: { document, kind: "inline" } }]);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"transports static parameters and selected paging for server binding",
+		() =>
+			Effect.gen(function* () {
+				const fields = parameters({
+					fields: {
+						name: {
+							label: "Name",
+							type: "string",
+							description: "Exact name",
+							validation: { required: true },
+						},
+						ids: {
+							label: "IDs",
+							type: "array",
+							description: "Selected IDs",
+							items: {
+								label: "ID",
+								type: "string",
+								description: "Entity ID",
+								validation: { required: true },
+							},
+						},
+					},
+				});
+				const entity = table("entity", "entity");
+				const authored = defineRecipe({
+					parameters: fields.schema,
+					queries: {
+						items: selectedRows(entity, {
+							limit: 2,
+							maxLimit: 10,
+							where: eq(column(entity, "name"), fields.value("name")),
+							selection: { id: selectedField(column(entity, "id"), Schema.String) },
+						}),
+					},
+				});
+				const selected = selectRecipe(authored, "items");
+				const client = createRyotClient(
+					createTestRyotAdapter({
+						describe: (request) => {
+							expect(request.arguments).toEqual({ name: "needle" });
+							return Effect.succeed({ sort: [], filter: [], parameters: { fields: {} } });
+						},
+						query: (request) =>
+							Effect.sync(() => {
+								if (request.source.kind !== "inline") {
+									throw new Error("Expected inline source");
+								}
+								expect(request.source.document).toEqual(authored.document);
+								expect(request.source.query).toBe("items");
+								expect(request.arguments).toEqual({ name: "needle", ids: ["one", "two"] });
+								expect(request.source.document.queries["items"]?.where).toMatchObject({
+									right: { name: "name", type: "parameter" },
+								});
+								const bound = Result.getOrThrow(
+									bindDocument(request.source.document, request, {
+										now: bindingNow,
+										reportingTimeZone: "UTC",
+									}),
+								);
+								expect(bound.document.queries["items"]).toMatchObject({
+									output: { pagination: { limit: 3, after: "cursor" } },
+									where: { right: { type: "literal", value: "needle" } },
+								});
+								return {
+									data: {
+										items: {
+											type: "rows",
+											items: [{ id: "one" }],
+											pageInfo: { limit: 3, hasMore: false, nextCursor: null },
+										},
+									},
+								};
+							}),
+					}),
+				);
+				expect(
+					(yield* client.data.query(
+						selected,
+						{ name: "needle", ids: ["one", "two"] },
+						{ pages: { items: { limit: 3, after: "cursor" } } },
+					)).items,
+				).toEqual([{ id: "one" }]);
+				yield* client.data.describe(
+					{ kind: "inline", document: authored.document },
+					{ name: "needle" },
+				);
 			}),
 		testTimeout,
 	);
@@ -413,7 +519,7 @@ describe("Effect-native client capabilities", () => {
 					}),
 				);
 				expect(yield* Effect.flip(canonical.assets.resolve([asset]))).toBe(failure);
-				expect(yield* Effect.flip(unexpected.data.query(recipe))).toMatchObject({
+				expect(yield* Effect.flip(unexpected.data.query(recipe, {}))).toMatchObject({
 					reason: "transport",
 				});
 			}),

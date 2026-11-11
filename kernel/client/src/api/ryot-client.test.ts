@@ -22,7 +22,7 @@ import {
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginThemeSnapshot } from "@ryot-app/plugin-client-contract";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
+import type { Recipe } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { promiseRejection } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -43,8 +43,8 @@ import type { ThemeStore } from "#/modules/theme/store";
 import type { ClientRuntime } from "#/runtime";
 
 const scope = { userId: "user-1", serverUrl: ServerOrigin.make("https://ryot.example") };
-const document = { output: {}, queries: {} } as PreparedRecipe<unknown>["document"];
-const recipe = { document, decode: Result.succeed };
+const document: Recipe<unknown>["document"] = { queries: {} };
+const recipe = { document, queries: {}, decode: Result.succeed, parameters: { fields: {} } };
 const themeSnapshot: PluginThemeSnapshot = { resolvedMode: "light" };
 const theme: ThemeStore = {
 	destroy: () => undefined,
@@ -392,7 +392,7 @@ describe("kernel Ryot client", () => {
 			() => {
 				const runtime = makeRuntime(failure);
 				const client = createKernelRyotClient(runtime, scope, theme);
-				const query = Effect.runPromise(client.data.query(recipe));
+				const query = Effect.runPromise(client.data.query(recipe, {}));
 				return Effect.map(
 					promiseRejection(() => query),
 					(error) => expect(error).toMatchObject({ reason: "query-failed" }),
@@ -407,7 +407,7 @@ describe("kernel Ryot client", () => {
 		() => {
 			const runtime = makeRuntime(new TypeError("private network detail"));
 			const client = createKernelRyotClient(runtime, scope, theme);
-			const query = Effect.runPromise(client.data.query(recipe));
+			const query = Effect.runPromise(client.data.query(recipe, {}));
 			return Effect.map(
 				promiseRejection(() => query),
 				(error) => expect(error).toMatchObject({ reason: "transport" }),
@@ -430,7 +430,7 @@ describe("kernel Ryot client", () => {
 			const controller = new AbortController();
 			const reason = new DOMException("Caller canceled", "AbortError");
 			const client = createKernelRyotClient(runtime, scope, theme);
-			const query = Effect.runPromise(client.data.query(recipe), { signal: controller.signal });
+			const query = Effect.runPromise(client.data.query(recipe, {}), { signal: controller.signal });
 
 			controller.abort(reason);
 
