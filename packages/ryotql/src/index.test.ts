@@ -75,6 +75,19 @@ import {
 	titleCase,
 } from "./index";
 
+const schemaRecipe = (input: { readonly entitySchemaSlug: string }) => {
+	const entity = table("entity", "entity");
+	return defineRecipe({
+		map: () => Result.succeed(input.entitySchemaSlug),
+		queries: {
+			entities: selectedRows(entity, {
+				selection: { id: selectedField(column(entity, "id"), Schema.String) },
+				where: eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
+			}),
+		},
+	});
+};
+
 describe("RyotQL builders", () => {
 	it("builds serializable named rows with defaults and omitted optional fields", () => {
 		const entity = table("entity", "entity");
@@ -87,7 +100,7 @@ describe("RyotQL builders", () => {
 					from: { table: "entity", alias: "entity" },
 					output: {
 						type: "rows",
-						pagination: { limit: 20 },
+						pagination: { limit: 20, maxLimit: 20 },
 						fields: [{ key: "id", expr: { field: "id", type: "column", tableAlias: "entity" } }],
 						orderBy: [
 							{ direction: "asc", expr: { field: "id", type: "column", tableAlias: "entity" } },
@@ -113,6 +126,7 @@ describe("RyotQL builders", () => {
 
 		expect(query.output).toEqual({
 			limit: 30,
+			maxLimit: 30,
 			type: "aggregate",
 			orderBy: [{ key: "day", direction: "desc" }],
 			measures: [{ key: "count", aggregation: { function: "count" } }],
@@ -218,20 +232,8 @@ describe("RyotQL builders", () => {
 		});
 	});
 
-	it("supports parameterized recipe builders", () => {
-		const recipe = defineRecipe((input: { readonly entitySchemaSlug: string }) => {
-			const entity = table("entity", "entity");
-			return {
-				map: () => Result.succeed(input.entitySchemaSlug),
-				queries: {
-					entities: selectedRows(entity, {
-						selection: { id: selectedField(column(entity, "id"), Schema.String) },
-						where: eq(column(entity, "entitySchemaSlug"), literal(input.entitySchemaSlug)),
-					}),
-				},
-			};
-		});
-		const prepared = recipe({ entitySchemaSlug: "course" });
+	it("supports recipes constructed from structural inputs", () => {
+		const prepared = schemaRecipe({ entitySchemaSlug: "course" });
 
 		expect(prepared.document).toMatchObject({
 			queries: { entities: { where: { right: { value: "course" } } } },
@@ -246,7 +248,7 @@ describe("RyotQL builders", () => {
 					},
 				},
 			}),
-		) satisfies Recipe.Success<typeof recipe>;
+		) satisfies Recipe.Success<typeof prepared>;
 		expect(success).toBe("course");
 	});
 
@@ -261,7 +263,7 @@ describe("RyotQL builders", () => {
 		});
 		const where = eq(column(entity, "id"), literal("entity-1"));
 		const orderBy = [ascending(column(entity, "score"))];
-		const query = source.query({ where, orderBy, limit: 7, after: "cursor" });
+		const query = source.query({ where, orderBy, limit: 7, maxLimit: 30 });
 
 		expect(source.include).toBeUndefined();
 		expect(source.fields).toEqual([
@@ -275,7 +277,7 @@ describe("RyotQL builders", () => {
 				orderBy,
 				type: "rows",
 				fields: source.fields,
-				pagination: { limit: 7, after: "cursor" },
+				pagination: { limit: 7, maxLimit: 30 },
 			},
 		});
 		expect(source.query().document.output).toMatchObject({ pagination: { limit: 20 } });
@@ -400,15 +402,15 @@ describe("RyotQL builders", () => {
 
 	it("defaults recipe success to decoded queries without a mapper", () => {
 		const entity = table("entity", "entity");
-		const recipe = defineRecipe(() => ({
+		const recipe = defineRecipe({
 			queries: {
 				entities: selectedRows(entity, {
 					selection: { id: selectedField(column(entity, "id"), Schema.String) },
 				}),
 			},
-		}));
+		});
 		const success = Result.getOrThrow(
-			recipe().decode({
+			recipe.decode({
 				data: {
 					entities: {
 						type: "rows",
@@ -553,9 +555,9 @@ describe("RyotQL builders", () => {
 		expect(Result.isFailure(countQuery.decodeResult({ items: [], type: "aggregate" }))).toBe(true);
 	});
 
-	it("decodes multiple named queries and infers recipe success for zero-argument factories", () => {
+	it("decodes multiple named queries and infers static recipe success", () => {
 		const entity = table("entity", "entity");
-		const recipe = defineRecipe(() => ({
+		const recipe = defineRecipe({
 			map: ({ count: countResult, first: firstResult }) =>
 				Result.succeed({ count: countResult.count, firstId: firstResult?.id }),
 			queries: {
@@ -566,9 +568,9 @@ describe("RyotQL builders", () => {
 					measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
 				}),
 			},
-		}));
+		});
 		const success = Result.getOrThrow(
-			recipe().decode({
+			recipe.decode({
 				data: {
 					count: { type: "aggregate", items: [{ count: 1 }] },
 					first: {
@@ -581,30 +583,13 @@ describe("RyotQL builders", () => {
 		) satisfies Recipe.Success<typeof recipe>;
 
 		expect(success).toEqual({ count: 1, firstId: "entity-1" });
-		expect(Result.isFailure(recipe().decode({ data: { count: {} } }))).toBe(true);
+		expect(Result.isFailure(recipe.decode({ data: { count: {} } }))).toBe(true);
 	});
 
-	it("omits absent queries from the document and maps them as undefined", () => {
-		const entity = table("entity", "entity");
-		const recipe = defineRecipe((enabled: boolean) => ({
-			map: ({ count: countResult }) => Result.succeed(countResult?.count ?? null),
-			queries: {
-				count: enabled
-					? selectedAggregate(entity, {
-							measures: { count: selectedMeasure({ function: "count" }, Schema.Finite) },
-						})
-					: undefined,
-			},
-		}));
-
-		expect(recipe(false).document).toEqual({ queries: {} });
-		expect(Result.getOrThrow(recipe(false).decode({ data: {} }))).toBeNull();
-		expect(Object.keys(recipe(true).document.queries)).toEqual(["count"]);
-		expect(
-			Result.getOrThrow(
-				recipe(true).decode({ data: { count: { type: "aggregate", items: [{ count: 3 }] } } }),
-			),
-		).toBe(3);
+	it("decodes an empty static recipe", () => {
+		const recipe = defineRecipe({ queries: {} });
+		expect(recipe.document).toMatchObject({ queries: {} });
+		expect(Result.getOrThrow(recipe.decode({ data: {} }))).toEqual({});
 	});
 
 	it("builds qualified wildcard row selections", () => {
@@ -619,14 +604,14 @@ describe("RyotQL builders", () => {
 		const entity = table("entity", "collection");
 		const query = rows(entity, {
 			limit: 7,
-			after: "cursor",
+			maxLimit: 30,
 			orderBy: [ascending(column(entity, "name"))],
 			fields: [field("name", column(entity, "name"))],
 			where: eq(column(entity, "entitySchemaSlug"), literal("collection")),
 		});
 
 		expect(query).toMatchObject({
-			output: { pagination: { limit: 7, after: "cursor" } },
+			output: { pagination: { limit: 7, maxLimit: 30 } },
 			where: { right: { value: "collection" }, left: { tableAlias: "collection" } },
 		});
 	});
@@ -836,7 +821,7 @@ describe("RyotQL builders", () => {
 
 		expect(aggregate(lesson, { measures: [countIdentifier] })).toEqual({
 			from: { table: "entity", alias: "lesson" },
-			output: { type: "aggregate", measures: [countIdentifier] },
+			output: { limit: 20, maxLimit: 20, type: "aggregate", measures: [countIdentifier] },
 		});
 		expect(
 			aggregate(lesson, {

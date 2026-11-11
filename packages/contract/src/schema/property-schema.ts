@@ -41,11 +41,6 @@ export type AppChoice = { readonly value: string; readonly label?: string | unde
 
 export type AppPropertyNormalization = { readonly round: AppPropertyRoundNormalization };
 
-export type AppStringPropertyReference = {
-	readonly required?: true | undefined;
-	readonly kind: "event-id" | "entity-id" | "relationship-id";
-};
-
 export type AppDateProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "date";
 	readonly defaultValue?: string | undefined;
@@ -69,6 +64,11 @@ export type AppDateTimeProperty = AppPropertyBase<AppPropertyValidationBase> & {
 export type AppChoices =
 	| { readonly source: string; readonly kind: "dynamic" }
 	| { readonly kind: "static"; readonly values: ReadonlyArray<AppChoice> };
+
+export type AppStringPropertyReference = {
+	readonly required?: true | undefined;
+	readonly kind: "event-id" | "entity-id" | "entity-source" | "relationship-id";
+};
 
 export type AppEnumProperty = AppPropertyBase<AppPropertyValidationBase> & {
 	readonly type: "enum";
@@ -346,7 +346,7 @@ const stringPropertyFormatSchema = Schema.Union([
 
 const stringPropertyReferenceSchema = strictStruct({
 	required: Schema.optional(Schema.Literal(true)),
-	kind: Schema.Literals(["entity-id", "relationship-id", "event-id"]),
+	kind: Schema.Literals(["entity-id", "relationship-id", "event-id", "entity-source"]),
 });
 
 export const AppChoiceSchema = strictStruct({

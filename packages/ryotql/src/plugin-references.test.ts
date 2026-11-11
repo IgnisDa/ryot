@@ -1,9 +1,12 @@
 import { describe, expect, it } from "bun:test";
 
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { Result } from "effect";
 
+import { bindDocument } from "./binding";
 import {
 	add,
 	aggregate,
@@ -41,6 +44,11 @@ import {
 	table,
 	transform,
 } from "./index";
+
+const bound = (authored: RyotQLDocument) =>
+	Result.getOrThrow(
+		bindDocument(authored, {}, { reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") }),
+	).document;
 
 const selfReference: PluginIdentityReference = { kind: "self" };
 const localOwner: PluginIdentityReference = { kind: "local", pluginId: PluginId.make("owner-a") };
@@ -140,7 +148,7 @@ const pluginReferenceDocument = (reference: PluginIdentityReference) => {
 
 describe("RyotQL plugin identity references", () => {
 	it("maps typed references throughout documents and leaves literal JSON unchanged", () => {
-		const source = pluginReferenceDocument(selfReference);
+		const source = bound(pluginReferenceDocument(selfReference));
 		const transformedReferences: PluginIdentityReference[] = [];
 		const mapped = mapPluginIdentityReferences(source, (reference) => {
 			transformedReferences.push(reference);
@@ -149,7 +157,7 @@ describe("RyotQL plugin identity references", () => {
 
 		expect(transformedReferences).toHaveLength(54);
 		expect(transformedReferences).toEqual(Array.from({ length: 54 }, () => selfReference));
-		expect(mapped).toEqual(pluginReferenceDocument(localOwner));
+		expect(mapped).toEqual(bound(pluginReferenceDocument(localOwner)));
 	});
 
 	it("maps local references through package identity without changing literal strings", () => {
@@ -180,13 +188,13 @@ describe("RyotQL plugin identity references", () => {
 		};
 
 		const packaged = mapPluginIdentityReferences(
-			buildDocument(sourceOwner),
+			bound(buildDocument(sourceOwner)),
 			() => packageReference,
 		);
 		const remapped = mapPluginIdentityReferences(packaged, () => targetOwner);
 
-		expect(packaged).toEqual(buildDocument(packageReference));
-		expect(remapped).toEqual(buildDocument(targetOwner));
+		expect(packaged).toEqual(bound(buildDocument(packageReference)));
+		expect(remapped).toEqual(bound(buildDocument(targetOwner)));
 	});
 
 	it("builds exact schema owner predicates for plugin and kernel owners", () => {

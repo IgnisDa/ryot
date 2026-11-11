@@ -8,7 +8,7 @@ import {
 	type PluginIdentityReference,
 	RelationshipSchemaReference,
 } from "../plugins/references";
-import { mapScalarExpression, type RyotQLDocument, ScalarExpression } from "../ryotql/language";
+import { mapScalarExpression, type RyotQLDocument, ScalarExpression } from "../ryotql/authored";
 import {
 	FilterChoice,
 	type FilterFieldWith,
@@ -16,16 +16,9 @@ import {
 	relationshipFilterField,
 	sessionEventFilterField,
 } from "./schemas";
+import { BrowseSort } from "./sort";
 
 export const BROWSE_SUBJECT_ALIAS = "subject";
-
-export const BrowseSort = strictStruct({
-	label: Schema.NonEmptyString,
-	ascending: Schema.NonEmptyString,
-	descending: Schema.NonEmptyString,
-	defaultDirection: Schema.Literals(["asc", "desc"]),
-});
-export type BrowseSort = typeof BrowseSort.Type;
 
 const browseValueFieldBase = {
 	label: Schema.String,
@@ -87,7 +80,7 @@ export const browseExpressionDocument = (expression: ScalarExpression): RyotQLDo
 			output: {
 				orderBy: [],
 				type: "rows",
-				pagination: { limit: 1 },
+				pagination: { limit: 1, maxLimit: 1 },
 				fields: [{ key: "value", expr: expression }],
 			},
 		},

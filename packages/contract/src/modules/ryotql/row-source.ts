@@ -1,4 +1,4 @@
-import { Schema } from "effect";
+import { Result, Schema } from "effect";
 
 import { strictStruct } from "../../schema/utils";
 import type { PluginIdentityReference } from "../plugins/references";
@@ -12,7 +12,7 @@ import {
 	type RowsOutput,
 	type RyotQLDocument,
 	TableReference,
-} from "./language";
+} from "./authored";
 
 export const RowSourcePrecision = Schema.Literals(["date", "instant"]);
 export type RowSourcePrecision = typeof RowSourcePrecision.Type;
@@ -38,7 +38,10 @@ export const rowSourceNamedQuery = (
 
 export const rowSourceDocument = (query: RowSourceQuery): RyotQLDocument => ({
 	queries: {
-		[ROW_SOURCE_QUERY_NAME]: rowSourceNamedQuery(query, { orderBy: [], pagination: { limit: 1 } }),
+		[ROW_SOURCE_QUERY_NAME]: rowSourceNamedQuery(query, {
+			orderBy: [],
+			pagination: { limit: 1, maxLimit: 1 },
+		}),
 	},
 });
 
@@ -46,9 +49,8 @@ export const mapRowSourceQueryReferences = (
 	query: RowSourceQuery,
 	transform: (reference: PluginIdentityReference) => PluginIdentityReference,
 ): RowSourceQuery => {
-	const mapped = mapPluginIdentityReferences(rowSourceDocument(query), transform).queries[
-		ROW_SOURCE_QUERY_NAME
-	];
+	const mapped = Result.getOrThrow(mapPluginIdentityReferences(rowSourceDocument(query), transform))
+		.queries[ROW_SOURCE_QUERY_NAME];
 	if (mapped?.output.type !== "rows") {
 		throw new Error("Row source query mapping must preserve its rows output");
 	}

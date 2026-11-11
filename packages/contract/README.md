@@ -29,3 +29,34 @@ Unexpected causes stay in backend logs. Raw compiler or runtime diagnostics are 
 Persisted workflow failures retain the structured category, code, and parameters. Localized copy is never persisted. This policy intentionally has no compatibility message fields, prose parsers, or backfills.
 
 Clients decode the contract and exhaustively handle typed variants. Tests assert categories, codes, and parameters, not backend English.
+
+## Query Language And AppSchema
+
+`modules/ryotql/authored` defines stored/inline documents with parameter declarations, controls,
+placeholders, saved entity sources, and cursor-free default/maximum limits. `modules/ryotql/language`
+is the executable grammar and response format. They share scalar grammar machinery; binding is in
+`@ryot-app/ryotql/binding`. Keep authored types out of planners/executors.
+
+`modules/ryotql/request` defines inline, saved-view, plugin-package and page execution sources,
+request arguments/filter/sort/pages, visitor requests and describe request/response schemas. All
+RyotQL execution HTTP payloads use `ExecutionRequest`; the backend loads sources under the caller's
+authority before binding. Describe routes return normalized strict parameters and resolved control
+choices. Query responses carry optional generic `execution` metadata (`now` in epoch milliseconds
+and the account `timeZone`) captured from the same context used to bind expressions. Reporting
+consumers require this metadata, including for empty results.
+
+`schema/app-schema-definition` owns generic definition/rule validation. `modules/ryotql/parameters`
+adds the parameter subset and `bindArguments`, which delegates values, defaults and conditional rules
+to `parseAppSchemaPropertiesSafe` and rejects undeclared keys. `entity-source` string references name
+saved selections; loading them is an authority-aware backend responsibility.
+
+`schema/app-schema-inference` exports `AppSchemaInput` and `AppSchemaValue` for literal declaration
+inference. Required inputs with defaults may be omitted; bound values include defaults. Optional
+values can be null. Conditional rules still require runtime validation.
+
+`schema/app-schema-json-schema.appSchemaJsonSchema` emits JSON Schema Draft 2020-12 for expressible
+constraints: object policies, scalar bounds/patterns/formats, arrays, static choices, defaults,
+conditional required rules and visibility. Materialize dynamic choices first. Query tool schemas
+must convert `{ ...parameters, unknownKeys: "strict" }`, matching argument binding. JSON Schema
+provides input/output descriptions; normalization, reference authority, managed assets, time-zone
+membership and business rules remain authoritative Effect validation.

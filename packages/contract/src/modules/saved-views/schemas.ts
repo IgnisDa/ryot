@@ -5,13 +5,14 @@ import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { AssetLocator } from "../assets/schemas";
 import { ProviderLibraryMembership } from "../entity-providers/schemas";
-import { FilterField } from "../filters/schemas";
+import { Filter } from "../filters/schemas";
 import {
 	AuthoredEntitySchemaReference,
 	EntitySchemaReference,
 	SavedViewReference,
 } from "../plugins/references";
-import { OutputFieldKey, RyotQLDocument } from "../ryotql/language";
+import { RyotQLDocument as AuthoredRyotQLDocument } from "../ryotql/authored";
+import { OutputFieldKey } from "../ryotql/language";
 
 const SavedViewBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
@@ -195,10 +196,16 @@ export const EntityBrowserSavedViewSettings = strictStruct({
 	summary: EntityBrowserSummary,
 	sourceName: Schema.NonEmptyString,
 	defaultLayout: EntityBrowserLayout,
-	searchFields: Schema.Array(OutputFieldKey),
 	addAction: Schema.NullOr(EntityBrowserAddAction),
 	layouts: Schema.NonEmptyArray(EntityBrowserLayout),
 	tableColumns: Schema.NullOr(Schema.NonEmptyArray(SavedViewTableColumn)),
+	controls: Schema.optionalKey(
+		strictStruct({
+			sort: Schema.optionalKey(Schema.Boolean),
+			filter: Schema.optionalKey(Schema.Boolean),
+			search: Schema.optionalKey(Schema.NonEmptyString),
+		}),
+	),
 });
 export type EntityBrowserSavedViewSettings = typeof EntityBrowserSavedViewSettings.Type;
 
@@ -215,8 +222,14 @@ export const ResultsTableSavedViewSettings = strictStruct({
 	sourceName: Schema.NonEmptyString,
 	rowKeyFields: Schema.NonEmptyArray(OutputFieldKey),
 	columns: Schema.NonEmptyArray(SavedViewTableColumn),
-	filterFields: Schema.optionalKey(Schema.Array(FilterField)),
 	entityLink: Schema.NullOr(strictStruct({ entityIdField: OutputFieldKey })),
+	controls: Schema.optionalKey(
+		strictStruct({
+			sort: Schema.optionalKey(Schema.Boolean),
+			filter: Schema.optionalKey(Schema.Boolean),
+			search: Schema.optionalKey(Schema.NonEmptyString),
+		}),
+	),
 });
 export type ResultsTableSavedViewSettings = typeof ResultsTableSavedViewSettings.Type;
 
@@ -231,11 +244,18 @@ const ListedSavedViewBase = {
 	pluginInstallationId: Schema.NullOr(Schema.String),
 };
 
+export const SavedViewSelection = {
+	filter: Schema.optional(Filter),
+	sort: Schema.optional(Schema.NonEmptyString),
+	arguments: Schema.optional(Schema.Record(Schema.String, JsonValue)),
+};
+
 const ListedSavedViewFields = {
+	...SavedViewSelection,
 	...ListedSavedViewBase,
 	renderer: SavedViewRenderer,
-	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
+	dataSources: Schema.NullOr(AuthoredRyotQLDocument),
 };
 
 export const ListedSavedView = Schema.Union([
@@ -278,23 +298,23 @@ const AuthoredPluginSavedViewRenderer = strictStruct({
 	kind: Schema.Literal("plugin"),
 });
 
-const AuthoredQueryDocument = Schema.toType(RyotQLDocument);
+const AuthoredQueryDocument = Schema.toType(AuthoredRyotQLDocument);
 
 const savedViewConfigFields = [
 	{
-		dataSources: RyotQLDocument,
+		dataSources: AuthoredRyotQLDocument,
 		renderer: EntityBrowserKernelRenderer,
 		settings: EntityBrowserSavedViewSettings,
 	},
 	{
-		dataSources: RyotQLDocument,
+		dataSources: AuthoredRyotQLDocument,
 		renderer: ResultsTableKernelRenderer,
 		settings: ResultsTableSavedViewSettings,
 	},
 	{
 		renderer: PluginSavedViewRenderer,
-		dataSources: Schema.NullOr(RyotQLDocument),
 		settings: Schema.Record(Schema.String, JsonValue),
+		dataSources: Schema.NullOr(AuthoredRyotQLDocument),
 	},
 ] as const;
 
@@ -331,19 +351,23 @@ const withSavedViewConfig = <
 		strictStruct({ ...common, ...plugin }),
 	]);
 
-export const SavedViewRendererConfig = withSavedViewConfig({}, savedViewConfigFields);
+export const SavedViewRendererConfig = withSavedViewConfig(
+	SavedViewSelection,
+	savedViewConfigFields,
+);
 export type SavedViewRendererConfig = typeof SavedViewRendererConfig.Type;
 
 export const AuthoredSavedViewRendererConfig = withSavedViewConfig(
-	{},
+	SavedViewSelection,
 	authoredSavedViewConfigFields,
 );
 export type AuthoredSavedViewRendererConfig = typeof AuthoredSavedViewRendererConfig.Type;
 
 export const withAuthoredSavedViewConfig = <Common extends Schema.Struct.Fields>(common: Common) =>
-	withSavedViewConfig(common, authoredSavedViewConfigFields);
+	withSavedViewConfig({ ...SavedViewSelection, ...common }, authoredSavedViewConfigFields);
 
 const createCommon = {
+	...SavedViewSelection,
 	icon: Schema.String,
 	name: Schema.String,
 	workspaceInstallationId: Schema.optional(Schema.String),
@@ -354,9 +378,12 @@ export const CreateSavedViewBody = withSavedViewConfig(createCommon, savedViewCo
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
 const updateCommon = {
+	...SavedViewSelection,
 	isHidden: Schema.Boolean,
 	icon: Schema.optional(Schema.String),
 	name: Schema.optional(Schema.String),
+	filter: Schema.optional(Schema.NullOr(Filter)),
+	sort: Schema.optional(Schema.NullOr(Schema.NonEmptyString)),
 	workspaceInstallationId: Schema.optional(Schema.NullOr(Schema.String)),
 };
 

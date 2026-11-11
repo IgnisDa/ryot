@@ -4,36 +4,46 @@ import type {
 } from "@ryot-app/contract/modules/plugins/references";
 import type {
 	AggregateMeasure,
-	AggregateOrderBy,
+	AggregateOrdering,
 	AggregateOutput,
 	AggregationSpec,
-	ColumnExpression,
+	Controls,
 	CorrelatedQuerySet,
-	CurrentDateExpression,
 	ExistsExpression,
 	FieldSelection,
 	Include,
-	IncludeResult,
 	Join,
 	JsonArrayCountExpression,
 	JsonArrayExistsExpression,
 	JsonArrayFirstExpression,
-	JsonElementExpression,
 	JsonElementsJoin,
-	LiteralExpression,
 	NamedQuery,
 	OrderBy,
-	PluginIdExpression,
+	Ordering,
+	ParameterExpression,
 	Predicate,
 	RowSelection,
 	RowsOutput,
-	RowsResult,
 	RyotQLDocument,
 	ScalarExpression,
 	TableReference,
+} from "@ryot-app/contract/modules/ryotql/authored";
+import type {
+	AggregateOrderBy,
+	ColumnExpression,
+	CurrentDateExpression,
+	IncludeResult,
+	JsonElementExpression,
+	LiteralExpression,
+	PluginIdExpression,
+	RowsResult,
+	TableReference as BoundTableReference,
 	WildcardSelection,
 } from "@ryot-app/contract/modules/ryotql/language";
+import { RowsPageInfo } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchemaInput } from "@ryot-app/contract/schema/app-schema-inference";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
@@ -55,7 +65,7 @@ type CorrelatedQueryInput = {
 const isNonEmpty = <T>(values: undefined | readonly T[]): values is readonly [T, ...T[]] =>
 	values !== undefined && values.length > 0;
 
-export const table = (tableName: string, alias: string): TableReference => ({
+export const table = (tableName: string, alias: string): BoundTableReference => ({
 	alias,
 	table: tableName,
 });
@@ -165,12 +175,12 @@ export const dateBucket = (
 
 export const localDate = (
 	expr: ScalarExpression,
-	input: { readonly timeZone: string },
+	input: Pick<Extract<ScalarExpression, { type: "localDate" }>, "timeZone">,
 ): Extract<ScalarExpression, { type: "localDate" }> => ({ expr, type: "localDate", ...input });
 
 export const localHour = (
 	expr: ScalarExpression,
-	input: { readonly timeZone: string },
+	input: Pick<Extract<ScalarExpression, { type: "localHour" }>, "timeZone">,
 ): Extract<ScalarExpression, { type: "localHour" }> => ({ expr, type: "localHour", ...input });
 
 export const coalesce = (
@@ -248,8 +258,8 @@ export const neq = (left: ScalarExpression, right: ScalarExpression) =>
 
 export const inArray = (
 	expr: ScalarExpression,
-	values: readonly ScalarExpression[],
-): Predicate => ({ expr, type: "in", values: [...values] });
+	values: ParameterExpression | readonly ScalarExpression[],
+): Predicate => ({ expr, values, type: "in" });
 
 export const contains = (left: ScalarExpression, right: ScalarExpression): Predicate => ({
 	left,
@@ -319,7 +329,7 @@ export const first = (
 	from: TableReference,
 	input: CorrelatedQueryInput & {
 		readonly select: ScalarExpression;
-		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+		readonly orderBy: Ordering | readonly [OrderBy, ...OrderBy[]];
 	},
 ): FirstExpression => ({
 	type: "first",
@@ -341,7 +351,7 @@ export const jsonArrayFirst = (
 	array: ScalarExpression,
 	input: JsonArrayWhereInput & {
 		readonly select: ScalarExpression;
-		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+		readonly orderBy: Ordering | readonly [OrderBy, ...OrderBy[]];
 	},
 ): JsonArrayFirstExpression => ({
 	array,
@@ -409,7 +419,7 @@ export const include = (
 		readonly fields: readonly RowSelection[];
 		readonly joins?: undefined | readonly Join[];
 		readonly include?: undefined | readonly Include[];
-		readonly orderBy: readonly [OrderBy, ...OrderBy[]];
+		readonly orderBy: Ordering | readonly [OrderBy, ...OrderBy[]];
 	},
 ): Include => ({
 	from,
@@ -425,13 +435,13 @@ export const include = (
 export const rows = (
 	from: TableReference,
 	input: {
-		readonly after?: string | undefined;
 		readonly limit?: number | undefined;
+		readonly maxLimit?: number | undefined;
 		readonly where?: Predicate | undefined;
 		readonly fields: readonly RowSelection[];
 		readonly joins?: undefined | readonly Join[];
 		readonly include?: undefined | readonly Include[];
-		readonly orderBy?: undefined | readonly OrderBy[];
+		readonly orderBy?: Ordering | undefined | readonly OrderBy[];
 	},
 ): NamedQuery & { readonly output: RowsOutput } => ({
 	from,
@@ -440,9 +450,9 @@ export const rows = (
 	output: {
 		type: "rows",
 		fields: [...input.fields],
-		pagination: { limit: input.limit ?? 20, ...(input.after ? { after: input.after } : {}) },
+		pagination: { limit: input.limit ?? 20, maxLimit: input.maxLimit ?? input.limit ?? 20 },
 		...(isNonEmpty(input.include) ? { include: [...input.include] } : {}),
-		orderBy: input.orderBy ? [...input.orderBy] : [ascending(column(from, "id"))],
+		orderBy: input.orderBy ?? [ascending(column(from, "id"))],
 	},
 });
 
@@ -581,18 +591,7 @@ const decodeIncludePageInfo = (value: unknown, path: string) =>
 		}),
 	);
 
-const decodeRowsPageInfo = (value: unknown) =>
-	Result.flatMap(record(value, "RyotQL rows pageInfo is malformed"), (pageInfo) =>
-		Result.all({
-			limit: decodeValue(pageInfo["limit"], Schema.Int, "pageInfo.limit"),
-			hasMore: decodeValue(pageInfo["hasMore"], Schema.Boolean, "pageInfo.hasMore"),
-			nextCursor: decodeValue(
-				pageInfo["nextCursor"],
-				Schema.NullOr(Schema.String),
-				"pageInfo.nextCursor",
-			),
-		}),
-	);
+const decodeRowsPageInfo = (value: unknown) => decodeValue(value, RowsPageInfo, "rows pageInfo");
 
 const compileIncludes = (includes: undefined | SelectedIncludes) =>
 	includes
@@ -816,91 +815,126 @@ export const selectedInclude = <
 	};
 };
 
-export type PreparedRecipe<Success> = {
+export type Recipe<
+	Success,
+	Parameters extends AppSchema = { readonly fields: {} },
+	Queries extends RecipeQueries = RecipeQueries,
+> = {
+	readonly query?: string;
+	readonly queries: Queries;
+	readonly parameters: Parameters;
 	readonly document: RyotQLDocument;
 	readonly decode: (response: unknown) => Result.Result<Success, unknown>;
 };
 
 type AnySelectedQuery = SelectedQuery<unknown>;
-
-type RecipeQueries = Readonly<Record<string, undefined | AnySelectedQuery>>;
-
+type RecipeQueries = Readonly<Record<string, AnySelectedQuery>>;
 type QueryResults<Queries extends RecipeQueries> = {
-	readonly [Key in keyof Queries]: NonNullable<Queries[Key]> extends SelectedQuery<infer Success>
-		? Success | (undefined extends Queries[Key] ? undefined : never)
+	readonly [Key in keyof Queries]: Queries[Key] extends SelectedQuery<infer Success>
+		? Success
 		: never;
 };
-
 export namespace Recipe {
-	export type Success<Factory> = Factory extends (
-		...input: infer _Input
-	) => PreparedRecipe<infer Decoded>
-		? Decoded
-		: never;
+	export type Success<Value> =
+		Value extends Recipe<infer Decoded, infer _Parameters, infer _Queries> ? Decoded : never;
+	export type Queries<Value> =
+		Value extends Recipe<infer _Success, infer _Parameters, infer Selected>
+			? QueryResults<Selected>
+			: never;
+	export type Arguments<Value> =
+		Value extends Recipe<infer _Decoded, infer Parameters, infer _Queries>
+			? AppSchemaInput<Parameters>
+			: never;
+}
+const decodeResponseData = (response: unknown) =>
+	Result.flatMap(record(response, "RyotQL response is malformed"), (value) =>
+		record(value["data"], "RyotQL response data is malformed"),
+	);
+const decodeNamedQuery = (
+	data: Readonly<Record<string, unknown>>,
+	name: string,
+	query: undefined | AnySelectedQuery,
+) => {
+	if (query === undefined) {
+		return fail(`Unknown recipe query '${name}'`);
+	}
+	const result = data[name];
+	return result === undefined
+		? fail(`RyotQL response is missing named query '${name}'`)
+		: query.decodeResult(result);
+};
+
+type SelectedQuerySuccess<Query> = Query extends SelectedQuery<infer Success> ? Success : never;
+export function selectRecipe<
+	Success,
+	Parameters extends AppSchema,
+	Queries extends RecipeQueries,
+	Name extends string & keyof Queries,
+>(
+	recipe: Recipe<Success, Parameters, Queries>,
+	name: Name,
+): { readonly query: Name } & Recipe<SelectedQuerySuccess<Queries[Name]>, Parameters, Queries>;
+export function selectRecipe<Success, Parameters extends AppSchema, Queries extends RecipeQueries>(
+	recipe: Recipe<Success, Parameters, Queries>,
+	name: string & keyof Queries,
+): Recipe<unknown, Parameters, Queries> {
+	return {
+		...recipe,
+		query: name,
+		decode: (response) =>
+			Result.flatMap(decodeResponseData(response), (data) => {
+				const selected = recipe.queries[name];
+				return decodeNamedQuery(data, name, selected);
+			}),
+	};
 }
 
 export function defineRecipe<
-	const InputTuple extends readonly unknown[],
 	const Queries extends RecipeQueries,
->(
-	builder: (...input: InputTuple) => { readonly map?: never; readonly queries: Queries },
-): (...input: InputTuple) => PreparedRecipe<QueryResults<Queries>>;
+	const Parameters extends AppSchema = { readonly fields: {} },
+>(input: {
+	readonly map?: never;
+	readonly queries: Queries;
+	readonly controls?: Controls;
+	readonly parameters?: Parameters;
+}): Recipe<QueryResults<Queries>, Parameters, Queries>;
 export function defineRecipe<
-	const InputTuple extends readonly unknown[],
 	const Queries extends RecipeQueries,
 	Success,
->(
-	builder: (...input: InputTuple) => {
-		readonly queries: Queries;
-		readonly map: (queries: QueryResults<Queries>) => Result.Result<Success, unknown>;
-	},
-): (...input: InputTuple) => PreparedRecipe<Success>;
-export function defineRecipe<
-	const InputTuple extends readonly unknown[],
-	const Queries extends RecipeQueries,
->(
-	builder: (...input: InputTuple) => {
-		readonly queries: Queries;
-		readonly map?: (queries: QueryResults<Queries>) => Result.Result<unknown, unknown>;
-	},
-): (...input: InputTuple) => PreparedRecipe<unknown> {
-	return (...input: InputTuple) => {
-		const { map, queries } = builder(...input);
-		return {
-			document: document(
-				Object.fromEntries(
-					Object.entries(queries).flatMap(([name, query]) =>
-						query === undefined ? [] : [[name, query.document] as const],
-					),
-				),
+	const Parameters extends AppSchema = { readonly fields: {} },
+>(input: {
+	readonly queries: Queries;
+	readonly controls?: Controls;
+	readonly parameters?: Parameters;
+	readonly map: (queries: QueryResults<Queries>) => Result.Result<Success, unknown>;
+}): Recipe<Success, Parameters, Queries>;
+export function defineRecipe<const Queries extends RecipeQueries>(input: {
+	readonly queries: Queries;
+	readonly controls?: Controls;
+	readonly parameters?: AppSchema;
+	readonly map?: (queries: QueryResults<Queries>) => Result.Result<unknown, unknown>;
+}): Recipe<unknown, AppSchema, Queries> {
+	const { map, queries, controls, parameters = { fields: {} } } = input;
+	return {
+		queries,
+		parameters,
+		document: {
+			...document(
+				Object.fromEntries(Object.entries(queries).map(([name, query]) => [name, query.document])),
 			),
-			decode: (response: unknown) => {
-				return Result.flatMap(record(response, "RyotQL response is malformed"), (decodedResponse) =>
-					Result.flatMap(
-						record(decodedResponse["data"], "RyotQL response data is malformed"),
-						(data) => {
-							const decodedQueries = Object.entries(queries).map(([name, query]) => {
-								if (query === undefined) {
-									return Result.succeed([name, undefined] as const);
-								}
-								const result = data[name];
-								if (result === undefined) {
-									return Result.fail(new Error(`RyotQL response is missing named query '${name}'`));
-								}
-								return Result.map(
-									query.decodeResult(result),
-									(decoded) => [name, decoded] as const,
-								);
-							});
-							return Result.flatMap(Result.all(decodedQueries), (entries) => {
-								const decoded = fromEntries<QueryResults<Queries>>(entries);
-								return map ? map(decoded) : Result.succeed(decoded);
-							});
-						},
-					),
+			parameters,
+			...(controls === undefined ? {} : { controls }),
+		},
+		decode: (response: unknown) =>
+			Result.flatMap(decodeResponseData(response), (data) => {
+				const decodedQueries = Object.entries(queries).map(([name, query]) =>
+					Result.map(decodeNamedQuery(data, name, query), (decoded) => [name, decoded] as const),
 				);
-			},
-		};
+				return Result.flatMap(Result.all(decodedQueries), (entries) => {
+					const decoded = fromEntries<QueryResults<Queries>>(entries);
+					return map ? map(decoded) : Result.succeed(decoded);
+				});
+			}),
 	};
 }
 
@@ -908,12 +942,13 @@ export const aggregate = (
 	from: TableReference,
 	input: {
 		readonly limit?: number | undefined;
-		readonly after?: string | undefined;
+		readonly maxLimit?: number | undefined;
 		readonly where?: Predicate | undefined;
 		readonly joins?: undefined | readonly Join[];
 		readonly groupBy?: undefined | readonly FieldSelection[];
 		readonly measures: readonly [AggregateMeasure, ...AggregateMeasure[]];
-		readonly orderBy?: undefined | readonly [AggregateOrderBy, ...AggregateOrderBy[]];
+		readonly orderBy?:
+			undefined | AggregateOrdering | readonly [AggregateOrderBy, ...AggregateOrderBy[]];
 	},
 ): NamedQuery & { readonly output: AggregateOutput } => ({
 	from,
@@ -922,10 +957,10 @@ export const aggregate = (
 	output: {
 		type: "aggregate",
 		measures: input.measures,
-		...(input.limit !== undefined ? { limit: input.limit } : {}),
-		...(input.after !== undefined ? { after: input.after } : {}),
+		limit: input.limit ?? 20,
+		maxLimit: input.maxLimit ?? input.limit ?? 20,
 		...(input.groupBy && input.groupBy.length > 0 ? { groupBy: [...input.groupBy] } : {}),
-		...(input.orderBy && input.orderBy.length > 0 ? { orderBy: input.orderBy } : {}),
+		...(input.orderBy ? { orderBy: input.orderBy } : {}),
 	},
 });
 
@@ -970,10 +1005,10 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
-	readonly measures: Measures;
-	readonly groupBy?: undefined;
-};
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = { readonly measures: Measures; readonly groupBy?: undefined } & Omit<
+	Parameters<typeof aggregate>[1],
+	"groupBy" | "measures"
+>;
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,

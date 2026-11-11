@@ -80,7 +80,7 @@ describe("filter schemas", () => {
 		).toBe(false);
 	});
 
-	it("keeps filterFields optional on results tables and rejects them on entity browsers", () => {
+	it("declares renderer controls without accepting embedded filter field definitions", () => {
 		const table = {
 			pageSize: 10,
 			entityLink: null,
@@ -90,11 +90,16 @@ describe("filter schemas", () => {
 		};
 		const field = { key: "id", label: "Id", field: "id", type: "text", kind: "value" };
 		expect(decodes(ResultsTableSavedViewSettings, table)).toBe(true);
-		expect(decodes(ResultsTableSavedViewSettings, { ...table, filterFields: [field] })).toBe(true);
+		expect(
+			decodes(ResultsTableSavedViewSettings, {
+				...table,
+				controls: { filter: true, search: "search" },
+			}),
+		).toBe(true);
+		expect(decodes(ResultsTableSavedViewSettings, { ...table, filterFields: [field] })).toBe(false);
 		const browser = {
 			pageSize: 10,
 			addAction: null,
-			searchFields: [],
 			layouts: ["grid"],
 			tableColumns: null,
 			sourceName: "rows",

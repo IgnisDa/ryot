@@ -8,7 +8,8 @@ export const TimeZone = Schema.String.check(
 ).pipe(Schema.brand("TimeZone"));
 export type TimeZone = typeof TimeZone.Type;
 
-export const UTC = TimeZone.make("UTC");
+// Importing this module must not create Intl handles retained by sandbox snapshots.
+export const UTC = Schema.Literal("UTC").pipe(Schema.brand("TimeZone")).make("UTC");
 
 export const deviceTimeZone = (
 	read: () => string | undefined = () => Intl.DateTimeFormat().resolvedOptions().timeZone,

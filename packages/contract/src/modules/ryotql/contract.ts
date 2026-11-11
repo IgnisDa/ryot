@@ -3,10 +3,16 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 
 import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
+import { DemoAccessPolicy } from "../../http-annotations";
 import { PluginIdentityReference } from "../plugins/references";
-import { RyotQLDocument, RyotQLResponse } from "./language";
+import { RyotQLResponse } from "./language";
+import { DescribeRequest, DescribeResponse, ExecutionRequest } from "./request";
 
 const RyotQLBadRequestReason = Schema.Union([
+	Schema.Struct({
+		code: Schema.Literal("source-unavailable"),
+		kind: Schema.Literals(["inline", "savedView", "plugin", "page"]),
+	}),
 	Schema.Struct({ code: Schema.Literal("invalid-query") }),
 	Schema.Struct({
 		reference: PluginIdentityReference,
@@ -38,8 +44,8 @@ export class RyotQLInternalError extends Schema.TaggedError<
 }) {}
 
 const execution = {
-	payload: RyotQLDocument,
 	success: RyotQLResponse,
+	payload: ExecutionRequest,
 	error: [
 		RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
 		RyotQLInternalError.pipe(HttpApiSchema.status(500)),
@@ -64,9 +70,45 @@ export const RyotQLGroup = HttpApiGroup.make("ryotql")
 			"Execute a RyotQL document on behalf of a client plugin, limited to plugin-readable tables and fields.",
 		),
 	)
+	.add(
+		HttpApiEndpoint.post("describe", "/ryotql/describe", {
+			...execution,
+			payload: DescribeRequest,
+			success: DescribeResponse,
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(
+				OpenApi.Description,
+				"Describe query parameters and controls under the caller’s read visibility.",
+			),
+	)
+	.add(
+		HttpApiEndpoint.post("describePlugin", "/ryotql/plugin/describe", {
+			...execution,
+			payload: DescribeRequest,
+			success: DescribeResponse,
+		})
+			.annotate(DemoAccessPolicy, "allowed")
+			.annotate(
+				OpenApi.Description,
+				"Describe query parameters and controls under the caller’s read visibility.",
+			),
+	)
 	.middleware(AuthMiddleware);
 
 export const AdminRyotQLGroup = HttpApiGroup.make("adminRyotql")
+	.add(
+		HttpApiEndpoint.post("describe", "/instance-admin/ryotql/describe", {
+			...execution,
+			payload: DescribeRequest,
+			success: DescribeResponse,
+		})
+			.middleware(AdminMiddleware)
+			.annotate(
+				OpenApi.Description,
+				"Describe query parameters and controls with administrative visibility.",
+			),
+	)
 	.annotate(OpenApi.Description, "Execute administrative relational reads across all users.")
 	.add(
 		HttpApiEndpoint.post("execute", "/instance-admin/ryotql/execute", execution)

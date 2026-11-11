@@ -56,12 +56,14 @@ describe("row source queries", () => {
 		const orderBy = [
 			{ direction: "asc", expr: { type: "column", field: "createdAt", tableAlias: "entity" } },
 		] as const;
-		expect(rowSourceNamedQuery(query, { orderBy, pagination: { limit: 100 } })).toEqual({
+		expect(
+			rowSourceNamedQuery(query, { orderBy, pagination: { limit: 100, maxLimit: 100 } }),
+		).toEqual({
 			...query,
-			output: { ...query.output, orderBy, pagination: { limit: 100 } },
+			output: { ...query.output, orderBy, pagination: { limit: 100, maxLimit: 100 } },
 		});
 		expect(Object.values(rowSourceDocument(query).queries)).toEqual([
-			{ ...query, output: { ...query.output, orderBy: [], pagination: { limit: 1 } } },
+			{ ...query, output: { ...query.output, orderBy: [], pagination: { limit: 1, maxLimit: 1 } } },
 		]);
 	});
 });

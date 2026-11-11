@@ -1,11 +1,11 @@
 import { Schema } from "effect";
 
-import { EntityId, PublicationId, PublicationLinkId } from "../../schema/brands";
+import { PublicationId, PublicationLinkId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 import { ClientPageCodeContributor } from "../pages/schemas";
-import { SavedViewReference } from "../plugins/references";
-import { NamedQuery, RyotQLDocument } from "../ryotql/language";
+import { RyotQLDocument } from "../ryotql/authored";
+import { EntitySourceReference } from "../ryotql/entity-source";
 
 export const PUBLICATION_SUBJECT_LIMIT = 5000;
 export const PUBLICATION_SESSION_HEADER = "x-ryot-publication-session";
@@ -13,16 +13,7 @@ export const PUBLICATION_SESSION_HEADER = "x-ryot-publication-session";
 const boundedText = (maxLength: number) =>
 	Schema.String.pipe(Schema.check(Schema.isMaxLength(maxLength)));
 
-export const PublicationScope = strictStruct({
-	query: NamedQuery,
-	subjectAlias: Schema.NonEmptyString,
-});
-export type PublicationScope = typeof PublicationScope.Type;
-
-export const PublicationSource = Schema.Union([
-	strictStruct({ collectionId: EntityId, kind: Schema.Literal("collection") }),
-	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
-]);
+export const PublicationSource = EntitySourceReference;
 export type PublicationSource = typeof PublicationSource.Type;
 
 const PublicationDetailsFields = {

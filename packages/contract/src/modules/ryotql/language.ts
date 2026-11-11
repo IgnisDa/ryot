@@ -1,8 +1,11 @@
 import { Function, Schema } from "effect";
 
 import { JsonValue } from "../../schema/json";
+import { TimeZone } from "../../schema/time-zone";
 import { strictStruct } from "../../schema/utils";
 import { PluginIdentityReference } from "../plugins/references";
+import type { CastTarget, JsonPath, TransformName } from "./grammar";
+import { DateBucketUnit, scalarOperations } from "./grammar";
 
 export const TableReference = strictStruct({ alias: Schema.String, table: Schema.String }).annotate(
 	{ identifier: "RyotQLTableReference" },
@@ -27,12 +30,6 @@ export const PluginIdExpression = strictStruct({
 	reference: PluginIdentityReference,
 }).annotate({ identifier: "RyotQLPluginIdExpression" });
 export type PluginIdExpression = typeof PluginIdExpression.Type;
-
-const JsonPathSegment = Schema.Union([Schema.String, Schema.Finite]);
-const CastTarget = Schema.Literals(["boolean", "date", "json", "number", "text"]);
-const JsonPath = Schema.NonEmptyArray(JsonPathSegment);
-const TransformName = Schema.Literals(["kebabCase", "titleCase"]);
-const DateBucketUnit = Schema.Literals(["hour", "day", "week", "month", "year"]);
 
 export type JsonElementExpression = { readonly type: "jsonElement" };
 
@@ -128,6 +125,12 @@ export type ScalarExpression =
 			readonly whenFalse: ScalarExpression;
 	  }
 	| {
+			readonly amount: number;
+			readonly type: "dateAdd";
+			readonly expr: ScalarExpression;
+			readonly unit: "day" | "hour" | "week" | "year" | "month";
+	  }
+	| {
 			readonly type: "first";
 			readonly select: ScalarExpression;
 			readonly query: CorrelatedQuerySet;
@@ -173,6 +176,12 @@ export const CurrentDateExpression: Schema.Codec<CurrentDateExpression, unknown>
 
 export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.suspend(() =>
 	Schema.Union([
+		strictStruct({
+			unit: DateBucketUnit,
+			amount: Schema.Finite,
+			expr: ScalarExpression,
+			type: Schema.Literal("dateAdd"),
+		}),
 		ColumnExpression,
 		LiteralExpression,
 		PluginIdExpression,
@@ -182,63 +191,14 @@ export const ScalarExpression: Schema.Codec<ScalarExpression, unknown> = Schema.
 		JsonArrayExistsExpression,
 		JsonArrayFirstExpression,
 		JsonArrayCountExpression,
-		strictStruct({
-			type: Schema.Literal("coalesce"),
-			values: Schema.NonEmptyArray(ScalarExpression),
-		}),
-		strictStruct({
-			type: Schema.Literal("concat"),
-			values: Schema.NonEmptyArray(ScalarExpression),
-		}),
-		strictStruct({
-			condition: Predicate,
-			whenTrue: ScalarExpression,
-			whenFalse: ScalarExpression,
-			type: Schema.Literal("conditional"),
-		}),
-		strictStruct({ target: CastTarget, expr: ScalarExpression, type: Schema.Literal("cast") }),
-		strictStruct({
-			name: TransformName,
-			expr: ScalarExpression,
-			type: Schema.Literal("transform"),
-		}),
-		strictStruct({ expr: ScalarExpression, type: Schema.Literal("floor") }),
-		strictStruct({ expr: ScalarExpression, type: Schema.Literal("integer") }),
-		strictStruct({ expr: ScalarExpression, type: Schema.Literal("isNotNull") }),
-		strictStruct({ expr: ScalarExpression, type: Schema.Literal("round") }),
-		strictStruct({
-			expr: ScalarExpression,
-			timeZone: Schema.String,
-			type: Schema.Literal("localDate"),
-		}),
-		strictStruct({
-			expr: ScalarExpression,
-			timeZone: Schema.String,
-			type: Schema.Literal("localHour"),
-		}),
-		strictStruct({
-			expr: ScalarExpression,
+		scalarOperations({
+			predicate: Predicate,
 			bucket: DateBucketUnit,
 			timeZone: Schema.String,
-			type: Schema.Literal("dateBucket"),
-		}),
-		strictStruct({ path: JsonPath, expr: ScalarExpression, type: Schema.Literal("jsonPath") }),
-		strictStruct({
 			query: CorrelatedQuerySet,
+			expression: ScalarExpression,
 			aggregation: AggregationSpec,
-			type: Schema.Literal("aggregate"),
-		}),
-		strictStruct({
-			left: ScalarExpression,
-			right: ScalarExpression,
-			type: Schema.Literal("arithmetic"),
-			operator: Schema.Literals(["add", "divide", "multiply", "subtract"]),
-		}),
-		strictStruct({
-			select: ScalarExpression,
-			query: CorrelatedQuerySet,
-			type: Schema.Literal("first"),
-			orderBy: Schema.NonEmptyArray(OrderBy),
+			ordering: Schema.NonEmptyArray(OrderBy),
 		}),
 	]),
 ).annotate({ identifier: "RyotQLScalarExpression" });
@@ -522,6 +482,7 @@ const languageMapper = (mapping: LanguageMapping) => {
 			case "cast":
 			case "floor":
 			case "round":
+			case "dateAdd":
 			case "integer":
 			case "jsonPath":
 			case "isNotNull":
@@ -718,7 +679,9 @@ const ResultValue: Schema.Codec<unknown, unknown> = Schema.suspend(() =>
 export const RowsPageInfo = strictStruct({
 	limit: Schema.Int,
 	hasMore: Schema.Boolean,
+	stale: Schema.optional(Schema.Boolean),
 	nextCursor: Schema.NullOr(Schema.String),
+	sourceRevisions: Schema.optional(Schema.Record(Schema.String, Schema.Int)),
 }).annotate({ identifier: "RyotQLRowsPageInfo" });
 
 export const rowsResultSchema = <A, I>(item: Schema.Codec<A, I>) =>
@@ -741,7 +704,11 @@ export const RyotQLResult = Schema.Union([RowsResult, AggregateResult]).annotate
 });
 export type RyotQLResult = typeof RyotQLResult.Type;
 
+export const QueryExecution = strictStruct({ now: Schema.Finite, timeZone: TimeZone });
+export type QueryExecution = typeof QueryExecution.Type;
+
 export const RyotQLResponse = strictStruct({
+	execution: Schema.optionalKey(QueryExecution),
 	data: Schema.Record(Schema.String, RyotQLResult),
 }).annotate({ identifier: "RyotQLResponse" });
 export type RyotQLResponse = typeof RyotQLResponse.Type;

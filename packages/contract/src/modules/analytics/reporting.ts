@@ -184,11 +184,12 @@ export const selectionForPeriod = (
 
 export type Reported<Data> = Data & { readonly reporting: ReportingExecution };
 
-/** `selection` pins the resolved current period so later pages and drills ignore clock movement. */
+/** `selection` pins drills; `requestedSelection` preserves cursor arguments. */
 export type ReportingExecution = {
 	readonly now: number;
 	readonly selection: ReportingSelection;
 	readonly resolved: ResolvedReportingSelection;
+	readonly requestedSelection: ReportingSelection;
 };
 
 export const reportingExecution = (
@@ -199,6 +200,7 @@ export const reportingExecution = (
 	return {
 		resolved,
 		now: input.now,
+		requestedSelection: selection,
 		selection: selectionForPeriod({ ...selection, grouping: resolved.grouping }, resolved.current),
 	};
 };

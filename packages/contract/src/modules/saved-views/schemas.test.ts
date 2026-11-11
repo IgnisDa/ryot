@@ -20,7 +20,7 @@ const browserSettings = {
 	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "entities",
-	searchFields: ["name"],
+	controls: { search: "search" },
 	summary: { image: null, subtitle: null },
 	subject: {
 		entityAlias: "entity",
@@ -96,8 +96,8 @@ describe("saved-view schemas", () => {
 					pageSize: 25,
 					sourceName: "entities",
 					defaultLayout: "table",
-					searchFields: ["name"],
 					layouts: ["grid", "table"],
+					controls: { search: "search" },
 					summary: { image: null, subtitle: null },
 					tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
 					subject: {

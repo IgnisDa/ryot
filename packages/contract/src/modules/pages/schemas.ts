@@ -13,7 +13,7 @@ import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
 import { PluginClientDependencies } from "../plugins/manifest";
 import { PluginPackageReference, SavedViewReference } from "../plugins/references";
-import { RyotQLDocument } from "../ryotql/language";
+import { RyotQLDocument } from "../ryotql/authored";
 
 export const ClientRendererFile = strictStruct({ path: Schema.String, content: CanonicalBase64 });
 

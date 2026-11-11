@@ -14,7 +14,8 @@ import type { PublicationId } from "../../schema/brands";
 import { DownloadResolutionInput, DownloadResolutionResponse } from "../assets/schemas";
 import { ClientCompositionDocument } from "../pages/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "../ryotql/contract";
-import { RyotQLDocument, RyotQLResponse } from "../ryotql/language";
+import { RyotQLResponse } from "../ryotql/language";
+import { DescribeRequest, DescribeResponse, ExecutionRequest } from "../ryotql/request";
 import {
 	CreatePublicationBody,
 	CreatePublicationLinkBody,
@@ -163,8 +164,8 @@ export const PublicationVisitsGroup = HttpApiGroup.make("publicationVisits")
 	)
 	.add(
 		HttpApiEndpoint.post("ryotql", "/publications/visit/ryotql", {
-			payload: RyotQLDocument,
 			success: RyotQLResponse,
+			payload: ExecutionRequest,
 			error: [
 				...visitorErrors,
 				RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
@@ -175,6 +176,22 @@ export const PublicationVisitsGroup = HttpApiGroup.make("publicationVisits")
 			.annotate(
 				OpenApi.Description,
 				"Reads published rows; only the published subjects are visible",
+			),
+	)
+	.add(
+		HttpApiEndpoint.post("describe", "/publications/visit/ryotql/describe", {
+			payload: DescribeRequest,
+			success: DescribeResponse,
+			error: [
+				...visitorErrors,
+				RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
+				RyotQLInternalError.pipe(HttpApiSchema.status(500)),
+			],
+		})
+			.middleware(PublicationMiddleware)
+			.annotate(
+				OpenApi.Description,
+				"Describe query parameters and controls under publication visibility.",
 			),
 	)
 	.add(
