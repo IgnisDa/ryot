@@ -93,6 +93,20 @@ behavior lives in [`@ryot-app/plugin-client-sdk`](../../packages/plugin-client-s
 interaction rules live in
 [`@ryot-app/plugin-ui-sdk`](../../packages/plugin-ui-sdk/README.md).
 
+## Page Authoring
+
+Settings → Pages uses the owner-scoped `pagesRecipe` and `pageRecipe` through shared Ryot queries.
+`modules/page-authoring` owns source upload/paste and definition inputs, revision-fenced draft
+replacement, compile diagnostics, publishing, owner write grants, deletion and page saved-view
+creation. Files remain canonical base64 bytes, including uploaded assets. There is no full editor,
+settings schema, or saved-view query binding; page code supplies query values.
+
+Local definition changes clear the preview selection. Compile uses the saved draft revision; its
+metadata supplies the exact `PageDraftBuildIdentity` to `/page-preview/$pageId`. That route prepares
+and publishes through the existing client-page document host. Preview authority is always read-only.
+A stale revision blocks further save/compile/publish until the user explicitly reloads and discards
+local changes. Published page views use the regular saved-view route and navigation.
+
 ## Application Services
 
 `AuthenticatedApi` and `AdminApi` are the only services that run contract programs, and `ClientLive`
@@ -381,3 +395,20 @@ bun run sync             # build and copy the web bundle into native projects
 bun run ios              # sync and run the iOS Debug variant
 bun run android          # sync and run the Android Debug variant
 ```
+
+### Authored Page Authority
+
+The bridge session applies the prepared page renderer's authority to every contributor in the iframe.
+It rejects query and describe sources except the current page's named queries. Draft previews must
+match the exact compiled revision, definition hash and artifact hash; the bridge binds execution to
+that prepared source. Page query values remain authored client inputs.
+
+Draft operation calls always fail with `page-write-access-required`. Published calls require the
+prepared grant and send only the host-derived `PageOperationAuthority` to the operation endpoint.
+Background reservations retain this authority on their target and resend it for every attempt,
+including tray retries. A server refusal settles the submission without offering a retry.
+
+The session refuses direct entity/collection writes, enrichment, uploads and calendar visibility
+changes from page frames, and closes mutation screens without opening them. These rules apply to
+imported plugins too. Ordinary plugin frames retain their capabilities. The preview route
+`/_authenticated/page-preview/$pageId` uses the same document host and bridge lifecycle.

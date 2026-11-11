@@ -372,7 +372,10 @@ export const makeProviderAddStub = (overrides: Partial<ProviderAddService["Servi
 export const ProviderAddRouteStubs = makeProviderAddStub();
 
 export const preparePluginPage = (
-	target: Exclude<PreparedClientPage["identity"]["target"], { readonly kind: "saved-view" }>,
+	target: Exclude<
+		PreparedClientPage["identity"]["target"],
+		{ readonly kind: "saved-view" | "page-preview" }
+	>,
 ): PreparedClientPage => {
 	const pluginId = PluginId.make("plugin-1");
 	const packageId = PluginPackageId.make("test/plugin-1");
@@ -461,11 +464,17 @@ export const clientCompositionDocument = (
 });
 
 export const PagesApiRouteStubs = Layer.succeed(PagesApi, {
+	create: () => Effect.die("not used"),
+	delete: () => Effect.die("not used"),
+	compile: () => Effect.die("not used"),
+	publish: () => Effect.die("not used"),
+	replaceDraft: () => Effect.die("not used"),
+	setWriteAccess: () => Effect.die("not used"),
 	checkFreshness: () => Effect.succeed({ current: true }),
 	document: (_scope, request) =>
 		Effect.succeed(clientCompositionDocument(request.payload.identity.compositionHash)),
 	prepare: (_scope, request) =>
-		request.payload.target.kind === "saved-view"
+		request.payload.target.kind === "saved-view" || request.payload.target.kind === "page-preview"
 			? Effect.die("not used")
 			: Effect.succeed(preparePluginPage(request.payload.target)),
 });

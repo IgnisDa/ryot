@@ -68,7 +68,7 @@ export const makeCalendarSourcesApi = (overrides: Partial<CalendarSourcesApi["Se
 	Layer.succeed(CalendarSourcesApi, { setVisibility: unused, ...overrides });
 
 export const makeSavedViewsApi = (overrides: Partial<SavedViewsApi["Service"]> = {}) =>
-	Layer.succeed(SavedViewsApi, { update: unused, reorder: unused, ...overrides });
+	Layer.succeed(SavedViewsApi, { create: unused, update: unused, reorder: unused, ...overrides });
 
 export const makePluginInstallationsApi = (
 	overrides: Partial<PluginInstallationsApi["Service"]> = {},

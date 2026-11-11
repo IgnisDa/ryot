@@ -14,8 +14,24 @@ export class PagesApi extends Context.Service<PagesApi>()(
 					api.run(scope, (client) => client.pages.prepare(request)),
 				document: (scope: ApiScope, request: ContractRequest<"pages", "document">) =>
 					api.run(scope, (client) => client.pages.document(request)),
+				create: (scope: ApiScope, request: ContractRequest<"pageAuthoring", "create">) =>
+					api.run(scope, (client) => client.pageAuthoring.create(request)),
+				delete: (scope: ApiScope, request: ContractRequest<"pageAuthoring", "delete">) =>
+					api.run(scope, (client) => client.pageAuthoring.delete(request)),
+				compile: (scope: ApiScope, request: ContractRequest<"pageAuthoring", "compile">) =>
+					api.run(scope, (client) => client.pageAuthoring.compile(request)),
+				publish: (scope: ApiScope, request: ContractRequest<"pageAuthoring", "publish">) =>
+					api.run(scope, (client) => client.pageAuthoring.publish(request)),
 				checkFreshness: (scope: ApiScope, request: ContractRequest<"pages", "checkFreshness">) =>
 					api.run(scope, (client) => client.pages.checkFreshness(request)),
+				replaceDraft: (
+					scope: ApiScope,
+					request: ContractRequest<"pageAuthoring", "replaceDraft">,
+				) => api.run(scope, (client) => client.pageAuthoring.replaceDraft(request)),
+				setWriteAccess: (
+					scope: ApiScope,
+					request: ContractRequest<"pageAuthoring", "setWriteAccess">,
+				) => api.run(scope, (client) => client.pageAuthoring.setWriteAccess(request)),
 			};
 		}),
 	},

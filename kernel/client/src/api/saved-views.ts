@@ -10,6 +10,8 @@ export class SavedViewsApi extends Context.Service<SavedViewsApi>()(
 		make: Effect.gen(function* () {
 			const api = yield* AuthenticatedApi;
 			return {
+				create: (scope: ApiScope, request: ContractRequest<"savedViews", "create">) =>
+					api.run(scope, (client) => client.savedViews.create(request)),
 				update: (scope: ApiScope, request: ContractRequest<"savedViews", "update">) =>
 					api.run(scope, (client) => client.savedViews.update(request)),
 				reorder: (scope: ApiScope, request: ContractRequest<"savedViews", "reorder">) =>

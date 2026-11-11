@@ -30,6 +30,7 @@ import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as OauthTwoFactorRouteImport } from './routes/oauth.two-factor'
 import { Route as SharePublicationIdRouteImport } from './routes/share.$publicationId'
 import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
+import { Route as AuthenticatedPagePreviewPageIdRouteImport } from './routes/_authenticated/page-preview/$pageId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
 import { Route as AuthenticatedSettingsAboutRouteImport } from './routes/_authenticated/settings/about'
@@ -38,6 +39,7 @@ import { Route as AuthenticatedSettingsAdministrationRouteImport } from './route
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
 import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
+import { Route as AuthenticatedSettingsPagesRouteImport } from './routes/_authenticated/settings/pages'
 import { Route as AuthenticatedSettingsPluginsRouteImport } from './routes/_authenticated/settings/plugins'
 import { Route as AuthenticatedSettingsPreferencesRouteImport } from './routes/_authenticated/settings/preferences'
 import { Route as AuthenticatedSettingsPublicationsRouteImport } from './routes/_authenticated/settings/publications'
@@ -163,6 +165,12 @@ const AuthenticatedEEntityIdRoute = AuthenticatedEEntityIdRouteImport.update({
   path: '/e/$entityId',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPagePreviewPageIdRoute =
+  AuthenticatedPagePreviewPageIdRouteImport.update({
+    id: '/page-preview/$pageId',
+    path: '/page-preview/$pageId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsIndexRoute =
   AuthenticatedSettingsIndexRouteImport.update({
     id: '/',
@@ -209,6 +217,12 @@ const AuthenticatedSettingsOauthReturnRoute =
   AuthenticatedSettingsOauthReturnRouteImport.update({
     id: '/oauth-return',
     path: '/oauth-return',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsPagesRoute =
+  AuthenticatedSettingsPagesRouteImport.update({
+    id: '/pages',
+    path: '/pages',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsPluginsRoute =
@@ -333,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/share/$publicationId': typeof SharePublicationIdRoute
   '/instance-admin/': typeof InstanceAdminIndexRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
+  '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -340,6 +355,7 @@ export interface FileRoutesByFullPath {
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
+  '/settings/pages': typeof AuthenticatedSettingsPagesRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
@@ -378,6 +394,7 @@ export interface FileRoutesByTo {
   '/': typeof AuthenticatedIndexRoute
   '/instance-admin': typeof InstanceAdminIndexRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
+  '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -385,6 +402,7 @@ export interface FileRoutesByTo {
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
+  '/settings/pages': typeof AuthenticatedSettingsPagesRoute
   '/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
@@ -426,6 +444,7 @@ export interface FileRoutesById {
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/instance-admin/': typeof InstanceAdminIndexRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
+  '/_authenticated/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
   '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
@@ -433,6 +452,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
+  '/_authenticated/settings/pages': typeof AuthenticatedSettingsPagesRoute
   '/_authenticated/settings/plugins': typeof AuthenticatedSettingsPluginsRoute
   '/_authenticated/settings/preferences': typeof AuthenticatedSettingsPreferencesRoute
   '/_authenticated/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
@@ -475,6 +495,7 @@ export interface FileRouteTypes {
     | '/share/$publicationId'
     | '/instance-admin/'
     | '/e/$entityId'
+    | '/page-preview/$pageId'
     | '/settings/$'
     | '/settings/about'
     | '/settings/account'
@@ -482,6 +503,7 @@ export interface FileRouteTypes {
     | '/settings/backups'
     | '/settings/notification-channels'
     | '/settings/oauth-return'
+    | '/settings/pages'
     | '/settings/plugins'
     | '/settings/preferences'
     | '/settings/publications'
@@ -520,6 +542,7 @@ export interface FileRouteTypes {
     | '/'
     | '/instance-admin'
     | '/e/$entityId'
+    | '/page-preview/$pageId'
     | '/settings/$'
     | '/settings/about'
     | '/settings/account'
@@ -527,6 +550,7 @@ export interface FileRouteTypes {
     | '/settings/backups'
     | '/settings/notification-channels'
     | '/settings/oauth-return'
+    | '/settings/pages'
     | '/settings/plugins'
     | '/settings/preferences'
     | '/settings/publications'
@@ -567,6 +591,7 @@ export interface FileRouteTypes {
     | '/_authenticated/'
     | '/instance-admin/'
     | '/_authenticated/e/$entityId'
+    | '/_authenticated/page-preview/$pageId'
     | '/_authenticated/settings/$'
     | '/_authenticated/settings/about'
     | '/_authenticated/settings/account'
@@ -574,6 +599,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
     | '/_authenticated/settings/oauth-return'
+    | '/_authenticated/settings/pages'
     | '/_authenticated/settings/plugins'
     | '/_authenticated/settings/preferences'
     | '/_authenticated/settings/publications'
@@ -760,6 +786,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedEEntityIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/page-preview/$pageId': {
+      id: '/_authenticated/page-preview/$pageId'
+      path: '/page-preview/$pageId'
+      fullPath: '/page-preview/$pageId'
+      preLoaderRoute: typeof AuthenticatedPagePreviewPageIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/': {
       id: '/_authenticated/settings/'
       path: '/'
@@ -814,6 +847,13 @@ declare module '@tanstack/react-router' {
       path: '/oauth-return'
       fullPath: '/settings/oauth-return'
       preLoaderRoute: typeof AuthenticatedSettingsOauthReturnRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/pages': {
+      id: '/_authenticated/settings/pages'
+      path: '/pages'
+      fullPath: '/settings/pages'
+      preLoaderRoute: typeof AuthenticatedSettingsPagesRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/plugins': {
@@ -946,6 +986,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
   AuthenticatedSettingsOauthReturnRoute: typeof AuthenticatedSettingsOauthReturnRoute
+  AuthenticatedSettingsPagesRoute: typeof AuthenticatedSettingsPagesRoute
   AuthenticatedSettingsPluginsRoute: typeof AuthenticatedSettingsPluginsRoute
   AuthenticatedSettingsPreferencesRoute: typeof AuthenticatedSettingsPreferencesRoute
   AuthenticatedSettingsPublicationsRoute: typeof AuthenticatedSettingsPublicationsRoute
@@ -971,6 +1012,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
       AuthenticatedSettingsNotificationChannelsRoute,
     AuthenticatedSettingsOauthReturnRoute:
       AuthenticatedSettingsOauthReturnRoute,
+    AuthenticatedSettingsPagesRoute: AuthenticatedSettingsPagesRoute,
     AuthenticatedSettingsPluginsRoute: AuthenticatedSettingsPluginsRoute,
     AuthenticatedSettingsPreferencesRoute:
       AuthenticatedSettingsPreferencesRoute,
@@ -1020,6 +1062,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
+  AuthenticatedPagePreviewPageIdRoute: typeof AuthenticatedPagePreviewPageIdRoute
   AuthenticatedPPublisherNameRouteRoute: typeof AuthenticatedPPublisherNameRouteRouteWithChildren
   AuthenticatedVCSavedViewIdRoute: typeof AuthenticatedVCSavedViewIdRoute
   AuthenticatedVKSlugRoute: typeof AuthenticatedVKSlugRoute
@@ -1031,6 +1074,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
+  AuthenticatedPagePreviewPageIdRoute: AuthenticatedPagePreviewPageIdRoute,
   AuthenticatedPPublisherNameRouteRoute:
     AuthenticatedPPublisherNameRouteRouteWithChildren,
   AuthenticatedVCSavedViewIdRoute: AuthenticatedVCSavedViewIdRoute,

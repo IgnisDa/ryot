@@ -84,7 +84,7 @@ import {
 } from "#/routes/-route-fixtures";
 
 const preparedFor = (
-	target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>,
+	target: Exclude<ClientPageTarget, { readonly kind: "saved-view" | "page-preview" }>,
 	pluginId = "plugin-1",
 ): PreparedClientPage => {
 	const packageId = PluginPackageId.make(`test/${pluginId}`);
@@ -228,6 +228,9 @@ function mount(options: {
 		((_scope, request) => {
 			targets.push(request.payload.target);
 			const target = request.payload.target;
+			if (target.kind === "page-preview") {
+				return Effect.die("Preview is not used by this fixture");
+			}
 			if (target.kind === "saved-view") {
 				return Effect.succeed(
 					preparedSavedView(
@@ -289,6 +292,12 @@ function mount(options: {
 			Layer.succeed(PagesApi, {
 				prepare,
 				document: loadDocument,
+				create: () => Effect.die("not used"),
+				delete: () => Effect.die("not used"),
+				compile: () => Effect.die("not used"),
+				publish: () => Effect.die("not used"),
+				replaceDraft: () => Effect.die("not used"),
+				setWriteAccess: () => Effect.die("not used"),
 				checkFreshness: () => Effect.succeed({ current: true }),
 			}),
 			Layer.succeed(ClientPageFreshness, { check: options.check ?? (() => Effect.succeed(true)) }),
@@ -1772,6 +1781,9 @@ describe("client page routes", () => {
 					entry: "/p/test/plugin-1/details/one",
 					prepare: (_scope, request) => {
 						const target = request.payload.target;
+						if (target.kind === "page-preview") {
+							return Effect.die("Preview is not used by this fixture");
+						}
 						if (target.kind === "saved-view") {
 							return Effect.succeed(
 								preparedSavedView(

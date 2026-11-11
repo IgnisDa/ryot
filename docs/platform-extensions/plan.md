@@ -370,6 +370,16 @@ user-owned rows in `saved_view`.
   - Publish, the write-access grant, and creating a saved view for the page.
 - Ryobot covers most authoring.
 
+**Accepted client decisions and current implementation.** Settings → Pages provides an owner page
+list and details through the page RyotQL recipes, source-file upload/paste with byte-preserving
+base64 assets, entry/dependency/query-document inputs, fenced draft saving, compilation diagnostics,
+publishing, write-access grant/revoke, deletion and creation of a saved view of the published page.
+Draft preview uses the shared client-page document host with its compiled revision, definition hash
+and artifact hash. Local definition edits invalidate preview; revision conflicts require an explicit
+reload, never an automatic overwrite. Preview is always read-only, including after an owner grant.
+Page code controls query values; page saved views have no per-view bindings, settings schema or data
+sources. Demo sessions cannot run page mutations.
+
 **Backups.** Pages export their draft and published definitions with the published artifact bytes,
 like private plugin archives, so restore needs no compiler. Saved-view and publication page
 references are remapped on restore.
