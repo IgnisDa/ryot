@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import { mediaReviewableOccurrencesRecipe, mediaReviewLinksRecipe } from "./review-link-recipes";
@@ -38,7 +38,9 @@ const review = {
 
 describe("review link recipes", () => {
 	it("resolves named occurrences and the reviews that name them in one plugin-owned document", () => {
-		const recipe = mediaReviewLinksRecipe({ reference, eventIds: [occurrence.id, review.id] });
+		const recipe = bindRecipe(mediaReviewLinksRecipe({ reference: reference }), {
+			eventIds: [occurrence.id, review.id],
+		});
 		expect(validateRyotQLDocument(recipe.document, { type: "plugin" }).error).toBeNull();
 		const nodes = ryotqlDocumentNodes(recipe.document.queries["reviews"]);
 		expect(nodes).toContainEqual({ type: "literal", value: "review" });
@@ -58,7 +60,10 @@ describe("review link recipes", () => {
 	});
 
 	it("lists an entity's recent occurrences newest first", () => {
-		const recipe = mediaReviewableOccurrencesRecipe({ reference, limit: 20, entityId: "media-1" });
+		const recipe = bindRecipe(mediaReviewableOccurrencesRecipe({ reference: reference }), {
+			limit: 20,
+			entityId: "media-1",
+		});
 		expect(validateRyotQLDocument(recipe.document, { type: "plugin" }).error).toBeNull();
 		const query = recipe.document.queries["events"];
 		expect(query?.output).toMatchObject({ pagination: { limit: 20 } });

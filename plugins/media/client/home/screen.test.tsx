@@ -1,12 +1,14 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	type RyotClientAdapter,
 	RyotClientError,
 	type RyotNavigationTarget,
 } from "@ryot-app/plugin-client-sdk";
-import { DateTime, Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageRefreshRequest } from "@ryot-app/plugin-client-sdk/react";
+import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -27,8 +29,8 @@ const activityAggregates = new Set([
 	"figures",
 	"reviews",
 	"mediaTypes",
-	"titles.showTotals",
-	"titles.podcastTotals",
+	"showTotals",
+	"podcastTotals",
 ]);
 const emptyActivityResult = (name: string) => {
 	if (name === "figures") {
@@ -52,7 +54,7 @@ const homeAdapter = (input: {
 	readonly gate: number | "error" | "pending";
 }) => {
 	const requested: string[][] = [];
-	const documents: unknown[] = [];
+	const requests: ExecutionRequest[] = [];
 	const navigations: RyotNavigationTarget[] = [];
 	const entityPicks: unknown[] = [];
 	let userPreferenceReads = 0;
@@ -71,9 +73,9 @@ const homeAdapter = (input: {
 				return { timeZone: "UTC", ratingScale: "hundred" };
 			}),
 		query: (document) => {
-			const names = Object.keys(document.queries);
+			const names = Object.keys(bindTestRequest(document).queries);
 			requested.push(names);
-			documents.push(document);
+			requests.push(document);
 			if (names.includes("library")) {
 				if (gate === "pending") {
 					return Effect.never;
@@ -96,8 +98,8 @@ const homeAdapter = (input: {
 	} satisfies Partial<RyotClientAdapter>;
 	return {
 		adapter,
+		requests,
 		requested,
-		documents,
 		navigations,
 		entityPicks,
 		userPreferenceReads: () => userPreferenceReads,
@@ -210,7 +212,7 @@ describe("home gate", () => {
 		() =>
 			Effect.gen(function* () {
 				const view = mountHome(
-					homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } }).adapter,
+					homeAdapter({ gate: 1, responses: { flat: rows([inProgressMovie]) } }).adapter,
 				);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(view.container.textContent).toContain("Continue")),
@@ -226,8 +228,7 @@ describe("home gate", () => {
 		() =>
 			Effect.gen(function* () {
 				const view = mountHome(
-					homeAdapter({ gate: "error", responses: { "flat.items": rows([inProgressMovie]) } })
-						.adapter,
+					homeAdapter({ gate: "error", responses: { flat: rows([inProgressMovie]) } }).adapter,
 				);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(view.container.textContent).toContain("Heat")),
@@ -261,7 +262,7 @@ describe("home gate", () => {
 								type: "aggregate",
 								pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 							},
-							"trending.trending": rows([
+							trending: rows([
 								{
 									...mediaIdentity("arrival", "Arrival", "movie"),
 									rank: 1,
@@ -279,16 +280,9 @@ describe("home gate", () => {
 							.filter((names) => !names.includes("library"))
 							.map((names) => [...names].sort()),
 					).toEqual([
-						["flat.items", "podcast.items", "show.items"],
-						["flat.items", "podcast.items", "show.items"],
-						[
-							"titles.anime",
-							"titles.podcastTotals",
-							"titles.podcasts",
-							"titles.releases",
-							"titles.showTotals",
-							"titles.shows",
-						],
+						["flat", "podcast", "show"],
+						["flat", "podcast", "show"],
+						["anime", "podcastTotals", "podcasts", "releases", "showTotals", "shows"],
 					]);
 					expect(view.container.textContent).not.toContain("Start your media library");
 					expect(view.container.textContent).not.toContain("Continue");
@@ -342,7 +336,7 @@ describe("home gate", () => {
 		"keeps populated rails when a previously nonzero count fails to refresh",
 		() =>
 			Effect.gen(function* () {
-				const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
+				const home = homeAdapter({ gate: 1, responses: { flat: rows([inProgressMovie]) } });
 				const view = mountHome(home.adapter);
 				yield* Effect.promise(() =>
 					waitFor(() => expect(view.container.textContent).toContain("Heat")),
@@ -366,11 +360,11 @@ describe("home gate", () => {
 		() =>
 			Effect.gen(function* () {
 				globalThis.IntersectionObserver = RecordingIntersectionObserver;
-				const home = homeAdapter({ gate: 1, responses: { "flat.items": rows([inProgressMovie]) } });
+				const home = homeAdapter({ gate: 1, responses: { flat: rows([inProgressMovie]) } });
 				const view = mountHome({
 					...home.adapter,
 					query: (document) =>
-						Object.hasOwn(document.queries, "titles.anime")
+						Object.hasOwn(bindTestRequest(document).queries, "anime")
 							? Effect.fail(new RyotClientError({ reason: "transport" }))
 							: home.adapter.query(document),
 				});
@@ -400,16 +394,9 @@ describe("home sections", () => {
 
 				expect(documents()).toEqual([
 					["library"],
-					["flat.items", "podcast.items", "show.items"],
-					["flat.items", "podcast.items", "show.items"],
-					[
-						"titles.anime",
-						"titles.podcastTotals",
-						"titles.podcasts",
-						"titles.releases",
-						"titles.showTotals",
-						"titles.shows",
-					],
+					["flat", "podcast", "show"],
+					["flat", "podcast", "show"],
+					["anime", "podcastTotals", "podcasts", "releases", "showTotals", "shows"],
 				]);
 				expect(observers.map(({ rootMargin }) => rootMargin)).toEqual([
 					"600px 0px",
@@ -425,8 +412,8 @@ describe("home sections", () => {
 				yield* Effect.promise(() => flushRyotClient());
 
 				expect(documents().slice(4)).toEqual([
-					["suggestions.items", "suggestions.source"],
-					["trending.trending"],
+					["items", "source"],
+					["trending"],
 					["days", "figures", "mediaTypes", "reviews"],
 				]);
 				expect(home.userPreferenceReads()).toBe(1);
@@ -447,12 +434,11 @@ describe("home sections", () => {
 				);
 				view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
 				yield* Effect.promise(() => flushRyotClient());
-				const upcoming = (yield* Effect.forEach(home.documents, (document) =>
-					Schema.encodeUnknownEffect(Schema.fromJsonString(Schema.Unknown))(document),
-				)).find((document) => document.includes("upcomingAnime"));
-
-				expect(upcoming).toContain('"2026-09-28"');
-				expect(upcoming).not.toContain('"2026-10-09"');
+				const upcoming = home.requests.find(
+					(request) => "anime" in requireInlineDocument(request).queries,
+				);
+				expect(upcoming?.arguments).toMatchObject({ daysAhead: 3 });
+				expect(upcoming?.arguments).not.toHaveProperty("today");
 				view.unmount();
 			}),
 		testTimeout,
@@ -474,9 +460,7 @@ describe("home sections", () => {
 				view.rerender(<HomeBody compact scrollRootRef={{ current: null }} />);
 				yield* Effect.promise(() => flushRyotClient());
 				const continueRequests = () =>
-					home.requested.filter(
-						(names) => names.includes("flat.items") && names.includes("show.items"),
-					).length;
+					home.requested.filter((names) => names.includes("flat") && names.includes("show")).length;
 				const beforeMidnight = continueRequests();
 
 				yield* Effect.promise(() => view.advance("31 minutes"));

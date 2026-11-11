@@ -1,5 +1,6 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import type { MediaActivityLogger } from "../../../client/media/activity-log/state";
 import type { MediaCursorPage } from "../../../client/media/cursor-page-state";
@@ -54,10 +55,9 @@ export const decodeEpisodicEpisodePage = (
 	} = {},
 ) =>
 	Result.getOrThrow(
-		episodicFixtureEpisodesRecipe({
+		bindRecipe(episodicFixtureEpisodesRecipe({ reference: { kind: "self" } }), {
 			containerId: "parent-1",
 			limit: EPISODIC_PAGE_LIMIT,
-			reference: { kind: "self" },
 		}).decode(episodicEpisodePageData(input)),
 	);
 
@@ -66,12 +66,9 @@ export const episodicFixtureEpisodesQuery = createRyotQuery<
 	MediaCursorPage<EpisodicFixtureEpisode>
 >(({ input, client }) =>
 	client.data.query(
-		episodicFixtureEpisodesRecipe({
-			limit: EPISODIC_PAGE_LIMIT,
-			reference: { kind: "self" },
-			containerId: input.containerId,
-			...(input.after === null ? {} : { after: input.after }),
-		}),
+		episodicFixtureEpisodesRecipe({ reference: { kind: "self" } }),
+		{ containerId: input.containerId },
+		{ pages: { episodes: { limit: EPISODIC_PAGE_LIMIT, after: input.after ?? undefined } } },
 	),
 );
 

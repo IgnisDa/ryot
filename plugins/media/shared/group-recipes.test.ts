@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+
 import { creditGroupFixtureRecipes, groupFixtureRecipes } from "../tests/client/group/recipes";
 import { withMemberCoverFallback } from "./group-recipes";
 
@@ -32,11 +34,10 @@ describe("media group recipes", () => {
 	});
 
 	it("pages members from the cursor in relationship order, then name, then id", () => {
-		const recipe = groupFixtureRecipes.membersRecipe({
+		const recipe = bindRecipe(groupFixtureRecipes.membersRecipe({ reference: { kind: "self" } }), {
 			limit: 20,
 			after: "cursor-1",
 			groupId: "group-1",
-			reference: { kind: "self" },
 		});
 		const members = recipe.document.queries["members"];
 		if (members?.output.type !== "rows") {
@@ -77,12 +78,10 @@ describe("media group recipes", () => {
 
 	it("declares credits only for a credit group, without a character", () => {
 		expect("overviewRecipe" in groupFixtureRecipes).toBe(false);
-		const recipe = creditGroupFixtureRecipes.overviewRecipe({
-			peopleLimit: 12,
-			companyLimit: 6,
-			entityId: "group-1",
-			reference: { kind: "self" },
-		});
+		const recipe = bindRecipe(
+			creditGroupFixtureRecipes.overviewRecipe({ reference: { kind: "self" } }),
+			{ entityId: "group-1" },
+		);
 		const people = recipe.document.queries["people"];
 		if (people?.output.type !== "rows") {
 			throw new Error("Expected a people rows query");

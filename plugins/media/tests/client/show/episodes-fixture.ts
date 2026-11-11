@@ -1,20 +1,16 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { showSeasonEpisodesRecipe, showSeasonsRecipe } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
-const showSeasonsFixtureRecipe = showSeasonsRecipe({
-	seasonLimit: 40,
+const showSeasonsFixtureRecipe = bindRecipe(showSeasonsRecipe({ reference: { kind: "self" } }), {
 	entityId: "show-1",
-	reference: { kind: "self" },
 });
-
-const showSeasonEpisodesFixtureRecipe = showSeasonEpisodesRecipe({
-	limit: 60,
-	containerId: "season-1",
-	reference: { kind: "self" },
-});
-
+const showSeasonEpisodesFixtureRecipe = bindRecipe(
+	showSeasonEpisodesRecipe({ reference: { kind: "self" } }),
+	{ limit: 60, containerId: "season-1" },
+);
 export const showEpisodeRow = {
 	runtime: 66,
 	id: "episode-1",

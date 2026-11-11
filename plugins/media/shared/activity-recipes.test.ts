@@ -5,38 +5,32 @@ import {
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { mediaActivityRecipe } from "./activity-recipes";
-
-const INPUT = {
-	from: "2025-09-28T18:30:00.000Z",
-	until: "2026-09-25T18:30:00.000Z",
-	timeZone: TimeZone.make("Asia/Kolkata"),
-};
 
 describe("media activity recipe", () => {
 	it("validates the document", () => {
 		expect(
 			validateRyotQLDocument(
-				mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document,
+				bindRecipe(mediaActivityRecipe({ kind: "self" }), {}).document,
 				savedViewDataSourceAccess,
 			).error,
 		).toBeNull();
 	});
 
 	it("bounds every aggregate by the window and counts timed and date-only days together", () => {
-		const { queries } = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).document;
+		const { queries } = bindRecipe(mediaActivityRecipe({ kind: "self" }), {}).document;
 		for (const name of ["days", "figures", "mediaTypes"]) {
 			expect(JSON.stringify(queries[name]?.where)).toContain("calendarDate");
 		}
 		expect(JSON.stringify(queries["days"]?.where)).toContain("activeObservation");
-		expect(JSON.stringify(queries["reviews"]?.where)).toContain(INPUT.from);
+		expect(JSON.stringify(queries["reviews"]?.where)).toContain("2026-01-01T00:00:00.000Z");
 		expect(JSON.stringify(queries)).not.toContain("projectionStatus");
 	});
 
 	it("reads the empty sums of a quiet year as zero", () => {
-		const decoded = mediaActivityRecipe({ ...INPUT, reference: { kind: "self" } }).decode({
+		const decoded = bindRecipe(mediaActivityRecipe({ kind: "self" }), {}).decode({
 			data: {
 				reviews: { type: "aggregate", items: [{ reviews: 0 }] },
 				figures: {

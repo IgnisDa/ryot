@@ -18,9 +18,10 @@ import { EnrichmentState, EntityId, EntitySchemaSlug } from "@ryot-app/plugin-ki
 
 import { entitySchemaIs, sameSchemaOwner } from "./lifecycle-expressions";
 
-export type Table = ReturnType<typeof table>;
+export type Table = Parameters<typeof column>[0];
 
-export const entityId = (entity: Table, id: string) => eq(column(entity, "id"), literal(id));
+export const entityId = (entity: Table, id: Parameters<typeof eq>[1]) =>
+	eq(column(entity, "id"), id);
 
 export const entitySyncSelection = (entity: Table) => ({
 	populationStatus: selectedField(column(entity, "populationStatus"), EnrichmentState),

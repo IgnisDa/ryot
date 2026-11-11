@@ -1,9 +1,14 @@
 import { describe, expect } from "bun:test";
 
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { requireRowsQuery, rowsResponse } from "@ryot-app/ryotql-recipes/test-utils";
+import {
+	bindTestRequest,
+	requireRowsQuery,
+	rowsResponse,
+} from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { TestClock } from "effect/testing";
@@ -34,7 +39,7 @@ const runRankings = (
 	pages: readonly unknown[] = [],
 ) => {
 	const writes: Parameters<ScriptHost["upsertGlobalRelationships"]>[0][] = [];
-	const documents: Parameters<ScriptHost["executeRyotql"]>[0][] = [];
+	const documents: ImportedRyotQLDocument[] = [];
 	const host = defineSandboxTestHost(manifest, {
 		upsertGlobalRelationships: (groups) =>
 			Effect.sync(() => {
@@ -43,7 +48,7 @@ const runRankings = (
 			}),
 		executeRyotql: (document) =>
 			Effect.sync(() => {
-				documents.push(document);
+				documents.push(bindTestRequest(document));
 				return (
 					pages[documents.length - 1] ??
 					rowsResponse("trending", [], { limit: 100, hasMore: false, nextCursor: null })

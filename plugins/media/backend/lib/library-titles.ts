@@ -9,6 +9,7 @@ import {
 	executeRyotqlRecipe,
 	inArray,
 	literal,
+	parameters,
 	selectedField,
 	selectedRows,
 	table,
@@ -20,24 +21,32 @@ const containmentSlugs = [
 	"show-season-to-show-episode",
 	"podcast-to-podcast-episode",
 ];
-
-const containersRecipe = defineRecipe((entityIds: readonly string[]) => {
+const containersRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			entityIds: {
+				type: "array",
+				label: "entityIds",
+				validation: { required: true },
+				description: "entityIds to read",
+				items: { label: "ID", type: "string", description: "Selected ID" },
+			},
+		},
+	});
 	const relationship = table("relationship", "containment");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ containers }) => Result.succeed(containers.items),
 		queries: {
 			containers: selectedRows(relationship, {
-				limit: entityIds.length,
+				limit: 100,
 				orderBy: [ascending(column(relationship, "id"))],
 				selection: {
 					childId: selectedField(column(relationship, "targetEntityId"), Schema.String),
 					containerId: selectedField(column(relationship, "sourceEntityId"), Schema.String),
 				},
 				where: and(
-					inArray(
-						column(relationship, "targetEntityId"),
-						entityIds.map((id) => literal(id)),
-					),
+					inArray(column(relationship, "targetEntityId"), inputParameters.list("entityIds")),
 					inArray(
 						column(relationship, "relationshipSchemaSlug"),
 						containmentSlugs.map((slug) => literal(slug)),
@@ -45,9 +54,8 @@ const containersRecipe = defineRecipe((entityIds: readonly string[]) => {
 				),
 			}),
 		},
-	};
-});
-
+	});
+})();
 /** Library titles of `entityIds`, walking seasons and episodes up to their show or podcast. */
 export const libraryTitleIds = Effect.fn(function* (
 	host: Pick<ScriptHost, "executeRyotql">,
@@ -60,7 +68,8 @@ export const libraryTitleIds = Effect.fn(function* (
 		for (let index = 0; index < pending.length; index += 100) {
 			for (const { childId, containerId } of yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				containersRecipe(pending.slice(index, index + 100)),
+				containersRecipe,
+				{ entityIds: pending.slice(index, index + 100) },
 			)) {
 				containers.set(childId, containerId);
 			}

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	add,
 	and,
@@ -13,39 +15,44 @@ import {
 	isNotNull,
 	jsonPath,
 	literal,
-	type PreparedRecipe,
+	type Recipe,
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { visualNovelRecipes } from "./visual-novel-recipes";
 
-const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
+const rowFields = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return query.output.fields;
 };
-
-const fieldExpr = (recipe: PreparedRecipe<unknown>, name: string, key: string) => {
+const fieldExpr = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+	key: string,
+) => {
 	const field = rowFields(recipe, name).find((entry) => "key" in entry && entry.key === key);
 	if (field === undefined || !("expr" in field)) {
 		throw new Error(`Expected the ${key} field`);
 	}
 	return field.expr;
 };
-
-const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
-	rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
-
+const keys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
 describe("media visual novel query recipes", () => {
 	it("selects the length the visual novel schema declares", () => {
 		const summary = keys(
-			visualNovelRecipes.summaryRecipe({
-				collectionLimit: 6,
+			bindRecipe(visualNovelRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 				entityId: "visual-novel-1",
-				reference: { kind: "self" },
 			}),
 			"summary",
 		);
@@ -57,13 +64,10 @@ describe("media visual novel query recipes", () => {
 	});
 
 	it("sums ready canonical minutes and missing coverage without reading the live length", () => {
-		const activity = visualNovelRecipes.activityRecipe({
-			eventLimit: 60,
-			collectionEventLimit: 60,
-			entityId: "visual-novel-1",
-			reference: { kind: "self" },
-		});
-
+		const activity = bindRecipe(
+			visualNovelRecipes.activityRecipe({ reference: { kind: "self" } }),
+			{ entityId: "visual-novel-1" },
+		);
 		const event = table("event", "consumptionTotalsEvent");
 		const entity = table("entity", "visualNovelActivityEntity");
 		const projection = column(event, "projection");
@@ -76,8 +80,7 @@ describe("media visual novel query recipes", () => {
 			),
 		);
 		const ready = and(scope, isNotNull(jsonPath(projection, "contribution")));
-
-		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual<unknown>(
 			sum(
 				event,
 				add(
@@ -93,7 +96,7 @@ describe("media visual novel query recipes", () => {
 				{ where: ready },
 			),
 		);
-		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual<unknown>(
 			count(event, {
 				where: and(
 					ready,
@@ -107,15 +110,10 @@ describe("media visual novel query recipes", () => {
 	});
 
 	it("asks for no group because visual novels have none", () => {
-		const overview = visualNovelRecipes.overviewRecipe({
-			groupLimit: 20,
-			peopleLimit: 12,
-			companyLimit: 6,
-			recommendationLimit: 12,
-			entityId: "visual-novel-1",
-			reference: { kind: "self" },
-		});
-
+		const overview = bindRecipe(
+			visualNovelRecipes.overviewRecipe({ reference: { kind: "self" } }),
+			{ entityId: "visual-novel-1" },
+		);
 		expect(Object.keys(overview.document.queries)).toEqual([
 			"companies",
 			"people",

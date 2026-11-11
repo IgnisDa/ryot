@@ -16,6 +16,7 @@ import {
 	jsonElement,
 	jsonPath,
 	literal,
+	parameters,
 	selectedField,
 	type SelectedIncludes,
 	type SelectedRow,
@@ -52,16 +53,25 @@ export const selectedPresentationSource = <
 	});
 };
 
+const presentationParameters = parameters({
+	fields: {
+		entityIds: {
+			type: "array",
+			label: "Titles",
+			validation: { required: true },
+			description: "Media entities to present",
+			items: { type: "string", label: "Entity", description: "Media entity ID" },
+		},
+	},
+});
+
 export const mediaPresentationSourceRecipe = <Data>(
 	source: MediaPresentationSource<Data>,
-	input: {
-		readonly entitySchemaSlug: string;
-		readonly entityIds: readonly string[];
-		readonly reference: PluginIdentityReference;
-	},
+	input: { readonly entitySchemaSlug: string; readonly reference: PluginIdentityReference },
 ) => {
 	const entity = table("entity", "entity");
-	return defineRecipe(() => ({
+	return defineRecipe({
+		parameters: presentationParameters.schema,
 		map: ({ presentation }) => Result.succeed(presentation.items),
 		queries: {
 			presentation: source.query({
@@ -69,14 +79,11 @@ export const mediaPresentationSourceRecipe = <Data>(
 				orderBy: [ascending(column(entity, "id"))],
 				where: and(
 					entitySchemaPredicate(entity, input.entitySchemaSlug, input.reference),
-					inArray(
-						column(entity, "id"),
-						input.entityIds.map((entityId) => literal(entityId)),
-					),
+					inArray(column(entity, "id"), presentationParameters.list("entityIds")),
 				),
 			}),
 		},
-	}))();
+	});
 };
 
 export const preferredMediaImageExpression = (entity: Table, purpose = "cover") => {

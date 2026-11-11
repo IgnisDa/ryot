@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { videoGameRecipes } from "../../shared/video-game-recipes";
 import {
@@ -39,15 +40,15 @@ const videoGameOverview = (
 	} = {},
 ) =>
 	Result.getOrThrow(
-		videoGameRecipes
-			.overviewRecipe(FLAT_OVERVIEW_INPUT)
-			.decode({
-				data: {
-					...flatOverviewData(),
-					originals: flatOverviewRows(related.originals ?? []),
-					derivatives: flatOverviewRows(related.derivatives ?? []),
-				},
-			}),
+		bindRecipe(videoGameRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+			entityId: FLAT_OVERVIEW_INPUT.entityId,
+		}).decode({
+			data: {
+				...flatOverviewData(),
+				originals: flatOverviewRows(related.originals ?? []),
+				derivatives: flatOverviewRows(related.derivatives ?? []),
+			},
+		}),
 	);
 
 const videoGameFields = {
@@ -60,11 +61,12 @@ const videoGameFields = {
 };
 
 const videoGameSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(videoGameRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		...videoGameFields,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(videoGameRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ ...videoGameFields, ...overrides },
+	);
 const renderBody = (
 	overrides: Record<string, unknown> = {},
 	overview: ReturnType<typeof videoGameOverview> = videoGameOverview(),

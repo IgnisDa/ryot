@@ -3,6 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, getByText, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -60,7 +61,7 @@ const resolvingAdapter: Partial<RyotClientAdapter> = {
 			assets.map((asset) => ({
 				asset,
 				url: `https://cdn.test/${asset.type}-${asset.key}`,
-				expiresAt: new Date(Date.now() + 3_600_000).toISOString(),
+				expiresAt: new Date(Date.now() + 3600000).toISOString(),
 			})),
 		),
 };
@@ -88,10 +89,16 @@ type SummaryState = ReturnType<typeof readyState>;
 const ungroupedReadyState = () =>
 	ungroupedFixtureSchema.mapSummary(
 		readyQueryResult(
-			decodeMediaSummaryResult(flatUngroupedFixtureRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-				requested: [{ schemaSlug: "ungrouped" }],
-				summary: [{ ...flatSummaryRow, schemaSlug: "ungrouped" }],
-			}),
+			decodeMediaSummaryResult(
+				bindRecipe(
+					flatUngroupedFixtureRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }),
+					{ entityId: FLAT_SUMMARY_INPUT.entityId },
+				),
+				{
+					requested: [{ schemaSlug: "ungrouped" }],
+					summary: [{ ...flatSummaryRow, schemaSlug: "ungrouped" }],
+				},
+			),
 		),
 	);
 
@@ -621,9 +628,10 @@ describe("flat media overview", () => {
 
 	it("never builds a part-of section for a descriptor that declares no group", () => {
 		const overview = Result.getOrThrow(
-			flatUngroupedFixtureRecipes
-				.overviewRecipe(FLAT_OVERVIEW_INPUT)
-				.decode({ data: flatOverviewData() }),
+			bindRecipe(
+				flatUngroupedFixtureRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }),
+				{ entityId: FLAT_OVERVIEW_INPUT.entityId },
+			).decode({ data: flatOverviewData() }),
 		);
 
 		expect(ungroupedFixtureSchema.overviewIsEmpty(overview)).toBe(false);
@@ -766,9 +774,12 @@ describe("flat media artwork aspect", () => {
 				overview={mapMediaOverview(
 					readyQueryResult(
 						Result.getOrThrow(
-							flatUngroupedFixtureRecipes
-								.overviewRecipe(FLAT_OVERVIEW_INPUT)
-								.decode({ data: flatOverviewData() }),
+							bindRecipe(
+								flatUngroupedFixtureRecipes.overviewRecipe({
+									reference: FLAT_OVERVIEW_INPUT.reference,
+								}),
+								{ entityId: FLAT_OVERVIEW_INPUT.entityId },
+							).decode({ data: flatOverviewData() }),
 						),
 					),
 				)}

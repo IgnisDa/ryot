@@ -36,5 +36,5 @@ export const flatUngroupedFixtureRecipes = mediaFlatRecipes({
 export type UngroupedFixtureActivityEvent = UngroupedFixtureActivityResult["events"][number];
 
 export type UngroupedFixtureActivityResult = Recipe.Success<
-	typeof flatUngroupedFixtureRecipes.activityRecipe
+	ReturnType<typeof flatUngroupedFixtureRecipes.activityRecipe>
 >;

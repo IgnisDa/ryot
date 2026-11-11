@@ -3,14 +3,16 @@ import type {
 	EntityRendererProps,
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import { createElement, type ReactNode } from "react";
 
+import type { creatorCreditParameters, MediaCreatorCredit } from "../../shared/creator-recipes";
 import type {
 	MediaReviewActivityEvent,
 	MediaReviewActivityResult,
 } from "../../shared/media-recipes";
+import type { MediaCreatorCreditSlug } from "../../shared/media-schema-slugs";
 import type { MediaHistoryRecipe } from "./activity-history";
 import {
 	mediaCreditItems,
@@ -20,7 +22,9 @@ import {
 	type MediaCreditRailsOverview,
 	type MediaCreditSection,
 } from "./credit-rails";
-import { createMediaCreditsQuery, type MediaCreditsRecipe } from "./credits";
+import { createMediaCreditsQuery } from "./credits";
+import type { MediaCursorPage } from "./cursor-page-state";
+import type { MediaEntityRecipe } from "./detail-queries";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -42,12 +46,11 @@ import {
 	mediaSummaryStateMapper,
 } from "./summary-state";
 
-const CREDIT_LIMIT = 12;
 const ALIAS_CHIP_LIMIT = 4;
 
 export type MediaCreatorSchemaDescriptor<
 	Summary extends CreatorSummary,
-	Slug extends string,
+	Slug extends MediaCreatorCreditSlug,
 	Overview extends MediaCreditRailsOverview<Slug>,
 > = {
 	readonly artwork: MediaSummaryArtwork;
@@ -56,24 +59,13 @@ export type MediaCreatorSchemaDescriptor<
 	readonly links: (summary: Summary) => readonly MediaSummaryLink[];
 	readonly nouns: { readonly title: string; readonly plural: string; readonly singular: string };
 	readonly recipes: {
+		readonly overviewRecipe: MediaEntityRecipe<Overview>;
 		readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
-		readonly creditsRecipe: MediaCreditsRecipe<{ readonly target: Slug }>;
-		readonly overviewRecipe: (input: {
-			readonly entityId: string;
-			readonly creditLimit: number;
+		readonly activityRecipe: MediaEntityRecipe<MediaReviewActivityResult>;
+		readonly summaryRecipe: MediaEntityRecipe<CreatorSummaryResult<Summary>>;
+		readonly creditsRecipe: (input: {
 			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<Overview>;
-		readonly summaryRecipe: (input: {
-			readonly entityId: string;
-			readonly collectionLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<CreatorSummaryResult<Summary>>;
-		readonly activityRecipe: (input: {
-			readonly entityId: string;
-			readonly eventLimit: number;
-			readonly collectionEventLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<MediaReviewActivityResult>;
+		}) => Recipe<MediaCursorPage<MediaCreatorCredit>, typeof creatorCreditParameters.schema>;
 	};
 };
 
@@ -96,7 +88,7 @@ const CREDITS_NOTICE = "Credits";
 
 export const defineCreatorMediaSchema = <
 	Summary extends CreatorSummary,
-	Slug extends string,
+	Slug extends MediaCreatorCreditSlug,
 	Overview extends MediaCreditRailsOverview<Slug>,
 >(
 	descriptor: MediaCreatorSchemaDescriptor<Summary, Slug, Overview>,
@@ -104,15 +96,17 @@ export const defineCreatorMediaSchema = <
 	const { nouns, recipes } = descriptor;
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
-	const creditsQuery = createMediaCreditsQuery(recipes.creditsRecipe);
-
+	const creditsQuery = createMediaCreditsQuery(
+		recipes.creditsRecipe,
+		(input: {
+			readonly target: Slug;
+			readonly entityId: string;
+			readonly after: null | string;
+		}) => ({ target: input.target, entityId: input.entityId }),
+		"credits",
+	);
 	const overviewQuery = createMediaEntityQuery(
-		(input) =>
-			recipes.overviewRecipe({
-				entityId: input.entityId,
-				creditLimit: CREDIT_LIMIT,
-				reference: input.reference,
-			}),
+		(input) => recipes.overviewRecipe({ reference: input.reference }),
 		(data) => mediaCreditItems<Slug>(data).map(({ id }) => id),
 	);
 

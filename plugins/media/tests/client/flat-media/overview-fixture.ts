@@ -1,5 +1,8 @@
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { rowsResult } from "../query-result-fixture";
 import { flatFixtureRecipes } from "./recipes";
@@ -14,9 +17,10 @@ export const FLAT_OVERVIEW_INPUT = {
 		typeof flatFixtureRecipes.overviewRecipe
 	>[0]["reference"],
 };
-
-export const fixtureOverviewRecipe = flatFixtureRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT);
-
+export const fixtureOverviewRecipe = bindRecipe(
+	flatFixtureRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }),
+	{ entityId: FLAT_OVERVIEW_INPUT.entityId },
+);
 export const flatPersonRow = {
 	order: 1,
 	isGuest: null,
@@ -111,6 +115,6 @@ export const flatOverviewData = (input: FlatOverviewRows = {}) => ({
 });
 
 export const decodeFlatOverview = <Overview>(
-	recipe: PreparedRecipe<Overview>,
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<Overview, AppSchema>["decode"] },
 	input: FlatOverviewRows = {},
 ) => Result.getOrThrow(recipe.decode({ data: flatOverviewData(input) }));

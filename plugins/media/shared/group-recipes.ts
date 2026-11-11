@@ -15,6 +15,7 @@ import {
 	jsonPath,
 	literal,
 	relationshipSchemaPredicate,
+	reportingTimeZone,
 	selectedField,
 	selectedRows,
 	type SelectedSelection,
@@ -48,6 +49,7 @@ import {
 	mediaGroupMemberSlugs,
 	type MediaGroupSlug,
 } from "./media-schema-slugs";
+import { mediaDetailLimits, mediaEntityParameters, mediaGroupParameters } from "./query-parameters";
 
 type CreditGroupSlug = (typeof creatorGroupTargetSlugs)[number];
 
@@ -156,13 +158,15 @@ export const mediaGroupRecipes = <
 			),
 		};
 	};
-
-	const summaryRecipe = defineRecipe(
-		(input: {
-			readonly entityId: string;
-			readonly collectionLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => ({
+	const summaryRecipe = (structural: { readonly reference: PluginIdentityReference }) => {
+		const input = {
+			...mediaDetailLimits,
+			timeZone: reportingTimeZone,
+			reference: structural.reference,
+			entityId: mediaEntityParameters.value("entityId"),
+		};
+		return defineRecipe({
+			parameters: mediaEntityParameters.schema,
 			map: ({ summary, requested }) =>
 				mediaSummaryResult({
 					requested,
@@ -178,56 +182,48 @@ export const mediaGroupRecipes = <
 					...groupProgressSelection(entity, `${config.alias}Summary`),
 				}),
 			}),
-		}),
-	);
-
+		});
+	};
 	/** Members of one group as a top-level row query, so the list pages by cursor. */
-	const membersRecipe = defineRecipe(
-		(query: {
-			readonly limit: number;
-			readonly groupId: string;
-			readonly after?: string | undefined;
-			readonly reference: PluginIdentityReference;
-		}) => {
-			const member = table("entity", `${config.alias}Member`);
-			const relationship = table("relationship", `${config.alias}MemberRelationship`);
-			return {
-				map: ({ members }) => Result.succeed(members),
-				queries: {
-					members: selectedRows(member, {
-						limit: query.limit,
-						...(query.after === undefined ? {} : { after: query.after }),
-						joins: [
-							join(
-								"inner",
-								relationship,
-								eq(column(relationship, "targetEntityId"), column(member, "id")),
-							),
-						],
-						orderBy: [
-							ascending(propertyNumber(relationship, "order")),
-							ascending(column(member, "name")),
-							ascending(column(member, "id")),
-						],
-						where: and(
-							entitySchemaPredicate(member, memberSlug, query.reference),
-							eq(column(relationship, "sourceEntityId"), literal(query.groupId)),
-							relationshipSchemaPredicate(relationship, relationshipSlug, query.reference),
+	const membersRecipe = (query: { readonly reference: PluginIdentityReference }) => {
+		const inputParameters = mediaGroupParameters;
+		const member = table("entity", `${config.alias}Member`);
+		const relationship = table("relationship", `${config.alias}MemberRelationship`);
+		return defineRecipe({
+			parameters: inputParameters.schema,
+			map: ({ members }) => Result.succeed(members),
+			queries: {
+				members: selectedRows(member, {
+					limit: 100,
+					joins: [
+						join(
+							"inner",
+							relationship,
+							eq(column(relationship, "targetEntityId"), column(member, "id")),
 						),
-						selection: {
-							...config.member.presentationSelection(member, `${config.alias}Member`),
-							...mediaLibrarySelection(member),
-							position: selectedField(
-								propertyNumber(relationship, "order"),
-								Schema.NullOr(Schema.Finite),
-							),
-						},
-					}),
-				},
-			};
-		},
-	);
-
+					],
+					orderBy: [
+						ascending(propertyNumber(relationship, "order")),
+						ascending(column(member, "name")),
+						ascending(column(member, "id")),
+					],
+					where: and(
+						entitySchemaPredicate(member, memberSlug, query.reference),
+						eq(column(relationship, "sourceEntityId"), inputParameters.value("groupId")),
+						relationshipSchemaPredicate(relationship, relationshipSlug, query.reference),
+					),
+					selection: {
+						...config.member.presentationSelection(member, `${config.alias}Member`),
+						...mediaLibrarySelection(member),
+						position: selectedField(
+							propertyNumber(relationship, "order"),
+							Schema.NullOr(Schema.Finite),
+						),
+					},
+				}),
+			},
+		});
+	};
 	const activityRecipe = mediaReviewActivityRecipe(config);
 	const historyRecipe = mediaEntityHistoryRecipe({
 		alias: config.alias,
@@ -259,18 +255,18 @@ export const mediaGroupRecipes = <
 			...groupCountSelection(presentationEntity, `${config.alias}Presentation`),
 		},
 	});
-
-	const overviewRecipe = defineRecipe(
-		(input: {
-			readonly entityId: string;
-			readonly peopleLimit: number;
-			readonly companyLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => ({
+	const overviewRecipe = (structural: { readonly reference: PluginIdentityReference }) => {
+		const input = {
+			...mediaDetailLimits,
+			timeZone: reportingTimeZone,
+			reference: structural.reference,
+			entityId: mediaEntityParameters.value("entityId"),
+		};
+		return defineRecipe({
+			parameters: mediaEntityParameters.schema,
 			queries: mediaCreditQueries({ ...input, slug: config.slug, personFields: () => ({}) }),
-		}),
-	);
-
+		});
+	};
 	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: () => ({}) });
 	const recipes = {
 		peopleRecipe,

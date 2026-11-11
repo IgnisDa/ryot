@@ -4,6 +4,7 @@ import type { LogEntry } from "@ryot-app/plugin-backend-sdk/core";
 import { DateTime, Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import type { JsonValue } from "@ryot-app/plugin-backend-sdk/wire";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -72,7 +73,7 @@ const createHost = (
 		},
 		executeRyotql: (query) => {
 			calls.push("query");
-			queries.push(query);
+			queries.push(bindTestRequest(query));
 			return hostSuccess(ryotqlRows("events", options.events ?? []));
 		},
 		getCurrentIntegration: () => {

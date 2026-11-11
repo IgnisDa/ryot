@@ -1,16 +1,13 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
-export const showOverviewFixtureRecipe = showRecipes.overviewRecipe({
-	peopleLimit: 12,
-	companyLimit: 6,
-	entityId: "show-1",
-	recommendationLimit: 12,
-	reference: { kind: "self" },
-});
-
+export const showOverviewFixtureRecipe = bindRecipe(
+	showRecipes.overviewRecipe({ reference: { kind: "self" } }),
+	{ entityId: "show-1" },
+);
 export const showPersonRow = {
 	order: 1,
 	isGuest: null,

@@ -1,16 +1,18 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { decodeMediaSummaryResult } from "../summary-fixture";
 import { creatorFixtureRecipes } from "./recipes";
 
 export const CREATOR_SUMMARY_INPUT = {
-	collectionLimit: 6,
 	entityId: "creator-1",
 	reference: { kind: "self" },
-} satisfies Parameters<typeof creatorFixtureRecipes.summaryRecipe>[0];
-
-export const creatorSummaryRecipe = creatorFixtureRecipes.summaryRecipe(CREATOR_SUMMARY_INPUT);
-
+} as const;
+export const creatorSummaryRecipe = bindRecipe(
+	creatorFixtureRecipes.summaryRecipe({ reference: CREATOR_SUMMARY_INPUT.reference }),
+	{ entityId: CREATOR_SUMMARY_INPUT.entityId },
+);
 export const creatorSummaryRow = {
 	id: "creator-1",
 	isCustom: false,
@@ -42,7 +44,7 @@ export const decodeCreatorSummaryResult = (
 ) => decodeMediaSummaryResult(creatorSummaryRecipe, { summary, requested });
 
 export const decodeCreatorSummary = <Summary>(
-	recipe: PreparedRecipe<{ readonly summary: null | Summary }>,
+	recipe: { decode: Recipe<{ readonly summary: null | Summary }, AppSchema>["decode"] },
 	fields: Record<string, unknown>,
 ) => {
 	const { summary } = decodeMediaSummaryResult(recipe, {

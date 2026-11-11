@@ -35,12 +35,9 @@ export default defineScript({
 				while (hasMore) {
 					const { items, pageInfo } = yield* executeRyotqlRecipe(
 						host.executeRyotql,
-						trendingLatestMediaRecipe({
-							after,
-							limit: 100,
-							reference: { kind: "self" },
-							entitySchemaSlugs: [firstFailedSlug, ...otherFailedSlugs],
-						}),
+						trendingLatestMediaRecipe({ reference: { kind: "self" } }),
+						{ entitySchemaSlugs: [firstFailedSlug, ...otherFailedSlugs] },
+						{ pages: { trending: { limit: 100, after: after } } },
 					);
 					for (const { id, rank, fetchedAt: previousFetchedAt } of items) {
 						relationships.push({

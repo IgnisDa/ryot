@@ -5,7 +5,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import { selectExecutable } from "@ryot-app/plugin-backend-sdk/workflow";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindTestRequest, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -56,7 +56,7 @@ const entry = (
 	status,
 	mediaId,
 	repeat: options.repeat ?? 0,
-	updatedAt: options.updatedAt ?? 1_767_225_600,
+	updatedAt: options.updatedAt ?? 1767225600,
 	progress: options.progress === undefined ? 0 : options.progress,
 	startedAt: options.startedAt === undefined ? NULL_DATE : options.startedAt,
 	completedAt: options.completedAt === undefined ? NULL_DATE : options.completedAt,
@@ -124,7 +124,7 @@ const setup = (options: SetupOptions = {}) => {
 			return hostSuccess(null);
 		},
 		executeRyotql: (document) => {
-			documents.push(document);
+			documents.push(bindTestRequest(document));
 			const response = options.snapshotPages?.[snapshotIndex];
 			snapshotIndex++;
 			return hostSuccess({ data: { snapshots: response ?? snapshotPage([]) } });

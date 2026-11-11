@@ -48,6 +48,7 @@ export function MediaAnalyticsRecords(props: {
 		...(props.request.hour === undefined ? {} : { hour: props.request.hour }),
 		...(props.request.activeOnly === undefined ? {} : { activeOnly: props.request.activeOnly }),
 	});
+	const firstPage = result.pages[0];
 	const items = useMemo(
 		() =>
 			paginationItems(
@@ -94,7 +95,8 @@ export function MediaAnalyticsRecords(props: {
 					aria-label={`Records for ${props.request.title}`}
 				>
 					<p className="text-label text-text-muted">
-						Period: {props.request.periodCaption} · Time zone: {props.input.timeZone}
+						Period: {props.request.periodCaption} · Time zone:{" "}
+						{firstPage?.reporting.resolved.timeZone ?? "Loading…"}
 						{filters.length === 0 ? "" : ` · ${filters.join(" · ")}`}
 					</p>
 					<div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-2">
@@ -123,7 +125,7 @@ export function MediaAnalyticsRecords(props: {
 					{result.pages.length === 0 && !result.isError ? (
 						<StatusMessage tone="pending">Loading records…</StatusMessage>
 					) : null}
-					{result.pages.length > 0 ? (
+					{firstPage !== undefined ? (
 						<>
 							{result.operation === "refresh" ? (
 								<StatusMessage tone="pending">Refreshing records…</StatusMessage>
@@ -143,7 +145,7 @@ export function MediaAnalyticsRecords(props: {
 							{items.length === 0 ? (
 								<EmptyState title="No records in this period" />
 							) : (
-								<RecordTable items={items} timeZone={props.input.timeZone} />
+								<RecordTable items={items} timeZone={firstPage.reporting.resolved.timeZone} />
 							)}
 							{result.hasNextPage && !result.isError ? (
 								<LoadMoreButton

@@ -7,10 +7,12 @@ import {
 	CLIENT_COMPILER_VERSION,
 	CLIENT_COMPOSITION_METADATA_ELEMENT_ID,
 	type PluginBridgeInit,
+	PluginBridgeRyotQLRequest,
 } from "@ryot-app/plugin-client-contract";
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { bootstrapClientPage } from "@ryot-app/plugin-client-sdk/plugin";
 import { createTestRyotClock, pluginContributor } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -126,12 +128,6 @@ type AssetRequest = {
 	readonly assets: readonly AssetLocator[];
 };
 
-type RyotQLRequest = {
-	readonly requestId: string;
-	readonly type: "ryotql-request";
-	readonly document: { readonly queries: Record<string, unknown> };
-};
-
 const bootstraps: Bootstrap[] = [];
 const channels: MessageChannel[] = [];
 const clocks: ReturnType<typeof createTestRyotClock>[] = [];
@@ -198,19 +194,17 @@ const openShow = (clock?: ReturnType<typeof createTestRyotClock>) => {
 };
 
 const queryRequests = (messages: readonly unknown[]) =>
-	messages.filter(
-		(message): message is RyotQLRequest =>
-			typeof message === "object" &&
-			message !== null &&
-			"type" in message &&
-			message.type === "ryotql-request" &&
-			"requestId" in message &&
-			typeof message.requestId === "string" &&
-			"document" in message,
-	);
+	messages.flatMap((message) => {
+		const decoded = Schema.decodeUnknownResult(PluginBridgeRyotQLRequest)(message);
+		return Result.isSuccess(decoded) && decoded.success.action === "execute"
+			? [decoded.success]
+			: [];
+	});
 
 const queryRequestsFor = (messages: readonly unknown[], key: string) =>
-	queryRequests(messages).filter((request) => key in request.document.queries);
+	queryRequests(messages).filter(
+		(request) => key in requireInlineDocument(request.request).queries,
+	);
 
 const queryRequestFor = (messages: readonly unknown[], key: string, index = 0) => {
 	const request = queryRequestsFor(messages, key)[index];
@@ -335,9 +329,9 @@ describe("ShowScreen", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(queryRequestsFor(messages, "summary")).toHaveLength(2)),
 				);
-				expect(ryotqlDocumentNodes(queryRequestsFor(messages, "summary")[1]?.document)).toContain(
-					"show-2",
-				);
+				expect(
+					ryotqlDocumentNodes(bindTestRequest(queryRequestsFor(messages, "summary")[1]?.request)),
+				).toContain("show-2");
 			}),
 		testTimeout,
 	);
@@ -585,8 +579,7 @@ describe("ShowScreen", () => {
 				});
 				yield* Effect.promise(() => flush());
 				expect(managedCoverImage(container)?.getAttribute("src")).toBe(staleUrl);
-
-				yield* Effect.promise(() => clock.advance(4 * 60_000 - 1));
+				yield* Effect.promise(() => clock.advance(4 * 60000 - 1));
 				expect(assetRequests(messages)).toHaveLength(1);
 				yield* Effect.promise(() => clock.advance(1));
 				yield* Effect.promise(() => flush());

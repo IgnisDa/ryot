@@ -1,5 +1,6 @@
 import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import { executeRyotqlRecipe, type RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import type { MediaMonitoringResult } from "../../shared/media-monitoring-operations";
@@ -7,9 +8,11 @@ import { mediaMonitoringTargetsRecipe } from "../lib/media-monitoring-ryotql";
 
 export const queryMediaMonitoringTargets = (
 	entityIds: readonly string[],
-	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>,
-) => executeRyotqlRecipe(executeRyotql, mediaMonitoringTargetsRecipe({ kind: "self" }, entityIds));
-
+	executeRyotql: (request: ExecutionRequest) => Effect.Effect<unknown, SandboxHostError>,
+) =>
+	executeRyotqlRecipe(executeRyotql, mediaMonitoringTargetsRecipe({ kind: "self" }), {
+		entityIds: entityIds,
+	});
 export const alignedMediaMonitoringResults = (
 	entityIds: readonly string[],
 	targets: readonly { entityId: string; monitoringLibraryId: null | string }[],

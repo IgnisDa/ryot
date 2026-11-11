@@ -5,7 +5,12 @@ import { entityReadRecipe, executeRyotqlRecipe } from "@ryot-app/plugin-backend-
 import { MediaSandboxError } from "./failures";
 
 export const fetchEntity = (host: Pick<ScriptHost, "executeRyotql">, entityId: string) =>
-	executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: [entityId] })).pipe(
+	executeRyotqlRecipe(
+		host.executeRyotql,
+		entityReadRecipe,
+		{ entityIds: [entityId] },
+		{ pages: { entities: { after: undefined, limit: undefined } } },
+	).pipe(
 		Effect.flatMap(({ items }) => {
 			const entity = items[0];
 			return entity

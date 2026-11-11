@@ -10,6 +10,7 @@ import {
 	isNotNull,
 	isNull,
 	literal,
+	parameters,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedField,
@@ -56,79 +57,79 @@ const monitoringRelationshipFilter = (
 		eq(column(relationship, "relationshipSchemaSlug"), literal("media-monitoring")),
 	);
 
-export const mediaMonitoringTargetsRecipe = defineRecipe(
-	(reference: PluginIdentityReference, entityIds: readonly string[]) => {
-		if (entityIds.length === 0) {
-			throw new Error("At least one entity id is required");
-		}
-		const entity = table("entity", "entity");
-		const relationship = table("relationship", "monitoringRelationship");
-		return {
-			map: ({ targets }) =>
-				Result.succeed(
-					targets.items.map((target) => ({
-						entityId: target.entityId,
-						externalId: target.externalId,
-						providerId: target.providerId,
-						entitySchemaSlug: target.entitySchemaSlug,
-						monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
-					})),
+const targetParameters = parameters({
+	fields: {
+		entityIds: {
+			type: "array",
+			label: "Titles",
+			validation: { minItems: 1, required: true },
+			description: "Media entities whose monitoring state to read",
+			items: { type: "string", label: "Title", description: "Media entity ID" },
+		},
+	},
+});
+export const mediaMonitoringTargetsRecipe = (reference: PluginIdentityReference) => {
+	const entity = table("entity", "entity");
+	const relationship = table("relationship", "monitoringRelationship");
+	return defineRecipe({
+		parameters: targetParameters.schema,
+		map: ({ targets }) =>
+			Result.succeed(
+				targets.items.map((target) => ({
+					entityId: target.entityId,
+					externalId: target.externalId,
+					providerId: target.providerId,
+					entitySchemaSlug: target.entitySchemaSlug,
+					monitoringLibraryId: target.monitoringLibraries.items[0]?.libraryEntityId ?? null,
+				})),
+			),
+		queries: {
+			targets: selectedRows(entity, {
+				limit: 100,
+				selection: targetSelection(entity),
+				orderBy: [ascending(column(entity, "id"))],
+				where: and(
+					schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
+					providerBackedFilter(entity),
+					inArray(column(entity, "id"), targetParameters.list("entityIds")),
 				),
-			queries: {
-				targets: selectedRows(entity, {
-					limit: entityIds.length,
-					selection: targetSelection(entity),
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(
-						schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
-						providerBackedFilter(entity),
-						inArray(
-							column(entity, "id"),
-							entityIds.map((entityId) => literal(entityId)),
-						),
-					),
-					include: {
-						monitoringLibraries: selectedInclude(relationship, {
-							limit: 1,
-							where: monitoringRelationshipFilter(entity, relationship),
-							orderBy: [ascending(column(relationship, "targetEntityId"))],
-							selection: {
-								libraryEntityId: selectedField(
-									column(relationship, "targetEntityId"),
-									Schema.String,
-								),
-							},
-						}),
-					},
-				}),
-			},
-		};
-	},
-);
+				include: {
+					monitoringLibraries: selectedInclude(relationship, {
+						limit: 1,
+						where: monitoringRelationshipFilter(entity, relationship),
+						orderBy: [ascending(column(relationship, "targetEntityId"))],
+						selection: {
+							libraryEntityId: selectedField(column(relationship, "targetEntityId"), Schema.String),
+						},
+					}),
+				},
+			}),
+		},
+	});
+};
 
-export const mediaMonitoringSweepRecipe = defineRecipe(
-	(reference: PluginIdentityReference, after: string | undefined, limit: number) => {
-		const entity = table("entity", "entity");
-		const relationship = table("relationship", "monitoringRelationship");
-		return {
-			map: ({ targets }) =>
-				Result.succeed({ items: targets.items, nextCursor: targets.pageInfo.nextCursor }),
-			queries: {
-				targets: selectedRows(entity, {
-					after,
-					limit,
-					selection: targetSelection(entity),
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(
-						schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
-						providerBackedFilter(entity),
-						exists(relationship, { where: monitoringRelationshipFilter(entity, relationship) }),
-					),
-				}),
-			},
-		};
-	},
-);
+export const mediaMonitoringSweepRecipe = (reference: PluginIdentityReference) => {
+	const entity = table("entity", "entity");
+	const relationship = table("relationship", "monitoringRelationship");
+	return defineRecipe({
+		map: ({ targets }) =>
+			Result.succeed({ items: targets.items, nextCursor: targets.pageInfo.nextCursor }),
+		queries: {
+			targets: selectedRows(entity, {
+				limit: 100,
+				selection: targetSelection(entity),
+				orderBy: [ascending(column(entity, "id"))],
+				where: and(
+					schemaOwnerPredicate(entity, "entitySchemaPluginId", reference),
+					providerBackedFilter(entity),
+					exists(relationship, { where: monitoringRelationshipFilter(entity, relationship) }),
+				),
+			}),
+		},
+	});
+};
 
-export type MediaMonitoringSweep = Recipe.Success<typeof mediaMonitoringSweepRecipe>;
-export type MediaMonitoringTarget = Recipe.Success<typeof mediaMonitoringTargetsRecipe>[number];
+export type MediaMonitoringSweep = Recipe.Success<ReturnType<typeof mediaMonitoringSweepRecipe>>;
+export type MediaMonitoringTarget = Recipe.Success<
+	ReturnType<typeof mediaMonitoringTargetsRecipe>
+>[number];

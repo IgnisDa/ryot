@@ -14,6 +14,7 @@ import {
 	routeLocation,
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, getByText, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -92,9 +93,9 @@ const reportingPreferenceRequests = (page: ActivityPage) =>
 const activityRequests = (page: ActivityPage) =>
 	page
 		.queryRequests()
-		.filter(({ document }) =>
+		.filter(({ request: executionRequest }) =>
 			["days", "figures", "mediaTypes", "reviews"].every((name) =>
-				Object.hasOwn(document.queries, name),
+				Object.hasOwn(bindTestRequest(executionRequest).queries, name),
 			),
 		);
 
@@ -247,10 +248,10 @@ describe("ActivitySection reporting window", () => {
 					const request = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 0),
 					);
-					const document = yield* documentText(request.document);
-					const window = activityWindow("2026-10-31", TIME_ZONE);
-					expect(document).toContain(window.from);
-					expect(document).toContain(window.until);
+					const document = yield* documentText(requireInlineDocument(request.request));
+					expect(request.request.arguments).toEqual({});
+					expect(document).toContain('"name":"reportingTimeZone"');
+					expect(document).toContain('"type":"now"');
 					replyActivity(page, request, { finished: 3, activeDay: "2026-10-31" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -317,7 +318,9 @@ describe("ActivitySection reporting window", () => {
 					const sameDay = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 1),
 					);
-					expect(yield* documentText(sameDay.document)).toBe(yield* documentText(first.document));
+					expect(yield* documentText(bindTestRequest(sameDay.request))).toBe(
+						yield* documentText(bindTestRequest(first.request)),
+					);
 					replyActivity(page, sameDay, { finished: 2, activeDay: "2026-09-25" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -329,10 +332,7 @@ describe("ActivitySection reporting window", () => {
 					const nextDay = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 2),
 					);
-					const nextWindow = activityWindow("2026-09-26", TIME_ZONE);
-					const nextDocument = yield* documentText(nextDay.document);
-					expect(nextDocument).toContain(nextWindow.from);
-					expect(nextDocument).toContain(nextWindow.until);
+					expect(nextDay.request).toEqual(first.request);
 					replyActivity(page, nextDay, { finished: 3, activeDay: "2026-09-26" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -381,10 +381,7 @@ describe("ActivitySection reporting window", () => {
 							waitForRequest(() => activityRequests(page), 1),
 						);
 						const expectedToday = sample.hours === 23 ? "2026-03-09" : "2026-11-02";
-						const expectedWindow = activityWindow(expectedToday, TIME_ZONE);
-						const document = yield* documentText(refreshed.document);
-						expect(document).toContain(expectedWindow.from);
-						expect(document).toContain(expectedWindow.until);
+						expect(refreshed.request.arguments).toEqual({});
 						replyActivity(page, refreshed, { finished: 2, activeDay: expectedToday });
 						yield* Effect.promise(() =>
 							waitFor(() =>
@@ -519,10 +516,7 @@ describe("ActivitySection reporting window", () => {
 					const newZoneRequest = yield* Effect.promise(() =>
 						waitForRequest(() => activityRequests(page), 1),
 					);
-					const expected = activityWindow("2025-12-31", TIME_ZONE);
-					const newDocument = yield* documentText(newZoneRequest.document);
-					expect(newDocument).toContain(expected.from);
-					expect(newDocument).toContain(expected.until);
+					expect(newZoneRequest.request).toEqual(oldZoneRequest.request);
 					replyActivity(page, newZoneRequest, { finished: 2, activeDay: "2025-12-31" });
 					yield* Effect.promise(() =>
 						waitFor(() =>

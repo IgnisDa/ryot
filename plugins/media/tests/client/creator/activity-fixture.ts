@@ -1,15 +1,13 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { rowsResult } from "../query-result-fixture";
 import { creatorFixtureRecipes } from "./recipes";
 
-const creatorActivityRecipe = creatorFixtureRecipes.activityRecipe({
-	eventLimit: 60,
-	entityId: "creator-1",
-	collectionEventLimit: 60,
-	reference: { kind: "self" },
-});
-
+const creatorActivityRecipe = bindRecipe(
+	creatorFixtureRecipes.activityRecipe({ reference: { kind: "self" } }),
+	{ entityId: "creator-1" },
+);
 export const creatorReviewEventRow = {
 	rating: 88,
 	properties: {},

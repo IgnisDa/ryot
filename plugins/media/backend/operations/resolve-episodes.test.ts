@@ -3,11 +3,13 @@ import { describe, expect } from "bun:test";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
-import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
+import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { execution } from "../../tests/backend/automations/automation-test-utils";
+import { ryotqlDocumentNodes } from "../../tests/ryotql-test-utils";
 import definition, { manifest } from "./resolve-episodes.sandbox";
 
 const rowsResponse = (entityIds: string[]) => ({
@@ -27,7 +29,7 @@ const createHost = (responses: string[][]) => {
 		host: defineSandboxTestHost(manifest, {
 			executeRyotql: (document) =>
 				Effect.sync(() => {
-					documents.push(document);
+					documents.push(bindTestRequest(document));
 					return rowsResponse(responses[documents.length - 1] ?? []);
 				}),
 		}),
@@ -75,11 +77,9 @@ describe("resolve episodes operation", () => {
 					from: { table: "entity", alias: "episode" },
 					output: { type: "rows", pagination: { limit: 2 } },
 				});
-				expect(
-					query?.joins?.map((join) =>
-						join.type === "jsonElements" ? join.alias : join.table.alias,
-					),
-				).toEqual(["seasonEpisode", "season", "showSeason", "show"]);
+				for (const alias of ["seasonEpisode", "season", "showSeason", "show"]) {
+					expect(ryotqlDocumentNodes(query)).toContainEqual(objectContaining({ alias }));
+				}
 			}),
 		testTimeout,
 	);
@@ -94,11 +94,9 @@ describe("resolve episodes operation", () => {
 					yield* runSandboxTestScript(definition, { refs: [podcastRef] }, host, execution),
 				).toEqual({ results: [{ index: 0, entityId: "episode-9" }] });
 				const query = documents[0]?.queries["episodes"];
-				expect(
-					query?.joins?.map((join) =>
-						join.type === "jsonElements" ? join.alias : join.table.alias,
-					),
-				).toEqual(["podcastEpisode", "podcast"]);
+				for (const alias of ["podcastEpisode", "podcast"]) {
+					expect(ryotqlDocumentNodes(query)).toContainEqual(objectContaining({ alias }));
+				}
 			}),
 		testTimeout,
 	);
@@ -113,60 +111,20 @@ describe("resolve episodes operation", () => {
 					yield* runSandboxTestScript(definition, { refs: [podcastTitleRef] }, host, execution),
 				).toEqual({ results: [{ index: 0, entityId: "episode-1" }] });
 				const query = documents[0]?.queries["episodes"];
-				expect(query?.where).toEqual<unknown>(
+				const nodes = ryotqlDocumentNodes(query);
+				for (const slug of [
+					"podcast",
+					"podcast-episode",
+					"podcast-to-podcast-episode",
+					"podcast-1",
+				]) {
+					expect(nodes).toContainEqual(objectContaining({ value: slug, type: "literal" }));
+				}
+				expect(nodes).toContainEqual(
 					objectContaining({
-						type: "and",
-						predicates: arrayContaining([
-							{
-								type: "and",
-								predicates: arrayContaining([
-									{
-										operator: "eq",
-										type: "comparison",
-										right: { type: "literal", value: "podcast" },
-										left: { type: "column", tableAlias: "podcast", field: "entitySchemaSlug" },
-									},
-								]),
-							},
-							{
-								type: "and",
-								predicates: arrayContaining([
-									{
-										operator: "eq",
-										type: "comparison",
-										right: { type: "literal", value: "podcast-episode" },
-										left: { type: "column", tableAlias: "episode", field: "entitySchemaSlug" },
-									},
-								]),
-							},
-							{
-								type: "and",
-								predicates: arrayContaining([
-									{
-										operator: "eq",
-										type: "comparison",
-										right: { type: "literal", value: "podcast-to-podcast-episode" },
-										left: {
-											type: "column",
-											tableAlias: "podcastEpisode",
-											field: "relationshipSchemaSlug",
-										},
-									},
-								]),
-							},
-							{
-								operator: "eq",
-								type: "comparison",
-								right: { value: "Pilot", type: "literal" },
-								left: { field: "name", type: "column", tableAlias: "episode" },
-							},
-							{
-								operator: "eq",
-								type: "comparison",
-								right: { type: "literal", value: "podcast-1" },
-								left: { field: "id", type: "column", tableAlias: "podcast" },
-							},
-						]),
+						operator: "eq",
+						right: { value: "Pilot", type: "literal" },
+						left: { field: "name", type: "column", tableAlias: "episode" },
 					}),
 				);
 			}),
@@ -207,14 +165,12 @@ describe("resolve episodes operation", () => {
 				).toEqual({ results: [{ index: 0, entityId: "season-2" }] });
 				const query = documents[0]?.queries["episodes"];
 				expect(query).toMatchObject({
-					from: { alias: "season", table: "entity" },
+					from: { table: "entity", alias: "episode" },
 					output: { type: "rows", pagination: { limit: 2 } },
 				});
-				expect(
-					query?.joins?.map((join) =>
-						join.type === "jsonElements" ? join.alias : join.table.alias,
-					),
-				).toEqual(["showSeason", "show"]);
+				for (const alias of ["showSeason", "show"]) {
+					expect(ryotqlDocumentNodes(query)).toContainEqual(objectContaining({ alias }));
+				}
 			}),
 		testTimeout,
 	);

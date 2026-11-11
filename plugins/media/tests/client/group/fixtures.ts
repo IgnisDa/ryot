@@ -1,7 +1,7 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
+import type { MediaEntityRecipe as ImportedMediaEntityRecipe } from "../../../client/media/detail-queries";
 import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 import { creatorActivityData } from "../creator/activity-fixture";
 import { rowsResult } from "../query-result-fixture";
@@ -35,11 +35,7 @@ export const groupSummaryRow = {
 
 export const decodeGroupSummaryOf = <Summary>(
 	recipes: {
-		readonly summaryRecipe: (input: {
-			readonly entityId: string;
-			readonly collectionLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<{
+		readonly summaryRecipe: ImportedMediaEntityRecipe<{
 			readonly summary: null | Summary;
 			readonly entitySchemaSlug: null | string;
 		}>;
@@ -47,7 +43,7 @@ export const decodeGroupSummaryOf = <Summary>(
 	overrides: Record<string, unknown> = {},
 ) => {
 	const { summary } = decodeMediaSummaryResult(
-		recipes.summaryRecipe({ collectionLimit: 6, entityId: "group-1", reference: { kind: "self" } }),
+		bindRecipe(recipes.summaryRecipe({ reference: { kind: "self" } }), { entityId: "group-1" }),
 		{ requested: [{ schemaSlug: "movie-group" }], summary: [{ ...groupSummaryRow, ...overrides }] },
 	);
 	if (summary === null) {
@@ -115,27 +111,17 @@ export const groupLabelCreditRow = {
 };
 
 export const decodeCreditGroupOverviewOf = <Overview>(recipes: {
-	readonly overviewRecipe: (input: {
-		readonly entityId: string;
-		readonly peopleLimit: number;
-		readonly companyLimit: number;
-		readonly reference: PluginIdentityReference;
-	}) => PreparedRecipe<Overview>;
+	readonly overviewRecipe: ImportedMediaEntityRecipe<Overview>;
 }) =>
 	Result.getOrThrow(
-		recipes
-			.overviewRecipe({
-				peopleLimit: 12,
-				companyLimit: 6,
-				entityId: "group-1",
-				reference: { kind: "self" },
-			})
-			.decode({
-				data: {
-					people: creditRows([groupArtistCreditRow]),
-					companies: creditRows([groupLabelCreditRow]),
-				},
-			}),
+		bindRecipe(recipes.overviewRecipe({ reference: { kind: "self" } }), {
+			entityId: "group-1",
+		}).decode({
+			data: {
+				people: creditRows([groupArtistCreditRow]),
+				companies: creditRows([groupLabelCreditRow]),
+			},
+		}),
 	);
 
 export const decodeCreditGroupOverview = () =>
@@ -153,12 +139,7 @@ export const decodeGroupPresentation = <Presentation>(
 
 export const decodeGroupActivity = (input: Parameters<typeof creatorActivityData>[0] = {}) =>
 	Result.getOrThrow(
-		groupFixtureRecipes
-			.activityRecipe({
-				eventLimit: 60,
-				entityId: "group-1",
-				collectionEventLimit: 60,
-				reference: { kind: "self" },
-			})
-			.decode({ data: creatorActivityData(input) }),
+		bindRecipe(groupFixtureRecipes.activityRecipe({ reference: { kind: "self" } }), {
+			entityId: "group-1",
+		}).decode({ data: creatorActivityData(input) }),
 	);

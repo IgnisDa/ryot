@@ -1,16 +1,10 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import type {
-	EntityRendererProps,
-	PluginIdentityReference,
-} from "@ryot-app/plugin-client-sdk/plugin";
-import { deviceTimeZone } from "@ryot-app/plugin-client-sdk/plugin";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
 import type { MediaPresentationSource } from "../../shared/entity-presentations";
-import type { EpisodicActivityInput, EpisodicOverviewInput } from "../../shared/episodic-recipes";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { mediaActivityExpandLabel, mediaActivityRunLabel } from "./activity-copy";
@@ -28,6 +22,7 @@ import {
 } from "./activity-tab";
 import { mergeActivityRuns } from "./activity-timeline";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
+import type { MediaEntityRecipe } from "./detail-queries";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -86,16 +81,6 @@ import {
 	type MediaSummaryValue,
 } from "./summary-state";
 
-const PEOPLE_LIMIT = 12;
-const COMPANY_LIMIT = 6;
-const RECOMMENDATION_LIMIT = 12;
-const ACTIVITY_COVERAGE_LIMIT = 100;
-const ACTIVITY_WATCH_DAY_LIMIT = 1000;
-const ACTIVITY_PARENT_EVENT_LIMIT = 60;
-const ACTIVITY_EPISODE_EVENT_LIMIT = 100;
-const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
-const ACTIVITY_EPISODE_PROGRESS_LIMIT = 100;
-
 export type MediaEpisodicPresentationValue = EpisodicCounts &
 	MediaSavedViewPresentationSubject & {
 		readonly publishDate: null | string;
@@ -148,17 +133,13 @@ export type MediaEpisodicSchemaDescriptor<
 	readonly recipes: {
 		readonly peopleRecipe: MediaCreditsRecipe;
 		readonly companiesRecipe: MediaCreditsRecipe;
+		readonly overviewRecipe: MediaEntityRecipe<Overview>;
+		readonly activityRecipe: MediaEntityRecipe<Activity>;
 		readonly presentationSource: MediaPresentationSource<Presentation>;
-		readonly overviewRecipe: (input: EpisodicOverviewInput) => PreparedRecipe<Overview>;
-		readonly activityRecipe: (input: EpisodicActivityInput) => PreparedRecipe<Activity>;
+		readonly summaryRecipe: MediaEntityRecipe<EpisodicSummaryResult<Summary>>;
 		readonly historyRecipe: MediaHistoryRecipe<
 			MediaEpisodicHistoryEvent<Origin & MediaEpisodicEpisodeValue>
 		>;
-		readonly summaryRecipe: (input: {
-			readonly entityId: string;
-			readonly collectionLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<EpisodicSummaryResult<Summary>>;
 	};
 };
 
@@ -205,18 +186,18 @@ export const defineEpisodicMediaSchema = <
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe, ({ nextUp }) =>
 		nextUp === null ? [] : [nextUp.id],
 	);
-	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
-	const companiesQuery = createMediaCreditsQuery(recipes.companiesRecipe);
-
+	const peopleQuery = createMediaCreditsQuery(
+		recipes.peopleRecipe,
+		({ entityId }) => ({ entityId }),
+		"people",
+	);
+	const companiesQuery = createMediaCreditsQuery(
+		recipes.companiesRecipe,
+		({ entityId }) => ({ entityId }),
+		"companies",
+	);
 	const overviewQuery = createMediaEntityQuery(
-		(input) =>
-			recipes.overviewRecipe({
-				entityId: input.entityId,
-				peopleLimit: PEOPLE_LIMIT,
-				reference: input.reference,
-				companyLimit: COMPANY_LIMIT,
-				recommendationLimit: RECOMMENDATION_LIMIT,
-			}),
+		(input) => recipes.overviewRecipe({ reference: input.reference }),
 		(data) =>
 			[...data.people.items, ...data.companies.items, ...data.recommendations.items].map(
 				({ id }) => id,
@@ -224,18 +205,7 @@ export const defineEpisodicMediaSchema = <
 	);
 
 	const activityQuery = createMediaEntityQuery(
-		(input) =>
-			recipes.activityRecipe({
-				entityId: input.entityId,
-				reference: input.reference,
-				timeZone: deviceTimeZone(),
-				coverageLimit: ACTIVITY_COVERAGE_LIMIT,
-				watchDayLimit: ACTIVITY_WATCH_DAY_LIMIT,
-				parentEventLimit: ACTIVITY_PARENT_EVENT_LIMIT,
-				episodeEventLimit: ACTIVITY_EPISODE_EVENT_LIMIT,
-				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
-				episodeProgressLimit: ACTIVITY_EPISODE_PROGRESS_LIMIT,
-			}),
+		(input) => recipes.activityRecipe({ reference: input.reference }),
 		(data) => [
 			...data.coverage.map(({ id }) => id),
 			...data.watchDays.map(({ episodeId }) => episodeId),

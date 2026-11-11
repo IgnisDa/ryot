@@ -12,7 +12,7 @@ import { CalendarHeatmap, RankedBarList } from "@ryot-app/plugin-ui-sdk/charts";
 import clsx from "clsx";
 import { useEffect } from "react";
 
-import { type MediaActivity, mediaActivityRecipe } from "../../shared/activity-recipes";
+import { type MediaActivity, mediaHomeActivityRecipe } from "../../shared/activity-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { type MediaRailStatus, MediaSectionFrame } from "../media/entity-rail";
 import { classifyRyotQueryResult } from "../media/query-state";
@@ -35,14 +35,7 @@ const mediaActivityQuery = createRyotQuery<MediaActivityInput, MediaActivityResu
 	({ input, client, schedule }) => {
 		const window = activityWindow(localDateOf(schedule.now(), input.timeZone), input.timeZone);
 		return client.data
-			.query(
-				mediaActivityRecipe({
-					from: window.from,
-					until: window.until,
-					timeZone: input.timeZone,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
-			)
+			.query(mediaHomeActivityRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID)), {})
 			.pipe(Effect.map((activity) => ({ window, activity })));
 	},
 	{ cancelOnUnmount: true },

@@ -1,38 +1,23 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
-import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { podcastRecipes } from "../../../shared/podcast-recipes";
 import { rowsResult } from "../query-result-fixture";
 
 const rows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 100, hasMore: false, nextCursor: null });
-
-const podcastSummaryFixtureRecipe = podcastRecipes.summaryRecipe({
-	collectionLimit: 6,
-	entityId: "podcast-1",
-	reference: { kind: "self" },
-});
-
-const podcastOverviewFixtureRecipe = podcastRecipes.overviewRecipe({
-	peopleLimit: 12,
-	companyLimit: 6,
-	entityId: "podcast-1",
-	recommendationLimit: 12,
-	reference: { kind: "self" },
-});
-
-const podcastActivityFixtureRecipe = podcastRecipes.activityRecipe({
-	coverageLimit: 100,
-	watchDayLimit: 1000,
-	parentEventLimit: 60,
-	entityId: "podcast-1",
-	episodeEventLimit: 100,
-	collectionEventLimit: 60,
-	episodeProgressLimit: 100,
-	reference: { kind: "self" },
-	timeZone: TimeZone.make("UTC"),
-});
-
+const podcastSummaryFixtureRecipe = bindRecipe(
+	podcastRecipes.summaryRecipe({ reference: { kind: "self" } }),
+	{ entityId: "podcast-1" },
+);
+const podcastOverviewFixtureRecipe = bindRecipe(
+	podcastRecipes.overviewRecipe({ reference: { kind: "self" } }),
+	{ entityId: "podcast-1" },
+);
+const podcastActivityFixtureRecipe = bindRecipe(
+	podcastRecipes.activityRecipe({ reference: { kind: "self" } }),
+	{ entityId: "podcast-1" },
+);
 export const podcastSummaryRow = {
 	owned: null,
 	ownedOn: null,

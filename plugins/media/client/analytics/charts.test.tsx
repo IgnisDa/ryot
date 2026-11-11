@@ -12,13 +12,18 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { analyticsSummary, zeroMeasures } from "../../tests/client/analytics-fixture";
+import {
+	analyticsSummary,
+	reportingSelectionResponse,
+	zeroMeasures,
+} from "../../tests/client/analytics-fixture";
 import { MediaAnalyticsCharts } from "./charts";
 import type { AnalyticsInput, SummaryChartsProps } from "./model";
 
@@ -56,6 +61,7 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, component: Com
 	mountPluginPage(component, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -98,7 +104,7 @@ const replyRequests = (
 ) => {
 	for (const request of requestsNotReplied(page, replied)) {
 		replied.add(request.requestId);
-		const queries = request.document.queries;
+		const queries = bindTestRequest(request.request).queries;
 		const series = aggregate(
 			options.includeTrendRow
 				? [trendRow(options.trendAt === undefined ? {} : { at: options.trendAt })]
@@ -111,7 +117,15 @@ const replyRequests = (
 					? { hourly: aggregate([hourRow]) }
 					: {
 							current: series,
-							...(Object.hasOwn(queries, "previous") ? { previous: aggregate([]) } : {}),
+							selection: reportingSelectionResponse(request.request.arguments ?? {}),
+							...(Object.hasOwn(queries, "previous")
+								? {
+										previous: aggregate([
+											trendRow({ at: "2026-01-29" }),
+											trendRow({ at: "2026-01-31" }),
+										]),
+									}
+								: {}),
 						},
 			},
 		});
@@ -164,16 +178,20 @@ describe("Media analytics charts UI", () => {
 					replyRequests(page, replied, { includeTrendRow: true });
 					yield* Effect.promise(() => waitFor(() => expect(tableToggles()).toHaveLength(3)));
 					const requestTexts = yield* Effect.forEach(page.queryRequests(), (request) =>
-						documentText(request.document),
+						documentText(requireInlineDocument(request.request)),
 					);
-					expect(requestTexts.some((text) => text.includes("America/New_York"))).toBe(true);
+					expect(requestTexts.every((text) => text.includes('"name":"reportingTimeZone"'))).toBe(
+						true,
+					);
 					yield* choose("Show", "Activity entries", "Pages");
 					yield* choose("Type", "All", "Book");
 					yield* Effect.promise(() =>
 						waitFor(() => expect(requestsNotReplied(page, replied).length).toBe(2)),
 					);
 					expect(
-						yield* documentText(requestsNotReplied(page, replied, "current")[0]?.document),
+						yield* documentText(
+							bindTestRequest(requestsNotReplied(page, replied, "current")[0]?.request),
+						),
 					).toContain('"book"');
 					replyRequests(page, replied, { includeTrendRow: true });
 					yield* Effect.promise(() => waitFor(() => expect(tableToggles()).toHaveLength(3)));
@@ -243,7 +261,7 @@ describe("Media analytics charts UI", () => {
 				const replied = new Set<string>();
 				try {
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("previous")).toHaveLength(1)),
+						waitFor(() => expect(page.queryRequests("previous")).toHaveLength(2)),
 					);
 					replyRequests(page, replied, { includeTrendRow: true, trendAt: "2026-02-10" });
 					yield* Effect.promise(() =>
@@ -282,11 +300,13 @@ describe("Media analytics charts UI", () => {
 					yield* Effect.promise(() =>
 						waitFor(() => expect(page.queryRequests().length).toBeGreaterThanOrEqual(3)),
 					);
-					const texts = yield* Effect.forEach(page.queryRequests("current"), (request) =>
-						documentText(request.document),
+					const requests = page.queryRequests("current");
+					expect(
+						requests.filter(({ request }) => request.arguments?.["consistency"] === true),
+					).toHaveLength(1);
+					expect(requests.every(({ request }) => request.arguments?.["range"] === "all-time")).toBe(
+						true,
 					);
-					expect(texts.filter((text) => text.includes('"bucket":"year"'))).toHaveLength(1);
-					expect(texts.filter((text) => text.includes("2025-03-05T05:00:00.000Z"))).toHaveLength(1);
 					replyRequests(page, replied, { includeTrendRow: true });
 					yield* Effect.promise(() =>
 						waitFor(() =>

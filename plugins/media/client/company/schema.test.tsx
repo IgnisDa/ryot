@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+
 import { companyRecipes } from "../../shared/company-recipes";
 import { decodeCreatorOverviewOf } from "../../tests/client/creator/overview-fixture";
 import {
@@ -10,14 +12,18 @@ import { renderMediaScreenBody } from "../../tests/client/screen-fixture";
 import { companySchema, companySummaryFacts } from "./schema";
 
 const companySummary = (overrides: Record<string, unknown> = {}) =>
-	decodeCreatorSummary(companyRecipes.summaryRecipe(CREATOR_SUMMARY_INPUT), {
-		website: null,
-		sourceUrl: null,
-		foundedYear: 1994,
-		headquarters: "Los Angeles, California",
-		...overrides,
-	});
-
+	decodeCreatorSummary(
+		bindRecipe(companyRecipes.summaryRecipe({ reference: CREATOR_SUMMARY_INPUT.reference }), {
+			entityId: CREATOR_SUMMARY_INPUT.entityId,
+		}),
+		{
+			website: null,
+			sourceUrl: null,
+			foundedYear: 1994,
+			headquarters: "Los Angeles, California",
+			...overrides,
+		},
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -38,10 +44,8 @@ describe("company schema", () => {
 			companySchema,
 			companySummary(),
 			decodeCreatorOverviewOf(
-				companyRecipes.overviewRecipe({
-					creditLimit: 12,
+				bindRecipe(companyRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 					entityId: "creator-1",
-					reference: { kind: "self" },
 				}),
 			),
 		);

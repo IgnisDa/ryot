@@ -8,6 +8,7 @@ import {
 	inArray,
 	IsoDateString,
 	literal,
+	parameters,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedField,
@@ -43,76 +44,83 @@ const occurrences = (event: Table, reference: PluginIdentityReference) =>
 		schemaOwnerPredicate(event, "eventSchemaPluginId", reference),
 		eventSchemaIsOneOf(event, mediaReviewConsumptionSlugs),
 	);
-
-const literals = (values: readonly string[]) => values.map((value) => literal(value));
-
 /** The occurrences that reviews name, and the reviews that name each occurrence, among `eventIds`. */
-export const mediaReviewLinksRecipe = defineRecipe(
-	(input: {
-		readonly eventIds: readonly string[];
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const occurrence = table("event", "reviewLinkOccurrence");
-		const review = table("event", "reviewLinkReview");
-		return {
-			map: ({ reviews, occurrences: named }) =>
-				Result.succeed({ reviews: reviews.items, occurrences: named.items }),
-			queries: {
-				occurrences: selectedRows(occurrence, {
-					limit: MEDIA_REVIEW_LINK_LIMIT,
-					orderBy: eventOrderDescending(occurrence),
-					selection: occurrenceSelection(occurrence),
-					where: and(
-						occurrences(occurrence, input.reference),
-						inArray(column(occurrence, "id"), literals(input.eventIds)),
-					),
-				}),
-				reviews: selectedRows(review, {
-					limit: MEDIA_REVIEW_LINK_LIMIT,
-					orderBy: eventOrderDescending(review),
-					where: and(
-						schemaOwnerPredicate(review, "eventSchemaPluginId", input.reference),
-						eq(column(review, "eventSchemaSlug"), literal("review")),
-						inArray(propertyText(review, "consumptionEventId"), literals(input.eventIds)),
-					),
-					selection: {
-						...mediaReviewEventSelection(review),
-						consumptionEventId: selectedField(propertyText(review, "consumptionEventId"), EventId),
-						position: selectedField(propertyJson(review, "position"), Schema.NullOr(MediaPosition)),
-					},
-				}),
+export const mediaReviewLinksRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			eventIds: {
+				type: "array",
+				label: "eventIds",
+				validation: { required: true },
+				description: "eventIds for this selection",
+				items: { label: "ID", type: "string", description: "Selected ID" },
 			},
-		};
-	},
-);
-
+		},
+	});
+	const occurrence = table("event", "reviewLinkOccurrence");
+	const review = table("event", "reviewLinkReview");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ reviews, occurrences: named }) =>
+			Result.succeed({ reviews: reviews.items, occurrences: named.items }),
+		queries: {
+			occurrences: selectedRows(occurrence, {
+				limit: MEDIA_REVIEW_LINK_LIMIT,
+				orderBy: eventOrderDescending(occurrence),
+				selection: occurrenceSelection(occurrence),
+				where: and(
+					occurrences(occurrence, input.reference),
+					inArray(column(occurrence, "id"), inputParameters.list("eventIds")),
+				),
+			}),
+			reviews: selectedRows(review, {
+				limit: MEDIA_REVIEW_LINK_LIMIT,
+				orderBy: eventOrderDescending(review),
+				where: and(
+					schemaOwnerPredicate(review, "eventSchemaPluginId", input.reference),
+					eq(column(review, "eventSchemaSlug"), literal("review")),
+					inArray(propertyText(review, "consumptionEventId"), inputParameters.list("eventIds")),
+				),
+				selection: {
+					...mediaReviewEventSelection(review),
+					consumptionEventId: selectedField(propertyText(review, "consumptionEventId"), EventId),
+					position: selectedField(propertyJson(review, "position"), Schema.NullOr(MediaPosition)),
+				},
+			}),
+		},
+	});
+};
 export type MediaLinkedReview = MediaReviewLinks["reviews"][number];
-
-export type MediaReviewLinks = Recipe.Success<typeof mediaReviewLinksRecipe>;
-
+export type MediaReviewLinks = Recipe.Success<ReturnType<typeof mediaReviewLinksRecipe>>;
 /** Recent completions, progress and status records of one entity, newest first. */
-export const mediaReviewableOccurrencesRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly entityId: string;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const event = table("event", "reviewableOccurrence");
-		return {
-			map: ({ events }) => Result.succeed(events.items),
-			queries: {
-				events: selectedRows(event, {
-					limit: input.limit,
-					orderBy: eventOrderDescending(event),
-					selection: occurrenceSelection(event),
-					where: and(
-						occurrences(event, input.reference),
-						eq(column(event, "entityId"), literal(input.entityId)),
-					),
-				}),
+export const mediaReviewableOccurrencesRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "Entity Id",
+				validation: { required: true },
+				description: "Entity Id for this selection",
 			},
-		};
-	},
-);
-
+		},
+	});
+	const event = table("event", "reviewableOccurrence");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ events }) => Result.succeed(events.items),
+		queries: {
+			events: selectedRows(event, {
+				limit: 100,
+				orderBy: eventOrderDescending(event),
+				selection: occurrenceSelection(event),
+				where: and(
+					occurrences(event, input.reference),
+					eq(column(event, "entityId"), inputParameters.value("entityId")),
+				),
+			}),
+		},
+	});
+};
 export type MediaReviewOccurrence = SelectedRow<ReturnType<typeof occurrenceSelection>>;

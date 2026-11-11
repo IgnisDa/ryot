@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	add,
 	and,
@@ -13,39 +15,44 @@ import {
 	isNotNull,
 	jsonPath,
 	literal,
-	type PreparedRecipe,
+	type Recipe,
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { comicBookRecipes } from "./comic-book-recipes";
 
-const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
+const rowFields = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return query.output.fields;
 };
-
-const fieldExpr = (recipe: PreparedRecipe<unknown>, name: string, key: string) => {
+const fieldExpr = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+	key: string,
+) => {
 	const field = rowFields(recipe, name).find((entry) => "key" in entry && entry.key === key);
 	if (field === undefined || !("expr" in field)) {
 		throw new Error(`Expected the ${key} field`);
 	}
 	return field.expr;
 };
-
-const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
-	rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
-
+const keys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
 describe("media comic book query recipes", () => {
 	it("selects the pages the comic book schema declares", () => {
 		const summary = keys(
-			comicBookRecipes.summaryRecipe({
-				collectionLimit: 6,
+			bindRecipe(comicBookRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 				entityId: "comic-book-1",
-				reference: { kind: "self" },
 			}),
 			"summary",
 		);
@@ -55,11 +62,8 @@ describe("media comic book query recipes", () => {
 	});
 
 	it("reads ready canonical pages, missing coverage and completions without live page metadata", () => {
-		const activity = comicBookRecipes.activityRecipe({
-			eventLimit: 60,
+		const activity = bindRecipe(comicBookRecipes.activityRecipe({ reference: { kind: "self" } }), {
 			entityId: "comic-book-1",
-			collectionEventLimit: 60,
-			reference: { kind: "self" },
 		});
 
 		const event = table("event", "consumptionTotalsEvent");
@@ -74,8 +78,7 @@ describe("media comic book query recipes", () => {
 			),
 		);
 		const ready = and(scope, isNotNull(jsonPath(projection, "contribution")));
-
-		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual<unknown>(
 			sum(
 				event,
 				add(
@@ -91,7 +94,7 @@ describe("media comic book query recipes", () => {
 				{ where: ready },
 			),
 		);
-		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual<unknown>(
 			count(event, {
 				where: and(
 					ready,
@@ -99,7 +102,7 @@ describe("media comic book query recipes", () => {
 				),
 			}),
 		);
-		expect(fieldExpr(activity, "totals", "completionCount")).toEqual(
+		expect(fieldExpr(activity, "totals", "completionCount")).toEqual<unknown>(
 			coalesce(
 				sum(event, castNumber(jsonPath(projection, "contribution", "titleCompletions")), {
 					where: ready,
@@ -110,13 +113,8 @@ describe("media comic book query recipes", () => {
 	});
 
 	it("reaches the series from the group side of comic-book-group-to-comic-book", () => {
-		const overview = comicBookRecipes.overviewRecipe({
-			groupLimit: 20,
-			peopleLimit: 12,
-			companyLimit: 6,
-			recommendationLimit: 12,
+		const overview = bindRecipe(comicBookRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 			entityId: "comic-book-1",
-			reference: { kind: "self" },
 		});
 
 		expect(overview.document.queries["group"]?.where).toMatchObject({

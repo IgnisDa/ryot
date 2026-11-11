@@ -56,7 +56,7 @@ export const declaresEntityWatch =
 					yield* Effect.promise(() =>
 						waitFor(() => expect(view.container.textContent).toContain("ready")),
 					);
-					expect(recording.interests.at(-1)).toEqual({
+					expect(recording.interests.at(-1)).toEqual<unknown>({
 						foreground: [entityId],
 						visible: [...visible].sort(),
 					});

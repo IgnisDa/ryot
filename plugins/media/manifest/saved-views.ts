@@ -1,4 +1,4 @@
-import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/language";
+import type { FieldSelection } from "@ryot-app/contract/modules/ryotql/authored";
 import type { AuthoredEntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import { column, descending, field, table } from "@ryot-app/ryotql";
@@ -171,6 +171,18 @@ export const mediaSavedViews = () => {
 			icon: schema.icon,
 			renderer: { kind: "kernel", name: "entity-browser" } as const,
 			dataSources: mediaSavedViewDataSources({
+				image: tableExpressions.image,
+				...(summary.subtitle === null
+					? {}
+					: {
+							subtitle: {
+								displayKind: summary.subtitle.displayKind,
+								expression:
+									tableExpressions.columns.find(
+										(tableColumn) => tableColumn.field === summary.subtitle?.field,
+									)?.expression ?? column(entity, "name"),
+							},
+						}),
 				fields,
 				reference: { kind: "self" },
 				include: presentation.include,
@@ -181,9 +193,9 @@ export const mediaSavedViews = () => {
 				summary,
 				pageSize: 20,
 				defaultLayout: "grid",
-				searchFields: ["name"],
 				sourceName: "savedView",
 				layouts: ["grid", "list", "table"],
+				controls: { sort: true, filter: true, search: "search" },
 				subject: {
 					entityAlias: "entity",
 					schemas: [

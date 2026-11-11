@@ -17,13 +17,17 @@ export type ShowSeason = ShowSeasons["seasons"]["items"][number];
 
 export type ShowSeasonList = readonly [ShowSeason, ...ShowSeason[]];
 
-export type ShowSeasonsResult = Recipe.Success<typeof showSeasonsRecipe>;
+export type ShowSeasonsResult = Recipe.Success<ReturnType<typeof showSeasonsRecipe>>;
 
-export type ShowOrderEpisode = Recipe.Success<typeof showOrderEpisodesRecipe>[number];
+export type ShowOrderEpisode = Recipe.Success<ReturnType<typeof showOrderEpisodesRecipe>>[number];
 
-export type ShowOrderGroupCoverage = Recipe.Success<typeof showOrderGroupCoverageRecipe>;
+export type ShowOrderGroupCoverage = Recipe.Success<
+	ReturnType<typeof showOrderGroupCoverageRecipe>
+>;
 
-export type ShowEpisode = Recipe.Success<typeof showSeasonEpisodesRecipe>["items"][number];
+export type ShowEpisode = Recipe.Success<
+	ReturnType<typeof showSeasonEpisodesRecipe>
+>["items"][number];
 
 export type ShowSeasonsState = MappedRyotQueryState<
 	| { readonly status: "empty" }

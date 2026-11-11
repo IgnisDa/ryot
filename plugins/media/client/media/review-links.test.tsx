@@ -3,6 +3,7 @@ import { afterEach, describe, expect } from "bun:test";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByLabelText, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -121,7 +122,7 @@ describe("review links", () => {
 						query: (document) =>
 							Effect.succeed({
 								data:
-									"occurrences" in document.queries
+									"occurrences" in bindTestRequest(document).queries
 										? {
 												reviews: rows([]),
 												occurrences: rows([
@@ -179,7 +180,7 @@ describe("review links", () => {
 						query: (document) =>
 							Effect.sync(() => {
 								chunks.push(
-									ryotqlDocumentNodes(document.queries["occurrences"]).filter(
+									ryotqlDocumentNodes(bindTestRequest(document).queries["occurrences"]).filter(
 										(node) =>
 											typeof node === "object" &&
 											node !== null &&
@@ -328,7 +329,7 @@ describe("review links", () => {
 						readUserSettings: () => Effect.succeed({}),
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) =>
-							"reviews" in document.queries
+							"reviews" in bindTestRequest(document).queries
 								? Effect.succeed({
 										data: {
 											reviews: rows([
@@ -347,7 +348,7 @@ describe("review links", () => {
 											]),
 										},
 									})
-								: base(document),
+								: base(bindTestRequest(document)),
 					},
 					<fixtureSchema.Activity
 						compact
@@ -394,7 +395,7 @@ describe("review links", () => {
 						query: (document) =>
 							Effect.succeed({
 								data:
-									"reviews" in document.queries
+									"reviews" in bindTestRequest(document).queries
 										? {
 												occurrences: rows([]),
 												reviews: rows([

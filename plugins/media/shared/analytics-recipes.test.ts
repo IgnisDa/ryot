@@ -11,14 +11,13 @@ import {
 	localDate,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import {
-	type ReportingSelection,
-	resolveReportingSelection,
-	TimeZone,
-} from "@ryot-app/plugin-kit/schema";
+import { type ReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
+import { bindRecipe, recipeResponse } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { reportingSelectionResponse } from "../tests/client/analytics-fixture";
 import {
 	consumptionMeasures,
 	mediaAnalyticsHoursRecipe,
@@ -35,9 +34,7 @@ const selection: ReportingSelection = {
 	comparison: "previous-period",
 	range: { days: 30, kind: "rolling" },
 };
-const resolve = (value: ReportingSelection) =>
-	resolveReportingSelection(value, { timeZone, now: Date.parse("2026-10-29T12:00:00Z") });
-const input = { reference: { kind: "self" }, reporting: resolve(selection) } as const;
+const input = { selection, reference: { kind: "self" } } as const;
 const aggregate = (items: readonly unknown[]) => ({
 	items,
 	type: "aggregate",
@@ -51,14 +48,22 @@ const rows = (items: readonly unknown[], nextCursor: null | string = null) => ({
 const validate = (document: Parameters<typeof validateRyotQLDocument>[0]) =>
 	validateRyotQLDocument(document, { type: "user", audience: "plugin", accessClass: "standard" })
 		.error;
-const allTime = { ...input, reporting: resolve({ ...selection, range: { kind: "all-time" } }) };
+const allTime = { ...input, selection: { ...selection, range: { kind: "all-time" as const } } };
 const zeros = Object.fromEntries(
 	Object.keys(consumptionMeasures(table("event", "zero"))).map((key) => [key, 0]),
 );
 
 describe("Media analytics recipes", () => {
-	it("reads one summary document and omits previous-period queries without a comparison", () => {
-		expect(Object.keys(mediaAnalyticsSummaryRecipe(input).document.queries).sort()).toEqual([
+	it("reads one summary document and keeps comparison queries static across reporting selections", () => {
+		expect(
+			Object.keys(
+				bindRecipe(
+					mediaAnalyticsSummaryRecipe({ reference: input.reference }),
+					{ ...reportingArguments(selection) },
+					{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+				).document.queries,
+			).sort(),
+		).toEqual([
 			"currentActiveDays",
 			"currentReviews",
 			"currentTypes",
@@ -66,17 +71,38 @@ describe("Media analytics recipes", () => {
 			"previousReviews",
 			"previousTypes",
 			"processing",
+			"selection",
 			"undated",
 		]);
-		expect(Object.keys(mediaAnalyticsSummaryRecipe(allTime).document.queries).sort()).toEqual([
+		expect(
+			Object.keys(
+				bindRecipe(
+					mediaAnalyticsSummaryRecipe({ reference: allTime.reference }),
+					{ ...reportingArguments(allTime.selection) },
+					{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+				).document.queries,
+			).sort(),
+		).toEqual([
 			"currentActiveDays",
 			"currentReviews",
 			"currentTypes",
+			"previousActiveDays",
+			"previousReviews",
+			"previousTypes",
 			"processing",
+			"selection",
 			"undated",
 		]);
 		for (const value of [input, allTime]) {
-			expect(validate(mediaAnalyticsSummaryRecipe(value).document)).toBeNull();
+			expect(
+				validate(
+					bindRecipe(
+						mediaAnalyticsSummaryRecipe({ reference: value.reference }),
+						{ ...reportingArguments(value.selection) },
+						{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+					).document,
+				),
+			).toBeNull();
 		}
 	});
 	test.each([
@@ -85,13 +111,21 @@ describe("Media analytics recipes", () => {
 		{ failed: 1, pending: 2, processing: "failed" },
 	])("derives processing from stream status: %s", ({ failed, pending, processing }) => {
 		const result = Result.getOrThrow(
-			mediaAnalyticsSummaryRecipe(allTime).decode({
+			bindRecipe(
+				mediaAnalyticsSummaryRecipe({ reference: allTime.reference }),
+				{ ...reportingArguments(allTime.selection) },
+				{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+			).decode({
 				data: {
 					currentTypes: aggregate([]),
+					previousTypes: aggregate([]),
 					currentReviews: aggregate([]),
+					previousReviews: aggregate([]),
 					undated: aggregate([{ count: 3 }]),
 					processing: aggregate([{ failed, pending }]),
 					currentActiveDays: aggregate([{ activeDays: 0 }]),
+					previousActiveDays: aggregate([{ activeDays: 0 }]),
+					selection: reportingSelectionResponse(reportingArguments(allTime.selection)),
 				},
 			}),
 		);
@@ -102,13 +136,52 @@ describe("Media analytics recipes", () => {
 			current: { types: [], reviews: [], activeDays: 0 },
 		});
 	});
+	test.each([false, true])("preserves decoded previous-period totals (empty: %s)", (empty) => {
+		const recipe = mediaAnalyticsSummaryRecipe({ reference: input.reference });
+		const types = empty
+			? []
+			: [
+					{
+						...zeros,
+						label: "Book",
+						activeDays: 2,
+						mediaType: "book",
+						distinctTitles: 1,
+						pagesRecorded: 42,
+					},
+				];
+		const reviews = empty
+			? []
+			: [{ rated: 1, reviews: 1, label: "Book", mediaType: "book", averageRating: 80 }];
+		const previous = { types, reviews, activeDays: empty ? 0 : 2 };
+		const report = Result.getOrThrow(
+			recipe.decode(
+				recipeResponse(recipe, {
+					currentTypes: aggregate([]),
+					currentReviews: aggregate([]),
+					previousTypes: aggregate(types),
+					undated: aggregate([{ count: 0 }]),
+					previousReviews: aggregate(reviews),
+					currentActiveDays: aggregate([{ activeDays: 0 }]),
+					processing: aggregate([{ failed: 0, pending: 0 }]),
+					selection: reportingSelectionResponse(reportingArguments(selection)),
+					previousActiveDays: aggregate([{ activeDays: previous.activeDays }]),
+				}),
+			),
+		);
+		expect(report.previous).toEqual<unknown>(previous);
+	});
 	it("applies each period before aggregation and reads processing from event projections", () => {
-		const { queries } = mediaAnalyticsSummaryRecipe(input).document;
-		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-30T04:00:00.000Z");
-		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-09-29T00:00:00.000Z");
-		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-10-31T00:00:00.000Z");
-		expect(JSON.stringify(queries["previousTypes"]?.where)).toContain("2026-08-31T04:00:00.000Z");
-		expect(JSON.stringify(queries["previousReviews"]?.where)).toContain("2026-08-31T04:00:00.000Z");
+		const { queries } = bindRecipe(
+			mediaAnalyticsSummaryRecipe({ reference: input.reference }),
+			{ ...reportingArguments(selection) },
+			{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+		).document;
+		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain("2026-10-29T12:00:00.000Z");
+		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain('"amount":-29');
+		expect(JSON.stringify(queries["currentTypes"]?.where)).toContain('"amount":1');
+		expect(JSON.stringify(queries["previousTypes"]?.where)).toContain('"amount":-59');
+		expect(JSON.stringify(queries["previousReviews"]?.where)).toContain('"amount":-59');
 		for (const name of ["currentTypes", "currentReviews", "currentActiveDays"]) {
 			expect(JSON.stringify(queries[name])).not.toContain("projectionStatus");
 		}
@@ -149,50 +222,72 @@ describe("Media analytics recipes", () => {
 		);
 	});
 	it("groups trends by one local bucket per row and resolves the compared period", () => {
-		const recipe = mediaAnalyticsTrendRecipe({ ...input, mediaType: "book" });
+		const recipe = bindRecipe(
+			mediaAnalyticsTrendRecipe({ reference: { ...input, mediaType: "book" }.reference }),
+			{ ...reportingArguments(selection), mediaType: "book" },
+			{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+		);
 		const text = JSON.stringify(recipe.document.queries["current"]);
 		expect(text).toContain("book");
 		expect(text).toContain("dateBucket");
 		expect(text).not.toContain("mediaType");
 		expect(validate(recipe.document)).toBeNull();
 		const result = Result.getOrThrow(
-			recipe.decode({
-				data: {
+			recipe.decode(
+				recipeResponse(recipe, {
 					previous: aggregate([]),
+					selection: reportingSelectionResponse(reportingArguments(selection)),
 					current: aggregate([{ ...zeros, pagesKnown: 1, at: "2026-10-01", pagesRecorded: 4 }]),
-				},
-			}),
+				}),
+			),
 		);
-		expect(result.grouping).toBe("day");
+		expect(JSON.stringify(recipe.document.queries["current"])).toContain('"unit":"day"');
 		expect(result.current).toMatchObject({
-			period: { endDate: "2026-10-29", startDate: "2026-09-30" },
 			items: [{ pagesKnown: 1, at: "2026-10-01", pagesRecorded: 4 }],
 		});
-		expect(result.previous).toMatchObject({
-			items: [],
-			period: { endDate: "2026-09-29", startDate: "2026-08-31" },
-		});
-		expect(Object.keys(mediaAnalyticsTrendRecipe(allTime).document.queries)).toEqual(["current"]);
+		expect(result.previous).toMatchObject({ items: [] });
+		expect(
+			Object.keys(
+				bindRecipe(
+					mediaAnalyticsTrendRecipe({ reference: allTime.reference }),
+					{ ...reportingArguments(allTime.selection) },
+					{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+				).document.queries,
+			),
+		).toEqual(["current", "selection", "previous"]);
 	});
 	it("groups hours by instant evidence only", () => {
-		const recipe = mediaAnalyticsHoursRecipe(input);
+		const recipe = bindRecipe(
+			mediaAnalyticsHoursRecipe({ reference: input.reference }),
+			{ ...reportingArguments(selection) },
+			{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+		);
 		const query = recipe.document.queries["hourly"];
 		expect(JSON.stringify(query?.where)).toContain('"instant"');
 		expect(validate(recipe.document)).toBeNull();
 		expect(
-			Result.getOrThrow(recipe.decode({ data: { hourly: aggregate([{ ...zeros, hour: 7 }]) } })),
+			Result.getOrThrow(
+				recipe.decode(recipeResponse(recipe, { hourly: aggregate([{ ...zeros, hour: 7 }]) })),
+			),
 		).toEqual<unknown>([{ ...zeros, hour: 7 }]);
 	});
 	it("ranks titles by one grouped aggregate over period contributions with cursor pages", () => {
-		const recipe = mediaAnalyticsRankingRecipe({
-			...input,
-			mediaType: "show-episode",
-			after: "opaque-ranking-cursor",
-		});
+		const recipe = bindRecipe(
+			mediaAnalyticsRankingRecipe({
+				reference: { ...input, mediaType: "show-episode", after: "opaque-ranking-cursor" }
+					.reference,
+			}),
+			{
+				...reportingArguments(selection),
+				mediaType: "show-episode",
+				after: "opaque-ranking-cursor",
+			},
+			{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+		);
 		const query = recipe.document.queries["ranking"];
 		expect(validate(recipe.document)).toBeNull();
 		expect(query?.from).toEqual(table("event", "analyticsRankEvent"));
-		expect(JSON.stringify(query?.where)).toContain("2026-09-29T00:00:00.000Z");
+		expect(JSON.stringify(query?.where)).toContain('"amount":-29');
 		expect(query?.output).toMatchObject({
 			limit: 100,
 			type: "aggregate",
@@ -212,28 +307,41 @@ describe("Media analytics recipes", () => {
 			episodeCompletions: 0,
 		};
 		const result = Result.getOrThrow(
-			recipe.decode({
-				data: {
+			recipe.decode(
+				recipeResponse(recipe, {
 					ranking: {
 						items: [item],
 						type: "aggregate",
 						pageInfo: { limit: 100, hasMore: true, nextCursor: "next-opaque" },
 					},
-				},
-			}),
+				}),
+			),
 		);
 		expect(result.items[0]).toMatchObject({ label: "Show", activeObservations: 0 });
 		expect(result.pageInfo.nextCursor).toBe("next-opaque");
 	});
 	it("keeps source facts and canonical contributions separate in logical-order event cursor rows", () => {
-		const recipe = mediaAnalyticsRecordsRecipe({
-			...input,
-			hour: 1,
-			activeOnly: true,
-			mediaType: "anime",
-			entityId: "owned-title",
-			after: "opaque-source-cursor",
-		});
+		const recipe = bindRecipe(
+			mediaAnalyticsRecordsRecipe({
+				reference: {
+					...input,
+					hour: 1,
+					activeOnly: true,
+					mediaType: "anime",
+					entityId: "owned-title",
+					after: "opaque-source-cursor",
+				}.reference,
+			}),
+			{
+				...reportingArguments(selection),
+				hour: 1,
+				activeOnly: true,
+				mediaType: "anime",
+				entityId: "owned-title",
+				after: "opaque-source-cursor",
+			},
+			{ now: new Date("2026-10-29T12:00:00Z"), reportingTimeZone: "America/New_York" },
+		);
 		expect(validate(recipe.document)).toBeNull();
 		const query = recipe.document.queries["records"];
 		expect(query?.output).toMatchObject({
@@ -254,8 +362,8 @@ describe("Media analytics recipes", () => {
 			expect(text).not.toContain(value);
 		}
 		const result = Result.getOrThrow(
-			recipe.decode({
-				data: {
+			recipe.decode(
+				recipeResponse(recipe, {
 					records: rows([
 						{
 							id: "item",
@@ -277,8 +385,8 @@ describe("Media analytics recipes", () => {
 							},
 						},
 					]),
-				},
-			}),
+				}),
+			),
 		);
 		expect(result.items[0]?.facts.position?.position).toBe(12);
 		expect(result.items[0]?.contribution.episodes?.recorded).toBe(1);

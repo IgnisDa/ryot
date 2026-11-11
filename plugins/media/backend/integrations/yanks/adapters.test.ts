@@ -150,19 +150,19 @@ describe("Plex yank", () => {
 			Effect.gen(function* () {
 				const result = yield* Effect.promise(() =>
 					runPlex({
+						"/library/metadata/555/allLeaves": metadata([
+							{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1700000100 },
+						]),
 						"/library/sections": libraries([
 							{ key: "1", type: "movie", title: "Movies" },
 							{ key: "2", type: "show", title: "Shows" },
-						]),
-						"/library/metadata/555/allLeaves": metadata([
-							{ index: 3, key: "/e/1", title: "Ep1", parentIndex: 1, lastViewedAt: 1_700_000_100 },
 						]),
 						"/library/sections/1/all?includeGuids=1": metadata([
 							{
 								key: "/m/1",
 								type: "movie",
 								title: "Arrival",
-								lastViewedAt: 1_700_000_000,
+								lastViewedAt: 1700000000,
 								Guid: [{ id: "tmdb://329865" }],
 							},
 						]),
@@ -172,7 +172,7 @@ describe("Plex yank", () => {
 								type: "show",
 								ratingKey: "555",
 								title: "Severance",
-								lastViewedAt: 1_700_000_000,
+								lastViewedAt: 1700000000,
 								Guid: [{ id: "tmdb://95396" }],
 							},
 						]),
@@ -210,7 +210,7 @@ describe("Plex yank", () => {
 					runPlex({
 						"/library/sections": libraries([{ key: "1", type: "movie", title: "Movies" }]),
 						"/library/sections/1/all?includeGuids=1": metadata([
-							{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
+							{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1700000000 },
 						]),
 					}),
 				);
@@ -233,7 +233,7 @@ describe("Plex yank", () => {
 				const result = yield* Effect.promise(() =>
 					runPlex({
 						"/library/sections/3/all?includeGuids=1": metadata([
-							{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1_700_000_000 },
+							{ key: "/m/9", type: "movie", title: "No Ids", lastViewedAt: 1700000000 },
 						]),
 						"/library/sections": libraries([
 							{ key: "1", type: "movie", title: "Movies" },
@@ -343,7 +343,7 @@ describe("Plex yank", () => {
 								key: "/m/1",
 								type: "movie",
 								title: "Primer",
-								lastViewedAt: 1_700_000_000,
+								lastViewedAt: 1700000000,
 								Guid: [{ id: "imdb://tt0390384" }, { id: "tvdb://123" }],
 							},
 						]),
@@ -369,13 +369,7 @@ describe("Plex yank", () => {
 						"/library/metadata/1/allLeaves": failure,
 						"/library/sections": libraries([{ key: "1", type: "show", title: "Shows" }]),
 						"/library/metadata/2/allLeaves": metadata([
-							{
-								index: 1,
-								key: "/e/2",
-								parentIndex: 1,
-								title: "Episode",
-								lastViewedAt: 1_700_000_100,
-							},
+							{ index: 1, key: "/e/2", parentIndex: 1, title: "Episode", lastViewedAt: 1700000100 },
 						]),
 						"/library/sections/1/all?includeGuids=1": metadata([
 							{
@@ -383,16 +377,16 @@ describe("Plex yank", () => {
 								type: "show",
 								ratingKey: "1",
 								title: "Broken",
+								lastViewedAt: 1700000000,
 								Guid: [{ id: "tmdb://1" }],
-								lastViewedAt: 1_700_000_000,
 							},
 							{
 								key: "/s/2",
 								type: "show",
 								ratingKey: "2",
 								title: "Working",
+								lastViewedAt: 1700000000,
 								Guid: [{ id: "tmdb://2" }],
-								lastViewedAt: 1_700_000_000,
 							},
 						]),
 					}),
@@ -562,7 +556,7 @@ describe("YouTube Music yank", () => {
 		);
 		expect(localDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		expect(ttlSeconds).toBeGreaterThan(0);
-		expect(ttlSeconds).toBeLessThanOrEqual(86_400);
+		expect(ttlSeconds).toBeLessThanOrEqual(86400);
 	});
 
 	it.effect(

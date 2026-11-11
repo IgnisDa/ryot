@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import type { AuthoredPluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import type { Predicate } from "@ryot-app/contract/modules/ryotql/language";
+import type { Predicate } from "@ryot-app/contract/modules/ryotql/authored";
 import { table } from "@ryot-app/ryotql";
 import { objectContaining } from "@ryot-app/testing/matchers";
 

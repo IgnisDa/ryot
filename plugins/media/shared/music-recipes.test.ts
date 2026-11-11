@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	add,
 	and,
@@ -13,39 +15,44 @@ import {
 	isNotNull,
 	jsonPath,
 	literal,
-	type PreparedRecipe,
+	type Recipe,
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { musicRecipes } from "./music-recipes";
 
-const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
+const rowFields = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return query.output.fields;
 };
-
-const fieldExpr = (recipe: PreparedRecipe<unknown>, name: string, key: string) => {
+const fieldExpr = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+	key: string,
+) => {
 	const field = rowFields(recipe, name).find((entry) => "key" in entry && entry.key === key);
 	if (field === undefined || !("expr" in field)) {
 		throw new Error(`Expected the ${key} field`);
 	}
 	return field.expr;
 };
-
-const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
-	rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
-
+const keys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
 describe("media music query recipes", () => {
 	it("selects only the duration and various-artists fields the music schema declares", () => {
 		const summary = keys(
-			musicRecipes.summaryRecipe({
-				collectionLimit: 6,
+			bindRecipe(musicRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 				entityId: "music-1",
-				reference: { kind: "self" },
 			}),
 			"summary",
 		);
@@ -56,11 +63,8 @@ describe("media music query recipes", () => {
 	});
 
 	it("sums ready canonical minutes and missing coverage without converting live duration again", () => {
-		const activity = musicRecipes.activityRecipe({
-			eventLimit: 60,
+		const activity = bindRecipe(musicRecipes.activityRecipe({ reference: { kind: "self" } }), {
 			entityId: "music-1",
-			collectionEventLimit: 60,
-			reference: { kind: "self" },
 		});
 		const event = table("event", "consumptionTotalsEvent");
 		const entity = table("entity", "musicActivityEntity");
@@ -74,8 +78,7 @@ describe("media music query recipes", () => {
 			),
 		);
 		const ready = and(scope, isNotNull(jsonPath(projection, "contribution")));
-
-		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual<unknown>(
 			sum(
 				event,
 				add(
@@ -91,7 +94,7 @@ describe("media music query recipes", () => {
 				{ where: ready },
 			),
 		);
-		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual<unknown>(
 			count(event, {
 				where: and(
 					ready,

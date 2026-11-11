@@ -11,10 +11,10 @@ import {
 	ascending,
 	column,
 	defineRecipe,
-	entitySchemaPredicate,
 	eq,
 	executeRyotqlRecipe,
-	literal,
+	parameters,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
 	table,
@@ -53,31 +53,47 @@ export const manifest = defineManifest({
 		},
 	},
 });
-
-const targetRecipe = defineRecipe(
-	(input: { readonly entityId: string; readonly schemaSlug: string }) => {
-		const entity = table("entity", "consumptionTarget");
-		return {
-			map: ({ target }) => Result.succeed(target),
-			queries: {
-				target: selectedOptionalRow(entity, {
-					orderBy: [ascending(column(entity, "id"))],
-					where: and(
-						eq(column(entity, "id"), literal(input.entityId)),
-						entitySchemaPredicate(entity, input.schemaSlug, { kind: "self" }),
-					),
-					selection: {
-						properties: selectedField(
-							column(entity, "properties"),
-							Schema.Record(Schema.String, Schema.Json),
-						),
-					},
-				}),
+const targetRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "entityId",
+				validation: { required: true },
+				description: "entityId to read",
 			},
-		};
-	},
-);
-
+			schemaSlug: {
+				type: "string",
+				label: "schemaSlug",
+				validation: { required: true },
+				description: "schemaSlug to read",
+			},
+		},
+	});
+	const entity = table("entity", "consumptionTarget");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ target }) => Result.succeed(target),
+		queries: {
+			target: selectedOptionalRow(entity, {
+				orderBy: [ascending(column(entity, "id"))],
+				selection: {
+					properties: selectedField(
+						column(entity, "properties"),
+						Schema.Record(Schema.String, Schema.Json),
+					),
+				},
+				where: and(
+					eq(column(entity, "id"), inputParameters.value("entityId")),
+					and(
+						schemaOwnerPredicate(entity, "entitySchemaPluginId", { kind: "self" }),
+						eq(column(entity, "entitySchemaSlug"), inputParameters.value("schemaSlug")),
+					),
+				),
+			}),
+		},
+	});
+})();
 const reject = (reason: string) => ({ reason, action: "reject" }) as const;
 
 const decide = Effect.fn("retainConsumptionFacts")(function* (
@@ -191,10 +207,10 @@ const decide = Effect.fn("retainConsumptionFacts")(function* (
 	if (properties["sourceRun"] !== undefined && !unitChanged) {
 		return reject("Imported source runs require a consumption basis");
 	}
-	const target = yield* executeRyotqlRecipe(
-		host.executeRyotql,
-		targetRecipe({ entityId: draft.entityId, schemaSlug: draft.entitySchemaSlug }),
-	);
+	const target = yield* executeRyotqlRecipe(host.executeRyotql, targetRecipe, {
+		entityId: draft.entityId,
+		schemaSlug: draft.entitySchemaSlug,
+	});
 	if (target === undefined) {
 		return reject("Consumption target is unavailable");
 	}

@@ -9,8 +9,8 @@ import {
 	entitySchemaPredicate,
 	eq,
 	executeRyotqlRecipe,
-	literal,
 	or,
+	parameters,
 	selectedField,
 	selectedOptionalRow,
 	table,
@@ -25,9 +25,20 @@ import {
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 import { requireReviewConsumption } from "./media-review-consumption";
 
-const reviewTargetRecipe = defineRecipe((entityId: string) => {
+const reviewTargetRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "Entity Id",
+				validation: { required: true },
+				description: "Entity Id for this selection",
+			},
+		},
+	});
 	const entity = table("entity", "reviewTarget");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ target }) => Result.succeed(target),
 		queries: {
 			target: selectedOptionalRow(entity, {
@@ -37,7 +48,7 @@ const reviewTargetRecipe = defineRecipe((entityId: string) => {
 					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
 				},
 				where: and(
-					eq(column(entity, "id"), literal(entityId)),
+					eq(column(entity, "id"), inputParameters.value("entityId")),
 					or(
 						...mediaLibraryMemberEntitySchemaSlugs.map((slug) =>
 							entitySchemaPredicate(entity, slug, { kind: "self" }),
@@ -46,9 +57,8 @@ const reviewTargetRecipe = defineRecipe((entityId: string) => {
 				),
 			}),
 		},
-	};
-});
-
+	});
+})();
 export const manifest = defineManifest({
 	kind: "operation",
 	name: "Create media review",
@@ -61,10 +71,9 @@ export default defineOperation({
 	input: MediaReviewCreateInput,
 	run: (input, host) =>
 		Effect.gen(function* () {
-			const target = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				reviewTargetRecipe(input.entityId),
-			);
+			const target = yield* executeRyotqlRecipe(host.executeRyotql, reviewTargetRecipe, {
+				entityId: input.entityId,
+			});
 			if (target === undefined) {
 				return yield* new OperationRejectedError({ message: "Review target not found" });
 			}

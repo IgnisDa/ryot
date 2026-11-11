@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { visualNovelRecipes } from "../../shared/visual-novel-recipes";
 import {
@@ -20,11 +21,12 @@ import { visualNovelPresentationFacts, visualNovelSchema, visualNovelSummaryFact
 const noopAdapter = { query: () => Effect.succeed({}) };
 
 const visualNovelSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(visualNovelRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		lengthMinutes: 750,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(visualNovelRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ lengthMinutes: 750, ...overrides },
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -41,7 +43,12 @@ describe("visual novel schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			visualNovelSchema,
 			visualNovelSummary(),
-			decodeFlatOverview(visualNovelRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(
+					visualNovelRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }),
+					{ entityId: FLAT_OVERVIEW_INPUT.entityId },
+				),
+			),
 		);
 
 		expect(container.textContent).toContain("Developers");

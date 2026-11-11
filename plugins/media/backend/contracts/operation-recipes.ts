@@ -1,5 +1,6 @@
 import { defineOperationRecipe } from "@ryot-app/plugin-kit/operations";
 
+import { MetadataLookupInput, MetadataLookupOutput } from "../../shared/integration-operations";
 import {
 	MediaMonitoringDisableInput,
 	MediaMonitoringEnableInput,
@@ -7,7 +8,6 @@ import {
 	MediaMonitoringStatusInput,
 } from "../../shared/media-monitoring-operations";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { MetadataLookupInput, MetadataLookupOutput } from "./operations";
 
 const packageId = PLUGIN_PACKAGE_ID;
 

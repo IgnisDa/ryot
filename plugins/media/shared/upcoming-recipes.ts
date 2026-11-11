@@ -6,6 +6,7 @@ import {
 	castNumber,
 	column,
 	countAll,
+	dateAdd,
 	defineRecipe,
 	entitySchemaPredicate,
 	eq,
@@ -23,10 +24,13 @@ import {
 	jsonElementsJoin,
 	jsonPath,
 	literal,
-	lt,
+	localDate,
 	lte,
 	neq,
+	now,
 	or,
+	parameters,
+	reportingTimeZone,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -59,30 +63,39 @@ import {
 import { latestPosition } from "./lifecycle-list-recipes";
 import { MediaImageListSchema } from "./media-image";
 import { flatMediaSchemaSlugs } from "./media-schema-slugs";
+import { DEFAULT_UPCOMING_DAYS_AHEAD, MAX_UPCOMING_DAYS_AHEAD } from "./upcoming-settings";
 
-type UpcomingInput = {
-	readonly limit: number;
-	readonly fromDate: string;
-	readonly untilDate: string;
-	readonly fromInstant: string;
-	readonly onePerTitle: boolean;
-	readonly untilInstant: string;
-	readonly reference: PluginIdentityReference;
-};
-
+const upcomingParameters = parameters({
+	fields: {
+		onePerTitle: {
+			type: "boolean",
+			defaultValue: true,
+			label: "One per title",
+			description: "Return only the next occurrence for each title",
+		},
+		daysAhead: {
+			type: "integer",
+			label: "Days ahead",
+			defaultValue: DEFAULT_UPCOMING_DAYS_AHEAD,
+			validation: { minimum: 1, maximum: MAX_UPCOMING_DAYS_AHEAD },
+			description:
+				"Include releases from today through this many reporting-zone calendar days ahead",
+		},
+	},
+});
+type UpcomingInput = { readonly reference: PluginIdentityReference };
+const TITLE_LIMIT = 20;
+const today = castDate(localDate(now(), { timeZone: reportingTimeZone }));
+const lastDay = dateAdd(today, upcomingParameters.value("daysAhead"), "day");
 const upcomingEntitySelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
 	images: selectedField(propertyJson(entity, "images"), MediaImageListSchema),
 });
 
 const WINDOW_EPISODE_LIMIT = 100;
-const WINDOW_TITLE_LIMIT = 1_000;
-
-const perTitle = (input: UpcomingInput) => (input.onePerTitle ? 1 : input.limit);
-
-const inDateWindow = (date: ScalarExpression, input: UpcomingInput) =>
-	and(gte(date, castDate(literal(input.fromDate))), lte(date, castDate(literal(input.untilDate))));
-
+const WINDOW_TITLE_LIMIT = 1000;
+const inDateWindow = (date: ScalarExpression) =>
+	and(gte(castDate(date), today), lte(castDate(date), lastDay));
 const followed = (entity: Table, alias: string) => {
 	const library = libraryMembershipJoin(entity, `${alias}Library`);
 	return {
@@ -109,7 +122,7 @@ const windowEpisodes = (config: EpisodicKindConfig, input: UpcomingInput) => {
 		],
 		where: and(
 			scope.where,
-			inDateWindow(occursAt(episode), input),
+			inDateWindow(occursAt(episode)),
 			entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 			or(
 				inArray(follow.lifecycleState, [literal("in_progress"), literal("caught_up")]),
@@ -124,6 +137,7 @@ const episodeSelection = (parent: Table, episode: Table) => ({
 	...upcomingEntitySelection(parent),
 	occurrenceId: selectedField(column(episode, "id"), Schema.String),
 	publishDate: selectedField(propertyText(episode, "publishDate"), Schema.String),
+	onePerTitle: selectedField(upcomingParameters.value("onePerTitle"), Schema.Boolean),
 	episodeNumber: selectedField(propertyNumber(episode, "episodeNumber"), Schema.Finite),
 	occurrenceImages: selectedField(propertyJson(episode, "images"), MediaImageListSchema),
 	seasonNumber: selectedField(
@@ -168,7 +182,6 @@ type EpisodeRow = SelectedRow<ReturnType<typeof episodeSelection>>;
 const titlesFromEpisodes = (
 	rows: readonly EpisodeRow[],
 	totals: readonly { readonly id: string; readonly total: number }[],
-	input: UpcomingInput,
 ) => {
 	const totalOf = new Map(totals.map(({ id, total }) => [id, total]));
 	const titles = new Map<string, [EpisodeRow, ...EpisodeRow[]]>();
@@ -182,9 +195,10 @@ const titlesFromEpisodes = (
 	}
 	return [...titles.values()]
 		.sort(([a], [b]) => a.publishDate.localeCompare(b.publishDate) || a.id.localeCompare(b.id))
-		.slice(0, input.limit)
+		.slice(0, TITLE_LIMIT)
 		.map((episodes) => {
 			const {
+				onePerTitle,
 				publishDate: _publishDate,
 				occurrenceId: _occurrenceId,
 				seasonNumber: _seasonNumber,
@@ -196,7 +210,7 @@ const titlesFromEpisodes = (
 				entity,
 				total: totalOf.get(entity.id) ?? episodes.length,
 				occurrences: episodes
-					.slice(0, perTitle(input))
+					.slice(0, onePerTitle ? 1 : TITLE_LIMIT)
 					.map((episode) => ({
 						dateOnly: true,
 						key: episode.occurrenceId,
@@ -219,15 +233,14 @@ const animeWindow = (
 	anime: Table,
 	entry: ScalarExpression,
 	airingAt: ScalarExpression,
-	input: UpcomingInput,
+	_input: UpcomingInput,
 ) => {
 	const watched = latestPosition(anime);
 	const premiere = publishDate(anime);
 	return and(
 		or(isNull(watched), gt(castNumber(jsonPath(entry, "episode")), watched)),
 		or(isNull(premiere), neq(airingAt, premiere)),
-		gte(airingAt, castDate(literal(input.fromInstant))),
-		lt(airingAt, castDate(literal(input.untilInstant))),
+		inDateWindow(localDate(airingAt, { timeZone: reportingTimeZone })),
 	);
 };
 
@@ -243,17 +256,18 @@ const animeTitles = (input: UpcomingInput) => {
 	const listedAiringAt = castDate(jsonPath(listedEntry, "airingAt"));
 	const listedEpisode = castNumber(jsonPath(listedEntry, "episode"));
 	return selectedRows(anime, {
-		limit: input.limit,
+		limit: TITLE_LIMIT,
 		joins: [follow.join],
-		selection: {
-			...upcomingEntitySelection(anime),
-			total: selectedField(jsonArrayCount(airingSchedule(anime), inWindow), Schema.Finite),
-		},
 		where: and(
 			entitySchemaPredicate(anime, "anime", input.reference),
 			or(eq(follow.lifecycleState, literal("in_progress")), follow.monitored),
 			jsonArrayExists(airingSchedule(anime), inWindow),
 		),
+		selection: {
+			...upcomingEntitySelection(anime),
+			onePerTitle: selectedField(upcomingParameters.value("onePerTitle"), Schema.Boolean),
+			total: selectedField(jsonArrayCount(airingSchedule(anime), inWindow), Schema.Finite),
+		},
 		orderBy: [
 			ascending(
 				jsonArrayFirst(airingSchedule(anime), {
@@ -267,7 +281,7 @@ const animeTitles = (input: UpcomingInput) => {
 		include: {
 			occurrences: selectedInclude(listed, {
 				joins: [element],
-				limit: perTitle(input),
+				limit: TITLE_LIMIT,
 				orderBy: [ascending(listedAiringAt), ascending(listedEpisode)],
 				where: and(
 					eq(column(listed, "id"), column(anime, "id")),
@@ -287,7 +301,7 @@ const releaseTitles = (input: UpcomingInput) => {
 	const follow = followed(entity, "upcomingRelease");
 	const date = occursAt(entity);
 	return selectedRows(entity, {
-		limit: input.limit,
+		limit: TITLE_LIMIT,
 		joins: [follow.join],
 		orderBy: [ascending(date), ascending(column(entity, "id"))],
 		selection: {
@@ -302,45 +316,50 @@ const releaseTitles = (input: UpcomingInput) => {
 			),
 			follow.monitored,
 			or(isNull(follow.lifecycleState), neq(follow.lifecycleState, literal("complete"))),
-			inDateWindow(date, input),
+			inDateWindow(date),
 		),
 	});
 };
 
 /**
  * Upcoming titles from show and podcast episodes, anime airings and monitored releases, each
- * source soonest first. Dates are the client's local `fromDate`..`untilDate`; anime airings are
- * instants in `fromInstant`..`untilInstant`. `total` counts a title's occurrences in the window and
+ * source soonest first. Date and instant windows use the server clock and reporting timezone. `total` counts a title's occurrences in the window and
  * `occurrences` lists the soonest, one per title when `onePerTitle`.
  */
-export const upcomingRecipe = defineRecipe((input: UpcomingInput) => ({
-	queries: {
-		anime: animeTitles(input),
-		releases: releaseTitles(input),
-		shows: episodicEpisodes(showEpisodicKindConfig, input),
-		showTotals: episodicTotals(showEpisodicKindConfig, input),
-		podcasts: episodicEpisodes(podcastEpisodicKindConfig, input),
-		podcastTotals: episodicTotals(podcastEpisodicKindConfig, input),
-	},
-	map: ({ anime, shows, podcasts, releases, showTotals, podcastTotals }) =>
-		Result.succeed([
-			...titlesFromEpisodes(shows.items, showTotals.items, input),
-			...titlesFromEpisodes(podcasts.items, podcastTotals.items, input),
-			...anime.items.map(({ total, occurrences, ...entity }) => ({
-				total,
-				entity,
-				occurrences: occurrences.items.map(({ airingAt, episodeNumber }) => ({
-					images: null,
-					dateOnly: false,
-					airsAt: airingAt,
-					episode: { episodeNumber, seasonNumber: null },
-					key: `${entity.id}:${episodeNumber}:${airingAt}`,
+export const upcomingRecipe = (input: UpcomingInput) =>
+	defineRecipe({
+		parameters: upcomingParameters.schema,
+		queries: {
+			anime: animeTitles(input),
+			releases: releaseTitles(input),
+			shows: episodicEpisodes(showEpisodicKindConfig, input),
+			showTotals: episodicTotals(showEpisodicKindConfig, input),
+			podcasts: episodicEpisodes(podcastEpisodicKindConfig, input),
+			podcastTotals: episodicTotals(podcastEpisodicKindConfig, input),
+		},
+		map: ({ anime, shows, podcasts, releases, showTotals, podcastTotals }) =>
+			Result.succeed([
+				...titlesFromEpisodes(shows.items, showTotals.items),
+				...titlesFromEpisodes(podcasts.items, podcastTotals.items),
+				...anime.items.map(({ total, occurrences, onePerTitle, ...entity }) => ({
+					total,
+					entity,
+					occurrences: occurrences.items
+						.slice(0, onePerTitle ? 1 : TITLE_LIMIT)
+						.map(({ airingAt, episodeNumber }) => ({
+							images: null,
+							dateOnly: false,
+							airsAt: airingAt,
+							episode: { episodeNumber, seasonNumber: null },
+							key: `${entity.id}:${episodeNumber}:${airingAt}`,
+						})),
 				})),
-			})),
-			...releases.items.map(({ publishDate: day, ...entity }) => ({
-				entity,
-				total: 1,
-				occurrences: [{ airsAt: day, images: null, episode: null, dateOnly: true, key: entity.id }],
-			})),
-		]),
-}));
+				...releases.items.map(({ publishDate: day, ...entity }) => ({
+					entity,
+					total: 1,
+					occurrences: [
+						{ airsAt: day, images: null, episode: null, dateOnly: true, key: entity.id },
+					],
+				})),
+			]),
+	});

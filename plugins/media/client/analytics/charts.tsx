@@ -4,7 +4,6 @@ import {
 	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
 	selectionForPeriod,
-	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { type RyotQueryResult, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
@@ -152,12 +151,7 @@ export function MediaAnalyticsCharts(props: SummaryChartsProps) {
 					mediaType={mediaType}
 					onDrill={props.onDrill}
 				/>
-				<ConsistencyRegion
-					compact={compact}
-					onDrill={props.onDrill}
-					result={consistencyResult}
-					timeZone={props.input.timeZone}
-				/>
+				<ConsistencyRegion compact={compact} onDrill={props.onDrill} result={consistencyResult} />
 			</div>
 		</section>
 	);
@@ -173,7 +167,6 @@ const trendPoints = (buckets: ReadonlyArray<TrendBucket>, metric: MediaAnalytics
 
 function ConsistencyRegion(props: {
 	readonly compact: boolean;
-	readonly timeZone: TimeZone;
 	readonly onDrill: SummaryChartsProps["onDrill"];
 	readonly result: RyotQueryResult<Reported<MediaAnalyticsTrend> & { readonly clipped: boolean }>;
 }) {
@@ -209,7 +202,7 @@ function ConsistencyRegion(props: {
 						unit={entryUnit}
 						onSelect={openDay}
 						compact={props.compact}
-						days={consistencyModel(loaded, props.timeZone)}
+						days={consistencyModel(loaded, loaded.reporting.resolved.timeZone)}
 						ariaLabel={`Daily activity entries · ${periodCaption(loaded.current.period)}`}
 					/>
 				)}
@@ -247,7 +240,11 @@ function HourlyRegion(props: {
 	return (
 		<ChartCard
 			title="Time of day"
-			description={`${metricLabels[metric]} with an exact time, in ${props.input.timeZone}`}
+			description={
+				data === undefined
+					? `${metricLabels[metric]} with an exact time`
+					: `${metricLabels[metric]} with an exact time, in ${data.reporting.resolved.timeZone}`
+			}
 		>
 			<QueryStatus query={props.result} label="hourly activity" onRetry={props.result.refetch}>
 				{(loaded) => (
@@ -255,8 +252,8 @@ function HourlyRegion(props: {
 						onSelect={openHour}
 						compact={props.compact}
 						unit={metricUnit(metric)}
-						timeZone={props.input.timeZone}
 						view={{ value: view, onChange: setView }}
+						timeZone={loaded.reporting.resolved.timeZone}
 						ariaLabel={`${metricLabels[metric]} by local hour`}
 						buckets={hourlyModel(loaded.hours, metric).map((row) => ({
 							hour: row.hour,
@@ -300,8 +297,8 @@ function TrendRegion(props: {
 		},
 		[data, metric, mediaType, onDrill],
 	);
-	const points = (series: MediaAnalyticsTrend["current"], trend: MediaAnalyticsTrend) =>
-		trendPoints(trendBuckets(trend, series, metric, props.input.timeZone), metric);
+	const points = (series: MediaAnalyticsTrend["current"], trend: Reported<MediaAnalyticsTrend>) =>
+		trendPoints(trendBuckets(trend, series, metric, trend.reporting.resolved.timeZone), metric);
 	return (
 		<ChartCard
 			title="Activity over time"
@@ -336,10 +333,10 @@ function TrendRegion(props: {
 						compact={props.compact}
 						unit={metricUnit(metric)}
 						grouping={loaded.grouping}
-						timeZone={props.input.timeZone}
 						current={points(loaded.current, loaded)}
 						view={{ value: view, onChange: setView }}
 						label={periodCaption(loaded.current.period)}
+						timeZone={loaded.reporting.resolved.timeZone}
 						ariaLabel={`${metricLabels[metric]} by reporting period`}
 						previous={
 							loaded.previous === null

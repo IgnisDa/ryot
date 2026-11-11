@@ -1,14 +1,21 @@
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 
 import { latestCompletionSuggestionsRecipe } from "../../shared/discovery-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail } from "./home-rail";
 import { createHomeSectionQuery } from "./section-query";
 
 const suggestionsQuery = createHomeSectionQuery(
-	(_input: void, reference) => ({
-		suggestions: latestCompletionSuggestionsRecipe({ reference, limit: 20 }),
-	}),
+	(_input: void, client) =>
+		client.data
+			.query(
+				latestCompletionSuggestionsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{},
+				{ pages: { items: { limit: 20 } } },
+			)
+			.pipe(Effect.map((suggestions) => ({ suggestions }))),
 	({ suggestions }) => [
 		...(suggestions.source === null ? [] : [suggestions.source.id]),
 		...suggestions.items.map(({ id }) => id),

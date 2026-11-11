@@ -6,6 +6,7 @@ import {
 	type PluginEntityEditor,
 	type PluginHook,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
 
 import {
 	CONSUMED_ON_ITEM_LIMIT,
@@ -13,17 +14,43 @@ import {
 	consumedOnSettingKeys,
 } from "../shared/consumed-on-settings";
 import {
+	MetadataLookupInput,
+	MetadataLookupOutput,
+	ResolveEpisodesInput,
+	ResolveEpisodesOutput,
+} from "../shared/integration-operations";
+import {
+	MediaActivityDeleteInput,
+	MediaActivityLogInput,
+	MediaActivityLogOutput,
+	MediaActivityUpdateInput,
+} from "../shared/media-activity-operations";
+import {
 	isMediaChildEntitySchemaSlug,
 	mediaEntityCreateRoute,
 	mediaEntityEditorRoutes,
 	mediaEntityEditors,
 } from "../shared/media-entity-editors";
 import {
+	MediaMonitoringDisableInput,
+	MediaMonitoringEnableInput,
+	MediaMonitoringOutput,
+	MediaMonitoringStatusInput,
+} from "../shared/media-monitoring-operations";
+import { MediaOwnershipOutput, MediaOwnershipSetInput } from "../shared/media-ownership-operations";
+import {
+	MediaReviewCreateInput,
+	MediaReviewDeleteInput,
+	MediaReviewOutput,
+	MediaReviewUpdateInput,
+} from "../shared/media-review-operations";
+import {
 	builtinMediaEntitySchemaSlugs,
 	mediaFoldEventSchemaSlugs,
 	mediaGroupSlugs,
 	mediaLibraryMemberEntitySchemaSlugs,
 } from "../shared/media-schema-slugs";
+import { MediaUserDataInput, MediaUserDataOutput } from "../shared/media-user-data-operations";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import {
 	DEFAULT_UPCOMING_DAYS_AHEAD,
@@ -35,6 +62,7 @@ import { mediaBrowse } from "./browse";
 import { mediaCalendarSources } from "./calendar-sources";
 import { mediaConfigSchema } from "./config";
 import { mediaProviders } from "./providers";
+import { mediaDeclaredQueries } from "./queries";
 import { mediaSavedViews } from "./saved-views";
 import {
 	hasConsumptionProjection,
@@ -556,6 +584,7 @@ export const mediaPlugin = definePlugin({
 	relationshipSchemas,
 	providers: mediaProviders,
 	savedViews: mediaSavedViews(),
+	queries: mediaDeclaredQueries,
 	configSchema: mediaConfigSchema,
 	calendarSources: mediaCalendarSources(),
 	signalSchedules: mediaSignalSchedules(),
@@ -753,98 +782,6 @@ export const mediaPlugin = definePlugin({
 			...Object.fromEntries(entityClients.flatMap((client) => Object.entries(client.exports))),
 		},
 	},
-	operations: [
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-user-data",
-			scriptSlug: "operation.media-user-data",
-			description: "Remove or merge media user data",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-review-create",
-			description: "Create a media review",
-			scriptSlug: "operation.media-review-create",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-activity-log",
-			description: "Log media activity",
-			scriptSlug: "operation.media-activity-log",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-activity-update",
-			description: "Update media activity",
-			scriptSlug: "operation.media-activity-update",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-activity-delete",
-			description: "Delete media activity",
-			scriptSlug: "operation.media-activity-delete",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-review-update",
-			description: "Update a media review",
-			scriptSlug: "operation.media-review-update",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-review-delete",
-			description: "Delete a media review",
-			scriptSlug: "operation.media-review-delete",
-		},
-		{
-			auth: "user",
-			demoAccess: "allowed",
-			slug: "media-monitoring-status",
-			description: "Read media monitoring status",
-			scriptSlug: "operation.media-monitoring-status",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-monitoring-enable",
-			description: "Enable media monitoring",
-			scriptSlug: "operation.media-monitoring-enable",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-monitoring-disable",
-			description: "Disable media monitoring",
-			scriptSlug: "operation.media-monitoring-disable",
-		},
-		{
-			auth: "user",
-			demoAccess: "protected",
-			slug: "media-ownership-set",
-			description: "Set media ownership",
-			scriptSlug: "operation.media-ownership-set",
-		},
-		{
-			auth: "integration",
-			slug: "metadata-lookup",
-			scriptSlug: "operation.metadata-lookup",
-			description: "Match browser extension titles to TMDB movies and shows",
-		},
-		{
-			auth: "user",
-			demoAccess: "allowed",
-			slug: "resolve-episodes",
-			scriptSlug: "operation.resolve-episodes",
-			description: "Resolve show and podcast episode references to entity ids",
-		},
-	],
 	hooks: [
 		{
 			stage: "before",
@@ -1009,6 +946,150 @@ export const mediaPlugin = definePlugin({
 				operation: "emit" as const,
 				resource: "signal" as const,
 			})),
+		},
+	],
+	operations: [
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-user-data",
+			scriptSlug: "operation.media-user-data",
+			input: operationJsonSchema(MediaUserDataInput),
+			output: operationJsonSchema(MediaUserDataOutput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Remove media library membership and personal history, or merge that data into another title. Existing user data may be permanently deleted.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-create",
+			scriptSlug: "operation.media-review-create",
+			output: operationJsonSchema(MediaReviewOutput),
+			input: operationJsonSchema(MediaReviewCreateInput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Create a private media review with a rating or text, optionally linking an existing consumption event. Repeated calls can create additional review events.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-log",
+			scriptSlug: "operation.media-activity-log",
+			input: operationJsonSchema(MediaActivityLogInput),
+			output: operationJsonSchema(MediaActivityLogOutput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Record completion, progress, lifecycle state, or episode activity for a title. Returns a saved count and completion status; repeated calls can create additional events.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-update",
+			scriptSlug: "operation.media-activity-update",
+			output: operationJsonSchema(MediaActivityLogOutput),
+			input: operationJsonSchema(MediaActivityUpdateInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Change existing media activity using its expected snapshot. Rejects stale edits and invalid episode or time changes.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-activity-delete",
+			scriptSlug: "operation.media-activity-delete",
+			output: operationJsonSchema(MediaActivityLogOutput),
+			input: operationJsonSchema(MediaActivityDeleteInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete selected personal media activity events. An optional expected snapshot protects a single event from stale deletion.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-update",
+			scriptSlug: "operation.media-review-update",
+			output: operationJsonSchema(MediaReviewOutput),
+			input: operationJsonSchema(MediaReviewUpdateInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Replace rating or text on an existing private media review. Rejects stale edits using the expected review snapshot.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-review-delete",
+			scriptSlug: "operation.media-review-delete",
+			output: operationJsonSchema(MediaReviewOutput),
+			input: operationJsonSchema(MediaReviewDeleteInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete an existing private media review and return the affected count.",
+		},
+		{
+			auth: "user",
+			demoAccess: "allowed",
+			slug: "media-monitoring-status",
+			scriptSlug: "operation.media-monitoring-status",
+			output: operationJsonSchema(MediaMonitoringOutput),
+			input: operationJsonSchema(MediaMonitoringStatusInput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Read library membership and monitoring status for visible provider-backed titles without changing user data.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-monitoring-enable",
+			scriptSlug: "operation.media-monitoring-enable",
+			output: operationJsonSchema(MediaMonitoringOutput),
+			input: operationJsonSchema(MediaMonitoringEnableInput),
+			hints: { readOnly: false, idempotent: true, destructive: false },
+			description:
+				"Add provider-backed titles to the media library and enable monitoring. Existing membership and monitoring are preserved.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-monitoring-disable",
+			scriptSlug: "operation.media-monitoring-disable",
+			output: operationJsonSchema(MediaMonitoringOutput),
+			input: operationJsonSchema(MediaMonitoringDisableInput),
+			hints: { readOnly: false, idempotent: true, destructive: true },
+			description:
+				"Remove monitoring from provider-backed titles while retaining their library membership and personal history.",
+		},
+		{
+			auth: "user",
+			demoAccess: "protected",
+			slug: "media-ownership-set",
+			scriptSlug: "operation.media-ownership-set",
+			output: operationJsonSchema(MediaOwnershipOutput),
+			input: operationJsonSchema(MediaOwnershipSetInput),
+			hints: { readOnly: false, idempotent: true, destructive: true },
+			description:
+				"Set or clear personal ownership of a title, including the acquisition date. This changes the title’s library relationship.",
+		},
+		{
+			auth: "integration",
+			slug: "metadata-lookup",
+			scriptSlug: "operation.metadata-lookup",
+			input: operationJsonSchema(MetadataLookupInput),
+			output: operationJsonSchema(MetadataLookupOutput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Match browser extension titles against TMDB movies and shows and return provider identifiers or per-title misses. Requires a browser extension integration and does not import entities.",
+		},
+		{
+			auth: "user",
+			demoAccess: "allowed",
+			slug: "resolve-episodes",
+			scriptSlug: "operation.resolve-episodes",
+			input: operationJsonSchema(ResolveEpisodesInput),
+			output: operationJsonSchema(ResolveEpisodesOutput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Look up existing show seasons, show episodes, or podcast episodes by parent and number or title. Returns an entity ID or null for each caller index without importing or changing entities.",
 		},
 	],
 	importSources: (

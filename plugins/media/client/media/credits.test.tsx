@@ -2,6 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -17,8 +18,16 @@ import {
 } from "../../tests/client/test-support";
 import { createMediaCreditsQuery, MediaCreditsButton } from "./credits";
 
-const query = createMediaCreditsQuery(showRecipes.peopleRecipe);
-const movieQuery = createMediaCreditsQuery(movieRecipes.peopleRecipe);
+const query = createMediaCreditsQuery(
+	showRecipes.peopleRecipe,
+	({ entityId }) => ({ entityId }),
+	"people",
+);
+const movieQuery = createMediaCreditsQuery(
+	movieRecipes.peopleRecipe,
+	({ entityId }) => ({ entityId }),
+	"people",
+);
 const personRow = {
 	...showPersonRow,
 	isGuest: null,
@@ -107,12 +116,16 @@ describe("credit lists", () => {
 		() =>
 			Effect.gen(function* () {
 				const documents: string[] = [];
-				const companyQuery = createMediaCreditsQuery(showRecipes.companiesRecipe);
+				const companyQuery = createMediaCreditsQuery(
+					showRecipes.companiesRecipe,
+					({ entityId }) => ({ entityId }),
+					"companies",
+				);
 				const view = mountRyotClient(
 					{
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) => {
-							const serialized = JSON.stringify(document);
+							const serialized = JSON.stringify(bindTestRequest(document));
 							documents.push(serialized);
 							let page = 0;
 							if (serialized.includes("companies-2")) {
@@ -183,7 +196,7 @@ describe("credit lists", () => {
 					{
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) => {
-							const serialized = JSON.stringify(document);
+							const serialized = JSON.stringify(bindTestRequest(document));
 							documents.push(serialized);
 							let page = 0;
 							if (serialized.includes("people-2")) {
@@ -261,8 +274,8 @@ describe("credit lists", () => {
 					{
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) => {
-							documents.push(document);
-							const next = JSON.stringify(document).includes("cursor-1");
+							documents.push(bindTestRequest(document));
+							const next = JSON.stringify(bindTestRequest(document)).includes("cursor-1");
 							return Effect.succeed({
 								data: {
 									people: rowsResult(

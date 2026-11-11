@@ -4,7 +4,7 @@ import type {
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
@@ -15,10 +15,12 @@ import type {
 	MediaReviewActivityResult,
 } from "../../shared/media-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import type { mediaGroupParameters } from "../../shared/query-parameters";
 import type { MediaHistoryRecipe } from "./activity-history";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
+import type { MediaEntityRecipe } from "./detail-queries";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -59,9 +61,6 @@ import {
 } from "./summary-state";
 
 const MEMBER_PAGE_LIMIT = 20;
-const PEOPLE_LIMIT = 12;
-const COMPANY_LIMIT = 6;
-
 export type MediaGroupSchemaDescriptor<
 	Summary extends GroupSummary,
 	Presentation extends GroupPresentation,
@@ -100,7 +99,7 @@ export type MediaGroupSchemaDescriptor<
 type GroupOverview<Overview> = Overview | undefined;
 
 type GroupTabKey = "members" | "overview" | "activity";
-
+type MediaGroupOverviewRecipe<Overview> = MediaEntityRecipe<Overview>;
 type GroupPresentation = GroupProgress & MediaSavedViewPresentationSubject;
 
 type GroupSummaryResult<Summary> = {
@@ -129,36 +128,16 @@ type GroupSummary = GroupProgress &
 		readonly sourceUrl: null | string;
 		readonly collections: { readonly items: readonly { readonly id: string }[] };
 	};
-
-type MediaGroupOverviewRecipe<Overview> = (input: {
-	readonly entityId: string;
-	readonly peopleLimit: number;
-	readonly companyLimit: number;
-	readonly reference: PluginIdentityReference;
-}) => PreparedRecipe<Overview>;
-
 type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 	readonly peopleRecipe: MediaCreditsRecipe;
 	readonly companiesRecipe: MediaCreditsRecipe;
 	readonly presentationSource: MediaPresentationSource<Presentation>;
 	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
-	readonly summaryRecipe: (input: {
-		readonly entityId: string;
-		readonly collectionLimit: number;
-		readonly reference: PluginIdentityReference;
-	}) => PreparedRecipe<GroupSummaryResult<Summary>>;
+	readonly activityRecipe: MediaEntityRecipe<MediaReviewActivityResult>;
+	readonly summaryRecipe: MediaEntityRecipe<GroupSummaryResult<Summary>>;
 	readonly membersRecipe: (input: {
-		readonly limit: number;
-		readonly groupId: string;
-		readonly after?: string | undefined;
 		readonly reference: PluginIdentityReference;
-	}) => PreparedRecipe<MediaCursorPage<Member>>;
-	readonly activityRecipe: (input: {
-		readonly entityId: string;
-		readonly eventLimit: number;
-		readonly collectionEventLimit: number;
-		readonly reference: PluginIdentityReference;
-	}) => PreparedRecipe<MediaReviewActivityResult>;
+	}) => Recipe<MediaCursorPage<Member>, typeof mediaGroupParameters.schema>;
 };
 
 const groupProgressLabel = (progress: GroupProgress, verb: string) =>
@@ -192,9 +171,16 @@ export const defineGroupMediaSchema = <
 	const MemberRow = descriptor.member.RowContent;
 	const creditCopy = descriptor.creditCopy;
 	const overviewRecipe = recipes.overviewRecipe;
-	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
-	const companiesQuery = createMediaCreditsQuery(recipes.companiesRecipe);
-
+	const peopleQuery = createMediaCreditsQuery(
+		recipes.peopleRecipe,
+		({ entityId }) => ({ entityId }),
+		"people",
+	);
+	const companiesQuery = createMediaCreditsQuery(
+		recipes.companiesRecipe,
+		({ entityId }) => ({ entityId }),
+		"companies",
+	);
 	const tabs: readonly TabOption<GroupTabKey>[] = [
 		{ value: "members", label: members.tab },
 		{ value: "overview", label: "Overview" },
@@ -206,15 +192,8 @@ export const defineGroupMediaSchema = <
 	const overviewQuery =
 		overviewRecipe === undefined
 			? undefined
-			: createMediaEntityQuery(
-					({ entityId, reference }) =>
-						overviewRecipe({
-							entityId,
-							reference,
-							peopleLimit: PEOPLE_LIMIT,
-							companyLimit: COMPANY_LIMIT,
-						}),
-					(data) => [...data.people.items, ...data.companies.items].map(({ id }) => id),
+			: createMediaEntityQuery(overviewRecipe, (data) =>
+					[...data.people.items, ...data.companies.items].map(({ id }) => id),
 				);
 
 	const membersQuery = createRyotQuery<
@@ -223,12 +202,9 @@ export const defineGroupMediaSchema = <
 	>(
 		({ input, client }) =>
 			client.data.query(
-				recipes.membersRecipe({
-					groupId: input.entityId,
-					limit: MEMBER_PAGE_LIMIT,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-					...(input.after === null ? {} : { after: input.after }),
-				}),
+				recipes.membersRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{ groupId: input.entityId },
+				{ pages: { members: { limit: MEMBER_PAGE_LIMIT, after: input.after ?? undefined } } },
 			),
 		{
 			entityWatch: ({ data, input }) => ({

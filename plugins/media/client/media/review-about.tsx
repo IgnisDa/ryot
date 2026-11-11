@@ -24,11 +24,9 @@ const reviewableOccurrencesQuery = createRyotQuery<
 	readonly MediaReviewOccurrence[]
 >(({ input, client }) =>
 	client.data.query(
-		mediaReviewableOccurrencesRecipe({
-			entityId: input.entityId,
-			limit: REVIEWABLE_OCCURRENCE_LIMIT,
-			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-		}),
+		mediaReviewableOccurrencesRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		{ entityId: input.entityId },
+		{ pages: { events: { limit: REVIEWABLE_OCCURRENCE_LIMIT } } },
 	),
 );
 
@@ -40,7 +38,8 @@ export const reviewLinksQuery = createRyotQuery<
 		Array.chunksOf(input.eventIds, MEDIA_REVIEW_LINK_LIMIT),
 		(eventIds) =>
 			client.data.query(
-				mediaReviewLinksRecipe({ eventIds, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				mediaReviewLinksRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{ eventIds },
 			),
 		{ concurrency: 4 },
 	).pipe(

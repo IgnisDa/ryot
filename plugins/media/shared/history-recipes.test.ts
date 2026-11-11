@@ -2,10 +2,8 @@ import { describe, expect, it } from "bun:test";
 
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { castDate, literal } from "@ryot-app/plugin-kit/ryotql";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
-import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindDocument } from "@ryot-app/ryotql/binding";
 
 import {
 	flatCollectionAddedEventRow,
@@ -13,6 +11,7 @@ import {
 	flatProgressEventRow,
 	flatReviewEventRow,
 } from "../tests/client/flat-media/activity-fixture";
+import { historyRow } from "../tests/client/history-fixture";
 import { animeRecipes } from "./anime-recipes";
 import { movieRecipes } from "./movie-recipes";
 import { personRecipes } from "./person-recipes";
@@ -24,16 +23,8 @@ const rows = (items: readonly unknown[], hasMore = false) =>
 
 describe("complete activity history recipes", () => {
 	it("does not offer more history for truncated coverage alone, but includes older episode logs hidden by the summary", () => {
-		const recipe = showRecipes.activityRecipe({
+		const recipe = bindRecipe(showRecipes.activityRecipe({ reference: { kind: "self" } }), {
 			entityId: "show-1",
-			coverageLimit: 100,
-			watchDayLimit: 1000,
-			parentEventLimit: 60,
-			episodeEventLimit: 100,
-			collectionEventLimit: 60,
-			episodeProgressLimit: 100,
-			reference: { kind: "self" },
-			timeZone: TimeZone.make("UTC"),
 		});
 		const data = {
 			parentEvents: rows([]),
@@ -118,16 +109,8 @@ describe("complete activity history recipes", () => {
 		).toBe(true);
 	});
 	it("offers more history when only season reviews are truncated", () => {
-		const recipe = showRecipes.activityRecipe({
+		const recipe = bindRecipe(showRecipes.activityRecipe({ reference: { kind: "self" } }), {
 			entityId: "show-1",
-			coverageLimit: 100,
-			watchDayLimit: 1000,
-			parentEventLimit: 60,
-			episodeEventLimit: 100,
-			collectionEventLimit: 60,
-			episodeProgressLimit: 100,
-			reference: { kind: "self" },
-			timeZone: TimeZone.make("UTC"),
 		});
 		expect(
 			Result.getOrThrow(
@@ -159,128 +142,160 @@ describe("complete activity history recipes", () => {
 			).hasMoreActivities,
 		).toBe(true);
 	});
-	it("merges bounded sources before slicing and seeks all sources from the last displayed event", () => {
-		const recipe = movieRecipes.historyRecipe(input);
+	it("decodes one native page in database order without multiplying or re-sorting categories", () => {
+		const recipe = movieRecipes.historyRecipe({ reference: input.reference });
+		const collection = {
+			...flatCollectionAddedEventRow,
+			id: "z-collection",
+			createdAt: flatReviewEventRow.createdAt,
+			occurredAt: flatReviewEventRow.occurredAt,
+		};
 		const page = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					events: rows([flatReviewEventRow, flatCompletionEventRow]),
-					collectionEvents: rows([
-						{
-							...flatCollectionAddedEventRow,
-							id: "z-collection",
-							createdAt: flatReviewEventRow.createdAt,
-							occurredAt: flatReviewEventRow.occurredAt,
-						},
-					]),
+					history: rows(
+						[
+							historyRow(recipe.document, 1, collection),
+							historyRow(recipe.document, 0, flatReviewEventRow),
+							historyRow(recipe.document, 0, flatCompletionEventRow),
+						],
+						true,
+					),
 				},
 			}),
 		);
 		expect(page.items.map(({ id }) => id)).toEqual<unknown>([
 			"z-collection",
 			flatReviewEventRow.id,
+			flatCompletionEventRow.id,
 		]);
-		expect(page.pageInfo.hasMore).toBe(true);
-		if (page.pageInfo.nextCursor === null) {
-			throw new Error("Expected another history page");
-		}
-		const next = movieRecipes.historyRecipe({ ...input, before: page.pageInfo.nextCursor });
-		for (const historyRecipe of [
-			movieRecipes.historyRecipe,
-			personRecipes.historyRecipe,
-			showRecipes.historyRecipe,
-			animeRecipes.historyRecipe,
-		]) {
-			expect(
-				validateRyotQLDocument(
-					historyRecipe({ ...input, before: page.pageInfo.nextCursor }).document,
-					{ type: "plugin" },
-				).error,
-			).toBeNull();
-		}
-		for (const name of ["events", "collectionEvents"]) {
-			expect(next.document.queries[name]?.where).toEqual<unknown>(
-				objectContaining({
-					type: "and",
-					predicates: arrayContaining([
-						{
-							type: "or",
-							predicates: arrayContaining([
-								{
-									operator: "lt",
-									type: "comparison",
-									left: objectContaining({ field: "occurredAt" }),
-									right: castDate(literal(flatReviewEventRow.occurredAt)),
-								},
-							]),
-						},
-					]),
-				}),
-			);
-			expect(JSON.stringify(next.document.queries[name]?.where)).toContain(flatReviewEventRow.id);
-		}
+		expect(page.items[0]).toMatchObject({
+			kind: "collection",
+			collection: {
+				id: flatCollectionAddedEventRow.collectionId,
+				name: flatCollectionAddedEventRow.collectionName,
+			},
+		});
+		expect(page.pageInfo).toEqual({ limit: 2, hasMore: true, nextCursor: "unused-source-cursor" });
+		const document = bindRecipe(recipe, {
+			limit: 2,
+			entityId: input.entityId,
+			after: page.pageInfo.nextCursor ?? undefined,
+		}).document;
+		expect(Object.keys(document.queries)).toEqual(["history"]);
+		const query = document.queries["history"];
+		expect(query?.from).toEqual({ table: "event", alias: "history" });
+		expect(query?.joins).toBeUndefined();
+		expect(query?.output).toMatchObject({
+			pagination: { limit: 2, after: "unused-source-cursor" },
+			orderBy: [
+				{ direction: "desc", expr: { type: "column", field: "occurredAt", tableAlias: "history" } },
+				{ direction: "desc", expr: { type: "column", field: "createdAt", tableAlias: "history" } },
+				{ direction: "desc", expr: { field: "id", type: "column", tableAlias: "history" } },
+			],
+		});
 	});
-
-	it("keeps paging when a source has more rows and stops on the final or empty page", () => {
-		const recipe = movieRecipes.historyRecipe(input);
-		const page = Result.getOrThrow(
+	it("keeps a native cursor through equal timestamp rows and stops on the final or empty page", () => {
+		const recipe = movieRecipes.historyRecipe({ reference: input.reference });
+		const stamp = {
+			createdAt: flatReviewEventRow.createdAt,
+			occurredAt: flatReviewEventRow.occurredAt,
+		};
+		const first = Result.getOrThrow(
 			recipe.decode({
-				data: { collectionEvents: rows([]), events: rows([flatProgressEventRow], true) },
+				data: {
+					history: rows(
+						[
+							historyRow(recipe.document, 0, { ...flatReviewEventRow, ...stamp, id: "z" }),
+							historyRow(recipe.document, 1, { ...flatCollectionAddedEventRow, ...stamp, id: "y" }),
+						],
+						true,
+					),
+				},
 			}),
 		);
-		expect(page.pageInfo.hasMore).toBe(true);
-		expect(page.pageInfo.nextCursor).not.toBeNull();
 		const final = Result.getOrThrow(
-			recipe.decode({ data: { collectionEvents: rows([]), events: rows([flatProgressEventRow]) } }),
+			recipe.decode({
+				data: {
+					history: rows([
+						historyRow(recipe.document, 0, { ...flatProgressEventRow, ...stamp, id: "x" }),
+						historyRow(recipe.document, 1, { ...flatCollectionAddedEventRow, ...stamp, id: "w" }),
+					]),
+				},
+			}),
 		);
-		expect(final.pageInfo).toEqual({ hasMore: false, nextCursor: null });
-		expect(
-			Result.getOrThrow(recipe.decode({ data: { events: rows([]), collectionEvents: rows([]) } }))
-				.items,
-		).toEqual([]);
+		expect([...first.items, ...final.items].map(({ id }) => id)).toEqual<unknown>([
+			"z",
+			"y",
+			"x",
+			"w",
+		]);
+		expect(final.pageInfo).toEqual({ limit: 2, hasMore: false, nextCursor: null });
+		expect(Result.getOrThrow(recipe.decode({ data: { history: rows([]) } })).items).toEqual([]);
 	});
-
-	it("preserves schema-specific progress and snapshot fields", () => {
+	it("preserves schema-specific progress and all collection display fields", () => {
+		const recipe = animeRecipes.historyRecipe({ reference: input.reference });
 		const page = Result.getOrThrow(
 			animeRecipes
-				.historyRecipe(input)
+				.historyRecipe({ reference: input.reference })
 				.decode({
 					data: {
-						collectionEvents: rows([]),
-						events: rows([
-							{
+						history: rows([
+							historyRow(recipe.document, 0, {
 								...flatProgressEventRow,
 								listState: null,
 								position: { position: 7, unit: "episodes" },
-							},
+							}),
+							historyRow(recipe.document, 1, flatCollectionAddedEventRow),
 						]),
 					},
 				}),
 		);
 		expect(page.items).toMatchObject([
 			{ kind: "media", position: { position: 7, unit: "episodes" } },
+			{ kind: "collection" },
 		]);
+		expect(page.items[0]).toMatchObject({
+			id: flatProgressEventRow.id,
+			createdAt: flatProgressEventRow.createdAt,
+			occurredAt: flatProgressEventRow.occurredAt,
+		});
 	});
-
-	it("uses the review-only event set for creators", () => {
-		const recipe = personRecipes.historyRecipe(input);
-		expect(JSON.stringify(recipe.document.queries.events?.where)).toContain('"value":"review"');
-		expect(JSON.stringify(recipe.document.queries.events?.where)).not.toContain(
-			'"value":"progress"',
-		);
+	it("uses review-only matching for creators and validates every history category", () => {
+		for (const recipes of [movieRecipes, personRecipes, showRecipes, animeRecipes]) {
+			const document = Result.getOrThrow(
+				bindDocument(
+					recipes.historyRecipe({ reference: input.reference }).document,
+					{ arguments: { entityId: input.entityId } },
+					{ reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") },
+				),
+			).document;
+			expect(
+				validateRyotQLDocument(document, {
+					type: "user",
+					audience: "plugin",
+					accessClass: "standard",
+				}).error,
+			).toBeNull();
+		}
+		const recipe = personRecipes.historyRecipe({ reference: input.reference });
+		const query = bindRecipe(recipe, { entityId: input.entityId }).document.queries["history"];
+		expect(JSON.stringify(query?.where)).toContain('"value":"review"');
+		expect(JSON.stringify(query?.where)).not.toContain('"value":"progress"');
 		const page = Result.getOrThrow(
 			recipe.decode({
 				data: {
-					events: rows([flatReviewEventRow]),
-					collectionEvents: rows([flatCollectionAddedEventRow]),
+					history: rows([
+						historyRow(recipe.document, 0, flatReviewEventRow),
+						historyRow(recipe.document, 1, flatCollectionAddedEventRow),
+					]),
 				},
 			}),
 		);
 		expect(page.items.map(({ kind }) => kind)).toEqual(["media", "collection"]);
 	});
-
-	it("pages raw episode completions and progress together with parent reviews and collection changes", () => {
-		const recipe = showRecipes.historyRecipe({ ...input, limit: 4 });
+	it("decodes parent, episode, season and collection categories in one interleaved page", () => {
+		const recipe = showRecipes.historyRecipe({ reference: input.reference });
 		const episode = {
 			seasonNumber: 1,
 			episodeNumber: 1,
@@ -290,17 +305,18 @@ describe("complete activity history recipes", () => {
 			consumptionMinutes: null,
 		};
 		const page = Result.getOrThrow(
-			recipe.decode({
-				data: {
-					seasonEvents: rows([]),
-					parentEvents: rows([flatReviewEventRow]),
-					collectionEvents: rows([flatCollectionAddedEventRow]),
-					episodeEvents: rows([
-						{ ...flatCompletionEventRow, ...episode },
-						{ ...flatProgressEventRow, ...episode },
-					]),
-				},
-			}),
+			showRecipes
+				.historyRecipe({ reference: input.reference })
+				.decode({
+					data: {
+						history: rows([
+							historyRow(recipe.document, 0, flatReviewEventRow),
+							historyRow(recipe.document, 1, { ...flatCompletionEventRow, ...episode }),
+							historyRow(recipe.document, 1, { ...flatProgressEventRow, ...episode }),
+							historyRow(recipe.document, 3, flatCollectionAddedEventRow),
+						]),
+					},
+				}),
 		);
 		expect(page.items.map(({ kind, eventSchemaSlug }) => [kind, eventSchemaSlug])).toEqual([
 			["parent", "review"],
@@ -308,12 +324,8 @@ describe("complete activity history recipes", () => {
 			["episode", "progress"],
 			["collection", "add-entity-to-collection"],
 		]);
-		expect(page.pageInfo).toEqual({ hasMore: false, nextCursor: null });
-		expect(Object.keys(recipe.document.queries).sort()).toEqual([
-			"collectionEvents",
-			"episodeEvents",
-			"parentEvents",
-			"seasonEvents",
-		]);
+		expect(page.items[1]).toMatchObject({
+			episode: { runtime: 40, name: "Pilot", id: "episode-1", seasonNumber: 1, episodeNumber: 1 },
+		});
 	});
 });

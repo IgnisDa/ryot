@@ -34,15 +34,19 @@ export default defineScript({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const subjectEntityId = input.subjectEntityId;
-			const subject = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				mediaFoldSubjectRecipe({ subjectEntityId }),
-			);
+			const subject = yield* executeRyotqlRecipe(host.executeRyotql, mediaFoldSubjectRecipe, {
+				subjectEntityId,
+			});
 			if (!subject) {
 				return yield* new MediaSandboxError({ message: "Fold subject is unavailable" });
 			}
 			const events = yield* readAllRyotqlPages((after) =>
-				executeRyotqlRecipe(host.executeRyotql, mediaFoldEventsRecipe({ after, subjectEntityId })),
+				executeRyotqlRecipe(
+					host.executeRyotql,
+					mediaFoldEventsRecipe,
+					{ subjectEntityId },
+					{ pages: { events: { after: after } } },
+				),
 			);
 			const config = [showEpisodicKindConfig, podcastEpisodicKindConfig].find(
 				({ parentSchemaSlug }) => parentSchemaSlug === subject.entitySchemaSlug,
@@ -75,24 +79,23 @@ export default defineScript({
 						: readAllRyotqlPages((after) =>
 								executeRyotqlRecipe(
 									host.executeRyotql,
-									mediaFoldInventoryRecipe({ after, config, subjectEntityId }),
+									mediaFoldInventoryRecipe({ config: config }),
+									{ subjectEntityId },
+									{ pages: { episodes: { after: after } } },
 								),
 							).pipe(Effect.map((episodes) => episodes.map(({ id }) => id))),
 			});
 			const contributions = yield* consumptionContributions(derived);
-			const links = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				mediaFoldLibraryLinksRecipe({ subjectEntityId }),
-			);
+			const links = yield* executeRyotqlRecipe(host.executeRyotql, mediaFoldLibraryLinksRecipe, {
+				subjectEntityId,
+			});
 			const [summary] =
 				links.length === 0
 					? []
 					: yield* executeRyotqlRecipe(
 							host.executeRyotql,
-							librarySummarySourceRecipe({
-								entityIds: [subjectEntityId],
-								kind: librarySummaryKind(subject.entitySchemaSlug),
-							}),
+							librarySummarySourceRecipe({ kind: librarySummaryKind(subject.entitySchemaSlug) }),
+							{ entityIds: [subjectEntityId] },
 						);
 			const properties = summary
 				? librarySummaryProperties(summary)

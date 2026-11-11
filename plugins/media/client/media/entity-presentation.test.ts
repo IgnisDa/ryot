@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
 import type { EntityPresentationSource, EntityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { loadMediaPresentations, prepareMediaPresentations } from "./presentation";
 
@@ -84,7 +85,7 @@ describe("media entity presentation preparation", () => {
 		const client = createRyotClient({
 			upload: () => Effect.succeed({}),
 			query: (document) => {
-				documents.push(document);
+				documents.push(bindTestRequest(document));
 				return Effect.succeed({
 					data: {
 						presentation: {

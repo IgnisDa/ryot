@@ -15,8 +15,8 @@ import {
 	entitySchemaPredicate,
 	executeRyotqlRecipe,
 	inArray,
-	literal,
 	or,
+	parameters,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
@@ -52,17 +52,27 @@ const episodicConfigs: Readonly<Record<string, EpisodicKindConfig>> = {
 const lifecycleSchemaSlugs = new Set<string>(
 	builtinMediaEntitySchemaSlugs.filter((slug) => !(slug in episodicConfigs)),
 );
-
-const targetRecipe = defineRecipe((id: string) => {
+const targetRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			id: {
+				label: "id",
+				type: "string",
+				description: "id to read",
+				validation: { required: true },
+			},
+		},
+	});
 	const entity = table("entity", "activityTarget");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ target }) => Result.succeed(target),
 		queries: {
 			target: selectedOptionalRow(entity, {
 				orderBy: [ascending(column(entity, "id"))],
 				selection: { schemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String) },
 				where: and(
-					entityId(entity, id),
+					entityId(entity, inputParameters.value("id")),
 					or(
 						...builtinMediaEntitySchemaSlugs.map((slug) =>
 							entitySchemaPredicate(entity, slug, { kind: "self" }),
@@ -71,42 +81,49 @@ const targetRecipe = defineRecipe((id: string) => {
 				),
 			}),
 		},
-	};
-});
-
-const episodeMembersRecipe = defineRecipe(
-	(input: {
-		readonly parentEntityId: string;
-		readonly config: EpisodicKindConfig;
-		readonly episodeEntityIds: readonly string[];
-	}) => {
-		const episode = table("entity", "activityEpisode");
-		return {
-			map: ({ members }) => Result.succeed(members.items.length),
-			queries: {
-				members: selectedRows(episode, {
-					limit: EPISODE_MEMBERSHIP_PAGE_SIZE,
-					orderBy: [ascending(column(episode, "id"))],
-					selection: { id: selectedField(column(episode, "id"), Schema.String) },
-					where: and(
-						entitySchemaPredicate(episode, input.config.episodeSchemaSlug, { kind: "self" }),
-						inArray(
-							column(episode, "id"),
-							input.episodeEntityIds.map((id) => literal(id)),
-						),
-						episodicEpisodeMembership(
-							input.config,
-							episode,
-							input.parentEntityId,
-							"activityMember",
-						),
-					),
-				}),
+	});
+})();
+const episodeMembersRecipe = (input: { readonly config: EpisodicKindConfig }) => {
+	const inputParameters = parameters({
+		fields: {
+			parentEntityId: {
+				type: "string",
+				label: "parentEntityId",
+				validation: { required: true },
+				description: "parentEntityId to read",
 			},
-		};
-	},
-);
-
+			episodeEntityIds: {
+				type: "array",
+				label: "episodeEntityIds",
+				validation: { required: true },
+				description: "episodeEntityIds to read",
+				items: { label: "ID", type: "string", description: "Selected ID" },
+			},
+		},
+	});
+	const episode = table("entity", "activityEpisode");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ members }) => Result.succeed(members.items.length),
+		queries: {
+			members: selectedRows(episode, {
+				limit: EPISODE_MEMBERSHIP_PAGE_SIZE,
+				orderBy: [ascending(column(episode, "id"))],
+				selection: { id: selectedField(column(episode, "id"), Schema.String) },
+				where: and(
+					entitySchemaPredicate(episode, input.config.episodeSchemaSlug, { kind: "self" }),
+					inArray(column(episode, "id"), inputParameters.list("episodeEntityIds")),
+					episodicEpisodeMembership(
+						input.config,
+						episode,
+						inputParameters.value("parentEntityId"),
+						"activityMember",
+					),
+				),
+			}),
+		},
+	});
+};
 const completeEvent = (
 	id: string,
 	when: MediaActivityWhen,
@@ -141,7 +158,7 @@ type BuiltEvents = {
 
 const findTarget = (host: ActivityHost, id: string) =>
 	Effect.gen(function* () {
-		const target = yield* executeRyotqlRecipe(host.executeRyotql, targetRecipe(id));
+		const target = yield* executeRyotqlRecipe(host.executeRyotql, targetRecipe, { id: id });
 		if (target === undefined) {
 			return yield* reject("Media entity not found");
 		}
@@ -237,14 +254,14 @@ const buildEvents = (
 		) {
 			members += yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				episodeMembersRecipe({
-					config,
+				episodeMembersRecipe({ config: config }),
+				{
 					parentEntityId: entry.parentEntityId,
 					episodeEntityIds: entry.episodeEntityIds.slice(
 						start,
 						start + EPISODE_MEMBERSHIP_PAGE_SIZE,
 					),
-				}),
+				},
 			);
 		}
 		if (members !== entry.episodeEntityIds.length) {

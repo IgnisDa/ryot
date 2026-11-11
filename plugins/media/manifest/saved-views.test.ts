@@ -4,6 +4,8 @@ import {
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
+import { bindDocument } from "@ryot-app/ryotql/binding";
+import { Result } from "effect";
 
 import { mediaSavedViews } from "./saved-views";
 
@@ -56,11 +58,21 @@ describe("media saved views", () => {
 		expect(JSON.stringify(image)).toContain("movieGroupPresentationCoverMember");
 		expect(JSON.stringify(image)).toContain('"purpose"');
 	});
-
-	it("builds valid single-source documents for every media saved view", () => {
+	it("builds valid browse and ranked-search documents for every media saved view", () => {
 		for (const view of mediaSavedViews()) {
-			expect(Object.keys(view.dataSources.queries)).toEqual(["savedView"]);
-			expect(validateRyotQLDocument(view.dataSources, savedViewDataSourceAccess).error).toBeNull();
+			expect(Object.keys(view.dataSources.queries)).toEqual(["savedView", "librarySearch"]);
+			expect(
+				validateRyotQLDocument(
+					Result.getOrThrow(
+						bindDocument(
+							view.dataSources,
+							{ arguments: { search: "" } },
+							{ reportingTimeZone: "UTC", now: new Date("2026-01-01T00:00:00Z") },
+						),
+					).document,
+					savedViewDataSourceAccess,
+				).error,
+			).toBeNull();
 		}
 	});
 

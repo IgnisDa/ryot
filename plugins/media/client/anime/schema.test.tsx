@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { objectContaining } from "@ryot-app/testing/matchers";
 
 import { animeRecipes } from "../../shared/anime-recipes";
@@ -53,41 +54,36 @@ const PROGRESS_EVENT = {
 };
 
 const animeSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(animeRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		episodes: 24,
-		airingSchedule: [AIRED_EPISODE, ...UPCOMING_EPISODES],
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(animeRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ episodes: 24, airingSchedule: [AIRED_EPISODE, ...UPCOMING_EPISODES], ...overrides },
+	);
 const animeActivity = (
 	events: readonly Record<string, unknown>[] = [PROGRESS_EVENT],
 	completionCount = 1,
 ) =>
 	Result.getOrThrow(
-		animeRecipes
-			.activityRecipe({
-				eventLimit: 60,
-				entityId: "anime-1",
-				collectionEventLimit: 60,
-				reference: { kind: "self" },
-			})
-			.decode({
-				data: {
-					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
-					collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
-					totals: rowsResult(
-						[
-							{
-								completionCount,
-								unknownAmountCount: 0,
-								consumptionProcessing: "ready",
-								consumedAmount: completionCount === 0 ? 0 : 24,
-							},
-						],
-						{ limit: 1, hasMore: false, nextCursor: null },
-					),
-				},
-			}),
+		bindRecipe(animeRecipes.activityRecipe({ reference: { kind: "self" } }), {
+			entityId: "anime-1",
+		}).decode({
+			data: {
+				events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
+				collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
+				totals: rowsResult(
+					[
+						{
+							completionCount,
+							unknownAmountCount: 0,
+							consumptionProcessing: "ready",
+							consumedAmount: completionCount === 0 ? 0 : 24,
+						},
+					],
+					{ limit: 1, hasMore: false, nextCursor: null },
+				),
+			},
+		}),
 	);
 
 afterEach(() => {
@@ -194,7 +190,11 @@ describe("anime schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			animeSchema,
 			animeSummary(),
-			decodeFlatOverview(animeRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(animeRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+			),
 		);
 
 		expect(container.textContent).toContain("Studios");

@@ -9,8 +9,8 @@ import {
 	eq,
 	join,
 	jsonPath,
-	literal,
-	type PreparedRecipe,
+	parameters,
+	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
@@ -35,28 +35,41 @@ const EpisodeParentResolutionSchema = Schema.Union([
 ]);
 
 export type EpisodeParentResolution = Schema.Schema.Type<typeof EpisodeParentResolutionSchema>;
-
+const episodeParentParameters = parameters({
+	fields: {
+		episodeEntityId: {
+			type: "string",
+			label: "Episode",
+			validation: { required: true },
+			description: "Episode whose parent to resolve",
+		},
+	},
+});
 export function resolveEpisodeParentRecipe(input: {
-	readonly episodeEntityId: string;
 	readonly reference: PluginIdentityReference;
 	readonly config: typeof showEpisodicKindConfig;
-}): PreparedRecipe<null | Extract<EpisodeParentResolution, { kind: "show" }>>;
+}): Recipe<
+	null | Extract<EpisodeParentResolution, { kind: "show" }>,
+	typeof episodeParentParameters.schema
+>;
 export function resolveEpisodeParentRecipe(input: {
-	readonly episodeEntityId: string;
 	readonly reference: PluginIdentityReference;
 	readonly config: typeof podcastEpisodicKindConfig;
-}): PreparedRecipe<null | Extract<EpisodeParentResolution, { kind: "podcast" }>>;
+}): Recipe<
+	null | Extract<EpisodeParentResolution, { kind: "podcast" }>,
+	typeof episodeParentParameters.schema
+>;
 export function resolveEpisodeParentRecipe(input: {
-	readonly episodeEntityId: string;
 	readonly config: EpisodicKindConfig;
 	readonly reference: PluginIdentityReference;
-}) {
+}): Recipe<null | EpisodeParentResolution, typeof episodeParentParameters.schema> {
 	const episode = table("entity", "resolvedEpisode");
 	const parent = table("entity", "resolvedParent");
 	if (input.config.kind === "podcast") {
 		const config = input.config;
 		const relationship = table("relationship", "resolvedPodcastEpisode");
-		return defineRecipe(() => ({
+		return defineRecipe({
+			parameters: episodeParentParameters.schema,
 			map: ({ parents }) => {
 				const match = parents.items.length === 1 ? parents.items[0] : undefined;
 				return Result.succeed(match ? { ...match, kind: "podcast" as const } : null);
@@ -81,7 +94,7 @@ export function resolveEpisodeParentRecipe(input: {
 					where: and(
 						entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 						entitySchemaIs(episode, config.episodeSchemaSlug),
-						eq(column(episode, "id"), literal(input.episodeEntityId)),
+						eq(column(episode, "id"), episodeParentParameters.value("episodeEntityId")),
 						relationshipConnects(
 							relationship,
 							parent,
@@ -91,14 +104,15 @@ export function resolveEpisodeParentRecipe(input: {
 					),
 				}),
 			},
-		}))();
+		});
 	}
 
 	const config = input.config;
 	const season = table("entity", "resolvedSeason");
 	const showSeason = table("relationship", "resolvedShowSeason");
 	const seasonEpisode = table("relationship", "resolvedSeasonEpisode");
-	return defineRecipe(() => ({
+	return defineRecipe({
+		parameters: episodeParentParameters.schema,
 		map: ({ parents }) => {
 			const match = parents.items.length === 1 ? parents.items[0] : undefined;
 			return Result.succeed(match ? { ...match, kind: "show" as const } : null);
@@ -132,7 +146,7 @@ export function resolveEpisodeParentRecipe(input: {
 					entitySchemaPredicate(parent, config.parentSchemaSlug, input.reference),
 					entitySchemaIs(season, "show-season"),
 					entitySchemaIs(episode, config.episodeSchemaSlug),
-					eq(column(episode, "id"), literal(input.episodeEntityId)),
+					eq(column(episode, "id"), episodeParentParameters.value("episodeEntityId")),
 					relationshipConnects(showSeason, parent, season, config.parentSeasonRelationshipSlug),
 					relationshipConnects(
 						seasonEpisode,
@@ -143,5 +157,5 @@ export function resolveEpisodeParentRecipe(input: {
 				),
 			}),
 		},
-	}))();
+	});
 }

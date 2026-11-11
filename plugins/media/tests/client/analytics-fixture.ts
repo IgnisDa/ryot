@@ -1,6 +1,8 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import { type Reported, reportingExecution } from "@ryot-app/plugin-client-sdk/plugin";
 import { table } from "@ryot-app/plugin-kit/ryotql";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import type {
 	AnalyticsInput,
@@ -8,6 +10,18 @@ import type {
 	MediaAnalyticsSummary,
 } from "../../client/analytics/model";
 import { consumptionMeasures, mediaAnalyticsSummaryRecipe } from "../../shared/analytics-recipes";
+
+export const reportingSelectionResponse = (argumentsValue: Readonly<Record<string, unknown>>) => ({
+	type: "rows" as const,
+	pageInfo: { limit: 1, hasMore: false, nextCursor: null },
+	items: [
+		{
+			range: argumentsValue["range"] ?? "rolling",
+			comparison: argumentsValue["comparison"] ?? "none",
+			consistency: argumentsValue["consistency"] ?? false,
+		},
+	],
+});
 
 type Row = Readonly<Record<string, unknown>>;
 type Period = {
@@ -66,8 +80,14 @@ export const analyticsSummary = (
 	});
 	const reporting = reportingExecution(input.selection, { now, timeZone: input.timeZone });
 	const summary = Result.getOrThrow(
-		mediaAnalyticsSummaryRecipe({ ...input, reporting: reporting.resolved }).decode({
+		bindRecipe(
+			mediaAnalyticsSummaryRecipe({
+				reference: { ...input, reporting: reporting.resolved }.reference,
+			}),
+			{ ...reportingArguments(input.selection), entityId: input.entityId },
+		).decode({
 			data: {
+				selection: reportingSelectionResponse(reportingArguments(input.selection)),
 				...period("current", options.current),
 				...period("previous", options.previous),
 				undated: aggregate([{ count: options.unknownDate ?? 0 }]),
@@ -80,5 +100,9 @@ export const analyticsSummary = (
 			},
 		}),
 	);
-	return { ...summary, reporting };
+	return {
+		...summary,
+		reporting,
+		previous: reporting.resolved.previous === null ? null : summary.previous,
+	};
 };

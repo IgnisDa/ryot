@@ -92,6 +92,7 @@ const mountSummary = (clock: ReturnType<typeof createTestRyotClock>, props: Summ
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
 		userPreferences: { ratingScale: "ten", timeZone: TimeZone.make("UTC") },
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},

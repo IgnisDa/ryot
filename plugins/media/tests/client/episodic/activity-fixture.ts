@@ -1,6 +1,7 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import type { ProjectionProcessing } from "@ryot-app/plugin-kit/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { rowsResult } from "../query-result-fixture";
 import { episodicFixtureRecipes } from "./recipes";
@@ -15,12 +16,10 @@ export const EPISODIC_ACTIVITY_INPUT = {
 	episodeProgressLimit: 100,
 	timeZone: TimeZone.make("UTC"),
 };
-
-export const episodicActivityFixtureRecipe = episodicFixtureRecipes.activityRecipe({
-	...EPISODIC_ACTIVITY_INPUT,
-	reference: { kind: "self" },
-});
-
+export const episodicActivityFixtureRecipe = bindRecipe(
+	episodicFixtureRecipes.activityRecipe({ reference: { kind: "self" } }),
+	{ entityId: { ...EPISODIC_ACTIVITY_INPUT, reference: { kind: "self" } }.entityId },
+);
 const emptyEventProperties = {
 	text: null,
 	rating: null,

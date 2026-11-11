@@ -4,7 +4,9 @@ import {
 	ascending,
 	column,
 	defineRecipe,
-	entitySchemaPredicate,
+	eq,
+	parameters,
+	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
 	table,
@@ -16,38 +18,50 @@ import {
 	type PluginIdentityReference,
 } from "@ryot-app/plugin-kit/schema";
 
-import { entityId } from "./entity-selections";
-
-export const mediaUserDataDestinationRecipe = defineRecipe(
-	(input: {
-		readonly entityId: string;
-		readonly entitySchemaSlug: string;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const destination = table("entity", "destination");
-		return {
-			map: ({ destination: row }) => Result.succeed(row ?? null),
-			queries: {
-				destination: selectedOptionalRow(destination, {
-					orderBy: [ascending(column(destination, "id"))],
-					where: and(
-						entitySchemaPredicate(destination, input.entitySchemaSlug, input.reference),
-						entityId(destination, input.entityId),
-					),
-					selection: {
-						id: selectedField(column(destination, "id"), EntityId),
-						name: selectedField(column(destination, "name"), Schema.String),
-						entitySchemaSlug: selectedField(
-							column(destination, "entitySchemaSlug"),
-							EntitySchemaSlug,
-						),
-						entitySchemaPluginId: selectedField(
-							column(destination, "entitySchemaPluginId"),
-							PluginId,
-						),
-					},
-				}),
+export const mediaUserDataDestinationRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "entityId",
+				validation: { required: true },
+				description: "entityId for this selection",
 			},
-		};
-	},
-);
+			entitySchemaSlug: {
+				type: "string",
+				label: "entitySchemaSlug",
+				validation: { required: true },
+				description: "entitySchemaSlug for this selection",
+			},
+		},
+	});
+	const destination = table("entity", "destination");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ destination: row }) => Result.succeed(row ?? null),
+		queries: {
+			destination: selectedOptionalRow(destination, {
+				orderBy: [ascending(column(destination, "id"))],
+				where: and(
+					schemaOwnerPredicate(destination, "entitySchemaPluginId", input.reference),
+					eq(column(destination, "entitySchemaSlug"), inputParameters.value("entitySchemaSlug")),
+					eq(column(destination, "id"), inputParameters.value("entityId")),
+				),
+				selection: {
+					id: selectedField(column(destination, "id"), EntityId),
+					name: selectedField(column(destination, "name"), Schema.String),
+					entitySchemaSlug: selectedField(
+						column(destination, "entitySchemaSlug"),
+						EntitySchemaSlug,
+					),
+					entitySchemaPluginId: selectedField(
+						column(destination, "entitySchemaPluginId"),
+						PluginId,
+					),
+				},
+			}),
+		},
+	});
+};

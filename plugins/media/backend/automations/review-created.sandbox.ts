@@ -26,7 +26,9 @@ export default defineAutomation({
 		const event = payload.after;
 		return executeRyotqlRecipe(
 			host.executeRyotql,
-			entityReadRecipe({ entityIds: [event.entityId] }),
+			entityReadRecipe,
+			{ entityIds: [event.entityId] },
+			{ pages: { entities: { after: undefined, limit: undefined } } },
 		).pipe(
 			Effect.flatMap(({ items }) => {
 				const entity = items[0];

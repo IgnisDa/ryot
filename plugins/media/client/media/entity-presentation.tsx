@@ -138,10 +138,10 @@ export const createMediaPresentationLoader =
 		return client.data
 			.query(
 				mediaPresentationSourceRecipe(source, {
-					entityIds,
 					entitySchemaSlug,
 					reference: { kind: "local", pluginId: PluginId.make(selected.ownerPluginId) },
 				}),
+				{ entityIds },
 			)
 			.pipe(Effect.map(prepareMediaPresentationRows));
 	};

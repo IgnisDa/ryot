@@ -9,6 +9,7 @@ import {
 	eq,
 	executeRyotqlRecipe,
 	literal,
+	parameters,
 	schemaOwnerPredicate,
 	selectedField,
 	selectedOptionalRow,
@@ -19,15 +20,26 @@ import {
 import { propertyText } from "../../shared/entity-selections";
 import { mediaReviewConsumptionSlugs } from "../../shared/media-review-operations";
 
-const reviewConsumptionRecipe = defineRecipe((eventId: string) => {
+const reviewConsumptionRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			eventId: {
+				type: "string",
+				label: "Event Id",
+				validation: { required: true },
+				description: "Event Id for this selection",
+			},
+		},
+	});
 	const event = table("event", "reviewConsumption");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ consumption }) => Result.succeed(consumption),
 		queries: {
 			consumption: selectedOptionalRow(event, {
 				orderBy: [ascending(column(event, "id"))],
 				where: and(
-					eq(column(event, "id"), literal(eventId)),
+					eq(column(event, "id"), inputParameters.value("eventId")),
 					schemaOwnerPredicate(event, "eventSchemaPluginId", { kind: "self" }),
 				),
 				selection: {
@@ -36,9 +48,8 @@ const reviewConsumptionRecipe = defineRecipe((eventId: string) => {
 				},
 			}),
 		},
-	};
-});
-
+	});
+})();
 const reviewableSlugs = new Set<string>(mediaReviewConsumptionSlugs);
 
 /** A review may name one completion, progress or status record of the entity it is written on. */
@@ -47,10 +58,9 @@ export const requireReviewConsumption = (
 	input: { readonly eventId: string; readonly entityId: string },
 ) =>
 	Effect.gen(function* () {
-		const consumption = yield* executeRyotqlRecipe(
-			host.executeRyotql,
-			reviewConsumptionRecipe(input.eventId),
-		);
+		const consumption = yield* executeRyotqlRecipe(host.executeRyotql, reviewConsumptionRecipe, {
+			eventId: input.eventId,
+		});
 		if (consumption === undefined) {
 			return yield* new OperationRejectedError({
 				message: "The record this review is about no longer exists.",
@@ -68,10 +78,20 @@ export const requireReviewConsumption = (
 		}
 		return yield* Effect.void;
 	});
-
-const reviewsOfConsumptionRecipe = defineRecipe((eventId: string) => {
+const reviewsOfConsumptionRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			eventId: {
+				type: "string",
+				label: "Event Id",
+				validation: { required: true },
+				description: "Event Id for this selection",
+			},
+		},
+	});
 	const review = table("event", "consumptionReview");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ reviews }) =>
 			Result.succeed({ hasMore: reviews.pageInfo.hasMore, ids: reviews.items.map(({ id }) => id) }),
 		queries: {
@@ -82,13 +102,12 @@ const reviewsOfConsumptionRecipe = defineRecipe((eventId: string) => {
 				where: and(
 					schemaOwnerPredicate(review, "eventSchemaPluginId", { kind: "self" }),
 					eq(column(review, "eventSchemaSlug"), literal("review")),
-					eq(propertyText(review, "consumptionEventId"), literal(eventId)),
+					eq(propertyText(review, "consumptionEventId"), inputParameters.value("eventId")),
 				),
 			}),
 		},
-	};
-});
-
+	});
+})();
 /** The reviews that name `eventId`, which must stop naming it once it is no longer a record of their entity. */
 export const reviewsNamingConsumption = (
 	host: Pick<ScriptHost, "executeRyotql">,
@@ -97,7 +116,8 @@ export const reviewsNamingConsumption = (
 	Effect.gen(function* () {
 		const { ids, hasMore } = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			reviewsOfConsumptionRecipe(eventId),
+			reviewsOfConsumptionRecipe,
+			{ eventId: eventId },
 		);
 		if (hasMore) {
 			return yield* new OperationRejectedError({

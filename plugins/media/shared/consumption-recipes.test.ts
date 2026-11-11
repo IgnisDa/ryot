@@ -2,8 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { and, castDate, column, gte, literal, lt, table } from "@ryot-app/plugin-kit/ryotql";
+import { and, column, dateAdd, gte, literal, lt, table } from "@ryot-app/plugin-kit/ryotql";
 import { calendarPeriod, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { expressionDateWindow } from "@ryot-app/ryotql-recipes/reporting-parameters";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { bookRecipes } from "./book-recipes";
 import { consumptionPeriod } from "./consumption-recipes";
@@ -22,11 +24,14 @@ describe("consumption periods", () => {
 		(zone) => {
 			const period = calendarPeriod("2026-10-01", "2026-10-31", TimeZone.make(zone));
 			const event = table("event", "source");
-			const predicate = consumptionPeriod(event, period);
-			expect(predicate.type === "and" ? predicate.predicates[0] : undefined).toEqual(
+			const predicate = consumptionPeriod(
+				event,
+				expressionDateWindow(literal("2026-10-01"), literal("2026-11-01")),
+			);
+			expect(predicate.type === "and" ? predicate.predicates[1] : undefined).toEqual(
 				and(
-					gte(column(event, "occurredAt"), castDate(literal("2026-09-30T00:00:00.000Z"))),
-					lt(column(event, "occurredAt"), castDate(literal("2026-11-02T00:00:00.000Z"))),
+					gte(column(event, "occurredAt"), dateAdd(literal("2026-10-01"), -2, "day")),
+					lt(column(event, "occurredAt"), dateAdd(literal("2026-11-01"), 2, "day")),
 				),
 			);
 			expect(Date.parse(period.startAt)).toBeGreaterThanOrEqual(
@@ -40,16 +45,8 @@ describe("consumption periods", () => {
 describe("canonical consumption reads", () => {
 	it("keeps episodic lifetime and coverage reads within production query limits", () => {
 		for (const recipes of [showRecipes, podcastRecipes]) {
-			const recipe = recipes.activityRecipe({
+			const recipe = bindRecipe(recipes.activityRecipe({ reference: { kind: "self" } }), {
 				entityId: "parent",
-				coverageLimit: 100,
-				watchDayLimit: 1000,
-				parentEventLimit: 60,
-				episodeEventLimit: 100,
-				collectionEventLimit: 60,
-				episodeProgressLimit: 100,
-				reference: { kind: "self" },
-				timeZone: TimeZone.make("America/New_York"),
 			});
 			expect(
 				validateRyotQLDocument(recipe.document, {
@@ -61,11 +58,8 @@ describe("canonical consumption reads", () => {
 		}
 	});
 	it("flat detail totals expose repair state alongside quantities", () => {
-		const recipe = bookRecipes.activityRecipe({
-			eventLimit: 10,
+		const recipe = bindRecipe(bookRecipes.activityRecipe({ reference: { kind: "self" } }), {
 			entityId: "book",
-			collectionEventLimit: 10,
-			reference: { kind: "self" },
 		});
 		const result = Result.getOrThrow(
 			recipe.decode({

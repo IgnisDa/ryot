@@ -5,7 +5,7 @@ import {
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { upcomingRecipe } from "./upcoming-recipes";
 
@@ -18,9 +18,15 @@ const identity = (id: string, schemaSlug: string) => ({
 	populationStatus: { state: "succeeded", availability: "complete" },
 	relatedPopulationStatus: { state: "succeeded", availability: "complete" },
 });
-
-const episodeRow = (title: string, id: string, publishDate: string, episodeNumber: number) => ({
+const episodeRow = (
+	title: string,
+	id: string,
+	publishDate: string,
+	episodeNumber: number,
+	onePerTitle = true,
+) => ({
 	...identity(title, "show"),
+	onePerTitle,
 	publishDate,
 	episodeNumber,
 	seasonNumber: 2,
@@ -36,20 +42,9 @@ const totals = (items: readonly { readonly id: string; readonly total: number }[
 	type: "aggregate",
 	pageInfo: { limit: 1000, hasMore: false, nextCursor: null },
 });
-
 const included = (items: readonly unknown[]) => ({ items, pageInfo: { limit: 1, hasMore: false } });
-
 const recipe = (onePerTitle: boolean) =>
-	upcomingRecipe({
-		limit: 20,
-		onePerTitle,
-		fromDate: "2026-09-01",
-		untilDate: "2026-09-15",
-		reference: { kind: "self" },
-		fromInstant: "2026-09-01T00:00:00.000Z",
-		untilInstant: "2026-09-16T00:00:00.000Z",
-	});
-
+	bindRecipe(upcomingRecipe({ reference: { kind: "self" } }), { onePerTitle });
 describe("upcoming recipe", () => {
 	it.each([true, false])("validates the document with onePerTitle=%s", (onePerTitle) => {
 		expect(
@@ -67,17 +62,18 @@ describe("upcoming recipe", () => {
 					{ total: 5, id: "show-1" },
 					{ total: 1, id: "show-2" },
 				]),
-				anime: page([
-					{
-						...identity("anime-1", "anime"),
-						total: 1,
-						occurrences: included([{ episodeNumber: 4, airingAt: "2026-09-03T15:00:00.000Z" }]),
-					},
-				]),
 				shows: page([
 					episodeRow("show-2", "episode-9", "2026-09-04", 9),
 					episodeRow("show-1", "episode-3", "2026-09-04", 3),
 					episodeRow("show-1", "episode-4", "2026-09-11", 4),
+				]),
+				anime: page([
+					{
+						...identity("anime-1", "anime"),
+						total: 1,
+						onePerTitle: true,
+						occurrences: included([{ episodeNumber: 4, airingAt: "2026-09-03T15:00:00.000Z" }]),
+					},
 				]),
 			},
 		});
@@ -133,14 +129,8 @@ describe("upcoming recipe", () => {
 	});
 
 	it("lists every occurrence and caps titles when not one per title", () => {
-		const decoded = upcomingRecipe({
-			limit: 1,
+		const decoded = bindRecipe(upcomingRecipe({ reference: { kind: "self" } }), {
 			onePerTitle: false,
-			fromDate: "2026-09-01",
-			untilDate: "2026-09-15",
-			reference: { kind: "self" },
-			fromInstant: "2026-09-01T00:00:00.000Z",
-			untilInstant: "2026-09-16T00:00:00.000Z",
 		}).decode({
 			data: {
 				anime: page([]),
@@ -149,8 +139,10 @@ describe("upcoming recipe", () => {
 				showTotals: totals([]),
 				podcastTotals: totals([]),
 				shows: page([
-					episodeRow("show-1", "episode-3", "2026-09-04", 3),
-					episodeRow("show-2", "episode-9", "2026-09-05", 9),
+					...Array.from({ length: 21 }, (_, index) =>
+						episodeRow(`show-${index + 1}`, `episode-${index + 3}`, "2026-09-04", 3, false),
+					),
+					episodeRow("show-1", "episode-4", "2026-09-05", 4, false),
 				]),
 			},
 		});
@@ -161,6 +153,10 @@ describe("upcoming recipe", () => {
 				total,
 				occurrences.map(({ key }) => key),
 			]),
-		).toEqual<unknown>([["show-1", 1, ["episode-3"]]]);
+		).toHaveLength(20);
+		expect(Result.getOrThrow(decoded).find(({ entity }) => entity.id === "show-1")).toMatchObject({
+			total: 2,
+			occurrences: [{ key: "episode-3" }, { key: "episode-4" }],
+		});
 	});
 });

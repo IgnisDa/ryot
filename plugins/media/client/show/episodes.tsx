@@ -19,6 +19,7 @@ import { type ReactNode, useEffect, useState } from "react";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { ShowEpisodeOrder } from "../../shared/show-episode-order";
 import {
+	SHOW_SEASON_LIMIT,
 	showOrderEpisodesRecipe,
 	showOrderGroupCoverageRecipe,
 	showSeasonEpisodesRecipe,
@@ -64,8 +65,6 @@ import {
 	type ShowSeasonsState,
 } from "./episodes-state";
 
-export const SHOW_SEASON_LIMIT = 40;
-
 export const SHOW_EPISODE_PAGE_LIMIT = 60;
 
 export const showSeasonsQuery = createRyotQuery<
@@ -74,12 +73,9 @@ export const showSeasonsQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data.query(
-			showSeasonsRecipe({
-				entityId: input.entityId,
-				seasonLimit: SHOW_SEASON_LIMIT,
-				after: input.after ?? undefined,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
+			showSeasonsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ entityId: input.entityId },
+			{ pages: { seasons: { limit: SHOW_SEASON_LIMIT, after: input.after ?? undefined } } },
 		),
 	{
 		entityWatch: ({ data, input }) => ({
@@ -95,12 +91,9 @@ export const showSeasonEpisodesQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data.query(
-			showSeasonEpisodesRecipe({
-				limit: SHOW_EPISODE_PAGE_LIMIT,
-				containerId: input.containerId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				...(input.after === null ? {} : { after: input.after }),
-			}),
+			showSeasonEpisodesRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ containerId: input.containerId },
+			{ pages: { episodes: { limit: SHOW_EPISODE_PAGE_LIMIT, after: input.after ?? undefined } } },
 		),
 	{
 		entityWatch: ({ data, input }) => ({
@@ -130,11 +123,8 @@ export const showOrderEpisodesQuery = createRyotQuery<
 		}
 		return Effect.map(
 			client.data.query(
-				showOrderEpisodesRecipe({
-					entityId: input.entityId,
-					externalIds: page.externalIds,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
+				showOrderEpisodesRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{ entityId: input.entityId, externalIds: page.externalIds },
 			),
 			(rows) => ({
 				pageInfo: { nextCursor: page.nextCursor },
@@ -159,11 +149,8 @@ const showOrderGroupCoverageQuery = createRyotQuery<
 		return first === undefined
 			? Effect.succeed(null)
 			: client.data.query(
-					showOrderGroupCoverageRecipe({
-						entityId: input.entityId,
-						externalIds: [first, ...rest],
-						reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-					}),
+					showOrderGroupCoverageRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+					{ entityId: input.entityId, externalIds: [first, ...rest] },
 				);
 	},
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },

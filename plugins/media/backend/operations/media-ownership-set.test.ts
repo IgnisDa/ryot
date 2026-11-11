@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -22,8 +23,10 @@ const ownershipHost = (targetIds: readonly string[], changes: unknown[], documen
 			}),
 		executeRyotql: (document) =>
 			Effect.gen(function* () {
-				documents.push(document);
-				const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
+				documents.push(bindTestRequest(document));
+				const query = yield* Schema.decodeEffect(RyotQLDocument)(bindTestRequest(document)).pipe(
+					Effect.orDie,
+				);
 				return "mediaLibrary" in query.queries
 					? {
 							data: {

@@ -13,13 +13,14 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
-import { zeroMeasures } from "../../tests/client/analytics-fixture";
+import { reportingSelectionResponse, zeroMeasures } from "../../tests/client/analytics-fixture";
 import type { AnalyticsInput, MediaAnalyticsRecord } from "./model";
 import {
 	mediaAnalyticsConsistencyQuery,
@@ -45,7 +46,7 @@ const aggregate = (items: readonly Record<string, null | number | string>[]) => 
 	type: "aggregate" as const,
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 });
-const reportResponse = () => ({
+const reportResponse = (argumentsValue: Readonly<Record<string, unknown>> = {}) => ({
 	data: {
 		currentTypes: aggregate([]),
 		previousTypes: aggregate([]),
@@ -55,6 +56,7 @@ const reportResponse = () => ({
 		currentActiveDays: aggregate([{ activeDays: 0 }]),
 		processing: aggregate([{ failed: 0, pending: 0 }]),
 		previousActiveDays: aggregate([{ activeDays: 0 }]),
+		selection: reportingSelectionResponse(argumentsValue),
 	},
 });
 const cursorResponse = (
@@ -194,6 +196,7 @@ const mount = (clock: ReturnType<typeof createTestRyotClock>, Probe: ComponentTy
 	mountPluginPage(Probe, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -208,10 +211,15 @@ const mount = (clock: ReturnType<typeof createTestRyotClock>, Probe: ComponentTy
 		},
 	});
 const chartRequests = (page: ReturnType<typeof mount>) =>
-	page.queryRequests().filter(({ document }) => !Object.hasOwn(document.queries, "processing"));
+	page
+		.queryRequests()
+		.filter(
+			({ request: executionRequest }) =>
+				!Object.hasOwn(bindTestRequest(executionRequest).queries, "processing"),
+		);
 const replyCharts = (page: ReturnType<typeof mount>, requests = chartRequests(page)) => {
 	for (const request of requests) {
-		const queries = request.document.queries;
+		const queries = bindTestRequest(request.request).queries;
 		page.replyQuery(request.requestId, {
 			outcome: "success",
 			response: {
@@ -219,6 +227,7 @@ const replyCharts = (page: ReturnType<typeof mount>, requests = chartRequests(pa
 					? { hourly: aggregate([hourRow]) }
 					: {
 							current: aggregate([]),
+							selection: reportingSelectionResponse(request.request.arguments ?? {}),
 							...(Object.hasOwn(queries, "previous") ? { previous: aggregate([]) } : {}),
 						},
 			},
@@ -264,18 +273,30 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests()).toHaveLength(2)),
 						);
 						for (const request of page.queryRequests("processing")) {
-							expect(yield* documentText(request.document.queries["currentTypes"])).toContain(
-								sample.start,
-							);
-							expect(yield* documentText(request.document.queries["currentTypes"])).toContain(
-								sample.end,
-							);
-							expect(yield* documentText(request.document.queries["previousTypes"])).toContain(
-								sample.previousStart,
-							);
+							expect(request.request.arguments).toMatchObject({
+								range: "month",
+								calendarStartOffset: sample.offset,
+								calendarEndOffset: sample.offset + 1,
+								previousCalendarEndOffset: sample.offset,
+								previousCalendarStartOffset: sample.offset - 1,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "month",
+								calendarStartOffset: sample.offset,
+								calendarEndOffset: sample.offset + 1,
+								previousCalendarEndOffset: sample.offset,
+								previousCalendarStartOffset: sample.offset - 1,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "month",
+								calendarStartOffset: sample.offset,
+								calendarEndOffset: sample.offset + 1,
+								previousCalendarEndOffset: sample.offset,
+								previousCalendarStartOffset: sample.offset - 1,
+							});
 							page.replyQuery(request.requestId, {
 								outcome: "success",
-								response: reportResponse(),
+								response: reportResponse(request.request.arguments ?? {}),
 							});
 						}
 						replyCharts(page);
@@ -299,7 +320,7 @@ describe("Media analytics query adapters", () => {
 		);
 	}
 	it.live(
-		"executes one eight-query summary and labels it from the same captured clock across refresh",
+		"executes one nine-query summary and labels it from the same captured clock across refresh",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -308,9 +329,16 @@ describe("Media analytics query adapters", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
-						expect(Object.keys(request.document.queries)).toHaveLength(8);
-						expect(yield* documentText(request.document)).toContain("2026-11-02T05:00:00.000Z");
-						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
+						expect(Object.keys(bindTestRequest(request.request).queries)).toHaveLength(9);
+						expect(request.request.arguments).toMatchObject({
+							range: "rolling",
+							endOffsetDays: 1,
+							startOffsetDays: -6,
+						});
+						page.replyQuery(request.requestId, {
+							outcome: "success",
+							response: reportResponse(request.request.arguments ?? {}),
+						});
 					}
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -324,8 +352,15 @@ describe("Media analytics query adapters", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
 					for (const request of page.queryRequests().slice(1)) {
-						expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
-						page.replyQuery(request.requestId, { outcome: "success", response: reportResponse() });
+						expect(request.request.arguments).toMatchObject({
+							range: "rolling",
+							endOffsetDays: 1,
+							startOffsetDays: -6,
+						});
+						page.replyQuery(request.requestId, {
+							outcome: "success",
+							response: reportResponse(request.request.arguments ?? {}),
+						});
 					}
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -340,7 +375,7 @@ describe("Media analytics query adapters", () => {
 		testTimeout,
 	);
 	it.live(
-		"clips the daily heatmap to the most recent bucket-limit days of all time",
+		"preserves a short daily heatmap window without clipping",
 		() =>
 			Effect.gen(function* () {
 				const clock = createTestRyotClock();
@@ -349,13 +384,27 @@ describe("Media analytics query adapters", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(1)));
 					for (const request of page.queryRequests()) {
-						const text = yield* documentText(request.document);
-						expect(text).toContain("2026-10-27T04:00:00.000Z");
+						const text = yield* documentText(bindTestRequest(request.request));
+						expect(request.request.arguments).toMatchObject({
+							range: "rolling",
+							endOffsetDays: 1,
+							startOffsetDays: -6,
+						});
 						expect(text).toContain('"bucket":"day"');
-						expect(Object.keys(request.document.queries)).toEqual(["current"]);
+						expect(Object.keys(bindTestRequest(request.request).queries)).toEqual([
+							"current",
+							"selection",
+							"previous",
+						]);
 						page.replyQuery(request.requestId, {
 							outcome: "success",
-							response: { data: { current: aggregate([]) } },
+							response: {
+								data: {
+									current: aggregate([]),
+									previous: aggregate([]),
+									selection: reportingSelectionResponse(request.request.arguments ?? {}),
+								},
+							},
 						});
 					}
 					yield* Effect.promise(() =>
@@ -401,10 +450,18 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(2)),
 						);
 						for (const request of page.queryRequests(key).slice(1)) {
-							const text = yield* documentText(request.document);
+							const text = yield* documentText(bindTestRequest(request.request));
 							expect(text).toContain("first-cursor");
-							expect(text).toContain("2026-10-26T04:00:00.000Z");
-							expect(text).toContain("2026-11-02T05:00:00.000Z");
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
 							if (key === "records") {
 								expect(text).toContain("original-title");
 								expect(text).toContain("localHour");
@@ -427,10 +484,18 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(3)),
 						);
 						for (const request of page.queryRequests(key).slice(2)) {
-							const text = yield* documentText(request.document);
+							const text = yield* documentText(bindTestRequest(request.request));
 							expect(text).not.toContain("first-cursor");
-							expect(text).toContain("2026-10-27T04:00:00.000Z");
-							expect(text).toContain("2026-11-03T05:00:00.000Z");
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: cursorResponse(key, "refreshed-cursor"),
@@ -440,8 +505,14 @@ describe("Media analytics query adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(4)),
 						);
 						for (const request of page.queryRequests(key).slice(3)) {
-							expect(yield* documentText(request.document)).toContain("refreshed-cursor");
-							expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+							expect(yield* documentText(bindTestRequest(request.request))).toContain(
+								"refreshed-cursor",
+							);
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: cursorResponse(key, "third-cursor"),
@@ -504,7 +575,11 @@ describe("Media analytics query adapters", () => {
 						waitFor(() => expect(page.queryRequests("records")).toHaveLength(3)),
 					);
 					for (const request of page.queryRequests("records").slice(2)) {
-						expect(yield* documentText(request.document)).toContain("2026-10-27T04:00:00.000Z");
+						expect(request.request.arguments).toMatchObject({
+							range: "rolling",
+							endOffsetDays: 1,
+							startOffsetDays: -6,
+						});
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: cursorResponse("records", "replacement", [sourceRecord("Replacement")]),
@@ -529,8 +604,14 @@ describe("Media analytics query adapters", () => {
 						waitFor(() => expect(page.queryRequests("records")).toHaveLength(5)),
 					);
 					for (const request of page.queryRequests("records").slice(4)) {
-						expect(yield* documentText(request.document)).not.toContain("replacement");
-						expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+						expect(yield* documentText(bindTestRequest(request.request))).not.toContain(
+							"replacement",
+						);
+						expect(request.request.arguments).toMatchObject({
+							range: "rolling",
+							endOffsetDays: 1,
+							startOffsetDays: -6,
+						});
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: cursorResponse("records", "retry-first", [sourceRecord("New first")]),
@@ -540,8 +621,12 @@ describe("Media analytics query adapters", () => {
 						waitFor(() => expect(page.queryRequests("records")).toHaveLength(6)),
 					);
 					for (const request of page.queryRequests("records").slice(5)) {
-						expect(yield* documentText(request.document)).toContain("retry-first");
-						expect(yield* documentText(request.document)).toContain("2026-11-03T05:00:00.000Z");
+						expect(yield* documentText(bindTestRequest(request.request))).toContain("retry-first");
+						expect(request.request.arguments).toMatchObject({
+							range: "rolling",
+							endOffsetDays: 1,
+							startOffsetDays: -6,
+						});
 						page.replyQuery(request.requestId, {
 							outcome: "success",
 							response: cursorResponse("records", "retry-second", [sourceRecord("New second")]),
@@ -604,8 +689,10 @@ describe("Media analytics query adapters", () => {
 					);
 					expect(screen.getByText("0 pages")).toBeDefined();
 					for (const request of page.queryRequests("records").slice(2)) {
-						expect(yield* documentText(request.document)).toContain("media-other");
-						expect(yield* documentText(request.document)).not.toContain("media-owner");
+						expect(yield* documentText(bindTestRequest(request.request))).toContain("media-other");
+						expect(yield* documentText(bindTestRequest(request.request))).not.toContain(
+							"media-owner",
+						);
 					}
 				} finally {
 					page.dispose();

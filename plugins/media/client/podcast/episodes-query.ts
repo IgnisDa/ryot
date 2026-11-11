@@ -8,7 +8,9 @@ import type { MediaEpisodePageInput } from "../media/episodes";
 
 const PODCAST_EPISODE_PAGE_LIMIT = 40;
 
-export type PodcastEpisode = Recipe.Success<typeof podcastEpisodesRecipe>["items"][number];
+export type PodcastEpisode = Recipe.Success<
+	ReturnType<typeof podcastEpisodesRecipe>
+>["items"][number];
 
 export const podcastEpisodesQuery = createRyotQuery<
 	MediaEpisodePageInput,
@@ -16,12 +18,11 @@ export const podcastEpisodesQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data.query(
-			podcastEpisodesRecipe({
-				containerId: input.containerId,
-				limit: PODCAST_EPISODE_PAGE_LIMIT,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				...(input.after === null ? {} : { after: input.after }),
-			}),
+			podcastEpisodesRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ containerId: input.containerId },
+			{
+				pages: { episodes: { after: input.after ?? undefined, limit: PODCAST_EPISODE_PAGE_LIMIT } },
+			},
 		),
 	{
 		entityWatch: ({ data, input }) => ({

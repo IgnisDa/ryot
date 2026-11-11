@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 
 import { musicRecipes } from "../../shared/music-recipes";
@@ -25,12 +26,12 @@ import { musicPresentationFacts, musicSchema, musicSummaryFacts } from "./schema
 const noopAdapter = { query: () => Effect.succeed({}) };
 
 const musicSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(musicRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		duration: 222,
-		byVariousArtists: false,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(musicRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ duration: 222, byVariousArtists: false, ...overrides },
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -48,7 +49,11 @@ describe("music schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			musicSchema,
 			musicSummary(),
-			decodeFlatOverview(musicRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(musicRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+			),
 		);
 
 		expect(container.textContent).toContain("Artists & credits");

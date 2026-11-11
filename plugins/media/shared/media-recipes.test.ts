@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import {
 	flatFixtureRecipes,
@@ -16,29 +16,18 @@ const activityRows = (items: readonly Record<string, unknown>[]) =>
 		items.map((item) => ({ position: null, consumptionProcessing: "ready", ...item })),
 		{ limit: 60, hasMore: false, nextCursor: null },
 	);
-
-const SUMMARY_RECIPE = flatFixtureRecipes.summaryRecipe({
-	collectionLimit: 6,
-	entityId: "media-1",
-	reference: { kind: "self" },
-});
-
-const OVERVIEW_RECIPE = flatFixtureRecipes.overviewRecipe({
-	groupLimit: 20,
-	peopleLimit: 12,
-	companyLimit: 6,
-	entityId: "media-1",
-	recommendationLimit: 12,
-	reference: { kind: "self" },
-});
-
-const ACTIVITY_RECIPE = flatFixtureRecipes.activityRecipe({
-	eventLimit: 60,
-	entityId: "media-1",
-	collectionEventLimit: 40,
-	reference: { kind: "self" },
-});
-
+const SUMMARY_RECIPE = bindRecipe(
+	flatFixtureRecipes.summaryRecipe({ reference: { kind: "self" } }),
+	{ entityId: "media-1" },
+);
+const OVERVIEW_RECIPE = bindRecipe(
+	flatFixtureRecipes.overviewRecipe({ reference: { kind: "self" } }),
+	{ entityId: "media-1" },
+);
+const ACTIVITY_RECIPE = bindRecipe(
+	flatFixtureRecipes.activityRecipe({ reference: { kind: "self" } }),
+	{ entityId: "media-1" },
+);
 const SUMMARY_ROW = {
 	owned: null,
 	images: null,
@@ -435,15 +424,10 @@ describe("media flat recipes", () => {
 	});
 
 	it("omits the group query entirely for a schema that declares no group", () => {
-		const overview = flatUngroupedFixtureRecipes.overviewRecipe({
-			groupLimit: 20,
-			peopleLimit: 12,
-			companyLimit: 6,
-			entityId: "media-1",
-			recommendationLimit: 12,
-			reference: { kind: "self" },
-		});
-
+		const overview = bindRecipe(
+			flatUngroupedFixtureRecipes.overviewRecipe({ reference: { kind: "self" } }),
+			{ entityId: "media-1" },
+		);
 		expect(Object.keys(overview.document.queries)).toEqual([
 			"companies",
 			"people",
@@ -452,12 +436,10 @@ describe("media flat recipes", () => {
 	});
 
 	it("appends the schema's own activity event fields to the shared event selection", () => {
-		const activity = flatUngroupedFixtureRecipes.activityRecipe({
-			eventLimit: 60,
-			entityId: "media-1",
-			collectionEventLimit: 40,
-			reference: { kind: "self" },
-		});
+		const activity = bindRecipe(
+			flatUngroupedFixtureRecipes.activityRecipe({ reference: { kind: "self" } }),
+			{ entityId: "media-1" },
+		);
 		const events = activity.document.queries["events"];
 		if (events?.output.type !== "rows") {
 			throw new Error("Expected an events rows query");
@@ -634,14 +616,12 @@ describe("media flat recipes", () => {
 		]);
 	});
 });
-
-const REVIEW_ACTIVITY_RECIPE = mediaReviewActivityRecipe({ slug: "reviewed", alias: "reviewed" })({
-	eventLimit: 60,
-	entityId: "reviewed-1",
-	collectionEventLimit: 40,
-	reference: { kind: "self" },
-});
-
+const REVIEW_ACTIVITY_RECIPE = bindRecipe(
+	mediaReviewActivityRecipe({ slug: "reviewed", alias: "reviewed" })({
+		reference: { kind: "self" },
+	}),
+	{ entityId: "reviewed-1" },
+);
 const reviewActivityRows = (items: readonly Record<string, unknown>[], hasMore = false) =>
 	rowsResult(items, { hasMore, limit: 60, nextCursor: hasMore ? "cursor" : null });
 

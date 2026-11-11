@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 import { toDateTimeInput } from "@ryot-app/plugin-ui-sdk/datetime";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
@@ -70,7 +71,9 @@ const podcast: MediaActivityLogger = { copy, family: "podcast" };
 
 const context = (overrides: Record<string, unknown> = {}) =>
 	Result.getOrThrow(
-		mediaActivityLogContextRecipe({ entityId: "entity-1", reference: { kind: "self" } }).decode({
+		bindRecipe(mediaActivityLogContextRecipe({ reference: { kind: "self" } }), {
+			entityId: "entity-1",
+		}).decode({
 			data: {
 				target: rowsResult([contextTarget(overrides)], {
 					limit: 1,

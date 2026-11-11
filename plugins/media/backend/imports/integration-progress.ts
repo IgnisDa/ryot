@@ -110,11 +110,12 @@ export const admitIntegrationProgress = (input: MediaImportWriteChunkInput, host
 					const { items } = yield* executeRyotqlRecipe(
 						host.executeRyotql,
 						eventReadRecipe({
-							entityId,
-							entitySchemaSlug,
 							owner: { kind: "self" },
 							eventSchemaSlug: "progress",
+							entitySchemaSlug: entitySchemaSlug,
 						}),
+						{ entityId: entityId },
+						{ pages: { events: { after: undefined, limit: undefined } } },
 					);
 					const matchingEvents = [
 						...items.filter((item) => {

@@ -62,7 +62,7 @@ describe("show.tvdb sandbox script", () => {
 		return Effect.runPromise(
 			runSandboxTestScript(search, { page: 1, pageSize: 20, query: "show" }, host, execution).pipe(
 				Effect.map((result) => {
-					expect(cacheWrites).toEqual([["tvdb_access_token", "Bearer test-token", 82_800]]);
+					expect(cacheWrites).toEqual([["tvdb_access_token", "Bearer test-token", 82800]]);
 					expect(result.items).toEqual([]);
 					return undefined;
 				}),

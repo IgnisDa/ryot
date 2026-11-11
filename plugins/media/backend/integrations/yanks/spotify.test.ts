@@ -27,7 +27,7 @@ const play = (
 	trackId: null | string,
 	playedAt: string,
 	name = trackId ?? "",
-	durationMs = 200_000,
+	durationMs = 200000,
 ) => ({ played_at: playedAt, track: { name, id: trackId, duration_ms: durationMs } });
 
 type Response = { status: number; items: Array<Record<string, JsonValue>> };
@@ -131,9 +131,9 @@ describe("Spotify yank", () => {
 				const result = yield* run({
 					status: 200,
 					items: [
-						play("track-a", "2026-01-01T12:10:00.000Z", "Song A", 185_123),
-						play("track-b", "2026-01-01T12:05:00.000Z", "Song B", 60_000),
-						play("track-a", "2026-01-01T12:00:00.000Z", "Song A", 185_123),
+						play("track-a", "2026-01-01T12:10:00.000Z", "Song A", 185123),
+						play("track-b", "2026-01-01T12:05:00.000Z", "Song B", 60000),
+						play("track-a", "2026-01-01T12:00:00.000Z", "Song A", 185123),
 					],
 				});
 				expect(result).toEqual({
@@ -158,7 +158,7 @@ describe("Spotify yank", () => {
 										consumptionBasis: {
 											unit: "minutes",
 											property: "duration",
-											total: 185_123 / 60_000,
+											total: 185123 / 60000,
 										},
 									},
 								}),

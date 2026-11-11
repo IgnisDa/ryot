@@ -42,16 +42,16 @@ export const episodicFixtureEpisodesRecipe = episodicEpisodesRecipe({
 });
 
 export type EpisodicFixtureSummaryResult = Recipe.Success<
-	typeof episodicFixtureRecipes.summaryRecipe
+	ReturnType<typeof episodicFixtureRecipes.summaryRecipe>
 >;
 export type EpisodicFixtureActivityResult = Recipe.Success<
-	typeof episodicFixtureRecipes.activityRecipe
+	ReturnType<typeof episodicFixtureRecipes.activityRecipe>
 >;
 export type EpisodicFixtureOverviewResult = Recipe.Success<
-	typeof episodicFixtureRecipes.overviewRecipe
+	ReturnType<typeof episodicFixtureRecipes.overviewRecipe>
 >;
 export type EpisodicFixtureEpisode = Recipe.Success<
-	typeof episodicFixtureEpisodesRecipe
+	ReturnType<typeof episodicFixtureEpisodesRecipe>
 >["items"][number];
 export type EpisodicFixturePresentationData =
 	typeof episodicFixtureRecipes.presentationSource extends MediaPresentationSource<infer Data>

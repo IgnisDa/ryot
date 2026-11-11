@@ -2,6 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import type { RyotClientAdapter } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -56,9 +57,9 @@ const pagingAdapter = () => {
 	const adapter: Partial<RyotClientAdapter> = {
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		query: (document) => {
-			documents.push(document);
+			documents.push(bindTestRequest(document));
 			return Effect.succeed(
-				JSON.stringify(document).includes("cursor-1")
+				JSON.stringify(bindTestRequest(document)).includes("cursor-1")
 					? groupMemberPageData({
 							members: [groupMemberRow({ position: 3, id: "member-3", name: "Revolutions" })],
 						})

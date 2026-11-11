@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -20,7 +21,7 @@ describe("media monitoring targets", () => {
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: (document) =>
 						Effect.sync(() => {
-							documents.push(document);
+							documents.push(bindTestRequest(document));
 							return {
 								data: {
 									targets: {

@@ -18,7 +18,7 @@ import { UpcomingSection } from "./upcoming-rail";
 import { useLocalToday } from "./use-local-today";
 
 const libraryCountQuery = createRyotQuery(({ client }) =>
-	client.data.query(libraryMediaCountRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID))),
+	client.data.query(libraryMediaCountRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID)), {}),
 );
 
 const CONTINUE = { state: "in_progress" } as const;

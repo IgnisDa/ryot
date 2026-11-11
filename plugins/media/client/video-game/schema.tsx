@@ -14,7 +14,7 @@ type VideoGameSummary = MediaSummaryOf<typeof videoGameRecipes>;
 
 type VideoGamePresentation = MediaPresentationDataOf<typeof videoGameRecipes>;
 
-type VideoGameOverview = Recipe.Success<typeof videoGameRecipes.overviewRecipe>;
+type VideoGameOverview = Recipe.Success<ReturnType<typeof videoGameRecipes.overviewRecipe>>;
 
 const RELATED_KIND = "Related";
 

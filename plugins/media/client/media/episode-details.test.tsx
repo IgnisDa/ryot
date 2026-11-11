@@ -3,6 +3,7 @@ import { afterEach, describe, expect } from "bun:test";
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -62,10 +63,10 @@ describe("episode details", () => {
 									return { kind: "cancelled" };
 								}),
 							query: (document) => {
-								if (!JSON.stringify(document).includes("fixtureEpisode")) {
-									return contextQuery(document);
+								if (!JSON.stringify(bindTestRequest(document)).includes("fixtureEpisode")) {
+									return contextQuery(bindTestRequest(document));
 								}
-								documents.push(document);
+								documents.push(bindTestRequest(document));
 								return Effect.succeed(
 									episodicEpisodePageData({
 										episodes: [
@@ -142,13 +143,13 @@ describe("episode details", () => {
 								navigations.push(target);
 							},
 							query: (document) =>
-								JSON.stringify(document).includes("fixtureEpisode")
+								JSON.stringify(bindTestRequest(document)).includes("fixtureEpisode")
 									? Effect.succeed(
 											episodicEpisodePageData({
 												episodes: [episodicEpisode({ name: "Pilot", id: "episode/1" })],
 											}),
 										)
-									: contextQuery(document),
+									: contextQuery(bindTestRequest(document)),
 						},
 						<MediaEpisodePages
 							compact
@@ -214,9 +215,9 @@ describe("episode details", () => {
 					{
 						watchEntities,
 						query: (document) =>
-							JSON.stringify(document).includes("fixtureEpisode")
+							JSON.stringify(bindTestRequest(document)).includes("fixtureEpisode")
 								? Effect.succeed(episodicEpisodePageData({}))
-								: contextQuery(document),
+								: contextQuery(bindTestRequest(document)),
 					},
 					<MediaEpisodePages
 						compact
@@ -283,7 +284,7 @@ const mountDetails = (options: {
 			watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 			...background.adapter,
 			query: (document) => {
-				if (JSON.stringify(document).includes("fixtureEpisode")) {
+				if (JSON.stringify(bindTestRequest(document)).includes("fixtureEpisode")) {
 					return Effect.succeed(
 						episodicEpisodePageData({
 							episodes: [
@@ -300,8 +301,8 @@ const mountDetails = (options: {
 				}
 				contexts.push(contexts.length);
 				return contexts.length > 1 && options.refresh !== undefined
-					? options.refresh(logQuery(document))
-					: logQuery(document);
+					? options.refresh(logQuery(bindTestRequest(document)))
+					: logQuery(bindTestRequest(document));
 			},
 		},
 		<MediaEpisodePages

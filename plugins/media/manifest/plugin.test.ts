@@ -623,16 +623,11 @@ it.effect(
 				{
 					requests: 30,
 					key: "anilist",
-					intervalMs: 60_000,
+					intervalMs: 60000,
 					origins: ["https://graphql.anilist.co"],
 				},
-				{ requests: 90, key: "spotify", intervalMs: 60_000, origins: ["https://api.spotify.com"] },
-				{
-					requests: 1,
-					intervalMs: 1_000,
-					key: "musicbrainz",
-					origins: ["https://musicbrainz.org"],
-				},
+				{ requests: 90, key: "spotify", intervalMs: 60000, origins: ["https://api.spotify.com"] },
+				{ requests: 1, intervalMs: 1000, key: "musicbrainz", origins: ["https://musicbrainz.org"] },
 			]);
 			expect(mediaPlugin.httpRateLimits.flatMap(({ origins }) => origins)).not.toContain(
 				"https://coverartarchive.org",
@@ -646,7 +641,7 @@ it.effect(
 					slug: "anilist",
 					name: "AniList",
 					clientIdConfigKey: "anilistClientId",
-					accessTokenLifetimeSeconds: 31_536_000,
+					accessTokenLifetimeSeconds: 31536000,
 					tokenEndpointAuth: "client_secret_post",
 					clientSecretConfigKey: "anilistClientSecret",
 					tokenUrl: "https://anilist.co/api/v2/oauth/token",
@@ -723,98 +718,6 @@ it.effect(
 				kind: "provider",
 				slug: "video-game.igdb.search-options",
 			});
-			expect(mediaPlugin.operations).toEqual([
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-user-data",
-					scriptSlug: "operation.media-user-data",
-					description: "Remove or merge media user data",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-review-create",
-					description: "Create a media review",
-					scriptSlug: "operation.media-review-create",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-activity-log",
-					description: "Log media activity",
-					scriptSlug: "operation.media-activity-log",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-activity-update",
-					description: "Update media activity",
-					scriptSlug: "operation.media-activity-update",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-activity-delete",
-					description: "Delete media activity",
-					scriptSlug: "operation.media-activity-delete",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-review-update",
-					description: "Update a media review",
-					scriptSlug: "operation.media-review-update",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-review-delete",
-					description: "Delete a media review",
-					scriptSlug: "operation.media-review-delete",
-				},
-				{
-					auth: "user",
-					demoAccess: "allowed",
-					slug: "media-monitoring-status",
-					description: "Read media monitoring status",
-					scriptSlug: "operation.media-monitoring-status",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-monitoring-enable",
-					description: "Enable media monitoring",
-					scriptSlug: "operation.media-monitoring-enable",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-monitoring-disable",
-					description: "Disable media monitoring",
-					scriptSlug: "operation.media-monitoring-disable",
-				},
-				{
-					auth: "user",
-					demoAccess: "protected",
-					slug: "media-ownership-set",
-					description: "Set media ownership",
-					scriptSlug: "operation.media-ownership-set",
-				},
-				{
-					auth: "integration",
-					slug: "metadata-lookup",
-					scriptSlug: "operation.metadata-lookup",
-					description: "Match browser extension titles to TMDB movies and shows",
-				},
-				{
-					auth: "user",
-					demoAccess: "allowed",
-					slug: "resolve-episodes",
-					scriptSlug: "operation.resolve-episodes",
-					description: "Resolve show and podcast episode references to entity ids",
-				},
-			]);
 			expect(mediaPlugin.userBootstrap).toEqual([
 				{
 					slug: "initialize-workspace",

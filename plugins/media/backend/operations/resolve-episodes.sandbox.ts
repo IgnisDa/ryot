@@ -2,7 +2,7 @@ import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
 
-import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
+import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../shared/integration-operations";
 import { resolveEpisodes } from "./resolve-episodes";
 
 export const manifest = defineManifest({

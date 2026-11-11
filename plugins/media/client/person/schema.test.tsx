@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+
 import { personRecipes } from "../../shared/person-recipes";
 import {
 	creatorAlbumCreditRow,
@@ -17,16 +19,20 @@ import { personSchema, personSummaryFacts } from "./schema";
 const TODAY = "2026-09-14";
 
 const personSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeCreatorSummary(personRecipes.summaryRecipe(CREATOR_SUMMARY_INPUT), {
-		website: null,
-		gender: "Male",
-		deathDate: null,
-		sourceUrl: null,
-		birthDate: "1969-08-18",
-		birthPlace: "Boston, Massachusetts, USA",
-		...overrides,
-	});
-
+	decodeCreatorSummary(
+		bindRecipe(personRecipes.summaryRecipe({ reference: CREATOR_SUMMARY_INPUT.reference }), {
+			entityId: CREATOR_SUMMARY_INPUT.entityId,
+		}),
+		{
+			website: null,
+			gender: "Male",
+			deathDate: null,
+			sourceUrl: null,
+			birthDate: "1969-08-18",
+			birthPlace: "Boston, Massachusetts, USA",
+			...overrides,
+		},
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -92,10 +98,8 @@ describe("person schema", () => {
 			personSchema,
 			personSummary({ website: "https://edward.test", sourceUrl: "https://tmdb.test/edward" }),
 			decodeCreatorOverviewOf(
-				personRecipes.overviewRecipe({
-					creditLimit: 12,
+				bindRecipe(personRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 					entityId: "creator-1",
-					reference: { kind: "self" },
 				}),
 				{
 					movie: { items: [creatorMovieCreditRow] },

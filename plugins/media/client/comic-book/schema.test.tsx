@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { comicBookRecipes } from "../../shared/comic-book-recipes";
 import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
@@ -22,11 +23,12 @@ import { comicBookPresentationFacts, comicBookSchema, comicBookSummaryFacts } fr
 const noopAdapter = { query: () => Effect.succeed({}) };
 
 const comicBookSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(comicBookRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		pages: 32,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(comicBookRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ pages: 32, ...overrides },
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -77,7 +79,11 @@ describe("comic book schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			comicBookSchema,
 			comicBookSummary(),
-			decodeFlatOverview(comicBookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(comicBookRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+			),
 		);
 
 		expect(container.textContent).toContain("Writers & artists");

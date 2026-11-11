@@ -1,5 +1,3 @@
-import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { ReactNode } from "react";
 
 import type {
@@ -15,6 +13,7 @@ import {
 } from "./activity-rows";
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { mediaActivitySpanLabel, mediaCollectionRowLabel } from "./activity-timeline";
+import type { MediaEntityRecipe } from "./detail-queries";
 import { createMediaEntityQuery } from "./detail-queries";
 import {
 	type MediaReviewActivityRow,
@@ -22,33 +21,15 @@ import {
 	type MediaReviewActivityView,
 	mediaReviewActivityView,
 } from "./review-activity-state";
-
-const ACTIVITY_EVENT_LIMIT = 60;
-const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
-
 /** The activity tab of an entity whose only own events are reviews. */
 export const defineMediaReviewActivityTab = (input: {
 	readonly noun: string;
 	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
-	readonly activityRecipe: (input: {
-		readonly entityId: string;
-		readonly eventLimit: number;
-		readonly collectionEventLimit: number;
-		readonly reference: PluginIdentityReference;
-	}) => PreparedRecipe<MediaReviewActivityResult>;
+	readonly activityRecipe: MediaEntityRecipe<MediaReviewActivityResult>;
 }) => {
 	const activityCopy = mediaReviewActivityCopy(input.noun);
-
-	const activityQuery = createMediaEntityQuery(
-		({ entityId, reference }) =>
-			input.activityRecipe({
-				entityId,
-				reference,
-				eventLimit: ACTIVITY_EVENT_LIMIT,
-				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
-			}),
-		(data) =>
-			data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
+	const activityQuery = createMediaEntityQuery(input.activityRecipe, (data) =>
+		data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
 	);
 
 	const activityRowLabel = (row: MediaReviewActivityRow) => {

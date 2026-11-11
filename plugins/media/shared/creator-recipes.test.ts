@@ -1,47 +1,51 @@
 import { describe, expect, it } from "bun:test";
 
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { creatorFixtureRecipes, creatorPlainFixtureRecipes } from "../tests/client/creator/recipes";
 
 const OVERVIEW_INPUT = { creditLimit: 12, entityId: "creator-1" };
-
-const OVERVIEW_RECIPE = creatorFixtureRecipes.overviewRecipe({
-	...OVERVIEW_INPUT,
-	reference: { kind: "self" },
-});
-
-const rowsQuery = (recipe: PreparedRecipe<unknown>, name: string) => {
+const OVERVIEW_RECIPE = bindRecipe(
+	creatorFixtureRecipes.overviewRecipe({ reference: { kind: "self" } }),
+	{ entityId: { ...OVERVIEW_INPUT, reference: { kind: "self" } }.entityId },
+);
+const rowsQuery = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return { ...query, output: query.output };
 };
-
-const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
-	rowsQuery(recipe, name).output.fields.map((field) => ("key" in field ? field.key : null));
-
-const creditInclude = (recipe: PreparedRecipe<unknown>, slug: string) => {
+const keys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => rowsQuery(recipe, name).output.fields.map((field) => ("key" in field ? field.key : null));
+const creditInclude = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	slug: string,
+) => {
 	const include = rowsQuery(recipe, "credits").output.include?.find(({ key }) => key === slug);
 	if (include === undefined) {
 		throw new Error(`Expected the ${slug} credit include`);
 	}
 	return include;
 };
-
-const creditKeys = (recipe: PreparedRecipe<unknown>, slug: string) =>
-	creditInclude(recipe, slug).fields.map((field) => ("key" in field ? field.key : null));
-
+const creditKeys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	slug: string,
+) => creditInclude(recipe, slug).fields.map((field) => ("key" in field ? field.key : null));
 describe("media creator recipes", () => {
 	it("selects the entity summary and aliases without any publish, genre, rating or state field", () => {
-		const recipe = creatorFixtureRecipes.summaryRecipe({
-			collectionLimit: 6,
-			entityId: "creator-1",
-			reference: { kind: "self" },
-		});
-
+		const recipe = bindRecipe(
+			creatorFixtureRecipes.summaryRecipe({ reference: { kind: "self" } }),
+			{ entityId: "creator-1" },
+		);
 		expect(Object.keys(recipe.document.queries)).toEqual(["requested", "summary"]);
 		expect(keys(recipe, "summary")).toEqual([
 			"providerCheckedAt",
@@ -192,9 +196,8 @@ describe("media creator recipes", () => {
 		expect(creditKeys(OVERVIEW_RECIPE, "music-group")).not.toContain("character");
 		expect(
 			creditKeys(
-				creatorPlainFixtureRecipes.overviewRecipe({
-					...OVERVIEW_INPUT,
-					reference: { kind: "self" },
+				bindRecipe(creatorPlainFixtureRecipes.overviewRecipe({ reference: { kind: "self" } }), {
+					entityId: { ...OVERVIEW_INPUT, reference: { kind: "self" } }.entityId,
 				}),
 				"movie",
 			),

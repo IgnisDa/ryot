@@ -4,7 +4,7 @@ import type {
 	Predicate,
 	ScalarExpression,
 	TableReference,
-} from "@ryot-app/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/authored";
 import { SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,

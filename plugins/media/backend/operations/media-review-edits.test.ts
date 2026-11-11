@@ -1,13 +1,14 @@
 import { describe, expect } from "bun:test";
 
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import type {
 	DomainSandboxHostMethodMap,
 	UpdateEventItem,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, type Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -66,7 +67,7 @@ const recordingHost = (input: {
 			}),
 		executeRyotql: (document) =>
 			Effect.sync(() => {
-				documents.push(document);
+				documents.push(bindTestRequest(document));
 				return {
 					data: {
 						visible: page([{ id: row.id }]),

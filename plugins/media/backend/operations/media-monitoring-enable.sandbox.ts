@@ -26,7 +26,7 @@ export default defineOperation({
 		Effect.gen(function* () {
 			const [targets, mediaLibrary] = yield* Effect.all([
 				queryMediaMonitoringTargets(input.entityIds, host.executeRyotql),
-				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe({ kind: "self" })),
+				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe({ kind: "self" }), {}),
 			]);
 			if (targets.length > 0) {
 				yield* host.changeUserRelationships([

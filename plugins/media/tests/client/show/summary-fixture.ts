@@ -1,14 +1,13 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { showRecipes } from "../../../shared/show-recipes";
 import { rowsResult } from "../query-result-fixture";
 
-export const showSummaryFixtureRecipe = showRecipes.summaryRecipe({
-	collectionLimit: 6,
-	entityId: "show-1",
-	reference: { kind: "self" },
-});
-
+export const showSummaryFixtureRecipe = bindRecipe(
+	showRecipes.summaryRecipe({ reference: { kind: "self" } }),
+	{ entityId: "show-1" },
+);
 export const showSummaryRow = {
 	owned: null,
 	id: "show-1",

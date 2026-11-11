@@ -1,13 +1,17 @@
 import { describe, expect } from "bun:test";
 
 import type {
+	RyotQLDocument as ImportedRyotQLDocument,
+	RyotQLDocument,
+} from "@ryot-app/contract/modules/ryotql/language";
+import type {
 	DomainSandboxHostMethodMap,
 	UpdateEventItem,
 } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -50,8 +54,7 @@ const page = (items: readonly unknown[]) => ({
 
 const isLiteral = (node: unknown): node is { readonly value: string; readonly type: "literal" } =>
 	typeof node === "object" && node !== null && "type" in node && node.type === "literal";
-
-const requestedIds = (document: RyotQLDocument) =>
+const requestedIds = (document: ImportedRyotQLDocument) =>
 	ryotqlDocumentNodes(document.queries["visible"])
 		.filter(isLiteral)
 		.map(({ value }) => value);
@@ -94,9 +97,9 @@ const recordingHost = (input: {
 		executeRyotql: (document) =>
 			Effect.sync(() => {
 				calls.push("validate");
-				documents.push(document);
-				if (document.queries["parents"] !== undefined) {
-					const parent = ryotqlDocumentNodes(document.queries["parents"])
+				documents.push(bindTestRequest(document));
+				if (bindTestRequest(document).queries["parents"] !== undefined) {
+					const parent = ryotqlDocumentNodes(bindTestRequest(document).queries["parents"])
 						.filter(isLiteral)
 						.map(({ value }) => input.episodeParents?.[value])
 						.find((id) => id !== undefined);
@@ -108,10 +111,10 @@ const recordingHost = (input: {
 						},
 					};
 				}
-				if (document.queries["reviews"] !== undefined) {
+				if (bindTestRequest(document).queries["reviews"] !== undefined) {
 					return { data: { reviews: page((input.namingReviews ?? []).map((id) => ({ id }))) } };
 				}
-				const ids = requestedIds(document);
+				const ids = requestedIds(bindTestRequest(document));
 				const known = input.events.filter(({ id }) => ids.includes(id));
 				return {
 					data: {

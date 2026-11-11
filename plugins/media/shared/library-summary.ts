@@ -23,6 +23,7 @@ import {
 	maximum,
 	minimum,
 	not,
+	parameters,
 	type Recipe,
 	selectedField,
 	selectedRows,
@@ -136,65 +137,74 @@ const lifecycleOf = (kind: LibrarySummaryKind, entity: Table) => {
 		activity: lifecycle.latestSignal.occurredAt,
 	};
 };
-
-export const librarySummaryEntitiesRecipe = defineRecipe(
-	(input: { readonly entityIds: readonly [string, ...string[]] }) => {
-		const entity = table("entity", "summaryKindEntity");
-		return {
-			map: ({ items }) => Result.succeed(items.items),
-			queries: {
-				items: selectedRows(entity, {
-					limit: input.entityIds.length,
-					orderBy: [ascending(column(entity, "id"))],
-					where: inArray(
-						column(entity, "id"),
-						input.entityIds.map((id) => literal(id)),
-					),
-					selection: {
-						id: selectedField(column(entity, "id"), Schema.String),
-						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-					},
-				}),
+export const librarySummaryEntitiesRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			entityIds: {
+				type: "array",
+				label: "entityIds",
+				validation: { required: true },
+				description: "entityIds for this selection",
+				items: { label: "ID", type: "string", description: "Selected ID" },
 			},
-		};
-	},
-);
-
+		},
+	});
+	const entity = table("entity", "summaryKindEntity");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ items }) => Result.succeed(items.items),
+		queries: {
+			items: selectedRows(entity, {
+				limit: 100,
+				orderBy: [ascending(column(entity, "id"))],
+				where: inArray(column(entity, "id"), inputParameters.list("entityIds")),
+				selection: {
+					id: selectedField(column(entity, "id"), Schema.String),
+					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+				},
+			}),
+		},
+	});
+})();
 /**
  * Library summaries computed live from the user's history for `entityIds` of one kind. Only the
  * projection processor runs this; readers use `librarySummary` over the stored projection.
  */
-export const librarySummarySourceRecipe = defineRecipe(
-	(input: {
-		readonly kind: LibrarySummaryKind;
-		readonly entityIds: readonly [string, ...string[]];
-	}) => {
-		const entity = table("entity", "summaryEntity");
-		const lifecycle = lifecycleOf(input.kind, entity);
-		return {
-			map: ({ items }) => Result.succeed(items.items),
-			queries: {
-				items: selectedRows(entity, {
-					limit: input.entityIds.length,
-					orderBy: [ascending(column(entity, "id"))],
-					where: inArray(
-						column(entity, "id"),
-						input.entityIds.map((id) => literal(id)),
-					),
-					selection: {
-						...sharedSummarySelection(entity),
-						state: selectedField(lifecycle.state, SummaryRowSchema.state),
-						lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
-						nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
-					},
-				}),
-			},
-		};
+const summaryParameters = parameters({
+	fields: {
+		entityIds: {
+			type: "array",
+			label: "Entities",
+			validation: { required: true },
+			description: "Titles whose library state to compute",
+			items: { type: "string", label: "Entity", description: "Title ID" },
+		},
 	},
-);
-
-export type LibrarySummarySourceRow = Recipe.Success<typeof librarySummarySourceRecipe>[number];
-
+});
+export const librarySummarySourceRecipe = (input: { readonly kind: LibrarySummaryKind }) => {
+	const entity = table("entity", "summaryEntity");
+	const lifecycle = lifecycleOf(input.kind, entity);
+	return defineRecipe({
+		parameters: summaryParameters.schema,
+		map: ({ items }) => Result.succeed(items.items),
+		queries: {
+			items: selectedRows(entity, {
+				limit: 100,
+				orderBy: [ascending(column(entity, "id"))],
+				where: inArray(column(entity, "id"), summaryParameters.list("entityIds")),
+				selection: {
+					...sharedSummarySelection(entity),
+					state: selectedField(lifecycle.state, SummaryRowSchema.state),
+					lastActivityAt: selectedField(lifecycle.activity, SummaryRowSchema.lastActivityAt),
+					nextAiringAt: selectedField(lifecycle.nextAiringAt, SummaryRowSchema.nextAiringAt),
+				},
+			}),
+		},
+	});
+};
+export type LibrarySummarySourceRow = Recipe.Success<
+	ReturnType<typeof librarySummarySourceRecipe>
+>[number];
 export const librarySummaryProperties = (row: LibrarySummarySourceRow) =>
 	Object.fromEntries(
 		Object.entries({

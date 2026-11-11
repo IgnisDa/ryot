@@ -23,6 +23,7 @@ import {
 	maximum,
 	not,
 	or,
+	parameters,
 	type Recipe,
 	relationshipSchemaPredicate,
 	schemaOwnerPredicate,
@@ -103,41 +104,40 @@ const suggestionSourceId = (reference: PluginIdentityReference) => {
  * Suggestions from the latest completion that has any. A document's queries cannot read one
  * another, so the items query repeats the source `first()` rather than taking its id.
  */
-export const latestCompletionSuggestionsRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly reference: PluginIdentityReference }) => {
-		const source = table("entity", "source");
-		const suggestion = table("relationship", "suggestion");
-		const target = table("entity", "target");
-		return {
-			map: ({ items, source: sourceRow }) =>
-				Result.succeed({ items: items.items, source: sourceRow ?? null }),
-			queries: {
-				source: selectedOptionalRow(source, {
-					orderBy: [ascending(column(source, "id"))],
-					selection: discoveredMediaSelection(source),
-					where: eq(column(source, "id"), suggestionSourceId(input.reference)),
-				}),
-				items: selectedRows(suggestion, {
-					limit: input.limit,
-					selection: discoveredMediaSelection(target),
-					orderBy: [ascending(column(suggestion, "createdAt")), ascending(column(target, "id"))],
-					joins: [
-						join("inner", target, eq(column(suggestion, "targetEntityId"), column(target, "id"))),
-					],
-					where: and(
-						relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
-						schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
-						eq(column(suggestion, "sourceEntityId"), suggestionSourceId(input.reference)),
-						isSuggestible(target, "targetLibrary"),
-					),
-				}),
-			},
-		};
-	},
-);
-
+export const latestCompletionSuggestionsRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const source = table("entity", "source");
+	const suggestion = table("relationship", "suggestion");
+	const target = table("entity", "target");
+	return defineRecipe({
+		map: ({ items, source: sourceRow }) =>
+			Result.succeed({ items: items.items, source: sourceRow ?? null }),
+		queries: {
+			source: selectedOptionalRow(source, {
+				orderBy: [ascending(column(source, "id"))],
+				selection: discoveredMediaSelection(source),
+				where: eq(column(source, "id"), suggestionSourceId(input.reference)),
+			}),
+			items: selectedRows(suggestion, {
+				limit: 100,
+				selection: discoveredMediaSelection(target),
+				orderBy: [ascending(column(suggestion, "createdAt")), ascending(column(target, "id"))],
+				joins: [
+					join("inner", target, eq(column(suggestion, "targetEntityId"), column(target, "id"))),
+				],
+				where: and(
+					relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
+					schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
+					eq(column(suggestion, "sourceEntityId"), suggestionSourceId(input.reference)),
+					isSuggestible(target, "targetLibrary"),
+				),
+			}),
+		},
+	});
+};
 export type LatestCompletionSuggestionsResult = Recipe.Success<
-	typeof latestCompletionSuggestionsRecipe
+	ReturnType<typeof latestCompletionSuggestionsRecipe>
 >;
 
 const trendingFetchedAt = (relationship: Table) =>
@@ -148,80 +148,82 @@ const trendingFetchedAt = (relationship: Table) =>
  * schema refreshed less recently still shows - ordered by rank and then schema, which interleaves
  * the schemas rank by rank. Titles already in the library stay.
  */
-export const trendingLatestMediaRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly after?: string | undefined;
-		readonly reference: PluginIdentityReference;
-		readonly entitySchemaSlugs: readonly [string, ...string[]];
-	}) => {
-		const relationship = table("relationship", "trending");
-		const target = table("entity", "trendingEntity");
-		const latest = table("relationship", "latestTrending");
-		const latestTarget = table("entity", "latestTrendingEntity");
-		const rank = propertyNumber(relationship, "rank");
-		const fetchedAt = trendingFetchedAt(relationship);
-		const latestBatch = maximum(latest, trendingFetchedAt(latest), {
-			joins: [
-				join(
-					"inner",
-					latestTarget,
-					eq(column(latest, "targetEntityId"), column(latestTarget, "id")),
-				),
-			],
-			where: and(
-				relationshipSchemaPredicate(latest, "media-trending", input.reference),
-				schemaOwnerPredicate(latestTarget, "entitySchemaPluginId", input.reference),
-				eq(column(latestTarget, "entitySchemaSlug"), column(target, "entitySchemaSlug")),
-			),
-		});
-		return {
-			map: ({ trending }) => Result.succeed(trending),
-			queries: {
-				trending: selectedRows(relationship, {
-					limit: input.limit,
-					...(input.after === undefined ? {} : { after: input.after }),
-					joins: [
-						join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
-					],
-					orderBy: [
-						ascending(rank),
-						ascending(column(target, "entitySchemaSlug")),
-						ascending(column(target, "id")),
-					],
-					selection: {
-						...discoveredMediaSelection(target),
-						...mediaLibrarySelection(target),
-						rank: selectedField(rank, Schema.Finite),
-						fetchedAt: selectedField(fetchedAt, IsoDateString),
-					},
-					where: and(
-						relationshipSchemaPredicate(relationship, "media-trending", input.reference),
-						schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
-						inArray(
-							column(target, "entitySchemaSlug"),
-							input.entitySchemaSlugs.map((slug) => literal(slug)),
-						),
-						eq(fetchedAt, latestBatch),
-						isNotNsfw(target),
-					),
-				}),
+export const trendingLatestMediaRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			entitySchemaSlugs: {
+				type: "array",
+				label: "entitySchemaSlugs",
+				validation: { required: true },
+				description: "entitySchemaSlugs for this selection",
+				items: { label: "ID", type: "string", description: "Selected ID" },
 			},
-		};
-	},
-);
-
-export type TrendingLatestMediaResult = Recipe.Success<typeof trendingLatestMediaRecipe>;
-
-const collectionMembership = (membership: Table, collectionId: string) =>
+		},
+	});
+	const relationship = table("relationship", "trending");
+	const target = table("entity", "trendingEntity");
+	const latest = table("relationship", "latestTrending");
+	const latestTarget = table("entity", "latestTrendingEntity");
+	const rank = propertyNumber(relationship, "rank");
+	const fetchedAt = trendingFetchedAt(relationship);
+	const latestBatch = maximum(latest, trendingFetchedAt(latest), {
+		joins: [
+			join("inner", latestTarget, eq(column(latest, "targetEntityId"), column(latestTarget, "id"))),
+		],
+		where: and(
+			relationshipSchemaPredicate(latest, "media-trending", input.reference),
+			schemaOwnerPredicate(latestTarget, "entitySchemaPluginId", input.reference),
+			eq(column(latestTarget, "entitySchemaSlug"), column(target, "entitySchemaSlug")),
+		),
+	});
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ trending }) => Result.succeed(trending),
+		queries: {
+			trending: selectedRows(relationship, {
+				limit: 100,
+				joins: [
+					join("inner", target, eq(column(relationship, "targetEntityId"), column(target, "id"))),
+				],
+				orderBy: [
+					ascending(rank),
+					ascending(column(target, "entitySchemaSlug")),
+					ascending(column(target, "id")),
+				],
+				selection: {
+					...discoveredMediaSelection(target),
+					...mediaLibrarySelection(target),
+					rank: selectedField(rank, Schema.Finite),
+					fetchedAt: selectedField(fetchedAt, IsoDateString),
+				},
+				where: and(
+					relationshipSchemaPredicate(relationship, "media-trending", input.reference),
+					schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
+					inArray(column(target, "entitySchemaSlug"), inputParameters.list("entitySchemaSlugs")),
+					eq(fetchedAt, latestBatch),
+					isNotNsfw(target),
+				),
+			}),
+		},
+	});
+};
+export type TrendingLatestMediaResult = Recipe.Success<
+	ReturnType<typeof trendingLatestMediaRecipe>
+>;
+const collectionMembership = (membership: Table, collectionId: Parameters<typeof eq>[1]) =>
 	and(
-		eq(column(membership, "targetEntityId"), literal(collectionId)),
+		eq(column(membership, "targetEntityId"), collectionId),
 		relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
 	);
 
 const collectionSuggestionEdges = (
 	target: Table,
-	input: { readonly collectionId: string; readonly reference: PluginIdentityReference },
+	input: {
+		readonly reference: PluginIdentityReference;
+		readonly collectionId: Parameters<typeof eq>[1];
+	},
 	alias: string,
 ) => {
 	const suggestion = table("relationship", alias);
@@ -249,98 +251,125 @@ const collectionSuggestionEdges = (
  * The collection's name and how many of its members have provider suggestions, so an empty page can
  * tell a collection with nothing to suggest from one whose suggestions it already holds.
  */
-export const collectionRecommendationSourcesRecipe = defineRecipe(
-	(input: { readonly collectionId: string; readonly reference: PluginIdentityReference }) => {
-		const collection = table("entity", "recommendedCollection");
-		const membership = table("relationship", "recommendationSourceMembership");
-		const suggestion = table("relationship", "recommendationSourceEdge");
-		return {
-			map: ({ sources, collection: row }) =>
-				Result.succeed(row === undefined ? null : { ...row, sourceCount: sources.count }),
-			queries: {
-				sources: selectedAggregate(membership, {
-					measures: { count: countAll },
-					where: and(
-						collectionMembership(membership, input.collectionId),
-						exists(suggestion, {
-							where: and(
-								eq(column(suggestion, "sourceEntityId"), column(membership, "sourceEntityId")),
-								relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
-							),
-						}),
-					),
-				}),
-				collection: selectedOptionalRow(collection, {
-					orderBy: [ascending(column(collection, "id"))],
-					selection: {
-						id: selectedField(column(collection, "id"), EntityId),
-						name: selectedField(column(collection, "name"), Schema.String),
-					},
-					where: and(
-						eq(column(collection, "id"), literal(input.collectionId)),
-						entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
-					),
-				}),
+export const collectionRecommendationSourcesRecipe = (structural: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const args = parameters({
+		fields: {
+			collectionId: {
+				type: "string",
+				label: "Collection",
+				validation: { required: true },
+				description: "Collection to read",
 			},
-		};
-	},
-);
-
+		},
+	});
+	const input = { reference: structural.reference, collectionId: args.value("collectionId") };
+	const collection = table("entity", "recommendedCollection");
+	const membership = table("relationship", "recommendationSourceMembership");
+	const suggestion = table("relationship", "recommendationSourceEdge");
+	return defineRecipe({
+		parameters: args.schema,
+		map: ({ sources, collection: row }) =>
+			Result.succeed(row === undefined ? null : { ...row, sourceCount: sources.count }),
+		queries: {
+			sources: selectedAggregate(membership, {
+				measures: { count: countAll },
+				where: and(
+					collectionMembership(membership, input.collectionId),
+					exists(suggestion, {
+						where: and(
+							eq(column(suggestion, "sourceEntityId"), column(membership, "sourceEntityId")),
+							relationshipSchemaPredicate(suggestion, "media-suggestion", input.reference),
+						),
+					}),
+				),
+			}),
+			collection: selectedOptionalRow(collection, {
+				orderBy: [ascending(column(collection, "id"))],
+				where: and(
+					eq(column(collection, "id"), input.collectionId),
+					entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
+				),
+				selection: {
+					id: selectedField(column(collection, "id"), EntityId),
+					name: selectedField(column(collection, "name"), Schema.String),
+				},
+			}),
+		},
+	});
+};
 export type CollectionRecommendationSourcesResult = Recipe.Success<
-	typeof collectionRecommendationSourcesRecipe
+	ReturnType<typeof collectionRecommendationSourcesRecipe>
 >;
 
 /** Library titles stay because they can still be added to the collection. */
-export const collectionRecommendationsRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly collectionId: string;
-		readonly after?: string | undefined;
-		readonly searchText?: string | undefined;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const target = table("entity", "recommendation");
-		const member = table("relationship", "recommendationMember");
-		const suggestedBy = count(...collectionSuggestionEdges(target, input, "recommendationCount"));
-		const search = input.searchText?.trim();
-		return {
-			map: ({ recommendations }) => Result.succeed(recommendations),
-			queries: {
-				recommendations: selectedRows(target, {
-					limit: input.limit,
-					...(input.after === undefined ? {} : { after: input.after }),
-					orderBy: [
-						descending(suggestedBy),
-						ascending(column(target, "name")),
-						ascending(column(target, "id")),
-					],
-					selection: {
-						...discoveredMediaSelection(target),
-						...mediaLibrarySelection(target),
-						suggestedBy: selectedField(suggestedBy, Schema.Finite),
-					},
-					where: and(
-						schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
-						exists(...collectionSuggestionEdges(target, input, "recommendationEdge")),
-						not(
-							exists(member, {
-								where: and(
-									collectionMembership(member, input.collectionId),
-									eq(column(member, "sourceEntityId"), column(target, "id")),
-								),
-							}),
-						),
-						isNotNsfw(target),
-						...(search ? [contains(column(target, "name"), literal(search))] : []),
-					),
-				}),
-			},
-		};
-	},
-);
+export const COLLECTION_RECOMMENDATION_PAGE_SIZE = 30;
 
+export const collectionRecommendationsRecipe = (structural: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const args = parameters({
+		fields: {
+			searchText: {
+				type: "string",
+				label: "Search",
+				defaultValue: "",
+				description: "Find suggestions by name",
+			},
+			collectionId: {
+				type: "string",
+				label: "Collection",
+				validation: { required: true },
+				description: "Collection to read",
+			},
+		},
+	});
+	const input = {
+		reference: structural.reference,
+		searchText: args.value("searchText"),
+		collectionId: args.value("collectionId"),
+	};
+	const target = table("entity", "recommendation");
+	const member = table("relationship", "recommendationMember");
+	const suggestedBy = count(...collectionSuggestionEdges(target, input, "recommendationCount"));
+	const search = input.searchText;
+	return defineRecipe({
+		parameters: args.schema,
+		map: ({ recommendations }) => Result.succeed(recommendations),
+		queries: {
+			recommendations: selectedRows(target, {
+				limit: COLLECTION_RECOMMENDATION_PAGE_SIZE,
+				orderBy: [
+					descending(suggestedBy),
+					ascending(column(target, "name")),
+					ascending(column(target, "id")),
+				],
+				selection: {
+					...discoveredMediaSelection(target),
+					...mediaLibrarySelection(target),
+					suggestedBy: selectedField(suggestedBy, Schema.Finite),
+				},
+				where: and(
+					schemaOwnerPredicate(target, "entitySchemaPluginId", input.reference),
+					exists(...collectionSuggestionEdges(target, input, "recommendationEdge")),
+					not(
+						exists(member, {
+							where: and(
+								collectionMembership(member, input.collectionId),
+								eq(column(member, "sourceEntityId"), column(target, "id")),
+							),
+						}),
+					),
+					isNotNsfw(target),
+					contains(column(target, "name"), search),
+				),
+			}),
+		},
+	});
+};
 export type CollectionRecommendation = CollectionRecommendationsResult["items"][number];
 
 export type CollectionRecommendationsResult = Recipe.Success<
-	typeof collectionRecommendationsRecipe
+	ReturnType<typeof collectionRecommendationsRecipe>
 >;

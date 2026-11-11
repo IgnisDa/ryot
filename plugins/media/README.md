@@ -30,9 +30,9 @@ Title table views (every entity-browser view except people, companies, and group
 activity and progress verbs.
 
 Activity tabs show a bounded summary. When older activity exists, View complete history opens the
-shared detail modal with cursor-paged events. History merges entity, episode (for episodic media),
-and collection events in descending occurrence/creation/ID order, using the last displayed event as
-the boundary for every source. Episode history includes each completion and progress log, rather
+shared detail modal with one event-root `history` query. Correlated category predicates match entity,
+episode, season, and collection events without multiplying events. `pages.history` carries the native
+cursor in descending occurrence/creation/ID order. Episode history includes each completion and progress log, rather
 than the summary's daily watches and latest progress milestones. Coverage truncation alone does not
 expose the history button. History reuses the summary's row renderers and the shared SDK pagination.
 
@@ -154,8 +154,8 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
 - `upcoming-recipes.ts` feeds the home Upcoming rail from four sources: unwatched regular show and
   podcast episodes of in-progress, caught-up or monitored titles; anime airings after the latest
   watched episode for in-progress or monitored anime; and monitored, incomplete flat releases
-  (anime premieres included). States come from the stored library summary. Dates use the client's
-  local `fromDate`..`untilDate`; anime airings use the local-midnight instant window, excluding the
+  (anime premieres included). States come from the stored library summary. Dates use server-local today through the typed `daysAhead` argument in the account reporting
+  timezone; anime airings use that civil-midnight instant window, excluding the
   provider's UTC-midnight premiere entry that the release source already lists. Undated items
   never appear, and stored dates are shown without waiting on provider freshness. Each source
   returns per-title `total` counts and its soonest occurrences, one per title when `onePerTitle`.
@@ -168,8 +168,8 @@ Cross-schema home recipes live in `shared/`; `manifest/query-recipes.ts` owns sa
   local calendar day; unknown dates do not enter the period. Figures show whatever contributions are
   ready and converge as folds finish; the section neither waits for nor polls processing.
 
-The Home activity section uses the account reporting timezone, stable `{ timeZone }` query input,
-execution-clock windows, and account-midnight/DST scheduling, retains refresh-failure state, and
+The Home activity section binds stable reporting selections and uses the server clock and account
+reporting timezone for calendar windows, and account-midnight/DST scheduling, retains refresh-failure state, and
 links to Analytics.
 
 Entity interest covers loaded subjects/selected seasons as foreground and displayed related entities
@@ -336,7 +336,12 @@ translation execution snapshots.
 
 ## Operations
 
-Operation inputs/outputs live outside sandbox entries. Expected media failures use
+Operation inputs/outputs live in `shared/`, including integration and episode-resolution contracts.
+Manifest JSON Schema documents are generated from the same Effect schemas as the scripts.
+They publish structural constraints; business checks, including timestamp ordering and stale-update
+validation, remain authoritative at runtime. Episode resolution only reads existing entities.
+
+Expected media failures use
 `MediaSandboxError`; recipe failures use `RyotqlRecipeDecodeError`, and host failures retain
 `SandboxHostError`. List operations return aligned per-item misses rather than failing the whole
 operation. `resolve-episodes` instead echoes unique caller indexes; missing, duplicate, or unexpected
@@ -776,7 +781,7 @@ Migration ordering and identity: use one deterministic `sourceRun` per original 
 independent completed source records. Do not manufacture intermediate amounts from update timestamps.
 If a partial positional row does not prove consumed-through units, keep its original pair in
 `sourceProgress`, leave the interpreted position absent, and retain any independently measured manual
-time. The existing lifecycle replay still needs its separate reopening/boundary audit.
+time.
 
 For an independently completed numbered Anime/Manga item, write `item-complete`, not `complete`
 or cumulative `progress`. Retain one event and one original source identity per occurrence, even when
@@ -831,15 +836,19 @@ to their own.
 projection is visible, and a reporting period
 filters contributions before aggregation on the source `calendarDate` or `occurredAt` that attribution
 copies. The consumption policy keeps a `calendarDate` within one day of the UTC date of `occurredAt`,
-so each period also bounds `occurredAt` to one day before its start date through two days after its end
-date, which the event `(user, plugin, schema, occurred_at)` index serves. `shared/analytics-recipes.ts` builds the
-Analytics reads from them; each recipe takes the client query's `ResolvedReportingSelection` as
-`reporting` rather than re-resolving a selection:
+so each bounded period also pads its `occurredAt` scan by two days on either side of the
+start-inclusive, end-exclusive date window, which the event `(user, plugin, schema, occurred_at)`
+index serves. `shared/analytics-recipes.ts` builds static Analytics documents from these predicates.
+Client queries pass stable typed arguments from `reportingArguments(selection)`; execution binds
+the server clock and account reporting timezone to resolve windows and grouping expressions:
 
 - `mediaAnalyticsSummaryRecipe` is one document: processing from the projection status of consumption
   events, the undated count from `dateUnknown` source rows, and per period the per-media-type measures with distinct titles and active days, global
   active days, and per-type reviews (rated count and average, on the review's own date, for Media
-  entities only). Previous-period queries are omitted without a comparison. Processing is pending
+  entities only). Previous-period queries remain in the document; their predicates disable them
+  without comparison, for all-time ranges, and for daily consistency reads. The summary and trend decoders read the bound selection from a plugin projection and
+  expose `previous: null` when no comparison period applies, while an enabled empty comparison
+  retains its empty report. Processing is pending
   while any consumption event's subject is pending and failed when its fold failed.
 - `mediaAnalyticsTrendRecipe` groups by one local calendar bucket per row (date-only evidence keeps
   its UTC calendar date) for the current and optional previous period, optionally for one media type.
@@ -859,3 +868,18 @@ provider runtime. Library rating and completion columns read live source/canonic
 `plugins/media/shared/user-rating.ts` for the review rating value and its per-entity average; relationship
 projections cache only lifecycle fields. Pending folds yield null completion totals/dates. The last
 completion timestamp uses only timed evidence; date-only completions do not invent an instant.
+
+Domain recipes author static documents. Factories configure schema references and plugin identity;
+entity IDs, searches, choices, reporting selections, and lists travel in typed arguments. Root limits
+and cursors travel in request pages. Detail includes use `mediaDetailLimits`, shared with their
+production callers. Reporting date windows and grouping expressions live in the generic
+`reporting-parameters` helper, including civil-day DST handling and calendar-aligned bucket caps.
+
+`manifest/queries.ts` declares library-by-state, activity-history, title-history, reviews, upcoming,
+analytics-summary, analytics-trend, and analytics-ranking using these recipes. Entity-browser saved
+views declare browse controls and an explicit `librarySearch` query with ranked search and summary
+fields. Their search argument is persisted with the saved selection.
+
+The Media test runner provisions PostgreSQL through the canonical scoped database-run setup before
+calling the shared client runner. Executor regressions and node tests share that lifecycle; DOM
+tests retain the shared browser preload. Package test arguments pass through unchanged.

@@ -8,7 +8,7 @@ import {
 	column,
 	conditional,
 	count,
-	dateBucket,
+	type dateBucket,
 	defineRecipe,
 	descending,
 	entitySchemaPredicate,
@@ -22,8 +22,10 @@ import {
 	IsoDateString,
 	join,
 	literal,
+	localDate,
 	or,
 	relationshipSchemaPredicate,
+	reportingTimeZone,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -36,8 +38,8 @@ import {
 	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
-import { EntityId, EventId, localDateOf } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
 
 import { ConsumedOnSelection } from "./consumed-on";
 import {
@@ -61,6 +63,7 @@ import {
 	propertyText,
 	type Table,
 } from "./entity-selections";
+import { historyCategory, mediaEventHistoryRecipe } from "./history-recipes";
 import {
 	entitySchemaIs,
 	episodeDisplayStateExpression,
@@ -74,6 +77,7 @@ import {
 	episodicNextUpInclude,
 	relationshipConnects,
 	sameSchemaOwner,
+	type ScalarExpression,
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
@@ -90,11 +94,6 @@ import {
 	mediaEventSnapshotSelection,
 	type MediaExtraQueries,
 	mediaGenresInclude,
-	mediaHistoryBefore,
-	type MediaHistoryCursor,
-	mediaHistoryCursor,
-	type MediaHistoryInput,
-	mediaHistoryPage,
 	mediaOverviewQueries,
 	mediaPeopleRecipe,
 	mediaReviewEventSelection,
@@ -102,6 +101,11 @@ import {
 	mediaSummaryResult,
 	mediaSummarySelection,
 } from "./media-recipes";
+import {
+	mediaDetailLimits,
+	mediaEntityParameters,
+	mediaEpisodeParameters,
+} from "./query-parameters";
 
 const episodicEpisodeSlugs = ["review"] as const;
 const episodicHistorySlugs = ["review", "progress", "complete"] as const;
@@ -194,7 +198,7 @@ export const episodicCoverageSelection = (input: {
 export const episodicEpisodeMembership = (
 	config: EpisodicKindConfig,
 	episode: Table,
-	parentEntityId: string,
+	parentEntityId: ScalarExpression,
 	alias: string,
 ) => {
 	if (config.kind === "podcast") {
@@ -203,7 +207,7 @@ export const episodicEpisodeMembership = (
 			where: and(
 				sameSchemaOwner(relationship, "relationshipSchemaPluginId", episode),
 				eq(column(relationship, "targetEntityId"), column(episode, "id")),
-				eq(column(relationship, "sourceEntityId"), literal(parentEntityId)),
+				eq(column(relationship, "sourceEntityId"), parentEntityId),
 				eq(
 					column(relationship, "relationshipSchemaSlug"),
 					literal(config.parentEpisodeRelationshipSlug),
@@ -227,7 +231,7 @@ export const episodicEpisodeMembership = (
 			entitySchemaIs(season, "show-season"),
 			sameSchemaOwner(season, "entitySchemaPluginId", episode),
 			sameSchemaOwner(parentSeason, "relationshipSchemaPluginId", episode),
-			eq(column(parentSeason, "sourceEntityId"), literal(parentEntityId)),
+			eq(column(parentSeason, "sourceEntityId"), parentEntityId),
 			eq(
 				column(parentSeason, "relationshipSchemaSlug"),
 				literal(config.parentSeasonRelationshipSlug),
@@ -298,9 +302,8 @@ export type EpisodicActivityEpisodeSelection = ReturnType<typeof episodicActivit
 export const episodicParentEventsQuery = (input: {
 	readonly limit: number;
 	readonly alias: string;
-	readonly entityId: string;
+	readonly entityId: ScalarExpression;
 	readonly reference: PluginIdentityReference;
-	readonly before?: undefined | MediaHistoryCursor;
 }) =>
 	mediaEntityEventsQuery({
 		...input,
@@ -322,7 +325,7 @@ export const episodicParentEventsQuery = (input: {
 const episodicEpisodeEventScope = (
 	input: {
 		readonly alias: string;
-		readonly entityId: string;
+		readonly entityId: ScalarExpression;
 		readonly config: EpisodicKindConfig;
 		readonly reference: PluginIdentityReference;
 	},
@@ -339,12 +342,11 @@ const episodicEpisodeEventScope = (
 	),
 });
 
-const episodicSeasonReviewEventsQuery = (input: {
+export const episodicSeasonReviewEventsQuery = (input: {
 	readonly limit: number;
 	readonly alias: string;
-	readonly entityId: string;
+	readonly entityId: ScalarExpression;
 	readonly reference: PluginIdentityReference;
-	readonly before?: undefined | MediaHistoryCursor;
 }) => {
 	const event = table("event", `${input.alias}Event`);
 	const season = table("entity", `${input.alias}Season`);
@@ -353,7 +355,7 @@ const episodicSeasonReviewEventsQuery = (input: {
 		eq(column(event, "eventSchemaSlug"), literal("review")),
 		entitySchemaPredicate(season, "show-season", input.reference),
 		schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
-		eq(column(relationship, "sourceEntityId"), literal(input.entityId)),
+		eq(column(relationship, "sourceEntityId"), input.entityId),
 		relationshipSchemaPredicate(
 			relationship,
 			showEpisodicKindConfig.parentSeasonRelationshipSlug,
@@ -361,9 +363,9 @@ const episodicSeasonReviewEventsQuery = (input: {
 		),
 	);
 	return selectedRows(event, {
+		where: scope,
 		limit: input.limit,
 		orderBy: eventOrderDescending(event),
-		where: input.before === undefined ? scope : and(scope, mediaHistoryBefore(event, input.before)),
 		joins: [
 			join("inner", season, eq(column(event, "entityId"), column(season, "id"))),
 			join("inner", relationship, eq(column(relationship, "targetEntityId"), column(season, "id"))),
@@ -380,11 +382,10 @@ const episodicSeasonReviewEventsQuery = (input: {
 export const episodicEpisodeEventsQuery = <const EpisodeFields extends SelectedSelection>(input: {
 	readonly limit: number;
 	readonly alias: string;
-	readonly entityId: string;
 	readonly history?: boolean;
+	readonly entityId: ScalarExpression;
 	readonly config: EpisodicKindConfig;
 	readonly reference: PluginIdentityReference;
-	readonly before?: undefined | MediaHistoryCursor;
 	readonly episodeFields: (episode: Table) => EpisodeFields;
 }) => {
 	const event = table("event", `${input.alias}Event`);
@@ -398,11 +399,8 @@ export const episodicEpisodeEventsQuery = <const EpisodeFields extends SelectedS
 	return selectedRows(event, {
 		limit: input.limit,
 		joins: scope.joins,
+		where: scope.where,
 		orderBy: eventOrderDescending(event),
-		where:
-			input.before === undefined
-				? scope.where
-				: and(scope.where, mediaHistoryBefore(event, input.before)),
 		selection: {
 			...mediaActivityEventSelection(event),
 			...episodicActivityEpisodeSelection(episode),
@@ -436,7 +434,7 @@ export const episodicEpisodeEventsQuery = <const EpisodeFields extends SelectedS
 export const episodicEpisodeProgressQuery = <const EpisodeFields extends SelectedSelection>(input: {
 	readonly limit: number;
 	readonly alias: string;
-	readonly entityId: string;
+	readonly entityId: ScalarExpression;
 	readonly config: EpisodicKindConfig;
 	readonly reference: PluginIdentityReference;
 	readonly orderProperties: readonly string[];
@@ -512,10 +510,10 @@ const WATCH_DAY_REVIEW_LIMIT = 100;
 type EpisodicWatchDayInput = {
 	readonly limit: number;
 	readonly alias: string;
-	readonly entityId: string;
-	readonly timeZone: TimeZone;
+	readonly entityId: ScalarExpression;
 	readonly config: EpisodicKindConfig;
 	readonly reference: PluginIdentityReference;
+	readonly timeZone: Parameters<typeof dateBucket>[1]["timeZone"];
 };
 
 const episodicWatchDayScope = (input: EpisodicWatchDayInput, event: Table, episode: Table) => ({
@@ -524,9 +522,7 @@ const episodicWatchDayScope = (input: EpisodicWatchDayInput, event: Table, episo
 		conditional(
 			eq(castText(consumptionValue(event, "attribution", "kind")), literal("date")),
 			castText(consumptionValue(event, "attribution", "value")),
-			castText(
-				dateBucket(column(event, "occurredAt"), { bucket: "day", timeZone: input.timeZone }),
-			),
+			castText(localDate(column(event, "occurredAt"), { timeZone: input.timeZone })),
 		),
 		Schema.String,
 	),
@@ -626,96 +622,90 @@ const episodicWatchDayReviewsQuery = (input: EpisodicWatchDayInput) => {
  * Episodes of one container as a top-level row query, so the list pages by cursor.
  * A nested include would only expose `hasMore`.
  */
-export const episodicEpisodesRecipe = <const ExtraFields extends SelectedSelection>(input: {
-	readonly alias: string;
-	readonly order: "asc" | "desc";
-	readonly relationshipSlug: string;
-	readonly episodeSchemaSlug: string;
-	/** Set when the container is not the episodic parent itself but hangs off it, like a season. */
-	readonly parentRelationshipSlug?: string;
-	readonly extraFields: (episode: Table) => ExtraFields;
-}) =>
-	defineRecipe(
-		(query: {
-			readonly limit: number;
-			readonly containerId: string;
-			readonly after?: string | undefined;
-			readonly reference: PluginIdentityReference;
-		}) => {
-			const episode = table("entity", `${input.alias}Episode`);
-			const parent = table("entity", `${input.alias}Parent`);
-			const relationship = table("relationship", `${input.alias}Relationship`);
-			const parentRelationship = table("relationship", `${input.alias}ParentRelationship`);
-			const direction = input.order === "asc" ? ascending : descending;
-			const parentJoins =
-				input.parentRelationshipSlug === undefined
-					? [
-							join(
-								"inner",
-								parent,
-								eq(column(parent, "id"), column(relationship, "sourceEntityId")),
-							),
-						]
-					: [
-							join(
-								"inner",
-								parentRelationship,
-								and(
-									schemaOwnerPredicate(
-										parentRelationship,
-										"relationshipSchemaPluginId",
-										query.reference,
-									),
-									eq(
-										column(parentRelationship, "targetEntityId"),
-										column(relationship, "sourceEntityId"),
-									),
-									eq(
-										column(parentRelationship, "relationshipSchemaSlug"),
-										literal(input.parentRelationshipSlug),
-									),
+export const episodicEpisodesRecipe =
+	<const ExtraFields extends SelectedSelection>(input: {
+		readonly alias: string;
+		readonly order: "asc" | "desc";
+		readonly relationshipSlug: string;
+		readonly episodeSchemaSlug: string;
+		/** Set when the container is not the episodic parent itself but hangs off it, like a season. */
+		readonly parentRelationshipSlug?: string;
+		readonly extraFields: (episode: Table) => ExtraFields;
+	}) =>
+	(structural: { readonly reference: PluginIdentityReference }) => {
+		const args = mediaEpisodeParameters;
+		const query = {
+			limit: 20,
+			reference: structural.reference,
+			containerId: args.value("containerId"),
+		};
+		const episode = table("entity", `${input.alias}Episode`);
+		const parent = table("entity", `${input.alias}Parent`);
+		const relationship = table("relationship", `${input.alias}Relationship`);
+		const parentRelationship = table("relationship", `${input.alias}ParentRelationship`);
+		const direction = input.order === "asc" ? ascending : descending;
+		const parentJoins =
+			input.parentRelationshipSlug === undefined
+				? [join("inner", parent, eq(column(parent, "id"), column(relationship, "sourceEntityId")))]
+				: [
+						join(
+							"inner",
+							parentRelationship,
+							and(
+								schemaOwnerPredicate(
+									parentRelationship,
+									"relationshipSchemaPluginId",
+									query.reference,
+								),
+								eq(
+									column(parentRelationship, "targetEntityId"),
+									column(relationship, "sourceEntityId"),
+								),
+								eq(
+									column(parentRelationship, "relationshipSchemaSlug"),
+									literal(input.parentRelationshipSlug),
 								),
 							),
-							join(
-								"inner",
-								parent,
-								eq(column(parent, "id"), column(parentRelationship, "sourceEntityId")),
-							),
-						];
-			return {
-				map: ({ episodes }) => Result.succeed(episodes),
-				queries: {
-					episodes: selectedRows(episode, {
-						limit: query.limit,
-						...(query.after === undefined ? {} : { after: query.after }),
-						orderBy: [
-							direction(propertyNumber(episode, "episodeNumber")),
-							direction(column(episode, "id")),
-						],
-						selection: {
-							...episodicEpisodeSelection(episode, parent, `${input.alias}State`),
-							...input.extraFields(episode),
-						},
-						joins: [
-							join(
-								"inner",
-								relationship,
-								eq(column(relationship, "targetEntityId"), column(episode, "id")),
-							),
-							...parentJoins,
-						],
-						where: and(
-							entitySchemaPredicate(episode, input.episodeSchemaSlug, query.reference),
-							schemaOwnerPredicate(parent, "entitySchemaPluginId", query.reference),
-							eq(column(relationship, "sourceEntityId"), literal(query.containerId)),
-							relationshipSchemaPredicate(relationship, input.relationshipSlug, query.reference),
 						),
-					}),
-				},
-			};
-		},
-	);
-
+						join(
+							"inner",
+							parent,
+							eq(column(parent, "id"), column(parentRelationship, "sourceEntityId")),
+						),
+					];
+		return defineRecipe({
+			parameters: args.schema,
+			map: ({ episodes }) => Result.succeed(episodes),
+			queries: {
+				episodes: selectedRows(episode, {
+					maxLimit: 100,
+					limit: query.limit,
+					orderBy: [
+						direction(propertyNumber(episode, "episodeNumber")),
+						direction(column(episode, "id")),
+					],
+					selection: {
+						...episodicEpisodeSelection(episode, parent, `${input.alias}State`),
+						...input.extraFields(episode),
+					},
+					joins: [
+						join(
+							"inner",
+							relationship,
+							eq(column(relationship, "targetEntityId"), column(episode, "id")),
+						),
+						...parentJoins,
+					],
+					where: and(
+						entitySchemaPredicate(episode, input.episodeSchemaSlug, query.reference),
+						schemaOwnerPredicate(parent, "entitySchemaPluginId", query.reference),
+						eq(column(relationship, "sourceEntityId"), query.containerId),
+						relationshipSchemaPredicate(relationship, input.relationshipSlug, query.reference),
+					),
+				}),
+			},
+		});
+	};
 /** Coverage for a parent that holds its episodes directly, as one row on the parent itself. */
 export const episodicParentCoverageQuery =
 	(config: {
@@ -726,7 +716,7 @@ export const episodicParentCoverageQuery =
 	}) =>
 	(input: {
 		readonly limit: number;
-		readonly entityId: string;
+		readonly entityId: ScalarExpression;
 		readonly reference: PluginIdentityReference;
 	}) => {
 		const parent = table("entity", `${config.alias}CoverageParent`);
@@ -751,23 +741,23 @@ export const episodicParentCoverageQuery =
 	};
 
 export type EpisodicOverviewInput = {
-	readonly entityId: string;
 	readonly peopleLimit: number;
 	readonly companyLimit: number;
+	readonly entityId: ScalarExpression;
 	readonly recommendationLimit: number;
 	readonly reference: PluginIdentityReference;
 };
 
 export type EpisodicActivityInput = {
-	readonly entityId: string;
-	readonly timeZone: TimeZone;
 	readonly coverageLimit: number;
 	readonly watchDayLimit: number;
 	readonly parentEventLimit: number;
 	readonly episodeEventLimit: number;
+	readonly entityId: ScalarExpression;
 	readonly episodeProgressLimit: number;
 	readonly collectionEventLimit: number;
 	readonly reference: PluginIdentityReference;
+	readonly timeZone: Parameters<typeof dateBucket>[1]["timeZone"];
 };
 
 type EpisodicCoverageRows<Row> = {
@@ -821,16 +811,19 @@ export const mediaEpisodicRecipes = <
 	) => Episode;
 	readonly coverageQuery: (input: {
 		readonly limit: number;
-		readonly entityId: string;
+		readonly entityId: ScalarExpression;
 		readonly reference: PluginIdentityReference;
 	}) => SelectedQuery<EpisodicCoverageRows<CoverageRow>>;
 }) => {
-	const summaryRecipe = defineRecipe(
-		(input: {
-			readonly entityId: string;
-			readonly collectionLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => ({
+	const summaryRecipe = (structural: { readonly reference: PluginIdentityReference }) => {
+		const input = {
+			...mediaDetailLimits,
+			timeZone: reportingTimeZone,
+			reference: structural.reference,
+			entityId: mediaEntityParameters.value("entityId"),
+		};
+		return defineRecipe({
+			parameters: mediaEntityParameters.schema,
 			map: ({ summary, requested }) =>
 				mediaSummaryResult({
 					requested,
@@ -864,17 +857,30 @@ export const mediaEpisodicRecipes = <
 					};
 				},
 			}),
-		}),
-	);
-
-	const overviewRecipe = defineRecipe((input: EpisodicOverviewInput) => ({
-		queries: {
-			...mediaOverviewQueries({ ...input, slug: config.slug }),
-			...config.extraOverviewQueries(input),
-		},
-	}));
-
-	const activityRecipe = defineRecipe((input: EpisodicActivityInput) => {
+		});
+	};
+	const overviewRecipe = (structural: { readonly reference: PluginIdentityReference }) => {
+		const input = {
+			...mediaDetailLimits,
+			timeZone: reportingTimeZone,
+			reference: structural.reference,
+			entityId: mediaEntityParameters.value("entityId"),
+		};
+		return defineRecipe({
+			parameters: mediaEntityParameters.schema,
+			queries: {
+				...mediaOverviewQueries({ ...input, slug: config.slug }),
+				...config.extraOverviewQueries(input),
+			},
+		});
+	};
+	const activityRecipe = (structural: { readonly reference: PluginIdentityReference }) => {
+		const input = {
+			...mediaDetailLimits,
+			timeZone: reportingTimeZone,
+			reference: structural.reference,
+			entityId: mediaEntityParameters.value("entityId"),
+		};
 		const parent = table("entity", `${config.alias}ActivityEntity`);
 		const watchEvent = table("event", `${config.alias}WatchCountEvent`);
 		const consumptionEpisode = table("entity", `${config.alias}ConsumptionEpisode`);
@@ -907,7 +913,8 @@ export const mediaEpisodicRecipes = <
 		);
 		const historyEvent = table("event", `${config.alias}HistoryCountEvent`);
 		const historyEpisode = table("entity", `${config.alias}HistoryCountEpisode`);
-		return {
+		return defineRecipe({
+			parameters: mediaEntityParameters.schema,
 			queries: {
 				collectionEvents: mediaCollectionEventsQuery({
 					entityId: input.entityId,
@@ -1041,7 +1048,7 @@ export const mediaEpisodicRecipes = <
 				}
 				const days = watchDays.items.map((row) => ({
 					...row,
-					day: localDateOf(row.day, input.timeZone),
+					day: row.day,
 					minutes: (row.missing ?? 0) > 0 ? null : row.minutes,
 					eventIds: eventIdsByWatchDay.get(watchDayKey(row)) ?? [],
 				}));
@@ -1080,9 +1087,8 @@ export const mediaEpisodicRecipes = <
 						collectionEvents.pageInfo.hasMore,
 				});
 			},
-		};
-	});
-
+		});
+	};
 	const presentationEntity = table("entity", "entity");
 	const presentationLifecycle = episodicLifecycleExpressions(
 		config.config,
@@ -1113,50 +1119,65 @@ export const mediaEpisodicRecipes = <
 	});
 
 	const peopleRecipe = mediaPeopleRecipe({ ...config, personFields: creditCharacterSelection });
-	const historyRecipe = defineRecipe((input: MediaHistoryInput) => {
-		const cursor = mediaHistoryCursor(input.before);
-		const query = { ...input, before: Result.getOrUndefined(cursor) };
-		return {
-			queries: {
-				collectionEvents: mediaCollectionEventsQuery(query),
-				parentEvents: episodicParentEventsQuery({
-					...query,
-					alias: `${config.alias}HistoryParent`,
-				}),
-				seasonEvents: episodicSeasonReviewEventsQuery({
-					...query,
-					alias: `${config.alias}HistorySeason`,
-				}),
-				episodeEvents: episodicEpisodeEventsQuery({
-					...query,
-					history: true,
-					config: config.config,
-					episodeFields: config.episodeFields,
-					alias: `${config.alias}HistoryEpisode`,
-				}),
-			},
-			map: ({ parentEvents, seasonEvents, episodeEvents, collectionEvents }) =>
-				Result.flatMap(cursor, () =>
-					mediaHistoryPage(
-						[
-							...parentEvents.items.map((row) => ({ ...row, kind: "parent" as const })),
-							...episodeEvents.items.map((row) => ({
-								...row,
-								kind: "episode" as const,
-								episode: config.activityEpisode(row),
-							})),
-							...seasonEvents.items.map(seasonReviewEvent),
-							...mediaCollectionActivityEvents(collectionEvents.items),
-						],
-						input.limit,
-						parentEvents.pageInfo.hasMore ||
-							seasonEvents.pageInfo.hasMore ||
-							episodeEvents.pageInfo.hasMore ||
-							collectionEvents.pageInfo.hasMore,
-					),
-				),
+	const historyRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+		const query = {
+			limit: 100,
+			reference: input.reference,
+			entityId: mediaEntityParameters.value("entityId"),
 		};
-	});
+		const parent = episodicParentEventsQuery({ ...query, alias: `${config.alias}HistoryParent` });
+		const season = episodicSeasonReviewEventsQuery({
+			...query,
+			alias: `${config.alias}HistorySeason`,
+		});
+		const episode = episodicEpisodeEventsQuery({
+			...query,
+			history: true,
+			config: config.config,
+			episodeFields: config.episodeFields,
+			alias: `${config.alias}HistoryEpisode`,
+		});
+		const collection = mediaCollectionEventsQuery(query);
+		type Parent = { readonly kind: "parent" } & Result.Result.Success<
+			ReturnType<typeof parent.decodeResult>
+		>["items"][number];
+		type EpisodeHistoryRow = Result.Result.Success<
+			ReturnType<typeof episode.decodeResult>
+		>["items"][number] & {
+			readonly kind: "episode";
+			readonly episode: ReturnType<typeof config.activityEpisode>;
+		};
+		type Season = ReturnType<
+			typeof seasonReviewEvent<
+				Result.Result.Success<ReturnType<typeof season.decodeResult>>["items"][number]
+			>
+		>;
+		type Collection = ReturnType<
+			typeof mediaCollectionActivityEvents<
+				Result.Result.Success<ReturnType<typeof collection.decodeResult>>["items"][number]
+			>
+		>[number];
+		return mediaEventHistoryRecipe<Parent | Season | Collection | EpisodeHistoryRow>([
+			historyCategory(parent, (row) => ({ ...row, kind: "parent" as const })),
+			historyCategory(episode, (row) => ({
+				...row,
+				kind: "episode" as const,
+				episode: config.activityEpisode(row),
+			})),
+			historyCategory(season, seasonReviewEvent),
+			historyCategory(collection, ({ collectionId, collectionName, ...row }) => ({
+				...row,
+				text: null,
+				rating: null,
+				timeSpent: null,
+				isSpoiler: null,
+				consumedOn: null,
+				progressPercent: null,
+				kind: "collection" as const,
+				collection: { id: collectionId, name: collectionName },
+			})),
+		]);
+	};
 	return {
 		peopleRecipe,
 		summaryRecipe,

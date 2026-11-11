@@ -77,8 +77,8 @@ describe("company.igdb sandbox script", () => {
 					{
 						id: 7,
 						name: "Studio",
+						start_date: 1262304000,
 						description: "A studio.",
-						start_date: 1_262_304_000,
 						logo: { image_id: "logo1" },
 						published: [{ id: 10, name: "Alpha" }],
 						websites: [{ url: "https://studio.example" }],

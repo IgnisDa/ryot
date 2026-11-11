@@ -1,4 +1,5 @@
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Result } from "@ryot-app/plugin-kit/effect";
 
 import type { MediaPosition } from "../../../shared/consumption";
@@ -64,6 +65,6 @@ export const episodicRow = (
 });
 
 export const decodeRecipe = <Success>(
-	recipe: PreparedRecipe<Success>,
+	recipe: { decode: Recipe<Success, AppSchema>["decode"] },
 	data: Readonly<Record<string, unknown>>,
 ) => Result.getOrThrow(recipe.decode({ data }));

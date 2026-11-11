@@ -1,7 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
+import { literal } from "@ryot-app/plugin-kit/ryotql";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import {
 	episodicParentCoverageQuery,
@@ -102,8 +103,9 @@ const ACTIVITY_INPUT = {
 const COVERAGE_ROW = { id: "parent-1", episodeTotal: 6, watchedTotal: 2, upcomingTotal: 0 };
 
 const activityRecipe = () =>
-	fixtureRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } });
-
+	bindRecipe(fixtureRecipes.activityRecipe({ reference: { kind: "self" } }), {
+		entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId,
+	});
 const PARENT_EVENT_ROW = {
 	text: null,
 	rating: null,
@@ -211,10 +213,8 @@ const decodeActivity = (
 	});
 
 const nextUpOf = (recipes: typeof nestedRecipes | typeof fixtureRecipes) => {
-	const summary = recipes.summaryRecipe({
-		collectionLimit: 6,
+	const summary = bindRecipe(recipes.summaryRecipe({ reference: { kind: "self" } }), {
 		entityId: "parent-1",
-		reference: { kind: "self" },
 	}).document.queries["summary"];
 	if (summary?.output.type !== "rows") {
 		throw new Error("Expected a summary rows query");
@@ -228,10 +228,8 @@ const nextUpOf = (recipes: typeof nestedRecipes | typeof fixtureRecipes) => {
 
 describe("episodic media recipes", () => {
 	it("selects the parent summary with its episodic state and episode aggregates", () => {
-		const recipe = fixtureRecipes.summaryRecipe({
-			collectionLimit: 6,
+		const recipe = bindRecipe(fixtureRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 			entityId: "parent-1",
-			reference: { kind: "self" },
 		});
 		const summary = recipe.document.queries["summary"];
 		if (summary?.output.type !== "rows") {
@@ -315,8 +313,9 @@ describe("episodic media recipes", () => {
 
 	it("reaches episode activity through the parent's nesting instead of the event session", () => {
 		const flat = activityRecipe().document.queries["episodeEvents"];
-		const nested = nestedRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } })
-			.document.queries["episodeEvents"];
+		const nested = bindRecipe(nestedRecipes.activityRecipe({ reference: { kind: "self" } }), {
+			entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId,
+		}).document.queries["episodeEvents"];
 		if (flat?.output.type !== "rows" || nested?.output.type !== "rows") {
 			throw new Error("Expected episode event rows queries");
 		}
@@ -339,8 +338,9 @@ describe("episodic media recipes", () => {
 
 	it("orders in-progress episodes by the schema's own episode ordering", () => {
 		const flat = activityRecipe().document.queries["episodeProgress"];
-		const nested = nestedRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } })
-			.document.queries["episodeProgress"];
+		const nested = bindRecipe(nestedRecipes.activityRecipe({ reference: { kind: "self" } }), {
+			entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId,
+		}).document.queries["episodeProgress"];
 		if (flat?.output.type !== "rows" || nested?.output.type !== "rows") {
 			throw new Error("Expected progress rows queries");
 		}
@@ -381,8 +381,7 @@ describe("episodic media recipes", () => {
 			"consumptionMinutes",
 		]);
 	});
-
-	it("honours the caller's limits on every activity page", () => {
+	it("uses the production preview limits on every activity page", () => {
 		const document = activityRecipe().document;
 		const parentEvents = document.queries["parentEvents"];
 		const episodeEvents = document.queries["episodeEvents"];
@@ -398,7 +397,7 @@ describe("episodic media recipes", () => {
 		expect(parentEvents.joins).toBeUndefined();
 		expect(parentEvents.output.pagination).toMatchObject({ limit: 60 });
 		expect(episodeEvents.output.pagination).toMatchObject({ limit: 100 });
-		expect(collectionEvents.output.pagination).toMatchObject({ limit: 40 });
+		expect(collectionEvents.output.pagination).toMatchObject({ limit: 60 });
 	});
 
 	it("merges parent, episode and progress rows into one descending event order", () => {
@@ -625,9 +624,9 @@ describe("episodic watch days", () => {
 		const query = episodicWatchDaysQuery({
 			limit: 10,
 			alias: "days",
-			entityId: "show-1",
 			orderProperties: [],
 			episodeFields: () => ({}),
+			entityId: literal("show-1"),
 			reference: { kind: "self" },
 			timeZone: TimeZone.make("UTC"),
 			config: podcastEpisodicKindConfig,

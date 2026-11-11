@@ -9,8 +9,8 @@ import {
 	entitySchemaPredicate,
 	executeRyotqlRecipe,
 	inArray,
-	literal,
 	or,
+	parameters,
 	selectedField,
 	selectedRows,
 	table,
@@ -23,20 +23,29 @@ import {
 } from "../../shared/media-ownership-operations";
 import { builtinMediaEntitySchemaSlugs } from "../../shared/media-schema-slugs";
 
-const ownershipTargetsRecipe = defineRecipe((entityIds: readonly string[]) => {
+const ownershipTargetsRecipe = (() => {
+	const inputParameters = parameters({
+		fields: {
+			entityIds: {
+				type: "array",
+				label: "entityIds",
+				validation: { required: true },
+				description: "entityIds to read",
+				items: { label: "ID", type: "string", description: "Selected ID" },
+			},
+		},
+	});
 	const entity = table("entity", "ownershipTarget");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ targets }) => Result.succeed(targets.items.map(({ entityId }) => entityId)),
 		queries: {
 			targets: selectedRows(entity, {
-				limit: entityIds.length,
+				limit: 100,
 				orderBy: [ascending(column(entity, "id"))],
 				selection: { entityId: selectedField(column(entity, "id"), Schema.String) },
 				where: and(
-					inArray(
-						column(entity, "id"),
-						entityIds.map((entityId) => literal(entityId)),
-					),
+					inArray(column(entity, "id"), inputParameters.list("entityIds")),
 					or(
 						...builtinMediaEntitySchemaSlugs.map((slug) =>
 							entitySchemaPredicate(entity, slug, { kind: "self" }),
@@ -45,9 +54,8 @@ const ownershipTargetsRecipe = defineRecipe((entityIds: readonly string[]) => {
 				),
 			}),
 		},
-	};
-});
-
+	});
+})();
 export const manifest = defineManifest({
 	kind: "operation",
 	name: "Set media ownership",
@@ -61,8 +69,10 @@ export default defineOperation({
 	run: (input, host) =>
 		Effect.gen(function* () {
 			const [targetIds, mediaLibrary] = yield* Effect.all([
-				executeRyotqlRecipe(host.executeRyotql, ownershipTargetsRecipe(input.entityIds)),
-				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe({ kind: "self" })),
+				executeRyotqlRecipe(host.executeRyotql, ownershipTargetsRecipe, {
+					entityIds: input.entityIds,
+				}),
+				executeRyotqlRecipe(host.executeRyotql, userMediaLibraryRecipe({ kind: "self" }), {}),
 			]);
 			const ownedOn = input.owned ? input.ownedOn : null;
 			if (targetIds.length > 0) {

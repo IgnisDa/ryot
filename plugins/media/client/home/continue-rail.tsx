@@ -1,45 +1,20 @@
-import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import {
-	podcastEpisodicKindConfig,
-	showEpisodicKindConfig,
-} from "../../shared/lifecycle-expressions";
-import {
-	episodicByLifecycleStateRecipe,
 	type EpisodicByLifecycleStateResult,
-	flatByLifecycleStateRecipe,
 	type FlatByLifecycleStateResult,
+	libraryByLifecycleStateRecipe,
 } from "../../shared/lifecycle-list-recipes";
+import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { MediaProgressBar } from "../media/primitives";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, type HomeTile, HomeTileBadge } from "./home-rail";
 import { episodePositionLabel, flatProgressLabel, resumeLabel } from "./labels";
-import { createHomeSectionQuery, type SectionData } from "./section-query";
+import { createHomeSectionQuery } from "./section-query";
 
 const RAIL_LIMIT = 20;
-
-const libraryStateRecipes = (
-	input: { readonly state: "backlog" | "in_progress" },
-	reference: PluginIdentityReference,
-) => ({
-	flat: flatByLifecycleStateRecipe({ reference, limit: RAIL_LIMIT, states: [input.state] }),
-	show: episodicByLifecycleStateRecipe({
-		reference,
-		limit: RAIL_LIMIT,
-		states: [input.state],
-		config: showEpisodicKindConfig,
-	}),
-	podcast: episodicByLifecycleStateRecipe({
-		reference,
-		limit: RAIL_LIMIT,
-		states: [input.state],
-		config: podcastEpisodicKindConfig,
-	}),
-});
-
-export type LibraryStateData = SectionData<ReturnType<typeof libraryStateRecipes>>;
-
+export type LibraryStateData = Recipe.Success<ReturnType<typeof libraryByLifecycleStateRecipe>>;
 type LibraryEntry =
 	| { readonly kind: "flat"; readonly item: FlatByLifecycleStateResult["items"][number] }
 	| { readonly kind: "episodic"; readonly item: EpisodicByLifecycleStateResult["items"][number] };
@@ -54,9 +29,20 @@ export const libraryEntries = (data: LibraryStateData): readonly LibraryEntry[] 
 	]
 		.sort((left, right) => activityOrder(right).localeCompare(activityOrder(left)))
 		.slice(0, RAIL_LIMIT);
-
-export const libraryStateQuery = createHomeSectionQuery(libraryStateRecipes, (data) =>
-	libraryEntries(data).map(({ item }) => item.id),
+export const libraryStateQuery = createHomeSectionQuery(
+	(input: { readonly state: "backlog" | "in_progress" }, client) =>
+		client.data.query(
+			libraryByLifecycleStateRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID)),
+			{ states: [input.state] },
+			{
+				pages: {
+					flat: { limit: RAIL_LIMIT },
+					show: { limit: RAIL_LIMIT },
+					podcast: { limit: RAIL_LIMIT },
+				},
+			},
+		),
+	(data) => libraryEntries(data).map(({ item }) => item.id),
 );
 
 const continueTile = (entry: LibraryEntry, today: string): HomeTile => {

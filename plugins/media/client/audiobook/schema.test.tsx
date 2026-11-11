@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { audiobookRecipes } from "../../shared/audiobook-recipes";
 import {
@@ -20,11 +21,12 @@ import { audiobookPresentationFacts, audiobookSchema, audiobookSummaryFacts } fr
 const noopAdapter = { query: () => Effect.succeed({}) };
 
 const audiobookSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(audiobookRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		runtime: 750,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(audiobookRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ runtime: 750, ...overrides },
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -41,9 +43,12 @@ describe("audiobook schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			audiobookSchema,
 			audiobookSummary(),
-			decodeFlatOverview(audiobookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT), {
-				unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }],
-			}),
+			decodeFlatOverview(
+				bindRecipe(audiobookRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+				{ unlinkedCreators: [{ role: "Narrator", name: "Nia Voice" }] },
+			),
 		);
 
 		expect(container.textContent).toContain("Authors & narrators");

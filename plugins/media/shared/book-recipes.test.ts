@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	add,
 	and,
@@ -13,52 +15,50 @@ import {
 	isNotNull,
 	jsonPath,
 	literal,
-	type PreparedRecipe,
+	type Recipe,
 	sum,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { bookRecipes } from "./book-recipes";
 
-const OVERVIEW_RECIPE = bookRecipes.overviewRecipe({
-	groupLimit: 20,
-	peopleLimit: 12,
-	companyLimit: 6,
+const OVERVIEW_RECIPE = bindRecipe(bookRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 	entityId: "book-1",
-	recommendationLimit: 12,
-	reference: { kind: "self" },
 });
 
 const singleRows = (items: readonly Record<string, unknown>[]) =>
 	rowsResult(items, { limit: 1, hasMore: false, nextCursor: null });
-
-const rowFields = (recipe: PreparedRecipe<unknown>, name: string) => {
+const rowFields = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return query.output.fields;
 };
-
-const fieldExpr = (recipe: PreparedRecipe<unknown>, name: string, key: string) => {
+const fieldExpr = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+	key: string,
+) => {
 	const field = rowFields(recipe, name).find((entry) => "key" in entry && entry.key === key);
 	if (field === undefined || !("expr" in field)) {
 		throw new Error(`Expected the ${key} field`);
 	}
 	return field.expr;
 };
-
-const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
-	rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
-
+const keys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => rowFields(recipe, name).map((field) => ("key" in field ? field.key : null));
 describe("media book query recipes", () => {
 	it("selects the pages and compilation fields the book schema declares", () => {
 		const summary = keys(
-			bookRecipes.summaryRecipe({
-				collectionLimit: 6,
+			bindRecipe(bookRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 				entityId: "book-1",
-				reference: { kind: "self" },
 			}),
 			"summary",
 		);
@@ -69,11 +69,8 @@ describe("media book query recipes", () => {
 	});
 
 	it("reads ready canonical pages, missing coverage and completions without live page metadata", () => {
-		const activity = bookRecipes.activityRecipe({
-			eventLimit: 60,
+		const activity = bindRecipe(bookRecipes.activityRecipe({ reference: { kind: "self" } }), {
 			entityId: "book-1",
-			collectionEventLimit: 60,
-			reference: { kind: "self" },
 		});
 
 		const event = table("event", "consumptionTotalsEvent");
@@ -88,8 +85,7 @@ describe("media book query recipes", () => {
 			),
 		);
 		const ready = and(scope, isNotNull(jsonPath(projection, "contribution")));
-
-		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual(
+		expect(fieldExpr(activity, "totals", "consumedAmount")).toEqual<unknown>(
 			sum(
 				event,
 				add(
@@ -105,7 +101,7 @@ describe("media book query recipes", () => {
 				{ where: ready },
 			),
 		);
-		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual(
+		expect(fieldExpr(activity, "totals", "unknownAmountCount")).toEqual<unknown>(
 			count(event, {
 				where: and(
 					ready,
@@ -113,7 +109,7 @@ describe("media book query recipes", () => {
 				),
 			}),
 		);
-		expect(fieldExpr(activity, "totals", "completionCount")).toEqual(
+		expect(fieldExpr(activity, "totals", "completionCount")).toEqual<unknown>(
 			coalesce(
 				sum(event, castNumber(jsonPath(projection, "contribution", "titleCompletions")), {
 					where: ready,

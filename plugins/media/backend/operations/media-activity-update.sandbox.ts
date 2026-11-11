@@ -49,12 +49,14 @@ const episodeParentId = (
 	if (entitySchemaSlug === "show-episode") {
 		return executeRyotqlRecipe(
 			host.executeRyotql,
-			resolveEpisodeParentRecipe({ reference, episodeEntityId, config: showEpisodicKindConfig }),
+			resolveEpisodeParentRecipe({ reference: reference, config: showEpisodicKindConfig }),
+			{ episodeEntityId },
 		).pipe(Effect.map((resolution) => resolution?.parentEntityId));
 	}
 	return executeRyotqlRecipe(
 		host.executeRyotql,
-		resolveEpisodeParentRecipe({ reference, episodeEntityId, config: podcastEpisodicKindConfig }),
+		resolveEpisodeParentRecipe({ reference: reference, config: podcastEpisodicKindConfig }),
+		{ episodeEntityId },
 	).pipe(Effect.map((resolution) => resolution?.parentEntityId));
 };
 
@@ -84,9 +86,7 @@ const retargetedEpisode = (
 		}
 		if (nextParent !== currentParent) {
 			return yield* reject(
-				`Records can only move to another episode of the same ${
-					target.entitySchemaSlug === "show-episode" ? "show" : "podcast"
-				}.`,
+				`Records can only move to another episode of the same ${target.entitySchemaSlug === "show-episode" ? "show" : "podcast"}.`,
 			);
 		}
 		return episodeEntityId;

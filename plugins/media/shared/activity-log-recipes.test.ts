@@ -5,7 +5,7 @@ import {
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { objectContaining } from "@ryot-app/testing/matchers";
 
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
@@ -16,6 +16,7 @@ import {
 	showSeasonChoicesRecipe,
 	showSeasonEpisodeChoicesRecipe,
 } from "./activity-log-recipes";
+import { podcastEpisodicKindConfig, showEpisodicKindConfig } from "./lifecycle-expressions";
 
 const reference = { kind: "self" } as const;
 
@@ -59,7 +60,9 @@ const decodeContext = (
 	entityConsumedOn: readonly string[] = [],
 	recentConsumedOn: readonly string[] = [],
 ) =>
-	mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }).decode({
+	bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+		entityId: "entity-1",
+	}).decode({
 		data: {
 			entityConsumedOn: aggregateRows(entityConsumedOn),
 			recentConsumedOn: aggregateRows(recentConsumedOn),
@@ -72,24 +75,31 @@ const valid = (recipe: { readonly document: Parameters<typeof validateRyotQLDocu
 
 describe("media activity log context recipe", () => {
 	it("selects only one default seed season rather than a capped season inventory", () => {
-		const target = mediaActivityLogContextRecipe({ reference, entityId: "show-1" }).document
-			.queries["target"];
+		const target = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "show-1",
+		}).document.queries["target"];
 		if (target?.output.type !== "rows") {
 			throw new Error("Expected context rows");
 		}
 		expect(target.output.include?.find((include) => include.key === "seasons")?.limit).toBe(1);
 	});
 	it("validates the document", () => {
-		valid(mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }));
+		valid(
+			bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), { entityId: "entity-1" }),
+		);
 	});
 
 	it("leaves streaming providers out of the target", () => {
-		const { queries } = mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }).document;
+		const { queries } = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "entity-1",
+		}).document;
 		expect(JSON.stringify(queries["target"])).not.toContain("watchProviders");
 	});
 
 	it("scopes suggestions to the entity first and to its schema's episodes for shows and podcasts", () => {
-		const { queries } = mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }).document;
+		const { queries } = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "entity-1",
+		}).document;
 		const entityNodes = ryotqlDocumentNodes([queries["entityConsumedOn"]]);
 		const recentNodes = ryotqlDocumentNodes([queries["recentConsumedOn"]]);
 		expect(entityNodes).toContainEqual({ type: "literal", value: "show-episode" });
@@ -105,7 +115,9 @@ describe("media activity log context recipe", () => {
 	});
 
 	it("groups suggestions over the elements of the stored consumedOn array", () => {
-		const { queries } = mediaActivityLogContextRecipe({ reference, entityId: "entity-1" }).document;
+		const { queries } = bindRecipe(mediaActivityLogContextRecipe({ reference: reference }), {
+			entityId: "entity-1",
+		}).document;
 		for (const key of ["entityConsumedOn", "recentConsumedOn"]) {
 			const query = queries[key];
 			expect(JSON.stringify(query)).toContain('"type":"jsonElements"');
@@ -168,7 +180,11 @@ describe("media activity log context recipe", () => {
 describe("activity season choices", () => {
 	it("pages a top-level ordered season query instead of increasing an include limit", () => {
 		for (const after of [undefined, "seasons-1", "seasons-2", "seasons-3"]) {
-			const recipe = showSeasonChoicesRecipe({ after, reference, limit: 40, entityId: "show-1" });
+			const recipe = bindRecipe(showSeasonChoicesRecipe({ reference: reference }), {
+				limit: 40,
+				after: after,
+				entityId: "show-1",
+			});
 			const seasons = recipe.document.queries["seasons"];
 			if (seasons?.output.type !== "rows") {
 				throw new Error("Expected season choice rows");
@@ -189,8 +205,7 @@ describe("activity season choices", () => {
 });
 
 describe("show season episode choices recipe", () => {
-	const recipe = showSeasonEpisodeChoicesRecipe({
-		reference,
+	const recipe = bindRecipe(showSeasonEpisodeChoicesRecipe({ reference: reference }), {
 		limit: 100,
 		seasonNumber: 2,
 		showEntityId: "show-1",
@@ -233,8 +248,7 @@ describe("show season episode choices recipe", () => {
 });
 
 describe("show episode season recipe", () => {
-	const recipe = showEpisodeSeasonRecipe({ episodeEntityId: "episode-1" });
-
+	const recipe = bindRecipe(showEpisodeSeasonRecipe, { episodeEntityId: "episode-1" });
 	it("validates the document", () => {
 		valid(recipe);
 	});
@@ -248,21 +262,14 @@ describe("show episode season recipe", () => {
 });
 
 describe("episodic earlier unwatched recipe", () => {
-	const showRecipe = episodicEarlierUnwatchedRecipe({
-		reference,
-		limit: 100,
-		kind: "show",
-		parentEntityId: "show-1",
-		episodeEntityId: "episode-5",
-	});
-	const podcastRecipe = episodicEarlierUnwatchedRecipe({
-		reference,
-		limit: 100,
-		kind: "podcast",
-		parentEntityId: "podcast-1",
-		episodeEntityId: "episode-5",
-	});
-
+	const showRecipe = bindRecipe(
+		episodicEarlierUnwatchedRecipe({ reference: reference, config: showEpisodicKindConfig }),
+		{ limit: 100, parentEntityId: "show-1", episodeEntityId: "episode-5" },
+	);
+	const podcastRecipe = bindRecipe(
+		episodicEarlierUnwatchedRecipe({ reference: reference, config: podcastEpisodicKindConfig }),
+		{ limit: 100, parentEntityId: "podcast-1", episodeEntityId: "episode-5" },
+	);
 	it("validates the documents", () => {
 		valid(showRecipe);
 		valid(podcastRecipe);

@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import {
 	mediaAnalyticsHoursRecipe,
@@ -11,6 +12,7 @@ import {
 	analyticsReviewRow,
 	analyticsSummary,
 	analyticsTypeRow,
+	reportingSelectionResponse,
 	zeroMeasures,
 } from "../../tests/client/analytics-fixture";
 import {
@@ -62,16 +64,31 @@ const summary = (processing: "ready" | "failed" | "pending" = "ready") =>
 			],
 		},
 	});
-const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalyticsTrend =>
-	Result.getOrThrow(
-		mediaAnalyticsTrendRecipe({
-			...input,
-			reporting: resolveReportingSelection(
-				{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
-				{ now, timeZone: input.timeZone },
-			),
-		}).decode({
+const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalyticsTrend => {
+	const reporting = resolveReportingSelection(
+		{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
+		{ now, timeZone: input.timeZone },
+	);
+	const data = Result.getOrThrow(
+		bindRecipe(
+			mediaAnalyticsTrendRecipe({
+				reference: {
+					...input,
+					reporting: resolveReportingSelection(
+						{ grouping: "day", comparison: "none", range: { endDate, startDate, kind: "custom" } },
+						{ now, timeZone: input.timeZone },
+					),
+				}.reference,
+			}),
+			{},
+		).decode({
 			data: {
+				selection: reportingSelectionResponse({}),
+				previous: {
+					items: [],
+					type: "aggregate",
+					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+				},
 				current: {
 					type: "aggregate",
 					pageInfo: { limit: 100, hasMore: false, nextCursor: null },
@@ -80,7 +97,12 @@ const trend = (startDate = "2026-10-01", endDate = "2026-10-02"): MediaAnalytics
 			},
 		}),
 	);
-
+	return {
+		previous: null,
+		grouping: reporting.grouping,
+		current: { ...data.current, period: reporting.current },
+	};
+};
 describe("Media analytics presentation model", () => {
 	it("preserves known zero, missing-only, and absent/superseded quantity distinctions", () => {
 		const row = trend().current.items[0];
@@ -140,10 +162,18 @@ describe("Media analytics presentation model", () => {
 	});
 	it("groups hours into a 24-hour grid without combining units", () => {
 		const hours = Result.getOrThrow(
-			mediaAnalyticsHoursRecipe({
-				...input,
-				reporting: resolveReportingSelection(input.selection, { now, timeZone: input.timeZone }),
-			}).decode({
+			bindRecipe(
+				mediaAnalyticsHoursRecipe({
+					reference: {
+						...input,
+						reporting: resolveReportingSelection(input.selection, {
+							now,
+							timeZone: input.timeZone,
+						}),
+					}.reference,
+				}),
+				{},
+			).decode({
 				data: {
 					hourly: {
 						type: "aggregate",

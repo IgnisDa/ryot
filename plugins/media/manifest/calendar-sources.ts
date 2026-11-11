@@ -1,5 +1,5 @@
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,

@@ -1,20 +1,18 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { rowsResult } from "../query-result-fixture";
 import { flatFixtureRecipes, flatUngroupedFixtureRecipes } from "./recipes";
 
 const ACTIVITY_INPUT = { eventLimit: 60, entityId: "media-1", collectionEventLimit: 60 };
-
-const fixtureActivityRecipe = flatFixtureRecipes.activityRecipe({
-	...ACTIVITY_INPUT,
-	reference: { kind: "self" },
-});
-
-const ungroupedActivityRecipe = flatUngroupedFixtureRecipes.activityRecipe({
-	...ACTIVITY_INPUT,
-	reference: { kind: "self" },
-});
-
+const fixtureActivityRecipe = bindRecipe(
+	flatFixtureRecipes.activityRecipe({ reference: { kind: "self" } }),
+	{ entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId },
+);
+const ungroupedActivityRecipe = bindRecipe(
+	flatUngroupedFixtureRecipes.activityRecipe({ reference: { kind: "self" } }),
+	{ entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId },
+);
 const emptyEventProperties = {
 	text: null,
 	rating: null,

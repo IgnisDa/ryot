@@ -5,7 +5,7 @@ import {
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { anything, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import {
@@ -30,15 +30,22 @@ const page = (items: readonly unknown[], limit: number) =>
 
 describe("latest completion suggestions recipe", () => {
 	it("validates the document", () => {
-		const recipe = latestCompletionSuggestionsRecipe({ limit: 20, reference: { kind: "self" } });
+		const recipe = bindRecipe(
+			latestCompletionSuggestionsRecipe({ reference: { kind: "self" } }),
+			{},
+			undefined,
+			{ pages: { items: { limit: 20 } } },
+		);
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it("resolves the items against the same source the source query reads", () => {
-		const { queries } = latestCompletionSuggestionsRecipe({
-			limit: 20,
-			reference: { kind: "self" },
-		}).document;
+		const { queries } = bindRecipe(
+			latestCompletionSuggestionsRecipe({ reference: { kind: "self" } }),
+			{},
+			undefined,
+			{ pages: { items: { limit: 20 } } },
+		).document;
 		const sourceFirst = queries["source"]?.where;
 		const itemsWhere = queries["items"]?.where;
 		if (sourceFirst?.type !== "comparison" || itemsWhere?.type !== "and") {
@@ -52,19 +59,22 @@ describe("latest completion suggestions recipe", () => {
 	});
 
 	it("reports no source when nothing was completed", () => {
-		const decoded = latestCompletionSuggestionsRecipe({
-			limit: 20,
-			reference: { kind: "self" },
-		}).decode({ data: { source: page([], 2), items: page([], 20) } });
-
+		const decoded = bindRecipe(
+			latestCompletionSuggestionsRecipe({ reference: { kind: "self" } }),
+			{},
+			undefined,
+			{ pages: { items: { limit: 20 } } },
+		).decode({ data: { source: page([], 2), items: page([], 20) } });
 		expect(Result.getOrThrow(decoded)).toEqual({ items: [], source: null });
 	});
 
 	it("returns the source beside its suggestions", () => {
-		const decoded = latestCompletionSuggestionsRecipe({
-			limit: 20,
-			reference: { kind: "self" },
-		}).decode({
+		const decoded = bindRecipe(
+			latestCompletionSuggestionsRecipe({ reference: { kind: "self" } }),
+			{},
+			undefined,
+			{ pages: { items: { limit: 20 } } },
+		).decode({
 			data: { source: page([mediaRow("source")], 2), items: page([mediaRow("target")], 20) },
 		});
 
@@ -77,19 +87,17 @@ describe("latest completion suggestions recipe", () => {
 
 describe("trending latest media recipe", () => {
 	it("validates the document", () => {
-		const recipe = trendingLatestMediaRecipe({
+		const recipe = bindRecipe(trendingLatestMediaRecipe({ reference: { kind: "self" } }), {
 			limit: 20,
 			after: "cursor",
-			reference: { kind: "self" },
 			entitySchemaSlugs: ["movie", "show"],
 		});
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
 	});
 
 	it("keys the latest batch on each row's schema and interleaves by rank", () => {
-		const query = trendingLatestMediaRecipe({
+		const query = bindRecipe(trendingLatestMediaRecipe({ reference: { kind: "self" } }), {
 			limit: 20,
-			reference: { kind: "self" },
 			entitySchemaSlugs: ["movie", "show"],
 		}).document.queries["trending"];
 		if (query?.output.type !== "rows" || query.where?.type !== "and") {
@@ -133,11 +141,10 @@ describe("trending latest media recipe", () => {
 });
 
 const recommendationsQuery = (searchText?: string) =>
-	collectionRecommendationsRecipe({
-		limit: 30,
-		searchText,
+	bindRecipe(collectionRecommendationsRecipe({ reference: { kind: "self" } }), {
+		limit: 20,
 		collectionId: "col",
-		reference: { kind: "self" },
+		searchText: searchText?.trim(),
 	}).document.queries["recommendations"];
 
 const sources = (count: number) => ({ type: "aggregate", items: [{ count }] });
@@ -145,13 +152,14 @@ const sources = (count: number) => ({ type: "aggregate", items: [{ count }] });
 describe("collection recommendations recipes", () => {
 	it("validates both documents", () => {
 		for (const recipe of [
-			collectionRecommendationSourcesRecipe({ collectionId: "col", reference: { kind: "self" } }),
-			collectionRecommendationsRecipe({
-				limit: 30,
+			bindRecipe(collectionRecommendationSourcesRecipe({ reference: { kind: "self" } }), {
+				collectionId: "col",
+			}),
+			bindRecipe(collectionRecommendationsRecipe({ reference: { kind: "self" } }), {
+				limit: 20,
 				after: "cursor",
 				searchText: "dune",
 				collectionId: "col",
-				reference: { kind: "self" },
 			}),
 		]) {
 			expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();
@@ -173,16 +181,21 @@ describe("collection recommendations recipes", () => {
 			objectContaining({ type: "contains", right: objectContaining({ value: "dune" }) }),
 		);
 		expect(recommendationsQuery("  ")?.where).toMatchObject({
-			predicates: [anything(), anything(), anything(), anything()],
+			predicates: [
+				anything(),
+				anything(),
+				anything(),
+				anything(),
+				{ type: "contains", right: { value: "", type: "literal" } },
+			],
 		});
 	});
 
 	it("reports a missing collection and counts suggesting members", () => {
-		const recipe = collectionRecommendationSourcesRecipe({
-			collectionId: "col",
-			reference: { kind: "self" },
-		});
-
+		const recipe = bindRecipe(
+			collectionRecommendationSourcesRecipe({ reference: { kind: "self" } }),
+			{ collectionId: "col" },
+		);
 		expect(
 			Result.getOrThrow(recipe.decode({ data: { sources: sources(0), collection: page([], 2) } })),
 		).toBeNull();

@@ -39,7 +39,9 @@ export default defineAutomation({
 		}
 		return executeRyotqlRecipe(
 			host.executeRyotql,
-			entityReadRecipe({ entityIds: [head, ...rest] }),
+			entityReadRecipe,
+			{ entityIds: [head, ...rest] },
+			{ pages: { entities: { after: undefined, limit: undefined } } },
 		).pipe(
 			Effect.flatMap(({ items }) =>
 				Effect.all(

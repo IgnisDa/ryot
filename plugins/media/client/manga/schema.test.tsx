@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { mangaRecipes } from "../../shared/manga-recipes";
 import {
@@ -44,38 +45,33 @@ const PROGRESS_EVENT = {
 };
 
 const mangaSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(mangaRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		volumes: 12,
-		chapters: 120,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(mangaRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ volumes: 12, chapters: 120, ...overrides },
+	);
 const mangaActivity = (events: readonly Record<string, unknown>[] = [PROGRESS_EVENT]) =>
 	Result.getOrThrow(
-		mangaRecipes
-			.activityRecipe({
-				eventLimit: 60,
-				entityId: "manga-1",
-				collectionEventLimit: 60,
-				reference: { kind: "self" },
-			})
-			.decode({
-				data: {
-					events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
-					collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
-					totals: rowsResult(
-						[
-							{
-								completionCount: 1,
-								consumedAmount: 120,
-								unknownAmountCount: 0,
-								consumptionProcessing: "ready",
-							},
-						],
-						{ limit: 1, hasMore: false, nextCursor: null },
-					),
-				},
-			}),
+		bindRecipe(mangaRecipes.activityRecipe({ reference: { kind: "self" } }), {
+			entityId: "manga-1",
+		}).decode({
+			data: {
+				events: rowsResult(events, { limit: 60, hasMore: false, nextCursor: null }),
+				collectionEvents: rowsResult([], { limit: 60, hasMore: false, nextCursor: null }),
+				totals: rowsResult(
+					[
+						{
+							completionCount: 1,
+							consumedAmount: 120,
+							unknownAmountCount: 0,
+							consumptionProcessing: "ready",
+						},
+					],
+					{ limit: 1, hasMore: false, nextCursor: null },
+				),
+			},
+		}),
 	);
 
 afterEach(() => {
@@ -127,7 +123,11 @@ describe("manga schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			mangaSchema,
 			mangaSummary(),
-			decodeFlatOverview(mangaRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(mangaRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+			),
 		);
 
 		expect(container.textContent).toContain("Authors & artists");

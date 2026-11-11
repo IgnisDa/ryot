@@ -12,6 +12,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
@@ -19,6 +20,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { reportingSelectionResponse } from "../../tests/client/analytics-fixture";
 import MediaAnalyticsSection from "./section";
 
 afterEach(disposePluginBridges);
@@ -78,6 +80,7 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>, Component =
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("UTC") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -105,6 +108,7 @@ const summaryResponse = (pending = 0) => ({
 		currentReviews: aggregate([]),
 		previousReviews: aggregate([]),
 		undated: aggregate([{ count: 0 }]),
+		selection: reportingSelectionResponse({}),
 		processing: aggregate([{ pending, failed: 0 }]),
 		currentActiveDays: aggregate([{ activeDays: 0 }]),
 		previousActiveDays: aggregate([{ activeDays: 0 }]),
@@ -113,8 +117,7 @@ const summaryResponse = (pending = 0) => ({
 
 const reportRequests = (page: ReturnType<typeof mountSection>) => page.queryRequests("processing");
 const queryText = (request: ReturnType<ReturnType<typeof mountSection>["queryRequests"]>[number]) =>
-	JSON.stringify(request.document);
-
+	JSON.stringify(bindTestRequest(request.request));
 const waitForRequest = <Request,>(get: () => readonly Request[]) =>
 	waitFor(() => {
 		const request = get()[0];

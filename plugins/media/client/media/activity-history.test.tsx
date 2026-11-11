@@ -2,6 +2,7 @@ import { afterEach, describe, expect } from "bun:test";
 
 import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -12,6 +13,7 @@ import {
 	flatReviewEventRow,
 } from "../../tests/client/flat-media/activity-fixture";
 import { fixtureSchema } from "../../tests/client/flat-media/schema-fixture";
+import { historyRow } from "../../tests/client/history-fixture";
 import { rowsResult } from "../../tests/client/query-result-fixture";
 import {
 	clickRyotElement,
@@ -50,7 +52,7 @@ describe("complete activity history", () => {
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) =>
 							Effect.succeed(
-								"work" in document.queries
+								"work" in bindTestRequest(document).queries
 									? { data: { work: rows([]), active: rows([]), checkpoint: rows([]) } }
 									: activity(false),
 							),
@@ -78,29 +80,34 @@ describe("complete activity history", () => {
 					{
 						watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 						query: (document) => {
-							if ("work" in document.queries) {
+							if ("work" in bindTestRequest(document).queries) {
 								return Effect.succeed({
 									data: { work: rows([]), active: rows([]), checkpoint: rows([]) },
 								});
 							}
-							if ("reviews" in document.queries) {
+							if ("reviews" in bindTestRequest(document).queries) {
 								return Effect.succeed({ data: { reviews: rows([]), occurrences: rows([]) } });
 							}
-							documents.push(document);
-							if ("totals" in document.queries) {
+							documents.push(bindTestRequest(document));
+							if ("totals" in bindTestRequest(document).queries) {
 								return Effect.succeed(activity(true));
 							}
-							const appending = JSON.stringify(document).includes('"operator":"lt"');
+							const appending = document.pages?.["history"]?.after !== undefined;
 							if (appending && appendAttempts++ === 0) {
 								return Effect.fail(new RyotClientError({ reason: "transport" }));
 							}
 							return Effect.succeed({
 								data: {
-									collectionEvents: rows(appending ? [flatCollectionAddedEventRow] : []),
-									events: rows(
+									history: rows(
 										appending
-											? [{ ...flatProgressEventRow, progressPercent: 12 }]
-											: [flatReviewEventRow],
+											? [
+													historyRow(bindTestRequest(document), 0, {
+														...flatProgressEventRow,
+														progressPercent: 12,
+													}),
+													historyRow(bindTestRequest(document), 1, flatCollectionAddedEventRow),
+												]
+											: [historyRow(bindTestRequest(document), 0, flatReviewEventRow)],
 										!appending,
 									),
 								},

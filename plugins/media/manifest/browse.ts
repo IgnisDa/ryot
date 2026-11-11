@@ -1,5 +1,5 @@
 import type { AuthoredBrowseField } from "@ryot-app/contract/modules/filters/browse";
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {

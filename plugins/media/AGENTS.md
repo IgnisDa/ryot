@@ -1,7 +1,7 @@
 # Media Plugin
 
 - Read the relevant `README.md` section before changing schema descriptors, recipes, operation contracts, integrations, or lifecycle behavior. Keep contracts, manifest declarations, docs, and focused tests aligned.
-- Backend-only operation schemas live in `backend/contracts/operations.ts`, outside sandbox entrypoints. Client-shared operation schemas live in `shared/` and import `Schema` from `@ryot-app/plugin-kit/effect`. Workflow consumers import `Schema` from the backend SDK's workflow surface. Non-fatal script failures use the `log` host capability.
+- Client-shared operation schemas live in `shared/` and import `Schema` from `@ryot-app/plugin-kit/effect`. Workflow consumers import `Schema` from the backend SDK's workflow surface. Non-fatal script failures use the `log` host capability.
 - Keep title parsing/matching within the backend compiler's ES2022 support; do not use `toReversed`.
 - Read calendar parts in UTC (`DateTime.getPartUtc`, `Date#getUTC*`); never local-time `Date` getters, since the sandbox zone is not guaranteed.
 - Shared recipe factories and descriptor engines own reusable behavior. Schema files supply configuration, vocabulary, and declared fields; do not re-wrap overview recipes or duplicate shared schemas in `client/`.

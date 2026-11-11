@@ -6,7 +6,7 @@ import {
 	MetadataLookupInput,
 	MetadataLookupOutput,
 	type MetadataLookupResult,
-} from "../contracts/operations";
+} from "../../shared/integration-operations";
 import { MediaSandboxError } from "../lib/failures";
 import {
 	chooseBestMetadataLookupTitleMatch,

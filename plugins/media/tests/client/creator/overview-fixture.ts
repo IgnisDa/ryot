@@ -1,5 +1,8 @@
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import {
 	builtinMediaEntitySchemaSlugs,
@@ -8,12 +11,10 @@ import {
 import { rowsResult } from "../query-result-fixture";
 import { creatorFixtureRecipes } from "./recipes";
 
-export const creatorOverviewRecipe = creatorFixtureRecipes.overviewRecipe({
-	creditLimit: 12,
-	entityId: "creator-1",
-	reference: { kind: "self" },
-});
-
+export const creatorOverviewRecipe = bindRecipe(
+	creatorFixtureRecipes.overviewRecipe({ reference: { kind: "self" } }),
+	{ entityId: "creator-1" },
+);
 export const creatorMovieCreditRow = {
 	order: 1,
 	id: "movie-1",
@@ -66,7 +67,7 @@ export const creatorOverviewData = (input: Readonly<Record<string, CreditRows>> 
 });
 
 export const decodeCreatorOverviewOf = <Overview>(
-	recipe: PreparedRecipe<Overview>,
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<Overview, AppSchema>["decode"] },
 	input: Readonly<Record<string, CreditRows>> = {},
 ) => Result.getOrThrow(recipe.decode({ data: creatorOverviewData(input) }));
 

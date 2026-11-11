@@ -146,10 +146,9 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 						return client.data
 							.query(
 								mediaUserDataDestinationRecipe({
-									entitySchemaSlug,
-									entityId: targetId,
 									reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 								}),
+								{ entitySchemaSlug, entityId: targetId },
 							)
 							.pipe(
 								Effect.flatMap((target) => {

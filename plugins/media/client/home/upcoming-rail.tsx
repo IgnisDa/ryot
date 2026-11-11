@@ -1,10 +1,11 @@
-import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
+import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type RyotQueryResult,
 	usePluginIdentity,
 	usePluginUserSettings,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { upcomingRecipe } from "../../shared/upcoming-recipes";
@@ -15,41 +16,22 @@ import { mediaBackdropAsset, mediaPosterAsset } from "../media/summary-state";
 import { mediaAspectOf } from "../schema-aspects";
 import { HomeRail, type HomeTile } from "./home-rail";
 import { airingDayCaption, episodePositionLabel, moreLabel } from "./labels";
-import { createHomeSectionQuery, type SectionData } from "./section-query";
+import { createHomeSectionQuery } from "./section-query";
 
 const RAIL_LIMIT = 20;
 
 const TITLE = "Upcoming";
-
-type UpcomingSelection = { readonly today: string } & ReturnType<typeof upcomingSettings>;
-
-const localMidnight = (day: string, offsetDays: number) =>
-	new Date(
-		Number(day.slice(0, 4)),
-		Number(day.slice(5, 7)) - 1,
-		Number(day.slice(8, 10)) + offsetDays,
-	).toISOString();
-
-/**
- * Dates are local days and anime airings are instants. Instants start at local midnight rather
- * than now, so the input changes once a day and an episode that aired earlier today still shows.
- */
-const upcomingRecipes = (input: UpcomingSelection, reference: PluginIdentityReference) => ({
-	titles: upcomingRecipe({
-		reference,
-		limit: RAIL_LIMIT,
-		fromDate: input.today,
-		onePerTitle: input.onePerTitle,
-		fromInstant: localMidnight(input.today, 0),
-		untilInstant: localMidnight(input.today, input.daysAhead + 1),
-		untilDate: formatLocalDateKey(localMidnight(input.today, input.daysAhead)),
-	}),
-});
-
-type UpcomingData = SectionData<ReturnType<typeof upcomingRecipes>>;
-
-const upcomingQuery = createHomeSectionQuery(upcomingRecipes, (data) =>
-	data.titles.map(({ entity }) => entity.id),
+type UpcomingSelection = ReturnType<typeof upcomingSettings>;
+type UpcomingData = { readonly titles: Recipe.Success<ReturnType<typeof upcomingRecipe>> };
+const upcomingQuery = createHomeSectionQuery(
+	(input: UpcomingSelection, client) =>
+		client.data
+			.query(upcomingRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }), {
+				daysAhead: input.daysAhead,
+				onePerTitle: input.onePerTitle,
+			})
+			.pipe(Effect.map((titles) => ({ titles }))),
+	(data) => data.titles.map(({ entity }) => entity.id),
 );
 
 /**
@@ -131,13 +113,15 @@ export function UpcomingSection(props: { readonly today: string; readonly compac
 	}
 	return (
 		<UpcomingQueryRail
+			today={props.today}
 			compact={props.compact}
-			selection={{ today: props.today, ...upcomingSettings(settings.data) }}
+			selection={upcomingSettings(settings.data)}
 		/>
 	);
 }
 
 function UpcomingQueryRail(props: {
+	readonly today: string;
 	readonly compact: boolean;
 	readonly selection: UpcomingSelection;
 }) {
@@ -145,8 +129,8 @@ function UpcomingQueryRail(props: {
 	return (
 		<UpcomingRail
 			result={result}
+			today={props.today}
 			compact={props.compact}
-			today={props.selection.today}
 			onePerTitle={props.selection.onePerTitle}
 		/>
 	);

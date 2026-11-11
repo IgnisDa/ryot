@@ -1,6 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
-import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	createTestRyotClock,
@@ -11,6 +11,7 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -97,6 +98,7 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -165,7 +167,12 @@ describe("Media analytics records drill", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(1)));
 					const firstRequest = itemAt(recordsRequests(page), 0);
-					const firstQuery = documentText(firstRequest.document);
+					const firstQuery = documentText(
+						bindTestRequest(firstRequest.request, {
+							reportingTimeZone: "America/New_York",
+							now: DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-08T12:00:00Z")),
+						}),
+					);
 					expect(firstQuery).toContain("title/record-source");
 					expect(firstQuery).toContain("America/New_York");
 					expect(firstQuery).toContain("localHour");
@@ -210,7 +217,9 @@ describe("Media analytics records drill", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(2)));
 					const nextRequest = itemAt(recordsRequests(page), 1);
-					expect(documentText(nextRequest.document)).toContain("opaque-records/next?cursor=kept");
+					expect(documentText(bindTestRequest(nextRequest.request))).toContain(
+						"opaque-records/next?cursor=kept",
+					);
 					page.replyQuery(nextRequest.requestId, {
 						outcome: "success",
 						response: recordsResponse(null, [recordRow("record-101", "Record 101")]),
@@ -392,7 +401,9 @@ describe("Media analytics records drill", () => {
 						fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 					});
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(3)));
-					expect(documentText(itemAt(recordsRequests(page), 2).document)).toContain("append-one");
+					expect(documentText(bindTestRequest(itemAt(recordsRequests(page), 2).request))).toContain(
+						"append-one",
+					);
 					page.replyQuery(itemAt(recordsRequests(page), 2).requestId, {
 						outcome: "success",
 						response: recordsResponse(null, [recordRow("old-two", "Original second record")]),
@@ -427,7 +438,9 @@ describe("Media analytics records drill", () => {
 						]),
 					});
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(6)));
-					expect(documentText(itemAt(recordsRequests(page), 5).document)).toContain("new-next");
+					expect(documentText(bindTestRequest(itemAt(recordsRequests(page), 5).request))).toContain(
+						"new-next",
+					);
 					page.replyQuery(itemAt(recordsRequests(page), 5).requestId, {
 						outcome: "success",
 						response: recordsResponse(null, [recordRow("new-two", "Replacement second record")]),
@@ -467,7 +480,7 @@ describe("Media analytics records drill", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(recordsRequests(page)).toHaveLength(2)));
 					const changedRequest = itemAt(recordsRequests(page), 1);
-					const changedText = documentText(changedRequest.document);
+					const changedText = documentText(bindTestRequest(changedRequest.request));
 					expect(changedText).toContain("show-episode");
 					expect(changedText).not.toContain("localHour");
 					expect(changedText).not.toContain("title/record-source");

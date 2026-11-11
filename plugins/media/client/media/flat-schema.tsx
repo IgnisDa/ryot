@@ -1,9 +1,5 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
-import type {
-	EntityRendererProps,
-	PluginIdentityReference,
-} from "@ryot-app/plugin-client-sdk/plugin";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
@@ -26,6 +22,7 @@ import {
 import { defineMediaActivityTab, MediaActivityRecord } from "./activity-tab";
 import { decimalLabel, mediaCollectionRowLabel, mergeActivityRuns } from "./activity-timeline";
 import { createMediaCreditsQuery, MediaCreditsButton, type MediaCreditsRecipe } from "./credits";
+import type { MediaEntityRecipe } from "./detail-queries";
 import { createMediaEntityQuery, createMediaSummaryQuery } from "./detail-queries";
 import {
 	MediaDetailBody,
@@ -82,13 +79,6 @@ import {
 	type MediaSummaryValue,
 } from "./summary-state";
 
-const GROUP_LIMIT = 20;
-const PEOPLE_LIMIT = 12;
-const COMPANY_LIMIT = 6;
-const RECOMMENDATION_LIMIT = 12;
-const ACTIVITY_EVENT_LIMIT = 60;
-const ACTIVITY_COLLECTION_EVENT_LIMIT = 60;
-
 type FlatReviewSubject = { readonly on: "media" };
 
 const REVIEW_SUBJECT: FlatReviewSubject = { on: "media" };
@@ -138,6 +128,15 @@ export type MediaFlatSchemaDescriptor<
 		readonly label: string;
 		readonly value: (amount: MediaFlatActivitySummary["amount"]) => string;
 	};
+	readonly recipes: {
+		readonly peopleRecipe: MediaCreditsRecipe;
+		readonly companiesRecipe: MediaCreditsRecipe;
+		readonly overviewRecipe: MediaEntityRecipe<Overview>;
+		readonly presentationSource: MediaPresentationSource<Presentation>;
+		readonly summaryRecipe: MediaEntityRecipe<FlatSummaryResult<Summary>>;
+		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
+		readonly activityRecipe: MediaEntityRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
+	};
 	readonly activityCopy: {
 		readonly recordLabel: string;
 		readonly segmentNoun: string;
@@ -157,31 +156,6 @@ export type MediaFlatSchemaDescriptor<
 			readonly completion: string;
 			readonly progress: (percent: string | undefined, extra: Extra) => string;
 		};
-	};
-	readonly recipes: {
-		readonly peopleRecipe: MediaCreditsRecipe;
-		readonly companiesRecipe: MediaCreditsRecipe;
-		readonly presentationSource: MediaPresentationSource<Presentation>;
-		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
-		readonly summaryRecipe: (input: {
-			readonly entityId: string;
-			readonly collectionLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<FlatSummaryResult<Summary>>;
-		readonly activityRecipe: (input: {
-			readonly entityId: string;
-			readonly eventLimit: number;
-			readonly collectionEventLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;
-		readonly overviewRecipe: (input: {
-			readonly entityId: string;
-			readonly groupLimit: number;
-			readonly peopleLimit: number;
-			readonly companyLimit: number;
-			readonly recommendationLimit: number;
-			readonly reference: PluginIdentityReference;
-		}) => PreparedRecipe<Overview>;
 	};
 };
 
@@ -227,9 +201,16 @@ export const defineFlatMediaSchema = <
 	const { nouns, recipes, activityCopy } = descriptor;
 
 	const summaryQuery = createMediaSummaryQuery(recipes.summaryRecipe);
-	const peopleQuery = createMediaCreditsQuery(recipes.peopleRecipe);
-	const companiesQuery = createMediaCreditsQuery(recipes.companiesRecipe);
-
+	const peopleQuery = createMediaCreditsQuery(
+		recipes.peopleRecipe,
+		({ entityId }) => ({ entityId }),
+		"people",
+	);
+	const companiesQuery = createMediaCreditsQuery(
+		recipes.companiesRecipe,
+		({ entityId }) => ({ entityId }),
+		"companies",
+	);
 	const railsOf = (overview: Overview) => descriptor.overviewRails?.(overview) ?? [];
 
 	const overviewIsEmpty = (overview: Overview) =>
@@ -243,15 +224,7 @@ export const defineFlatMediaSchema = <
 		]);
 
 	const overviewQuery = createMediaEntityQuery(
-		(input) =>
-			recipes.overviewRecipe({
-				groupLimit: GROUP_LIMIT,
-				entityId: input.entityId,
-				peopleLimit: PEOPLE_LIMIT,
-				reference: input.reference,
-				companyLimit: COMPANY_LIMIT,
-				recommendationLimit: RECOMMENDATION_LIMIT,
-			}),
+		(input) => recipes.overviewRecipe({ reference: input.reference }),
 		(data) =>
 			[
 				...data.people.items,
@@ -263,13 +236,7 @@ export const defineFlatMediaSchema = <
 	);
 
 	const activityQuery = createMediaEntityQuery(
-		(input) =>
-			recipes.activityRecipe({
-				entityId: input.entityId,
-				reference: input.reference,
-				eventLimit: ACTIVITY_EVENT_LIMIT,
-				collectionEventLimit: ACTIVITY_COLLECTION_EVENT_LIMIT,
-			}),
+		(input) => recipes.activityRecipe({ reference: input.reference }),
 		(data) =>
 			data.events.flatMap((event) => (event.kind === "collection" ? [event.collection.id] : [])),
 	);

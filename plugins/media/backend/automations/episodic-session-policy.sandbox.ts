@@ -53,21 +53,15 @@ const sessionPolicyResult = (payload: EventPayload, resolution: null | EpisodePa
 const assignShowEpisodeSession = (host: AutomationHost, payload: EventPayload) =>
 	executeRyotqlRecipe(
 		host.executeRyotql,
-		resolveEpisodeParentRecipe({
-			reference: { kind: "self" },
-			config: showEpisodicKindConfig,
-			episodeEntityId: payload.draft.entityId,
-		}),
+		resolveEpisodeParentRecipe({ reference: { kind: "self" }, config: showEpisodicKindConfig }),
+		{ episodeEntityId: payload.draft.entityId },
 	).pipe(Effect.flatMap((resolution) => sessionPolicyResult(payload, resolution)));
 
 const assignPodcastEpisodeSession = (host: AutomationHost, payload: EventPayload) =>
 	executeRyotqlRecipe(
 		host.executeRyotql,
-		resolveEpisodeParentRecipe({
-			reference: { kind: "self" },
-			config: podcastEpisodicKindConfig,
-			episodeEntityId: payload.draft.entityId,
-		}),
+		resolveEpisodeParentRecipe({ reference: { kind: "self" }, config: podcastEpisodicKindConfig }),
+		{ episodeEntityId: payload.draft.entityId },
 	).pipe(Effect.flatMap((resolution) => sessionPolicyResult(payload, resolution)));
 
 const runItem = (input: AutomationPolicyInput, host: AutomationHost) => {

@@ -4,6 +4,7 @@ import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references"
 import { type RyotClientAdapter, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestPluginStorage } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -109,7 +110,7 @@ const showAdapter = (input: {
 	const adapter: Partial<RyotClientAdapter> = {
 		watchEntities: () => ({ update: () => undefined, dispose: () => undefined }),
 		query: (document) => {
-			const serialized = JSON.stringify(document);
+			const serialized = JSON.stringify(bindTestRequest(document));
 			input.queries?.push(serialized);
 			if (serialized.includes('"logSeasonChoice"')) {
 				return Effect.succeed({
@@ -126,7 +127,7 @@ const showAdapter = (input: {
 					serialized.includes(`"${alias}"`),
 				)
 			) {
-				return activityLogQuery(input.activity)(document);
+				return activityLogQuery(input.activity)(bindTestRequest(document));
 			}
 			if (serialized.includes('"orderGroupShow"')) {
 				return Effect.succeed({
@@ -142,7 +143,7 @@ const showAdapter = (input: {
 					},
 				});
 			}
-			if (serialized.includes('"episodes"')) {
+			if (Object.hasOwn(bindTestRequest(document).queries, "episodes")) {
 				const seasonId =
 					["season-0", "season-2"].find((id) => serialized.includes(id)) ?? "season-1";
 				return Effect.succeed({

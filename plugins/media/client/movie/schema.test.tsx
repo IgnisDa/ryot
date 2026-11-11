@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { movieRecipes } from "../../shared/movie-recipes";
 import {
@@ -21,11 +22,12 @@ const noopAdapter = { query: () => Effect.succeed({}) };
 const movieFields = { runtime: 169, watchProviders: null };
 
 const movieSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(movieRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		...movieFields,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(movieRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ ...movieFields, ...overrides },
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -42,7 +44,11 @@ describe("movie schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			movieSchema,
 			movieSummary(),
-			decodeFlatOverview(movieRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(movieRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+			),
 		);
 
 		expect(container.textContent).toContain("Cast & crew");

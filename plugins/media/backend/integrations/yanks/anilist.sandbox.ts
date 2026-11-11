@@ -143,13 +143,9 @@ const readLatestSnapshots = Effect.fn("AniList.readLatestSnapshots")(function* (
 	for (;;) {
 		const page = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			listStateSnapshotsRecipe({
-				reference: { kind: "self" },
-				...(after === undefined ? {} : { after }),
-				sourceEntryIds,
-				sourceAccountId,
-				limit: ANILIST_PAGE_SIZE,
-			}),
+			listStateSnapshotsRecipe({ reference: { kind: "self" } }),
+			{ sourceEntryIds, sourceAccountId },
+			{ pages: { snapshots: { after, limit: ANILIST_PAGE_SIZE } } },
 		);
 		for (const snapshot of page.items) {
 			if (

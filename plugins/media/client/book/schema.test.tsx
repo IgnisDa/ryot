@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { bookRecipes } from "../../shared/book-recipes";
 import { decodeFlatActivity } from "../../tests/client/flat-media/activity-fixture";
@@ -22,12 +23,12 @@ import { bookPresentationFacts, bookSchema, bookSummaryFacts } from "./schema";
 const noopAdapter = { query: () => Effect.succeed({}) };
 
 const bookSummary = (overrides: Record<string, unknown> = {}) =>
-	decodeFlatSummary(bookRecipes.summaryRecipe(FLAT_SUMMARY_INPUT), {
-		pages: 320,
-		isCompilation: false,
-		...overrides,
-	});
-
+	decodeFlatSummary(
+		bindRecipe(bookRecipes.summaryRecipe({ reference: FLAT_SUMMARY_INPUT.reference }), {
+			entityId: FLAT_SUMMARY_INPUT.entityId,
+		}),
+		{ pages: 320, isCompilation: false, ...overrides },
+	);
 afterEach(() => {
 	document.body.innerHTML = "";
 });
@@ -89,7 +90,11 @@ describe("book schema", () => {
 		const { unmount, container } = renderMediaScreenBody(
 			bookSchema,
 			bookSummary(),
-			decodeFlatOverview(bookRecipes.overviewRecipe(FLAT_OVERVIEW_INPUT)),
+			decodeFlatOverview(
+				bindRecipe(bookRecipes.overviewRecipe({ reference: FLAT_OVERVIEW_INPUT.reference }), {
+					entityId: FLAT_OVERVIEW_INPUT.entityId,
+				}),
+			),
 		);
 
 		expect(container.textContent).toContain("Authors & contributors");

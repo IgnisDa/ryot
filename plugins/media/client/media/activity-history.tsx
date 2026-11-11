@@ -1,18 +1,19 @@
+import type { PluginIdentityReference } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { ReactNode } from "react";
 
-import type { MediaHistoryInput } from "../../shared/media-recipes";
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import type { mediaEntityParameters } from "../../shared/query-parameters";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages } from "./cursor-pages";
 import { MediaDetailModalButton } from "./detail-modal";
 
 const HISTORY_PAGE_SIZE = 100;
 
-export type MediaHistoryRecipe<Event> = (
-	input: MediaHistoryInput,
-) => PreparedRecipe<MediaCursorPage<Event>>;
+export type MediaHistoryRecipe<Event> = (input: {
+	readonly reference: PluginIdentityReference;
+}) => Recipe<MediaCursorPage<Event>, typeof mediaEntityParameters.schema>;
 
 type HistoryPageInput = { readonly entityId: string; readonly after: null | string };
 
@@ -23,12 +24,9 @@ export const createMediaHistoryQuery = <Event,>(
 	createRyotQuery<HistoryPageInput, MediaCursorPage<Event>>(
 		({ input, client }) =>
 			client.data.query(
-				recipe({
-					limit: HISTORY_PAGE_SIZE,
-					entityId: input.entityId,
-					before: input.after ?? undefined,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
+				recipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{ entityId: input.entityId },
+				{ pages: { history: { limit: HISTORY_PAGE_SIZE, after: input.after ?? undefined } } },
 			),
 		{
 			entityWatch: ({ data, input }) => ({

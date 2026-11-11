@@ -1,21 +1,30 @@
 import { describe, expect, it } from "bun:test";
 
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { companyRecipes } from "./company-recipes";
 
-const rowsOutput = (recipe: PreparedRecipe<unknown>, name: string) => {
+const rowsOutput = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected the ${name} rows query`);
 	}
 	return query.output;
 };
-
-const keys = (recipe: PreparedRecipe<unknown>, name: string) =>
-	rowsOutput(recipe, name).fields.map((field) => ("key" in field ? field.key : null));
-
-const movieCreditKeys = (recipe: PreparedRecipe<unknown>) =>
+const keys = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => rowsOutput(recipe, name).fields.map((field) => ("key" in field ? field.key : null));
+const movieCreditKeys = (recipe: {
+	document: ImportedRyotQLDocument;
+	decode: Recipe<unknown, AppSchema>["decode"];
+}) =>
 	rowsOutput(recipe, "credits")
 		.include?.find(({ key }) => key === "movie")
 		?.fields.map((field) => ("key" in field ? field.key : null));
@@ -24,10 +33,8 @@ describe("media company query recipes", () => {
 	it("selects the founding and headquarters fields the company schema declares", () => {
 		expect(
 			keys(
-				companyRecipes.summaryRecipe({
-					collectionLimit: 6,
+				bindRecipe(companyRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 					entityId: "company-1",
-					reference: { kind: "self" },
 				}),
 				"summary",
 			).slice(-5),
@@ -37,10 +44,8 @@ describe("media company query recipes", () => {
 	it("carries no character on credits", () => {
 		expect(
 			movieCreditKeys(
-				companyRecipes.overviewRecipe({
-					creditLimit: 12,
+				bindRecipe(companyRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 					entityId: "company-1",
-					reference: { kind: "self" },
 				}),
 			),
 		).not.toContain("character");

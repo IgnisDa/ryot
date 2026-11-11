@@ -11,7 +11,7 @@ import {
 } from "@ryot-app/plugin-backend-sdk/workflow";
 
 import { consumptionEventSlugs } from "../../shared/consumption-projection";
-import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../contracts/operations";
+import { ResolveEpisodesInput, ResolveEpisodesOutput } from "../../shared/integration-operations";
 import {
 	MediaImportPopulationWorkflowInput,
 	MediaImportPopulationWorkflowOutput,

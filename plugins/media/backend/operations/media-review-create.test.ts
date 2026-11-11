@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { EventId } from "@ryot-app/contract/schema/brands";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -32,7 +33,7 @@ describe("create media review", () => {
 				const host = defineSandboxTestHost(manifest, {
 					executeRyotql: (document) =>
 						Effect.sync(() => {
-							documents.push(document);
+							documents.push(bindTestRequest(document));
 							return targetRows([{ id: "media-1", entitySchemaSlug: "movie" }]);
 						}),
 					createEvents: (items) =>

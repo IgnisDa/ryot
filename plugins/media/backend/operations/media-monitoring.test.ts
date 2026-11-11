@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -48,7 +49,7 @@ describe("media monitoring operations", () => {
 				const host = defineSandboxTestHost(statusManifest, {
 					executeRyotql: (document) =>
 						Effect.sync(() => {
-							documents.push(document);
+							documents.push(bindTestRequest(document));
 							return rows([target("entity-a", "library-1")]);
 						}),
 				});
@@ -77,7 +78,7 @@ describe("media monitoring operations", () => {
 								from: objectContaining({ table: "entity", alias: "entity" }),
 								output: objectContaining({
 									type: "rows",
-									pagination: objectContaining({ limit: 3 }),
+									pagination: objectContaining({ limit: 100 }),
 									include: [
 										objectContaining({
 											key: "monitoringLibraries",
@@ -130,8 +131,10 @@ describe("media monitoring operations", () => {
 						}),
 					executeRyotql: (document) =>
 						Effect.gen(function* () {
-							documents.push(document);
-							const query = yield* Schema.decodeEffect(RyotQLDocument)(document).pipe(Effect.orDie);
+							documents.push(bindTestRequest(document));
+							const query = yield* Schema.decodeEffect(RyotQLDocument)(
+								bindTestRequest(document),
+							).pipe(Effect.orDie);
 							return "mediaLibrary" in query.queries
 								? libraryRows([{ entityId: "library-1" }])
 								: rows([target("entity-a")]);

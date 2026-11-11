@@ -11,8 +11,8 @@ import {
 	executeRyotqlRecipe,
 	inArray,
 	join,
-	literal,
 	or,
+	parameters,
 	selectedField,
 	selectedRows,
 	table,
@@ -46,57 +46,58 @@ export const activityCombinations: readonly EditableCombination[] =
 
 export const reviewCombinations: readonly EditableCombination[] =
 	mediaLibraryMemberEntitySchemaSlugs.map((entity) => [entity, "review"] as const);
-
-const editTargetsRecipe = defineRecipe(
-	(input: {
-		readonly ids: readonly string[];
-		readonly combinations: readonly EditableCombination[];
-	}) => {
-		const visible = table("event", "editVisibleEvent");
-		const event = table("event", "editTargetEvent");
-		const entity = table("entity", "editTargetEntity");
-		const byId = (from: typeof event) =>
-			inArray(
-				column(from, "id"),
-				input.ids.map((id) => literal(id)),
-			);
-		return {
-			map: ({ allowed, visible: seen }) =>
-				Result.succeed({ allowed: allowed.items, visibleIds: seen.items.map(({ id }) => id) }),
-			queries: {
-				visible: selectedRows(visible, {
-					where: byId(visible),
-					limit: MEDIA_EDIT_CHUNK_SIZE,
-					orderBy: [ascending(column(visible, "id"))],
-					selection: { id: selectedField(column(visible, "id"), Schema.String) },
-				}),
-				allowed: selectedRows(event, {
-					limit: MEDIA_EDIT_CHUNK_SIZE,
-					orderBy: [ascending(column(event, "id"))],
-					joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
-					where: and(
-						byId(event),
-						or(
-							...input.combinations.map(([entitySlug, eventSlug]) =>
-								eventSchemaPredicate(event, entity, entitySlug, eventSlug, { kind: "self" }),
-							),
+const editTargetsRecipe = (input: { readonly combinations: readonly EditableCombination[] }) => {
+	const inputParameters = parameters({
+		fields: {
+			ids: {
+				label: "ids",
+				type: "array",
+				description: "ids to read",
+				validation: { required: true },
+				items: { label: "ID", type: "string", description: "Selected ID" },
+			},
+		},
+	});
+	const visible = table("event", "editVisibleEvent");
+	const event = table("event", "editTargetEvent");
+	const entity = table("entity", "editTargetEntity");
+	const byId = (from: typeof event) => inArray(column(from, "id"), inputParameters.list("ids"));
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ allowed, visible: seen }) =>
+			Result.succeed({ allowed: allowed.items, visibleIds: seen.items.map(({ id }) => id) }),
+		queries: {
+			visible: selectedRows(visible, {
+				where: byId(visible),
+				limit: MEDIA_EDIT_CHUNK_SIZE,
+				orderBy: [ascending(column(visible, "id"))],
+				selection: { id: selectedField(column(visible, "id"), Schema.String) },
+			}),
+			allowed: selectedRows(event, {
+				limit: MEDIA_EDIT_CHUNK_SIZE,
+				orderBy: [ascending(column(event, "id"))],
+				joins: [join("inner", entity, eq(column(event, "entityId"), column(entity, "id")))],
+				where: and(
+					byId(event),
+					or(
+						...input.combinations.map(([entitySlug, eventSlug]) =>
+							eventSchemaPredicate(event, entity, entitySlug, eventSlug, { kind: "self" }),
 						),
 					),
-					selection: {
-						id: selectedField(column(event, "id"), Schema.String),
-						eventSchemaSlug: selectedField(column(event, "eventSchemaSlug"), Schema.String),
-						entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
-						properties: selectedField(
-							column(event, "properties"),
-							Schema.Record(Schema.String, Schema.Json),
-						),
-					},
-				}),
-			},
-		};
-	},
-);
-
+				),
+				selection: {
+					id: selectedField(column(event, "id"), Schema.String),
+					eventSchemaSlug: selectedField(column(event, "eventSchemaSlug"), Schema.String),
+					entitySchemaSlug: selectedField(column(entity, "entitySchemaSlug"), Schema.String),
+					properties: selectedField(
+						column(event, "properties"),
+						Schema.Record(Schema.String, Schema.Json),
+					),
+				},
+			}),
+		},
+	});
+};
 export type EditTarget = {
 	readonly id: string;
 	readonly eventSchemaSlug: string;
@@ -119,7 +120,8 @@ export const loadEditTargets = (
 	Effect.gen(function* () {
 		const { allowed, visibleIds } = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			editTargetsRecipe({ ids, combinations }),
+			editTargetsRecipe({ combinations: combinations }),
+			{ ids: ids },
 		);
 		const allowedIds = new Set(allowed.map(({ id }) => id));
 		if (visibleIds.some((id) => !allowedIds.has(id))) {

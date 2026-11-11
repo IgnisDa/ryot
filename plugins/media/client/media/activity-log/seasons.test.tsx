@@ -1,6 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getAllByRole, getByRole, queryByRole, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -27,7 +28,7 @@ describe("activity season choices", () => {
 				const view = mountRyotClient(
 					{
 						query: (document) => {
-							const serialized = JSON.stringify(document);
+							const serialized = JSON.stringify(bindTestRequest(document));
 							documents.push(serialized);
 							const index = Number(/"after":"seasons-(\d+)"/.exec(serialized)?.[1] ?? 0);
 							return Effect.succeed({

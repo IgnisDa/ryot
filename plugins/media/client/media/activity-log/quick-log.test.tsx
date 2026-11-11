@@ -4,6 +4,7 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { getByRole, getByText, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -53,7 +54,9 @@ const mountProbe = (
 			query: (document) => {
 				const answer = answers[contexts] ?? answers[answers.length - 1];
 				contexts += 1;
-				return answer === undefined ? named("Heat")(document) : answer(document);
+				return answer === undefined
+					? named("Heat")(bindTestRequest(document))
+					: answer(bindTestRequest(document));
 			},
 		},
 		<Probe />,

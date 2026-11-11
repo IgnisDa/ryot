@@ -10,6 +10,7 @@ import {
 	pluginContributor,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
@@ -125,7 +126,7 @@ describe("collection recommendations page", () => {
 
 				fireEvent.click(screen.getByRole("button", { name: "Load more" }));
 				const next = yield* answerRecommendations(page, [recommendation("c")], { index: 1 });
-				expect(next.document.queries["recommendations"]?.output).toMatchObject({
+				expect(bindTestRequest(next.request).queries["recommendations"]?.output).toMatchObject({
 					pagination: { after: "next" },
 				});
 				yield* Effect.promise(() => screen.findByRole("link", { name: "Open Title c" }));
@@ -165,7 +166,7 @@ describe("collection recommendations page", () => {
 				const page = openPage("search=dune");
 				yield* answerSources(page, 2);
 				const found = yield* answerRecommendations(page, []);
-				expect(found.document.queries["recommendations"]?.where).toMatchObject({
+				expect(bindTestRequest(found.request).queries["recommendations"]?.where).toMatchObject({
 					predicates: arrayContaining([
 						objectContaining({ type: "contains", right: { value: "dune", type: "literal" } }),
 					]),

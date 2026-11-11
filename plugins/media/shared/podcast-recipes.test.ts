@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
-import { rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { podcastEpisodesRecipe, podcastRecipes } from "./podcast-recipes";
 
@@ -24,10 +24,9 @@ const PODCAST_EPISODE_ROW = {
 
 describe("media podcast query recipes", () => {
 	it("lists podcast episodes newest first as a cursor-paged row query", () => {
-		const recipe = podcastEpisodesRecipe({
+		const recipe = bindRecipe(podcastEpisodesRecipe({ reference: { kind: "self" } }), {
 			limit: 40,
 			containerId: "podcast-1",
-			reference: { kind: "self" },
 		});
 		const episodes = recipe.document.queries["episodes"];
 		if (episodes?.output.type !== "rows" || episodes.where?.type !== "and") {
@@ -67,11 +66,10 @@ describe("media podcast query recipes", () => {
 	});
 
 	it("resumes an episode list from the cursor the previous page handed back", () => {
-		const recipe = podcastEpisodesRecipe({
+		const recipe = bindRecipe(podcastEpisodesRecipe({ reference: { kind: "self" } }), {
 			limit: 40,
 			after: "cursor-1",
 			containerId: "podcast-1",
-			reference: { kind: "self" },
 		});
 		const episodes = recipe.document.queries["episodes"];
 		if (episodes?.output.type !== "rows") {
@@ -98,10 +96,8 @@ describe("media podcast query recipes", () => {
 	});
 
 	it("covers every episode hanging off the podcast in one row", () => {
-		const recipe = podcastRecipes.summaryRecipe({
-			collectionLimit: 6,
+		const recipe = bindRecipe(podcastRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 			entityId: "podcast-1",
-			reference: { kind: "self" },
 		});
 		const summary = recipe.document.queries["summary"];
 		if (summary?.output.type !== "rows") {
@@ -116,12 +112,8 @@ describe("media podcast query recipes", () => {
 	});
 
 	it("adds the podcast's unlinked creators to the overview queries", () => {
-		const recipe = podcastRecipes.overviewRecipe({
-			peopleLimit: 12,
-			companyLimit: 6,
+		const recipe = bindRecipe(podcastRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 			entityId: "podcast-1",
-			recommendationLimit: 12,
-			reference: { kind: "self" },
 		});
 
 		expect(Object.keys(recipe.document.queries)).toEqual([

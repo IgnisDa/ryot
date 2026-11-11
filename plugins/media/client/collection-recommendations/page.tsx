@@ -29,6 +29,7 @@ import clsx from "clsx";
 import { type ReactNode, useEffect, useEffectEvent, useState } from "react";
 
 import {
+	COLLECTION_RECOMMENDATION_PAGE_SIZE,
 	type CollectionRecommendation,
 	collectionRecommendationSourcesRecipe,
 	type CollectionRecommendationSourcesResult,
@@ -44,7 +45,6 @@ import { MediaRefreshStatus, MediaStatusMessage } from "../media/primitives";
 import { mediaPosterAsset } from "../media/summary-state";
 import { mediaAspectOf } from "../schema-aspects";
 
-const PAGE_SIZE = 30;
 const SEARCH_PARAM = "search";
 
 type RecommendationsInput = {
@@ -57,22 +57,25 @@ const sourcesQuery = createRyotQuery<string, CollectionRecommendationSourcesResu
 	({ input, client }) =>
 		client.data.query(
 			collectionRecommendationSourcesRecipe({
-				collectionId: input,
 				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 			}),
+			{ collectionId: input },
 		),
 );
 
 const recommendationsQuery = createRyotQuery<RecommendationsInput, CollectionRecommendationsResult>(
 	({ input, client }) =>
 		client.data.query(
-			collectionRecommendationsRecipe({
-				limit: PAGE_SIZE,
-				after: input.after ?? undefined,
-				collectionId: input.collectionId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				...(input.searchText === "" ? {} : { searchText: input.searchText }),
-			}),
+			collectionRecommendationsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ collectionId: input.collectionId, searchText: input.searchText.trim() },
+			{
+				pages: {
+					recommendations: {
+						after: input.after ?? undefined,
+						limit: COLLECTION_RECOMMENDATION_PAGE_SIZE,
+					},
+				},
+			},
 		),
 	{
 		cancelOnUnmount: true,

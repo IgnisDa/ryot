@@ -4,6 +4,7 @@ import { RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createTestBackgroundSubmissions } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { anyOf, arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import {
@@ -133,13 +134,13 @@ const mountLog = (options: {
 			query: (document) => {
 				if (
 					options.refresh !== undefined &&
-					JSON.stringify(document).includes('"logEntity"') &&
+					JSON.stringify(bindTestRequest(document)).includes('"logEntity"') &&
 					queries.includes("context")
 				) {
 					queries.push("context");
-					return options.refresh(document);
+					return options.refresh(bindTestRequest(document));
 				}
-				return options.query?.(document) ?? answer(document);
+				return options.query?.(bindTestRequest(document)) ?? answer(bindTestRequest(document));
 			},
 		},
 		<MediaLogActivityButton
@@ -213,8 +214,8 @@ const mountEpisodeEdit = (options: {
 		{
 			...background.adapter,
 			watchEntities,
-			query: activityLogQuery(options.fake),
 			readUserSettings: () => Effect.succeed({}),
+			query: (request) => activityLogQuery(options.fake)(bindTestRequest(request)),
 		},
 		<MediaActivityEditSheet
 			compact
@@ -2158,7 +2159,10 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const mounted = mountRyotClient(
-				{ watchEntities, query: activityLogQuery(showFake({ earlier: {} })) },
+				{
+					watchEntities,
+					query: (request) => activityLogQuery(showFake({ earlier: {} }))(bindTestRequest(request)),
+				},
 				<SubmittingLogSheet
 					compact
 					logger={show}

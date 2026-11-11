@@ -1,7 +1,9 @@
 import {
 	calendarBuckets,
 	type Reported,
+	type ReportingPeriod,
 	type ReportingSelection,
+	type ResolvedReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
@@ -22,11 +24,10 @@ import { mediaPositionLabel } from "../media/activity-copy";
 export type SummaryChartsProps = RankingsRecordsProps;
 export type MediaAnalyticsRecord = MediaAnalyticsRecords["items"][number];
 export type MediaAnalyticsProcessing = MediaAnalyticsSummary["processing"];
-export type MediaAnalyticsTrend = Recipe.Success<typeof mediaAnalyticsTrendRecipe>;
-export type MediaAnalyticsHours = Recipe.Success<typeof mediaAnalyticsHoursRecipe>;
-export type MediaAnalyticsRanking = Recipe.Success<typeof mediaAnalyticsRankingRecipe>;
-export type MediaAnalyticsRecords = Recipe.Success<typeof mediaAnalyticsRecordsRecipe>;
-export type MediaAnalyticsSummary = Recipe.Success<typeof mediaAnalyticsSummaryRecipe>;
+export type MediaAnalyticsHours = Recipe.Success<ReturnType<typeof mediaAnalyticsHoursRecipe>>;
+export type MediaAnalyticsRanking = Recipe.Success<ReturnType<typeof mediaAnalyticsRankingRecipe>>;
+export type MediaAnalyticsRecords = Recipe.Success<ReturnType<typeof mediaAnalyticsRecordsRecipe>>;
+export type MediaAnalyticsSummary = Recipe.Success<ReturnType<typeof mediaAnalyticsSummaryRecipe>>;
 export type MediaAnalyticsMetric =
 	"titleCompletions" | "episodeCompletions" | "activeObservations" | ConsumptionMeasureUnit;
 export type AnalyticsInput = Omit<MediaAnalyticsInput, "reporting"> & {
@@ -44,8 +45,14 @@ export type RecordsDrillRequest = MediaAnalyticsFilter & {
 	readonly periodCaption: string;
 	readonly selection: ReportingSelection;
 };
-
+export type MediaAnalyticsTrend = {
+	readonly grouping: ResolvedReportingSelection["grouping"];
+	readonly current: TrendData["current"] & { readonly period: null | ReportingPeriod };
+	readonly previous:
+		null | (NonNullable<TrendData["previous"]> & { readonly period: ReportingPeriod });
+};
 type TypeRow = MediaAnalyticsSummary["current"]["types"][number];
+type TrendData = Recipe.Success<ReturnType<typeof mediaAnalyticsTrendRecipe>>;
 
 export const titleUnit = countUnit("title");
 export const episodeUnit = countUnit("episode");

@@ -1,8 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 
+import type { ExecutionRequest as ImportedExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { type EntityWatch, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import type { RyotQueryResult } from "@ryot-app/plugin-client-sdk/react";
+import { bindRecipe, bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, getByRole, waitFor } from "@testing-library/dom";
@@ -50,25 +52,30 @@ const libraryData = (input: {
 	readonly podcast?: readonly unknown[];
 }) => ({
 	flat: decodeRecipe(
-		flatByLifecycleStateRecipe({ limit: 20, states: ["in_progress"], reference: { kind: "self" } }),
+		bindRecipe(flatByLifecycleStateRecipe({ reference: { kind: "self" } }), {
+			limit: 20,
+			states: ["in_progress"],
+		}),
 		{ items: rows(input.flat ?? []) },
 	),
 	show: decodeRecipe(
-		episodicByLifecycleStateRecipe({
-			limit: 20,
-			states: ["in_progress"],
-			reference: { kind: "self" },
-			config: showEpisodicKindConfig,
-		}),
+		bindRecipe(
+			episodicByLifecycleStateRecipe({
+				reference: { kind: "self" },
+				config: showEpisodicKindConfig,
+			}),
+			{ limit: 20, states: ["in_progress"] },
+		),
 		{ items: rows(input.show ?? []) },
 	),
 	podcast: decodeRecipe(
-		episodicByLifecycleStateRecipe({
-			limit: 20,
-			states: ["in_progress"],
-			reference: { kind: "self" },
-			config: podcastEpisodicKindConfig,
-		}),
+		bindRecipe(
+			episodicByLifecycleStateRecipe({
+				reference: { kind: "self" },
+				config: podcastEpisodicKindConfig,
+			}),
+			{ limit: 20, states: ["in_progress"] },
+		),
 		{ items: rows(input.podcast ?? []) },
 	),
 });
@@ -76,7 +83,7 @@ const libraryData = (input: {
 type UpcomingEpisodic = {
 	readonly id: string;
 	readonly total: number;
-	readonly rows: readonly unknown[];
+	readonly rows: readonly Readonly<Record<string, unknown>>[];
 };
 
 const upcomingTotals = (titles: readonly UpcomingEpisodic[]) => ({
@@ -87,30 +94,31 @@ const upcomingTotals = (titles: readonly UpcomingEpisodic[]) => ({
 
 const upcomingData = (input: {
 	readonly onePerTitle?: boolean;
-	readonly anime?: readonly unknown[];
 	readonly releases?: readonly unknown[];
 	readonly shows?: readonly UpcomingEpisodic[];
 	readonly podcasts?: readonly UpcomingEpisodic[];
+	readonly anime?: readonly Readonly<Record<string, unknown>>[];
 }) => ({
-	titles: decodeRecipe(
-		upcomingRecipe({
-			limit: 20,
-			fromDate: "",
-			untilDate: "",
-			fromInstant: "",
-			untilInstant: "",
-			reference: { kind: "self" },
-			onePerTitle: input.onePerTitle ?? true,
-		}),
-		{
-			anime: rows(input.anime ?? []),
-			releases: rows(input.releases ?? []),
-			showTotals: upcomingTotals(input.shows ?? []),
-			podcastTotals: upcomingTotals(input.podcasts ?? []),
-			shows: rows((input.shows ?? []).flatMap((title) => title.rows)),
-			podcasts: rows((input.podcasts ?? []).flatMap((title) => title.rows)),
-		},
-	),
+	titles: decodeRecipe(bindRecipe(upcomingRecipe({ reference: { kind: "self" } }), { limit: 20 }), {
+		releases: rows(input.releases ?? []),
+		showTotals: upcomingTotals(input.shows ?? []),
+		podcastTotals: upcomingTotals(input.podcasts ?? []),
+		anime: rows(
+			(input.anime ?? []).map((row) =>
+				Object.assign({}, row, { onePerTitle: input.onePerTitle ?? true }),
+			),
+		),
+		shows: rows(
+			(input.shows ?? []).flatMap((title) =>
+				title.rows.map((row) => Object.assign({}, row, { onePerTitle: input.onePerTitle ?? true })),
+			),
+		),
+		podcasts: rows(
+			(input.podcasts ?? []).flatMap((title) =>
+				title.rows.map((row) => Object.assign({}, row, { onePerTitle: input.onePerTitle ?? true })),
+			),
+		),
+	}),
 });
 
 const tileLines = (container: HTMLElement) =>
@@ -291,6 +299,7 @@ const upcomingEpisodic = (
 		...identity,
 		...episode,
 		occurrenceId: id,
+		onePerTitle: true,
 		occurrenceImages: images,
 	})),
 });
@@ -471,8 +480,8 @@ describe("UpcomingRail", () => {
 type QueryResponder = (queries: readonly string[]) => Effect.Effect<unknown, RyotClientError>;
 
 const respondingAdapter = (respond: QueryResponder, interests: EntityWatch[] = []) => ({
-	query: (document: { readonly queries: Readonly<Record<string, unknown>> }) =>
-		respond(Object.keys(document.queries)),
+	query: (request: ImportedExecutionRequest) =>
+		respond(Object.keys(bindTestRequest(request).queries)),
 	watchEntities: (interest: EntityWatch) => {
 		interests.push(interest);
 		return {
@@ -500,13 +509,9 @@ const lazyRails = [
 	{
 		Rail: SuggestionsRail,
 		title: "Because you finished",
-		empty: { "suggestions.items": rows([]), "suggestions.source": rows([]) },
+		empty: { items: rows([]), source: rows([]) },
 	},
-	{
-		Rail: TrendingRail,
-		title: "Trending in films & shows",
-		empty: { "trending.trending": rows([]) },
-	},
+	{ Rail: TrendingRail, empty: { trending: rows([]) }, title: "Trending in films & shows" },
 ] as const;
 
 describe("lazily queried rails", () => {
@@ -555,8 +560,8 @@ describe("lazily queried rails", () => {
 				const view = mountRyotClient(
 					respondingAdapter(
 						respondWith({
-							"suggestions.source": rows([mediaIdentity("movie-1", "Heat", "movie")]),
-							"suggestions.items": rows([mediaIdentity("movie-2", "Collateral", "movie")]),
+							source: rows([mediaIdentity("movie-1", "Heat", "movie")]),
+							items: rows([mediaIdentity("movie-2", "Collateral", "movie")]),
 						}),
 						interests,
 					),
@@ -583,7 +588,7 @@ describe("lazily queried rails", () => {
 				const view = mountRyotClient(
 					respondingAdapter(
 						respondWith({
-							"trending.trending": rows([
+							trending: rows([
 								{ ...trending("movie-1", "Heat", "movie", 1), isInMediaLibrary: true },
 								trending("show-1", "Severance", "show", 1),
 								trending("movie-2", "Collateral", "movie", 2),

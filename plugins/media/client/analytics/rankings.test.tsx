@@ -11,6 +11,7 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -69,6 +70,7 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/k/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -151,7 +153,9 @@ describe("Media analytics rankings", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(2)));
 					const continuation = itemAt(rankingRequests(page), 1);
-					expect(asText(continuation.document)).toContain("opaque-ranked-page/cursor?keep=this");
+					expect(asText(bindTestRequest(continuation.request))).toContain(
+						"opaque-ranked-page/cursor?keep=this",
+					);
 					page.replyQuery(continuation.requestId, {
 						outcome: "success",
 						response: rankingResponse(null, [rankingRow("entity-101", "Entity 101", 0)]),
@@ -228,7 +232,7 @@ describe("Media analytics rankings", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(2)));
 					const filteredRequest = itemAt(rankingRequests(page), 1);
-					expect(asText(filteredRequest.document)).toContain("show-episode");
+					expect(asText(bindTestRequest(filteredRequest.request))).toContain("show-episode");
 					page.replyQuery(originalRequest.requestId, {
 						outcome: "success",
 						response: rankingResponse(null, [rankingRow("stale-book", "Late book result", 20)]),
@@ -270,7 +274,7 @@ describe("Media analytics rankings", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(1)));
 					const firstRequest = itemAt(rankingRequests(page), 0);
-					expect(asText(firstRequest.document)).toContain("media-owner");
+					expect(asText(bindTestRequest(firstRequest.request))).toContain("media-owner");
 					page.replyQuery(firstRequest.requestId, {
 						outcome: "success",
 						response: rankingResponse(null, [
@@ -294,8 +298,12 @@ describe("Media analytics rankings", () => {
 						mediaType: "book",
 						entityId: "title/exact",
 						title: "Title to inspect",
-						selection: firstPageReporting.selection,
 						periodCaption: periodCaption(firstPageReporting.resolved.current),
+						selection: {
+							grouping: "day",
+							comparison: "none",
+							range: { kind: "custom", endDate: "2026-11-01", startDate: "2026-10-26" },
+						},
 					});
 					act(() => {
 						fireEvent.click(screen.getByRole("button", { name: "All records" }));
@@ -337,7 +345,7 @@ describe("Media analytics rankings", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(2)));
 					const append = itemAt(rankingRequests(page), 1);
-					expect(asText(append.document)).toContain("append-cursor");
+					expect(asText(bindTestRequest(append.request))).toContain("append-cursor");
 					page.replyQuery(append.requestId, { outcome: "failure", reason: "query-failed" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -349,7 +357,9 @@ describe("Media analytics rankings", () => {
 						fireEvent.click(screen.getByRole("button", { name: "Try again" }));
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(3)));
-					expect(asText(itemAt(rankingRequests(page), 2).document)).toContain("append-cursor");
+					expect(asText(bindTestRequest(itemAt(rankingRequests(page), 2).request))).toContain(
+						"append-cursor",
+					);
 					page.replyQuery(itemAt(rankingRequests(page), 2).requestId, {
 						outcome: "success",
 						response: rankingResponse(null, [rankingRow("old-two", "Old page two", 2)]),
@@ -395,7 +405,9 @@ describe("Media analytics rankings", () => {
 						]),
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(7)));
-					expect(asText(itemAt(rankingRequests(page), 6).document)).toContain("retry-depth-cursor");
+					expect(asText(bindTestRequest(itemAt(rankingRequests(page), 6).request))).toContain(
+						"retry-depth-cursor",
+					);
 					page.replyQuery(itemAt(rankingRequests(page), 6).requestId, {
 						outcome: "success",
 						response: rankingResponse(null, [rankingRow("new-two", "New page two", 6)]),
@@ -477,10 +489,13 @@ describe("Media analytics rankings", () => {
 					});
 					yield* Effect.promise(() => waitFor(() => expect(rankingRequests(page)).toHaveLength(3)));
 					const nextRequest = itemAt(rankingRequests(page), 2);
-					expect(asText(nextRequest.document)).toContain("media-next");
-					expect(asText(nextRequest.document)).toContain("2026-08-31T22:00:00.000Z");
-					expect(asText(nextRequest.document)).toContain("2026-09-03T22:00:00.000Z");
-					expect(asText(nextRequest.document)).not.toContain("media-owner");
+					expect(asText(bindTestRequest(nextRequest.request))).toContain("media-next");
+					expect(nextRequest.request.arguments).toMatchObject({
+						range: "custom",
+						customEndDate: "2026-09-03",
+						customStartDate: "2026-09-01",
+					});
+					expect(asText(bindTestRequest(nextRequest.request))).not.toContain("media-owner");
 					expect(screen.queryByText("Initial row")).toBeNull();
 					page.replyQuery(originalRequest.requestId, {
 						outcome: "success",

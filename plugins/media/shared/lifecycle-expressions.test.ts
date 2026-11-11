@@ -5,6 +5,7 @@ import {
 	validateRyotQLDocument,
 } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { podcastEpisodesRecipe, podcastRecipes } from "./podcast-recipes";
 import { showRecipes, showSeasonEpisodesRecipe, showSeasonsRecipe } from "./show-recipes";
@@ -24,39 +25,45 @@ describe("episodic lifecycle documents", () => {
 	it.each([
 		[
 			"show summary",
-			showRecipes.summaryRecipe({
+			bindRecipe(showRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 				entityId: "show-1",
-				collectionLimit: 5,
-				reference: { kind: "self" },
 			}),
 		],
 		[
 			"podcast summary",
-			podcastRecipes.summaryRecipe({
+			bindRecipe(podcastRecipes.summaryRecipe({ reference: { kind: "self" } }), {
 				entityId: "pod-1",
-				collectionLimit: 5,
-				reference: { kind: "self" },
 			}),
 		],
 		[
 			"show activity",
-			showRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } }),
+			bindRecipe(showRecipes.activityRecipe({ reference: { kind: "self" } }), {
+				entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId,
+			}),
 		],
 		[
 			"podcast activity",
-			podcastRecipes.activityRecipe({ ...ACTIVITY_INPUT, reference: { kind: "self" } }),
+			bindRecipe(podcastRecipes.activityRecipe({ reference: { kind: "self" } }), {
+				entityId: { ...ACTIVITY_INPUT, reference: { kind: "self" } }.entityId,
+			}),
 		],
 		[
 			"show seasons",
-			showSeasonsRecipe({ seasonLimit: 10, entityId: "show-1", reference: { kind: "self" } }),
+			bindRecipe(showSeasonsRecipe({ reference: { kind: "self" } }), { entityId: "show-1" }),
 		],
 		[
 			"show season episodes",
-			showSeasonEpisodesRecipe({ limit: 10, containerId: "season-1", reference: { kind: "self" } }),
+			bindRecipe(showSeasonEpisodesRecipe({ reference: { kind: "self" } }), {
+				limit: 10,
+				containerId: "season-1",
+			}),
 		],
 		[
 			"podcast episodes",
-			podcastEpisodesRecipe({ limit: 10, containerId: "pod-1", reference: { kind: "self" } }),
+			bindRecipe(podcastEpisodesRecipe({ reference: { kind: "self" } }), {
+				limit: 10,
+				containerId: "pod-1",
+			}),
 		],
 	])("validates the %s document", (_name, recipe) => {
 		expect(validateRyotQLDocument(recipe.document, savedViewDataSourceAccess).error).toBeNull();

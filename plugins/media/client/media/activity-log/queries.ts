@@ -17,6 +17,10 @@ import {
 	showSeasonEpisodeChoicesRecipe,
 } from "../../../shared/activity-log-recipes";
 import {
+	podcastEpisodicKindConfig,
+	showEpisodicKindConfig,
+} from "../../../shared/lifecycle-expressions";
+import {
 	MediaActivityDeleteInput,
 	MediaActivityLogInput,
 	type MediaActivityPatch,
@@ -34,10 +38,8 @@ export const activityLogContextQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data.query(
-			mediaActivityLogContextRecipe({
-				entityId: input.entityId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
+			mediaActivityLogContextRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ entityId: input.entityId },
 		),
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
@@ -45,34 +47,28 @@ export const activityLogContextQuery = createRyotQuery<
 export const showEpisodeSeasonQuery = createRyotQuery<
 	{ readonly episodeEntityId: string },
 	null | number
->(({ input, client }) => client.data.query(showEpisodeSeasonRecipe(input)));
-
+>(({ input, client }) =>
+	client.data.query(showEpisodeSeasonRecipe, { episodeEntityId: input.episodeEntityId }),
+);
 export const showSeasonChoicesQuery = createRyotQuery<
 	{ readonly after: null | string; readonly seasonNumber: number; readonly showEntityId: string },
 	ShowSeasonEpisodeChoices
 >(({ input, client }) =>
 	client.data.query(
-		showSeasonEpisodeChoicesRecipe({
-			limit: SEASON_CHOICES_LIMIT,
-			showEntityId: input.showEntityId,
-			seasonNumber: input.seasonNumber,
-			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			...(input.after === null ? {} : { after: input.after }),
-		}),
+		showSeasonEpisodeChoicesRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		{ showEntityId: input.showEntityId, seasonNumber: input.seasonNumber },
+		{ pages: { episodes: { limit: SEASON_CHOICES_LIMIT, after: input.after ?? undefined } } },
 	),
 );
 
 export const activityLogSeasonsQuery = createRyotQuery<
 	{ readonly entityId: string; readonly after: null | string },
-	Recipe.Success<typeof showSeasonChoicesRecipe>
+	Recipe.Success<ReturnType<typeof showSeasonChoicesRecipe>>
 >(({ input, client }) =>
 	client.data.query(
-		showSeasonChoicesRecipe({
-			...input,
-			limit: 40,
-			after: input.after ?? undefined,
-			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-		}),
+		showSeasonChoicesRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		{ entityId: input.entityId },
+		{ pages: { seasons: { limit: 40, after: input.after ?? undefined } } },
 	),
 );
 
@@ -87,13 +83,11 @@ export const earlierEpisodesQuery = createRyotQuery<
 >(({ input, client }) =>
 	client.data.query(
 		episodicEarlierUnwatchedRecipe({
-			kind: input.kind,
-			limit: EARLIER_PAGE_LIMIT,
-			parentEntityId: input.parentEntityId,
-			episodeEntityId: input.episodeEntityId,
 			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			...(input.after === null ? {} : { after: input.after }),
+			config: input.kind === "show" ? showEpisodicKindConfig : podcastEpisodicKindConfig,
 		}),
+		{ parentEntityId: input.parentEntityId, episodeEntityId: input.episodeEntityId },
+		{ pages: { episodes: { limit: EARLIER_PAGE_LIMIT, after: input.after ?? undefined } } },
 	),
 );
 

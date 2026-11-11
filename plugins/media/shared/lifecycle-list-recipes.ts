@@ -12,6 +12,7 @@ import {
 	IsoDateString,
 	latestEventField,
 	literal,
+	parameters,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedAggregate,
@@ -19,11 +20,10 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import type { AppSchema, PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { MediaPosition } from "./consumption";
 import {
-	entityId,
 	entityIdentitySelection,
 	libraryLinkExists,
 	propertyJson,
@@ -34,19 +34,17 @@ import { episodicEpisodeSelection } from "./episodic-recipes";
 import { libraryMembershipJoin, librarySummary } from "./library-summary";
 import {
 	type EpisodicKindConfig,
-	type EpisodicLifecycleState,
 	EpisodicLifecycleStateSchema,
 	episodicNextUpInclude,
 	eventSlugIsOneOf,
 	mediaLifecycleExpressions,
-	type MediaLifecycleState,
 	MediaLifecycleStateSchema,
+	podcastEpisodicKindConfig,
 	type ScalarExpression,
+	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
 import { builtinMediaEntitySchemaSlugs, flatMediaSchemaSlugs } from "./media-schema-slugs";
-
-type NonEmpty<A> = readonly [A, ...A[]];
 
 const listedMediaSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
@@ -80,110 +78,175 @@ const isOneOf = (expression: Parameters<typeof inArray>[0], values: readonly str
  * the episode `episodicNextUpInclude` resolves. `latestActivityAt` is the latest aggregate
  * lifecycle signal, so for `backlog` it is the backlog event itself.
  */
-export const episodicByLifecycleStateRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly config: EpisodicKindConfig;
-		readonly after?: string | undefined;
-		readonly entityId?: string | undefined;
-		readonly reference: PluginIdentityReference;
-		readonly states: NonEmpty<EpisodicLifecycleState>;
-	}) => {
-		const entity = table("entity", "entity");
-		const library = libraryMembershipJoin(entity, "listLibrary");
-		const summary = librarySummary(library.membership);
-		return {
-			map: ({ items }) =>
-				Result.succeed({
-					pageInfo: items.pageInfo,
-					items: items.items.map(({ nextUp, ...item }) => ({
-						...item,
-						nextUp: nextUp.items[0] ?? null,
-					})),
-				}),
-			queries: {
-				items: selectedRows(entity, {
-					limit: input.limit,
-					...(input.after === undefined ? {} : { after: input.after }),
-					joins: [library.join],
-					orderBy: [descending(summary.lastActivityAt), descending(column(entity, "id"))],
-					selection: {
-						...listedMediaSelection(entity),
-						state: selectedField(summary.lifecycleState, EpisodicLifecycleStateSchema),
-						latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
-					},
-					where: and(
-						entitySchemaPredicate(entity, input.config.parentSchemaSlug, input.reference),
-						isOneOf(summary.lifecycleState, input.states),
-						...(input.entityId === undefined ? [] : [entityId(entity, input.entityId)]),
-					),
-					include: {
-						nextUp: episodicNextUpInclude(input.config, entity, (episode) => ({
-							...episodicEpisodeSelection(episode, entity, "listNextUpState"),
-							seasonNumber: selectedField(
-								input.config.kind === "show"
-									? propertyNumber(episode, "seasonNumber")
-									: literal(null),
-								Schema.NullOr(Schema.Finite),
-							),
-						})),
-					},
-				}),
+export const episodicByLifecycleStateRecipe = (input: {
+	readonly config: EpisodicKindConfig;
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: { type: "string", label: "entityId", description: "entityId for this selection" },
+			mediaTypes: {
+				type: "enum-array",
+				label: "Media types",
+				description: "Restrict the library to these media types",
+				choices: {
+					kind: "static",
+					values: builtinMediaEntitySchemaSlugs.map((value) => ({ value })),
+				},
 			},
-		};
-	},
-);
-
-export type EpisodicByLifecycleStateResult = Recipe.Success<typeof episodicByLifecycleStateRecipe>;
-
+			states: {
+				label: "states",
+				type: "enum-array",
+				validation: { required: true },
+				description: "states for this selection",
+				choices: {
+					kind: "static",
+					values: [
+						{ value: "untracked", label: "Untracked" },
+						{ value: "backlog", label: "backlog" },
+						{ value: "in_progress", label: "in_progress" },
+						{ value: "on_hold", label: "on_hold" },
+						{ value: "dropped", label: "dropped" },
+						{ value: "complete", label: "complete" },
+						{ value: "caught_up", label: "caught_up" },
+					],
+				},
+			},
+		},
+	});
+	const entity = table("entity", "entity");
+	const library = libraryMembershipJoin(entity, "listLibrary");
+	const summary = librarySummary(library.membership);
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ items }) =>
+			Result.succeed({
+				pageInfo: items.pageInfo,
+				items: items.items.map(({ nextUp, ...item }) => ({
+					...item,
+					nextUp: nextUp.items[0] ?? null,
+				})),
+			}),
+		queries: {
+			items: selectedRows(entity, {
+				limit: 100,
+				joins: [library.join],
+				orderBy: [descending(summary.lastActivityAt), descending(column(entity, "id"))],
+				selection: {
+					...listedMediaSelection(entity),
+					state: selectedField(summary.lifecycleState, EpisodicLifecycleStateSchema),
+					latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
+				},
+				include: {
+					nextUp: episodicNextUpInclude(input.config, entity, (episode) => ({
+						...episodicEpisodeSelection(episode, entity, "listNextUpState"),
+						seasonNumber: selectedField(
+							input.config.kind === "show"
+								? propertyNumber(episode, "seasonNumber")
+								: literal(null),
+							Schema.NullOr(Schema.Finite),
+						),
+					})),
+				},
+				where: and(
+					entitySchemaPredicate(entity, input.config.parentSchemaSlug, input.reference),
+					inArray(summary.lifecycleState, inputParameters.list("states")),
+					inputParameters.whenSet(
+						"mediaTypes",
+						inArray(column(entity, "entitySchemaSlug"), inputParameters.list("mediaTypes")),
+					),
+					inputParameters.whenSet(
+						"entityId",
+						eq(column(entity, "id"), inputParameters.value("entityId")),
+					),
+				),
+			}),
+		},
+	});
+};
+export type EpisodicByLifecycleStateResult = Recipe.Success<
+	ReturnType<typeof episodicByLifecycleStateRecipe>
+>;
 /**
  * In-library flat media of every builtin schema in one of `states`, most recent lifecycle activity
  * first, with the position from the latest progress event or list-state snapshot.
  */
-export const flatByLifecycleStateRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly reference: PluginIdentityReference;
-		readonly states: NonEmpty<MediaLifecycleState>;
-	}) => {
-		const entity = table("entity", "entity");
-		const library = libraryMembershipJoin(entity, "listLibrary");
-		const summary = librarySummary(library.membership);
-		const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
-		return {
-			map: ({ items }) => Result.succeed(items),
-			queries: {
-				items: selectedRows(entity, {
-					limit: input.limit,
-					joins: [library.join],
-					orderBy: [descending(summary.lastActivityAt), descending(column(entity, "id"))],
-					where: and(
-						schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
-						isOneOf(column(entity, "entitySchemaSlug"), flatMediaSchemaSlugs),
-						isOneOf(summary.lifecycleState, input.states),
-					),
-					selection: {
-						...listedMediaSelection(entity),
-						state: selectedField(summary.lifecycleState, MediaLifecycleStateSchema),
-						latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
-						progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
-						position: selectedField(
-							latestPositionField(entity, (event) => propertyJson(event, "position")),
-							Schema.NullOr(MediaPosition),
-						),
-					},
-				}),
+export const flatByLifecycleStateRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			mediaTypes: {
+				type: "enum-array",
+				label: "Media types",
+				description: "Restrict the library to these media types",
+				choices: {
+					kind: "static",
+					values: builtinMediaEntitySchemaSlugs.map((value) => ({ value })),
+				},
 			},
-		};
-	},
-);
-
-export type FlatByLifecycleStateResult = Recipe.Success<typeof flatByLifecycleStateRecipe>;
-
-/** How many builtin media entities are in the library; the `media-library` entity is not one. */
-export const libraryMediaCountRecipe = defineRecipe((reference: PluginIdentityReference) => {
+			states: {
+				label: "states",
+				type: "enum-array",
+				validation: { required: true },
+				description: "states for this selection",
+				choices: {
+					kind: "static",
+					values: [
+						{ value: "untracked", label: "Untracked" },
+						{ value: "backlog", label: "backlog" },
+						{ value: "in_progress", label: "in_progress" },
+						{ value: "on_hold", label: "on_hold" },
+						{ value: "dropped", label: "dropped" },
+						{ value: "complete", label: "complete" },
+						{ value: "caught_up", label: "caught_up" },
+					],
+				},
+			},
+		},
+	});
 	const entity = table("entity", "entity");
-	return {
+	const library = libraryMembershipJoin(entity, "listLibrary");
+	const summary = librarySummary(library.membership);
+	const lifecycle = mediaLifecycleExpressions(entity, "listLifecycle");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ items }) => Result.succeed(items),
+		queries: {
+			items: selectedRows(entity, {
+				limit: 100,
+				joins: [library.join],
+				orderBy: [descending(summary.lastActivityAt), descending(column(entity, "id"))],
+				where: and(
+					schemaOwnerPredicate(entity, "entitySchemaPluginId", input.reference),
+					isOneOf(column(entity, "entitySchemaSlug"), flatMediaSchemaSlugs),
+					inArray(summary.lifecycleState, inputParameters.list("states")),
+					inputParameters.whenSet(
+						"mediaTypes",
+						inArray(column(entity, "entitySchemaSlug"), inputParameters.list("mediaTypes")),
+					),
+				),
+				selection: {
+					...listedMediaSelection(entity),
+					state: selectedField(summary.lifecycleState, MediaLifecycleStateSchema),
+					latestActivityAt: selectedField(summary.lastActivityAt, Schema.NullOr(IsoDateString)),
+					progressPercent: selectedField(lifecycle.progressPercent, Schema.NullOr(Schema.Finite)),
+					position: selectedField(
+						latestPositionField(entity, (event) => propertyJson(event, "position")),
+						Schema.NullOr(MediaPosition),
+					),
+				},
+			}),
+		},
+	});
+};
+export type FlatByLifecycleStateResult = Recipe.Success<
+	ReturnType<typeof flatByLifecycleStateRecipe>
+>;
+/** How many builtin media entities are in the library; the `media-library` entity is not one. */
+export const libraryMediaCountRecipe = (reference: PluginIdentityReference) => {
+	const entity = table("entity", "entity");
+	return defineRecipe({
 		map: ({ library }) => Result.succeed(library.count),
 		queries: {
 			library: selectedAggregate(entity, {
@@ -195,5 +258,27 @@ export const libraryMediaCountRecipe = defineRecipe((reference: PluginIdentityRe
 				),
 			}),
 		},
-	};
-});
+	});
+};
+export const libraryByLifecycleStateRecipe = (reference: PluginIdentityReference) => {
+	const flat = flatByLifecycleStateRecipe({ reference });
+	const show = episodicByLifecycleStateRecipe({ reference, config: showEpisodicKindConfig });
+	const podcast = episodicByLifecycleStateRecipe({ reference, config: podcastEpisodicKindConfig });
+	return defineRecipe({
+		parameters: show.parameters,
+		queries: {
+			flat: lifecycleItems(flat),
+			show: lifecycleItems(show),
+			podcast: lifecycleItems(podcast),
+		},
+	});
+};
+const lifecycleItems = <Success, const Parameters extends AppSchema>(
+	recipe: Recipe<Success, Parameters>,
+) => {
+	const query = recipe.document.queries.items;
+	if (query === undefined) {
+		throw new Error("Lifecycle recipe is missing its items query");
+	}
+	return { document: query, decodeResult: (items: unknown) => recipe.decode({ data: { items } }) };
+};

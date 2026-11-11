@@ -5,6 +5,7 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { CreateEventItem } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -64,7 +65,7 @@ const recordingHost = (input: {
 					}),
 		executeRyotql: (document) =>
 			Effect.gen(function* () {
-				if (!("members" in document.queries)) {
+				if (!("members" in bindTestRequest(document).queries)) {
 					return {
 						data: {
 							target: page(
@@ -74,7 +75,7 @@ const recordingHost = (input: {
 					};
 				}
 				const serialized = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-					document.queries.members,
+					bindTestRequest(document).queries.members,
 				).pipe(Effect.orDie);
 				const ids = serialized.match(/(?<=")(episode-\d+|foreign)(?=")/g) ?? [];
 				memberQueries.push(ids.length);

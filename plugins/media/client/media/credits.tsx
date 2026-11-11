@@ -1,6 +1,6 @@
 import { type PluginIdentityReference, PluginLink } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, type RyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import type { PreparedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { AppSchema, Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { fieldSyncState } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ComponentProps } from "react";
@@ -10,6 +10,7 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { type MediaCursorPage, mediaCursorPageError } from "./cursor-page-state";
 import { MediaCursorPages } from "./cursor-pages";
 import { MediaDetailModalButton } from "./detail-modal";
+import type { MediaEntityRecipe } from "./detail-queries";
 import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
 import { collectManagedAssetLocators, type MediaImagePurposes } from "./image";
 import { MediaLibraryTitle } from "./library-title";
@@ -17,30 +18,28 @@ import { ManagedAssetImage } from "./managed-assets";
 import { mediaCharacterLabel, mediaRolesLabel, type MediaUnlinkedCreator } from "./overview-state";
 import { mediaPosterAsset } from "./summary-state";
 
-export type MediaCreditsRecipe<Scope extends object = object> = (
-	input: Scope & {
-		readonly limit: number;
-		readonly entityId: string;
-		readonly after?: string | undefined;
-		readonly reference: PluginIdentityReference;
-	},
-) => PreparedRecipe<MediaCursorPage<MediaCreatorCredit>>;
+export type MediaCreditsRecipe = MediaEntityRecipe<MediaCursorPage<MediaCreatorCredit>>;
 
 type CreditPageInput<Scope extends object> = Scope & {
 	readonly entityId: string;
 	readonly after: null | string;
 };
 
-export const createMediaCreditsQuery = <Scope extends object>(recipe: MediaCreditsRecipe<Scope>) =>
+export const createMediaCreditsQuery = <Scope extends object, const Parameters extends AppSchema>(
+	recipe: (input: {
+		readonly reference: PluginIdentityReference;
+	}) => Recipe<MediaCursorPage<MediaCreatorCredit>, Parameters>,
+	arguments_: (
+		input: CreditPageInput<Scope>,
+	) => Recipe.Arguments<Recipe<MediaCursorPage<MediaCreatorCredit>, Parameters>>,
+	queryName: string,
+) =>
 	createRyotQuery<CreditPageInput<Scope>, MediaCursorPage<MediaCreatorCredit>>(
 		({ input, client }) =>
 			client.data.query(
-				recipe({
-					...input,
-					limit: 30,
-					after: input.after ?? undefined,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
+				recipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				arguments_(input),
+				{ pages: { [queryName]: { limit: 30, after: input.after ?? undefined } } },
 			),
 		{
 			entityWatch: ({ data, input }) => ({

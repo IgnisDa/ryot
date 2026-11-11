@@ -8,7 +8,7 @@ const play = (
 	overrides: Record<string, unknown> = {},
 ): Record<string, unknown> => ({
 	ts,
-	ms_played: 215_400,
+	ms_played: 215400,
 	reason_end: "trackdone",
 	spotify_track_uri: `spotify:track:${trackId}`,
 	master_metadata_track_name: `Track ${trackId}`,
@@ -28,7 +28,7 @@ describe("adaptSpotifyStreamingHistory", () => {
 			file([1, 0, null].map((ms_played) => play("2020-01-01T00:00:00Z", "a", { ms_played }))),
 		]);
 		expect(result.entityGroups[0]?.events.map((event) => event.properties)).toEqual([
-			{ timeSpent: 1 / 60_000, consumedOn: ["Spotify"] },
+			{ timeSpent: 1 / 60000, consumedOn: ["Spotify"] },
 			{ timeSpent: 0, consumedOn: ["Spotify"] },
 			{ consumedOn: ["Spotify"] },
 		]);

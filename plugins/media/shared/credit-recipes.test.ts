@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import type { PreparedRecipe } from "@ryot-app/plugin-kit/ryotql";
+import type { RyotQLDocument as ImportedRyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 
 import { companyRecipes } from "./company-recipes";
@@ -10,7 +14,10 @@ import { musicGroupRecipes } from "./music-group-recipes";
 import { personRecipes } from "./person-recipes";
 import { showRecipes } from "./show-recipes";
 
-const rowsQuery = (recipe: PreparedRecipe<unknown>, name: string) => {
+const rowsQuery = (
+	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
+	name: string,
+) => {
 	const query = recipe.document.queries[name];
 	if (query?.output.type !== "rows") {
 		throw new Error(`Expected ${name} rows`);
@@ -20,23 +27,17 @@ const rowsQuery = (recipe: PreparedRecipe<unknown>, name: string) => {
 
 describe("credit pagination recipes", () => {
 	it("uses identical company ordering for bounded previews and cursor pages without person metadata", () => {
-		const overview = movieRecipes.overviewRecipe({
-			groupLimit: 20,
-			peopleLimit: 12,
-			companyLimit: 6,
+		const overview = bindRecipe(movieRecipes.overviewRecipe({ reference: { kind: "self" } }), {
 			entityId: "movie-1",
-			recommendationLimit: 12,
-			reference: { kind: "self" },
 		});
 		const preview = rowsQuery(overview, "companies");
 		for (const recipes of [movieRecipes, showRecipes, musicGroupRecipes]) {
 			for (const after of [undefined, "company-page-1", "company-page-2"]) {
 				const query = rowsQuery(
-					recipes.companiesRecipe({
-						after,
+					bindRecipe(recipes.companiesRecipe({ reference: { kind: "self" } }), {
 						limit: 30,
+						after: after,
 						entityId: "media-1",
-						reference: { kind: "self" },
 					}),
 					"companies",
 				);
@@ -66,11 +67,10 @@ describe("credit pagination recipes", () => {
 		for (const recipes of [movieRecipes, showRecipes]) {
 			for (const after of [undefined, "people-page-1", "people-page-2"]) {
 				const query = rowsQuery(
-					recipes.peopleRecipe({
-						after,
+					bindRecipe(recipes.peopleRecipe({ reference: { kind: "self" } }), {
 						limit: 30,
+						after: after,
 						entityId: "media-1",
-						reference: { kind: "self" },
 					}),
 					"people",
 				);
@@ -88,11 +88,10 @@ describe("credit pagination recipes", () => {
 
 	it("pages incoming people in credit order with roles and character names", () => {
 		const query = rowsQuery(
-			movieRecipes.peopleRecipe({
+			bindRecipe(movieRecipes.peopleRecipe({ reference: { kind: "self" } }), {
 				limit: 30,
 				after: "cursor-1",
 				entityId: "movie-1",
-				reference: { kind: "self" },
 			}),
 			"people",
 		);
@@ -123,7 +122,7 @@ describe("credit pagination recipes", () => {
 	it("does not select character fields for group people", () => {
 		const recipe = mediaPeopleRecipe({ slug: "music-group", personFields: () => ({}) });
 		const query = rowsQuery(
-			recipe({ limit: 30, entityId: "group-1", reference: { kind: "self" } }),
+			bindRecipe(recipe({ reference: { kind: "self" } }), { limit: 30, entityId: "group-1" }),
 			"people",
 		);
 		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).not.toContain(
@@ -142,9 +141,29 @@ describe("credit pagination recipes", () => {
 			after: "cursor-2",
 			entityId: "creator-1",
 			reference: { kind: "self" },
-		} satisfies Parameters<typeof personRecipes.creditsRecipe>[0];
-		const person = rowsQuery(personRecipes.creditsRecipe(input), "credits");
-		const company = rowsQuery(companyRecipes.creditsRecipe(input), "credits");
+		} satisfies Recipe.Arguments<ReturnType<typeof personRecipes.creditsRecipe>> & {
+			readonly limit: number;
+			readonly after: string;
+			readonly reference: PluginIdentityReference;
+		};
+		const person = rowsQuery(
+			bindRecipe(personRecipes.creditsRecipe({ reference: input.reference }), {
+				after: input.after,
+				limit: input.limit,
+				target: input.target,
+				entityId: input.entityId,
+			}),
+			"credits",
+		);
+		const company = rowsQuery(
+			bindRecipe(companyRecipes.creditsRecipe({ reference: input.reference }), {
+				after: input.after,
+				limit: input.limit,
+				target: input.target,
+				entityId: input.entityId,
+			}),
+			"credits",
+		);
 		expect(person.output.pagination).toEqual({ limit: 30, after: "cursor-2" });
 		expect(person.output.orderBy[0]).toMatchObject({
 			direction: "desc",
@@ -162,18 +181,17 @@ describe("credit pagination recipes", () => {
 
 	it("never reads undeclared year or character properties from creator group credits", () => {
 		const query = rowsQuery(
-			personRecipes.creditsRecipe({
+			bindRecipe(personRecipes.creditsRecipe({ reference: { kind: "self" } }), {
 				limit: 30,
 				entityId: "person-1",
 				target: "music-group",
-				reference: { kind: "self" },
 			}),
 			"credits",
 		);
 		expect(JSON.stringify(query)).not.toContain("publishYear");
-		expect(query.output.fields.map((field) => ("key" in field ? field.key : null))).not.toContain(
-			"character",
-		);
+		expect(
+			query.output.fields.find((field) => "key" in field && field.key === "character"),
+		).toEqual({ key: "character", expr: { value: null, type: "literal" } });
 		expect(query.output.orderBy).toMatchObject([
 			{ direction: "asc", expr: { field: "name" } },
 			{ direction: "asc", expr: { field: "id" } },

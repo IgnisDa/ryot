@@ -20,6 +20,8 @@ export default defineScript({
 	run: (input, host) =>
 		executeRyotqlRecipe(
 			host.executeRyotql,
-			mediaMonitoringSweepRecipe({ kind: "self" }, input.after, input.limit),
+			mediaMonitoringSweepRecipe({ kind: "self" }),
+			{},
+			{ pages: { targets: { after: input.after, limit: input.limit } } },
 		),
 });

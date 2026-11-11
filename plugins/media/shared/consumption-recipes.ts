@@ -1,4 +1,4 @@
-import { DateTime, Schema } from "@ryot-app/plugin-kit/effect";
+import { Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	add,
 	and,
@@ -11,7 +11,6 @@ import {
 	conditional,
 	count,
 	eq,
-	gte,
 	inArray,
 	isNotNull,
 	isNull,
@@ -19,29 +18,25 @@ import {
 	jsonPath,
 	literal,
 	localDate,
-	lte,
 	NullableNumber,
 	or,
+	parameters,
 	ProjectionProcessing,
 	projectionProcessing,
 	schemaOwnerPredicate,
 	selectedField,
 	sum,
 	table,
-	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
-import type {
-	PluginIdentityReference,
-	ReportingPeriod,
-	TimeZone,
-} from "@ryot-app/plugin-kit/schema";
+import type { ReportingWindow } from "@ryot-app/plugin-kit/ryotql";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { CALENDAR_DATE_TOLERANCE_DAYS } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { consumptionEventSlugs } from "./consumption-projection";
 import { propertyBoolean, propertyText } from "./entity-selections";
 
-type Table = ReturnType<typeof table>;
+type Table = Parameters<typeof column>[0];
 export const consumptionValue = (event: Table, ...path: string[]) =>
 	jsonPath(column(event, "projection"), "contribution", ...path);
 export const consumptionNumber = (event: Table, ...path: string[]) =>
@@ -56,7 +51,10 @@ export const consumptionAmount = (event: Table, unit: ConsumptionMeasureUnit) =>
 	);
 
 /** The local calendar date of an observation: date-only evidence keeps its recorded date. */
-export const consumptionActiveDay = (event: Table, timeZone: TimeZone) => {
+export const consumptionActiveDay = (
+	event: Table,
+	timeZone: Parameters<typeof localDate>[1]["timeZone"],
+) => {
 	const kind = castText(consumptionValue(event, "attribution", "kind"));
 	const value = consumptionValue(event, "attribution", "value");
 	return conditional(
@@ -69,30 +67,20 @@ export const consumptionActiveDay = (event: Table, timeZone: TimeZone) => {
 		),
 	);
 };
-
-const calendarDayStart = (date: string, days: number) =>
-	DateTime.formatIso(DateTime.add(DateTime.makeUnsafe(date), { days }));
-
-/**
- * Attribution equals the source `calendarDate` or `occurredAt`. The consumption policy keeps a
- * calendar date within one day of the UTC date of `occurredAt`, so the widened `occurredAt` range is
- * an index-served superset of both branches.
- */
-export const consumptionPeriod = (event: Table, period: null | ReportingPeriod) => {
-	if (period === null) {
-		return consumptionReady(event);
-	}
+export const consumptionPeriod = (event: Table, period: ReportingWindow) => {
 	const calendarDate = propertyText(event, "calendarDate");
 	return and(
-		withinPeriod(column(event, "occurredAt"), {
-			endAt: calendarDayStart(period.endDate, CALENDAR_DATE_TOLERANCE_DAYS + 1),
-			startAt: calendarDayStart(period.startDate, -CALENDAR_DATE_TOLERANCE_DAYS),
-		}),
 		consumptionReady(event),
-		eq(coalesce(propertyBoolean(event, "dateUnknown"), literal(false)), literal(false)),
+		period.superset(column(event, "occurredAt"), CALENDAR_DATE_TOLERANCE_DAYS + 1),
 		or(
-			and(gte(calendarDate, literal(period.startDate)), lte(calendarDate, literal(period.endDate))),
-			and(isNull(calendarDate), withinPeriod(column(event, "occurredAt"), period)),
+			period.unbounded,
+			and(
+				eq(coalesce(propertyBoolean(event, "dateUnknown"), literal(false)), literal(false)),
+				or(
+					and(isNotNull(calendarDate), period.dateWhere(calendarDate)),
+					and(isNull(calendarDate), period.where(column(event, "occurredAt"))),
+				),
+			),
 		),
 	);
 };
@@ -139,19 +127,23 @@ export type ConsumptionScope = {
 	readonly entityId?: string | undefined;
 	readonly reference: PluginIdentityReference;
 };
-
-export const consumptionScope = (event: Table, input: ConsumptionScope) =>
+export const consumptionScopeParameterFields = {
+	entityId: { type: "string", label: "Title", description: "Restrict activity to this title" },
+} as const;
+const scopeParameters = parameters({ fields: consumptionScopeParameterFields });
+export const consumptionScope = (event: Table, input: Pick<ConsumptionScope, "reference">) =>
 	and(
 		schemaOwnerPredicate(event, "eventSchemaPluginId", input.reference),
-		...(input.entityId === undefined
-			? []
-			: [eq(column(event, "entityId"), literal(input.entityId))]),
+		scopeParameters.whenSet(
+			"entityId",
+			eq(column(event, "entityId"), scopeParameters.value("entityId")),
+		),
 	);
 
 export const consumptionDetail = (
 	input: ConsumptionScope,
 	alias: string,
-	period: null | ReportingPeriod,
+	period: ReportingWindow,
 ) => {
 	const event = table("event", `${alias}Event`);
 	const entity = table("entity", `${alias}Entity`);
