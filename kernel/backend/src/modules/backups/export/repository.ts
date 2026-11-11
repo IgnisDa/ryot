@@ -19,6 +19,7 @@ import { userCollectionWhere } from "#modules/collections/repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
+import * as pageSchema from "#schema/tables/pages";
 
 import { ARCHIVE_LIMITS } from "../archive/archive";
 import { archiveEntryTooLarge } from "../archive/error";
@@ -91,6 +92,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 						db
 							.select({
 								hasEvents: sql<boolean>`exists (select 1 from ${schema.event} where ${schema.event.userId} = ${userId})`,
+								hasPages: sql<boolean>`exists (select 1 from ${pageSchema.page} where ${pageSchema.page.userId} = ${userId})`,
 								hasReminders: sql<boolean>`exists (select 1 from ${schema.reminder} where ${schema.reminder.userId} = ${userId})`,
 								hasIntegrations: sql<boolean>`exists (select 1 from ${schema.integration} where ${schema.integration.userId} = ${userId})`,
 								hasPublications: sql<boolean>`exists (select 1 from ${schema.publication} where ${schema.publication.userId} = ${userId})`,
@@ -640,7 +642,26 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 				);
 				return rows.map(({ id }) => id);
 			});
+			const listPages = Effect.fn("BackupExportRepository.listPages")(function* (
+				userId: UserId,
+				afterId?: string,
+			) {
+				return yield* session.run((db) =>
+					db
+						.select()
+						.from(pageSchema.page)
+						.where(
+							and(
+								eq(pageSchema.page.userId, userId),
+								afterId === undefined ? undefined : gt(pageSchema.page.id, afterId),
+							),
+						)
+						.orderBy(asc(pageSchema.page.id))
+						.limit(1),
+				);
+			});
 			return {
+				listPages,
 				listReminders,
 				listFoldValues,
 				listPublications,

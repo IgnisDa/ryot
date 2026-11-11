@@ -17,7 +17,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
+import { PageClientArtifact, PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 import {
@@ -41,6 +41,7 @@ import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities
 import { type BackupExcludedEventSchema, EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
+import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { concretePluginConfigSecretPaths } from "#modules/plugins/configuration/redaction";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -59,12 +60,14 @@ import {
 	rewriteAssetLocatorForArchive,
 } from "../archive/references";
 import type {
+	ArchiveBlobManifest,
 	ArchiveCalendarSourceOverride,
 	ArchiveEntityDependency,
 	ArchiveEvent,
 	ArchiveInstallation,
 	ArchiveIntegration,
 	ArchiveNotificationSubscription,
+	ArchivePage,
 	ArchivePublication,
 	ArchiveRecords,
 	ArchiveRelationship,
@@ -82,6 +85,12 @@ import {
 import type { ArchiveMetadata, StreamedSectionPath } from "../archive/sections";
 import { encodeArchiveJsonLine, encodeNdjson, IncrementalSha256 } from "../archive/streaming";
 import { isDefaultSystemInstallation } from "../installation-state";
+import {
+	describePageArtifact,
+	exportPageDefinition,
+	pagePluginKeys,
+	validatePageArtifact,
+} from "../pages";
 import { BackupStaging } from "../staging";
 import { BackupExportRepository, type BackupPropertyReferenceDeclaration } from "./repository";
 
@@ -369,6 +378,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthRepository;
+			const pageArtifacts = yield* ClientArtifactsRepository;
 			const events = yield* EventsRepository;
 			const fs = yield* FileSystem.FileSystem;
 			const plugins = yield* PluginRepository;
@@ -1641,6 +1651,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						};
 					};
 					const spools = {
+						pages: spool("pages.ndjson", ARCHIVE_CODECS["pages.ndjson"]),
 						entities: spool("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
 						reminders: spool("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
 						foldValues: spool("fold-values.ndjson", ARCHIVE_CODECS["fold-values.ndjson"]),
@@ -1757,12 +1768,129 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						context,
 					);
 					yield* retainSummary(eventPage);
+					const blobsByHash = new Map<
+						string,
+						ArchiveBlobManifest & { readonly filePath: string }
+					>();
+					const packages = new Map(
+						context.installedPlugins.map((plugin) => [
+							plugin.id,
+							{ scope: plugin.scope, packageId: plugin.packageId },
+						]),
+					);
+					let afterPageId: string | undefined;
+					let hasMorePages = true;
+					while (hasMorePages) {
+						const rows = yield* exportRepository.listPages(userId, afterPageId);
+						hasMorePages = rows.length > 0;
+						for (const row of rows) {
+							const draftDefinition = yield* exportPageDefinition(row.draftDefinition, packages);
+							let published: ArchivePage["published"] = null;
+							if (row.publishedDefinition !== null) {
+								if (row.publishedArtifactHash === null || row.publishedRevision === null) {
+									return yield* archiveError(
+										"invalid_entry",
+										"Published page metadata is incomplete",
+										"pages.ndjson",
+									);
+								}
+								const definition = yield* exportPageDefinition(row.publishedDefinition, packages);
+								const artifact = yield* Schema.decodeUnknownEffect(PageClientArtifact)(
+									yield* pageArtifacts.loadClientArtifact(row.publishedArtifactHash),
+								).pipe(
+									Effect.mapError((error) =>
+										archiveError("invalid_entry", error.message, "pages.ndjson"),
+									),
+								);
+								yield* validatePageArtifact(artifact, definition);
+								published = {
+									definition,
+									revision: row.publishedRevision,
+									artifact: describePageArtifact(artifact),
+								};
+								for (const file of artifact.files) {
+									const description = published.artifact.files.find(
+										({ name }) => name === file.name,
+									);
+									if (!description) {
+										return yield* archiveError("invalid_entry", "Page file metadata is missing");
+									}
+									if (!blobsByHash.has(description.sha256)) {
+										if (
+											blobsByHash.size + assetsBySha.size + ARCHIVE_SECTION_PATHS.length + 1 >=
+											ARCHIVE_LIMITS.maxEntryCount
+										) {
+											return yield* archiveError(
+												"entry_count_exceeded",
+												"Backup binary entry limit exceeded",
+											);
+										}
+										const filePath = `${eventsPath}.blob-${description.sha256}`;
+										yield* fs.writeFile(filePath, file.contents);
+										blobsByHash.set(description.sha256, {
+											filePath,
+											size: description.size,
+											sha256: description.sha256,
+											path: `blobs/${description.sha256}`,
+											contentType: "application/octet-stream",
+										});
+									}
+								}
+							} else if (row.publishedRevision !== null || row.publishedArtifactHash !== null) {
+								return yield* archiveError(
+									"invalid_entry",
+									"Unpublished page metadata is inconsistent",
+									"pages.ndjson",
+								);
+							}
+							for (const definition of [
+								draftDefinition,
+								...(published ? [published.definition] : []),
+							]) {
+								for (const key of pagePluginKeys(definition)) {
+									const plugin = context.pluginByKey.get(key);
+									if (!plugin) {
+										return yield* archiveError(
+											"missing_reference_mapping",
+											"Page references an unavailable plugin",
+											"pages.ndjson",
+										);
+									}
+									if (plugin.scope === "system") {
+										requiredByPackage.set(plugin.packageId, {
+											version: plugin.version,
+											packageId: plugin.packageId,
+											contentHash: plugin.contentHash,
+											definitionContract: archivePluginDefinitionContract(plugin.manifest),
+										});
+									}
+								}
+							}
+							yield* spools.pages.append([
+								{
+									published,
+									id: row.id,
+									slug: row.slug,
+									name: row.name,
+									draftDefinition,
+									origin: row.origin,
+									writeAccess: row.writeAccess,
+									draftRevision: row.draftRevision,
+									createdAt: row.createdAt.toISOString(),
+									updatedAt: row.updatedAt.toISOString(),
+									authorityRevision: row.authorityRevision,
+								},
+							]);
+							afterPageId = row.id;
+						}
+					}
 					if (!metadata) {
 						return yield* badRequest("Backup metadata is unavailable");
 					}
 					const sections = Object.values(spools).map((section) => section.summary());
 					return {
 						records: metadata,
+						blobs: [...blobsByHash.values()],
 						redactions: [...redactions].sort(),
 						managedAssets: [...assetsBySha.values()],
 						requiredPlugins: [...requiredByPackage.values()],
@@ -1783,6 +1911,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(Layer.merge(BackupExportRepository.layer, BackupStaging.layer)),
+		Layer.provide(
+			Layer.mergeAll(
+				BackupExportRepository.layer,
+				BackupStaging.layer,
+				ClientArtifactsRepository.layer,
+			),
+		),
 	);
 }

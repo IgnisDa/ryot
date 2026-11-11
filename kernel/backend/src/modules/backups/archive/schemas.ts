@@ -9,6 +9,7 @@ import {
 	relationshipDataFields,
 } from "@ryot-app/contract/modules/imports/data-json";
 import { NotificationOutcome } from "@ryot-app/contract/modules/notifications/delivery";
+import { PageDefinition, PageOrigin } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { CreatePublicationBody } from "@ryot-app/contract/modules/publications/schemas";
 import {
@@ -28,7 +29,10 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
-import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
+import {
+	PageClientArtifactMetadata,
+	PluginClientArtifactFromBase64,
+} from "@ryot-app/plugin-client-contract";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Schema } from "effect";
 
@@ -56,6 +60,7 @@ export const ARCHIVE_SECTION_PATHS = [
 	"entity-dependencies.ndjson",
 	"relationships.ndjson",
 	"events.ndjson",
+	"pages.ndjson",
 	"saved-views.ndjson",
 	"calendar-source-overrides.ndjson",
 	"integrations.ndjson",
@@ -83,6 +88,56 @@ export const ArchiveAssetManifest = strictStruct({
 	),
 });
 export type ArchiveAssetManifest = typeof ArchiveAssetManifest.Type;
+
+export const ArchiveBlobManifest = strictStruct({
+	sha256,
+	size: nonNegativeInteger,
+	contentType: Schema.String,
+	path: Schema.String.pipe(
+		Schema.check(Schema.makeFilter((value) => /^blobs\/[a-f0-9]{64}$/.test(value))),
+	),
+});
+export type ArchiveBlobManifest = typeof ArchiveBlobManifest.Type;
+
+export const ArchivePageArtifact = strictStruct({
+	...PageClientArtifactMetadata.fields,
+	files: Schema.Array(
+		strictStruct({
+			sha256,
+			name: Schema.String,
+			size: nonNegativeInteger,
+			contentType: Schema.String,
+		}),
+	),
+});
+export type ArchivePageArtifact = typeof ArchivePageArtifact.Type;
+
+export const ArchivePage = strictStruct({
+	origin: PageOrigin,
+	id: Schema.NonEmptyString,
+	slug: Schema.NonEmptyString,
+	name: Schema.NonEmptyString,
+	writeAccess: Schema.Boolean,
+	draftRevision: positiveInteger,
+	createdAt: DataRecordTimestamp,
+	updatedAt: DataRecordTimestamp,
+	draftDefinition: PageDefinition,
+	authorityRevision: positiveInteger,
+	published: Schema.NullOr(
+		strictStruct({
+			revision: positiveInteger,
+			definition: PageDefinition,
+			artifact: ArchivePageArtifact,
+		}),
+	),
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(page) => page.published === null || page.published.revision <= page.draftRevision,
+		),
+	),
+);
+export type ArchivePage = typeof ArchivePage.Type;
 
 export const ArchivePluginDefinitionContract = strictStruct({
 	client: PluginManifest.fields.client,
@@ -126,6 +181,7 @@ export const ArchiveManifest = strictStruct({
 	createdAt: DataRecordTimestamp,
 	format: Schema.Literal("ryot-backup"),
 	redactions: Schema.Array(Schema.String),
+	blobs: Schema.Array(ArchiveBlobManifest),
 	assets: Schema.Array(ArchiveAssetManifest),
 	sections: Schema.Array(ArchiveSectionManifest),
 	requiredPlugins: Schema.Array(ArchiveRequiredPlugin),
@@ -303,6 +359,7 @@ const savedViewFields = {
 	settings: Schema.Record(Schema.String, JsonValue),
 	arguments: Schema.Record(Schema.String, JsonValue),
 	renderer: Schema.Union([
+		strictStruct({ pageId: Schema.String, kind: Schema.Literal("page") }),
 		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 		strictStruct({
 			pluginKey: Schema.String,
@@ -464,6 +521,7 @@ export const ArchivePublication = strictStruct({
 export type ArchivePublication = typeof ArchivePublication.Type;
 
 export const ARCHIVE_CODECS = {
+	"pages.ndjson": ArchivePage,
 	"events.ndjson": ArchiveEvent,
 	"profile.json": ArchiveProfile,
 	"reminders.ndjson": ArchiveReminder,

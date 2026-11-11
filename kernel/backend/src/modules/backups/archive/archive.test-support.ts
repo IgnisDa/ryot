@@ -41,6 +41,7 @@ export const archiveFixtureSections = (
 	records: ArchiveRecords,
 	events: ArchiveFixtureEvents,
 ): ReadonlyArray<ArchiveSectionInput> => [
+	encodeSection("pages.ndjson", [], ARCHIVE_CODECS["pages.ndjson"]),
 	encodeSection("entities.ndjson", records.entities, ARCHIVE_CODECS["entities.ndjson"]),
 	encodeSection(
 		"entity-dependencies.ndjson",

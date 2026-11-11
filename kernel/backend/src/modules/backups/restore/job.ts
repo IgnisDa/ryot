@@ -184,6 +184,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 					const validated = yield* validateArchiveStream(source, {
 						directory: config.fileStorage.localTempDir,
 					}).pipe(Effect.provideService(FileSystem.FileSystem, fs));
+					const blobs = new Map(validated.blobs.map((blob) => [blob.sha256, blob]));
 					const stagedBySha = new Map<string, StagedPermanentAsset>();
 					const stageAndRestore = Effect.fnUntraced(function* () {
 						const systemPluginIds = yield* writer.assertRequiredPlugins(
@@ -211,6 +212,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 							preflightPluginIds,
 							preflightDefinitions,
 							validated.manifest.requiredPlugins,
+							blobs,
 						);
 						const provider = yield* objectStorage.permanentStorageProvider;
 						for (const asset of validated.assets) {
@@ -260,6 +262,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 								pluginIdByKey,
 								definitions,
 								validated.manifest.requiredPlugins,
+								blobs,
 							);
 							for (const staged of stagedBySha.values()) {
 								yield* managedAssets.registerManagedAssetInLockedTransaction(staged.metadata);
@@ -271,6 +274,7 @@ export const RestoreBackupOperationsLive = Layer.effect(
 								pluginIdByKey,
 								definitions,
 								assetLocators,
+								blobs,
 							);
 							for (const pluginId of new Set(pluginIdByKey.values())) {
 								yield* jobs.enqueue(

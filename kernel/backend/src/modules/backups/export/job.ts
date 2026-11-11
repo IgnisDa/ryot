@@ -186,6 +186,10 @@ export const ExportBackupOperationsLive = Layer.effect(
 						appVersion: BACKUP_APP_VERSION,
 						redactions: snapshot.redactions,
 						requiredPlugins: snapshot.requiredPlugins,
+						blobs: snapshot.blobs.map(({ filePath, ...metadata }) => ({
+							metadata,
+							chunks: Stream.toAsyncIterable(fs.stream(filePath)),
+						})),
 						sections: snapshot.sections.map((section) => ({
 							path: section.path,
 							count: section.count,

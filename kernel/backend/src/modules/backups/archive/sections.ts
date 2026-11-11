@@ -8,6 +8,7 @@ export const STREAMED_SECTION_PATHS = [
 	"entity-dependencies.ndjson",
 	"relationships.ndjson",
 	"events.ndjson",
+	"pages.ndjson",
 	"saved-views.ndjson",
 	"calendar-source-overrides.ndjson",
 	"integrations.ndjson",

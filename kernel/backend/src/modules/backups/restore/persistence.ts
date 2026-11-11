@@ -14,6 +14,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import type { PageClientArtifact } from "@ryot-app/plugin-client-contract";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -21,6 +22,7 @@ import type { PortableUserProfile } from "#modules/accounts/auth/repository";
 import type { EventPropertyReference } from "#modules/events/event-references";
 import { lockEventReferences } from "#modules/events/repository";
 import { redactIntegrationForClient } from "#modules/integrations/client-redaction";
+import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
@@ -28,6 +30,7 @@ import { upsertSavedViewOverride } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as backupSchema from "#schema/tables/backups";
 import * as schema from "#schema/tables/combined";
+import { page } from "#schema/tables/pages";
 
 type RestoreTranslationInput = Pick<
 	typeof schema.entityTranslation.$inferInsert,
@@ -42,7 +45,10 @@ const encodePluginMappings = Schema.encodeEffect(
 type RestoreCustomViewInput = {
 	readonly userId: UserId;
 	readonly pluginInstallationId?: null | string | undefined;
-} & Omit<typeof schema.savedView.$inferSelect, "userId" | "revision" | "pluginInstallationId">;
+} & Omit<
+	typeof schema.savedView.$inferSelect,
+	"userId" | "pageId" | "revision" | "pluginInstallationId"
+>;
 type RestoreRelationshipInput = Pick<
 	typeof schema.relationship.$inferInsert,
 	| "id"
@@ -109,6 +115,17 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const session = yield* DatabaseSession;
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
+			const artifacts = yield* ClientArtifactsRepository;
+			const restorePage = Effect.fn("BackupRestorePersistence.restorePage")(function* (
+				input: typeof page.$inferInsert,
+				artifact: null | PageClientArtifact,
+			) {
+				yield* session.requireTransaction;
+				if (artifact) {
+					yield* artifacts.persistClientArtifact(artifact);
+				}
+				yield* session.run((db) => db.insert(page).values(input));
+			});
 			const restoreDefaultSubscription = Effect.fn(
 				"BackupRestorePersistence.restoreDefaultSubscription",
 			)(function* (input: typeof schema.notificationSubscription.$inferInsert) {
@@ -674,6 +691,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				},
 			);
 			return {
+				restorePage,
 				restoreEntity,
 				restoreEvents,
 				restoreForUser,
@@ -699,6 +717,6 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(PluginConfigRevisions.layer),
+		Layer.provide(Layer.merge(PluginConfigRevisions.layer, ClientArtifactsRepository.layer)),
 	);
 }

@@ -9,10 +9,10 @@ Creating a run queues its `backup-export` or `backup-restore` [job](../../platfo
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, `reminders.ndjson`, and `publications.ndjson`.
-3. Uncompressed content-addressed assets at `assets/<sha256>`.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `pages.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, `reminders.ndjson`, `publications.ndjson`, and `fold-values.ndjson`.
+3. Uncompressed content-addressed assets at `assets/<sha256>` and generic binary blobs at `blobs/<sha256>`.
 
-The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
+The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset and binary blob `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
 
 `profile.json` contains complete canonical user preferences. Export decodes the stored value; archive validation and historical restore reject malformed or incomplete preferences instead of filling missing fields.
 
@@ -31,7 +31,7 @@ account preferences still make the target unclean.
 ## Streaming
 
 Every usage-sized NDJSON section is disk-backed: entities, dependencies, relationships, events,
-saved views, calendar overrides, integrations, subscriptions, reminders, and publications. Export uses stable
+pages, saved views, calendar overrides, integrations, subscriptions, reminders, and publications. Export uses stable
 keyset pages and incrementally counts and hashes each spool. ZIP entry streams open on demand and
 advance under storage backpressure. Profile, private packages, installations, and the manifest retain
 strict metadata limits.
@@ -137,6 +137,26 @@ Installation records include per-user plugin preferences as JSON. Plugin manifes
 
 Calendar source overrides carry the exact owner package key, source slug, and hidden state. Export skips an override whose source no longer resolves to a current or retained definition, so stale state never blocks a backup. Restore maps the package key like built-in view overrides and rejects an override whose restored definition is unavailable. An existing override makes the destination account unclean.
 
+Authored pages are a required streamed `pages.ndjson` section, including pages that have only a draft.
+Records retain draft and published definitions, definition revisions, authority revision, origin,
+write access, names and timestamps. Definitions reuse the page contract codecs. Only typed query
+plugin identities become scoped package references; source files, base64 assets and ordinary query
+literal values remain opaque. Restore recomputes definition hashes after mapping query owners.
+
+Published artifact metadata carries its page kind, versions, hash, portable declaration identity,
+imports and file descriptors. File bytes use content-addressed `blobs/` entries, streamed and spooled
+through the same bounded binary machinery as assets; an 8 MiB client artifact never becomes a
+base64 NDJSON record or requires increasing the 4 MiB record limit. Archive validation verifies
+binary sizes and digests. Page preflight verifies artifact kind, supported versions, file names,
+MIME types, byte limits, imports, declaration identity and the owning package's content hash.
+
+Restore allocates page IDs before rewriting saved-view renderers and inserts pages and immutable
+published artifacts through backup-owned historical persistence inside the restore transaction.
+It never invokes the compiler. Draft preview artifacts and their compiled-revision markers,
+compositions and capability grants are omitted. Runtime composition is derived afresh. Any page,
+including an unpublished draft, makes a destination account unclean. Existing publication sources
+do not refer to authored pages and keep their current source model.
+
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Built-ins use exact owner plus local slug; custom views have their own namespace. Homes use tagged custom, kernel, or plugin references. The archive format version remains 1.
 
 Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
@@ -145,7 +165,7 @@ Account restore retains user-owned canonical data, relationships, event facts, a
 dependencies. Enrichment requests, generated translations, and job and workflow state are not exported.
 Snapshot translation overlays supplied by an archive bind their source generation to the destination
 entity's current canonical generation. Dependencies have no related-completion stamp; foreground
-interest rechecks them lazily. The archive version and entry layout remain unchanged.
+interest rechecks them lazily. The archive version remains 1.
 
 A restore target is clean only when every existing entity looks bootstrap-created: no provider, no external ID, and at most one such entity per entity schema, which is what a user-bootstrap ensure produces. Archived bootstrap entities match destination rows by schema and plugin ownership, never by name or initial properties. Every archived entity schema must exist in the current kernel or declared-plugin definition snapshot.
 

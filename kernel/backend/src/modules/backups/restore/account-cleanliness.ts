@@ -33,6 +33,7 @@ import { isDefaultSystemInstallation } from "../installation-state";
 const MAX_RESTORE_TARGET_INSTALLATIONS = 4_096;
 
 export type AccountCleanlinessState = {
+	readonly hasPages: boolean;
 	readonly hasEvents: boolean;
 	readonly hasReminders: boolean;
 	readonly hasPublications: boolean;
@@ -84,6 +85,9 @@ export const classifyAccountCleanliness = (
 		)
 	) {
 		return "preferences";
+	}
+	if (state.hasPages) {
+		return "pages";
 	}
 	if (state.hasEvents) {
 		return "events";

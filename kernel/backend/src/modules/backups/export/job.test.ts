@@ -211,6 +211,7 @@ const archiveFailureLayer = ExportBackupOperationsLive.pipe(
 				prepareExportSnapshot: (_userId, path) =>
 					Effect.sync(() => {
 						return {
+							blobs: [],
 							redactions: [],
 							managedAssets: [],
 							requiredPlugins: [],

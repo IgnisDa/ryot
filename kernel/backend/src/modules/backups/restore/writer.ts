@@ -52,6 +52,7 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/packages/types";
 import { resolvePluginUserSettings } from "#modules/plugins/preferences/user-settings";
+import { storedValidationBranches } from "#modules/ryotql/stored-validation";
 import {
 	isEntityBrowserRenderer,
 	validateSavedViewDefinition,
@@ -59,6 +60,7 @@ import {
 import { deriveSavedViewQueries } from "#modules/saved-views/queries";
 import { DatabaseSession } from "#platform/db/session";
 
+import type { ValidatedArchiveBinary } from "../archive/archive";
 import { archiveError } from "../archive/error";
 import {
 	collectReferencedPluginKeys,
@@ -76,6 +78,7 @@ import {
 	type ArchiveInstallation,
 	ArchiveIntegration,
 	ArchiveNotificationSubscription,
+	ArchivePage,
 	archivePluginDefinitionContract,
 	ArchivePublication,
 	type ArchiveRecords,
@@ -95,6 +98,7 @@ import {
 	STREAMED_SECTION_PATHS,
 	type StreamedSectionPath,
 } from "../archive/sections";
+import { importPageDefinition, pagePluginKeys, readPageArtifact } from "../pages";
 import { rewriteSavedArgumentSources, savedArgumentSources } from "../saved-arguments";
 import { BACKUP_STAGE_BATCH_SIZE, BACKUP_STAGE_PAGE_BYTES, BackupStaging } from "../staging";
 import { BackupRestorePersistence } from "./persistence";
@@ -350,6 +354,7 @@ const emptyArchiveRecords = (
 });
 
 const archiveSectionNamespaces = {
+	"pages.ndjson": "page",
 	"events.ndjson": "event",
 	"entities.ndjson": "entity",
 	"reminders.ndjson": "reminder",
@@ -800,6 +805,16 @@ export const preflightProvenance = Effect.fn(function* (
 				"saved view",
 			);
 		} else {
+			if (
+				view.renderer.kind === "page" &&
+				(view.dataSources !== null ||
+					Object.keys(view.settings).length !== 0 ||
+					Object.keys(view.arguments).length !== 0 ||
+					view.filter !== undefined ||
+					view.sort !== undefined)
+			) {
+				return yield* badRequest("Backup page view configuration is invalid");
+			}
 			if (view.pluginKey !== null) {
 				yield* mappedPluginId(pluginIdByKey, view.pluginKey);
 			}
@@ -965,6 +980,7 @@ const restoredPublicationSource = Effect.fn(function* (
 });
 
 type RestoreRecordBatchContext = {
+	readonly pageIds: ReadonlyMap<string, string>;
 	readonly eventIdMap: ReadonlyMap<string, string>;
 	readonly reminderIds: ReadonlyMap<string, string>;
 	readonly entityIdMap: ReadonlyMap<string, EntityId>;
@@ -1121,6 +1137,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						let customViewBatch: Array<{ readonly id: string; readonly value: unknown }> = [];
 						let dependencyIdentityBatch: Array<{ readonly id: string; readonly value: unknown }> =
 							[];
+						let auxiliaryNamespace = "entity-translation";
+						if (path === "saved-views.ndjson") {
+							auxiliaryNamespace = "saved-view-slug";
+						}
+						if (path === "pages.ndjson") {
+							auxiliaryNamespace = "page-slug";
+						}
+
 						const flush = Effect.gen(function* () {
 							if (batch.length > 0) {
 								yield* staging.putRecords(runId, namespace, path, batch);
@@ -1128,12 +1152,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								batchBytes = 0;
 							}
 							if (auxiliaryBatch.length > 0) {
-								yield* staging.putRecords(
-									runId,
-									path === "saved-views.ndjson" ? "saved-view-slug" : "entity-translation",
-									"auxiliary",
-									auxiliaryBatch,
-								);
+								yield* staging.putRecords(runId, auxiliaryNamespace, "auxiliary", auxiliaryBatch);
 								auxiliaryBatch = [];
 							}
 							if (customViewBatch.length > 0) {
@@ -1168,6 +1187,10 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								}
 								batch.push({ id, value });
 								batchBytes += valueBytes;
+								if (path === "pages.ndjson") {
+									const page = yield* Schema.decodeUnknownEffect(ArchivePage)(value);
+									auxiliaryBatch.push({ id: page.slug, value: { id: page.id } });
+								}
 								if (path === "saved-views.ndjson" && isArchiveJsonObject(value)) {
 									const kind = value["kind"];
 									const slug = value["slug"];
@@ -1502,6 +1525,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								Effect.gen(function* () {
 									const value = yield* Schema.decodeUnknownEffect(ArchiveSavedView)(row.value);
 									if (value.kind === "custom") {
+										if (value.renderer.kind === "page") {
+											add("saved-view", value.id, "page", value.renderer.pageId);
+										}
 										const savedValues = yield* savedArgumentSources(
 											value.dataSources,
 											value.arguments,
@@ -1608,7 +1634,22 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				pluginIdByKey: ReadonlyMap<string, string>,
 				definitions: DefinitionSnapshot,
 				required: ReadonlyArray<ArchiveRequiredPlugin>,
+				blobs: ReadonlyMap<string, ValidatedArchiveBinary> = new Map(),
 			) {
+				const pageClients = new Map<
+					string,
+					ArchiveRequiredPlugin["definitionContract"]["client"]
+				>();
+				for (const plugin of required) {
+					pageClients.set(
+						pluginPackageKey({ scope: "system", packageId: plugin.packageId }),
+						plugin.definitionContract.client,
+					);
+				}
+				for (const plugin of metadata.privatePlugins) {
+					pageClients.set(plugin.key, plugin.manifest.client);
+				}
+
 				yield* preflight(
 					emptyArchiveRecords(metadata),
 					emptyEvents,
@@ -1620,6 +1661,70 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					yield* forEachStagePage(runId, path, (rows) =>
 						Effect.gen(function* () {
 							switch (path) {
+								case "pages.ndjson": {
+									for (const row of rows) {
+										const value = yield* Schema.decodeUnknownEffect(ArchivePage)(row.value);
+										for (const definition of [
+											value.draftDefinition,
+											...(value.published ? [value.published.definition] : []),
+										]) {
+											for (const key of pagePluginKeys(definition)) {
+												if (!pluginIdByKey.has(key)) {
+													return yield* archiveError(
+														"missing_reference_mapping",
+														"Page references an undeclared plugin",
+														"pages.ndjson",
+													);
+												}
+											}
+											const prepared = yield* importPageDefinition(definition, pluginIdByKey);
+											if (
+												definition === value.published?.definition &&
+												Object.keys(prepared.definition.queries.queries).length > 0
+											) {
+												yield* Effect.fromResult(
+													storedValidationBranches(
+														prepared.definition.queries,
+														Object.values(definitions.entitySchemas).map((entry) =>
+															Object.assign({}, entry, {
+																packageId: null,
+																pluginScope: null,
+																isEffective: true,
+																browse: entry.browse ?? null,
+															}),
+														),
+													),
+												).pipe(
+													Effect.mapError((error) =>
+														archiveError("invalid_entry", error.message, "pages.ndjson"),
+													),
+												);
+											}
+										}
+										if (value.published) {
+											for (const target of value.published.artifact.imports) {
+												if (
+													!pageClients.get(pluginPackageKey(target.reference))?.exports?.[
+														target.exportName
+													]
+												) {
+													return yield* archiveError(
+														"invalid_entry",
+														"Page artifact imports an unavailable export",
+														"pages.ndjson",
+													);
+												}
+											}
+
+											yield* readPageArtifact(
+												value.published.artifact,
+												value.published.definition,
+												blobs,
+											);
+										}
+									}
+									break;
+								}
 								case "events.ndjson": {
 									const values = yield* Effect.forEach(rows, (row) =>
 										Schema.decodeUnknownEffect(ArchiveEvent)(row.value),
@@ -1793,6 +1898,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									break;
 								}
 							}
+							return yield* Effect.void;
 						}),
 					);
 				}
@@ -2005,6 +2111,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					...relationshipIds,
 				]);
 				const eventIdMap = yield* staging.resolveMappings(runId, "event", [...eventIds]);
+				const pageIds = yield* staging.resolveMappings(
+					runId,
+					"page",
+					records.savedViews.flatMap((view) =>
+						view.kind === "custom" && view.renderer.kind === "page" ? [view.renderer.pageId] : [],
+					),
+				);
 				const mappedViews = yield* staging.resolveMappings(runId, "saved-view", [...savedViewIds]);
 				const customViewIds = new Map(
 					[...mappedViews].map(
@@ -2054,6 +2167,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 				}
 				return {
+					pageIds,
 					eventIdMap,
 					entityIdMap,
 					customViewIds,
@@ -2403,6 +2517,13 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							return yield* badRequest("Backup saved view renderer mapping is invalid");
 						}
 						renderer = { pluginId, kind: "plugin", exportName: view.renderer.exportName };
+					} else if (view.renderer.kind === "page") {
+						renderer = {
+							kind: "page",
+							pageId:
+								context.pageIds.get(view.renderer.pageId) ??
+								(yield* badRequest("Backup page mapping is incomplete")),
+						};
 					} else {
 						renderer = view.renderer;
 					}
@@ -2636,6 +2757,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									readonly destinationId: string;
 								}> = [];
 								switch (path) {
+									case "pages.ndjson":
+										for (const row of rows) {
+											mappings.push({ id: row.id, destinationId: yield* newUuid });
+										}
+										break;
 									case "events.ndjson": {
 										const values = yield* Effect.forEach(rows, (row) =>
 											Schema.decodeUnknownEffect(ArchiveEvent)(row.value),
@@ -3050,9 +3176,59 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				pluginIdByKey: ReadonlyMap<string, string>,
 				definitions: DefinitionSnapshot,
 				assetLocators: ReadonlyMap<string, AssetLocator>,
+				blobs: ReadonlyMap<string, ValidatedArchiveBinary> = new Map(),
 			) {
 				yield* database.requireTransaction;
 				yield* allocateArchiveMappings(userId, runId, pluginIdByKey);
+				yield* forEachStagePage(runId, "pages.ndjson", (rows) =>
+					Effect.gen(function* () {
+						const pageIds = yield* staging.resolveMappings(
+							runId,
+							"page",
+							rows.map(({ id }) => id),
+						);
+						for (const row of rows) {
+							const value = yield* Schema.decodeUnknownEffect(ArchivePage)(row.value);
+							const draft = yield* importPageDefinition(value.draftDefinition, pluginIdByKey);
+							const published = value.published
+								? yield* importPageDefinition(value.published.definition, pluginIdByKey)
+								: null;
+							const artifact = value.published
+								? yield* readPageArtifact(
+										value.published.artifact,
+										value.published.definition,
+										blobs,
+									)
+								: null;
+							yield* persistence.restorePage(
+								{
+									userId,
+									slug: value.slug,
+									name: value.name,
+									origin: value.origin,
+									draftArtifactHash: null,
+									draftCompiledRevision: null,
+									writeAccess: value.writeAccess,
+									draftDefinition: draft.definition,
+									draftRevision: value.draftRevision,
+									createdAt: parseDate(value.createdAt),
+									updatedAt: parseDate(value.updatedAt),
+									draftDefinitionHash: draft.definitionHash,
+									authorityRevision: value.authorityRevision,
+									publishedArtifactHash: artifact?.hash ?? null,
+									publishedDefinition: published?.definition ?? null,
+									publishedRevision: value.published?.revision ?? null,
+									publishedDefinitionHash: published?.definitionHash ?? null,
+									id:
+										pageIds.get(value.id) ??
+										(yield* badRequest("Backup page mapping is incomplete")),
+								},
+								artifact,
+							);
+						}
+					}),
+				);
+
 				const restoredMetadata = yield* restoreMetadata(
 					userId,
 					runId,
@@ -3068,6 +3244,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					restoredMetadata.privateKeys,
 				);
 				for (const path of STREAMED_SECTION_PATHS) {
+					if (path === "pages.ndjson") {
+						continue;
+					}
 					yield* forEachStagePage(runId, path, (rows) =>
 						Effect.gen(function* () {
 							let records: ArchiveRecords;

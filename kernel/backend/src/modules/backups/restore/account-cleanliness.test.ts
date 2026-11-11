@@ -75,6 +75,7 @@ const systemInstallation = (
 const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCleanlinessState => ({
 	savedViews: [],
 	pluginState: [],
+	hasPages: false,
 	hasEvents: false,
 	hasReminders: false,
 	expectedSavedViews: [],
@@ -482,6 +483,7 @@ describe("classifyAccountCleanliness", () => {
 		["notification-channels", { hasNotificationChannels: true }],
 		["calendar-source-overrides", { hasCalendarSourceOverrides: true }],
 		["publications", { hasPublications: true }],
+		["pages", { hasPages: true }],
 	] as const)("rejects %s", (category, override) => {
 		expect(classifyAccountCleanliness(cleanState(override))).toBe(category);
 	});

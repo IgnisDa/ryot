@@ -19,6 +19,11 @@ const fallback = {
 
 const presentReason = (reason: BackupConflict["reason"]): BackupRestoreFailure =>
 	Match.value(reason).pipe(
+		Match.when({ category: "pages", code: "account-not-clean" }, () => ({
+			step: "confirm" as const,
+			detail:
+				"This account already has pages, including any unpublished drafts. Restore this backup into a new, empty account.",
+		})),
 		Match.when({ code: "account-not-clean" }, () => ({
 			step: "confirm" as const,
 			detail:

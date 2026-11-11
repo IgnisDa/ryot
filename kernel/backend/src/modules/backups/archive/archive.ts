@@ -8,6 +8,7 @@ import {
 	ARCHIVE_CODECS,
 	ARCHIVE_SECTION_PATHS,
 	type ArchiveAssetManifest,
+	type ArchiveBlobManifest,
 	ArchiveManifest,
 	ArchiveProfile,
 	type ArchiveRequiredPlugin,
@@ -47,6 +48,11 @@ export const ARCHIVE_LIMITS = {
 	maxTotalUncompressedBytes: 1024 * 1024 * 1024,
 } as const;
 
+export type ArchiveBinaryInput<A extends ArchiveBlobManifest | ArchiveAssetManifest> = {
+	readonly metadata: A;
+	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
+};
+
 export type CreateArchiveInput = {
 	readonly archiveId: string;
 	readonly createdAt: string;
@@ -54,17 +60,13 @@ export type CreateArchiveInput = {
 	readonly records: ArchiveMetadata;
 	readonly redactions: ReadonlyArray<string>;
 	readonly compression?: "store" | "deflate";
-	readonly assets: ReadonlyArray<ArchiveAssetInput>;
 	readonly sections: ReadonlyArray<ArchiveSectionInput>;
 	readonly requiredPlugins: ReadonlyArray<ArchiveRequiredPlugin>;
+	readonly blobs?: ReadonlyArray<ArchiveBinaryInput<ArchiveBlobManifest>>;
+	readonly assets: ReadonlyArray<ArchiveBinaryInput<ArchiveAssetManifest>>;
 };
 
 type ArchiveLimits = { readonly [K in keyof typeof ARCHIVE_LIMITS]: number };
-
-type ArchiveAssetInput = {
-	readonly metadata: ArchiveAssetManifest;
-	readonly chunks: Iterable<Uint8Array> | AsyncIterable<Uint8Array>;
-};
 
 type ZipEntryInput = {
 	readonly path: string;
@@ -303,8 +305,8 @@ const buildManifest = (
 		return section;
 	});
 	const declaredAssets = new Set<string>();
-	for (const asset of input.assets) {
-		if (asset.metadata.path !== `assets/${asset.metadata.sha256}`) {
+	for (const asset of [...input.assets, ...(input.blobs ?? [])]) {
+		if (!binaryPathMatches(asset.metadata.path, asset.metadata.sha256)) {
 			throw archiveError(
 				"invalid_entry",
 				"Asset path does not match its SHA-256",
@@ -319,10 +321,13 @@ const buildManifest = (
 		}
 		declaredAssets.add(asset.metadata.path);
 	}
-	if (sections.length + input.assets.length + 1 > limits.maxEntryCount) {
+	if (
+		sections.length + input.assets.length + (input.blobs?.length ?? 0) + 1 >
+		limits.maxEntryCount
+	) {
 		throw archiveError("entry_count_exceeded", "ZIP entry limit exceeded", undefined, {
 			maxCount: limits.maxEntryCount,
-			actualCount: sections.length + input.assets.length + 1,
+			actualCount: sections.length + input.assets.length + (input.blobs?.length ?? 0) + 1,
 		});
 	}
 	const manifest = ArchiveManifest.make({
@@ -337,6 +342,9 @@ const buildManifest = (
 		assets: input.assets
 			.map(({ metadata }) => metadata)
 			.sort((a, b) => a.path.localeCompare(b.path)),
+		blobs: (input.blobs ?? [])
+			.map(({ metadata }) => metadata)
+			.sort((a, b) => a.path.localeCompare(b.path)),
 	});
 	const manifestPayload = encodeArchiveJsonLine(ArchiveManifest, manifest, "manifest.json");
 	if (manifestPayload.byteLength > limits.maxMetadataEntryBytes) {
@@ -349,7 +357,10 @@ const buildManifest = (
 	const totalBytes =
 		manifestPayload.byteLength +
 		sections.reduce((total, section) => total + section.bytes, 0) +
-		input.assets.reduce((total, asset) => total + asset.metadata.size, 0);
+		[...input.assets, ...(input.blobs ?? [])].reduce(
+			(total, asset) => total + asset.metadata.size,
+			0,
+		);
 	if (totalBytes > limits.maxTotalUncompressedBytes) {
 		throw archiveError("total_size_exceeded", "ZIP total size limit exceeded", undefined, {
 			actualBytes: totalBytes,
@@ -558,7 +569,7 @@ const createArchive = (input: CreateArchiveInput, overrides: Partial<ArchiveLimi
 	const records = sortArchiveMetadata(input.records);
 	const { sections, manifestPayload } = buildManifest(input, records, limits);
 	const compression = input.compression ?? "deflate";
-	const assets = [...input.assets].sort((left, right) =>
+	const assets = [...input.assets, ...(input.blobs ?? [])].sort((left, right) =>
 		left.metadata.path.localeCompare(right.metadata.path),
 	);
 	const streamedSections = new Map<string, ArchiveSectionInput>();
@@ -648,16 +659,9 @@ export const createArchiveStream = (
 		),
 	);
 
-type ValidatedArchiveAsset = ArchiveAssetManifest & {
+export type ValidatedArchiveBinary = (ArchiveBlobManifest | ArchiveAssetManifest) & {
 	readonly filePath: string;
 	readonly stream: Stream.Stream<Uint8Array, PlatformError.PlatformError>;
-};
-
-type ValidatedArchive = {
-	readonly records: ArchiveMetadata;
-	readonly sections: ArchiveSections;
-	readonly manifest: ArchiveManifest;
-	readonly assets: ReadonlyArray<ValidatedArchiveAsset>;
 };
 
 type ExtractedEntry = {
@@ -667,6 +671,14 @@ type ExtractedEntry = {
 	readonly filePath?: string;
 	readonly compression: number;
 	chunks?: undefined | Uint8Array[];
+};
+
+type ValidatedArchive = {
+	readonly records: ArchiveMetadata;
+	readonly sections: ArchiveSections;
+	readonly manifest: ArchiveManifest;
+	readonly blobs: ReadonlyArray<ValidatedArchiveBinary>;
+	readonly assets: ReadonlyArray<ValidatedArchiveBinary>;
 };
 
 const validPath = (path: string) => {
@@ -679,8 +691,12 @@ const validPath = (path: string) => {
 const SECTION_PATHS = new Set<string>(ARCHIVE_SECTION_PATHS);
 const SPOOLED_SECTION_PATHS = new Set<string>(STREAMED_SECTION_PATHS);
 
+const binaryPathMatches = (path: string, hash: string) =>
+	path === `assets/${hash}` || path === `blobs/${hash}`;
+const isBinaryPath = (path: string) => /^(?:assets|blobs)\/[a-f0-9]{64}$/.test(path);
+
 const allowedPath = (path: string) =>
-	path === "manifest.json" || SECTION_PATHS.has(path) || /^assets\/[a-f0-9]{64}$/.test(path);
+	path === "manifest.json" || SECTION_PATHS.has(path) || isBinaryPath(path);
 
 const requireEntry = (entries: ReadonlyMap<string, ExtractedEntry>, path: string) => {
 	const entry = entries.get(path);
@@ -950,6 +966,7 @@ const validateExtracted = (
 		return spooledSectionReader(fs, filePath, path, section.count, section.sha256, codec);
 	};
 	const streamedSections: ArchiveSections = {
+		"pages.ndjson": createSectionReader("pages.ndjson", ARCHIVE_CODECS["pages.ndjson"]),
 		"events.ndjson": createSectionReader("events.ndjson", ARCHIVE_CODECS["events.ndjson"]),
 		"entities.ndjson": createSectionReader("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
 		"reminders.ndjson": createSectionReader("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
@@ -987,15 +1004,15 @@ const validateExtracted = (
 		),
 	};
 
-	const declaredAssets = new Map<string, ArchiveAssetManifest>();
-	for (const asset of manifest.assets) {
-		if (asset.path !== `assets/${asset.sha256}` || declaredAssets.has(asset.path)) {
+	const declaredAssets = new Map<string, ArchiveBlobManifest | ArchiveAssetManifest>();
+	for (const asset of [...manifest.assets, ...manifest.blobs]) {
+		if (!binaryPathMatches(asset.path, asset.sha256) || declaredAssets.has(asset.path)) {
 			throw archiveError("invalid_entry", `Invalid or duplicate asset declaration`, asset.path);
 		}
 		declaredAssets.set(asset.path, asset);
 	}
 	for (const [path, entry] of entries) {
-		if (!path.startsWith("assets/")) {
+		if (!isBinaryPath(path)) {
 			continue;
 		}
 		const declared = declaredAssets.get(path);
@@ -1018,7 +1035,13 @@ const validateExtracted = (
 		}
 		return Object.assign({}, asset, { filePath, stream: fs.stream(filePath) });
 	});
-	return { assets, records, manifest, sections: streamedSections };
+	return {
+		records,
+		manifest,
+		sections: streamedSections,
+		blobs: assets.filter(({ path }) => path.startsWith("blobs/")),
+		assets: assets.filter(({ path }) => path.startsWith("assets/")),
+	};
 };
 
 class BoundedTail {
@@ -1256,7 +1279,7 @@ const extractArchive = Effect.fn(function* <E>(
 			failure = archiveError("unsupported_compression", "Unsupported ZIP compression", path);
 			return;
 		}
-		const isAsset = path.startsWith("assets/");
+		const isAsset = isBinaryPath(path);
 		const isSpooled = isAsset || SPOOLED_SECTION_PATHS.has(path);
 		const entryLimit = isSpooled ? limits.maxEntryBytes : limits.maxMetadataEntryBytes;
 		if (file.originalSize !== undefined && file.originalSize > entryLimit) {
@@ -1265,7 +1288,7 @@ const extractArchive = Effect.fn(function* <E>(
 		}
 		const hash = new IncrementalSha256();
 		const buffered: Uint8Array[] = [];
-		const spoolName = isAsset ? path.slice("assets/".length) : path;
+		const spoolName = isAsset ? path.replace("/", "-") : path;
 		const filePath = isSpooled ? `${directory}/${spoolName}` : undefined;
 		const writer = filePath === undefined ? undefined : Bun.file(filePath).writer();
 		entries.set(path, {

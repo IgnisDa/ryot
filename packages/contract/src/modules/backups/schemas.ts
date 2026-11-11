@@ -9,6 +9,7 @@ export const BackupRunKind = Schema.Literals(["export", "restore"]);
 export type BackupRunKind = typeof BackupRunKind.Type;
 
 export const BackupAccountDataCategory = Schema.Literals([
+	"pages",
 	"reminders",
 	"events",
 	"entities",

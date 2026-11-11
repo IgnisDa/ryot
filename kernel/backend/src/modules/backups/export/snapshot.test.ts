@@ -48,6 +48,7 @@ import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -566,7 +567,9 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 		Layer.effect(BackupExportSnapshot, BackupExportSnapshot.make).pipe(
 			Layer.provideMerge(
 				Layer.mergeAll(
+					Layer.mock(ClientArtifactsRepository, {}),
 					Layer.mock(BackupExportRepository, {
+						listPages: () => Effect.succeed([]),
 						assertMetadataBounds: () => Effect.void,
 						listReminders: () => Effect.succeed([]),
 						discoverDependencies: () => Effect.void,
@@ -1042,7 +1045,9 @@ const eventPagesExportLayer = withExportReads((reads) =>
 	Layer.effect(BackupExportSnapshot, BackupExportSnapshot.make).pipe(
 		Layer.provideMerge(
 			Layer.mergeAll(
+				Layer.mock(ClientArtifactsRepository, {}),
 				Layer.mock(BackupExportRepository, {
+					listPages: () => Effect.succeed([]),
 					addDependencyIds: () => Effect.void,
 					assertMetadataBounds: () => Effect.void,
 					listReminders: () => Effect.succeed([]),

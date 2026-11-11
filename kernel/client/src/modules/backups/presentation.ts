@@ -89,6 +89,11 @@ export const backupRunFailureNotice = (failure: null | BackupRunFailure): Backup
 	failure === null
 		? stoppedEarly
 		: Match.value(failure).pipe(
+				Match.when({ category: "pages", code: "account-not-clean" }, () => ({
+					label: "Account has pages",
+					detail:
+						"This account already had pages, including any unpublished drafts, so nothing was changed. Restore this backup into a new, empty account.",
+				})),
 				Match.when({ code: "account-not-clean" }, () => ({
 					label: "Account not empty",
 					detail:
