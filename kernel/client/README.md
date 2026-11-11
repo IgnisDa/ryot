@@ -313,6 +313,14 @@ OAuth connection returns are the routing exception: the live attempt's `DeepLink
 receives them instead of the router. `/oauth/login`, its signed `oauth_query`, and its independence
 from `ServerService` form the server contract.
 
+`/oauth/consent` reads server-verified consent details before showing a registered app's name,
+redirect origin and `ryot:api` permission. `HostedAuthService` submits the original signed query to
+Better Auth's `oauth2.consent` API for both approval and denial; its client handles the provider's
+continuation redirect. Missing hosted sessions return to `/oauth/login` with that query intact, so
+password, OIDC, two-factor and account initialization continue through the existing hosted flow.
+The page never uses an app name, redirect origin or scope read directly from the browser query.
+First-party authorization still follows the provider's existing consent-skipping policy.
+
 `RuntimeOAuthClientService` is the only runtime selector for first-party OAuth. Native builds accept
 only `io.ryot.app` and `io.ryot.app.dev` and fail closed on an unknown application ID. The identifiers
 and callback builders are shared with backend provisioning and deep-link filtering.

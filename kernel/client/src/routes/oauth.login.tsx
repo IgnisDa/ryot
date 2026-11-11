@@ -60,7 +60,7 @@ function OAuthLoginUnavailable() {
 
 function OAuthLogin() {
 	const config = Route.useLoaderData();
-	const { server, runtime } = Route.useRouteContext();
+	const { server, runtime, hostedOAuthQuery } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const controller = useRef(new AbortController());
 	const oidcAutoLaunched = useRef(false);
@@ -74,7 +74,7 @@ function OAuthLogin() {
 	const methods = deriveAuthMethods(config);
 
 	function submitCredentials(values: CredentialsValues) {
-		return auth.submitCredentials({ mode, values }).pipe(
+		return auth.submitCredentials({ mode, values, oauthQuery: hostedOAuthQuery() }).pipe(
 			Effect.match({
 				onFailure: (error) => error.message,
 				onSuccess: (result) => {
@@ -90,7 +90,7 @@ function OAuthLogin() {
 
 	function submitTwoFactor(code: string) {
 		return auth
-			.verifyTwoFactor(twoFactorMethod, code)
+			.verifyTwoFactor(twoFactorMethod, code, hostedOAuthQuery())
 			.pipe(Effect.match({ onSuccess: () => undefined, onFailure: (error) => error.message }));
 	}
 
@@ -101,7 +101,7 @@ function OAuthLogin() {
 		setOidcError(undefined);
 		setOidcPending(true);
 		runtime.runFork(
-			auth.signInWithOidc.pipe(
+			auth.signInWithOidc(hostedOAuthQuery()).pipe(
 				Effect.catch((failure) =>
 					Effect.sync(() => {
 						setOidcError(failure.message);

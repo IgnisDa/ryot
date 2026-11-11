@@ -10,7 +10,7 @@ export const Route = createFileRoute("/oauth/initializing")({ component: OAuthIn
 
 function OAuthInitializing() {
 	const navigate = useNavigate();
-	const { runtime } = Route.useRouteContext();
+	const { runtime, hostedOAuthQuery } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const controller = useRef(new AbortController());
 	const [error, setError] = useState<string>();
@@ -22,7 +22,7 @@ function OAuthInitializing() {
 					schedule: Schedule.spaced("2 seconds"),
 					while: ({ status }) => status === "initializing",
 				}),
-				Effect.andThen(auth.continueAfterInitialization),
+				Effect.andThen(() => auth.continueAfterInitialization(hostedOAuthQuery())),
 				Effect.catch((failure) => Effect.sync(() => setError(failure.message))),
 			),
 			{ signal },

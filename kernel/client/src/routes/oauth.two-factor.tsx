@@ -76,7 +76,7 @@ function OAuthTwoFactor() {
 	const config = Route.useLoaderData();
 	const { from } = Route.useSearch();
 	const navigate = Route.useNavigate();
-	const { server, runtime } = Route.useRouteContext();
+	const { server, runtime, hostedOAuthQuery } = Route.useRouteContext();
 	const auth = runtime.runSync(HostedAuthService);
 	const [step, setStep] = useState<Step>({ kind: "sign-in" });
 	const [twoFactorMethod, setTwoFactorMethod] = useState<TwoFactorMethod>("totp");
@@ -93,7 +93,7 @@ function OAuthTwoFactor() {
 		);
 
 	function submitCredentials(values: CredentialsValues) {
-		return auth.submitCredentials({ values, mode: "login" }).pipe(
+		return auth.submitCredentials({ values, mode: "login", oauthQuery: hostedOAuthQuery() }).pipe(
 			Effect.matchEffect({
 				onFailure: (error) => Effect.succeed(error.message),
 				onSuccess: (result) => {
@@ -110,7 +110,7 @@ function OAuthTwoFactor() {
 
 	function submitTwoFactor(password: string, code: string) {
 		return auth
-			.verifyTwoFactor(twoFactorMethod, code)
+			.verifyTwoFactor(twoFactorMethod, code, hostedOAuthQuery())
 			.pipe(
 				Effect.matchEffect({
 					onSuccess: () => openManagement(password),

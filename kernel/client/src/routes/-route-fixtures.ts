@@ -201,12 +201,14 @@ export const makeOAuthRouteStubs = (
 		OAuthConnectionRouteStubs,
 		Layer.succeed(HostedAuthService, {
 			signOutHosted: Effect.void,
-			signInWithOidc: Effect.void,
 			resetPassword: () => Effect.void,
+			signInWithOidc: () => Effect.void,
 			verifyTwoFactor: () => Effect.void,
 			twoFactorSession: Effect.die("not used"),
-			continueAfterInitialization: Effect.void,
+			submitConsent: () => Effect.die("not used"),
+			consentDetails: () => Effect.die("not used"),
 			enableTwoFactor: () => Effect.die("not used"),
+			continueAfterInitialization: () => Effect.void,
 			disableTwoFactor: () => Effect.die("not used"),
 			confirmTwoFactor: () => Effect.die("not used"),
 			redeemImpersonation: () => Effect.die("not used"),
@@ -546,3 +548,6 @@ const stubMatchMedia = (isDesktop: boolean) => {
 export const stubDesktopMatchMedia = () => stubMatchMedia(true);
 
 export const stubCompactMatchMedia = () => stubMatchMedia(false);
+
+export const signedOAuthQuery =
+	"client_id=registered-app&scope=ryot%3Aapi&redirect_uri=https%3A%2F%2Fclient.example%2Fcallback&ba_param=scope&ba_param=client_id&ba_param=redirect_uri&state=two%20words%2fpath%2Bplus+space&ba_param=state&ba_param=ba_param&sig=signed%2bvalue&exp=123";

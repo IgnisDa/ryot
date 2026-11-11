@@ -32,6 +32,7 @@ import {
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
 	ServerStub,
+	signedOAuthQuery,
 	theme,
 } from "#/routes/-route-fixtures";
 
@@ -177,13 +178,18 @@ describe("Hosted two-factor management", () => {
 		() =>
 			Effect.gen(function* () {
 				const verified: string[] = [];
-				const { user } = mountTwoFactor("/oauth/two-factor", {
+				const queries: string[] = [];
+				const { user } = mountTwoFactor(`/oauth/two-factor?${signedOAuthQuery}`, {
 					twoFactorSession: Effect.succeed({ twoFactorEnabled: true }),
-					submitCredentials: () =>
-						Effect.succeed({ _tag: "TwoFactor", methods: ["totp", "backupCode"] } as const),
-					verifyTwoFactor: (method, code) =>
+					verifyTwoFactor: (method, code, oauthQuery) =>
 						Effect.sync(() => {
 							verified.push(`${method}:${code}`);
+							queries.push(oauthQuery);
+						}),
+					submitCredentials: ({ oauthQuery }) =>
+						Effect.sync(() => {
+							queries.push(oauthQuery);
+							return { _tag: "TwoFactor", methods: ["totp", "backupCode"] } as const;
 						}),
 				});
 
@@ -198,6 +204,7 @@ describe("Hosted two-factor management", () => {
 				);
 				expect(screen.getByRole("button", { name: "Regenerate backup codes" })).not.toBeNull();
 				expect(verified).toEqual(["totp:123456"]);
+				expect(queries).toEqual([signedOAuthQuery, signedOAuthQuery]);
 			}),
 		testTimeout,
 	);

@@ -6,6 +6,7 @@ import { Effect } from "effect";
 
 import {
 	parseTotpEnrollment,
+	requestConsentDetails,
 	requestDemoSignIn,
 	requestImpersonationRedeem,
 	requestInitializationStatus,
@@ -205,4 +206,76 @@ describe("hosted auth TOTP enrollment", () => {
 	])("rejects %s", (totpURI) => {
 		expect(parseTotpEnrollment(totpURI)).toBeNull();
 	});
+});
+
+describe("hosted consent details", () => {
+	it.live(
+		"sends the signed query to the same-origin verification endpoint",
+		() =>
+			Effect.gen(function* () {
+				const requests: Array<{ url: string; init?: RequestInit }> = [];
+				const details = {
+					scope: "ryot:api",
+					clientName: "Registered app",
+					redirectOrigin: "https://client.example",
+				} as const;
+				const result = yield* requestConsentDetails(
+					(input, init) => {
+						requests.push({ init, url: requestUrl(input) });
+						return Promise.resolve(Response.json(details));
+					},
+					"https://ryot.example",
+					"client_id=client&sig=signature",
+				);
+				expect(result).toEqual(details);
+				expect(requests).toHaveLength(1);
+				expect(requests[0]?.url).toBe("https://ryot.example/api/auth/oauth2/consent-details");
+				expect(requests[0]?.init?.method).toBe("POST");
+				expect(requests[0]?.init?.credentials).toBe("same-origin");
+				expect(requests[0]?.init?.cache).toBe("no-store");
+				expect(requests[0]?.init?.body).toBe('{"oauth_query":"client_id=client&sig=signature"}');
+				expect(requests[0]?.init?.headers).toEqual({ "content-type": "application/json" });
+			}),
+		testTimeout,
+	);
+
+	it.live.each([
+		{ status: 400, code: undefined },
+		{ status: 401, code: "UNAUTHORIZED" },
+		{ status: 500, code: undefined },
+	])(
+		"distinguishes session expiry from invalid or unavailable requests ($status)",
+		({ code, status }) =>
+			Effect.gen(function* () {
+				const error = yield* Effect.flip(
+					requestConsentDetails(
+						() => Promise.resolve(Response.json({}, { status })),
+						"https://ryot.example",
+						"query",
+					),
+				);
+				expect(error.code).toBe(code);
+			}),
+		testTimeout,
+	);
+
+	it.live.each([
+		{ scope: "openid", clientName: "App", redirectOrigin: "https://client.example" },
+		{ clientName: "App", scope: "ryot:api" },
+		{ clientName: 1, scope: "ryot:api", redirectOrigin: "https://client.example" },
+	])(
+		"rejects invalid consent details: %j",
+		(payload) =>
+			Effect.gen(function* () {
+				const error = yield* Effect.flip(
+					requestConsentDetails(
+						() => Promise.resolve(Response.json(payload)),
+						"https://ryot.example",
+						"query",
+					),
+				);
+				expect(error.message).toBe("The server returned an invalid access request.");
+			}),
+		testTimeout,
+	);
 });

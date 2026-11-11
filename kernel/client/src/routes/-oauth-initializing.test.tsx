@@ -31,10 +31,14 @@ import {
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
 	ServerStub,
+	signedOAuthQuery,
 	theme,
 } from "#/routes/-route-fixtures";
 
-const mountInitializing = (overrides: Partial<HostedAuthService["Service"]> = {}) => {
+const mountInitializing = (
+	overrides: Partial<HostedAuthService["Service"]> = {},
+	path = "/oauth/initializing",
+) => {
 	const oauth = makeOAuthRouteStubs({}, overrides);
 	const runtime = ManagedRuntime.make(
 		Layer.mergeAll(
@@ -60,7 +64,7 @@ const mountInitializing = (overrides: Partial<HostedAuthService["Service"]> = {}
 	);
 	const router = getRouter(
 		{ theme, runtime, backInterceptors: createBackInterceptors() },
-		createMemoryHistory({ initialEntries: ["/oauth/initializing"] }),
+		createMemoryHistory({ initialEntries: [path] }),
 	);
 	render(<RouterProvider router={router} />);
 	return { router };
@@ -149,18 +153,24 @@ describe("OAuth initialization", () => {
 		"continues when initialization is ready",
 		() =>
 			Effect.gen(function* () {
-				let continuations = 0;
-				mountInitializing({
-					initializationStatus: Effect.succeed({ status: "ready" }),
-					continueAfterInitialization: Effect.sync(() => {
-						continuations += 1;
-					}),
-				});
+				const continuations: string[] = [];
+				mountInitializing(
+					{
+						initializationStatus: Effect.succeed({ status: "ready" }),
+						continueAfterInitialization: (query) =>
+							Effect.sync(() => {
+								continuations.push(query);
+							}),
+					},
+					`/oauth/initializing?${signedOAuthQuery}`,
+				);
 
 				yield* Effect.promise(() =>
 					screen.findByRole("heading", { name: "Preparing your account" }),
 				);
-				yield* Effect.promise(() => waitFor(() => expect(continuations).toBe(1)));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(continuations).toEqual([signedOAuthQuery])),
+				);
 			}),
 		testTimeout,
 	);

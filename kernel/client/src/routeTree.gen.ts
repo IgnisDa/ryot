@@ -23,6 +23,7 @@ import { Route as InstanceAdminIndexRouteImport } from './routes/instance-admin/
 import { Route as InstanceAdminLogsRouteImport } from './routes/instance-admin/logs'
 import { Route as InstanceAdminMigrationReportRouteImport } from './routes/instance-admin/migration-report'
 import { Route as InstanceAdminUsersRouteImport } from './routes/instance-admin/users'
+import { Route as OauthConsentRouteImport } from './routes/oauth.consent'
 import { Route as OauthImpersonateRouteImport } from './routes/oauth.impersonate'
 import { Route as OauthInitializingRouteImport } from './routes/oauth.initializing'
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
@@ -126,6 +127,11 @@ const InstanceAdminUsersRoute = InstanceAdminUsersRouteImport.update({
   id: '/users',
   path: '/users',
   getParentRoute: () => InstanceAdminRouteRoute,
+} as any)
+const OauthConsentRoute = OauthConsentRouteImport.update({
+  id: '/oauth/consent',
+  path: '/oauth/consent',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const OauthImpersonateRoute = OauthImpersonateRouteImport.update({
   id: '/oauth/impersonate',
@@ -319,6 +325,7 @@ export interface FileRoutesByFullPath {
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
   '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
   '/instance-admin/users': typeof InstanceAdminUsersRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
@@ -362,6 +369,7 @@ export interface FileRoutesByTo {
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
   '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
   '/instance-admin/users': typeof InstanceAdminUsersRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
@@ -409,6 +417,7 @@ export interface FileRoutesById {
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
   '/instance-admin/migration-report': typeof InstanceAdminMigrationReportRoute
   '/instance-admin/users': typeof InstanceAdminUsersRoute
+  '/oauth/consent': typeof OauthConsentRoute
   '/oauth/impersonate': typeof OauthImpersonateRoute
   '/oauth/initializing': typeof OauthInitializingRoute
   '/oauth/login': typeof OauthLoginRoute
@@ -458,6 +467,7 @@ export interface FileRouteTypes {
     | '/instance-admin/logs'
     | '/instance-admin/migration-report'
     | '/instance-admin/users'
+    | '/oauth/consent'
     | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
@@ -501,6 +511,7 @@ export interface FileRouteTypes {
     | '/instance-admin/logs'
     | '/instance-admin/migration-report'
     | '/instance-admin/users'
+    | '/oauth/consent'
     | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
@@ -547,6 +558,7 @@ export interface FileRouteTypes {
     | '/instance-admin/logs'
     | '/instance-admin/migration-report'
     | '/instance-admin/users'
+    | '/oauth/consent'
     | '/oauth/impersonate'
     | '/oauth/initializing'
     | '/oauth/login'
@@ -590,6 +602,7 @@ export interface RootRouteChildren {
   OnboardingRoute: typeof OnboardingRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
+  OauthConsentRoute: typeof OauthConsentRoute
   OauthImpersonateRoute: typeof OauthImpersonateRoute
   OauthInitializingRoute: typeof OauthInitializingRoute
   OauthLoginRoute: typeof OauthLoginRoute
@@ -697,6 +710,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/instance-admin/users'
       preLoaderRoute: typeof InstanceAdminUsersRouteImport
       parentRoute: typeof InstanceAdminRouteRoute
+    }
+    '/oauth/consent': {
+      id: '/oauth/consent'
+      path: '/oauth/consent'
+      fullPath: '/oauth/consent'
+      preLoaderRoute: typeof OauthConsentRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/oauth/impersonate': {
       id: '/oauth/impersonate'
@@ -1046,6 +1066,7 @@ const rootRouteChildren: RootRouteChildren = {
   OnboardingRoute: OnboardingRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   AuthCallbackRoute: AuthCallbackRoute,
+  OauthConsentRoute: OauthConsentRoute,
   OauthImpersonateRoute: OauthImpersonateRoute,
   OauthInitializingRoute: OauthInitializingRoute,
   OauthLoginRoute: OauthLoginRoute,

@@ -1,6 +1,11 @@
 import { oauthProviderClient } from "@better-auth/oauth-provider/client";
 import { Browser } from "@capacitor/browser";
-import { REPORTING_TIME_ZONE_HEADER } from "@ryot-app/contract/oauth";
+import {
+	OAUTH_CONSENT_DETAILS_PATH,
+	OAuthConsentDetails,
+	OAuthConsentDetailsRequest,
+	REPORTING_TIME_ZONE_HEADER,
+} from "@ryot-app/contract/oauth";
 import { deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { createAuthClient } from "better-auth/client";
@@ -135,6 +140,50 @@ export const requestImpersonationRedeem = (fetcher: OAuthFetch, baseURL: string,
 		);
 	});
 
+export const requestConsentDetails = Effect.fn("HostedAuthService.requestConsentDetails")(
+	function* (fetcher: OAuthFetch, baseURL: string, oauthQuery: string) {
+		const body = yield* Schema.encodeEffect(Schema.fromJsonString(OAuthConsentDetailsRequest))({
+			oauth_query: oauthQuery,
+		}).pipe(
+			Effect.mapError(
+				() => new HostedAuthError({ message: "Could not prepare this access request." }),
+			),
+		);
+		const response = yield* Effect.tryPromise({
+			catch: () => new HostedAuthError({ message: "Could not reach this server. Try again." }),
+			try: () =>
+				fetcher(new URL(OAUTH_CONSENT_DETAILS_PATH, baseURL), {
+					body,
+					method: "POST",
+					cache: "no-store",
+					credentials: "same-origin",
+					headers: { "content-type": "application/json" },
+				}),
+		});
+		if (!response.ok) {
+			return yield* new HostedAuthError({
+				...(response.status === 401 ? { code: "UNAUTHORIZED" } : {}),
+				message:
+					response.status === 400
+						? "This access request is invalid or has expired. Start the connection again from your app."
+						: "Could not load this access request. Try again or restart the connection from your app.",
+			});
+		}
+		const payload: unknown = yield* Effect.tryPromise({
+			try: () => response.json(),
+			catch: () => new HostedAuthError({ message: "Could not read this access request." }),
+		});
+		return yield* Schema.decodeUnknownEffect(OAuthConsentDetails)(payload).pipe(
+			Effect.mapError(
+				() => new HostedAuthError({ message: "The server returned an invalid access request." }),
+			),
+		);
+	},
+);
+
+const consentDetails = (oauthQuery: string) =>
+	requestConsentDetails(globalThis.fetch, window.location.origin, oauthQuery);
+
 const redeemImpersonation = (ticket: string) =>
 	requestImpersonationRedeem(globalThis.fetch, window.location.origin, ticket);
 
@@ -144,6 +193,9 @@ export const parseTotpEnrollment = (totpURI: string) => {
 	const secret = url?.searchParams.get("secret");
 	return url?.protocol === "otpauth:" && url.host === "totp" && secret ? { secret, totpURI } : null;
 };
+
+const oauthQueryBody = (oauthQuery: string) =>
+	new URLSearchParams(oauthQuery).has("sig") ? { oauth_query: oauthQuery } : {};
 
 const makeHostedClient = (baseURL = window.location.origin) =>
 	createAuthClient({
@@ -180,6 +232,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 				requestDemoSignIn(globalThis.fetch, window.location.origin),
 			);
 			const submitCredentials = Effect.fn("HostedAuthService.submitCredentials")(function* (input: {
+				readonly oauthQuery: string;
 				readonly mode: "login" | "signup";
 				readonly values: CredentialsValues;
 			}) {
@@ -187,7 +240,11 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 					yield* request(
 						() =>
 							client().signUp.email(
-								{ ...input.values, name: registrationName(input.values.email) },
+								{
+									...input.values,
+									...oauthQueryBody(input.oauthQuery),
+									name: registrationName(input.values.email),
+								},
 								{ headers: { [REPORTING_TIME_ZONE_HEADER]: deviceTimeZone() } },
 							),
 						"Could not create your account.",
@@ -195,7 +252,7 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 					return { _tag: "Authenticated" } as const;
 				}
 				const result = yield* request(
-					() => client().signIn.email(input.values),
+					() => client().signIn.email({ ...input.values, ...oauthQueryBody(input.oauthQuery) }),
 					"Could not sign in.",
 				);
 				return isTwoFactorRedirect(result)
@@ -205,30 +262,39 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 						} as const)
 					: ({ _tag: "Authenticated" } as const);
 			});
-			const verifyTwoFactor = (method: TwoFactorMethod, code: string) =>
+			const verifyTwoFactor = (method: TwoFactorMethod, code: string, oauthQuery: string) =>
 				request(
 					() =>
 						method === "backupCode"
-							? client().twoFactor.verifyBackupCode({ code })
-							: client().twoFactor.verifyTotp({ code }),
+							? client().twoFactor.verifyBackupCode({ code, ...oauthQueryBody(oauthQuery) })
+							: client().twoFactor.verifyTotp({ code, ...oauthQueryBody(oauthQuery) }),
 					"Could not verify that code.",
 				).pipe(Effect.asVoid);
-			const signInWithOidc = request(
-				() =>
-					client().signIn.social({
-						provider: "oidc",
-						callbackURL: `${window.location.origin}/oauth/login`,
-						additionalData: { reportingTimeZone: deviceTimeZone() },
-					}),
-				"Could not open the identity provider.",
-			).pipe(Effect.asVoid);
+			const signInWithOidc = (oauthQuery: string) =>
+				request(
+					() =>
+						client().signIn.social({
+							provider: "oidc",
+							...oauthQueryBody(oauthQuery),
+							callbackURL: `${window.location.origin}/oauth/login`,
+							additionalData: { reportingTimeZone: deviceTimeZone() },
+						}),
+					"Could not open the identity provider.",
+				).pipe(Effect.asVoid);
+			const submitConsent = (oauthQuery: string, accept: boolean) =>
+				request(
+					() => client().oauth2.consent({ accept, oauth_query: oauthQuery }),
+					"Could not submit your decision. Try again.",
+				).pipe(Effect.asVoid);
+
 			const initializationStatus = Effect.suspend(() =>
 				requestInitializationStatus(globalThis.fetch, window.location.origin),
 			);
-			const continueAfterInitialization = request(
-				() => client().oauth2.continue({ postLogin: true }),
-				"Could not continue sign-in.",
-			).pipe(Effect.asVoid);
+			const continueAfterInitialization = (oauthQuery: string) =>
+				request(
+					() => client().oauth2.continue({ postLogin: true, ...oauthQueryBody(oauthQuery) }),
+					"Could not continue sign-in.",
+				).pipe(Effect.asVoid);
 			const signOutHosted = request(() => client().signOut(), "Could not sign out.").pipe(
 				Effect.asVoid,
 			);
@@ -311,8 +377,10 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 
 			return {
 				signInDemo,
+				submitConsent,
 				resetPassword,
 				signOutHosted,
+				consentDetails,
 				signInWithOidc,
 				enableTwoFactor,
 				verifyTwoFactor,

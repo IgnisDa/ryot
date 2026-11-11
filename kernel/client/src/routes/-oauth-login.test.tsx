@@ -2,12 +2,14 @@ import { describe, expect } from "bun:test";
 
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, ManagedRuntime } from "effect";
 
 import { KernelApiTestLayer } from "#/api/ports.test-layer";
 import { PublicApi } from "#/api/public";
+import type { HostedAuthService } from "#/modules/auth/hosted-service";
 import { createBackInterceptors } from "#/modules/navigation/back-interceptors";
 import { pluginBridgeServicesTestLayer } from "#/modules/pages/bridge/services.test-layer";
 import { makePluginCatalogEventsTestLayer } from "#/modules/plugins/catalog/events.test-layer";
@@ -30,6 +32,7 @@ import {
 	PagesApiRouteStubs,
 	ProviderAddRouteStubs,
 	ServerStub,
+	signedOAuthQuery,
 	theme,
 } from "#/routes/-route-fixtures";
 
@@ -49,15 +52,21 @@ const systemConfig = (
 	},
 });
 
-const mountLogin = (config: ReturnType<typeof systemConfig>) => {
+const mountLogin = (
+	config: ReturnType<typeof systemConfig>,
+	hosted: Partial<HostedAuthService["Service"]> = {},
+	path = "/oauth/login",
+) => {
 	let authCalls = 0;
 	const requestedOrigins: string[] = [];
 	const oauth = makeOAuthRouteStubs(
 		{},
 		{
-			signInWithOidc: Effect.sync(() => {
-				authCalls += 1;
-			}),
+			signInWithOidc: () =>
+				Effect.sync(() => {
+					authCalls += 1;
+				}),
+			...hosted,
 		},
 	);
 	const runtime = ManagedRuntime.make(
@@ -92,13 +101,72 @@ const mountLogin = (config: ReturnType<typeof systemConfig>) => {
 	);
 	const router = getRouter(
 		{ theme, runtime, backInterceptors: createBackInterceptors() },
-		createMemoryHistory({ initialEntries: ["/oauth/login"] }),
+		createMemoryHistory({ initialEntries: [path] }),
 	);
 	render(<RouterProvider router={router} />);
 	return { requestedOrigins, authCallCount: () => authCalls };
 };
 
 describe("Hosted OAuth login", () => {
+	it.live(
+		"preserves repeated signed parameters through password and two-factor submission",
+		() =>
+			Effect.gen(function* () {
+				const queries: string[] = [];
+				mountLogin(
+					systemConfig(window.location.origin, { oidcEnabled: false, localAuthDisabled: false }),
+					{
+						verifyTwoFactor: (_method, _code, oauthQuery) =>
+							Effect.sync(() => {
+								queries.push(oauthQuery);
+							}),
+						submitCredentials: ({ oauthQuery }) =>
+							Effect.sync(() => {
+								queries.push(oauthQuery);
+								return { _tag: "TwoFactor", methods: ["totp", "backupCode"] } as const;
+							}),
+					},
+					`/oauth/login?${signedOAuthQuery}`,
+				);
+				const user = userEvent.setup();
+				yield* Effect.promise(() => screen.findByLabelText("Email address"));
+				yield* Effect.promise(() =>
+					user.type(screen.getByLabelText("Email address"), "user@ryot.example"),
+				);
+				yield* Effect.promise(() => user.type(screen.getByLabelText("Password"), "Sup3rSecret"));
+				yield* Effect.promise(() => user.keyboard("{Enter}"));
+				yield* Effect.promise(() => screen.findByLabelText("Authenticator code"));
+				yield* Effect.promise(() =>
+					user.type(screen.getByLabelText("Authenticator code"), "123456"),
+				);
+				yield* Effect.promise(() => user.click(screen.getByRole("button", { name: "Verify" })));
+				yield* Effect.promise(() =>
+					waitFor(() => expect(queries).toEqual([signedOAuthQuery, signedOAuthQuery])),
+				);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"preserves the raw signed query when starting OIDC",
+		() =>
+			Effect.gen(function* () {
+				const queries: string[] = [];
+				mountLogin(
+					systemConfig(window.location.origin, { oidcEnabled: true, localAuthDisabled: true }),
+					{
+						signInWithOidc: (query) =>
+							Effect.sync(() => {
+								queries.push(query);
+							}),
+					},
+					`/oauth/login?${signedOAuthQuery}`,
+				);
+				yield* Effect.promise(() => waitFor(() => expect(queries).toEqual([signedOAuthQuery])));
+			}),
+		testTimeout,
+	);
+
 	it.live(
 		"shows a configured frontend mismatch without starting authentication",
 		() =>

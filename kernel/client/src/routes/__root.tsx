@@ -14,6 +14,7 @@ import type { ClientRuntime } from "#/runtime";
 export type RouterContext = {
 	readonly theme: ThemeStore;
 	readonly runtime: ClientRuntime;
+	readonly hostedOAuthQuery: () => string;
 	readonly ryotClients: KernelRyotClientStore;
 	readonly backInterceptors: BackInterceptors;
 };
