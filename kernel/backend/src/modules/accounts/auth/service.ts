@@ -55,12 +55,12 @@ import * as authSchema from "#schema/tables/auth";
 import { authAdvancedOptions } from "./client-address";
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
-import { makeHttpOAuthRedirects } from "./http-oauth-redirects";
 import { ImpersonationHandoffs } from "./impersonation-handoffs";
 import { impersonationOAuthExtension, isImpersonationClient } from "./impersonation-oauth";
 import { impersonationPlugin } from "./impersonation-plugin";
 import { ImpersonationSessions } from "./impersonation-sessions";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { allowFrontendHttpRedirectUri } from "./oauth-provisioning";
 import { AuthRepository } from "./repository";
 import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
 import { SessionCreationGate } from "./session-gate";
@@ -198,6 +198,7 @@ const makeOAuthProviderPlugin = (
 		allowUnauthenticatedClientRegistration: false,
 		grantTypes: ["authorization_code", "refresh_token"],
 		extensions: [impersonationOAuthExtension(impersonationSessions)],
+		allowInsecureRedirectUri: allowFrontendHttpRedirectUri(frontendUrl),
 		postLogin: {
 			page: "/oauth/initializing",
 			consentReferenceId: () => undefined,
@@ -814,13 +815,13 @@ export class AuthService extends Context.Service<AuthService>()(
 
 			return {
 				purgeApiKeyCaches,
+				handler: auth.handler,
 				requestPasswordResetLink,
 				revokePasswordResetLinks,
 				startUserImpersonation: handoffs.create,
 				updateAuthUserDisabled: repository.updateUserDisabled,
 				apiKeyUser: (key: string) => authenticate({ key, kind: "api-key" }),
 				oauthUser: (token: string) => authenticate({ token, kind: "oauth" }),
-				handler: makeHttpOAuthRedirects(config.frontendUrl).wrapHandler(auth.handler),
 				revokeUserOAuthTokens: (userId: UserId) =>
 					repository.revokeUserOAuthTokens(userId).pipe(Effect.orDie),
 				updateUserPreferences: (userId: UserId, patch: UserPreferencesPatch) =>

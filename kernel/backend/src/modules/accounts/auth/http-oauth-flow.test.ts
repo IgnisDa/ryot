@@ -18,12 +18,10 @@ import { applySetCookies } from "better-auth/cookies";
 import { jwt } from "better-auth/plugins";
 import { Effect, Schema } from "effect";
 
-import { makeHttpOAuthRedirects } from "./http-oauth-redirects";
-import { internalOAuthRecords } from "./oauth-provisioning";
+import { allowFrontendHttpRedirectUri, internalOAuthRecords } from "./oauth-provisioning";
 
 const origin = "http://192.168.1.50:8000";
 const callback = `${origin}/auth/callback`;
-const internalCallback = "https://192.168.1.50:8000/auth/callback";
 const verifier = "a-pkce-verifier-with-at-least-forty-three-characters";
 const Redirect = Schema.Struct({ url: Schema.String, redirect: Schema.Literal(true) });
 const Tokens = Schema.Struct({ id_token: Schema.String, access_token: Schema.String });
@@ -36,6 +34,7 @@ const makeAuth = () => {
 		enforcePerClientResources: true,
 		resources: [getOAuthResource(origin)],
 		allowDynamicClientRegistration: false,
+		allowInsecureRedirectUri: allowFrontendHttpRedirectUri(origin),
 	});
 	const provider: BetterAuthPlugin = plugin;
 	Object.assign(provider, { endpoints });
@@ -67,7 +66,7 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const auth = makeAuth();
-			const handler = makeHttpOAuthRedirects(origin).wrapHandler(auth.handler);
+			const handler = auth.handler;
 			const challenge = yield* Effect.promise(() =>
 				crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)),
 			);
@@ -84,7 +83,7 @@ it.effect(
 			assert(location !== null);
 			const login = new URL(location, origin);
 			expect(login.pathname).toBe("/oauth/login");
-			expect(login.searchParams.get("redirect_uri")).toBe(internalCallback);
+			expect(login.searchParams.get("redirect_uri")).toBe(callback);
 			expect(login.searchParams.get("sig")).toBeTruthy();
 
 			const signupBody = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
@@ -184,134 +183,3 @@ it.effect(
 		}),
 	testTimeout,
 );
-
-it.effect(
-	"translates JSON token and form logout bodies without changing signed parameters or headers",
-	() =>
-		Effect.gen(function* () {
-			const requests: Request[] = [];
-			const handler = makeHttpOAuthRedirects(origin).wrapHandler((request) => {
-				requests.push(request);
-				return Promise.resolve(
-					Response.json(
-						{ redirect: true, url: `${internalCallback}?code=abc%2Bdef#fragment` },
-						{
-							headers: [
-								["set-cookie", "one=1; HttpOnly"],
-								["set-cookie", "two=2; HttpOnly"],
-								["cache-control", "no-store"],
-							],
-						},
-					),
-				);
-			});
-			const body = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				redirect_uri: callback,
-				resource: `${origin}/api`,
-				oauth_query: `redirect_uri=${callback}&sig=untouched`,
-			});
-			const response = yield* Effect.promise(() =>
-				handler(
-					new Request(`${origin}/api/auth/oauth2/token`, {
-						body,
-						method: "POST",
-						headers: {
-							origin,
-							"content-type": "application/json",
-							"content-length": String(body.length),
-						},
-					}),
-				),
-			);
-			const tokenRequest = requests[0];
-			assert(tokenRequest !== undefined);
-			expect(yield* Effect.promise(() => tokenRequest.json())).toEqual({
-				resource: `${origin}/api`,
-				redirect_uri: internalCallback,
-				oauth_query: `redirect_uri=${callback}&sig=untouched`,
-			});
-			expect(tokenRequest.headers.get("origin")).toBe(origin);
-			expect(tokenRequest.headers.get("content-length")).toBeNull();
-			expect(yield* Effect.promise(() => response.json())).toEqual({
-				redirect: true,
-				url: `${callback}?code=abc%2Bdef#fragment`,
-			});
-			expect(response.headers.getSetCookie()).toEqual(["one=1; HttpOnly", "two=2; HttpOnly"]);
-			expect(response.headers.get("cache-control")).toBe("no-store");
-
-			yield* Effect.promise(() =>
-				handler(
-					new Request(`${origin}/api/auth/oauth2/end-session`, {
-						method: "POST",
-						headers: { "content-type": "application/x-www-form-urlencoded" },
-						body: new URLSearchParams({
-							state: "logout",
-							post_logout_redirect_uri: `${origin}/auth/logout/callback`,
-						}),
-					}),
-				),
-			);
-			const request = requests[1];
-			assert(request !== undefined);
-			expect(
-				new URLSearchParams(yield* Effect.promise(() => request.text())).get(
-					"post_logout_redirect_uri",
-				),
-			).toBe("https://192.168.1.50:8000/auth/logout/callback");
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"leaves unrelated destinations and signed login redirects untouched",
-	() =>
-		Effect.gen(function* () {
-			for (const destination of [
-				"http://other.example/auth/callback",
-				`${origin}/other`,
-				`${origin}/auth/callback/extra`,
-				`${origin}/auth/callback?extra=1`,
-				"io.ryot.app:/auth/callback",
-				`/oauth/login?redirect_uri=${encodeURIComponent(internalCallback)}&sig=signed`,
-				"https://192.168.1.50:8000/auth/callback/extra",
-				"https://192.168.1.50:8000/auth/callback.evil",
-			]) {
-				const policy = makeHttpOAuthRedirects(origin);
-				expect(policy.toProvider(destination)).toBe(destination);
-				const upstream = new Response(null, { status: 302, headers: { location: destination } });
-				const handler = policy.wrapHandler(() => Promise.resolve(upstream));
-				expect(
-					yield* Effect.promise(() => handler(new Request(`${origin}/api/auth/sign-in/email`))),
-				).toBe(upstream);
-			}
-		}),
-	testTimeout,
-);
-
-it("preserves HTTPS and loopback deployments and maps configured ports reversibly", () => {
-	for (const frontend of [
-		"https://ryot.example",
-		"http://localhost:8000",
-		"http://127.0.0.2:8000",
-		"http://[::1]:8000",
-	]) {
-		const policy = makeHttpOAuthRedirects(frontend);
-		const handler = () => Promise.resolve(new Response(frontend));
-		expect(policy.wrapHandler(handler)).toBe(handler);
-		expect(policy.toProvider(`${frontend}/auth/callback`)).toBe(`${frontend}/auth/callback`);
-	}
-	for (const frontend of [
-		"http://myapp.homelab.lan",
-		"http://100.101.102.103:443",
-		"http://192.168.1.50:8000",
-	]) {
-		const records = internalOAuthRecords(frontend, new Date(), true);
-		const httpsOrigin = new URL(frontend);
-		httpsOrigin.protocol = "https:";
-		for (const client of records.clients.filter((entry) => entry.applicationType === "web")) {
-			expect(client.redirectUris).toEqual([`${httpsOrigin.origin}/auth/callback`]);
-			expect(client.postLogoutRedirectUris).toEqual([`${httpsOrigin.origin}/auth/logout/callback`]);
-		}
-		expect(records.resource.identifier).toBe(`${frontend}/api`);
-	}
-});
