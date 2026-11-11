@@ -547,3 +547,16 @@ it.effect(
 		}),
 	testTimeout,
 );
+
+it("verifies MCP tokens against their own resource audience", () => {
+	expect(
+		getOAuthVerificationOptions("https://ryot.example", "https://ryot.example/api/mcp"),
+	).toEqual({
+		requiredScopes: ["ryot:api"],
+		jwksUrl: "https://ryot.example/api/auth/jwks",
+		verifyOptions: {
+			issuer: "https://ryot.example/api/auth",
+			audience: "https://ryot.example/api/mcp",
+		},
+	});
+});

@@ -239,7 +239,7 @@ describe("OAuth protocol enforcement", () => {
 		}),
 	);
 
-	it.live("does not advertise or permit dynamic registration", () =>
+	it.live("advertises registration and rejects confidential dynamic clients", () =>
 		Effect.gen(function* () {
 			const apiUrl = getApiUrl();
 			const discoveryResponse = yield* webRequest(
@@ -248,7 +248,7 @@ describe("OAuth protocol enforcement", () => {
 			const discovery: unknown = yield* Effect.promise(() => discoveryResponse.json());
 
 			expect(discoveryResponse.status).toBe(200);
-			expect(discovery).not.toHaveProperty("registration_endpoint");
+			expect(discovery).toHaveProperty("registration_endpoint");
 
 			const registrationResponse = yield* webRequest(
 				getOAuthEndpoint(new URL(apiUrl).origin, OAUTH_REGISTER_PATH),
@@ -256,14 +256,14 @@ describe("OAuth protocol enforcement", () => {
 					method: "POST",
 					headers: { "content-type": "application/json" },
 					body: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
+						token_endpoint_auth_method: "client_secret_basic",
 						redirect_uris: ["https://client.example/callback"],
 					}),
 				},
 			);
-			expect(registrationResponse.status).toBe(403);
+			expect(registrationResponse.status).toBe(400);
 			expect(yield* Effect.promise(() => registrationResponse.json())).toMatchObject({
-				error: "access_denied",
-				error_description: "Client registration is disabled",
+				error: "invalid_client_metadata",
 			});
 		}),
 	);

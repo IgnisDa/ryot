@@ -254,7 +254,7 @@ layer(reprovisioningLayer)((test) => {
 				const clients = yield* repository.clients;
 				const resources = yield* repository.resources;
 				expect(clients).toHaveLength(5);
-				expect(resources).toHaveLength(1);
+				expect(resources).toHaveLength(2);
 				expect(yield* repository.links).toHaveLength(5);
 				expect(clients.get(OAUTH_WEB_CLIENT_ID)?.redirectUris).toEqual([
 					"https://second.example/auth/callback",

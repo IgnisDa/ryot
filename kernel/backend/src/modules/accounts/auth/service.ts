@@ -60,6 +60,7 @@ import { impersonationOAuthExtension, isImpersonationClient } from "./impersonat
 import { impersonationPlugin } from "./impersonation-plugin";
 import { ImpersonationSessions } from "./impersonation-sessions";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
+import { mcpOAuthOptions, mcpOAuthPlugin } from "./mcp-oauth-plugin";
 import { allowFrontendHttpRedirectUri } from "./oauth-provisioning";
 import { AuthRepository } from "./repository";
 import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
@@ -191,11 +192,7 @@ const makeOAuthProviderPlugin = (
 		scopes: [...OAUTH_SCOPES],
 		loginPage: OAUTH_LOGIN_PATH,
 		consentPage: "/oauth/consent",
-		clientPrivileges: () => false,
-		enforcePerClientResources: true,
-		allowDynamicClientRegistration: false,
-		resources: [getOAuthResource(frontendUrl)],
-		allowUnauthenticatedClientRegistration: false,
+		...mcpOAuthOptions(frontendUrl),
 		grantTypes: ["authorization_code", "refresh_token"],
 		extensions: [impersonationOAuthExtension(impersonationSessions)],
 		allowInsecureRedirectUri: allowFrontendHttpRedirectUri(frontendUrl),
@@ -297,6 +294,7 @@ const makeAuthInstance = (args: {
 			demoAccessPlugin(Option.getOrNull(args.config.users.demoAccountId)),
 			impersonationPlugin(args.handoffs),
 			userInitializationPlugin(),
+			mcpOAuthPlugin(args.config.frontendUrl),
 			makeOAuthProviderPlugin(
 				args.config.frontendUrl,
 				requiresUserInitialization,
@@ -625,10 +623,13 @@ const resolveApiKeyCredential = Effect.fn("resolveApiKeyCredential")(function* (
 	return { userId: result.key.referenceId, credential: { kind: "api-key", keyId: result.key.id } };
 });
 
-export const getOAuthVerificationOptions = (frontendUrl: string) => ({
+export const getOAuthVerificationOptions = (
+	frontendUrl: string,
+	resource = getOAuthResource(frontendUrl),
+) => ({
 	requiredScopes: [OAUTH_API_SCOPE],
 	jwksUrl: getOAuthEndpoint(frontendUrl, "/api/auth/jwks"),
-	verifyOptions: { issuer: getOAuthIssuer(frontendUrl), audience: getOAuthResource(frontendUrl) },
+	verifyOptions: { audience: resource, issuer: getOAuthIssuer(frontendUrl) },
 });
 
 export const resolveCredential = <E>(
@@ -735,10 +736,11 @@ export class AuthService extends Context.Service<AuthService>()(
 				revokeResetToken: (token) => revokeResetToken(token),
 				revokePasswordResetAccess: (userId) => revokePasswordResetAccess(userId),
 			});
-			const authenticate = (credential: CredentialInput) =>
+			const authenticate = (credential: CredentialInput, resource?: string) =>
 				resolveCredential(
 					credential,
-					(token) => verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl)),
+					(token) =>
+						verifyBearerToken(token, getOAuthVerificationOptions(config.frontendUrl, resource)),
 					(key) => auth.api.verifyApiKey({ body: { key } }),
 					repository.findUserById,
 					Option.getOrNull(config.users.demoAccountId),
@@ -838,10 +840,6 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { image }),
 					).pipe(Effect.asVoid),
-				resolveRequestCredential: (headers: Headers) => {
-					const credential = credentialFromHeaders(headers);
-					return credential ? authenticate(credential) : Effect.fail(authenticationRequired());
-				},
 				linkAuthAccount: (account: {
 					id: string;
 					userId: string;
@@ -859,6 +857,12 @@ export class AuthService extends Context.Service<AuthService>()(
 					const credential = credentialFromHeaders(headers);
 					return credential
 						? authenticate(credential).pipe(Effect.map(({ user }) => user))
+						: Effect.fail(authenticationRequired());
+				},
+				resolveRequestCredential: (headers: Headers, resource?: string) => {
+					const credential = credentialFromHeaders(headers);
+					return credential
+						? authenticate(credential, resource)
 						: Effect.fail(authenticationRequired());
 				},
 			};

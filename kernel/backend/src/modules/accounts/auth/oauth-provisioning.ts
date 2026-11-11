@@ -1,4 +1,5 @@
 import {
+	getMcpOAuthResource,
 	getOAuthIssuer,
 	getOAuthResource,
 	getWebOAuthLogoutRedirectUris,
@@ -7,6 +8,7 @@ import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
 	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+	OAUTH_MCP_SCOPES,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
@@ -115,7 +117,14 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		resourceId: resource.identifier,
 		id: `internal-oauth-client-resource:${clientId}`,
 	}));
-	return { links, clients, resource };
+	const mcpResource = {
+		...resource,
+		id: "ryot-mcp",
+		name: "Ryot MCP",
+		allowedScopes: [...OAUTH_MCP_SCOPES],
+		identifier: getMcpOAuthResource(frontendOrigin),
+	} satisfies InternalOAuthResource;
+	return { links, clients, resource, mcpResource };
 };
 
 export class OAuthProvisioningService extends Context.Service<OAuthProvisioningService>()(
@@ -141,6 +150,7 @@ export class OAuthProvisioningService extends Context.Service<OAuthProvisioningS
 							records.clients.map(({ clientId }) => clientId),
 						);
 						yield* repository.upsertInternalOAuthResource(records.resource);
+						yield* repository.upsertInternalOAuthResource(records.mcpResource);
 						for (const link of records.links) {
 							yield* repository.upsertInternalOAuthClientResource(link);
 						}

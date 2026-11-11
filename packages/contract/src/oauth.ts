@@ -40,6 +40,7 @@ export const NativeOAuthApplicationId = Schema.Literals(OAUTH_NATIVE_APPLICATION
 export type NativeOAuthApplicationId = typeof NativeOAuthApplicationId.Type;
 
 export const OAUTH_API_SCOPE = "ryot:api";
+export const OAUTH_MCP_SCOPES = [OAUTH_API_SCOPE, "offline_access"] as const;
 export const OAUTH_SCOPES = [
 	"openid",
 	"profile",
@@ -54,6 +55,16 @@ export const OAUTH_ACCESS_TOKEN_TTL_SECONDS = 15 * 60;
 export const IMPERSONATION_HANDOFF_TTL_SECONDS = 60;
 export const IMPERSONATION_SESSION_TTL_SECONDS = 60 * 60;
 export const OAUTH_REFRESH_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
+
+export const OAUTH_CONSENT_DETAILS_PATH = "/api/auth/oauth2/consent-details";
+export const OAuthConsentDetailsRequest = strictStruct({ oauth_query: Schema.String });
+
+export const OAuthConsentDetails = strictStruct({
+	clientName: Schema.String,
+	redirectOrigin: Schema.String,
+	scope: Schema.Literal(OAUTH_API_SCOPE),
+});
+export type OAuthConsentDetails = typeof OAuthConsentDetails.Type;
 
 export const OAUTH_LOGIN_PATH = "/oauth/login";
 export const OAUTH_CALLBACK_PATH = "/auth/callback";
@@ -99,6 +110,10 @@ export const isLoopbackOrigin = (origin: string) => {
 };
 
 const fromOrigin = (origin: string, path: string) => new URL(path, origin).toString();
+
+export const getMcpOAuthResource = (origin: string) => fromOrigin(origin, "/api/mcp");
+export const getMcpResourceMetadataUrl = (origin: string) =>
+	fromOrigin(origin, "/.well-known/oauth-protected-resource/api/mcp");
 
 export const getOAuthResource = (origin: string) => fromOrigin(origin, "/api");
 export const getOAuthIssuer = (origin: string) => fromOrigin(origin, OAUTH_ISSUER_PATH);

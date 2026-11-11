@@ -14,13 +14,13 @@ Startup provisions five public clients:
 | `ryot-impersonation-web`    | Same callback and logout URIs as `ryot-web`                                  |
 | `ryot-impersonation-native` | Same callback and logout URIs as `ryot-native`                               |
 
-All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Dynamic registration and user-managed clients are disabled. The web client uses its current origin; only the installed native app selects a server.
+All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Public clients may dynamically register for `ryot:api` and the MCP resource; confidential registration is rejected. Client and resource management remain unavailable. The web client uses its current origin; only the installed native app selects a server.
 
 Better Auth accepts plain-HTTP redirect URIs only on the configured `FRONTEND_URL` origin, so non-loopback HTTP deployments register their real web callbacks. Dynamically registered clients cannot use HTTP redirects on any other non-loopback origin. This does not encrypt HTTP traffic.
 
 ## Tokens
 
-Access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user. Disabled or deleted users fail immediately. API keys retain Better Auth expiry, rate limiting, cache, database fallback, and ownership checks. `requestClientAddress` resolves a request's client address with Better Auth's own `advanced` options, so other per-address limits key requests exactly as Better Auth's rate limits do.
+Access tokens expire after 15 minutes and refresh tokens after 30 days. API middleware verifies the JWT signature, issuer `<FRONTEND_URL>/api/auth`, audience `<FRONTEND_URL>/api`, expiry, and `ryot:api` scope, then loads the authoritative user. MCP instead verifies the audience `<FRONTEND_URL>/api/mcp`; tokens for either resource are rejected at the other boundary. Disabled or deleted users fail immediately. API keys retain Better Auth expiry, rate limiting, cache, database fallback, and ownership checks. `requestClientAddress` resolves a request's client address with Better Auth's own `advanced` options, so other per-address limits key requests exactly as Better Auth's rate limits do.
 
 User preferences are application data on the user row, not Better Auth user fields or session claims. Authenticated application reads decode the full canonical JSONB value. Preference commands validate a partial body, normalize language at the write boundary, and merge supplied fields in one row update; omitted fields remain unchanged. The database supplies complete defaults and rejects malformed stored values.
 
@@ -86,4 +86,20 @@ The Better Auth boundary blocks demo sessions from changing account security sta
 
 `FRONTEND_URL` must be the exact public HTTP or HTTPS origin, without path, query, or fragment. It defines the issuer, API audience, trusted browser origin, and web redirects; production should use HTTPS.
 
-Proxies must forward `/api/auth/*`, preserve `Authorization`, and never cache authorization or token responses. Discovery is at `/api/auth/.well-known/openid-configuration`; no root `/.well-known/*` route is needed. APIs and token exchange use wildcard non-credentialed CORS; hosted-login cookies remain same-origin.
+Proxies must forward `/api/auth/*`, preserve `Authorization`, and never cache authorization or token responses. Discovery is at `/api/auth/.well-known/openid-configuration`, with RFC 8414 and OIDC aliases at `/.well-known/oauth-authorization-server/api/auth` and `/.well-known/openid-configuration/api/auth`. MCP protected-resource metadata is at `/.well-known/oauth-protected-resource/api/mcp`. APIs and token exchange use wildcard non-credentialed CORS; hosted-login cookies remain same-origin.
+
+## MCP authorization and consent
+
+Dynamic registration uses Better Auth's `/api/auth/oauth2/register`, with explicit
+`token_endpoint_auth_method: "none"`, Authorization Code with S256 PKCE, the single `ryot:api`
+data scope, optional `offline_access` for refresh tokens, and the MCP resource. Registration assigns only that resource. Registered clients always
+receive the consent ceremony on a new authorization, including when a previous grant exists;
+first-party clients retain their provisioned skip-consent behavior. The built-in consent endpoint
+owns approval, refusal and authorization-code issuance.
+
+The hosted page posts `{ oauth_query }` to `/api/auth/oauth2/consent-details`. The companion plugin
+verifies the provider signature and expiry before checking the session, resolves the signed client
+through the provider, validates its registered redirect (including native loopback port matching),
+and returns only `{ clientName, redirectOrigin, scope: "ryot:api" }`. Invalid or altered queries
+return 400; valid queries without a hosted session return 401. The page carries the original signed
+query into login when the session has expired. Display parameters never become authorization input.
