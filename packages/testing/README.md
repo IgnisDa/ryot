@@ -30,7 +30,9 @@ from `@ryot-app/testing/test-timeout` as their explicit registration budget. The
 then interrupts their fibers and runs finalizers before Bun's backstop expires. Per-test budgets
 take precedence; zero disables the suite timeout.
 
-Client packages use `src/run-client-tests.ts`, which runs `.test.ts` files without browser globals
+Client packages use `src/run-client-tests.ts` or call `runClientTests({ env, args, workers })` from
+`@ryot-app/testing/run-client-tests` after scoped infrastructure setup. Importing the module does no
+file discovery or execution; the Effect forwards environment and worker settings to both phases. The runner runs `.test.ts` files without browser globals
 and `.test.tsx` files with the shared jsdom preload. Each file gets a fresh global and React cleanup.
 DOM events come from that window, including their subclasses. Fetch, Request, Blob, MessagePort,
 and global cancellation remain Bun-native. DOM listeners use their owning window's AbortController;

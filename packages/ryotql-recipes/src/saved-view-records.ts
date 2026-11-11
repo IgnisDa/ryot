@@ -1,21 +1,26 @@
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
 	ascending,
+	castText,
 	column,
 	defineRecipe,
 	eq,
+	jsonPath,
 	literal,
+	or,
 	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
@@ -38,48 +43,123 @@ const selection = {
 	settings: selectedField(column(savedView, "settings"), Schema.Record(Schema.String, JsonValue)),
 };
 
-export const savedViewRecordsRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly after?: string | undefined;
-		readonly pluginId?: string | undefined;
-		readonly includeHidden?: boolean | undefined;
-	}) => {
-		const predicates = [
-			...((input.includeHidden ?? false)
-				? []
-				: [eq(column(savedView, "isHidden"), literal(false))]),
-			...(input.pluginId ? [eq(column(savedView, "pluginId"), literal(input.pluginId))] : []),
-		];
-		return {
-			map: ({ savedViews }) => Result.succeed(savedViews),
-			queries: {
-				savedViews: selectedRows(savedView, {
-					selection,
-					after: input.after,
-					limit: input.limit,
-					where: predicates.length > 0 ? and(...predicates) : undefined,
-					orderBy: [
-						ascending(column(savedView, "packageId")),
-						ascending(column(savedView, "sortOrder")),
-						ascending(column(savedView, "slug")),
-					],
-				}),
+export const savedViewRecordsRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			pluginId: { type: "string", label: "pluginId", description: "Query pluginId" },
+			includeHidden: {
+				type: "boolean",
+				defaultValue: false,
+				label: "includeHidden",
+				description: "Query includeHidden",
 			},
-		};
-	},
-);
+		},
+	});
 
-export const savedViewRecordRecipe = defineRecipe((reference: SavedViewReference) => ({
+	const predicates = [
+		or(
+			eq(recipeParameters.value("includeHidden"), literal(true)),
+			eq(column(savedView, "isHidden"), literal(false)),
+		),
+		recipeParameters.whenSet(
+			"pluginId",
+			eq(column(savedView, "pluginId"), recipeParameters.value("pluginId")),
+		),
+	];
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ savedViews }) => Result.succeed(savedViews),
+		queries: {
+			savedViews: selectedRows(savedView, {
+				selection,
+
+				limit: 20,
+				maxLimit: 1000,
+				where: predicates.length > 0 ? and(...predicates) : undefined,
+				orderBy: [
+					ascending(column(savedView, "packageId")),
+					ascending(column(savedView, "sortOrder")),
+					ascending(column(savedView, "slug")),
+				],
+			}),
+		},
+	});
+})();
+
+export const savedViewReferenceFields = {
+	slug: { label: "Slug", type: "string", defaultValue: "", description: "Builtin saved view slug" },
+	pluginId: {
+		type: "string",
+		label: "Plugin",
+		defaultValue: "",
+		description: "Local saved view plugin ID",
+	},
+	savedViewId: {
+		type: "string",
+		defaultValue: "",
+		label: "Saved view",
+		description: "Custom saved view ID",
+	},
+	referenceKind: {
+		type: "enum",
+		defaultValue: "kernel",
+		label: "Reference kind",
+		description: "Saved view reference kind",
+		choices: {
+			kind: "static",
+			values: [{ value: "custom" }, { value: "kernel" }, { value: "plugin" }],
+		},
+	},
+} as const;
+
+export const savedViewReferenceArguments = (reference: SavedViewReference) => ({
+	referenceKind: reference.kind,
+	slug: reference.kind === "custom" ? "" : reference.slug,
+	pluginId: reference.kind === "plugin" ? reference.pluginId : "",
+	savedViewId: reference.kind === "custom" ? reference.savedViewId : "",
+});
+
+export const savedViewReferencePredicate = (
+	reference: ScalarExpression,
+	input: {
+		readonly id: ScalarExpression;
+		readonly kind: ScalarExpression;
+		readonly slug: ScalarExpression;
+		readonly pluginId: ScalarExpression;
+	},
+) =>
+	and(
+		eq(castText(jsonPath(reference, "kind")), input.kind),
+		or(
+			and(
+				eq(input.kind, literal("custom")),
+				eq(castText(jsonPath(reference, "savedViewId")), input.id),
+			),
+			and(eq(input.kind, literal("kernel")), eq(castText(jsonPath(reference, "slug")), input.slug)),
+			and(
+				eq(input.kind, literal("plugin")),
+				eq(castText(jsonPath(reference, "pluginId")), input.pluginId),
+				eq(castText(jsonPath(reference, "slug")), input.slug),
+			),
+		),
+	);
+const referenceParameters = parameters({ fields: savedViewReferenceFields });
+export const savedViewRecordRecipe = defineRecipe({
+	parameters: referenceParameters.schema,
 	map: ({ savedView: record }) => Result.succeed(record),
 	queries: {
 		savedView: selectedOptionalRow(savedView, {
 			selection,
 			orderBy: [ascending(column(savedView, "id"))],
-			where: eq(column(savedView, "reference"), literal(reference)),
+			where: savedViewReferencePredicate(column(savedView, "reference"), {
+				slug: referenceParameters.value("slug"),
+				id: referenceParameters.value("savedViewId"),
+				pluginId: referenceParameters.value("pluginId"),
+				kind: referenceParameters.value("referenceKind"),
+			}),
 		}),
 	},
-}));
+});
 
 export type SavedViewRecordList = Recipe.Success<typeof savedViewRecordsRecipe>;
 export type SavedViewRecord = NonNullable<Recipe.Success<typeof savedViewRecordRecipe>>;

@@ -3,8 +3,12 @@ import { describe, expect, it } from "bun:test";
 import { SavedViewId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 
-import { savedViewRecordRecipe, savedViewRecordsRecipe } from "./saved-view-records";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import {
+	savedViewRecordRecipe,
+	savedViewRecordsRecipe,
+	savedViewReferenceArguments,
+} from "./saved-view-records";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const item = {
 	id: "view-1",
@@ -28,7 +32,7 @@ const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pa
 describe("saved-view record recipes", () => {
 	it("prepares list filters, fields, pagination, and ordering", () => {
 		const query = requireRowsQuery(
-			savedViewRecordsRecipe({
+			bindRecipe(savedViewRecordsRecipe, {
 				limit: 7,
 				after: "cursor",
 				includeHidden: false,
@@ -55,7 +59,13 @@ describe("saved-view record recipes", () => {
 		]);
 		expect(query.where).toMatchObject({
 			predicates: [
-				{ right: { value: false }, left: { field: "isHidden" } },
+				{
+					type: "or",
+					predicates: [
+						{ left: { value: false }, right: { value: true } },
+						{ right: { value: false }, left: { field: "isHidden" } },
+					],
+				},
 				{ left: { field: "pluginId" }, right: { value: "fixture-owner" } },
 			],
 		});
@@ -63,20 +73,33 @@ describe("saved-view record recipes", () => {
 
 	it("prepares optional detail with cardinality limit two", () => {
 		const query = requireRowsQuery(
-			savedViewRecordRecipe({ kind: "custom", savedViewId: SavedViewId.make("view-1") }).document
-				.queries.savedView,
+			bindRecipe(
+				savedViewRecordRecipe,
+				savedViewReferenceArguments({ kind: "custom", savedViewId: SavedViewId.make("view-1") }),
+			).document.queries.savedView,
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
 		expect(query.where).toMatchObject({
-			left: { field: "reference" },
-			right: { value: { kind: "custom", savedViewId: "view-1" } },
+			predicates: [
+				{ right: { value: "custom" } },
+				{
+					type: "or",
+					predicates: [
+						{ predicates: [{ right: { value: "custom" } }, { right: { value: "view-1" } }] },
+						{},
+						{},
+					],
+				},
+			],
 		});
 	});
 
 	it("decodes plain records, page info, nulls, and normalized dates", () => {
 		const decoded = Result.getOrThrow(
-			savedViewRecordsRecipe({ limit: 2 }).decode({ data: { savedViews: rows([item]) } }),
+			bindRecipe(savedViewRecordsRecipe, { limit: 2 }).decode({
+				data: { savedViews: rows([item]) },
+			}),
 		);
 
 		expect(decoded).toEqual<unknown>({
@@ -87,7 +110,7 @@ describe("saved-view record recipes", () => {
 		});
 		expect(
 			Result.getOrThrow(
-				savedViewRecordsRecipe({ limit: 2 }).decode({
+				bindRecipe(savedViewRecordsRecipe, { limit: 2 }).decode({
 					data: { savedViews: rows([{ ...item, packageId: null }]) },
 				}),
 			).items[0],
@@ -95,10 +118,10 @@ describe("saved-view record recipes", () => {
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {
-		const recipe = savedViewRecordRecipe({
-			kind: "custom",
-			savedViewId: SavedViewId.make("view-1"),
-		});
+		const recipe = bindRecipe(
+			savedViewRecordRecipe,
+			savedViewReferenceArguments({ kind: "custom", savedViewId: SavedViewId.make("view-1") }),
+		);
 
 		expect(Result.getOrThrow(recipe.decode({ data: { savedView: rows([], 2) } }))).toBeUndefined();
 		expect(Result.isFailure(recipe.decode({ data: { savedView: rows([item, item], 2) } }))).toBe(
@@ -107,7 +130,7 @@ describe("saved-view record recipes", () => {
 	});
 
 	it("rejects malformed JSON and dates", () => {
-		const recipe = savedViewRecordsRecipe({ limit: 2 });
+		const recipe = bindRecipe(savedViewRecordsRecipe, { limit: 2 });
 
 		for (const malformed of [
 			{ ...item, renderer: "not-json" },
@@ -125,7 +148,7 @@ describe("saved-view record recipes", () => {
 	it("rejects missing fields and wrong result shapes", () => {
 		const malformed = { ...item } as Record<string, unknown>;
 		delete malformed.id;
-		const recipe = savedViewRecordsRecipe({ limit: 2 });
+		const recipe = bindRecipe(savedViewRecordsRecipe, { limit: 2 });
 
 		expect(Result.isFailure(recipe.decode({ data: { savedViews: rows([malformed]) } }))).toBe(true);
 		expect(Result.isFailure(recipe.decode({ data: {} }))).toBe(true);

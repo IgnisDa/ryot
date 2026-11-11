@@ -1,30 +1,26 @@
 import {
 	BROWSE_SUBJECT_ALIAS,
 	type BrowseField,
-	type BrowseSort,
 	EntitySchemaBrowse,
 } from "@ryot-app/contract/modules/filters/browse";
 import type { FilterChoice } from "@ryot-app/contract/modules/filters/schemas";
+import type { BrowseSort } from "@ryot-app/contract/modules/filters/sort";
 import {
 	definitionOwner,
 	ownerIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	mapScalarExpression,
-	type OrderBy,
-	type Predicate,
-	type RowsPageInfo,
 	type ScalarExpression,
 	type TableReference,
-} from "@ryot-app/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/authored";
+import type { RowsPageInfo } from "@ryot-app/contract/modules/ryotql/language";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	ascending,
 	column,
-	conditional,
 	defineRecipe,
-	descending,
 	entitySchemaPredicate,
 	eq,
 	literal,
@@ -35,14 +31,11 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
-import { Result, Schema } from "effect";
+import type { FilterFieldSpec, FilterTarget } from "@ryot-app/ryotql/filters";
+import type { SortTarget } from "@ryot-app/ryotql/sort";
+import { Array as Arr, Effect, Result, Schema } from "effect";
 
-import {
-	collectionsFilterField,
-	type FilterFieldSpec,
-	type FilterTarget,
-	queryFilterFields,
-} from "./filters";
+import { collectionsFilterField, queryFilterFields } from "./filters";
 
 const NAME_SORT_KEY = "name";
 
@@ -55,10 +48,6 @@ export const ENTITY_IDS_PAGE_SIZE = 100;
 
 export type BrowseSortChoice = BrowseSort & { readonly key: string };
 
-export type SortTarget = BrowseSortChoice & {
-	readonly branches: readonly [SortBranch, ...SortBranch[]];
-};
-
 export type EntityIdsResult = {
 	readonly items: readonly string[];
 	readonly pageInfo: typeof RowsPageInfo.Type;
@@ -69,8 +58,6 @@ export type BrowseSchema = {
 	readonly pluginId: null | string;
 	readonly browse: null | EntitySchemaBrowse;
 };
-
-type SortBranch = { readonly value: ScalarExpression; readonly when?: Predicate | undefined };
 
 export const nameSortTarget = (entity: TableReference): SortTarget => ({
 	label: "Name",
@@ -83,30 +70,6 @@ export const nameSortTarget = (entity: TableReference): SortTarget => ({
 
 export const sortChoices = (targets: readonly SortTarget[]) =>
 	targets.map(({ branches: _, ...choice }) => choice);
-
-const sortValue = (branches: readonly SortBranch[]) =>
-	branches.reduceRight<ScalarExpression>(
-		(otherwise, branch) =>
-			branch.when === undefined ? branch.value : conditional(branch.when, branch.value, otherwise),
-		literal(null),
-	);
-
-/** Orders by a sort choice, then entity ID; rows without a value sort last. */
-export const compileSort = (
-	targets: readonly SortTarget[],
-	choice: string,
-	entityId: ScalarExpression,
-): Result.Result<readonly OrderBy[], Error> => {
-	for (const target of targets) {
-		if (choice === `${target.key}-asc`) {
-			return Result.succeed([ascending(sortValue(target.branches)), ascending(entityId)]);
-		}
-		if (choice === `${target.key}-desc`) {
-			return Result.succeed([descending(sortValue(target.branches)), ascending(entityId)]);
-		}
-	}
-	return Result.fail(new Error(`Sort choice '${choice}' is not available`));
-};
 
 const schemaOwner = (schema: BrowseSchema) =>
 	ownerIdentityReference(definitionOwner(schema.pluginId));
@@ -292,13 +255,13 @@ export const browseTargets = (
 
 const definitions = table("entitySchema", "browseSchema");
 
-export const entitySchemaBrowseRecipe = defineRecipe(
-	(input: {
-		readonly schemas: readonly [
-			{ readonly slug: string; readonly pluginId: null | string },
-			...{ readonly slug: string; readonly pluginId: null | string }[],
-		];
-	}) => ({
+export const entitySchemaBrowseRecipe = (input: {
+	readonly schemas: readonly [
+		{ readonly slug: string; readonly pluginId: null | string },
+		...{ readonly slug: string; readonly pluginId: null | string }[],
+	];
+}) => {
+	return defineRecipe({
 		map: ({ schemas }) =>
 			Result.succeed(
 				input.schemas.flatMap((requested): readonly BrowseSchema[] => {
@@ -312,7 +275,8 @@ export const entitySchemaBrowseRecipe = defineRecipe(
 			),
 		queries: {
 			schemas: selectedRows(definitions, {
-				limit: input.schemas.length,
+				limit: 100,
+				maxLimit: 100,
 				orderBy: [ascending(column(definitions, "id"))],
 				where: or(
 					...input.schemas.map((schema) =>
@@ -333,7 +297,19 @@ export const entitySchemaBrowseRecipe = defineRecipe(
 				},
 			}),
 		},
-	}),
-);
+	});
+};
 
-export type EntitySchemaBrowseResult = Recipe.Success<typeof entitySchemaBrowseRecipe>;
+export type EntitySchemaBrowseResult = Recipe.Success<ReturnType<typeof entitySchemaBrowseRecipe>>;
+
+export const loadEntitySchemaBrowse = Effect.fn("loadEntitySchemaBrowse")(function* <E, R>(
+	schemas: readonly Pick<BrowseSchema, "slug" | "pluginId">[],
+	query: (
+		recipe: ReturnType<typeof entitySchemaBrowseRecipe>,
+	) => Effect.Effect<EntitySchemaBrowseResult, E, R>,
+) {
+	const results = yield* Effect.forEach(Arr.chunksOf(schemas, 100), (batch) =>
+		query(entitySchemaBrowseRecipe({ schemas: batch })),
+	);
+	return results.flat();
+});

@@ -5,18 +5,16 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
 	ascending,
-	castDate,
 	column,
 	defineRecipe,
 	field,
 	gte,
 	isNull,
-	literal,
 	lt,
 	or,
-	type PreparedRecipe,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
@@ -41,17 +39,6 @@ export type SignalScheduleSource = {
 
 type DueRow = Readonly<Record<string, JsonValue>>;
 
-type SignalScheduleBounds = {
-	readonly end: string;
-	readonly start: string;
-	readonly confirmedAfter: null | string;
-};
-
-type SignalSchedulePage = {
-	readonly items: readonly SignalScheduleCandidate[];
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
-};
-
 const dueRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
 
 const textValue = (row: DueRow, key: string) => {
@@ -61,13 +48,29 @@ const textValue = (row: DueRow, key: string) => {
 		: Result.fail(new Error(`Signal schedule field '${key}' must be text`));
 };
 
-export const signalSchedulePageRecipe = (input: {
-	readonly limit: number;
-	readonly after?: string | undefined;
-	readonly bounds: SignalScheduleBounds;
-	readonly schedule: SignalScheduleSource;
-}): Result.Result<PreparedRecipe<SignalSchedulePage>, Error> => {
+export const signalSchedulePageRecipe = (input: { readonly schedule: SignalScheduleSource }) => {
 	const { schedule } = input;
+	const recipeParameters = parameters({
+		fields: {
+			confirmedAfter: {
+				type: "datetime",
+				label: "Confirmed after",
+				description: "Freshness boundary",
+			},
+			end: {
+				label: "End",
+				type: "datetime",
+				validation: { required: true },
+				description: "Exclusive bounded scan end",
+			},
+			start: {
+				label: "Start",
+				type: "datetime",
+				validation: { required: true },
+				description: "Inclusive bounded scan start",
+			},
+		},
+	});
 	const fields = schedule.query.output.fields.flatMap((selection) =>
 		"key" in selection ? [selection] : [],
 	);
@@ -97,7 +100,8 @@ export const signalSchedulePageRecipe = (input: {
 				occurrence: yield* textValue(row, occurrenceKey),
 			} satisfies SignalScheduleCandidate;
 		});
-	const recipe = defineRecipe(() => ({
+	const recipe = defineRecipe({
+		parameters: recipeParameters.schema,
 		map: (results) => Result.succeed(results[DUE_QUERY]),
 		queries: {
 			[DUE_QUERY]: {
@@ -112,11 +116,8 @@ export const signalSchedulePageRecipe = (input: {
 					...schedule.query,
 					output: {
 						...schedule.query.output,
+						pagination: { limit: 100, maxLimit: 1000 },
 						orderBy: [ascending(dueAt), ascending(occurrence)],
-						pagination: {
-							limit: input.limit,
-							...(input.after === undefined ? {} : { after: input.after }),
-						},
 						fields: [
 							...fields.filter(({ key }) => propertyKeys.has(key)),
 							field(idKey, column(subject, "id")),
@@ -126,20 +127,23 @@ export const signalSchedulePageRecipe = (input: {
 					where: and(
 						...(schedule.query.where === undefined ? [] : [schedule.query.where]),
 						subjectSchemaPredicate(schedule.subject, subject),
-						gte(dueAt, castDate(literal(input.bounds.start))),
-						lt(dueAt, castDate(literal(input.bounds.end))),
-						...(confirmedAt === null || input.bounds.confirmedAfter === null
+						gte(dueAt, recipeParameters.value("start")),
+						lt(dueAt, recipeParameters.value("end")),
+						...(confirmedAt === null
 							? []
 							: [
-									or(
-										isNull(confirmedAt),
-										gte(confirmedAt, castDate(literal(input.bounds.confirmedAfter))),
+									recipeParameters.whenSet(
+										"confirmedAfter",
+										or(
+											isNull(confirmedAt),
+											gte(confirmedAt, recipeParameters.value("confirmedAfter")),
+										),
 									),
 								]),
 					),
 				},
 			},
 		},
-	}));
-	return Result.succeed(recipe());
+	});
+	return Result.succeed(recipe);
 };

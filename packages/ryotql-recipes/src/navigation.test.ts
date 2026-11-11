@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Result } from "effect";
 
 import { navigationRecipe } from "./navigation";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const rows = (items: readonly unknown[], limit = 100) =>
 	rowsResult(items, { limit, hasMore: false, nextCursor: null });
@@ -27,7 +27,7 @@ const response = {
 
 describe("navigation recipe", () => {
 	it("prepares one document with all navigation queries", () => {
-		const document = navigationRecipe().document;
+		const document = bindRecipe(navigationRecipe, {}).document;
 
 		expect(Object.keys(document.queries)).toEqual(["collections", "savedViews"]);
 		expect(requireRowsQuery(document.queries.savedViews).output.orderBy).toEqual([
@@ -48,7 +48,7 @@ describe("navigation recipe", () => {
 	});
 
 	it("decodes plain values and applies navigation defaults", () => {
-		expect(Result.getOrThrow(navigationRecipe().decode(response))).toEqual<unknown>({
+		expect(Result.getOrThrow(bindRecipe(navigationRecipe, {}).decode(response))).toEqual<unknown>({
 			collections: [
 				{
 					sortOrder: 0,
@@ -79,7 +79,9 @@ describe("navigation recipe", () => {
 	it("decodes empty sections", () => {
 		expect(
 			Result.getOrThrow(
-				navigationRecipe().decode({ data: { savedViews: rows([]), collections: rows([]) } }),
+				bindRecipe(navigationRecipe, {}).decode({
+					data: { savedViews: rows([]), collections: rows([]) },
+				}),
 			),
 		).toEqual({ savedViews: [], collections: [] });
 	});
@@ -87,7 +89,7 @@ describe("navigation recipe", () => {
 	it("rejects malformed selected fields", () => {
 		expect(
 			Result.isFailure(
-				navigationRecipe().decode({
+				bindRecipe(navigationRecipe, {}).decode({
 					...response,
 					data: { ...response.data, collections: rows([{ id: 2, name: "Malformed" }]) },
 				}),

@@ -5,7 +5,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { providerSearchRecipe } from "./provider-search";
-import { rowsResponse } from "./test-utils";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 const searchOptionsSchema = {
 	unknownKeys: "strict",
@@ -25,12 +25,15 @@ const provider = {
 	providerId: "provider-1",
 	rootEntitySchemaSlug: "entry",
 };
-const recipe = providerSearchRecipe({
-	schema: {
-		slug: EntitySchemaSlug.make("entry"),
-		owner: { kind: "plugin", pluginId: PluginId.make("stable-plugin-id") },
-	},
-});
+const recipe = bindRecipe(
+	providerSearchRecipe({
+		schema: {
+			slug: EntitySchemaSlug.make("entry"),
+			owner: { kind: "plugin", pluginId: PluginId.make("stable-plugin-id") },
+		},
+	}),
+	{},
+);
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("providers", items, pageInfo);
 
 describe("provider search recipe", () => {

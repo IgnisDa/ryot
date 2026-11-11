@@ -6,7 +6,7 @@ import { backupRunRecipe } from "./backups";
 import { importSourcesRecipe } from "./import-sources";
 import { instanceAdminUsersRecipe, migrationReportRecipe } from "./instance-admin";
 import { integrationProvidersRecipe } from "./integration-providers";
-import { rowsResult } from "./test-utils";
+import { bindRecipe, rowsResult } from "./test-utils";
 
 const date = "2026-09-23T10:00:00+02:00";
 const readinessFields = {
@@ -40,14 +40,16 @@ const page = (items: readonly unknown[], limit = 2, hasMore = false) =>
 it("maps missing backup detail to None", () => {
 	expect(
 		Option.isNone(
-			Result.getOrThrow(backupRunRecipe({ id: "absent" }).decode({ data: { run: page([]) } })),
+			Result.getOrThrow(
+				bindRecipe(backupRunRecipe, { id: "absent" }).decode({ data: { run: page([]) } }),
+			),
 		),
 	).toBe(true);
 });
 
 it("decodes executable import metadata and nullable export help", () => {
 	const decoded = Result.getOrThrow(
-		importSourcesRecipe({ limit: 2 }).decode({
+		bindRecipe(importSourcesRecipe, { limit: 2 }).decode({
 			data: {
 				sources: page([
 					{
@@ -80,7 +82,7 @@ it("decodes executable import metadata and nullable export help", () => {
 
 it("builds provider common fields from lot and ownership-sync support", () => {
 	const decoded = Result.getOrThrow(
-		integrationProvidersRecipe({ limit: 3 }).decode({
+		bindRecipe(integrationProvidersRecipe, { limit: 3 }).decode({
 			data: {
 				providers: page(
 					[
@@ -141,7 +143,7 @@ it("builds provider common fields from lot and ownership-sync support", () => {
 
 it("keeps admin user count independent of the cursor page and normalizes dates", () => {
 	const decoded = Result.getOrThrow(
-		instanceAdminUsersRecipe({ limit: 2, search: "a" }).decode({
+		bindRecipe(instanceAdminUsersRecipe, { limit: 2, search: "a" }).decode({
 			data: {
 				total: { type: "aggregate", items: [{ count: 17 }] },
 				users: page(
@@ -169,7 +171,7 @@ it("keeps admin user count independent of the cursor page and normalizes dates",
 
 it("decodes migration details and preserves include truncation metadata", () => {
 	const decoded = Result.getOrThrow(
-		migrationReportRecipe({ limit: 5 }).decode({
+		bindRecipe(migrationReportRecipe, { limit: 5 }).decode({
 			data: {
 				entries: page([
 					{

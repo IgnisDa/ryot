@@ -2,7 +2,7 @@ import { expect, it } from "bun:test";
 
 import { Result } from "effect";
 
-import { rowsResult } from "./test-utils";
+import { bindRecipe, rowsResult } from "./test-utils";
 import { userSettingsRecipe } from "./user-settings";
 
 const page = (items: readonly unknown[]) =>
@@ -21,7 +21,7 @@ it("reads canonical stored preferences and rejects malformed persisted values", 
 			disableIntegrations: false,
 		},
 	};
-	const recipe = userSettingsRecipe();
+	const recipe = bindRecipe(userSettingsRecipe, {});
 	expect(
 		Result.getOrThrow(recipe.decode({ data: { user: page([user]) } })).preferences,
 	).toEqual<unknown>(user.preferences);

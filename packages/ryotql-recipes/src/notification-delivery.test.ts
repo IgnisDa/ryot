@@ -4,7 +4,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { notificationDeliveriesRecipe, notificationOutcomeRecipe } from "./notification-delivery";
-import { rowsResponse } from "./test-utils";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 3, hasMore: true, nextCursor: "next" };
 const outcome = {
@@ -32,7 +32,7 @@ const deliveriesResponse = (items: readonly unknown[]) =>
 
 describe("notification delivery recipes", () => {
 	it("maps an empty outcome read to null and decodes settled unknown outcomes", () => {
-		const recipe = notificationOutcomeRecipe({ id: "notification-1" });
+		const recipe = bindRecipe(notificationOutcomeRecipe, { id: "notification-1" });
 
 		expect(Result.getOrThrow(recipe.decode(outcomeResponse([])))).toBeNull();
 		expect(Result.getOrThrow(recipe.decode(outcomeResponse([outcome])))).toEqual<unknown>({
@@ -42,7 +42,7 @@ describe("notification delivery recipes", () => {
 	});
 
 	it("rejects malformed outcome state and date fields", () => {
-		const recipe = notificationOutcomeRecipe({ id: "notification-1" });
+		const recipe = bindRecipe(notificationOutcomeRecipe, { id: "notification-1" });
 
 		expect(
 			Result.isFailure(recipe.decode(outcomeResponse([{ ...outcome, state: "running" }]))),
@@ -53,7 +53,7 @@ describe("notification delivery recipes", () => {
 	});
 
 	it("preserves delivery pagination and decodes safe statuses and dates", () => {
-		const recipe = notificationDeliveriesRecipe({
+		const recipe = bindRecipe(notificationDeliveriesRecipe, {
 			limit: 7,
 			after: "cursor",
 			notificationId: "notification-1",
@@ -78,7 +78,10 @@ describe("notification delivery recipes", () => {
 	});
 
 	it("rejects malformed delivery status and date fields", () => {
-		const recipe = notificationDeliveriesRecipe({ limit: 3, notificationId: "notification-1" });
+		const recipe = bindRecipe(notificationDeliveriesRecipe, {
+			limit: 3,
+			notificationId: "notification-1",
+		});
 
 		expect(
 			Result.isFailure(recipe.decode(deliveriesResponse([{ ...delivery, status: "sent" }]))),

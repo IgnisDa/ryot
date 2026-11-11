@@ -18,65 +18,59 @@ Runtime provider search takes an `EntitySchemaReference`.
 Saved-view detail lookups take a tagged `SavedViewReference`; list filters use local plugin IDs, not
 display slugs. Plugin catalogs expose permanent package IDs, local IDs, scope, and typed home views.
 
-## Saved-View Recipes
+## Static recipes and execution
 
-Saved-view documents are authored RyotQL with descriptive field keys; settings name the source,
-search, sort, and table-column fields, plus the `subject`: the entity table alias and the entity
-schemas the view lists. The entity-browser recipes derive provenance from the subject. The page recipe
-appends the entity ID, owner, schema slug, name, `populationStatus`, and `translationStatus` under
-unused keys from the subject alias and decodes them into each item; both the page and count recipes
-AND an owner-qualified subject-schema predicate into `where`, and the count uses `countDistinct` of the
-subject alias ID. Authored sources therefore neither select nor map provenance or sync state, and the
-schema constraint holds by construction. Registered entity presentations supply cards.
+Recipes declare parameters once with `parameters(schema)` and pass their schema to
+`defineRecipe({ parameters, controls, queries, map? })`. Runtime IDs, search text, reporting selections,
+and windows are arguments to `client.data.query(recipe, arguments, { pages, filter, sort })`.
+Structural factories accept identity, schemas, or source declarations. Clients never bind documents.
+See [the foundation API](../ryotql/README.md) for authored grammar and server binding.
 
-### Filters
+## Saved views and controls
 
-Filters compile against `FilterTarget`s: a `FilterFieldSpec` (key, label, type, choices or link)
-plus one or more branches, each an optional schema condition (`when`) with the value expression or
-link that applies under it. The kernel owns the operators, fixed per field type in
-`filterOperators`. `outputFilterTargets` turns a results table's authored `filterFields` into
-targets over projected outputs; `collectionsFilterTarget` is the kernel `collections` relationship
-field (kernel `member-of`, outgoing) offered by entity and collection browsers.
+Saved-view renderers execute named queries by saved-view reference and request controls through
+`client.data.describe(source)`. Settings identify control parameter names; search predicates and sort
+expressions live in the static document. Backend derivation injects the reserved provenance fields
+from `contract/modules/saved-views/entity-browser-fields`, plus `count.count` and `ids.id`.
+Authored sources must not select those reserved fields or entity sync state. Recipe decoders return
+entity references and typed display cells for renderers.
 
-### Browse
+`librarySearchQuery({ source, entity, searchExpressions, search, image?, subtitle? })` authors a
+ranked named `librarySearch` query. `searchExpressions` and `search` are structural expressions and a
+parameter handle. The backend derives `librarySearchCount`; global search offers only views with
+this explicit query. `decodeLibrarySearch` shares the hit/count wire decoding.
 
-`browse` turns the subject schemas' browse fields into filter and sort targets.
-`entitySchemaBrowseRecipe` loads them for owner-qualified schemas in request order, and
-`browseTargets` rebases each `subject` expression onto the host alias, prefixing inner aliases
-(`browse{N}_`) clear of the host query. Fields from one plugin with the same key merge: identical
-expressions fold into one branch, differing ones are conditioned on the declaring schemas (no
-condition when every schema declares it), and link fields keep each schema's own link. The same key
-from different plugins becomes `key:pluginId`. Enum choices merge in order.
+Controls declare browse targets, projected-output targets, or a flat composite of both. Outputs can
+identify the canonical rows query with `query` so count and ID selections resolve the same expressions.
+Optional output sort metadata supplies labels and the default direction. Renderers consume described
+fields and sort choices; server binding compiles request values under caller authority.
+`queryFilterFields` adapts described fields for the shared filter UI. `filters` owns URL/draft helpers,
+`collectionsFilterField`, and the static linked-choice recipe. Compilation belongs to
+`@ryot-app/ryotql/filters` and `/sort`.
 
-Each sortable field contributes one structured sort choice with its neutral label, default direction,
-and human-readable ascending/descending labels; sort-only fields use the same shape. `compileSort` orders
-by the selected field and its `${key}-asc` or `${key}-desc` direction, reading null for entities whose
-schema lacks the field (nulls last), then the entity ID as an ascending tiebreaker. `nameSortTarget`
-is the generic Name sort.
-`entityBrowserControls` and `collectionMemberControls` list the filter fields and sort choices
-renderers offer; directions are not separate field choices. The URL sort value remains
-`${key}-asc` or `${key}-desc`. The page and count recipes take the same `browse` or member fields, so
-search, count, and every page apply the same filter and sort. Without a sort choice, entity browsers
-keep the full source query order and collections their manual order.
+`loadEntityWatches` batches distinct population IDs into reads of at most 100 rows.
+`loadEntitySchemaBrowse` batches schema selections into the same row bound and retains missing
+definitions as neutral browse entries. Provider materialization and library-link lookups expose
+100-row pages; `loadCompleteRows` follows their native cursors to retain every matching entity,
+including multiple entities with the same external ID. Callers loading complete selections use
+these loaders.
 
-`compileFilter` turns a nested `Filter` (`and`, `or`, `not`, field rules) into one `Predicate`.
-Operands are cast to the kind of their literals so the RyotQL validator accepts them. Relationship
-rules compile to correlated `exists` queries on aliases that avoid every source alias, `noneOf`
-and list `empty` include missing values, and `withinLastDays` derives its bound from the supplied
-`now`. Callers read `now` from the Effect `Clock` when the query runs and key rolling queries by the
-filter JSON. Unknown fields, operators outside the field type, and inverted ranges fail. The page,
-count, and results-table recipes accept `filter` with `now` and AND the predicate into `where`.
+## Collections
 
-`propertyFilterFields` builds value fields from an `AppSchema` for plugin authors.
+`collectionArguments(collectionId)` returns the raw membership join ID and the tagged entity-source
+reference. Collection recipes use one canonical members/count/memberIds document, with
+`selectRecipe` selecting a result while retaining rows metadata for controls. Membership properties
+use the `membership.<property>` output namespace; addedAt declares its filter and sort metadata.
+The server resolves saved selections and collection order revisions and validates cursor identity.
 
-Runtime compile, decode, and choices paths take `QueryFilterField`, whose relationship and event
-owners are `QueryOwnerReference`s; `queryFilterFields` maps stored fields to it, and
-`collectionsFilterField` is the kernel Collections field for plugin screens.
+## Recipe tests
 
-`filters` also owns the URL codec used by the kernel browsers (`decodeFilterParam`,
-`encodeFilterParam`, `editableGroup`, `activeRuleCount`, the draft helpers) and
-`linkedFilterChoicesRecipe`, which lists linked entities by id and name for a relationship field
-(far side) or a `session-event` field (entities the events are logged on), optionally narrowed by
-search text or explicit ids. A `session-event` field matches subjects that are the `sessionEntityId`
-of events of one event schema; event slugs are unique only per entity schema, so compilation joins the
-event's entity and matches the full event identity.
+`bindRecipe(recipe, arguments, context?, requestValues?)` uses the canonical binder for executable
+shape assertions while preserving recipe metadata and decoding. Its default clock is fixed; the
+optional context supplies another clock, reporting zone, or source/control resolver. The fourth
+argument carries real request filter, sort, and pages. `bindTestRequest` binds recorded inline
+requests for transport fixtures. These helpers are test-only.
+
+`recipeResponse(recipe, overrides)` supplies empty rows/grouped results for every declared query,
+using their declared limits. Supply every ungrouped aggregate explicitly; the helper does not guess
+scalar values. Overrides are preserved verbatim, including deliberately malformed test results.

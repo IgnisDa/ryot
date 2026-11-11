@@ -4,6 +4,10 @@
 		"./*": {
 			"types": "./src/*.ts",
 			"default": "./src/*.ts"
+		},
+		"./library-search": {
+			"types": "./src/library-search.ts",
+			"default": "./src/library-search.ts"
 		}
 	},
 	"scripts": {

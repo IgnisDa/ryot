@@ -1,5 +1,5 @@
 import type { ReportingPeriod } from "@ryot-app/contract/modules/analytics/reporting";
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { and, castDate, gte, literal, lt } from "@ryot-app/ryotql";
 
 export const withinPeriod = (

@@ -11,13 +11,13 @@ import {
 	defineRecipe,
 	descending,
 	eq,
-	literal,
 	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Option, Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
@@ -39,30 +39,42 @@ const selection = {
 	),
 };
 
-export const backupRunsRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly after?: string }) => ({
-		map: ({ runs }) => Result.succeed(runs),
-		queries: {
-			runs: selectedRows(run, {
-				selection,
-				after: input.after,
-				limit: input.limit,
-				orderBy: [descending(column(run, "createdAt")), descending(column(run, "id"))],
-			}),
-		},
-	}),
-);
-
-export const backupRunRecipe = defineRecipe((input: { readonly id: string }) => ({
-	map: ({ run: item }) => Result.succeed(item === undefined ? Option.none() : Option.some(item)),
+export const backupRunsRecipe = defineRecipe({
+	map: ({ runs }) => Result.succeed(runs),
 	queries: {
-		run: selectedOptionalRow(run, {
+		runs: selectedRows(run, {
 			selection,
-			orderBy: [ascending(column(run, "id"))],
-			where: eq(column(run, "id"), literal(input.id)),
+
+			limit: 20,
+			maxLimit: 1000,
+			orderBy: [descending(column(run, "createdAt")), descending(column(run, "id"))],
 		}),
 	},
-}));
+});
+
+export const backupRunRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			id: {
+				label: "id",
+				type: "string",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ run: item }) => Result.succeed(item === undefined ? Option.none() : Option.some(item)),
+		queries: {
+			run: selectedOptionalRow(run, {
+				selection,
+				orderBy: [ascending(column(run, "id"))],
+				where: eq(column(run, "id"), recipeParameters.value("id")),
+			}),
+		},
+	});
+})();
 
 export type BackupRunItem = BackupRunsPage["items"][number];
 export type BackupRunsPage = Recipe.Success<typeof backupRunsRecipe>;

@@ -3,7 +3,7 @@ import { expect, it } from "bun:test";
 import { Result } from "effect";
 
 import { pluginInstallationsRecipe } from "./plugin-installations";
-import { requireRowsQuery, rowsResponse } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResponse } from "./test-utils";
 
 it("keeps quarantined ownership, workspace association, and initialization separate in management", () => {
 	const privateInstallation = {
@@ -44,7 +44,7 @@ it("keeps quarantined ownership, workspace association, and initialization separ
 		activeRevisionId: "system-revision",
 		installationId: "system-installation",
 	};
-	const recipe = pluginInstallationsRecipe({ limit: 4, after: "cursor" });
+	const recipe = bindRecipe(pluginInstallationsRecipe, { limit: 4, after: "cursor" });
 	const query = requireRowsQuery(recipe.document.queries.installations);
 	expect(query.where).toMatchObject({
 		predicates: [

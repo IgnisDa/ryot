@@ -10,7 +10,7 @@ import {
 	evaluateIntegrationProviderReadiness,
 	integrationProvidersRecipe,
 } from "./integration-providers";
-import { rowsResult } from "./test-utils";
+import { bindRecipe, rowsResult } from "./test-utils";
 
 const owner = { kind: "plugin", pluginId: PluginId.make("plugin-owner") } satisfies DefinitionOwner;
 const packageId = PluginPackageId.make("ryot/fixture");
@@ -87,9 +87,12 @@ it("uses the same catalog snapshot for unconditional and settings-selected impor
 		),
 	};
 	expect(
-		Result.getOrThrow(importSourcesRecipe({ limit: 1 }).decode({ data })).items[0]?.readiness,
+		Result.getOrThrow(bindRecipe(importSourcesRecipe, { limit: 1 }).decode({ data })).items[0]
+			?.readiness,
 	).toEqual({ plan: null, ready: true, blockReasons: [] });
-	const snapshot = Result.getOrThrow(importSourcesRecipe({ limit: 1 }).decode({ data }));
+	const snapshot = Result.getOrThrow(
+		bindRecipe(importSourcesRecipe, { limit: 1 }).decode({ data }),
+	);
 	const source = snapshot.items[0];
 	assert(source);
 	expect(evaluateImportSourceReadiness(source, { mode: undefined })).toEqual({
@@ -107,7 +110,7 @@ it("uses the same catalog snapshot for unconditional and settings-selected impor
 	assert(first);
 	const foreignPluginId = PluginId.make("foreign-owner");
 	const decoded = Result.getOrThrow(
-		importSourcesRecipe({ limit: 2 }).decode({
+		bindRecipe(importSourcesRecipe, { limit: 2 }).decode({
 			data: {
 				sources: rowsResult(
 					[
@@ -184,11 +187,12 @@ it("matches selected OAuth connections to their settings field, provider and int
 		),
 	};
 	expect(
-		Result.getOrThrow(integrationProvidersRecipe({ limit: 1 }).decode({ data })).items[0]?.readiness
-			.ready,
+		Result.getOrThrow(bindRecipe(integrationProvidersRecipe, { limit: 1 }).decode({ data }))
+			.items[0]?.readiness.ready,
 	).toBe(true);
-	const provider = Result.getOrThrow(integrationProvidersRecipe({ limit: 1 }).decode({ data }))
-		.items[0];
+	const provider = Result.getOrThrow(
+		bindRecipe(integrationProvidersRecipe, { limit: 1 }).decode({ data }),
+	).items[0];
 	assert(provider);
 	expect(evaluateIntegrationProviderReadiness(provider, { account: "unbound" }).ready).toBe(true);
 	expect(evaluateIntegrationProviderReadiness(provider, { account: "bound" }).blockReasons).toEqual(
@@ -273,8 +277,9 @@ it("uses the provider plan to select settings-dependent executable requirements"
 			{ limit: 1, hasMore: false, nextCursor: null },
 		),
 	};
-	const provider = Result.getOrThrow(integrationProvidersRecipe({ limit: 1 }).decode({ data }))
-		.items[0];
+	const provider = Result.getOrThrow(
+		bindRecipe(integrationProvidersRecipe, { limit: 1 }).decode({ data }),
+	).items[0];
 	assert(provider);
 	expect(evaluateIntegrationProviderReadiness(provider, {})).toEqual({
 		ready: true,

@@ -22,8 +22,10 @@ import {
 	calendarOccurrencesPageRecipe,
 	type CalendarSource,
 	calendarSourcesRecipe,
+	type CalendarWindow,
+	calendarWindowBounds,
 } from "./calendar";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const entity = table("entity", "record");
 const owner = PluginId.make("plugin-1");
@@ -70,10 +72,20 @@ const window = {
 	localStart: "2026-03-01T05:00:00.000Z",
 };
 
-const occurrences = (input: Parameters<typeof calendarOccurrencesPageRecipe>[0]) =>
-	Result.getOrThrow(calendarOccurrencesPageRecipe(input));
-
-const occurrenceQuery = (input: Parameters<typeof calendarOccurrencesPageRecipe>[0]) =>
+const occurrences = (input: {
+	readonly after?: string;
+	readonly source: CalendarSource;
+	readonly window: CalendarWindow;
+}) => {
+	const recipe = Result.getOrThrow(calendarOccurrencesPageRecipe({ source: input.source }));
+	const bounds = calendarWindowBounds(input.source.precision, input.window);
+	return bindRecipe(recipe, {
+		after: input.after,
+		windowEnd: bounds.end,
+		windowStart: bounds.start,
+	});
+};
+const occurrenceQuery = (input: Parameters<typeof occurrences>[0]) =>
 	requireRowsQuery(occurrences(input).document.queries["calendarOccurrences"]);
 
 const row = {
@@ -91,13 +103,15 @@ const pageInfo = { limit: 100, hasMore: true, nextCursor: "next" };
 
 describe("calendar recipes", () => {
 	it("lists effective sources with their plugin and hidden state in an explicit order", () => {
-		const query = requireRowsQuery(calendarSourcesRecipe().document.queries["calendarSources"]);
+		const query = requireRowsQuery(
+			bindRecipe(calendarSourcesRecipe, {}).document.queries["calendarSources"],
+		);
 		expect(query).toMatchObject({
 			from: { table: "calendarSource" },
 			output: { pagination: { limit: 100 } },
 			joins: [{ type: "inner", table: { table: "plugin" } }],
 		});
-		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual([
+		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual<unknown>([
 			{ field: "name", type: "column", tableAlias: "calendarSourcePlugin" },
 			{ field: "name", type: "column", tableAlias: "calendarSource" },
 			{ type: "column", field: "pluginId", tableAlias: "calendarSource" },
@@ -105,7 +119,7 @@ describe("calendar recipes", () => {
 		]);
 		const { sourceKey: _sourceKey, ...stored } = source;
 		const decoded = Result.getOrThrow(
-			calendarSourcesRecipe().decode({
+			bindRecipe(calendarSourcesRecipe, {}).decode({
 				data: { calendarSources: rowsResult([stored], { ...pageInfo, hasMore: false }) },
 			}),
 		);
@@ -120,8 +134,8 @@ describe("calendar recipes", () => {
 			predicates: [
 				source.query.where,
 				objectContaining({ type: "or" }),
-				gte(start, castDate(literal("2026-03-01T00:00:00.000Z"))),
-				lt(start, castDate(literal("2026-04-01T00:00:00.000Z"))),
+				gte(start, castDate(literal("2026-03-01"))),
+				lt(start, castDate(literal("2026-04-01"))),
 			],
 		});
 		expect(
@@ -130,8 +144,8 @@ describe("calendar recipes", () => {
 			predicates: [
 				{},
 				{},
-				gte(start, castDate(literal("2026-12-01T00:00:00.000Z"))),
-				lt(start, castDate(literal("2027-01-01T00:00:00.000Z"))),
+				gte(start, castDate(literal("2026-12-01"))),
+				lt(start, castDate(literal("2027-01-01"))),
 			],
 		});
 		const instantQuery = occurrenceQuery({ window, source: { ...source, precision: "instant" } });
@@ -151,7 +165,7 @@ describe("calendar recipes", () => {
 			"calendarOccurrences",
 		]);
 		expect(query.output.pagination).toEqual({ limit: 100, after: "cursor" });
-		expect(query.output.orderBy).toEqual([{ expr: startsAt, direction: "asc" }]);
+		expect(query.output.orderBy).toEqual<unknown>([{ expr: startsAt, direction: "asc" }]);
 		expect(
 			query.output.fields.map((selection) => ("key" in selection ? selection.key : "")),
 		).toEqual([
@@ -232,9 +246,7 @@ describe("calendar recipes", () => {
 
 	it("rejects a source whose start field is not projected", () => {
 		expect(
-			Result.isFailure(
-				calendarOccurrencesPageRecipe({ window, source: { ...source, startAt: "x" } }),
-			),
+			Result.isFailure(calendarOccurrencesPageRecipe({ source: { ...source, startAt: "x" } })),
 		).toBe(true);
 	});
 });

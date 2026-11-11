@@ -8,13 +8,13 @@ import {
 	descending,
 	eq,
 	isNull,
-	literal,
 	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
@@ -46,50 +46,68 @@ const runSelection = (source: typeof importRun) => ({
 	),
 });
 
-export const manualImportRunsRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly after?: string | undefined }) => ({
-		map: ({ importRuns }) => Result.succeed(importRuns),
-		queries: {
-			importRuns: selectedRows(importRun, {
-				after: input.after,
-				limit: input.limit,
-				selection: runSelection(importRun),
-				where: isNull(column(importRun, "integrationId")),
-				orderBy: [descending(column(importRun, "createdAt")), ascending(column(importRun, "id"))],
-			}),
-		},
-	}),
-);
-
-export const integrationImportRunsRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly integrationId: string;
-		readonly after?: string | undefined;
-	}) => ({
-		map: ({ importRuns }) => Result.succeed(importRuns),
-		queries: {
-			importRuns: selectedRows(importRun, {
-				after: input.after,
-				limit: input.limit,
-				selection: runSelection(importRun),
-				where: eq(column(importRun, "integrationId"), literal(input.integrationId)),
-				orderBy: [descending(column(importRun, "createdAt")), ascending(column(importRun, "id"))],
-			}),
-		},
-	}),
-);
-
-export const importRunRecipe = defineRecipe((input: { readonly runId: string }) => ({
-	map: ({ run: item }) => Result.succeed({ run: item }),
+export const manualImportRunsRecipe = defineRecipe({
+	map: ({ importRuns }) => Result.succeed(importRuns),
 	queries: {
-		run: selectedOptionalRow(run, {
-			selection: runSelection(run),
-			orderBy: [ascending(column(run, "id"))],
-			where: eq(column(run, "id"), literal(input.runId)),
+		importRuns: selectedRows(importRun, {
+			limit: 20,
+			maxLimit: 1000,
+			selection: runSelection(importRun),
+			where: isNull(column(importRun, "integrationId")),
+			orderBy: [descending(column(importRun, "createdAt")), ascending(column(importRun, "id"))],
 		}),
 	},
-}));
+});
+
+export const integrationImportRunsRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			integrationId: {
+				type: "string",
+				label: "integrationId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ importRuns }) => Result.succeed(importRuns),
+		queries: {
+			importRuns: selectedRows(importRun, {
+				limit: 20,
+				maxLimit: 1000,
+				selection: runSelection(importRun),
+				where: eq(column(importRun, "integrationId"), recipeParameters.value("integrationId")),
+				orderBy: [descending(column(importRun, "createdAt")), ascending(column(importRun, "id"))],
+			}),
+		},
+	});
+})();
+
+export const importRunRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			runId: {
+				type: "string",
+				label: "runId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ run: item }) => Result.succeed({ run: item }),
+		queries: {
+			run: selectedOptionalRow(run, {
+				selection: runSelection(run),
+				orderBy: [ascending(column(run, "id"))],
+				where: eq(column(run, "id"), recipeParameters.value("runId")),
+			}),
+		},
+	});
+})();
 
 export type ImportRunSummary = ImportRunList["items"][number];
 export type ImportRunDetail = Recipe.Success<typeof importRunRecipe>;
@@ -97,14 +115,26 @@ export type ImportRunList = Recipe.Success<typeof manualImportRunsRecipe>;
 
 const issue = table("importIssue", "issue");
 
-export const importIssuesRecipe = defineRecipe(
-	(input: { readonly runId: string; readonly limit: number; readonly after?: string }) => ({
+export const importIssuesRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			runId: {
+				type: "string",
+				label: "runId",
+				description: "Query argument",
+				validation: { required: true },
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
 		map: ({ issues }) => Result.succeed(issues),
 		queries: {
 			issues: selectedRows(issue, {
-				limit: input.limit,
-				after: input.after,
-				where: eq(column(issue, "runId"), literal(input.runId)),
+				limit: 20,
+				maxLimit: 1000,
+
+				where: eq(column(issue, "runId"), recipeParameters.value("runId")),
 				orderBy: [ascending(column(issue, "runId")), ascending(column(issue, "id"))],
 				selection: {
 					id: selectedField(column(issue, "id"), Schema.String),
@@ -113,7 +143,7 @@ export const importIssuesRecipe = defineRecipe(
 				},
 			}),
 		},
-	}),
-);
+	});
+})();
 
 export type ImportIssuesPage = Recipe.Success<typeof importIssuesRecipe>;

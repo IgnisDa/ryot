@@ -8,21 +8,19 @@ import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
 	ascending,
-	castDate,
 	column,
 	defineRecipe,
 	eq,
 	field,
 	gte,
 	join,
-	literal,
 	lt,
-	type PreparedRecipe,
 	type Recipe,
 	selectedField,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
 import { subjectSchemaPredicate, unusedFieldKey } from "./saved-views";
@@ -34,7 +32,7 @@ const OCCURRENCES_QUERY = "calendarOccurrences";
 const calendarSource = table("calendarSource", "calendarSource");
 const plugin = table("plugin", "calendarSourcePlugin");
 
-export const calendarSourcesRecipe = defineRecipe(() => ({
+export const calendarSourcesRecipe = defineRecipe({
 	map: ({ calendarSources }) =>
 		Result.succeed(
 			calendarSources.items.map((source) => ({
@@ -69,7 +67,7 @@ export const calendarSourcesRecipe = defineRecipe(() => ({
 			},
 		}),
 	},
-}));
+});
 
 export type CalendarSource = Recipe.Success<typeof calendarSourcesRecipe>[number];
 
@@ -86,12 +84,9 @@ const nextMonth = (month: string) => {
 		: `${String(year).padStart(4, "0")}-${String(index + 1).padStart(2, "0")}`;
 };
 
-const calendarWindowBounds = (precision: RowSourcePrecision, window: CalendarWindow) =>
+export const calendarWindowBounds = (precision: RowSourcePrecision, window: CalendarWindow) =>
 	precision === "date"
-		? {
-				start: `${window.month}-01T00:00:00.000Z`,
-				end: `${nextMonth(window.month)}-01T00:00:00.000Z`,
-			}
+		? { start: `${window.month}-01`, end: `${nextMonth(window.month)}-01` }
 		: { end: window.localEnd, start: window.localStart };
 
 export type CalendarOccurrence = {
@@ -108,11 +103,6 @@ export type CalendarOccurrence = {
 		readonly schemaSlug: string;
 		readonly owner: null | string;
 	};
-};
-
-type CalendarOccurrencePage = {
-	readonly items: readonly CalendarOccurrence[];
-	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
 
 const occurrenceRows = rowsResultSchema(Schema.Record(Schema.String, JsonValue));
@@ -137,11 +127,7 @@ const nullableTextValue = (row: OccurrenceRow, key: string) => {
 		: Result.fail(new Error(`Calendar occurrence field '${key}' must be nullable text`));
 };
 
-export const calendarOccurrencesPageRecipe = (input: {
-	readonly source: CalendarSource;
-	readonly window: CalendarWindow;
-	readonly after?: string | undefined;
-}): Result.Result<PreparedRecipe<CalendarOccurrencePage>, Error> => {
+export const calendarOccurrencesPageRecipe = (input: { readonly source: CalendarSource }) => {
 	const { source } = input;
 	const fields = source.query.output.fields.flatMap((selection) =>
 		"key" in selection ? [selection] : [],
@@ -156,7 +142,22 @@ export const calendarOccurrencesPageRecipe = (input: {
 	const nameKey = unusedFieldKey(fields, "__calendarSubjectName");
 	const ownerKey = unusedFieldKey(fields, "__calendarSubjectOwner");
 	const schemaKey = unusedFieldKey(fields, "__calendarSubjectSchema");
-	const bounds = calendarWindowBounds(source.precision, input.window);
+	const recipeParameters = parameters({
+		fields: {
+			windowEnd: {
+				label: "Window end",
+				validation: { required: true },
+				description: "Exclusive bounded scan end",
+				type: source.precision === "date" ? "date" : "datetime",
+			},
+			windowStart: {
+				label: "Window start",
+				validation: { required: true },
+				description: "Inclusive bounded scan start",
+				type: source.precision === "date" ? "date" : "datetime",
+			},
+		},
+	});
 	const decodeRow = (row: OccurrenceRow) =>
 		Result.gen(function* () {
 			const start = yield* textValue(row, source.startAt);
@@ -179,7 +180,8 @@ export const calendarOccurrencesPageRecipe = (input: {
 				},
 			} satisfies CalendarOccurrence;
 		});
-	const recipe = defineRecipe(() => ({
+	const recipe = defineRecipe({
+		parameters: recipeParameters.schema,
 		map: (results) => Result.succeed(results[OCCURRENCES_QUERY]),
 		queries: {
 			[OCCURRENCES_QUERY]: {
@@ -197,15 +199,15 @@ export const calendarOccurrencesPageRecipe = (input: {
 					where: and(
 						...(source.query.where === undefined ? [] : [source.query.where]),
 						subjectSchemaPredicate(source.subject, subject),
-						gte(startAt.expr, castDate(literal(bounds.start))),
-						lt(startAt.expr, castDate(literal(bounds.end))),
+						gte(startAt.expr, recipeParameters.value("windowStart")),
+						lt(startAt.expr, recipeParameters.value("windowEnd")),
 					),
 					output: {
 						...source.query.output,
 						orderBy: [ascending(startAt.expr)],
 						pagination: {
 							limit: CALENDAR_OCCURRENCE_PAGE_SIZE,
-							...(input.after === undefined ? {} : { after: input.after }),
+							maxLimit: CALENDAR_OCCURRENCE_PAGE_SIZE,
 						},
 						fields: [
 							...fields.filter(({ key }) => named.has(key)),
@@ -218,6 +220,6 @@ export const calendarOccurrencesPageRecipe = (input: {
 				},
 			},
 		},
-	}));
-	return Result.succeed(recipe());
+	});
+	return Result.succeed(recipe);
 };

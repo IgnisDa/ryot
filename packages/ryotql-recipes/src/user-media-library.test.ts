@@ -5,6 +5,7 @@ import type { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language"
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { Result } from "effect";
 
+import { bindRecipe } from "./test-utils";
 import { userMediaLibraryRecipe } from "./user-media-library";
 
 const userMediaLibraryResponse = {
@@ -22,8 +23,8 @@ describe("user media library recipe", () => {
 		"keeps the explicit %s package scope in the library query",
 		(scope) => {
 			const packageId = PluginPackageId.make("test/library");
-			const query = userMediaLibraryRecipe({ scope, packageId, kind: "package" }).document.queries
-				.mediaLibrary;
+			const query = bindRecipe(userMediaLibraryRecipe({ scope, packageId, kind: "package" }), {})
+				.document.queries.mediaLibrary;
 			expect(query?.where).toMatchObject({
 				predicates: [
 					{
@@ -41,7 +42,8 @@ describe("user media library recipe", () => {
 		},
 	);
 	it("builds a user library entity lookup", () => {
-		const query = userMediaLibraryRecipe({ kind: "self" }).document.queries.mediaLibrary;
+		const query = bindRecipe(userMediaLibraryRecipe({ kind: "self" }), {}).document.queries
+			.mediaLibrary;
 		if (query?.output.type !== "rows") {
 			throw new Error("Expected a user library rows query");
 		}
@@ -81,7 +83,9 @@ describe("user media library recipe", () => {
 
 	it("decodes the user library entity id", () => {
 		expect(
-			Result.getOrThrow(userMediaLibraryRecipe({ kind: "self" }).decode(userMediaLibraryResponse)),
+			Result.getOrThrow(
+				bindRecipe(userMediaLibraryRecipe({ kind: "self" }), {}).decode(userMediaLibraryResponse),
+			),
 		).toEqual<unknown>({ entityId: "library-1" });
 	});
 
@@ -92,14 +96,16 @@ describe("user media library recipe", () => {
 			},
 		};
 
-		expect(Result.isFailure(userMediaLibraryRecipe({ kind: "self" }).decode(response))).toBe(true);
+		expect(
+			Result.isFailure(bindRecipe(userMediaLibraryRecipe({ kind: "self" }), {}).decode(response)),
+		).toBe(true);
 	});
 
 	it("rejects a missing user library", () => {
 		const response = {
 			data: { mediaLibrary: { ...userMediaLibraryResponse.data.mediaLibrary, items: [] } },
 		};
-		const decoded = userMediaLibraryRecipe({ kind: "self" }).decode(response);
+		const decoded = bindRecipe(userMediaLibraryRecipe({ kind: "self" }), {}).decode(response);
 
 		expect(Result.isFailure(decoded)).toBe(true);
 		if (Result.isFailure(decoded)) {

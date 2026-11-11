@@ -5,7 +5,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { eventHistoryRecipe, eventIsAfter, eventOrderDescending, latestEventField } from "./events";
-import { rowsResponse } from "./test-utils";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 25, hasMore: false, nextCursor: null };
 const event = {
@@ -21,13 +21,14 @@ const event = {
 	occurredAt: "2026-01-03T01:00:00+02:00",
 };
 
-const recipe = eventHistoryRecipe({
-	limit: 25,
-	entityId: "entity-1",
-	owner: { kind: "self" },
-	entitySchemaSlugs: ["item", "record"],
-	eventSchemaSlugs: ["review", "progress"],
-});
+const recipe = bindRecipe(
+	eventHistoryRecipe({
+		owner: { kind: "self" },
+		entitySchemaSlugs: ["item", "record"],
+		eventSchemaSlugs: ["review", "progress"],
+	}),
+	{ limit: 25, entityId: "entity-1" },
+);
 
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("events", items, pageInfo);
 
@@ -151,6 +152,7 @@ describe("event recipes", () => {
 				{ type: "in", expr: { field: "eventSchemaSlug" } },
 				{ type: "in", expr: { field: "entitySchemaSlug" } },
 				{ left: { field: "entityId" }, right: { value: "entity-1" } },
+				{ type: "and", predicates: [] },
 			],
 		});
 		expect(Result.getOrThrow(recipe.decode(responseWithItems([event])))).toEqual<unknown>({

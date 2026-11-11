@@ -13,32 +13,30 @@ import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
 
-export const notificationChannelsRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly after?: string | undefined }) => {
-		const notificationChannel = table("notificationChannel", "notificationChannel");
-		return {
-			map: ({ notificationChannels }) => Result.succeed(notificationChannels),
-			queries: {
-				notificationChannels: selectedRows(notificationChannel, {
-					after: input.after,
-					limit: input.limit,
-					orderBy: [
-						descending(column(notificationChannel, "createdAt")),
-						descending(column(notificationChannel, "id")),
-					],
-					selection: {
-						id: selectedField(column(notificationChannel, "id"), NotificationChannelId),
-						createdAt: selectedField(column(notificationChannel, "createdAt"), IsoDateString),
-						updatedAt: selectedField(column(notificationChannel, "updatedAt"), IsoDateString),
-						isDisabled: selectedField(column(notificationChannel, "isDisabled"), Schema.Boolean),
-						description: selectedField(column(notificationChannel, "description"), Schema.String),
-						channel: selectedField(column(notificationChannel, "channel"), NotificationChannelKind),
-					},
-				}),
-			},
-		};
-	},
-);
+export const notificationChannelsRecipe = (() => {
+	const notificationChannel = table("notificationChannel", "notificationChannel");
+	return defineRecipe({
+		map: ({ notificationChannels }) => Result.succeed(notificationChannels),
+		queries: {
+			notificationChannels: selectedRows(notificationChannel, {
+				limit: 20,
+				maxLimit: 1000,
+				orderBy: [
+					descending(column(notificationChannel, "createdAt")),
+					descending(column(notificationChannel, "id")),
+				],
+				selection: {
+					id: selectedField(column(notificationChannel, "id"), NotificationChannelId),
+					createdAt: selectedField(column(notificationChannel, "createdAt"), IsoDateString),
+					updatedAt: selectedField(column(notificationChannel, "updatedAt"), IsoDateString),
+					isDisabled: selectedField(column(notificationChannel, "isDisabled"), Schema.Boolean),
+					description: selectedField(column(notificationChannel, "description"), Schema.String),
+					channel: selectedField(column(notificationChannel, "channel"), NotificationChannelKind),
+				},
+			}),
+		},
+	});
+})();
 
 export type NotificationChannelSummary = NotificationChannelsResult["items"][number];
 

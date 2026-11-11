@@ -1,10 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
 import { assert } from "@ryot-app/testing/assert";
-import { Result } from "effect";
+import { it as effectIt } from "@voila.dev/effect-bun-test";
+import { Effect, Result } from "effect";
 
-import { entityWatchRecipe } from "./entities";
-import { rowsResponse } from "./test-utils";
+import { entityWatchRecipe, loadEntityWatches } from "./entities";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
 const item = {
@@ -24,7 +25,7 @@ const responseWithItems = (items: readonly unknown[]) => rowsResponse("entities"
 
 describe("entity recipes", () => {
 	it("prepares and decodes the focused entity-watches read", () => {
-		const recipe = entityWatchRecipe({ entityIds: ["entity-1", "entity-2"] });
+		const recipe = bindRecipe(entityWatchRecipe, { limit: 2, entityIds: ["entity-1", "entity-2"] });
 		const query = recipe.document.queries.entities;
 		assert(query);
 		assert(query.output.type === "rows");
@@ -49,8 +50,33 @@ describe("entity recipes", () => {
 		expect(Result.getOrThrow(recipe.decode(responseWithItems([item])))).toEqual<unknown>([item]);
 	});
 
+	effectIt.effect("loads every distinct requested entity in bounded batches", () =>
+		Effect.gen(function* () {
+			const ids = Array.from({ length: 205 }, (_, index) => `entity-${index}`);
+			const recorded: string[][] = [];
+			const loaded = yield* loadEntityWatches([...ids, ids[0] ?? ""], (entityIds) => {
+				recorded.push([...entityIds]);
+				const recipe = bindRecipe(entityWatchRecipe, { entityIds });
+				expect(recipe.document.queries.entities?.output).toMatchObject({
+					pagination: { limit: 100 },
+				});
+				return Effect.fromResult(
+					recipe.decode(
+						rowsResponse(
+							"entities",
+							entityIds.map((id) => ({ ...item, id })),
+							{ limit: 100, hasMore: false, nextCursor: null },
+						),
+					),
+				);
+			});
+			expect(recorded.map((batch) => batch.length)).toEqual([100, 100, 5]);
+			expect(loaded.map(({ id }) => id)).toEqual<unknown>(ids);
+		}),
+	);
+
 	it("decodes nullable fields", () => {
-		const recipe = entityWatchRecipe({ entityIds: ["entity-1"] });
+		const recipe = bindRecipe(entityWatchRecipe, { entityIds: ["entity-1"] });
 		expect(
 			Result.getOrThrow(
 				recipe.decode(
@@ -79,7 +105,7 @@ describe("entity recipes", () => {
 	});
 
 	it("rejects malformed fields and non-rows results", () => {
-		const recipe = entityWatchRecipe({ entityIds: ["entity-1"] });
+		const recipe = bindRecipe(entityWatchRecipe, { entityIds: ["entity-1"] });
 		expect(
 			Result.isFailure(recipe.decode(responseWithItems([{ ...item, properties: undefined }]))),
 		).toBe(true);

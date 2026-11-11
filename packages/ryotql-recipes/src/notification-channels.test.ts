@@ -4,7 +4,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { notificationChannelsRecipe } from "./notification-channels";
-import { rowsResponse } from "./test-utils";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: true, nextCursor: "next" };
 const channel = {
@@ -15,7 +15,7 @@ const channel = {
 	createdAt: "2026-01-01T01:00:00+02:00",
 	updatedAt: "2026-01-02T01:00:00+02:00",
 };
-const recipe = notificationChannelsRecipe({ limit: 7, after: "cursor" });
+const recipe = bindRecipe(notificationChannelsRecipe, { limit: 7, after: "cursor" });
 const responseWithItems = (items: readonly unknown[]) =>
 	rowsResponse("notificationChannels", items, pageInfo);
 

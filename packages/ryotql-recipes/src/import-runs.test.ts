@@ -8,7 +8,7 @@ import {
 	integrationImportRunsRecipe,
 	manualImportRunsRecipe,
 } from "./import-runs";
-import { requireRowsQuery } from "./test-utils";
+import { bindRecipe, requireRowsQuery } from "./test-utils";
 
 const runItem = {
 	summary: [],
@@ -41,10 +41,11 @@ const fieldKeys = (query: NamedQuery) =>
 describe("import-run recipes", () => {
 	it("prepares manual and integration lists with fields, pagination, filters, and order", () => {
 		const manual = requireRowsQuery(
-			manualImportRunsRecipe({ limit: 7, after: "manual-cursor" }).document.queries.importRuns,
+			bindRecipe(manualImportRunsRecipe, { limit: 7, after: "manual-cursor" }).document.queries
+				.importRuns,
 		);
 		const integration = requireRowsQuery(
-			integrationImportRunsRecipe({
+			bindRecipe(integrationImportRunsRecipe, {
 				limit: 5,
 				after: "integration-cursor",
 				integrationId: "integration-1",
@@ -76,13 +77,13 @@ describe("import-run recipes", () => {
 	});
 
 	it("prepares optional run detail without obsolete failure queries", () => {
-		const document = importRunRecipe({ runId: "run-1" }).document;
+		const document = bindRecipe(importRunRecipe, { runId: "run-1" }).document;
 		expect(Object.keys(document.queries)).toEqual(["run"]);
 		expect(requireRowsQuery(document.queries.run).output.pagination).toEqual({ limit: 2 });
 	});
 
 	it("decodes list plain values, nulls, page info, and normalized dates", () => {
-		const recipe = manualImportRunsRecipe({ limit: 2 });
+		const recipe = bindRecipe(manualImportRunsRecipe, { limit: 2 });
 		const decoded = Result.getOrThrow(recipe.decode({ data: { importRuns: rows([runItem]) } }));
 
 		expect(decoded.items[0]).toEqual<unknown>({
@@ -107,14 +108,14 @@ describe("import-run recipes", () => {
 	});
 
 	it("decodes detail and an absent run", () => {
-		const recipe = importRunRecipe({ runId: "run-1" });
+		const recipe = bindRecipe(importRunRecipe, { runId: "run-1" });
 		const decoded = Result.getOrThrow(recipe.decode({ data: { run: rows([runItem], 2) } }));
 		expect(decoded).toMatchObject({ run: { id: "run-1" } });
 		expect(Result.getOrThrow(recipe.decode({ data: { run: rows([], 2) } })).run).toBeUndefined();
 	});
 
 	it("rejects malformed JSON, dates, and enum values", () => {
-		const listRecipe = manualImportRunsRecipe({ limit: 2 });
+		const listRecipe = bindRecipe(manualImportRunsRecipe, { limit: 2 });
 
 		for (const malformed of [
 			{ ...runItem, status: "unknown" },
@@ -125,7 +126,7 @@ describe("import-run recipes", () => {
 				true,
 			);
 		}
-		const detailRecipe = importRunRecipe({ runId: "run-1" });
+		const detailRecipe = bindRecipe(importRunRecipe, { runId: "run-1" });
 		expect(
 			Result.isFailure(
 				detailRecipe.decode({ data: { run: rows([{ ...runItem, createdAt: "not-a-date" }], 2) } }),
@@ -134,15 +135,17 @@ describe("import-run recipes", () => {
 	});
 
 	it("rejects excess run cardinality and malformed result shapes", () => {
-		const detailRecipe = importRunRecipe({ runId: "run-1" });
+		const detailRecipe = bindRecipe(importRunRecipe, { runId: "run-1" });
 
 		expect(
 			Result.isFailure(detailRecipe.decode({ data: { run: rows([runItem, runItem], 2) } })),
 		).toBe(true);
-		expect(Result.isFailure(manualImportRunsRecipe({ limit: 2 }).decode({ data: {} }))).toBe(true);
+		expect(
+			Result.isFailure(bindRecipe(manualImportRunsRecipe, { limit: 2 }).decode({ data: {} })),
+		).toBe(true);
 		expect(
 			Result.isFailure(
-				manualImportRunsRecipe({ limit: 2 }).decode({
+				bindRecipe(manualImportRunsRecipe, { limit: 2 }).decode({
 					data: { importRuns: rows([runItem], 2, "aggregate") },
 				}),
 			),

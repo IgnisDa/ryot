@@ -80,26 +80,24 @@ export const evaluateImportSourceReadiness = (
 	return { ...readiness, ready: readiness.ready && item.isStartable };
 };
 
-export const importSourcesRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly after?: string }) => ({
-		queries: {
-			sources: selectedRows(source, {
-				after: input.after,
-				limit: input.limit,
-				selection: sourceSelection,
-				orderBy: [ascending(column(source, "name")), ascending(column(source, "id"))],
-			}),
-		},
-		map: ({ sources }) =>
-			Result.try(() => ({
-				...sources,
-				items: sources.items.map((item) => ({
-					reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
-					...item,
-					readiness: evaluateImportSourceReadiness(item),
-				})),
+export const importSourcesRecipe = defineRecipe({
+	queries: {
+		sources: selectedRows(source, {
+			limit: 20,
+			maxLimit: 1000,
+			selection: sourceSelection,
+			orderBy: [ascending(column(source, "name")), ascending(column(source, "id"))],
+		}),
+	},
+	map: ({ sources }) =>
+		Result.try(() => ({
+			...sources,
+			items: sources.items.map((item) => ({
+				reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
+				...item,
+				readiness: evaluateImportSourceReadiness(item),
 			})),
-	}),
-);
+		})),
+});
 
 export type ImportSourcesPage = Recipe.Success<typeof importSourcesRecipe>;

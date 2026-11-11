@@ -10,13 +10,13 @@ import {
 	defineRecipe,
 	descending,
 	eq,
-	literal,
 	type Recipe,
 	selectedField,
 	selectedOptionalRow,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { Option, Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
@@ -44,60 +44,77 @@ const selection = {
 	),
 };
 
-export const integrationsRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly after?: string | undefined;
-		readonly isDisabled?: boolean | undefined;
-		readonly provider?: undefined | IntegrationProvider;
-	}) => {
-		const predicates = [
-			...(input.provider === undefined
-				? []
-				: [eq(column(integration, "provider"), literal(input.provider))]),
-			...(input.isDisabled === undefined
-				? []
-				: [eq(column(integration, "isDisabled"), literal(input.isDisabled))]),
-		];
-		return {
-			map: ({ integrations }) => Result.succeed(integrations),
-			queries: {
-				integrations: selectedRows(integration, {
-					selection,
-					after: input.after,
-					limit: input.limit,
-					where: predicates.length > 0 ? and(...predicates) : undefined,
-					orderBy: [
-						descending(column(integration, "createdAt")),
-						descending(column(integration, "id")),
-					],
-				}),
-			},
-		};
-	},
-);
+export const integrationsRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			provider: { type: "string", label: "provider", description: "Query provider" },
+			isDisabled: { type: "boolean", label: "isDisabled", description: "Query isDisabled" },
+		},
+	});
 
-export const integrationRecipe = defineRecipe((input: { readonly id: string }) => ({
-	map: ({ integration: item }) =>
-		Result.succeed(item === undefined ? Option.none() : Option.some(item)),
-	queries: {
-		integration: selectedOptionalRow(integration, {
-			orderBy: [ascending(column(integration, "id"))],
-			where: eq(column(integration, "id"), literal(input.id)),
-			selection: {
-				...selection,
-				webhookToken: selectedField(
-					column(integration, "webhookToken"),
-					Schema.NullOr(IntegrationWebhookToken),
-				),
-				providerSpecifics: selectedField(
-					column(integration, "providerSpecifics"),
-					IntegrationSnapshot.fields.providerSpecifics,
-				),
+	const predicates = [
+		recipeParameters.whenSet(
+			"provider",
+			eq(column(integration, "provider"), recipeParameters.value("provider")),
+		),
+		recipeParameters.whenSet(
+			"isDisabled",
+			eq(column(integration, "isDisabled"), recipeParameters.value("isDisabled")),
+		),
+	];
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ integrations }) => Result.succeed(integrations),
+		queries: {
+			integrations: selectedRows(integration, {
+				selection,
+
+				limit: 20,
+				maxLimit: 1000,
+				where: predicates.length > 0 ? and(...predicates) : undefined,
+				orderBy: [
+					descending(column(integration, "createdAt")),
+					descending(column(integration, "id")),
+				],
+			}),
+		},
+	});
+})();
+
+export const integrationRecipe = (() => {
+	const recipeParameters = parameters({
+		fields: {
+			id: {
+				label: "id",
+				type: "string",
+				description: "Query argument",
+				validation: { required: true },
 			},
-		}),
-	},
-}));
+		},
+	});
+	return defineRecipe({
+		parameters: recipeParameters.schema,
+		map: ({ integration: item }) =>
+			Result.succeed(item === undefined ? Option.none() : Option.some(item)),
+		queries: {
+			integration: selectedOptionalRow(integration, {
+				orderBy: [ascending(column(integration, "id"))],
+				where: eq(column(integration, "id"), recipeParameters.value("id")),
+				selection: {
+					...selection,
+					webhookToken: selectedField(
+						column(integration, "webhookToken"),
+						Schema.NullOr(IntegrationWebhookToken),
+					),
+					providerSpecifics: selectedField(
+						column(integration, "providerSpecifics"),
+						IntegrationSnapshot.fields.providerSpecifics,
+					),
+				},
+			}),
+		},
+	});
+})();
 
 export type IntegrationSummary = IntegrationList["items"][number];
 export type IntegrationList = Recipe.Success<typeof integrationsRecipe>;

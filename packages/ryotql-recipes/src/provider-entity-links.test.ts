@@ -5,17 +5,18 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { providerEntityLinksRecipe } from "./provider-entity-links";
-import { rowsResponse } from "./test-utils";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 2, hasMore: false, nextCursor: null };
-const recipe = providerEntityLinksRecipe({
-	reference: { kind: "self" },
-	librarySchemaSlug: "fixture-library",
-	relationshipSlug: "in-fixture-library",
-	externalIds: ["external-1", "external-2"],
-	entitySchemaSlug: EntitySchemaSlug.make("item"),
-	providerId: SandboxProviderId.make("provider-1"),
-});
+const recipe = bindRecipe(
+	providerEntityLinksRecipe({
+		reference: { kind: "self" },
+		librarySchemaSlug: "fixture-library",
+		relationshipSlug: "in-fixture-library",
+		entitySchemaSlug: EntitySchemaSlug.make("item"),
+	}),
+	{ externalIds: ["external-1", "external-2"], providerId: SandboxProviderId.make("provider-1") },
+);
 const responseWithItems = (items: readonly unknown[]) => rowsResponse("links", items, pageInfo);
 
 describe("provider entity links recipe", () => {
@@ -24,7 +25,7 @@ describe("provider entity links recipe", () => {
 		assert(query);
 		assert(query.output.type === "rows");
 
-		expect(query.output.pagination).toEqual({ limit: 2 });
+		expect(query.output.pagination).toEqual({ limit: 100 });
 		expect(query.output.fields).toMatchObject([{ key: "entityId" }, { key: "externalId" }]);
 		expect(query.where).toMatchObject({
 			type: "and",
@@ -52,10 +53,13 @@ describe("provider entity links recipe", () => {
 					]),
 				),
 			),
-		).toEqual([
-			{ externalId: "external-1", entityId: EntityId.make("entity-1") },
-			{ externalId: "external-2", entityId: EntityId.make("entity-2") },
-		]);
+		).toEqual({
+			pageInfo,
+			items: [
+				{ externalId: "external-1", entityId: EntityId.make("entity-1") },
+				{ externalId: "external-2", entityId: EntityId.make("entity-2") },
+			],
+		});
 	});
 
 	it("rejects malformed fields and non-rows results", () => {

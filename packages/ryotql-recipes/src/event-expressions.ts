@@ -3,7 +3,7 @@ import type {
 	Predicate,
 	ScalarExpression,
 	TableReference,
-} from "@ryot-app/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/authored";
 import { and, ascending, column, descending, eq, first, gt, or } from "@ryot-app/ryotql";
 
 type EventOrderExpressions = {

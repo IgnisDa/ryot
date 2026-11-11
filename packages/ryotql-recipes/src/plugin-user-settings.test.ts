@@ -3,12 +3,12 @@ import { expect, it } from "bun:test";
 import { Result } from "effect";
 
 import { pluginInstallationUserSettingsRecipe } from "./plugin-user-settings";
-import { requireRowsQuery, rowsResponse } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResponse } from "./test-utils";
 
 const pageInfo = { limit: 1, hasMore: false, nextCursor: null };
 
 it("selects at most one active installation of the named plugin", () => {
-	const recipe = pluginInstallationUserSettingsRecipe({ pluginId: "plugin-a" });
+	const recipe = bindRecipe(pluginInstallationUserSettingsRecipe, { pluginId: "plugin-a" });
 	const query = requireRowsQuery(recipe.document.queries.installation);
 	expect(query.where).toMatchObject({
 		predicates: [

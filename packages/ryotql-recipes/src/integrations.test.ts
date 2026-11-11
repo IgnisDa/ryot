@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Option, Result } from "effect";
 
 import { integrationRecipe, integrationsRecipe } from "./integrations";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const item = {
 	lot: "yank",
@@ -27,8 +27,12 @@ const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pa
 describe("integration recipes", () => {
 	it("prepares list fields, filters, pagination, and stable ordering", () => {
 		const query = requireRowsQuery(
-			integrationsRecipe({ limit: 7, after: "cursor", isDisabled: false, provider: "provider-1" })
-				.document.queries.integrations,
+			bindRecipe(integrationsRecipe, {
+				limit: 7,
+				after: "cursor",
+				isDisabled: false,
+				provider: "provider-1",
+			}).document.queries.integrations,
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 7, after: "cursor" });
@@ -46,13 +50,20 @@ describe("integration recipes", () => {
 			{ direction: "desc", expr: { field: "id", type: "column", tableAlias: "integration" } },
 		]);
 		expect(
-			requireRowsQuery(integrationsRecipe({ limit: 5 }).document.queries.integrations).where,
-		).toBeUndefined();
+			requireRowsQuery(bindRecipe(integrationsRecipe, { limit: 5 }).document.queries.integrations)
+				.where,
+		).toEqual({
+			type: "and",
+			predicates: [
+				{ type: "and", predicates: [] },
+				{ type: "and", predicates: [] },
+			],
+		});
 	});
 
 	it("prepares optional by-id detail with cardinality limit two", () => {
 		const query = requireRowsQuery(
-			integrationRecipe({ id: "integration-1" }).document.queries.integration,
+			bindRecipe(integrationRecipe, { id: "integration-1" }).document.queries.integration,
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
@@ -60,7 +71,7 @@ describe("integration recipes", () => {
 	});
 
 	it("decodes plain values, JSON, nulls, page info, and normalized dates", () => {
-		const recipe = integrationsRecipe({ limit: 2 });
+		const recipe = bindRecipe(integrationsRecipe, { limit: 2 });
 		const decoded = Result.getOrThrow(
 			recipe.decode({ data: { integrations: rows([item, kernelItem]) } }),
 		);
@@ -88,7 +99,7 @@ describe("integration recipes", () => {
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {
-		const recipe = integrationRecipe({ id: "integration-1" });
+		const recipe = bindRecipe(integrationRecipe, { id: "integration-1" });
 
 		const detail = { ...item, webhookToken: "secret", providerSpecifics: { kind: "provider" } };
 		expect(
@@ -110,7 +121,7 @@ describe("integration recipes", () => {
 	});
 
 	it("rejects malformed JSON, enum values, and dates", () => {
-		const recipe = integrationsRecipe({ limit: 2 });
+		const recipe = bindRecipe(integrationsRecipe, { limit: 2 });
 
 		for (const malformed of [
 			{ ...item, lot: "unknown" },
@@ -127,7 +138,7 @@ describe("integration recipes", () => {
 	it("rejects missing fields and wrong result shapes", () => {
 		const malformed = { ...item } as Record<string, unknown>;
 		delete malformed.provider;
-		const recipe = integrationsRecipe({ limit: 2 });
+		const recipe = bindRecipe(integrationsRecipe, { limit: 2 });
 
 		expect(Result.isFailure(recipe.decode({ data: { integrations: rows([malformed]) } }))).toBe(
 			true,

@@ -20,7 +20,7 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { Result } from "effect";
 
 import { signalSchedulePageRecipe, type SignalScheduleSource } from "./signal-schedules";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const entity = table("entity", "record");
 const owner = PluginId.make("plugin-1");
@@ -65,8 +65,22 @@ const bounds = {
 	confirmedAfter: "2026-03-13T00:00:00.000Z",
 };
 
-const page = (input: Partial<Parameters<typeof signalSchedulePageRecipe>[0]> = {}) =>
-	Result.getOrThrow(signalSchedulePageRecipe({ bounds, schedule, limit: 10, ...input }));
+const page = (
+	input: {
+		readonly after?: string;
+		readonly limit?: number;
+		readonly schedule?: SignalScheduleSource;
+		readonly bounds?: {
+			readonly end: string;
+			readonly start: string;
+			readonly confirmedAfter: null | string;
+		};
+	} = {},
+) =>
+	bindRecipe(
+		Result.getOrThrow(signalSchedulePageRecipe({ schedule: input.schedule ?? schedule })),
+		{ ...(input.bounds ?? bounds), after: input.after, limit: input.limit ?? 10 },
+	);
 
 describe("signal schedule recipe", () => {
 	it("selects fresh occurrences due inside the window in a stable order", () => {
@@ -81,12 +95,15 @@ describe("signal schedule recipe", () => {
 				or(isNull(confirmedAt), gte(confirmedAt, castDate(literal(bounds.confirmedAfter)))),
 			],
 		});
-		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual([dueAt, column(entity, "id")]);
+		expect(query.output.orderBy.map(({ expr }) => expr)).toEqual<unknown>([
+			dueAt,
+			column(entity, "id"),
+		]);
 		expect(query.output.pagination).toEqual({ limit: 10 });
 		const unbounded = requireRowsQuery(
 			page({ bounds: { ...bounds, confirmedAfter: null } }).document.queries["signalScheduleDue"],
 		);
-		expect(unbounded.where).toMatchObject({ predicates: { length: 4 } });
+		expect(unbounded.where).toMatchObject({ predicates: { length: 5 } });
 	});
 
 	it("decodes declared properties and omits null values", () => {
@@ -119,9 +136,7 @@ describe("signal schedule recipe", () => {
 			{ ...schedule, occurrence: "x" },
 			{ ...schedule, freshness: { confirmedAt: "x" } },
 		]) {
-			expect(
-				Result.isFailure(signalSchedulePageRecipe({ bounds, limit: 10, schedule: candidate })),
-			).toBe(true);
+			expect(Result.isFailure(signalSchedulePageRecipe({ schedule: candidate }))).toBe(true);
 		}
 	});
 });

@@ -19,6 +19,7 @@ const run = <A, E>(effect: Effect.Effect<A, E, Scope.Scope | FileSystem.FileSyst
 const runClient = Effect.fn(function* (
 	files: Readonly<Record<string, string>>,
 	args: ReadonlyArray<string> = [],
+	entry?: string,
 ) {
 	const fs = yield* FileSystem.FileSystem;
 	const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-test-runner-" });
@@ -30,7 +31,9 @@ const runClient = Effect.fn(function* (
 			Bun.spawn(
 				[
 					process.execPath,
-					Bun.fileURLToPath(new URL("./run-client-tests.ts", import.meta.url)),
+					entry === undefined
+						? Bun.fileURLToPath(new URL("./run-client-tests.ts", import.meta.url))
+						: `${directory}/${entry}`,
 					...args,
 				],
 				{ cwd: directory, stdout: "pipe", stderr: "pipe" },
@@ -189,5 +192,43 @@ test("resolves the worker count from the last parallel flag", () =>
 			expect(yield* testWorkers(4, ["--parallel=2", "--parallel=6"])).toBe(6);
 			expect(yield* testWorkers(4, ["--parallel"])).toBe(navigator.hardwareConcurrency);
 			expect(Exit.isFailure(yield* Effect.exit(testWorkers(4, ["--parallel=0"])))).toBe(true);
+		}),
+	));
+
+test("importing the client runner leaves test discovery and execution deferred", () =>
+	run(
+		Effect.gen(function* () {
+			const modulePath = yield* encodeString(
+				Bun.fileURLToPath(new URL("./run-client-tests.ts", import.meta.url)),
+			);
+			const result = yield* runClient(
+				{ "entry.ts": `await import(${modulePath}); console.log("import-only");` },
+				[],
+				"entry.ts",
+			);
+			expect(result.exitCode).toBe(0);
+			expect(result.output.trim()).toBe("import-only");
+		}),
+	));
+
+test("client runner forwards supplied environment to node and DOM files", () =>
+	run(
+		Effect.gen(function* () {
+			const modulePath = yield* encodeString(
+				Bun.fileURLToPath(new URL("./run-client-tests.ts", import.meta.url)),
+			);
+			const effectPath = yield* encodeString(import.meta.resolve("effect"));
+			const result = yield* runClient(
+				{
+					"node.test.ts": `import { test, expect } from "bun:test"; test("node forwarded", () => { expect(process.env.RYOT_RUNNER_MARKER).toBe("forwarded"); expect(typeof document).toBe("undefined"); });`,
+					"dom.test.tsx": `import { test, expect } from "bun:test"; test("DOM forwarded", () => { expect(process.env.RYOT_RUNNER_MARKER).toBe("forwarded"); expect(document.body.tagName).toBe("BODY"); });`,
+					"entry.ts": `import { runClientTests } from ${modulePath}; import { Effect } from ${effectPath}; await Effect.runPromise(runClientTests({ env: { RYOT_RUNNER_MARKER: "forwarded" }, workers: 1 }));`,
+				},
+				[],
+				"entry.ts",
+			);
+			expect(result.exitCode).toBe(0);
+			expect(result.output).toContain("node forwarded");
+			expect(result.output).toContain("DOM forwarded");
 		}),
 	));

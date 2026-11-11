@@ -15,7 +15,7 @@ import { Result, Schema } from "effect";
 const collection = table("entity", "collection");
 const savedView = table("savedView", "savedView");
 
-export const navigationRecipe = defineRecipe(() => ({
+export const navigationRecipe = defineRecipe({
 	map: ({ savedViews, collections }) =>
 		Result.succeed({
 			savedViews: savedViews.items,
@@ -62,7 +62,7 @@ export const navigationRecipe = defineRecipe(() => ({
 			},
 		}),
 	},
-}));
+});
 
 export type NavigationView = NavigationData["savedViews"][number];
 export type NavigationData = Recipe.Success<typeof navigationRecipe>;

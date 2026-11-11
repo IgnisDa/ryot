@@ -1,80 +1,30 @@
-import {
-	type PublicationScope,
-	PublicationSource,
-} from "@ryot-app/contract/modules/publications/schemas";
-import type { RyotQLDocument, TableReference } from "@ryot-app/contract/modules/ryotql/language";
-import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
+import { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
+import type { TableReference } from "@ryot-app/contract/modules/ryotql/language";
 import { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
-import type { JsonValue } from "@ryot-app/contract/schema/json";
-import type { Recipe } from "@ryot-app/ryotql";
 import {
 	and,
-	ascending,
+	castText,
 	column,
 	defineRecipe,
 	descending,
 	eq,
-	field,
 	isNull,
-	join,
-	literal,
-	relationshipSchemaPredicate,
-	rows,
+	jsonPath,
 	selectedField,
 	selectedInclude,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
-import { Option, Result, Schema } from "effect";
+import type { Recipe } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
+import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
-import { subjectSchemaPredicate } from "./saved-views";
-
-export const collectionPublicationScope = (collectionId: string): PublicationScope => {
-	const subject = table("entity", "subject");
-	const membership = table("relationship", "membership");
-	return {
-		subjectAlias: subject.alias,
-		query: rows(subject, {
-			fields: [field("id", column(subject, "id"))],
-			orderBy: [ascending(column(membership, "collectionRank")), ascending(column(subject, "id"))],
-			joins: [
-				join(
-					"inner",
-					membership,
-					and(
-						eq(column(membership, "sourceEntityId"), column(subject, "id")),
-						eq(column(membership, "targetEntityId"), literal(collectionId)),
-						relationshipSchemaPredicate(membership, "member-of", { kind: "kernel" }),
-					),
-				),
-			],
-		}),
-	};
-};
-
-export const savedViewPublicationScope = (view: {
-	readonly dataSources: null | RyotQLDocument;
-	readonly settings: Readonly<Record<string, JsonValue>>;
-}): null | PublicationScope => {
-	const settings = Schema.decodeUnknownOption(EntityBrowserSavedViewSettings)(view.settings);
-	if (Option.isNone(settings) || view.dataSources === null) {
-		return null;
-	}
-	const source = view.dataSources.queries[settings.value.sourceName];
-	if (source?.output.type !== "rows") {
-		return null;
-	}
-	const subjectAlias = settings.value.subject.entityAlias;
-	const subjects = subjectSchemaPredicate(settings.value.subject, table("entity", subjectAlias));
-	return {
-		subjectAlias,
-		query: {
-			...source,
-			where: source.where === undefined ? subjects : and(source.where, subjects),
-		},
-	};
-};
+import {
+	savedViewReferenceArguments,
+	savedViewReferenceFields,
+	savedViewReferencePredicate,
+} from "./saved-view-records";
 
 const publicationSelection = (publication: TableReference) => {
 	const link = table("publicationLink", "link");
@@ -117,43 +67,78 @@ const orderedPublications = (publication: TableReference) => [
 	descending(column(publication, "id")),
 ];
 
-export const publicationsRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly after?: string | undefined }) => {
-		const publication = table("publication", "publication");
-		return {
-			map: ({ publications }) => Result.succeed(publications),
-			queries: {
-				publications: selectedRows(publication, {
-					after: input.after,
-					limit: input.limit,
-					orderBy: orderedPublications(publication),
-					...publicationSelection(publication),
-				}),
-			},
-		};
-	},
-);
+export const publicationsRecipe = (() => {
+	const publication = table("publication", "publication");
+	return defineRecipe({
+		map: ({ publications }) => Result.succeed(publications),
+		queries: {
+			publications: selectedRows(publication, {
+				limit: 20,
+				maxLimit: 1000,
+				orderBy: orderedPublications(publication),
+				...publicationSelection(publication),
+			}),
+		},
+	});
+})();
 
 /** The owner's active publications of exactly this source, newest first. */
-export const sourcePublicationsRecipe = defineRecipe(
-	(input: { readonly source: PublicationSource }) => {
-		const publication = table("publication", "publication");
-		return {
-			map: ({ publications }) => Result.succeed(publications.items),
-			queries: {
-				publications: selectedRows(publication, {
-					limit: 20,
-					orderBy: orderedPublications(publication),
-					where: and(
-						isNull(column(publication, "revokedAt")),
-						eq(column(publication, "source"), literal(input.source)),
-					),
-					...publicationSelection(publication),
-				}),
-			},
-		};
+const sourceParameters = parameters({
+	fields: {
+		...savedViewReferenceFields,
+		collectionId: {
+			type: "string",
+			defaultValue: "",
+			label: "Collection",
+			description: "Collection source ID",
+		},
+		sourceKind: {
+			type: "enum",
+			label: "Source",
+			validation: { required: true },
+			description: "Publication source kind",
+			choices: { kind: "static", values: [{ value: "collection" }, { value: "saved-view" }] },
+		},
 	},
-);
+});
+export const publicationSourceArguments = (source: PublicationSource) =>
+	source.kind === "collection"
+		? { sourceKind: source.kind, collectionId: source.collectionId }
+		: { sourceKind: source.kind, ...savedViewReferenceArguments(source.reference) };
+const sourcePublication = table("publication", "publication");
+export const sourcePublicationsRecipe = defineRecipe({
+	parameters: sourceParameters.schema,
+	map: ({ publications }) => Result.succeed(publications.items),
+	queries: {
+		publications: selectedRows(sourcePublication, {
+			limit: 20,
+			orderBy: orderedPublications(sourcePublication),
+			where: and(
+				isNull(column(sourcePublication, "revokedAt")),
+				eq(
+					castText(jsonPath(column(sourcePublication, "source"), "kind")),
+					sourceParameters.value("sourceKind"),
+				),
+				sourceParameters.choice("sourceKind", {
+					collection: eq(
+						castText(jsonPath(column(sourcePublication, "source"), "collectionId")),
+						sourceParameters.value("collectionId"),
+					),
+					"saved-view": savedViewReferencePredicate(
+						jsonPath(column(sourcePublication, "source"), "reference"),
+						{
+							slug: sourceParameters.value("slug"),
+							id: sourceParameters.value("savedViewId"),
+							pluginId: sourceParameters.value("pluginId"),
+							kind: sourceParameters.value("referenceKind"),
+						},
+					),
+				}),
+			),
+			...publicationSelection(sourcePublication),
+		}),
+	},
+});
 
 export type PublicationSummary = PublicationsResult["items"][number];
 

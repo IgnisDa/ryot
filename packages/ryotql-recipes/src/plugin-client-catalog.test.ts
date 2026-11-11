@@ -3,7 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { Result } from "effect";
 
 import { pluginClientCatalogRecipe } from "./plugin-client-catalog";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const entry = {
 	sortOrder: 0,
@@ -28,7 +28,7 @@ const response = {
 describe("plugin client catalog recipe", () => {
 	it("queries one active-plugin page after the supplied cursor", () => {
 		const query = requireRowsQuery(
-			pluginClientCatalogRecipe({ after: "cursor" }).document.queries.installations,
+			bindRecipe(pluginClientCatalogRecipe, { after: "cursor" }).document.queries.installations,
 		);
 
 		expect(query).toMatchObject({
@@ -57,7 +57,9 @@ describe("plugin client catalog recipe", () => {
 	});
 
 	it("decodes installations with their public client availability", () => {
-		expect(Result.getOrThrow(pluginClientCatalogRecipe().decode(response))).toEqual<unknown>({
+		expect(
+			Result.getOrThrow(bindRecipe(pluginClientCatalogRecipe, {}).decode(response)),
+		).toEqual<unknown>({
 			items: response.data.installations.items,
 			pageInfo: response.data.installations.pageInfo,
 		});
@@ -66,7 +68,7 @@ describe("plugin client catalog recipe", () => {
 	it("retains hidden and incompatible installations", () => {
 		const hidden = { ...entry, isHidden: true };
 		const incompatible = { ...entry, health: "incompatible", installationId: "installation-2" };
-		const decoded = pluginClientCatalogRecipe().decode({
+		const decoded = bindRecipe(pluginClientCatalogRecipe, {}).decode({
 			data: {
 				installations: rowsResult([hidden, incompatible], {
 					limit: 100,
@@ -82,7 +84,7 @@ describe("plugin client catalog recipe", () => {
 	it("rejects an unknown installation health", () => {
 		expect(
 			Result.isFailure(
-				pluginClientCatalogRecipe().decode({
+				bindRecipe(pluginClientCatalogRecipe, {}).decode({
 					data: {
 						installations: rowsResult([{ ...entry, health: "unknown" }], {
 							limit: 100,

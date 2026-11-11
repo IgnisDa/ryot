@@ -15,16 +15,19 @@ import {
 	or,
 	table,
 } from "@ryot-app/ryotql";
-import { Result } from "effect";
+import { compileSort } from "@ryot-app/ryotql/sort";
+import { it as effectIt } from "@voila.dev/effect-bun-test";
+import { Effect, Result } from "effect";
 
 import {
 	type BrowseSchema,
 	browseTargets,
-	compileSort,
 	entitySchemaBrowseRecipe,
+	loadEntitySchemaBrowse,
 	nameSortTarget,
 	sortChoices,
 } from "./browse";
+import { bindRecipe } from "./test-utils";
 
 const subject = table("entity", "subject");
 const entity = table("entity", "member");
@@ -216,13 +219,56 @@ describe("sort compilation", () => {
 });
 
 describe("schema browse loading", () => {
+	effectIt.effect(
+		"loads all requested schemas across bounded reads including unavailable definitions",
+		() =>
+			Effect.gen(function* () {
+				const schemas = Array.from({ length: 205 }, (_, index) =>
+					schema(`schema-${index}`, "plugin", []),
+				);
+				const requests: number[] = [];
+				let offset = 0;
+				const loaded = yield* loadEntitySchemaBrowse(schemas, (recipe) => {
+					const bound = bindRecipe(recipe, {});
+					expect(bound.document.queries.schemas?.output).toMatchObject({
+						pagination: { limit: 100 },
+					});
+					const batch = schemas.slice(offset, offset + 100);
+					offset += 100;
+					requests.push(batch.length);
+					return Effect.fromResult(
+						bound.decode({
+							data: {
+								schemas: {
+									type: "rows",
+									items: batch.filter(({ slug }) => slug !== "schema-102"),
+									pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+								},
+							},
+						}),
+					);
+				});
+				expect(requests).toEqual([100, 100, 5]);
+				expect(loaded).toEqual(
+					schemas.map((entry) =>
+						entry.slug === "schema-102"
+							? { browse: null, slug: entry.slug, pluginId: entry.pluginId }
+							: entry,
+					),
+				);
+			}),
+	);
+
 	it("keeps requested schemas without a visible definition so their members stay excluded", () => {
-		const recipe = entitySchemaBrowseRecipe({
-			schemas: [
-				{ slug: "movie", pluginId: "media" },
-				{ slug: "removed", pluginId: "gone" },
-			],
-		});
+		const recipe = bindRecipe(
+			entitySchemaBrowseRecipe({
+				schemas: [
+					{ slug: "movie", pluginId: "media" },
+					{ slug: "removed", pluginId: "gone" },
+				],
+			}),
+			{},
+		);
 		const movie = schema("movie", "media", [rating("rating")]);
 		const loaded = Result.getOrThrow(
 			recipe.decode({

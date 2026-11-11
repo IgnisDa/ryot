@@ -5,10 +5,10 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { remindersRecipe } from "./reminders";
-import { rowsResponse } from "./test-utils";
+import { bindRecipe, rowsResponse } from "./test-utils";
 
 it("preserves inactive date-only evidence without inventing an instant or timezone", () => {
-	const recipe = remindersRecipe({ limit: 20, states: ["needs-scheduling"] });
+	const recipe = bindRecipe(remindersRecipe, { limit: 20, states: ["needs-scheduling"] });
 	const item = {
 		revision: 1,
 		dueAt: null,
@@ -35,7 +35,7 @@ it("preserves inactive date-only evidence without inventing an instant or timezo
 });
 
 it("uses stable schedule ordering, cursor pagination and explicit entity scope", () => {
-	const recipe = remindersRecipe({
+	const recipe = bindRecipe(remindersRecipe, {
 		limit: 3,
 		after: "cursor",
 		states: ["scheduled", "processing"],

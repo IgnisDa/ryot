@@ -4,12 +4,13 @@ import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
 import { entityReadRecipe, eventReadRecipe } from "./scripts";
+import { bindRecipe } from "./test-utils";
 
 const pageInfo = { limit: 100, hasMore: false, nextCursor: null };
 
 describe("sandbox recipes", () => {
 	it("prepares and decodes entity reads", () => {
-		const recipe = entityReadRecipe({ entityIds: ["entity-1", "entity-2"] });
+		const recipe = bindRecipe(entityReadRecipe, { entityIds: ["entity-1", "entity-2"] });
 		const query = recipe.document.queries.entities;
 		assert(query);
 		expect(query.where).toMatchObject({ values: [{ value: "entity-1" }, { value: "entity-2" }] });
@@ -59,7 +60,7 @@ describe("sandbox recipes", () => {
 		assert(query);
 		expect(query.where).toMatchObject({ type: "and" });
 
-		const entityRecipe = entityReadRecipe({ entityIds: ["entity-1"] });
+		const entityRecipe = bindRecipe(entityReadRecipe, { entityIds: ["entity-1"] });
 		expect(
 			Result.isFailure(
 				entityRecipe.decode({ data: { entities: { items: [], type: "aggregate" } } }),

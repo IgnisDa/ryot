@@ -38,6 +38,10 @@
 		"./random": {
 			"types": "./src/random.ts",
 			"default": "./src/random.ts"
+		},
+		"./run-client-tests": {
+			"types": "./src/run-client-tests.ts",
+			"default": "./src/run-client-tests.ts"
 		}
 	},
 	"scripts": {

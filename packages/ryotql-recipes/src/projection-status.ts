@@ -1,4 +1,4 @@
-import type { Predicate, TableReference } from "@ryot-app/contract/modules/ryotql/language";
+import type { Predicate, TableReference } from "@ryot-app/contract/modules/ryotql/authored";
 import { and, column, conditional, countIf, eq, exists, literal } from "@ryot-app/ryotql";
 import { Schema } from "effect";
 

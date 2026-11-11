@@ -97,31 +97,29 @@ export const evaluateIntegrationProviderReadiness = (
 					.map(({ field }) => field),
 			});
 
-export const integrationProvidersRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly after?: string }) => ({
-		queries: {
-			providers: selectedRows(provider, {
-				after: input.after,
-				limit: input.limit,
-				selection: providerSelection,
-				orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
-			}),
-		},
-		map: ({ providers }) =>
-			Result.try(() => ({
-				...providers,
-				items: providers.items.map((item) => ({
-					reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
-					...item,
-					readiness: evaluateIntegrationProviderReadiness(item),
-					commonSchema: integrationCommonSchema(
-						item.lot,
-						item.supportsOwnershipSync,
-						item.pluginId !== null,
-					),
-				})),
+export const integrationProvidersRecipe = defineRecipe({
+	queries: {
+		providers: selectedRows(provider, {
+			limit: 20,
+			maxLimit: 1000,
+			selection: providerSelection,
+			orderBy: [ascending(column(provider, "name")), ascending(column(provider, "id"))],
+		}),
+	},
+	map: ({ providers }) =>
+		Result.try(() => ({
+			...providers,
+			items: providers.items.map((item) => ({
+				reference: { slug: item.slug, owner: definitionOwner(item.pluginId) },
+				...item,
+				readiness: evaluateIntegrationProviderReadiness(item),
+				commonSchema: integrationCommonSchema(
+					item.lot,
+					item.supportsOwnershipSync,
+					item.pluginId !== null,
+				),
 			})),
-	}),
-);
+		})),
+});
 
 export type IntegrationProvidersPage = Recipe.Success<typeof integrationProvidersRecipe>;

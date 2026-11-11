@@ -13,7 +13,7 @@ import { Result, Schema } from "effect";
 
 const user = table("user", "user");
 
-export const userSettingsRecipe = defineRecipe(() => ({
+export const userSettingsRecipe = defineRecipe({
 	map: ({ user: current }) => Result.succeed(current),
 	queries: {
 		user: selectedRow(user, {
@@ -26,15 +26,15 @@ export const userSettingsRecipe = defineRecipe(() => ({
 			},
 		}),
 	},
-}));
+});
 
 export type UserSettingsResult = Recipe.Success<typeof userSettingsRecipe>;
 
-export const twoFactorStatusRecipe = defineRecipe(() => ({
+export const twoFactorStatusRecipe = defineRecipe({
 	map: ({ user: current }) => Result.succeed(current.status),
 	queries: {
 		user: selectedRow(user, {
 			selection: { status: selectedField(column(user, "twoFactorStatus"), TwoFactorStatus) },
 		}),
 	},
-}));
+});

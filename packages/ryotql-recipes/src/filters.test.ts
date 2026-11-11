@@ -41,6 +41,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { compileFilter, filterOperatorsFor, outputFilterTargets } from "@ryot-app/ryotql/filters";
 import { assert } from "@ryot-app/testing/assert";
 import { DateTime, Effect, Result } from "effect";
 import { TestClock } from "effect/testing";
@@ -48,24 +49,20 @@ import { TestClock } from "effect/testing";
 import {
 	activeRuleCount,
 	collectionsFilterField,
-	compileFilter,
 	decodeFilterParam,
 	draftFromRule,
 	draftRule,
 	editableGroup,
 	encodeFilterParam,
-	filterOperatorsFor,
 	groupFilter,
 	linkedFilterChoicesInput,
 	linkedFilterChoicesRecipe,
 	newFilterDraft,
-	outputFilterTargets,
 	queryFilterFields,
 	ratingDraftFromRule,
 	ratingDraftRule,
 } from "./filters";
-import { entityBrowserCountRecipe, entityBrowserRecipe, resultsTableRecipe } from "./saved-views";
-import { requireRowsQuery } from "./test-utils";
+import { bindRecipe, requireRowsQuery } from "./test-utils";
 
 const entity = table("entity", "entity");
 const properties = column(entity, "properties");
@@ -465,110 +462,6 @@ describe("filter targets", () => {
 	});
 });
 
-describe("filtered recipes", () => {
-	const settings = {
-		subject,
-		pageSize: 5,
-		addAction: null,
-		layouts: ["grid"],
-		tableColumns: null,
-		defaultLayout: "grid",
-		searchFields: ["name"],
-		sourceName: "selection",
-		summary: { image: null, subtitle: null },
-	} as const;
-	const browse = [
-		{
-			slug: "item",
-			pluginId: null,
-			browse: {
-				fields: [
-					{
-						key: "level",
-						type: "enum",
-						kind: "value",
-						label: "Level",
-						choices: [{ value: "a", label: "A" }],
-						expression: jsonPath(column(table("entity", "subject"), "properties"), "level"),
-					},
-				],
-			},
-		},
-	] as const;
-	const queryDocument = document({
-		selection: rows(entity, {
-			limit: 40,
-			orderBy: [{ direction: "asc", expr: column(entity, "id") }],
-			fields: [
-				field("name", column(entity, "name")),
-				field("level", jsonPath(properties, "level")),
-			],
-		}),
-	});
-	const filter: Filter = {
-		type: "and",
-		filters: [
-			{ values: ["a"], field: "level", operator: "anyOf" },
-			{ values: ["c1"], operator: "anyOf", field: "collections" },
-		],
-	};
-
-	it("applies the same predicate to pages and counts", () => {
-		const input = { now, filter, browse, settings, queryDocument, searchText: "x" };
-		const page = Result.getOrThrow(entityBrowserRecipe(input)).document.queries.entityBrowser;
-		const count = Result.getOrThrow(
-			entityBrowserCountRecipe(queryDocument, settings, { now, filter, browse, searchText: "x" }),
-		).document.queries.entityBrowserCount;
-		if (page?.output.type !== "rows" || count?.output.type !== "aggregate") {
-			throw new Error("Expected rows and aggregate queries");
-		}
-		expect(count.where).toEqual(page.where);
-		expect(JSON.stringify(page.where)).toContain('"type":"exists"');
-		expect(JSON.stringify(page.where)).toContain('"path":["level"]');
-	});
-
-	it("rejects unknown filter fields for the browser and results-table recipes", () => {
-		expect(
-			Result.isFailure(
-				entityBrowserRecipe({
-					now,
-					browse,
-					settings,
-					queryDocument,
-					filter: { field: "missing", operator: "empty" },
-				}),
-			),
-		).toBe(true);
-		const tableSettings = {
-			pageSize: 5,
-			entityLink: null,
-			rowKeyFields: ["name"],
-			sourceName: "selection",
-			filterFields: [valueField("level", "enum")],
-			columns: [{ label: "Name", field: "name", displayKind: "text" }],
-		} as const;
-		const filtered = Result.getOrThrow(
-			resultsTableRecipe({
-				now,
-				queryDocument,
-				settings: tableSettings,
-				filter: { field: "level", operator: "empty" },
-			}),
-		).document.queries.resultsTable;
-		expect(filtered?.where).toEqual(isNull(jsonPath(properties, "level")));
-		expect(
-			Result.isFailure(
-				resultsTableRecipe({
-					now,
-					queryDocument,
-					settings: tableSettings,
-					filter: { field: "collections", operator: "notEmpty" },
-				}),
-			),
-		).toBe(true);
-	});
-});
-
 const encode = (node: unknown) => Buffer.from(JSON.stringify(node)).toString("base64url");
 
 const find = (key: string) => {
@@ -736,8 +629,11 @@ const choices = (
 	linkField: Parameters<typeof linkedFilterChoicesInput>[0],
 	input: { readonly searchText?: string; readonly ids?: readonly string[] } = {},
 ) => {
-	const query = linkedFilterChoicesRecipe(linkedFilterChoicesInput(linkField, input)).document
-		.queries["choices"];
+	const request = linkedFilterChoicesInput(linkField, input);
+	const query = bindRecipe(linkedFilterChoicesRecipe({ link: request.link }), {
+		...request,
+		searchText: request.searchText?.trim(),
+	}).document.queries["choices"];
 	const output = query?.output;
 	if (query === undefined || output?.type !== "aggregate") {
 		throw new Error("Expected aggregate choices query");

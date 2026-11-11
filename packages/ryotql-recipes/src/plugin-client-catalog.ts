@@ -24,13 +24,13 @@ import { Result, Schema } from "effect";
 const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");
 
-export const pluginClientCatalogRecipe = defineRecipe(
-	(input: { readonly after?: string | undefined } = {}) => ({
+export const pluginClientCatalogRecipe = (() => {
+	return defineRecipe({
 		map: ({ installations }) => Result.succeed(installations),
 		queries: {
 			installations: selectedRows(installation, {
 				limit: 100,
-				after: input.after,
+
 				joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
 				where: and(
 					eq(column(plugin, "status"), literal("active")),
@@ -64,8 +64,8 @@ export const pluginClientCatalogRecipe = defineRecipe(
 				},
 			}),
 		},
-	}),
-);
+	});
+})();
 
 export type PluginClientCatalog = Array<PluginClientCatalogEntry>;
 export type PluginClientCatalogEntry = PluginClientCatalogPage["items"][number];

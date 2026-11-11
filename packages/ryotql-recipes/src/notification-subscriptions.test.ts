@@ -6,7 +6,7 @@ import {
 	notificationSubscriptionRecipe,
 	notificationSubscriptionsRecipe,
 } from "./notification-subscriptions";
-import { requireRowsQuery, rowsResult } from "./test-utils";
+import { bindRecipe, requireRowsQuery, rowsResult } from "./test-utils";
 
 const item = {
 	id: "rule-1",
@@ -22,7 +22,7 @@ const rows = (items: readonly unknown[], limit = 2) => rowsResult(items, { ...pa
 describe("notification subscription recipes", () => {
 	it("prepares the paginated list with exact fields and ordering", () => {
 		const query = requireRowsQuery(
-			notificationSubscriptionsRecipe({ limit: 7, after: "cursor" }).document.queries
+			bindRecipe(notificationSubscriptionsRecipe, { limit: 7, after: "cursor" }).document.queries
 				.notificationSubscriptions,
 		);
 
@@ -53,7 +53,8 @@ describe("notification subscription recipes", () => {
 
 	it("prepares optional by-id detail with cardinality limit two", () => {
 		const query = requireRowsQuery(
-			notificationSubscriptionRecipe({ id: "rule-1" }).document.queries.notificationSubscription,
+			bindRecipe(notificationSubscriptionRecipe, { id: "rule-1" }).document.queries
+				.notificationSubscription,
 		);
 
 		expect(query.output.pagination).toEqual({ limit: 2 });
@@ -63,7 +64,7 @@ describe("notification subscription recipes", () => {
 	it("decodes plain branded values, page info, and normalized dates", () => {
 		expect(
 			Result.getOrThrow(
-				notificationSubscriptionsRecipe({ limit: 2 }).decode({
+				bindRecipe(notificationSubscriptionsRecipe, { limit: 2 }).decode({
 					data: { notificationSubscriptions: rows([item]) },
 				}),
 			),
@@ -76,7 +77,7 @@ describe("notification subscription recipes", () => {
 	});
 
 	it("decodes optional detail and rejects excess cardinality", () => {
-		const recipe = notificationSubscriptionRecipe({ id: "rule-1" });
+		const recipe = bindRecipe(notificationSubscriptionRecipe, { id: "rule-1" });
 
 		expect(
 			Result.getOrThrow(recipe.decode({ data: { notificationSubscription: rows([], 2) } })),
@@ -89,7 +90,7 @@ describe("notification subscription recipes", () => {
 	});
 
 	it("rejects malformed fields, dates, and result shapes", () => {
-		const recipe = notificationSubscriptionsRecipe({ limit: 2 });
+		const recipe = bindRecipe(notificationSubscriptionsRecipe, { limit: 2 });
 
 		for (const malformed of [
 			{ ...item, isActive: "true" },
