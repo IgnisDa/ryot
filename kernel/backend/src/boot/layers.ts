@@ -82,6 +82,7 @@ import {
 } from "#modules/integrations/layer";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { LiveUpdates } from "#modules/live-updates/hub";
+import { McpServiceLive } from "#modules/mcp/layer";
 import {
 	NotificationAdmissionsLive,
 	NotificationDeliveryJobProvidedLive,
@@ -271,6 +272,7 @@ const ServicesLive = Layer.mergeAll(
 	NotificationAdmissionsLive,
 	NotificationsServiceLive,
 	OAuthConnectionsServiceLive,
+	McpServiceLive,
 	RemindersServiceLive,
 	ReminderWorkerLive,
 	OperationsServiceLive,

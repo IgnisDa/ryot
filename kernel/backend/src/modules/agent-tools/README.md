@@ -1,17 +1,16 @@
 # Agent tools
 
 `AgentToolsService` supplies the shared per-user query, operation and data-description tool registry. `AgentToolsServiceLive` composes authentication, effective definition reads, the persisted
-plugin runtime catalog and the existing operation service. There are no routes or assistant/MCP
-transport dependencies.
+plugin runtime catalog and the existing operation service. The registry has no transport dependencies; the MCP module adapts its tools to Streamable HTTP.
 
 ## Service API
 
-- `list(headers)` authenticates a session or API-key credential and returns `AgentTool[]`.
+- `list(headers, resource?)` authenticates a session or API-key credential and returns `AgentTool[]`.
 - `describeData(headers)` authenticates the credential and returns the complete typed
   `AgentDataDescription`: effective entity schemas with properties, browse fields and nested event
   schemas, plus relationship schemas and their endpoints/properties. Projection schemas are included
   for events and relationships. This internal reader is unbounded; transport consumers use `call`.
-- `call({ name, arguments, headers, contentHash?, revisionId?, idempotencyKey?, byteBudget? })` authenticates,
+- `call({ name, arguments, headers, resource?, contentHash?, revisionId?, idempotencyKey?, byteBudget? })` authenticates,
   resolves the tool for that user and returns a bounded `AgentToolResult`. `describe_data` takes `{}`.
   Operation arguments go unchanged to `OperationsService.invoke`; the script's Effect Schema owns
   validation and business rules. Manifest input/output JSON Schemas describe the operation payload,
@@ -73,3 +72,9 @@ Tests cover real persisted catalog ownership, readiness/configuration, demo filt
 definition descriptions and delegation at the `OperationsService` boundary. Existing operation tests
 own admission, configuration/script pinning and runtime validation. Result tests cover escaping,
 multibyte Unicode, primitive/array results and invalid budgets.
+
+Transport owners may supply the expected OAuth resource to `list` and `call`. Omission retains the
+ordinary API audience. The registry propagates this expected audience into operation authentication;
+it never accepts a caller-supplied authenticated principal. MCP supplies its own resource, and API-key
+behavior stays the same. The MCP transport pins the source revision from its current descriptor when
+calling operations and declared queries.

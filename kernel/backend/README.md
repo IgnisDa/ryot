@@ -82,6 +82,9 @@ caches. Broadcasts are not durable, so listeners recover on reconnect. See the
 [live-updates protocol](../client/src/modules/entity-watches/README.md) and
 [authentication/proxy rules](src/modules/accounts/auth/README.md).
 
+The [MCP transport](src/modules/mcp/README.md) exposes the shared per-user agent registry at
+`/api/mcp`, using API keys or resource-bound OAuth tokens.
+
 ## Tests
 
 `test.ts` provisions one PostgreSQL for the run, reusing `TEST_DATABASE_URL` when supplied. It runs four workers unless `--parallel=N` says otherwise.

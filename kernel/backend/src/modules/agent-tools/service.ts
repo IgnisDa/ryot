@@ -305,8 +305,12 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 
 			const list = Effect.fn("AgentToolsService.list")(function* (
 				headers: PlatformHeaders.Headers,
+				resource?: string,
 			) {
-				const { user, authorization } = yield* auth.resolveRequestCredential(new Headers(headers));
+				const { user, authorization } = yield* auth.resolveRequestCredential(
+					new Headers(headers),
+					resource,
+				);
 				const tools = yield* operationTools(user.id);
 				return [
 					describeDataTool,
@@ -327,6 +331,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 
 			const call = Effect.fn("AgentToolsService.call")(function* (input: {
 				readonly name: string;
+				readonly resource?: string;
 				readonly byteBudget?: number;
 				readonly revisionId?: string;
 				readonly arguments: JsonValue;
@@ -336,6 +341,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			}) {
 				const { user, authorization } = yield* auth.resolveRequestCredential(
 					new Headers(input.headers),
+					input.resource,
 				);
 				const byteBudget = input.byteBudget ?? defaultResultByteBudget;
 				if (!Number.isSafeInteger(byteBudget) || byteBudget < minimumResultByteBudget) {
@@ -466,6 +472,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				}
 				const result = yield* operations.invoke({
 					headers: input.headers,
+					...(input.resource === undefined ? {} : { resource: input.resource }),
 					payload: input.arguments,
 					packageId: selected.tool.source.packageId,
 					operationSlug: selected.tool.source.operationSlug,

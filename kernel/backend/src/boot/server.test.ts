@@ -32,6 +32,14 @@ it.effect(
 						["/api/system/ping?value=1", "api:/system/ping?value=1"],
 						["/api/docs", "api:/docs"],
 						["/api/auth/session", "auth:/api/auth/session"],
+						[
+							"/.well-known/oauth-authorization-server/api/auth",
+							"auth:/api/auth/.well-known/oauth-authorization-server",
+						],
+						[
+							"/.well-known/openid-configuration/api/auth",
+							"auth:/api/auth/.well-known/openid-configuration",
+						],
 						["/_i/provider?token=redacted", "api:/webhooks/integrations/provider?token=redacted"],
 						["/saved/views", "static:/saved/views"],
 					] as const;

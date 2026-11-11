@@ -36,6 +36,7 @@ import {
 } from "#modules/instance-admin/routes";
 import { IntegrationsRoutesLive } from "#modules/integrations/routes";
 import { LiveUpdatesRoutesLive } from "#modules/live-updates/routes";
+import { McpService, protectedResourceMetadata } from "#modules/mcp/service";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
 import { PageBundlesRoutesLive } from "#modules/pages/bundles/routes";
@@ -156,8 +157,23 @@ export const registerRootRoutes = Effect.fn("registerRootRoutes")(function* <E, 
 	serveStatic: (pathname: string) => Effect.Effect<HttpServerResponse.HttpServerResponse, SE, SR>,
 	frontendUrl: string,
 ) {
-	const cors = HttpMiddleware.cors({ credentials: false, allowedOrigins: ["*"] });
+	const cors = HttpMiddleware.cors({
+		credentials: false,
+		allowedOrigins: ["*"],
+		exposedHeaders: ["Mcp-Session-Id", "WWW-Authenticate"],
+	});
 	yield* router.addGlobalMiddleware(cors);
+	for (const document of ["oauth-authorization-server", "openid-configuration"]) {
+		yield* router.add("GET", `/.well-known/${document}/api/auth`, (request) =>
+			HttpEffect.fromWebHandler((native) => {
+				const url = new URL(native.url);
+				url.pathname = `/api/auth/.well-known/${document}`;
+				return authHandler(
+					new Request(url.toString(), { method: native.method, headers: native.headers }),
+				);
+			}).pipe(Effect.provideService(HttpServerRequest.HttpServerRequest, request)),
+		);
+	}
 	yield* router.add("*", "/api/auth/*", (request) =>
 		HttpEffect.fromWebHandler(authHandler).pipe(
 			Effect.provideService(HttpServerRequest.HttpServerRequest, request),
@@ -201,6 +217,7 @@ const requestLogger = HttpMiddleware.make((httpApp) =>
 const RootRoutesLive = HttpRouter.use((router) =>
 	Effect.gen(function* () {
 		const auth = yield* AuthService;
+		const mcp = yield* McpService;
 		const config = yield* AppConfig;
 		const fs = yield* FileSystem.FileSystem;
 		const api = yield* HttpRouter.toHttpEffect(ApiWithScalarLive).pipe(
@@ -218,6 +235,12 @@ const RootRoutesLive = HttpRouter.use((router) =>
 			return HttpServerResponse.uint8Array(bytes, { contentType: mimeType(target) });
 		});
 
+		yield* router.add("*", "/api/mcp", mcp.handle.pipe(Effect.mapError(mapRouterError)));
+		yield* router.add(
+			"GET",
+			"/.well-known/oauth-protected-resource/api/mcp",
+			HttpServerResponse.json(protectedResourceMetadata(config.frontendUrl)).pipe(Effect.orDie),
+		);
 		yield* registerRootRoutes(
 			router,
 			api.pipe(Effect.mapError(mapRouterError)),

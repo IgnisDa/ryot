@@ -12,6 +12,11 @@ executes their code.
 | `catalog/`       | Resolved availability, readiness, rate-limit policy, and catalog invalidation |
 | `operations/`    | Product-facing plugin operation entrypoints                                   |
 
+Operation callers may supply their transport-owned expected OAuth resource. Authentication still resolves
+the authoritative credential and user through `AuthService`; HTTP callers default to the API audience,
+while the agent registry propagates the MCP audience for MCP calls. Admission, demo restrictions and
+lifecycle locks use the same operation path.
+
 ## Operation failures
 
 `OperationsService` distinguishes a refusal from a crash. A script error whose boundary reason is

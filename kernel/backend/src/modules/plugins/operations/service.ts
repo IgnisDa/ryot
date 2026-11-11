@@ -141,6 +141,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 			});
 
 			const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
+				readonly resource?: string;
 				readonly payload: JsonValue;
 				readonly contentHash?: string;
 				readonly submittedAt?: string;
@@ -200,10 +201,12 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					.resolve(input.payload)
 					.pipe(Effect.catchTag("NotFound", () => scopeNotFound));
 
-				const authenticated = yield* auth.resolveRequestCredential(new Headers(input.headers)).pipe(
-					Effect.map(Result.succeed),
-					Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
-				);
+				const authenticated = yield* auth
+					.resolveRequestCredential(new Headers(input.headers), input.resource)
+					.pipe(
+						Effect.map(Result.succeed),
+						Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
+					);
 				const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
 					dispatchInput: Omit<DispatchInput, "executionId" | "pluginRevision">,
 					resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
