@@ -768,3 +768,48 @@ describe("Effect-native client capabilities", () => {
 		);
 	});
 });
+
+describe("declared page queries", () => {
+	it.effect(
+		"executes by reference with caller values and decodes the response",
+		() =>
+			Effect.gen(function* () {
+				const requests: unknown[] = [];
+				const client = createRyotClient(
+					createTestRyotAdapter({
+						pageQuerySource: (query) => ({ query, kind: "page", pageId: "page" }),
+						query: (request) => {
+							requests.push(request);
+							return Effect.succeed({ value: "selected" });
+						},
+					}),
+				);
+				const result = yield* client.page.query("items", {
+					decode: recipe.decode,
+					pages: { items: { limit: 5 } },
+					arguments: { search: "caller" },
+				});
+				expect(result).toBe("selected");
+				expect(requests).toEqual([
+					{
+						pages: { items: { limit: 5 } },
+						arguments: { search: "caller" },
+						source: { kind: "page", pageId: "page", query: "items" },
+					},
+				]);
+			}),
+		testTimeout,
+	);
+	it.effect(
+		"refuses page query calls outside a page",
+		() =>
+			Effect.gen(function* () {
+				const client = createRyotClient(createTestRyotAdapter());
+				const error = yield* client.page
+					.query("items", { decode: recipe.decode })
+					.pipe(Effect.flip);
+				expect(error.reason).toBe("invalid-request");
+			}),
+		testTimeout,
+	);
+});

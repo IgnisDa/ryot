@@ -1,3 +1,4 @@
+import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type {
 	ClientPageOperationTarget,
 	PreparedClientPage,
@@ -23,14 +24,15 @@ import {
 export const SUCCESS_DISMISS_MS = 6_000;
 export const ANNOUNCEMENT_INTERVAL_MS = 2_000;
 
-export type BackgroundSubmissionTarget = ClientPageOperationTarget & {
-	readonly pluginName: string;
-};
-
 export type BackgroundSubmissionReservation = {
 	readonly start: () => void;
 	readonly cancel: () => void;
 	readonly submissionId: string;
+};
+
+export type BackgroundSubmissionTarget = ClientPageOperationTarget & {
+	readonly pluginName: string;
+	readonly pageAuthority?: PageOperationAuthority;
 };
 
 export type BackgroundSubmissionBinding = {
@@ -141,6 +143,7 @@ const failureStatus = {
 	"operation-rejected": "Not saved",
 	transport: "Couldn't confirm it was saved",
 	"malformed-result": "Unexpected server response",
+	"page-write-access-required": "Page write access is required",
 } as const satisfies Record<BackgroundSubmissionFailureClass, string>;
 
 const settledStatus = {
@@ -292,6 +295,9 @@ export class BackgroundSubmissionService extends Context.Service<BackgroundSubmi
 								scope: options.scope,
 								request: record.request,
 								contentHash: record.target.contentHash,
+								...(record.target.pageAuthority === undefined
+									? {}
+									: { pageAuthority: record.target.pageAuthority }),
 							})
 							.pipe(
 								Effect.onExit((exit) =>

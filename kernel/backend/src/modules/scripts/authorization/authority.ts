@@ -4,6 +4,8 @@ import type { SandboxPrincipal } from "@ryot-app/sandbox/host/principal";
 import { jsonValueEquals } from "@ryot-app/ts-utils/json";
 import { Effect, Layer, Schema } from "effect";
 
+import { PageOperationAuthorization } from "#modules/pages/operation-authority";
+
 import { SandboxRepository } from "../registry/repository";
 import { ScriptExecutionPrincipal } from "./principal";
 
@@ -19,6 +21,7 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 	SandboxExecutionAuthority,
 	Effect.gen(function* () {
 		const repository = yield* SandboxRepository;
+		const pageAuthorization = yield* PageOperationAuthorization.make;
 		// Decoding is pure, and a run passes the same principal object to each of its host calls.
 		const decoded = new WeakMap<SandboxPrincipal, ScriptExecutionPrincipal>();
 		const decode = (principal: SandboxPrincipal) => {
@@ -34,6 +37,18 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 			principal: SandboxPrincipal,
 		) {
 			const validated = yield* decode(principal);
+			if (validated.subject.type === "user" && validated.subject.pageAuthority !== undefined) {
+				const allowed = yield* pageAuthorization
+					.current(validated.subject.userId, validated.subject.pageAuthority)
+					.pipe(Effect.mapError(invalidPin));
+				if (!allowed) {
+					return yield* new SandboxRunError({
+						kind: "script-failure",
+						message: "Page write access is required",
+						data: { code: "page-write-access-required" },
+					});
+				}
+			}
 			const pinned = yield* repository
 				.getScriptPin(
 					validated.scriptId,

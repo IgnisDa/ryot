@@ -1,4 +1,5 @@
 import { AuthRateLimited, AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
 	PluginInvocationError,
@@ -47,6 +48,7 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 				readonly scope: ApiScope;
 				readonly contentHash: string;
 				readonly request: PluginOperationRequest;
+				readonly pageAuthority?: PageOperationAuthority;
 			}) {
 				const outcome = yield* api
 					.invoke(invocation.scope, {
@@ -56,6 +58,9 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 						},
 						payload: {
 							payload: invocation.request.input,
+							...(invocation.pageAuthority === undefined
+								? {}
+								: { pageAuthority: invocation.pageAuthority }),
 							contentHash: invocation.contentHash,
 							...(invocation.request.idempotencyKey === undefined
 								? {}
@@ -69,6 +74,12 @@ export class PluginOperationsService extends Context.Service<PluginOperationsSer
 						Effect.match({
 							onSuccess: (response) => ({ outcome: "success", value: response.result }) as const,
 							onFailure: (error) => {
+								if (
+									Schema.is(PluginRequestError)(error.cause) &&
+									error.cause.reason.code === "page-write-access-required"
+								) {
+									return { outcome: "failure", reason: "page-write-access-required" } as const;
+								}
 								if (isStaleRevision(error.cause)) {
 									return { outcome: "stale-session" } as const;
 								}

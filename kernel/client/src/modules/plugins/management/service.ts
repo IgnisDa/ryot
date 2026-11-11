@@ -59,6 +59,7 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"package-archive-invalid": "The plugin archive is invalid.",
 	"compilation-failed": "The plugin archive failed to compile.",
 	"operation-not-found": "The plugin operation does not exist.",
+	"page-write-access-required": "Page write access is required.",
 	"workflow-referenced": "Your workflows still use this plugin.",
 	"home-view-not-found": "The plugin's home view does not exist.",
 	"installation-not-found": "This installation no longer exists.",

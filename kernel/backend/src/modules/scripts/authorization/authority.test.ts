@@ -329,6 +329,92 @@ describe("sandbox execution authority", () => {
 		);
 
 		test.effect(
+			"revalidates page authority on retained execution principals after grant changes",
+			() =>
+				Effect.gen(function* () {
+					const authority = yield* SandboxExecutionAuthority;
+					const sandbox = yield* SandboxRepository;
+					const session = yield* DatabaseSession;
+					const slug = `page-authority-${yield* randomUuid}`;
+					const installed = yield* installRevisionPackage(revisionPackage(slug), owner);
+					const [script] = yield* session.run((db) =>
+						db
+							.select({ id: tables.sandboxScript.id })
+							.from(tables.sandboxScript)
+							.where(eq(tables.sandboxScript.pluginRevisionId, installed.revisionId)),
+					);
+					assert(script);
+					const pin = yield* sandbox.getScriptPin(SandboxScriptId.make(script.id));
+					assert(pin);
+					const pageAuthority = {
+						revision: 1,
+						pageId: slug,
+						authorityRevision: 1,
+						definitionHash: "published",
+					};
+					const definition = {
+						files: [],
+						pluginDependencies: {},
+						entry: "client/page.tsx",
+						queries: { queries: {} },
+					};
+					yield* session.run((db) =>
+						db
+							.insert(tables.page)
+							.values({
+								slug,
+								id: slug,
+								name: slug,
+								userId: owner,
+								origin: "user",
+								writeAccess: true,
+								publishedRevision: 1,
+								authorityRevision: 1,
+								draftDefinition: definition,
+								draftDefinitionHash: "draft",
+								publishedDefinition: definition,
+								publishedDefinitionHash: "published",
+							}),
+					);
+					const principal = yield* Schema.decodeEffect(ScriptExecutionPrincipal)({
+						...pin,
+						subject: { ...ownerSubject, pageAuthority },
+					});
+					expect(yield* authority.resolve(principal)).toBe("user");
+					yield* session.run((db) =>
+						db
+							.update(tables.page)
+							.set({ writeAccess: false, authorityRevision: 2 })
+							.where(eq(tables.page.id, slug)),
+					);
+					assertExitFails(
+						yield* Effect.exit(authority.resolve(principal)),
+						new SandboxRunError({
+							kind: "script-failure",
+							message: "Page write access is required",
+							data: { code: "page-write-access-required" },
+						}),
+					);
+					yield* session.run((db) =>
+						db
+							.update(tables.page)
+							.set({ writeAccess: true, authorityRevision: 3 })
+							.where(eq(tables.page.id, slug)),
+					);
+					assertExitFails(
+						yield* Effect.exit(authority.resolve(principal)),
+						new SandboxRunError({
+							kind: "script-failure",
+							message: "Page write access is required",
+							data: { code: "page-write-access-required" },
+						}),
+					);
+					expect(yield* authority.resolve(yield* principalFor(pin))).toBe("user");
+				}),
+			testTimeout,
+		);
+
+		test.effect(
 			"resolves stored kernel scripts as system-owned",
 			() =>
 				Effect.scoped(

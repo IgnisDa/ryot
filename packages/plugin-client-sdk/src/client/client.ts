@@ -472,6 +472,23 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 		return { response, data: decoded.success };
 	});
 
+	const executeQuery = <Success>(
+		request: ExecutionRequest,
+		decode: (response: unknown) => Result.Result<Success, unknown>,
+	): Effect.Effect<Success, RyotClientError> =>
+		adapterEffect(() => adapter.query(request)).pipe(
+			Effect.flatMap((response) =>
+				Effect.try({
+					try: () => decode(response),
+					catch: () => new RyotClientError({ reason: "malformed-result" }),
+				}),
+			),
+			Effect.flatMap((decoded) =>
+				Result.isFailure(decoded)
+					? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
+					: Effect.succeed(decoded.success),
+			),
+		);
 	return {
 		overlayBack,
 		userPreferences,
@@ -573,6 +590,26 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 			reorderMembership: (input: typeof ReorderMembershipBody.Encoded) =>
 				mutateCollection({ input, action: "reorder-membership" }, ReorderMembershipResponse),
 		},
+		page: {
+			query: <Success>(
+				name: string,
+				request: Omit<ExecutionRequest, "source"> & {
+					readonly decode: (response: unknown) => Result.Result<Success, unknown>;
+				},
+			): Effect.Effect<Success, RyotClientError> =>
+				Effect.gen(function* () {
+					const source = adapter.pageQuerySource?.(name);
+					if (!source) {
+						return yield* new RyotClientError({ reason: "invalid-request" });
+					}
+					const { decode, ...values } = request;
+					const parsed = Schema.decodeResult(ExecutionRequest)({ ...values, source });
+					if (Result.isFailure(parsed)) {
+						return yield* new RyotClientError({ reason: "invalid-input" });
+					}
+					return yield* executeQuery(parsed.success, decode);
+				}),
+		},
 		iosLiveActivities: {
 			end: (
 				request: Omit<Extract<PluginIosLiveActivityRequest, { readonly action: "end" }>, "action">,
@@ -632,6 +669,37 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					return decoded.success;
 				}),
 		},
+		data: {
+			execute: executeQuery,
+			query: <Success, const Parameters extends AppSchema>(
+				recipe: Recipe<Success, Parameters>,
+				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+			) => queryRecipe(recipe, arguments_, options).pipe(Effect.map(({ data }) => data)),
+			describe: (source: ExecutionSource, argumentsValue?: ExecutionRequest["arguments"]) => {
+				const describe = adapter.describe;
+				return describe
+					? adapterEffect(() =>
+							describe({
+								source,
+								...(argumentsValue === undefined ? {} : { arguments: argumentsValue }),
+							}),
+						).pipe(Effect.flatMap((value) => decodeCapability(DescribeResponse, value)))
+					: Effect.fail(new RyotClientError({ reason: "unsupported-capability" }));
+			},
+			queryWithExecution: <Success, const Parameters extends AppSchema>(
+				recipe: Recipe<Success, Parameters>,
+				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
+			) =>
+				queryRecipe(recipe, arguments_, options).pipe(
+					Effect.flatMap(({ data, response }) =>
+						decodeCapability(Schema.Struct({ execution: QueryExecution }), response).pipe(
+							Effect.map(({ execution }) => ({ data, execution })),
+						),
+					),
+				),
+		},
 		entities: {
 			save: saveEntity,
 			requestEnrichment,
@@ -683,53 +751,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					throw asTransportError(error);
 				}
 			},
-		},
-		data: {
-			query: <Success, const Parameters extends AppSchema>(
-				recipe: Recipe<Success, Parameters>,
-				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
-			) => queryRecipe(recipe, arguments_, options).pipe(Effect.map(({ data }) => data)),
-			describe: (source: ExecutionSource, argumentsValue?: ExecutionRequest["arguments"]) => {
-				const describe = adapter.describe;
-				return describe
-					? adapterEffect(() =>
-							describe({
-								source,
-								...(argumentsValue === undefined ? {} : { arguments: argumentsValue }),
-							}),
-						).pipe(Effect.flatMap((value) => decodeCapability(DescribeResponse, value)))
-					: Effect.fail(new RyotClientError({ reason: "unsupported-capability" }));
-			},
-			queryWithExecution: <Success, const Parameters extends AppSchema>(
-				recipe: Recipe<Success, Parameters>,
-				arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
-				options: Omit<ExecutionRequest, "source" | "arguments"> = {},
-			) =>
-				queryRecipe(recipe, arguments_, options).pipe(
-					Effect.flatMap(({ data, response }) =>
-						decodeCapability(Schema.Struct({ execution: QueryExecution }), response).pipe(
-							Effect.map(({ execution }) => ({ data, execution })),
-						),
-					),
-				),
-			execute: <Success>(
-				request: ExecutionRequest,
-				decode: (response: unknown) => Result.Result<Success, unknown>,
-			): Effect.Effect<Success, RyotClientError> =>
-				adapterEffect(() => adapter.query(request)).pipe(
-					Effect.flatMap((response) =>
-						Effect.try({
-							try: () => decode(response),
-							catch: () => new RyotClientError({ reason: "malformed-result" }),
-						}),
-					),
-					Effect.flatMap((decoded) =>
-						Result.isFailure(decoded)
-							? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
-							: Effect.succeed(decoded.success),
-					),
-				),
 		},
 		operations: {
 			backgroundSettled: (listener: (settlement: BackgroundSettlement) => void) => {

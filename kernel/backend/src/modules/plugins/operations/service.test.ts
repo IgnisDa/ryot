@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginConflictError,
@@ -36,9 +37,14 @@ import type { IntegrationRecord } from "#modules/integrations/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { makeIntegration as integrationRecord } from "#modules/integrations/test-support";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
+import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
+import type { SandboxExecutionResult } from "#modules/scripts/executions/result";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
 import { SandboxWorkflowReferenceRepository } from "#modules/scripts/registry/workflow-references";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/combined";
+import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import type { PluginInstallationHydratedState } from "../installations/repository";
@@ -206,7 +212,9 @@ const makeLayer = (input: {
 	activeSourceHash?: string;
 	integration?: null | IntegrationRecord;
 	available?: ReadonlyArray<AvailableOperation>;
+	database?: ReturnType<typeof isolatedDatabaseLayer>;
 	privateInstallation?: null | PluginInstallationHydratedState;
+	sandboxErrorData?: NonNullable<SandboxExecutionResult["error"]>["data"];
 }) => {
 	const stateLayer = Layer.effect(
 		OperationFakeState,
@@ -378,6 +386,9 @@ const makeLayer = (input: {
 									? {
 											phase: "execute" as const,
 											message: input.sandboxError,
+											...(input.sandboxErrorData === undefined
+												? {}
+												: { data: input.sandboxErrorData }),
 											kind: "script-failure" as const,
 										}
 									: null,
@@ -391,7 +402,7 @@ const makeLayer = (input: {
 		Layer.provide(IntegrationOperationScopeResolverLive),
 		Layer.provideMerge(fakesLayer),
 		Layer.provideMerge(stateLayer),
-		Layer.provideMerge(mutationAdmissionTestLayer),
+		Layer.provideMerge(input.database ?? mutationAdmissionTestLayer),
 	);
 };
 
@@ -435,10 +446,12 @@ const invoke = (input: {
 	operationSlug?: string;
 	idempotencyKey?: string;
 	packageId: PluginPackageId;
+	pageAuthority?: PageOperationAuthority;
 }) =>
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			headers: Headers.empty,
+			...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
 			packageId: input.packageId,
 			payload: input.payload ?? {},
 			operationSlug: input.operationSlug ?? OPERATION_SLUG,
@@ -1166,6 +1179,120 @@ layer(
 							],
 						},
 					}),
+				);
+			}),
+		testTimeout,
+	);
+});
+
+const pageAuthority: PageOperationAuthority = {
+	revision: 1,
+	authorityRevision: 1,
+	pageId: "operation-page",
+	definitionHash: "published",
+};
+const pageDatabase = Layer.effectDiscard(
+	Effect.gen(function* () {
+		const session = yield* DatabaseSession;
+		yield* session.run((db) =>
+			db.insert(tables.user).values([
+				{ name: "One", id: USER_ONE, email: "one@page-operation.test" },
+				{ name: "Two", id: USER_TWO, email: "two@page-operation.test" },
+			]),
+		);
+		const definition = {
+			files: [],
+			pluginDependencies: {},
+			entry: "client/page.tsx",
+			queries: { queries: {} },
+		};
+		yield* session.run((db) =>
+			db
+				.insert(tables.page)
+				.values({
+					origin: "user",
+					userId: USER_ONE,
+					slug: "operation",
+					name: "Operation",
+					writeAccess: true,
+					publishedRevision: 1,
+					authorityRevision: 1,
+					id: pageAuthority.pageId,
+					draftDefinition: definition,
+					draftDefinitionHash: "draft",
+					publishedDefinition: definition,
+					publishedDefinitionHash: pageAuthority.definitionHash,
+				}),
+		);
+	}),
+).pipe(Layer.provideMerge(isolatedDatabaseLayer("page_operation_invocation")));
+
+layer(
+	makeLayer({ database: pageDatabase, currentUserId: USER_ONE, available: [systemUserOperation] }),
+)((test) => {
+	test.effect(
+		"fences page operation dispatch and retry by owner, published revision and mutable grant",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				for (const stale of [
+					{ ...pageAuthority, revision: 2 },
+					{ ...pageAuthority, definitionHash: "draft" },
+					{ ...pageAuthority, authorityRevision: 0 },
+					{ ...pageAuthority, pageId: "foreign" },
+				]) {
+					assertExitFails(
+						yield* Effect.exit(invoke({ pageAuthority: stale, packageId: SYSTEM_PACKAGE_ID })),
+						new PluginRequestError({ reason: { code: "page-write-access-required" } }),
+					);
+				}
+				expect(yield* fake.captured).toEqual([]);
+				expect(
+					yield* invoke({
+						pageAuthority,
+						idempotencyKey: "page-key",
+						packageId: SYSTEM_PACKAGE_ID,
+					}),
+				).toBe("ok");
+				expect(yield* fake.captured).toEqual([
+					objectContaining({ subject: { type: "user", pageAuthority, userId: USER_ONE } }),
+				]);
+				const repository = yield* PageAuthoringRepository.make;
+				yield* repository.setWriteAccess(USER_ONE, pageAuthority.pageId, false);
+				assertExitFails(
+					yield* Effect.exit(
+						invoke({ pageAuthority, idempotencyKey: "page-key", packageId: SYSTEM_PACKAGE_ID }),
+					),
+					new PluginRequestError({ reason: { code: "page-write-access-required" } }),
+				);
+				yield* repository.setWriteAccess(USER_ONE, pageAuthority.pageId, true);
+				assertExitFails(
+					yield* Effect.exit(
+						invoke({ pageAuthority, idempotencyKey: "page-key", packageId: SYSTEM_PACKAGE_ID }),
+					),
+					new PluginRequestError({ reason: { code: "page-write-access-required" } }),
+				);
+				expect(yield* fake.captured).toHaveLength(1);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		currentUserId: USER_ONE,
+		available: [systemUserOperation],
+		sandboxError: "Page write access is required",
+		sandboxErrorData: { code: "page-write-access-required" },
+	}),
+)((test) => {
+	test.effect(
+		"preserves page grant refusal from retained execution as a displayable operation failure",
+		() =>
+			Effect.gen(function* () {
+				assertExitFails(
+					yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })),
+					new PluginRequestError({ reason: { code: "page-write-access-required" } }),
 				);
 			}),
 		testTimeout,

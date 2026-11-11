@@ -22,6 +22,7 @@ import {
 	type ManageCollectionReviewsRequest,
 	type ManageRemindersOutcome,
 	type ManageRemindersRequest,
+	pageQuerySource,
 	type PageShortcutKey,
 	type PickEntityOutcome,
 	type PluginAssetOutcome,
@@ -154,6 +155,14 @@ type PendingRequest = {
 		| "calendar-source-visibility";
 };
 
+const pageDirectMutationTypes: ReadonlySet<PendingRequest["type"]> = new Set([
+	"upload",
+	"collection",
+	"enrichment",
+	"entity-editor-save",
+	"calendar-source-visibility",
+]);
+
 const hostScreenTypes: ReadonlySet<PendingRequest["type"]> = new Set<HostScreenType>([
 	"pick-entity-screen",
 	"edit-collection-screen",
@@ -283,6 +292,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	let navigation = options.navigation;
 	let documentGeneration = 0;
 	const backgroundSession = {};
+	let currentPage = options.page;
 	let pendingDocument: undefined | { readonly key: string; readonly page: ClientPageContext };
 	let mode = options.theme.resolvedMode;
 	let interestIds = new Set<string>();
@@ -395,6 +405,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		next: PluginBridgeNavigationState,
 	) {
 		navigation = next;
+		currentPage = page;
 		pendingDocument = { page, key: nextDocumentKey };
 		if (state !== "active") {
 			return;
@@ -569,9 +580,25 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 			fail();
 			return;
 		}
+		const renderer = currentPage?.renderer;
+		const denied =
+			renderer?.kind === "page" &&
+			(type === "operation" || type === "background-operation"
+				? renderer.stage === "draft" || !renderer.writeAccess
+				: type === "user-settings" || pageDirectMutationTypes.has(type));
+		const run = (): Effect.Effect<object> =>
+			denied
+				? Effect.succeed({
+						outcome: "failure",
+						reason:
+							type === "operation" || type === "background-operation"
+								? "page-write-access-required"
+								: "invalid-request",
+					})
+				: operation();
 		const fiber = Effect.runFork(
 			(type === "external-link" ? Effect.void : Effect.yieldNow).pipe(
-				Effect.flatMap(() => operation()),
+				Effect.flatMap(run),
 				Effect.catchCause((cause) =>
 					Cause.hasInterrupts(cause)
 						? Effect.interrupt
@@ -741,7 +768,35 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 	}
 
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
-		runRequest(request.requestId, "ryotql", () => options.onRyotQL(request));
+		runRequest(request.requestId, "ryotql", (): Effect.Effect<PluginRyotQLOutcome> => {
+			if (currentPage?.renderer.kind !== "page") {
+				return options.onRyotQL(request);
+			}
+			const source = request.request.source;
+			if (
+				(source.kind !== "page" && source.kind !== "page-preview") ||
+				source.pageId !== currentPage.renderer.pageId
+			) {
+				return Effect.succeed({ outcome: "failure", reason: "query-failed" });
+			}
+			const bound = pageQuerySource(currentPage, source.query);
+			if (
+				source.kind === "page-preview" &&
+				bound?.kind === "page-preview" &&
+				(source.draftRevision !== bound.draftRevision ||
+					source.definitionHash !== bound.definitionHash ||
+					source.artifactHash !== bound.artifactHash)
+			) {
+				return Effect.succeed({ outcome: "failure", reason: "query-failed" });
+			}
+
+			if (!bound || source.kind !== bound.kind) {
+				return Effect.succeed({ outcome: "failure", reason: "query-failed" });
+			}
+			return request.action === "describe"
+				? options.onRyotQL({ action: "describe", request: { ...request.request, source: bound } })
+				: options.onRyotQL({ action: "execute", request: { ...request.request, source: bound } });
+		});
 	}
 
 	function handleRyotQLCancel(request: PluginBridgeRyotQLCancel) {
@@ -765,6 +820,15 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		type: HostScreenType,
 		open: () => Effect.Effect<{ readonly kind: string }>,
 	) {
+		if (currentPage?.renderer.kind === "page") {
+			runRequest(requestId, type, () =>
+				Effect.succeed({
+					outcome: "success",
+					value: { kind: type === "share-publication-screen" ? "closed" : "cancelled" },
+				}),
+			);
+			return;
+		}
 		const busy = [...pending.values()].some((request) => hostScreenTypes.has(request.type));
 		runRequest(requestId, type, () =>
 			(busy ? Effect.succeed({ kind: "cancelled" }) : open()).pipe(

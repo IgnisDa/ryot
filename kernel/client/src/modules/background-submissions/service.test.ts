@@ -623,3 +623,41 @@ describe("background submission tray", () => {
 		testTimeout,
 	);
 });
+
+it.effect(
+	"retains page authority across background execution and retries, and settles grant refusal",
+	() =>
+		Effect.gen(function* () {
+			const test = harness();
+			const tray = yield* openTray(test);
+			const settled: BackgroundSubmissionOutcome[] = [];
+			const pageAuthority = {
+				revision: 4,
+				pageId: "page",
+				authorityRevision: 2,
+				definitionHash: "definition",
+			};
+			const reservation = tray.reserve({
+				binding: binding(settled),
+				request: request("page-write"),
+				target: { ...media, pageAuthority },
+			});
+			expect(reservation).toBeDefined();
+			reservation?.start();
+			yield* drain;
+			expect(test.calls[0].invocation.pageAuthority).toEqual(pageAuthority);
+			yield* reply(test, 0)({ outcome: "failure", reason: "transport" });
+			expect(tray.retry(reservation?.submissionId ?? "", catalog)).toBe(true);
+			yield* drain;
+			expect(test.calls[1].invocation.pageAuthority).toEqual(pageAuthority);
+			yield* reply(test, 1)({ outcome: "failure", reason: "page-write-access-required" });
+			expect(settled.at(-1)).toEqual({ status: "failed", reason: "page-write-access-required" });
+			expect(tray.retry(reservation?.submissionId ?? "", catalog)).toBe(false);
+			const presentation = present(tray, tray.getSnapshot().entries[0]);
+			expect(presentation.status).toBe("Page write access is required");
+			expect(presentation.action).toBeUndefined();
+			expect(presentation.detail).toBeUndefined();
+			tray.dispose();
+		}),
+	testTimeout,
+);

@@ -2,7 +2,11 @@ import type { ManagedAssetLocator } from "@ryot-app/contract/modules/assets/sche
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
 import type { EntityUpdatedMessage } from "@ryot-app/contract/modules/live-updates/messages";
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-import type { DescribeRequest, ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type {
+	DescribeRequest,
+	ExecutionRequest,
+	ExecutionSource,
+} from "@ryot-app/contract/modules/ryotql/request";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
 	AddToCollectionRequest,
@@ -93,6 +97,7 @@ export type OperationInvocation<
 };
 
 export type RyotClientAdapter = {
+	readonly pageQuerySource?: (name: string) => undefined | ExecutionSource;
 	readonly readUserPreferences?: () => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly query: (request: ExecutionRequest) => Effect.Effect<unknown, RyotClientError>;

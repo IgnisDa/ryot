@@ -105,6 +105,9 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				const result = yield* service
 					.invoke({
 						payload: payload.payload,
+						...(payload.pageAuthority === undefined
+							? {}
+							: { pageAuthority: payload.pageAuthority }),
 						headers: request.headers,
 						operationSlug: params.operationSlug,
 						packageId: pluginPackageIdFromSegments(params),

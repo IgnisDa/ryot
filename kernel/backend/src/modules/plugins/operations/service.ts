@@ -1,5 +1,6 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, DbError, NotFound } from "@ryot-app/contract/errors";
+import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
 	PluginConflictError,
 	PluginInvocationError,
@@ -30,6 +31,7 @@ import {
 	IdempotencyKeys,
 } from "#modules/mutations/idempotency";
 import { requireOpenSubmission } from "#modules/mutations/submission-window";
+import { PageOperationAuthorization } from "#modules/pages/operation-authority";
 import { samePluginPin, ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxRepository } from "#modules/scripts/registry/repository";
@@ -58,6 +60,7 @@ type DispatchInput = {
 	readonly scriptId: SandboxScriptId;
 	readonly integrationId?: IntegrationId;
 	readonly pluginRevision: ScriptPluginRevision;
+	readonly pageAuthority?: PageOperationAuthority;
 };
 export class IntegrationOperationScopeResolver extends Context.Service<
 	IntegrationOperationScopeResolver,
@@ -76,6 +79,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
 			const database = yield* DatabaseSession;
+			const pageAuthorization = yield* PageOperationAuthorization.make;
 			const repository = yield* PluginRepository;
 			const runtime = yield* PluginRuntimeResolver;
 			const sandbox = yield* ScriptExecutionService;
@@ -95,9 +99,13 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					subject: {
 						type: "user",
 						userId: input.userId,
+						...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
 						...(input.integrationId ? { integrationId: input.integrationId } : {}),
 					},
 				});
+				if (result.error?.data?.code === "page-write-access-required") {
+					return yield* new PluginRequestError({ reason: { code: "page-write-access-required" } });
+				}
 				if (result.error?.data?.code === "operation-rejected") {
 					return yield* new PluginOperationRejected({ message: result.error.message });
 				}
@@ -149,6 +157,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				readonly idempotencyKey?: string;
 				readonly packageId: PluginPackageId;
 				readonly headers: PlatformHeaders.Headers;
+				readonly pageAuthority?: PageOperationAuthority;
 			}) {
 				if (input.submittedAt !== undefined) {
 					yield* requireOpenSubmission(input.submittedAt);
@@ -211,6 +220,16 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					dispatchInput: Omit<DispatchInput, "executionId" | "pluginRevision">,
 					resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
 				) {
+					if (
+						input.pageAuthority !== undefined &&
+						(Result.isFailure(authenticated) ||
+							dispatchInput.userId !== authenticated.success.user.id ||
+							dispatchInput.integrationId !== undefined)
+					) {
+						return yield* new PluginRequestError({
+							reason: { code: "page-write-access-required" },
+						});
+					}
 					const executionId = AutomationExecutionId.make(
 						`plugin-operation-${sha256Base64Url(
 							stableStringify([
@@ -227,6 +246,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						payload: input.payload,
 						pluginId: dispatchInput.pluginId,
 						operationSlug: input.operationSlug,
+						pageAuthority: input.pageAuthority ?? null,
 						integrationId: dispatchInput.integrationId ?? null,
 					};
 					const admissionIdentity = idempotencyIdentity({
@@ -342,6 +362,25 @@ export class OperationsService extends Context.Service<OperationsService>()(
 
 				const resolveAuthorized = () =>
 					Effect.gen(function* () {
+						if (input.pageAuthority !== undefined) {
+							if (Result.isSuccess(authenticated)) {
+								yield* repository.lockIngestionShared([authenticated.success.user.id]);
+								yield* database.acquireUserWriteLock(authenticated.success.user.id);
+								yield* admission.admitAccount(authenticated.success.user.id);
+							}
+							if (
+								Result.isFailure(authenticated) ||
+								!(yield* pageAuthorization.current(
+									authenticated.success.user.id,
+									input.pageAuthority,
+									true,
+								))
+							) {
+								return yield* new PluginRequestError({
+									reason: { code: "page-write-access-required" },
+								});
+							}
+						}
 						if (Result.isSuccess(authenticated)) {
 							const { user, authorization } = authenticated.success;
 							const userId = user.id;
@@ -443,7 +482,10 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						return completed.response;
 					}
 				}
-				const result = yield* dispatch(authorized);
+				const result = yield* dispatch({
+					...authorized,
+					...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
+				});
 				if (resultIdentity) {
 					yield* keys.record(resultIdentity, JsonValue, result);
 				}

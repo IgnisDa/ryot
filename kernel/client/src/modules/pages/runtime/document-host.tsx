@@ -85,6 +85,7 @@ class DocumentReloadError extends Schema.TaggedError<
 >()("DocumentReloadError", { cause: Schema.Unknown }) {}
 
 const pluginRouteIds = new Set<string>([
+	"/_authenticated/page-preview/$pageId",
 	"/_authenticated/p/$publisher/$name",
 	"/_authenticated/e/$entityId",
 	"/_authenticated/v/c/$savedViewId",
@@ -231,6 +232,11 @@ export function ClientPageDocumentHost() {
 							search: searchString(location.searchStr),
 						})),
 						Match.when({ kind: "saved-view" }, () => ({
+							kind: "route" as const,
+							path: location.pathname,
+							search: searchString(location.searchStr),
+						})),
+						Match.when({ kind: "page-preview" }, () => ({
 							kind: "route" as const,
 							path: location.pathname,
 							search: searchString(location.searchStr),
@@ -491,6 +497,15 @@ function ClientPageFrame(props: {
 	const backgroundSubmissions = useBackgroundSubmissionTray();
 	const { context, identity } = props.document.prepared;
 	const renderer = context.renderer;
+	const pageAuthority =
+		renderer.kind === "page"
+			? {
+					pageId: renderer.pageId,
+					revision: renderer.revision,
+					definitionHash: renderer.definitionHash,
+					authorityRevision: renderer.authorityRevision,
+				}
+			: undefined;
 	const rendererPlugin =
 		renderer.kind === "plugin"
 			? catalog.find(({ pluginId }) => pluginId === renderer.pluginId)
@@ -698,7 +713,12 @@ function ClientPageFrame(props: {
 				}
 				return props.runtime
 					.runSync(PluginOperationsService)
-					.invoke({ request, scope: props.scope, contentHash: target.contentHash });
+					.invoke({
+						request,
+						scope: props.scope,
+						contentHash: target.contentHash,
+						...(pageAuthority === undefined ? {} : { pageAuthority }),
+					});
 			}}
 			onBackgroundOperation={(request, binding) =>
 				Effect.sync(() => {
@@ -706,7 +726,11 @@ function ClientPageFrame(props: {
 					const reservation =
 						target === undefined
 							? undefined
-							: backgroundSubmissions?.reserve({ target, binding, request });
+							: backgroundSubmissions?.reserve({
+									binding,
+									request,
+									target: { ...target, ...(pageAuthority === undefined ? {} : { pageAuthority }) },
+								});
 					return reservation === undefined
 						? ({ outcome: "failure", reason: "operation-failed" } as const)
 						: ({ reservation, outcome: "success" } as const);

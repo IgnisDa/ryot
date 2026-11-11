@@ -65,6 +65,7 @@ const render = (
 	registrations: readonly EntityPresentationRegistration[],
 	children: ReactNode,
 	adapter: Partial<RyotClientAdapter> = {},
+	allowQueries = true,
 ) => {
 	let current = children;
 	const listeners = new Set<() => void>();
@@ -121,7 +122,10 @@ const render = (
 	act(() => {
 		root.render(
 			<RyotProvider runtime={clock.runtime}>
-				<EntityPresentationRegistryProvider registrations={registrations}>
+				<EntityPresentationRegistryProvider
+					allowQueries={allowQueries}
+					registrations={registrations}
+				>
 					<PluginRouter />
 				</EntityPresentationRegistryProvider>
 			</RyotProvider>,
@@ -875,3 +879,55 @@ describe("EntityResults", () => {
 		testTimeout,
 	);
 });
+
+it.live(
+	"page presentations render selected data and refuse fallback reads",
+	() =>
+		Effect.gen(function* () {
+			const loads: string[] = [];
+			const registration: EntityPresentationRegistration = {
+				layout: "grid",
+				ownerPluginId: "owner",
+				entitySchemaSlug: "item",
+				load: () =>
+					Promise.resolve(
+						defineEntityPresentation<string>({
+							component: ({ data }) => <p>{data}</p>,
+							loader: () => {
+								loads.push("fallback");
+								return Effect.succeed({ one: "Unexpected" });
+							},
+							prepare: ({ sources }) =>
+								sources.get("one")?.title === "Selected"
+									? Result.succeed({ one: "Selected" })
+									: Result.fail("missing"),
+						}),
+					),
+			};
+			const { draw, clock, container } = render(
+				[registration],
+				<EntityResults
+					layout="grid"
+					viewContext={null}
+					references={[reference("one")]}
+					presentations={presentationSources({ one: { title: "Selected" } })}
+				/>,
+				{},
+				false,
+			);
+			yield* flush(clock);
+			expect(container.textContent).toContain("Selected");
+			draw(
+				<EntityResults
+					layout="grid"
+					viewContext={null}
+					presentations={new Map()}
+					references={[reference("one")]}
+				/>,
+			);
+			yield* flush(clock);
+			expect(container.textContent).toContain("This entity could not be loaded.");
+			expect(loads).toEqual([]);
+		}),
+	testTimeout,
+);

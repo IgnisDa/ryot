@@ -232,3 +232,40 @@ describe("plugin operations service", () => {
 		);
 	});
 });
+
+layer(failing(new PluginRequestError({ reason: { code: "page-write-access-required" } })))(
+	(test) => {
+		test.effect(
+			"preserves a server page authority refusal for display",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* PluginOperationsService;
+					const pageAuthority = {
+						revision: 2,
+						pageId: "page",
+						authorityRevision: 1,
+						definitionHash: "published",
+					};
+					expect(
+						yield* service.invoke({
+							scope,
+							pageAuthority,
+							contentHash: "hash",
+							request: {
+								input: null,
+								operationSlug: "write",
+								packageId: PluginPackageId.make("test/fixture"),
+							},
+						}),
+					).toEqual({ outcome: "failure", reason: "page-write-access-required" });
+					expect(yield* (yield* FakePluginsApi).requests).toEqual([
+						{
+							payload: { payload: null, pageAuthority, contentHash: "hash" },
+							params: { name: "fixture", publisher: "test", operationSlug: "write" },
+						},
+					]);
+				}),
+			testTimeout,
+		);
+	},
+);

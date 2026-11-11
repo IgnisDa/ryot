@@ -62,7 +62,11 @@ const detail = (entry: BackgroundSubmissionEntry): string | undefined => {
 			? "Retry to finish."
 			: `${state.count} saved so far. Retry to finish.`;
 	}
-	if (state.status !== "failed" || state.reason === "operation-failed") {
+	if (
+		state.status !== "failed" ||
+		state.reason === "operation-failed" ||
+		state.reason === "page-write-access-required"
+	) {
 		return undefined;
 	}
 	if (state.reason === "operation-rejected") {

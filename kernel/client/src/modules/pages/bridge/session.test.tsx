@@ -2,9 +2,11 @@ import { afterEach, describe, expect } from "bun:test";
 
 import { MembershipResponse } from "@ryot-app/contract/modules/collections/schemas";
 import type { EntityEditorSaveRequest } from "@ryot-app/contract/modules/entities/editor";
+import type { ExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	EntityId,
 	EntitySchemaSlug,
+	PluginId,
 	PluginPackageId,
 	RelationshipId,
 	RelationshipSchemaSlug,
@@ -164,6 +166,7 @@ const invalidDeviceRequest = { outcome: "failure", reason: "invalid-request" } a
 const connect = (
 	options: {
 		readonly timeoutMs?: number;
+		readonly page?: ClientPageContext;
 		readonly onDevice?: Parameters<typeof openPluginBridge>[0]["onDevice"];
 		readonly onAssets?: Parameters<typeof openPluginBridge>[0]["onAssets"];
 		readonly onUpload?: Parameters<typeof openPluginBridge>[0]["onUpload"];
@@ -221,6 +224,7 @@ const connect = (
 		compositionHash,
 		navigation: nav(),
 		theme: lightTheme,
+		page: options.page,
 		onHeader: () => {},
 		documentKey: "page-1",
 		timeoutMs: options.timeoutMs,
@@ -3855,6 +3859,267 @@ describe("bridge background submissions", () => {
 					reason: "operation-rejected",
 					message: "Not part of this show",
 				});
+			}),
+		testTimeout,
+	);
+});
+
+const authoredPage = (stage: "draft" | "published", writeAccess = false): ClientPageContext => ({
+	view: null,
+	settings: {},
+	dataSources: null,
+	route: { params: {} },
+	target: {
+		path: "/",
+		search: "",
+		kind: "plugin-route",
+		packageId: PluginPackageId.make("test/fixture"),
+	},
+	renderer: {
+		stage,
+		revision: 3,
+		writeAccess,
+		kind: "page",
+		pageId: "authored",
+		authorityRevision: 2,
+		definitionHash: "definition",
+	},
+	contributors: [
+		{
+			revision: 3,
+			kind: "page",
+			pageId: "authored",
+			artifactHash: "compiled",
+			definitionHash: "definition",
+		},
+		{
+			kind: "plugin",
+			contentHash: "hash",
+			revisionId: "revision",
+			installationId: "installation",
+			pluginId: PluginId.make("fixture"),
+			packageId: PluginPackageId.make("test/fixture"),
+		},
+	],
+});
+
+describe("page frame authority", () => {
+	it.live(
+		"denies imported plugin settings reads outside declared page queries",
+		() =>
+			Effect.gen(function* () {
+				const calls: unknown[] = [];
+				const { init, received, pluginPort } = connect({
+					page: authoredPage("published", true),
+					onUserSettings: (request) => {
+						calls.push(request);
+						return Effect.succeed({ outcome: "success", settings: { limit: 3 } });
+					},
+				});
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+				pluginPort.postMessage({
+					pluginId: "fixture",
+					requestId: "page-settings",
+					type: "user-settings-request",
+				});
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(2)));
+				expect(received[1]).toEqual({
+					outcome: "failure",
+					reason: "invalid-request",
+					requestId: "page-settings",
+					type: "user-settings-result",
+				});
+				expect(calls).toEqual([]);
+			}),
+		testTimeout,
+	);
+	for (const stage of ["draft", "published"] as const) {
+		it.live(
+			`restricts ${stage} reads for the whole frame including imported contributors`,
+			() =>
+				Effect.gen(function* () {
+					const calls: PluginRyotQLRequest[] = [];
+					const { init, received, failures, pluginPort } = connect({
+						page: authoredPage(stage),
+						onRyotQL: (request) => {
+							calls.push(request);
+							return Effect.succeed({ outcome: "success", response: { data: {} } });
+						},
+					});
+					pluginPort.postMessage(readyFor(init));
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+					const allowed: ExecutionSource =
+						stage === "draft"
+							? {
+									query: "items",
+									draftRevision: 3,
+									pageId: "authored",
+									kind: "page-preview",
+									artifactHash: "compiled",
+									definitionHash: "definition",
+								}
+							: { kind: "page", query: "items", pageId: "authored" };
+					const forbidden = [
+						{ document, kind: "inline" },
+						{ kind: "plugin", query: "items", scope: "system", packageId: "test/fixture" },
+						{
+							query: "items",
+							kind: "savedView",
+							reference: { kind: "custom", savedViewId: "view" },
+						},
+						{ kind: "page", query: "items", pageId: "foreign" },
+						...(stage === "draft"
+							? [
+									{ ...allowed, artifactHash: "old" },
+									{ ...allowed, draftRevision: 2 },
+								]
+							: []),
+					];
+					for (const action of ["execute", "describe"] as const) {
+						for (const [index, source] of forbidden.entries()) {
+							pluginPort.postMessage({
+								action,
+								request: { source },
+								type: "ryotql-request",
+								requestId: `${action}-${index}`,
+							});
+						}
+					}
+					const expected = 1 + forbidden.length * 2;
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(expected)));
+					expect(calls).toEqual([]);
+					expect(failures).toEqual([]);
+					pluginPort.postMessage({
+						action: "execute",
+						requestId: "allowed",
+						type: "ryotql-request",
+						request: { source: allowed, arguments: { selected: "caller" } },
+					});
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(expected + 1)));
+					expect(calls).toEqual([
+						{ action: "execute", request: { source: allowed, arguments: { selected: "caller" } } },
+					]);
+				}),
+			testTimeout,
+		);
+	}
+	for (const [stage, grant] of [
+		["draft", true],
+		["published", false],
+		["published", true],
+	] as const) {
+		it.live(
+			`enforces ${stage} operation grant ${grant} for contributors and background admission`,
+			() =>
+				Effect.gen(function* () {
+					const operations: string[] = [];
+					const { init, received, failures, pluginPort } = connect({
+						page: authoredPage(stage, grant),
+						onOperation: () => {
+							operations.push("invoke");
+							return Effect.succeed({ value: null, outcome: "success" });
+						},
+						onBackgroundOperation: () => {
+							operations.push("background");
+							return Effect.succeed({ outcome: "failure", reason: "operation-failed" });
+						},
+					});
+					pluginPort.postMessage(readyFor(init));
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+					pluginPort.postMessage({ ...capabilityRequests.operation, requestId: "operation" });
+					pluginPort.postMessage({
+						input: null,
+						label: "Write",
+						idempotencyKey: "key",
+						operationSlug: "write",
+						requestId: "background",
+						packageId: "test/fixture",
+						type: "background-operation-request",
+						submittedAt: "2026-10-19T00:00:00.000Z",
+					});
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(3)));
+					const allowed = stage === "published" && grant;
+					expect(operations).toEqual(allowed ? ["invoke", "background"] : []);
+					if (!allowed) {
+						expect(received.slice(1)).toEqual([
+							{
+								outcome: "failure",
+								requestId: "operation",
+								type: "operation-result",
+								reason: "page-write-access-required",
+							},
+							{
+								outcome: "failure",
+								requestId: "background",
+								reason: "page-write-access-required",
+								type: "background-operation-accepted",
+							},
+						]);
+					}
+					expect(failures).toEqual([]);
+				}),
+			testTimeout,
+		);
+	}
+	it.live(
+		"denies direct writes and mutation screens even with a page grant",
+		() =>
+			Effect.gen(function* () {
+				const {
+					init,
+					received,
+					failures,
+					pluginPort,
+					entityPicks,
+					collectionAdds,
+					collectionEdits,
+					reminderScreens,
+				} = connect({ page: authoredPage("published", true) });
+				pluginPort.postMessage(readyFor(init));
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+				for (const [index, request] of [
+					capabilityRequests.upload,
+					capabilityRequests.collection,
+					{ type: "pick-entity-screen", schema: { slug: "item", owner: { kind: "kernel" } } },
+					{
+						idempotencyKey: "page-save",
+						type: "entity-editor-save-request",
+						submittedAt: "2026-10-19T00:00:00.000Z",
+						submission: {
+							name: "Item",
+							properties: {},
+							action: "save",
+							relationships: [],
+							target: { kind: "create" },
+							entitySchema: { slug: "item", owner: { kind: "plugin", pluginId: "fixture" } },
+						},
+					},
+					{
+						action: "refresh",
+						pluginId: "fixture",
+						entityId: "entity-1",
+						operation: "translation",
+						type: "enrichment-request",
+					},
+					{
+						slug: "source",
+						isHidden: true,
+						pluginId: "fixture",
+						type: "calendar-source-visibility-request",
+					},
+					{ collectionId: "collection-1", type: "edit-collection-screen" },
+					{ entityId: "entity-1", type: "add-to-collection-screen" },
+					{ entityId: "entity-1", type: "manage-reminders-screen" },
+				].entries()) {
+					pluginPort.postMessage({ ...request, requestId: `write-${index}` });
+				}
+				yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(10)));
+				expect(failures).toEqual([]);
+				expect(entityPicks).toEqual([]);
+				expect(collectionEdits).toEqual([]);
+				expect(collectionAdds).toEqual([]);
+				expect(reminderScreens).toEqual([]);
 			}),
 		testTimeout,
 	);

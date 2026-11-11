@@ -130,6 +130,8 @@ const registryKey = (
 	layout: EntityResultsLayout,
 ) => `${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}`;
 
+const PresentationQueryAllowedContext = createContext(true);
+
 const PresentationRegistryContext = createContext<null | ReadonlyMap<string, PresentationEntry>>(
 	null,
 );
@@ -206,15 +208,19 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 export const EntityPresentationRegistryProvider = ({
 	children,
 	registrations,
+	allowQueries = true,
 }: {
 	readonly children: ReactNode;
+	readonly allowQueries?: boolean;
 	readonly registrations: readonly EntityPresentationRegistration[];
 }) => {
 	const registry = useMemo(() => createPresentationRuntime(registrations), [registrations]);
 	return (
-		<PresentationRegistryContext.Provider value={registry}>
-			{children}
-		</PresentationRegistryContext.Provider>
+		<PresentationQueryAllowedContext.Provider value={allowQueries}>
+			<PresentationRegistryContext.Provider value={registry}>
+				{children}
+			</PresentationRegistryContext.Provider>
+		</PresentationQueryAllowedContext.Provider>
 	);
 };
 
@@ -516,6 +522,7 @@ export const EntityResults = ({
 	readonly renderItemActions?: undefined | ((reference: EntityReference) => ReactNode);
 }) => {
 	const registry = useContext(PresentationRegistryContext);
+	const allowQueries = useContext(PresentationQueryAllowedContext);
 	if (!registry) {
 		throw new Error("EntityResults must be used in a bootstrapped client application");
 	}
@@ -705,6 +712,9 @@ export const EntityResults = ({
 			}
 			const input = loads.get(runtime)?.get(reference.entityId);
 			if (input !== undefined) {
+				if (!allowQueries) {
+					return { reference, kind: "failed" };
+				}
 				return { input, runtime, reference, kind: "load" };
 			}
 			const preparedPresentation = prepared.get(runtime)?.get(reference.entityId);
@@ -719,7 +729,7 @@ export const EntityResults = ({
 			};
 		});
 		// oxlint-disable-next-line react-hooks/exhaustive-deps -- The registry's entries change state without changing map identity.
-	}, [layout, presentations, references, registry, presentationState]);
+	}, [layout, presentations, references, registry, presentationState, allowQueries]);
 	return (
 		<div className="@container">
 			<div className={resultsLayoutClasses[layout]}>

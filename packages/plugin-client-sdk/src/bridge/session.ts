@@ -16,6 +16,7 @@ import {
 	type EditCollectionRequest,
 	type EntityWatch,
 	type KernelShortcut,
+	pageQuerySource,
 	PLUGIN_HEADER_TITLE_MAX,
 	type PluginBridgeAddToCollectionScreen,
 	type PluginBridgeAddToCollectionScreenCancel,
@@ -149,6 +150,7 @@ export const createPluginRuntime = (
 	onDocument?: (documentKey: string, page: undefined | ClientPageContext) => void,
 ) => {
 	let hasLocation = false;
+	let currentPage = init.page;
 	let contributors = init.page?.contributors ?? [];
 	const pluginContributors = () =>
 		contributors.filter(
@@ -712,6 +714,7 @@ export const createPluginRuntime = (
 		manageCollectionReviews,
 		changeCollectionMembers,
 		setCalendarSourceVisibility,
+		pageQuerySource: (name) => (currentPage ? pageQuerySource(currentPage, name) : undefined),
 		device: (request: PluginDeviceRequest) =>
 			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
 		openExternalLink: (request) =>
@@ -881,6 +884,7 @@ export const createPluginRuntime = (
 					}
 					return;
 				case "document":
+					currentPage = message.page;
 					contributors = message.page?.contributors ?? [];
 					resetDocument();
 					onDocument?.(message.documentKey, message.page);

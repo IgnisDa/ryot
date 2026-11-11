@@ -126,7 +126,10 @@ const bootstrapClientApplication = (
 		root.render(
 			<RyotProvider key={documentKey} runtime={sdkRuntime}>
 				<AnalyticsSectionsProvider registrations={analyticsSections}>
-					<EntityPresentationRegistryProvider registrations={registrations}>
+					<EntityPresentationRegistryProvider
+						registrations={registrations}
+						allowQueries={currentPage?.renderer.kind !== "page"}
+					>
 						<PageStoreProvider store={pageStore}>
 							<KernelShortcutForwarder runtime={runtime} />
 							<PluginRouter />

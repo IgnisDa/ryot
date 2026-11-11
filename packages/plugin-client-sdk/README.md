@@ -515,3 +515,26 @@ the iframe bridge. Publication adapters forward inline requests and descriptions
 `createRyotQuery(recipe)` keys its shared cache by document hash, selected query, and canonical request
 values. Pass `{ arguments, pages?, filter?, sort? }` as hook input. Keep rolling reporting/filter
 selections stable; the server supplies the execution clock.
+
+## Authored Pages
+
+`client.page.query(name, { arguments?, filter?, sort?, pages?, decode })` executes a named query
+from the current page definition. `decode` projects the response with the same `Result` contract as
+`client.data.execute`. The page supplies all runtime query values. The SDK uses the existing query
+transport, including interruption and cancellation; it does not send an inline document. Calls outside
+a page fail with `invalid-request`.
+
+The entire page iframe, including imported plugin components, can read only its own declared queries.
+The host rejects inline documents, plugin queries, saved-view sources, foreign pages and their
+`describe` equivalents. Draft reads use the exact compiled draft revision, definition hash and artifact
+hash supplied by preview preparation. A stale build must be compiled and prepared again.
+
+Use `EntityResults` with the presentation fields selected by the declared query. Its shared projection
+path calls the plugin presentation's `prepare`; the plugin owns field selection and projection.
+Page frames never fall back to a presentation loader when selected fields are absent or invalid.
+
+Draft previews always refuse operations. Published pages require write access; foreground and
+background calls fail with the displayable `page-write-access-required` reason when access is absent
+or stale. Background attempts retain the original page authority across retries. Direct entity saves,
+collection writes, enrichment, uploads, calendar visibility changes and mutation screens (including the provider entity picker) are refused
+in page frames. Plugin operations are the page's write capability.
