@@ -106,3 +106,7 @@ causes silent skips.
 Use `assertExitFails` from `@ryot-app/testing/effect-assertions` for typed failures: structural
 `Exit.fail` equality omits error messages. Admin-only e2e operations are described in
 [`modules/test-support/README.md`](src/modules/test-support/README.md).
+
+User-authored pages have a separate [authoring lifecycle](src/modules/pages/authoring/README.md)
+with revision-fenced drafts, server compilation and immutable published artifacts. Page rows are
+read through the RyotQL catalog; preparation and iframe authority compose their persisted metadata.

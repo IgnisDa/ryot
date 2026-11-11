@@ -1,0 +1,2 @@
+ALTER TABLE "saved_view" ADD COLUMN "page_id" text GENERATED ALWAYS AS (case when renderer ->> 'kind' = 'page' then renderer ->> 'pageId' end) STORED;--> statement-breakpoint
+ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_page_owner_fk" FOREIGN KEY ("page_id","user_id") REFERENCES "page"("id","user_id") ON DELETE RESTRICT;

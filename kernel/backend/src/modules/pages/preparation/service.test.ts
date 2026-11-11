@@ -6,7 +6,9 @@ import {
 	PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { pageDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -20,6 +22,7 @@ import { ClientArtifactStore } from "#modules/pages/bundles/store";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
+import type { page } from "#schema/tables/pages";
 
 import { composeClientPage } from "./composition";
 import { ClientPageCompositionService } from "./composition-service";
@@ -29,8 +32,37 @@ import { PagesService } from "./service";
 
 const createdAt = new Date(0);
 const runtimeHash = "a".repeat(64);
+const pageHash = "c".repeat(64);
+const pageToken = "p".repeat(43);
+const pageDefinition = {
+	files: [],
+	pluginDependencies: {},
+	entry: "client/page.tsx",
+	queries: { queries: {} },
+};
+const pageRow = {
+	createdAt,
+	slug: "page",
+	name: "Page",
+	id: "owned-page",
+	draftRevision: 2,
+	writeAccess: true,
+	authorityRevision: 1,
+	publishedRevision: 1,
+	updatedAt: createdAt,
+	origin: "user" as const,
+	draftCompiledRevision: 2,
+	draftArtifactHash: pageHash,
+	userId: UserId.make("user-1"),
+	draftDefinition: pageDefinition,
+	publishedArtifactHash: pageHash,
+	publishedDefinition: pageDefinition,
+	draftDefinitionHash: "draft-definition",
+	publishedDefinitionHash: "published-definition",
+} satisfies typeof page.$inferSelect;
 const pluginHash = "b".repeat(64);
 const artifacts = new Map([
+	[pageHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
 	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
 	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
 ]);
@@ -80,6 +112,12 @@ const plugin = {
 	},
 };
 
+const pluginRenderer = (exportName: string): SavedViewRenderer => ({
+	exportName,
+	kind: "plugin",
+	pluginId: plugin.id,
+});
+
 const savedView = (id: SavedViewId, revision: number, exportName = "main") => ({
 	viewId: id,
 	view: {
@@ -99,7 +137,7 @@ const savedView = (id: SavedViewId, revision: number, exportName = "main") => ({
 		name: `View ${id}`,
 		pluginInstallationId: null,
 		userId: UserId.make("user-1"),
-		renderer: { exportName, pluginId: plugin.id, kind: "plugin" as const },
+		renderer: pluginRenderer(exportName),
 	},
 });
 
@@ -119,6 +157,7 @@ class RecordedPrepareCalls extends Context.Service<
 class PageSelections extends Context.Service<
 	PageSelections,
 	{
+		readonly setPage: (value: typeof page.$inferSelect) => Effect.Effect<void>;
 		readonly setHome: (reference: null | SavedViewReference) => Effect.Effect<void>;
 		readonly setView: (reference: SavedViewReference, view: SavedView) => Effect.Effect<void>;
 	}
@@ -151,8 +190,8 @@ const recordingDependenciesLayer = Layer.effectContext(
 			Context.add(
 				ClientArtifactStore,
 				ClientArtifactStore.of({
-					isPublic: () => true,
 					findFile: () => Effect.succeed(null),
+					isPublic: (hash) => hash !== pageHash,
 					exists: (hash) => Effect.succeed(artifacts.has(hash)),
 					describe: (hash) => {
 						const description = artifacts.get(hash);
@@ -168,6 +207,9 @@ const recordingDependenciesLayer = Layer.effectContext(
 										bridgeVersion: 1,
 										compilerVersion: 1,
 										clientDeclarationHash: null,
+										...(hash === pageHash
+											? { pageDeclarationHash: pageDeclarationHash(pageDefinition) }
+											: {}),
 									}
 								: null,
 						);
@@ -178,7 +220,14 @@ const recordingDependenciesLayer = Layer.effectContext(
 				ClientArtifactGrantService,
 				ClientArtifactGrantService.of({
 					resolve: () => Effect.die("unused"),
-					issue: () => Effect.die("public artifacts must not request grants"),
+					issue: (_userId, hash) =>
+						record(`grant:${hash}`).pipe(
+							Effect.as({
+								grantId: "grant",
+								token: pageToken,
+								expiresAt: "2099-01-01T00:00:00.000Z",
+							}),
+						),
 				}),
 			),
 			Context.add(RecordedPrepareCalls, { calls: Ref.get(calls) }),
@@ -200,6 +249,7 @@ const pagesLayer = PagesService.layer.pipe(
 			),
 			Layer.effectContext(
 				Effect.gen(function* () {
+					const authoredPage = yield* Ref.make<typeof page.$inferSelect>(pageRow);
 					const home = yield* Ref.make<null | SavedViewReference>(null);
 					const views = yield* Ref.make<ReadonlyMap<string, SavedView>>(new Map());
 					return Context.make(
@@ -207,14 +257,40 @@ const pagesLayer = PagesService.layer.pipe(
 						PagesRepository.of(
 							partialFake<PagesRepository["Service"]>({
 								findHomeSavedView: () => Ref.get(home),
+								findPage: (userId: UserId, pageId: string) =>
+									Ref.get(authoredPage).pipe(
+										Effect.map((row) => (row.userId === userId && row.id === pageId ? row : null)),
+									),
 								findPreparedTarget: (_userId: unknown, reference: SavedViewReference) =>
 									Ref.get(views).pipe(
 										Effect.map((current) => current.get(savedViewReferenceKey(reference)) ?? null),
+									),
+								findCompiledDraft: (
+									userId: UserId,
+									identity: {
+										pageId: string;
+										artifactHash: string;
+										draftRevision: number;
+										definitionHash: string;
+									},
+								) =>
+									Ref.get(authoredPage).pipe(
+										Effect.map((row) =>
+											row.userId === userId &&
+											row.id === identity.pageId &&
+											row.draftRevision === identity.draftRevision &&
+											row.draftCompiledRevision === identity.draftRevision &&
+											row.draftDefinitionHash === identity.definitionHash &&
+											row.draftArtifactHash === identity.artifactHash
+												? row
+												: null,
+										),
 									),
 							}),
 						),
 					).pipe(
 						Context.add(PageSelections, {
+							setPage: (row) => Ref.set(authoredPage, row),
 							setHome: (reference) => Ref.set(home, reference),
 							setView: (reference, view) =>
 								Ref.update(views, (current) =>
@@ -424,6 +500,99 @@ layer(pagesLayer)((test) => {
 					}),
 				);
 				expect(yield* recorded.calls).toEqual(before);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"prepares an owned published page with private grants and authority freshness",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const user = { id: UserId.make("user-1") };
+				const id = SavedViewId.make("page-view");
+				const reference = { savedViewId: id, kind: "custom" as const };
+				const view = savedView(id, 1);
+				yield* selections.setPage(pageRow);
+				yield* selections.setView(reference, {
+					...view,
+					view: { ...view.view, renderer: { kind: "page", pageId: pageRow.id } },
+				});
+				const prepared = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, { reference, kind: "saved-view" }),
+				);
+				expect(prepared.identity.kind).toBe("page-saved-view");
+				expect(prepared.context.renderer).toMatchObject({
+					revision: 1,
+					kind: "page",
+					writeAccess: true,
+					pageId: pageRow.id,
+					stage: "published",
+				});
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(true);
+				const document = yield* service.document(user, prepared.identity);
+				expect(document.importMap.imports["@ryot/page/owned-page"]).toContain(pageToken);
+				expect(yield* (yield* RecordedPrepareCalls).calls).toContain(`grant:${pageHash}`);
+				yield* selections.setPage({ ...pageRow, writeAccess: false, authorityRevision: 2 });
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(false);
+				assertExitFails(
+					yield* Effect.exit(service.document(user, prepared.identity)),
+					new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } }),
+				);
+				yield* selections.setPage({ ...pageRow, publishedRevision: 2 });
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(false);
+				yield* selections.setPage(pageRow);
+				yield* selections.setView(reference, {
+					...view,
+					view: { ...view.view, revision: 2, renderer: { kind: "page", pageId: pageRow.id } },
+				});
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(false);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"fences preview to the exact compiled draft and always removes write authority",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const user = { id: UserId.make("user-1") };
+				yield* selections.setPage(pageRow);
+				const target = {
+					draftRevision: 2,
+					pageId: pageRow.id,
+					artifactHash: pageHash,
+					kind: "page-preview" as const,
+					definitionHash: "draft-definition",
+				};
+				const prepared = yield* Schema.decodeUnknownEffect(PreparedClientPage)(
+					yield* service.prepare(user, target),
+				);
+				expect(prepared.identity.operationTargets).toEqual([]);
+				expect(prepared.context.renderer).toMatchObject({
+					revision: 2,
+					stage: "draft",
+					writeAccess: false,
+				});
+				expect(yield* service.isIdentityCurrent(user.id, prepared.identity)).toBe(true);
+				yield* selections.setPage({ ...pageRow, draftRevision: 3 });
+				assertExitFails(
+					yield* Effect.exit(service.prepare(user, target)),
+					new ClientPagePreparationError({
+						reason: { pageId: pageRow.id, code: "page-preview-stale" },
+					}),
+				);
+				assertExitFails(
+					yield* Effect.exit(service.document(user, prepared.identity)),
+					new ClientPageDocumentStale({ reason: { code: "client-page-document-stale" } }),
+				);
+				assertExitFails(
+					yield* Effect.exit(service.prepare({ id: UserId.make("other") }, target)),
+					new ClientPagePreparationError({
+						reason: { pageId: pageRow.id, code: "page-preview-stale" },
+					}),
+				);
 			}),
 		testTimeout,
 	);

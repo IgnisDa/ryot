@@ -6,6 +6,7 @@ import type {
 } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 
+import { pageModule } from "./graph";
 import { kernelRendererModule } from "./kernel-renderers";
 
 export type ArtifactDescription = {
@@ -54,7 +55,10 @@ export const composeClientPage = (input: {
 		}
 	};
 	for (const contributor of identity.contributors) {
-		if (contributor.kind === "kernel-renderer") {
+		if (contributor.kind === "page") {
+			const { binding, specifier } = pageModule(contributor.pageId);
+			addImport(specifier, file(contributor.artifactHash, "module.js"), binding);
+		} else if (contributor.kind === "kernel-renderer") {
 			const { binding, specifier } = kernelRendererModule(contributor.name);
 			addImport(specifier, file(contributor.artifactHash, "module.js"), binding);
 		} else {

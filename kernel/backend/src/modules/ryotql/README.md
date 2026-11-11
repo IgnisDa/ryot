@@ -24,8 +24,14 @@ A document has a non-empty `queries` record. Each named query has `from: { table
 
 Requests are `{ source, arguments?, filter?, sort?, pages? }`. Sources are inline authored documents
 (with an optional named `query`), an owned saved-view reference and query name, or a declared plugin
-query identified by scoped package ID and declaration name. A plugin declaration executes its whole
-named document. Page sources fail with `source-unavailable`.
+query identified by scoped package ID and declaration name, or an owned page ID and named published
+query. A plugin declaration executes its whole named document. Page sources load the published
+definition through `PageAuthoringRepository`, never the authoring service, and include the published
+revision and definition hash in cursor identity. Draft-only pages and undeclared query names fail
+with `source-unavailable`. A `page-preview` source additionally carries `draftRevision`,
+`definitionHash` and `artifactHash` from the compile result. It resolves the current compiled draft
+only when every fence and `draftCompiledRevision` matches, and uses the existing read-only execution
+path. The frame host binds the preview identity and prevents operations. Page code supplies per-call values; page sources have no stored selection.
 
 Source loading, account reporting-zone lookup, controls, source entities, binding, semantic/access
 validation, identity binding and execution share a repeatable-read, read-only transaction. Inline named

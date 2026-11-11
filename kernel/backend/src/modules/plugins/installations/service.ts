@@ -91,6 +91,9 @@ const isUsableHomeSavedView = (
 	if (target.view.isHidden) {
 		return false;
 	}
+	if (target.view.renderer.kind === "page") {
+		return true;
+	}
 	if (target.view.renderer.kind === "kernel") {
 		return Schema.is(KernelSavedViewRendererName)(target.view.renderer.name);
 	}

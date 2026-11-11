@@ -15,6 +15,7 @@ import {
 export const clientArtifact = snakeCase.table(
 	"client_artifact",
 	{
+		pageDeclarationHash: text(),
 		format: smallint().notNull(),
 		clientDeclarationHash: text(),
 		apiVersion: smallint().notNull(),

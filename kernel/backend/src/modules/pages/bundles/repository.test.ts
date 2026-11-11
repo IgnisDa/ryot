@@ -31,7 +31,8 @@ describe("client artifact persistence identity", () => {
 			artifactHash: artifact.hash,
 			contents: Buffer.from(item.contents),
 		}));
-		const { files: _files, ...metadata } = artifact;
+		const { files: _files, ...identity } = artifact;
+		const metadata = { ...identity, pageDeclarationHash: null };
 		expect(clientArtifactMatches(artifact, metadata, stored)).toBe(true);
 		expect(
 			clientArtifactMatches(artifact, { ...metadata, packageId: otherPackageId }, stored),
@@ -42,7 +43,8 @@ describe("client artifact persistence identity", () => {
 	});
 
 	it("rejects changed immutable file bytes and metadata during idempotent persistence", () => {
-		const { files: _files, ...metadata } = artifact;
+		const { files: _files, ...identity } = artifact;
+		const metadata = { ...identity, pageDeclarationHash: null };
 		const stored = artifact.files.map((item) => ({
 			...item,
 			artifactHash: artifact.hash,

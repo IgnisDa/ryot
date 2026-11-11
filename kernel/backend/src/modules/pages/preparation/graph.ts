@@ -4,6 +4,7 @@ import {
 	type ClientPageCompositionIdentity,
 	ClientPagePreparationError,
 	type ClientRendererDefinition,
+	type PageDefinition,
 } from "@ryot-app/contract/modules/pages/schemas";
 import { comparePluginRoutePaths } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -54,6 +55,10 @@ export const clientPageCodeContributors = (
 ): readonly ClientPageCodeContributor[] => {
 	const byId = new Map(available.map((plugin) => [plugin.id, plugin]));
 	return identity.contributors.map((contributor) => {
+		if (contributor.kind === "page") {
+			const { pluginDependencies: _dependencies, ...page } = contributor;
+			return page;
+		}
 		if (contributor.kind === "kernel-renderer") {
 			return {
 				name: contributor.name,
@@ -98,6 +103,22 @@ type KernelInput = Common & {
 	readonly clientImports: ReadonlyArray<PluginClientImport>;
 };
 
+type PageInput = Common & {
+	readonly page: true;
+	readonly name: string;
+	readonly pageId: string;
+	readonly revision: number;
+	readonly artifactHash: string;
+	readonly definitionHash: string;
+	readonly definition: PageDefinition;
+	readonly clientImports: ReadonlyArray<PluginClientImport>;
+};
+
+export const pageModule = (pageId: string): ClientCompositionModuleReference => ({
+	binding: "page",
+	specifier: `@ryot/page/${encodeURIComponent(pageId)}`,
+});
+
 const ordered = <T>(values: Iterable<T>, key: (value: T) => string) => sortBy([...values], key);
 const unavailable = (reference: PluginPackageReference) =>
 	new ClientPagePreparationError({
@@ -120,11 +141,30 @@ const pluginModule = (plugin: GraphPlugin, binding: string): ClientCompositionMo
 });
 
 export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph")(function* (
-	input: KernelInput | PluginInput,
+	input: PageInput | KernelInput | PluginInput,
 ) {
 	const isKernel = "kernel" in input;
+	const isPage = "page" in input;
+	const isPlugin = "plugin" in input;
+	let rootName: string;
+	let rootEntry: ClientCompositionModuleReference;
+	let rootArtifacts: readonly string[];
+	if (isKernel) {
+		rootName = input.rendererName;
+		rootEntry = kernelRendererModule(input.rendererName);
+		rootArtifacts = [input.rendererArtifactHash];
+	} else if (isPage) {
+		rootName = input.name;
+		rootEntry = pageModule(input.pageId);
+		rootArtifacts = [input.artifactHash];
+	} else {
+		rootName = input.plugin.manifest.metadata.name;
+		rootEntry = pluginModule(input.plugin, input.exportName);
+		rootArtifacts = [];
+	}
+
 	const catalog = new Map(input.plugins.map((plugin) => [pluginPackageKey(plugin), plugin]));
-	if (!isKernel) {
+	if (isPlugin) {
 		catalog.set(pluginPackageKey(input.plugin), input.plugin);
 	}
 	const included = new Map<string, GraphPlugin>();
@@ -198,9 +238,9 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 		}
 		return ordered(new Set([...closure.values()].map(artifactHash)), String);
 	});
-	if (isKernel) {
+	if (isKernel || isPage) {
 		yield* validateImports(
-			input.rendererName,
+			isKernel ? input.rendererName : input.pageId,
 			input.definition.pluginDependencies,
 			input.clientImports,
 		);
@@ -241,18 +281,18 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 	}
 
 	const routes =
-		!isKernel && input.application === "plugin-route"
+		isPlugin && input.application === "plugin-route"
 			? ordered(Object.entries(input.plugin.manifest.client?.routes ?? {}), ([path]) => path).sort(
 					([left], [right]) => comparePluginRoutePaths(left, right),
 				)
 			: [];
 	const homeExport = routes.find(([path]) => path === "/")?.[1];
-	if (!isKernel && input.application === "plugin-route" && routes.length === 0) {
+	if (isPlugin && input.application === "plugin-route" && routes.length === 0) {
 		return yield* missingExport(pluginExportSpecifier(input.plugin, input.exportName));
 	}
 	const selectedExportNames = new Set<string>();
 	const selection =
-		!isKernel && input.application === "plugin-route"
+		isPlugin && input.application === "plugin-route"
 			? {
 					application: "plugin-route" as const,
 					routes: {
@@ -266,10 +306,8 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 					},
 				}
 			: {
+					entry: rootEntry,
 					application: "page" as const,
-					entry: isKernel
-						? kernelRendererModule(input.rendererName)
-						: pluginModule(input.plugin, input.exportName),
 					analyticsSections: analyticsSections.sort(
 						(left, right) =>
 							left.sortOrder - right.sortOrder ||
@@ -278,7 +316,7 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 							),
 					),
 				};
-	if (!isKernel) {
+	if (isPlugin) {
 		for (const name of input.application === "plugin-route"
 			? [
 					...routes.map(([, exportName]) => exportName),
@@ -293,17 +331,19 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			selectedExportNames.add(name);
 		}
 	}
-	let automatic = isKernel
-		? input.definition.automaticEntityPresentations
-		: [...selectedExportNames].some(
-				(name) =>
-					input.plugin.manifest.client?.exports?.[name]?.automaticEntityPresentations ?? false,
-			);
+	let automatic =
+		isPage ||
+		(isKernel
+			? input.definition.automaticEntityPresentations
+			: [...selectedExportNames].some(
+					(name) =>
+						input.plugin.manifest.client?.exports?.[name]?.automaticEntityPresentations ?? false,
+				));
 	if (!automatic) {
 		automatic = [...included.values()].some(
 			(plugin) =>
 				eagerIds.has(plugin.id) &&
-				plugin.id !== (isKernel ? null : input.plugin.id) &&
+				plugin.id !== (isPlugin ? input.plugin.id : null) &&
 				Object.values(plugin.manifest.client?.exports ?? {}).some(
 					(declaration) => declaration.automaticEntityPresentations,
 				),
@@ -342,20 +382,20 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 	const eagerArtifactHashes = ordered(
 		new Set([
 			input.runtimeArtifactHash,
-			...(isKernel ? [input.rendererArtifactHash] : []),
+			...rootArtifacts,
 			...plugins.filter((plugin) => eagerIds.has(plugin.id)).map(artifactHash),
 		]),
 		String,
 	);
 	const identity: ClientPageCompositionIdentity = {
 		...selection,
+		name: rootName,
 		eagerArtifactHashes,
 		format: CLIENT_ARTIFACT_FORMAT,
 		apiVersion: CLIENT_API_VERSION,
 		compilerVersion: CLIENT_COMPILER_VERSION,
 		bridgeVersion: CLIENT_BRIDGE_PROTOCOL_VERSION,
 		runtimeArtifactHash: input.runtimeArtifactHash,
-		name: isKernel ? input.rendererName : input.plugin.manifest.metadata.name,
 		automaticRegistry: ordered(registry, (item) =>
 			identityTupleKey(item.ownerPluginId, item.entitySchemaSlug, item.layout),
 		),
@@ -363,6 +403,18 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			? { provider: "kernel", layouts: ["grid", "list"], runtimeVersion: CLIENT_API_VERSION }
 			: null,
 		contributors: [
+			...(isPage
+				? [
+						{
+							pageId: input.pageId,
+							kind: "page" as const,
+							revision: input.revision,
+							artifactHash: input.artifactHash,
+							definitionHash: input.definitionHash,
+							pluginDependencies: input.definition.pluginDependencies,
+						},
+					]
+				: []),
 			...(isKernel
 				? [
 						{

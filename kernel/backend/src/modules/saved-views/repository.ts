@@ -20,7 +20,10 @@ import type { SavedViewReorderPlan } from "./reorder";
 
 type OverrideInsert = typeof schema.savedViewOverride.$inferInsert;
 
-type ListedSavedViewRow = Omit<typeof schema.savedView.$inferSelect, "createdAt" | "updatedAt"> & {
+type ListedSavedViewRow = Omit<
+	typeof schema.savedView.$inferSelect,
+	"pageId" | "createdAt" | "updatedAt"
+> & {
 	readonly isBuiltin: boolean;
 	readonly createdAt: null | Date;
 	readonly updatedAt: null | Date;
@@ -182,6 +185,29 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const findPublishedPage = Effect.fn("SavedViewsRepository.findPublishedPage")(function* (
+				userId: UserId,
+				pageId: string,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ id: schema.page.id })
+						.from(schema.page)
+						.where(
+							and(
+								eq(schema.page.userId, userId),
+								eq(schema.page.id, pageId),
+								isNotNull(schema.page.publishedRevision),
+								isNotNull(schema.page.publishedDefinition),
+								isNotNull(schema.page.publishedDefinitionHash),
+								isNotNull(schema.page.publishedArtifactHash),
+							),
+						)
+						.limit(1),
+				);
+				return row ?? null;
+			});
+
 			const catalogs = yield* DefinitionCatalog;
 
 			const listEffective = Effect.fn("SavedViewsRepository.listEffective")(function* (
@@ -574,6 +600,7 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 				setBuiltinState,
 				customSlugExists,
 				listReorderScope,
+				findPublishedPage,
 				hasCustomInstallationReferences,
 			};
 		}),

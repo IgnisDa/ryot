@@ -10,6 +10,7 @@ import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/re
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { kernelPublicationRenderer } from "@ryot-app/kernel-renderers";
+import { pageDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, Layer } from "effect";
 
 import { EntitiesRepository } from "#modules/entities/repository";
@@ -40,6 +41,29 @@ import { PagesRepository } from "./repository";
 
 const savedViewUnavailable = () =>
 	new ClientPagePreparationError({ reason: { code: "saved-view-unavailable" } });
+
+type PageAuthority = Pick<
+	Extract<PreparedClientPage["identity"], { readonly kind: "page-saved-view" }>,
+	"pageId" | "revision" | "writeAccess" | "artifactHash" | "definitionHash" | "authorityRevision"
+>;
+
+const pageIdentity = (page: PageAuthority) => ({
+	pageId: page.pageId,
+	revision: page.revision,
+	writeAccess: page.writeAccess,
+	artifactHash: page.artifactHash,
+	definitionHash: page.definitionHash,
+	authorityRevision: page.authorityRevision,
+});
+const pageContext = (page: PageAuthority & { readonly stage: "draft" | "published" }) => ({
+	stage: page.stage,
+	pageId: page.pageId,
+	kind: "page" as const,
+	revision: page.revision,
+	writeAccess: page.writeAccess,
+	definitionHash: page.definitionHash,
+	authorityRevision: page.authorityRevision,
+});
 
 export class PagesService extends Context.Service<PagesService>()(
 	"@ryot-app/kernel-backend/modules/pages/preparation/service/PagesService",
@@ -89,7 +113,7 @@ export class PagesService extends Context.Service<PagesService>()(
 			};
 			const resolvePluginTarget = Effect.fn(function* (
 				userId: CurrentUserValue["id"],
-				target: Exclude<ClientPageTarget, { kind: "saved-view" }>,
+				target: Exclude<ClientPageTarget, { kind: "saved-view" | "page-preview" }>,
 				available: ReadonlyArray<AvailablePlugin>,
 			) {
 				const resolved = yield* resolvePluginPageTarget({
@@ -131,10 +155,69 @@ export class PagesService extends Context.Service<PagesService>()(
 				bridgeVersion: composition.identity.bridgeVersion,
 				compilerVersion: composition.identity.compilerVersion,
 			});
+			const resolvePage = Effect.fn(function* (
+				userId: UserId,
+				pageId: string,
+				available: ReadonlyArray<GraphPlugin>,
+				preview?: Extract<ClientPageTarget, { kind: "page-preview" }>,
+			) {
+				const row = yield* preview
+					? repository.findCompiledDraft(userId, preview)
+					: repository.findPage(userId, pageId);
+				const unavailable = () =>
+					new ClientPagePreparationError({
+						reason: { pageId, code: preview ? "page-preview-stale" : "page-unavailable" },
+					});
+				if (!row) {
+					return yield* unavailable();
+				}
+				const definition = preview ? row.draftDefinition : row.publishedDefinition;
+				const revision = preview ? row.draftCompiledRevision : row.publishedRevision;
+				const artifactHash = preview ? row.draftArtifactHash : row.publishedArtifactHash;
+				const definitionHash = preview ? row.draftDefinitionHash : row.publishedDefinitionHash;
+				if (!definition || revision === null || !artifactHash || !definitionHash) {
+					return yield* unavailable();
+				}
+				const artifact = yield* artifactStore.describe(artifactHash);
+				if (
+					!artifact ||
+					!("pageDeclarationHash" in artifact) ||
+					artifact.pageDeclarationHash !== pageDeclarationHash(definition)
+				) {
+					return yield* unavailable();
+				}
+				const graph = yield* resolveClientPageGraph({
+					pageId,
+					revision,
+					page: true,
+					definition,
+					artifactHash,
+					name: row.name,
+					definitionHash,
+					plugins: available,
+					runtimeArtifactHash,
+					clientImports: artifact.imports,
+				});
+				return {
+					graph,
+					pageId,
+					revision,
+					artifactHash,
+					definitionHash,
+					kind: "page" as const,
+					authorityRevision: row.authorityRevision,
+					writeAccess: preview ? false : row.writeAccess,
+					stage: preview ? ("draft" as const) : ("published" as const),
+				};
+			});
 			const rendererGraph = Effect.fn(function* <Plugin extends GraphPlugin>(
 				available: ReadonlyArray<Plugin>,
 				renderer: SavedViewRenderer,
+				userId: UserId,
 			) {
+				if (renderer.kind === "page") {
+					return yield* resolvePage(userId, renderer.pageId, available);
+				}
 				if (renderer.kind === "kernel") {
 					const kernel = getKernelClientRenderer(renderer.name);
 					if (!kernel) {
@@ -188,12 +271,16 @@ export class PagesService extends Context.Service<PagesService>()(
 				const target =
 					(yield* resolveSavedTarget(userId, requestedTarget, available)) ?? requestedTarget;
 				const operationTargets = clientPageOperationTargets(available);
+				if (target.kind === "page-preview") {
+					const renderer = yield* resolvePage(userId, target.pageId, available, target);
+					return { target, renderer, operationTargets: [], kind: "page-preview" as const };
+				}
 				if (target.kind === "saved-view") {
 					const prepared = yield* repository.findPreparedTarget(userId, target.reference);
 					if (!prepared) {
 						return yield* savedViewUnavailable();
 					}
-					const renderer = yield* rendererGraph(available, prepared.view.renderer);
+					const renderer = yield* rendererGraph(available, prepared.view.renderer, userId);
 					return {
 						target,
 						renderer,
@@ -215,8 +302,35 @@ export class PagesService extends Context.Service<PagesService>()(
 					Effect.withSpan("Pages.resolve-target"),
 				);
 				const graph =
-					selection.kind === "saved-view" ? selection.renderer.graph : selection.page.graph;
+					selection.kind === "saved-view" || selection.kind === "page-preview"
+						? selection.renderer.graph
+						: selection.page.graph;
 				const composition = yield* compositions.getOrMaterialize(graph);
+				if (selection.kind === "page-preview") {
+					const { target, renderer } = selection;
+					return {
+						composition: compositionFor(composition),
+						context: {
+							target,
+							view: null,
+							settings: {},
+							dataSources: null,
+							route: { params: {} },
+							renderer: pageContext(renderer),
+							contributors: clientPageCodeContributors(graph.identity, available),
+						},
+						identity: {
+							kind: "page-preview" as const,
+							...pageIdentity(renderer),
+							target,
+							operationTargets: [],
+							writeAccess: false as const,
+							compositionKey: graph.compositionKey,
+							compositionHash: composition.compositionHash,
+							contributors: clientPageCodeContributors(graph.identity, available),
+						},
+					};
+				}
 				if (selection.kind === "saved-view") {
 					const { prepared, renderer } = selection;
 					const base = {
@@ -233,7 +347,10 @@ export class PagesService extends Context.Service<PagesService>()(
 					};
 					let rendererContext: PreparedClientPage["context"]["renderer"];
 					let identity: PreparedClientPage["identity"];
-					if (renderer.kind === "kernel") {
+					if (renderer.kind === "page") {
+						rendererContext = pageContext(renderer);
+						identity = { ...base, ...pageIdentity(renderer), kind: "page-saved-view" };
+					} else if (renderer.kind === "kernel") {
 						rendererContext = { kind: "kernel", name: renderer.kernel.name };
 						identity = {
 							...base,
@@ -349,9 +466,22 @@ export class PagesService extends Context.Service<PagesService>()(
 					return null;
 				}
 				const selection = yield* resolveSelection(userId, identity.target, available);
+				if (selection.kind === "page-preview") {
+					if (
+						identity.kind !== "page-preview" ||
+						!Bun.deepEquals(pageIdentity(selection.renderer), pageIdentity(identity))
+					) {
+						return null;
+					}
+					return yield* matchingComposition(available, selection.renderer.graph, identity);
+				}
 				if (selection.kind === "saved-view") {
 					const { prepared, renderer } = selection;
-					if (identity.kind !== "kernel-saved-view" && identity.kind !== "plugin-saved-view") {
+					if (
+						identity.kind !== "kernel-saved-view" &&
+						identity.kind !== "plugin-saved-view" &&
+						identity.kind !== "page-saved-view"
+					) {
 						return null;
 					}
 					if (
@@ -375,6 +505,13 @@ export class PagesService extends Context.Service<PagesService>()(
 							renderer.plugin.contentHash !== identity.contentHash ||
 							renderer.plugin.installationId !== identity.installationId ||
 							renderer.exportName !== identity.exportName)
+					) {
+						return null;
+					}
+					if (
+						renderer.kind === "page" &&
+						(identity.kind !== "page-saved-view" ||
+							!Bun.deepEquals(pageIdentity(renderer), pageIdentity(identity)))
 					) {
 						return null;
 					}

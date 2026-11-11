@@ -879,6 +879,33 @@ const sandboxProviderOperation: CatalogTable = {
 	},
 };
 
+const page: CatalogTable = {
+	name: "page",
+	primaryKey: ["id"],
+	visibility: {
+		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
+	},
+	fields: {
+		id: physicalField("id", "text", false),
+		slug: physicalField("slug", "text", false),
+		name: physicalField("name", "text", false),
+		origin: physicalField("origin", "text", false),
+		createdAt: physicalField("created_at", "date", false),
+		updatedAt: physicalField("updated_at", "date", false),
+		writeAccess: physicalField("write_access", "boolean", false),
+		draftRevision: physicalField("draft_revision", "number", false),
+		draftArtifactHash: physicalField("draft_artifact_hash", "text"),
+		publishedRevision: physicalField("published_revision", "number"),
+		draftDefinition: physicalField("draft_definition", "json", false),
+		publishedDefinition: physicalField("published_definition", "json"),
+		authorityRevision: physicalField("authority_revision", "number", false),
+		publishedArtifactHash: physicalField("published_artifact_hash", "text"),
+		draftCompiledRevision: physicalField("draft_compiled_revision", "number"),
+		draftDefinitionHash: physicalField("draft_definition_hash", "text", false),
+		publishedDefinitionHash: physicalField("published_definition_hash", "text"),
+	},
+};
+
 const savedView: CatalogTable = {
 	primaryKey: ["id"],
 	name: "user_saved_view_effective",
@@ -1350,6 +1377,7 @@ const publicationLink: CatalogTable = {
 };
 
 const tables: Readonly<Record<string, CatalogTable>> = {
+	page,
 	user,
 	event,
 	entity,

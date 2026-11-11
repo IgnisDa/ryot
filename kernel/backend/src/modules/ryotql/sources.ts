@@ -17,6 +17,7 @@ import { collectionMembershipSchema } from "#modules/collections/fields";
 import { CollectionsRepository } from "#modules/collections/repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
+import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import type { RyotQLExecutionScope } from "./catalog";
@@ -36,6 +37,7 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 	{
 		make: Effect.gen(function* () {
 			const savedViews = yield* SavedViewsRepository;
+			const pages = yield* PageAuthoringRepository;
 			const catalogs = yield* DefinitionCatalog;
 			const collections = yield* CollectionsRepository;
 			const resolve = Effect.fn("RyotQLSources.resolve")(function* (
@@ -79,8 +81,40 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 				if (scope.type !== "user") {
 					return yield* unavailable(source.kind);
 				}
+
+				if (source.kind === "page-preview") {
+					const page = yield* pages.findCompiledDraft(UserId.make(scope.userId), source);
+					if (!page || !Object.hasOwn(page.draftDefinition.queries.queries, source.query)) {
+						return yield* unavailable("page-preview");
+					}
+					return {
+						values: {},
+						selectedQuery: source.query,
+						identity: stableStringify(source),
+						document: page.draftDefinition.queries,
+					};
+				}
+
 				if (source.kind === "page") {
-					return yield* unavailable("page");
+					const page = yield* pages.find(UserId.make(scope.userId), source.pageId);
+					if (
+						!page?.publishedDefinition ||
+						page.publishedRevision === null ||
+						page.publishedArtifactHash === null ||
+						!Object.hasOwn(page.publishedDefinition.queries.queries, source.query)
+					) {
+						return yield* unavailable("page");
+					}
+					return {
+						values: {},
+						selectedQuery: source.query,
+						document: page.publishedDefinition.queries,
+						identity: stableStringify({
+							source,
+							revision: page.publishedRevision,
+							definitionHash: page.publishedDefinitionHash,
+						}),
+					};
 				}
 				if (source.kind === "savedView") {
 					const view = yield* savedViews.findByReference(
@@ -266,6 +300,7 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
 		Layer.provide(SavedViewsRepository.layer),
+		Layer.provide(PageAuthoringRepository.layer),
 		Layer.provide(CollectionsRepository.layer),
 		Layer.provide(DefinitionRepository.layer),
 		Layer.provide(DefinitionCatalog.layer),

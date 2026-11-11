@@ -39,6 +39,7 @@ import { LiveUpdatesRoutesLive } from "#modules/live-updates/routes";
 import { McpService, protectedResourceMetadata } from "#modules/mcp/service";
 import { NotificationsRoutesLive } from "#modules/notifications/routes";
 import { OAuthConnectionsRoutesLive } from "#modules/oauth-connections/routes";
+import { PageAuthoringRoutesLive } from "#modules/pages/authoring/routes";
 import { PageBundlesRoutesLive } from "#modules/pages/bundles/routes";
 import { PagesRoutesLive } from "#modules/pages/preparation/routes";
 import { PluginsRoutesLive } from "#modules/plugins/routes";
@@ -116,7 +117,14 @@ const ApiLive = HttpApiBuilder.layer(AppContract).pipe(
 	Layer.provide(SavedViewsRoutesLive),
 	Layer.provide(CalendarSourcesRoutesLive),
 	Layer.provide(PluginsRoutesLive),
-	Layer.provide(Layer.mergeAll(CollectionsRoutesLive, PagesRoutesLive, PageBundlesRoutesLive)),
+	Layer.provide(
+		Layer.mergeAll(
+			CollectionsRoutesLive,
+			PagesRoutesLive,
+			PageBundlesRoutesLive,
+			PageAuthoringRoutesLive,
+		),
+	),
 	Layer.provide(
 		Layer.mergeAll(
 			InstanceAdminRoutesLive,

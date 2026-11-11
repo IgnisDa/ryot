@@ -7,8 +7,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 import { DatabaseSession } from "#platform/db/session";
 import { clientArtifact, clientArtifactFile } from "#schema/tables/client-artifacts";
 
-type ArtifactRow = typeof clientArtifact.$inferSelect;
 type FileRow = typeof clientArtifactFile.$inferSelect;
+type ArtifactRow = typeof clientArtifact.$inferSelect;
 
 const bytesEqual = (left: Uint8Array, right: Uint8Array) =>
 	left.byteLength === right.byteLength && left.every((byte, index) => byte === right[index]);
@@ -19,6 +19,8 @@ export const clientArtifactMatches = (
 	files: ReadonlyArray<FileRow>,
 ) =>
 	metadata.hash === artifact.hash &&
+	metadata.pageDeclarationHash ===
+		("pageDeclarationHash" in artifact ? artifact.pageDeclarationHash : null) &&
 	metadata.packageId === ("packageId" in artifact ? artifact.packageId : null) &&
 	metadata.clientDeclarationHash ===
 		("clientDeclarationHash" in artifact ? artifact.clientDeclarationHash : null) &&
@@ -80,7 +82,12 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 							.where(eq(clientArtifactFile.artifactHash, hash))
 							.orderBy(asc(clientArtifactFile.name)),
 					);
-					return { ...metadata, files };
+					const { pageDeclarationHash, ...description } = metadata;
+					return {
+						...description,
+						...(pageDeclarationHash === null ? {} : { pageDeclarationHash }),
+						files,
+					};
 				}),
 				loadClientArtifact: Effect.fn("ClientArtifactsRepository.loadClientArtifact")(function* (
 					hash: string,
@@ -94,9 +101,10 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 					const files = yield* session.run((db) =>
 						db.select().from(clientArtifactFile).where(eq(clientArtifactFile.artifactHash, hash)),
 					);
-					const { packageId, clientDeclarationHash, ...versions } = metadata;
+					const { packageId, pageDeclarationHash, clientDeclarationHash, ...versions } = metadata;
 					const artifact = yield* Schema.decodeUnknownEffect(ClientArtifact)({
 						...versions,
+						...(pageDeclarationHash === null ? {} : { kind: "page", pageDeclarationHash }),
 						...(packageId === null ? {} : { packageId, clientDeclarationHash }),
 						files: files.map(({ name, contents, contentType }) => ({
 							name,
@@ -126,6 +134,8 @@ export class ClientArtifactsRepository extends Context.Service<ClientArtifactsRe
 									bridgeVersion: artifact.bridgeVersion,
 									compilerVersion: artifact.compilerVersion,
 									packageId: "packageId" in artifact ? artifact.packageId : null,
+									pageDeclarationHash:
+										"pageDeclarationHash" in artifact ? artifact.pageDeclarationHash : null,
 									clientDeclarationHash:
 										"clientDeclarationHash" in artifact ? artifact.clientDeclarationHash : null,
 								})

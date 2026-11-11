@@ -1,6 +1,8 @@
 # Client artifacts
 
-Compiled client artifacts are immutable code and assets. `ClientArtifactsRepository` writes the generic `client_artifact` and `client_artifact_file` tables under the caller's transaction. Plugin revisions reference an artifact hash; the repository does not depend on plugin ownership. Installing an archive trusts its compiled executable client code: archive validation checks structure, format, content hashes, limits, MIME types, and manifest consistency, but does not reproduce compilation or prove provenance.
+Compiled client artifacts are immutable code and assets. `ClientArtifactsRepository` writes the generic `client_artifact` and `client_artifact_file` tables under the caller's transaction. Plugin revisions and authored pages reference an artifact hash; the repository does not depend on plugin ownership. Installing an archive trusts its compiled executable client code: archive validation checks structure, format, content hashes, limits, MIME types, and manifest consistency, but does not reproduce compilation or prove provenance.
+
+Page artifacts preserve `pageDeclarationHash` in generic artifact metadata and reconstruct with `kind: "page"`; immutable conflict detection includes that declaration identity. Page source definitions stay in the authoring-owned page table.
 
 Assembly writes one `plugins/client-image.json` with runtime and kernel renderer bytes and the public hashes of shipped plugin archives. Shipped plugin bytes stay in the archives and are persisted by ingestion. `ImageClientArtifacts` validates this manifest on startup. `ClientArtifactStore` reads image bytes first and otherwise reads persisted bytes. Public visibility is determined solely by the image hash set: a private revision referencing a public image hash receives the same public bytes. Runtime-installed system plugins and user plugins without an image-public hash require a capability.
 

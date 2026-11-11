@@ -130,8 +130,8 @@ export const resolvePluginRoutePlugin = Effect.fn(function* (input: {
 export const resolvePluginPageTarget = <E, R>(input: {
 	readonly resolvePackage: ResolveUserPackage;
 	readonly plugins: ReadonlyArray<AvailablePlugin>;
-	readonly target: Exclude<ClientPageTarget, { readonly kind: "saved-view" }>;
 	readonly findEntity: (entityId: EntityId) => Effect.Effect<null | PageEntity, E, R>;
+	readonly target: Exclude<ClientPageTarget, { readonly kind: "saved-view" | "page-preview" }>;
 }): Effect.Effect<ResolvedPluginPageTarget, E | DbError | ClientPagePreparationError, R> =>
 	Effect.gen(function* () {
 		if (input.target.kind === "plugin-route") {

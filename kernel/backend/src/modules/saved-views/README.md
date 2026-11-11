@@ -57,3 +57,9 @@ sources and empty settings, and neither manifests nor create, update, or clone b
 The user-view validator, shared by create, update, and backup restore, rejects it outright, so a
 custom calendar view cannot be written. Cloning the built-in Calendar fails with
 `settings-incompatible`; hiding it uses the ordinary built-in override.
+
+Custom page renderers use `{ kind: "page", pageId }` and reference only an owned published page.
+They require null data sources, empty settings and arguments, and no saved filter or sort: page code
+supplies query values. Create, update and clone share these constraints. The renderer JSON is the
+single page reference; a generated `page_id` column supplies a composite foreign key with `user_id`
+to the page owner. The database rejects cross-owner references and deletion of an in-use page.

@@ -3,7 +3,8 @@
 Client-page preparation resolves a saved view, plugin route, or entity against the current authorized
 catalog. Preparation and freshness use the same read-only home and route selection. Preparation
 reuses an immutable composition by key and materializes it on a miss; freshness only finds an
-existing composition. A hit does not inspect artifacts or rebuild the manifest. Preparation does not
+existing composition. A hit does not rematerialize artifacts or rebuild the manifest. User page roots read immutable
+artifact metadata to verify their declaration and imports. Preparation does not
 compile plugin source.
 
 Dependency aliases belong to the importing manifest. Compiled imports carry scoped package IDs
@@ -61,3 +62,21 @@ its page context and remounts the page tree without recreating the iframe, bridg
 Saved-view page contexts carry authored stored query documents. Preparation passes the persisted
 shape through; it neither binds parameters nor manufactures executable limits. Data requests and
 describe resolve those documents by reference at the server execution boundary.
+
+User pages are independent graph roots. Their compiled declaration hash must match their stored
+page definition, and their scoped plugin dependencies use the same import, export, availability and
+cycle checks as plugin roots. Page modules use the `page` binding. Page artifacts and private plugin
+dependencies receive ordinary artifact capability grants through the same document pipeline.
+
+Page saved views resolve only the owner's published definition. Their identity includes both the
+saved-view revision and the page's published revision, definition hash and artifact hash. The page's
+authority revision and write grant participate in freshness independently of its code composition.
+`PageFrameAuthority` carries the server-derived page ID, stage, revision, definition hash, authority
+revision and write access to the bridge.
+
+Draft preview targets carry the exact `PageDraftBuildIdentity` returned by compile. Preparation
+requires matching current draft and compiled revisions, definition hash and artifact hash. Draft
+frames always have `writeAccess: false`, with no operation targets, including when the published page
+has a write grant. Draft edits invalidate preview preparation and documents. Preview queries must
+use that compiled draft identity through the revision-fenced page source, never the published source
+or a caller-supplied inline document.

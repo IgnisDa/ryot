@@ -9,7 +9,9 @@ export class ClientArtifactStore extends Context.Service<ClientArtifactStore>()(
 		make: Effect.gen(function* () {
 			const image = yield* ImageClientArtifacts;
 			const repository = yield* ClientArtifactsRepository;
-			const describe = (hash: string) => {
+			const describe = (
+				hash: string,
+			): ReturnType<ClientArtifactsRepository["Service"]["describe"]> => {
 				const artifact = image.imageArtifactsByHash.get(hash);
 				if (!artifact) {
 					return repository.describe(hash);

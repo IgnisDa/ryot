@@ -160,6 +160,11 @@ const validateConcreteSavedViewDefinition = Effect.fn("validateSavedViewDefiniti
 	pluginPage: null | PluginPageRecord,
 ) {
 	switch (renderer.kind) {
+		case "page":
+			if (dataSources !== null || Object.keys(settings).length !== 0) {
+				return yield* settingsIncompatible("Page views require no data sources and empty settings");
+			}
+			return undefined;
 		case "kernel":
 			switch (renderer.name) {
 				case "calendar":

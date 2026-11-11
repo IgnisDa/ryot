@@ -855,3 +855,81 @@ it.effect(
 		}),
 	testTimeout,
 );
+
+it.effect(
+	"composes a user page as a root with scoped private dependencies",
+	() =>
+		Effect.gen(function* () {
+			const dependency = plugin("page-dependency", {
+				apiVersion: 1,
+				homeView: null,
+				exports: {
+					widget: {
+						kind: "component",
+						entry: "client/widget.tsx",
+						automaticEntityPresentations: false,
+					},
+				},
+			});
+			const reference = dependencyReference("page-dependency");
+			const input = {
+				revision: 3,
+				name: "Owned page",
+				page: true as const,
+				pageId: "owned-page",
+				plugins: [dependency],
+				definitionHash: "definition",
+				artifactHash: "page-artifact",
+				runtimeArtifactHash: "runtime",
+				clientImports: [{ reference, exportName: "widget" }],
+				definition: {
+					files: [],
+					entry: "client/page.tsx",
+					queries: { queries: {} },
+					pluginDependencies: { widget: reference },
+				},
+			};
+			const graph = yield* resolveClientPageGraph(input);
+			expect(graph.identity.contributors.map(({ kind }) => kind)).toEqual(["page", "plugin"]);
+			expect(graph.identity.eagerArtifactHashes).toEqual([
+				"page-artifact",
+				"page-dependency-hash",
+				"runtime",
+			]);
+			const files = new Map([
+				["runtime", { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+				["page-artifact", { files: [{ name: "module.js", contentType: "text/javascript" }] }],
+				[
+					"page-dependency-hash",
+					{ files: [{ name: "module.js", contentType: "text/javascript" }] },
+				],
+			]);
+			const composition = composeClientPage({
+				artifacts: files,
+				identity: graph.identity,
+				runtimeEntries: { bootstrap: "bootstrap.js" },
+			});
+			assert(composition.descriptor.application === "page");
+			expect(composition.descriptor.entry).toEqual({
+				binding: "page",
+				specifier: "@ryot/page/owned-page",
+			});
+			expect(composition.imports[composition.descriptor.entry.specifier]).toEqual({
+				file: "module.js",
+				artifactHash: "page-artifact",
+			});
+			expect((yield* resolveClientPageGraph({ ...input, revision: 4 })).compositionKey).not.toBe(
+				graph.compositionKey,
+			);
+			expect(
+				(yield* resolveClientPageGraph({ ...input, plugins: [] }).pipe(Effect.flip)).reason.code,
+			).toBe("dependency-unavailable");
+			expect(
+				(yield* resolveClientPageGraph({
+					...input,
+					definition: { ...input.definition, pluginDependencies: {} },
+				}).pipe(Effect.flip)).reason.code,
+			).toBe("dependency-undeclared");
+		}),
+	testTimeout,
+);

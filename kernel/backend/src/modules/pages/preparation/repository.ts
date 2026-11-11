@@ -7,6 +7,7 @@ import { SavedViewId, type UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
+import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -17,6 +18,7 @@ export class PagesRepository extends Context.Service<PagesRepository>()(
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
 			const savedViews = yield* SavedViewsRepository;
+			const pages = yield* PageAuthoringRepository;
 			const findHomeSavedView = Effect.fn("PagesRepository.findHomeSavedView")(function* (
 				userId: UserId,
 				pluginId: string,
@@ -81,11 +83,18 @@ export class PagesRepository extends Context.Service<PagesRepository>()(
 				}
 				return row?.compositionKey ?? existing?.compositionKey ?? input.compositionKey;
 			});
-			return { findComposition, createComposition, findHomeSavedView, findPreparedTarget };
+			return {
+				findComposition,
+				createComposition,
+				findHomeSavedView,
+				findPreparedTarget,
+				findPage: pages.find,
+				findCompiledDraft: pages.findCompiledDraft,
+			};
 		}),
 	},
 ) {
 	static readonly layer = Layer.effect(this, this.make).pipe(
-		Layer.provide(SavedViewsRepository.layer),
+		Layer.provide(Layer.merge(SavedViewsRepository.layer, PageAuthoringRepository.layer)),
 	);
 }

@@ -22,6 +22,7 @@ import {
 
 import { user } from "./auth";
 import { pluginInstallation } from "./core";
+import { page } from "./pages";
 import { timestamptz, updatedAtColumn } from "./timestamps";
 
 const framed = (component: SQL) => sql`char_length(${component})::text || ':' || ${component}`;
@@ -64,8 +65,16 @@ export const savedView = snakeCase.table(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		arguments: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull().default({}),
+		pageId: text().generatedAlwaysAs(
+			sql`case when renderer ->> 'kind' = 'page' then renderer ->> 'pageId' end`,
+		),
 	},
 	(table) => [
+		foreignKey({
+			name: "saved_view_page_owner_fk",
+			columns: [table.pageId, table.userId],
+			foreignColumns: [page.id, page.userId],
+		}).onDelete("restrict"),
 		index("saved_view_user_id_idx").on(table.userId),
 		index("saved_view_slug_idx").on(table.slug),
 		index("saved_view_plugin_installation_id_idx").on(table.pluginInstallationId),

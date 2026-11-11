@@ -90,6 +90,7 @@ import {
 	NotificationsServiceLive,
 } from "#modules/notifications/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
+import { PageAuthoringServiceLive } from "#modules/pages/authoring/layer";
 import {
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,
@@ -299,6 +300,7 @@ const ServicesLive = Layer.mergeAll(
 	EntityUserDataServiceLive,
 	UserBootstrapSchedulingLive,
 	PagesServiceLive,
+	PageAuthoringServiceLive,
 	PublicationsServiceLive,
 	ClientArtifactGrantServiceLive,
 	ClientArtifactStoreLive,

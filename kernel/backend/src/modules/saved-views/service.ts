@@ -89,6 +89,12 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 				document: CreateSavedViewBody["dataSources"],
 				trusted?: boolean,
 			) {
+				if (renderer.kind === "page") {
+					const published = yield* repository.findPublishedPage(userId, renderer.pageId);
+					if (!published) {
+						return yield* new SavedViewBadRequest({ reason: { code: "renderer-not-found" } });
+					}
+				}
 				const available = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
 				const catalog = available.filter(({ health }) => health === "ready");
 				const page =

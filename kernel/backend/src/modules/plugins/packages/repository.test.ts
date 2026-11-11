@@ -73,13 +73,14 @@ it("matches immutable client artifacts by exact bytes", () => {
 			contentType: "application/octet-stream",
 		},
 	];
+	const storedMetadata = { ...metadata, pageDeclarationHash: null };
 	const file = artifact.files[0];
 	assert(file);
-	expect(clientArtifactMatches(artifact, metadata, files)).toBe(true);
+	expect(clientArtifactMatches(artifact, storedMetadata, files)).toBe(true);
 	expect(
 		clientArtifactMatches(
 			{ ...artifact, files: [{ ...file, contents: new Uint8Array([0, 254, 1]) }] },
-			metadata,
+			storedMetadata,
 			files,
 		),
 	).toBe(false);

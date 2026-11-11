@@ -74,3 +74,5 @@ requests for transport fixtures. These helpers are test-only.
 `recipeResponse(recipe, overrides)` supplies empty rows/grouped results for every declared query,
 using their declared limits. Supply every ungrouped aggregate explicitly; the helper does not guess
 scalar values. Overrides are preserved verbatim, including deliberately malformed test results.
+
+`pagesRecipe` lists owner-scoped page metadata; `pageRecipe` reads a page and its draft/published definitions by `pageId`. Both use the kernel-only `page` catalog. Compiled draft revision and artifact hash support revision-bound, read-only preview composition.
