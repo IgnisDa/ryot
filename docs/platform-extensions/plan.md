@@ -85,6 +85,9 @@ cleanup).
 - `hints: { readOnly, destructive, idempotent }`.
 - A longer `description` written for both people and models.
 
+**Approved schema decision.** JSON Schema represents expressible input/output constraints; business
+rules remain authoritative Effect validation.
+
 Operation inputs stay JSON Schema rather than `AppSchema`: they use discriminated unions and
 cross-field checks (for example `MediaActivityEntry` and `MediaActivityWhen`) that `AppSchema` cannot
 express. Definition validation rejects missing schemas and conflicting hints. The operation invoke route
@@ -231,6 +234,10 @@ Ryobot) see errors when saving.
 
 **Saved views.**
 
+**Approved selection decision.** Saved views persist bound arguments, validated on save;
+`sourceEntity` uses that saved selection, including its saved filter and sort, rather than the
+outer caller's transient request controls.
+
 - Entity-browser and results-table documents declare their controls and parameters. Settings drop
   `searchFields` and `filterFields`, and gain `controls: { search?, filter?, sort? }`, naming the
   parameter or control that fills each part of the screen.
@@ -253,6 +260,28 @@ request values, so query keys stay stable, including for rolling time windows.
 1. Language, binding, paging and execution sources.
 2. Saved views and kernel renderers.
 3. Convert the remaining recipes in the kernel, Media and Fitness.
+
+**A/B implementation complete.** Current source connects authored parameters and controls to HTTP
+execute/describe, sandbox and iframe requests, SDK recipe helpers, declared-query ingestion, saved
+views, saved entity-source resolution, concrete SQL `dateAdd`, and signed cursor identities. The
+[current RyotQL API](../../packages/ryotql/README.md) documents the authoring and binding boundary;
+the [backend README](../../kernel/backend/src/modules/ryotql/README.md) owns execution authority and
+resource limits. Page sources remain unavailable; page and publication redesigns belong to D/E.
+
+Stored validation checks every reachable choice and optional branch under a bounded projection
+budget, with catalog-dependent controls validated separately. Saved entity sources preserve saved
+arguments/filter/sort and resolve under authority with cycle and materialization limits. Calendar
+and signal row sources retain kernel-composed windows.
+
+Fitness measurement series drain all selected metric IDs in batches of two. Both truncated metadata
+and truncated averages fail explicitly; extraordinary all-time spans may exceed the grouped-row
+budget even with yearly grouping. This is a bounded-result decision, not silent truncation.
+
+The review findings are resolved and cleanup is complete. Repository checks and affected package
+tests pass. The final focused e2e run passed 23 cases; its two failed cases subsequently passed
+individually. Publication describe required removal of a duplicate sort control. The Media fixture
+failure did not reproduce in isolation and required no code change. All 16 declared queries remain
+in the shipped archives, within the unchanged manifest-size and execution limits.
 
 ### C. MCP endpoint
 

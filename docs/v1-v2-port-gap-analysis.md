@@ -134,7 +134,7 @@ that cleanup must respect.
 
 Reminders are independent of the upcoming feed and can proceed in parallel with row 11. Row 13
 settled its own timezone, missing-date and freshness rules, so it no longer waits for row 11.
-The approved [Order 12 implementation plan](order-12-entity-reminders-plan.md) records the scheduling,
+The historical Order 12 implementation plan (`order-12-entity-reminders-plan.md`, no longer present in this checkout) recorded the scheduling,
 restore, V1 conversion and retention decisions, implementation sequence, and real-dump acceptance gate.
 Use current feature-owned workflows; extract shared scheduling machinery only when the
 implementations show a real common need. Reuse existing channel adapters; Order 12 strengthens the
@@ -159,7 +159,7 @@ historical reminder sends. A separately restored controlled copy covered invalid
 exact date/text conversion, interruption while legacy tables remained, preservation of a later edit,
 and explicit rescheduling by the migrated owner. `file3.sql` still refuses an unrelated blank legacy
 genre; the original dump was preserved. Full commands, counts, hashes, timings and limitations are in
-the [acceptance evidence](order-12-entity-reminders-plan.md#11-acceptance-execution-evidence).
+the historical plan's acceptance evidence, which is no longer present in this checkout.
 The read-only review, its three fixes and scoped cleanup are complete. Final repository checks passed
 38 Turbo tasks and type checks across 30 projects; server/docs builds passed eight tasks. The final
 non-e2e test run passed all 51 Turbo tasks, including the Fitness measurement-editor case after its
@@ -340,6 +340,13 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | Pro entitlement parity | Verification is implemented; audit and decide each feature's backend enforcement, client gating and expiry behavior. Existing integration/Fitness gates do not establish full parity. |
 | Media consumed during a workout | Excluded by the owner on 2026-11-10; no current equivalent for the V1 workout-detail panel. |
 | Public sharing, collaborators, review visibility/comments/likes | Read-only public sharing of collections and saved views ships as Order 18 publications. Collaborators, shared editing, review visibility, comments and likes remain excluded; restoring them would be a separate product/security scope. |
+
+### Unverified migration follow-up
+
+The Media README previously tracked a separate audit of the existing lifecycle replay's reopening
+and run-boundary behavior. That audit remains unverified; the historical acceptance records
+do not establish that it was completed. This reminder records no confirmed defect and does not
+change the documented restore/import semantics.
 
 ### Exercise merge follow-up — 2026-11-10
 
