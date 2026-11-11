@@ -1,4 +1,4 @@
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	EntityBrowserSummary,
 	SavedViewTableColumn,

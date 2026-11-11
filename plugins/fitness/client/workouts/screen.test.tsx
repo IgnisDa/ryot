@@ -22,13 +22,13 @@ import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { preferenceSettings } from "../../tests/client/draft-fixtures";
+import { bindWorkoutRequest } from "../../tests/workout-recipes.test-support";
 import WorkoutsPage from "./screen";
 
 const serialize = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
 afterEach(disposePluginBridges);
-
-const HOUR_MS = 3_600_000;
+const HOUR_MS = 3600000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
 
 const rows = (items: RowsResult["items"], nextCursor: null | string = null): RowsResult => ({
@@ -76,11 +76,7 @@ const listWorkout = (entityId: string, name: string, startedAt: string) => ({
 	previousTemplateWorkoutId: null,
 	sets: rows([listSet("squat", "Back Squat", 0), listSet("press", "Leg Press", 1)]),
 });
-
-type Queries = ReturnType<
-	ReturnType<typeof mountPluginPage>["queryRequests"]
->[number]["document"]["queries"];
-
+type Queries = ReturnType<typeof bindWorkoutRequest>["queries"];
 type Answers = {
 	readonly total?: number;
 	readonly deferProcessing?: boolean;
@@ -196,13 +192,16 @@ const openPage = (answers: Answers = {}, search = "") => {
 		}
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
-				if (answers.deferProcessing && processingPoll(request.document.queries)) {
+				if (
+					answers.deferProcessing &&
+					processingPoll(bindWorkoutRequest(request.request).queries)
+				) {
 					continue;
 				}
 				answered.add(request.requestId);
 				page.replyQuery(request.requestId, {
 					outcome: "success",
-					response: { data: respond(request.document.queries, answers) },
+					response: { data: respond(bindWorkoutRequest(request.request).queries, answers) },
 				});
 			}
 		}
@@ -427,10 +426,15 @@ describe("all workouts page", () => {
 				});
 				const queried = (name: string) =>
 					Effect.forEach(
-						page.queryRequests().filter(({ document }) => name in document.queries),
-						({ document }) =>
-							Effect.map(serialize(document.queries[name]), (text) =>
-								text.includes("filterTotalsSet"),
+						page
+							.queryRequests()
+							.filter(
+								({ request: executionRequest }) =>
+									name in bindWorkoutRequest(executionRequest).queries,
+							),
+						({ request: executionRequest }) =>
+							Effect.map(serialize(bindWorkoutRequest(executionRequest).queries[name]), (text) =>
+								text.includes("browseWorkoutTotals"),
 							),
 					);
 				expect((yield* queried("workouts")).some(Boolean)).toBe(true);

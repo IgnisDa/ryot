@@ -349,7 +349,7 @@ layer(SecureRandom.layerWebCrypto)("workout iOS Live Activity", (it) => {
 				});
 				const saved = createWorkoutIosActivitySynchronizer({
 					iosLiveActivities: native.api,
-					now: Effect.succeed(now + 90_000),
+					now: Effect.succeed(now + 90000),
 					pluginId: PluginId.make("fitness"),
 				});
 				yield* saved.finish(

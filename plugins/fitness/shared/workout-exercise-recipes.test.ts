@@ -1,5 +1,6 @@
 import { expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 
 import {
@@ -8,12 +9,11 @@ import {
 } from "./workout-exercise-recipes";
 
 it("filters the paged exercise picker by selected categories and includes taxonomy labels", () => {
-	const recipe = workoutExercisePickerRecipe({
+	const recipe = bindRecipe(workoutExercisePickerRecipe({ reference: { kind: "self" } }), {
 		sort: "name",
-		search: "  bench  ",
+		search: "bench",
 		forces: ["pull", "push"],
 		after: "exercise-cursor",
-		reference: { kind: "self" },
 		levels: ["beginner", "expert"],
 		targetIds: ["target-1", "target-2"],
 		mechanics: ["compound", "isolation"],
@@ -54,7 +54,7 @@ it("filters the paged exercise picker by selected categories and includes taxono
 	expect(where).toContain('"field":"relationshipSchemaPluginId"');
 	expect(where).toContain('"field":"entitySchemaPluginId"');
 	expect(where).toContain('"reference":{"kind":"self"}');
-	expect(where).toContain('"alias":"pickerLibraryRelationship"');
+	expect(where).toContain('"alias":"pickerLibrary"');
 	expect(where).toContain('"value":"in-fitness-library"');
 	expect(where).toContain('"alias":"pickerTargetRelationship"');
 	expect(where).toContain('"value":"exercise-targets"');
@@ -63,9 +63,8 @@ it("filters the paged exercise picker by selected categories and includes taxono
 	expect(where).toContain('"alias":"pickerEquipmentRelationship"');
 	expect(where).toContain('"value":"exercise-uses-equipment"');
 	expect(where).toContain('"value":"equipment-1"');
-	expect(where).toContain('"alias":"pickerCollectionRelationship"');
+	expect(where).toContain('"alias":"pickerCollectionMembership"');
 	expect(where).toContain('"value":"member-of"');
-	expect(where).toContain('"value":"collection"');
 	expect(where).toContain('"type":"in"');
 	expect(where).toContain('"type":"isNull"');
 	const include = JSON.stringify(query.output.include);
@@ -84,7 +83,7 @@ it("filters the paged exercise picker by selected categories and includes taxono
 });
 
 it("orders the picker by performed set count by default with a stable ID tie break", () => {
-	const recipe = workoutExercisePickerRecipe({ reference: { kind: "self" } });
+	const recipe = bindRecipe(workoutExercisePickerRecipe({ reference: { kind: "self" } }), {});
 	const query = recipe.document.queries.exercises;
 	if (query?.output.type !== "rows") {
 		throw new Error("Expected picker exercise rows");
@@ -100,7 +99,7 @@ it("orders the picker by performed set count by default with a stable ID tie bre
 });
 
 it("pages visible collection filter options by name", () => {
-	const recipe = workoutExerciseCollectionOptionsRecipe({ after: "collection-cursor" });
+	const recipe = bindRecipe(workoutExerciseCollectionOptionsRecipe, { after: "collection-cursor" });
 	const query = recipe.document.queries.collections;
 	if (query?.output.type !== "rows") {
 		throw new Error("Expected collection option rows");

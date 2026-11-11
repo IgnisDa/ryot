@@ -2,20 +2,20 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castDate,
 	column,
 	defineRecipe,
 	descending,
 	entitySchemaPredicate,
 	eq,
-	gte,
 	isNotNull,
 	join,
 	jsonPath,
 	JsonValue,
 	literal,
-	lt,
+	parameters,
 	type Recipe,
+	reportingParameterFields,
+	reportingPeriodPredicate,
 	selectedField,
 	selectedInclude,
 	selectedOptionalRow,
@@ -33,22 +33,7 @@ import {
 } from "./entity-selections";
 import { exerciseEquipmentInclude } from "./taxonomy-recipes";
 
-type Table = ReturnType<typeof table>;
-type EntityFilterInput = {
-	name?: string | undefined;
-	entityId?: string | undefined;
-	readonly reference: PluginIdentityReference;
-};
-type EntityListInput = Pick<EntityFilterInput, "entityId" | "reference"> &
-	Pick<Parameters<typeof selectedRows>[1], "after" | "limit">;
-
-const entityWhere = (entity: Table, schemaSlug: string, input: EntityFilterInput) =>
-	and(
-		entitySchemaPredicate(entity, schemaSlug, input.reference),
-		...(input.entityId ? [eq(column(entity, "id"), literal(input.entityId))] : []),
-		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
-	);
-
+type Table = Parameters<typeof column>[0];
 export const workoutSelection = (entity: Table) => ({
 	...entityIdentitySelection(entity),
 	...workoutDatesSelection(entity),
@@ -110,138 +95,173 @@ const workoutInclude = (parent: Table, limit: number) => {
 		),
 	});
 };
-
-export const exerciseListRecipe = defineRecipe(
-	(input: EntityListInput & Pick<EntityFilterInput, "name">) => {
-		const entity = table("entity", "entity");
-		return {
-			map: ({ exercises }) =>
-				Result.succeed({
-					...exercises,
-					items: exercises.items.map(({ equipment, ...exercise }) => ({
-						...exercise,
-						equipment: equipment.items,
-					})),
-				}),
-			queries: {
-				exercises: selectedRows(entity, {
-					after: input.after,
-					limit: input.limit,
-					orderBy: [ascending(column(entity, "name"))],
-					where: entityWhere(entity, "exercise", input),
-					include: { equipment: exerciseEquipmentInclude(entity) },
-					selection: {
-						...entityIdentitySelection(entity),
-						kind: selectedField(property(entity, "kind"), Schema.NullOr(Schema.String)),
-						level: selectedField(property(entity, "level"), Schema.NullOr(Schema.String)),
-						image: selectedField(
-							jsonPath(column(entity, "properties"), "images", 0),
-							Schema.NullOr(JsonValue),
-						),
-					},
-				}),
-			},
-		};
-	},
-);
-
-export const measurementEntryListRecipe = defineRecipe(
-	(
-		input: Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
-			endAt?: string | undefined;
-			startAt?: string | undefined;
-			readonly reference: PluginIdentityReference;
+export const exerciseListRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			name: { label: "name", type: "string", description: "name for this selection" },
+			entityId: { type: "string", label: "entityId", description: "entityId for this selection" },
 		},
-	) => {
-		const entry = table("entity", "entry");
-		return {
-			map: ({ entries }) => Result.succeed(entries),
-			queries: {
-				entries: selectedRows(entry, {
-					after: input.after,
-					limit: input.limit,
-					orderBy: [descending(propertyDate(entry, "occurredAt")), ascending(column(entry, "id"))],
-					selection: {
-						id: selectedField(column(entry, "id"), Schema.String),
-						occurredAt: selectedField(propertyDate(entry, "occurredAt"), Schema.String),
-						comment: selectedField(property(entry, "comment"), Schema.NullOr(Schema.String)),
-					},
-					where: and(
-						entitySchemaPredicate(entry, "measurement-entry", input.reference),
-						isNotNull(column(entry, "userId")),
-						...(input.startAt === undefined
-							? []
-							: [gte(propertyDate(entry, "occurredAt"), castDate(literal(input.startAt)))]),
-						...(input.endAt === undefined
-							? []
-							: [lt(propertyDate(entry, "occurredAt"), castDate(literal(input.endAt)))]),
-					),
-				}),
-			},
-		};
-	},
-);
-
-export const workoutTemplateListRecipe = defineRecipe((input: EntityListInput) => {
+	});
 	const entity = table("entity", "entity");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ exercises }) =>
+			Result.succeed({
+				...exercises,
+				items: exercises.items.map(({ equipment, ...exercise }) => ({
+					...exercise,
+					equipment: equipment.items,
+				})),
+			}),
+		queries: {
+			exercises: selectedRows(entity, {
+				limit: 100,
+				orderBy: [ascending(column(entity, "name"))],
+				include: { equipment: exerciseEquipmentInclude(entity) },
+				where: and(
+					entitySchemaPredicate(entity, "exercise", input.reference),
+					inputParameters.whenSet(
+						"entityId",
+						eq(column(entity, "id"), inputParameters.value("entityId")),
+					),
+					inputParameters.whenSet(
+						"name",
+						eq(column(entity, "name"), inputParameters.value("name")),
+					),
+				),
+				selection: {
+					...entityIdentitySelection(entity),
+					kind: selectedField(property(entity, "kind"), Schema.NullOr(Schema.String)),
+					level: selectedField(property(entity, "level"), Schema.NullOr(Schema.String)),
+					image: selectedField(
+						jsonPath(column(entity, "properties"), "images", 0),
+						Schema.NullOr(JsonValue),
+					),
+				},
+			}),
+		},
+	});
+};
+export const measurementEntryListRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({ fields: reportingParameterFields });
+	const entry = table("entity", "entry");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ entries }) => Result.succeed(entries),
+		queries: {
+			entries: selectedRows(entry, {
+				limit: 100,
+				orderBy: [descending(propertyDate(entry, "occurredAt")), ascending(column(entry, "id"))],
+				where: and(
+					entitySchemaPredicate(entry, "measurement-entry", input.reference),
+					isNotNull(column(entry, "userId")),
+					reportingPeriodPredicate(propertyDate(entry, "occurredAt")),
+				),
+				selection: {
+					id: selectedField(column(entry, "id"), Schema.String),
+					occurredAt: selectedField(propertyDate(entry, "occurredAt"), Schema.String),
+					comment: selectedField(property(entry, "comment"), Schema.NullOr(Schema.String)),
+				},
+			}),
+		},
+	});
+};
+export const workoutTemplateListRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: { type: "string", label: "entityId", description: "entityId for this selection" },
+		},
+	});
+	const entity = table("entity", "entity");
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ workoutTemplates }) => Result.succeed(workoutTemplates),
 		queries: {
 			workoutTemplates: selectedRows(entity, {
-				after: input.after,
-				limit: input.limit,
+				limit: 100,
 				selection: workoutTemplateSelection(entity),
 				orderBy: [descending(column(entity, "createdAt"))],
-				where: entityWhere(entity, "workout-template", input),
+				where: and(
+					entitySchemaPredicate(entity, "workout-template", input.reference),
+					inputParameters.whenSet(
+						"entityId",
+						eq(column(entity, "id"), inputParameters.value("entityId")),
+					),
+				),
 			}),
 		},
-	};
-});
-
-export const workoutDetailRecipe = defineRecipe(
-	(input: {
-		entityId: string;
-		templateLimit: number;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const entity = table("entity", "entity");
-		return {
-			map: ({ workout }) => Result.succeed(workout ?? null),
-			queries: {
-				workout: selectedOptionalRow(entity, {
-					selection: workoutSelection(entity),
-					orderBy: [ascending(column(entity, "id"))],
-					where: entityWhere(entity, "workout", input),
-					include: { template: workoutTemplateInclude(entity, input.templateLimit) },
-				}),
+	});
+};
+export const workoutDetailRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "entityId",
+				validation: { required: true },
+				description: "entityId for this selection",
 			},
-		};
-	},
-);
-
-export const workoutTemplateDetailRecipe = defineRecipe(
-	(input: {
-		entityId: string;
-		workoutLimit: number;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const entity = table("entity", "entity");
-		return {
-			map: ({ workoutTemplate }) => Result.succeed(workoutTemplate ?? null),
-			queries: {
-				workoutTemplate: selectedOptionalRow(entity, {
-					orderBy: [ascending(column(entity, "id"))],
-					selection: workoutTemplateSelection(entity),
-					where: entityWhere(entity, "workout-template", input),
-					include: { workouts: workoutInclude(entity, input.workoutLimit) },
-				}),
+		},
+	});
+	const entity = table("entity", "entity");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ workout }) => Result.succeed(workout ?? null),
+		queries: {
+			workout: selectedOptionalRow(entity, {
+				selection: workoutSelection(entity),
+				orderBy: [ascending(column(entity, "id"))],
+				include: { template: workoutTemplateInclude(entity, 100) },
+				where: and(
+					entitySchemaPredicate(entity, "workout", input.reference),
+					eq(column(entity, "id"), inputParameters.value("entityId")),
+				),
+			}),
+		},
+	});
+};
+export const workoutTemplateDetailRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			entityId: {
+				type: "string",
+				label: "entityId",
+				validation: { required: true },
+				description: "entityId for this selection",
 			},
-		};
-	},
-);
-
-export type ExerciseListResult = Recipe.Success<typeof exerciseListRecipe>;
-export type WorkoutDetailResult = Recipe.Success<typeof workoutDetailRecipe>;
-export type WorkoutTemplateListResult = Recipe.Success<typeof workoutTemplateListRecipe>;
-export type MeasurementEntryListResult = Recipe.Success<typeof measurementEntryListRecipe>;
-export type WorkoutTemplateDetailResult = Recipe.Success<typeof workoutTemplateDetailRecipe>;
+		},
+	});
+	const entity = table("entity", "entity");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ workoutTemplate }) => Result.succeed(workoutTemplate ?? null),
+		queries: {
+			workoutTemplate: selectedOptionalRow(entity, {
+				orderBy: [ascending(column(entity, "id"))],
+				selection: workoutTemplateSelection(entity),
+				include: { workouts: workoutInclude(entity, 100) },
+				where: and(
+					entitySchemaPredicate(entity, "workout-template", input.reference),
+					eq(column(entity, "id"), inputParameters.value("entityId")),
+				),
+			}),
+		},
+	});
+};
+export type ExerciseListResult = Recipe.Success<ReturnType<typeof exerciseListRecipe>>;
+export type WorkoutDetailResult = Recipe.Success<ReturnType<typeof workoutDetailRecipe>>;
+export type WorkoutTemplateListResult = Recipe.Success<
+	ReturnType<typeof workoutTemplateListRecipe>
+>;
+export type MeasurementEntryListResult = Recipe.Success<
+	ReturnType<typeof measurementEntryListRecipe>
+>;
+export type WorkoutTemplateDetailResult = Recipe.Success<
+	ReturnType<typeof workoutTemplateDetailRecipe>
+>;

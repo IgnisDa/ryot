@@ -58,11 +58,8 @@ const timeSourceQuery = () =>
 	createRyotQuery(({ input, client }: { readonly input: string; readonly client: RyotClient }) =>
 		Effect.gen(function* () {
 			const entity = yield* client.data.query(
-				workoutEditorEntityRecipe({
-					entityId: input,
-					kind: "workout",
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
+				workoutEditorEntityRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{ entityId: input, kind: "workout" },
 			);
 			if (entity === null) {
 				return null;

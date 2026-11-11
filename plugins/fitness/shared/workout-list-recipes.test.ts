@@ -1,16 +1,16 @@
 import { describe, expect } from "bun:test";
 
 import { Result, Schema } from "@ryot-app/plugin-kit/effect";
-import { column, eq, literal, table } from "@ryot-app/plugin-kit/ryotql";
-import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { PluginId, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
+import { bindWorkoutRecipe } from "../tests/workout-recipes.test-support";
 import {
 	workoutCardsRecipe,
 	workoutCountRecipe,
-	workoutFilterScope,
 	workoutIdsRecipe,
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
@@ -30,11 +30,12 @@ const workoutTotals = (workouts: number, activeDuration: null | number, timedWor
 
 describe("workoutWeeksRecipe", () => {
 	it("merges set totals into workout weeks and zero-fills weeks without sets", () => {
-		const recipe = workoutWeeksRecipe({
-			...range,
+		const recipe = bindRecipe(workoutWeeksRecipe({ reference: { kind: "self" } }), {
 			search: "",
-			reference: { kind: "self" },
-			timeZone: TimeZone.make("UTC"),
+			endAt: { ...range, search: "", reference: { kind: "self" }, timeZone: TimeZone.make("UTC") }
+				.endAt,
+			startAt: { ...range, search: "", reference: { kind: "self" }, timeZone: TimeZone.make("UTC") }
+				.startAt,
 		});
 		const decoded = Result.getOrThrow(
 			recipe.decode({
@@ -69,14 +70,7 @@ describe("workoutWeeksRecipe", () => {
 });
 
 describe("workoutSummaryRecipe", () => {
-	const recipe = workoutSummaryRecipe({
-		days: range,
-		current: range,
-		previous: range,
-		reference: { kind: "self" },
-		timeZone: TimeZone.make("UTC"),
-	});
-
+	const recipe = bindRecipe(workoutSummaryRecipe({ reference: { kind: "self" } }), {});
 	it("stays within the document query limit", () => {
 		expect(Object.keys(recipe.document.queries).length).toBeLessThanOrEqual(10);
 	});
@@ -132,14 +126,17 @@ const serialize = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 const documentText = (recipe: { readonly document: unknown }) => serialize(recipe.document);
 
 describe("workout filter predicates", () => {
-	const filter = eq(column(table("entity", "workout"), "id"), literal("marker-workout"));
-	const reference = { kind: "self" } as const;
-
+	const filter = { field: "template", operator: "anyOf", values: ["marker-workout"] } as const;
+	const reference = { kind: "local", pluginId: PluginId.make("fitness-owner") } as const;
 	it.effect(
 		"reaches the ids query and decodes its page of workout ids",
 		() =>
 			Effect.gen(function* () {
-				const recipe = workoutIdsRecipe({ filter, limit: 2, reference, search: "legs" });
+				const recipe = bindWorkoutRecipe(
+					workoutIdsRecipe({ reference: reference }),
+					{ limit: 2, search: "legs" },
+					filter,
+				);
 				const text = yield* documentText(recipe);
 				expect(text).toContain("marker-workout");
 				expect(text).toContain("legs");
@@ -166,14 +163,20 @@ describe("workout filter predicates", () => {
 		() =>
 			Effect.gen(function* () {
 				expect(
-					yield* documentText(workoutCardsRecipe({ filter, reference, search: "" })),
+					yield* documentText(
+						bindWorkoutRecipe(workoutCardsRecipe({ reference }), { search: "" }, filter),
+					),
 				).toContain("marker-workout");
 				expect(
-					yield* documentText(workoutCountRecipe({ filter, reference, search: "" })),
+					yield* documentText(
+						bindWorkoutRecipe(workoutCountRecipe({ reference }), { search: "" }, filter),
+					),
 				).toContain("marker-workout");
-				expect(yield* documentText(workoutCountRecipe({ reference, search: "" }))).not.toContain(
-					"marker-workout",
-				);
+				expect(
+					yield* documentText(
+						bindRecipe(workoutCountRecipe({ reference: reference }), { search: "" }),
+					),
+				).not.toContain("marker-workout");
 			}),
 		testTimeout,
 	);
@@ -182,13 +185,11 @@ describe("workout filter predicates", () => {
 		"narrows both the workout and set queries of the week totals",
 		() =>
 			Effect.gen(function* () {
-				const recipe = workoutWeeksRecipe({
-					...range,
+				const recipe = bindWorkoutRecipe(
+					workoutWeeksRecipe({ reference }),
+					{ ...range, search: "" },
 					filter,
-					reference,
-					search: "",
-					timeZone: TimeZone.make("UTC"),
-				});
+				);
 				for (const name of ["workouts", "sets"]) {
 					expect(yield* serialize(recipe.document.queries[name])).toContain("marker-workout");
 				}
@@ -200,20 +201,18 @@ describe("workout filter predicates", () => {
 		"leaves the period summary unfiltered",
 		() =>
 			Effect.gen(function* () {
-				const recipe = workoutSummaryRecipe({
-					reference,
-					days: range,
-					current: range,
-					previous: range,
-					timeZone: TimeZone.make("UTC"),
-				});
+				const recipe = bindRecipe(workoutSummaryRecipe({ reference: reference }), {});
 				expect(yield* documentText(recipe)).not.toContain("marker-workout");
 			}),
 		testTimeout,
 	);
 
 	it("scopes the filter source to the aliased workout table", () => {
-		expect(workoutFilterScope("list").subject).toEqual({ entityAlias: "workout" });
-		expect(workoutFilterScope("weeks").subject).toEqual({ entityAlias: "weeksWorkout" });
+		expect(workoutCardsRecipe({ reference }).document.controls?.filter).toMatchObject({
+			alias: "workout",
+		});
+		expect(workoutWeeksRecipe({ reference }).document.controls?.filter).toMatchObject({
+			alias: "weeksWorkout",
+		});
 	});
 });

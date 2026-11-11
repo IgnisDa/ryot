@@ -1,9 +1,10 @@
 import { expect } from "bun:test";
 
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { FoldInput } from "@ryot-app/plugin-backend-sdk/folds";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -40,7 +41,7 @@ it.effect(
 				executeRyotql: (document) =>
 					Effect.sync(() => {
 						const records = pages[calls.length];
-						calls.push(document);
+						calls.push(bindTestRequest(document));
 						return { data: { records } };
 					}),
 			});

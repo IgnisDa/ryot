@@ -4,6 +4,7 @@ import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId, EventId } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
@@ -190,7 +191,7 @@ const harness = (
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data: Object.fromEntries(
-					Object.keys(document.queries).map((key) => [key, page(rowsFor(key))]),
+					Object.keys(bindTestRequest(document).queries).map((key) => [key, page(rowsFor(key))]),
 				),
 			}),
 		commitUserChanges: (command) =>

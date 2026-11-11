@@ -11,12 +11,14 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 import { act, type ComponentType, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { rankingResponse as rankingResultResponse } from "../../tests/client/analytics-fixtures";
 import { AnalyticsRankings } from "./rankings";
 import type { AnalyticsScope, WorkoutDrillRequest } from "./reporting-model";
 import { AnalyticsWorkoutDrill } from "./workout-drill";
@@ -62,7 +64,7 @@ const rankingRow = () => ({
 
 const rankingResponse = {
 	data: {
-		ranking: {
+		targets: {
 			items: [rankingRow()],
 			type: "aggregate" as const,
 			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
@@ -94,6 +96,7 @@ const mountPage = (clock: ReturnType<typeof createTestRyotClock>, Component: Com
 	mountPluginPage(Component, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -153,10 +156,10 @@ describe("Fitness analytics workout drill", () => {
 						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(1)),
 					);
 					const query = itemAt(page.queryRequests("workouts"), 0);
-					const queryDocument = yield* documentText(query.document);
+					const queryDocument = yield* documentText(bindTestRequest(query.request));
 					expect(queryDocument).toContain("fitness-owner");
-					expect(queryDocument).toContain("2026-09-01T04:00:00.000Z");
-					expect(queryDocument).toContain("2026-09-04T04:00:00.000Z");
+					expect(query.request.arguments).toMatchObject({ customStartDate: "2026-09-01" });
+					expect(query.request.arguments).toMatchObject({ customEndDate: "2026-09-03" });
 					expect(queryDocument).toContain("target-upper-back");
 					page.replyQuery(query.requestId, {
 						outcome: "success",
@@ -222,7 +225,7 @@ describe("Fitness analytics workout drill", () => {
 						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(2)),
 					);
 					const append = itemAt(page.queryRequests("workouts"), 1);
-					expect(yield* documentText(append.document)).toContain("workout-cursor");
+					expect(yield* documentText(bindTestRequest(append.request))).toContain("workout-cursor");
 					page.replyQuery(append.requestId, { outcome: "failure", reason: "query-failed" });
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -237,7 +240,7 @@ describe("Fitness analytics workout drill", () => {
 						waitFor(() => expect(page.queryRequests("workouts")).toHaveLength(3)),
 					);
 					const retry = itemAt(page.queryRequests("workouts"), 2);
-					expect(yield* documentText(retry.document)).toContain("workout-cursor");
+					expect(yield* documentText(bindTestRequest(retry.request))).toContain("workout-cursor");
 					page.replyQuery(retry.requestId, {
 						outcome: "success",
 						response: workoutsResponse(null, [
@@ -264,11 +267,11 @@ describe("Fitness analytics workout drill", () => {
 				const page = mountPage(clock, DrillHost);
 				try {
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(1)),
+						waitFor(() => expect(page.queryRequests("targets")).toHaveLength(1)),
 					);
-					page.replyQuery(itemAt(page.queryRequests("ranking"), 0).requestId, {
+					page.replyQuery(itemAt(page.queryRequests("targets"), 0).requestId, {
 						outcome: "success",
-						response: rankingResponse,
+						response: rankingResultResponse(null, rankingResponse.data.targets.items),
 					});
 					const triggerName = "View workouts contributing to Upper back";
 					yield* Effect.promise(() =>

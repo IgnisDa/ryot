@@ -1,31 +1,66 @@
 import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plugins/manifest";
+import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
 
-import { exerciseMergeOperationSlug } from "../shared/exercise-merge-operations";
-import { exerciseNoteOperationSlugs } from "../shared/exercise-note-operations";
 import {
+	ExerciseMergeInputSchema,
+	exerciseMergeOperationSlug,
+	ExerciseMergeOutputSchema,
+} from "../shared/exercise-merge-operations";
+import {
+	ExerciseNoteCreateInput,
+	ExerciseNoteDeleteInput,
+	exerciseNoteOperationSlugs,
+	ExerciseNoteOutput,
+	ExerciseNoteUpdateInput,
+} from "../shared/exercise-note-operations";
+import {
+	MeasurementMetricCreateInput,
 	measurementMetricCreateOperationSlug,
+	MeasurementMetricCreateOutput,
+	MeasurementMetricPinInput,
 	measurementMetricPinOperationSlug,
+	MeasurementMetricPinOutput,
 } from "../shared/measurement-metric-operations";
 import {
+	MeasurementReadingDeleteInput,
 	measurementReadingDeleteOperationSlug,
+	MeasurementReadingLogInput,
 	measurementReadingLogOperationSlug,
+	MeasurementReadingLogOutput,
+	MeasurementReadingOutput,
+	MeasurementReadingUpdateInput,
 	measurementReadingUpdateOperationSlug,
 } from "../shared/measurement-reading-operations";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import {
+	WorkoutDeleteInputSchema,
 	workoutDeleteOperationSlug,
+	WorkoutDeleteOutputSchema,
 	workoutTemplateDeleteOperationSlug,
 } from "../shared/workout-delete-operations";
 import {
+	ExerciseOverrideUpdateInputSchema,
 	exerciseOverrideUpdateOperationSlug,
+	ExerciseOverrideUpdateOutputSchema,
+	WorkoutEditorContextInputSchema,
 	workoutEditorContextOperationSlug,
+	WorkoutEditorContextOutputSchema,
 	workoutEditorSaveOperationSlug,
 	workoutTimeCorrectionOperationSlug,
 } from "../shared/workout-editor-context-operations";
+import {
+	WorkoutEditorSaveInputSchema,
+	WorkoutEditorSaveOutputSchema,
+} from "../shared/workout-editor-operations";
 import { fitnessClientRoutes } from "../shared/workout-editor-routes";
+import {
+	WorkoutTimeCorrectionInputSchema,
+	WorkoutTimeCorrectionOutputSchema,
+} from "../shared/workout-time-operations";
 import { fitnessBrowse } from "./browse";
 import { fitnessCalendarSources } from "./calendar-sources";
 import { fitnessConfigSchema } from "./config";
+import { fitnessDeclaredQueries } from "./queries";
 import { fitnessSavedViews } from "./saved-views";
 import { fitnessEntitySchemas } from "./schemas/entity";
 import { fitnessRelationshipSchemas } from "./schemas/relationship";
@@ -67,6 +102,7 @@ export const fitnessPlugin = definePlugin({
 	httpRateLimits: [],
 	integrationProviders: [],
 	savedViews: fitnessSavedViews(),
+	queries: fitnessDeclaredQueries,
 	configSchema: fitnessConfigSchema,
 	signalSchemas: fitnessSignalSchemas(),
 	calendarSources: fitnessCalendarSources(),
@@ -356,105 +392,165 @@ export const fitnessPlugin = definePlugin({
 			demoAccess: "protected",
 			slug: workoutDeleteOperationSlug,
 			scriptSlug: "operation.workout-delete",
-			description: "Permanently delete a workout",
+			input: operationJsonSchema(WorkoutDeleteInputSchema),
+			output: operationJsonSchema(WorkoutDeleteOutputSchema),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete a workout and its composed exercise and set data. Returns the deleted workout ID.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: workoutTemplateDeleteOperationSlug,
 			scriptSlug: "operation.workout-template-delete",
-			description: "Permanently delete a workout template",
+			input: operationJsonSchema(WorkoutDeleteInputSchema),
+			output: operationJsonSchema(WorkoutDeleteOutputSchema),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete a workout template and its composed exercise and set data. Returns the deleted template ID.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: workoutEditorSaveOperationSlug,
-			description: "Save a workout or template",
 			scriptSlug: "operation.workout-editor-save",
+			input: operationJsonSchema(WorkoutEditorSaveInputSchema),
+			output: operationJsonSchema(WorkoutEditorSaveOutputSchema),
+			hints: { readOnly: false, idempotent: false, destructive: true },
+			description:
+				"Create or update a workout or template, including exercises and sets. Conflict snapshots reject stale updates; repeated creation calls can create additional workouts.",
 		},
 		{
 			auth: "user",
 			demoAccess: "allowed",
 			slug: workoutEditorContextOperationSlug,
 			scriptSlug: "operation.workout-editor-context",
-			description: "Read workout editor preferences and availability",
+			input: operationJsonSchema(WorkoutEditorContextInputSchema),
+			output: operationJsonSchema(WorkoutEditorContextOutputSchema),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Read workout editor preferences and Pro availability for the current user without changing settings or workout data.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: exerciseOverrideUpdateOperationSlug,
-			description: "Update exercise preferences",
 			scriptSlug: "operation.exercise-override-update",
+			input: operationJsonSchema(ExerciseOverrideUpdateInputSchema),
+			output: operationJsonSchema(ExerciseOverrideUpdateOutputSchema),
+			hints: { readOnly: false, idempotent: true, destructive: true },
+			description:
+				"Change personal exercise preferences on its fitness library membership. Returns whether the exercise was saved or missing.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: exerciseMergeOperationSlug,
 			scriptSlug: "operation.exercise-merge",
-			description: "Merge a custom exercise into another exercise",
+			input: operationJsonSchema(ExerciseMergeInputSchema),
+			output: operationJsonSchema(ExerciseMergeOutputSchema),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Merge a custom exercise into another exercise, rewriting references and removing the source exercise. This permanently changes existing workout data.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
-			description: "Correct workout times",
 			slug: workoutTimeCorrectionOperationSlug,
 			scriptSlug: "operation.workout-time-correction",
+			input: operationJsonSchema(WorkoutTimeCorrectionInputSchema),
+			output: operationJsonSchema(WorkoutTimeCorrectionOutputSchema),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Correct a workout’s start, end, and active duration using a conflict token. Returns saved, conflict, or invalid; timestamp ordering is validated at runtime.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: measurementMetricCreateOperationSlug,
-			description: "Create a measurement metric",
 			scriptSlug: "operation.measurement-metric-create",
+			input: operationJsonSchema(MeasurementMetricCreateInput),
+			output: operationJsonSchema(MeasurementMetricCreateOutput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Create a personal measurement metric with its unit and display settings. Returns the created metric ID and automatically pins it when space is available.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: measurementMetricPinOperationSlug,
 			scriptSlug: "operation.measurement-metric-pin",
-			description: "Pin or unpin a measurement metric",
+			input: operationJsonSchema(MeasurementMetricPinInput),
+			output: operationJsonSchema(MeasurementMetricPinOutput),
+			hints: { readOnly: false, idempotent: true, destructive: false },
+			description:
+				"Set whether a measurement metric is pinned. Enforces the pin limit without changing recorded readings.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
-			description: "Log measurement readings",
 			slug: measurementReadingLogOperationSlug,
 			scriptSlug: "operation.measurement-reading-log",
+			input: operationJsonSchema(MeasurementReadingLogInput),
+			output: operationJsonSchema(MeasurementReadingLogOutput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Record measurement values at a supplied time for selected metrics. Returns a saved count and completion status; repeated calls can create additional entries.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
-			description: "Update measurement readings",
 			slug: measurementReadingUpdateOperationSlug,
 			scriptSlug: "operation.measurement-reading-update",
+			output: operationJsonSchema(MeasurementReadingOutput),
+			input: operationJsonSchema(MeasurementReadingUpdateInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Replace measurement values, comment, and timestamp on an existing entry. Returns the affected reading count.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
-			description: "Delete measurement readings",
 			slug: measurementReadingDeleteOperationSlug,
 			scriptSlug: "operation.measurement-reading-delete",
+			output: operationJsonSchema(MeasurementReadingOutput),
+			input: operationJsonSchema(MeasurementReadingDeleteInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete an existing measurement entry and its readings. Returns the deleted entry count.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: exerciseNoteOperationSlugs.create,
 			scriptSlug: "operation.exercise-note-create",
-			description: "Create a private exercise note",
+			output: operationJsonSchema(ExerciseNoteOutput),
+			input: operationJsonSchema(ExerciseNoteCreateInput),
+			hints: { readOnly: false, idempotent: false, destructive: false },
+			description:
+				"Create a private text note with an optional rating attached to an exercise and return the saved count.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: exerciseNoteOperationSlugs.update,
 			scriptSlug: "operation.exercise-note-update",
-			description: "Update a private exercise note",
+			output: operationJsonSchema(ExerciseNoteOutput),
+			input: operationJsonSchema(ExerciseNoteUpdateInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Replace the text or rating of an existing private exercise note. Returns the updated count.",
 		},
 		{
 			auth: "user",
 			demoAccess: "protected",
 			slug: exerciseNoteOperationSlugs.delete,
 			scriptSlug: "operation.exercise-note-delete",
-			description: "Delete a private exercise note",
+			output: operationJsonSchema(ExerciseNoteOutput),
+			input: operationJsonSchema(ExerciseNoteDeleteInput),
+			hints: { readOnly: false, destructive: true, idempotent: false },
+			description:
+				"Permanently delete an existing private exercise note and return the deleted count.",
 		},
 	],
 });

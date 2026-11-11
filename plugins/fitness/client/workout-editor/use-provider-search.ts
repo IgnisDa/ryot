@@ -3,6 +3,7 @@ import { readCursorPages } from "@ryot-app/plugin-client-sdk";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { EntitySchemaSlug } from "@ryot-app/plugin-client-sdk/plugin";
 import { useRyot, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe as ImportedRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { useEffect, useRef, useState } from "react";
 
 import type { ExerciseKind } from "../../shared/exercise-kinds";
@@ -11,16 +12,13 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { workoutExercisePickerRecipe } from "../../shared/workout-exercise-recipes";
 import type { PickerExercise } from "./picker-model";
 
-type PickerInput = Parameters<typeof workoutExercisePickerRecipe>[0];
-
+type PickerInput = ImportedRecipe.Arguments<ReturnType<typeof workoutExercisePickerRecipe>>;
 const readLibraryExercises = (client: RyotClient, exerciseIds: PickerInput["exerciseIds"]) =>
 	readCursorPages((after) =>
 		client.data.query(
-			workoutExercisePickerRecipe({
-				after,
-				exerciseIds,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
+			workoutExercisePickerRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ exerciseIds },
+			{ pages: { exercises: { after } } },
 		),
 	).pipe(Effect.map(({ items }) => items));
 

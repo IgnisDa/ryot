@@ -4,13 +4,18 @@ import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { workoutProcessingRecipe } from "../shared/processing-recipes";
 
-type ProcessingScope = Omit<Parameters<typeof workoutProcessingRecipe>[0], "reference">;
+type ProcessingScope = Omit<
+	Parameters<typeof workoutProcessingRecipe>[0] &
+		Recipe.Arguments<ReturnType<typeof workoutProcessingRecipe>>,
+	"reference"
+>;
 const processingQuery = createRyotQuery<
 	ProcessingScope,
-	Recipe.Success<typeof workoutProcessingRecipe>
+	Recipe.Success<ReturnType<typeof workoutProcessingRecipe>>
 >(({ input, client }) =>
 	client.data.query(
-		workoutProcessingRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		workoutProcessingRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		{ ...input },
 	),
 );
 

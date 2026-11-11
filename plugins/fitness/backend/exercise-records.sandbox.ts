@@ -25,11 +25,9 @@ export default defineScript({
 			const rows = yield* readAllRyotqlPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
-					workoutRecordPageRecipe({
-						after,
-						reference: { kind: "self" },
-						exerciseId: input.subjectEntityId,
-					}),
+					workoutRecordPageRecipe({ reference: { kind: "self" } }),
+					{ exerciseId: input.subjectEntityId },
+					{ pages: { records: { after: after } } },
 				),
 			);
 			const maxima: Record<string, WorkoutRecordMaxima> = {};

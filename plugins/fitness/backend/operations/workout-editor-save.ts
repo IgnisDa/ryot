@@ -249,11 +249,11 @@ const loadBaseline = Effect.fn("loadBaseline")(function* (data: Data, host: Scri
 	const { entity } = decoded.success;
 	const current = yield* executeRyotqlRecipe(
 		host.executeRyotql,
-		workoutEditorEntityRecipe({
-			reference: { kind: "self" },
+		workoutEditorEntityRecipe({ reference: { kind: "self" } }),
+		{
 			entityId: data.target.entityId,
 			kind: data.kind === "workout" ? "workout" : "workout-template",
-		}),
+		},
 	);
 	if (!current) {
 		return yield* conflict();
@@ -370,10 +370,8 @@ const verifyBaselineEvents = Effect.fn("verifyBaselineEvents")(function* (
 	for (const { items } of chunked(baseline.sets, WORKOUT_EDITOR_PAGE_SIZE)) {
 		const identities = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			workoutEditorEventIdentitiesRecipe({
-				reference: { kind: "self" },
-				eventIds: items.map(({ id }) => id),
-			}),
+			workoutEditorEventIdentitiesRecipe({ reference: { kind: "self" } }),
+			{ eventIds: items.map(({ id }) => id) },
 		);
 		for (const event of identities) {
 			const originalExercise = baseline.sets.find(({ id }) => id === event.id)?.entityId;
@@ -411,11 +409,11 @@ const resolveSourceLink = Effect.fn("resolveSourceLink")(function* (
 	}
 	const source = yield* executeRyotqlRecipe(
 		host.executeRyotql,
-		workoutEditorEntityRecipe({
+		workoutEditorEntityRecipe({ reference: { kind: "self" } }),
+		{
 			entityId: targetEntityId,
-			reference: { kind: "self" },
 			kind: repeatedFromId !== undefined ? "workout" : "workout-template",
-		}),
+		},
 	);
 	if (!source) {
 		return yield* invalid("invalid-source");
@@ -435,7 +433,9 @@ const loadExercises = Effect.fn("loadExercises")(function* (
 	for (const { items } of chunked(exerciseIds, WORKOUT_EDITOR_PAGE_SIZE)) {
 		const page = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			workoutEditorExercisesRecipe({ exerciseIds: items, reference: { kind: "self" } }),
+			workoutEditorExercisesRecipe({ reference: { kind: "self" } }),
+			{ exerciseIds: items },
+			{ pages: { exercises: { after: undefined } } },
 		);
 		exercises.push(...page.items);
 	}
@@ -471,10 +471,9 @@ const checkReplacement = Effect.fn("checkReplacement")(function* (
 	if (source.template) {
 		const sourceExercise = yield* executeRyotqlRecipe(
 			host.executeRyotql,
-			workoutEditorExercisesRecipe({
-				reference: { kind: "self" },
-				exerciseIds: [source.exerciseId],
-			}),
+			workoutEditorExercisesRecipe({ reference: { kind: "self" } }),
+			{ exerciseIds: [source.exerciseId] },
+			{ pages: { exercises: { after: undefined } } },
 		);
 		if (currentKind === undefined || exerciseKindOf(sourceExercise.items[0]) !== currentKind) {
 			return yield* invalid("invalid-exercise-kind");
@@ -627,6 +626,7 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 		const library = yield* executeRyotqlRecipe(
 			host.executeRyotql,
 			userFitnessLibraryRecipe({ kind: "self" }),
+			{},
 		);
 		for (const exerciseId of exerciseIds) {
 			relationships.push({
@@ -652,21 +652,22 @@ const persistWorkoutEditor = Effect.fn("persistWorkoutEditor")(function* (
 	const occurrenceChanges: Array<UserCommandInput["events"]["changes"][number]> = [];
 	let scopeRevision: number | undefined;
 	if (data.kind === "workout") {
-		const recorded: Array<Recipe.Success<typeof workoutOccurrencesRecipe>["items"][number]> = [];
+		const recorded: Array<
+			Recipe.Success<ReturnType<typeof workoutOccurrencesRecipe>>["items"][number]
+		> = [];
 		if (baseline) {
 			scopeRevision = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEventScopeRevisionRecipe(baseline.entity.id),
+				workoutEventScopeRevisionRecipe,
+				{ workoutId: baseline.entity.id },
 			);
 			let after: string | undefined;
 			do {
 				const page = yield* executeRyotqlRecipe(
 					host.executeRyotql,
-					workoutOccurrencesRecipe({
-						after,
-						reference: { kind: "self" },
-						workoutId: baseline.entity.id,
-					}),
+					workoutOccurrencesRecipe({ reference: { kind: "self" } }),
+					{ workoutId: baseline.entity.id },
+					{ pages: { occurrences: { after: after } } },
 				);
 				recorded.push(...page.items);
 				after = yield* continuationCursor(page.pageInfo, after).pipe(

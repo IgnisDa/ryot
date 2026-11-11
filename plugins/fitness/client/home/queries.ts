@@ -1,6 +1,7 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
-import { resolveReportingSelection, type TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
+import type { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import { reportingArguments } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import {
 	type HomePersonalBest,
@@ -28,44 +29,30 @@ export const latestWorkoutQuery = createRyotQuery(({ client }) =>
 export const muscleActivityQuery = createRyotQuery<
 	{ readonly timeZone: TimeZone },
 	readonly MuscleActivity[]
->(({ input, client, schedule }) =>
-	Effect.suspend(() => {
-		const { current } = resolveReportingSelection(
-			{ grouping: "day", comparison: "none", range: { days: 7, kind: "rolling" } },
-			{ now: schedule.now(), timeZone: input.timeZone },
-		);
-		if (current === null) {
-			return Effect.die(new Error("Muscle activity requires a bounded reporting period"));
-		}
-		return client.data.query(
-			muscleActivityRecipe({
-				weekStartAt: current.startAt,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		);
-	}),
+>(({ client }) =>
+	client.data.query(
+		muscleActivityRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		reportingArguments({
+			grouping: "day",
+			comparison: "none",
+			range: { days: 7, kind: "rolling" },
+		}),
+	),
 );
 
 export const recentPersonalBestsQuery = createRyotQuery<
 	{ readonly timeZone: TimeZone },
 	{ readonly recentCount: number; readonly items: readonly HomePersonalBest[] }
->(({ input, client, schedule }) =>
-	Effect.suspend(() => {
-		const { current } = resolveReportingSelection(
-			{ grouping: "day", comparison: "none", range: { kind: "rolling", days: RECENT_DAYS } },
-			{ now: schedule.now(), timeZone: input.timeZone },
-		);
-		if (current === null) {
-			return Effect.die(new Error("Recent personal bests require a bounded reporting period"));
-		}
-		return client.data.query(
-			recentPersonalBestsRecipe({
-				since: current.startAt,
-				limit: PERSONAL_BEST_LIMIT,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
-		);
-	}),
+>(({ client }) =>
+	client.data.query(
+		recentPersonalBestsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		reportingArguments({
+			grouping: "day",
+			comparison: "none",
+			range: { kind: "rolling", days: RECENT_DAYS },
+		}),
+		{ pages: { recent: { limit: PERSONAL_BEST_LIMIT } } },
+	),
 );
 
 export const homeTemplatesQuery = createRyotQuery<
@@ -78,11 +65,13 @@ export const homeTemplatesQuery = createRyotQuery<
 	Effect.gen(function* () {
 		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 		const templates = yield* client.data.query(
-			homeTemplatesRecipe({ reference, limit: TEMPLATE_LIMIT }),
+			homeTemplatesRecipe({ reference: reference }),
+			{},
+			{ pages: { templates: { limit: TEMPLATE_LIMIT } } },
 		);
 		const exerciseIds = new Set(templates.flatMap(({ exerciseIds: ids }) => ids));
 		const targets = yield* batched(exerciseIds, (ids) =>
-			client.data.query(workoutExerciseTargetsRecipe({ reference, exerciseIds: ids })),
+			client.data.query(workoutExerciseTargetsRecipe({ reference }), { exerciseIds: ids }),
 		);
 		return { targets, templates };
 	}),

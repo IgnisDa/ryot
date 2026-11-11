@@ -9,6 +9,7 @@ import {
 	pluginContributor,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -630,7 +631,7 @@ const mountCustomExercise = () => {
 					outcome: "success",
 					response: {
 						data: Object.fromEntries(
-							Object.keys(request.document.queries).map((key) => [
+							Object.keys(bindTestRequest(request.request).queries).map((key) => [
 								key,
 								pickerRows(
 									key === "exercises"

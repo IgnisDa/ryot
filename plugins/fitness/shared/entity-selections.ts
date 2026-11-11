@@ -11,12 +11,10 @@ import {
 	jsonPath,
 	or,
 	selectedField,
-	type table,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
 
-type Table = ReturnType<typeof table>;
-
+type Table = Parameters<typeof column>[0];
 export const entityIdentitySelection = (entity: Table) => ({
 	id: selectedField(column(entity, "id"), EntityId),
 	name: selectedField(column(entity, "name"), Schema.String),

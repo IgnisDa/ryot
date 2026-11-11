@@ -61,11 +61,15 @@ export default defineAutomationPolicy({
 				}
 				const targets = yield* executeRyotqlRecipe(
 					host.executeRyotql,
-					exerciseTargetsRecipe(input),
+					exerciseTargetsRecipe({ reference: input.reference }),
+					{ exerciseId: input.exerciseId },
+					{ pages: { targets: { after: undefined, limit: input.limit } } },
 				);
 				const equipment = yield* executeRyotqlRecipe(
 					host.executeRyotql,
-					exerciseEquipmentRecipe(input),
+					exerciseEquipmentRecipe({ reference: input.reference }),
+					{ exerciseId: input.exerciseId },
+					{ pages: { equipment: { after: undefined, limit: input.limit } } },
 				);
 				if (targets.pageInfo.hasMore || equipment.pageInfo.hasMore) {
 					results.push({

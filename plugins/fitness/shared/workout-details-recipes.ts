@@ -14,6 +14,7 @@ import {
 	literal,
 	lt,
 	NullableNumber,
+	parameters,
 	ProjectionProcessing,
 	type Recipe,
 	schemaOwnerPredicate,
@@ -42,8 +43,7 @@ import { WorkoutSetLotSchema } from "./workout-set";
 import type { WorkoutTaxonomy } from "./workout-taxonomy-recipes";
 import { DurationUnitSchema } from "./workout-units";
 
-type Table = ReturnType<typeof table>;
-
+type Table = Parameters<typeof column>[0];
 const nullableString = Schema.NullOr(Schema.String);
 const order = Schema.Int.check(Schema.isGreaterThanOrEqualTo(0));
 
@@ -125,192 +125,213 @@ const priorSession = (workout: Table, exercise: Table, pick: "startedAt" | "sess
 		),
 	});
 };
-
-export const workoutDetailsExercisesRecipe = defineRecipe(
-	(input: {
-		readonly workoutId: string;
-		readonly after?: string | undefined;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const workout = table("entity", "workout");
-		const exercise = table("entity", "exercise");
-		const currentSet = table("event", "currentWorkoutSet");
-		const membership = table("relationship", "detailExerciseMembership");
-		return {
-			map: ({ exercises }) => Result.succeed(exercises),
-			queries: {
-				exercises: selectedRows(exercise, {
-					limit: 100,
-					after: input.after,
-					orderBy: [ascending(column(exercise, "id"))],
-					joins: [
-						join(
-							"inner",
-							workout,
-							and(
-								entitySchemaPredicate(workout, "workout", input.reference),
-								eq(column(workout, "id"), literal(input.workoutId)),
-							),
+export const workoutDetailsExercisesRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			workoutId: {
+				type: "string",
+				label: "Workout Id",
+				validation: { required: true },
+				description: "Workout Id for this selection",
+			},
+		},
+	});
+	const workout = table("entity", "workout");
+	const exercise = table("entity", "exercise");
+	const currentSet = table("event", "currentWorkoutSet");
+	const membership = table("relationship", "detailExerciseMembership");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ exercises }) => Result.succeed(exercises),
+		queries: {
+			exercises: selectedRows(exercise, {
+				limit: 100,
+				orderBy: [ascending(column(exercise, "id"))],
+				joins: [
+					join(
+						"inner",
+						workout,
+						and(
+							entitySchemaPredicate(workout, "workout", input.reference),
+							eq(column(workout, "id"), inputParameters.value("workoutId")),
 						),
-					],
-					where: and(
-						eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
-						eq(column(exercise, "entitySchemaPluginId"), column(workout, "entitySchemaPluginId")),
-						exists(currentSet, {
+					),
+				],
+				where: and(
+					eq(column(exercise, "entitySchemaSlug"), literal("exercise")),
+					eq(column(exercise, "entitySchemaPluginId"), column(workout, "entitySchemaPluginId")),
+					exists(currentSet, {
+						where: and(
+							eq(column(currentSet, "entityId"), column(exercise, "id")),
+							eq(
+								column(currentSet, "eventSchemaPluginId"),
+								column(workout, "entitySchemaPluginId"),
+							),
+							eq(column(currentSet, "sessionEntityId"), column(workout, "id")),
+							eq(column(currentSet, "eventSchemaSlug"), literal("workout-set")),
+						),
+					}),
+				),
+				selection: {
+					id: selectedField(column(exercise, "id"), Schema.String),
+					name: selectedField(column(exercise, "name"), Schema.String),
+					images: selectedField(
+						propertyJson(exercise, "images"),
+						Schema.NullOr(ImageLocatorsSchema),
+					),
+					previousWorkoutId: selectedField(
+						priorSession(workout, exercise, "sessionEntityId"),
+						nullableString,
+					),
+					previousWorkoutStartedAt: selectedField(
+						priorSession(workout, exercise, "startedAt"),
+						nullableString,
+					),
+					defaultDurationUnit: selectedField(
+						first(membership, {
+							orderBy: [ascending(column(membership, "id"))],
+							select: property(membership, "defaultDurationUnit"),
 							where: and(
-								eq(column(currentSet, "entityId"), column(exercise, "id")),
-								eq(
-									column(currentSet, "eventSchemaPluginId"),
-									column(workout, "entitySchemaPluginId"),
-								),
-								eq(column(currentSet, "sessionEntityId"), column(workout, "id")),
-								eq(column(currentSet, "eventSchemaSlug"), literal("workout-set")),
+								schemaOwnerPredicate(membership, "relationshipSchemaPluginId", input.reference),
+								eq(column(membership, "relationshipSchemaSlug"), literal("in-fitness-library")),
+								eq(column(membership, "sourceEntityId"), column(exercise, "id")),
+								isNotNull(column(membership, "userId")),
 							),
 						}),
+						Schema.NullOr(DurationUnitSchema),
 					),
-					selection: {
-						id: selectedField(column(exercise, "id"), Schema.String),
-						name: selectedField(column(exercise, "name"), Schema.String),
-						images: selectedField(
-							propertyJson(exercise, "images"),
-							Schema.NullOr(ImageLocatorsSchema),
-						),
-						previousWorkoutId: selectedField(
-							priorSession(workout, exercise, "sessionEntityId"),
-							nullableString,
-						),
-						previousWorkoutStartedAt: selectedField(
-							priorSession(workout, exercise, "startedAt"),
-							nullableString,
-						),
-						defaultDurationUnit: selectedField(
-							first(membership, {
-								orderBy: [ascending(column(membership, "id"))],
-								select: property(membership, "defaultDurationUnit"),
-								where: and(
-									schemaOwnerPredicate(membership, "relationshipSchemaPluginId", input.reference),
-									eq(column(membership, "relationshipSchemaSlug"), literal("in-fitness-library")),
-									eq(column(membership, "sourceEntityId"), column(exercise, "id")),
-									isNotNull(column(membership, "userId")),
-								),
-							}),
-							Schema.NullOr(DurationUnitSchema),
-						),
-					},
-				}),
+				},
+			}),
+		},
+	});
+};
+export const workoutDetailsSetsRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			exerciseId: {
+				type: "string",
+				label: "Exercise Id",
+				description: "Exercise Id for this selection",
 			},
-		};
-	},
-);
-
-export const workoutDetailsSetsRecipe = defineRecipe(
-	(input: {
-		readonly workoutId: string;
-		readonly after?: string | undefined;
-		readonly exerciseId?: string | undefined;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const set = table("event", "workoutSet");
-		const exercise = table("entity", "exercise");
-		return {
-			map: ({ sets }) => Result.succeed(sets),
-			queries: {
-				sets: selectedRows(set, {
-					limit: 100,
-					after: input.after,
-					orderBy: [...setOrdering(set), ascending(column(set, "id"))],
-					joins: [join("inner", exercise, eq(column(set, "entityId"), column(exercise, "id")))],
-					where: and(
-						schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
-						entitySchemaPredicate(exercise, "exercise", input.reference),
-						eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-						eq(column(set, "sessionEntityId"), literal(input.workoutId)),
-						...(input.exerciseId === undefined
-							? []
-							: [eq(column(set, "entityId"), literal(input.exerciseId))]),
-					),
-					selection: {
-						...setMeasurementsSelection(set),
-						id: selectedField(column(set, "id"), Schema.String),
-						note: selectedField(property(set, "note"), nullableString),
-						rpe: selectedField(propertyNumber(set, "rpe"), NullableNumber),
-						exerciseId: selectedField(column(set, "entityId"), Schema.String),
-						oneRm: selectedField(projectionNumber(set, "oneRm"), NullableNumber),
-						restTime: selectedField(propertyNumber(set, "restTime"), NullableNumber),
-						setOrder: selectedField(propertyNumber(set, "setOrder"), NullableNumber),
-						confirmedAt: selectedField(propertyDate(set, "confirmedAt"), nullableString),
-						exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
-						setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
-						recordStatus: selectedField(column(set, "projectionStatus"), ProjectionProcessing),
-						personalBests: selectedField(
-							projectionProperty(set, "personalBests"),
-							Schema.NullOr(Schema.Array(PersonalBestSchema)),
-						),
-					},
-				}),
+			workoutId: {
+				type: "string",
+				label: "Workout Id",
+				validation: { required: true },
+				description: "Workout Id for this selection",
 			},
-		};
-	},
-);
-
-export const workoutDetailsRecipe = defineRecipe(
-	(input: { readonly workoutId: string; readonly reference: PluginIdentityReference }) => {
-		const workout = table("entity", "workout");
-		return {
-			map: ({ workout: result }) => Result.succeed(result ?? null),
-			queries: {
-				workout: selectedOptionalRow(workout, {
-					orderBy: [ascending(column(workout, "id"))],
-					include: {
-						repeatedFrom: repeatedFromInclude(workout),
-						template: workoutTemplateInclude(workout, 1),
-					},
-					where: and(
-						eq(column(workout, "id"), literal(input.workoutId)),
-						entitySchemaPredicate(workout, "workout", input.reference),
+		},
+	});
+	const set = table("event", "workoutSet");
+	const exercise = table("entity", "exercise");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ sets }) => Result.succeed(sets),
+		queries: {
+			sets: selectedRows(set, {
+				limit: 100,
+				orderBy: [...setOrdering(set), ascending(column(set, "id"))],
+				joins: [join("inner", exercise, eq(column(set, "entityId"), column(exercise, "id")))],
+				where: and(
+					schemaOwnerPredicate(set, "eventSchemaPluginId", input.reference),
+					entitySchemaPredicate(exercise, "exercise", input.reference),
+					eq(column(set, "eventSchemaSlug"), literal("workout-set")),
+					eq(column(set, "sessionEntityId"), inputParameters.value("workoutId")),
+					inputParameters.whenSet(
+						"exerciseId",
+						eq(column(set, "entityId"), inputParameters.value("exerciseId")),
 					),
-					selection: {
-						...workoutSelection(workout),
-						activeDuration: selectedField(
-							propertyNumber(workout, "activeDuration"),
-							NullableNumber,
-						),
-						images: selectedField(
-							propertyJson(workout, "images"),
-							Schema.NullOr(ImageLocatorsSchema),
-						),
-						videos: selectedField(
-							propertyJson(workout, "videos"),
-							Schema.NullOr(ImageLocatorsSchema),
-						),
-						supersets: selectedField(
-							propertyJson(workout, "supersets"),
-							Schema.NullOr(SupersetsSchema),
-						),
-						exerciseNotes: selectedField(
-							propertyJson(workout, "exerciseNotes"),
-							Schema.NullOr(ExerciseNotesSchema),
-						),
-						exerciseMedia: selectedField(
-							propertyJson(workout, "exerciseMedia"),
-							Schema.NullOr(
-								Schema.Array(
-									Schema.Struct({
-										exerciseOrder: order,
-										images: ImageLocatorsSchema,
-										videos: ImageLocatorsSchema,
-									}),
-								),
+				),
+				selection: {
+					...setMeasurementsSelection(set),
+					id: selectedField(column(set, "id"), Schema.String),
+					note: selectedField(property(set, "note"), nullableString),
+					rpe: selectedField(propertyNumber(set, "rpe"), NullableNumber),
+					exerciseId: selectedField(column(set, "entityId"), Schema.String),
+					oneRm: selectedField(projectionNumber(set, "oneRm"), NullableNumber),
+					restTime: selectedField(propertyNumber(set, "restTime"), NullableNumber),
+					setOrder: selectedField(propertyNumber(set, "setOrder"), NullableNumber),
+					confirmedAt: selectedField(propertyDate(set, "confirmedAt"), nullableString),
+					exerciseKind: selectedField(property(set, "exerciseKind"), exerciseKindSchema),
+					setLot: selectedField(property(set, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
+					recordStatus: selectedField(column(set, "projectionStatus"), ProjectionProcessing),
+					personalBests: selectedField(
+						projectionProperty(set, "personalBests"),
+						Schema.NullOr(Schema.Array(PersonalBestSchema)),
+					),
+				},
+			}),
+		},
+	});
+};
+export const workoutDetailsRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			workoutId: {
+				type: "string",
+				label: "Workout Id",
+				validation: { required: true },
+				description: "Workout Id for this selection",
+			},
+		},
+	});
+	const workout = table("entity", "workout");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ workout: result }) => Result.succeed(result ?? null),
+		queries: {
+			workout: selectedOptionalRow(workout, {
+				orderBy: [ascending(column(workout, "id"))],
+				include: {
+					repeatedFrom: repeatedFromInclude(workout),
+					template: workoutTemplateInclude(workout, 1),
+				},
+				where: and(
+					eq(column(workout, "id"), inputParameters.value("workoutId")),
+					entitySchemaPredicate(workout, "workout", input.reference),
+				),
+				selection: {
+					...workoutSelection(workout),
+					activeDuration: selectedField(propertyNumber(workout, "activeDuration"), NullableNumber),
+					images: selectedField(
+						propertyJson(workout, "images"),
+						Schema.NullOr(ImageLocatorsSchema),
+					),
+					videos: selectedField(
+						propertyJson(workout, "videos"),
+						Schema.NullOr(ImageLocatorsSchema),
+					),
+					supersets: selectedField(
+						propertyJson(workout, "supersets"),
+						Schema.NullOr(SupersetsSchema),
+					),
+					exerciseNotes: selectedField(
+						propertyJson(workout, "exerciseNotes"),
+						Schema.NullOr(ExerciseNotesSchema),
+					),
+					exerciseMedia: selectedField(
+						propertyJson(workout, "exerciseMedia"),
+						Schema.NullOr(
+							Schema.Array(
+								Schema.Struct({
+									exerciseOrder: order,
+									images: ImageLocatorsSchema,
+									videos: ImageLocatorsSchema,
+								}),
 							),
 						),
-					},
-				}),
-			},
-		};
-	},
-);
-
-export type WorkoutDetails = NonNullable<Recipe.Success<typeof workoutDetailsRecipe>> & {
+					),
+				},
+			}),
+		},
+	});
+};
+export type WorkoutDetails = NonNullable<
+	Recipe.Success<ReturnType<typeof workoutDetailsRecipe>>
+> & {
 	readonly taxonomy: readonly WorkoutTaxonomy[];
 	readonly exercises: {
 		readonly items: ReadonlyArray<
@@ -328,5 +349,7 @@ export type WorkoutDetails = NonNullable<Recipe.Success<typeof workoutDetailsRec
 		>;
 	};
 };
-type DetailsSetPage = Recipe.Success<typeof workoutDetailsSetsRecipe>;
-type DetailsExercise = Recipe.Success<typeof workoutDetailsExercisesRecipe>["items"][number];
+type DetailsSetPage = Recipe.Success<ReturnType<typeof workoutDetailsSetsRecipe>>;
+type DetailsExercise = Recipe.Success<
+	ReturnType<typeof workoutDetailsExercisesRecipe>
+>["items"][number];

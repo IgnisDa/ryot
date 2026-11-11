@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import { automationPolicyInputSchema } from "@ryot-app/plugin-backend-sdk/automation";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 
@@ -77,7 +78,7 @@ const host = (hasMore = false) =>
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data: Object.fromEntries(
-					Object.keys(document.queries).map((key) => [
+					Object.keys(bindTestRequest(document).queries).map((key) => [
 						key,
 						{
 							type: "rows",

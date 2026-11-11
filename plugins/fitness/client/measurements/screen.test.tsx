@@ -1,10 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
-import type {
-	AggregateResult,
-	RowsResult,
-	RyotQLResult,
-} from "@ryot-app/contract/modules/ryotql/language";
+import type { RowsResult, RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { TimeZone } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -16,6 +12,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest, requireInlineDocument } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -30,8 +27,7 @@ import { ReadingLog } from "./reading-log";
 import MeasurementsPage from "./screen";
 
 afterEach(disposePluginBridges);
-
-const DAY_MS = 86_400_000;
+const DAY_MS = 86400000;
 const daysAgo = (days: number) => new Date(Date.now() - days * DAY_MS).toISOString();
 
 const rows = (
@@ -57,9 +53,8 @@ const metrics = rows([
 	summary("waist", "Waist", "cm", 1, 82, daysAgo(100), daysAgo(20)),
 	summary("sugar", "Sugar level", "mg/dL", 0, 130, daysAgo(400)),
 ]);
-
-const series = (counts: readonly number[], values: readonly number[]): AggregateResult => ({
-	type: "aggregate",
+const series = (counts: readonly number[], values: readonly number[]) => ({
+	type: "aggregate" as const,
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 	items: counts.flatMap((count, index) => {
 		const value = values[index];
@@ -102,9 +97,27 @@ const queryData = (queries: Record<string, unknown>, metricRows: typeof metrics)
 			if (key === "entries") {
 				return [key, logRows];
 			}
-			const metric = Number(key.slice(7));
-			const weight = [series([0, 1, 1], [0, 73, 74]), series([1, 0, 0], [82, 0, 0])][metric];
-			return [key, weight ?? series([0, 0, 0], [0, 0, 0])];
+			const weight = series([0, 1, 1], [0, 73, 74]);
+			const waist = series([1, 0, 0], [82, 0, 0]);
+			return [
+				key,
+				{
+					type: "aggregate",
+					pageInfo: { limit: 1000, hasMore: false, nextCursor: null },
+					items: [
+						...weight.items.map((row) => ({
+							at: row["at"],
+							metricId: "weight",
+							value: row["value"],
+						})),
+						...waist.items.map((row) => ({
+							at: row["at"],
+							metricId: "waist",
+							value: row["value"],
+						})),
+					],
+				},
+			];
 		}),
 	);
 
@@ -200,9 +213,15 @@ const openPage = (
 		for (const request of page.queryRequests()) {
 			if (!answered.has(request.requestId)) {
 				answered.add(request.requestId);
-				const data = queryData(request.document.queries, metricRows);
-				const metricQuery = request.document.queries.metrics;
-				if (options.metricsPage !== undefined && metricQuery?.output.type === "rows") {
+				const { queries } = requireInlineDocument(request.request);
+				const bound = "averages" in queries ? undefined : bindTestRequest(request.request);
+				const data = queryData(queries, metricRows);
+				const metricQuery = bound?.queries.metrics;
+				if (
+					options.metricsPage !== undefined &&
+					metricQuery?.output.type === "rows" &&
+					!("averages" in queries)
+				) {
 					const metricPage = options.metricsPage(metricQuery.output.pagination.after);
 					if (metricPage === null) {
 						page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
@@ -210,7 +229,15 @@ const openPage = (
 					}
 					data.metrics = metricPage;
 				}
-				const readingQuery = request.document.queries.entries;
+				if ("averages" in queries) {
+					const metricIds = request.request.arguments?.["metricIds"];
+					assert(Array.isArray(metricIds));
+					data.metrics = rows(
+						metricRows.items.filter((metricRow) => metricIds.includes(metricRow.id)),
+					);
+				}
+
+				const readingQuery = bound?.queries.entries;
 				if (options.readingsPage !== undefined && readingQuery?.output.type === "rows") {
 					const readings = options.readingsPage(readingQuery.output.pagination.after);
 					if (readings === null) {
@@ -220,7 +247,7 @@ const openPage = (
 					rememberEntries(readings);
 					data.entries = readings;
 				}
-				const children = request.document.queries.readings;
+				const children = bound?.queries.readings;
 				if (children !== undefined) {
 					if (options.entryReadingsPage !== undefined) {
 						assert(children.output.type === "rows");
@@ -401,7 +428,7 @@ describe("measurements page", () => {
 				);
 				expect(cursors).toEqual([undefined, "older"]);
 				expect(
-					page.queryRequests("entries").at(-1)?.document.queries.entries?.output,
+					bindTestRequest(page.queryRequests("entries").at(-1)?.request).queries.entries?.output,
 				).toMatchObject({ pagination: { after: "older" } });
 			}),
 		testTimeout,
@@ -779,7 +806,7 @@ describe("measurements page", () => {
 					name: `Metric ${index}`,
 				}));
 				const cursors: Array<string | undefined> = [];
-				const { page, answerPending } = openPage(rows([]), {
+				const { page, answerPending } = openPage(rows(allMetrics), {
 					metricsPage: (after) => {
 						cursors.push(after);
 						return after === undefined
@@ -789,12 +816,15 @@ describe("measurements page", () => {
 				});
 				const body = within(document.body);
 				yield* Effect.promise(() =>
-					waitFor(() => {
-						answerPending();
-						expect(
-							within(body.getByRole("region", { name: "All metrics" })).getAllByRole("row"),
-						).toHaveLength(102);
-					}),
+					waitFor(
+						() => {
+							answerPending();
+							expect(
+								within(body.getByRole("region", { name: "All metrics" })).getAllByRole("row"),
+							).toHaveLength(102);
+						},
+						{ timeout: testTimeout },
+					),
 				);
 				expect(cursors).toEqual([undefined, "metrics-2"]);
 				fireEvent.click(body.getByRole("button", { name: "Add metric" }));

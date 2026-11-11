@@ -24,7 +24,7 @@ import type { WorkoutDetails } from "./workout-details-recipes";
 import { requiredWorkoutMeasurementsByKind } from "./workout-set";
 import type { ConvertedMeasure } from "./workout-units";
 
-type Table = ReturnType<typeof table>;
+type Table = Parameters<typeof column>[0];
 
 const count = (one: string, other = `${one}s`) => ({ one, other, kind: "count" as const });
 const seconds = { from: "seconds", kind: "duration" } as const;
@@ -78,7 +78,7 @@ export const personalBestAwardCount = (set: Table) =>
 
 export const workoutSetProcessing = (
 	reference: PluginIdentityReference,
-	scope: { readonly workoutId?: string | undefined; readonly exerciseId?: string | undefined } = {},
+	where: ReturnType<typeof and> = and(),
 ) => {
 	const set = table("event", "workoutSetProcessing");
 	return selectedAggregate(set, {
@@ -86,12 +86,7 @@ export const workoutSetProcessing = (
 		where: and(
 			schemaOwnerPredicate(set, "eventSchemaPluginId", reference),
 			eq(column(set, "eventSchemaSlug"), literal("workout-set")),
-			...(scope.exerciseId === undefined
-				? []
-				: [eq(column(set, "entityId"), literal(scope.exerciseId))]),
-			...(scope.workoutId === undefined
-				? []
-				: [eq(column(set, "sessionEntityId"), literal(scope.workoutId))]),
+			where,
 		),
 	});
 };

@@ -2,15 +2,19 @@ import {
 	type AnalyticsSectionProps,
 	calendarBuckets,
 	periodCaption,
+	type PluginIdentityReference,
 	type ReportingExecution,
 	type ReportingPeriod,
 	type ReportingSelection,
+	type ResolvedReportingSelection,
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 import { measureUnit, type MetricUnit } from "@ryot-app/plugin-ui-sdk";
 
 import type {
+	FitnessAnalyticsFilter,
+	FitnessAnalyticsMetric,
 	fitnessAnalyticsTotalsRecipe,
 	fitnessAnalyticsTrendRecipe,
 	fitnessAnalyticsWorkoutsRecipe,
@@ -26,6 +30,7 @@ import type { WorkoutPreferenceSettings } from "../../shared/workout-editor-pref
 import { type ConvertedMeasure, displayMeasure } from "../../shared/workout-units";
 
 export type AnalyticsScope = AnalyticsSectionProps;
+export type AnalyticsMetric = FitnessAnalyticsMetric;
 export type AnalyticsTrendPoint = AnalyticsTrend["points"][number];
 export type AnalyticsFilter = NonNullable<AnalyticsInput["filter"]>;
 export type AnalyticsRankingRow = AnalyticsRanking["items"][number];
@@ -33,31 +38,41 @@ export type MeasurementMetric = MeasurementMetrics["items"][number];
 export type AnalyticsWorkoutRow = AnalyticsWorkouts["items"][number];
 export type MeasurementReading = MeasurementReadings["items"][number];
 export type MeasurementTrendPoint = MeasurementTrend["points"][number];
-export type AnalyticsTrend = Recipe.Success<typeof fitnessAnalyticsTrendRecipe>;
-export type MeasurementMetrics = Recipe.Success<typeof measurementSummaryRecipe>;
-export type AnalyticsTotals = Recipe.Success<typeof fitnessAnalyticsTotalsRecipe>;
-export type WorkoutHours = Recipe.Success<typeof fitnessWorkoutStartsByHourRecipe>;
-export type MeasurementTrend = Recipe.Success<typeof fitnessMeasurementTrendRecipe>;
-export type AnalyticsRanking = Recipe.Success<typeof historicalFitnessRankingRecipe>;
-export type AnalyticsWorkouts = Recipe.Success<typeof fitnessAnalyticsWorkoutsRecipe>;
-export type AnalyticsMetric = Parameters<typeof fitnessAnalyticsTrendRecipe>[0]["metric"];
-export type MeasurementReadings = Recipe.Success<typeof fitnessMeasurementReadingsRecipe>;
-
+export type MeasurementMetrics = Recipe.Success<ReturnType<typeof measurementSummaryRecipe>>;
+export type AnalyticsTotals = Recipe.Success<ReturnType<typeof fitnessAnalyticsTotalsRecipe>>;
+export type WorkoutHours = Recipe.Success<ReturnType<typeof fitnessWorkoutStartsByHourRecipe>>;
+export type AnalyticsRanking = Recipe.Success<ReturnType<typeof historicalFitnessRankingRecipe>>;
+export type AnalyticsWorkouts = Recipe.Success<ReturnType<typeof fitnessAnalyticsWorkoutsRecipe>>;
+export type MeasurementReadings = Recipe.Success<
+	ReturnType<typeof fitnessMeasurementReadingsRecipe>
+>;
 export type AnalyticsDisplayPreferences = Pick<
 	WorkoutPreferenceSettings,
 	"unitSystem" | "energyUnit"
 >;
-export type AnalyticsInput = Omit<RecipeInput, "reporting"> & {
-	readonly timeZone: TimeZone;
-	readonly selection: ReportingSelection;
-};
 export type WorkoutDrillRequest = {
 	readonly title: string;
 	readonly periodCaption: string;
 	readonly filter?: AnalyticsFilter;
 	readonly selection: ReportingSelection;
 };
-type RecipeInput = Parameters<typeof fitnessAnalyticsTotalsRecipe>[0];
+
+export type AnalyticsInput = {
+	readonly timeZone: TimeZone;
+	readonly selection: ReportingSelection;
+	readonly filter?: FitnessAnalyticsFilter;
+	readonly reference: PluginIdentityReference;
+};
+export type MeasurementTrend = Recipe.Success<ReturnType<typeof fitnessMeasurementTrendRecipe>> & {
+	readonly metricId: string;
+	readonly period: null | ReportingPeriod;
+	readonly grouping: ResolvedReportingSelection["grouping"];
+};
+export type AnalyticsTrend = Recipe.Success<ReturnType<typeof fitnessAnalyticsTrendRecipe>> & {
+	readonly metric: FitnessAnalyticsMetric;
+	readonly period: null | ReportingPeriod;
+	readonly grouping: ResolvedReportingSelection["grouping"];
+};
 
 export const metricDisplay = (
 	metric: keyof typeof fitnessMetricDefinitions,

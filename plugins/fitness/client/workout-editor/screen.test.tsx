@@ -12,6 +12,7 @@ import {
 	routeLocation,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -202,7 +203,7 @@ const openEditor = (
 		Parameters<typeof page.replyQuery>[1],
 		{ readonly outcome: "success" }
 	>;
-	type QueryData = QuerySuccess["response"]["data"];
+	type QueryData = Extract<QuerySuccess["response"], { readonly data: unknown }>["data"];
 	const answerPending = () => {
 		for (const request of page.clientMessages()) {
 			if (
@@ -289,10 +290,10 @@ const openEditor = (
 				}
 			} else if (request.type === "ryotql-request") {
 				const data: Record<string, QueryData[string]> = {};
-				for (const queryName of Object.keys(request.document.queries)) {
+				for (const queryName of Object.keys(bindTestRequest(request.request).queries)) {
 					if (
 						queryName === "exercises" &&
-						JSON.stringify(request.document).includes("pickerExercise")
+						JSON.stringify(bindTestRequest(request.request)).includes("pickerExercise")
 					) {
 						data[queryName] = rows(pickerExercises);
 					} else if (queryName === "exercises") {

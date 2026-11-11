@@ -44,6 +44,7 @@ export function AnalyticsWorkoutDrill(props: {
 		selection: props.request.selection,
 		...(props.request.filter === undefined ? {} : { filter: props.request.filter }),
 	});
+	const firstPage = result.pages[0];
 	const items = useMemo(
 		() =>
 			paginationItems(
@@ -104,7 +105,7 @@ export function AnalyticsWorkoutDrill(props: {
 					{result.pages.length === 0 && !result.isError ? (
 						<StatusMessage tone="pending">Loading workouts…</StatusMessage>
 					) : null}
-					{result.pages.length > 0 ? (
+					{firstPage !== undefined ? (
 						<>
 							{result.operation === "refresh" ? (
 								<StatusMessage tone="pending">Refreshing workouts…</StatusMessage>
@@ -124,7 +125,7 @@ export function AnalyticsWorkoutDrill(props: {
 							{items.length === 0 ? (
 								<EmptyState title="No contributing workouts" />
 							) : (
-								<WorkoutTable items={items} timeZone={props.scope.timeZone} />
+								<WorkoutTable items={items} timeZone={firstPage.reporting.resolved.timeZone} />
 							)}
 							{result.hasNextPage && !result.isError ? (
 								<LoadMoreButton

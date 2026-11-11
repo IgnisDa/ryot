@@ -1,10 +1,10 @@
+import type {
+	CalendarUnit as ImportedCalendarUnit,
+	TimeZone as ImportedTimeZone,
+} from "@ryot-app/plugin-kit/schema";
 import { addCalendarUnits, localDateOf } from "@ryot-app/plugin-kit/schema";
 
-import type {
-	MeasurementSeries,
-	measurementSeriesRecipe,
-	MeasurementSummary,
-} from "./measurement-recipes";
+import type { MeasurementSeries, MeasurementSummary } from "./measurement-recipes";
 
 const measurementMetricUnits = new Map([
 	["fat", "%"],
@@ -32,8 +32,10 @@ export const measurementMetricKey = (name: string) =>
 export type MetricSort = "az" | "recent" | "changed";
 type Points = readonly MeasurementSeries["points"][number][];
 type TrendPoint = Omit<Points[number], "value"> & { readonly value: null | number };
-type SeriesCalendar = Pick<Parameters<typeof measurementSeriesRecipe>[0], "bucket" | "timeZone">;
-
+type SeriesCalendar = {
+	readonly timeZone: ImportedTimeZone;
+	readonly bucket: ImportedCalendarUnit;
+};
 const trendWindow = (pointCount: number) => (pointCount > 40 ? 7 : 3);
 
 const rollingAverage = (points: Points): Points => {

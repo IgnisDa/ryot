@@ -1,9 +1,11 @@
 import { expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+
 import { userFitnessLibraryRecipe } from "./library-recipes";
 
 it("selects the user-owned fitness library and rejects a missing row", () => {
-	const recipe = userFitnessLibraryRecipe({ kind: "self" });
+	const recipe = bindRecipe(userFitnessLibraryRecipe({ kind: "self" }), {});
 	expect(recipe.document.queries.fitnessLibrary?.where).toEqual({
 		type: "and",
 		predicates: [

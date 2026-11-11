@@ -14,7 +14,6 @@ import {
 	eq,
 	first,
 	groupAscending,
-	gte,
 	join,
 	jsonArrayCount,
 	jsonArrayExists,
@@ -22,8 +21,11 @@ import {
 	jsonPath,
 	literal,
 	NullableNumber,
+	parameters,
 	type Recipe,
 	relationshipSchemaPredicate,
+	reportingParameterFields,
+	reportingSincePredicate,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -51,88 +53,83 @@ type Reference = PluginIdentityReference;
 const nullableString = Schema.NullOr(Schema.String);
 const templateSlug = "workout-to-workout-template";
 const MUSCLE_TARGET_LIMIT = 100;
-
-export const muscleActivityRecipe = defineRecipe(
-	(input: { readonly weekStartAt: string; readonly reference: Reference }) => {
-		const target = table("entity", "muscleTarget");
-		const link = table("event", "muscleOccurrence");
-		const element = jsonElementsJoin("inner", "muscleTargetElement", propertyJson(link, "targets"));
-		const set = table("event", "muscleSet");
-		const startedAt = column(link, "occurredAt");
-		return {
-			map: ({ targets, activity }) => {
-				const trained = new Map(activity.items.map((item) => [item.id, item]));
-				return Result.succeed(
-					targets.items
-						.map((item) => ({
-							...item,
-							weeklySets: trained.get(item.id)?.weeklySets ?? 0,
-							lastTrainedAt: trained.get(item.id)?.lastTrainedAt ?? null,
-						}))
-						.sort((left, right) => {
-							if (left.lastTrainedAt === null || right.lastTrainedAt === null) {
-								return (
-									Number(right.lastTrainedAt === null) - Number(left.lastTrainedAt === null) ||
-									left.name.localeCompare(right.name)
-								);
-							}
+export const muscleActivityRecipe = (input: { readonly reference: Reference }) => {
+	const inputParameters = parameters({ fields: reportingParameterFields });
+	const target = table("entity", "muscleTarget");
+	const link = table("event", "muscleOccurrence");
+	const element = jsonElementsJoin("inner", "muscleTargetElement", propertyJson(link, "targets"));
+	const set = table("event", "muscleSet");
+	const startedAt = column(link, "occurredAt");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ targets, activity }) => {
+			const trained = new Map(activity.items.map((item) => [item.id, item]));
+			return Result.succeed(
+				targets.items
+					.map((item) => ({
+						...item,
+						weeklySets: trained.get(item.id)?.weeklySets ?? 0,
+						lastTrainedAt: trained.get(item.id)?.lastTrainedAt ?? null,
+					}))
+					.sort((left, right) => {
+						if (left.lastTrainedAt === null || right.lastTrainedAt === null) {
 							return (
-								Date.parse(left.lastTrainedAt) - Date.parse(right.lastTrainedAt) ||
+								Number(right.lastTrainedAt === null) - Number(left.lastTrainedAt === null) ||
 								left.name.localeCompare(right.name)
 							);
-						}),
-				);
-			},
-			queries: {
-				targets: selectedRows(target, {
-					limit: MUSCLE_TARGET_LIMIT,
-					where: entitySchemaPredicate(target, "exercise-target", input.reference),
-					orderBy: [ascending(column(target, "name")), ascending(column(target, "id"))],
-					selection: {
-						id: selectedField(column(target, "id"), Schema.String),
-						name: selectedField(column(target, "name"), Schema.String),
-					},
-				}),
-				activity: selectedAggregate(link, {
-					limit: 1000,
-					orderBy: [groupAscending("id")],
-					joins: [element, join("inner", set, occurrenceSets(set, link))],
-					groupBy: {
-						id: selectedField(
-							castText(jsonPath(column(element, "value"), "entityId")),
-							Schema.String,
-						),
-					},
-					where: and(
-						schemaOwnerPredicate(link, "eventSchemaPluginId", input.reference),
-						eq(column(link, "eventSchemaSlug"), literal("workout-exercise")),
+						}
+						return (
+							Date.parse(left.lastTrainedAt) - Date.parse(right.lastTrainedAt) ||
+							left.name.localeCompare(right.name)
+						);
+					}),
+			);
+		},
+		queries: {
+			targets: selectedRows(target, {
+				limit: MUSCLE_TARGET_LIMIT,
+				where: entitySchemaPredicate(target, "exercise-target", input.reference),
+				orderBy: [ascending(column(target, "name")), ascending(column(target, "id"))],
+				selection: {
+					id: selectedField(column(target, "id"), Schema.String),
+					name: selectedField(column(target, "name"), Schema.String),
+				},
+			}),
+			activity: selectedAggregate(link, {
+				limit: 1000,
+				orderBy: [groupAscending("id")],
+				joins: [element, join("inner", set, occurrenceSets(set, link))],
+				groupBy: {
+					id: selectedField(
+						castText(jsonPath(column(element, "value"), "entityId")),
+						Schema.String,
 					),
-					measures: {
-						lastTrainedAt: selectedMeasure(
-							{ expr: startedAt, function: "maximum" },
-							nullableString,
-						),
-						weeklySets: selectedMeasure(
-							{
-								function: "sum",
-								expr: conditional(
-									gte(startedAt, castDate(literal(input.weekStartAt))),
-									muscleRoleSetWeight(castText(jsonPath(column(element, "value"), "role"))),
-									literal(0),
-								),
-							},
-							NullableNumber,
-						),
-					},
-				}),
-			},
-		};
-	},
-);
-
+				},
+				where: and(
+					schemaOwnerPredicate(link, "eventSchemaPluginId", input.reference),
+					eq(column(link, "eventSchemaSlug"), literal("workout-exercise")),
+				),
+				measures: {
+					lastTrainedAt: selectedMeasure({ expr: startedAt, function: "maximum" }, nullableString),
+					weeklySets: selectedMeasure(
+						{
+							function: "sum",
+							expr: conditional(
+								reportingSincePredicate(startedAt),
+								muscleRoleSetWeight(castText(jsonPath(column(element, "value"), "role"))),
+								literal(0),
+							),
+						},
+						NullableNumber,
+					),
+				},
+			}),
+		},
+	});
+};
 const recentPersonalBestSelection = (
-	set: ReturnType<typeof table>,
-	exercise: ReturnType<typeof table>,
+	set: Parameters<typeof column>[0],
+	exercise: Parameters<typeof column>[0],
 ) => ({
 	id: selectedField(column(set, "id"), Schema.String),
 	exerciseId: selectedField(column(exercise, "id"), Schema.String),
@@ -148,126 +145,121 @@ const recentPersonalBestSelection = (
 		Schema.Array(PersonalBestSchema),
 	),
 });
-
-export const recentPersonalBestsRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly since: string; readonly reference: Reference }) => {
-		const set = table("event", "recordSet");
-		const exercise = table("entity", "recordExercise");
-		const countedSet = table("event", "recordCountSet");
-		const withRecords = (source: ReturnType<typeof table>) =>
-			and(
-				schemaOwnerPredicate(source, "eventSchemaPluginId", input.reference),
-				eq(column(source, "eventSchemaSlug"), literal("workout-set")),
-				jsonArrayExists(projectionProperty(source, "personalBests")),
-			);
-		return {
-			map: ({ recent, recentCount }) =>
-				Result.succeed({ items: recent.items, recentCount: recentCount.count }),
-			queries: {
-				recentCount: selectedAggregate(countedSet, {
-					measures: { count: countAll },
-					where: and(
-						withRecords(countedSet),
-						gte(column(countedSet, "occurredAt"), castDate(literal(input.since))),
-					),
-				}),
-				recent: selectedRows(set, {
-					limit: input.limit,
-					where: withRecords(set),
-					selection: recentPersonalBestSelection(set, exercise),
-					orderBy: [descending(column(set, "occurredAt")), descending(column(set, "id"))],
-					joins: [join("inner", exercise, eq(column(set, "entityId"), column(exercise, "id")))],
-				}),
-			},
-		};
-	},
-);
-
+export const recentPersonalBestsRecipe = (input: { readonly reference: Reference }) => {
+	const inputParameters = parameters({ fields: reportingParameterFields });
+	const set = table("event", "recordSet");
+	const exercise = table("entity", "recordExercise");
+	const countedSet = table("event", "recordCountSet");
+	const withRecords = (source: Parameters<typeof column>[0]) =>
+		and(
+			schemaOwnerPredicate(source, "eventSchemaPluginId", input.reference),
+			eq(column(source, "eventSchemaSlug"), literal("workout-set")),
+			jsonArrayExists(projectionProperty(source, "personalBests")),
+		);
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ recent, recentCount }) =>
+			Result.succeed({ items: recent.items, recentCount: recentCount.count }),
+		queries: {
+			recentCount: selectedAggregate(countedSet, {
+				measures: { count: countAll },
+				where: and(
+					withRecords(countedSet),
+					reportingSincePredicate(column(countedSet, "occurredAt")),
+				),
+			}),
+			recent: selectedRows(set, {
+				limit: 100,
+				where: withRecords(set),
+				selection: recentPersonalBestSelection(set, exercise),
+				orderBy: [descending(column(set, "occurredAt")), descending(column(set, "id"))],
+				joins: [join("inner", exercise, eq(column(set, "entityId"), column(exercise, "id")))],
+			}),
+		},
+	});
+};
 const epoch = castDate(literal("1970-01-01T00:00:00.000Z"));
-
-const linkedTo = (link: ReturnType<typeof table>, workout: ReturnType<typeof table>) => [
+const linkedTo = (link: Parameters<typeof column>[0], workout: Parameters<typeof column>[0]) => [
 	join("inner", workout, eq(column(link, "sourceEntityId"), column(workout, "id"))),
 ];
 
 const TemplateExercisesSchema = Schema.Array(Schema.Struct({ exerciseId: Schema.String }));
-
-export const homeTemplatesRecipe = defineRecipe(
-	(input: { readonly limit: number; readonly reference: Reference }) => {
-		const template = table("entity", "homeTemplate");
-		const lastLink = table("relationship", "homeLastLink");
-		const lastWorkout = table("entity", "homeLastWorkout");
-		const latest = table("relationship", "homeLatestLink");
-		const latestWorkout = table("entity", "homeLatestWorkout");
-		const linkWhere = (link: ReturnType<typeof table>, workout: ReturnType<typeof table>) =>
-			and(
-				relationshipSchemaPredicate(link, templateSlug, input.reference),
-				entitySchemaPredicate(workout, "workout", input.reference),
-				eq(column(link, "targetEntityId"), column(template, "id")),
-			);
-		return {
-			map: ({ templates }) =>
-				Result.succeed(
-					templates.items.map(({ exercises, lastWorkout: workouts, ...item }) => ({
-						...item,
-						lastWorkout: workouts.items[0] ?? null,
-						exerciseIds: (exercises ?? []).map(({ exerciseId }) => exerciseId),
-					})),
-				),
-			queries: {
-				templates: selectedRows(template, {
-					limit: input.limit,
-					where: entitySchemaPredicate(template, "workout-template", input.reference),
-					selection: {
-						...entityIdentitySelection(template),
-						exercises: selectedField(
-							propertyJson(template, "exercises"),
-							Schema.NullOr(TemplateExercisesSchema),
+export const homeTemplatesRecipe = (input: { readonly reference: Reference }) => {
+	const template = table("entity", "homeTemplate");
+	const lastLink = table("relationship", "homeLastLink");
+	const lastWorkout = table("entity", "homeLastWorkout");
+	const latest = table("relationship", "homeLatestLink");
+	const latestWorkout = table("entity", "homeLatestWorkout");
+	const linkWhere = (link: Parameters<typeof column>[0], workout: Parameters<typeof column>[0]) =>
+		and(
+			relationshipSchemaPredicate(link, templateSlug, input.reference),
+			entitySchemaPredicate(workout, "workout", input.reference),
+			eq(column(link, "targetEntityId"), column(template, "id")),
+		);
+	return defineRecipe({
+		map: ({ templates }) =>
+			Result.succeed(
+				templates.items.map(({ exercises, lastWorkout: workouts, ...item }) => ({
+					...item,
+					lastWorkout: workouts.items[0] ?? null,
+					exerciseIds: (exercises ?? []).map(({ exerciseId }) => exerciseId),
+				})),
+			),
+		queries: {
+			templates: selectedRows(template, {
+				limit: 100,
+				where: entitySchemaPredicate(template, "workout-template", input.reference),
+				selection: {
+					...entityIdentitySelection(template),
+					exercises: selectedField(
+						propertyJson(template, "exercises"),
+						Schema.NullOr(TemplateExercisesSchema),
+					),
+					exerciseCount: selectedField(
+						jsonArrayCount(jsonPath(column(template, "properties"), "exercises")),
+						Schema.Finite,
+					),
+				},
+				orderBy: [
+					ascending(
+						coalesce(
+							first(latest, {
+								joins: linkedTo(latest, latestWorkout),
+								where: linkWhere(latest, latestWorkout),
+								select: propertyDate(latestWorkout, "startedAt"),
+								orderBy: [descending(propertyDate(latestWorkout, "startedAt"))],
+							}),
+							epoch,
 						),
-						exerciseCount: selectedField(
-							jsonArrayCount(jsonPath(column(template, "properties"), "exercises")),
-							Schema.Finite,
-						),
-					},
-					orderBy: [
-						ascending(
-							coalesce(
-								first(latest, {
-									joins: linkedTo(latest, latestWorkout),
-									where: linkWhere(latest, latestWorkout),
-									select: propertyDate(latestWorkout, "startedAt"),
-									orderBy: [descending(propertyDate(latestWorkout, "startedAt"))],
-								}),
-								epoch,
+					),
+					ascending(column(template, "name")),
+					ascending(column(template, "id")),
+				],
+				include: {
+					lastWorkout: selectedInclude(lastLink, {
+						limit: 1,
+						joins: linkedTo(lastLink, lastWorkout),
+						where: linkWhere(lastLink, lastWorkout),
+						orderBy: [
+							descending(propertyDate(lastWorkout, "startedAt")),
+							descending(column(lastWorkout, "id")),
+						],
+						selection: {
+							endedAt: selectedField(propertyDate(lastWorkout, "endedAt"), nullableString),
+							startedAt: selectedField(propertyDate(lastWorkout, "startedAt"), nullableString),
+							activeDuration: selectedField(
+								propertyNumber(lastWorkout, "activeDuration"),
+								NullableNumber,
 							),
-						),
-						ascending(column(template, "name")),
-						ascending(column(template, "id")),
-					],
-					include: {
-						lastWorkout: selectedInclude(lastLink, {
-							limit: 1,
-							joins: linkedTo(lastLink, lastWorkout),
-							where: linkWhere(lastLink, lastWorkout),
-							orderBy: [
-								descending(propertyDate(lastWorkout, "startedAt")),
-								descending(column(lastWorkout, "id")),
-							],
-							selection: {
-								endedAt: selectedField(propertyDate(lastWorkout, "endedAt"), nullableString),
-								startedAt: selectedField(propertyDate(lastWorkout, "startedAt"), nullableString),
-								activeDuration: selectedField(
-									propertyNumber(lastWorkout, "activeDuration"),
-									NullableNumber,
-								),
-							},
-						}),
-					},
-				}),
-			},
-		};
-	},
-);
-
-export type HomeTemplate = Recipe.Success<typeof homeTemplatesRecipe>[number];
-export type MuscleActivity = Recipe.Success<typeof muscleActivityRecipe>[number];
-export type HomePersonalBest = Recipe.Success<typeof recentPersonalBestsRecipe>["items"][number];
+						},
+					}),
+				},
+			}),
+		},
+	});
+};
+export type HomeTemplate = Recipe.Success<ReturnType<typeof homeTemplatesRecipe>>[number];
+export type MuscleActivity = Recipe.Success<ReturnType<typeof muscleActivityRecipe>>[number];
+export type HomePersonalBest = Recipe.Success<
+	ReturnType<typeof recentPersonalBestsRecipe>
+>["items"][number];

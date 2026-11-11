@@ -1,6 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
 import { Result } from "@ryot-app/plugin-kit/effect";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import {
 	homeTemplatesRecipe,
@@ -21,8 +22,7 @@ const aggregate = (items: readonly Record<string, unknown>[]) => ({
 });
 
 describe("muscleActivityRecipe", () => {
-	const recipe = muscleActivityRecipe({ reference, weekStartAt: "2026-10-14T00:00:00.000Z" });
-
+	const recipe = bindRecipe(muscleActivityRecipe({ reference: reference }), {});
 	it("lists targets and aggregates occurrences once by recorded target", () => {
 		const { queries } = recipe.document;
 		expect(Object.keys(queries)).toEqual(["targets", "activity"]);
@@ -87,7 +87,7 @@ describe("muscleActivityRecipe", () => {
 describe("recentPersonalBestsRecipe", () => {
 	it("returns the newest records with the count of recent ones", () => {
 		const decoded = Result.getOrThrow(
-			recentPersonalBestsRecipe({ limit: 5, reference, since: "2026-09-21T00:00:00.000Z" }).decode({
+			bindRecipe(recentPersonalBestsRecipe({ reference: reference }), { limit: 5 }).decode({
 				data: {
 					recentCount: aggregate([{ count: 3 }]),
 					recent: rows([
@@ -112,11 +112,8 @@ describe("recentPersonalBestsRecipe", () => {
 	});
 
 	it("counts recent awards by set time without joining workouts", () => {
-		const count = recentPersonalBestsRecipe({
-			limit: 5,
-			reference,
-			since: "2026-09-21T00:00:00.000Z",
-		}).document.queries["recentCount"];
+		const count = bindRecipe(recentPersonalBestsRecipe({ reference: reference }), { limit: 5 })
+			.document.queries["recentCount"];
 		expect(count?.joins).toBeUndefined();
 		expect(JSON.stringify(count?.where)).toContain('"occurredAt"');
 	});
@@ -125,7 +122,7 @@ describe("recentPersonalBestsRecipe", () => {
 describe("homeTemplatesRecipe", () => {
 	it("flattens exercise ids and the latest linked workout", () => {
 		const decoded = Result.getOrThrow(
-			homeTemplatesRecipe({ limit: 8, reference }).decode({
+			bindRecipe(homeTemplatesRecipe({ reference: reference }), { limit: 8 }).decode({
 				data: {
 					templates: rows([
 						{

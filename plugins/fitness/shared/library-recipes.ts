@@ -23,23 +23,22 @@ export const fitnessLibraryMembership = {
 	librarySchemaSlug: "fitness-library",
 	relationshipSlug: "in-fitness-library",
 } as const;
-
-export const userFitnessLibraryRecipe = defineRecipe((reference: PluginIdentityReference) => ({
-	map: ({ fitnessLibrary }) => Result.succeed(fitnessLibrary),
-	queries: {
-		fitnessLibrary: selectedRow(entityFitnessLibrary, {
-			orderBy: [ascending(column(entityFitnessLibrary, "id"))],
-			selection: { entityId: selectedField(column(entityFitnessLibrary, "id"), EntityId) },
-			where: and(
-				entitySchemaPredicate(entityFitnessLibrary, "fitness-library", reference),
-				isNotNull(column(entityFitnessLibrary, "userId")),
-			),
-		}),
-	},
-}));
-
-type Table = ReturnType<typeof table>;
-
+export const userFitnessLibraryRecipe = (reference: PluginIdentityReference) => {
+	return defineRecipe({
+		map: ({ fitnessLibrary }) => Result.succeed(fitnessLibrary),
+		queries: {
+			fitnessLibrary: selectedRow(entityFitnessLibrary, {
+				orderBy: [ascending(column(entityFitnessLibrary, "id"))],
+				selection: { entityId: selectedField(column(entityFitnessLibrary, "id"), EntityId) },
+				where: and(
+					entitySchemaPredicate(entityFitnessLibrary, "fitness-library", reference),
+					isNotNull(column(entityFitnessLibrary, "userId")),
+				),
+			}),
+		},
+	});
+};
+type Table = Parameters<typeof column>[0];
 export const fitnessLibraryLinkExists = (entity: Table, alias: string) => {
 	const fitnessLibrary = table("entity", alias);
 	const relationship = table("relationship", `${alias}Relationship`);

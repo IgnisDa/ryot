@@ -13,6 +13,7 @@ import {
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
@@ -20,6 +21,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { act, useState } from "react";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { rankingResponse as rankingResultResponse } from "../../tests/client/analytics-fixtures";
 import FitnessAnalyticsSection from "./section";
 
 afterEach(disposePluginBridges);
@@ -75,6 +77,7 @@ const mountSection = (clock: ReturnType<typeof createTestRyotClock>) =>
 	mountPluginPage(AnalyticsHost, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("UTC") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -112,13 +115,11 @@ const replyFailure = (page: ReturnType<typeof mountSection>, requestId: string) 
 	page.send({ requestId, outcome: "failure", reason: "transport", type: "user-settings-result" });
 
 const queryText = (request: ReturnType<ReturnType<typeof mountSection>["queryRequests"]>[number]) =>
-	JSON.stringify(request.document);
-
+	JSON.stringify(bindTestRequest(request.request));
 const standaloneQueries = (page: ReturnType<typeof mountSection>, queryKey: string) =>
 	page
 		.queryRequests(queryKey)
-		.filter((request) => Object.keys(request.document.queries).length === 1);
-
+		.filter((request) => Object.keys(bindTestRequest(request.request).queries).length === 1);
 const waitForTrendRequest = (page: ReturnType<typeof mountSection>, index: number) =>
 	waitFor(() => {
 		const request = page.queryRequests("workoutTrend")[index];
@@ -128,7 +129,7 @@ const waitForTrendRequest = (page: ReturnType<typeof mountSection>, index: numbe
 
 const targetRankingResponse = {
 	data: {
-		ranking: {
+		targets: {
 			type: "aggregate" as const,
 			pageInfo: { limit: 100, hasMore: false, nextCursor: null },
 			items: [
@@ -172,7 +173,7 @@ describe("fitness analytics section", () => {
 					const panel = screen.getByRole("tabpanel");
 					const activeTab = screen.getByRole("tab", { name: "Workouts" });
 					expect(panel.getAttribute("aria-labelledby")).toBe(activeTab.id);
-					expect(page.queryRequests("ranking")).toHaveLength(0);
+					expect(page.queryRequests("targets")).toHaveLength(0);
 					expect(standaloneQueries(page, "readings")).toHaveLength(0);
 					expect(standaloneQueries(page, "metrics")).toHaveLength(0);
 
@@ -187,7 +188,7 @@ describe("fitness analytics section", () => {
 						),
 					);
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("ranking").length).toBeGreaterThan(0)),
+						waitFor(() => expect(page.queryRequests("targets").length).toBeGreaterThan(0)),
 					);
 					expect(standaloneQueries(page, "readings")).toHaveLength(0);
 					expect(standaloneQueries(page, "metrics")).toHaveLength(0);
@@ -208,7 +209,7 @@ describe("fitness analytics section", () => {
 						),
 					);
 					expect(standaloneQueries(page, "readings")).toHaveLength(0);
-					const rankingRequest = page.queryRequests("ranking")[0];
+					const rankingRequest = page.queryRequests("targets")[0];
 					assert(rankingRequest);
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -349,13 +350,13 @@ describe("fitness analytics section", () => {
 						fireEvent.click(screen.getByRole("tab", { name: "Rankings" }));
 					});
 					yield* Effect.promise(() =>
-						waitFor(() => expect(page.queryRequests("ranking")).toHaveLength(1)),
+						waitFor(() => expect(page.queryRequests("targets")).toHaveLength(1)),
 					);
-					const rankingRequest = page.queryRequests("ranking")[0];
+					const rankingRequest = page.queryRequests("targets")[0];
 					assert(rankingRequest);
 					page.replyQuery(rankingRequest.requestId, {
 						outcome: "success",
-						response: targetRankingResponse,
+						response: rankingResultResponse(null, targetRankingResponse.data.targets.items),
 					});
 					const triggerName = "View workouts contributing to Upper back";
 					yield* Effect.promise(() =>

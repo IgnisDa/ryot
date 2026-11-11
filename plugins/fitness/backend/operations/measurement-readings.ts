@@ -1,9 +1,6 @@
 import { Array, Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import {
-	executeRyotqlRecipe,
-	readAllRyotqlPages,
-	type RyotQLDocument,
-} from "@ryot-app/plugin-backend-sdk/ryotql";
+import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { executeRyotqlRecipe, readAllRyotqlPages } from "@ryot-app/plugin-backend-sdk/ryotql";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { MEASUREMENT_EVENT_BATCH_SIZE } from "../../shared/measurement-reading-operations";
@@ -13,8 +10,7 @@ import {
 	measurementMetricIdsRecipe,
 } from "../../shared/measurement-recipes";
 
-type ExecuteRyotql = (document: RyotQLDocument) => Effect.Effect<unknown, SandboxHostError>;
-
+type ExecuteRyotql = (request: ExecutionRequest) => Effect.Effect<unknown, SandboxHostError>;
 export class MeasurementEntryNotFoundError extends Schema.TaggedError<
 	MeasurementEntryNotFoundError,
 	{ readonly brand: unique symbol }
@@ -29,7 +25,9 @@ export const requireMeasurementEntry = Effect.fn("requireMeasurementEntry")(func
 	entryId: string,
 	executeRyotql: ExecuteRyotql,
 ) {
-	const found = yield* executeRyotqlRecipe(executeRyotql, measurementEntryRecipe(entryId));
+	const found = yield* executeRyotqlRecipe(executeRyotql, measurementEntryRecipe, {
+		entryId: entryId,
+	});
 	if (found === null) {
 		return yield* new MeasurementEntryNotFoundError({ message: "Measurement entry not found" });
 	}
@@ -40,7 +38,9 @@ export const readMeasurementEntryReadings = (entryId: string, executeRyotql: Exe
 	readAllRyotqlPages((after) =>
 		executeRyotqlRecipe(
 			executeRyotql,
-			measurementEntryReadingsRecipe({ after, entryId, reference: { kind: "self" } }),
+			measurementEntryReadingsRecipe({ reference: { kind: "self" } }),
+			{ entryId },
+			{ pages: { readings: { after: after } } },
 		),
 	);
 
@@ -51,7 +51,7 @@ export const requireMeasurementMetrics = Effect.fn("requireMeasurementMetrics")(
 	const unique = [...new Set(metricIds)];
 	const found = (yield* Effect.forEach(
 		Array.chunksOf(unique, MEASUREMENT_EVENT_BATCH_SIZE),
-		(ids) => executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe(ids)),
+		(ids) => executeRyotqlRecipe(executeRyotql, measurementMetricIdsRecipe, { metricIds: ids }),
 	)).flat();
 	if (found.length !== unique.length) {
 		return yield* new MeasurementMetricNotFoundError({ message: "Measurement metric not found" });

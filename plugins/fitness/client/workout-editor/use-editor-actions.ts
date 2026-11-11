@@ -296,11 +296,9 @@ export function useEditorActions(input: {
 	const prefillFromHistory = (occurrence: WorkoutEditorOccurrence) =>
 		Effect.gen(function* () {
 			const history = yield* client.data.query(
-				workoutHistoryRecipe({
-					exerciseId: occurrence.exerciseId,
-					beforeStartedAt: editorDraft?.startedAt,
-					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-				}),
+				workoutHistoryRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+				{ exerciseId: occurrence.exerciseId, beforeStartedAt: editorDraft?.startedAt },
+				{ pages: { workouts: { after: undefined } } },
 			);
 			const session = history.items[0];
 			if (session === undefined) {
@@ -408,9 +406,20 @@ export function useEditorActions(input: {
 						? undefined
 						: yield* client.data.query(
 								workoutExercisePickerRecipe({
-									...filters.success,
 									reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 								}),
+								{
+									sort: filters.success.sort,
+									kinds: filters.success.kinds,
+									search: filters.success.search,
+									forces: filters.success.forces,
+									levels: filters.success.levels,
+									targetIds: filters.success.targetIds,
+									mechanics: filters.success.mechanics,
+									exerciseIds: filters.success.exerciseIds,
+									equipmentIds: filters.success.equipmentIds,
+									collectionIds: filters.success.collectionIds,
+								},
 							);
 				const exercise = picked?.items.find(({ kind }) => kind !== null);
 				if (exercise === undefined) {

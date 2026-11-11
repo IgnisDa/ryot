@@ -1,4 +1,4 @@
-import type { OrderBy } from "@ryot-app/contract/modules/ryotql/language";
+import type { OrderBy } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	AuthoredEntityBrowserAddAction,
 	AuthoredEntityBrowserSavedViewSettings,
@@ -8,6 +8,7 @@ import {
 	and,
 	ascending,
 	column,
+	contains,
 	descending,
 	document,
 	entitySchemaPredicate,
@@ -15,6 +16,8 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
+import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Array as Arr } from "effect";
 
 import { fitnessPresentationSource } from "../shared/entity-presentations";
@@ -84,9 +87,58 @@ export const fitnessSavedViews = () => {
 				? [fitnessLibraryLinkExists(entity, "fitnessLibrary")]
 				: []),
 		);
-		const dataSources = document({
-			savedView: rows(entity, { where, fields, orderBy: input.orderBy }),
+		const args = parameters({
+			fields: {
+				search: {
+					type: "string",
+					label: "Search",
+					defaultValue: "",
+					description: "Search library entries",
+				},
+			},
 		});
+		const base = rows(entity, { where, fields, orderBy: input.orderBy });
+		const subtitleField = summary.subtitle;
+		const subtitleExpression =
+			subtitleField === null
+				? undefined
+				: tableExpressions.columns.find((tableColumn) => tableColumn.field === subtitleField.field)
+						?.expression;
+		const browse = {
+			alias: entity.alias,
+			kind: "browse" as const,
+			schemas: [{ slug: input.entitySchemaSlug, owner: { kind: "self" as const } }] as const,
+		};
+		const dataSources = {
+			parameters: args.schema,
+			controls: { sort: browse, filter: browse },
+			...document({
+				savedView: {
+					...base,
+					output: { ...base.output, orderBy: sort(input.orderBy ?? []) },
+					where: and(
+						base.where ?? and(),
+						contains(column(entity, "name"), args.value("search")),
+						filter(),
+					),
+				},
+				librarySearch: librarySearchQuery({
+					entity,
+					source: base,
+					search: args.value("search"),
+					image: tableExpressions.image ?? undefined,
+					searchExpressions: [column(entity, "name")],
+					...(subtitleField && subtitleExpression
+						? {
+								subtitle: {
+									expression: subtitleExpression,
+									displayKind: subtitleField.displayKind,
+								},
+							}
+						: {}),
+				}).document,
+			}),
+		};
 		return {
 			dataSources,
 			name: input.name,
@@ -98,10 +150,10 @@ export const fitnessSavedViews = () => {
 				summary,
 				pageSize: 20,
 				defaultLayout: "grid",
-				searchFields: ["name"],
 				sourceName: "savedView",
 				layouts: ["grid", "list", "table"],
 				addAction: addAction(input.entitySchemaSlug),
+				controls: { sort: true, filter: true, search: "search" },
 				tableColumns: Arr.map(
 					tableExpressions.columns,
 					({ expression: _, ...tableColumn }) => tableColumn,

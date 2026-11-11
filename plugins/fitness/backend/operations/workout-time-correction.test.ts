@@ -4,6 +4,7 @@ import type { UserCommandInput } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 
 import type { WorkoutEditorBaselineSchema } from "../../shared/workout-editor-recipes";
 import { encodeWorkoutEditorBaseline } from "../../shared/workout-editor-recipes";
@@ -57,7 +58,7 @@ it("changes only workout times, moves occurrences to the new start, and sets or 
 				executeRyotql: (document) =>
 					Effect.succeed({
 						data: Object.fromEntries(
-							Object.keys(document.queries).map((key) => [key, responses[key]]),
+							Object.keys(bindTestRequest(document).queries).map((key) => [key, responses[key]]),
 						),
 					}),
 			});

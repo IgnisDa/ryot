@@ -54,13 +54,25 @@ const pickerOptionsQuery = createRyotQuery(({ client }) => {
 	return Effect.gen(function* () {
 		const [targets, equipment, collections] = yield* Effect.all([
 			readCursorPages((after) =>
-				client.data.query(targetListRecipe({ after, reference, limit: 100 })),
+				client.data.query(
+					targetListRecipe({ reference: reference }),
+					{},
+					{ pages: { targets: { limit: 100, after: after } } },
+				),
 			),
 			readCursorPages((after) =>
-				client.data.query(equipmentListRecipe({ after, reference, limit: 100 })),
+				client.data.query(
+					equipmentListRecipe({ reference: reference }),
+					{},
+					{ pages: { equipment: { limit: 100, after: after } } },
+				),
 			),
 			readCursorPages((after) =>
-				client.data.query(workoutExerciseCollectionOptionsRecipe({ after })),
+				client.data.query(
+					workoutExerciseCollectionOptionsRecipe,
+					{},
+					{ pages: { collections: { after: after } } },
+				),
 			),
 		]);
 		return { targets: targets.items, equipment: equipment.items, collections: collections.items };
@@ -81,13 +93,19 @@ const pickerExercisesQuery = createRyotQuery(
 		};
 	}) =>
 		client.data.query(
-			workoutExercisePickerRecipe({
-				...input.filters,
+			workoutExercisePickerRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{
 				sort: input.sort,
-				after: input.after,
-				search: input.search,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
+				search: input.search.trim(),
+				kinds: input.filters.kinds.length ? input.filters.kinds : undefined,
+				forces: input.filters.forces.length ? input.filters.forces : undefined,
+				levels: input.filters.levels.length ? input.filters.levels : undefined,
+				targetIds: input.filters.targetIds.length ? input.filters.targetIds : undefined,
+				mechanics: input.filters.mechanics.length ? input.filters.mechanics : undefined,
+				equipmentIds: input.filters.equipmentIds.length ? input.filters.equipmentIds : undefined,
+				collectionIds: input.filters.collectionIds.length ? input.filters.collectionIds : undefined,
+			},
+			{ pages: { exercises: { after: input.after } } },
 		),
 );
 

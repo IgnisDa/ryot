@@ -2,7 +2,6 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
-	castDate,
 	column,
 	defineRecipe,
 	descending,
@@ -15,6 +14,7 @@ import {
 	lt,
 	neq,
 	NullableNumber,
+	parameters,
 	type Recipe,
 	schemaOwnerPredicate,
 	selectedField,
@@ -24,11 +24,10 @@ import {
 import { EntityId, EventId, type PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { projectionNumber, property, propertyDate, propertyNumber } from "./entity-selections";
-import { type ExerciseKind, exerciseKindSchema } from "./exercise-kinds";
+import { exerciseKindSchema } from "./exercise-kinds";
 import { WorkoutSetLotSchema } from "./workout-set";
 
-type Table = ReturnType<typeof table>;
-
+type Table = Parameters<typeof column>[0];
 const rowLimit = 100;
 const nullableExerciseKind = Schema.NullOr(exerciseKindSchema);
 const nullableString = Schema.NullOr(Schema.String);
@@ -58,138 +57,191 @@ const workoutSetSelection = (event: Table) => ({
 	setLot: selectedField(property(event, "setLot"), Schema.NullOr(WorkoutSetLotSchema)),
 	exerciseOrder: selectedField(propertyNumber(event, "exerciseOrder"), NullableNumber),
 });
-
-export const workoutHistoryRecipe = defineRecipe(
-	(input: {
-		readonly exerciseId: string;
-		readonly after?: string | undefined;
-		readonly reference: PluginIdentityReference;
-		readonly beforeStartedAt?: string | undefined;
-		readonly excludeWorkoutId?: string | undefined;
-	}) => {
-		const workout = table("entity", "historyWorkout");
-		const set = table("event", "historyWorkoutSet");
-		const startedAt = propertyDate(workout, "startedAt");
-		return {
-			map: ({ workouts }) => Result.succeed(workouts),
-			queries: {
-				workouts: selectedRows(workout, {
-					limit: rowLimit,
-					after: input.after,
-					orderBy: [descending(startedAt), ascending(column(workout, "id"))],
-					selection: {
-						id: selectedField(column(workout, "id"), EntityId),
-						startedAt: selectedField(startedAt, IsoDateString),
-						name: selectedField(column(workout, "name"), Schema.String),
-						comment: selectedField(property(workout, "comment"), nullableString),
-					},
-					where: and(
-						entitySchemaPredicate(workout, "workout", input.reference),
-						...(input.beforeStartedAt === undefined
-							? []
-							: [lt(startedAt, castDate(literal(input.beforeStartedAt)))]),
-						...(input.excludeWorkoutId === undefined
-							? []
-							: [neq(column(workout, "id"), literal(input.excludeWorkoutId))]),
-						exists(set, {
-							where: and(
-								workoutSetWhere(set, input.reference),
-								eq(column(set, "entityId"), literal(input.exerciseId)),
-								eq(column(set, "sessionEntityId"), column(workout, "id")),
-							),
-						}),
-					),
-				}),
+export const workoutHistoryRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			beforeStartedAt: {
+				type: "datetime",
+				label: "Before Started At",
+				description: "Before Started At for this selection",
 			},
-		};
-	},
-);
-
-export const workoutHistorySetsRecipe = defineRecipe(
-	(input: {
-		readonly workoutId: string;
-		readonly exerciseId: string;
-		readonly after?: string | undefined;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const event = table("event", "historySet");
-		const workout = table("entity", "historySetWorkout");
-		return {
-			map: ({ sets }) => Result.succeed(sets),
-			queries: {
-				sets: selectedRows(event, {
-					limit: rowLimit,
-					after: input.after,
-					selection: workoutSetSelection(event),
-					joins: [
-						join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
-					],
-					orderBy: [
-						ascending(propertyNumber(event, "exerciseOrder")),
-						ascending(propertyNumber(event, "setOrder")),
-						ascending(column(event, "id")),
-					],
-					where: and(
-						workoutSetWhere(event, input.reference),
-						entitySchemaPredicate(workout, "workout", input.reference),
-						eq(column(event, "entityId"), literal(input.exerciseId)),
-						eq(column(event, "sessionEntityId"), literal(input.workoutId)),
-					),
-				}),
+			excludeWorkoutId: {
+				type: "string",
+				label: "Exclude Workout Id",
+				description: "Exclude Workout Id for this selection",
 			},
-		};
-	},
-);
-
-export const workoutExercisePreviousValuesRecipe = defineRecipe(
-	(input: {
-		readonly exerciseId: string;
-		readonly beforeStartedAt: string;
-		readonly excludeWorkoutId: string;
-		readonly after?: string | undefined;
-		readonly recordedKind: ExerciseKind;
-		readonly reference: PluginIdentityReference;
-	}) => {
-		const event = table("event", "previousWorkoutSet");
-		const workout = table("entity", "previousWorkout");
-		const startedAt = propertyDate(workout, "startedAt");
-		return {
-			map: ({ sets }) => Result.succeed(sets),
-			queries: {
-				sets: selectedRows(event, {
-					limit: rowLimit,
-					after: input.after,
-					joins: [
-						join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
-					],
-					selection: {
-						...workoutSetSelection(event),
-						workoutStartedAt: selectedField(startedAt, IsoDateString),
-						workoutId: selectedField(column(event, "sessionEntityId"), EntityId),
-					},
-					orderBy: [
-						descending(startedAt),
-						ascending(column(event, "sessionEntityId")),
-						ascending(propertyNumber(event, "exerciseOrder")),
-						ascending(propertyNumber(event, "setOrder")),
-						ascending(column(event, "id")),
-					],
-					where: and(
-						workoutSetWhere(event, input.reference),
-						entitySchemaPredicate(workout, "workout", input.reference),
-						eq(column(event, "entityId"), literal(input.exerciseId)),
-						eq(property(event, "exerciseKind"), literal(input.recordedKind)),
-						lt(startedAt, castDate(literal(input.beforeStartedAt))),
-						neq(column(event, "sessionEntityId"), literal(input.excludeWorkoutId)),
-					),
-				}),
+			exerciseId: {
+				type: "string",
+				label: "Exercise Id",
+				validation: { required: true },
+				description: "Exercise Id for this selection",
 			},
-		};
-	},
-);
-
-export type WorkoutHistoryResult = Recipe.Success<typeof workoutHistoryRecipe>;
-export type WorkoutHistorySetResult = Recipe.Success<typeof workoutHistorySetsRecipe>;
+		},
+	});
+	const workout = table("entity", "historyWorkout");
+	const set = table("event", "historyWorkoutSet");
+	const startedAt = propertyDate(workout, "startedAt");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ workouts }) => Result.succeed(workouts),
+		queries: {
+			workouts: selectedRows(workout, {
+				limit: rowLimit,
+				orderBy: [descending(startedAt), ascending(column(workout, "id"))],
+				selection: {
+					id: selectedField(column(workout, "id"), EntityId),
+					startedAt: selectedField(startedAt, IsoDateString),
+					name: selectedField(column(workout, "name"), Schema.String),
+					comment: selectedField(property(workout, "comment"), nullableString),
+				},
+				where: and(
+					entitySchemaPredicate(workout, "workout", input.reference),
+					inputParameters.whenSet(
+						"beforeStartedAt",
+						lt(startedAt, inputParameters.value("beforeStartedAt")),
+					),
+					inputParameters.whenSet(
+						"excludeWorkoutId",
+						neq(column(workout, "id"), inputParameters.value("excludeWorkoutId")),
+					),
+					exists(set, {
+						where: and(
+							workoutSetWhere(set, input.reference),
+							eq(column(set, "entityId"), inputParameters.value("exerciseId")),
+							eq(column(set, "sessionEntityId"), column(workout, "id")),
+						),
+					}),
+				),
+			}),
+		},
+	});
+};
+export const workoutHistorySetsRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			workoutId: {
+				type: "string",
+				label: "Workout Id",
+				validation: { required: true },
+				description: "Workout Id for this selection",
+			},
+			exerciseId: {
+				type: "string",
+				label: "Exercise Id",
+				validation: { required: true },
+				description: "Exercise Id for this selection",
+			},
+		},
+	});
+	const event = table("event", "historySet");
+	const workout = table("entity", "historySetWorkout");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ sets }) => Result.succeed(sets),
+		queries: {
+			sets: selectedRows(event, {
+				limit: rowLimit,
+				selection: workoutSetSelection(event),
+				joins: [
+					join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
+				],
+				orderBy: [
+					ascending(propertyNumber(event, "exerciseOrder")),
+					ascending(propertyNumber(event, "setOrder")),
+					ascending(column(event, "id")),
+				],
+				where: and(
+					workoutSetWhere(event, input.reference),
+					entitySchemaPredicate(workout, "workout", input.reference),
+					eq(column(event, "entityId"), inputParameters.value("exerciseId")),
+					eq(column(event, "sessionEntityId"), inputParameters.value("workoutId")),
+				),
+			}),
+		},
+	});
+};
+export const workoutExercisePreviousValuesRecipe = (input: {
+	readonly reference: PluginIdentityReference;
+}) => {
+	const inputParameters = parameters({
+		fields: {
+			exerciseId: {
+				type: "string",
+				label: "exerciseId",
+				validation: { required: true },
+				description: "exerciseId for this selection",
+			},
+			beforeStartedAt: {
+				type: "datetime",
+				label: "beforeStartedAt",
+				validation: { required: true },
+				description: "beforeStartedAt for this selection",
+			},
+			excludeWorkoutId: {
+				type: "string",
+				label: "excludeWorkoutId",
+				validation: { required: true },
+				description: "excludeWorkoutId for this selection",
+			},
+			recordedKind: {
+				type: "enum",
+				label: "recordedKind",
+				validation: { required: true },
+				description: "recordedKind for this selection",
+				choices: {
+					kind: "static",
+					values: [
+						{ value: "reps_and_weight", label: "reps_and_weight" },
+						{ value: "reps", label: "reps" },
+						{ value: "duration", label: "duration" },
+						{ value: "distance_and_duration", label: "distance_and_duration" },
+						{ value: "reps_and_duration", label: "reps_and_duration" },
+						{ value: "reps_and_duration_and_distance", label: "reps_and_duration_and_distance" },
+					],
+				},
+			},
+		},
+	});
+	const event = table("event", "previousWorkoutSet");
+	const workout = table("entity", "previousWorkout");
+	const startedAt = propertyDate(workout, "startedAt");
+	return defineRecipe({
+		parameters: inputParameters.schema,
+		map: ({ sets }) => Result.succeed(sets),
+		queries: {
+			sets: selectedRows(event, {
+				limit: rowLimit,
+				joins: [
+					join("inner", workout, eq(column(event, "sessionEntityId"), column(workout, "id"))),
+				],
+				selection: {
+					...workoutSetSelection(event),
+					workoutStartedAt: selectedField(startedAt, IsoDateString),
+					workoutId: selectedField(column(event, "sessionEntityId"), EntityId),
+				},
+				orderBy: [
+					descending(startedAt),
+					ascending(column(event, "sessionEntityId")),
+					ascending(propertyNumber(event, "exerciseOrder")),
+					ascending(propertyNumber(event, "setOrder")),
+					ascending(column(event, "id")),
+				],
+				where: and(
+					workoutSetWhere(event, input.reference),
+					entitySchemaPredicate(workout, "workout", input.reference),
+					eq(column(event, "entityId"), inputParameters.value("exerciseId")),
+					eq(property(event, "exerciseKind"), inputParameters.value("recordedKind")),
+					lt(startedAt, inputParameters.value("beforeStartedAt")),
+					neq(column(event, "sessionEntityId"), inputParameters.value("excludeWorkoutId")),
+				),
+			}),
+		},
+	});
+};
+export type WorkoutHistoryResult = Recipe.Success<ReturnType<typeof workoutHistoryRecipe>>;
+export type WorkoutHistorySetResult = Recipe.Success<ReturnType<typeof workoutHistorySetsRecipe>>;
 export type WorkoutExercisePreviousValuesResult = Recipe.Success<
-	typeof workoutExercisePreviousValuesRecipe
+	ReturnType<typeof workoutExercisePreviousValuesRecipe>
 >;

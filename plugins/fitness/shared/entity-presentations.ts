@@ -23,17 +23,17 @@ import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyNumber } from "./entity-selections";
 
-type Table = ReturnType<typeof table>;
+type Table = Parameters<typeof column>[0];
 
 const selectedPresentationSource = <const Selection extends SelectedSelection>(input: {
 	readonly table: Table;
 	readonly selection: Selection;
-	readonly where: (entityIds: readonly string[]) => ReturnType<typeof and>;
+	readonly where: (entityIds: Parameters<typeof inArray>[1]) => ReturnType<typeof and>;
 }) => {
 	const source = selectedRowsSource(input.table, { selection: input.selection });
 	return {
 		...source,
-		query: (reference: PluginIdentityReference, entityIds: readonly string[]) =>
+		query: (reference: PluginIdentityReference, entityIds: Parameters<typeof inArray>[1]) =>
 			source.query({
 				limit: 100,
 				where: and(
@@ -44,13 +44,10 @@ const selectedPresentationSource = <const Selection extends SelectedSelection>(i
 	};
 };
 
-const entityIdsWhere = (entity: Table, slug: string, entityIds: readonly string[]) =>
+const entityIdsWhere = (entity: Table, slug: string, entityIds: Parameters<typeof inArray>[1]) =>
 	and(
 		eq(column(entity, "entitySchemaSlug"), literal(slug)),
-		inArray(
-			column(entity, "id"),
-			entityIds.map((entityId) => literal(entityId)),
-		),
+		inArray(column(entity, "id"), entityIds),
 	);
 
 const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);

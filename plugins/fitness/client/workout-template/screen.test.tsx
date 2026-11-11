@@ -10,6 +10,7 @@ import {
 	pluginContributor,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
@@ -27,7 +28,7 @@ type QueryReply = Extract<
 >;
 const rows = (
 	items: readonly Record<string, unknown>[],
-): QueryReply["response"]["data"][string] => ({
+): Extract<QueryReply["response"], { readonly data: unknown }>["data"][string] => ({
 	items,
 	type: "rows",
 	pageInfo: { limit: 100, hasMore: false, nextCursor: null },
@@ -104,62 +105,67 @@ const mountTemplate = (input: {
 					},
 				});
 			} else if (request.type === "ryotql-request") {
-				const data: QueryReply["response"]["data"] = Object.fromEntries(
-					Object.keys(request.document.queries).map((name) => {
-						queries.push(name);
-						switch (name) {
-							case "entity":
-								return [
-									name,
-									rows([
-										{
-											id: "template",
-											name: "Partial plan",
-											properties: input.properties,
-											updatedAt: "2026-10-16T10:00:00.000Z",
-										},
-									]),
-								];
-							case "targets":
-								return [
-									name,
-									rows([
-										{
-											id: "chest",
-											userId: null,
-											name: "Chest",
-											kind: "muscle",
-											role: "primary",
-											relationshipId: "target-link",
-										},
-									]),
-								];
-							case "exercises":
-								return [name, rows(input.exercises ?? [exercise])];
-							case "equipment":
-								return [
-									name,
-									rows([
-										{
-											userId: null,
-											id: "barbell",
-											name: "Barbell",
-											relationshipId: "equipment-link",
-										},
-									]),
-								];
-							case "membership":
-								return [
-									name,
-									rows([
-										{ id: "member", targetEntityId: "library", properties: input.overrides ?? {} },
-									]),
-								];
-							default:
-								return [name, rows([])];
-						}
-					}),
-				);
+				const data: Extract<QueryReply["response"], { readonly data: unknown }>["data"] =
+					Object.fromEntries(
+						Object.keys(bindTestRequest(request.request).queries).map((name) => {
+							queries.push(name);
+							switch (name) {
+								case "entity":
+									return [
+										name,
+										rows([
+											{
+												id: "template",
+												name: "Partial plan",
+												properties: input.properties,
+												updatedAt: "2026-10-16T10:00:00.000Z",
+											},
+										]),
+									];
+								case "targets":
+									return [
+										name,
+										rows([
+											{
+												id: "chest",
+												userId: null,
+												name: "Chest",
+												kind: "muscle",
+												role: "primary",
+												relationshipId: "target-link",
+											},
+										]),
+									];
+								case "exercises":
+									return [name, rows(input.exercises ?? [exercise])];
+								case "equipment":
+									return [
+										name,
+										rows([
+											{
+												userId: null,
+												id: "barbell",
+												name: "Barbell",
+												relationshipId: "equipment-link",
+											},
+										]),
+									];
+								case "membership":
+									return [
+										name,
+										rows([
+											{
+												id: "member",
+												targetEntityId: "library",
+												properties: input.overrides ?? {},
+											},
+										]),
+									];
+								default:
+									return [name, rows([])];
+							}
+						}),
+					);
 				page.replyQuery(request.requestId, { outcome: "success", response: { data } });
 			}
 		}

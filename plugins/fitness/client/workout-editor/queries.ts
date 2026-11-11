@@ -1,6 +1,7 @@
 import { readCursorPages, type RyotClient, RyotClientError } from "@ryot-app/plugin-client-sdk";
 import { Effect, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
+import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import { exerciseEquipmentRecipe, exerciseTargetsRecipe } from "../../shared/taxonomy-recipes";
@@ -32,11 +33,9 @@ export const readEditorExercises = Effect.fnUntraced(function* (
 	for (let offset = 0; offset < exerciseIds.length; offset += 100) {
 		const page = yield* readCursorPages((after) =>
 			client.data.query(
-				workoutEditorExercisesRecipe({
-					after,
-					reference,
-					exerciseIds: exerciseIds.slice(offset, offset + 100),
-				}),
+				workoutEditorExercisesRecipe({ reference: reference }),
+				{ exerciseIds: exerciseIds.slice(offset, offset + 100) },
+				{ pages: { exercises: { after: after } } },
 			),
 		);
 		exercises.push(...page.items);
@@ -46,19 +45,24 @@ export const readEditorExercises = Effect.fnUntraced(function* (
 		(exercise) =>
 			Effect.gen(function* () {
 				const membership = yield* client.data.query(
-					workoutEditorMembershipRecipe({ reference, exerciseId: exercise.id }),
+					workoutEditorMembershipRecipe({ reference: reference }),
+					{ exerciseId: exercise.id },
 				);
 				const overrides = yield* Schema.decodeEffect(WorkoutExerciseOverridesSchema)(
 					membership?.properties ?? {},
 				).pipe(Effect.mapError(() => new RyotClientError({ reason: "malformed-result" })));
 				const targets = yield* readCursorPages((after) =>
 					client.data.query(
-						exerciseTargetsRecipe({ after, reference, limit: 100, exerciseId: exercise.id }),
+						exerciseTargetsRecipe({ reference: reference }),
+						{ exerciseId: exercise.id },
+						{ pages: { targets: { limit: 100, after: after } } },
 					),
 				);
 				const equipment = yield* readCursorPages((after) =>
 					client.data.query(
-						exerciseEquipmentRecipe({ after, reference, limit: 100, exerciseId: exercise.id }),
+						exerciseEquipmentRecipe({ reference: reference }),
+						{ exerciseId: exercise.id },
+						{ pages: { equipment: { limit: 100, after: after } } },
 					),
 				);
 				return { ...exercise, overrides, targets: targets.items, equipment: equipment.items };
@@ -88,13 +92,10 @@ export const loadEditorSource = Effect.fnUntraced(function* (
 	},
 ) {
 	const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-	const entity = yield* client.data.query(
-		workoutEditorEntityRecipe({
-			reference,
-			entityId: input.entityId,
-			kind: input.kind === "workout" ? "workout" : "workout-template",
-		}),
-	);
+	const entity = yield* client.data.query(workoutEditorEntityRecipe({ reference: reference }), {
+		entityId: input.entityId,
+		kind: input.kind === "workout" ? "workout" : "workout-template",
+	});
 	if (entity === null) {
 		return yield* new RyotClientError({ reason: "invalid-input" });
 	}
@@ -102,7 +103,9 @@ export const loadEditorSource = Effect.fnUntraced(function* (
 		input.kind === "workout"
 			? (yield* readCursorPages((after) =>
 					client.data.query(
-						workoutEditorSetsRecipe({ after, reference, workoutId: input.entityId }),
+						workoutEditorSetsRecipe({ reference: reference }),
+						{ workoutId: input.entityId },
+						{ pages: { sets: { after: after } } },
 					),
 				)).items
 			: [];
@@ -128,10 +131,20 @@ export const editorHistoryQuery = createRyotQuery(
 		client,
 	}: {
 		readonly client: RyotClient;
-		readonly input: Omit<Parameters<typeof workoutHistoryRecipe>[0], "reference">;
+		readonly input: Omit<
+			{ after?: string | undefined } & Parameters<typeof workoutHistoryRecipe>[0] &
+				Recipe.Arguments<ReturnType<typeof workoutHistoryRecipe>>,
+			"reference"
+		>;
 	}) =>
 		client.data.query(
-			workoutHistoryRecipe({ ...input, reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			workoutHistoryRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{
+				exerciseId: input.exerciseId,
+				beforeStartedAt: input.beforeStartedAt,
+				excludeWorkoutId: input.excludeWorkoutId,
+			},
+			{ pages: { workouts: { after: input.after } } },
 		),
 );
 
@@ -142,12 +155,9 @@ export const readHistorySets = Effect.fnUntraced(function* (
 ) {
 	const { items } = yield* readCursorPages((after) =>
 		client.data.query(
-			workoutHistorySetsRecipe({
-				after,
-				workoutId,
-				exerciseId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
+			workoutHistorySetsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ workoutId, exerciseId },
+			{ pages: { sets: { after: after } } },
 		),
 	);
 	return items;
@@ -155,17 +165,28 @@ export const readHistorySets = Effect.fnUntraced(function* (
 
 export const readPreviousSets = Effect.fnUntraced(function* (
 	client: RyotClient,
-	input: Omit<Parameters<typeof workoutExercisePreviousValuesRecipe>[0], "after" | "reference">,
+	input: Omit<
+		Parameters<typeof workoutExercisePreviousValuesRecipe>[0] & {
+			after?: string | undefined;
+			limit?: number | undefined;
+		} & Recipe.Arguments<ReturnType<typeof workoutExercisePreviousValuesRecipe>>,
+		"after" | "reference"
+	>,
 	count: number,
 ) {
 	const { items } = yield* readCursorPages(
 		(after) =>
 			client.data.query(
 				workoutExercisePreviousValuesRecipe({
-					...input,
-					after,
 					reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
 				}),
+				{
+					exerciseId: input.exerciseId,
+					recordedKind: input.recordedKind,
+					beforeStartedAt: input.beforeStartedAt,
+					excludeWorkoutId: input.excludeWorkoutId,
+				},
+				{ pages: { sets: { after: after, limit: input.limit } } },
 			),
 		{ maxPages: Math.ceil(count / WORKOUT_EDITOR_PAGE_SIZE) },
 	);

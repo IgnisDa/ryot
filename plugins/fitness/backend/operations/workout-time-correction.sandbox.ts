@@ -24,9 +24,7 @@ export const manifest = defineManifest({
 	name: "Correct workout times",
 	slug: "operation.workout-time-correction",
 });
-
-type Occurrence = Recipe.Success<typeof workoutOccurrencesRecipe>["items"][number];
-
+type Occurrence = Recipe.Success<ReturnType<typeof workoutOccurrencesRecipe>>["items"][number];
 export default defineOperation({
 	manifest,
 	input: WorkoutTimeCorrectionInputSchema,
@@ -43,29 +41,25 @@ export default defineOperation({
 			}
 			const current = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEditorEntityRecipe({
-					kind: "workout",
-					entityId: input.entityId,
-					reference: { kind: "self" },
-				}),
+				workoutEditorEntityRecipe({ reference: { kind: "self" } }),
+				{ kind: "workout", entityId: input.entityId },
 			);
 			if (!current) {
 				return { kind: "conflict" } as const;
 			}
 			const revision = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEventScopeRevisionRecipe(input.entityId),
+				workoutEventScopeRevisionRecipe,
+				{ workoutId: input.entityId },
 			);
 			const occurrences: Occurrence[] = [];
 			let after: string | undefined;
 			do {
 				const page = yield* executeRyotqlRecipe(
 					host.executeRyotql,
-					workoutOccurrencesRecipe({
-						after,
-						workoutId: input.entityId,
-						reference: { kind: "self" },
-					}),
+					workoutOccurrencesRecipe({ reference: { kind: "self" } }),
+					{ workoutId: input.entityId },
+					{ pages: { occurrences: { after: after } } },
 				);
 				occurrences.push(...page.items);
 				after = yield* continuationCursor(page.pageInfo, after);

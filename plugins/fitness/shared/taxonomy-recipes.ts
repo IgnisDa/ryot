@@ -12,6 +12,7 @@ import {
 	literal,
 	not,
 	or,
+	parameters,
 	pluginId,
 	selectedField,
 	selectedInclude,
@@ -23,22 +24,7 @@ import { EntityId, type PluginIdentityReference } from "@ryot-app/plugin-kit/sch
 import { property } from "./entity-selections";
 import { exerciseTargetKindSchema, exerciseTargetRoleSchema } from "./taxonomy";
 
-type Table = ReturnType<typeof table>;
-type ExerciseTaxonomyInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
-	readonly exerciseId: string;
-	readonly reference: PluginIdentityReference;
-};
-type TaxonomyListInput = Pick<Parameters<typeof selectedRows>[1], "after" | "limit"> & {
-	readonly name?: string | undefined;
-	readonly reference: PluginIdentityReference;
-};
-
-const taxonomyWhere = (entity: Table, schemaSlug: string, input: TaxonomyListInput) =>
-	and(
-		entitySchemaPredicate(entity, schemaSlug, input.reference),
-		...(input.name ? [eq(column(entity, "name"), literal(input.name))] : []),
-	);
-
+type Table = Parameters<typeof column>[0];
 export const effectiveTaxonomyLink = (relationship: Table) => {
 	const shared = table("relationship", "sharedTaxonomyRelationship");
 	return or(
@@ -129,17 +115,25 @@ export const exerciseEquipmentInclude = (exercise: Table) => {
 		},
 	});
 };
-
-export const targetListRecipe = defineRecipe((input: TaxonomyListInput) => {
+export const targetListRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: { name: { label: "name", type: "string", description: "name for this selection" } },
+	});
 	const target = table("entity", "exerciseTarget");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ targets }) => Result.succeed(targets),
 		queries: {
 			targets: selectedRows(target, {
-				after: input.after,
-				limit: input.limit,
+				limit: 100,
 				orderBy: [ascending(column(target, "name"))],
-				where: taxonomyWhere(target, "exercise-target", input),
+				where: and(
+					entitySchemaPredicate(target, "exercise-target", input.reference),
+					inputParameters.whenSet(
+						"name",
+						eq(column(target, "name"), inputParameters.value("name")),
+					),
+				),
 				selection: {
 					id: selectedField(column(target, "id"), EntityId),
 					name: selectedField(column(target, "name"), Schema.String),
@@ -148,19 +142,27 @@ export const targetListRecipe = defineRecipe((input: TaxonomyListInput) => {
 				},
 			}),
 		},
-	};
-});
-
-export const equipmentListRecipe = defineRecipe((input: TaxonomyListInput) => {
+	});
+};
+export const equipmentListRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: { name: { label: "name", type: "string", description: "name for this selection" } },
+	});
 	const equipmentTable = table("entity", "exerciseEquipment");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ equipment }) => Result.succeed(equipment),
 		queries: {
 			equipment: selectedRows(equipmentTable, {
-				after: input.after,
-				limit: input.limit,
+				limit: 100,
 				orderBy: [ascending(column(equipmentTable, "name"))],
-				where: taxonomyWhere(equipmentTable, "exercise-equipment", input),
+				where: and(
+					entitySchemaPredicate(equipmentTable, "exercise-equipment", input.reference),
+					inputParameters.whenSet(
+						"name",
+						eq(column(equipmentTable, "name"), inputParameters.value("name")),
+					),
+				),
 				selection: {
 					id: selectedField(column(equipmentTable, "id"), EntityId),
 					name: selectedField(column(equipmentTable, "name"), Schema.String),
@@ -168,24 +170,33 @@ export const equipmentListRecipe = defineRecipe((input: TaxonomyListInput) => {
 				},
 			}),
 		},
-	};
-});
-
-export const exerciseTargetsRecipe = defineRecipe((input: ExerciseTaxonomyInput) => {
+	});
+};
+export const exerciseTargetsRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			exerciseId: {
+				type: "string",
+				label: "exerciseId",
+				validation: { required: true },
+				description: "exerciseId for this selection",
+			},
+		},
+	});
 	const relationship = table("relationship", "exerciseTargetRelationship");
 	const target = table("entity", "exerciseTarget");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ targets }) => Result.succeed(targets),
 		queries: {
 			targets: selectedRows(relationship, {
-				after: input.after,
-				limit: input.limit,
+				limit: 100,
 				orderBy: [ascending(column(target, "name")), ascending(column(relationship, "id"))],
 				...exerciseLink(
 					"target",
 					relationship,
 					target,
-					literal(input.exerciseId),
+					inputParameters.value("exerciseId"),
 					pluginId(input.reference),
 				),
 				selection: {
@@ -201,24 +212,33 @@ export const exerciseTargetsRecipe = defineRecipe((input: ExerciseTaxonomyInput)
 				},
 			}),
 		},
-	};
-});
-
-export const exerciseEquipmentRecipe = defineRecipe((input: ExerciseTaxonomyInput) => {
+	});
+};
+export const exerciseEquipmentRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const inputParameters = parameters({
+		fields: {
+			exerciseId: {
+				type: "string",
+				label: "exerciseId",
+				validation: { required: true },
+				description: "exerciseId for this selection",
+			},
+		},
+	});
 	const relationship = table("relationship", "exerciseEquipmentRelationship");
 	const equipmentTable = table("entity", "exerciseEquipment");
-	return {
+	return defineRecipe({
+		parameters: inputParameters.schema,
 		map: ({ equipment }) => Result.succeed(equipment),
 		queries: {
 			equipment: selectedRows(relationship, {
-				after: input.after,
-				limit: input.limit,
+				limit: 100,
 				orderBy: [ascending(column(equipmentTable, "name")), ascending(column(relationship, "id"))],
 				...exerciseLink(
 					"equipment",
 					relationship,
 					equipmentTable,
-					literal(input.exerciseId),
+					inputParameters.value("exerciseId"),
 					pluginId(input.reference),
 				),
 				selection: {
@@ -229,5 +249,5 @@ export const exerciseEquipmentRecipe = defineRecipe((input: ExerciseTaxonomyInpu
 				},
 			}),
 		},
-	};
-});
+	});
+};

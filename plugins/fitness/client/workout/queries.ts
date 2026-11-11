@@ -22,18 +22,32 @@ export const workoutDetailsQuery = createRyotQuery<
 		Effect.gen(function* () {
 			const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
 			const workoutId = input.entityId;
-			const workout = yield* client.data.query(workoutDetailsRecipe({ reference, workoutId }));
+			const workout = yield* client.data.query(workoutDetailsRecipe({ reference: reference }), {
+				workoutId,
+			});
 			if (workout === null) {
 				return null;
 			}
 			const exercises = yield* readItems((after) =>
-				client.data.query(workoutDetailsExercisesRecipe({ after, reference, workoutId })),
+				client.data.query(
+					workoutDetailsExercisesRecipe({ reference: reference }),
+					{ workoutId },
+					{ pages: { exercises: { after: after } } },
+				),
 			);
 			const sets = yield* readItems((after) =>
-				client.data.query(workoutDetailsSetsRecipe({ after, reference, workoutId })),
+				client.data.query(
+					workoutDetailsSetsRecipe({ reference: reference }),
+					{ workoutId },
+					{ pages: { sets: { after: after } } },
+				),
 			);
 			const taxonomy = yield* readItems((after) =>
-				client.data.query(workoutTaxonomyRecipe({ after, reference, workoutIds: [workoutId] })),
+				client.data.query(
+					workoutTaxonomyRecipe({ reference: reference }),
+					{ workoutIds: [workoutId] },
+					{ pages: { taxonomy: { after: after } } },
+				),
 			);
 			const loaded = yield* Effect.forEach(
 				exercises,
@@ -45,12 +59,9 @@ export const workoutDetailsQuery = createRyotQuery<
 								? []
 								: yield* readItems((after) =>
 										client.data.query(
-											workoutDetailsSetsRecipe({
-												after,
-												reference,
-												exerciseId: exercise.id,
-												workoutId: previousWorkoutId,
-											}),
+											workoutDetailsSetsRecipe({ reference: reference }),
+											{ exerciseId: exercise.id, workoutId: previousWorkoutId },
+											{ pages: { sets: { after: after } } },
 										),
 									);
 						return {

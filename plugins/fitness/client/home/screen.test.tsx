@@ -15,6 +15,7 @@ import {
 	pluginContributor,
 	routeLocation,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -36,8 +37,7 @@ const pageContext: ClientPageContext = {
 	target: { path: "/", search: "", kind: "plugin-route", packageId: PLUGIN_PACKAGE_ID },
 	contributors: [pluginContributor({ pluginId, name: "Fitness", packageId: PLUGIN_PACKAGE_ID })],
 };
-
-const HOUR_MS = 3_600_000;
+const HOUR_MS = 3600000;
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * HOUR_MS).toISOString();
 
 const rows = (items: RowsResult["items"]): RowsResult => ({
@@ -257,7 +257,7 @@ const openHome = (scenario: Scenario, clock?: ReturnType<typeof createTestRyotCl
 				answered.add(request.requestId);
 				page.replyQuery(request.requestId, {
 					outcome: "success",
-					response: { data: respond(request.document.queries, scenario) },
+					response: { data: respond(bindTestRequest(request.request).queries, scenario) },
 				});
 			}
 		}
@@ -274,7 +274,7 @@ const settle = (assert: () => void) =>
 				answerCurrent();
 				assert();
 			},
-			{ timeout: 10_000 },
+			{ timeout: 10000 },
 		),
 	);
 
@@ -306,7 +306,7 @@ describe("fitness home", () => {
 					const count = page.queryRequests().length;
 					const previous = page
 						.queryRequests()
-						.findLast((request) => "activity" in request.document.queries);
+						.findLast((request) => "activity" in bindTestRequest(request.request).queries);
 					yield* Effect.promise(() => clock.advance(24 * HOUR_MS));
 					page.send({ type: "page-refresh" });
 					yield* Effect.promise(() => clock.advance(0));
@@ -324,9 +324,19 @@ describe("fitness home", () => {
 					const refreshed = page
 						.queryRequests()
 						.slice(count)
-						.filter((request) => "activity" in request.document.queries);
+						.filter((request) => "activity" in bindTestRequest(request.request).queries);
 					expect(refreshed).toHaveLength(1);
-					expect(refreshed[0]?.document).not.toEqual(previous?.document);
+					expect(
+						bindTestRequest(refreshed[0]?.request, {
+							reportingTimeZone: "UTC",
+							now: DateTime.toDateUtc(DateTime.makeUnsafe(now + 24 * HOUR_MS)),
+						}),
+					).not.toEqual(
+						bindTestRequest(previous?.request, {
+							reportingTimeZone: "UTC",
+							now: DateTime.toDateUtc(DateTime.makeUnsafe(now)),
+						}),
+					);
 					answerPending();
 					yield* settle(() =>
 						expect(body.getByText("3 sets with awards in the last 30 days")).toBeTruthy(),
@@ -457,7 +467,9 @@ describe("fitness home", () => {
 				yield* settle(() => expect(body.getByRole("link", { name: "Choose a goal" })).toBeTruthy());
 				fireEvent.click(body.getByRole("link", { name: "Choose a goal" }));
 				yield* settle(() =>
-					expect(page.clientMessages().filter((message) => message.type === "navigate")).toEqual([
+					expect(
+						page.clientMessages().filter((message) => message.type === "navigate"),
+					).toEqual<unknown>([
 						{
 							mode: "push",
 							type: "navigate",

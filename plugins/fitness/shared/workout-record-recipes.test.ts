@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+
 import { workoutRecordPageRecipe } from "./workout-record-recipes";
 
 const rows = (
@@ -35,22 +37,20 @@ const orderedLast = (path: string) => ({
 					expr: { type: "column", field: "properties", tableAlias: "workoutRecord" },
 				},
 			},
-			{ type: "literal", value: 2_147_483_647 },
+			{ type: "literal", value: 2147483647 },
 		],
 	},
 });
 
 const decodeRecord = (record: Readonly<Record<string, unknown>>) =>
-	workoutRecordPageRecipe({ exerciseId: "exercise-1", reference: { kind: "self" } }).decode({
-		data: { records: rows([record], { limit: 1, hasMore: false, nextCursor: null }) },
-	});
-
+	bindRecipe(workoutRecordPageRecipe({ reference: { kind: "self" } }), {
+		exerciseId: "exercise-1",
+	}).decode({ data: { records: rows([record], { limit: 1, hasMore: false, nextCursor: null }) } });
 describe("workout record recipes", () => {
 	it("pages one exercise's sets in the stable null-last record order", () => {
-		const records = workoutRecordPageRecipe({
+		const records = bindRecipe(workoutRecordPageRecipe({ reference: { kind: "self" } }), {
 			after: "cursor",
 			exerciseId: "exercise-2",
-			reference: { kind: "self" },
 		});
 		const recordsQuery = records.document.queries.records;
 		if (recordsQuery?.output.type !== "rows") {

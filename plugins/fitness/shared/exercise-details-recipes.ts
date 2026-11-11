@@ -22,7 +22,9 @@ import {
 	literal,
 	measureDescending,
 	NullableNumber,
+	parameters,
 	type Recipe,
+	reportingTimeZone,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -32,7 +34,7 @@ import {
 	selectedRows,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference, TimeZone } from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	projectionNumber,
@@ -56,17 +58,19 @@ import { membershipField, membershipPropertiesSchema } from "./workout-exercise-
 import { PersonalBestSchema } from "./workout-records";
 import { WorkoutSetLotSchema } from "./workout-set";
 
-type Table = ReturnType<typeof table>;
-
+type Table = Parameters<typeof column>[0];
 const rowLimit = 100;
 const nullableString = Schema.NullOr(Schema.String);
 
 export const bestWeightRepThresholds = [1, 5, 8, 12, 30] as const;
-
-const exerciseSets = (reference: PluginIdentityReference, set: Table, exerciseId: string) =>
+const exerciseSets = (
+	reference: PluginIdentityReference,
+	set: Table,
+	exerciseId: Parameters<typeof eq>[1],
+) =>
 	and(
 		schemaOwnerPredicate(set, "eventSchemaPluginId", reference),
-		eq(column(set, "entityId"), literal(exerciseId)),
+		eq(column(set, "entityId"), exerciseId),
 		eq(column(set, "eventSchemaSlug"), literal("workout-set")),
 	);
 
@@ -94,8 +98,7 @@ const bestWeightAtLeast = (set: Table, reps: number) =>
 			literal(null),
 		),
 	);
-
-const totalsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const totalsQuery = (reference: PluginIdentityReference, exerciseId: Parameters<typeof eq>[1]) => {
 	const set = table("event", "totalsSet");
 	const workout = table("entity", "totalsWorkout");
 	const [one, five, eight, twelve, thirty] = bestWeightRepThresholds;
@@ -136,8 +139,8 @@ const totalsQuery = (reference: PluginIdentityReference, exerciseId: string) => 
 
 const monthsQuery = (
 	reference: PluginIdentityReference,
-	exerciseId: string,
-	timeZone: TimeZone,
+	exerciseId: Parameters<typeof eq>[1],
+	timeZone: Parameters<typeof dateBucket>[1]["timeZone"],
 ) => {
 	const set = table("event", "monthsSet");
 	const workout = table("entity", "monthsWorkout");
@@ -172,8 +175,10 @@ const monthsQuery = (
 		},
 	});
 };
-
-const topWorkoutQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const topWorkoutQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: Parameters<typeof eq>[1],
+) => {
 	const set = table("event", "topWorkoutSet");
 	const workout = table("entity", "topWorkout");
 	return selectedAggregate(set, {
@@ -193,8 +198,10 @@ const topWorkoutQuery = (reference: PluginIdentityReference, exerciseId: string)
 		},
 	});
 };
-
-const personalBestsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const personalBestsQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: Parameters<typeof eq>[1],
+) => {
 	const set = table("event", "personalBestSet");
 	const workout = table("entity", "personalBestWorkout");
 	return selectedRows(set, {
@@ -233,7 +240,7 @@ const hasExerciseSets = (
 	reference: PluginIdentityReference,
 	workout: Table,
 	set: Table,
-	exerciseId: string,
+	exerciseId: Parameters<typeof eq>[1],
 ) =>
 	exists(set, {
 		where: and(
@@ -241,8 +248,10 @@ const hasExerciseSets = (
 			eq(column(set, "sessionEntityId"), column(workout, "id")),
 		),
 	});
-
-const sessionsQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const sessionsQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: Parameters<typeof eq>[1],
+) => {
 	const workout = table("entity", "sessionWorkout");
 	const existing = table("event", "sessionExistingSet");
 	const set = table("event", "sessionSet");
@@ -285,8 +294,10 @@ const sessionsQuery = (reference: PluginIdentityReference, exerciseId: string) =
 		},
 	});
 };
-
-const setNotesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const setNotesQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: Parameters<typeof eq>[1],
+) => {
 	const set = table("event", "noteSet");
 	const workout = table("entity", "noteWorkout");
 	return selectedRows(set, {
@@ -310,8 +321,10 @@ const setNotesQuery = (reference: PluginIdentityReference, exerciseId: string) =
 		},
 	});
 };
-
-const workoutNotesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const workoutNotesQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: Parameters<typeof eq>[1],
+) => {
 	const workout = table("entity", "notesWorkout");
 	const existing = table("event", "notesExistingSet");
 	const set = table("event", "notesSet");
@@ -345,14 +358,13 @@ const workoutNotesQuery = (reference: PluginIdentityReference, exerciseId: strin
 		},
 	});
 };
-
-const notesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const notesQuery = (reference: PluginIdentityReference, exerciseId: Parameters<typeof eq>[1]) => {
 	const note = table("event", "exerciseNote");
 	return selectedRows(note, {
 		limit: rowLimit,
 		orderBy: [descending(column(note, "occurredAt")), descending(column(note, "id"))],
 		where: and(
-			eq(column(note, "entityId"), literal(exerciseId)),
+			eq(column(note, "entityId"), exerciseId),
 			schemaOwnerPredicate(note, "eventSchemaPluginId", reference),
 			eq(column(note, "eventSchemaSlug"), literal("review")),
 		),
@@ -365,8 +377,10 @@ const notesQuery = (reference: PluginIdentityReference, exerciseId: string) => {
 		},
 	});
 };
-
-const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) => {
+const exerciseQuery = (
+	reference: PluginIdentityReference,
+	exerciseId: Parameters<typeof eq>[1],
+) => {
 	const exercise = table("entity", "exercise");
 	return selectedOptionalRow(exercise, {
 		orderBy: [ascending(column(exercise, "id"))],
@@ -375,7 +389,7 @@ const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) =
 			equipment: exerciseEquipmentInclude(exercise),
 		},
 		where: and(
-			eq(column(exercise, "id"), literal(exerciseId)),
+			eq(column(exercise, "id"), exerciseId),
 			entitySchemaPredicate(exercise, "exercise", reference),
 		),
 		selection: {
@@ -401,13 +415,19 @@ const exerciseQuery = (reference: PluginIdentityReference, exerciseId: string) =
 		},
 	});
 };
-
-export const exerciseDetailsRecipe = defineRecipe(
-	(input: {
-		readonly timeZone: TimeZone;
-		readonly exerciseId: string;
-		readonly reference: PluginIdentityReference;
-	}) => ({
+export const exerciseDetailsRecipe = (input: { readonly reference: PluginIdentityReference }) => {
+	const args = parameters({
+		fields: {
+			exerciseId: {
+				type: "string",
+				label: "Exercise",
+				validation: { required: true },
+				description: "Exercise whose recorded history to read",
+			},
+		},
+	});
+	return defineRecipe({
+		parameters: args.schema,
 		map: ({
 			notes,
 			months,
@@ -432,17 +452,16 @@ export const exerciseDetailsRecipe = defineRecipe(
 			});
 		},
 		queries: {
-			notes: notesQuery(input.reference, input.exerciseId),
-			totals: totalsQuery(input.reference, input.exerciseId),
-			exercise: exerciseQuery(input.reference, input.exerciseId),
-			sessions: sessionsQuery(input.reference, input.exerciseId),
-			setNotes: setNotesQuery(input.reference, input.exerciseId),
-			topWorkout: topWorkoutQuery(input.reference, input.exerciseId),
-			workoutNotes: workoutNotesQuery(input.reference, input.exerciseId),
-			personalBests: personalBestsQuery(input.reference, input.exerciseId),
-			months: monthsQuery(input.reference, input.exerciseId, input.timeZone),
+			notes: notesQuery(input.reference, args.value("exerciseId")),
+			totals: totalsQuery(input.reference, args.value("exerciseId")),
+			exercise: exerciseQuery(input.reference, args.value("exerciseId")),
+			sessions: sessionsQuery(input.reference, args.value("exerciseId")),
+			setNotes: setNotesQuery(input.reference, args.value("exerciseId")),
+			topWorkout: topWorkoutQuery(input.reference, args.value("exerciseId")),
+			workoutNotes: workoutNotesQuery(input.reference, args.value("exerciseId")),
+			personalBests: personalBestsQuery(input.reference, args.value("exerciseId")),
+			months: monthsQuery(input.reference, args.value("exerciseId"), reportingTimeZone),
 		},
-	}),
-);
-
-export type ExerciseDetails = Recipe.Success<typeof exerciseDetailsRecipe>;
+	});
+};
+export type ExerciseDetails = Recipe.Success<ReturnType<typeof exerciseDetailsRecipe>>;

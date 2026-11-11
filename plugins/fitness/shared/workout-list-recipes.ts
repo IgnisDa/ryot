@@ -2,32 +2,44 @@ import { Result, Schema } from "@ryot-app/plugin-kit/effect";
 import {
 	and,
 	ascending,
+	castDate,
 	column,
 	contains,
 	count,
 	countAll,
 	countDistinct,
 	countIf,
+	dateAdd,
 	dateBucket,
 	defineRecipe,
 	descending,
 	entitySchemaPredicate,
 	eq,
+	expressionPeriodPredicate,
+	filter,
 	first,
 	groupAscending,
+	gte,
 	inArray,
 	isNotNull,
 	IsoDateString,
 	join,
 	jsonArrayExists,
 	literal,
+	localDate,
 	lt,
+	now,
 	NullableNumber,
+	parameters,
+	type Predicate,
 	ProjectionProcessing,
 	projectionProcessing,
 	type Recipe,
 	relationshipSchemaPredicate,
-	rows,
+	reportingParameterFields,
+	reportingPeriodPredicate,
+	reportingTimeZone,
+	type ScalarExpression,
 	schemaOwnerPredicate,
 	selectedAggregate,
 	selectedField,
@@ -37,13 +49,8 @@ import {
 	sum,
 	sumOf,
 	table,
-	withinPeriod,
 } from "@ryot-app/plugin-kit/ryotql";
-import type {
-	PluginIdentityReference,
-	ReportingPeriod,
-	TimeZone,
-} from "@ryot-app/plugin-kit/schema";
+import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	projectionNumber,
@@ -60,10 +67,9 @@ import { PersonalBestSchema } from "./workout-records";
 import { occurrenceSets } from "./workout-taxonomy-recipes";
 
 export type WorkoutFilterPredicate = ReturnType<typeof and>;
-type Table = ReturnType<typeof table>;
 type Reference = PluginIdentityReference;
-type Range = Pick<ReportingPeriod, "endAt" | "startAt">;
-
+type Table = Parameters<typeof column>[0];
+type Range = (at: ScalarExpression) => Predicate;
 export const WORKOUT_LIST_PAGE_SIZE = 20;
 
 const nullableString = Schema.NullOr(Schema.String);
@@ -92,34 +98,16 @@ export const workoutTotals = (workout: Table, setAlias: string) => {
 const LIST_WORKOUT_ALIAS = "workout";
 const WEEKS_ALIAS = "weeks";
 const rangeWorkoutAlias = (alias: string) => `${alias}Workout`;
-
-export const workoutFilterScope = (target: "list" | "weeks") => {
-	const alias = target === "list" ? LIST_WORKOUT_ALIAS : rangeWorkoutAlias(WEEKS_ALIAS);
-	const workout = table("entity", alias);
-	const totals = workoutTotals(workout, "filterTotalsSet");
-	return {
-		subject: { entityAlias: alias },
-		source: rows(workout, {
-			fields: [
-				{ key: "startedAt", expr: startedAt(workout) },
-				{ key: "setCount", expr: totals.setCount },
-				{ key: "exerciseCount", expr: totals.exerciseCount },
-				{ key: "personalBests", expr: totals.personalBests },
-			],
-		}),
-	};
-};
-
 const workoutWhere = (
 	workout: Table,
 	reference: Reference,
-	search: string,
-	filter?: WorkoutFilterPredicate,
+	search: ScalarExpression = literal(""),
+	where: WorkoutFilterPredicate = and(),
 ) =>
 	and(
 		entitySchemaPredicate(workout, "workout", reference),
-		...(search === "" ? [] : [contains(column(workout, "name"), literal(search))]),
-		...(filter === undefined ? [] : [filter]),
+		contains(column(workout, "name"), search),
+		where,
 	);
 
 const workoutVolume = (workout: Table) => {
@@ -197,162 +185,227 @@ const workoutSetsInclude = (workout: Table) => {
 		},
 	});
 };
-
-export const workoutCardsRecipe = defineRecipe(
-	(input: {
-		readonly search: string;
-		readonly reference: Reference;
-		readonly limit?: number | undefined;
-		readonly after?: string | undefined;
-		readonly workoutIds?: undefined | readonly string[];
-		readonly filter?: undefined | WorkoutFilterPredicate;
-	}) => {
-		const workout = table("entity", LIST_WORKOUT_ALIAS);
-		const totals = workoutTotals(workout, "listTotalsSet");
-		return {
-			map: ({ workouts }) =>
-				Result.succeed({
-					...workouts,
-					items: workouts.items.map(({ template, sets: included, ...item }) => ({
-						...item,
-						sets: included.items,
-						template: template.items[0] ?? null,
-					})),
-				}),
-			queries: {
-				workouts: selectedRows(workout, {
-					after: input.after,
-					limit: input.limit ?? WORKOUT_LIST_PAGE_SIZE,
-					orderBy: [descending(startedAt(workout)), descending(column(workout, "id"))],
-					include: {
-						sets: workoutSetsInclude(workout),
-						template: workoutTemplateInclude(workout, 1),
-					},
-					where: and(
-						workoutWhere(workout, input.reference, input.search, input.filter),
-						...(input.workoutIds === undefined
-							? []
-							: [inArray(column(workout, "id"), input.workoutIds.map(literal))]),
+export const workoutCardsRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({
+		fields: {
+			search: {
+				type: "string",
+				label: "Search",
+				defaultValue: "",
+				description: "Workout name contains this text",
+			},
+			workoutIds: {
+				type: "array",
+				label: "Workout IDs",
+				description: "IDs to include",
+				items: { label: "ID", type: "string", description: "Selected entity ID" },
+			},
+		},
+	});
+	const input = { filter: filter(), search: args.value("search"), reference: structural.reference };
+	const workout = table("entity", LIST_WORKOUT_ALIAS);
+	const totals = workoutTotals(workout, "listTotalsSet");
+	return defineRecipe({
+		parameters: args.schema,
+		controls: {
+			filter: {
+				kind: "browse",
+				alias: LIST_WORKOUT_ALIAS,
+				schemas: [{ slug: "workout", owner: structural.reference }],
+			},
+		},
+		map: ({ workouts }) =>
+			Result.succeed({
+				...workouts,
+				items: workouts.items.map(({ template, sets: included, ...item }) => ({
+					...item,
+					sets: included.items,
+					template: template.items[0] ?? null,
+				})),
+			}),
+		queries: {
+			workouts: selectedRows(workout, {
+				limit: 20,
+				maxLimit: 100,
+				orderBy: [descending(startedAt(workout)), descending(column(workout, "id"))],
+				include: {
+					sets: workoutSetsInclude(workout),
+					template: workoutTemplateInclude(workout, 1),
+				},
+				where: and(
+					workoutWhere(workout, input.reference, input.search, input.filter),
+					args.whenSet("workoutIds", inArray(column(workout, "id"), args.list("workoutIds"))),
+				),
+				selection: {
+					volume: workoutVolume(workout),
+					setCount: selectedField(totals.setCount, Schema.Finite),
+					name: selectedField(column(workout, "name"), Schema.String),
+					startedAt: selectedField(startedAt(workout), nullableString),
+					entityId: selectedField(column(workout, "id"), Schema.String),
+					exerciseCount: selectedField(totals.exerciseCount, Schema.Finite),
+					processing: selectedField(totals.processing, ProjectionProcessing),
+					personalBests: selectedField(totals.personalBests, NullableNumber),
+					endedAt: selectedField(propertyDate(workout, "endedAt"), nullableString),
+					repeatedFromId: selectedField(repeatedFromId(workout, input.reference), nullableString),
+					activeDuration: selectedField(propertyNumber(workout, "activeDuration"), NullableNumber),
+					previousTemplateWorkoutId: selectedField(
+						previousTemplateWorkoutId(workout, input.reference),
+						nullableString,
 					),
-					selection: {
-						volume: workoutVolume(workout),
-						setCount: selectedField(totals.setCount, Schema.Finite),
-						name: selectedField(column(workout, "name"), Schema.String),
-						startedAt: selectedField(startedAt(workout), nullableString),
-						entityId: selectedField(column(workout, "id"), Schema.String),
-						exerciseCount: selectedField(totals.exerciseCount, Schema.Finite),
-						processing: selectedField(totals.processing, ProjectionProcessing),
-						personalBests: selectedField(totals.personalBests, NullableNumber),
-						endedAt: selectedField(propertyDate(workout, "endedAt"), nullableString),
-						repeatedFromId: selectedField(repeatedFromId(workout, input.reference), nullableString),
-						activeDuration: selectedField(
-							propertyNumber(workout, "activeDuration"),
-							NullableNumber,
-						),
-						previousTemplateWorkoutId: selectedField(
-							previousTemplateWorkoutId(workout, input.reference),
-							nullableString,
-						),
-					},
-				}),
+				},
+			}),
+		},
+	});
+};
+export const workoutCountRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({
+		fields: {
+			search: {
+				type: "string",
+				label: "Search",
+				defaultValue: "",
+				description: "Workout name contains this text",
 			},
-		};
-	},
-);
-
-export const workoutCountRecipe = defineRecipe(
-	(input: {
-		readonly search: string;
-		readonly reference: Reference;
-		readonly filter?: undefined | WorkoutFilterPredicate;
-	}) => {
-		const workout = table("entity", LIST_WORKOUT_ALIAS);
-		return {
-			map: ({ total }) => Result.succeed(total.workouts),
-			queries: {
-				total: selectedAggregate(workout, {
-					measures: { workouts: countAll },
-					where: workoutWhere(workout, input.reference, input.search, input.filter),
-				}),
+			workoutIds: {
+				type: "array",
+				label: "Workout IDs",
+				description: "IDs to include",
+				items: { label: "ID", type: "string", description: "Selected entity ID" },
 			},
-		};
-	},
-);
-
-export const workoutIdsRecipe = defineRecipe(
-	(input: {
-		readonly limit: number;
-		readonly search: string;
-		readonly reference: Reference;
-		readonly after?: string | undefined;
-		readonly filter?: undefined | WorkoutFilterPredicate;
-	}) => {
-		const workout = table("entity", LIST_WORKOUT_ALIAS);
-		return {
-			map: ({ workoutIds }) =>
-				Result.succeed({
-					pageInfo: workoutIds.pageInfo,
-					items: workoutIds.items.map(({ entityId }) => entityId),
-				}),
-			queries: {
-				workoutIds: selectedRows(workout, {
-					after: input.after,
-					limit: input.limit,
-					orderBy: [ascending(column(workout, "id"))],
-					where: workoutWhere(workout, input.reference, input.search, input.filter),
-					selection: { entityId: selectedField(column(workout, "id"), Schema.String) },
-				}),
+		},
+	});
+	const input = { filter: filter(), search: args.value("search"), reference: structural.reference };
+	const workout = table("entity", LIST_WORKOUT_ALIAS);
+	return defineRecipe({
+		parameters: args.schema,
+		map: ({ total }) => Result.succeed(total.workouts),
+		controls: {
+			filter: {
+				kind: "browse",
+				alias: LIST_WORKOUT_ALIAS,
+				schemas: [{ slug: "workout", owner: structural.reference }],
 			},
-		};
-	},
-);
-
-export const workoutComparisonsRecipe = defineRecipe(
-	(input: { readonly reference: Reference; readonly workoutIds: readonly string[] }) => {
-		const workout = table("entity", "workout");
-		return {
-			map: ({ workouts }) => Result.succeed(workouts.items),
-			queries: {
-				workouts: selectedRows(workout, {
-					limit: input.workoutIds.length,
-					orderBy: [ascending(column(workout, "id"))],
-					where: and(
-						entitySchemaPredicate(workout, "workout", input.reference),
-						inArray(column(workout, "id"), input.workoutIds.map(literal)),
-					),
-					selection: {
-						volume: workoutVolume(workout),
-						id: selectedField(column(workout, "id"), Schema.String),
-						startedAt: selectedField(startedAt(workout), nullableString),
-					},
-				}),
+		},
+		queries: {
+			total: selectedAggregate(workout, {
+				measures: { workouts: countAll },
+				where: workoutWhere(workout, input.reference, input.search, input.filter),
+			}),
+		},
+	});
+};
+export const workoutIdsRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({
+		fields: {
+			search: {
+				type: "string",
+				label: "Search",
+				defaultValue: "",
+				description: "Workout name contains this text",
 			},
-		};
-	},
-);
-
-export const workoutExerciseTargetsRecipe = defineRecipe(
-	(input: { readonly reference: Reference; readonly exerciseIds: readonly string[] }) => {
-		const exercise = table("entity", "exercise");
-		return {
-			map: ({ exercises }) =>
-				Result.succeed(exercises.items.map(({ id, targets }) => ({ id, targets: targets.items }))),
-			queries: {
-				exercises: selectedRows(exercise, {
-					limit: input.exerciseIds.length,
-					orderBy: [ascending(column(exercise, "id"))],
-					include: { targets: exerciseTargetInclude(exercise) },
-					selection: { id: selectedField(column(exercise, "id"), Schema.String) },
-					where: and(
-						entitySchemaPredicate(exercise, "exercise", input.reference),
-						inArray(column(exercise, "id"), input.exerciseIds.map(literal)),
-					),
-				}),
+			workoutIds: {
+				type: "array",
+				label: "Workout IDs",
+				description: "IDs to include",
+				items: { label: "ID", type: "string", description: "Selected entity ID" },
 			},
-		};
-	},
-);
-
+		},
+	});
+	const input = { filter: filter(), search: args.value("search"), reference: structural.reference };
+	const workout = table("entity", LIST_WORKOUT_ALIAS);
+	return defineRecipe({
+		parameters: args.schema,
+		map: ({ workoutIds }) =>
+			Result.succeed({
+				pageInfo: workoutIds.pageInfo,
+				items: workoutIds.items.map(({ entityId }) => entityId),
+			}),
+		controls: {
+			filter: {
+				kind: "browse",
+				alias: LIST_WORKOUT_ALIAS,
+				schemas: [{ slug: "workout", owner: structural.reference }],
+			},
+		},
+		queries: {
+			workoutIds: selectedRows(workout, {
+				limit: 100,
+				maxLimit: 100,
+				orderBy: [ascending(column(workout, "id"))],
+				where: workoutWhere(workout, input.reference, input.search, input.filter),
+				selection: { entityId: selectedField(column(workout, "id"), Schema.String) },
+			}),
+		},
+	});
+};
+export const workoutComparisonsRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({
+		fields: {
+			workoutIds: {
+				type: "array",
+				label: "workoutIds",
+				description: "IDs to include",
+				validation: { required: true },
+				items: { label: "ID", type: "string", description: "Selected entity ID" },
+			},
+		},
+	});
+	const input = { reference: structural.reference };
+	const workout = table("entity", "workout");
+	return defineRecipe({
+		parameters: args.schema,
+		map: ({ workouts }) => Result.succeed(workouts.items),
+		queries: {
+			workouts: selectedRows(workout, {
+				limit: 100,
+				maxLimit: 100,
+				orderBy: [ascending(column(workout, "id"))],
+				where: and(
+					entitySchemaPredicate(workout, "workout", input.reference),
+					inArray(column(workout, "id"), args.list("workoutIds")),
+				),
+				selection: {
+					volume: workoutVolume(workout),
+					id: selectedField(column(workout, "id"), Schema.String),
+					startedAt: selectedField(startedAt(workout), nullableString),
+				},
+			}),
+		},
+	});
+};
+export const workoutExerciseTargetsRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({
+		fields: {
+			exerciseIds: {
+				type: "array",
+				label: "exerciseIds",
+				description: "IDs to include",
+				validation: { required: true },
+				items: { label: "ID", type: "string", description: "Selected entity ID" },
+			},
+		},
+	});
+	const input = { reference: structural.reference };
+	const exercise = table("entity", "exercise");
+	return defineRecipe({
+		parameters: args.schema,
+		map: ({ exercises }) =>
+			Result.succeed(exercises.items.map(({ id, targets }) => ({ id, targets: targets.items }))),
+		queries: {
+			exercises: selectedRows(exercise, {
+				limit: 100,
+				maxLimit: 100,
+				orderBy: [ascending(column(exercise, "id"))],
+				include: { targets: exerciseTargetInclude(exercise) },
+				selection: { id: selectedField(column(exercise, "id"), Schema.String) },
+				where: and(
+					entitySchemaPredicate(exercise, "exercise", input.reference),
+					inArray(column(exercise, "id"), args.list("exerciseIds")),
+				),
+			}),
+		},
+	});
+};
 export const workoutMeasures = (workout: Table) => ({
 	workouts: countAll,
 	activeDuration: sumOf(propertyNumber(workout, "activeDuration")),
@@ -366,21 +419,21 @@ export const setMeasures = (set: Table) => ({
 
 export const workoutRangeSources = (
 	reference: Reference,
-	range: null | Range,
+	range: Range,
 	alias: string,
-	search = "",
-	filter?: WorkoutFilterPredicate,
+	search: ScalarExpression = literal(""),
+	predicate?: WorkoutFilterPredicate,
 ) => {
 	const workout = table("entity", rangeWorkoutAlias(alias));
 	const set = table("event", `${alias}Set`);
 	const occurrence = table("event", `${alias}Occurrence`);
-	const workouts = workoutWhere(workout, reference, search, filter);
+	const workouts = workoutWhere(workout, reference, search, predicate);
 	return {
 		set,
 		workout,
 		occurrence,
 		setStartedAt: column(occurrence, "occurredAt"),
-		workoutWhere: and(workouts, withinPeriod(startedAt(workout), range)),
+		workoutWhere: and(workouts, range(startedAt(workout))),
 		setWhere: and(
 			schemaOwnerPredicate(set, "eventSchemaPluginId", reference),
 			eq(column(set, "eventSchemaSlug"), literal("workout-set")),
@@ -392,7 +445,7 @@ export const workoutRangeSources = (
 				and(
 					eq(column(occurrence, "eventSchemaSlug"), literal("workout-exercise")),
 					occurrenceSets(set, occurrence),
-					withinPeriod(column(occurrence, "occurredAt"), range),
+					range(column(occurrence, "occurredAt")),
 				),
 			),
 			join(
@@ -421,15 +474,16 @@ const rangeTotals = (reference: Reference, range: Range, alias: string) => {
 
 const rangeBuckets = (
 	reference: Reference,
-	range: Range & {
-		readonly search: string;
-		readonly timeZone: TimeZone;
+	range: {
+		readonly period: Range;
 		readonly bucket: "day" | "week";
+		readonly search: ScalarExpression;
 		readonly filter?: undefined | WorkoutFilterPredicate;
+		readonly timeZone: Parameters<typeof dateBucket>[1]["timeZone"];
 	},
 	alias: string,
 ) => {
-	const sources = workoutRangeSources(reference, range, alias, range.search, range.filter);
+	const sources = workoutRangeSources(reference, range.period, alias, range.search, range.filter);
 	const groupBy = (at: Parameters<typeof dateBucket>[0]) => ({
 		at: selectedField(
 			dateBucket(at, { bucket: range.bucket, timeZone: range.timeZone }),
@@ -476,28 +530,51 @@ const combineBuckets = (
 		...combineTotals(item, setTotals.get(at) ?? { volume: null, personalBests: null }),
 	}));
 };
-
-export const workoutWeeksRecipe = defineRecipe(
-	(
-		input: Range & {
-			readonly search: string;
-			readonly timeZone: TimeZone;
-			readonly reference: Reference;
-			readonly filter?: undefined | WorkoutFilterPredicate;
+export const workoutWeeksRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({
+		fields: {
+			search: {
+				type: "string",
+				label: "Search",
+				defaultValue: "",
+				description: "Workout name contains this text",
+			},
+			startAt: {
+				label: "From",
+				type: "datetime",
+				validation: { required: true },
+				description: "Loaded span start",
+			},
+			endAt: {
+				label: "Until",
+				type: "datetime",
+				validation: { required: true },
+				description: "Loaded span exclusive end",
+			},
 		},
-	) => {
-		const [workouts, sets] = rangeBuckets(
-			input.reference,
-			{ ...input, bucket: "week" },
-			WEEKS_ALIAS,
-		);
-		return {
-			queries: { sets, workouts },
-			map: (results) => Result.succeed(combineBuckets(results.workouts, results.sets)),
-		};
-	},
-);
-
+	});
+	const input = {
+		filter: filter(),
+		timeZone: reportingTimeZone,
+		search: args.value("search"),
+		reference: structural.reference,
+		period: (at: ScalarExpression) =>
+			expressionPeriodPredicate(at, { endAt: args.value("endAt"), startAt: args.value("startAt") }),
+	};
+	const [workouts, sets] = rangeBuckets(input.reference, { ...input, bucket: "week" }, WEEKS_ALIAS);
+	return defineRecipe({
+		parameters: args.schema,
+		queries: { sets, workouts },
+		map: (results) => Result.succeed(combineBuckets(results.workouts, results.sets)),
+		controls: {
+			filter: {
+				kind: "browse",
+				alias: rangeWorkoutAlias(WEEKS_ALIAS),
+				schemas: [{ slug: "workout", owner: structural.reference }],
+			},
+		},
+	});
+};
 const latestRecordQuery = (reference: Reference, range: Range) => {
 	const sources = workoutRangeSources(reference, range, "record");
 	const exercise = table("entity", "recordExercise");
@@ -519,49 +596,58 @@ const latestRecordQuery = (reference: Reference, range: Range) => {
 		},
 	});
 };
-
-export const workoutSummaryRecipe = defineRecipe(
-	(input: {
-		readonly days: Range;
-		readonly current: Range;
-		readonly previous: Range;
-		readonly timeZone: TimeZone;
-		readonly reference: Reference;
-	}) => {
-		const [currentWorkouts, currentSets] = rangeTotals(input.reference, input.current, "current");
-		const [previousWorkouts, previousSets] = rangeTotals(
-			input.reference,
-			input.previous,
-			"previous",
-		);
-		const [dayWorkouts, daySets] = rangeBuckets(
-			input.reference,
-			{ ...input.days, search: "", bucket: "day", timeZone: input.timeZone },
-			"days",
-		);
-		return {
-			queries: {
-				daySets,
-				currentSets,
-				dayWorkouts,
-				previousSets,
-				currentWorkouts,
-				previousWorkouts,
-				latestRecord: latestRecordQuery(input.reference, input.current),
-			},
-			map: (results) =>
-				Result.succeed({
-					latestRecord: results.latestRecord.items[0] ?? null,
-					days: combineBuckets(results.dayWorkouts, results.daySets),
-					current: combineTotals(results.currentWorkouts, results.currentSets),
-					previous: combineTotals(results.previousWorkouts, results.previousSets),
-				}),
-		};
-	},
-);
-
-export type WorkoutSummary = Recipe.Success<typeof workoutSummaryRecipe>;
-export type WorkoutPeriodTotals = Recipe.Success<typeof workoutWeeksRecipe>[number];
-export type WorkoutComparison = Recipe.Success<typeof workoutComparisonsRecipe>[number];
-export type WorkoutListItem = Recipe.Success<typeof workoutCardsRecipe>["items"][number];
-export type WorkoutExerciseTargets = Recipe.Success<typeof workoutExerciseTargetsRecipe>[number];
+export const workoutSummaryRecipe = (structural: { readonly reference: Reference }) => {
+	const args = parameters({ fields: { ...reportingParameterFields } });
+	const input = {
+		timeZone: reportingTimeZone,
+		reference: structural.reference,
+		current: (at: ScalarExpression) => reportingPeriodPredicate(at, "current"),
+		previous: (at: ScalarExpression) => reportingPeriodPredicate(at, "previous"),
+		days: (at: ScalarExpression) =>
+			and(
+				gte(
+					castDate(localDate(at, { timeZone: reportingTimeZone })),
+					dateAdd(castDate(localDate(now(), { timeZone: reportingTimeZone })), -183, "day"),
+				),
+				lt(
+					castDate(localDate(at, { timeZone: reportingTimeZone })),
+					dateAdd(castDate(localDate(now(), { timeZone: reportingTimeZone })), 1, "day"),
+				),
+			),
+	};
+	const [currentWorkouts, currentSets] = rangeTotals(input.reference, input.current, "current");
+	const [previousWorkouts, previousSets] = rangeTotals(input.reference, input.previous, "previous");
+	const [dayWorkouts, daySets] = rangeBuckets(
+		input.reference,
+		{ bucket: "day", period: input.days, search: literal(""), timeZone: input.timeZone },
+		"days",
+	);
+	return defineRecipe({
+		parameters: args.schema,
+		queries: {
+			daySets,
+			currentSets,
+			dayWorkouts,
+			previousSets,
+			currentWorkouts,
+			previousWorkouts,
+			latestRecord: latestRecordQuery(input.reference, input.current),
+		},
+		map: (results) =>
+			Result.succeed({
+				latestRecord: results.latestRecord.items[0] ?? null,
+				days: combineBuckets(results.dayWorkouts, results.daySets),
+				current: combineTotals(results.currentWorkouts, results.currentSets),
+				previous: combineTotals(results.previousWorkouts, results.previousSets),
+			}),
+	});
+};
+export type WorkoutSummary = Recipe.Success<ReturnType<typeof workoutSummaryRecipe>>;
+export type WorkoutPeriodTotals = Recipe.Success<ReturnType<typeof workoutWeeksRecipe>>[number];
+export type WorkoutComparison = Recipe.Success<ReturnType<typeof workoutComparisonsRecipe>>[number];
+export type WorkoutListItem = Recipe.Success<
+	ReturnType<typeof workoutCardsRecipe>
+>["items"][number];
+export type WorkoutExerciseTargets = Recipe.Success<
+	ReturnType<typeof workoutExerciseTargetsRecipe>
+>[number];

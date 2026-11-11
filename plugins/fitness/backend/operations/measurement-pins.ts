@@ -17,11 +17,9 @@ export class MeasurementMetricPinLimitError extends Schema.TaggedError<
 >()("MeasurementMetricPinLimitError", { message: Schema.String }) {}
 
 export const pinnedMeasurementMetricIds = (executeRyotql: ExecuteRyotql) =>
-	executeRyotqlRecipe(executeRyotql, pinnedMeasurementMetricIdsRecipe());
-
+	executeRyotqlRecipe(executeRyotql, pinnedMeasurementMetricIdsRecipe, {});
 export const measurementMetricIds = (limit: number, executeRyotql: ExecuteRyotql) =>
-	executeRyotqlRecipe(executeRyotql, allMeasurementMetricIdsRecipe(limit));
-
+	executeRyotqlRecipe(executeRyotql, allMeasurementMetricIdsRecipe, {});
 export const changeMeasurementMetricPin = Effect.fn("changeMeasurementMetricPin")(function* (
 	input: { readonly pinned: boolean; readonly metricId: string },
 	host: Pick<ScriptHost, "executeRyotql" | "changeUserRelationships">,
@@ -29,6 +27,7 @@ export const changeMeasurementMetricPin = Effect.fn("changeMeasurementMetricPin"
 	const fitnessLibrary = yield* executeRyotqlRecipe(
 		host.executeRyotql,
 		userFitnessLibraryRecipe({ kind: "self" }),
+		{},
 	);
 	const identity = {
 		sourceEntityId: input.metricId,

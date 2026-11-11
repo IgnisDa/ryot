@@ -2,6 +2,7 @@ import { expect, it } from "bun:test";
 
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 
 import { ExerciseOverrideUpdateInputSchema } from "../../shared/workout-editor-context-operations";
 import definition, { manifest } from "./exercise-override-update.sandbox";
@@ -17,7 +18,7 @@ const makeHost = (missing?: "exercise" | "membership") => {
 		executeRyotql: (document) =>
 			Effect.succeed({
 				data: Object.fromEntries(
-					Object.keys(document.queries).map((key) => {
+					Object.keys(bindTestRequest(document).queries).map((key) => {
 						const items =
 							key === "exercises"
 								? [

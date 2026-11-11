@@ -1,9 +1,10 @@
 import { expect, it } from "bun:test";
 
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
-import type { RyotQLDocument } from "@ryot-app/plugin-backend-sdk/ryotql";
 import { defineSandboxTestHost } from "@ryot-app/plugin-backend-sdk/testing";
 import { EntityId } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 
 import definition, { manifest } from "./exercise-merge.sandbox";
 
@@ -33,7 +34,7 @@ const rowsFor = (
 const recordingHost = (tables: Readonly<Record<string, ReadonlyArray<Row>>>) => {
 	const writes: unknown[] = [];
 	const host = defineSandboxTestHost(manifest, {
-		executeRyotql: (document) => Effect.succeed(rowsFor(document, tables)),
+		executeRyotql: (document) => Effect.succeed(rowsFor(bindTestRequest(document), tables)),
 		updateUserEntity: (item) =>
 			Effect.sync(() => {
 				writes.push({ update: item });

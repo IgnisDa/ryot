@@ -74,33 +74,32 @@ occurrence periods and buckets read the occurrence `occurredAt`; workout counts,
 and drill-downs read the workout `startedAt` property. All-time totals omit range bounds. Coverage
 reports sets whose taxonomy came from a legacy export.
 
-Analytics recipe inputs are `{ reference, reporting }`, where `reporting` is the
-`ResolvedReportingSelection` the client query already computed; historical rankings add `kind`
-(`targets`, `equipment`, or `exercises`) and optional `after`. Reporting boundaries resolve from the
-supplied clock and the account reporting timezone at query execution. Home, workout summaries, and
-measurement ranges use the same resolver. Muscle totals key by entity ID, so equally named targets
-remain separate.
+Analytics recipe factories accept plugin `reference`. Stable selections become flat typed arguments
+through `reportingArguments`; historical rankings also bind `kind` (`targets`, `equipment`, or
+`exercises`). Reporting boundaries resolve from the execution clock and account reporting timezone
+on the server. Home, workout summaries, and measurement ranges share those expressions. Muscle
+totals key by entity ID, so equally named targets remain separate.
 
 ### Analytics query API
 
-`shared/analytics-recipes.ts` exports the production recipes below. Each accepts the resolved
-reporting selection and plugin `reference`. `client/analytics/queries.ts` builds them with the client
-SDK's reported, compared, paged and consistency query constructors, which take the stable
-`ReportingSelection` and reporting `timeZone` as inputs and resolve them against `schedule.now()`
-inside each query execution, so moving timestamps do not become query cache keys. Inputs are the
-section's props, so its exact `reference` is part of the cache key.
+`shared/analytics-recipes.ts` exports the production static recipes below.
+`client/analytics/queries.ts` uses the SDK's reported, compared, paged and consistency constructors
+with the stable `ReportingSelection`. The client resolves display metadata from the response
+execution clock and account time zone, matching the server-bound recipe expressions. The exact
+plugin `reference` remains part of the cache key. Root cursors and limits use request `pages`.
 
-| Recipe                             | Additional input                   | Result                                                                           | Named queries |
-| ---------------------------------- | ---------------------------------- | -------------------------------------------------------------------------------- | ------------- |
-| `fitnessAnalyticsTotalsRecipe`     | optional `filter`                  | Counts, entered measurements, derived metrics, missing-data and processing state | 4             |
-| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filter`        | Sparse buckets with observations, known values and processing state              | 1             |
-| `fitnessWorkoutStartsByHourRecipe` | optional `filter`                  | 24 reporting-timezone bins labeled **Workout starts**                            | 1             |
-| `historicalFitnessRankingRecipe`   | `kind`, optional `filter`, `after` | 100-row cursor page of retained-taxonomy counts and weighted sets                | 1             |
-| `fitnessAnalyticsWorkoutsRecipe`   | optional `filter`, `after`         | 100-row cursor page, newest workout start first                                  | 1             |
-| `fitnessMeasurementTrendRecipe`    | `metricId`                         | Sparse average buckets with reading count and metric unit                        | 1             |
-| `fitnessMeasurementReadingsRecipe` | `metricId`, optional `after`       | 100-row cursor page of readings, unit, occurrence time and entry ID              | 1             |
+| Recipe                             | Additional input                           | Result                                                                           | Named queries |
+| ---------------------------------- | ------------------------------------------ | -------------------------------------------------------------------------------- | ------------- |
+| `fitnessAnalyticsTotalsRecipe`     | optional `filterId`/`filterKind`           | Counts, entered measurements, derived metrics, missing-data and processing state | 4             |
+| `fitnessAnalyticsTrendRecipe`      | `metric`, optional `filterId`/`filterKind` | Sparse buckets with observations, known values and processing state              | 3             |
+| `fitnessWorkoutStartsByHourRecipe` | optional `filterId`/`filterKind`           | 24 reporting-timezone bins labeled **Workout starts**                            | 1             |
+| `historicalFitnessRankingRecipe`   | `kind`, optional `filterId`/`filterKind`   | 100-row cursor page of retained-taxonomy counts and weighted sets                | 3             |
+| `fitnessAnalyticsWorkoutsRecipe`   | optional `filterId`/`filterKind`           | 100-row cursor page, newest workout start first                                  | 1             |
+| `fitnessMeasurementTrendRecipe`    | `metricId`                                 | Sparse average buckets with reading count and metric unit                        | 1             |
+| `fitnessMeasurementReadingsRecipe` | `metricId`                                 | 100-row cursor page of readings, unit, occurrence time and entry ID              | 1             |
 
-`filter` is `{ kind: "exercises" | "targets" | "equipment", id }`. It filters sets and their
+Client `filter` is `{ kind: "exercises" | "targets" | "equipment", id }`; recipe arguments flatten
+it to `filterKind` and `filterId`. It filters sets and their
 workouts; measurement counts in the totals remain independent of workout filters. Trend metrics
 are workouts, sets, volume, repetitions, distance, active duration, recorded calories, set duration,
 planned rest and personal-best awards. Units come from `fitnessMetricDefinitions`.
@@ -108,11 +107,12 @@ planned rest and personal-best awards. Units come from `fitnessMetricDefinitions
 Workout trends and hours use workout starts even when imported set timestamps are fallback values.
 Measurement trends use reading times and keep metrics separate. Missing buckets remain absent;
 recorded zero remains zero. Trend and summary queries run the previous period as a second recipe
-execution with the previous period as `current`, inside the same client query, and skip it when the selection
+execution with `comparisonSide: "previous"`, inside the same client query, and skip it when the selection
 has no previous period. Trend queries are capped at `REPORTING_BUCKET_LIMIT`. The client lays sparse
-buckets onto the shared `calendarBuckets` grid; `resolveReportingSelection` keeps every grouping
-within the shared bucket limit, and all-time groups by year. Paged results use `useReportedPages`,
-which pins the first page's resolved period, and drills reuse each result's pinned selection.
+buckets onto the shared `calendarBuckets` grid. The generic reporting expressions select grouping
+from the server clock and calendar boundaries, coarsen to the bucket limit, and group all-time by year. Paged results use `useReportedPages`,
+which preserves the first page's requested selection in cursor arguments. Drills use each result's
+resolved selection, and charts use its execution time zone.
 
 Processing state is one `"ready" | "pending" | "failed"` value from the shared RyotQL recipe helpers.
 Analytics totals and derived trend buckets count the projection status of the sets they already
@@ -249,7 +249,8 @@ The `workouts` page uses page-context name/icon, URL-backed layout/search, and s
 - Comparison/target recipes batch data for loaded workouts; muscle totals exclude stabilizers.
 - `workoutWeeksRecipe` aggregates the loaded span with the same search and filter, preserving
   complete week totals across split pages. The cards, count, and weeks recipes take an optional
-  compiled filter predicate; the summary recipe ignores search and filters.
+  request filter resolved against the workout browse declaration; the summary recipe ignores search
+  and filters.
 - `workoutSummaryRecipe` compares selected rolling periods and supplies personal bests and daily
   consistency totals. `workoutCountRecipe` counts all matches on demand.
 
@@ -374,3 +375,19 @@ belongs to the [kernel client](../../kernel/client/README.md#ios-live-activities
   source events or replaying historical hooks. It runs in the write that changes a set, including a
   workout time correction, which moves its sets. A value stays visible while its plugin revision is
   active; pending or failed status is noted until processing finishes.
+
+Domain recipes author static documents with typed flat parameters. Factories configure plugin
+identity and schemas; runtime IDs, lists, filters, searches, and reporting choices remain arguments.
+Requests carry root paging. Reporting date windows, comparison offsets, account timezone, and
+calendar-aligned grouping share the generic `reporting-parameters` helper with Media. Measurement
+series use static metric and grouped-average queries in batches of two metrics, with at most 1000
+grouped rows per request. Batch size is floor(1000 / REPORTING_BUCKET_LIMIT), so two complete
+366-bucket histories fit while three could require 1098 rows. The client drains every metric batch;
+selected metrics are never dropped. Truncated metric metadata or averages fail instead of returning
+partial history. Extraordinary all-time spans can exceed the grouped-row budget even with yearly
+grouping and fail explicitly.
+
+`manifest/queries.ts` declares workouts, workout-detail, exercise-history, personal-bests,
+analytics-totals, analytics-trend, analytics-ranking, and measurement-series using these recipes.
+Entity-browser saved views declare browse controls and a ranked `librarySearch` query using the same
+search parameter and summary expressions as their source selection.

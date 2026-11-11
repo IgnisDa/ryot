@@ -4,8 +4,10 @@ import {
 	createReportedPageQuery,
 	createReportedQuery,
 } from "@ryot-app/plugin-client-sdk/react";
+import { reportingArguments } from "@ryot-app/plugin-client-sdk/ryotql";
 
 import {
+	type FitnessAnalyticsMetric,
 	fitnessAnalyticsTotalsRecipe,
 	fitnessAnalyticsTrendRecipe,
 	fitnessAnalyticsWorkoutsRecipe,
@@ -28,64 +30,128 @@ import type {
 } from "./reporting-model";
 
 type MeasurementInput = { readonly metricId: string } & Omit<AnalyticsInput, "filter">;
-
+const filteredArguments = (input: AnalyticsInput) => ({
+	filterId: input.filter?.id,
+	filterKind: input.filter?.kind ?? "exercises",
+});
 export const analyticsSummaryQuery = createComparedQuery<AnalyticsInput, AnalyticsTotals>(
-	({ input, client, reporting }) =>
-		client.data.query(fitnessAnalyticsTotalsRecipe({ ...input, reporting })),
+	({ input, query, selection, comparison }) =>
+		query(
+			fitnessAnalyticsTotalsRecipe({ reference: input.reference }),
+			{ ...reportingArguments(selection, comparison), ...filteredArguments(input) },
+			undefined,
+			(data) => data,
+		),
 );
 
 export const analyticsTrendQuery = createComparedQuery<
-	AnalyticsInput & Pick<Parameters<typeof fitnessAnalyticsTrendRecipe>[0], "metric">,
+	AnalyticsInput & { readonly metric: FitnessAnalyticsMetric },
 	AnalyticsTrend
->(({ input, client, reporting }) =>
-	client.data.query(fitnessAnalyticsTrendRecipe({ ...input, reporting })),
+>(({ input, query, selection, comparison }) =>
+	query(
+		fitnessAnalyticsTrendRecipe({ reference: input.reference }),
+		{
+			...reportingArguments(selection, comparison),
+			...filteredArguments(input),
+			metric: input.metric,
+		},
+		undefined,
+		(data, reporting) => ({
+			...data,
+			metric: input.metric,
+			grouping: reporting.grouping,
+			period: comparison === "previous" ? reporting.previous : reporting.current,
+		}),
+	),
 );
 
 export const workoutStartsByHourQuery = createReportedQuery<AnalyticsInput, WorkoutHours>(
-	({ input, client, reporting }) =>
-		client.data.query(fitnessWorkoutStartsByHourRecipe({ ...input, reporting })),
+	({ input, query, selection, comparison }) =>
+		query(
+			fitnessWorkoutStartsByHourRecipe({ reference: input.reference }),
+			{ ...reportingArguments(selection, comparison), ...filteredArguments(input) },
+			undefined,
+			(data) => data,
+		),
 );
 
 export const analyticsConsistencyQuery = createConsistencyQuery<AnalyticsInput, AnalyticsTrend>(
-	({ input, client, reporting }) =>
-		client.data.query(fitnessAnalyticsTrendRecipe({ ...input, reporting, metric: "workouts" })),
+	({ input, query, selection, comparison }) =>
+		query(
+			fitnessAnalyticsTrendRecipe({ reference: input.reference }),
+			{
+				...reportingArguments(selection, comparison),
+				consistency: true,
+				...filteredArguments(input),
+				metric: "workouts",
+			},
+			undefined,
+			(data, reporting) => ({
+				...data,
+				metric: "workouts" as const,
+				grouping: reporting.grouping,
+				period: comparison === "previous" ? reporting.previous : reporting.current,
+			}),
+		),
 );
 
 export const analyticsWorkoutsQuery = createReportedPageQuery<AnalyticsInput, AnalyticsWorkouts>(
-	({ input, after, client, reporting }) =>
-		client.data.query(fitnessAnalyticsWorkoutsRecipe({ ...input, after, reporting })),
+	({ input, after, query, selection, comparison }) =>
+		query(
+			fitnessAnalyticsWorkoutsRecipe({ reference: input.reference }),
+			{ ...reportingArguments(selection, comparison), ...filteredArguments(input) },
+			{ pages: { workouts: { after } } },
+			(data) => data,
+		),
 );
 
 export const measurementTrendQuery = createComparedQuery<MeasurementInput, MeasurementTrend>(
-	({ input, client, reporting }) =>
-		client.data.query(fitnessMeasurementTrendRecipe({ ...input, reporting })),
+	({ input, query, selection, comparison }) =>
+		query(
+			fitnessMeasurementTrendRecipe({ reference: input.reference }),
+			{ ...reportingArguments(selection, comparison), metricId: input.metricId },
+			undefined,
+			(data, reporting) => ({
+				points: data.points,
+				metricId: input.metricId,
+				grouping: reporting.grouping,
+				period: comparison === "previous" ? reporting.previous : reporting.current,
+			}),
+		),
 );
 
 export const analyticsRankingQuery = createReportedPageQuery<
-	AnalyticsInput & Pick<Parameters<typeof historicalFitnessRankingRecipe>[0], "kind">,
+	AnalyticsInput & { readonly kind: "targets" | "equipment" | "exercises" },
 	AnalyticsRanking
->(({ input, after, client, reporting }) =>
-	client.data.query(historicalFitnessRankingRecipe({ ...input, after, reporting })),
+>(({ input, after, query, selection, comparison }) =>
+	query(
+		historicalFitnessRankingRecipe({ reference: input.reference }),
+		{ ...reportingArguments(selection, comparison), ...filteredArguments(input), kind: input.kind },
+		{ pages: { [input.kind]: { after } } },
+		(data) => data,
+	),
 );
 
 export const measurementReadingsQuery = createReportedPageQuery<
 	MeasurementInput,
 	MeasurementReadings
->(({ input, after, client, reporting }) =>
-	client.data.query(fitnessMeasurementReadingsRecipe({ ...input, after, reporting })),
+>(({ input, after, query, selection, comparison }) =>
+	query(
+		fitnessMeasurementReadingsRecipe({ reference: input.reference }),
+		{ ...reportingArguments(selection, comparison), metricId: input.metricId },
+		{ pages: { readings: { after } } },
+		(data) => data,
+	),
 );
 
 export const analyticsMeasurementMetricsQuery = createReportedPageQuery<
 	Omit<AnalyticsInput, "filter">,
 	MeasurementMetrics
->(({ input, after, client, reporting }) =>
-	client.data.query(
-		measurementSummaryRecipe({
-			after,
-			reference: input.reference,
-			...(reporting.current === null
-				? {}
-				: { rangeEnd: reporting.current.endAt, rangeStart: reporting.current.startAt }),
-		}),
+>(({ input, after, query, selection }) =>
+	query(
+		measurementSummaryRecipe({ reference: input.reference }),
+		reportingArguments(selection),
+		{ pages: { metrics: { after } } },
+		(data) => data,
 	),
 );

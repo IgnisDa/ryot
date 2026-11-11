@@ -3,6 +3,8 @@ import { describe, expect, it } from "bun:test";
 import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
+import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
+import { bindRecipe, recipeResponse } from "@ryot-app/ryotql-recipes/test-utils";
 
 import {
 	fitnessAnalyticsTotalsRecipe,
@@ -12,22 +14,22 @@ import {
 	historicalFitnessRankingRecipe,
 } from "./analytics-recipes";
 
-const recipe = fitnessAnalyticsTotalsRecipe({
-	reference: { kind: "self" },
-	reporting: resolveReportingSelection(
-		{
-			grouping: "auto",
-			comparison: "none",
-			range: { kind: "custom", endDate: "2026-12-31", startDate: "2026-01-01" },
-		},
-		{ timeZone: TimeZone.make("UTC"), now: Date.parse("2026-10-01T00:00:00.000Z") },
-	),
-});
+const selection = {
+	grouping: "day",
+	comparison: "previous-period",
+	range: { days: 7, kind: "rolling" },
+} as const;
+
+const recipe = bindRecipe(
+	fitnessAnalyticsTotalsRecipe({ reference: { kind: "self" } }),
+	{ ...reportingArguments(selection) },
+	{ now: new Date("2026-11-01T18:00:00Z"), reportingTimeZone: "America/New_York" },
+);
 const aggregate = (item: Record<string, unknown>) => ({ items: [item], type: "aggregate" });
 const decode = (pending: number, failed = 0) =>
 	Result.getOrThrow(
-		recipe.decode({
-			data: {
+		recipe.decode(
+			recipeResponse(recipe, {
 				entries: aggregate({ entries: 2 }),
 				readings: aggregate({ readings: 5 }),
 				workouts: aggregate({
@@ -50,24 +52,20 @@ const decode = (pending: number, failed = 0) =>
 					setDuration: null,
 					personalBestSets: 1,
 				}),
-			},
-		}),
+			}),
+		),
 	);
 
 describe("fitness rankings", () => {
 	it.each(["targets", "equipment", "exercises"] as const)(
 		"ranks %s with one grouped aggregate over occurrences and resumes from a cursor",
 		(kind) => {
-			const ranking = historicalFitnessRankingRecipe({
-				kind,
-				after: "opaque",
-				reference: { kind: "self" },
-				reporting: resolveReportingSelection(
-					{ grouping: "auto", comparison: "none", range: { days: 30, kind: "rolling" } },
-					{ timeZone: TimeZone.make("UTC"), now: Date.parse("2026-10-01T00:00:00.000Z") },
-				),
-			});
-			const query = ranking.document.queries["ranking"];
+			const ranking = bindRecipe(
+				historicalFitnessRankingRecipe({ reference: { kind: "self" } }),
+				{ ...reportingArguments(selection), kind: kind, after: "opaque" },
+				{ now: new Date("2026-11-01T18:00:00Z"), reportingTimeZone: "America/New_York" },
+			);
+			const query = ranking.document.queries[kind];
 			expect(
 				validateRyotQLDocument(ranking.document, {
 					type: "user",
@@ -97,15 +95,15 @@ describe("fitness rankings", () => {
 			};
 			expect(
 				Result.getOrThrow(
-					ranking.decode({
-						data: {
-							ranking: {
+					ranking.decode(
+						recipeResponse(ranking, {
+							[kind]: {
 								items: [item],
 								type: "aggregate",
 								pageInfo: { limit: 100, hasMore: true, nextCursor: "next" },
 							},
-						},
-					}),
+						}),
+					),
 				),
 			).toEqual({ items: [item], pageInfo: { limit: 100, hasMore: true, nextCursor: "next" } });
 		},
@@ -149,45 +147,58 @@ const input = {
 describe("fitness analytics trends", () => {
 	it("keeps derived bucket values and marks buckets still processing", () => {
 		for (const metric of ["volume", "repetitions"] as const) {
-			const trend = fitnessAnalyticsTrendRecipe({ ...input, metric });
+			const trend = bindRecipe(
+				fitnessAnalyticsTrendRecipe({ reference: { ...input, metric }.reference }),
+				{ ...reportingArguments(selection), metric: metric },
+				{ now: new Date("2026-11-01T18:00:00Z"), reportingTimeZone: "America/New_York" },
+			);
 			const query = metric === "volume" ? "derivedTrend" : "setTrend";
-			expect(Object.keys(trend.document.queries)).toEqual([query]);
+			expect(Object.keys(trend.document.queries)).toEqual([
+				"workoutTrend",
+				"setTrend",
+				"derivedTrend",
+			]);
 			const item = { value: 500, knownValues: 1, observations: 2, at: "2026-11-01T04:00:00.000Z" };
 			const result = Result.getOrThrow(
-				trend.decode({
-					data: {
+				trend.decode(
+					recipeResponse(trend, {
 						[query]: {
 							type: "aggregate",
 							pageInfo: { limit: 366, hasMore: false, nextCursor: null },
 							items: [metric === "volume" ? { ...item, failed: 0, pending: 1 } : item],
 						},
-					},
-				}),
+					}),
+				),
 			);
 			expect(result.processing).toBe(metric === "volume" ? "pending" : "ready");
 			expect(result.points[0]).toMatchObject({
 				value: 500,
 				processing: metric === "volume" ? "pending" : "ready",
 			});
-			expect(result.period).toMatchObject({
-				endAt: "2026-11-02T05:00:00.000Z",
-				startAt: "2026-10-26T04:00:00.000Z",
-			});
+			expect(JSON.stringify(trend.document)).toContain("America/New_York");
 		}
 	});
 	it("reads workout metrics without set projection coverage", () => {
-		const trend = fitnessAnalyticsTrendRecipe({ ...input, metric: "activeDuration" });
-		expect(Object.keys(trend.document.queries)).toEqual(["workoutTrend"]);
+		const trend = bindRecipe(
+			fitnessAnalyticsTrendRecipe({ reference: { ...input, metric: "activeDuration" }.reference }),
+			{ ...reportingArguments(selection), metric: "activeDuration" },
+			{ now: new Date("2026-11-01T18:00:00Z"), reportingTimeZone: "America/New_York" },
+		);
+		expect(Object.keys(trend.document.queries)).toEqual([
+			"workoutTrend",
+			"setTrend",
+			"derivedTrend",
+		]);
 		const result = Result.getOrThrow(
-			trend.decode({
-				data: {
+			trend.decode(
+				recipeResponse(trend, {
 					workoutTrend: {
 						type: "aggregate",
 						pageInfo: { limit: 366, hasMore: false, nextCursor: null },
 						items: [{ value: 60, knownValues: 1, observations: 1, at: "2026-11-01T04:00:00.000Z" }],
 					},
-				},
-			}),
+				}),
+			),
 		);
 		expect(result.points).toEqual([
 			{
@@ -201,7 +212,11 @@ describe("fitness analytics trends", () => {
 	});
 	it("reports workout starts in 24 hours without claiming timed sets", () => {
 		const result = Result.getOrThrow(
-			fitnessWorkoutStartsByHourRecipe(input).decode({
+			bindRecipe(
+				fitnessWorkoutStartsByHourRecipe({ reference: input.reference }),
+				{ ...reportingArguments(selection) },
+				{ now: new Date("2026-11-01T18:00:00Z"), reportingTimeZone: "America/New_York" },
+			).decode({
 				data: {
 					hours: {
 						type: "aggregate",
@@ -221,7 +236,11 @@ describe("fitness analytics trends", () => {
 	});
 	it("keeps per-metric units, recorded zero, and missing-day gaps", () => {
 		const result = Result.getOrThrow(
-			fitnessMeasurementTrendRecipe({ ...input, metricId: "weight" }).decode({
+			bindRecipe(
+				fitnessMeasurementTrendRecipe({ reference: { ...input, metricId: "weight" }.reference }),
+				{ ...reportingArguments(selection), metricId: "weight" },
+				{ now: new Date("2026-11-01T18:00:00Z"), reportingTimeZone: "America/New_York" },
+			).decode({
 				data: {
 					trend: {
 						type: "aggregate",

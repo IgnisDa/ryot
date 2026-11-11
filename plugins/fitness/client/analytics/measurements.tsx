@@ -106,7 +106,7 @@ function SelectedMeasurement(props: {
 				compact={props.compact}
 				onSmoothChange={setSmooth}
 			/>
-			<ReadingsTable readings={readings} query={readingsQuery} timeZone={props.scope.timeZone} />
+			<ReadingsTable readings={readings} query={readingsQuery} />
 		</div>
 	);
 }
@@ -140,7 +140,7 @@ function MeasurementTrendPanel(props: {
 						metric={props.metric}
 						smooth={props.smooth}
 						compact={props.compact}
-						timeZone={props.scope.timeZone}
+						timeZone={data.reporting.resolved.timeZone}
 					/>
 				)}
 			</QueryStatus>
@@ -200,11 +200,11 @@ function TrendChart(props: {
 }
 
 function ReadingsTable(props: {
-	readonly timeZone: TimeZone;
 	readonly readings: readonly MeasurementReading[];
 	readonly query: ReturnType<typeof useSelectedReadings>;
 }) {
-	const { query, readings, timeZone } = props;
+	const { query, readings } = props;
+	const firstPage = query.pages[0];
 	return (
 		<section aria-label="Loaded readings" className="flex min-w-0 flex-col gap-3">
 			<div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -212,10 +212,12 @@ function ReadingsTable(props: {
 				<p className="text-sm text-text-muted tabular-nums">{readings.length} loaded</p>
 			</div>
 			<QueryStatus query={query} label="readings" onRetry={query.retry} />
-			{query.pages.length > 0 ? (
+			{firstPage !== undefined ? (
 				<div className="overflow-x-auto rounded-md border border-border">
 					<table className="w-full min-w-120 border-collapse text-left text-sm">
-						<caption className="sr-only">Loaded measurement readings in {timeZone}</caption>
+						<caption className="sr-only">
+							Loaded measurement readings in {firstPage.reporting.resolved.timeZone}
+						</caption>
 						<thead>
 							<tr>
 								<th scope="col" className="px-3 py-2 font-medium text-text-muted">
@@ -236,7 +238,10 @@ function ReadingsTable(props: {
 							{readings.map((reading) => (
 								<tr key={reading.id} className="border-t border-border">
 									<th scope="row" className="px-3 py-2 font-normal text-text">
-										{formatReportingDateTime(reading.occurredAt, timeZone)}
+										{formatReportingDateTime(
+											reading.occurredAt,
+											firstPage.reporting.resolved.timeZone,
+										)}
 									</th>
 									<td className="px-3 py-2 text-right tabular-nums">
 										{[String(reading.value), reading.unit].filter(Boolean).join(" ")}

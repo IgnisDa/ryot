@@ -12,6 +12,7 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import type { ReportingSelection } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -87,6 +88,7 @@ const mountSummary = (
 	return mountPluginPage(Probe, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -120,23 +122,29 @@ describe("fitness analytics section queries", () => {
 				});
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
-					const documents = page.queryRequests().map(({ document }) => JSON.stringify(document));
+					const documents = page
+						.queryRequests()
+						.map(({ request: executionRequest }) => executionRequest.arguments);
 					expect(
 						documents.some(
-							(document) =>
-								document.includes("2026-10-26T04:00:00.000Z") &&
-								document.includes("2026-11-02T05:00:00.000Z"),
+							(argumentsValue) =>
+								argumentsValue?.["range"] === "rolling" &&
+								argumentsValue["comparisonSide"] === "current" &&
+								argumentsValue["startOffsetDays"] === -6 &&
+								argumentsValue["endOffsetDays"] === 1,
 						),
 					).toBe(true);
 					expect(
 						documents.some(
-							(document) =>
-								document.includes("2026-10-19T04:00:00.000Z") &&
-								document.includes("2026-10-26T04:00:00.000Z"),
+							(argumentsValue) =>
+								argumentsValue?.["range"] === "rolling" &&
+								argumentsValue["comparisonSide"] === "previous" &&
+								argumentsValue["previousStartOffsetDays"] === -13 &&
+								argumentsValue["previousEndOffsetDays"] === -6,
 						),
 					).toBe(true);
 					for (const request of page.queryRequests()) {
-						expect(Object.keys(request.document.queries)).toHaveLength(4);
+						expect(Object.keys(bindTestRequest(request.request).queries)).toHaveLength(4);
 						page.replyQuery(request.requestId, { response, outcome: "success" });
 					}
 					yield* Effect.promise(() =>
@@ -153,19 +161,23 @@ describe("fitness analytics section queries", () => {
 					const refreshed = page
 						.queryRequests()
 						.slice(2)
-						.map(({ document }) => JSON.stringify(document));
+						.map(({ request: executionRequest }) => executionRequest.arguments);
 					expect(
 						refreshed.some(
-							(document) =>
-								document.includes("2026-10-27T04:00:00.000Z") &&
-								document.includes("2026-11-03T05:00:00.000Z"),
+							(argumentsValue) =>
+								argumentsValue?.["range"] === "rolling" &&
+								argumentsValue["comparisonSide"] === "current" &&
+								argumentsValue["startOffsetDays"] === -6 &&
+								argumentsValue["endOffsetDays"] === 1,
 						),
 					).toBe(true);
 					expect(
 						refreshed.some(
-							(document) =>
-								document.includes("2026-10-20T04:00:00.000Z") &&
-								document.includes("2026-10-27T04:00:00.000Z"),
+							(argumentsValue) =>
+								argumentsValue?.["range"] === "rolling" &&
+								argumentsValue["comparisonSide"] === "previous" &&
+								argumentsValue["previousStartOffsetDays"] === -13 &&
+								argumentsValue["previousEndOffsetDays"] === -6,
 						),
 					).toBe(true);
 				} finally {
@@ -270,6 +282,7 @@ const mountProbe = (clock: ReturnType<typeof createTestRyotClock>, Probe: Compon
 	mountPluginPage(Probe, {
 		bootstrap: clock.bootstrap,
 		location: routeLocation("/v/analytics"),
+		queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("America/New_York") }),
 		page: {
 			...savedViewPageContext({
 				settings: {},
@@ -289,8 +302,22 @@ const pageResponse = (
 	items: readonly Record<string, unknown>[] = [],
 ) => ({
 	data: {
+		...(key === "targets"
+			? {
+					equipment: {
+						items: [],
+						type: "aggregate" as const,
+						pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+					},
+					exercises: {
+						items: [],
+						type: "aggregate" as const,
+						pageInfo: { limit: 100, hasMore: false, nextCursor: null },
+					},
+				}
+			: {}),
 		[key]:
-			key === "ranking"
+			key === "targets"
 				? {
 						items: [],
 						type: "aggregate" as const,
@@ -307,7 +334,7 @@ const pageResponse = (
 describe("fitness analytics cursor adapters", () => {
 	for (const { key, Probe, filtered } of [
 		{ filtered: true, key: "workouts", Probe: WorkoutsProbe },
-		{ key: "ranking", filtered: true, Probe: RankingProbe },
+		{ key: "targets", filtered: true, Probe: RankingProbe },
 		{ key: "readings", filtered: false, Probe: ReadingsProbe },
 		{ key: "metrics", filtered: false, Probe: MetricsProbe },
 	]) {
@@ -340,10 +367,18 @@ describe("fitness analytics cursor adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(2)),
 						);
 						for (const request of page.queryRequests(key).slice(1)) {
-							const document = yield* documentText(request.document);
+							const document = yield* documentText(bindTestRequest(request.request));
 							expect(document).toContain("first-cursor");
-							expect(document).toContain("2026-10-26T04:00:00.000Z");
-							expect(document).toContain("2026-11-02T05:00:00.000Z");
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
 							expect(document).toContain("fitness-owner");
 							if (filtered) {
 								expect(document).toContain("retained-target");
@@ -363,10 +398,18 @@ describe("fitness analytics cursor adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(3)),
 						);
 						for (const request of page.queryRequests(key).slice(2)) {
-							const document = yield* documentText(request.document);
+							const document = yield* documentText(bindTestRequest(request.request));
 							expect(document).not.toContain("first-cursor");
-							expect(document).toContain("2026-10-27T04:00:00.000Z");
-							expect(document).toContain("2026-11-03T05:00:00.000Z");
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: pageResponse(key, "refreshed-cursor"),
@@ -376,10 +419,18 @@ describe("fitness analytics cursor adapters", () => {
 							waitFor(() => expect(page.queryRequests(key)).toHaveLength(4)),
 						);
 						for (const request of page.queryRequests(key).slice(3)) {
-							const document = yield* documentText(request.document);
+							const document = yield* documentText(bindTestRequest(request.request));
 							expect(document).toContain("refreshed-cursor");
-							expect(document).toContain("2026-10-27T04:00:00.000Z");
-							expect(document).toContain("2026-11-03T05:00:00.000Z");
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
+							expect(request.request.arguments).toMatchObject({
+								range: "rolling",
+								endOffsetDays: 1,
+								startOffsetDays: -6,
+							});
 							page.replyQuery(request.requestId, {
 								outcome: "success",
 								response: pageResponse(key, "third-cursor"),
@@ -437,8 +488,12 @@ describe("fitness analytics cursor adapters", () => {
 					);
 					expect(screen.queryByText("Owner one metric")).toBeNull();
 					for (const request of page.queryRequests("metrics").slice(1)) {
-						expect(yield* documentText(request.document)).toContain("fitness-other");
-						expect(yield* documentText(request.document)).not.toContain("fitness-owner");
+						expect(yield* documentText(bindTestRequest(request.request))).toContain(
+							"fitness-other",
+						);
+						expect(yield* documentText(bindTestRequest(request.request))).not.toContain(
+							"fitness-owner",
+						);
 					}
 				} finally {
 					page.dispose();

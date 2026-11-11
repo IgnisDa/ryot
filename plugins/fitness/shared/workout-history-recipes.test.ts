@@ -1,5 +1,6 @@
 import { expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import {
@@ -9,10 +10,9 @@ import {
 } from "./workout-history-recipes";
 
 it("pages workouts containing the exercise before the anchor and excludes the current workout", () => {
-	const recipe = workoutHistoryRecipe({
+	const recipe = bindRecipe(workoutHistoryRecipe({ reference: { kind: "self" } }), {
 		after: "workout-cursor",
 		exerciseId: "exercise-1",
-		reference: { kind: "self" },
 		excludeWorkoutId: "workout-current",
 		beforeStartedAt: "2026-02-01T10:00:00.000Z",
 	});
@@ -83,11 +83,10 @@ it("pages workouts containing the exercise before the anchor and excludes the cu
 });
 
 it("pages exercise set events in exercise and set order with the recorded kind and measurements", () => {
-	const recipe = workoutHistorySetsRecipe({
+	const recipe = bindRecipe(workoutHistorySetsRecipe({ reference: { kind: "self" } }), {
 		after: "set-cursor",
 		workoutId: "workout-1",
 		exerciseId: "exercise-1",
-		reference: { kind: "self" },
 	});
 	const query = recipe.document.queries.sets;
 	if (query?.output.type !== "rows") {
@@ -146,9 +145,8 @@ it("pages exercise set events in exercise and set order with the recorded kind a
 });
 
 it("pages all matching prior occurrences by descending session time and stable set order", () => {
-	const recipe = workoutExercisePreviousValuesRecipe({
+	const recipe = bindRecipe(workoutExercisePreviousValuesRecipe({ reference: { kind: "self" } }), {
 		exerciseId: "exercise-1",
-		reference: { kind: "self" },
 		after: "previous-set-cursor",
 		recordedKind: "reps_and_weight",
 		excludeWorkoutId: "workout-current",

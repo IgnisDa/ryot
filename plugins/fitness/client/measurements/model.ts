@@ -30,6 +30,15 @@ const rangeDays = (range: RangeKey) => rangeOptions.find(({ key }) => key === ra
 export const rangePhrase = (range: RangeKey) =>
 	rangeOptions.find(({ key }) => key === range)?.phrase ?? "";
 
+export const measurementSelection = (range: RangeKey) => {
+	const days = rangeDays(range);
+	return {
+		grouping: "day" as const,
+		comparison: "none" as const,
+		range: days === null ? { kind: "all-time" as const } : { days, kind: "rolling" as const },
+	};
+};
+
 export const measurementPeriod = (range: RangeKey, now: Date, timeZone: TimeZone) => {
 	const days = rangeDays(range);
 	return resolveReportingSelection(

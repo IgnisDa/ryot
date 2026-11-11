@@ -2,8 +2,12 @@ import type {
 	AuthoredBrowseField,
 	AuthoredEntitySchemaBrowse,
 } from "@ryot-app/contract/modules/filters/browse";
-import type { TableReference } from "@ryot-app/contract/modules/ryotql/language";
-import { RelationshipSchemaSlug } from "@ryot-app/contract/schema/brands";
+import type { TableReference } from "@ryot-app/contract/modules/ryotql/authored";
+import {
+	EntitySchemaSlug,
+	EventSchemaSlug,
+	RelationshipSchemaSlug,
+} from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	castText,
@@ -18,6 +22,7 @@ import {
 import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
 import { Result } from "effect";
 
+import { startedAt, workoutTotals } from "../shared/workout-list-recipes";
 import { exercisePropertiesSchema } from "./schemas/property";
 
 const subject = table("entity", "subject");
@@ -124,8 +129,65 @@ const workoutTemplateBrowse = (): AuthoredEntitySchemaBrowse => ({
 		},
 	],
 });
-
+const workoutBrowse = (): AuthoredEntitySchemaBrowse => {
+	const totals = workoutTotals(subject, "browseWorkoutTotals");
+	return {
+		fields: [
+			{
+				type: "date",
+				kind: "value",
+				key: "startedAt",
+				label: "Started",
+				expression: startedAt(subject),
+			},
+			{
+				kind: "value",
+				type: "number",
+				key: "exerciseCount",
+				label: "Exercise count",
+				expression: totals.exerciseCount,
+			},
+			{
+				kind: "value",
+				label: "Sets",
+				type: "number",
+				key: "setCount",
+				expression: totals.setCount,
+			},
+			{
+				kind: "value",
+				type: "number",
+				key: "personalBests",
+				label: "Personal records",
+				expression: totals.personalBests,
+			},
+			{
+				key: "template",
+				label: "Template",
+				kind: "relationship",
+				direction: "outgoing",
+				relationship: {
+					owner: { kind: "self" },
+					slug: RelationshipSchemaSlug.make("workout-to-workout-template"),
+				},
+			},
+			{
+				key: "exercises",
+				label: "Exercises",
+				kind: "session-event",
+				event: {
+					owner: { kind: "self" },
+					slug: EventSchemaSlug.make("workout-set"),
+					entitySchemaSlug: EntitySchemaSlug.make("exercise"),
+				},
+			},
+		],
+	};
+};
 export const fitnessBrowse = (slug: string) => {
+	if (slug === "workout") {
+		return workoutBrowse();
+	}
 	if (slug === "exercise") {
 		return exerciseBrowse();
 	}

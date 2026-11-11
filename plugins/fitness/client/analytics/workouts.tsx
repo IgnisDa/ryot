@@ -3,7 +3,6 @@ import {
 	REPORTING_BUCKET_LIMIT,
 	type ReportingPeriod,
 	selectionForPeriod,
-	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import {
 	type Compared,
@@ -90,14 +89,18 @@ function HourlyRegion(props: { readonly compact: boolean; readonly input: Analyt
 	return (
 		<ChartCard
 			title="Start times"
-			description={`Workout starts by hour, in ${props.input.timeZone}`}
+			description={
+				result.data === undefined
+					? "Workout starts by hour"
+					: `Workout starts by hour, in ${result.data.reporting.resolved.timeZone}`
+			}
 		>
 			<QueryStatus query={result} onRetry={result.refetch} label="hourly workout starts">
 				{(data) => (
 					<HourlyHistogram
 						unit={workoutUnit}
 						compact={props.compact}
-						timeZone={props.input.timeZone}
+						timeZone={data.reporting.resolved.timeZone}
 						ariaLabel="Workout starts by reporting hour"
 						buckets={data.hours.map(({ hour, starts }) => ({ hour, value: starts }))}
 					/>
@@ -110,7 +113,9 @@ function HourlyRegion(props: { readonly compact: boolean; readonly input: Analyt
 function ConsistencyRegion(props: { readonly compact: boolean; readonly input: AnalyticsScope }) {
 	const result = useRyotQuery(analyticsConsistencyQuery, props.input);
 	const model =
-		result.data === undefined ? null : consistencyModel(result.data, props.input.timeZone);
+		result.data === undefined
+			? null
+			: consistencyModel(result.data, result.data.reporting.resolved.timeZone);
 	return (
 		<ChartCard
 			title="Consistency"
@@ -169,7 +174,6 @@ function TrendRegion(props: {
 				trend={trend}
 				metric={props.metric}
 				compact={props.compact}
-				timeZone={props.input.timeZone}
 				preferences={props.preferences}
 				onOpenWorkouts={props.onOpenWorkouts}
 				view={{ value: view, onChange: setView }}
@@ -180,7 +184,6 @@ function TrendRegion(props: {
 
 function TrendChart(props: {
 	readonly compact: boolean;
-	readonly timeZone: TimeZone;
 	readonly trend: TrendQueryResult;
 	readonly metric: AnalyticsMetric;
 	readonly preferences: AnalyticsDisplayPreferences;
@@ -191,7 +194,12 @@ function TrendChart(props: {
 	const model =
 		data === undefined
 			? null
-			: workoutTrendModel(data.current, data.previous, props.timeZone, props.preferences);
+			: workoutTrendModel(
+					data.current,
+					data.previous,
+					data.reporting.resolved.timeZone,
+					props.preferences,
+				);
 	const { onOpenWorkouts } = props;
 	const openBucket = useCallback(
 		(bucket: { readonly period: ReportingPeriod }) => {
@@ -207,7 +215,7 @@ function TrendChart(props: {
 	);
 	return (
 		<QueryStatus query={props.trend} label="workout trend" onRetry={props.trend.refetch}>
-			{({ current, previous }) =>
+			{({ current, previous, reporting }) =>
 				model === null ? null : (
 					<PeriodTrendChart
 						unit={model.unit}
@@ -215,9 +223,9 @@ function TrendChart(props: {
 						onSelect={openBucket}
 						current={model.current}
 						compact={props.compact}
-						timeZone={props.timeZone}
 						grouping={current.grouping}
 						label={periodCaption(current.period)}
+						timeZone={reporting.resolved.timeZone}
 						ariaLabel={`${fitnessMetricDefinitions[props.metric].label} by workout-start period`}
 						previous={
 							previous === null || model.previous === null

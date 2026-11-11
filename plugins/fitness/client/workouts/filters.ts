@@ -1,22 +1,14 @@
 import type { RyotClient } from "@ryot-app/plugin-client-sdk";
-import { DateTime, Effect } from "@ryot-app/plugin-client-sdk/effect";
-import type { ViewFilter } from "@ryot-app/plugin-client-sdk/filters";
+import { collectionsFilterField, type QueryFilterField } from "@ryot-app/plugin-client-sdk/filters";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
 	RelationshipSchemaSlug,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import {
-	collectionsFilterField,
-	compileOptionalFilter,
-	outputFilterTargets,
-} from "@ryot-app/ryotql-recipes/filters";
 
-import { workoutFilterScope } from "../../shared/workout-list-recipes";
+type WorkoutFilterField = QueryFilterField;
 
 type Reference = ReturnType<RyotClient["pluginIdentity"]>;
-
-type WorkoutFilterField = Parameters<typeof outputFilterTargets>[1][number];
 
 export const workoutFilterFields = (reference: Reference): readonly WorkoutFilterField[] => [
 	{ type: "date", kind: "value", key: "startedAt", label: "Started", field: "startedAt" },
@@ -57,20 +49,3 @@ export const workoutFilterFields = (reference: Reference): readonly WorkoutFilte
 	},
 	collectionsFilterField,
 ];
-
-export const compileWorkoutFilter = Effect.fnUntraced(function* (input: {
-	readonly reference: Reference;
-	readonly target: "list" | "weeks";
-	readonly filter: null | ViewFilter;
-}) {
-	const { filter } = input;
-	if (filter === null) {
-		return undefined;
-	}
-	const now = yield* DateTime.now;
-	const scope = workoutFilterScope(input.target);
-	const targets = yield* Effect.fromResult(
-		outputFilterTargets(scope.source, workoutFilterFields(input.reference)),
-	);
-	return yield* Effect.fromResult(compileOptionalFilter({ now, filter }, { ...scope, targets }));
-});

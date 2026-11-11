@@ -14,11 +14,8 @@ export type TemplateExercise = EditorExercise & {
 
 const loadTemplate = Effect.fnUntraced(function* (client: RyotClient, entityId: string) {
 	const entity = yield* client.data.query(
-		workoutEditorEntityRecipe({
-			entityId,
-			kind: "workout-template",
-			reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-		}),
+		workoutEditorEntityRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+		{ entityId, kind: "workout-template" },
 	);
 	if (entity === null) {
 		return yield* new RyotClientError({ reason: "invalid-input" });

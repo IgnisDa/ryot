@@ -58,7 +58,8 @@ export default defineOperation({
 			}
 			const subjects = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				exerciseMergeSubjectsRecipe({ mergeFrom, mergeInto, reference }),
+				exerciseMergeSubjectsRecipe({ reference: reference }),
+				{ mergeFrom, mergeInto },
 			);
 			const source = subjects.find(({ id }) => id === mergeFrom);
 			const target = subjects.find(({ id }) => id === mergeInto);
@@ -72,7 +73,9 @@ export default defineOperation({
 			const links = yield* readAllRyotqlPages((after) =>
 				executeRyotqlRecipe(
 					host.executeRyotql,
-					exerciseMergeLinksRecipe({ after, mergeFrom, reference }),
+					exerciseMergeLinksRecipe({ reference: reference }),
+					{ mergeFrom },
+					{ pages: { links: { after: after } } },
 				),
 			);
 			const batches: ChangeUserRelationshipBatch[] = [];
@@ -95,7 +98,12 @@ export default defineOperation({
 			yield* host.mergeUserEntityData({ mergeFrom, mergeInto, entitySchemaSlug: "exercise" });
 
 			const templates = yield* readAllRyotqlPages((after) =>
-				executeRyotqlRecipe(host.executeRyotql, exerciseMergeTemplatesRecipe({ after, reference })),
+				executeRyotqlRecipe(
+					host.executeRyotql,
+					exerciseMergeTemplatesRecipe({ reference: reference }),
+					{},
+					{ pages: { templates: { after: after } } },
+				),
 			);
 			for (const template of templates) {
 				const properties = swapTemplateExercise(template.properties, mergeFrom, mergeInto);

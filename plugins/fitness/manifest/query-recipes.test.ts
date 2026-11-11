@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 
 import {
@@ -16,12 +17,11 @@ import {
 
 describe("fitness query recipes", () => {
 	it("builds typed filtered exercise rows", () => {
-		const recipe = exerciseListRecipe({
+		const recipe = bindRecipe(exerciseListRecipe({ reference: { kind: "self" } }), {
 			limit: 5,
 			name: "Push Up",
 			entityId: "exercise-id",
 			after: "exercise-cursor",
-			reference: { kind: "self" },
 		});
 		const exercises = recipe.document.queries["exercises"];
 		if (exercises?.output.type !== "rows") {
@@ -58,7 +58,8 @@ describe("fitness query recipes", () => {
 			}),
 		);
 		expect(
-			exerciseListRecipe({ reference: { kind: "self" } }).document.queries.exercises?.where,
+			bindRecipe(exerciseListRecipe({ reference: { kind: "self" } }), {}).document.queries.exercises
+				?.where,
 		).toEqual({
 			type: "and",
 			predicates: [
@@ -79,6 +80,8 @@ describe("fitness query recipes", () => {
 						},
 					],
 				},
+				{ type: "and", predicates: [] },
+				{ type: "and", predicates: [] },
 			],
 		});
 		expect(exercises.output).toEqual<unknown>(
@@ -111,10 +114,8 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses the plural workouts include for template detail", () => {
-		const recipe = workoutTemplateDetailRecipe({
-			workoutLimit: 6,
+		const recipe = bindRecipe(workoutTemplateDetailRecipe({ reference: { kind: "self" } }), {
 			entityId: "template-id",
-			reference: { kind: "self" },
 		});
 		const workoutTemplate = recipe.document.queries["workoutTemplate"];
 		if (workoutTemplate?.output.type !== "rows") {
@@ -124,7 +125,7 @@ describe("fitness query recipes", () => {
 		expect(workoutTemplate.output).toMatchObject({
 			include: [
 				{
-					limit: 6,
+					limit: 100,
 					key: "workouts",
 					from: { table: "relationship", alias: "workoutRelationship" },
 				},
@@ -133,16 +134,13 @@ describe("fitness query recipes", () => {
 	});
 
 	it("uses explicit relationship directions for workout details", () => {
-		const workoutRecipe = workoutDetailRecipe({
-			templateLimit: 3,
+		const workoutRecipe = bindRecipe(workoutDetailRecipe({ reference: { kind: "self" } }), {
 			entityId: "workout-id",
-			reference: { kind: "self" },
 		});
-		const templateRecipe = workoutTemplateDetailRecipe({
-			workoutLimit: 4,
-			entityId: "template-id",
-			reference: { kind: "self" },
-		});
+		const templateRecipe = bindRecipe(
+			workoutTemplateDetailRecipe({ reference: { kind: "self" } }),
+			{ entityId: "template-id" },
+		);
 		const workout = workoutRecipe.document.queries["workout"];
 		const workoutTemplate = templateRecipe.document.queries["workoutTemplate"];
 		if (workout?.output.type !== "rows" || workoutTemplate?.output.type !== "rows") {
@@ -163,7 +161,7 @@ describe("fitness query recipes", () => {
 				]),
 				include: arrayContaining([
 					objectContaining({
-						limit: 3,
+						limit: 100,
 						key: "template",
 						from: { table: "relationship", alias: "templateRelationship" },
 						joins: arrayContaining([
@@ -196,7 +194,7 @@ describe("fitness query recipes", () => {
 			objectContaining({
 				include: arrayContaining([
 					objectContaining({
-						limit: 4,
+						limit: 100,
 						key: "workouts",
 						from: { table: "relationship", alias: "workoutRelationship" },
 						joins: arrayContaining([
@@ -228,26 +226,25 @@ describe("fitness query recipes", () => {
 	});
 
 	it("queries shared and user-owned taxonomy entities and their exercise relationships", () => {
-		const targetList = targetListRecipe({
+		const targetList = bindRecipe(targetListRecipe({ reference: { kind: "self" } }), {
 			limit: 4,
 			name: "Lats",
 			after: "target-cursor",
-			reference: { kind: "self" },
 		});
 		const targetRows = targetList.document.queries.targets;
-		const equipmentList = equipmentListRecipe({ limit: 5, reference: { kind: "self" } });
+		const equipmentList = bindRecipe(equipmentListRecipe({ reference: { kind: "self" } }), {
+			limit: 5,
+		});
 		const equipmentRows = equipmentList.document.queries.equipment;
-		const targets = exerciseTargetsRecipe({
+		const targets = bindRecipe(exerciseTargetsRecipe({ reference: { kind: "self" } }), {
 			limit: 3,
 			exerciseId: "exercise-1",
-			reference: { kind: "self" },
 			after: "relationship-cursor",
 		});
 		const targetRelationships = targets.document.queries.targets;
-		const equipment = exerciseEquipmentRecipe({
+		const equipment = bindRecipe(exerciseEquipmentRecipe({ reference: { kind: "self" } }), {
 			limit: 2,
 			exerciseId: "exercise-1",
-			reference: { kind: "self" },
 		});
 		const equipmentRelationships = equipment.document.queries.equipment;
 		if (
@@ -288,6 +285,7 @@ describe("fitness query recipes", () => {
 							objectContaining({ right: { type: "pluginId", reference: { kind: "self" } } }),
 						],
 					}),
+					{ type: "and", predicates: [] },
 				],
 			}),
 		);

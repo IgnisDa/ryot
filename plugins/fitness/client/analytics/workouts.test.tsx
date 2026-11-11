@@ -11,12 +11,14 @@ import {
 	savedViewPageContext,
 } from "@ryot-app/plugin-client-sdk/testing";
 import { TimeZone } from "@ryot-app/plugin-kit/schema";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
+import { analyticsTrendResponse } from "../../tests/client/analytics-fixtures";
 import type {
 	AnalyticsDisplayPreferences,
 	AnalyticsScope,
@@ -39,10 +41,7 @@ const aggregate = (
 	readonly items: readonly Record<string, null | number | string>[];
 	readonly pageInfo: { nextCursor: null; readonly limit: number; readonly hasMore: boolean };
 } => ({ items, type: "aggregate", pageInfo: { limit: 366, hasMore: false, nextCursor: null } });
-const trendResponse = (
-	points: readonly Record<string, null | number | string>[],
-	key: "setTrend" | "workoutTrend" = "workoutTrend",
-) => ({ data: { [key]: aggregate(points) } });
+const trendResponse = analyticsTrendResponse;
 const hourResponse = (starts = 3) => ({ data: { hours: aggregate([{ starts, hour: 8 }]) } });
 const workoutPoint = (at: string, value: null | number) => ({
 	at,
@@ -75,6 +74,7 @@ const mountWorkouts = (
 		{
 			bootstrap: clock.bootstrap,
 			location: routeLocation("/v/analytics"),
+			queryExecution: () => ({ now: clock.now(), timeZone: TimeZone.make("UTC") }),
 			page: {
 				...savedViewPageContext({
 					settings: {},
@@ -109,15 +109,15 @@ const answerInitial = Effect.fnUntraced(function* (
 			continue;
 		}
 		answered.add(request.requestId);
-		if ("hours" in request.document.queries) {
+		if ("hours" in bindTestRequest(request.request).queries) {
 			page.replyQuery(
 				request.requestId,
 				options.failedHours === true
 					? { outcome: "failure", reason: "query-failed" }
 					: { outcome: "success", response: hourResponse() },
 			);
-		} else if ("workoutTrend" in request.document.queries) {
-			const text = yield* documentText(request.document);
+		} else if ("workoutTrend" in bindTestRequest(request.request).queries) {
+			const text = yield* documentText(request.request.arguments);
 			page.replyQuery(request.requestId, {
 				outcome: "success",
 				response:
@@ -139,7 +139,9 @@ describe("Fitness analytics workout charts", () => {
 				try {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(3)));
 					for (const request of page.queryRequests()) {
-						expect(yield* documentText(request.document)).toContain("fitness-owner");
+						expect(yield* documentText(bindTestRequest(request.request))).toContain(
+							"fitness-owner",
+						);
 					}
 					yield* answerInitial(page, answered);
 					yield* Effect.promise(() =>
@@ -180,20 +182,19 @@ describe("Fitness analytics workout charts", () => {
 					fireEvent.click(volumeOption);
 					const volumeRequest = yield* Effect.promise(() =>
 						waitFor(() => {
-							const request = page.queryRequests("derivedTrend")[0];
+							const request = page
+								.queryRequests("derivedTrend")
+								.find((candidate) => candidate.request.arguments?.["metric"] === "volume");
 							assert(request);
 							return request;
 						}),
 					);
 					page.replyQuery(volumeRequest.requestId, {
 						outcome: "success",
-						response: {
-							data: {
-								derivedTrend: aggregate([
-									{ ...workoutPoint("2026-03-01T00:00:00.000Z", null), failed: 0, pending: 0 },
-								]),
-							},
-						},
+						response: analyticsTrendResponse(
+							[{ ...workoutPoint("2026-03-01T00:00:00.000Z", null), failed: 0, pending: 0 }],
+							"derivedTrend",
+						),
 					});
 					yield* Effect.promise(() =>
 						waitFor(() =>
@@ -227,7 +228,7 @@ describe("Fitness analytics workout charts", () => {
 					yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(4)));
 					yield* answerInitial(page, answered, {
 						trend: (text) =>
-							text.includes("2026-01-29")
+							text.includes('"comparisonSide":"previous"')
 								? trendResponse([
 										workoutPoint("2026-01-01T00:00:00.000Z", 3),
 										workoutPoint("2026-02-01T00:00:00.000Z", 4),
@@ -333,7 +334,7 @@ describe("Fitness analytics workout charts", () => {
 							continue;
 						}
 						answered.add(request.requestId);
-						if ("hours" in request.document.queries) {
+						if ("hours" in bindTestRequest(request.request).queries) {
 							page.replyQuery(request.requestId, { outcome: "failure", reason: "query-failed" });
 						} else {
 							page.replyQuery(request.requestId, {

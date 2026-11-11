@@ -26,11 +26,14 @@ export default defineOperation({
 		Effect.gen(function* () {
 			const exercises = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEditorExercisesRecipe({ exerciseIds: [exerciseId], reference: { kind: "self" } }),
+				workoutEditorExercisesRecipe({ reference: { kind: "self" } }),
+				{ exerciseIds: [exerciseId] },
+				{ pages: { exercises: { after: undefined } } },
 			);
 			const membership = yield* executeRyotqlRecipe(
 				host.executeRyotql,
-				workoutEditorMembershipRecipe({ exerciseId, reference: { kind: "self" } }),
+				workoutEditorMembershipRecipe({ reference: { kind: "self" } }),
+				{ exerciseId },
 			);
 			if (exercises.items.length !== 1 || membership === null) {
 				return { kind: "missing-exercise" } as const;

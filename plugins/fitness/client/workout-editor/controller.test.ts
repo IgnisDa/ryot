@@ -554,7 +554,7 @@ describe("workout editor controller", () => {
 			"does not schedule missed pulses or pulse while in the background",
 			() =>
 				Effect.gen(function* () {
-					yield* TestClock.setTime(Date.parse(startTime) + 18_500);
+					yield* TestClock.setTime(Date.parse(startTime) + 18500);
 					const schedule = yield* RyotScheduleService;
 					let foreground = false;
 					const requests: PluginDeviceRequest[] = [];
@@ -586,7 +586,7 @@ describe("workout editor controller", () => {
 			"skips a warning callback that is more than 500 milliseconds late",
 			() =>
 				Effect.gen(function* () {
-					yield* TestClock.setTime(Date.parse(startTime) + 17_500);
+					yield* TestClock.setTime(Date.parse(startTime) + 17500);
 					const schedule = yield* RyotScheduleService;
 					let observedOffset = 0;
 					const requests: PluginDeviceRequest[] = [];
@@ -648,7 +648,7 @@ describe("workout editor controller", () => {
 						.filter((request) => request.action === "schedule")
 						.map((request) => request.audible),
 				).toEqual([true, false]);
-				now += 60_000;
+				now += 60000;
 				foreground = false;
 				const backgroundWrites = harness.writes.length;
 				const backgroundRequests = requests.length;
@@ -698,7 +698,7 @@ describe("workout editor controller", () => {
 					};
 					yield* harness.controller.load();
 					yield* harness.controller.start(running);
-					now += 20_500;
+					now += 20500;
 					yield* harness.controller.reconcile({ executionClientId: "execution-1" });
 					const persisted = decodeWorkoutEditorDraft(harness.stored);
 					expect(persisted._tag).toBe("Success");

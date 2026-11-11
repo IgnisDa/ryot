@@ -48,6 +48,13 @@ describe("fitness browse declarations", () => {
 			relationship: { slug: "exercise-targets" },
 		});
 		expect(browse("workout-template").map(({ key }) => key)).toEqual(["created"]);
-		expect(browse("workout")).toEqual([]);
+		expect(browse("workout").map(({ key }) => key)).toEqual([
+			"startedAt",
+			"exerciseCount",
+			"setCount",
+			"personalBests",
+			"template",
+			"exercises",
+		]);
 	});
 });

@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { PluginId } from "@ryot-app/plugin-client-sdk/plugin";
 import { createTestRyotClock } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -44,7 +45,7 @@ describe("fitness presentation loaders", () => {
 				const documents: unknown[] = [];
 				const clock = createTestRyotClock({
 					query: (document) => {
-						documents.push(document);
+						documents.push(bindTestRequest(document));
 						return Effect.succeed({
 							data: {
 								presentations: rows([
@@ -131,7 +132,7 @@ describe("fitness presentation loaders", () => {
 							settings: { ...preferenceSettings, unitSystem: "imperial" },
 						}),
 					query: (document) => {
-						const queries = document.queries;
+						const queries = bindTestRequest(document).queries;
 						if ("taxonomy" in queries) {
 							return Effect.succeed({ data: { taxonomy: rows([]) } });
 						}

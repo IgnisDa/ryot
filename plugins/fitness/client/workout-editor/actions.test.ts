@@ -137,7 +137,7 @@ describe("workout timer reconciliation", () => {
 			{ reps: "-1", rest: "invalid" },
 		].flatMap((measurements) =>
 			[false, true].flatMap((prompt) =>
-				[500, 1500, 60_000].flatMap((delay) =>
+				[500, 1500, 60000].flatMap((delay) =>
 					[false, true].map((stale) => Object.assign({}, measurements, { delay, stale, prompt })),
 				),
 			),
@@ -151,7 +151,7 @@ describe("workout timer reconciliation", () => {
 					reps,
 					restChoice: { seconds: rest, kind: "explicit" },
 				}));
-				const deadline = startTime + 20_000;
+				const deadline = startTime + 20000;
 				const result = reconcileWorkoutTimers(running, deadline + delay, {
 					prompt,
 					settings: preferences(),
@@ -197,7 +197,7 @@ describe("workout timer reconciliation", () => {
 									durationSeconds: 30,
 									occurrenceId: "first",
 									clientId: "execution:rest",
-									deadline: isoAt(deadline + 30_000),
+									deadline: isoAt(deadline + 30000),
 									exerciseId: EntityId.make("first-exercise"),
 								}
 							: undefined,
@@ -228,7 +228,7 @@ describe("workout timer reconciliation", () => {
 							: occurrence,
 					),
 				};
-				const result = reconcileWorkoutTimers(replaced, startTime + 20_000, {
+				const result = reconcileWorkoutTimers(replaced, startTime + 20000, {
 					prompt: true,
 					settings: preferences(),
 				});
@@ -260,13 +260,13 @@ describe("workout timer reconciliation", () => {
 				).draft;
 				const pausedRest =
 					state === "paused"
-						? pauseCountdown(resting, "restCountdown", startTime + 5_000).draft
+						? pauseCountdown(resting, "restCountdown", startTime + 5000).draft
 						: resting;
 				const pausedWorkout = pauseWorkout(
 					resumeStopwatch(pausedRest, startTime).draft,
-					startTime + 5_000,
+					startTime + 5000,
 				).draft;
-				const result = reconcileWorkoutTimers(pausedWorkout, startTime + 20_500, {
+				const result = reconcileWorkoutTimers(pausedWorkout, startTime + 20500, {
 					prompt: true,
 					settings: preferences(),
 					expected:
@@ -291,10 +291,10 @@ describe("workout timer reconciliation", () => {
 				const paused = pauseCountdown(
 					yield* executionDraft(),
 					"executionCountdown",
-					startTime + 5_000,
+					startTime + 5000,
 				).draft;
 				expect(
-					reconcileWorkoutTimers(paused, startTime + 60_000, {
+					reconcileWorkoutTimers(paused, startTime + 60000, {
 						prompt: true,
 						settings: preferences(),
 					}),
@@ -320,19 +320,19 @@ describe("workout timer reconciliation", () => {
 					startTime,
 					"old-rest",
 				).draft;
-				const completed = reconcileWorkoutTimers(resting, startTime + 20_500, {
+				const completed = reconcileWorkoutTimers(resting, startTime + 20500, {
 					prompt: false,
 					settings: preferences(),
 				});
 				expect(findSet(completed.draft, "first", "first-set").confirmedAt).toBe(
-					isoAt(startTime + 20_000),
+					isoAt(startTime + 20000),
 				);
 				expect(completed.draft.activeOccurrenceId).toBeUndefined();
 				expect(completed.draft.restCountdown).toMatchObject({
 					clientId: "execution:rest",
-					deadline: isoAt(startTime + 80_000),
+					deadline: isoAt(startTime + 80000),
 				});
-				const stale = reconcileWorkoutTimers(completed.draft, startTime + 80_000, {
+				const stale = reconcileWorkoutTimers(completed.draft, startTime + 80000, {
 					prompt: false,
 					settings: preferences(),
 					expected: { restClientId: "old-rest" },
@@ -600,7 +600,7 @@ describe("workout editor actions", () => {
 				expect(result.restCountdown).toMatchObject({
 					clientId: "rest-1",
 					durationSeconds: 30,
-					deadline: isoAt(startTime + 30_000),
+					deadline: isoAt(startTime + 30000),
 				});
 			}),
 		testTimeout,
@@ -692,17 +692,15 @@ describe("workout editor actions", () => {
 				expect(
 					findSet(prompted, "occurrence-1", "occurrence-1-set").restTimerStartedAt,
 				).toBeUndefined();
-
-				const started = resolvePendingRest(prompted, startTime + 1_000, "prompted-rest", false);
+				const started = resolvePendingRest(prompted, startTime + 1000, "prompted-rest", false);
 				expect(started.pendingRest).toBeUndefined();
 				expect(started.activeOccurrenceId).toBe("occurrence-2");
 				expect(started.activeSetId).toBe(prompted.activeSetId);
-				expect(started.restCountdown?.deadline).toBe(isoAt(startTime + 21_000));
+				expect(started.restCountdown?.deadline).toBe(isoAt(startTime + 21000));
 				expect(findSet(started, "occurrence-1", "occurrence-1-set").restTimerStartedAt).toBe(
-					isoAt(startTime + 1_000),
+					isoAt(startTime + 1000),
 				);
-
-				const skipped = resolvePendingRest(prompted, startTime + 1_000, "unused-rest", true);
+				const skipped = resolvePendingRest(prompted, startTime + 1000, "unused-rest", true);
 				expect(skipped.pendingRest).toBeUndefined();
 				expect(skipped.restCountdown).toBeUndefined();
 				expect(skipped.activeOccurrenceId).toBe("occurrence-2");
@@ -810,7 +808,7 @@ describe("workout editor actions", () => {
 					timerId: "rest-1",
 					setId: "occurrence-1-set",
 					occurrenceId: "occurrence-1",
-					observedAt: startTime + 60_000,
+					observedAt: startTime + 60000,
 					settings: preferences({ normalRestTime: 60 }),
 				});
 
@@ -828,7 +826,7 @@ describe("workout editor actions", () => {
 			Effect.gen(function* () {
 				const value = yield* workoutDraft({
 					activeDuration: 300,
-					activeDurationStartedAt: isoAt(startTime + 900_000),
+					activeDurationStartedAt: isoAt(startTime + 900000),
 					pendingRest: {
 						seconds: 30,
 						setId: "occurrence-1-set",
@@ -841,7 +839,7 @@ describe("workout editor actions", () => {
 						setId: "occurrence-1-set",
 						occurrenceId: "occurrence-1",
 						exerciseId: "occurrence-1-exercise",
-						deadline: isoAt(startTime + 1_230_000),
+						deadline: isoAt(startTime + 1230000),
 					},
 					executionCountdown: {
 						durationSeconds: 30,
@@ -849,12 +847,11 @@ describe("workout editor actions", () => {
 						setId: "occurrence-1-set",
 						occurrenceId: "occurrence-1",
 						exerciseId: "occurrence-1-exercise",
-						deadline: isoAt(startTime + 1_230_000),
+						deadline: isoAt(startTime + 1230000),
 					},
 				});
-				const result = finishWorkoutDraft(value, startTime + 1_200_000);
-
-				expect(result.endedAt).toBe(isoAt(startTime + 1_200_000));
+				const result = finishWorkoutDraft(value, startTime + 1200000);
+				expect(result.endedAt).toBe(isoAt(startTime + 1200000));
 				expect(result.activeDuration).toBe(600);
 				expect(result.activeDurationStartedAt).toBeUndefined();
 				expect(result.pendingRest).toBeUndefined();
@@ -872,9 +869,8 @@ describe("workout editor actions", () => {
 				const historical = yield* workoutDraft({
 					mode: { kind: "historical", entityId: "workout-1", conflictToken: "conflict-1" },
 				});
-
-				expect(finishWorkoutDraft(template, startTime + 60_000)).toBe(template);
-				expect(finishWorkoutDraft(historical, startTime + 60_000)).toBe(historical);
+				expect(finishWorkoutDraft(template, startTime + 60000)).toBe(template);
+				expect(finishWorkoutDraft(historical, startTime + 60000)).toBe(historical);
 			}),
 		testTimeout,
 	);

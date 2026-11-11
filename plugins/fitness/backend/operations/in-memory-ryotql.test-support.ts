@@ -1,9 +1,7 @@
-import type {
-	Predicate,
-	RyotQLDocument,
-	ScalarExpression,
-} from "@ryot-app/contract/modules/ryotql/language";
-import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import type { Predicate, ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import { DateTime, Effect, Result } from "@ryot-app/plugin-backend-sdk/effect";
+import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { bindDocument } from "@ryot-app/ryotql/binding";
 import { assert } from "@ryot-app/testing/assert";
 
 export type StoredTables = Readonly<Record<string, readonly StoredRow[]>>;
@@ -124,9 +122,15 @@ const evaluate = (expression: Expression, rows: Rows, tables: StoredTables): unk
 	}
 	throw new Error("Unsupported RyotQL expression");
 };
-
-export const inMemoryRyotql = (tables: StoredTables) => (document: RyotQLDocument) =>
+export const inMemoryRyotql = (tables: StoredTables) => (request: ExecutionRequest) =>
 	Effect.sync(() => {
+		assert(request.source.kind === "inline");
+		const document = Result.getOrThrow(
+			bindDocument(request.source.document, request, {
+				reportingTimeZone: "UTC",
+				now: DateTime.toDateUtc(DateTime.makeUnsafe("2026-11-11T12:00:00.000Z")),
+			}),
+		).document;
 		const [[key, query] = []] = Object.entries(document.queries);
 		assert(key !== undefined && query?.output.type === "rows");
 		const { output } = query;

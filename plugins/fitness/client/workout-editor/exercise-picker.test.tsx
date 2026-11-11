@@ -11,6 +11,7 @@ import {
 	savedViewPageContext,
 	waitForMessagePortMacrotask,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -112,7 +113,7 @@ const createRequestAnswerer = () => {
 			Parameters<typeof page.replyQuery>[1],
 			{ readonly outcome: "success" }
 		>;
-		type QueryData = QuerySuccess["response"]["data"];
+		type QueryData = Extract<QuerySuccess["response"], { readonly data: unknown }>["data"];
 		for (const request of page.clientMessages()) {
 			if (
 				request.type !== "storage-request" ||
@@ -135,8 +136,8 @@ const createRequestAnswerer = () => {
 			}
 			answeredQueries.add(request.requestId);
 			const data: Record<string, QueryData[string]> = {};
-			for (const key of Object.keys(request.document.queries)) {
-				const query = request.document.queries[key];
+			for (const key of Object.keys(bindTestRequest(request.request).queries)) {
+				const query = bindTestRequest(request.request).queries[key];
 				if (key === "exercises" && query?.output.type === "rows") {
 					data.exercises = options.exercisePage(
 						pickerExercisePageIndex++,

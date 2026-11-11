@@ -32,11 +32,8 @@ const exerciseDetailsQuery = createRyotQuery<
 >(
 	({ input, client }) =>
 		client.data.query(
-			exerciseDetailsRecipe({
-				timeZone: input.timeZone,
-				exerciseId: input.entityId,
-				reference: client.pluginIdentity(PLUGIN_PACKAGE_ID),
-			}),
+			exerciseDetailsRecipe({ reference: client.pluginIdentity(PLUGIN_PACKAGE_ID) }),
+			{ exerciseId: input.entityId },
 		),
 	{ entityWatch: ({ input }) => ({ visible: [], foreground: [input.entityId] }) },
 );
