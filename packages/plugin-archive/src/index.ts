@@ -821,7 +821,7 @@ export const writePluginArchive = (pluginPackage: PluginArchiveInput) => {
 		let manifestBytes: Uint8Array;
 		let manifest: PluginManifest;
 		try {
-			manifestBytes = encoder.encode(`${JSON.stringify(pluginPackage.manifest, null, "\t")}\n`);
+			manifestBytes = encoder.encode(`${JSON.stringify(pluginPackage.manifest)}\n`);
 		} catch {
 			throw failure("manifest-invalid");
 		}

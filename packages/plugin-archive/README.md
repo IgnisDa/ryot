@@ -6,8 +6,9 @@ plugins. Archives contain compiled artifacts, not authoring sources.
 ## Format
 
 The writer emits `manifest.json` first, followed by compiled backend and compiled client metadata
-and files. Each group is sorted by JavaScript code units. The manifest is tab-indented JSON with one
-trailing newline. ZIP entries use epoch mtime, OS 0, and deflate level 6.
+and files. Each group is sorted by JavaScript code units. The manifest is compact JSON in JavaScript
+property enumeration order with one trailing newline. Readers accept valid JSON whitespace. Compiled
+metadata remains tab-indented JSON. ZIP entries use epoch mtime, OS 0, and deflate level 6.
 
 Compiled script entry labels remain canonical `backend/**` or `shared/**` `.sandbox.ts` paths;
 they identify authored entries, not source files stored in the archive. Raw `backend/**`,

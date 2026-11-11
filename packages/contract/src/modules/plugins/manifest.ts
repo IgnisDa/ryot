@@ -14,6 +14,7 @@ import {
 } from "../automations/lifecycle";
 import { AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
+import { RyotQLDocument as AuthoredRyotQLDocument } from "../ryotql/authored";
 import { OutputFieldKey } from "../ryotql/language";
 import {
 	rowSourceAliases,
@@ -705,9 +706,33 @@ export const PluginOperationAuth = Schema.Literals(["user", "integration"]);
 
 export type PluginOperationAuth = Schema.Schema.Type<typeof PluginOperationAuth>;
 
+export const PluginOperationJsonSchema = Schema.Record(Schema.String, JsonValue);
+
+export type PluginOperationJsonSchema = Schema.Schema.Type<typeof PluginOperationJsonSchema>;
+
+export const PluginOperationHints = strictStruct({
+	readOnly: Schema.Boolean,
+	idempotent: Schema.Boolean,
+	destructive: Schema.Boolean,
+}).pipe(
+	Schema.check(
+		Schema.makeFilter(
+			(hints) =>
+				!hints.readOnly ||
+				(!hints.destructive && hints.idempotent) ||
+				"Read-only operations must be non-destructive and idempotent",
+		),
+	),
+);
+
+export type PluginOperationHints = Schema.Schema.Type<typeof PluginOperationHints>;
+
 const PluginOperationFields = {
 	slug: sandboxManifestSlug,
+	hints: PluginOperationHints,
 	scriptSlug: sandboxManifestSlug,
+	input: PluginOperationJsonSchema,
+	output: PluginOperationJsonSchema,
 	description: sandboxManifestString,
 };
 
@@ -1007,6 +1032,12 @@ const PluginManifestAuthoredFields = {
 	oauthProviders: Schema.optional(Schema.Array(PluginOAuthProvider)),
 	calendarSources: Schema.optional(Schema.Array(PluginCalendarSource)),
 	signalSchedules: Schema.optional(Schema.Array(PluginSignalSchedule)),
+	queries: Schema.optional(
+		Schema.Record(
+			Schema.NonEmptyString,
+			strictStruct({ document: AuthoredRyotQLDocument, description: Schema.NonEmptyString }),
+		),
+	),
 };
 
 const AuthoredPluginManifestFields = strictStruct(PluginManifestAuthoredFields);

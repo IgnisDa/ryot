@@ -1,4 +1,5 @@
 export { jsonValueEquals } from "@ryot-app/ts-utils/json";
+export type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 export { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 export { roundHalfUp } from "@ryot-app/contract/schema/numeric-normalization";
 export { UTC, TimeZone, isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -25,6 +26,7 @@ export {
 	calendarDaysBetween,
 	startOfCalendarUnit,
 } from "@ryot-app/contract/modules/analytics/calendar";
+
 export {
 	ReviewRating,
 	ReviewContent,

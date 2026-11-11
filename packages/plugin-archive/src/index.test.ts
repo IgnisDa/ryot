@@ -61,6 +61,26 @@ const fixture = {
 				home: { kind: "component", entry: "client/home.tsx", automaticEntityPresentations: false },
 			},
 		},
+		queries: {
+			entities: {
+				description: "List entities",
+				document: {
+					queries: {
+						entities: {
+							from: { alias: "entity", table: "entity" },
+							output: {
+								orderBy: [],
+								type: "rows",
+								pagination: { limit: 20, maxLimit: 100 },
+								fields: [
+									{ key: "id", expr: { field: "id", type: "column", tableAlias: "entity" } },
+								],
+							},
+						},
+					},
+				},
+			},
+		},
 	},
 } satisfies PluginArchivePackage;
 
@@ -173,7 +193,7 @@ const manifestWithBytes = (bytes: number): PluginArchivePackage["manifest"] => {
 		...fixture.manifest,
 		metadata: { ...fixture.manifest.metadata, description: "" },
 	};
-	const emptyBytes = encoder.encode(`${JSON.stringify(manifest, null, "\t")}\n`).byteLength;
+	const emptyBytes = encoder.encode(`${JSON.stringify(manifest)}\n`).byteLength;
 	return {
 		...manifest,
 		metadata: { ...manifest.metadata, description: "a".repeat(bytes - emptyBytes) },
@@ -376,8 +396,9 @@ describe("plugin archive", () => {
 		expect(first).toEqual(second);
 		const files = unzipSync(first);
 		expect(Object.keys(files)).toEqual(["manifest.json"]);
+		expect(files["manifest.json"]?.byteLength).toBeLessThan(rawManifest.byteLength);
 		expect(new TextDecoder().decode(files["manifest.json"])).toBe(
-			`${JSON.stringify(fixture.manifest, null, "\t")}\n`,
+			`${JSON.stringify(fixture.manifest)}\n`,
 		);
 	});
 
@@ -678,11 +699,17 @@ describe("plugin archive", () => {
 		testTimeout,
 	);
 
-	it("writes byte-identical archives across timezones", () => {
-		const utc = writeArchiveInTimezone("UTC");
-		expect(writeArchiveInTimezone("America/Los_Angeles")).toEqual(utc);
-		expect(writeArchiveInTimezone("Asia/Kolkata")).toEqual(utc);
-	});
+	it.live("round trips byte-identical archives across processes and timezones", () =>
+		Effect.gen(function* () {
+			const utc = writeArchiveInTimezone("UTC");
+			expect(writeArchiveInTimezone("America/Los_Angeles")).toEqual(utc);
+			expect(writeArchiveInTimezone("Asia/Kolkata")).toEqual(utc);
+			expect(new Uint8Array(utc)).toEqual(writePluginArchive(scriptFixture));
+			const result = yield* readPluginArchive(utc);
+			expect(result.manifest).toEqual(scriptFixture.manifest);
+			expect(result.compiledScripts).toEqual(scriptFixture.compiledScripts);
+		}),
+	);
 
 	it("orders compiled client paths by code units", () => {
 		const names = ["a.svg", "B.svg", "_x.svg", "index.html"];
@@ -815,6 +842,26 @@ describe("plugin archive", () => {
 			},
 			"path-bytes-exceeded",
 		));
+
+	it.live("accepts and round trips a compact manifest exactly at the byte limit", () =>
+		Effect.gen(function* () {
+			const manifest = manifestWithBytes(PLUGIN_ARCHIVE_LIMITS.maxManifestBytes);
+			const bytes = writePluginArchive({ manifest });
+			expect(unzipSync(bytes)["manifest.json"]?.byteLength).toBe(
+				PLUGIN_ARCHIVE_LIMITS.maxManifestBytes,
+			);
+			expect((yield* readPluginArchive(bytes)).manifest).toEqual(manifest);
+		}),
+	);
+
+	it.live("reads indented JSON manifests with surrounding whitespace", () =>
+		Effect.gen(function* () {
+			const bytes = archive([
+				["manifest.json", encoder.encode(` \r\n\t${new TextDecoder().decode(rawManifest)} \r\n`)],
+			]);
+			expect((yield* readPluginArchive(bytes)).manifest).toEqual(fixture.manifest);
+		}),
+	);
 
 	it("rejects a writer manifest one byte over the limit", () =>
 		expectWriteReason(

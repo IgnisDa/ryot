@@ -7,6 +7,17 @@ export * from "@ryot-app/ryotql";
 export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
+export { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
+export {
+	now,
+	sort,
+	filter,
+	dateAdd,
+	parameters,
+	aggregateSort,
+	reportingTimeZone,
+} from "@ryot-app/ryotql/authoring";
+
 export {
 	eventIsAfter,
 	latestEventField,
@@ -19,3 +30,31 @@ export {
 	projectionStatusMeasures,
 	projectionProcessingState,
 } from "@ryot-app/ryotql-recipes/projection-status";
+
+export type {
+	Join,
+	OrderBy,
+	Include,
+	Controls,
+	Predicate,
+	NamedQuery,
+	RowsOutput,
+	TableReference,
+	FieldSelection,
+	ScalarExpression,
+	AggregateOrdering,
+} from "@ryot-app/contract/modules/ryotql/authored";
+
+export {
+	reportingWindow,
+	reportingArguments,
+	reportingParameters,
+	type ReportingWindow,
+	expressionDateWindow,
+	reportingDatePredicate,
+	reportingSincePredicate,
+	reportingParameterFields,
+	reportingPeriodPredicate,
+	expressionPeriodPredicate,
+	reportingGroupingExpression,
+} from "@ryot-app/ryotql-recipes/reporting-parameters";

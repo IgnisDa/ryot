@@ -14,6 +14,7 @@ import {
 	definePlugin,
 	type PluginClientEntry,
 	PluginManifest,
+	PluginOperation,
 } from "./manifest";
 
 const packageId = PluginPackageId.make("test/contract");
@@ -25,7 +26,7 @@ const queryDocument = {
 			output: {
 				orderBy: [],
 				type: "rows",
-				pagination: { limit: 20 },
+				pagination: { limit: 20, maxLimit: 100 },
 				fields: [
 					{ key: "entityId", expr: { field: "id", type: "column", tableAlias: "entity" } },
 					{ key: "title", expr: { field: "name", type: "column", tableAlias: "entity" } },
@@ -62,15 +63,6 @@ const authoredManifest = definePlugin({
 			scriptSlug: "automation.test",
 			schedule: { cron: "0 * * * *" },
 			description: "Refresh test data",
-		},
-	],
-	operations: [
-		{
-			auth: "user",
-			slug: "resolve.test",
-			demoAccess: "allowed",
-			scriptSlug: "operation.test",
-			description: "Resolve test references",
 		},
 	],
 	providers: [
@@ -111,6 +103,18 @@ const authoredManifest = definePlugin({
 			name: "Test notification",
 			scriptSlug: "automation.test",
 			targets: [{ operation: "emit", resource: "signal", signalSchemaSlug: "test.signal" }],
+		},
+	],
+	operations: [
+		{
+			auth: "user",
+			slug: "resolve.test",
+			demoAccess: "allowed",
+			input: { type: "object" },
+			output: { type: "object" },
+			scriptSlug: "operation.test",
+			description: "Resolve test references",
+			hints: { readOnly: true, idempotent: true, destructive: false },
 		},
 	],
 	savedViews: [
@@ -1196,6 +1200,9 @@ describe("definePlugin", () => {
 							{
 								auth: "integration",
 								slug: operation.slug,
+								input: operation.input,
+								hints: operation.hints,
+								output: operation.output,
 								scriptSlug: operation.scriptSlug,
 								description: operation.description,
 							},
@@ -2365,4 +2372,57 @@ describe("signal schedules", () => {
 			),
 		testTimeout,
 	);
+});
+
+describe("operation schemas and hints", () => {
+	const operation = {
+		auth: "user",
+		slug: "read.test",
+		demoAccess: "allowed",
+		input: { type: "object" },
+		output: { type: "string" },
+		scriptSlug: "operation.test",
+		description: "Read a fixture without changing stored data",
+		hints: { readOnly: true, idempotent: true, destructive: false },
+	};
+
+	it("requires both schema documents and all boolean safety hints", () => {
+		for (const invalid of [
+			{ ...operation, input: undefined },
+			{ ...operation, output: undefined },
+			{ ...operation, input: "string" },
+			{ ...operation, output: null },
+			{ ...operation, hints: undefined },
+			{ ...operation, hints: { readOnly: true, destructive: false } },
+			{ ...operation, hints: { readOnly: "true", idempotent: true, destructive: false } },
+		]) {
+			expect(Schema.decodeUnknownResult(PluginOperation)(invalid)._tag).toBe("Failure");
+		}
+	});
+
+	it("rejects contradictory read-only hints while allowing idempotent destructive writes", () => {
+		for (const hints of [
+			{ readOnly: true, idempotent: true, destructive: true },
+			{ readOnly: true, idempotent: false, destructive: false },
+		]) {
+			expect(Schema.decodeUnknownResult(PluginOperation)({ ...operation, hints })._tag).toBe(
+				"Failure",
+			);
+		}
+		expect(
+			Schema.decodeUnknownResult(PluginOperation)({
+				...operation,
+				hints: { readOnly: false, idempotent: true, destructive: true },
+			})._tag,
+		).toBe("Success");
+	});
+
+	it("keeps demo access independent of whether an operation writes", () => {
+		expect(
+			Schema.decodeUnknownResult(PluginOperation)({
+				...operation,
+				hints: { readOnly: false, idempotent: false, destructive: false },
+			})._tag,
+		).toBe("Success");
+	});
 });

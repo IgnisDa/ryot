@@ -1,9 +1,19 @@
 # Plugin Kit
 
 `@ryot-app/contract/modules/plugins/manifest` owns plugin authoring schemas and types. `definePlugin` preserves
-literal types while validating the strict authored manifest: every section is required, empty arrays
-are explicit, unknown fields are rejected, and `scripts` is not authored. Sandbox slugs use lowercase
+literal types while validating the strict authored manifest: required array sections use explicit
+empty arrays, unknown fields are rejected, and `scripts` is not authored. Sandbox slugs use lowercase
 letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapping.
+
+## Declared queries
+
+Optional `queries` maps names to `{ description, document }`. Build each static authored document
+from shared recipes; declare runtime inputs as parameters and send paging through request `pages`.
+Ingestion validates all authored branches and control targets against effective definitions.
+Runtime execution reads the persisted revision's query section and resolves parameter values and
+source authority on the server. User calls identify the scoped package and declaration name; pinned
+system scripts resolve their own declarations at their retained revision. See the
+[RyotQL API](../ryotql/README.md) for authoring and binding.
 
 ## Review Content
 
@@ -760,6 +770,20 @@ script and run once per server start. Both run with system subject through durab
 is skipped when `scheduler.disableDispatchers` is enabled. Boot scripts must be idempotent.
 
 Operations map a public slug and `user` or `integration` auth to an `operation`-kind script.
+Every operation declares `input` and `output` JSON Schema documents, a description of its behavior,
+and `hints: { readOnly, destructive, idempotent }`. Generate each document with
+`operationJsonSchema(sharedEffectSchema)` from `@ryot-app/plugin-kit/operations`, importing the same
+shared schemas that the script uses. The helper rejects opaque declarations and non-JSON types,
+retains referenced definitions, and describes the encoded wire values as draft 2020-12 JSON Schema.
+It publishes representable structural constraints; custom business checks such as timestamp ordering
+remain authoritative runtime Effect validation. Passing the published schema does not guarantee that
+the script decoder or business validation will accept the input.
+
+`readOnly` describes actual effects, independently of `demoAccess`. Read-only operations must be
+non-destructive and idempotent. A writing operation may also be idempotent, including a destructive
+write whose repetition has no additional effect. Descriptions should explain writes, deletes,
+conflicts, and per-item misses so people and tool clients can choose operations safely.
+
 Refuse a request that cannot succeed as submitted with `OperationRejectedError(message)`; the caller
 receives the message (HTTP 422) instead of a generic runtime failure (HTTP 502). Import
 sources map strict input schemas to workflows. Uploads are top-level string fields with upload format;
