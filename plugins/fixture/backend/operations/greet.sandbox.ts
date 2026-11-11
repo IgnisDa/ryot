@@ -1,6 +1,8 @@
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineOperation } from "@ryot-app/plugin-backend-sdk/operation";
+
+import { GreetInput, GreetOutput } from "../../shared/greet";
 
 export const manifest = defineManifest({
 	kind: "operation",
@@ -10,7 +12,7 @@ export const manifest = defineManifest({
 
 export default defineOperation({
 	manifest,
-	output: Schema.Struct({ greeting: Schema.String }),
+	input: GreetInput,
+	output: GreetOutput,
 	run: (input) => Effect.succeed({ greeting: `Hello, ${input.name}` }),
-	input: Schema.Struct({ name: Schema.String.pipe(Schema.check(Schema.isMinLength(1))) }),
 });

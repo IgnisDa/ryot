@@ -5,8 +5,10 @@ import {
 	stringArrayField,
 	stringField,
 } from "@ryot-app/contract/schema/core";
+import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
 import { castNumber, column, jsonPath, table } from "@ryot-app/ryotql";
 
+import { GreetInput, GreetOutput } from "../shared/greet";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { allFieldControlsSchema } from "./all-field-controls";
 import { fixtureCalendarSources } from "./calendar-sources";
@@ -32,15 +34,6 @@ export const fixturePlugin = definePlugin({
 		packageId: PLUGIN_PACKAGE_ID,
 		description: "A client plugin fixture used by the web client tracer.",
 	},
-	operations: [
-		{
-			auth: "user",
-			slug: "greet",
-			demoAccess: "allowed",
-			scriptSlug: "operation.greet",
-			description: "Return a deterministic greeting for the caller",
-		},
-	],
 	providers: [
 		{
 			name: "PokeAPI",
@@ -53,6 +46,19 @@ export const fixturePlugin = definePlugin({
 			slug: "move.pokeapi",
 			rootEntitySchemaSlug: "move",
 			information: { source: "pokeapi" },
+		},
+	],
+	operations: [
+		{
+			auth: "user",
+			slug: "greet",
+			demoAccess: "allowed",
+			scriptSlug: "operation.greet",
+			input: operationJsonSchema(GreetInput),
+			output: operationJsonSchema(GreetOutput),
+			hints: { readOnly: true, idempotent: true, destructive: false },
+			description:
+				"Return a greeting for the supplied nonempty name without reading or changing stored data.",
 		},
 	],
 	entitySchemas: [

@@ -25,7 +25,10 @@ const replyChoices = Effect.fn("replyChoices")(function* (
 ) {
 	yield* Effect.promise(() => waitFor(() => expect(page.queryRequests()).toHaveLength(2)));
 	for (const request of page.queryRequests()) {
-		if ("collections" in request.document.queries) {
+		if (
+			request.request.source.kind === "inline" &&
+			"collections" in request.request.source.document.queries
+		) {
 			page.replyQuery(request.requestId, {
 				outcome: "success",
 				response: { data: { collections: rows([{ name: "Favorites", id: "collection-1" }]) } },

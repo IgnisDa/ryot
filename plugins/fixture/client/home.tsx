@@ -43,7 +43,7 @@ const greetingTones = {
 } as const;
 
 const fixtureClientPluginCatalogQuery = createRyotQuery(({ client }) =>
-	client.data.query(fixtureClientPluginCatalogRecipe()),
+	client.data.query(fixtureClientPluginCatalogRecipe, {}),
 );
 
 const greetingMutation = createRyotMutation<typeof GreetingInput.Type, typeof Greeting.Type>(

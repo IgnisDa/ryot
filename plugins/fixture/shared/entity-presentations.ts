@@ -8,7 +8,6 @@ import {
 	entitySchemaPredicate,
 	inArray,
 	jsonPath,
-	literal,
 	NullableNumber,
 	selectedField,
 	selectedRowsSource,
@@ -26,15 +25,12 @@ const selectedPresentationSource = <const Selection extends SelectedSelection>(i
 	const source = selectedRowsSource(entity, { selection: input.selection });
 	return {
 		...source,
-		query: (reference: PluginIdentityReference, entityIds: readonly string[]) =>
+		query: (reference: PluginIdentityReference, entityIds: Parameters<typeof inArray>[1]) =>
 			source.query({
 				limit: 100,
 				where: and(
 					entitySchemaPredicate(entity, input.slug, reference),
-					inArray(
-						column(entity, "id"),
-						entityIds.map((entityId) => literal(entityId)),
-					),
+					inArray(column(entity, "id"), entityIds),
 				),
 			}),
 	};

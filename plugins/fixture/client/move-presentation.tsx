@@ -10,7 +10,7 @@ import {
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { defineRecipe, parameters } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Badge, Eyebrow } from "@ryot-app/plugin-ui-sdk";
 import { isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -86,11 +86,30 @@ export const loadMovePresentations: EntityPresentationLoader<MovePresentationDat
 		kind: "local",
 		pluginId: PluginId.make(selected.ownerPluginId),
 	} satisfies Parameters<typeof source.query>[0];
-	const recipe = defineRecipe(() => ({
-		queries: { presentations: source.query(owner, entityIds) },
-		map: ({ presentations }) => buildMovePresentations(references, presentations.items),
-	}))();
-	return client.data.query(recipe);
+	const input = parameters({
+		fields: {
+			entityIds: {
+				type: "array",
+				label: "Entities",
+				validation: { required: true },
+				description: "Entities to present",
+				items: { type: "string", label: "Entity", description: "Entity ID" },
+			},
+		},
+	});
+	const recipe = defineRecipe({
+		parameters: input.schema,
+		map: ({ presentations }) => Result.succeed(presentations.items),
+		queries: { presentations: source.query(owner, input.list("entityIds")) },
+	});
+	return client.data.query(recipe, { entityIds }).pipe(
+		Effect.flatMap((rows) => {
+			const result = buildMovePresentations(references, rows);
+			return result._tag === "Failure"
+				? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
+				: Effect.succeed(result.success);
+		}),
+	);
 };
 
 function MoveRow({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {

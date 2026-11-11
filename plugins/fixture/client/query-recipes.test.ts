@@ -6,7 +6,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { fixtureCollectionChoicesRecipe } from "./query-recipes";
 
 it("restricts collection choices to the kernel collection schema", () => {
-	const recipe = fixtureCollectionChoicesRecipe();
+	const recipe = fixtureCollectionChoicesRecipe;
 	const query = recipe.document.queries.collections;
 	assert(query);
 

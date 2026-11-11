@@ -7,6 +7,7 @@ import {
 	entityPageContext,
 	mountPluginPage,
 } from "@ryot-app/plugin-client-sdk/testing";
+import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { waitFor } from "@testing-library/dom";
@@ -49,28 +50,32 @@ describe("Pokemon detail page", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.queryRequests("pokemon")).toHaveLength(2)),
 				);
-
-				expect(
-					page.queryRequests("pokemon").map((request) => request.document.queries.pokemon),
-				).toEqual<unknown>(
-					["pokemon-1", "pokemon-2"].map((entityId): unknown =>
+				expect(page.queryRequests("pokemon").map(({ request }) => request.arguments)).toEqual([
+					{ entityId: "pokemon-1" },
+					{ entityId: "pokemon-2" },
+				]);
+				for (const { request } of page.queryRequests("pokemon")) {
+					expect(request.source.kind).toBe("inline");
+					if (request.source.kind !== "inline") {
+						throw new Error("Expected inline recipe");
+					}
+					expect(request.source.document.queries.pokemon).toEqual<unknown>(
 						objectContaining({
 							where: objectContaining({
 								predicates: arrayContaining([
-									objectContaining({ right: { type: "literal", value: entityId } }),
+									objectContaining({ right: { name: "entityId", type: "parameter" } }),
 								]),
 							}),
 						}),
-					),
-				);
+					);
+				}
 			}),
 		testTimeout,
 	);
 
 	it("decodes fixture-owned Pokemon data", () => {
-		const decoded = pokemonDetailRecipe({
+		const decoded = bindRecipe(pokemonDetailRecipe({ reference: { kind: "self" } }), {
 			entityId: "pokemon-1",
-			reference: { kind: "self" },
 		}).decode({
 			data: {
 				requested: rows([{ schemaSlug: "pokemon" }]),

@@ -1,4 +1,4 @@
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	AuthoredEntityBrowserAddAction,
 	AuthoredEntityBrowserSavedViewSettings,
@@ -6,10 +6,12 @@ import type {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
 import {
+	and,
 	ascending,
 	castJson,
 	castNumber,
 	column,
+	contains,
 	document,
 	entitySchemaPredicate,
 	field,
@@ -17,6 +19,8 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
+import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Array as Arr } from "effect";
 
 import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
@@ -51,20 +55,63 @@ const buildDefinition = (
 	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 	subtitle: AuthoredEntityBrowserSavedViewSettings["summary"]["subtitle"],
 ) => {
-	const dataSources = document({
-		savedView: rows(entity, {
-			orderBy: [orderBy],
-			where: entitySchemaPredicate(entity, entitySchemaSlug, { kind: "self" }),
-			fields: [
-				field("entityId", column(entity, "id")),
-				...(image === null ? [] : [field("image", image)]),
-				...columns.map((tableColumn) => field(tableColumn.field, tableColumn.expression)),
-				field("ownerPluginId", column(entity, "entitySchemaPluginId")),
-				field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-				...presentationFields,
-			],
-		}),
+	const args = parameters({
+		fields: {
+			search: {
+				type: "string",
+				label: "Search",
+				defaultValue: "",
+				description: "Search library entries",
+			},
+		},
 	});
+	const base = rows(entity, {
+		orderBy: [orderBy],
+		where: entitySchemaPredicate(entity, entitySchemaSlug, { kind: "self" }),
+		fields: [
+			field("entityId", column(entity, "id")),
+			...(image === null ? [] : [field("image", image)]),
+			...columns.map((tableColumn) => field(tableColumn.field, tableColumn.expression)),
+			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
+			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
+			...presentationFields,
+		],
+	});
+	const subtitleField = subtitle;
+	const subtitleExpression =
+		subtitleField === null
+			? undefined
+			: columns.find((tableColumn) => tableColumn.field === subtitleField.field)?.expression;
+	const browse = {
+		alias: entity.alias,
+		kind: "browse" as const,
+		schemas: [{ slug: entitySchemaSlug, owner: { kind: "self" as const } }] as const,
+	};
+	const dataSources = {
+		parameters: args.schema,
+		controls: { sort: browse, filter: browse },
+		...document({
+			savedView: {
+				...base,
+				output: { ...base.output, orderBy: sort([orderBy]) },
+				where: and(
+					base.where ?? and(),
+					contains(column(entity, "name"), args.value("search")),
+					filter(),
+				),
+			},
+			librarySearch: librarySearchQuery({
+				entity,
+				source: base,
+				search: args.value("search"),
+				searchExpressions: [column(entity, "name")],
+				...(image === null ? {} : { image }),
+				...(subtitleField && subtitleExpression
+					? { subtitle: { expression: subtitleExpression, displayKind: subtitleField.displayKind } }
+					: {}),
+			}).document,
+		}),
+	};
 	const tableColumns = Arr.map(columns, ({ expression: _, ...tableColumn }) => tableColumn);
 	const imageColumn = { label: "Image", field: "image", displayKind: "managed-asset" as const };
 	return {
@@ -72,10 +119,10 @@ const buildDefinition = (
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
 		settings: {
 			pageSize: 20,
-			searchFields: ["name"],
 			sourceName: "savedView",
 			defaultLayout: "grid" as const,
 			layouts: ["grid", "list", "table"] as const,
+			controls: { sort: true, filter: true, search: "search" },
 			summary: { subtitle, image: image === null ? null : "image" },
 			tableColumns: image === null ? tableColumns : Arr.prepend(tableColumns, imageColumn),
 			subject: {

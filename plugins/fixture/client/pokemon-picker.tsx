@@ -18,11 +18,11 @@ import { fixtureCollectionChoicesRecipe, fixturePokemonChoicesRecipe } from "./q
 const DIALOG = "add-to-collection";
 
 const collectionChoicesQuery = createRyotQuery(({ client }) =>
-	client.data.query(fixtureCollectionChoicesRecipe()),
+	client.data.query(fixtureCollectionChoicesRecipe, {}),
 );
 
 const pokemonChoicesQuery = createRyotQuery(({ client }) =>
-	client.data.query(fixturePokemonChoicesRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID))),
+	client.data.query(fixturePokemonChoicesRecipe(client.pluginIdentity(PLUGIN_PACKAGE_ID)), {}),
 );
 
 const addToCollectionMutation = createRyotMutation<

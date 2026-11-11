@@ -12,7 +12,7 @@ import {
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
-import { defineRecipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import { defineRecipe, parameters } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import { useState } from "react";
@@ -106,11 +106,30 @@ export const loadPokemonPresentations: EntityPresentationLoader<PokemonPresentat
 		kind: "local",
 		pluginId: PluginId.make(selected.ownerPluginId),
 	} satisfies Parameters<typeof source.query>[0];
-	const recipe = defineRecipe(() => ({
-		queries: { presentations: source.query(owner, entityIds) },
-		map: ({ presentations }) => buildPokemonPresentations(references, presentations.items),
-	}))();
-	return client.data.query(recipe);
+	const input = parameters({
+		fields: {
+			entityIds: {
+				type: "array",
+				label: "Entities",
+				validation: { required: true },
+				description: "Entities to present",
+				items: { type: "string", label: "Entity", description: "Entity ID" },
+			},
+		},
+	});
+	const recipe = defineRecipe({
+		parameters: input.schema,
+		map: ({ presentations }) => Result.succeed(presentations.items),
+		queries: { presentations: source.query(owner, input.list("entityIds")) },
+	});
+	return client.data.query(recipe, { entityIds }).pipe(
+		Effect.flatMap((rows) => {
+			const result = buildPokemonPresentations(references, rows);
+			return result._tag === "Failure"
+				? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
+				: Effect.succeed(result.success);
+		}),
+	);
 };
 
 const PokemonExpandedDetails = ({

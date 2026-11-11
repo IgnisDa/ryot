@@ -19,10 +19,9 @@ import {
 
 const plugin = table("plugin", "plugin");
 const installation = table("pluginInstallation", "installation");
-
-export const fixtureCollectionChoicesRecipe = defineRecipe(() => {
+export const fixtureCollectionChoicesRecipe = (() => {
 	const collection = table("entity", "collectionChoice");
-	return {
+	return defineRecipe({
 		map: ({ collections }) => Result.succeed(collections.items),
 		queries: {
 			collections: selectedRows(collection, {
@@ -38,14 +37,12 @@ export const fixtureCollectionChoicesRecipe = defineRecipe(() => {
 				},
 			}),
 		},
-	};
-});
-
+	});
+})();
 export type FixtureCollectionChoice = Recipe.Success<typeof fixtureCollectionChoicesRecipe>[number];
-
-export const fixturePokemonChoicesRecipe = defineRecipe((reference: PluginIdentityReference) => {
+export const fixturePokemonChoicesRecipe = (reference: PluginIdentityReference) => {
 	const pokemon = table("entity", "pokemonChoice");
-	return {
+	return defineRecipe({
 		map: ({ pokemon: pokemonRows }) => Result.succeed(pokemonRows.items),
 		queries: {
 			pokemon: selectedRows(pokemon, {
@@ -58,27 +55,28 @@ export const fixturePokemonChoicesRecipe = defineRecipe((reference: PluginIdenti
 				},
 			}),
 		},
-	};
-});
-
-export type FixturePokemonChoice = Recipe.Success<typeof fixturePokemonChoicesRecipe>[number];
-
-export const fixtureClientPluginCatalogRecipe = defineRecipe(() => ({
-	map: ({ installations }) => Result.succeed(installations.items),
-	queries: {
-		installations: selectedRows(installation, {
-			limit: 100,
-			selection: { packageId: selectedField(column(plugin, "packageId"), Schema.String) },
-			orderBy: [ascending(column(plugin, "packageId")), ascending(column(installation, "id"))],
-			joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
-			where: and(
-				eq(column(plugin, "status"), literal("active")),
-				eq(column(installation, "health"), literal("ready")),
-				eq(column(installation, "isHidden"), literal(false)),
-				isNotNull(column(plugin, "clientApiVersion")),
-			),
-		}),
-	},
-}));
-
+	});
+};
+export type FixturePokemonChoice = Recipe.Success<
+	ReturnType<typeof fixturePokemonChoicesRecipe>
+>[number];
+export const fixtureClientPluginCatalogRecipe = (() => {
+	return defineRecipe({
+		map: ({ installations }) => Result.succeed(installations.items),
+		queries: {
+			installations: selectedRows(installation, {
+				limit: 100,
+				selection: { packageId: selectedField(column(plugin, "packageId"), Schema.String) },
+				orderBy: [ascending(column(plugin, "packageId")), ascending(column(installation, "id"))],
+				joins: [join("inner", plugin, eq(column(plugin, "id"), column(installation, "pluginId")))],
+				where: and(
+					eq(column(plugin, "status"), literal("active")),
+					eq(column(installation, "health"), literal("ready")),
+					eq(column(installation, "isHidden"), literal(false)),
+					isNotNull(column(plugin, "clientApiVersion")),
+				),
+			}),
+		},
+	});
+})();
 export type FixtureClientPluginCatalog = Recipe.Success<typeof fixtureClientPluginCatalogRecipe>;
