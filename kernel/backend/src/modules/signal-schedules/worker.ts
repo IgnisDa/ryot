@@ -173,12 +173,7 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 				for (let page = 0; page < OCCURRENCE_PAGE_LIMIT; page++) {
 					const recipe = yield* Effect.fromResult(
 						Result.mapError(
-							signalSchedulePageRecipe({
-								after,
-								bounds,
-								schedule: target,
-								limit: OCCURRENCE_PAGE_SIZE,
-							}),
+							signalSchedulePageRecipe({ schedule: target }),
 							(cause) => new SignalScheduleQueryError({ cause }),
 						),
 					);
@@ -186,7 +181,22 @@ export class SignalScheduleWorker extends Context.Service<SignalScheduleWorker>(
 						target.userId,
 						target.preferences.language,
 						"kernel",
-						recipe.document,
+						{
+							source: { kind: "inline", document: recipe.document },
+							pages: {
+								signalScheduleDue: {
+									limit: OCCURRENCE_PAGE_SIZE,
+									...(after === undefined ? {} : { after }),
+								},
+							},
+							arguments: {
+								end: bounds.end,
+								start: bounds.start,
+								...(bounds.confirmedAfter === null
+									? {}
+									: { confirmedAfter: bounds.confirmedAfter }),
+							},
+						},
 					);
 					const result = yield* Effect.fromResult(
 						Result.mapError(

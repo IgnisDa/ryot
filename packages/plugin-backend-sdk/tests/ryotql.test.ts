@@ -3,6 +3,7 @@ import { describe, expect, it } from "bun:test";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
+import type { ExecutionRequest } from "@ryot-app/plugin-backend-sdk/ryotql";
 import {
 	column,
 	continuationCursor,
@@ -47,7 +48,7 @@ describe("RyotQL sandbox SDK", () => {
 		expect(
 			document({ entities: rows(entity, { fields: [field("id", column(entity, "id"))] }) }),
 		).toMatchObject({ queries: { entities: { from: entity } } });
-		expect(entityReadRecipe({ entityIds: ["entity-1"] }).document).toMatchObject({
+		expect(entityReadRecipe.document).toMatchObject({
 			queries: { entities: { from: entity, output: { type: "rows", pagination: { limit: 100 } } } },
 		});
 		expect(
@@ -63,25 +64,29 @@ describe("RyotQL sandbox SDK", () => {
 	});
 
 	it("executes and decodes a prepared recipe", () => {
-		const recipe = entityReadRecipe({ entityIds: ["entity-1"] });
-		const executeRyotql = (queryDocument: typeof recipe.document) => {
-			expect(queryDocument).toBe(recipe.document);
+		const recipe = entityReadRecipe;
+		const executeRyotql = (request: ExecutionRequest) => {
+			expect(request).toEqual({
+				arguments: { entityIds: ["entity-1"] },
+				source: { kind: "inline", document: recipe.document },
+			});
 			return Effect.succeed(rowsResponse);
 		};
 
 		return expect(
-			Effect.runPromise(executeRyotqlRecipe(executeRyotql, recipe)),
+			Effect.runPromise(executeRyotqlRecipe(executeRyotql, recipe, { entityIds: ["entity-1"] })),
 		).resolves.toMatchObject({ items: [{ id: "entity-1", properties: { pages: 320 } }] });
 	});
 
 	it("lifts recipe decoder failures into Effect", () => {
-		const recipe = entityReadRecipe({ entityIds: ["entity-1"] });
+		const recipe = entityReadRecipe;
 
 		return expect(
 			Effect.runPromise(
 				executeRyotqlRecipe(
 					() => Effect.succeed({ data: { entities: { type: "aggregate" } } }),
 					recipe,
+					{ entityIds: ["entity-1"] },
 				),
 			),
 		).rejects.toBeTruthy();
@@ -98,7 +103,7 @@ describe("RyotQL sandbox SDK", () => {
 			output: Schema.Finite,
 			input: Schema.Struct({}),
 			run: (_input, host) =>
-				executeRyotqlRecipe(host.executeRyotql, entityReadRecipe({ entityIds: ["entity-1"] })).pipe(
+				executeRyotqlRecipe(host.executeRyotql, entityReadRecipe, { entityIds: ["entity-1"] }).pipe(
 					Effect.map((response) => response.items.length),
 				),
 		});

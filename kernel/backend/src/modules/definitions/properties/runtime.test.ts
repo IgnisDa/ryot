@@ -1,5 +1,6 @@
 import { describe, expect, it } from "bun:test";
 
+import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import { imagesField, videosField } from "@ryot-app/contract/schema/core";
 import type {
 	AppArrayProperty,
@@ -21,11 +22,7 @@ import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property
 import { Effect } from "effect";
 
 import { fixtureExamplePropertiesSchema } from "./fixture.test-support";
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-	validateAppSchemaDefinition,
-} from "./runtime";
+import { formatPropertyIssues, parseAppSchemaProperties } from "./runtime";
 
 const str = (overrides: Partial<AppStringProperty> = {}): AppPropertyDefinition => ({
 	label: "F",

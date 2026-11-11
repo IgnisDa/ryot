@@ -66,7 +66,6 @@ it.effect(
 			const key = pluginPackageKey({ packageId, scope: "user" });
 			const settings = {
 				pageSize: 50,
-				searchFields: [],
 				layouts: ["grid"],
 				tableColumns: null,
 				sourceName: "records",
@@ -156,7 +155,6 @@ it.effect(
 			const settings = {
 				addAction,
 				pageSize: 50,
-				searchFields: [],
 				layouts: ["grid"],
 				tableColumns: null,
 				sourceName: "records",

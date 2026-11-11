@@ -1,0 +1,193 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "be470e73-2491-4f5f-adcc-7ea705a5fc84",
+	"prevIds": ["b6d2d852-d2c7-450c-b8c2-b3c86d3f1e79"],
+	"footprints": [
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "definition_saved_view", "arguments"],
+			"writes": [
+				"s|col|public.definition_saved_view.arguments",
+				"n|col|public.definition_saved_view.arguments",
+				"e|col|public.definition_saved_view.arguments"
+			],
+			"reads": ["n|tbl|public.definition_saved_view", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "definition_saved_view", "filter"],
+			"writes": [
+				"s|col|public.definition_saved_view.filter",
+				"n|col|public.definition_saved_view.filter",
+				"e|col|public.definition_saved_view.filter"
+			],
+			"reads": ["n|tbl|public.definition_saved_view", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "definition_saved_view", "sort"],
+			"writes": [
+				"s|col|public.definition_saved_view.sort",
+				"n|col|public.definition_saved_view.sort",
+				"e|col|public.definition_saved_view.sort"
+			],
+			"reads": ["n|tbl|public.definition_saved_view", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "plugin_revision", "queries"],
+			"writes": [
+				"s|col|public.plugin_revision.queries",
+				"n|col|public.plugin_revision.queries",
+				"e|col|public.plugin_revision.queries"
+			],
+			"reads": ["n|tbl|public.plugin_revision", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "saved_view", "arguments"],
+			"writes": [
+				"s|col|public.saved_view.arguments",
+				"n|col|public.saved_view.arguments",
+				"e|col|public.saved_view.arguments"
+			],
+			"reads": ["n|tbl|public.saved_view", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "saved_view", "filter"],
+			"writes": [
+				"s|col|public.saved_view.filter",
+				"n|col|public.saved_view.filter",
+				"e|col|public.saved_view.filter"
+			],
+			"reads": ["n|tbl|public.saved_view", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "saved_view", "sort"],
+			"writes": [
+				"s|col|public.saved_view.sort",
+				"n|col|public.saved_view.sort",
+				"e|col|public.saved_view.sort"
+			],
+			"reads": ["n|tbl|public.saved_view", "n|sch|public"]
+		}
+	],
+	"deltas": [
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "definition_saved_view",
+				"name": "arguments",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "'{}'",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "definition_saved_view",
+				"name": "filter",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "definition_saved_view",
+				"name": "sort",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "plugin_revision",
+				"name": "queries",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "saved_view",
+				"name": "arguments",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "'{}'",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "saved_view",
+				"name": "filter",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "saved_view",
+				"name": "sort",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		}
+	]
+}

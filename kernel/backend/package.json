@@ -11,6 +11,7 @@
 		"./modules/accounts/provisioning/plugin-dispatch": "./src/modules/accounts/provisioning/plugin-dispatch.ts",
 		"./modules/assets/storage/managed-assets-repository": "./src/modules/assets/storage/managed-assets-repository.ts",
 		"./modules/definitions/browse-validation": "./src/modules/definitions/browse-validation.ts",
+		"./modules/definitions/kernel-source": "./src/modules/definitions/kernel-source.ts",
 		"./modules/definitions/properties/runtime": "./src/modules/definitions/properties/runtime.ts",
 		"./modules/definitions/repository": "./src/modules/definitions/repository.ts",
 		"./modules/definitions/snapshot": "./src/modules/definitions/snapshot.ts",
@@ -33,8 +34,11 @@
 		"./modules/plugins/installations/repository": "./src/modules/plugins/installations/repository.ts",
 		"./modules/plugins/layer": "./src/modules/plugins/layer.ts",
 		"./modules/plugins/packages/repository": "./src/modules/plugins/packages/repository.ts",
+		"./modules/plugins/packages/system-set": "./src/modules/plugins/packages/system-set.ts",
 		"./modules/plugins/preferences/user-settings": "./src/modules/plugins/preferences/user-settings.ts",
 		"./modules/plugins/source.test-support": "./src/modules/plugins/source.test-support.ts",
+		"./modules/ryotql/controls": "./src/modules/ryotql/controls.ts",
+		"./modules/ryotql/service": "./src/modules/ryotql/service.ts",
 		"./modules/ryotql/validator": "./src/modules/ryotql/validator.ts",
 		"./modules/scripts/authorization/principal": "./src/modules/scripts/authorization/principal.ts",
 		"./modules/scripts/executions/service": "./src/modules/scripts/executions/service.ts",
@@ -57,7 +61,9 @@
 		"./schema/tables/combined": "./src/schema/tables/combined.ts",
 		"./schema/tables/entities": "./src/schema/tables/entities.ts",
 		"./schema/tables/events": "./src/schema/tables/events.ts",
-		"./testing/effect": "./src/testing/effect.ts"
+		"./testing/effect": "./src/testing/effect.ts",
+		"./testing/database-run": "./src/testing/database-run.ts",
+		"./testing/isolated-database": "./src/testing/isolated-database.ts"
 	},
 	"scripts": {
 		"test": "bun ./test.ts",
@@ -82,6 +88,7 @@
 		"@ryot-app/plugin-backend-compiler": "workspace:*",
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
+		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
 		"@ryot-app/sandbox": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
@@ -97,7 +104,6 @@
 		"rotating-file-stream": "3.2.10"
 	},
 	"devDependencies": {
-		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@testcontainers/postgresql": "12.2.1",
 		"@types/pg": "8.23.1",

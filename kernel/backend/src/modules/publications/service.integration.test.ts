@@ -15,10 +15,8 @@ import { TestClock } from "effect/testing";
 
 import { ManagedAssetReferencesRepository } from "#modules/assets/storage/managed-asset-references-repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
-import { CollectionsRepositoryLive } from "#modules/collections/layer";
 import { PagesService } from "#modules/pages/preparation/service";
 import { RyotQLService } from "#modules/ryotql/service";
-import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import { TransientValues } from "#platform/transient-values";
 import * as tables from "#schema/tables/combined";
@@ -29,7 +27,6 @@ import { PublicationVisitLimits } from "./limits";
 import { PublicationsRepository } from "./repository";
 import { PublicationsService } from "./service";
 import { PublicationSessions } from "./sessions";
-import { PublicationSources } from "./sources";
 import { PublicationVisitsService } from "./visits";
 
 const owner = { id: UserId.make("owner"), preferences: defaultUserPreferences };
@@ -87,9 +84,6 @@ const publicationsLayer = (disablePublications = false) =>
 	Layer.mergeAll(PublicationsService.layer, PublicationVisitsService.layer).pipe(
 		Layer.provide(
 			Layer.mergeAll(
-				PublicationSources.layer.pipe(
-					Layer.provide(Layer.merge(SavedViewsRepository.layer, CollectionsRepositoryLive)),
-				),
 				PublicationsRepository.layer,
 				ManagedAssetReferencesRepository.layer,
 				PublicationVisitLimits.layer,
@@ -141,7 +135,9 @@ layer(publicationsLayer())((test) => {
 			const visits = yield* PublicationVisitsService;
 			const { link, publicationId } = yield* publishWithLink();
 			const principal = yield* visit(publicationId, link.secret);
-			const result = (yield* visits.query(principal, subjectIds)).data["rows"];
+			const result = (yield* visits.query(principal, {
+				source: { kind: "inline", document: subjectIds },
+			})).data["rows"];
 			expect(result?.type === "rows" ? result.items : null).toEqual([{ id: "a" }]);
 		}),
 	);
@@ -238,7 +234,9 @@ layer(publicationsLayer())((test) => {
 			});
 			const preview = yield* publications.preview(owner, publicationId);
 			const principal = yield* visits.authenticate(preview.sessionToken);
-			const result = (yield* visits.query(principal, subjectIds)).data["rows"];
+			const result = (yield* visits.query(principal, {
+				source: { kind: "inline", document: subjectIds },
+			})).data["rows"];
 			expect(result?.type === "rows" ? result.items : null).toEqual([{ id: "a" }, { id: "b" }]);
 		}),
 	);

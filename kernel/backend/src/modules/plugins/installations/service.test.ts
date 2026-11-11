@@ -1651,11 +1651,14 @@ const upgradedOperationManifest: PluginManifest = {
 	metadata: { ...configuredManifest.metadata, version: "2.0.0" },
 	operations: [
 		{
+			input: {},
 			auth: "user",
 			slug: "run.fixture",
 			demoAccess: "allowed",
+			output: { type: "null" },
 			description: "Run fixture",
 			scriptSlug: operationScript.slug,
+			hints: { readOnly: true, idempotent: true, destructive: false },
 		},
 	],
 };
@@ -1926,11 +1929,14 @@ layer(makeLayer())("plugin installation harness", (test) => {
 				scripts: [operationScript],
 				operations: [
 					{
+						input: {},
 						auth: "user",
 						slug: "run.fixture",
 						demoAccess: "allowed",
+						output: { type: "null" },
 						description: "Run fixture",
 						scriptSlug: "does-not-exist",
+						hints: { readOnly: true, idempotent: true, destructive: false },
 					},
 				],
 			});
@@ -1961,11 +1967,14 @@ layer(makeLayer())("plugin installation harness", (test) => {
 		"rejects duplicate operation slugs before persistence",
 		() => {
 			const operation = {
+				input: {},
 				slug: "run.fixture",
 				auth: "user" as const,
+				output: { type: "null" },
 				description: "Run fixture",
 				demoAccess: "allowed" as const,
 				scriptSlug: operationScript.slug,
+				hints: { readOnly: true, idempotent: true, destructive: false },
 			};
 			const manifest = privateManifest({
 				scripts: [operationScript],
@@ -1997,11 +2006,14 @@ const operationManifest = privateManifest({
 	scripts: [operationScript],
 	operations: [
 		{
+			input: {},
 			auth: "user",
 			slug: "run.fixture",
 			demoAccess: "allowed",
+			output: { type: "null" },
 			description: "Run fixture",
 			scriptSlug: operationScript.slug,
+			hints: { readOnly: true, idempotent: true, destructive: false },
 		},
 	],
 });

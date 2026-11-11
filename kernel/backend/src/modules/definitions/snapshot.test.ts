@@ -161,7 +161,6 @@ const bottleBrowserView = (settings: Readonly<Record<string, JsonValue>>): Saved
 		settings: {
 			pageSize: 20,
 			addAction: null,
-			searchFields: [],
 			layouts: ["grid"],
 			tableColumns: null,
 			sourceName: "source",
@@ -177,8 +176,14 @@ const buildBottleView = (settings: Readonly<Record<string, JsonValue>>) =>
 	buildDefinitionSnapshot({ ...source(null), savedViews: [bottleBrowserView(settings)] });
 
 it("throws for configured fields the source does not project during snapshot validation", () => {
-	expect(() => buildBottleView({ searchFields: ["name"] })).not.toThrow();
-	expect(() => buildBottleView({ searchFields: ["title"] })).toThrow(
+	expect(() =>
+		buildBottleView({ summary: { image: null, subtitle: { field: "name", displayKind: "text" } } }),
+	).not.toThrow();
+	expect(() =>
+		buildBottleView({
+			summary: { image: null, subtitle: { field: "title", displayKind: "text" } },
+		}),
+	).toThrow(
 		"Invalid saved view bottles: configured field 'title' must be a projected scalar field",
 	);
 	expect(() => buildBottleView({ summary: { image: "cover", subtitle: null } })).toThrow(

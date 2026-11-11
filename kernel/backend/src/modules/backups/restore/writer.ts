@@ -56,6 +56,7 @@ import {
 	isEntityBrowserRenderer,
 	validateSavedViewDefinition,
 } from "#modules/saved-views/definition-validation";
+import { deriveSavedViewQueries } from "#modules/saved-views/queries";
 import { DatabaseSession } from "#platform/db/session";
 
 import { archiveError } from "../archive/error";
@@ -94,6 +95,7 @@ import {
 	STREAMED_SECTION_PATHS,
 	type StreamedSectionPath,
 } from "../archive/sections";
+import { rewriteSavedArgumentSources, savedArgumentSources } from "../saved-arguments";
 import { BACKUP_STAGE_BATCH_SIZE, BACKUP_STAGE_PAGE_BYTES, BackupStaging } from "../staging";
 import { BackupRestorePersistence } from "./persistence";
 
@@ -273,7 +275,12 @@ type ArchivePropertyReference = {
 const collectPropertyReferences = (properties: unknown, schema: AppSchema) => {
 	const references: ArchivePropertyReference[] = [];
 	const visit = (definition: AppPropertyDefinition, value: unknown) => {
-		if (definition.type === "string" && definition.reference && typeof value === "string") {
+		if (
+			definition.type === "string" &&
+			definition.reference &&
+			definition.reference.kind !== "entity-source" &&
+			typeof value === "string"
+		) {
 			references.push({
 				id: value,
 				kind: definition.reference.kind,
@@ -796,7 +803,19 @@ export const preflightProvenance = Effect.fn(function* (
 			if (view.pluginKey !== null) {
 				yield* mappedPluginId(pluginIdByKey, view.pluginKey);
 			}
-			const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
+			let dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
+			for (const { source } of (yield* savedArgumentSources(dataSources, view.arguments)).sources) {
+				if (source.kind === "saved-view" && source.reference.kind !== "custom") {
+					const reference = source.reference;
+					yield* assertArchivedSavedView(
+						reference.kind === "kernel"
+							? reference
+							: { kind: "plugin", slug: reference.slug, pluginKey: reference.pluginId },
+						"saved argument source",
+					);
+				}
+			}
+
 			const settings = yield* importRendererSettings(view.renderer, view.settings, pluginIdByKey);
 			if (isEntityBrowserRenderer(view.renderer)) {
 				const decoded = yield* Schema.decodeUnknownEffect(EntityBrowserSavedViewSettings)(
@@ -828,11 +847,25 @@ export const preflightProvenance = Effect.fn(function* (
 				view.renderer.kind === "plugin"
 					? contracts.get(view.renderer.pluginKey)?.client?.exports?.[view.renderer.exportName]
 					: undefined;
+			if (dataSources !== null) {
+				dataSources = yield* Effect.fromResult(
+					deriveSavedViewQueries(renderer, settings, dataSources, true),
+				).pipe(Effect.mapError((error) => badRequest(error.message)));
+			}
+
 			yield* validateSavedViewDefinition(
 				renderer,
 				settings,
 				dataSources,
 				page?.kind === "page" ? page : null,
+				Object.values(definitions.entitySchemas).map((entry) =>
+					Object.assign({}, entry, {
+						packageId: null,
+						pluginScope: null,
+						isEffective: true,
+						browse: entry.browse ?? null,
+					}),
+				),
 			).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 		}
 	}
@@ -1469,6 +1502,32 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								Effect.gen(function* () {
 									const value = yield* Schema.decodeUnknownEffect(ArchiveSavedView)(row.value);
 									if (value.kind === "custom") {
+										const savedValues = yield* savedArgumentSources(
+											value.dataSources,
+											value.arguments,
+										);
+										if (value.dataSources?.parameters) {
+											addProperties(
+												"saved-view",
+												value.id,
+												savedValues.bound,
+												value.dataSources.parameters,
+											);
+										}
+										for (const { source } of savedValues.sources) {
+											if (source.kind === "collection") {
+												add("saved-view", value.id, "entity", source.collectionId);
+											} else if (source.reference.kind === "custom") {
+												add(
+													"saved-view",
+													value.id,
+													"saved-view-custom",
+													source.reference.savedViewId,
+												);
+											} else if (source.reference.kind === "plugin") {
+												add("saved-view", value.id, "installation", source.reference.pluginId);
+											}
+										}
 										if (value.pluginKey !== null) {
 											add("saved-view", value.id, "installation", value.pluginKey);
 										}
@@ -1882,6 +1941,20 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						continue;
 					}
 					savedViewIds.add(view.id);
+					if (view.dataSources?.parameters) {
+						addPropertyRefs(
+							(yield* savedArgumentSources(view.dataSources, view.arguments)).bound,
+							view.dataSources.parameters,
+						);
+					}
+					for (const { source } of (yield* savedArgumentSources(view.dataSources, view.arguments))
+						.sources) {
+						if (source.kind === "collection") {
+							entityIds.add(source.collectionId);
+						} else if (source.reference.kind === "custom") {
+							savedViewIds.add(source.reference.savedViewId);
+						}
+					}
 					if (view.renderer.kind !== "plugin") {
 						continue;
 					}
@@ -2337,16 +2410,71 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						renderer.kind === "plugin"
 							? installedPlugins.get(renderer.pluginId)?.client?.exports?.[renderer.exportName]
 							: undefined;
-					const dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
+					let dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
+					const sourceArguments = yield* rewriteSavedArgumentSources(
+						dataSources,
+						view.arguments,
+						Effect.fn(function* (source) {
+							if (source.kind === "collection") {
+								const id = context.entityIdMap.get(source.collectionId);
+								if (!id) {
+									return yield* archiveError(
+										"missing_reference_mapping",
+										"Saved argument collection mapping is incomplete",
+									);
+								}
+								return { ...source, collectionId: id };
+							}
+							const reference = source.reference;
+							if (reference.kind === "kernel") {
+								return source;
+							}
+							if (reference.kind === "custom") {
+								const id = context.customViewIds.get(reference.savedViewId);
+								if (!id) {
+									return yield* archiveError(
+										"missing_reference_mapping",
+										"Saved argument view mapping is incomplete",
+									);
+								}
+								return { ...source, reference: { ...reference, savedViewId: id } };
+							}
+							const id = pluginIdByKey.get(reference.pluginId);
+							if (!id) {
+								return yield* archiveError(
+									"missing_reference_mapping",
+									"Saved argument plugin mapping is incomplete",
+								);
+							}
+							return { ...source, reference: { ...reference, pluginId: PluginId.make(id) } };
+						}),
+					);
+					const argumentsValue = dataSources?.parameters
+						? yield* rewriteProperties(sourceArguments, dataSources.parameters)
+						: sourceArguments;
 					let settings = yield* importRendererSettings(view.renderer, view.settings, pluginIdByKey);
 					if (pluginPage?.kind === "page") {
 						settings = yield* rewriteProperties(settings, pluginPage.settingsSchema);
 					}
+					if (dataSources !== null) {
+						dataSources = yield* Effect.fromResult(
+							deriveSavedViewQueries(renderer, settings, dataSources, true),
+						).pipe(Effect.mapError((error) => badRequest(error.message)));
+					}
+
 					yield* validateSavedViewDefinition(
 						renderer,
 						settings,
 						dataSources,
 						pluginPage?.kind === "page" ? pluginPage : null,
+						Object.values(definitions.entitySchemas).map((entry) =>
+							Object.assign({}, entry, {
+								packageId: null,
+								pluginScope: null,
+								isEffective: true,
+								browse: entry.browse ?? null,
+							}),
+						),
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					if (pluginPage?.kind === "page") {
 						yield* assetReferences
@@ -2368,8 +2496,11 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						name: view.name,
 						icon: view.icon,
 						pluginInstallationId,
+						sort: view.sort ?? null,
 						isHidden: view.isHidden,
+						arguments: argumentsValue,
 						sortOrder: view.sortOrder,
+						filter: view.filter ?? null,
 						createdAt: parseDate(view.createdAt),
 						updatedAt: parseDate(view.updatedAt),
 						id:

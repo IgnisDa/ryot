@@ -105,6 +105,7 @@ const authoredView = (limit = 20) => ({
 	icon: "box",
 	sortOrder: 0,
 	settings: {},
+	arguments: {},
 	name: "Catalog",
 	slug: "catalog",
 	dataSources: authoredQuery(limit),
@@ -214,6 +215,9 @@ layer(SavedViewsRepository.layer.pipe(Layer.provideMerge(revisionDatabaseLayer))
 					...kernelView,
 					userId,
 					slug: "sentinel",
+					sort: kernelView.sort ?? null,
+					filter: kernelView.filter ?? null,
+					arguments: kernelView.arguments ?? {},
 					name: "Destination must survive preflight",
 				});
 				expect(
@@ -271,7 +275,7 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					pluginState: [systemInstallation()],
 					savedViews: [builtinView(definition)],
-					expectedSavedViews: [{ ...definition, dataSources: authoredQuery() }],
+					expectedSavedViews: [{ ...definition, arguments: {}, dataSources: authoredQuery() }],
 				}),
 			),
 		).toBeNull();
@@ -324,7 +328,7 @@ describe("classifyAccountCleanliness", () => {
 			"renderer owner",
 			{ renderer: { kind: "plugin", exportName: "catalog", pluginId: "second-owner" } },
 		],
-		["query owner", { dataSources: sourceView("second-owner").dataSources }],
+		["query owner", { arguments: {}, dataSources: sourceView("second-owner").dataSources }],
 	] as const)("rejects a modified default view %s", (_field, change) => {
 		const definition = sourceView();
 		expect(
@@ -332,7 +336,7 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					pluginState: [systemInstallation()],
 					savedViews: [{ ...builtinView(definition), ...change }],
-					expectedSavedViews: [{ ...definition, dataSources: authoredQuery() }],
+					expectedSavedViews: [{ ...definition, arguments: {}, dataSources: authoredQuery() }],
 				}),
 			),
 		).toBe("saved-views");
@@ -345,7 +349,7 @@ describe("classifyAccountCleanliness", () => {
 				cleanState({
 					pluginState: [systemInstallation()],
 					savedViews: [builtinView(sourceView("example-plugin-id", 21))],
-					expectedSavedViews: [{ ...definition, dataSources: authoredQuery() }],
+					expectedSavedViews: [{ ...definition, arguments: {}, dataSources: authoredQuery() }],
 				}),
 			),
 		).toBe("saved-views");
@@ -427,6 +431,7 @@ describe("classifyAccountCleanliness", () => {
 						icon: "x",
 						settings: {},
 						sortOrder: 0,
+						arguments: {},
 						slug: "custom",
 						name: "Custom",
 						isHidden: false,

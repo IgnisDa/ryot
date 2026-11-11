@@ -7,6 +7,32 @@ import { RyotQLService } from "./service";
 
 export const RyotQLRoutesLive = HttpApiBuilder.group(AppContract, "ryotql", (handlers) =>
 	handlers
+		.handle("describe", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const authorization = yield* AuthorizationContext;
+				return yield* (yield* RyotQLService).describe(
+					user,
+					payload.source,
+					"kernel",
+					authorization.accessClass,
+					payload.arguments,
+				);
+			}),
+		)
+		.handle("describePlugin", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const authorization = yield* AuthorizationContext;
+				return yield* (yield* RyotQLService).describe(
+					user,
+					payload.source,
+					"plugin",
+					authorization.accessClass,
+					payload.arguments,
+				);
+			}),
+		)
 		.handle("execute", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
@@ -26,10 +52,16 @@ export const RyotQLRoutesLive = HttpApiBuilder.group(AppContract, "ryotql", (han
 );
 
 export const AdminRyotQLRoutesLive = HttpApiBuilder.group(AppContract, "adminRyotql", (handlers) =>
-	handlers.handle("execute", ({ payload }) =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			return yield* service.executeForAdmin(payload);
-		}),
-	),
+	handlers
+		.handle("describe", ({ payload }) =>
+			Effect.flatMap(RyotQLService, (service) =>
+				service.describeForAdmin(payload.source, payload.arguments),
+			),
+		)
+		.handle("execute", ({ payload }) =>
+			Effect.gen(function* () {
+				const service = yield* RyotQLService;
+				return yield* service.executeForAdmin(payload);
+			}),
+		),
 );

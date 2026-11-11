@@ -29,6 +29,7 @@ import {
 } from "#modules/definitions/catalog-relations";
 import { pinnedDefinitionSource } from "#modules/definitions/read-context";
 import { mapDatabaseErrors } from "#platform/db/errors";
+import { HmacSigner } from "#platform/storage/hmac-signer";
 
 import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {
@@ -409,6 +410,15 @@ const compileExpression = (expr: ScalarExpression, ctx: Context): SqlFragment =>
 	if (expr.type === "currentDate") {
 		return sql`(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')`;
 	}
+	if (expr.type === "dateAdd") {
+		const value = compileExpression(expr.expr, ctx);
+		const interval = sql`(${expr.amount}::double precision * ('1 ' || ${expr.unit})::interval)`;
+		if (expr.unit === "month" || expr.unit === "year") {
+			return sql`((${value} AT TIME ZONE 'UTC') + ${interval}) AT TIME ZONE 'UTC'`;
+		}
+		const seconds = { day: 86400, hour: 3600, week: 604800 }[expr.unit];
+		return sql`(${value} + ${expr.amount * seconds}::double precision * interval '1 second')`;
+	}
 	if (expr.type === "dateBucket") {
 		return sql`date_trunc(${expr.bucket}, ${compileExpression(expr.expr, ctx)}, ${expr.timeZone})`;
 	}
@@ -769,6 +779,13 @@ const publicationVisibilityCondition = (
 };
 
 const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
+	if (table.name.startsWith("sourceEntity:")) {
+		const rows = scope.sourceEntities?.[table.name];
+		if (rows === undefined) {
+			throw deniedTable(table);
+		}
+		return sql`(SELECT * FROM jsonb_to_recordset(${JSON.stringify(rows.map(({ rank, entityId }) => ({ rank, entity_id: entityId })))}::jsonb) AS source_entity(entity_id text, rank integer))`;
+	}
 	if (!canAccessCatalogTable(table, scope)) {
 		throw deniedTable(table);
 	}
@@ -1025,7 +1042,9 @@ const orderSql = (
 const expressionOrderSql = (orders: readonly Order[], ctx: Context) =>
 	sql.join(
 		orders.map((order) => {
-			const expression = compileExpression(order.expr, ctx);
+			const compiled = compileExpression(order.expr, ctx);
+			const expression =
+				order.expr.type === "literal" && order.expr.value === null ? sql`NULL::text` : compiled;
 			const collation =
 				expressionKind(order.expr, ctx.scope) === "text" ? sql` COLLATE "C"` : sql``;
 			const direction = order.direction === "asc" ? sql`ASC` : sql`DESC`;
@@ -1087,12 +1106,20 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 	kinds: readonly ScalarKind[],
 	directions: readonly Order["direction"][],
 	ownerIdentity: string,
+	sourceRevisions: Readonly<Record<string, number>>,
 ) {
-	if (!/^[A-Za-z0-9_-]+$/.test(cursor)) {
+	const [payload, signature, extra] = cursor.split(".");
+	if (
+		payload === undefined ||
+		signature === undefined ||
+		extra !== undefined ||
+		!(yield* (yield* HmacSigner).verify(`ryotql-cursor:${payload}`, signature)) ||
+		!/^[A-Za-z0-9_-]+$/.test(payload)
+	) {
 		return yield* cursorError();
 	}
-	const bytes = Buffer.from(cursor, "base64url");
-	if (bytes.toString("base64url") !== cursor) {
+	const bytes = Buffer.from(payload, "base64url");
+	if (bytes.toString("base64url") !== payload) {
 		return yield* cursorError();
 	}
 	const decoded = yield* Schema.decodeEffect(Schema.fromJsonString(Schema.Unknown))(
@@ -1139,16 +1166,40 @@ const decodeCursor = Effect.fn("decodeRyotQLCursor")(function* (
 		}
 		values.push(value);
 	}
-	return values;
+	const revisions = yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, Schema.Int))(
+		decoded["sourceRevisions"],
+	).pipe(Effect.mapError(cursorError));
+	if (
+		stableStringify(Object.keys(revisions).sort()) !==
+			stableStringify(Object.keys(sourceRevisions).sort()) ||
+		Object.entries(revisions).some(
+			([source, revision]) => revision > (sourceRevisions[source] ?? -1),
+		)
+	) {
+		return yield* cursorError();
+	}
+	return {
+		values,
+		stale: Object.entries(revisions).some(
+			([source, revision]) => sourceRevisions[source] !== revision,
+		),
+	};
 });
 
 const encodeCursor = (
 	values: readonly CursorValue[],
 	directions: readonly Order["direction"][],
 	ownerIdentity: string,
+	sourceRevisions: Readonly<Record<string, number>>,
 ) =>
-	encodeJson({ values, directions, ownerIdentity, version: CURSOR_VERSION }).pipe(
-		Effect.map((json) => Buffer.from(json).toString("base64url")),
+	encodeJson({ values, directions, ownerIdentity, sourceRevisions, version: CURSOR_VERSION }).pipe(
+		Effect.flatMap((json) =>
+			Effect.gen(function* () {
+				const payload = Buffer.from(json).toString("base64url");
+				const signature = yield* (yield* HmacSigner).sign(`ryotql-cursor:${payload}`);
+				return `${payload}.${signature}`;
+			}),
+		),
 	);
 
 const cursorSqlValue = (value: Exclude<CursorValue, { kind: "null" }>) => {
@@ -1701,13 +1752,14 @@ const reconstructAggregateItem = (
 
 const queryOwnerIdentity = (executionScope: RyotQLExecutionScope, query: ExpandedNamedQuery) =>
 	encodeJson({
+		binding: executionScope.cursorIdentity ?? null,
 		references: pluginIdentityReferences({ queries: { query } })
 			.map((reference) => stableStringify(reference))
 			.sort(),
 		scope:
 			executionScope.type === "publication"
 				? { type: executionScope.type, ownerUserId: executionScope.ownerUserId }
-				: executionScope,
+				: { ...executionScope, sourceEntities: undefined, sourceRevisions: undefined },
 	}).pipe(Effect.map(sha256Hex));
 
 const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function* (
@@ -1725,11 +1777,30 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 	const directions = orders.map((order) => order.direction);
 	const ownerIdentity = yield* queryOwnerIdentity(executionScope, query);
 	const cursor = query.output.after
-		? yield* decodeCursor(query.output.after, kinds, directions, ownerIdentity)
+		? yield* decodeCursor(
+				query.output.after,
+				kinds,
+				directions,
+				ownerIdentity,
+				executionScope.sourceRevisions ?? {},
+			)
 		: undefined;
+	if (cursor?.stale) {
+		return {
+			items: [],
+			type: "aggregate",
+			pageInfo: {
+				stale: true,
+				hasMore: false,
+				nextCursor: null,
+				limit: query.output.limit ?? 0,
+				sourceRevisions: executionScope.sourceRevisions,
+			},
+		} satisfies AggregateResult;
+	}
 	const rows = yield* executeSql(
 		executionScope,
-		compileAggregateQuery(query, plan, orders, cursor),
+		compileAggregateQuery(query, plan, orders, cursor?.values),
 		queryName,
 		db,
 		budget,
@@ -1769,12 +1840,20 @@ const executeAggregateQuery = Effect.fn("executeRyotQLAggregateQuery")(function*
 				}),
 				directions,
 				ownerIdentity,
+				executionScope.sourceRevisions ?? {},
 			)
 		: null;
 	return {
 		items,
 		type: "aggregate",
-		pageInfo: { limit, hasMore, nextCursor },
+		pageInfo: {
+			limit,
+			hasMore,
+			nextCursor,
+			...(Object.keys(executionScope.sourceRevisions ?? {}).length === 0
+				? {}
+				: { sourceRevisions: executionScope.sourceRevisions }),
+		},
 	} satisfies AggregateResult;
 });
 
@@ -1808,11 +1887,25 @@ const executeOutput = Effect.fnUntraced(function* (
 				orderKinds,
 				orderDirections,
 				ownerIdentity,
+				executionScope.sourceRevisions ?? {},
 			)
 		: undefined;
+	if (cursor?.stale) {
+		return {
+			items: [],
+			type: "rows",
+			pageInfo: {
+				stale: true,
+				hasMore: false,
+				nextCursor: null,
+				limit: rowsQuery.output.pagination.limit,
+				sourceRevisions: executionScope.sourceRevisions,
+			},
+		} satisfies RowsResult;
+	}
 	const rows = yield* executeSql(
 		executionScope,
-		compileRowsQuery(rowsQuery, plan, orders, cursor),
+		compileRowsQuery(rowsQuery, plan, orders, cursor?.values),
 		queryName,
 		db,
 		budget,
@@ -1851,10 +1944,22 @@ const executeOutput = Effect.fnUntraced(function* (
 				}),
 				orderDirections,
 				ownerIdentity,
+				executionScope.sourceRevisions ?? {},
 			)
 		: null;
 
-	return { items, type: "rows", pageInfo: { limit, hasMore, nextCursor } } satisfies RowsResult;
+	return {
+		items,
+		type: "rows",
+		pageInfo: {
+			limit,
+			hasMore,
+			nextCursor,
+			...(Object.keys(executionScope.sourceRevisions ?? {}).length === 0
+				? {}
+				: { sourceRevisions: executionScope.sourceRevisions }),
+		},
+	} satisfies RowsResult;
 });
 
 export const executeNamedQuery = Effect.fn("executeRyotQLNamedQuery")(function* (

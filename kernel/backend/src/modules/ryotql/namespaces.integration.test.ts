@@ -8,7 +8,7 @@ import {
 import type { ResultsTableSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import {
 	PluginId,
-	type PluginPackageId,
+	PluginPackageId,
 	PluginRevisionId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
@@ -49,6 +49,7 @@ import {
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { RyotQLService } from "./service";
 
@@ -104,7 +105,7 @@ const namespacePackage = (version = "v1", packageId = testPluginPackageId()) => 
 	};
 };
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"loads complete generated migrations and keeps kernel and matching package definition joins independent",
 		() =>
@@ -226,45 +227,55 @@ layer(databaseLayer)((test) => {
 				const event = table("event", "event");
 				const eventDefinition = table("eventSchema", "eventDefinition");
 				const response = yield* service.executeForUser(owner, null, "plugin", {
-					queries: {
-						entities: rows(entity, {
-							fields: [
-								field("id", column(entity, "id")),
-								field("owner", column(definition, "pluginId")),
-							],
-							joins: [
-								join(
-									"inner",
-									definition,
-									and(
-										eq(column(entity, "entitySchemaSlug"), column(definition, "slug")),
-										schemaOwnerJoin(entity, "entitySchemaPluginId", definition, "pluginId"),
-									),
-								),
-							],
-						}),
-						events: rows(event, {
-							fields: [
-								field("id", column(event, "id")),
-								field("owner", column(eventDefinition, "pluginId")),
-							],
-							joins: [
-								join("inner", entity, eq(column(event, "entityId"), column(entity, "id"))),
-								join(
-									"inner",
-									eventDefinition,
-									and(
-										eq(column(event, "eventSchemaSlug"), column(eventDefinition, "slug")),
-										eq(
-											column(entity, "entitySchemaSlug"),
-											column(eventDefinition, "entitySchemaSlug"),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								entities: rows(entity, {
+									fields: [
+										field("id", column(entity, "id")),
+										field("owner", column(definition, "pluginId")),
+									],
+									joins: [
+										join(
+											"inner",
+											definition,
+											and(
+												eq(column(entity, "entitySchemaSlug"), column(definition, "slug")),
+												schemaOwnerJoin(entity, "entitySchemaPluginId", definition, "pluginId"),
+											),
 										),
-										schemaOwnerJoin(event, "eventSchemaPluginId", eventDefinition, "pluginId"),
-										schemaOwnerJoin(entity, "entitySchemaPluginId", eventDefinition, "pluginId"),
-									),
-								),
-							],
-						}),
+									],
+								}),
+								events: rows(event, {
+									fields: [
+										field("id", column(event, "id")),
+										field("owner", column(eventDefinition, "pluginId")),
+									],
+									joins: [
+										join("inner", entity, eq(column(event, "entityId"), column(entity, "id"))),
+										join(
+											"inner",
+											eventDefinition,
+											and(
+												eq(column(event, "eventSchemaSlug"), column(eventDefinition, "slug")),
+												eq(
+													column(entity, "entitySchemaSlug"),
+													column(eventDefinition, "entitySchemaSlug"),
+												),
+												schemaOwnerJoin(event, "eventSchemaPluginId", eventDefinition, "pluginId"),
+												schemaOwnerJoin(
+													entity,
+													"entitySchemaPluginId",
+													eventDefinition,
+													"pluginId",
+												),
+											),
+										),
+									],
+								}),
+							},
+						},
 					},
 				});
 				expect(response.data["entities"]).toMatchObject({
@@ -332,7 +343,7 @@ layer(databaseLayer)((test) => {
 	);
 });
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"keeps same-named executable catalogs and requires a provider root from its exact owner",
 		() =>
@@ -355,18 +366,23 @@ layer(databaseLayer)((test) => {
 				const source = table("importSource", "source");
 				const integration = table("integrationProvider", "integration");
 				const response = yield* service.executeForUser(owner, null, "kernel", {
-					queries: {
-						sources: rows(source, { fields: [field("owner", column(source, "pluginId"))] }),
-						integrations: rows(integration, {
-							fields: [field("owner", column(integration, "pluginId"))],
-						}),
-						providers: rows(provider, {
-							fields: [
-								field("owner", column(provider, "pluginId")),
-								field("packageId", column(provider, "packageId")),
-								field("root", column(provider, "rootEntitySchemaSlug")),
-							],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								sources: rows(source, { fields: [field("owner", column(source, "pluginId"))] }),
+								integrations: rows(integration, {
+									fields: [field("owner", column(integration, "pluginId"))],
+								}),
+								providers: rows(provider, {
+									fields: [
+										field("owner", column(provider, "pluginId")),
+										field("packageId", column(provider, "packageId")),
+										field("root", column(provider, "rootEntitySchemaSlug")),
+									],
+								}),
+							},
+						},
 					},
 				});
 				const providers = response.data["providers"];
@@ -439,7 +455,7 @@ layer(databaseLayer)((test) => {
 	);
 });
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"binds package references once and rejects a cursor reused with another resolved owner",
 		() =>
@@ -458,10 +474,9 @@ layer(databaseLayer)((test) => {
 					]),
 				);
 				const entity = table("entity", "entity");
-				const query = (packageId: PluginPackageId, after?: string) => ({
+				const query = (packageId: PluginPackageId) => ({
 					queries: {
 						bottles: rows(entity, {
-							after,
 							limit: 1,
 							where: eq(
 								column(entity, "entitySchemaPluginId"),
@@ -474,31 +489,24 @@ layer(databaseLayer)((test) => {
 						}),
 					},
 				});
-				const first = (yield* service.executeForUser(
-					owner,
-					null,
-					"plugin",
-					query(packageA.manifest.metadata.packageId),
-				)).data["bottles"];
+				const first = (yield* service.executeForUser(owner, null, "plugin", {
+					source: { kind: "inline", document: query(packageA.manifest.metadata.packageId) },
+				})).data["bottles"];
 				assert(first?.type === "rows");
 				assert(first.pageInfo.nextCursor);
 				expect(first.items).toEqual([{ id: "a-1", owner: a.pluginId }]);
 				expect(
-					(yield* service.executeForUser(
-						owner,
-						null,
-						"plugin",
-						query(packageA.manifest.metadata.packageId, first.pageInfo.nextCursor),
-					)).data["bottles"],
+					(yield* service.executeForUser(owner, null, "plugin", {
+						pages: { bottles: { after: first.pageInfo.nextCursor } },
+						source: { kind: "inline", document: query(packageA.manifest.metadata.packageId) },
+					})).data["bottles"],
 				).toMatchObject({ items: [{ id: "a-2", owner: a.pluginId }] });
 				expect(
 					yield* Effect.flip(
-						service.executeForUser(
-							owner,
-							null,
-							"plugin",
-							query(packageB.manifest.metadata.packageId, first.pageInfo.nextCursor),
-						),
+						service.executeForUser(owner, null, "plugin", {
+							pages: { bottles: { after: first.pageInfo.nextCursor } },
+							source: { kind: "inline", document: query(packageB.manifest.metadata.packageId) },
+						}),
 					),
 				).toMatchObject({ reason: { code: "invalid-cursor" } });
 			}),
@@ -506,7 +514,7 @@ layer(databaseLayer)((test) => {
 	);
 });
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"denies foreign same-slug system reads in roots, includes, subqueries, aggregates, and metadata",
 		() =>
@@ -591,36 +599,44 @@ layer(databaseLayer)((test) => {
 						pluginId: PluginId.make(a.pluginId),
 						signalSchemaSlugs: ["whiskey.signal"],
 						relationshipSchemaSlugs: ["whiskey-link"],
+						packageId: PluginPackageId.make("test/scope"),
 						pluginRevisionId: PluginRevisionId.make(a.revisionId),
 						eventSchemas: [{ entitySchemaSlug: "bottle", eventSchemaSlug: "changed" }],
 					},
 					{
-						queries: {
-							events: rows(event, { fields: [field("id", column(event, "id"))] }),
-							aggregate: aggregate(entity, { measures: [measure("count", { function: "count" })] }),
-							definitions: rows(definitions, {
-								fields: [
-									field("owner", column(definitions, "pluginId")),
-									field("revision", column(definitions, "pluginRevisionId")),
-								],
-							}),
-							eventDefinitions: rows(eventDefinitions, {
-								fields: [
-									field("owner", column(eventDefinitions, "pluginId")),
-									field("entity", column(eventDefinitions, "entitySchemaSlug")),
-								],
-							}),
-							entities: rows(entity, {
-								fields: [field("id", column(entity, "id")), field("events", count(event))],
-								include: [
-									include(relationship, {
-										limit: 5,
-										key: "links",
-										orderBy: [ascending(column(relationship, "id"))],
-										fields: [field("id", column(relationship, "id"))],
+						source: {
+							kind: "inline",
+							document: {
+								queries: {
+									events: rows(event, { fields: [field("id", column(event, "id"))] }),
+									aggregate: aggregate(entity, {
+										measures: [measure("count", { function: "count" })],
 									}),
-								],
-							}),
+									definitions: rows(definitions, {
+										fields: [
+											field("owner", column(definitions, "pluginId")),
+											field("revision", column(definitions, "pluginRevisionId")),
+										],
+									}),
+									eventDefinitions: rows(eventDefinitions, {
+										fields: [
+											field("owner", column(eventDefinitions, "pluginId")),
+											field("entity", column(eventDefinitions, "entitySchemaSlug")),
+										],
+									}),
+									entities: rows(entity, {
+										fields: [field("id", column(entity, "id")), field("events", count(event))],
+										include: [
+											include(relationship, {
+												limit: 5,
+												key: "links",
+												orderBy: [ascending(column(relationship, "id"))],
+												fields: [field("id", column(relationship, "id"))],
+											}),
+										],
+									}),
+								},
+							},
 						},
 					},
 					1_048_576,
@@ -668,7 +684,7 @@ const packageWithNames = (version: "old" | "current", packageId: PluginPackageId
 	};
 };
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"shares complete pinned definition projections across user, plugin and snapshot reads",
 		() =>
@@ -710,7 +726,7 @@ layer(databaseLayer)((test) => {
 						owner,
 						null,
 						"plugin",
-						query,
+						{ source: { kind: "inline", document: query } },
 						"standard",
 						undefined,
 						context,
@@ -742,12 +758,13 @@ layer(databaseLayer)((test) => {
 					const plugin = yield* service.executeForPlugin(
 						{
 							...context,
+							packageId: ownPackage,
 							entitySchemaSlugs: ["bottle"],
 							signalSchemaSlugs: ["whiskey.signal"],
 							relationshipSchemaSlugs: ["whiskey-link"],
 							eventSchemas: [{ entitySchemaSlug: "bottle", eventSchemaSlug: "changed" }],
 						},
-						query,
+						{ source: { kind: "inline", document: query } },
 						1_048_576,
 					);
 					expect(plugin.data["nameOnly"]).toMatchObject({ items: [{ name: `old ${label}` }] });
@@ -790,7 +807,7 @@ layer(databaseLayer)((test) => {
 	);
 });
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"keeps private metadata current and reads pinned own metadata without exposing foreign historical revisions",
 		() =>
@@ -840,9 +857,9 @@ layer(databaseLayer)((test) => {
 						}),
 					},
 				};
-				const current = (yield* service.executeForUser(owner, null, "plugin", query)).data[
-					"definitions"
-				];
+				const current = (yield* service.executeForUser(owner, null, "plugin", {
+					source: { kind: "inline", document: query },
+				})).data["definitions"];
 				assert(current?.type === "rows");
 				expect(current.items).toHaveLength(2);
 				expect(
@@ -861,7 +878,7 @@ layer(databaseLayer)((test) => {
 					owner,
 					null,
 					"plugin",
-					query,
+					{ source: { kind: "inline", document: query } },
 					"standard",
 					undefined,
 					context,
@@ -907,15 +924,20 @@ layer(databaseLayer)((test) => {
 					packageId: packageA.manifest.metadata.packageId,
 				});
 				const hidden = yield* service.executeForUser(owner, null, "plugin", {
-					queries: {
-						definitions: rows(entitySchema, {
-							fields: [field("owner", column(entitySchema, "pluginId"))],
-							where: eq(column(entitySchema, "pluginId"), hiddenIdentity),
-						}),
-						bottles: rows(entity, {
-							where: eq(column(entity, "entitySchemaPluginId"), hiddenIdentity),
-							fields: [field("id", column(entity, "id")), field("owner", hiddenIdentity)],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								definitions: rows(entitySchema, {
+									fields: [field("owner", column(entitySchema, "pluginId"))],
+									where: eq(column(entitySchema, "pluginId"), hiddenIdentity),
+								}),
+								bottles: rows(entity, {
+									where: eq(column(entity, "entitySchemaPluginId"), hiddenIdentity),
+									fields: [field("id", column(entity, "id")), field("owner", hiddenIdentity)],
+								}),
+							},
+						},
 					},
 				});
 				expect(hidden.data["bottles"]).toMatchObject({
@@ -939,10 +961,17 @@ layer(databaseLayer)((test) => {
 				expect(
 					yield* Effect.flip(
 						service.executeForUser(owner, null, "plugin", {
-							queries: {
-								definitions: rows(entitySchema, {
-									fields: [field("owner", pluginId({ kind: "local", pluginId: context.pluginId }))],
-								}),
+							source: {
+								kind: "inline",
+								document: {
+									queries: {
+										definitions: rows(entitySchema, {
+											fields: [
+												field("owner", pluginId({ kind: "local", pluginId: context.pluginId })),
+											],
+										}),
+									},
+								},
 							},
 						}),
 					),

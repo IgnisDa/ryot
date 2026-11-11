@@ -4,7 +4,12 @@ import { sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
-import { testDatabaseTemplate, testDatabaseUrlFor, testPgClientLayer } from "#testing/database";
+import {
+	dropTestDatabase,
+	testDatabaseTemplate,
+	testDatabaseUrlFor,
+	testPgClientLayer,
+} from "#testing/database";
 import { databaseLayer } from "#testing/effect";
 
 export class IsolatedDatabase extends Context.Service<IsolatedDatabase, { readonly url: string }>()(
@@ -23,10 +28,7 @@ export const isolatedDatabaseLayer = (prefix: string) =>
 					admin.execute(
 						sql`create database ${sql.identifier(name)} template ${sql.identifier(template)}`,
 					),
-					() =>
-						admin
-							.execute(sql`drop database ${sql.identifier(name)} with (force)`)
-							.pipe(Effect.orDie),
+					() => dropTestDatabase(name).pipe(Effect.orDie),
 				),
 			);
 			const url = yield* testDatabaseUrlFor(name);

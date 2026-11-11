@@ -187,12 +187,13 @@ defineScript({
 				{ relationships: [], selector: { type: "self" }, relationshipSchemaSlug: "same-as" },
 			]);
 			const deleted: number | undefined = reconciled?.deleted;
-			const query = yield* host.executeRyotql({ queries: {} });
+			const query = yield* host.executeRyotql({
+				source: { kind: "inline", document: { queries: {} } },
+			});
 			const queryResult: Expect<Equal<typeof query, unknown>> = true;
-			const entities = yield* executeRyotqlRecipe(
-				host.executeRyotql,
-				entityReadRecipe({ entityIds: ["entity-1"] }),
-			);
+			const entities = yield* executeRyotqlRecipe(host.executeRyotql, entityReadRecipe, {
+				entityIds: ["entity-1"],
+			});
 			const recipeResult: Expect<Equal<typeof entities, EntityReadResult>> = true;
 			const entitySchemasArg: Expect<
 				Equal<Parameters<typeof host.getEntitySchemas>[0], ReadonlyArray<string>>

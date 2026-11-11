@@ -54,6 +54,7 @@ import {
 	escapePointer,
 	exportQueryPluginReferences,
 	exportRendererSettings,
+	exportSavedArguments,
 	redactSchemaSecrets,
 	rewriteAssetLocatorForArchive,
 } from "../archive/references";
@@ -652,6 +653,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						};
 						if (!view.isBuiltin) {
 							const {
+								sort: _sort,
+								filter: _filter,
 								reference: _reference,
 								pluginInstallationId: _installationId,
 								...portableView
@@ -667,6 +670,13 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							return [
 								{
 									...portableView,
+									arguments: yield* exportSavedArguments(
+										view.dataSources,
+										view.arguments ?? {},
+										pluginKeyById,
+									),
+									...(view.filter === undefined ? {} : { filter: view.filter }),
+									...(view.sort === undefined ? {} : { sort: view.sort }),
 									...qualified,
 									renderer,
 									kind: "custom" as const,

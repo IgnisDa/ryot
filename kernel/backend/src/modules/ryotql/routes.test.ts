@@ -18,12 +18,15 @@ import { HttpClientRequest, HttpRouter, HttpServer } from "effect/http";
 import { HttpApiMiddleware, HttpApiTest } from "effect/http-api";
 
 import { makeAuthMiddleware } from "#modules/accounts/auth/service";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { mapDatabaseErrors } from "#platform/db/errors";
-import { fakeDatabaseSession } from "#testing/effect";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 import { rejectingAdminAndPublicationMiddleware } from "#testing/route-middleware";
 
 import { RyotQLRoutesLive } from "./routes";
 import { RyotQLService } from "./service";
+import { RyotQLSources } from "./sources";
 
 const user = {
 	image: null,
@@ -71,7 +74,11 @@ const routesLayer = Layer.unwrap(
 			accessClass: "standard",
 		});
 		const record = (entry: string) => Ref.update(authenticated, (all) => [...all, entry]);
-		const db = { execute: () => Effect.succeed([]) };
+		const emptySelection = Object.assign(Effect.succeed([]), { limit: () => Effect.succeed([]) });
+		const db = {
+			execute: () => Effect.succeed([]),
+			select: () => ({ from: () => ({ where: () => emptySelection }) }),
+		};
 		const database = fakeDatabaseSession(db, { transaction: (work) => mapDatabaseErrors(work) });
 		const auth = makeAuthMiddleware(
 			{
@@ -94,8 +101,45 @@ const routesLayer = Layer.unwrap(
 			},
 			{ isActive: () => Effect.succeed(false) },
 		);
-		const serviceLayer: Layer.Layer<RyotQLService> = RyotQLService.layer.pipe(
+		const serviceLayer: Layer.Layer<RyotQLService> = Layer.effect(
+			RyotQLService,
+			RyotQLService.make,
+		).pipe(
+			Layer.provide(HmacSigner.layer),
+			Layer.provide(
+				Layer.mock(DefinitionCatalog)({
+					userPlugins: () => Effect.succeed([]),
+					forUser: (userId) =>
+						Effect.succeed({
+							userId,
+							plugins: [],
+							savedViews: [],
+							eventSchemas: [],
+							entitySchemas: [],
+							signalSchemas: [],
+							importSources: [],
+							calendarSources: [],
+							revisions: new Map(),
+							relationshipSchemas: [],
+							integrationProviders: [],
+						}),
+				}),
+			),
+			Layer.provide(
+				Layer.mock(RyotQLSources)({
+					resolve: (_scope, source) =>
+						source.kind === "inline"
+							? Effect.succeed({
+									values: {},
+									document: source.document,
+									selectedQuery: source.query,
+									identity: JSON.stringify(source),
+								})
+							: Effect.die("Unexpected source"),
+				}),
+			),
 			Layer.provide(database),
+			Layer.provide(makeAppConfigLayer()),
 		);
 		return Layer.mergeAll(
 			RyotQLRoutesLive,
@@ -122,7 +166,7 @@ const routesLayer = Layer.unwrap(
 	}),
 );
 
-layer(routesLayer)((test) => {
+layer(routesLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"returns a typed 403 for protected demo RyotQL reads over OAuth and API key",
 		() => {
@@ -159,7 +203,9 @@ layer(routesLayer)((test) => {
 							},
 						},
 					]) {
-						const error = yield* Effect.flip(api.ryotql.execute({ payload: document }));
+						const error = yield* Effect.flip(
+							api.ryotql.execute({ payload: { source: { document, kind: "inline" } } }),
+						);
 						expect((yield* credentials.authenticated).at(-1)).toBe(
 							kind === "oauth" ? "oauth:demo" : "api-key:demo",
 						);
@@ -173,7 +219,7 @@ layer(routesLayer)((test) => {
 	);
 });
 
-layer(routesLayer)((test) => {
+layer(routesLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"allows safe demo reads while preserving plugin-audience denial and standard reads",
 		() => {
@@ -191,11 +237,18 @@ layer(routesLayer)((test) => {
 				for (const accessClass of ["standard", "demo"] as const) {
 					yield* credentials.sendAs("oauth", accessClass);
 					const api = yield* client;
-					const result = yield* api.ryotql.execute({ payload: summary });
+					const result = yield* api.ryotql.execute({
+						payload: { source: { kind: "inline", document: summary } },
+					});
 					expect(result.data["integrations"]).toMatchObject({ items: [], type: "rows" });
 					const error = yield* Effect.flip(
 						api.ryotql.executePlugin({
-							payload: { queries: { runs: rows(backup, { fields: [] }) } },
+							payload: {
+								source: {
+									kind: "inline",
+									document: { queries: { runs: rows(backup, { fields: [] }) } },
+								},
+							},
 						}),
 					);
 					expect(error).toBeInstanceOf(RyotQLBadRequest);
@@ -204,7 +257,12 @@ layer(routesLayer)((test) => {
 				const standardApi = yield* client;
 				const standard = yield* standardApi.ryotql.execute({
 					payload: {
-						queries: { runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) },
+						source: {
+							kind: "inline",
+							document: {
+								queries: { runs: rows(backup, { fields: [field("id", column(backup, "id"))] }) },
+							},
+						},
 					},
 				});
 				expect(standard.data["runs"]).toMatchObject({ items: [], type: "rows" });

@@ -1,4 +1,5 @@
 import type { EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
+import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import type { PluginEventGroup } from "@ryot-app/contract/modules/plugins/event-groups";
 import type { SourcePlan } from "@ryot-app/contract/modules/plugins/execution";
 import type {
@@ -14,7 +15,7 @@ import type {
 	PluginSignalSchedule,
 	PluginSignalSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	RowSourcePrecision,
 	RowSourceQuery,
@@ -141,11 +142,14 @@ export const definitionSavedView = snakeCase.table(
 	"definition_saved_view",
 	{
 		...definitionColumns(),
+		sort: text(),
 		icon: text().notNull(),
 		sortOrder: integer().notNull(),
+		filter: jsonb().$type<Filter>(),
 		dataSources: jsonb().$type<RyotQLDocument>(),
 		settings: jsonb().$type<SavedViewSettings>().notNull(),
 		renderer: jsonb().$type<SavedViewRenderer>().notNull(),
+		arguments: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull().default({}),
 		pluginRevisionId: text().references(() => pluginRevision.id, { onDelete: "cascade" }),
 	},
 	(table) => [

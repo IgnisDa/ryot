@@ -66,8 +66,11 @@ type CreateSavedViewInput = {
 	readonly icon: string;
 	readonly userId: UserId;
 	readonly pluginInstallationId?: null | string | undefined;
+	readonly sort?: (typeof schema.savedView.$inferSelect)["sort"];
+	readonly filter?: (typeof schema.savedView.$inferSelect)["filter"];
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
 	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
+	readonly arguments?: (typeof schema.savedView.$inferSelect)["arguments"];
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
 };
 
@@ -77,8 +80,11 @@ type UpdateSavedViewData = {
 	readonly isHidden: boolean;
 	readonly sortOrder?: number | undefined;
 	readonly pluginInstallationId: null | string;
+	readonly sort?: (typeof schema.savedView.$inferSelect)["sort"];
+	readonly filter?: (typeof schema.savedView.$inferSelect)["filter"];
 	readonly renderer: (typeof schema.savedView.$inferSelect)["renderer"];
 	readonly settings: (typeof schema.savedView.$inferSelect)["settings"];
+	readonly arguments?: (typeof schema.savedView.$inferSelect)["arguments"];
 	readonly dataSources?: (typeof schema.savedView.$inferSelect)["dataSources"];
 };
 
@@ -91,8 +97,11 @@ const toListedSavedView = (row: ListedSavedViewRow): ListedSavedView => {
 		settings: row.settings,
 		isHidden: row.isHidden,
 		sortOrder: row.sortOrder,
+		arguments: row.arguments,
 		id: SavedViewId.make(row.id),
 		dataSources: row.dataSources,
+		...(row.filter === null ? {} : { filter: row.filter }),
+		...(row.sort === null ? {} : { sort: row.sort }),
 		reference: savedViewReference(row),
 		pluginInstallationId: row.pluginInstallationId,
 	};
@@ -215,10 +224,13 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							slug: view.slug,
 							name: view.name,
 							icon: view.icon,
+							sort: view.sort,
+							filter: view.filter,
 							pluginId: view.pluginId,
 							renderer: view.renderer,
 							settings: view.settings,
 							packageId: view.packageId,
+							arguments: view.arguments,
 							dataSources: view.dataSources,
 							defaultSortOrder: view.sortOrder,
 							isHidden: override?.isHidden ?? false,
@@ -347,8 +359,11 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							slug: input.slug,
 							name: input.name,
 							icon: input.icon,
+							sort: input.sort,
+							filter: input.filter,
 							renderer: input.renderer,
 							settings: input.settings,
+							arguments: input.arguments,
 							dataSources: input.dataSources,
 							sortOrder: (orderRow?.maxSortOrder ?? -1) + 1,
 							pluginInstallationId: input.pluginInstallationId ?? null,
@@ -379,9 +394,12 @@ export class SavedViewsRepository extends Context.Service<SavedViewsRepository>(
 							.set({
 								icon: data.icon,
 								name: data.name,
+								sort: data.sort,
+								filter: data.filter,
 								renderer: data.renderer,
 								settings: data.settings,
 								isHidden: data.isHidden,
+								arguments: data.arguments,
 								dataSources: data.dataSources,
 								revision: sql`${schema.savedView.revision} + 1`,
 								pluginInstallationId: data.pluginInstallationId,

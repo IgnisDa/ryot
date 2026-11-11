@@ -2,9 +2,14 @@ import { expect } from "bun:test";
 
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
-import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	PluginId,
+	PluginPackageId,
+	PluginRevisionId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import {
 	aggregate,
@@ -72,12 +77,14 @@ import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 
 import { DefinitionCatalog, type UserCatalog } from "#modules/definitions/catalog";
 import { mapDatabaseErrors } from "#platform/db/errors";
-import { fakeDatabaseSession } from "#testing/effect";
+import { HmacSigner } from "#platform/storage/hmac-signer";
+import { fakeDatabaseSession, makeAppConfigLayer } from "#testing/effect";
 
 import { RyotQLService } from "./service";
+import { RyotQLSources } from "./sources";
 
 const getCollectionsQuery = () => {
-	const query = allCollectionsRecipe().document.queries["collections"];
+	const query = allCollectionsRecipe.document.queries["collections"];
 	assert(query);
 	return query;
 };
@@ -110,11 +117,34 @@ const makeServiceLayer = (
 	queryResult: Effect.Effect<readonly Record<string, unknown>[], DbError> = Effect.succeed([]),
 ) =>
 	Layer.effect(RyotQLService, RyotQLService.make).pipe(
+		Layer.provide(HmacSigner.layer.pipe(Layer.provide(makeAppConfigLayer()))),
+		Layer.provide(
+			Layer.mock(RyotQLSources)({
+				membershipAuthority: () => Effect.succeed([]),
+				resolve: (_scope, source) =>
+					source.kind === "inline"
+						? Effect.succeed({
+								values: {},
+								document: source.document,
+								selectedQuery: source.query,
+								identity: JSON.stringify(source),
+							})
+						: Effect.die("Unexpected source"),
+			}),
+		),
 		Layer.provide(
 			Layer.mock(DefinitionCatalog)({
+				userPlugins: () => Effect.succeed([]),
 				forUser: (userId) => Effect.succeed(emptyCatalog(userId)),
 				allUsers: () => Effect.succeed({ users: [], kernel: emptyCatalog("") }),
 				sandboxProviders: () => Effect.succeed({ providers: [], operations: [] }),
+				revision: () =>
+					Effect.succeed({
+						...emptyCatalog(""),
+						providers: [],
+						providerOperations: [],
+						sections: { hooks: [], scripts: [], signalSchemas: [], queries: undefined },
+					}),
 			}),
 		),
 		Layer.provideMerge(
@@ -122,7 +152,11 @@ const makeServiceLayer = (
 				Effect.gen(function* () {
 					const recorded = yield* Ref.make<ReadonlyArray<string>>([]);
 					const dialect = new PgDialect();
+					const emptySelection = Object.assign(Effect.succeed([]), {
+						limit: () => Effect.succeed([]),
+					});
 					const db = {
+						select: () => ({ from: () => ({ where: () => emptySelection }) }),
 						execute: (query: Parameters<typeof dialect.sqlToQuery>[0]) => {
 							const statement = dialect.sqlToQuery(query).sql;
 							return Ref.update(recorded, (all) => [...all, statement]).pipe(
@@ -163,21 +197,29 @@ layer(makeServiceLayer())((test) => {
 					sourceScope,
 				);
 				yield* service.executeForUser("user-1", null, "plugin", {
-					queries: {
-						ranking: rows(subject, {
-							orderBy: [descending(total)],
-							fields: [
-								field("total", total),
-								field("sameTotal", total),
-								field("count", count(source, sourceScope)),
-								field("events", countDistinct(source, column(source, "id"), sourceScope)),
-								field("entities", countDistinct(source, column(source, "entityId"), sourceScope)),
-								field(
-									"sessions",
-									countDistinct(source, column(source, "sessionEntityId"), sourceScope),
-								),
-							],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								ranking: rows(subject, {
+									orderBy: [descending(total)],
+									fields: [
+										field("total", total),
+										field("sameTotal", total),
+										field("count", count(source, sourceScope)),
+										field("events", countDistinct(source, column(source, "id"), sourceScope)),
+										field(
+											"entities",
+											countDistinct(source, column(source, "entityId"), sourceScope),
+										),
+										field(
+											"sessions",
+											countDistinct(source, column(source, "sessionEntityId"), sourceScope),
+										),
+									],
+								}),
+							},
+						},
 					},
 				});
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -206,11 +248,16 @@ layer(makeServiceLayer())((test) => {
 				const source = table("event", "source");
 				const sourceScope = { where: eq(column(source, "entityId"), column(subject, "id")) };
 				yield* service.executeForUser("user-1", null, "plugin", {
-					queries: {
-						ranking: rows(subject, {
-							orderBy: [ascending(column(subject, "name"))],
-							fields: [field("events", count(source, sourceScope))],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								ranking: rows(subject, {
+									orderBy: [ascending(column(subject, "name"))],
+									fields: [field("events", count(source, sourceScope))],
+								}),
+							},
+						},
 					},
 				});
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -235,24 +282,34 @@ layer(makeServiceLayer())((test) => {
 				const service = yield* RyotQLService;
 				const orderBy = [ascending(occursAt)];
 				yield* service.executeForUser("user-1", null, "plugin", {
-					queries: {
-						open: rows(entity, {
-							orderBy,
-							where: gte(occursAt, from),
-							fields: [field("id", column(entity, "id"))],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								open: rows(entity, {
+									orderBy,
+									where: gte(occursAt, from),
+									fields: [field("id", column(entity, "id"))],
+								}),
+							},
+						},
 					},
 				});
 				const recorded = yield* RecordedStatements;
 				expect((yield* recorded.statements).join()).not.toContain("join_collapse_limit");
 
 				yield* service.executeForUser("user-1", null, "plugin", {
-					queries: {
-						closed: rows(entity, {
-							orderBy,
-							fields: [field("id", column(entity, "id"))],
-							where: and(gte(occursAt, from), lte(occursAt, until)),
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								closed: rows(entity, {
+									orderBy,
+									fields: [field("id", column(entity, "id"))],
+									where: and(gte(occursAt, from), lte(occursAt, until)),
+								}),
+							},
+						},
 					},
 				});
 				const statements = yield* recorded.statements;
@@ -275,32 +332,37 @@ layer(makeServiceLayer())((test) => {
 				const entity = table("entity", "entity");
 				const service = yield* RyotQLService;
 				yield* service.executeForUser("user-1", null, "kernel", {
-					queries: {
-						hours: aggregate(entity, {
-							limit: 24,
-							orderBy: [groupDescending("hour")],
-							measures: [measure("count", { function: "count" })],
-							groupBy: [
-								field(
-									"hour",
-									localHour(column(entity, "createdAt"), { timeZone: "America/New_York" }),
-								),
-							],
-						}),
-						years: aggregate(entity, {
-							limit: 100,
-							orderBy: [groupDescending("year")],
-							measures: [measure("count", { function: "count" })],
-							groupBy: [
-								field(
-									"year",
-									dateBucket(column(entity, "createdAt"), {
-										bucket: "year",
-										timeZone: "Pacific/Auckland",
-									}),
-								),
-							],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								hours: aggregate(entity, {
+									limit: 24,
+									orderBy: [groupDescending("hour")],
+									measures: [measure("count", { function: "count" })],
+									groupBy: [
+										field(
+											"hour",
+											localHour(column(entity, "createdAt"), { timeZone: "America/New_York" }),
+										),
+									],
+								}),
+								years: aggregate(entity, {
+									limit: 100,
+									orderBy: [groupDescending("year")],
+									measures: [measure("count", { function: "count" })],
+									groupBy: [
+										field(
+											"year",
+											dateBucket(column(entity, "createdAt"), {
+												bucket: "year",
+												timeZone: "Pacific/Auckland",
+											}),
+										),
+									],
+								}),
+							},
+						},
 					},
 				});
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -344,16 +406,25 @@ layer(makeServiceLayer())((test) => {
 					),
 				};
 				yield* service.executeForUser("user-1", null, "plugin", {
-					queries: {
-						rows: rows(subject, {
-							fields: [
-								field("count", count(source, query)),
-								field(
-									"sum",
-									sum(source, castNumber(jsonPath(column(source, "properties"), "score")), query),
-								),
-							],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								rows: rows(subject, {
+									fields: [
+										field("count", count(source, query)),
+										field(
+											"sum",
+											sum(
+												source,
+												castNumber(jsonPath(column(source, "properties"), "score")),
+												query,
+											),
+										),
+									],
+								}),
+							},
+						},
 					},
 				});
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -421,7 +492,14 @@ layer(makeServiceLayer())((test) => {
 					},
 				]) {
 					yield* service.executeForUser("user-1", null, "plugin", {
-						queries: { rows: rows(subject, { fields: [field("count", count(source, query))] }) },
+						source: {
+							kind: "inline",
+							document: {
+								queries: {
+									rows: rows(subject, { fields: [field("count", count(source, query))] }),
+								},
+							},
+						},
 					});
 				}
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -442,7 +520,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", doc);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { document: doc, kind: "inline" },
+				});
 
 				expect(Object.keys(response.data)).toEqual(["first", "second"]);
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -464,10 +544,21 @@ layer(makeServiceLayer())((test) => {
 	test.effect(
 		"returns an empty cursor page directly",
 		() => {
-			const recipe = allCollectionsRecipe({ limit: 1 });
+			const recipe = allCollectionsRecipe;
+			const recipeRequest = {
+				arguments: {},
+				source: { kind: "inline", document: recipe.document } as const,
+				pages: Object.fromEntries(
+					Object.entries(recipe.document.queries).flatMap(([key, query]) =>
+						query.output.type === "rows" || query.output.groupBy?.length
+							? [[key, { limit: 1 }]]
+							: [],
+					),
+				),
+			};
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", recipe.document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", recipeRequest);
 
 				expect(Result.getOrThrow(recipe.decode(response))).toEqual({
 					items: [],
@@ -500,7 +591,7 @@ layer(
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
 				const firstExecution = yield* service.executeForUser("user-1", null, "kernel", {
-					queries: { entities: query },
+					source: { kind: "inline", document: { queries: { entities: query } } },
 				});
 				const result = firstExecution.data["entities"];
 				if (result?.type !== "rows" || result.pageInfo.nextCursor === null) {
@@ -514,12 +605,15 @@ layer(
 				});
 
 				yield* service.executeForUser("user-1", null, "kernel", {
-					queries: {
-						entities: {
-							...query,
-							output: {
-								...query.output,
-								pagination: { limit: 1, after: result.pageInfo.nextCursor },
+					pages: { entities: { after: result.pageInfo.nextCursor } },
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								entities: {
+									...query,
+									output: { ...query.output, pagination: { limit: 1, maxLimit: 1 } },
+								},
 							},
 						},
 					},
@@ -561,7 +655,11 @@ layer(makeServiceLayer())((test) => {
 				for (const after of cases) {
 					const exit = yield* Effect.exit(
 						service.executeForUser("user-1", null, "kernel", {
-							queries: { entities: rows(entity, { after, limit: 1, fields: [] }) },
+							pages: { entities: { after: after } },
+							source: {
+								kind: "inline",
+								document: { queries: { entities: rows(entity, { limit: 1, fields: [] }) } },
+							},
 						}),
 					);
 					expect(exit._tag).toBe("Failure");
@@ -592,7 +690,11 @@ layer(makeServiceLayer())((test) => {
 			};
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const error = yield* Effect.flip(service.executeForUser("user-1", null, "kernel", invalid));
+				const error = yield* Effect.flip(
+					service.executeForUser("user-1", null, "kernel", {
+						source: { kind: "inline", document: invalid },
+					}),
+				);
 
 				expect(error).toMatchObject({ reason: { code: "invalid-query" } });
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -631,13 +733,25 @@ layer(makeServiceLayer())((test) => {
 				const service = yield* RyotQLService;
 				for (const candidate of protectedDocuments) {
 					const error = yield* Effect.flip(
-						service.executeForUser("user-1", null, "kernel", candidate, "demo"),
+						service.executeForUser(
+							"user-1",
+							null,
+							"kernel",
+							{ source: { kind: "inline", document: candidate } },
+							"demo",
+						),
 					);
 					expect(error).toBeInstanceOf(DemoOperationProtected);
 					expect(error).toMatchObject({ reason: { code: "demo-operation-protected" } });
 				}
 				const error = yield* Effect.flip(
-					service.executeForUser("user-1", null, "kernel", invalid, "demo"),
+					service.executeForUser(
+						"user-1",
+						null,
+						"kernel",
+						{ source: { kind: "inline", document: invalid } },
+						"demo",
+					),
 				);
 				expect(error).toBeInstanceOf(RyotQLBadRequest);
 				expect(error).toMatchObject({ reason: { code: "invalid-query" } });
@@ -669,8 +783,20 @@ layer(makeServiceLayer())((test) => {
 			};
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", details, "standard");
-				yield* service.executeForUser("user-1", null, "kernel", summary, "demo");
+				yield* service.executeForUser(
+					"user-1",
+					null,
+					"kernel",
+					{ source: { kind: "inline", document: details } },
+					"standard",
+				);
+				yield* service.executeForUser(
+					"user-1",
+					null,
+					"kernel",
+					{ source: { kind: "inline", document: summary } },
+					"demo",
+				);
 				const statements = yield* (yield* RecordedStatements).statements;
 				expect(statements[2]).toContain('"webhook_token"');
 				expect(statements[2]).toContain('"client_provider_specifics"');
@@ -716,14 +842,21 @@ layer(makeServiceLayer())((test) => {
 						},
 					]) {
 						const error = yield* Effect.flip(
-							service.executeForPluginAudience(user, candidate, accessClass),
+							service.executeForPluginAudience(
+								user,
+								{ source: { kind: "inline", document: candidate } },
+								accessClass,
+							),
 						);
 						expect(error).toBeInstanceOf(RyotQLBadRequest);
 					}
 				}
 				const sandboxError = yield* Effect.flip(
 					service.executeForUser("user-1", null, "plugin", {
-						queries: { backups: rows(backup, { fields: [] }) },
+						source: {
+							kind: "inline",
+							document: { queries: { backups: rows(backup, { fields: [] }) } },
+						},
 					}),
 				);
 				expect(sandboxError).toBeInstanceOf(RyotQLBadRequest);
@@ -753,7 +886,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -772,7 +907,9 @@ layer(makeServiceLayer())((test) => {
 		() => {
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", navigationRecipe().document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: navigationRecipe.document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const savedViews = statements[3];
@@ -792,12 +929,9 @@ layer(makeServiceLayer())((test) => {
 		() => {
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser(
-					"user-1",
-					null,
-					"kernel",
-					pluginClientCatalogRecipe().document,
-				);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: pluginClientCatalogRecipe.document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const installations = statements[2];
@@ -857,7 +991,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				expect(statements[2]).toMatch(
@@ -895,7 +1031,11 @@ layer(makeServiceLayer(Effect.succeed([{ f0v: 4, f0k: "unexpected" }])))((test) 
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const exit = yield* Effect.exit(service.executeForUser("user-1", null, "kernel", document));
+				const exit = yield* Effect.exit(
+					service.executeForUser("user-1", null, "kernel", {
+						source: { kind: "inline", document: document },
+					}),
+				);
 
 				expect(exit._tag).toBe("Failure");
 			});
@@ -951,7 +1091,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 				const statements = yield* (yield* RecordedStatements).statements;
 				const groupedStatement = statements.find((statement) => statement.includes('AS "g0v"'));
 
@@ -1000,7 +1142,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				for (const statement of statements.slice(2)) {
@@ -1041,7 +1185,9 @@ layer(makeServiceLayer(Effect.succeed([{ f0v: new Date("2026-09-25T00:00:00.000Z
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const today = "(date_trunc('day', now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')";
 				const statements = yield* (yield* RecordedStatements).statements;
@@ -1074,7 +1220,9 @@ layer(makeServiceLayer(Effect.succeed([{ f0k: "text", f0v: "Discord configured" 
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				expect(response.data["channels"]).toEqual({
 					type: "rows",
@@ -1149,7 +1297,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				expect(response.data["integrations"]).toEqual({
 					type: "rows",
@@ -1216,7 +1366,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				expect(response.data["subscriptions"]).toEqual({
 					type: "rows",
@@ -1266,7 +1418,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -1308,7 +1462,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -1348,7 +1504,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -1382,7 +1540,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				for (const statement of statements.slice(2)) {
@@ -1438,7 +1598,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -1508,11 +1670,12 @@ layer(makeServiceLayer())((test) => {
 						signalSchemaSlugs: [],
 						entitySchemaSlugs: ["item"],
 						pluginId: PluginId.make("example-id"),
+						packageId: PluginPackageId.make("test/example"),
 						relationshipSchemaSlugs: ["example-monitoring"],
 						pluginRevisionId: PluginRevisionId.make("example-revision"),
 						eventSchemas: [{ entitySchemaSlug: "item", eventSchemaSlug: "review" }],
 					},
-					document,
+					{ source: { kind: "inline", document: document } },
 					1_048_576,
 				);
 
@@ -1551,9 +1714,15 @@ layer(makeServiceLayer())((test) => {
 							entitySchemaSlugs: [],
 							relationshipSchemaSlugs: [],
 							pluginId: PluginId.make("example-id"),
+							packageId: PluginPackageId.make("test/example"),
 							pluginRevisionId: PluginRevisionId.make("example-revision"),
 						},
-						{ queries: { plugins: rows(plugin, { fields: [] }) } },
+						{
+							source: {
+								kind: "inline",
+								document: { queries: { plugins: rows(plugin, { fields: [] }) } },
+							},
+						},
 						1_048_576,
 					),
 				);
@@ -1579,13 +1748,18 @@ layer(makeServiceLayer())((test) => {
 					null,
 					"plugin",
 					{
-						queries: {
-							schemas: rows(schema, {
-								fields: [
-									field("owner", column(schema, "pluginId")),
-									field("properties", column(schema, "propertiesSchema")),
-								],
-							}),
+						source: {
+							kind: "inline",
+							document: {
+								queries: {
+									schemas: rows(schema, {
+										fields: [
+											field("owner", column(schema, "pluginId")),
+											field("properties", column(schema, "propertiesSchema")),
+										],
+									}),
+								},
+							},
 						},
 					},
 					"standard",
@@ -1619,8 +1793,10 @@ layer(makeServiceLayer())((test) => {
 			};
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForAdmin(document);
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForAdmin({ source: { kind: "inline", document: document } });
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const [adminSubscriptions, adminInstallations] = statements.slice(2, 4);
@@ -1644,7 +1820,12 @@ layer(makeServiceLayer())((test) => {
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
 				const error = yield* Effect.flip(
-					service.executeForAdmin({ queries: { entities: rows(entity, { fields: [] }) } }),
+					service.executeForAdmin({
+						source: {
+							kind: "inline",
+							document: { queries: { entities: rows(entity, { fields: [] }) } },
+						},
+					}),
 				);
 
 				expect(error).toMatchObject({ reason: { code: "invalid-query" } });
@@ -1677,7 +1858,9 @@ layer(
 			const createdAt = new Date("2026-08-07T12:00:00.000Z");
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 				const result = response.data["__proto__"];
 				if (result?.type !== "rows") {
 					throw new Error("Expected reserved query result");
@@ -1728,7 +1911,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -1770,7 +1955,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -1815,8 +2002,12 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", "es", "kernel", localizedDocument);
-				yield* service.executeForUser("user-1", "es", "kernel", statusDocument);
+				yield* service.executeForUser("user-1", "es", "kernel", {
+					source: { kind: "inline", document: localizedDocument },
+				});
+				yield* service.executeForUser("user-1", "es", "kernel", {
+					source: { kind: "inline", document: statusDocument },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const localizedStatement = statements[2];
@@ -1894,7 +2085,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				expect(statements.slice(2)).toHaveLength(1);
@@ -1999,7 +2192,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -2061,7 +2256,9 @@ layer(
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				const response = yield* service.executeForUser("user-1", null, "kernel", document);
+				const response = yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statements = yield* (yield* RecordedStatements).statements;
 				const statement = statements[2];
@@ -2126,7 +2323,9 @@ layer(makeServiceLayer())((test) => {
 
 			return Effect.gen(function* () {
 				const service = yield* RyotQLService;
-				yield* service.executeForUser("user-1", null, "kernel", document);
+				yield* service.executeForUser("user-1", null, "kernel", {
+					source: { kind: "inline", document: document },
+				});
 
 				const statement = (yield* (yield* RecordedStatements).statements)[2];
 				expect(statement).not.toContain("DROP TABLE");
@@ -2166,7 +2365,9 @@ layer(makeServiceLayer(Effect.fail(new DbError({ code: "57014", message: "statem
 				Effect.gen(function* () {
 					const service = yield* RyotQLService;
 					const error = yield* Effect.flip(
-						service.executeForUser("user-1", null, "kernel", allCollectionsRecipe().document),
+						service.executeForUser("user-1", null, "kernel", {
+							source: { kind: "inline", document: allCollectionsRecipe.document },
+						}),
 					);
 
 					expect(error).toMatchObject({ reason: { limitMs: 30_000, code: "query-timeout" } });

@@ -57,3 +57,7 @@ demand. Authorized automatic-presentation artifacts are warmed while the grants 
 presentations are evaluated only on demand. The client retains up to three iframe runtimes keyed by
 `compositionHash`. When a prepared page uses an existing composition, a document message replaces
 its page context and remounts the page tree without recreating the iframe, bridge, or SDK runtime.
+
+Saved-view page contexts carry authored stored query documents. Preparation passes the persisted
+shape through; it neither binds parameters nor manufactures executable limits. Data requests and
+describe resolve those documents by reference at the server execution boundary.

@@ -1,12 +1,8 @@
 import { expect } from "bun:test";
 
 import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
-import type {
-	JsonElementsJoin,
-	RowItem,
-	RyotQLDocument,
-	RyotQLResponse,
-} from "@ryot-app/contract/modules/ryotql/language";
+import type { JsonElementsJoin, RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type { RowItem, RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
@@ -50,6 +46,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { RyotQLService } from "./service";
 
@@ -141,7 +138,7 @@ const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seedE
 	Layer.provideMerge(revisionDatabaseLayer),
 );
 
-const ownedElements = (reference: PluginIdentityReference, after?: string) => {
+const ownedElements = (reference: PluginIdentityReference) => {
 	const elements = jsonElementsJoin(
 		"inner",
 		"element",
@@ -150,7 +147,6 @@ const ownedElements = (reference: PluginIdentityReference, after?: string) => {
 	return {
 		queries: {
 			rows: rows(entity, {
-				after,
 				limit: 1,
 				joins: [elements],
 				where: eq(column(entity, "id"), literal("three")),
@@ -166,15 +162,18 @@ const rowsOf = (response: RyotQLResponse) => {
 	return result;
 };
 
-const executeRows = (query: RyotQLDocument["queries"][string]) =>
+const executeRows = (query: RyotQLDocument["queries"][string], after?: string) =>
 	Effect.gen(function* () {
 		const service = yield* RyotQLService;
 		return rowsOf(
-			yield* service.executeForUser(owner, null, "kernel", { queries: { rows: query } }),
+			yield* service.executeForUser(owner, null, "kernel", {
+				pages: { rows: { after } },
+				source: { kind: "inline", document: { queries: { rows: query } } },
+			}),
 		);
 	});
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"counts complete arrays without changing filtered counts or non-array handling",
 		() =>
@@ -226,7 +225,6 @@ layer(databaseLayer)((test) => {
 				do {
 					const page = yield* executeRows(
 						rows(entity, {
-							after,
 							limit: 1,
 							orderBy: [descending(total)],
 							where: inArray(column(entity, "id"), [
@@ -258,6 +256,7 @@ layer(databaseLayer)((test) => {
 								field("visibleSum", sum(source, literal(1), { joins: [] })),
 							],
 						}),
+						after,
 					);
 					values.push(...page.items);
 					after = page.pageInfo.nextCursor ?? undefined;
@@ -335,14 +334,19 @@ layer(databaseLayer)((test) => {
 
 				const service = yield* RyotQLService;
 				const recipient = yield* service.executeForUser("recipient", null, "kernel", {
-					queries: {
-						rows: rows(entity, {
-							joins: [element],
-							fields: [
-								field("id", column(entity, "id")),
-								field("ordinal", column(element, "ordinal")),
-							],
-						}),
+					source: {
+						kind: "inline",
+						document: {
+							queries: {
+								rows: rows(entity, {
+									joins: [element],
+									fields: [
+										field("id", column(entity, "id")),
+										field("ordinal", column(element, "ordinal")),
+									],
+								}),
+							},
+						},
 					},
 				});
 				expect(rowsOf(recipient).items).toEqual([
@@ -389,13 +393,13 @@ layer(databaseLayer)((test) => {
 						do {
 							const page = yield* executeRows(
 								rows(entity, {
-									after,
 									orderBy,
 									limit: 1,
 									joins: [element],
 									where: eq(column(entity, "id"), literal("three")),
 									fields: [field("ordinal", column(element, "ordinal"))],
 								}),
+								after,
 							);
 							seen.push(...page.items);
 							after = page.pageInfo.nextCursor ?? undefined;
@@ -518,24 +522,27 @@ layer(databaseLayer)((test) => {
 				const alphaReference = { kind: "local", pluginId: PluginId.make(alpha.pluginId) } as const;
 				const betaReference = { kind: "local", pluginId: PluginId.make(beta.pluginId) } as const;
 				const firstPage = rowsOf(
-					yield* service.executeForUser(owner, null, "plugin", ownedElements(alphaReference)),
+					yield* service.executeForUser(owner, null, "plugin", {
+						source: { kind: "inline", document: ownedElements(alphaReference) },
+					}),
 				);
 				const cursor = firstPage.pageInfo.nextCursor;
 				assert(cursor !== null);
 
 				expect(
 					rowsOf(
-						yield* service.executeForUser(
-							owner,
-							null,
-							"plugin",
-							ownedElements(alphaReference, cursor),
-						),
+						yield* service.executeForUser(owner, null, "plugin", {
+							pages: { rows: { after: cursor } },
+							source: { kind: "inline", document: ownedElements(alphaReference) },
+						}),
 					).items,
 				).toEqual([{ ordinal: 2 }]);
 				expect(
 					yield* Effect.flip(
-						service.executeForUser(owner, null, "plugin", ownedElements(betaReference, cursor)),
+						service.executeForUser(owner, null, "plugin", {
+							pages: { rows: { after: cursor } },
+							source: { kind: "inline", document: ownedElements(betaReference) },
+						}),
 					),
 				).toMatchObject({ reason: { code: "invalid-cursor" } });
 
@@ -550,7 +557,7 @@ layer(databaseLayer)((test) => {
 							owner,
 							null,
 							"plugin",
-							ownedElements(self),
+							{ source: { kind: "inline", document: ownedElements(self) } },
 							"standard",
 							undefined,
 							definitionContext,
@@ -558,7 +565,11 @@ layer(databaseLayer)((test) => {
 					).items,
 				).toEqual([{ ordinal: 1 }]);
 				expect(
-					yield* Effect.flip(service.executeForUser(owner, null, "plugin", ownedElements(self))),
+					yield* Effect.flip(
+						service.executeForUser(owner, null, "plugin", {
+							source: { kind: "inline", document: ownedElements(self) },
+						}),
+					),
 				).toMatchObject({
 					reason: { reference: self, issue: "self-unbound", code: "unresolved-query-owner" },
 				});
@@ -644,7 +655,6 @@ layer(databaseLayer)((test) => {
 						do {
 							const page = yield* executeRows(
 								rows(entity, {
-									after,
 									orderBy,
 									limit: 1,
 									joins: [left],
@@ -654,6 +664,7 @@ layer(databaseLayer)((test) => {
 										field("ordinal", column(left, "ordinal")),
 									],
 								}),
+								after,
 							);
 							seen.push(...page.items);
 							after = page.pageInfo.nextCursor ?? undefined;

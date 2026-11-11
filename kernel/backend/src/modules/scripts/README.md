@@ -262,3 +262,8 @@ The [garbage collector](../garbage-collection/README.md) uses persisted liveness
 fence. Current revisions, source-zero scripts, active workflows, and retained automation pins protect
 their artifacts. Completion/cancellation releases workflow references. Pruning deletes unreferenced
 database rows transactionally, not compiled caches/files.
+
+`executeRyotql` accepts canonical `{ source, arguments?, filter?, sort?, pages? }` requests. User
+scripts execute in their user/plugin audience; system scripts retain exact plugin/revision authority,
+including declared queries from that pin. The backend host performs decoding and authority resolution;
+the sandbox continues to own only isolation and its generic host boundary.

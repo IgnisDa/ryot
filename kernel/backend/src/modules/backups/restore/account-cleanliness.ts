@@ -8,11 +8,11 @@ import {
 	definitionOwner,
 	type SignalSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
+import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, SignalSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { isEqual } from "@ryot-app/ts-utils/lodash";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { AuthRepository, type PortableUserProfile } from "#modules/accounts/auth/repository";
 import {
@@ -105,6 +105,8 @@ export const classifyAccountCleanliness = (
 			slug,
 			name,
 			icon,
+			sort,
+			filter,
 			renderer,
 			settings,
 			isHidden,
@@ -113,6 +115,7 @@ export const classifyAccountCleanliness = (
 			reference,
 			dataSources,
 			pluginInstallationId,
+			arguments: argumentsValue,
 		}) => ({
 			slug,
 			name,
@@ -125,6 +128,9 @@ export const classifyAccountCleanliness = (
 			reference,
 			dataSources,
 			pluginInstallationId,
+			sort: sort ?? undefined,
+			filter: filter ?? undefined,
+			arguments: argumentsValue ?? {},
 		}),
 	);
 	const expectedSavedViews = state.expectedSavedViews.map((view) => {
@@ -135,9 +141,12 @@ export const classifyAccountCleanliness = (
 			isBuiltin: true,
 			icon: view.icon,
 			isHidden: false,
+			sort: view.sort,
+			filter: view.filter,
 			renderer: view.renderer,
 			settings: view.settings,
 			sortOrder: view.sortOrder,
+			arguments: view.arguments ?? {},
 			reference: builtinSavedViewReference(ownerPluginId, view.slug),
 			pluginInstallationId:
 				ownerPluginId === null
@@ -146,10 +155,12 @@ export const classifyAccountCleanliness = (
 			dataSources:
 				view.dataSources === null || ownerPluginId === null
 					? view.dataSources
-					: mapPluginIdentityReferences(view.dataSources, (reference) =>
-							reference.kind === "self"
-								? { kind: "local", pluginId: PluginId.make(ownerPluginId) }
-								: reference,
+					: Result.getOrThrow(
+							mapPluginIdentityReferences(view.dataSources, (reference) =>
+								reference.kind === "self"
+									? { kind: "local", pluginId: PluginId.make(ownerPluginId) }
+									: reference,
+							),
 						),
 		};
 	});

@@ -1,12 +1,13 @@
 import {
-	BROWSE_SUBJECT_ALIAS,
 	browseExpressionDocument,
 	type BrowseField,
 	type EntitySchemaBrowse,
 } from "@ryot-app/contract/modules/filters/browse";
 import type { FilterValueType } from "@ryot-app/contract/modules/filters/schemas";
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { reservedBrowseFieldKeys } from "@ryot-app/ryotql-recipes/browse";
+import { authoredValidationBranches } from "@ryot-app/ryotql/binding";
+import { Result } from "effect";
 
 import {
 	queryExpressionKind,
@@ -25,24 +26,40 @@ const expectedKinds: Record<FilterValueType, string> = {
 	"enum-list": "json",
 };
 
-const subjectExpressionKind = (expression: ScalarExpression) =>
-	queryExpressionKind(
-		{ from: { table: "entity", alias: BROWSE_SUBJECT_ALIAS } },
-		expression,
-		savedViewDataSourceAccess,
-	);
+const expressionBranches = (expression: ScalarExpression) =>
+	authoredValidationBranches(browseExpressionDocument(expression), {
+		now: new Date(0),
+		maximumBranches: 256,
+		reportingTimeZone: "UTC",
+		sourceEntity: () => Result.fail(new Error("Browse expressions cannot select stored sources")),
+	});
+
+const subjectExpressionKind = (expression: ScalarExpression) => {
+	const branches = expressionBranches(expression);
+	if (Result.isFailure(branches)) {
+		return undefined;
+	}
+	const query = branches.success[0]?.queries["browse"];
+	const field = query?.output.type === "rows" ? query.output.fields[0] : undefined;
+	return query && field && "expr" in field
+		? queryExpressionKind(query, field.expr, savedViewDataSourceAccess)
+		: undefined;
+};
 
 const expressionIssue = (
 	key: string,
 	expression: ScalarExpression,
 	accepts: (kind: string | undefined) => boolean,
 ) => {
-	const { error } = validateRyotQLDocument(
-		browseExpressionDocument(expression),
-		savedViewDataSourceAccess,
-	);
-	if (error) {
-		return `browse field '${key}' expression is invalid: ${error}`;
+	const branches = expressionBranches(expression);
+	if (Result.isFailure(branches)) {
+		return `browse field '${key}' expression is invalid: ${branches.failure.message}`;
+	}
+	for (const document of branches.success) {
+		const { error } = validateRyotQLDocument(document, savedViewDataSourceAccess);
+		if (error) {
+			return `browse field '${key}' expression is invalid: ${error}`;
+		}
 	}
 	const kind = subjectExpressionKind(expression);
 	return accepts(kind) ? undefined : `browse field '${key}' expression has kind '${kind}'`;

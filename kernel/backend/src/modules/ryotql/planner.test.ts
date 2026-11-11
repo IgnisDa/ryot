@@ -1,6 +1,6 @@
 import { expect } from "bun:test";
 
-import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
+import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	and,
 	castDate,
@@ -25,8 +25,8 @@ import {
 import { assert } from "@ryot-app/testing/assert";
 import { it } from "@voila.dev/effect-bun-test";
 
+import { validateAuthoredFixture } from "./fixture.test-support";
 import { planQuery, planScopes } from "./planner";
-import { validateRyotQLDocument } from "./validator";
 
 const execution = {
 	type: "user",
@@ -37,7 +37,7 @@ const execution = {
 } as const;
 
 const plan = (query: NamedQuery) => {
-	const validated = validateRyotQLDocument(document({ query }), execution);
+	const validated = validateAuthoredFixture(document({ query }), execution);
 	assert(validated.value !== null, validated.error ?? "invalid document");
 	const expanded = validated.value.queries["query"];
 	assert(expanded !== undefined);

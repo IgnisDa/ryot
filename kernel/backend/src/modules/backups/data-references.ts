@@ -96,7 +96,12 @@ const rewritePropertyValueReferences = (
 	eventId: undefined | ((id: string) => string | undefined),
 ): Effect.Effect<JsonValue, DataReferenceError> =>
 	Effect.gen(function* () {
-		if (definition.type === "string" && definition.reference && typeof value === "string") {
+		if (
+			definition.type === "string" &&
+			definition.reference &&
+			definition.reference.kind !== "entity-source" &&
+			typeof value === "string"
+		) {
 			if (definition.reference.kind === "event-id") {
 				return (
 					eventId?.(value) ??

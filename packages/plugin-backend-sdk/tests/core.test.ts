@@ -390,7 +390,7 @@ describe("domain host contracts", () => {
 			output: Schema.Struct({ rows: Schema.Finite }),
 			run: (_input, host) =>
 				host
-					.executeRyotql({ queries: {} })
+					.executeRyotql({ source: { kind: "inline", document: { queries: {} } } })
 					.pipe(Effect.map((result) => ({ rows: Array.isArray(result) ? result.length : 0 }))),
 		});
 		const host = defineSandboxTestHost(manifest, {

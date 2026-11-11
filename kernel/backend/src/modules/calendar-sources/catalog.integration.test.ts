@@ -17,6 +17,7 @@ import {
 import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { CalendarSourcesServiceLive } from "./layer";
 import { CalendarSourcesService } from "./service";
@@ -33,20 +34,25 @@ const databaseLayer = Layer.mergeAll(RyotQLService.layer, CalendarSourcesService
 const listSources = Effect.fn(function* (userId: UserId) {
 	const service = yield* RyotQLService;
 	const response = yield* service.executeForUser(userId, null, "plugin", {
-		queries: {
-			sources: rows(source, {
-				orderBy: [ascending(column(source, "pluginId"))],
-				fields: [
-					field("name", column(source, "name")),
-					field("slug", column(source, "slug")),
-					field("query", column(source, "query")),
-					field("startAt", column(source, "startAt")),
-					field("subject", column(source, "subject")),
-					field("pluginId", column(source, "pluginId")),
-					field("isHidden", column(source, "isHidden")),
-					field("precision", column(source, "precision")),
-				],
-			}),
+		source: {
+			kind: "inline",
+			document: {
+				queries: {
+					sources: rows(source, {
+						orderBy: [ascending(column(source, "pluginId"))],
+						fields: [
+							field("name", column(source, "name")),
+							field("slug", column(source, "slug")),
+							field("query", column(source, "query")),
+							field("startAt", column(source, "startAt")),
+							field("subject", column(source, "subject")),
+							field("pluginId", column(source, "pluginId")),
+							field("isHidden", column(source, "isHidden")),
+							field("precision", column(source, "precision")),
+						],
+					}),
+				},
+			},
 		},
 	});
 	const result = response.data["sources"];
@@ -67,7 +73,7 @@ const setInstallation = Effect.fn(function* (
 	);
 });
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"stores sources per revision and reads only the active revision",
 		() =>
@@ -137,7 +143,7 @@ layer(databaseLayer)((test) => {
 	);
 });
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"exposes only the caller's effective sources with their hidden state",
 		() =>

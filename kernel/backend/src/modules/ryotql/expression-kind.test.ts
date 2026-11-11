@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
-import type { ScalarExpression, TableReference } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression, TableReference } from "@ryot-app/contract/modules/ryotql/authored";
+import { ScalarExpression as ExecutableScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	ascending,
 	average,
@@ -38,6 +39,7 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { it } from "@voila.dev/effect-bun-test";
+import { Result, Schema } from "effect";
 
 import { getCatalogTable } from "./catalog";
 import type { ScalarKind } from "./expression-kind";
@@ -52,6 +54,9 @@ const nested = table("event", "n");
 const catalogScope = (...references: readonly TableReference[]) =>
 	new Map(
 		references.flatMap((reference) => {
+			if (!("table" in reference)) {
+				return [];
+			}
 			const catalog = getCatalogTable(reference.table);
 			return catalog ? [[reference.alias, { table: catalog, key: reference.table }] as const] : [];
 		}),
@@ -136,10 +141,14 @@ it("infers one kind per scalar expression variant", () => {
 		},
 	];
 	for (const { expr, kind } of cases) {
-		expect({ type: expr.type, kind: expressionKind(expr, scope, userAccess) }).toEqual({
-			kind,
+		expect({
 			type: expr.type,
-		});
+			kind: expressionKind(
+				Result.getOrThrow(Schema.decodeResult(ExecutableScalarExpression)(expr)),
+				scope,
+				userAccess,
+			),
+		}).toEqual({ kind, type: expr.type });
 	}
 });
 
@@ -156,6 +165,12 @@ it("leaves unresolvable column kinds undefined", () => {
 		}),
 	];
 	for (const expr of unresolved) {
-		expect(expressionKind(expr, scope, userAccess)).toBeUndefined();
+		expect(
+			expressionKind(
+				Result.getOrThrow(Schema.decodeResult(ExecutableScalarExpression)(expr)),
+				scope,
+				userAccess,
+			),
+		).toBeUndefined();
 	}
 });

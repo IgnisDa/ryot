@@ -1,5 +1,7 @@
 import { expect, it } from "bun:test";
 
+import { PluginId } from "@ryot-app/contract/schema/brands";
+import { column, document, field, rows, schemaOwnerPredicate, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 
 import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
@@ -57,14 +59,14 @@ it("allows same-slug configuration fields in independent packages", () => {
 
 it("rejects normalized configuration key collisions inside a package", () => {
 	const plugin = systemPlugin("a");
-	const field = { label: "Token", description: "Token", type: "string" as const };
+	const configField = { label: "Token", description: "Token", type: "string" as const };
 	expect(() =>
 		validateSystemPluginSet(emptySource, [
 			{
 				...plugin,
 				manifest: {
 					...plugin.manifest,
-					configSchema: { fields: { api_token: field, "api-token": field } },
+					configSchema: { fields: { api_token: configField, "api-token": configField } },
 				},
 			},
 		]),
@@ -96,4 +98,40 @@ it("keeps same-name kernel and plugin relationship declarations independent", ()
 		{ pluginId: "a", slug: "fixture-link" },
 		{ pluginId: null, slug: "member-of" },
 	]);
+});
+
+it("validates declared query owners against the complete ingestion authority", () => {
+	const plugin = systemPlugin("a");
+	const entity = table("entity", "subject");
+	const declaration = (pluginId: string) => ({
+		description: "Owned entities",
+		document: document({
+			items: rows(entity, {
+				limit: 10,
+				maxLimit: 10,
+				fields: [field("id", column(entity, "id"))],
+				where: schemaOwnerPredicate(entity, "entitySchemaPluginId", {
+					kind: "local",
+					pluginId: PluginId.make(pluginId),
+				}),
+			}),
+		}),
+	});
+	expect(() =>
+		validateSystemPluginSet(emptySource, [
+			{ ...plugin, manifest: { ...plugin.manifest, queries: { items: declaration("missing") } } },
+		]),
+	).toThrow(/unavailable owner/);
+	expect(() =>
+		validateSystemPluginSet(emptySource, [
+			{ ...plugin, manifest: { ...plugin.manifest, queries: { items: declaration("a") } } },
+		]),
+	).not.toThrow();
+	const privatePlugin = { ...systemPlugin("private"), scope: "user" as const };
+	expect(() =>
+		validateSystemPluginSet(emptySource, [
+			privatePlugin,
+			{ ...plugin, manifest: { ...plugin.manifest, queries: { items: declaration("private") } } },
+		]),
+	).toThrow(/unavailable owner/);
 });

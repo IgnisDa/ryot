@@ -375,7 +375,9 @@ const editorCase = (
 ) => layer(freshLayer())(name, (test) => test.effect(name, () => body, testTimeout));
 
 const freshLayer = () =>
-	IdempotencyKeys.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer()));
+	Layer.merge(IdempotencyKeys.layer, RyotQLService.layer).pipe(
+		Layer.provideMerge(relationshipDatabaseLayer()),
+	);
 
 describe("EntityEditorService", () => {
 	editorCase(
@@ -1272,13 +1274,18 @@ describe("EntityEditorService", () => {
 		Effect.gen(function* () {
 			const { owner, insert } = yield* setup();
 			yield* insert("catalog-part", part, userId);
-			const ryotql = yield* RyotQLService.make;
+			const ryotql = yield* RyotQLService;
 			const source = table("entitySchema", "source");
 			const response = yield* ryotql.executeForUser(userId, null, "plugin", {
-				queries: {
-					rows: rows(source, {
-						fields: ["slug", "editor"].map((name) => field(name, column(source, name))),
-					}),
+				source: {
+					kind: "inline",
+					document: {
+						queries: {
+							rows: rows(source, {
+								fields: ["slug", "editor"].map((name) => field(name, column(source, name))),
+							}),
+						},
+					},
 				},
 			});
 			const result = response.data["rows"];

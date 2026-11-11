@@ -1,7 +1,11 @@
 import type { PopulateEntitiesBody } from "@ryot-app/contract/modules/live-updates/messages";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
-import { entityWatchRecipe, type EntityWatchResult } from "@ryot-app/ryotql-recipes/entities";
-import { Array as Arr, Context, DateTime, Effect, Layer, Result } from "effect";
+import {
+	entityWatchRecipe,
+	type EntityWatchResult,
+	loadEntityWatches,
+} from "@ryot-app/ryotql-recipes/entities";
+import { Array as Arr, Context, DateTime, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { RyotQLService } from "#modules/ryotql/service";
@@ -68,14 +72,18 @@ export class EntityPopulation extends Context.Service<EntityPopulation>()(
 				if (first === undefined) {
 					return;
 				}
-				const recipe = entityWatchRecipe({ entityIds: [first, ...rest] });
-				const response = yield* ryotql.executeForUser(
-					principal.userId,
-					principal.preferredLanguage,
-					"kernel",
-					recipe.document,
+				const recipe = entityWatchRecipe;
+				const rows = yield* loadEntityWatches([first, ...rest], (entityIds) =>
+					Effect.gen(function* () {
+						const response = yield* ryotql.executeForUser(
+							principal.userId,
+							principal.preferredLanguage,
+							"kernel",
+							{ arguments: { entityIds }, source: { kind: "inline", document: recipe.document } },
+						);
+						return yield* Effect.fromResult(recipe.decode(response)).pipe(Effect.orDie);
+					}),
 				);
-				const rows = yield* Effect.sync(() => Result.getOrThrow(recipe.decode(response)));
 				yield* retention.retain(rows.map(({ id }) => id));
 				const intervals = yield* refreshIntervals(rows);
 				const now = yield* DateTime.now;

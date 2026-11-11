@@ -1,8 +1,9 @@
+import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import type {
 	ClientPageCompositionIdentity,
 	ClientPageCompositionManifest,
 } from "@ryot-app/contract/modules/pages/schemas";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { generateId } from "better-auth";
@@ -42,11 +43,13 @@ export const clientPageComposition = snakeCase.table("client_page_composition", 
 export const savedView = snakeCase.table(
 	"saved_view",
 	{
+		sort: text(),
 		slug: text().notNull(),
 		name: text().notNull(),
 		icon: text().notNull(),
 		pluginInstallationId: text(),
 		updatedAt: updatedAtColumn(),
+		filter: jsonb().$type<Filter>(),
 		revision: integer().notNull().default(1),
 		sortOrder: integer().notNull().default(0),
 		dataSources: jsonb().$type<RyotQLDocument>(),
@@ -60,6 +63,7 @@ export const savedView = snakeCase.table(
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		arguments: jsonb().$type<Readonly<Record<string, JsonValue>>>().notNull().default({}),
 	},
 	(table) => [
 		index("saved_view_user_id_idx").on(table.userId),

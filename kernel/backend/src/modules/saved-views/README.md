@@ -14,7 +14,7 @@ Built-in IDs frame the user, owner kind, owner ID, and slug, and remain stable a
 Overrides have separate unique keys for kernel and plugin ownership.
 
 Writes carry a tagged saved-view reference. Workspace associations use exact installation IDs.
-Saving a query binds portable package references once in the transaction's catalog snapshot.
+Saving validates every authored branch and owner reference in the transaction's catalog snapshot; execution resolves those references again under current authority.
 Known entity-browser provider actions use an owner-qualified `schema`; authored settings may use
 `self`, which definition materialization resolves to its exact local owner.
 
@@ -24,11 +24,26 @@ resolve to an `entity` table in the source query, unique subject schemas, and an
 `addAction` schema to be one of them. Materialization and backups resolve or map subject schema
 owners the same way as `addAction` owners.
 
-Results-table settings may declare optional value `filterFields` (absent means none) that name a
-projected output field and carry unique choices for enum types; keys must be unique. Entity and
-collection browsers take their filters and sorts from the subject schemas'
-[browse fields](../../../../../packages/plugin-kit/README.md#browse-fields), so their settings carry
-neither. Installation validates browse fields in `modules/definitions/browse-validation.ts`.
+Renderer settings declare `controls: { search?, filter?, sort? }`. Search names a declared string
+parameter; filter and sort enable the document's controls. Field definitions live in the authored
+query document, rather than in renderer settings. Browse controls resolve effective schema declarations
+on the server; results-table and membership controls may name another rows projection explicitly.
+
+Custom rows and built-in definition rows persist validated bound `arguments`, plus saved `filter` and
+`sort`. Required arguments are checked on save. Update bodies retain omitted selections; `null` explicitly
+clears saved `filter` or `sort`. Arguments use an object replacement (`{}` reapplies defaults and
+validates required parameters), while create and listed selections represent cleared controls by
+absence. A source entity reads this saved selection, isolated
+from the outer request's transient values. Runtime selection validation shares the execution pipeline,
+including source authority, cycles and bounded materialization.
+
+On authoring writes, the server adds the subject-schema guard and derives `count.count` and `ids.id`.
+Entity-browser sources also receive the six shared reserved fields in
+`contract/modules/saved-views/entity-browser-fields`. Authored collisions with these fields or
+`count`, `ids`, and `librarySearchCount` are refused. An explicitly authored `librarySearch` receives
+its own subject guard, reserved fields and derived `librarySearchCount.count`; search expressions and
+ranking are never inferred. Clone and stored-form revalidation use an explicit trusted path and are
+idempotent, preserving the server's own projections.
 
 The renderer, data sources, and settings form a typed union in the write contract (`SavedViewRendererConfig`);
 wire bodies and listed views stay flat. Write paths (service create, update and clone, manifest

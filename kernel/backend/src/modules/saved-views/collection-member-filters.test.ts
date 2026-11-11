@@ -3,14 +3,18 @@ import { expect, it } from "bun:test";
 import { collectionFieldsToAppSchema } from "@ryot-app/contract/modules/collections/fields";
 import type { BrowseField } from "@ryot-app/contract/modules/filters/browse";
 import type { Filter } from "@ryot-app/contract/modules/filters/schemas";
+import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
+import { EntityId } from "@ryot-app/contract/schema/brands";
 import { castNumber, column, count, eq, jsonPath, table } from "@ryot-app/ryotql";
 import {
 	collectionMembersCountRecipe,
 	collectionMembersRecipe,
 } from "@ryot-app/ryotql-recipes/collections";
-import { DateTime } from "effect";
+import { DateTime, Result } from "effect";
 
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
+
+import { bindControlFixture } from "./controls.test-support";
 
 const now = DateTime.makeUnsafe("2026-03-10T12:00:00.000Z");
 const subject = table("entity", "subject");
@@ -89,15 +93,51 @@ const filters: readonly Filter[] = [
 
 it("validates collection member and count documents with every filter field", () => {
 	for (const filter of filters) {
-		const input = { now, filter, fields, searchText: "x", collectionId: "c0" };
+		const input = { fields };
 		expect(
-			validateRyotQLDocument(collectionMembersRecipe(input).document, savedViewDataSourceAccess)
-				.error,
+			validateRyotQLDocument(
+				Result.getOrThrow(
+					bindControlFixture({
+						now,
+						filter,
+						document: collectionMembersRecipe(input).document,
+						schemas: fields.schemas.map((entry) =>
+							Object.assign({}, entry, { packageId: null, pluginScope: null, isEffective: true }),
+						),
+						arguments: {
+							searchText: "x",
+							collectionId: "c0",
+							source: encodeEntitySourceReference({
+								kind: "collection",
+								collectionId: EntityId.make("c0"),
+							}),
+						},
+					}),
+				).document,
+				savedViewDataSourceAccess,
+			).error,
 			JSON.stringify(filter),
 		).toBeNull();
 		expect(
 			validateRyotQLDocument(
-				collectionMembersCountRecipe(input).document,
+				Result.getOrThrow(
+					bindControlFixture({
+						now,
+						filter,
+						document: collectionMembersCountRecipe(input).document,
+						schemas: fields.schemas.map((entry) =>
+							Object.assign({}, entry, { packageId: null, pluginScope: null, isEffective: true }),
+						),
+						arguments: {
+							searchText: "x",
+							collectionId: "c0",
+							source: encodeEntitySourceReference({
+								kind: "collection",
+								collectionId: EntityId.make("c0"),
+							}),
+						},
+					}),
+				).document,
 				savedViewDataSourceAccess,
 			).error,
 			JSON.stringify(filter),
@@ -109,7 +149,23 @@ it("validates every collection member sort", () => {
 	for (const sort of ["name-asc", "date-added-desc", "rating-desc", "links-asc"]) {
 		expect(
 			validateRyotQLDocument(
-				collectionMembersRecipe({ sort, fields, collectionId: "c0" }).document,
+				Result.getOrThrow(
+					bindControlFixture({
+						now,
+						sort,
+						document: collectionMembersRecipe({ fields }).document,
+						schemas: fields.schemas.map((entry) =>
+							Object.assign({}, entry, { packageId: null, pluginScope: null, isEffective: true }),
+						),
+						arguments: {
+							collectionId: "c0",
+							source: encodeEntitySourceReference({
+								kind: "collection",
+								collectionId: EntityId.make("c0"),
+							}),
+						},
+					}),
+				).document,
 				savedViewDataSourceAccess,
 			).error,
 			sort,

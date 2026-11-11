@@ -20,28 +20,30 @@ import {
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
-import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type { RyotQLDocument as ExecutableDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { RowSourcePrecision, RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
 	SavedViewRenderer,
+	SavedViewSelection,
 	SavedViewSubject,
 } from "@ryot-app/contract/modules/saved-views/schemas";
+import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
+import { authoredValidationBranches } from "@ryot-app/ryotql/binding";
 import { Effect, Result, Schema } from "effect";
 
 import { browseConsistencyIssue, browseIssue } from "#modules/definitions/browse-validation";
 import {
 	formatPropertyIssues,
 	parseAppSchemaProperties,
-	validateAppSchemaDefinition,
 } from "#modules/definitions/properties/runtime";
 import { calendarSourceIssue } from "#modules/definitions/row-source-validation";
 import {
 	entityBrowserConfiguredFields,
-	filterFieldIssues,
 	resultsTableConfiguredFields,
 	unprojectedField,
 } from "#modules/definitions/saved-view-filters";
@@ -109,6 +111,7 @@ export const SignalSchemaDefinition = Schema.Struct({
 export type SignalSchemaDefinition = typeof SignalSchemaDefinition.Type;
 
 export const SavedViewDefinition = Schema.Struct({
+	...SavedViewSelection,
 	...pluginIdField,
 	icon: Schema.String,
 	name: Schema.String,
@@ -252,7 +255,11 @@ const assertSchemaDefinition = (
 	}
 };
 
-const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
+const validateConcreteSavedViewDefinition = (
+	savedView: Omit<SavedViewDefinition, "dataSources"> & {
+		readonly dataSources: null | ExecutableDocument;
+	},
+) => {
 	if (savedView.dataSources !== null) {
 		const { error: issue } = validateRyotQLDocument(
 			savedView.dataSources,
@@ -260,11 +267,6 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 		);
 		if (issue) {
 			throw new Error(`Invalid saved view ${savedView.slug}: ${issue}`);
-		}
-		for (const [name, query] of Object.entries(savedView.dataSources.queries)) {
-			if (query.output.type === "rows" && "after" in query.output.pagination) {
-				throw new Error(`Invalid saved view ${savedView.slug}: source '${name}' contains a cursor`);
-			}
 		}
 	}
 	if (savedView.renderer.kind !== "kernel") {
@@ -308,13 +310,6 @@ const validateSavedViewDefinition = (savedView: SavedViewDefinition) => {
 			`Invalid saved view ${savedView.slug}: configured field '${unprojected}' must be a projected scalar field`,
 		);
 	}
-	const filterIssue =
-		"rowKeyFields" in decoded.success
-			? filterFieldIssues({ query: source, settings: decoded.success })
-			: undefined;
-	if (filterIssue) {
-		throw new Error(`Invalid saved view ${savedView.slug}: ${filterIssue}`);
-	}
 };
 
 const validateDefinitionSource = (
@@ -323,7 +318,21 @@ const validateDefinitionSource = (
 	relationshipSchemas: Record<string, unknown>,
 ) => {
 	for (const savedView of source.savedViews) {
-		validateSavedViewDefinition(savedView);
+		if (savedView.dataSources === null) {
+			validateConcreteSavedViewDefinition({ ...savedView, dataSources: null });
+		} else {
+			const branches = Result.getOrThrow(
+				authoredValidationBranches(savedView.dataSources, {
+					now: new Date(0),
+					maximumBranches: 256,
+					reportingTimeZone: "UTC",
+					sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity:validation" }),
+				}),
+			);
+			for (const branch of branches) {
+				validateConcreteSavedViewDefinition({ ...savedView, dataSources: branch });
+			}
+		}
 	}
 	for (const calendarSource of source.calendarSources) {
 		const issue = calendarSourceIssue(calendarSource);

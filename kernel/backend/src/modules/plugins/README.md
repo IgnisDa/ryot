@@ -30,7 +30,9 @@ pin in one statement and derives listing, definition effectiveness, and executab
 every writer, including backup restore and one-time migrations, is observed without triggers.
 Listed plugins include hidden and installing installations, but exclude incompatible ones.
 Catalog operations resolve one `listPluginsAvailableToUser` snapshot and thread it through multi-row
-work rather than rereading different catalog states. Catalog changes publish a transactional
+work rather than rereading different catalog states. `listOperationsAvailableToUser` combines one
+executable snapshot with a batched operation-script metadata read at its pinned revision IDs for the
+agent tool registry. Catalog changes publish a transactional
 `pg_notify` that clients use to refetch.
 
 ## Plugin artifacts and revision identity
@@ -116,3 +118,23 @@ Uninstall commits an installation admission fence under the user write lock, the
 ingestion interruption, reconciliation, and payload/pin cleanup to the imports owner outside
 the transaction. Only after cleanup does it tombstone the installation and record the uninstall
 receipt. Retrying an interrupted uninstall retains the same fence and cleanup owners.
+
+## Declared queries
+
+`manifest.queries` is an optional record of `{ description, document }`, where `document` is an
+authored, parameterized RyotQL document. Operation metadata is independent and retains its existing
+shape. Ingestion validates all query branches and catalog-dependent controls against the effective
+system/private definition set. The immutable `plugin_revision.queries` section is the runtime read
+source; execution does not load the cold manifest. User calls require the exact available installation;
+pinned system scripts resolve their own declared queries at the retained revision.
+
+External manifest tests use `validateSystemPluginSet` from
+`@ryot-app/kernel-backend/modules/plugins/packages/system-set` with `kernelDefinitionSource()` from
+`@ryot-app/kernel-backend/modules/definitions/kernel-source` and the complete available plugin set
+`[{ id, manifest, scope }]`. Scope defaults to `system`. This is the ingestion validator: it checks
+every authored branch, resolves owners against that set, rejects unavailable or wrong-scope owners,
+checks controls independently, and builds the definition snapshot. Invalid declarations throw.
+Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, and
+`makeAppConfigLayer` from the explicit `modules/ryotql/service`, `testing/isolated-database`, and
+`testing/effect` package entry points. Seed through the exported `platform/db/session` and
+`schema/tables/combined` modules; fixtures must include the actual installation/revision authority.

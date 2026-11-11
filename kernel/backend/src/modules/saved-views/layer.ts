@@ -1,5 +1,6 @@
 import { Layer } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
@@ -13,6 +14,7 @@ export const SavedViewsServiceLive = SavedViewsService.layer.pipe(
 	Layer.provide(
 		Layer.mergeAll(
 			SavedViewsRepository.layer,
+			DefinitionCatalog.layer,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
 			PluginRepositoryLive,

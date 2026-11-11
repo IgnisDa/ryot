@@ -1,10 +1,11 @@
 import { expect } from "bun:test";
 
-import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/language";
+import type { NamedQuery } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	ascending,
 	column,
 	count,
+	descending,
 	eq,
 	exists,
 	field,
@@ -19,6 +20,7 @@ import { Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { RyotQLService } from "./service";
@@ -69,13 +71,14 @@ const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seed)
 	Layer.provideMerge(isolatedDatabaseLayer("ryotql_rows_page")),
 );
 
-const allPages = Effect.fn(function* (query: (after: string | undefined) => NamedQuery) {
+const allPages = Effect.fn(function* (query: () => NamedQuery) {
 	const service = yield* RyotQLService;
 	const pages: unknown[][] = [];
 	let after: string | undefined;
 	do {
 		const result = (yield* service.executeForUser("owner", null, "plugin", {
-			queries: { rows: query(after) },
+			pages: { rows: { after } },
+			source: { kind: "inline", document: { queries: { rows: query() } } },
 		})).data["rows"];
 		assert(result?.type === "rows");
 		pages.push([...result.items]);
@@ -89,12 +92,11 @@ const subjectFields = [
 	field("events", count(source, ofSubject)),
 ];
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect("pages rows whose aggregates only their fields read", () =>
 		Effect.gen(function* () {
-			const pages = yield* allPages((after) =>
+			const pages = yield* allPages(() =>
 				rows(subject, {
-					after,
 					limit: 2,
 					fields: subjectFields,
 					orderBy: [ascending(column(subject, "name"))],
@@ -114,11 +116,31 @@ layer(databaseLayer)((test) => {
 		}),
 	);
 
+	test.effect("pages constant-null sort branches with stable ties in both directions", () =>
+		Effect.gen(function* () {
+			for (const order of [ascending, descending]) {
+				const pages = yield* allPages(() =>
+					rows(subject, { limit: 2, fields: subjectFields, orderBy: [order(literal(null))] }),
+				);
+				expect(pages).toEqual([
+					[
+						{ id: "a", events: 3 },
+						{ id: "b", events: 1 },
+					],
+					[
+						{ id: "c", events: 0 },
+						{ id: "d", events: 2 },
+					],
+					[{ id: "e", events: 1 }],
+				]);
+			}
+		}),
+	);
+
 	test.effect("applies the filter before choosing the page", () =>
 		Effect.gen(function* () {
-			const pages = yield* allPages((after) =>
+			const pages = yield* allPages(() =>
 				rows(subject, {
-					after,
 					limit: 2,
 					fields: subjectFields,
 					where: exists(source, ofSubject),
@@ -136,9 +158,8 @@ layer(databaseLayer)((test) => {
 
 	test.effect("keeps every joined row when a page splits one root row", () =>
 		Effect.gen(function* () {
-			const pages = yield* allPages((after) =>
+			const pages = yield* allPages(() =>
 				rows(subject, {
-					after,
 					limit: 2,
 					orderBy: [ascending(column(subject, "name"))],
 					fields: [...subjectFields, field("linked", column(linked, "id"))],
@@ -166,9 +187,8 @@ layer(databaseLayer)((test) => {
 	test.effect("runs a filter and order that read the aggregate over every row", () =>
 		Effect.gen(function* () {
 			const events = count(source, ofSubject);
-			const pages = yield* allPages((after) =>
+			const pages = yield* allPages(() =>
 				rows(subject, {
-					after,
 					limit: 2,
 					fields: subjectFields,
 					orderBy: [ascending(events)],

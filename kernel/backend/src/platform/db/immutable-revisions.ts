@@ -5,6 +5,7 @@ export const pluginRevisionSections = (manifest: SQL) => ({
 	hooks: sql`${manifest} -> 'hooks'`.as("hooks"),
 	crons: sql`${manifest} -> 'crons'`.as("crons"),
 	client: sql`${manifest} -> 'client'`.as("client"),
+	queries: sql`${manifest} -> 'queries'`.as("queries"),
 	scripts: sql`${manifest} -> 'scripts'`.as("scripts"),
 	workflows: sql`${manifest} -> 'workflows'`.as("workflows"),
 	providers: sql`${manifest} -> 'providers'`.as("providers"),

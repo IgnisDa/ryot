@@ -7,7 +7,7 @@ import {
 	type PublicationUnavailableCode,
 	type PublicationVisitorPage,
 } from "@ryot-app/contract/modules/publications/schemas";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { ExecutionRequest, ExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
 import { type PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Clock, Context, Effect, Layer } from "effect";
@@ -22,7 +22,6 @@ import { isOpaqueTicket } from "#platform/http/opaque-tickets";
 import { PublicationVisitLimits } from "./limits";
 import { PublicationsRepository } from "./repository";
 import { PublicationSessions } from "./sessions";
-import { PublicationSources } from "./sources";
 
 const VISITOR_RESULT_BYTES = 2 * 1024 * 1024;
 
@@ -41,7 +40,6 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 			const limits = yield* PublicationVisitLimits;
 			const assets = yield* ManagedAssetsService;
 			const sessions = yield* PublicationSessions;
-			const sources = yield* PublicationSources;
 			const repository = yield* PublicationsRepository;
 			const references = yield* ManagedAssetReferencesRepository;
 
@@ -71,22 +69,15 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 				return found;
 			});
 
-			const sourceOf = Effect.fn("PublicationVisits.sourceOf")(function* (
+			const sourceOf = Effect.fn("PublicationVisits.sourceOf")((
 				found: Effect.Success<ReturnType<typeof requireVisible>>,
-			) {
-				const scope = yield* sources.resolveScope(
-					UserId.make(found.publication.userId),
-					found.publication.source,
-				);
-				if (scope === null) {
-					return yield* unavailable("unavailable");
-				}
-				return {
-					scope,
+			) => {
+				return Effect.succeed({
+					source: found.publication.source,
 					ownerUserId: found.publication.userId,
 					subjectLimit: PUBLICATION_SUBJECT_LIMIT,
 					language: found.owner.preferences.language,
-				};
+				});
 			});
 
 			const exchange = Effect.fn("PublicationVisits.exchange")(function* ({
@@ -195,13 +186,26 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 
 			const query = Effect.fn("PublicationVisits.query")(function* (
 				principal: PublicationPrincipalValue,
-				ryotqlDocument: RyotQLDocument,
+				request: ExecutionRequest,
 			) {
 				const found = yield* requireVisible(principal.publicationId, null);
 				const source = yield* sourceOf(found);
 				return yield* limits.withSessionPermit(
 					principal.sessionKey,
-					ryotql.executeForPublication(source, ryotqlDocument, VISITOR_RESULT_BYTES),
+					ryotql.executeForPublication(source, request, VISITOR_RESULT_BYTES),
+				);
+			});
+
+			const describe = Effect.fn("PublicationVisits.describe")(function* (
+				principal: PublicationPrincipalValue,
+				requested: ExecutionSource,
+				argumentsValue?: ExecutionRequest["arguments"],
+			) {
+				const found = yield* requireVisible(principal.publicationId, null);
+				const source = yield* sourceOf(found);
+				return yield* limits.withSessionPermit(
+					principal.sessionKey,
+					ryotql.describeForPublication(source, requested, argumentsValue),
 				);
 			});
 
@@ -237,7 +241,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 				);
 			});
 
-			return { page, query, document, exchange, authenticate, resolveAssets };
+			return { page, query, describe, document, exchange, authenticate, resolveAssets };
 		}),
 	},
 ) {

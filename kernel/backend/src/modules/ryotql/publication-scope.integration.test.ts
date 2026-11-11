@@ -1,13 +1,14 @@
 import { expect } from "bun:test";
 
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import { EntityId, SavedViewId } from "@ryot-app/contract/schema/brands";
 import { ascending, column, field, rows, table } from "@ryot-app/ryotql";
-import { collectionPublicationScope } from "@ryot-app/ryotql-recipes/publications";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { type PublicationSubjectQuery, RyotQLService } from "./service";
@@ -88,13 +89,14 @@ const seed = Effect.gen(function* () {
 
 const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seed)).pipe(
 	Layer.provideMerge(isolatedDatabaseLayer("ryotql_publication_scope")),
+	Layer.provide(makeAppConfigLayer()),
 );
 
 const shelf: PublicationSubjectQuery = {
 	language: null,
 	subjectLimit: 10,
 	ownerUserId: "owner",
-	scope: collectionPublicationScope("shelf"),
+	source: { kind: "collection", collectionId: EntityId.make("shelf") },
 };
 
 const subject = table("entity", "subject");
@@ -102,9 +104,11 @@ const subject = table("entity", "subject");
 const read = (document: RyotQLDocument, source = shelf) =>
 	Effect.gen(function* () {
 		const service = yield* RyotQLService;
-		const result = (yield* service.executeForPublication(source, document, RESULT_BYTES)).data[
-			"rows"
-		];
+		const result = (yield* service.executeForPublication(
+			source,
+			{ source: { document, kind: "inline" } },
+			RESULT_BYTES,
+		)).data["rows"];
 		return result?.type === "rows" ? result.items : null;
 	});
 
@@ -206,12 +210,43 @@ layer(databaseLayer)((test) => {
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const occurrence = table("event", "occurrence");
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db
+					.insert(tables.savedView)
+					.values({
+						icon: "box",
+						userId: "owner",
+						name: "Invalid",
+						id: "invalid-subject",
+						slug: "invalid-subject",
+						renderer: { kind: "kernel", name: "entity-browser" },
+						dataSources: {
+							queries: {
+								items: rows(occurrence, { fields: [field("id", column(occurrence, "id"))] }),
+							},
+						},
+						settings: {
+							pageSize: 10,
+							addAction: null,
+							layouts: ["grid"],
+							tableColumns: null,
+							sourceName: "items",
+							defaultLayout: "grid",
+							summary: { image: null, subtitle: null },
+							subject: {
+								entityAlias: occurrence.alias,
+								schemas: [{ slug: "root", owner: { kind: "kernel" } }],
+							},
+						},
+					}),
+			);
 			const error = yield* service
 				.resolvePublicationSubjects({
 					...shelf,
-					scope: {
-						subjectAlias: occurrence.alias,
-						query: rows(occurrence, { fields: [field("id", column(occurrence, "id"))] }),
+					source: {
+						kind: "saved-view",
+						reference: { kind: "custom", savedViewId: SavedViewId.make("invalid-subject") },
 					},
 				})
 				.pipe(Effect.flip);
@@ -223,14 +258,46 @@ layer(databaseLayer)((test) => {
 		Effect.gen(function* () {
 			const service = yield* RyotQLService;
 			const everything = table("entity", "everything");
+			const session = yield* DatabaseSession;
+			yield* session.run((db) =>
+				db.insert(tables.savedView).values({
+					icon: "box",
+					name: "Owned",
+					id: "all-owned",
+					userId: "owner",
+					slug: "all-owned",
+					renderer: { kind: "kernel", name: "entity-browser" },
+					dataSources: {
+						queries: {
+							items: rows(everything, {
+								fields: [field("id", column(everything, "id"))],
+								orderBy: [ascending(column(everything, "name"))],
+							}),
+						},
+					},
+					settings: {
+						pageSize: 10,
+						addAction: null,
+						layouts: ["grid"],
+						tableColumns: null,
+						sourceName: "items",
+						defaultLayout: "grid",
+						summary: { image: null, subtitle: null },
+						subject: {
+							entityAlias: everything.alias,
+							schemas: [
+								{ slug: "root", owner: { kind: "kernel" } },
+								{ slug: "collection", owner: { kind: "kernel" } },
+							],
+						},
+					},
+				}),
+			);
 			const subjects = yield* service.resolvePublicationSubjects({
 				...shelf,
-				scope: {
-					subjectAlias: everything.alias,
-					query: rows(everything, {
-						fields: [field("id", column(everything, "id"))],
-						orderBy: [ascending(column(everything, "name"))],
-					}),
+				source: {
+					kind: "saved-view",
+					reference: { kind: "custom", savedViewId: SavedViewId.make("all-owned") },
 				},
 			});
 			expect(subjects.map(({ entityId }) => entityId)).toEqual(["a", "b", "c", "shelf"]);

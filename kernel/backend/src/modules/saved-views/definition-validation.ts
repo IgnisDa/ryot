@@ -1,4 +1,5 @@
 import { definitionKey } from "@ryot-app/contract/modules/plugins/references";
+import type * as Authored from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	FieldSelection,
 	NamedQuery,
@@ -19,11 +20,12 @@ import {
 } from "#modules/definitions/properties/runtime";
 import {
 	entityBrowserConfiguredFields,
-	filterFieldIssues,
 	resultsTableConfiguredFields,
 	unprojectedField,
 } from "#modules/definitions/saved-view-filters";
 import { getCatalogTable, jsonElementsTable } from "#modules/ryotql/catalog";
+import type { ControlSchema } from "#modules/ryotql/controls";
+import { storedValidationBranches } from "#modules/ryotql/stored-validation";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 const settingsIncompatible = (message: string) =>
@@ -94,9 +96,6 @@ export const validateEntityBrowserSavedViewDefinition = Effect.fn(
 			"Entity-browser table layout requires tableColumns and tableColumns require the table layout",
 		);
 	}
-	if (new Set(settings.searchFields).size !== settings.searchFields.length) {
-		return yield* settingsIncompatible("Entity-browser searchFields must not contain duplicates");
-	}
 	if (input.dataSources === null) {
 		return yield* settingsIncompatible("Entity-browser dataSources are required");
 	}
@@ -154,7 +153,7 @@ export const isEntityBrowserRenderer = (renderer: {
 	renderer.kind === "kernel" &&
 	(renderer.name === "entity-browser" || renderer.name === "collection-browser");
 
-export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
+const validateConcreteSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
 	renderer: SavedViewRenderer,
 	settings: Readonly<Record<string, unknown>>,
 	dataSources: null | RyotQLDocument,
@@ -248,9 +247,25 @@ export const validateResultsTableSavedViewDefinition = Effect.fn(
 			);
 		}
 	}
-	const filterIssue = filterFieldIssues({ query, settings });
-	if (filterIssue) {
-		return yield* settingsIncompatible(filterIssue);
+
+	return undefined;
+});
+
+export const validateSavedViewDefinition = Effect.fn("validateSavedViewDefinition")(function* (
+	renderer: SavedViewRenderer,
+	settings: Readonly<Record<string, unknown>>,
+	dataSources: null | Authored.RyotQLDocument,
+	pluginPage: null | PluginPageRecord,
+	schemas: readonly ControlSchema[] = [],
+) {
+	if (dataSources === null) {
+		return yield* validateConcreteSavedViewDefinition(renderer, settings, null, pluginPage);
+	}
+	const branches = yield* Effect.fromResult(storedValidationBranches(dataSources, schemas)).pipe(
+		Effect.mapError((error) => settingsIncompatible(error.message)),
+	);
+	for (const branch of branches) {
+		yield* validateConcreteSavedViewDefinition(renderer, settings, branch, pluginPage);
 	}
 	return undefined;
 });

@@ -22,6 +22,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { fixtureManifest } from "#modules/plugins/test-support";
+import { makeAppConfigLayer } from "#testing/effect";
 import type { MockOverrides } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -217,7 +218,7 @@ layer(
 				packageId: pluginManifest.metadata.packageId,
 			},
 		],
-	}),
+	}).pipe(Layer.provide(makeAppConfigLayer())),
 )((test) => {
 	test.effect(
 		"clones a validated plugin-rendered builtin with its stable runtime reference",
@@ -243,7 +244,7 @@ layer(
 			findByReference: (_userId, reference) =>
 				Effect.succeed(Bun.deepEquals(reference, baseView.reference) ? baseView : null),
 		},
-	}),
+	}).pipe(Layer.provide(makeAppConfigLayer())),
 )((test) => {
 	test.effect(
 		"clones renderer settings and data sources without copying source code",
@@ -288,7 +289,7 @@ layer(
 			create: () => Effect.die("An unavailable renderer must not be saved"),
 			updateCustom: () => Effect.die("An unavailable renderer must not be saved"),
 		},
-	}),
+	}).pipe(Layer.provide(makeAppConfigLayer())),
 )((test) => {
 	test.effect(
 		"rejects unavailable plugin renderers before create, update, or clone writes",
@@ -325,7 +326,7 @@ layer(
 			findByReference: (_userId, reference) =>
 				Effect.succeed(Bun.deepEquals(reference, calendarView.reference) ? calendarView : null),
 		},
-	}),
+	}).pipe(Layer.provide(makeAppConfigLayer())),
 )((test) => {
 	test.effect(
 		"refuses to clone the kernel calendar and creates no custom view",
@@ -354,7 +355,7 @@ layer(
 			findByReference: () => Effect.succeed(baseView),
 			updateCustom: () => Effect.succeed({ id: baseView.id }),
 		},
-	}),
+	}).pipe(Layer.provide(makeAppConfigLayer())),
 )((test) => {
 	test.effect(
 		"clears home references when disabling a saved view",
@@ -383,44 +384,48 @@ const hiddenViewRepository = {
 	updateCustom: () => Effect.succeed({ id: baseView.id }),
 };
 
-layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
-	test.effect(
-		"reveals a hidden view without building its composition",
-		() =>
-			Effect.gen(function* () {
-				const service = yield* SavedViewsService;
-				const updated = yield* service.update(user, baseView.reference, {
-					isHidden: false,
-					icon: baseView.icon,
-					name: baseView.name,
-				});
-				expect(updated).toEqual({ id: baseView.id });
-				expect(yield* (yield* SavedViewsCalls).events).toEqual(["update", "invalidate"]);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ repository: hiddenViewRepository }).pipe(Layer.provide(makeAppConfigLayer())))(
+	(test) => {
+		test.effect(
+			"reveals a hidden view without building its composition",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* SavedViewsService;
+					const updated = yield* service.update(user, baseView.reference, {
+						isHidden: false,
+						icon: baseView.icon,
+						name: baseView.name,
+					});
+					expect(updated).toEqual({ id: baseView.id });
+					expect(yield* (yield* SavedViewsCalls).events).toEqual(["update", "invalidate"]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
-layer(makeLayer({ repository: hiddenViewRepository }))((test) => {
-	test.effect(
-		"updates a hidden view without preparing its renderer",
-		() =>
-			Effect.gen(function* () {
-				const updated = yield* (yield* SavedViewsService).update(user, baseView.reference, {
-					isHidden: true,
-					icon: baseView.icon,
-					name: "Renamed View",
-				});
-				expect(updated).toEqual({ id: baseView.id });
-				expect(yield* (yield* SavedViewsCalls).events).toEqual([
-					"update",
-					`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
-					"invalidate",
-				]);
-			}),
-		testTimeout,
-	);
-});
+layer(makeLayer({ repository: hiddenViewRepository }).pipe(Layer.provide(makeAppConfigLayer())))(
+	(test) => {
+		test.effect(
+			"updates a hidden view without preparing its renderer",
+			() =>
+				Effect.gen(function* () {
+					const updated = yield* (yield* SavedViewsService).update(user, baseView.reference, {
+						isHidden: true,
+						icon: baseView.icon,
+						name: "Renamed View",
+					});
+					expect(updated).toEqual({ id: baseView.id });
+					expect(yield* (yield* SavedViewsCalls).events).toEqual([
+						"update",
+						`clear:${yield* encodeSavedViewReferenceJson(baseView.reference)}`,
+						"invalidate",
+					]);
+				}),
+			testTimeout,
+		);
+	},
+);
 
 const assetPluginManifest = {
 	...pluginManifest,
@@ -461,7 +466,7 @@ layer(
 				packageId: assetPluginManifest.metadata.packageId,
 			},
 		],
-	}),
+	}).pipe(Layer.provide(makeAppConfigLayer())),
 )((test) => {
 	test.effect(
 		"rejects saved view settings that reference another user's managed asset",

@@ -10,18 +10,21 @@ import {
 	type AuthoredEntitySchemaReference,
 	definitionOwner,
 } from "@ryot-app/contract/modules/plugins/references";
-import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/language";
+import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
+import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import { mapRowSourceQueryReferences } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	AuthoredEntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Array as Arr, Result, Schema } from "effect";
 
 import { formatPropertyIssues } from "#modules/definitions/properties/runtime";
 import { materializeSignalSchedule } from "#modules/definitions/signal-schedules";
+import { deriveSavedViewQueries } from "#modules/saved-views/queries";
 
 import type { CalendarSourceDefinition, DefinitionSource, SavedViewDefinition } from "./snapshot";
 
@@ -33,11 +36,22 @@ export const materializeSavedView = (
 	const dataSources =
 		definition.dataSources === null
 			? null
-			: mapPluginIdentityReferences(definition.dataSources, (reference) =>
-					reference.kind === "self"
-						? { kind: "local", pluginId: PluginId.make(pluginId) }
-						: reference,
+			: Result.getOrThrow(
+					mapPluginIdentityReferences(definition.dataSources, (reference) =>
+						reference.kind === "self"
+							? { kind: "local", pluginId: PluginId.make(pluginId) }
+							: reference,
+					),
 				);
+	const parsedArguments = bindArguments(dataSources?.parameters, definition.arguments);
+	if (Result.isFailure(parsedArguments)) {
+		throw new Error(
+			`Invalid saved view ${definition.slug}: ${parsedArguments.failure.map(({ message }) => message).join("; ")}`,
+		);
+	}
+	const argumentsValue = Result.getOrThrow(
+		Schema.decodeUnknownResult(Schema.Record(Schema.String, JsonValue))(parsedArguments.success),
+	);
 	if (definition.renderer.kind === "plugin") {
 		const page = client?.exports?.[definition.renderer.exportName];
 		if (page?.kind !== "page") {
@@ -58,6 +72,7 @@ export const materializeSavedView = (
 			...definition,
 			pluginId,
 			dataSources,
+			arguments: argumentsValue,
 			renderer: { pluginId, kind: "plugin" as const, exportName: definition.renderer.exportName },
 		};
 	}
@@ -85,7 +100,17 @@ export const materializeSavedView = (
 			subject: { ...subject, schemas: Arr.map(subject.schemas, resolveSchema) },
 		};
 	}
-	return { ...definition, pluginId, settings, dataSources, renderer: definition.renderer };
+	return {
+		...definition,
+		pluginId,
+		settings,
+		arguments: argumentsValue,
+		renderer: definition.renderer,
+		dataSources:
+			dataSources === null
+				? null
+				: Result.getOrThrow(deriveSavedViewQueries(definition.renderer, settings, dataSources)),
+	};
 };
 
 export const materializeCalendarSource = (

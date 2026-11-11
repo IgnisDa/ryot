@@ -3,9 +3,9 @@ import { expect } from "bun:test";
 import type {
 	NamedQuery,
 	Predicate,
-	RowItem,
 	TableReference,
-} from "@ryot-app/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/authored";
+import type { RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	and,
@@ -40,8 +40,10 @@ import { Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
+import { cursorPageContents } from "./fixture.test-support";
 import { RyotQLService } from "./service";
 
 const root = table("entity", "root");
@@ -170,10 +172,12 @@ const execute = Effect.fn(function* (
 	query: NamedQuery,
 	userId?: string,
 	language: null | string = null,
+	after?: string,
 ) {
 	const service = yield* RyotQLService;
 	const result = (yield* service.executeForUser(userId ?? "owner", language, "plugin", {
-		queries: { rows: query },
+		pages: { rows: { after } },
+		source: { kind: "inline", document: { queries: { rows: query } } },
 	})).data["rows"];
 	assert(result?.type === "rows");
 	return { result };
@@ -185,7 +189,6 @@ const ranking = (
 		readonly baseline?: boolean;
 		readonly defaults?: boolean;
 		readonly mode?: "left" | "inner";
-		readonly after?: string | undefined;
 	} = {},
 ) => {
 	const on = and(
@@ -218,7 +221,6 @@ const ranking = (
 	const total = sum(source, castNumber(jsonPath(column(source, "properties"), "score")), query);
 	return rows(root, {
 		limit: 1,
-		after: options.after,
 		orderBy: [descending(total)],
 		where: eq(column(root, "entitySchemaSlug"), literal("root")),
 		fields: [
@@ -274,19 +276,29 @@ const localizedRanking = (baseline: boolean) => {
 	});
 };
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"shares narrow typed keys without changing duplicate measures or tied cursor pages",
 		() =>
 			Effect.gen(function* () {
 				const items: RowItem[] = [];
 				let after: string | undefined;
+				let baselineAfter: string | undefined;
 				do {
-					const actual = yield* execute(ranking({ after }));
-					const baseline = yield* execute(ranking({ after, baseline: true }));
-					expect(actual.result).toEqual(baseline.result);
+					const actual = yield* execute(ranking(), undefined, null, after);
+					const baseline = yield* execute(
+						ranking({ baseline: true }),
+						undefined,
+						null,
+						baselineAfter,
+					);
+					expect(cursorPageContents(actual.result)).toEqual(cursorPageContents(baseline.result));
 					items.push(...actual.result.items);
 					after = actual.result.pageInfo.nextCursor ?? undefined;
+					baselineAfter = baseline.result.pageInfo.nextCursor ?? undefined;
+					if (after !== undefined) {
+						expect(after).not.toBe(baselineAfter);
+					}
 				} while (after);
 				expect(items).toEqual([
 					{ id: "a", keys: 2, count: 4, total: 12, sources: 2, batches: 1 },
@@ -297,7 +309,9 @@ layer(databaseLayer)((test) => {
 				expect((yield* execute(ranking(), "other")).result.items).toEqual([]);
 				const extra = eq(column(keyed, "id"), literal("missing"));
 				const empty = yield* execute(ranking({ extra }));
-				expect(empty.result).toEqual((yield* execute(ranking({ extra, baseline: true }))).result);
+				expect(cursorPageContents(empty.result)).toEqual(
+					cursorPageContents((yield* execute(ranking({ extra, baseline: true }))).result),
+				);
 				expect(empty.result.items).toEqual([
 					{ id: "a", keys: 0, count: 0, sources: 0, batches: 0, total: null },
 				]);
@@ -313,14 +327,16 @@ layer(databaseLayer)((test) => {
 				const query = ranking({ defaults: true });
 				const actual = yield* execute({
 					...query,
-					output: { ...query.output, pagination: { limit: 100 } },
+					output: { ...query.output, pagination: { limit: 100, maxLimit: 100 } },
 				});
 				const baseline = ranking({ defaults: true, baseline: true });
-				expect(actual.result).toEqual(
-					(yield* execute({
-						...baseline,
-						output: { ...baseline.output, pagination: { limit: 100 } },
-					})).result,
+				expect(cursorPageContents(actual.result)).toEqual(
+					cursorPageContents(
+						(yield* execute({
+							...baseline,
+							output: { ...baseline.output, pagination: { limit: 100, maxLimit: 100 } },
+						})).result,
+					),
 				);
 				expect(actual.result.items[2]).toEqual({
 					id: "c",
@@ -343,8 +359,8 @@ layer(databaseLayer)((test) => {
 					{ extra: eq(column(batch, "id"), column(root, "id")) },
 				]) {
 					const actual = yield* execute(ranking(options));
-					expect(actual.result).toEqual(
-						(yield* execute(ranking({ ...options, baseline: true }))).result,
+					expect(cursorPageContents(actual.result)).toEqual(
+						cursorPageContents((yield* execute(ranking({ ...options, baseline: true }))).result),
 					);
 				}
 			}),
@@ -361,8 +377,8 @@ layer(databaseLayer)((test) => {
 					exists(nested, { where: eq(column(nested, "id"), column(keyed, "id")) }),
 				]) {
 					const actual = yield* execute(ranking({ extra }));
-					expect(actual.result).toEqual(
-						(yield* execute(ranking({ extra, baseline: true }))).result,
+					expect(cursorPageContents(actual.result)).toEqual(
+						cursorPageContents((yield* execute(ranking({ extra, baseline: true }))).result),
 					);
 					expect(actual.result.items[0]?.["count"]).toBe(4);
 				}
@@ -375,7 +391,9 @@ layer(databaseLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const actual = yield* execute(nestedRanking(false));
-				expect(actual.result).toEqual((yield* execute(nestedRanking(true))).result);
+				expect(cursorPageContents(actual.result)).toEqual(
+					cursorPageContents((yield* execute(nestedRanking(true))).result),
+				);
 				expect(actual.result.items).toEqual([{ one: 5, two: 0, nested: 5 }]);
 			}),
 		testTimeout,
@@ -398,8 +416,8 @@ layer(databaseLayer)((test) => {
 						}),
 				);
 				const actual = yield* execute(localizedRanking(false), "owner", "es");
-				expect(actual.result).toEqual(
-					(yield* execute(localizedRanking(true), "owner", "es")).result,
+				expect(cursorPageContents(actual.result)).toEqual(
+					cursorPageContents((yield* execute(localizedRanking(true), "owner", "es")).result),
 				);
 				expect(actual.result.items).toEqual([{ count: 1, total: 2 }]);
 				expect((yield* execute(localizedRanking(false))).result.items).toEqual([

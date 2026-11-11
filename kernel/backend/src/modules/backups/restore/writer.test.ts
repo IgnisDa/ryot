@@ -10,6 +10,7 @@ import {
 	definitionOwner,
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import {
 	BackupRunId,
 	EntityId,
@@ -31,6 +32,7 @@ import {
 	rows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf, arrayContaining } from "@ryot-app/testing/matchers";
@@ -548,6 +550,7 @@ const provenanceRecords = (
 			: {
 					sortOrder: 0,
 					icon: "list",
+					arguments: {},
 					kind: "custom",
 					isHidden: false,
 					isBuiltin: false,
@@ -1508,9 +1511,12 @@ describe("account backup restore in PostgreSQL", () => {
 								expect(
 									yield* persistence.restoreCustomView({
 										userId,
+										sort: null,
+										filter: null,
 										icon: "view",
 										settings: {},
 										sortOrder: 0,
+										arguments: {},
 										isHidden: false,
 										dataSources: null,
 										id: "archived-view",
@@ -1988,6 +1994,7 @@ describe("account backup restore in PostgreSQL", () => {
 									{
 										icon: "box",
 										sortOrder: 0,
+										arguments: {},
 										slug: "all-bottles",
 										name: "All bottles",
 										dataSources: authoredQuery,
@@ -2042,15 +2049,56 @@ describe("account backup restore in PostgreSQL", () => {
 							);
 							const entityId = EntityId.make(yield* randomUuid);
 							const entityTable = table("entity", "bottles");
-							const dataSources = document({
-								records: rows(entityTable, {
-									fields: [
-										field("id", column(entityTable, "id")),
-										field("owner", pluginId({ kind: "local", pluginId: PluginId.make(sourceId) })),
-										field("literal", literal(sourceId)),
-									],
-								}),
+							const sourceProperty = {
+								type: "string",
+								label: "Source",
+								description: "Saved source",
+								reference: { kind: "entity-source" },
+							} as const;
+							const savedParameters = parameters({
+								fields: {
+									customSource: sourceProperty,
+									opaque: {
+										label: "Text",
+										type: "string",
+										defaultValue: sourceId,
+										description: "Ordinary text",
+									},
+									entity: {
+										type: "string",
+										label: "Entity",
+										defaultValue: entityId,
+										description: "Selected entity",
+										reference: { kind: "entity-id" },
+									},
+									source: {
+										...sourceProperty,
+										defaultValue: encodeEntitySourceReference({
+											kind: "saved-view",
+											reference: {
+												kind: "plugin",
+												slug: "all-bottles",
+												pluginId: PluginId.make(sourceId),
+											},
+										}),
+									},
+								},
 							});
+							const dataSources = {
+								parameters: savedParameters.schema,
+								...document({
+									records: rows(entityTable, {
+										fields: [
+											field("id", column(entityTable, "id")),
+											field(
+												"owner",
+												pluginId({ kind: "local", pluginId: PluginId.make(sourceId) }),
+											),
+											field("literal", literal(sourceId)),
+										],
+									}),
+								}),
+							};
 							yield* session.transaction(
 								Effect.gen(function* () {
 									const installation = yield* persistence.restoreInstallation({
@@ -2162,6 +2210,7 @@ describe("account backup restore in PostgreSQL", () => {
 											},
 										});
 									}
+									let firstViewId: string | undefined;
 									for (const suffix of ["", "-extra", "-unassociated"]) {
 										const pluginInstallationId =
 											suffix === "-unassociated" ? null : installation.id;
@@ -2183,9 +2232,11 @@ describe("account backup restore in PostgreSQL", () => {
 											providerSpecifics: pluginInstallationId === null ? {} : { note: sourceId },
 										});
 										const view = yield* persistence.restoreCustomView({
+											sort: null,
 											name: label,
 											icon: "box",
 											dataSources,
+											filter: null,
 											sortOrder: 0,
 											isHidden: false,
 											userId: sourceUser,
@@ -2202,8 +2253,21 @@ describe("account backup restore in PostgreSQL", () => {
 												sourceName: "records",
 												columns: [{ label: "Owner", field: "owner", displayKind: "text" }],
 											},
+											arguments:
+												firstViewId === undefined
+													? {}
+													: {
+															customSource: encodeEntitySourceReference({
+																kind: "saved-view",
+																reference: {
+																	kind: "custom",
+																	savedViewId: SavedViewId.make(firstViewId),
+																},
+															}),
+														},
 										});
 										assert(view);
+										firstViewId ??= view.id;
 										if (suffix === "" && label === "B") {
 											yield* persistence.restorePublication({
 												icon: "share",
@@ -2479,7 +2543,38 @@ describe("account backup restore in PostgreSQL", () => {
 										packageId: source.packageValue.manifest.metadata.packageId,
 									}),
 								);
-								expect(view.dataSources?.queries["records"]?.output).toMatchObject({
+
+								const selectedEntity = restoredEntities.find((entity) => entity.name === view.name);
+								assert(selectedEntity && destinationId);
+								const firstView = restoredViews.find(
+									(candidate) => candidate.slug === `bottles-${view.name.toLowerCase()}`,
+								);
+								assert(firstView);
+								expect(view.arguments).toEqual({
+									opaque: source.sourceId,
+									entity: selectedEntity.id,
+									source: encodeEntitySourceReference({
+										kind: "saved-view",
+										reference: {
+											kind: "plugin",
+											slug: "all-bottles",
+											pluginId: PluginId.make(destinationId),
+										},
+									}),
+									...(view.id === firstView.id
+										? {}
+										: {
+												customSource: encodeEntitySourceReference({
+													kind: "saved-view",
+													reference: {
+														kind: "custom",
+														savedViewId: SavedViewId.make(firstView.id),
+													},
+												}),
+											}),
+								});
+								assert(view.dataSources?.queries["count"] && view.dataSources.queries["ids"]);
+								expect(view.dataSources.queries["records"]?.output).toMatchObject({
 									fields: [
 										{},
 										{ expr: { reference: { kind: "local", pluginId: destinationId } } },
@@ -2488,7 +2583,7 @@ describe("account backup restore in PostgreSQL", () => {
 								});
 								const installation = yield* installations.findByUserAndPlugin(
 									destinationUser,
-									destinationId ?? "",
+									destinationId,
 								);
 								expect(view.pluginInstallationId).toBe<unknown>(
 									view.slug.endsWith("-unassociated") ? null : installation?.id,
@@ -2884,6 +2979,7 @@ layer(assetRestoreLayer("user-id"))((test) => {
 								{
 									sortOrder: 0,
 									settings: {},
+									arguments: {},
 									kind: "custom",
 									isHidden: false,
 									pluginKey: null,
@@ -2919,6 +3015,7 @@ layer(assetRestoreLayer("foreign-owner"))((test) => {
 								{
 									icon: "box",
 									sortOrder: 0,
+									arguments: {},
 									kind: "custom",
 									isHidden: false,
 									pluginKey: null,

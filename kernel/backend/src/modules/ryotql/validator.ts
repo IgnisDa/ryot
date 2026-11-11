@@ -104,6 +104,21 @@ const validateExpression = (
 	if (expr.type === "cast") {
 		return validateExpression(expr.expr, scope, correlatedDepth, executionScope, elementDepth);
 	}
+	if (expr.type === "dateAdd") {
+		const error = validateExpression(
+			expr.expr,
+			scope,
+			correlatedDepth,
+			executionScope,
+			elementDepth,
+		);
+		return (
+			error ??
+			(expressionKind(expr.expr, scope, executionScope) === "date"
+				? null
+				: "Date arithmetic requires a date expression")
+		);
+	}
 	if (expr.type === "dateBucket" || expr.type === "localHour" || expr.type === "localDate") {
 		const expressionError = validateExpression(
 			expr.expr,

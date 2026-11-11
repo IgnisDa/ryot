@@ -710,11 +710,11 @@ export default defineProvider({ manifest, operation: "search", run: input => Eff
 			Effect.gen(function* () {
 				const compiled = yield* compileTestScript(
 					defineNativeScript(
-						'() => Effect.succeed(Effect === Reflect.get(PluginRuntime, "Effect") && sdkTable === pluginTable)',
+						'() => Effect.succeed(Effect === Reflect.get(PluginRuntime, "Effect") && sdkTable === pluginTable && sdkParameterFields === pluginParameterFields && typeof reportingGroupingExpression === "function" && typeof librarySearchQuery === "function")',
 						{
 							imports: `import * as PluginRuntime from "@ryot-app/plugin-kit/effect";
-import { table as sdkTable } from "@ryot-app/plugin-backend-sdk/ryotql";
-import { table as pluginTable } from "@ryot-app/plugin-kit/ryotql";`,
+import { table as sdkTable, reportingParameterFields as sdkParameterFields } from "@ryot-app/plugin-backend-sdk/ryotql";
+import { table as pluginTable, reportingParameterFields as pluginParameterFields, reportingGroupingExpression, librarySearchQuery } from "@ryot-app/plugin-kit/ryotql";`,
 						},
 					),
 				);

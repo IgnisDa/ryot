@@ -117,21 +117,6 @@ const makeActiveScript = (id: string) => ({
 
 const resolvedOperation = (available: AvailableOperation) => ({
 	script: makeActiveScript(available.scriptId ?? `${available.installationId}-script`),
-	operation:
-		available.auth === "user"
-			? {
-					auth: available.auth,
-					slug: OPERATION_SLUG,
-					scriptSlug: DRIVER_REF,
-					demoAccess: available.demoAccess,
-					description: "Fixture operation",
-				}
-			: {
-					auth: available.auth,
-					slug: OPERATION_SLUG,
-					scriptSlug: DRIVER_REF,
-					description: "Fixture operation",
-				},
 	plugin: {
 		isHidden: false,
 		clientImports: [],
@@ -149,6 +134,27 @@ const resolvedOperation = (available: AvailableOperation) => ({
 		manifest: fixtureManifest(availablePackageId(available)),
 		ownerUserId: available.scope === "user" ? available.ownerId : null,
 	},
+	operation:
+		available.auth === "user"
+			? {
+					auth: available.auth,
+					slug: OPERATION_SLUG,
+					scriptSlug: DRIVER_REF,
+					input: { type: "object" },
+					output: { type: "string" },
+					demoAccess: available.demoAccess,
+					description: "Fixture operation",
+					hints: { readOnly: true, idempotent: true, destructive: false },
+				}
+			: {
+					auth: available.auth,
+					slug: OPERATION_SLUG,
+					scriptSlug: DRIVER_REF,
+					input: { type: "object" },
+					output: { type: "string" },
+					description: "Fixture operation",
+					hints: { readOnly: true, idempotent: true, destructive: false },
+				},
 });
 
 const makeIntegration = (input: {

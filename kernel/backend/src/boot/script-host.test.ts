@@ -5,7 +5,7 @@ import {
 	definitionKey,
 	definitionOwnerPluginId,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	SandboxExecutionSubject,
 	SandboxScriptMetadata,
@@ -28,6 +28,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -253,12 +254,13 @@ const ryotqlDocument = {
 	queries: {
 		entities: {
 			from: { table: "entity", alias: "entity" },
-			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10 } },
+			output: { fields: [], orderBy: [], type: "rows", pagination: { limit: 10, maxLimit: 10 } },
 		},
 	},
 } as const satisfies RyotQLDocument;
 
 const ryotqlResponse = {
+	execution: { now: 0, timeZone: UTC },
 	data: {
 		entities: {
 			items: [],
@@ -1608,7 +1610,11 @@ describe("getPluginConfig", () => {
 
 const runExecuteRyotql = (input: ScriptRunInput, document: RyotQLDocument = ryotqlDocument) =>
 	makeAdditionalScriptHostFunctions.pipe(
-		Effect.flatMap((functions) => Effect.result(functions.executeRyotql(input, document))),
+		Effect.flatMap((functions) =>
+			Effect.result(
+				functions.executeRyotql(input, { source: { kind: "inline", document: document } }),
+			),
+		),
 	);
 
 describe("executeRyotql", () => {
@@ -1630,12 +1636,13 @@ describe("executeRyotql", () => {
 					expect(Result.getOrThrow(result)).toEqual(ryotqlResponse);
 					expect(yield* calls.ryotqlPluginCalls).toEqual([
 						{
-							document: ryotqlDocument,
+							document: { source: { kind: "inline", document: ryotqlDocument } },
 							scope: {
 								eventSchemas: [],
 								signalSchemaSlugs: [],
 								entitySchemaSlugs: ["example"],
 								pluginId: systemPluginRevision.id,
+								packageId: systemPluginRevision.packageId,
 								relationshipSchemaSlugs: ["example-monitoring"],
 								pluginRevisionId: systemPluginRevision.revisionId,
 							},
@@ -1658,7 +1665,12 @@ describe("executeRyotql", () => {
 					expect(Result.getOrThrow(result)).toEqual(ryotqlResponse);
 					expect(yield* calls.ryotqlPluginCalls).toEqual([]);
 					expect(yield* calls.ryotqlUserCalls).toEqual([
-						{ language: null, userId: "user-1", audience: "plugin", document: ryotqlDocument },
+						{
+							language: null,
+							userId: "user-1",
+							audience: "plugin",
+							document: { source: { kind: "inline", document: ryotqlDocument } },
+						},
 					]);
 				}),
 			testTimeout,

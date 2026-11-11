@@ -9,7 +9,7 @@ import { Effect, Layer, Result } from "effect";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { importActivity, importIssue, importItem, importRun } from "#schema/tables/imports";
-import { makeConfigProviderLayer } from "#testing/effect";
+import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { RyotQLService } from "./service";
@@ -19,7 +19,7 @@ const testLayer = RyotQLService.layer.pipe(
 	Layer.provide(makeConfigProviderLayer()),
 );
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"aggregates committed batches by kind and unit and isolates attributed issue pages",
 		() =>
@@ -123,9 +123,20 @@ layer(testLayer)((test) => {
 					}),
 				);
 				const service = yield* RyotQLService;
-				const recipe = manualImportRunsRecipe({ limit: 10 });
+				const recipe = manualImportRunsRecipe;
+				const recipeRequest = {
+					arguments: {},
+					source: { kind: "inline", document: recipe.document } as const,
+					pages: Object.fromEntries(
+						Object.entries(recipe.document.queries).flatMap(([key, query]) =>
+							query.output.type === "rows" || query.output.groupBy?.length
+								? [[key, { limit: 10 }]]
+								: [],
+						),
+					),
+				};
 				const runs = Result.getOrThrow(
-					recipe.decode(yield* service.executeForUser("owner", null, "kernel", recipe.document)),
+					recipe.decode(yield* service.executeForUser("owner", null, "kernel", recipeRequest)),
 				);
 				const run = runs.items[0];
 				assert(run);
@@ -138,10 +149,21 @@ layer(testLayer)((test) => {
 				]);
 				expect(run.activities[0]?.unit).toBe("files");
 				expect(run.activities[0]?.exactTotal).toBeNull();
-				const issuesRecipe = importIssuesRecipe({ limit: 1, runId: "run" });
+				const issuesRecipe = importIssuesRecipe;
+				const issuesRecipeRequest = {
+					arguments: { runId: "run" },
+					source: { kind: "inline", document: issuesRecipe.document } as const,
+					pages: Object.fromEntries(
+						Object.entries(issuesRecipe.document.queries).flatMap(([key, query]) =>
+							query.output.type === "rows" || query.output.groupBy?.length
+								? [[key, { limit: 1 }]]
+								: [],
+						),
+					),
+				};
 				const issues = Result.getOrThrow(
 					issuesRecipe.decode(
-						yield* service.executeForUser("owner", null, "kernel", issuesRecipe.document),
+						yield* service.executeForUser("owner", null, "kernel", issuesRecipeRequest),
 					),
 				);
 				expect(issues.items[0]?.data.attribution).toEqual({
@@ -150,27 +172,34 @@ layer(testLayer)((test) => {
 					sourceIdentifier: "source-play",
 				});
 				assert(issues.pageInfo.nextCursor);
-				const nextRecipe = importIssuesRecipe({
-					limit: 1,
-					runId: "run",
-					after: issues.pageInfo.nextCursor,
-				});
+				const nextRecipe = importIssuesRecipe;
+				const nextRecipeRequest = {
+					arguments: { runId: "run" },
+					source: { kind: "inline", document: nextRecipe.document } as const,
+					pages: Object.fromEntries(
+						Object.entries(nextRecipe.document.queries).flatMap(([key, query]) =>
+							query.output.type === "rows" || query.output.groupBy?.length
+								? [[key, { limit: 1, after: issues.pageInfo.nextCursor ?? undefined }]]
+								: [],
+						),
+					),
+				};
 				const next = Result.getOrThrow(
 					nextRecipe.decode(
-						yield* service.executeForUser("owner", null, "kernel", nextRecipe.document),
+						yield* service.executeForUser("owner", null, "kernel", nextRecipeRequest),
 					),
 				);
 				expect(next.items.map(({ id }) => id)).toEqual(["issue-b"]);
 				expect(
 					Result.getOrThrow(
 						issuesRecipe.decode(
-							yield* service.executeForUser("other", null, "kernel", issuesRecipe.document),
+							yield* service.executeForUser("other", null, "kernel", issuesRecipeRequest),
 						),
 					).items,
 				).toEqual([]);
 				expect(
 					Result.getOrThrow(
-						recipe.decode(yield* service.executeForUser("other", null, "kernel", recipe.document)),
+						recipe.decode(yield* service.executeForUser("other", null, "kernel", recipeRequest)),
 					).items,
 				).toEqual([]);
 			}),

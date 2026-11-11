@@ -108,6 +108,7 @@ export const pluginRevision = snakeCase.table(
 		createdAt: timestamptz().defaultNow().notNull(),
 		client: jsonb().$type<PluginManifest["client"]>(),
 		manifest: jsonb().$type<PluginManifest>().notNull(),
+		queries: jsonb().$type<PluginManifest["queries"]>(),
 		packageId: text().$type<PluginPackageId>().notNull(),
 		clientConfigSchema: jsonb().$type<AppSchema>().notNull(),
 		hooks: jsonb().$type<PluginManifest["hooks"]>().notNull(),

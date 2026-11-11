@@ -11,6 +11,11 @@ export {
 	sandboxHostCapabilitySchema,
 	SYSTEM_CRON_SANDBOX_HOST_CAPABILITIES,
 } from "./core/capabilities";
+export {
+	executeRyotqlArgsSchema,
+	executeRyotqlDataSchema,
+	executeRyotqlResultSchema,
+} from "./core/ryotql";
 export type {
 	PolicyHost,
 	ScriptHost,
@@ -22,12 +27,6 @@ export {
 	commitUserChangesArgsSchema,
 	commitUserChangesResultSchema,
 } from "./core/user-commands";
-export {
-	ryotqlDocumentSchema,
-	executeRyotqlArgsSchema,
-	executeRyotqlDataSchema,
-	executeRyotqlResultSchema,
-} from "./core/ryotql";
 export type {
 	ScriptManifest,
 	SandboxManifest,

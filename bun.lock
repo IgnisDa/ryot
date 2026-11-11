@@ -196,6 +196,7 @@
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/ryotql-recipes": "workspace:*",
         "@ryot-app/sandbox": "workspace:*",
         "@ryot-app/ts-utils": "workspace:*",
@@ -211,7 +212,6 @@
         "rotating-file-stream": "3.2.10",
       },
       "devDependencies": {
-        "@ryot-app/ryotql": "workspace:*",
         "@ryot-app/testing": "workspace:*",
         "@testcontainers/postgresql": "12.2.1",
         "@types/pg": "8.23.1",
@@ -701,6 +701,7 @@
         "@ryot-app/plugin-backend-sdk": "workspace:*",
         "@ryot-app/plugin-kit": "workspace:*",
         "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
       },
       "devDependencies": {
         "@ryot-app/cli": "workspace:*",
@@ -734,6 +735,8 @@
       "devDependencies": {
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/cli": "workspace:*",
+        "@ryot-app/fitness-plugin": "workspace:*",
+        "@ryot-app/fixture-plugin": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
         "@ryot-app/plugin-client-sdk": "workspace:*",

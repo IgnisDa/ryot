@@ -35,7 +35,12 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { bindRyotQLDocument, pluginIdentityReferences } from "./binding";
-import { validateRyotQLDocument } from "./validator";
+import {
+	executableFieldsFixture,
+	executableFixture,
+	executablePredicateFixture,
+	validateAuthoredFixture,
+} from "./fixture.test-support";
 
 const countMatchingValues = (value: unknown, key: string, expected: string): number => {
 	if (isUnknownArray(value)) {
@@ -75,7 +80,7 @@ it.effect(
 			const nested = table("entity", "nested");
 			const owner = pluginId({ packageId, scope: "user", kind: "package" });
 			const self = pluginId({ kind: "self" });
-			const validated = validateRyotQLDocument(
+			const validated = validateAuthoredFixture(
 				{
 					queries: {
 						rows: rows(root, {
@@ -113,13 +118,17 @@ it.effect(
 			expect(query.output.fields.map(({ key }) => key)).toEqual(
 				original.output.fields.map(({ key }) => key),
 			);
-			expect(query.output.fields.at(-1)).toEqual(field("owner", pluginId(local)));
-			expect(query.output.include?.[0].fields.at(-1)).toEqual(field("self", pluginId(local)));
+			expect(query.output.fields.at(-1)).toEqual(
+				executableFieldsFixture([field("owner", pluginId(local))])[0],
+			);
+			expect(query.output.include?.[0].fields.at(-1)).toEqual(
+				executableFieldsFixture([field("self", pluginId(local))])[0],
+			);
 			expect(query.output.include?.[0].fields.map(({ expr }) => expr.type)).toEqual(
 				original.output.include?.[0].fields.map(({ expr }) => expr.type),
 			);
 			expect(query.output.include?.[0].where).toEqual(
-				eq(column(nested, "entitySchemaPluginId"), pluginId(local)),
+				executablePredicateFixture(eq(column(nested, "entitySchemaPluginId"), pluginId(local))),
 			);
 			expect(pluginIdentityReferences(validated.value)).toEqual([
 				{ packageId, scope: "user", kind: "package" },
@@ -199,8 +208,10 @@ it.effect(
 					}),
 				},
 			};
-			const bound = yield* bindRyotQLDocument(document, user, catalog);
-			const ordinary = document.queries.rows.output.fields[1];
+			const bound = yield* bindRyotQLDocument(executableFixture(document), user, catalog);
+			const original = executableFixture(document).queries["rows"];
+			assert(original?.output.type === "rows");
+			const ordinary = original.output.fields[1];
 			expect(
 				bound.queries["rows"]?.output.type === "rows" && bound.queries["rows"].output.fields[1],
 			).toEqual(ordinary);
@@ -227,7 +238,7 @@ it.effect(
 				},
 			};
 			const bound = yield* bindRyotQLDocument(
-				document,
+				executableFixture(document),
 				{
 					...user,
 					definitionContext: {
@@ -246,9 +257,9 @@ it.effect(
 			});
 			expect(
 				yield* bindRyotQLDocument(
-					{
+					executableFixture({
 						queries: { rows: rows(root, { fields: [field("self", pluginId({ kind: "self" }))] }) },
-					},
+					}),
 					{
 						...user,
 						definitionContext: {
@@ -263,7 +274,9 @@ it.effect(
 					rows: { output: { fields: [{ expr: { type: "pluginId", reference: local } }] } },
 				},
 			});
-			expect(yield* Effect.flip(bindRyotQLDocument(document, user, catalog))).toMatchObject({
+			expect(
+				yield* Effect.flip(bindRyotQLDocument(executableFixture(document), user, catalog)),
+			).toMatchObject({
 				reason: {
 					issue: "self-unbound",
 					reference: { kind: "self" },
@@ -283,7 +296,9 @@ it.effect(
 				queries: { rows: rows(root, { fields: [field("owner", pluginId(privateReference))] }) },
 			};
 			expect(
-				yield* Effect.flip(bindRyotQLDocument(document, { type: "admin" }, catalog)),
+				yield* Effect.flip(
+					bindRyotQLDocument(executableFixture(document), { type: "admin" }, catalog),
+				),
 			).toMatchObject({
 				reason: {
 					issue: "wrong-scope",
@@ -291,7 +306,9 @@ it.effect(
 					code: "unresolved-query-owner",
 				},
 			});
-			expect(yield* Effect.flip(bindRyotQLDocument(document, user, [catalog[1]]))).toMatchObject({
+			expect(
+				yield* Effect.flip(bindRyotQLDocument(executableFixture(document), user, [catalog[1]])),
+			).toMatchObject({
 				reason: {
 					issue: "wrong-scope",
 					reference: privateReference,
@@ -303,7 +320,9 @@ it.effect(
 				queries: { rows: rows(root, { fields: [field("owner", pluginId(systemReference))] }) },
 			};
 			expect(
-				yield* Effect.flip(bindRyotQLDocument(systemDocument, user, [catalog[0]])),
+				yield* Effect.flip(
+					bindRyotQLDocument(executableFixture(systemDocument), user, [catalog[0]]),
+				),
 			).toMatchObject({
 				reason: {
 					issue: "wrong-scope",
@@ -320,17 +339,23 @@ it.effect(
 				queries: { rows: rows(root, { fields: [field("owner", pluginId(unknownReference))] }) },
 			};
 			expect(
-				yield* Effect.flip(bindRyotQLDocument(unknownDocument, user, [catalog[0]])),
+				yield* Effect.flip(
+					bindRyotQLDocument(executableFixture(unknownDocument), user, [catalog[0]]),
+				),
 			).toMatchObject({
 				reason: { issue: "missing", reference: unknownReference, code: "unresolved-query-owner" },
 			});
 			const exact = {
 				queries: { rows: rows(root, { fields: [field("owner", pluginId(local))] }) },
 			};
-			expect(yield* Effect.flip(bindRyotQLDocument(exact, user, [catalog[1]]))).toMatchObject({
+			expect(
+				yield* Effect.flip(bindRyotQLDocument(executableFixture(exact), user, [catalog[1]])),
+			).toMatchObject({
 				reason: { reference: local, issue: "unavailable", code: "unresolved-query-owner" },
 			});
-			expect(yield* bindRyotQLDocument(exact, { type: "admin" }, catalog)).toEqual(exact);
+			expect(
+				yield* bindRyotQLDocument(executableFixture(exact), { type: "admin" }, catalog),
+			).toEqual(executableFixture(exact));
 		}),
 	testTimeout,
 );
@@ -359,7 +384,7 @@ it.effect(
 				},
 			};
 			const bound = yield* bindRyotQLDocument(
-				document,
+				executableFixture(document),
 				{
 					...user,
 					definitionContext: {
@@ -373,7 +398,9 @@ it.effect(
 				{ expr: { condition: { left: { type: "pluginId", reference: local } } } },
 			]);
 			expect(pluginIdentityReferences(bound)).toEqual([local]);
-			expect(yield* Effect.flip(bindRyotQLDocument(document, user, catalog))).toMatchObject({
+			expect(
+				yield* Effect.flip(bindRyotQLDocument(executableFixture(document), user, catalog)),
+			).toMatchObject({
 				reason: {
 					issue: "self-unbound",
 					reference: { kind: "self" },

@@ -59,9 +59,12 @@ const fakeLayer = Layer.unwrap(
 			operation: {
 				slug: OPERATION_SLUG,
 				auth: "user" as const,
+				input: { type: "object" },
+				output: { type: "string" },
 				demoAccess: "allowed" as const,
 				description: "Rejecting operation",
 				scriptSlug: installed.compiled.manifest.slug,
+				hints: { readOnly: true, idempotent: true, destructive: false },
 			},
 			script: {
 				providerId: null,

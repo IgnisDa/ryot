@@ -1,7 +1,7 @@
 import { expect, it } from "bun:test";
 
 import type { BrowseField, EntitySchemaBrowse } from "@ryot-app/contract/modules/filters/browse";
-import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { castNumber, castText, column, jsonPath, literal, table } from "@ryot-app/ryotql";
 
 import { browseConsistencyIssue, browseIssue } from "./browse-validation";
@@ -136,4 +136,25 @@ it("requires sort-only fields sharing a key to sort the same kind", () => {
 			{ slug: "show", ...sorted(column(subject, "name")) },
 		]),
 	).toBe("Browse field 'added' differs between entity schemas movie and show");
+});
+
+it("rejects caller placeholders in standalone browse declarations", () => {
+	for (const expression of [
+		{ name: "search", type: "parameter" },
+		{ type: "choice", parameter: "mode", cases: { name: { value: "name", type: "literal" } } },
+		{
+			type: "conditional",
+			condition: { type: "filter" },
+			whenTrue: { value: "yes", type: "literal" },
+			whenFalse: { value: "no", type: "literal" },
+		},
+	] as const) {
+		expect(
+			browseIssue({
+				fields: [
+					{ expression, type: "text", kind: "value", key: "standalone", label: "Standalone" },
+				],
+			}),
+		).toBeDefined();
+	}
 });

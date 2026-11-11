@@ -163,6 +163,35 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 							on conflict do nothing
 						`),
 					);
+					yield* session.run((db) =>
+						db.execute(sql`
+                        with arguments as (
+                            select field.value as definition,
+                                coalesce(view.arguments -> field.key, field.value -> 'defaultValue') as value
+                            from ${schema.savedView} as view
+                            cross join lateral jsonb_each(view.data_sources -> 'parameters' -> 'fields') as field
+                            where view.user_id = ${userId}
+                        ), saved_reference as (
+                            select value #>> '{}' as id from arguments
+                            where definition ->> 'type' = 'string'
+                                and definition #>> '{reference,kind}' = 'entity-id'
+                                and jsonb_typeof(value) = 'string'
+                            union
+                            select element.value #>> '{}' from arguments
+                            cross join lateral jsonb_array_elements(case when jsonb_typeof(arguments.value) = 'array' then arguments.value else '[]'::jsonb end) as element(value)
+                            where definition ->> 'type' = 'array'
+                                and definition #>> '{items,type}' = 'string'
+                                and definition #>> '{items,reference,kind}' = 'entity-id'
+                                and jsonb_typeof(element.value) = 'string'
+                        )
+                        insert into ${schema.backupStagingRecord} (run_id, namespace, id, section, value)
+                        select ${runId}, 'entity', target.id, 'entity-dependencies.ndjson', 'null'::jsonb
+                        from saved_reference inner join ${schema.entity} as target on target.id = saved_reference.id
+                        where target.user_id is null
+                        on conflict do nothing
+                    `),
+					);
+
 					if (declarations.length === 0) {
 						return;
 					}

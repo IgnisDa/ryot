@@ -237,3 +237,21 @@ describe("signal schedule materialization", () => {
 		).toThrow("Invalid signal schedule entity-due");
 	});
 });
+
+describe("row-source authored declaration context", () => {
+	it("rejects undeclared values and control escape before kernel windows are composed", () => {
+		const source = authoredSource();
+		for (const where of [
+			{
+				operator: "eq",
+				type: "comparison",
+				left: column(entity, "name"),
+				right: { name: "start", type: "parameter" },
+			},
+			{ type: "whenSet", parameter: "search", predicate: { type: "and", predicates: [] } },
+			{ type: "filter" },
+		] as const) {
+			expect(issue({ query: { ...source.query, where } })).toBeDefined();
+		}
+	});
+});

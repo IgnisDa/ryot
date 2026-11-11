@@ -10,8 +10,7 @@ visit without deleting anything.
 
 ## Subjects
 
-Every visitor request first resolves the source to a RyotQL rows query and runs it as the owner, in
-the `plugin` audience, inside the same read-only transaction as the visitor's query. The distinct
+Every visitor request resolves the collection or saved-view reference through canonical `sourceEntity` authority and binding as the owner, in the `plugin` audience, inside the same read-only transaction as the visitor's query. The distinct
 subject IDs, ranked by that query's order, become the subject set. More than
 `PUBLICATION_SUBJECT_LIMIT` subjects refuses the request instead of truncating. A deleted collection,
 a missing saved view, or one that no longer uses the entity-browser renderer makes the publication
@@ -47,3 +46,12 @@ share one limit. Each session allows six concurrent reads, enough for
 a page's parallel queries. These limits are per process. Visitor statements time out after ten
 seconds and results are capped at 2 MB. Asset downloads resolve only for managed assets referenced by
 a current subject's properties or translations.
+
+## Query boundary
+
+Visitor RyotQL takes the same `ExecutionRequest` as authenticated execution, restricted to inline
+sources, including an optional selected name. Saved-view, plugin and page sources are refused.
+Arguments, controls, reporting zone and clock bind server-side under the existing publication scope.
+Visitor describe uses the same session, source cap and visibility checks, returning only metadata
+validated against publication-readable fields and effective kernel/system definitions. Source loading
+shares the canonical entity-source resolver; there is no client-side or publication-specific binder.

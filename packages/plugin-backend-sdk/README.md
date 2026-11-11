@@ -7,7 +7,10 @@ tagged errors), and map external-library failures where they enter the script. T
 continue to fail with `SandboxHostError`; composing them into `run` includes that error in its
 inferred failure union. No plugin-wide error schema is required.
 
-`executeRyotqlRecipe` keeps host failures in their original channel and returns
+`executeRyotqlRecipe(executeRyotql, recipe, arguments, options?)` takes the host execution function
+and sends it the canonical ExecutionRequest.
+Options carry request filter, sort, and pages; selected recipes include their named query. Server
+binding supplies execution clock and authority. `executeRyotqlRecipe` keeps host failures in their original channel and returns
 `RyotqlRecipeDecodeError` for malformed recipe responses. `runSandboxTestScript` infers the
 script's failure channel rather than erasing it in tests.
 

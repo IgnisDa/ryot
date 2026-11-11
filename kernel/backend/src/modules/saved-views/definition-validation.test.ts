@@ -1,17 +1,12 @@
 import { expect } from "bun:test";
 
-import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
+import { RyotQLDocument as AuthoredDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
-import {
-	EntitySchemaSlug,
-	PluginId,
-	PluginPackageId,
-	RelationshipSchemaSlug,
-} from "@ryot-app/contract/schema/brands";
+import { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
 	column,
@@ -28,7 +23,9 @@ import {
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
-import { Effect } from "effect";
+import { Effect, Result, Schema } from "effect";
+
+import { executableFixture } from "#modules/ryotql/fixture.test-support";
 
 import {
 	validateEntityBrowserSavedViewDefinition,
@@ -59,7 +56,6 @@ const browserSettings = {
 	tableColumns: null,
 	defaultLayout: "grid",
 	sourceName: "entities",
-	searchFields: ["name"],
 	layouts: ["grid", "list"],
 	summary: { image: null, subtitle: null },
 	subject: {
@@ -87,7 +83,11 @@ const browserSettings = {
 
 it.effect(
 	"accepts a canonical entity-browser definition",
-	() => validateEntityBrowserSavedViewDefinition({ dataSources, settings: browserSettings }),
+	() =>
+		validateEntityBrowserSavedViewDefinition({
+			settings: browserSettings,
+			dataSources: executableFixture(dataSources),
+		}),
 	testTimeout,
 );
 
@@ -116,7 +116,10 @@ const rejectsBrowserSettings = (
 ) =>
 	Effect.gen(function* () {
 		const exit = yield* Effect.exit(
-			validateEntityBrowserSavedViewDefinition({ settings, dataSources: source }),
+			validateEntityBrowserSavedViewDefinition({
+				settings,
+				dataSources: executableFixture(source),
+			}),
 		);
 		assertExitFails(
 			exit,
@@ -209,7 +212,7 @@ it.effect(
 	"does not apply entity provenance validation to plugin-route add actions",
 	() =>
 		validateEntityBrowserSavedViewDefinition({
-			dataSources,
+			dataSources: executableFixture(dataSources),
 			settings: {
 				...browserSettings,
 				addAction: {
@@ -223,11 +226,11 @@ it.effect(
 	testTimeout,
 );
 
-const tableSettings = (filterFields: readonly FilterField[]) => ({
-	filterFields,
+const tableSettings = () => ({
 	pageSize: 20,
 	entityLink: null,
 	sourceName: "entities",
+	controls: { filter: true },
 	rowKeyFields: ["entityId"] as const,
 	columns: [{ label: "Name", field: "name", displayKind: "text" }] as const,
 });
@@ -243,22 +246,26 @@ it.effect(
 				kind: "value",
 				field: "name",
 			} as const;
-			yield* validateResultsTableSavedViewDefinition({
-				dataSources,
-				settings: tableSettings([nameField]),
-			});
+			yield* validateSavedViewDefinition(
+				{ kind: "kernel", name: "results-table" },
+				tableSettings(),
+				{ ...dataSources, controls: { filter: { kind: "outputs", fields: [nameField] } } },
+				null,
+			);
 			for (const [filterFields, message] of [
-				[[nameField, nameField], "Filter field key 'name' must be unique"],
+				[[nameField, nameField], "Control filter keys must be unique"],
 				[
 					[{ ...nameField, field: "missing" }],
-					"Filter field 'name' must reference a projected scalar field",
+					"Filter field 'name' references missing output field 'missing'",
 				],
 			] as const) {
 				const exit = yield* Effect.exit(
-					validateResultsTableSavedViewDefinition({
-						dataSources,
-						settings: tableSettings(filterFields),
-					}),
+					validateSavedViewDefinition(
+						{ kind: "kernel", name: "results-table" },
+						tableSettings(),
+						{ ...dataSources, controls: { filter: { kind: "outputs", fields: filterFields } } },
+						null,
+					),
 				);
 				assertExitFails(
 					exit,
@@ -272,40 +279,25 @@ it.effect(
 it.effect(
 	"rejects relationship filter fields on results tables",
 	() =>
-		Effect.gen(function* () {
-			const exit = yield* Effect.exit(
-				validateResultsTableSavedViewDefinition({
-					dataSources,
-					settings: {
-						pageSize: 20,
-						entityLink: null,
-						sourceName: "entities",
-						rowKeyFields: ["entityId"],
-						columns: [{ label: "Name", field: "name", displayKind: "text" }],
-						filterFields: [
+		Effect.sync(() => {
+			const decoded = Schema.decodeUnknownResult(AuthoredDocument)({
+				...dataSources,
+				controls: {
+					filter: {
+						kind: "outputs",
+						fields: [
 							{
 								key: "tags",
 								label: "Tags",
 								kind: "relationship",
 								direction: "outgoing",
-								relationship: {
-									owner: { kind: "kernel" },
-									slug: RelationshipSchemaSlug.make("tagged"),
-								},
+								relationship: { slug: "tagged", owner: { kind: "kernel" } },
 							},
 						],
 					},
-				}),
-			);
-			assertExitFails(
-				exit,
-				new SavedViewBadRequest({
-					reason: {
-						code: "settings-incompatible",
-						message: "Filter field 'tags' cannot be a relationship on a results table",
-					},
-				}),
-			);
+				},
+			});
+			expect(Result.isFailure(decoded)).toBe(true);
 		}),
 	testTimeout,
 );
@@ -321,7 +313,10 @@ it.effect(
 				entityLink: { entityIdField: "entityId" },
 				columns: [{ label: "Name", field: "name", displayKind: "text" }],
 			} satisfies ResultsTableSavedViewSettings;
-			yield* validateResultsTableSavedViewDefinition({ settings, dataSources });
+			yield* validateResultsTableSavedViewDefinition({
+				settings,
+				dataSources: executableFixture(dataSources),
+			});
 			expect(
 				yield* validateSavedViewDefinition(
 					{ kind: "kernel", name: "results-table" },
@@ -409,7 +404,7 @@ it.effect(
 									...source,
 									output: {
 										...source.output,
-										pagination: { ...source.output.pagination, after: "next" },
+										pagination: Object.assign({ ...source.output.pagination }, { after: "next" }),
 									},
 								},
 							},
@@ -418,10 +413,7 @@ it.effect(
 					),
 				),
 				new SavedViewBadRequest({
-					reason: {
-						code: "settings-incompatible",
-						message: "Stored data source 'entities' must not contain a cursor",
-					},
+					reason: { code: "settings-incompatible", message: "Invalid authored document shape" },
 				}),
 			);
 		}),
@@ -434,28 +426,27 @@ it.effect(
 		Effect.gen(function* () {
 			const source = dataSources.queries["entities"];
 			const exit = yield* Effect.exit(
-				validateEntityBrowserSavedViewDefinition({
-					settings: browserSettings,
-					dataSources: {
+				validateSavedViewDefinition(
+					{ kind: "kernel", name: "entity-browser" },
+					browserSettings,
+					{
 						queries: {
 							entities: {
 								...source,
 								output: {
 									...source.output,
-									pagination: { ...source.output.pagination, after: "next" },
+									pagination: Object.assign({ ...source.output.pagination }, { after: "next" }),
 								},
 							},
 						},
 					},
-				}),
+					null,
+				),
 			);
 			assertExitFails(
 				exit,
 				new SavedViewBadRequest({
-					reason: {
-						code: "settings-incompatible",
-						message: "Stored data source 'entities' must not contain a cursor",
-					},
+					reason: { code: "settings-incompatible", message: "Invalid authored document shape" },
 				}),
 			);
 		}),

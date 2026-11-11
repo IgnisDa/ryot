@@ -1,13 +1,25 @@
-import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-import type { PreparedRecipe } from "@ryot-app/ryotql";
+import type { Recipe } from "@ryot-app/ryotql";
 
 export * from "@ryot-app/ryotql";
 export { JsonValue } from "@ryot-app/contract/schema/json";
 export { IsoDateString } from "@ryot-app/ryotql-recipes/codecs";
 export { withinPeriod } from "@ryot-app/ryotql-recipes/periods";
-export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+export { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
+export type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+export type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 export { userMediaLibraryRecipe } from "@ryot-app/ryotql-recipes/user-media-library";
+export {
+	now,
+	sort,
+	filter,
+	dateAdd,
+	parameters,
+	aggregateSort,
+	reportingTimeZone,
+} from "@ryot-app/ryotql/authoring";
 export {
 	eventReadRecipe,
 	entityReadRecipe,
@@ -20,23 +32,47 @@ export {
 	eventOrderAscending,
 	eventOrderDescending,
 } from "@ryot-app/ryotql-recipes/event-expressions";
+
 export {
 	ProjectionProcessing,
 	projectionProcessing,
 	projectionStatusMeasures,
 	projectionProcessingState,
 } from "@ryot-app/ryotql-recipes/projection-status";
+export {
+	reportingWindow,
+	reportingArguments,
+	reportingParameters,
+	type ReportingWindow,
+	expressionDateWindow,
+	reportingDatePredicate,
+	reportingSincePredicate,
+	reportingParameterFields,
+	reportingPeriodPredicate,
+	expressionPeriodPredicate,
+	reportingGroupingExpression,
+} from "@ryot-app/ryotql-recipes/reporting-parameters";
 
 export class RyotqlRecipeDecodeError extends Schema.TaggedError<
 	RyotqlRecipeDecodeError,
 	{ readonly brand: unique symbol }
 >()("RyotqlRecipeDecodeError", { message: Schema.String }) {}
 
-export const executeRyotqlRecipe = <Success, Error, Requirements>(
-	executeRyotql: (document: RyotQLDocument) => Effect.Effect<unknown, Error, Requirements>,
-	recipe: PreparedRecipe<Success>,
+export const executeRyotqlRecipe = <Success, Parameters extends AppSchema, Error, Requirements>(
+	executeRyotql: (request: ExecutionRequest) => Effect.Effect<unknown, Error, Requirements>,
+	recipe: Recipe<Success, Parameters>,
+	arguments_: NoInfer<Recipe.Arguments<Recipe<Success, Parameters>>>,
+	options: Omit<ExecutionRequest, "source" | "arguments"> = {},
 ) =>
-	executeRyotql(recipe.document).pipe(
+	executeRyotql({
+		...options,
+		arguments: arguments_,
+		source: {
+			kind: "inline",
+			document: recipe.document,
+			...(recipe.query === undefined ? {} : { query: recipe.query }),
+		},
+	}).pipe(
 		Effect.flatMap((response) => {
 			const decoded = recipe.decode(response);
 			return decoded._tag === "Failure"

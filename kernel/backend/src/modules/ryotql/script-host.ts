@@ -1,4 +1,4 @@
-import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { Effect, Schema } from "effect";
@@ -15,7 +15,7 @@ import { SandboxRepository } from "#modules/scripts/registry/repository";
 
 import { RyotQLService } from "./service";
 
-const decodeRyotQLDocument = Schema.decodeUnknownEffect(Schema.toType(RyotQLDocument));
+const decodeExecutionRequest = Schema.decodeUnknownEffect(Schema.toType(ExecutionRequest));
 
 export const makeRyotQLScriptHost = Effect.gen(function* () {
 	const ryotqlService = yield* RyotQLService;
@@ -39,10 +39,11 @@ export const makeRyotQLScriptHost = Effect.gen(function* () {
 										{ operation: "executeRyotql", code: "unavailable-operation" },
 									);
 								}
-								const document = yield* decodeRyotQLDocument(query);
+								const document = yield* decodeExecutionRequest(query);
 								return yield* ryotqlService.executeForPlugin(
 									{
 										pluginId: revision.id,
+										packageId: revision.packageId,
 										pluginRevisionId: revision.revisionId,
 										...(yield* scripts.getSchemaScope(revision.revisionId)),
 									},
@@ -54,7 +55,7 @@ export const makeRyotQLScriptHost = Effect.gen(function* () {
 					}
 					return sandboxHostEffect(
 						Effect.gen(function* () {
-							const document = yield* decodeRyotQLDocument(query);
+							const document = yield* decodeExecutionRequest(query);
 							const userId = sandboxRunUserId(input);
 							if (userId === null) {
 								return yield* sandboxHostFailure("executeRyotql requires a user execution", {

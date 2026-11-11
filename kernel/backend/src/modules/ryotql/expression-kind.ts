@@ -45,7 +45,7 @@ export const scalarExpressionKind = <Scope>(
 	if (expr.type === "cast") {
 		return expr.target;
 	}
-	if (expr.type === "dateBucket" || expr.type === "currentDate") {
+	if (expr.type === "dateAdd" || expr.type === "dateBucket" || expr.type === "currentDate") {
 		return "date";
 	}
 	if (expr.type === "localDate") {

@@ -4,6 +4,7 @@ import {
 	and,
 	ascending,
 	column,
+	contains,
 	countDistinct,
 	document,
 	entitySchemaPredicate,
@@ -14,6 +15,11 @@ import {
 	schemaOwnerPredicate,
 	table,
 } from "@ryot-app/ryotql";
+import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
+import { parameters } from "@ryot-app/ryotql/authoring";
+import { Result } from "effect";
+
+import { deriveSavedViewQueries } from "#modules/saved-views/queries";
 
 import { manifest as notificationManifest } from "./kernel-scripts/notification.sandbox";
 import type { DefinitionSource } from "./snapshot";
@@ -114,30 +120,66 @@ const collectionSchema = {
 const collection = table("entity", "entity");
 const collectionMembership = table("relationship", "collectionMembership");
 
-const collectionDataSources = document({
-	savedView: rows(collection, {
-		orderBy: [ascending(column(collection, "name"))],
-		where: entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
-		fields: [
-			field("entityId", column(collection, "id")),
-			field("name", column(collection, "name")),
-			field(
-				"presentationMemberCount",
-				countDistinct(collectionMembership, column(collectionMembership, "sourceEntityId"), {
-					where: and(
-						schemaOwnerPredicate(collectionMembership, "relationshipSchemaPluginId", {
-							kind: "kernel",
-						}),
-						eq(column(collectionMembership, "targetEntityId"), column(collection, "id")),
-						eq(column(collectionMembership, "relationshipSchemaSlug"), literal("member-of")),
-					),
-				}),
-			),
-			field("ownerPluginId", column(collection, "entitySchemaPluginId")),
-			field("entitySchemaSlug", column(collection, "entitySchemaSlug")),
-		],
-	}),
+const collectionParameters = parameters({
+	fields: {
+		searchText: {
+			type: "string",
+			label: "Search",
+			defaultValue: "",
+			description: "Collection name",
+		},
+	},
 });
+const collectionSettings = {
+	pageSize: 20,
+	addAction: null,
+	defaultLayout: "grid",
+	sourceName: "savedView",
+	controls: { search: "searchText" },
+	layouts: ["grid", "list", "table"],
+	summary: { image: null, subtitle: null },
+	tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
+	subject: { entityAlias: "entity", schemas: [{ slug: "collection", owner: { kind: "kernel" } }] },
+} as const;
+const collectionQuery = rows(collection, {
+	orderBy: [ascending(column(collection, "name"))],
+	where: and(
+		entitySchemaPredicate(collection, "collection", { kind: "kernel" }),
+		contains(column(collection, "name"), collectionParameters.value("searchText")),
+	),
+	fields: [
+		field("entityId", column(collection, "id")),
+		field("name", column(collection, "name")),
+		field(
+			"presentationMemberCount",
+			countDistinct(collectionMembership, column(collectionMembership, "sourceEntityId"), {
+				where: and(
+					schemaOwnerPredicate(collectionMembership, "relationshipSchemaPluginId", {
+						kind: "kernel",
+					}),
+					eq(column(collectionMembership, "targetEntityId"), column(collection, "id")),
+					eq(column(collectionMembership, "relationshipSchemaSlug"), literal("member-of")),
+				),
+			}),
+		),
+		field("ownerPluginId", column(collection, "entitySchemaPluginId")),
+		field("entitySchemaSlug", column(collection, "entitySchemaSlug")),
+	],
+});
+const collectionDataSources = Result.getOrThrow(
+	deriveSavedViewQueries({ kind: "kernel", name: "collection-browser" }, collectionSettings, {
+		parameters: collectionParameters.schema,
+		...document({
+			savedView: collectionQuery,
+			librarySearch: librarySearchQuery({
+				entity: collection,
+				source: collectionQuery,
+				searchExpressions: [column(collection, "name")],
+				search: collectionParameters.value("searchText"),
+			}).document,
+		}),
+	}),
+);
 
 export const kernelDefinitionSource = (): DefinitionSource => ({
 	calendarSources: [],
@@ -169,22 +211,9 @@ export const kernelDefinitionSource = (): DefinitionSource => ({
 			slug: "collections",
 			name: "All Collections",
 			icon: collectionSchema.icon,
+			settings: collectionSettings,
 			dataSources: collectionDataSources,
 			renderer: { kind: "kernel", name: "collection-browser" },
-			settings: {
-				pageSize: 20,
-				addAction: null,
-				defaultLayout: "grid",
-				searchFields: ["name"],
-				sourceName: "savedView",
-				layouts: ["grid", "list", "table"],
-				summary: { image: null, subtitle: null },
-				tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
-				subject: {
-					entityAlias: "entity",
-					schemas: [{ slug: "collection", owner: { kind: "kernel" } }],
-				},
-			},
 		},
 		{
 			sortOrder: 1,

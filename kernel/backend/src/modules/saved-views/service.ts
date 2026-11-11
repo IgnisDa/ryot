@@ -1,5 +1,6 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import {
 	type CreateSavedViewBody,
 	type ReorderSavedViewsBody,
@@ -10,21 +11,26 @@ import {
 	type UpdateSavedViewBody,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginSavedViewReferences } from "#modules/plugins/catalog/saved-view-references";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { bindRyotQLDocument } from "#modules/ryotql/binding";
+import { RyotQLService } from "#modules/ryotql/service";
+import { storedValidationBranches } from "#modules/ryotql/stored-validation";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { trimToNull } from "#platform/validation";
 
 import { validateSavedViewDefinition } from "./definition-validation";
+import { deriveSavedViewQueries } from "./queries";
 import { buildSavedViewReorderPlan } from "./reorder";
 import { SavedViewsRepository } from "./repository";
 
@@ -34,11 +40,16 @@ const missing = (reference: SavedViewReference) =>
 const immutable = (reference: SavedViewReference) =>
 	new SavedViewBadRequest({ reason: { reference, code: "builtin-view-immutable" } });
 
+const definitionIncompatible = (error: Error) =>
+	new SavedViewBadRequest({ reason: { message: error.message, code: "settings-incompatible" } });
+
 export class SavedViewsService extends Context.Service<SavedViewsService>()(
 	"@ryot-app/kernel-backend/modules/saved-views/service/SavedViewsService",
 	{
 		make: Effect.gen(function* () {
 			const repository = yield* SavedViewsRepository;
+			const catalogs = yield* DefinitionCatalog;
+			const ryotql = yield* RyotQLService;
 			const pluginRuntime = yield* PluginRuntimeResolver;
 			const invalidator = yield* PluginCatalogInvalidator;
 			const installations = yield* PluginInstallationRepository;
@@ -76,6 +87,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 				renderer: SavedViewRenderer,
 				settings: CreateSavedViewBody["settings"],
 				document: CreateSavedViewBody["dataSources"],
+				trusted?: boolean,
 			) {
 				const available = yield* pluginRuntime.listPluginsAvailableToUser(userId, true);
 				const catalog = available.filter(({ health }) => health === "ready");
@@ -85,30 +97,38 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 								renderer.exportName
 							]
 						: undefined;
+				const schemas = (yield* catalogs.forUser(userId)).entitySchemas;
+
 				const dataSources =
 					document === null
 						? null
-						: yield* bindRyotQLDocument(
-								document,
-								{
-									userId,
-									type: "user",
-									language: null,
-									audience: "kernel",
-									accessClass: "standard",
-								},
-								catalog.map((plugin) => ({
-									pluginId: plugin.id,
-									scope: plugin.scope,
-									packageId: plugin.packageId,
-								})),
-							);
+						: yield* Effect.fromResult(
+								deriveSavedViewQueries(renderer, settings, document, trusted ?? false),
+							).pipe(Effect.mapError(definitionIncompatible));
 				yield* validateSavedViewDefinition(
 					renderer,
 					settings,
 					dataSources,
 					page?.kind === "page" ? page : null,
+					schemas,
 				);
+				if (dataSources !== null) {
+					const branches = yield* Effect.fromResult(
+						storedValidationBranches(dataSources, schemas),
+					).pipe(Effect.mapError(definitionIncompatible));
+					for (const branch of branches) {
+						yield* bindRyotQLDocument(
+							branch,
+							{ userId, type: "user", language: null, audience: "plugin", accessClass: "standard" },
+							catalog.map((plugin) => ({
+								pluginId: plugin.id,
+								scope: plugin.scope,
+								packageId: plugin.packageId,
+							})),
+						);
+					}
+				}
+
 				if (page?.kind === "page") {
 					yield* assetReferences
 						.lock([
@@ -123,9 +143,63 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 				}
 				return dataSources;
 			});
+			const prepareSelection = Effect.fn(function* (
+				document: CreateSavedViewBody["dataSources"],
+				selection: Pick<CreateSavedViewBody, "sort" | "filter" | "arguments">,
+				userId: UserId,
+				forbiddenSource?: SavedViewReference,
+			) {
+				const parsed = yield* Effect.fromResult(
+					bindArguments(document?.parameters, selection.arguments),
+				).pipe(
+					Effect.mapError(
+						(issues) =>
+							new SavedViewBadRequest({
+								reason: {
+									code: "settings-incompatible",
+									message: issues.map(({ message }) => message).join("; "),
+								},
+							}),
+					),
+				);
+				const argumentsValue = yield* Schema.decodeUnknownEffect(
+					Schema.Record(Schema.String, JsonValue),
+				)(parsed).pipe(Effect.orDie);
+				if (
+					(selection.filter !== undefined && !document?.controls?.filter) ||
+					(selection.sort !== undefined && !document?.controls?.sort)
+				) {
+					return yield* new SavedViewBadRequest({
+						reason: {
+							code: "settings-incompatible",
+							message: "Selection requires declared controls",
+						},
+					});
+				}
+				if (document !== null) {
+					yield* ryotql
+						.validateSelectionForUser(
+							userId,
+							{ source: { document, kind: "inline" }, ...selection },
+							forbiddenSource,
+						)
+						.pipe(
+							Effect.catchTags({
+								RyotQLInternalError: Effect.die,
+								DemoOperationProtected: Effect.die,
+							}),
+						);
+				}
+				return {
+					arguments: argumentsValue,
+					sort: selection.sort ?? null,
+					filter: selection.filter ?? null,
+				};
+			});
 			const create = Effect.fn(function* (
 				user: Pick<CurrentUserValue, "id">,
 				payload: CreateSavedViewBody & { slug?: string | undefined },
+				trusted?: boolean,
 			) {
 				const name = trimToNull(payload.name);
 				if (!name) {
@@ -151,6 +225,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 								payload.renderer,
 								payload.settings,
 								payload.dataSources,
+								trusted,
 							);
 							const pluginInstallationId = payload.workspaceInstallationId
 								? yield* requireInstallation(user.id, payload.workspaceInstallationId)
@@ -160,6 +235,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 									slug,
 									name,
 									dataSources,
+									...(yield* prepareSelection(dataSources, payload, user.id)),
 									userId: user.id,
 									icon: payload.icon,
 									pluginInstallationId,
@@ -217,7 +293,13 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 							const { renderer, settings } = config;
 							const dataSources =
 								"renderer" in payload || (!payload.isHidden && current.isHidden)
-									? yield* prepareDefinition(user.id, renderer, settings, config.dataSources)
+									? yield* prepareDefinition(
+											user.id,
+											renderer,
+											settings,
+											config.dataSources,
+											!("renderer" in payload),
+										)
 									: current.dataSources;
 							let pluginInstallationId: null | string;
 							if (payload.workspaceInstallationId === undefined) {
@@ -239,6 +321,20 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 										renderer,
 										settings,
 										dataSources,
+										...(yield* prepareSelection(
+											dataSources,
+											{
+												arguments: payload.arguments ?? current.arguments,
+												sort:
+													payload.sort === undefined ? current.sort : (payload.sort ?? undefined),
+												filter:
+													payload.filter === undefined
+														? current.filter
+														: (payload.filter ?? undefined),
+											},
+											user.id,
+											reference,
+										)),
 										pluginInstallationId,
 										isHidden: payload.isHidden,
 										sortOrder: payload.sortOrder,
@@ -282,8 +378,11 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 			const clone = Effect.fn(function* (user: CurrentUserValue, reference: SavedViewReference) {
 				const source = yield* requireSavedView(user.id, reference);
 				const config = yield* Schema.decodeUnknownEffect(SavedViewRendererConfig)({
+					sort: source.sort,
+					filter: source.filter,
 					renderer: source.renderer,
 					settings: source.settings,
+					arguments: source.arguments,
 					dataSources: source.dataSources,
 				}).pipe(
 					Effect.mapError(
@@ -296,14 +395,18 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 							}),
 					),
 				);
-				return yield* create(user, {
-					...config,
-					icon: source.icon,
-					name: `${source.name} (Copy)`,
-					...(source.pluginInstallationId
-						? { workspaceInstallationId: source.pluginInstallationId }
-						: {}),
-				});
+				return yield* create(
+					user,
+					{
+						...config,
+						icon: source.icon,
+						name: `${source.name} (Copy)`,
+						...(source.pluginInstallationId
+							? { workspaceInstallationId: source.pluginInstallationId }
+							: {}),
+					},
+					true,
+				);
 			});
 			const reorder = Effect.fn(function* (user: CurrentUserValue, payload: ReorderSavedViewsBody) {
 				const result = yield* mapDatabaseErrors(
@@ -335,7 +438,10 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 		}),
 	},
 ) {
-	static readonly layer = Layer.effect(this, this.make);
+	static readonly layer = Layer.effect(this, this.make).pipe(
+		Layer.provide(RyotQLService.layer),
+		Layer.provide(DefinitionCatalog.layer),
+	);
 }
 
 export const SavedViewPluginReferencesLive = Layer.effect(

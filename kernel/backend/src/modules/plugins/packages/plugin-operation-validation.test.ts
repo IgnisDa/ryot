@@ -23,9 +23,12 @@ const operationManifest = () => {
 			{
 				auth: "user" as const,
 				slug: "resolve.fixture",
+				input: { type: "object" },
+				output: { type: "object" },
 				demoAccess: "allowed" as const,
 				scriptSlug: "operation.fixture",
 				description: "Resolve fixture references",
+				hints: { readOnly: true, idempotent: true, destructive: false },
 			},
 		],
 	};
@@ -35,6 +38,32 @@ it.effect(
 	"rejects duplicate operation slugs and unknown driver references",
 	() => {
 		const cases = [
+			(manifest: ReturnType<typeof operationManifest>) => {
+				const operation = manifest.operations[0];
+				assert(operation);
+				return {
+					...manifest,
+					queries: {
+						[operation.slug]: {
+							description: "Conflicting tool name",
+							document: {
+								queries: {
+									items: {
+										from: { alias: "item", table: "entity" },
+										output: {
+											fields: [],
+											orderBy: [],
+											type: "rows" as const,
+											pagination: { limit: 1, maxLimit: 1 },
+										},
+									},
+								},
+							},
+						},
+					},
+				};
+			},
+
 			(manifest: ReturnType<typeof operationManifest>) => {
 				const operation = manifest.operations[0];
 				assert(operation);

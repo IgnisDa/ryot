@@ -25,6 +25,7 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { SavedViewsRepository } from "./repository";
@@ -193,7 +194,7 @@ const stored = Effect.gen(function* () {
 	);
 });
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"persists mixed hidden custom/kernel positions once, leaving other users and workspaces unchanged",
 		() =>
@@ -235,7 +236,7 @@ layer(testLayer)((test) => {
 	);
 });
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"uses one position sequence for plugin builtins and custom views in the exact installation",
 		() =>
@@ -288,7 +289,7 @@ layer(testLayer)((test) => {
 	);
 });
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"restores plugin defaults and upserts hidden state without changing another exact owner",
 		() =>
@@ -362,7 +363,7 @@ layer(testLayer)((test) => {
 	);
 });
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"deletes visible default-restoring overrides but keeps hidden overrides and unchanged revisions",
 		() =>
@@ -486,7 +487,7 @@ layer(testLayer)((test) => {
 	}
 });
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"preserves installation validation before reorder errors",
 		() =>
@@ -510,7 +511,7 @@ layer(testLayer)((test) => {
 	);
 });
 
-layer(testLayer)((test) => {
+layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"rolls back earlier custom writes when builtin persistence fails",
 		() =>
@@ -566,7 +567,7 @@ for (const [size, installationId] of [
 	[2, "installation-a"],
 	[40, "installation-a"],
 ] as const) {
-	layer(testLayer)((test) => {
+	layer(testLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 		test.effect(
 			`keeps read/write statement counts constant for ${size} views in ${installationId ?? "the home"} scope and writes nothing for unchanged plans`,
 			() =>

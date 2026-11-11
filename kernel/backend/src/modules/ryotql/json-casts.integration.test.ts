@@ -1,10 +1,7 @@
 import { expect } from "bun:test";
 
-import {
-	type NamedQuery,
-	RowsResult,
-	type ScalarExpression,
-} from "@ryot-app/contract/modules/ryotql/language";
+import type { NamedQuery, ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import { RowsResult } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	ascending,
 	castBoolean,
@@ -34,6 +31,7 @@ import { Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { RyotQLService } from "./service";
@@ -201,7 +199,7 @@ const databaseLayer = Layer.merge(RyotQLService.layer, Layer.effectDiscard(seed)
 const execute = Effect.fn(function* (query: NamedQuery, language: null | string = null) {
 	const service = yield* RyotQLService;
 	const result = (yield* service.executeForUser("owner", language, "plugin", {
-		queries: { rows: query },
+		source: { kind: "inline", document: { queries: { rows: query } } },
 	})).data["rows"];
 	assert(result?.type === "rows");
 	return { result };
@@ -242,7 +240,7 @@ const keyQuery = (baseline: boolean) =>
 		]),
 	});
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"preserves numeric boundaries and rejects overflow and underflow without rounding",
 		() =>

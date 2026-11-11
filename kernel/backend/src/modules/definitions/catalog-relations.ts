@@ -247,7 +247,7 @@ const savedViewEffective = (scoped: ReadonlyArray<ScopedCatalog>, customUserId: 
 	const user = userOf(scoped);
 	return sql`(select s.id, null::text as plugin_id, custom_plugin.package_id, s.user_id, s.slug, s.name, s.icon,
 			s.plugin_installation_id, s.revision, s.sort_order, s.data_sources, false as is_builtin, s.is_hidden,
-			s.renderer, s.created_at, s.settings, s.updated_at
+			s.renderer, s.created_at, s.settings, s.updated_at, s.arguments, s.filter, s.sort
 		from saved_view s
 		left join plugin_installation custom_installation on custom_installation.id = s.plugin_installation_id
 		left join plugin custom_plugin on custom_plugin.id = custom_installation.plugin_id
@@ -259,7 +259,7 @@ const savedViewEffective = (scoped: ReadonlyArray<ScopedCatalog>, customUserId: 
 			(k.row ->> 'definitionRevision')::integer + coalesce(o.revision, 0) as revision,
 			coalesce(o.sort_order, d.sort_order) as sort_order, d.data_sources, true as is_builtin,
 			coalesce(o.is_hidden, false) as is_hidden, d.renderer, null::timestamptz as created_at, d.settings,
-			null::timestamptz as updated_at
+			null::timestamptz as updated_at, d.arguments, d.filter, d.sort
 		from ${elements(keys)}
 		join definition_saved_view d on d.id = k.row ->> 'id'${user.join}
 		left join saved_view_override o on o.user_id = ${user.id} and o.slug = d.slug

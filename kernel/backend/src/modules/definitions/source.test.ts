@@ -7,7 +7,7 @@ import {
 	PluginPackageId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import { column, field, pluginId, rows, table } from "@ryot-app/ryotql";
+import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 
 import { fixtureManifest } from "#modules/plugins/test-support";
@@ -20,7 +20,6 @@ const browserSettings = {
 	layouts: ["grid"],
 	tableColumns: null,
 	defaultLayout: "grid",
-	searchFields: ["name"],
 	sourceName: "savedView",
 	summary: { image: null, subtitle: null },
 	subject: {
@@ -141,12 +140,18 @@ it("materializes self expressions uniformly and binds only typed renderer settin
 		savedViews: [pluginView, browserView],
 	}).savedViews;
 	for (const view of views) {
-		expect(view.dataSources?.queries["savedView"]?.where).toBeUndefined();
-		expect(view.dataSources?.queries["savedView"]?.output).toMatchObject({
-			fields: [
-				{ expr: { type: "column", field: "entitySchemaPluginId" } },
-				{ expr: { type: "pluginId", reference: { kind: "local", pluginId: "plugin-a" } } },
-			],
+		if (view.renderer.kind === "kernel") {
+			expect(view.dataSources?.queries["savedView"]?.where).toBeDefined();
+		} else {
+			expect(view.dataSources?.queries["savedView"]?.where).toBeUndefined();
+		}
+		const output = view.dataSources?.queries["savedView"]?.output;
+		assert(output?.type === "rows");
+		expect(output.fields[0]).toMatchObject({
+			expr: { type: "column", field: "entitySchemaPluginId" },
+		});
+		expect(output.fields[1]).toMatchObject({
+			expr: { type: "pluginId", reference: { kind: "local", pluginId: "plugin-a" } },
 		});
 	}
 	const browserAction = browserView.settings.addAction;
@@ -184,9 +189,9 @@ it("keeps plugin-route add actions portable while materializing saved views", ()
 		sortOrder: 0,
 		name: "Bottles",
 		slug: "bottles",
-		dataSources: { queries: {} },
 		settings: { ...browserSettings, addAction },
 		renderer: { kind: "kernel", name: "entity-browser" } as const,
+		dataSources: document({ savedView: rows(table("entity", "entity"), { fields: [] }) }),
 	};
 	const view = revisionDefinitions("plugin-a", {
 		...fixtureManifest(),

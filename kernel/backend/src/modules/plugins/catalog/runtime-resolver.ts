@@ -20,7 +20,7 @@ import { decodeStoredSchema } from "@ryot-app/contract/schema/core";
 import type { PluginClientImport } from "@ryot-app/plugin-client-contract";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { and, asc, eq, isNull, type SQL, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import {
@@ -262,6 +262,41 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 			)((userId: UserId, listed = false) =>
 				queryAvailablePlugins(userId, listed ? "listed" : "executable"),
 			);
+			const listOperationsAvailableToUser = Effect.fn(
+				"PluginRuntimeResolver.listOperationsAvailableToUser",
+			)(function* (userId: UserId) {
+				const plugins = yield* queryAvailablePlugins(userId, "executable");
+				if (plugins.length === 0) {
+					return [];
+				}
+				const scripts = yield* database.run((db) =>
+					db
+						.select({
+							slug: schema.sandboxScript.slug,
+							revisionId: schema.sandboxScript.pluginRevisionId,
+						})
+						.from(schema.sandboxScript)
+						.where(
+							and(
+								inArray(
+									schema.sandboxScript.pluginRevisionId,
+									plugins.map((plugin) => plugin.pluginRevisionId),
+								),
+								sql`${schema.sandboxScript.metadata} ->> 'kind' = 'operation'`,
+							),
+						),
+				);
+				const available = new Set(
+					scripts.map(({ slug, revisionId }) => stableStringify([revisionId, slug])),
+				);
+				return plugins.flatMap((plugin) =>
+					plugin.manifest.operations.flatMap((operation) =>
+						available.has(stableStringify([plugin.pluginRevisionId, operation.scriptSlug]))
+							? [{ plugin, operation }]
+							: [],
+					),
+				);
+			});
 			const resolveUserPackage = Effect.fn("PluginRuntimeResolver.resolveUserPackage")(function* (
 				userId: UserId,
 				packageId: PluginPackageId,
@@ -848,6 +883,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				findProviderAvailableToUser,
 				findOperationAvailableToUser,
 				resolveInstallationBootstrap,
+				listOperationsAvailableToUser,
 				findSchemaProviderByReference,
 				resolveActivePluginUserBootstrap,
 				findAuthorizedSchemaProviderById,

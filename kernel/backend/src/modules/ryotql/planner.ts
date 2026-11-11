@@ -90,6 +90,7 @@ const operands = (node: Node): Operands => {
 		case "round":
 		case "isNull":
 		case "integer":
+		case "dateAdd":
 		case "jsonPath":
 		case "isNotNull":
 		case "localDate":

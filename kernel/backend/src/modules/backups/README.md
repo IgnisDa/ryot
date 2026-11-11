@@ -173,3 +173,10 @@ ones, make an account unclean.
 ## Failure Contract
 
 Expected archive, limit, and restore failures persist their module-owned kebab-case code and structured parameters on the run. They are not flattened to prose across job boundaries. Localized copy is client-owned and never persisted; unexpected causes and raw diagnostics remain in backend logs.
+
+Custom saved views carry authored parameterized documents, normalized saved arguments, filters and
+sort choices. Export discovers typed argument dependencies with set-based reads. Restore stages
+argument reference edges, remaps entity/event/relationship IDs and tagged collection/custom/plugin
+source references from schema metadata, then regenerates browser-derived queries and validates all
+stored branches and controls. Ordinary strings and opaque JSON remain unchanged. Source references
+and growing ID mappings are processed one bounded staging page at a time.

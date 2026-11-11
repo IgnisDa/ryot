@@ -59,6 +59,33 @@ const createFileDatabase = Effect.gen(function* () {
 
 export const testDatabaseUrl = Effect.runSync(Effect.cached(Effect.orDie(createFileDatabase)));
 
+export class TestDatabaseOwnershipError extends Schema.TaggedError<
+	TestDatabaseOwnershipError,
+	{ readonly brand: unique symbol }
+>()("TestDatabaseOwnershipError", { database: Schema.String }) {}
+
+const DatabaseOwnership = Schema.Array(Schema.Struct({ owned: Schema.Boolean }));
+export const dropTestDatabase = Effect.fn("dropTestDatabase")(function* (database: string) {
+	const run = yield* testDatabaseRun;
+	const role = decodeURIComponent(new URL(yield* testDatabaseUrl).username);
+	yield* withAdminClient(run.adminUrl, (client) =>
+		Effect.gen(function* () {
+			const [ownership] = yield* client
+				.unsafe(
+					`select exists(select 1 from pg_database d inner join pg_roles r on r.oid = d.datdba where d.datname = $1 and r.rolname = $2) as owned`,
+					[database, role],
+				)
+				.pipe(Effect.flatMap(Schema.decodeUnknownEffect(DatabaseOwnership)));
+			if (ownership?.owned !== true) {
+				return yield* new TestDatabaseOwnershipError({ database });
+			}
+			return yield* client
+				.unsafe(`drop database ${quoteIdentifier(database)} with (force)`)
+				.pipe(Effect.asVoid);
+		}),
+	);
+});
+
 // Layers stay built for their whole block, so idle connections are released instead of retained.
 const testPoolIdleTimeout = Duration.seconds(1);
 

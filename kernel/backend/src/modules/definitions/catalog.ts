@@ -84,7 +84,7 @@ type AllUsersCatalog = { readonly kernel: UserCatalog; readonly users: ReadonlyA
 
 type RevisionSections = Pick<
 	typeof schema.pluginRevision.$inferSelect,
-	"hooks" | "scripts" | "signalSchemas"
+	"hooks" | "scripts" | "queries" | "signalSchemas"
 >;
 
 type Owner = {
@@ -199,7 +199,7 @@ const emptyRevision: RevisionCatalog = {
 	providerOperations: [],
 	relationshipSchemas: [],
 	integrationProviders: [],
-	sections: { hooks: [], scripts: [], signalSchemas: [] },
+	sections: { hooks: [], scripts: [], signalSchemas: [], queries: undefined },
 };
 
 const groupByRevision = <Row extends { readonly pluginRevisionId: null | string }>(
@@ -334,7 +334,7 @@ const dataJsonIntegrationProvider = (userId: string): CatalogIntegrationProvider
 	description: "Receive generic entities, relationships, and events as JSON.",
 });
 
-const pluginOwner = (plugin: Pick<UserPlugin, "scope" | "pluginId" | "packageId">) => ({
+export const pluginOwner = (plugin: Pick<UserPlugin, "scope" | "pluginId" | "packageId">) => ({
 	pluginId: plugin.pluginId,
 	pluginScope: plugin.scope,
 	packageId: plugin.packageId,
@@ -661,6 +661,7 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 								.select({
 									id: schema.pluginRevision.id,
 									hooks: schema.pluginRevision.hooks,
+									queries: schema.pluginRevision.queries,
 									scripts: schema.pluginRevision.scripts,
 									signalSchemas: schema.pluginRevision.signalSchemas,
 								})

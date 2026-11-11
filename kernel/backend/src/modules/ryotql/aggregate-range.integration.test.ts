@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
-import type { NamedQuery, Predicate, RowItem } from "@ryot-app/contract/modules/ryotql/language";
+import type { NamedQuery, Predicate } from "@ryot-app/contract/modules/ryotql/authored";
+import type { RowItem } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	and,
 	ascending,
@@ -30,8 +31,10 @@ import { Effect, Layer } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
+import { cursorPageContents } from "./fixture.test-support";
 import { RyotQLService } from "./service";
 
 const start = castDate(literal("2026-01-01"));
@@ -128,16 +131,18 @@ const execute = Effect.fn(function* (
 	query: NamedQuery,
 	userId?: string,
 	language: null | string = null,
+	after?: string,
 ) {
 	const service = yield* RyotQLService;
 	const result = (yield* service.executeForUser(userId ?? "owner", language, "plugin", {
-		queries: { rows: query },
+		pages: { rows: { after } },
+		source: { kind: "inline", document: { queries: { rows: query } } },
 	})).data["rows"];
 	assert(result?.type === "rows");
 	return result;
 });
 
-const ranking = (baseline: boolean, after?: string, local?: Predicate) => {
+const ranking = (baseline: boolean, local?: Predicate) => {
 	const range = and(gte(at, start), lt(at, end));
 	const query = {
 		joins: [
@@ -159,7 +164,6 @@ const ranking = (baseline: boolean, after?: string, local?: Predicate) => {
 	};
 	const total = sum(source, castNumber(jsonPath(column(source, "properties"), "score")), query);
 	return rows(root, {
-		after,
 		limit: 1,
 		orderBy: [descending(total)],
 		where: eq(column(root, "entitySchemaSlug"), literal("root")),
@@ -172,18 +176,24 @@ const ranking = (baseline: boolean, after?: string, local?: Predicate) => {
 	});
 };
 
-layer(databaseLayer)((test) => {
+layer(databaseLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"preserves tied cursor pages, null sums, empty groups and account isolation",
 		() =>
 			Effect.gen(function* () {
 				const items: RowItem[] = [];
 				let after: string | undefined;
+				let baselineAfter: string | undefined;
 				do {
-					const result = yield* execute(ranking(false, after));
-					expect(result).toEqual(yield* execute(ranking(true, after)));
+					const result = yield* execute(ranking(false), undefined, null, after);
+					const baseline = yield* execute(ranking(true), undefined, null, baselineAfter);
+					expect(cursorPageContents(result)).toEqual(cursorPageContents(baseline));
 					items.push(...result.items);
 					after = result.pageInfo.nextCursor ?? undefined;
+					baselineAfter = baseline.pageInfo.nextCursor ?? undefined;
+					if (after !== undefined) {
+						expect(after).not.toBe(baselineAfter);
+					}
 				} while (after);
 				expect(items).toEqual([
 					{ id: "a", total: 3, count: 2, distinct: 2 },
@@ -204,8 +214,10 @@ layer(databaseLayer)((test) => {
 		() =>
 			Effect.gen(function* () {
 				const missing = eq(column(batch, "id"), literal("missing"));
-				const result = yield* execute(ranking(false, undefined, missing));
-				expect(result).toEqual(yield* execute(ranking(true, undefined, missing)));
+				const result = yield* execute(ranking(false, missing));
+				expect(cursorPageContents(result)).toEqual(
+					cursorPageContents(yield* execute(ranking(true, missing))),
+				);
 				expect(result.items).toEqual([{ id: "a", count: 0, total: null, distinct: 0 }]);
 				expect(result.pageInfo.hasMore).toBe(true);
 			}),
@@ -333,7 +345,9 @@ layer(databaseLayer)((test) => {
 					});
 				};
 				const result = yield* execute(makeQuery(false));
-				expect(result).toEqual(yield* execute(makeQuery(true)));
+				expect(cursorPageContents(result)).toEqual(
+					cursorPageContents(yield* execute(makeQuery(true))),
+				);
 				expect(result.items).toEqual([{ other: 1, nested: 4 }]);
 			}),
 		testTimeout,

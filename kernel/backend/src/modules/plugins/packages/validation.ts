@@ -12,6 +12,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
+import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import { PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
@@ -20,7 +21,6 @@ import { Cron, Effect, Result, Schema } from "effect";
 import {
 	formatPropertyIssues,
 	parseLabeledPropertySchemaInput,
-	validateAppSchemaDefinition,
 } from "#modules/definitions/properties/runtime";
 import type { DefinitionSnapshot } from "#modules/definitions/snapshot";
 
@@ -130,6 +130,11 @@ export const validatePluginManifestPolicy = (
 
 export const validatePluginManifestReferences = (manifest: PluginManifestValue) =>
 	Effect.gen(function* () {
+		for (const operation of manifest.operations) {
+			if (Object.hasOwn(manifest.queries ?? {}, operation.slug)) {
+				return yield* fail(`Query and operation share a tool name: ${operation.slug}`);
+			}
+		}
 		const entities = new Set(manifest.entitySchemas.map(({ slug }) => slug));
 		const relationships = new Set(manifest.relationshipSchemas.map(({ slug }) => slug));
 		const signals = new Set(manifest.signalSchemas.map(({ slug }) => slug));

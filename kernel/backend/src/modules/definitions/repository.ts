@@ -151,7 +151,10 @@ const toSavedView = (row: SavedViewRow): SavedViewDefinition => ({
 	renderer: row.renderer,
 	settings: row.settings,
 	sortOrder: row.sortOrder,
+	arguments: row.arguments,
 	dataSources: row.dataSources,
+	...(row.filter === null ? {} : { filter: row.filter }),
+	...(row.sort === null ? {} : { sort: row.sort }),
 });
 
 const toCalendarSource = (row: CalendarSourceRow): CalendarSourceDefinition => ({
@@ -380,10 +383,13 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										icon: definition.icon,
 										name: definition.name,
 										slug: definition.slug,
+										sort: definition.sort,
+										filter: definition.filter,
 										renderer: definition.renderer,
 										settings: definition.settings,
 										sortOrder: definition.sortOrder,
 										dataSources: definition.dataSources,
+										arguments: definition.arguments ?? {},
 									})),
 								),
 						);
@@ -698,11 +704,14 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 										icon: definition.icon,
 										name: definition.name,
 										slug: definition.slug,
+										sort: definition.sort,
 										pluginRevisionId: null,
+										filter: definition.filter,
 										renderer: definition.renderer,
 										settings: definition.settings,
 										sortOrder: definition.sortOrder,
 										dataSources: definition.dataSources,
+										arguments: definition.arguments ?? {},
 									})),
 								)
 								.onConflictDoUpdate({
@@ -713,9 +722,12 @@ export class DefinitionRepository extends Context.Service<DefinitionRepository>(
 									set: {
 										icon: sql`excluded.icon`,
 										name: sql`excluded.name`,
+										sort: sql`excluded.sort`,
+										filter: sql`excluded.filter`,
 										position: sql`excluded.position`,
 										renderer: sql`excluded.renderer`,
 										settings: sql`excluded.settings`,
+										arguments: sql`excluded.arguments`,
 										sortOrder: sql`excluded.sort_order`,
 										dataSources: sql`excluded.data_sources`,
 									},

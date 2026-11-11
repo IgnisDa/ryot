@@ -98,6 +98,7 @@ const records: ArchiveRecords = {
 			id: "view-1",
 			icon: "list",
 			sortOrder: 0,
+			arguments: {},
 			kind: "custom",
 			name: "Fixture",
 			slug: "fixture",

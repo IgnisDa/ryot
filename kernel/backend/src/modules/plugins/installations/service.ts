@@ -49,6 +49,7 @@ import {
 } from "../packages/pipeline";
 import { PluginRepository } from "../packages/repository";
 import { validateAdditiveSchemaEvolution } from "../packages/schema-evolution";
+import { validateStoredQueries } from "../packages/system-set";
 import type { NormalizedPlugin, StoredPlugin } from "../packages/types";
 import {
 	PluginValidationError,
@@ -103,16 +104,24 @@ const isUsableHomeSavedView = (
 const buildEffectiveDefinitions = (
 	systemDefinitions: Parameters<typeof definitionSourceFromSnapshot>[0],
 	plugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
+	systemPlugins: ReadonlyArray<{ readonly id: string; readonly manifest: PluginManifest }>,
 ) =>
 	Effect.try({
 		catch: (error) =>
 			new PluginValidationError({
 				issues: [error instanceof Error ? error.message : String(error)],
 			}),
-		try: () =>
-			buildDefinitionSnapshot(
-				mergeManifestDefinitions(definitionSourceFromSnapshot(systemDefinitions), plugins),
-			),
+		try: () => {
+			const source = mergeManifestDefinitions(
+				definitionSourceFromSnapshot(systemDefinitions),
+				plugins,
+			);
+			validateStoredQueries(source, [
+				...systemPlugins.map((plugin) => ({ ...plugin, scope: "system" as const })),
+				...plugins.map((plugin) => ({ ...plugin, scope: "user" as const })),
+			]);
+			return buildDefinitionSnapshot(source);
+		},
 	});
 
 export class PluginInstallationService extends Context.Service<PluginInstallationService>()(
@@ -363,12 +372,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					systemPackageIds: reserved,
 				});
 				yield* validatePluginScriptEntries(normalized.manifest);
-				yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
-					...(yield* repository.listPrivateForUser(userId)).filter(
-						(candidate) => candidate.id !== plugin.id,
-					),
-					{ id: plugin.id, manifest: normalized.manifest },
-				]);
+				yield* buildEffectiveDefinitions(
+					yield* definitions.getGlobalSnapshot,
+					[
+						...(yield* repository.listPrivateForUser(userId)).filter(
+							(candidate) => candidate.id !== plugin.id,
+						),
+						{ id: plugin.id, manifest: normalized.manifest },
+					],
+					yield* repository.listActiveSystemPlugins(),
+				);
 				yield* validatePluginManifestReferences(normalized.manifest);
 				yield* validatePluginExecutableScripts(normalized);
 				return normalized;
@@ -545,10 +558,11 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 							reason: { packageId, code: "already-installed" },
 						});
 					}
-					yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
-						...owned,
-						{ manifest, id: "private-plugin-candidate" },
-					]);
+					yield* buildEffectiveDefinitions(
+						yield* definitions.getGlobalSnapshot,
+						[...owned, { manifest, id: "private-plugin-candidate" }],
+						systemPlugins,
+					);
 					yield* validatePluginManifestReferences(manifest);
 					const config = yield* parseAppSchemaProperties({
 						kind: "Plugin config",
@@ -667,12 +681,16 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 								systemPackageIds: yield* assertPackageAvailable(manifest, pluginId),
 							});
 							yield* validatePluginScriptEntries(manifest);
-							yield* buildEffectiveDefinitions(yield* definitions.getGlobalSnapshot, [
-								...(yield* repository.listPrivateForUser(input.userId)).filter(
-									(candidate) => candidate.id !== plugin.id,
-								),
-								{ manifest, id: plugin.id },
-							]);
+							yield* buildEffectiveDefinitions(
+								yield* definitions.getGlobalSnapshot,
+								[
+									...(yield* repository.listPrivateForUser(input.userId)).filter(
+										(candidate) => candidate.id !== plugin.id,
+									),
+									{ manifest, id: plugin.id },
+								],
+								yield* repository.listActiveSystemPlugins(),
+							);
 							yield* validatePluginManifestReferences(manifest);
 							yield* validateAdditiveSchemaEvolution(plugin.manifest, manifest);
 							const normalized = normalizePluginPackage(normalizedSource);

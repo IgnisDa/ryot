@@ -11,11 +11,11 @@ import {
 	column,
 	defineRecipe,
 	inArray,
-	literal,
 	selectedField,
 	selectedRows,
 	table,
 } from "@ryot-app/ryotql";
+import { parameters } from "@ryot-app/ryotql/authoring";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -32,6 +32,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { entityEnrichmentRequest } from "#schema/tables/enrichment";
 import { entity } from "#schema/tables/entities";
 import { entityTranslation } from "#schema/tables/translations";
+import { makeAppConfigLayer } from "#testing/effect";
 
 import { RyotQLService } from "./service";
 
@@ -40,14 +41,25 @@ const recipient = UserId.make("recipient");
 const populatedAt = new Date("2026-10-26T00:00:00.000Z");
 const canonicalProperties = { kind: "one", name: "Canonical property" };
 
-const enrichmentEntityRecipe = defineRecipe((id: EntityId) => {
+const enrichmentEntityRecipe = (() => {
+	const input = parameters({
+		fields: {
+			id: {
+				type: "string",
+				label: "Entity",
+				description: "Entity ID",
+				validation: { required: true },
+			},
+		},
+	});
 	const source = table("entity", "entity");
-	return {
+	return defineRecipe({
+		parameters: input.schema,
 		map: ({ entities }) => Result.succeed(entities.items),
 		queries: {
 			entities: selectedRows(source, {
 				limit: 1,
-				where: inArray(column(source, "id"), [literal(id)]),
+				where: inArray(column(source, "id"), [input.value("id")]),
 				selection: {
 					id: selectedField(column(source, "id"), EntityId),
 					name: selectedField(column(source, "name"), Schema.String),
@@ -64,8 +76,8 @@ const enrichmentEntityRecipe = defineRecipe((id: EntityId) => {
 				},
 			}),
 		},
-	};
-});
+	});
+})();
 
 class EnrichmentCatalogFixture extends Context.Service<
 	EnrichmentCatalogFixture,
@@ -184,19 +196,17 @@ const readEntity = Effect.fnUntraced(function* (
 	entityId: EntityId,
 	language: null | string = null,
 ) {
-	const recipe = enrichmentEntityRecipe(entityId);
-	const response = yield* (yield* RyotQLService).executeForUser(
-		userId,
-		language,
-		"kernel",
-		recipe.document,
-	);
+	const recipe = enrichmentEntityRecipe;
+	const response = yield* (yield* RyotQLService).executeForUser(userId, language, "kernel", {
+		arguments: { id: entityId },
+		source: { kind: "inline", document: recipe.document },
+	});
 	const [row] = Result.getOrThrow(recipe.decode(response));
 	assert(row);
 	return row;
 });
 
-layer(catalogLayer)((test) => {
+layer(catalogLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	test.effect(
 		"selects only the current actor's work and never lets newer system failures override it",
 		() =>

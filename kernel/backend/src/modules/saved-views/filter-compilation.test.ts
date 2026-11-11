@@ -1,12 +1,28 @@
 import { expect, it } from "bun:test";
 
 import type { Filter, FilterField } from "@ryot-app/contract/modules/filters/schemas";
+import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { EntitySchemaSlug, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
-import { column, document, eq, field, join, jsonPath, rows, table } from "@ryot-app/ryotql";
-import { entityBrowserRecipe, resultsTableRecipe } from "@ryot-app/ryotql-recipes/saved-views";
+import {
+	castBoolean,
+	castDate,
+	castNumber,
+	castText,
+	column,
+	document,
+	eq,
+	field,
+	join,
+	jsonPath,
+	rows,
+	table,
+} from "@ryot-app/ryotql";
+import { filter as filterPlaceholder } from "@ryot-app/ryotql/authoring";
 import { DateTime, Result } from "effect";
 
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
+
+import { bindControlFixture } from "./controls.test-support";
 
 const entity = table("entity", "entity");
 const properties = column(entity, "properties");
@@ -17,11 +33,21 @@ const valueField = (
 	type: "enum" | "text" | "date" | "number" | "boolean" | "enum-list" | "text-list",
 ): FilterField =>
 	type === "enum" || type === "enum-list"
-		? { key, type, label: key, field: key, kind: "value", choices: [{ value: "a", label: "A" }] }
+		? {
+				key,
+				type,
+				label: key,
+				field: key,
+				kind: "value",
+				choices: [
+					{ value: "a", label: "A" },
+					{ value: "b", label: "B" },
+				],
+			}
 		: { key, type, label: key, field: key, kind: "value" };
 
 const filterFields = [
-	valueField("name", "text"),
+	valueField("displayName", "text"),
 	valueField("level", "enum"),
 	valueField("muscles", "enum-list"),
 	valueField("genres", "text-list"),
@@ -48,7 +74,7 @@ const selection = (extraJoins: readonly ReturnType<typeof join>[] = []) =>
 			orderBy: [{ direction: "asc", expr: column(entity, "id") }],
 			...(extraJoins.length > 0 ? { joins: extraJoins } : {}),
 			fields: [
-				field("name", column(entity, "name")),
+				field("displayName", column(entity, "name")),
 				field("level", jsonPath(properties, "level")),
 				field("muscles", jsonPath(properties, "muscles")),
 				field("genres", jsonPath(properties, "genres")),
@@ -62,13 +88,31 @@ const selection = (extraJoins: readonly ReturnType<typeof join>[] = []) =>
 
 const subject = table("entity", "subject");
 
-const browseExpression = (key: string) => {
-	if (key === "name") {
+const browseExpression = (filterField: Extract<FilterField, { readonly kind: "value" }>) => {
+	if (filterField.field === "displayName") {
 		return column(subject, "name");
 	}
-	return key === "added"
-		? column(subject, "createdAt")
-		: jsonPath(column(subject, "properties"), key);
+	if (filterField.field === "added") {
+		return column(subject, "createdAt");
+	}
+	const value = jsonPath(column(subject, "properties"), filterField.field);
+	switch (filterField.type) {
+		case "enum":
+		case "text":
+			return castText(value);
+		case "date":
+			return castDate(value);
+		case "rating":
+		case "number":
+			return castNumber(value);
+		case "boolean":
+			return castBoolean(value);
+		case "enum-list":
+		case "text-list":
+			return value;
+		default:
+			return filterField satisfies never;
+	}
 };
 
 const browse = [
@@ -80,8 +124,8 @@ const browse = [
 				if (filterField.kind !== "value") {
 					return filterField;
 				}
-				const { field: key, ...rest } = filterField;
-				return { ...rest, expression: browseExpression(key) };
+				const { field: _, ...rest } = filterField;
+				return Object.assign({}, rest, { expression: browseExpression(filterField) });
 			}),
 		},
 	},
@@ -90,7 +134,7 @@ const browse = [
 const settings = {
 	pageSize: 10,
 	addAction: null,
-	searchFields: [],
+
 	layouts: ["grid"],
 	tableColumns: null,
 	defaultLayout: "grid",
@@ -102,9 +146,87 @@ const settings = {
 	},
 } as const;
 
+const bindBrowserFixture = (input: {
+	readonly filter: Filter;
+	readonly now: DateTime.Utc;
+	readonly browse: typeof browse;
+	readonly settings: typeof settings;
+	readonly queryDocument: RyotQLDocument;
+}) => {
+	const source = input.queryDocument.queries[input.settings.sourceName];
+	if (!source) {
+		return Result.fail(new Error("Missing source"));
+	}
+	const authored: RyotQLDocument = {
+		...input.queryDocument,
+		controls: {
+			filter: {
+				kind: "browse",
+				alias: "entity",
+				schemas: [{ slug: "item", owner: { kind: "kernel" } }],
+			},
+		},
+		queries: {
+			selection: {
+				...source,
+				where: {
+					type: "and",
+					predicates: [...(source.where ? [source.where] : []), filterPlaceholder()],
+				},
+			},
+		},
+	};
+	return bindControlFixture({
+		now: input.now,
+		document: authored,
+		filter: input.filter,
+		schemas: input.browse.map((entry) => ({
+			...entry,
+			packageId: null,
+			isEffective: true,
+			pluginScope: null,
+		})),
+	});
+};
+const bindTableFixture = (input: {
+	readonly filter: Filter;
+	readonly now: DateTime.Utc;
+	readonly queryDocument: RyotQLDocument;
+	readonly settings: { readonly filterFields: readonly FilterField[] };
+}) => {
+	const source = input.queryDocument.queries["selection"];
+	if (!source) {
+		return Result.fail(new Error("Missing source"));
+	}
+	const authored: RyotQLDocument = {
+		...input.queryDocument,
+		controls: {
+			filter: {
+				kind: "outputs",
+				query: "selection",
+				fields: input.settings.filterFields.filter((value) => value.kind === "value"),
+			},
+		},
+		queries: {
+			selection: {
+				...source,
+				where: {
+					type: "and",
+					predicates: [...(source.where ? [source.where] : []), filterPlaceholder()],
+				},
+			},
+		},
+	};
+	return bindControlFixture({
+		schemas: [],
+		now: input.now,
+		document: authored,
+		filter: input.filter,
+	});
+};
 const issue = (filter: Filter, queryDocument = selection()) =>
 	validateRyotQLDocument(
-		Result.getOrThrow(entityBrowserRecipe({ now, filter, browse, settings, queryDocument }))
+		Result.getOrThrow(bindBrowserFixture({ now, filter, browse, settings, queryDocument }))
 			.document,
 		savedViewDataSourceAccess,
 	).error;
@@ -114,9 +236,9 @@ const operatorFamilies: readonly Filter[] = [
 	{ values: ["a"], field: "level", operator: "noneOf" },
 	{ field: "level", operator: "empty" },
 	{ field: "level", operator: "notEmpty" },
-	{ value: "sq", field: "name", operator: "contains" },
-	{ value: "sq", field: "name", operator: "notContains" },
-	{ field: "name", operator: "is", value: "Squat" },
+	{ value: "sq", operator: "contains", field: "displayName" },
+	{ value: "sq", field: "displayName", operator: "notContains" },
+	{ operator: "is", value: "Squat", field: "displayName" },
 	{ value: 3, field: "reps", operator: "gte" },
 	{ value: 3, field: "reps", operator: "lte" },
 	{ value: 3, field: "reps", operator: "eq" },
@@ -198,9 +320,9 @@ it("applies value filters to results tables and rejects the Collections field th
 		entityLink: null,
 		rowKeyFields: ["name"],
 		sourceName: "selection",
-		columns: [{ label: "Name", field: "name", displayKind: "text" }],
+		columns: [{ label: "Name", displayKind: "text", field: "displayName" }],
 	} as const;
-	const prepared = resultsTableRecipe({
+	const prepared = bindTableFixture({
 		now,
 		settings: tableSettings,
 		queryDocument: selection(),
@@ -211,7 +333,7 @@ it("applies value filters to results tables and rejects the Collections field th
 	).toBeNull();
 	expect(
 		Result.isFailure(
-			resultsTableRecipe({
+			bindTableFixture({
 				now,
 				settings: tableSettings,
 				queryDocument: selection(),
@@ -221,7 +343,7 @@ it("applies value filters to results tables and rejects the Collections field th
 	).toBe(true);
 	expect(
 		Result.isFailure(
-			resultsTableRecipe({
+			bindTableFixture({
 				now,
 				settings: tableSettings,
 				queryDocument: selection(),

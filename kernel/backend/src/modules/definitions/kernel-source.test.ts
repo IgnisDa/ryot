@@ -1,5 +1,6 @@
 import { expect, it } from "bun:test";
 
+import { entityBrowserFields } from "@ryot-app/contract/modules/saved-views/entity-browser-fields";
 import { assert } from "@ryot-app/testing/assert";
 
 import { kernelDefinitionSource, kernelScripts } from "./kernel-source";
@@ -39,6 +40,12 @@ it("keeps source zero limited to generic kernel definitions", () => {
 		{ key: "presentationMemberCount" },
 		{ key: "ownerPluginId" },
 		{ key: "entitySchemaSlug" },
+		{ key: entityBrowserFields.id },
+		{ key: entityBrowserFields.name },
+		{ key: entityBrowserFields.owner },
+		{ key: entityBrowserFields.schema },
+		{ key: entityBrowserFields.population },
+		{ key: entityBrowserFields.translation },
 	]);
 	expect(source.signalSchemas.map(({ slug }) => slug)).toEqual([
 		"reminder.due",

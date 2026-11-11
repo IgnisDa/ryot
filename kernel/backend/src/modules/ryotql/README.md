@@ -11,20 +11,68 @@ A document has a non-empty `queries` record. Each named query has `from: { table
   "queries": {
     "entities": {
       "from": { "table": "entity", "alias": "entity" },
-      "output": { "type": "rows", "fields": [], "orderBy": [], "pagination": { "limit": 20 } }
+      "output": {
+        "type": "rows",
+        "fields": [],
+        "orderBy": [],
+        "pagination": { "limit": 20, "maxLimit": 100 }
+      }
     }
   }
 }
 ```
 
-The response is `{ data: { [queryName]: result } }`. Semantic validation expands row selections and nested includes before opening the execution transaction. Identity binding preserves that fields-only document inside the transaction. Queries run sequentially in declaration order in one repeatable-read, read-only transaction and share one snapshot. Any validation or execution failure fails the request; there are no partial results.
+Requests are `{ source, arguments?, filter?, sort?, pages? }`. Sources are inline authored documents
+(with an optional named `query`), an owned saved-view reference and query name, or a declared plugin
+query identified by scoped package ID and declaration name. A plugin declaration executes its whole
+named document. Page sources fail with `source-unavailable`.
+
+Source loading, account reporting-zone lookup, controls, source entities, binding, semantic/access
+validation, identity binding and execution share a repeatable-read, read-only transaction. Inline named
+selection keeps the full document available for explicit control projections without executing other
+queries. The pure binder receives the Effect clock; the planner receives only executable language.
+The response is `{ data: { [queryName]: result } }`. Queries run sequentially in declaration order;
+any failure fails the request, with no partial results.
+
+`/ryotql/describe`, `/ryotql/plugin/describe` and `/instance-admin/ryotql/describe` take
+`{ source, arguments? }` and return parameter schemas, resolved filter fields and sort choices.
+Collection membership metadata requires source arguments so its schema can be loaded under authority.
+
+Controls may target browse schemas, an explicit named rows projection (`outputs.query`), or a flat,
+nonempty composite of those targets. Projection aliases must bind the same actual tables in each
+consuming query. Duplicate keys and sort IDs are refused. Browse subjects gain the platform Collections
+filter and name sort once. Membership output fields use `membership.<property>` and are checked
+against the source collection's persisted schema and its independently bound membership target ID.
+
+An `entity-source` string is encoded exclusively by `EntitySourceReference` in
+`@ryot-app/contract/modules/ryotql/entity-source`: tagged JSON for a collection ID or saved-view
+reference. Raw IDs are not source references. Source materialization reads the owner's collection
+order or the saved view's stored arguments/filter/sort, with cycle detection, depth 16, at most 64
+source resolutions and 10,000 total materialized subjects. Only `entityId` and `rank` are exposed.
+Collection order revisions and recursive source identities participate in cursor identity.
+
+Cursors are HMAC-signed with a domain-separated payload. Their fence includes source identity and
+selected name, owner/scope, normalized arguments, filter and sort, and the unbound resolved
+control expressions of the effective targets used by the selection. Retained user-subject execution
+overlays its executing plugin’s pinned control schemas while foreign definitions remain current. Page positions and the executing
+clock do not enter the fence, so rolling queries retain stable cursor selections. Responses include
+`execution: { now, timeZone }`, the server epoch milliseconds and reporting zone used for binding,
+including empty results and continuation pages. Concrete `dateAdd`
+uses elapsed hours/days/weeks and UTC calendar months/years; it does not perform zone-aware calendar
+addition across DST.
+
+Stored validation projects every choice and optional branch under a 256-branch budget and checks
+control targets independently, including filter and sort alternatives. Standalone browse and row-source
+declarations have no caller parameters or controls; undeclared placeholders are refused. Their clock
+and reporting-zone expressions bind only after authoritative context is supplied. Calendar and signal
+row-source ordering and bounded windows remain kernel-owned.
 
 Rows select `{ key, expr }` fields or `{ type: "wildcard", tableAlias }`. A wildcard expands only the approved fields for that alias; hidden physical and authorization columns remain inaccessible. Duplicate output keys fail validation.
 
-| Output      | Required shape                                                            | Result                                                              |
-| ----------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------- |
-| `rows`      | `fields`, `orderBy`, `pagination: { limit, after? }`, optional `include`  | `{ type: "rows", items, pageInfo: { limit, hasMore, nextCursor } }` |
-| `aggregate` | Non-empty `measures`; optional `groupBy`, `orderBy`, `limit`, and `after` | `{ type: "aggregate", items, pageInfo? }`                           |
+| Output      | Required shape                                                                 | Result                                                              |
+| ----------- | ------------------------------------------------------------------------------ | ------------------------------------------------------------------- |
+| `rows`      | `fields`, `orderBy`, `pagination: { limit, maxLimit }`, optional `include`     | `{ type: "rows", items, pageInfo: { limit, hasMore, nextCursor } }` |
+| `aggregate` | Non-empty `measures`; optional `groupBy` and `orderBy`, default/maximum limits | `{ type: "aggregate", items, pageInfo? }`                           |
 
 ## Scopes And Visibility
 
@@ -99,6 +147,12 @@ Inner and left joins support any visible catalog tables and normal SQL multiplic
 Includes are correlated row queries with their own root, optional joins/predicate, fields, non-empty order, explicit limit, and optional nested includes. They return `{ items, pageInfo: { limit, hasMore } }`; no match returns an empty list. Sibling aliases are isolated.
 
 Root rows use `{ limit, after? }` and return `{ items, pageInfo: { limit, hasMore, nextCursor } }`. Pagination is forward-only and cursors are opaque and validated. The backend fetches `limit + 1`, returns at most `limit`, and emits a cursor only when another row exists. Primary-key tie breakers, followed by the `ordinal` of each of the query's own `jsonElements` joins, and `NULLS LAST` make multiplied rows deterministic in roots, includes, and `first`. SDK-built roots default to 20 and primary-key ascending order. Persisted saved-view documents must omit cursors.
+
+Collection-backed selections carry their current `sourceRevisions` in page info and signed cursors.
+Cursor identity fences the source definition, bound arguments, controls, and authority independently
+of these revisions. After signature and identity validation, an older source revision returns an
+empty page with `stale: true` and the current revisions. Malformed or incompatible cursors still fail
+with `invalid-cursor`.
 
 ## Derived Fields
 

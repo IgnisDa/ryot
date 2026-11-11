@@ -8,8 +8,10 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import {
 	mapPluginIdentityReferences,
+	pluginIdentityReferences,
 	type RyotQLDocument,
-} from "@ryot-app/contract/modules/ryotql/language";
+} from "@ryot-app/contract/modules/ryotql/authored";
+import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { rowSourceDocument } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	EntityBrowserSavedViewSettings,
@@ -20,16 +22,16 @@ import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
-import { Array as Arr, Effect, Schema } from "effect";
+import { Array as Arr, Effect, Result, Schema } from "effect";
 
 import {
 	type DataReferenceError,
 	requiredReference,
 	rewritePropertyReferences,
 } from "#modules/backups/data-references";
-import { pluginIdentityReferences } from "#modules/ryotql/binding";
 import { isEntityBrowserRenderer } from "#modules/saved-views/definition-validation";
 
+import { rewriteSavedArgumentSources } from "../saved-arguments";
 import { archiveError, type BackupArchiveError } from "./error";
 import {
 	ArchiveEntityBrowserSavedViewSettings,
@@ -138,10 +140,12 @@ const rewriteQueryReferences = Effect.fn(function* (
 	for (const reference of pluginIdentityReferences(document)) {
 		resolved.set(stableStringify(reference), yield* resolve(reference));
 	}
-	return mapPluginIdentityReferences(
-		document,
-		(reference) => resolved.get(stableStringify(reference)) ?? reference,
-	);
+	return yield* Effect.fromResult(
+		mapPluginIdentityReferences(
+			document,
+			(reference) => resolved.get(stableStringify(reference)) ?? reference,
+		),
+	).pipe(Effect.mapError((error) => archiveError("invalid_entry", error.message)));
 });
 
 export const exportQueryPluginReferences = Effect.fn(function* (
@@ -197,6 +201,29 @@ export const importQueryPluginReferences = Effect.fn(function* (
 	);
 });
 
+export const exportSavedArguments = (
+	document: null | RyotQLDocument,
+	values: Readonly<Record<string, JsonValue>>,
+	pluginKeys: ReferenceMap,
+) =>
+	rewriteSavedArgumentSources(
+		document,
+		values,
+		Effect.fn(function* (source) {
+			if (source.kind !== "saved-view" || source.reference.kind !== "plugin") {
+				return source;
+			}
+			const key = pluginKeys.get(source.reference.pluginId);
+			if (!key) {
+				return yield* archiveError(
+					"missing_reference_mapping",
+					"Saved argument references an unavailable plugin",
+				);
+			}
+			return { ...source, reference: { ...source.reference, pluginId: PluginId.make(key) } };
+		}),
+	);
+
 const archiveReferenceError = (error: DataReferenceError) =>
 	archiveError(error.code, error.message);
 
@@ -229,6 +256,21 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 		}
 		for (const view of plugin.manifest.savedViews) {
 			addQueryPackages(view.dataSources);
+			for (const [name, property] of Object.entries(view.dataSources?.parameters?.fields ?? {})) {
+				if (property.type !== "string" || property.reference?.kind !== "entity-source") {
+					continue;
+				}
+				const value = Object.hasOwn(view.arguments ?? {}, name)
+					? view.arguments?.[name]
+					: property.defaultValue;
+				if (typeof value !== "string") {
+					continue;
+				}
+				const source = Result.getOrThrow(decodeEntitySourceReference(value));
+				if (source.kind === "saved-view" && source.reference.kind === "plugin") {
+					add(source.reference.pluginId);
+				}
+			}
 		}
 		for (const source of plugin.manifest.calendarSources ?? []) {
 			addQueryPackages(rowSourceDocument(source.query));
@@ -267,6 +309,21 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 		}
 		if (view.kind === "custom") {
 			addQueryPackages(view.dataSources);
+			for (const [name, property] of Object.entries(view.dataSources?.parameters?.fields ?? {})) {
+				if (property.type !== "string" || property.reference?.kind !== "entity-source") {
+					continue;
+				}
+				const value = Object.hasOwn(view.arguments, name)
+					? view.arguments[name]
+					: property.defaultValue;
+				if (typeof value !== "string") {
+					continue;
+				}
+				const source = Result.getOrThrow(decodeEntitySourceReference(value));
+				if (source.kind === "saved-view" && source.reference.kind === "plugin") {
+					add(source.reference.pluginId);
+				}
+			}
 		}
 		if (view.kind === "custom" && isEntityBrowserRenderer(view.renderer)) {
 			const { subject, addAction } = decodeArchiveJson(

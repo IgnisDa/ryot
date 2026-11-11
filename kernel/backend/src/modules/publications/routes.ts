@@ -109,6 +109,15 @@ export const PublicationVisitsRoutesLive = HttpApiBuilder.group(
 					return yield* visits.document(principal, payload.compositionHash).pipe(dieOnDbError);
 				}),
 			)
+			.handle("describe", ({ payload }) =>
+				Effect.gen(function* () {
+					const principal = yield* PublicationPrincipal;
+					const visits = yield* PublicationVisitsService;
+					return yield* visits
+						.describe(principal, payload.source, payload.arguments)
+						.pipe(dieOnDbError);
+				}),
+			)
 			.handle("ryotql", ({ payload }) =>
 				Effect.gen(function* () {
 					const principal = yield* PublicationPrincipal;

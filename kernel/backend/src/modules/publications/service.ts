@@ -22,7 +22,6 @@ import { trimToNull } from "#platform/validation";
 
 import { PublicationsRepository } from "./repository";
 import { PublicationSessions } from "./sessions";
-import { PublicationSources } from "./sources";
 
 type OwnerUser = Pick<CurrentUserValue, "id" | "preferences">;
 
@@ -37,7 +36,6 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 			const ryotql = yield* RyotQLService;
 			const session = yield* DatabaseSession;
 			const sessions = yield* PublicationSessions;
-			const sources = yield* PublicationSources;
 			const repository = yield* PublicationsRepository;
 
 			const requireEnabled = config.server.disablePublications
@@ -53,13 +51,9 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				user: OwnerUser,
 				source: PublicationSource,
 			) {
-				const scope = yield* sources.resolveScope(user.id, source);
-				if (scope === null) {
-					return { status: "source-unavailable" } satisfies PublicationStatusResponse;
-				}
 				return yield* ryotql
 					.resolvePublicationSubjects({
-						scope,
+						source,
 						ownerUserId: user.id,
 						language: user.preferences.language,
 						subjectLimit: PUBLICATION_SUBJECT_LIMIT,

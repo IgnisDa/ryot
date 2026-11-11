@@ -1,4 +1,5 @@
 import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
+import { Filter } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	dataJsonSource,
 	DataRecordProperties,
@@ -16,7 +17,7 @@ import {
 	ReminderScheduleEvidence,
 	ReminderState,
 } from "@ryot-app/contract/modules/reminders/schemas";
-import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/language";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import {
 	EntityBrowserPluginRouteAddAction,
 	EntityBrowserSavedViewSettings,
@@ -295,9 +296,12 @@ const savedViewFields = {
 	isHidden: Schema.Boolean,
 	createdAt: DataRecordTimestamp,
 	updatedAt: DataRecordTimestamp,
+	filter: Schema.optional(Filter),
+	sort: Schema.optional(Schema.String),
 	pluginKey: Schema.NullOr(Schema.String),
 	dataSources: Schema.NullOr(RyotQLDocument),
 	settings: Schema.Record(Schema.String, JsonValue),
+	arguments: Schema.Record(Schema.String, JsonValue),
 	renderer: Schema.Union([
 		strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 		strictStruct({

@@ -16,12 +16,6 @@ export type RyotQLAudience = "kernel" | "plugin";
 
 export type CatalogFieldKind = "date" | "json" | "text" | "number" | "boolean";
 
-export type RyotQLExecutionScope =
-	| UserExecutionScope
-	| PluginExecutionScope
-	| PublicationExecutionScope
-	| { readonly type: "admin" };
-
 export type RyotQLAccess =
 	| { readonly type: "admin" }
 	| Pick<PluginExecutionScope, "type">
@@ -46,6 +40,16 @@ export type CatalogSource = (context: {
 }) => {
 	readonly from: ReturnType<typeof sql>;
 	readonly ctes: Readonly<Record<string, ReturnType<typeof sql>>>;
+};
+
+export type RyotQLExecutionScope = (
+	UserExecutionScope | PluginExecutionScope | PublicationExecutionScope | { readonly type: "admin" }
+) & {
+	readonly cursorIdentity?: string;
+	readonly sourceRevisions?: Readonly<Record<string, number>>;
+	readonly sourceEntities?: Readonly<
+		Record<string, readonly { readonly rank: number; readonly entityId: string }[]>
+	>;
 };
 
 const noCtes: Readonly<Record<string, ReturnType<typeof sql>>> = {};
@@ -80,18 +84,19 @@ type PublicationExecutionScope = {
 	readonly language: null | string;
 };
 
-type PluginExecutionScope = PluginSchemaScope & {
-	readonly type: "plugin";
-	readonly pluginId: ScriptPluginRevision["id"];
-	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];
-};
-
 type CatalogPublicationPolicy =
 	| { readonly type: "none" }
 	| { readonly type: "subject" }
 	| { readonly type: "subjectLink" }
 	| { readonly type: "systemPlugin" }
 	| { readonly type: "systemDefinition" };
+
+type PluginExecutionScope = PluginSchemaScope & {
+	readonly type: "plugin";
+	readonly pluginId: ScriptPluginRevision["id"];
+	readonly packageId: ScriptPluginRevision["packageId"];
+	readonly pluginRevisionId: ScriptPluginRevision["revisionId"];
+};
 
 type UserExecutionScope = {
 	readonly type: "user";
@@ -881,7 +886,9 @@ const savedView: CatalogTable = {
 		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
 	},
 	fields: {
+		sort: physicalField("sort", "text"),
 		id: physicalField("id", "text", false),
+		filter: physicalField("filter", "json"),
 		slug: physicalField("slug", "text", false),
 		name: physicalField("name", "text", false),
 		icon: physicalField("icon", "text", false),
@@ -892,6 +899,7 @@ const savedView: CatalogTable = {
 		renderer: physicalField("renderer", "json", false),
 		settings: physicalField("settings", "json", false),
 		dataSources: physicalField("data_sources", "json"),
+		arguments: physicalField("arguments", "json", false),
 		revision: physicalField("revision", "number", false),
 		isHidden: physicalField("is_hidden", "boolean", false),
 		sortOrder: physicalField("sort_order", "number", false),
@@ -1393,8 +1401,24 @@ export const jsonElementsTable: CatalogTable = {
 	},
 };
 
-export const getCatalogTable = (name: string) =>
-	Object.hasOwn(tables, name) ? tables[name] : undefined;
+export const SOURCE_ENTITY_TABLE_PREFIX = "sourceEntity:";
+
+export const sourceEntityTable = (name: string): CatalogTable => ({
+	name,
+	primaryKey: ["rank"],
+	visibility: { user: { type: "public", pluginReadable: true } },
+	fields: {
+		rank: physicalField("rank", "number", false),
+		entityId: physicalField("entity_id", "text", false),
+	},
+});
+
+export const getCatalogTable = (name: string) => {
+	if (Object.hasOwn(tables, name)) {
+		return tables[name];
+	}
+	return name.startsWith(SOURCE_ENTITY_TABLE_PREFIX) ? sourceEntityTable(name) : undefined;
+};
 
 export const canAccessCatalogTable = (table: CatalogTable, access: RyotQLAccess) => {
 	if (access.type === "admin") {
