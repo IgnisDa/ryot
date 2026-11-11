@@ -24,10 +24,18 @@ const build = Effect.gen(function* () {
 			sourcemap: "linked",
 			jsx: { development: false },
 			outdir: `${serverRoot}/dist`,
-			naming: { chunk: "[name]-[hash].[ext]" },
-			entrypoints: [`${serverRoot}/src/main.ts`],
-			external: ["@ryot-app/vite-compiler", "@tailwindcss/vite"],
+			naming: { entry: "[name].[ext]", chunk: "[name]-[hash].[ext]" },
 			define: { "process.env.RYOT_VERSION": version, "process.env.UNKEY_ROOT_KEY": unkeyRootKey },
+			external: [
+				"@ryot-app/plugin-client-compiler",
+				"@ryot-app/vite-compiler",
+				"@tailwindcss/vite",
+			],
+			entrypoints: [
+				`${serverRoot}/src/main.ts`,
+				`${serverRoot}/tooling/plugin-client-compiler-worker.ts`,
+				`${serverRoot}/tooling/smoke-compiler-workers.ts`,
+			],
 		}),
 	);
 	yield* Effect.promise(() =>

@@ -10,6 +10,8 @@ import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
 	clientRuntimeArtifactMetadata,
+	pageClientArtifactMetadata,
+	pageDeclarationHash,
 	pluginExportSpecifier,
 } from "./artifact";
 
@@ -131,4 +133,52 @@ it("hashes canonical imported targets and the full client declaration", () => {
 	expect(clientRuntimeArtifactMetadata("Fixture", [], imports).hash).not.toBe(
 		clientRuntimeArtifactMetadata("Fixture", []).hash,
 	);
+});
+
+it("keeps page compiler identity portable across runtime reference remapping", () => {
+	const declaration = {
+		entry: "client/page.tsx",
+		pluginDependencies: { library: { packageId, scope: "user" as const } },
+	};
+	const original = {
+		...declaration,
+		pageId: "original-page",
+		queries: { installationId: "original-installation" },
+	};
+	const restored = {
+		...declaration,
+		pageId: "restored-page",
+		queries: { installationId: "restored-installation" },
+	};
+	expect(pageDeclarationHash(original)).toBe(pageDeclarationHash(restored));
+	expect(pageDeclarationHash(declaration)).not.toBe(
+		pageDeclarationHash({ ...declaration, entry: "client/other.tsx" }),
+	);
+	expect(pageDeclarationHash(declaration)).not.toBe(
+		pageDeclarationHash({
+			...declaration,
+			pluginDependencies: { library: { packageId, scope: "system" } },
+		}),
+	);
+	expect(pageDeclarationHash({ entry: declaration.entry })).toBe(
+		pageDeclarationHash({ pluginDependencies: {}, entry: declaration.entry }),
+	);
+	const files = [
+		clientArtifactFile({
+			path: "module.js",
+			contentType: "text/javascript",
+			bytes: encoder.encode("export const page = () => null"),
+		}),
+	];
+	const metadata = pageClientArtifactMetadata("Page", files, {
+		imports: [],
+		pageDeclarationHash: pageDeclarationHash(original),
+	});
+	expect(metadata).toEqual(
+		pageClientArtifactMetadata("Page", files, {
+			imports: [],
+			pageDeclarationHash: pageDeclarationHash(restored),
+		}),
+	);
+	expect(metadata.hash).not.toBe(clientRuntimeArtifactMetadata("Page", files).hash);
 });

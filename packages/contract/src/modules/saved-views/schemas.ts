@@ -93,7 +93,13 @@ export type KernelSavedViewRendererName = typeof KernelSavedViewRendererName.Typ
 export const CALENDAR_KERNEL_RENDERER_DISPLAY_NAME = "Calendar";
 export const ANALYTICS_KERNEL_RENDERER_DISPLAY_NAME = "Analytics";
 
+const PageSavedViewRenderer = strictStruct({
+	kind: Schema.Literal("page"),
+	pageId: Schema.NonEmptyString,
+});
+
 export const SavedViewRenderer = Schema.Union([
+	PageSavedViewRenderer,
 	strictStruct({ kind: Schema.Literal("kernel"), name: KernelSavedViewRendererName }),
 	strictStruct({
 		pluginId: Schema.String,
@@ -351,10 +357,19 @@ const withSavedViewConfig = <
 		strictStruct({ ...common, ...plugin }),
 	]);
 
-export const SavedViewRendererConfig = withSavedViewConfig(
-	SavedViewSelection,
-	savedViewConfigFields,
-);
+const pageSavedViewConfigFields = {
+	dataSources: Schema.Null,
+	renderer: PageSavedViewRenderer,
+	sort: Schema.optional(Schema.Never),
+	filter: Schema.optional(Schema.Never),
+	settings: Schema.Record(Schema.String, Schema.Never),
+	arguments: Schema.optional(Schema.Record(Schema.String, Schema.Never)),
+};
+
+export const SavedViewRendererConfig = Schema.Union([
+	withSavedViewConfig(SavedViewSelection, savedViewConfigFields),
+	strictStruct(pageSavedViewConfigFields),
+]);
 export type SavedViewRendererConfig = typeof SavedViewRendererConfig.Type;
 
 export const AuthoredSavedViewRendererConfig = withSavedViewConfig(
@@ -373,7 +388,10 @@ const createCommon = {
 	workspaceInstallationId: Schema.optional(Schema.String),
 };
 
-export const CreateSavedViewBody = withSavedViewConfig(createCommon, savedViewConfigFields);
+export const CreateSavedViewBody = Schema.Union([
+	withSavedViewConfig(createCommon, savedViewConfigFields),
+	strictStruct({ ...createCommon, ...pageSavedViewConfigFields }),
+]);
 
 export type CreateSavedViewBody = typeof CreateSavedViewBody.Type;
 
@@ -391,6 +409,7 @@ export const updateSavedViewBody = <Common extends Schema.Struct.Fields>(common:
 	Schema.Union([
 		strictStruct({ ...common, ...updateCommon }),
 		withSavedViewConfig({ ...common, ...updateCommon }, savedViewConfigFields),
+		strictStruct({ ...common, ...updateCommon, ...pageSavedViewConfigFields }),
 	]);
 
 export const UpdateSavedViewBody = updateSavedViewBody({});

@@ -11,7 +11,7 @@ import { DescribeRequest, DescribeResponse, ExecutionRequest } from "./request";
 const RyotQLBadRequestReason = Schema.Union([
 	Schema.Struct({
 		code: Schema.Literal("source-unavailable"),
-		kind: Schema.Literals(["inline", "savedView", "plugin", "page"]),
+		kind: Schema.Literals(["inline", "savedView", "plugin", "page", "page-preview"]),
 	}),
 	Schema.Struct({ code: Schema.Literal("invalid-query") }),
 	Schema.Struct({

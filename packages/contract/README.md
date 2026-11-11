@@ -60,3 +60,5 @@ conditional required rules and visibility. Materialize dynamic choices first. Qu
 must convert `{ ...parameters, unknownKeys: "strict" }`, matching argument binding. JSON Schema
 provides input/output descriptions; normalization, reference authority, managed assets, time-zone
 membership and business rules remain authoritative Effect validation.
+
+The pages module includes authored `PageDefinition` documents and demo-protected page mutation contracts alongside client preparation. Actor/origin is server-owned; row reads use RyotQL page recipes. Build results identify the compiled draft revision, definition hash and artifact hash for read-only preview composition.

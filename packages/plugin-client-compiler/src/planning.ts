@@ -54,7 +54,7 @@ export const planClientCompilation = (
 	Effect.gen(function* () {
 		for (const path of Object.keys(input.files)) {
 			if (
-				(isClientSourcePath(path) || isSharedSourcePath(path)) &&
+				(input.kind === "page" || isClientSourcePath(path) || isSharedSourcePath(path)) &&
 				sourcePathIssue(path) !== null
 			) {
 				return yield* failure(

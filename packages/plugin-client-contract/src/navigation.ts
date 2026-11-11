@@ -1,6 +1,11 @@
-import { ClientPageCodeContributor } from "@ryot-app/contract/modules/pages/schemas";
+import {
+	ClientPageCodeContributor,
+	PageFrameAuthority,
+	PagePreviewTarget,
+} from "@ryot-app/contract/modules/pages/schemas";
 import { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import type { ExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	EntityId,
 	EntitySchemaSlug,
@@ -55,6 +60,7 @@ export const isPageShortcut = (value: string): value is PageShortcutKey =>
 	PAGE_SHORTCUT_KEYS.some((key) => key === value);
 
 export const ClientPageTarget = Schema.Union([
+	PagePreviewTarget,
 	strictStruct({ reference: SavedViewReference, kind: Schema.Literal("saved-view") }),
 	strictStruct({
 		path: Schema.String,
@@ -74,6 +80,7 @@ export const ClientPageTarget = Schema.Union([
 export type ClientPageTarget = Schema.Schema.Type<typeof ClientPageTarget>;
 
 export const ClientPageRenderer = Schema.Union([
+	PageFrameAuthority,
 	strictStruct({ name: Schema.String, kind: Schema.Literal("kernel") }),
 	strictStruct({
 		pluginId: Schema.String,
@@ -162,3 +169,33 @@ export type PluginLeadingIntent = Schema.Schema.Type<typeof PluginLeadingIntent>
 export const KernelShortcut = Schema.Literals(["command-center", "workspace-switcher"]);
 
 export type KernelShortcut = Schema.Schema.Type<typeof KernelShortcut>;
+
+export const pageQuerySource = (
+	page: ClientPageContext,
+	query: string,
+): undefined | ExecutionSource => {
+	const renderer = page.renderer;
+	if (renderer.kind !== "page") {
+		return undefined;
+	}
+	if (renderer.stage === "published") {
+		return { query, kind: "page", pageId: renderer.pageId };
+	}
+	const contributor = page.contributors.find(
+		(entry) =>
+			entry.kind === "page" &&
+			entry.pageId === renderer.pageId &&
+			entry.revision === renderer.revision &&
+			entry.definitionHash === renderer.definitionHash,
+	);
+	return contributor?.kind === "page"
+		? {
+				query,
+				kind: "page-preview",
+				pageId: renderer.pageId,
+				draftRevision: renderer.revision,
+				artifactHash: contributor.artifactHash,
+				definitionHash: renderer.definitionHash,
+			}
+		: undefined;
+};

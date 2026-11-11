@@ -979,3 +979,65 @@ export default function Alpha() {
 		testTimeout,
 	);
 });
+
+it.layer(emittedLayer("export const page = () => null;"))("page modules", (test) => {
+	test.effect(
+		"binds page identity and declarations independently from kernel modules",
+		() =>
+			Effect.gen(function* () {
+				const input = { ...emittedInput, kind: "page" as const, pageDeclarationHash: "first" };
+				const first = yield* compileClientPluginModule(input);
+				const changed = yield* compileClientPluginModule({
+					...input,
+					pageDeclarationHash: "second",
+				});
+				const kernel = yield* compileClientPluginModule({ ...emittedInput, kind: "kernel" });
+				expect(first.artifact.kind).toBe("page");
+				expect(first.artifact.pageDeclarationHash).toBe("first");
+				expect(first.artifact.hash).not.toBe(changed.artifact.hash);
+				expect(first.artifact.hash).not.toBe(kernel.artifact.hash);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"rejects files outside page source roots",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* compileClientPluginModule({
+					...emittedInput,
+					kind: "page",
+					pageDeclarationHash: "first",
+					files: { ...emittedInput.files, "backend/code.ts": bytes("export default 1") },
+				}).pipe(Effect.result);
+				expect(Result.isFailure(result)).toBe(true);
+				if (Result.isFailure(result)) {
+					expect(result.failure.diagnostics[0]?.code).toBe("RYOT_CLIENT_SOURCE_PATH");
+				}
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"applies AST import policy to pages",
+		() =>
+			Effect.gen(function* () {
+				const result = yield* compileClientPluginModule({
+					...emittedInput,
+					kind: "page",
+					pageDeclarationHash: "first",
+					files: {
+						"client/other.ts": bytes("export default 1"),
+						"client/home.tsx": bytes(
+							'export default function Home() { return import("./other"); }',
+						),
+					},
+				}).pipe(Effect.result);
+				expect(Result.isFailure(result)).toBe(true);
+				if (Result.isFailure(result)) {
+					expect(
+						result.failure.diagnostics.some(({ message }) => message.includes("Dynamic imports")),
+					).toBe(true);
+				}
+			}),
+		testTimeout,
+	);
+});

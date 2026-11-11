@@ -3,14 +3,19 @@
 `ryot plugin build` uses this package to validate client sources and emit a reusable client module
 artifact into the plugin archive. Server assembly builds the shared iframe runtime and kernel renderer
 modules with the same compiler. The running server imports these artifacts and composes page documents
-without invoking a compiler.
+without invoking a compiler. User-authored pages compile on demand in a supervised subprocess.
 
 `compileClientPluginModule` and `buildClientRuntime` require `FileSystem` and `ViteBuildService`;
 callers provide `pluginClientCompilerPlatformLayer` at their entrypoint.
 
 Module input selects `kind: "plugin"` with a required canonical `packageId`, or `kind: "kernel"`
-without an authored package identity. The result carries the same discriminator: plugin builds return
-`PluginClientArtifact`; kernel renderer builds and `buildClientRuntime` return `ClientRuntimeArtifact`.
+without an authored package identity, or `kind: "page"` with a required `pageDeclarationHash`.
+Plugin builds return `PluginClientArtifact`; kernel renderer builds and `buildClientRuntime` return
+`ClientRuntimeArtifact`; page builds return `PageClientArtifact`. Page callers use
+`pageDeclarationHash({ entry, pluginDependencies })` from the client contract,
+and supply `publicExports: { page: { kind: "page", entry } }`. All three module kinds share source,
+import, AST, semantic, stylesheet and output validation. Pages accept only `client/**` and `shared/**`
+files; plugin package inputs may also contain unrelated backend and manifest files.
 Plugin input also requires `clientDeclarationHash`, computed from the full canonical manifest client
 declaration. Module artifacts record the scoped package/export targets encountered during import
 resolution, not every declared dependency alias. Kernel modules share this import metadata; the root
@@ -111,3 +116,32 @@ Installing an archive trusts its compiled client executable bytes. The server ch
 structure, executable UTF-8, hashes, limits, MIME types, and manifest consistency; it does not prove compilation
 provenance. Image-owned artifact hashes are public, and other artifacts require capabilities.
 Compositions reference these immutable modules; their HTML documents are dynamic and no-store.
+
+## Server Worker
+
+`./worker` reads one JSON request from stdin and writes one JSON response to stdout. `./protocol`
+owns Effect codecs for canonical base64 source and artifact bytes. Requests contain `input`,
+`workspaceParentPath` and `workspaceJobId`; responses contain either `{ success: true, value: { artifact } }`
+or `{ success: false, error }` with bounded compiler diagnostics. The worker never executes authored code.
+`compileClientPluginModule` accepts optional compiler workspace options for supervised execution.
+The source worker runs its exported `runClientCompilerWorker` entry when executed directly; the
+packaged server worker imports and calls the same entry.
+
+`kernel/backend/src/modules/pages/compiler.ts` owns `ClientPluginCompiler.layer`. Its `compile` accepts
+the page variant of `PluginClientCompilerPackageInput` and returns `Effect<PageClientArtifact,
+PluginClientCompilerFailure>`. The service owns concurrency, timeout, memory and stdout limits through
+`platform/process/compiler-worker.ts`, and scopes the workspace in the parent so process termination
+also removes staged files. Workspaces remain beneath the compiler package so ordinary package
+resolution finds its declared dependencies in both source and packaged layouts. Page lifecycle code
+provides this Layer and persists the returned artifact;
+compilation itself has no database or publication effects.
+
+Server builds emit `plugin-client-compiler-worker.js` and `smoke-compiler-workers.js` alongside the
+server bundle. The runtime image retains compiler dependencies and runs the smoke script as its
+runtime user during the image build. Run the smoke script with an optional worker path to exercise
+another packaged layout. It compiles TSX, SDK imports, Tailwind, authored CSS and an SVG, then checks
+the emitted page identity, artifact references and workspace cleanup.
+
+Page declaration identity includes only entry and portable scoped package references. Queries, page
+IDs, installation IDs, ownership and write grants remain runtime metadata. Restoring a page can remap
+those references while retaining its compiled artifact bytes and hash; no compiler is needed.

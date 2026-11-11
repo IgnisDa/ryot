@@ -19,22 +19,32 @@ export type ClientPluginCompilerPackageExport = Schema.Schema.Type<
 	typeof ClientPluginCompilerPackageExport
 >;
 
-const commonInputFields = {
-	name: Schema.String,
-	apiVersion: Schema.Literal(CLIENT_API_VERSION),
-	files: Schema.Record(Schema.String, Schema.Uint8Array),
-	pluginDependencies: Schema.optional(PluginClientDependencies),
-	publicExports: Schema.Record(Schema.String, ClientPluginCompilerPackageExport),
+export const clientPluginCompilerInputSchema = <Encoded, DecodingServices, EncodingServices>(
+	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
+) => {
+	const commonInputFields = {
+		name: Schema.String,
+		files: Schema.Record(Schema.String, contents),
+		apiVersion: Schema.Literal(CLIENT_API_VERSION),
+		pluginDependencies: Schema.optional(PluginClientDependencies),
+		publicExports: Schema.Record(Schema.String, ClientPluginCompilerPackageExport),
+	};
+	return Schema.Union([
+		Schema.Struct({
+			...commonInputFields,
+			packageId: PluginPackageId,
+			kind: Schema.Literal("plugin"),
+			clientDeclarationHash: Schema.String,
+		}),
+		Schema.Struct({ ...commonInputFields, kind: Schema.Literal("kernel") }),
+		Schema.Struct({
+			...commonInputFields,
+			kind: Schema.Literal("page"),
+			pageDeclarationHash: Schema.String,
+		}),
+	]);
 };
-export const PluginClientCompilerPackageInput = Schema.Union([
-	Schema.Struct({
-		...commonInputFields,
-		packageId: PluginPackageId,
-		kind: Schema.Literal("plugin"),
-		clientDeclarationHash: Schema.String,
-	}),
-	Schema.Struct({ ...commonInputFields, kind: Schema.Literal("kernel") }),
-]);
+export const PluginClientCompilerPackageInput = clientPluginCompilerInputSchema(Schema.Uint8Array);
 export type PluginClientCompilerPackageInput = Schema.Schema.Type<
 	typeof PluginClientCompilerPackageInput
 >;

@@ -62,6 +62,7 @@ export type PluginBridgeBackgroundOperationRequest = Schema.Schema.Type<
 const PluginBackgroundOperationBridgeErrorReason = Schema.Literals([
 	"transport",
 	"operation-failed",
+	"page-write-access-required",
 	"malformed-result",
 ]);
 
@@ -101,6 +102,7 @@ export type PluginBridgeBackgroundOperationAccepted = Schema.Schema.Type<
 export const BackgroundSubmissionFailureClass = Schema.Literals([
 	"transport",
 	"operation-failed",
+	"page-write-access-required",
 	"operation-rejected",
 	"malformed-result",
 	"app-updated",
@@ -115,7 +117,13 @@ export const BackgroundSubmissionOutcome = Schema.Union([
 	strictStruct({ status: Schema.Literal("incomplete") }),
 	strictStruct({
 		status: Schema.Literal("failed"),
-		reason: Schema.Literals(["transport", "operation-failed", "malformed-result", "app-updated"]),
+		reason: Schema.Literals([
+			"transport",
+			"operation-failed",
+			"page-write-access-required",
+			"malformed-result",
+			"app-updated",
+		]),
 	}),
 	strictStruct({
 		message: Schema.String,

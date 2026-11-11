@@ -23,7 +23,12 @@ storage, RyotQL, entity-watch, and external-link payloads), `src/bridge/backgrou
 `src/artifact.ts` defines artifact schemas, exact-byte file copies, and the single metadata hash
 calculation used by the compiler, ingestion, and server assembly. The hash includes the plugin name,
 versions, and sorted file names, MIME types, and byte hashes. The package entry point exports these
-definitions for callers.
+definitions for callers. `PageClientArtifact` adds `kind: "page"` and `pageDeclarationHash` to the
+generic artifact metadata. The page hash covers those fields, name, versions, sorted resolved imports
+and every output byte and MIME type. `PageClientDeclaration` and `pageDeclarationHash` define portable compiler identity from the entry
+and scoped package dependencies. Queries, page IDs, installation IDs, ownership and grants are
+runtime metadata and do not participate, so backup restore can remap them without recompiling. Page artifacts have their own strict byte and base64 codecs and belong
+to the `ClientArtifact` union.
 
 The client artifact format, client API, compiler, and bridge protocol remain version 1.
 There are no compatibility adapters for earlier development builds.
@@ -112,3 +117,12 @@ RyotQL messages select `action: "execute" | "describe"`. Execute carries the can
 filter, and sort values remain outside the authored document. The shared cancellation message
 interrupts either action. Page-context data sources are authored definitions; binding belongs to
 the server execution boundary.
+
+Page renderers carry `PageFrameAuthority` for the entire iframe, including imported contributors.
+`pageQuerySource` derives a named published source or the exact compiled-preview source from that
+context and its page contributor. The host binds and checks sources against its prepared context;
+client-provided context never grants authority. Both execute and describe obey this restriction.
+
+`page-write-access-required` is a public client error, operation failure, background admission failure
+and background settlement failure. Direct write capabilities use `invalid-request`; mutation screens
+close without changing data. Draft frames are always read-only, regardless of their grant flag.

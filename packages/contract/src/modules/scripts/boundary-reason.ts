@@ -14,6 +14,7 @@ export const SandboxBoundaryReason = Schema.Union([
 	PluginInstallationUnavailableReason,
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("operation-rejected") }),
+	Schema.Struct({ code: Schema.Literal("page-write-access-required") }),
 	Schema.Struct({
 		code: Schema.Literal("missing-required-config"),
 		keys: Schema.optionalKey(Schema.Array(Schema.String)),

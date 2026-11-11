@@ -1,5 +1,6 @@
 import {
 	CLIENT_API_VERSION,
+	PluginClientDependencies,
 	type PluginClientEntry,
 	pluginManifestSlug,
 } from "@ryot-app/contract/modules/plugins/manifest";
@@ -79,6 +80,42 @@ export const ClientRuntimeArtifactMetadata = strictStruct({
 });
 export type ClientRuntimeArtifactMetadata = typeof ClientRuntimeArtifactMetadata.Type;
 
+export const PageClientDeclaration = strictStruct({
+	entry: Schema.String,
+	pluginDependencies: Schema.optional(PluginClientDependencies),
+});
+export type PageClientDeclaration = typeof PageClientDeclaration.Type;
+
+export const pageDeclarationHash = (declaration: PageClientDeclaration) =>
+	sha256Hex(
+		stableStringify({
+			entry: declaration.entry,
+			pluginDependencies: declaration.pluginDependencies ?? {},
+		}),
+	);
+
+export const PageClientArtifactMetadata = strictStruct({
+	...ClientRuntimeArtifactMetadata.fields,
+	kind: Schema.Literal("page"),
+	pageDeclarationHash: Schema.String,
+});
+export type PageClientArtifactMetadata = typeof PageClientArtifactMetadata.Type;
+
+export const pageClientArtifactMetadata = (
+	name: string,
+	files: readonly PluginClientArtifactFile[],
+	identity: Pick<PageClientArtifactMetadata, "imports" | "pageDeclarationHash">,
+): PageClientArtifactMetadata => ({
+	...artifactMetadata(
+		name,
+		files,
+		{ kind: "page", pageDeclarationHash: identity.pageDeclarationHash },
+		identity.imports,
+	),
+	kind: "page",
+	pageDeclarationHash: identity.pageDeclarationHash,
+});
+
 export const clientArtifactFile = ({
 	path,
 	bytes,
@@ -114,6 +151,7 @@ const artifactMetadata = (
 	files: readonly PluginClientArtifactFile[],
 	owner:
 		| { readonly kind: "kernel" }
+		| { readonly kind: "page"; readonly pageDeclarationHash: string }
 		| Pick<PluginClientArtifactMetadata, "packageId" | "clientDeclarationHash">,
 	imports: readonly PluginClientImport[],
 ): ClientRuntimeArtifactMetadata => {
@@ -170,7 +208,18 @@ export type PluginClientArtifact = Schema.Schema.Type<typeof PluginClientArtifac
 export const ClientRuntimeArtifact = clientRuntimeArtifact(Schema.Uint8Array);
 export type ClientRuntimeArtifact = Schema.Schema.Type<typeof ClientRuntimeArtifact>;
 
-export const ClientArtifact = Schema.Union([PluginClientArtifact, ClientRuntimeArtifact]);
+const pageClientArtifact = <Encoded, DecodingServices, EncodingServices>(
+	contents: Schema.Codec<Uint8Array, Encoded, DecodingServices, EncodingServices>,
+) => strictStruct({ ...PageClientArtifactMetadata.fields, files: artifactFiles(contents) });
+
+export const PageClientArtifact = pageClientArtifact(Schema.Uint8Array);
+export type PageClientArtifact = typeof PageClientArtifact.Type;
+
+export const ClientArtifact = Schema.Union([
+	PluginClientArtifact,
+	ClientRuntimeArtifact,
+	PageClientArtifact,
+]);
 export type ClientArtifact = Schema.Schema.Type<typeof ClientArtifact>;
 
 const CanonicalUint8ArrayFromBase64 = CanonicalBase64.pipe(
@@ -179,3 +228,5 @@ const CanonicalUint8ArrayFromBase64 = CanonicalBase64.pipe(
 
 export const PluginClientArtifactFromBase64 = pluginClientArtifact(CanonicalUint8ArrayFromBase64);
 export const ClientRuntimeArtifactFromBase64 = clientRuntimeArtifact(CanonicalUint8ArrayFromBase64);
+
+export const PageClientArtifactFromBase64 = pageClientArtifact(CanonicalUint8ArrayFromBase64);

@@ -14,6 +14,14 @@
 		"./limits": {
 			"types": "./src/limits.ts",
 			"default": "./src/limits.ts"
+		},
+		"./protocol": {
+			"types": "./src/protocol.ts",
+			"default": "./src/protocol.ts"
+		},
+		"./worker": {
+			"types": "./src/worker.ts",
+			"default": "./src/worker.ts"
 		}
 	},
 	"scripts": {

@@ -4,6 +4,8 @@ import {
 	type ClientRuntimeArtifact,
 	clientRuntimeArtifactMetadata,
 	isPluginClientArtifactContentType,
+	type PageClientArtifact,
+	pageClientArtifactMetadata,
 	type PluginClientArtifact,
 	type PluginClientImport,
 	pluginExportSpecifier,
@@ -11,7 +13,7 @@ import {
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
-import type { ViteBuildService } from "@ryot-app/vite-compiler";
+import type { CompilerWorkspaceOptions, ViteBuildService } from "@ryot-app/vite-compiler";
 import {
 	acquireCompilerWorkspace,
 	buildWithVite,
@@ -102,6 +104,7 @@ const outputReferenceIssue = (
 	return null;
 };
 
+type PageInput = Extract<PluginClientCompilerPackageInput, { readonly kind: "page" }>;
 type PluginInput = Extract<PluginClientCompilerPackageInput, { readonly kind: "plugin" }>;
 type KernelInput = Extract<PluginClientCompilerPackageInput, { readonly kind: "kernel" }>;
 type Compilation<Output> = Effect.Effect<
@@ -112,13 +115,28 @@ type Compilation<Output> = Effect.Effect<
 
 export function compileClientPluginModule(
 	input: PluginInput,
+	options?: CompilerWorkspaceOptions,
 ): Compilation<{ readonly artifact: PluginClientArtifact }>;
 export function compileClientPluginModule(
 	input: KernelInput,
+	options?: CompilerWorkspaceOptions,
 ): Compilation<{ readonly artifact: ClientRuntimeArtifact }>;
 export function compileClientPluginModule(
+	input: PageInput,
+	options?: CompilerWorkspaceOptions,
+): Compilation<{ readonly artifact: PageClientArtifact }>;
+export function compileClientPluginModule(
 	input: PluginClientCompilerPackageInput,
-): Compilation<{ readonly artifact: PluginClientArtifact | ClientRuntimeArtifact }> {
+	options?: CompilerWorkspaceOptions,
+): Compilation<{
+	readonly artifact: PageClientArtifact | PluginClientArtifact | ClientRuntimeArtifact;
+}>;
+export function compileClientPluginModule(
+	input: PluginClientCompilerPackageInput,
+	options?: CompilerWorkspaceOptions,
+): Compilation<{
+	readonly artifact: PageClientArtifact | PluginClientArtifact | ClientRuntimeArtifact;
+}> {
 	return Effect.gen(function* () {
 		const { dependencies, compiledFiles: sourceEntries } =
 			yield* validateClientPluginPackage(input);
@@ -128,6 +146,7 @@ export function compileClientPluginModule(
 		const paths = yield* Path.Path;
 		const workspace = yield* acquireCompilerWorkspace({
 			parentPath: dependencies.compilerRoot,
+			...options,
 			sources: sourceEntries.map(([path, contents]) => ({ path, contents })),
 			generated: (pathsForWorkspace) => [
 				{ path: "module.ts", contents: moduleSource(input) },
@@ -340,6 +359,17 @@ export function compileClientPluginModule(
 					...clientArtifactMetadata(input.name, input.packageId, files, {
 						imports,
 						clientDeclarationHash: input.clientDeclarationHash,
+					}),
+					files: sortedFiles,
+				},
+			};
+		}
+		if (input.kind === "page") {
+			return {
+				artifact: {
+					...pageClientArtifactMetadata(input.name, files, {
+						imports,
+						pageDeclarationHash: input.pageDeclarationHash,
 					}),
 					files: sortedFiles,
 				},

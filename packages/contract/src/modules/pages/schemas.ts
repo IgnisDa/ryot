@@ -14,6 +14,7 @@ import { strictStruct } from "../../schema/utils";
 import { PluginClientDependencies } from "../plugins/manifest";
 import { PluginPackageReference, SavedViewReference } from "../plugins/references";
 import { RyotQLDocument } from "../ryotql/authored";
+import { PageDraftBuildIdentity } from "./identity";
 
 export const ClientRendererFile = strictStruct({ path: Schema.String, content: CanonicalBase64 });
 
@@ -43,11 +44,20 @@ const SavedViewOrRouteClientPageTarget = Schema.Union([
 	SavedViewClientPageTarget,
 	PluginRouteClientPageTarget,
 ]);
-export const ClientPageTarget = Schema.Union([SavedViewClientPageTarget, PluginClientPageTarget]);
+export const PagePreviewTarget = strictStruct({
+	...PageDraftBuildIdentity.fields,
+	kind: Schema.Literal("page-preview"),
+});
+export const ClientPageTarget = Schema.Union([
+	SavedViewClientPageTarget,
+	PluginClientPageTarget,
+	PagePreviewTarget,
+]);
 export type ClientPageTarget = typeof ClientPageTarget.Type;
 
 const PreparedClientPageTarget = Schema.Union([
 	...SavedViewOrRouteClientPageTarget.members,
+	PagePreviewTarget,
 	strictStruct({
 		entityId: EntityId,
 		kind: Schema.Literal("entity"),
@@ -59,6 +69,8 @@ const PreparedClientPageTarget = Schema.Union([
 export const PrepareClientPageBody = strictStruct({ target: ClientPageTarget });
 
 export const ClientPagePreparationErrorReason = Schema.Union([
+	strictStruct({ pageId: Schema.String, code: Schema.Literal("page-unavailable") }),
+	strictStruct({ pageId: Schema.String, code: Schema.Literal("page-preview-stale") }),
 	strictStruct({ entityId: EntityId, code: Schema.Literal("entity-not-found") }),
 	strictStruct({ pluginId: Schema.String, code: Schema.Literal("plugin-unavailable") }),
 	strictStruct({ packageId: PluginPackageId, code: Schema.Literal("plugin-package-unavailable") }),
@@ -98,6 +110,13 @@ export class ClientPagePreparationError extends Schema.TaggedError<
 >()("ClientPagePreparationError", { reason: ClientPagePreparationErrorReason }) {}
 
 export const ClientPageCodeContributor = Schema.Union([
+	strictStruct({
+		revision: Schema.Int,
+		pageId: Schema.String,
+		artifactHash: Schema.String,
+		kind: Schema.Literal("page"),
+		definitionHash: Schema.String,
+	}),
 	strictStruct({
 		name: Schema.String,
 		sourceHash: Schema.String,
@@ -188,6 +207,15 @@ const ClientCompositionRoutes = strictStruct({
 	),
 });
 
+const PageCompositionContributor = strictStruct({
+	revision: Schema.Int,
+	pageId: Schema.String,
+	artifactHash: Schema.String,
+	kind: Schema.Literal("page"),
+	definitionHash: Schema.String,
+	pluginDependencies: PluginClientDependencies,
+});
+
 const ClientPageCompositionIdentityBase = {
 	format: Schema.Int,
 	name: Schema.String,
@@ -206,6 +234,7 @@ const ClientPageCompositionIdentityBase = {
 	),
 	contributors: Schema.Array(
 		Schema.Union([
+			PageCompositionContributor,
 			strictStruct({
 				name: Schema.String,
 				sourceHash: Schema.String,
@@ -282,6 +311,30 @@ const PreparedClientPageIdentityBase = {
 export const PreparedClientPageIdentity = Schema.Union([
 	strictStruct({
 		...PreparedClientPageIdentityBase,
+		revision: Schema.Int,
+		pageId: Schema.String,
+		savedViewId: SavedViewId,
+		viewRevision: Schema.Int,
+		artifactHash: Schema.String,
+		writeAccess: Schema.Boolean,
+		definitionHash: Schema.String,
+		authorityRevision: Schema.Int,
+		kind: Schema.Literal("page-saved-view"),
+		target: SavedViewOrRouteClientPageTarget,
+	}),
+	strictStruct({
+		...PreparedClientPageIdentityBase,
+		revision: Schema.Int,
+		pageId: Schema.String,
+		target: PagePreviewTarget,
+		artifactHash: Schema.String,
+		definitionHash: Schema.String,
+		authorityRevision: Schema.Int,
+		writeAccess: Schema.Literal(false),
+		kind: Schema.Literal("page-preview"),
+	}),
+	strictStruct({
+		...PreparedClientPageIdentityBase,
 		savedViewId: SavedViewId,
 		viewRevision: Schema.Int,
 		sourceHash: Schema.String,
@@ -324,6 +377,16 @@ export const PreparedClientPageViewIdentity = strictStruct({
 	name: Schema.String,
 });
 
+export const PageFrameAuthority = strictStruct({
+	revision: Schema.Int,
+	pageId: Schema.String,
+	writeAccess: Schema.Boolean,
+	kind: Schema.Literal("page"),
+	definitionHash: Schema.String,
+	authorityRevision: Schema.Int,
+	stage: Schema.Literals(["draft", "published"]),
+});
+
 export const PreparedClientPageContext = strictStruct({
 	target: PreparedClientPageTarget,
 	dataSources: Schema.NullOr(RyotQLDocument),
@@ -332,6 +395,7 @@ export const PreparedClientPageContext = strictStruct({
 	contributors: Schema.Array(ClientPageCodeContributor),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
 	renderer: Schema.Union([
+		PageFrameAuthority,
 		strictStruct({ name: Schema.String, kind: Schema.Literal("kernel") }),
 		strictStruct({
 			pluginId: Schema.String,
@@ -408,4 +472,71 @@ export class ClientPageDocumentStale extends Schema.TaggedError<
 	{ readonly brand: unique symbol }
 >()("ClientPageDocumentStale", {
 	reason: strictStruct({ code: Schema.Literal("client-page-document-stale") }),
+}) {}
+
+export const PageDefinition = strictStruct({
+	entry: Schema.String,
+	queries: RyotQLDocument,
+	files: Schema.Array(ClientRendererFile),
+	pluginDependencies: PluginClientDependencies,
+});
+export type PageDefinition = typeof PageDefinition.Type;
+
+export const PageOrigin = Schema.Literals(["user", "assistant"]);
+export type PageOrigin = typeof PageOrigin.Type;
+
+export const CreatePageBody = strictStruct({
+	definition: PageDefinition,
+	slug: Schema.NonEmptyString,
+	name: Schema.NonEmptyString,
+});
+export type CreatePageBody = typeof CreatePageBody.Type;
+export const PageIdBody = strictStruct({ pageId: Schema.NonEmptyString });
+export const PageDraftRevisionBody = strictStruct({
+	...PageIdBody.fields,
+	expectedDraftRevision: Schema.Int.check(Schema.isGreaterThan(0)),
+});
+export type PageDraftRevisionBody = typeof PageDraftRevisionBody.Type;
+export const ReplacePageDraftBody = strictStruct({
+	...PageDraftRevisionBody.fields,
+	definition: PageDefinition,
+});
+export type ReplacePageDraftBody = typeof ReplacePageDraftBody.Type;
+export const SetPageWriteAccessBody = strictStruct({
+	...PageIdBody.fields,
+	writeAccess: Schema.Boolean,
+});
+export const PageMutationResult = strictStruct({ pageId: Schema.String });
+export const PageDraftResult = strictStruct({
+	...PageMutationResult.fields,
+	draftRevision: Schema.Int,
+});
+export const PageBuildResult = strictStruct({ ...PageDraftBuildIdentity.fields });
+
+export const PageBuildDiagnostic = strictStruct({
+	line: Schema.Int,
+	column: Schema.Int,
+	code: Schema.String,
+	file: Schema.String,
+	message: Schema.String,
+	severity: Schema.Literals(["error", "warning", "info"]),
+});
+export class PageAuthoringError extends Schema.TaggedError<
+	PageAuthoringError,
+	{ readonly brand: unique symbol }
+>()("PageAuthoringError", {
+	reason: Schema.Union([
+		strictStruct({ code: Schema.Literal("page-not-found") }),
+		strictStruct({ message: Schema.String, code: Schema.Literal("definition-invalid") }),
+		strictStruct({ draftRevision: Schema.Int, code: Schema.Literal("draft-revision-stale") }),
+		strictStruct({
+			code: Schema.Literal("build-failed"),
+			diagnostics: Schema.Array(PageBuildDiagnostic),
+		}),
+		strictStruct({
+			reference: PluginPackageReference,
+			code: Schema.Literal("dependency-unavailable"),
+		}),
+		strictStruct({ code: Schema.Literal("page-in-use") }),
+	]),
 }) {}

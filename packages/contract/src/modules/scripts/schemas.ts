@@ -17,6 +17,7 @@ import {
 	AutomationInvocationFields,
 	AutomationPolicyInputProjection,
 } from "../automations/lifecycle";
+import { PageOperationAuthority } from "../pages/identity";
 import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
 import { ProviderTranslationInputs } from "../plugins/provider-inputs";
 import { SandboxBoundaryReason } from "./boundary-reason";
@@ -147,6 +148,7 @@ export const SandboxExecutionSubject = Schema.Union([
 		importRunId: Schema.optional(ImportRunId),
 		integrationId: Schema.optional(IntegrationId),
 		integrationRunId: Schema.optional(ImportRunId),
+		pageAuthority: Schema.optional(PageOperationAuthority),
 	}),
 	strictStruct({
 		...automationRunSubjectFields,

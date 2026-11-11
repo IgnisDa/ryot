@@ -4,11 +4,20 @@ import { JsonValue } from "../../schema/json";
 import { strictStruct } from "../../schema/utils";
 import { Filter, FilterField } from "../filters/schemas";
 import { BrowseSort } from "../filters/sort";
+import { PageDraftBuildIdentity } from "../pages/identity";
 import { PluginPackageReference, SavedViewReference } from "../plugins/references";
 import { RyotQLDocument } from "./authored";
 import { ParameterSchema } from "./parameters";
 
+export const PagePreviewQuerySource = strictStruct({
+	...PageDraftBuildIdentity.fields,
+	query: Schema.NonEmptyString,
+	kind: Schema.Literal("page-preview"),
+});
+export type PagePreviewQuerySource = typeof PagePreviewQuerySource.Type;
+
 export const ExecutionSource = Schema.Union([
+	PagePreviewQuerySource,
 	strictStruct({
 		document: RyotQLDocument,
 		kind: Schema.Literal("inline"),

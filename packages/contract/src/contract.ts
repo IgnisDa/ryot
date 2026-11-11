@@ -17,7 +17,7 @@ import { IntegrationsGroup } from "./modules/integrations/contract";
 import { LiveUpdatesGroup } from "./modules/live-updates/contract";
 import { NotificationsGroup } from "./modules/notifications/contract";
 import { OAuthConnectionsGroup } from "./modules/oauth-connections/contract";
-import { PageBundlesGroup, PagesGroup } from "./modules/pages/contract";
+import { PageAuthoringGroup, PageBundlesGroup, PagesGroup } from "./modules/pages/contract";
 import { PluginsGroup } from "./modules/plugins/contract";
 import { PublicationsGroup, PublicationVisitsGroup } from "./modules/publications/contract";
 import { RelationshipsGroup } from "./modules/relationships/contract";
@@ -50,6 +50,7 @@ export type AppGroups =
 	| typeof PublicationsGroup
 	| typeof LocalUploadsGroup
 	| typeof IntegrationsGroup
+	| typeof PageAuthoringGroup
 	| typeof RelationshipsGroup
 	| typeof InstanceAdminGroup
 	| typeof NotificationsGroup
@@ -80,6 +81,7 @@ export const AppContract: HttpApi.HttpApi<"ryot", AppGroups> = HttpApi.make("ryo
 	.add(RemindersGroup)
 	.add(CollectionsGroup)
 	.add(PagesGroup)
+	.add(PageAuthoringGroup)
 	.add(PageBundlesGroup)
 	.add(InstanceAdminGroup)
 	.add(ServerLogsGroup)

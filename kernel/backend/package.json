@@ -101,7 +101,8 @@
 		"nodemailer": "10.3.1",
 		"pg": "8.23.1",
 		"react": "19.3.1",
-		"rotating-file-stream": "3.2.10"
+		"rotating-file-stream": "3.2.10",
+		"@ryot-app/plugin-client-compiler": "workspace:*"
 	},
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",

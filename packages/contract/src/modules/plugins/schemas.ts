@@ -3,6 +3,7 @@ import { Schema } from "effect";
 import { PluginId, PluginPackageId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
+import { PageOperationAuthority } from "../pages/identity";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../scripts/schemas";
 import { SavedViewReference } from "./references";
 
@@ -67,6 +68,7 @@ const PluginPackageArchiveIssue = Schema.Literals([
 ]);
 
 const PluginRequestFailureReason = Schema.Union([
+	Schema.Struct({ code: Schema.Literal("page-write-access-required") }),
 	Schema.Struct({ code: Schema.Literal("asset-forbidden") }),
 	Schema.Struct({ code: Schema.Literal("upload-unavailable") }),
 	Schema.Struct({ packageId: PluginPackageId, code: Schema.Literal("reserved-system-identity") }),
@@ -247,6 +249,7 @@ export const PluginInvokeBody = Schema.Struct({
 	payload: JsonValue,
 	submittedAt: Schema.optional(IsoUtcString),
 	contentHash: Schema.optional(Schema.String),
+	pageAuthority: Schema.optional(PageOperationAuthority),
 	idempotencyKey: Schema.optional(Schema.NonEmptyString),
 }).pipe(
 	Schema.check(

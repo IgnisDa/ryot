@@ -9,12 +9,17 @@ export * from "./bridge/messages";
 export * from "./bridge/lifecycle";
 export * from "./bridge/capabilities";
 export * from "./bridge/ios-live-activities";
+export { pageQuerySource } from "./navigation";
 export * from "./bridge/background-submissions";
+
 export {
 	ClientArtifact,
+	PageClientArtifact,
 	PluginClientImport,
 	clientArtifactFile,
+	pageDeclarationHash,
 	PluginClientArtifact,
+	PageClientDeclaration,
 	clientDeclarationHash,
 	ClientRuntimeArtifact,
 	pluginExportSpecifier,
@@ -23,6 +28,9 @@ export {
 	CLIENT_COMPILER_VERSION,
 	PluginClientArtifactFile,
 	ClientCompositionMetadata,
+	PageClientArtifactMetadata,
+	pageClientArtifactMetadata,
+	PageClientArtifactFromBase64,
 	PluginClientArtifactMetadata,
 	ClientRuntimeArtifactMetadata,
 	clientRuntimeArtifactMetadata,

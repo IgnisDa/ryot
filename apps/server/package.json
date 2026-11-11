@@ -20,12 +20,12 @@
 		"@ryot-app/plugin-backend-sdk": "workspace:*",
 		"@ryot-app/plugin-kit": "workspace:*",
 		"drizzle-orm": "1.0.0-rc.5",
-		"effect": "4.1.2"
+		"effect": "4.1.2",
+		"@ryot-app/plugin-client-compiler": "workspace:*"
 	},
 	"devDependencies": {
 		"@ryot-app/kernel-renderers": "workspace:*",
 		"@ryot-app/plugin-archive": "workspace:*",
-		"@ryot-app/plugin-client-compiler": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/sandbox": "workspace:*",
 		"bun-types": "1.4.4",

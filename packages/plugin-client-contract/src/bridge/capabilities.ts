@@ -44,6 +44,7 @@ export const PLUGIN_STORAGE_VALUE_MAX_BYTES = 65536;
 export const PluginOperationBridgeErrorReason = Schema.Literals([
 	"transport",
 	"operation-failed",
+	"page-write-access-required",
 	"operation-rejected",
 	"malformed-result",
 ]);
@@ -61,6 +62,7 @@ export const PluginAssetBridgeErrorReason = Schema.Literals([
 export type PluginAssetBridgeErrorReason = Schema.Schema.Type<typeof PluginAssetBridgeErrorReason>;
 
 export const PluginUploadBridgeErrorReason = Schema.Literals([
+	"invalid-request",
 	"transport",
 	"operation-failed",
 	"malformed-result",
@@ -83,6 +85,7 @@ export const RyotClientErrorReason = Schema.Literals([
 	"query-failed",
 	"invalid-input",
 	"operation-failed",
+	"page-write-access-required",
 	"operation-rejected",
 	"malformed-result",
 	"unsupported-capability",
@@ -130,6 +133,7 @@ export const PluginBridgeExternalLinkResult = Schema.Union(
 );
 
 export const PluginCollectionBridgeErrorReason = Schema.Literals([
+	"invalid-request",
 	"transport",
 	"collection-failed",
 	"collection-stale",
@@ -339,7 +343,12 @@ const pluginOperationSuccessFields = { value: JsonValue, outcome: Schema.Literal
 const pluginOperationFailureVariants = [
 	{
 		outcome: Schema.Literal("failure"),
-		reason: Schema.Literals(["transport", "operation-failed", "malformed-result"]),
+		reason: Schema.Literals([
+			"transport",
+			"operation-failed",
+			"page-write-access-required",
+			"malformed-result",
+		]),
 	},
 	{
 		message: Schema.String,
