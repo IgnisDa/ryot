@@ -179,6 +179,8 @@ the [docker compose](./index.md#installation) file from a terminal instead, see 
 `8000` already set. Choose ZopCloud to have it run fully managed, or connect your own AWS,
 GCP or Azure account and ZopDay deploys it there instead.
 
-Create a PostgreSQL database from ZopDay in the same account and set `DATABASE_URL` to it,
-then set `SERVER_ADMIN_ACCESS_TOKEN` to a long random string before deploying. Open the
-address and create your first user via the web interface's registration page.
+If you deploy to your own cloud account, create a PostgreSQL database from ZopDay in that
+account. If you deploy to ZopCloud, which needs no cloud account, use a PostgreSQL database
+that you provide and that the deployment can reach. Set `DATABASE_URL` to its connection
+string, then set `SERVER_ADMIN_ACCESS_TOKEN` to a long random string before deploying. Open
+the address and create your first user via the web interface's registration page.
