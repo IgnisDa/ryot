@@ -6,6 +6,7 @@ import { Effect, Layer, Schema } from "effect";
 
 import { PageOperationAuthorization } from "#modules/pages/operation-authority";
 
+import { AgentScriptRepository } from "../agent/repository";
 import { SandboxRepository } from "../registry/repository";
 import { ScriptExecutionPrincipal } from "./principal";
 
@@ -21,6 +22,7 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 	SandboxExecutionAuthority,
 	Effect.gen(function* () {
 		const repository = yield* SandboxRepository;
+		const agents = yield* AgentScriptRepository.make;
 		const pageAuthorization = yield* PageOperationAuthorization.make;
 		// Decoding is pure, and a run passes the same principal object to each of its host calls.
 		const decoded = new WeakMap<SandboxPrincipal, ScriptExecutionPrincipal>();
@@ -37,6 +39,15 @@ export const SandboxExecutionAuthorityLive = Layer.effect(
 			principal: SandboxPrincipal,
 		) {
 			const validated = yield* decode(principal);
+			if (validated.subject.type === "agent") {
+				const run = yield* agents
+					.find(validated.subject.userId, validated.scriptId)
+					.pipe(Effect.mapError(invalidPin));
+				if (run?.completedAt !== null || !jsonValueEquals(run.principal, validated)) {
+					return yield* invalidPin();
+				}
+				return "user";
+			}
 			if (validated.subject.type === "user" && validated.subject.pageAuthority !== undefined) {
 				const allowed = yield* pageAuthorization
 					.current(validated.subject.userId, validated.subject.pageAuthority)

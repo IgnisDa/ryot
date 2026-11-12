@@ -40,7 +40,7 @@ user IDs or access classes.
 
 ## Result budget
 
-`truncateJsonResult(value, byteBudget?)` is reusable by future registry tools. The default is 65,536
+`truncateJsonResult(value, byteBudget?)` is shared by registry tools and agent script history. The default is 65,536
 bytes; budgets must be safe integers of at least 64 bytes. The budget covers the UTF-8 serialization
 of the entire result envelope, including escaping and the marker:
 
@@ -78,3 +78,21 @@ ordinary API audience. The registry propagates this expected audience into opera
 it never accepts a caller-supplied authenticated principal. MCP supplies its own resource, and API-key
 behavior stays the same. The MCP transport pins the source revision from its current descriptor when
 calling operations and declared queries.
+
+## Script tool
+
+`run_script` accepts `{ source, allowWrites? }`, defaulting to read-only execution. Source exports a
+normal script definition using the small `@ryot-app/plugin-backend-sdk/agent` entry point. The
+registry binds its query and operation ports to the authenticated user and transport's OAuth resource.
+`invokeOperation({ name, arguments })` accepts the discovered operation name. Discovery and dispatch
+share operation resolution, demo filtering, revision pinning and the existing operations service.
+
+Callers must obtain approval before setting `allowWrites`; demo calls with this flag are refused.
+The fixed MCP descriptor conservatively advertises write/destructive hints for this tool because its
+behavior depends on its arguments. Read-only runs remain available to demo users. Result envelopes
+carry bounded JSON, logs or compilation diagnostics and an execution ID; history and retries follow
+[agent script execution](../scripts/README.md#agent-scripts).
+
+The shared JSON result budget is implemented in `platform/tool-result.ts` and used both when retaining
+script results and when returning tool responses. A smaller caller budget may truncate the retained
+script result further.

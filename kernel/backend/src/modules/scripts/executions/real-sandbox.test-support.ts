@@ -67,7 +67,9 @@ export class RealSandboxScripts extends Context.Service<
 	"@ryot-app/kernel-backend/modules/scripts/executions/real-sandbox.test-support/RealSandboxScripts",
 ) {}
 
-export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurableResult } = {}) =>
+export const realSandboxLayer = (
+	options: { readonly perUserSidecars?: boolean; readonly hostResult?: WorkflowDurableResult } = {},
+) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const fs = yield* FileSystem.FileSystem;
@@ -83,8 +85,8 @@ export const realSandboxLayer = (options: { readonly hostResult?: WorkflowDurabl
 				>(),
 			);
 			const appConfig = makeAppConfigLayer({
-				sandbox: { workerConcurrency: 2 },
 				fileStorage: { localTempDir: root },
+				sandbox: { workerConcurrency: 2, perUserSidecars: options.perUserSidecars ?? false },
 			});
 			const infrastructure = Layer.mergeAll(
 				Layer.succeed(SandboxExecutionAuthority, {

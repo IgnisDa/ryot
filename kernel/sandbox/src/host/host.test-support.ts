@@ -36,6 +36,7 @@ const unusedSandboxHostFunctionMap = (
 	executeRyotql: unusedHostCall,
 	getCachedValue: unusedHostCall,
 	setCachedValue: unusedHostCall,
+	invokeOperation: unusedHostCall,
 	getPluginConfig: unusedHostCall,
 	getUserSettings: unusedHostCall,
 	createUserEntity: unusedHostCall,

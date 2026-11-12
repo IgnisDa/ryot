@@ -258,6 +258,7 @@ const inspectImports = (
 					specifier === SANDBOX_SDK_AUTOMATION_IMPORT ||
 					specifier === SANDBOX_SDK_PROVIDER_IMPORT ||
 					specifier === SANDBOX_SDK_WORKFLOW_IMPORT ||
+					specifier === "@ryot-app/plugin-backend-sdk/agent" ||
 					specifier === "@ryot-app/plugin-backend-sdk/driver" ||
 					specifier === "@ryot-app/plugin-backend-sdk/operation")
 			) {

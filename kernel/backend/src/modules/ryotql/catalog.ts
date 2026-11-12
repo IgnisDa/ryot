@@ -767,6 +767,19 @@ const sandboxProviderOperation: TableBinding<"sandboxProviderOperation"> = {
 	},
 };
 
+const agentScriptExecution: TableBinding<"agentScriptExecution"> = {
+	relation: "agent_script_execution",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		source: column("source"),
+		result: column("result"),
+		createdAt: column("created_at"),
+		allowWrites: column("allow_writes"),
+		completedAt: column("completed_at"),
+	},
+};
+
 const page: TableBinding<"page"> = {
 	relation: "page",
 	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
@@ -1204,6 +1217,7 @@ const bindings: { readonly [Name in CatalogTableName]: TableBinding<Name> } = {
 	relationshipSchema,
 	integrationProvider,
 	notificationChannel,
+	agentScriptExecution,
 	notificationDelivery,
 	migrationReportDetail,
 	userLifecycleOperation,

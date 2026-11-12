@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { truncateJsonResult } from "./result";
+import { truncateJsonResult } from "#platform/tool-result";
 
 describe("agent tool result budgets", () => {
 	test("preserves JSON values that fit including the envelope", () => {

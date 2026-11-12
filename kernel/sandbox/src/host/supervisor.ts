@@ -44,7 +44,7 @@ import {
 	recordSandboxSidecarHostCall,
 	sandboxMetricKind,
 } from "./metrics";
-import type { SandboxPrincipal } from "./principal";
+import { type SandboxPrincipal, sandboxUserIsolationIdentity } from "./principal";
 import { SandboxSidecarQuarantine } from "./quarantine";
 import { type SandboxRecoveryIdentity, SandboxRecoveryStore } from "./recovery-store";
 import { selectSnapshotTier } from "./snapshot-tier";
@@ -204,7 +204,7 @@ export class SandboxSidecarSupervisor extends Context.Service<SandboxSidecarSupe
 				if (trust === "system" || !config.perUserSidecars) {
 					return { trust, instance: shared, tier: tier.success } satisfies ProcessKey;
 				}
-				const owner = principal.pluginRevision?.ownerId;
+				const owner = sandboxUserIsolationIdentity(principal)?.ownerId;
 				if (owner == null) {
 					return yield* new SandboxRunError({
 						kind: "missing-artifact",

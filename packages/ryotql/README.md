@@ -143,3 +143,6 @@ Authored `mapScalarExpression`, `mapPluginIdentityReferences`, `scalarExpression
 Standalone browse and calendar/signal row-source declarations cannot borrow the caller's parameter
 or control declarations. The backend binds their supported clock/context expressions before semantic
 validation and preserves mandatory kernel-composed windows.
+
+The kernel-audience `agentScriptExecution` catalog table exposes the current user's script history
+(source, write approval, timestamps and bounded result). Plugin-audience queries cannot read it.

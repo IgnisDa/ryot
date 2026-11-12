@@ -27,6 +27,7 @@ import {
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
+import { AgentScriptRepository } from "../agent/repository";
 import { SandboxWorkflowPinning } from "../executions/workflow";
 import { ScriptExecutionWorkflowPayload } from "../executions/workflow-payload";
 import { SandboxPluginScriptResolver } from "../registry/plugin-script-resolver";
@@ -34,6 +35,7 @@ import { SandboxRepository } from "../registry/repository";
 import { SandboxExecutionAuthorityLive } from "./authority";
 import { pluginSandboxAuthority } from "./plugin-authority";
 import { ScriptExecutionPrincipal } from "./principal";
+import { makeUserPrincipal } from "./principal.test-support";
 
 const savedViewEntity = table("entity", "entity");
 
@@ -85,6 +87,68 @@ const assertRejected = Effect.fnUntraced(function* (
 
 describe("sandbox execution authority", () => {
 	layer(SandboxExecutionAuthorityLive.pipe(Layer.provideMerge(revisionDatabaseLayer)))((test) => {
+		test.effect(
+			"requires an exact active user-owned agent history pin",
+			() =>
+				Effect.gen(function* () {
+					const repository = yield* AgentScriptRepository.make;
+					const authority = yield* SandboxExecutionAuthority;
+					const session = yield* DatabaseSession;
+					yield* session.run((db) =>
+						db
+							.insert(tables.user)
+							.values({ id: owner, name: "Owner", email: "agent-owner@example.test" })
+							.onConflictDoNothing(),
+					);
+					const principal = makeUserPrincipal({
+						scriptId: SandboxScriptId.make("agent-authority"),
+						metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
+						subject: { type: "agent", userId: owner, allowWrites: false, accessClass: "standard" },
+					});
+					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+					yield* repository.create({
+						userId: owner,
+						source: "source",
+						allowWrites: false,
+						id: principal.scriptId,
+					});
+					yield* repository.pin(owner, principal.scriptId, principal);
+					expect(yield* authority.resolve(principal)).toBe("user");
+					assertExitFails(
+						yield* Effect.exit(
+							authority.resolve({
+								...principal,
+								subject: {
+									...principal.subject,
+									type: "agent",
+									allowWrites: false,
+									accessClass: "standard",
+									userId: UserId.make("other"),
+								},
+							}),
+						),
+						missingArtifact(),
+					);
+					assertExitFails(
+						yield* Effect.exit(
+							authority.resolve({
+								...principal,
+								subject: {
+									type: "agent",
+									userId: owner,
+									allowWrites: true,
+									accessClass: "standard",
+								},
+							}),
+						),
+						missingArtifact(),
+					);
+					yield* repository.complete(owner, principal.scriptId, null);
+					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
+				}),
+			testTimeout,
+		);
+
 		test.effect(
 			"canonicalizes persisted provider annotations while rejecting changed execution authority",
 			() =>

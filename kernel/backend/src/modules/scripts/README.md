@@ -267,3 +267,31 @@ database rows transactionally, not compiled caches/files.
 scripts execute in their user/plugin audience; system scripts retain exact plugin/revision authority,
 including declared queries from that pin. The backend host performs decoding and authority resolution;
 the sandbox continues to own only isolation and its generic host boundary.
+
+## Agent scripts
+
+`agent/` compiles submitted TypeScript with `SandboxCompiler` and executes it once as an `agent`
+subject. The principal carries the authenticated user, access class and per-run write approval; it
+has no plugin revision, provider or kernel identity. Only `log`, `span` and `executeRyotql` are
+available by default. Compiler-derived metadata requesting HTTP, raw writes, files, configuration,
+cache or other host capabilities is rejected before execution. `invokeOperation` additionally
+requires `allowWrites`; demo credentials cannot approve it.
+
+The agent registry supplies query and operation ports bound to the authenticated credential. Reads
+use the user's plugin audience and demo policy. Operation names resolve only user-authenticated
+operations, through the same discovery and `OperationsService.invoke` path as ordinary agent tools.
+Operation validation, revision/configuration pins, policies and hooks remain owned by that service.
+Each operation key includes the agent execution ID and host-call index.
+
+Agent execution uses the existing sandbox host-call deferral and receipt protocol in memory. The
+isolate releases its slot before an operation can start nested sandbox work; resumed calls verify
+request identities and replay their previous results. The run has one overall sandbox execution
+timeout, the existing memory/call/journal limits, bounded diagnostics/logs, and the shared tool-result
+byte budget. It is not registered with the workflow engine or recovered after a process restart.
+
+`AgentScriptRepository` alone writes `agent_script_execution`. It records source, approval, exact
+principal and bounded final results, including compiler diagnostics and logs. Completed calls with
+the same caller idempotency key replay the retained result; changed inputs conflict. Concurrent or
+interrupted executions fail closed instead of starting again, since replaying fresh reads after an
+uncertain write could change call identity. History rows cascade with the user. The kernel-audience
+`agentScriptExecution` RyotQL table exposes only that user's history, without the private principal.

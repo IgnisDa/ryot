@@ -29,6 +29,7 @@ export { LifecycleCommand };
 export * from "./runtime-registry";
 
 export const SANDBOX_SDK_IMPORTS = [
+	"@ryot-app/plugin-backend-sdk/agent",
 	SANDBOX_SDK_ROOT_IMPORT,
 	SANDBOX_SDK_AUTOMATION_IMPORT,
 	"@ryot-app/plugin-backend-sdk/folds",

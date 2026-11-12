@@ -89,3 +89,7 @@ owner diagnostics. Visitor presentation includes `mode`, also available as `cont
 select either the kernel publication renderer or a published, read-only page renderer.
 
 These contracts define no snapshot storage, snapshot navigation policy, or live-page revision policy.
+
+Sandbox subjects include a user-scoped `agent` with its access class and per-run write approval.
+The generic host capability vocabulary includes `invokeOperation`; backend owners resolve and
+validate operation authority. These wire shapes do not confer plugin ownership.

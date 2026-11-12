@@ -102,6 +102,10 @@
 		"./workflow/protocol": {
 			"types": "./src/workflow/protocol.ts",
 			"default": "./src/workflow/protocol.ts"
+		},
+		"./agent": {
+			"types": "./src/agent.ts",
+			"default": "./src/agent.ts"
 		}
 	},
 	"scripts": {

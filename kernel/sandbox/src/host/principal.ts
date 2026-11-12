@@ -15,3 +15,13 @@ export type SandboxPrincipal = {
 		readonly scope: "user" | "system";
 	};
 };
+
+export const sandboxUserIsolationIdentity = (principal: SandboxPrincipal) => {
+	const revision = principal.pluginRevision;
+	if (revision === null && principal.subject.type === "agent") {
+		return { ownerId: principal.subject.userId, contentHash: principal.contentHash };
+	}
+	return revision?.scope === "user" && revision.ownerId !== null
+		? { ownerId: revision.ownerId, contentHash: revision.scriptsDigest }
+		: null;
+};

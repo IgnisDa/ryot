@@ -218,6 +218,11 @@ export const bindSandboxHostFunctions = <Input>(
 			coreSandboxHostContracts.getUserSettings,
 			implementations.getUserSettings,
 		),
+		invokeOperation: bind(
+			"invokeOperation",
+			domainSandboxHostContracts.invokeOperation,
+			implementations.invokeOperation,
+		),
 		getEntitySchemas: bind(
 			"getEntitySchemas",
 			domainSandboxHostContracts.getEntitySchemas,

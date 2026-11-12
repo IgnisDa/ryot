@@ -78,6 +78,18 @@ export const catalogTables = {
 			optionsSchema: { kind: "json", nullable: true },
 		},
 	},
+	agentScriptExecution: {
+		primaryKey: ["id"],
+		visibility: { user: { pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			result: { kind: "json", nullable: true },
+			source: { kind: "text", nullable: false },
+			createdAt: { kind: "date", nullable: false },
+			completedAt: { kind: "date", nullable: true },
+			allowWrites: { kind: "boolean", nullable: false },
+		},
+	},
 	notificationChannel: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: true } },

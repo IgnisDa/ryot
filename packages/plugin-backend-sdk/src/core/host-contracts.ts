@@ -9,7 +9,7 @@ import type {
 import type { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
-import { hostResultSchema, type JsonValue, type SandboxHostError } from "../wire";
+import { hostResultSchema, type JsonValue, jsonValueSchema, type SandboxHostError } from "../wire";
 import { verifyManagedAssetsArgsSchema, verifyManagedAssetsResultSchema } from "./assets";
 import {
 	emitSignalArgsSchema,
@@ -310,6 +310,11 @@ export const domainSandboxHostContracts = {
 		args: upsertGlobalRelationshipsArgsSchema,
 		success: upsertGlobalRelationshipsDataSchema,
 		result: upsertGlobalRelationshipsResultSchema,
+	},
+	invokeOperation: {
+		success: jsonValueSchema,
+		result: hostResultSchema(jsonValueSchema),
+		args: Schema.Tuple([Schema.Struct({ name: Schema.String, arguments: jsonValueSchema })]),
 	},
 } as const;
 export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<

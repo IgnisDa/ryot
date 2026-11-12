@@ -86,6 +86,12 @@ export const ScriptExecutionPrincipal = Schema.Struct({
 		Schema.makeFilter((principal) => {
 			const { subject, pluginRevision } = principal;
 			if (
+				subject.type === "agent" &&
+				(pluginRevision !== null || principal.kernelScript || principal.providerId !== null)
+			) {
+				return "Agent executions cannot own plugin or kernel authority";
+			}
+			if (
 				principal.initialization &&
 				(subject.type !== "user" || pluginRevision === null || principal.metadata.kind !== "script")
 			) {

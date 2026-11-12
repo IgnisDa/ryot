@@ -69,6 +69,9 @@ Artifact reads use 1 MiB slices; scratch writes are limited to 256 KiB. Before d
 ## Recovery
 
 `SandboxStateStore` holds sidecar recovery state with a failure count capped at three. State exists only once a collateral failure is recorded: reads of a run without it store nothing, and the run returns no recovery identity, so its caller has nothing to clear. Reaching the cap suspends the queue until a healthy epoch. Recovery uses stable, exclusive probes. An owner/content pair is quarantined for one hour after three failures in ten minutes; probation probes run exclusively. System recovery state has a separate namespace. User-store failures fail closed.
+User-tier isolation identifies pinned plugin code by owner and executable-set digest, and user-owned
+agent code by its execution user and compiled-content hash. Agent code requires no plugin revision;
+per-user sidecars and crash quarantine use the same isolation identity.
 
 ## Limits
 

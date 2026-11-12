@@ -16,6 +16,7 @@ export * from "./definitions";
 export * from "./translations";
 export * from "./publications";
 export * from "./notifications";
+export * from "./agent-scripts";
 export * from "./derived-values";
 export * from "./user-lifecycle";
 export * from "./sandbox-journal";

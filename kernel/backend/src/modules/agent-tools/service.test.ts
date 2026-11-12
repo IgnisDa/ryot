@@ -20,6 +20,7 @@ import {
 	startsWith,
 	table,
 } from "@ryot-app/ryotql";
+import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
 import { parameters } from "@ryot-app/ryotql/authoring";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -37,6 +38,7 @@ import {
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
 import { RyotQLService } from "#modules/ryotql/service";
+import { AgentScriptService } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
@@ -94,7 +96,29 @@ const operationsLayer = Layer.unwrap(
 
 const registryLayer = AgentToolsService.layer.pipe(
 	Layer.provide(RyotQLService.layer),
-	Layer.provideMerge(Layer.mergeAll(authLayer, operationsLayer)),
+	Layer.provideMerge(
+		Layer.mergeAll(
+			authLayer,
+			operationsLayer,
+			Layer.succeed(AgentScriptService, {
+				run: (input) =>
+					Effect.gen(function* () {
+						const value =
+							input.source === "read"
+								? yield* input.executeRyotql(
+										yield* Schema.encodeEffect(Schema.toCodecJson(ExecutionRequest))({
+											source: { kind: "inline", document: allCollectionsRecipe.document },
+										}).pipe(Effect.orDie),
+									)
+								: yield* input.invokeOperation(
+										{ name: input.source, arguments: { value: "nested" } },
+										"agent-execution:0",
+									);
+						return { value, truncated: false as const };
+					}).pipe(Effect.mapError((error) => new BadRequest({ message: error.message }))),
+			}),
+		),
+	),
 	Layer.provideMerge(revisionDatabaseLayer),
 );
 
@@ -181,6 +205,60 @@ const registryPackage = (name: string): NormalizedPlugin => {
 	};
 };
 
+layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))("agent script ports", (test) => {
+	test.effect(
+		"authenticates script tools, binds reads and operations to the user, and refuses demo writes",
+		() =>
+			Effect.gen(function* () {
+				const registry = yield* AgentToolsService;
+				yield* installRevisionPackage(registryPackage("script-owner"), owner);
+				const read = yield* registry.call({
+					name: "run_script",
+					headers: headers(),
+					arguments: { source: "read" },
+				});
+				expect(read.truncated).toBe(false);
+				const write = yield* registry.call({
+					name: "run_script",
+					headers: headers(),
+					arguments: { allowWrites: true, source: "testing.script-owner.write" },
+				});
+				expect(write).toEqual({ truncated: false, value: { accepted: { value: "nested" } } });
+				expect((yield* Ref.get(yield* Invocations))[0]).toMatchObject({
+					headers: headers(),
+					operationSlug: "write",
+					idempotencyKey: "agent-execution:0",
+				});
+				expect(
+					(yield* registry.call({
+						name: "run_script",
+						arguments: { source: "read" },
+						headers: headers(owner, true),
+					})).truncated,
+				).toBe(false);
+				assertExitFails(
+					yield* Effect.exit(
+						registry.call({
+							name: "run_script",
+							headers: headers(owner, true),
+							arguments: { source: "read", allowWrites: true },
+						}),
+					),
+					new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+				);
+				const foreign = yield* Effect.flip(
+					registry.call({
+						name: "run_script",
+						headers: headers(recipient),
+						arguments: { allowWrites: true, source: "testing.script-owner.write" },
+					}),
+				);
+				expect(foreign.message).toContain("Unknown agent tool");
+			}),
+		testTimeout,
+	);
+});
+
 layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 	"agent tool discovery and dispatch",
 	(test) => {
@@ -193,6 +271,7 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					const tools = yield* registry.list(headers());
 					expect(tools.map(({ name }) => name)).toEqual([
 						"describe_data",
+						"run_script",
 						"query",
 						"collections",
 						"collection-members",
@@ -207,6 +286,7 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					expect(read.hints).toEqual({ readOnly: true, idempotent: true, destructive: false });
 					expect((yield* registry.list(headers(recipient))).map(({ name }) => name)).toEqual([
 						"describe_data",
+						"run_script",
 						"query",
 						"collections",
 						"collection-members",
@@ -244,6 +324,7 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					);
 					expect((yield* registry.list(headers())).map(({ name }) => name)).toEqual([
 						"describe_data",
+						"run_script",
 						"query",
 						"collections",
 						"collection-members",
@@ -272,6 +353,7 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					);
 					expect((yield* registry.list(headers())).map(({ name }) => name)).toEqual([
 						"describe_data",
+						"run_script",
 						"query",
 						"collections",
 						"collection-members",
@@ -284,6 +366,7 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					);
 					expect((yield* registry.list(headers())).map(({ name }) => name)).toEqual([
 						"describe_data",
+						"run_script",
 						"query",
 						"collections",
 						"collection-members",
@@ -306,6 +389,7 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					yield* installRevisionPackage(registryPackage("demo-private"), owner);
 					expect((yield* registry.list(headers(owner, true))).map(({ name }) => name)).toEqual([
 						"describe_data",
+						"run_script",
 						"query",
 						"collections",
 						"collection-members",

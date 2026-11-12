@@ -32,6 +32,25 @@ const pluginRevision = (isUserBootstrap = false) => ({
 });
 
 describe("requireSandboxCapabilityInput", () => {
+	it("confines agent authority to diagnostics, user reads and approved operations", () => {
+		const userId = UserId.make("agent-user");
+		for (const allowWrites of [false, true]) {
+			const input = makeSubjectRunInput({
+				userId,
+				allowWrites,
+				type: "agent",
+				accessClass: "standard",
+			});
+			for (const capability of SANDBOX_HOST_CAPABILITIES) {
+				expect(isSandboxCapabilityAllowed(input, capability)).toBe(
+					["log", "span", "executeRyotql", ...(allowWrites ? ["invokeOperation"] : [])].includes(
+						capability,
+					),
+				);
+			}
+		}
+	});
+
 	it("limits projection processors to declared read-only capabilities", () => {
 		const userId = UserId.make("user_1");
 		const subject = { userId, type: "projection" as const };

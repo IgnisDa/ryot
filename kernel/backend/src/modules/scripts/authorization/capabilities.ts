@@ -11,7 +11,7 @@ import { Effect } from "effect";
 import type { ScriptExecutionPrincipal } from "./principal";
 
 type SandboxCapabilitySystemKind = "script" | "automation";
-type SandboxCapabilitySubject = "user" | "system" | "projection" | "automation-run";
+type SandboxCapabilitySubject = "user" | "agent" | "system" | "projection" | "automation-run";
 type SandboxCapabilityRequirement = {
 	readonly bridge: boolean;
 	readonly requiresProvider?: boolean;
@@ -24,6 +24,7 @@ type SandboxCapabilityRequirement = {
 const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
+	invokeOperation: { bridge: true, subjects: ["agent"] as const },
 	createUserEntity: { bridge: true, subjects: ["user"] as const },
 	deleteUserEntity: { bridge: true, subjects: ["user"] as const },
 	updateUserEntity: { bridge: true, subjects: ["user"] as const },
@@ -43,9 +44,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	verifyManagedAssets: { bridge: true, subjects: ["user", "automation-run"] as const },
 	changeUserRelationships: { bridge: true, subjects: ["user", "automation-run"] as const },
 	setCachedValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	log: { bridge: true, subjects: ["user", "automation-run", "system", "projection"] as const },
 	getPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
-	span: { bridge: true, subjects: ["user", "automation-run", "system", "projection"] as const },
 	ensureUserEntities: { bridge: true, subjects: ["user"] as const, requiresUserBootstrap: true },
 	getUserSettings: { bridge: true, subjects: ["user", "automation-run", "projection"] as const },
 	claimPersistentValue: { bridge: true, subjects: ["user", "automation-run", "system"] as const },
@@ -56,6 +55,14 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	getCurrentIntegration: {
 		bridge: true,
 		subjects: ["user", "automation-run", "projection"] as const,
+	},
+	log: {
+		bridge: true,
+		subjects: ["user", "automation-run", "system", "projection", "agent"] as const,
+	},
+	span: {
+		bridge: true,
+		subjects: ["user", "automation-run", "system", "projection", "agent"] as const,
 	},
 	getCachedValue: {
 		bridge: true,
@@ -93,7 +100,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		requiresSystemPlugin: true,
 		systemKinds: ["script", "automation"] as const,
-		subjects: ["user", "automation-run", "system", "projection"],
+		subjects: ["user", "automation-run", "system", "projection", "agent"],
 	},
 } satisfies Record<SandboxHostCapability, SandboxCapabilityRequirement>;
 
@@ -173,26 +180,38 @@ type SandboxRunInputForCapability<
 	Input extends ScriptRunInput = ScriptRunInput,
 > = (typeof SANDBOX_CAPABILITY_REQUIREMENTS)[Capability] extends { readonly requiresProvider: true }
 	? SystemProviderSandboxRunInput<Input>
-	: "system" extends CapabilitySubject<Capability>
+	: "agent" extends CapabilitySubject<Capability>
 		? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
-		: UserSandboxRunInput<Input> & SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>;
+		: "system" extends CapabilitySubject<Capability>
+			? SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>
+			: UserSandboxRunInput<Input> &
+					SandboxRunInputForSubject<Input, CapabilitySubject<Capability>>;
 
 type SandboxRunInputForSubject<Input extends ScriptRunInput, Subject> = Subject extends "user"
 	? DirectUserSandboxRunInput<Input>
-	: Subject extends "projection"
+	: Subject extends "agent"
 		? Input & {
 				readonly principal: Input["principal"] & {
 					readonly subject: Extract<
 						ScriptExecutionPrincipal["subject"],
-						{ readonly type: "projection" }
+						{ readonly type: "agent" }
 					>;
 				};
 			}
-		: Subject extends "automation-run"
-			? AutomationRunSandboxRunInput<Input>
-			: Subject extends "system"
-				? SystemSandboxRunInput<Input>
-				: never;
+		: Subject extends "projection"
+			? Input & {
+					readonly principal: Input["principal"] & {
+						readonly subject: Extract<
+							ScriptExecutionPrincipal["subject"],
+							{ readonly type: "projection" }
+						>;
+					};
+				}
+			: Subject extends "automation-run"
+				? AutomationRunSandboxRunInput<Input>
+				: Subject extends "system"
+					? SystemSandboxRunInput<Input>
+					: never;
 
 const sandboxCapabilityError = (
 	input: Pick<ScriptRunInput, "principal">,
@@ -200,6 +219,9 @@ const sandboxCapabilityError = (
 ) => {
 	const requirement = sandboxCapabilityRequirement(capability);
 	const subject = input.principal.subject;
+	if (subject.type === "agent" && capability === "invokeOperation" && !subject.allowWrites) {
+		return "invokeOperation requires an approved write run";
+	}
 	if (
 		subject.type === "projection" &&
 		!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)

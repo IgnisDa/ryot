@@ -283,7 +283,6 @@ const ServicesLive = Layer.mergeAll(
 	PluginInstallationRuntimeLive,
 	ProviderEntitySearchServiceLive,
 	RelationshipsServiceLive,
-	StagedRuntimeSandboxExecutorLive,
 	ScriptExecutionServiceLive,
 	SavedViewsServiceLive,
 	CalendarSourcesServiceLive,
@@ -314,6 +313,7 @@ const ServicesLive = Layer.mergeAll(
 	ObjectStorageServiceLive,
 	PluginCatalogHub.layer,
 ).pipe(
+	Layer.provideMerge(StagedRuntimeSandboxExecutorLive),
 	Layer.provideMerge(PluginConfigEncryptionKey.layer),
 	Layer.provide(Layer.merge(ContentLifecycleRepositoriesLive, AdmittedWorkflowCatalogueLive)),
 	Layer.provideMerge(DeclaredLifecycleWorkProvidedLive),

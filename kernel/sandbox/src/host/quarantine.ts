@@ -5,7 +5,7 @@ import { SecureRandom } from "effect/crypto";
 
 import type { SandboxTrust } from "./authority";
 import { SandboxCrashStore } from "./crash-store";
-import type { SandboxPrincipal } from "./principal";
+import { type SandboxPrincipal, sandboxUserIsolationIdentity } from "./principal";
 
 const hashPattern = /^[0-9a-f]{64}$/;
 const unavailable = () =>
@@ -27,18 +27,11 @@ const identitiesFor = Effect.fn("SandboxSidecarQuarantine.identities")(function*
 			? [`system:script:${principal.scriptId}`]
 			: [`system:user:${userId}:jobs`, `system:user:${userId}:script:${principal.scriptId}`];
 	}
-	const revision = principal.pluginRevision;
-	if (revision === null) {
+	const identity = sandboxUserIsolationIdentity(principal);
+	if (identity === null || !hashPattern.test(identity.contentHash)) {
 		return yield* unavailable();
 	}
-	if (
-		revision.ownerId === null ||
-		revision.scope === "system" ||
-		!hashPattern.test(revision.scriptsDigest)
-	) {
-		return yield* unavailable();
-	}
-	return [`user:owner:${revision.ownerId}`, `user:content:${revision.scriptsDigest}`];
+	return [`user:owner:${identity.ownerId}`, `user:content:${identity.contentHash}`];
 });
 
 export class SandboxSidecarQuarantine extends Context.Service<SandboxSidecarQuarantine>()(

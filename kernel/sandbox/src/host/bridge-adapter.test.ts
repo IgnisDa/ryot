@@ -38,6 +38,7 @@ const makeImplementations = (
 	executeRyotql: () => Effect.fail({ message: "unused" }),
 	getCachedValue: () => Effect.fail({ message: "unused" }),
 	setCachedValue: () => Effect.fail({ message: "unused" }),
+	invokeOperation: () => Effect.fail({ message: "unused" }),
 	getPluginConfig: () => Effect.fail({ message: "unused" }),
 	getUserSettings: () => Effect.fail({ message: "unused" }),
 	getEntitySchemas: () => Effect.fail({ message: "unused" }),

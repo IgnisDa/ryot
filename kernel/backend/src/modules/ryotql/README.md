@@ -214,3 +214,7 @@ Catalog sources return their `from` fragment plus named CTEs; the executor owns 
 | Transaction-local statement timeout    | 30 seconds |
 
 Each read transaction also turns JIT off locally. Generated statements are large enough that compiling them costs far more than it saves, and the compiled code can exhaust a memory-limited PostgreSQL.
+
+Agent scripts use the authenticated user's `plugin` audience and access class through the shared
+agent registry query port. The kernel-only `agentScriptExecution` table exposes user-owned source,
+approval, timestamps and bounded results for history; it never exposes the private execution principal.

@@ -53,6 +53,29 @@ const sessions = Effect.gen(function* () {
 
 layer(Layer.provideMerge(quarantineLayer, BunCrypto.layerSecureRandom))((test) => {
 	test.effect(
+		"charges agent code to its user and content without plugin ownership",
+		() =>
+			Effect.scoped(
+				Effect.gen(function* () {
+					const open = yield* sessions;
+					const userId = UserId.make(testExecutionId("agent-owner"));
+					const contentHash = testHash();
+					const principal = makeUserPrincipal({
+						contentHash,
+						pluginRevision: null,
+						subject: { userId, type: "agent", allowWrites: false, accessClass: "standard" },
+					});
+					const session = yield* open(principal, "user");
+					expect(session.identities).toEqual([
+						`user:owner:${userId}`,
+						`user:content:${contentHash}`,
+					]);
+				}),
+			),
+		testTimeout,
+	);
+
+	test.effect(
 		"charges the plugin owner and content identities",
 		() =>
 			Effect.scoped(

@@ -18,6 +18,7 @@ import {
 	collectionArguments,
 	collectionMembersRecipe,
 } from "@ryot-app/ryotql-recipes/collections";
+import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
@@ -27,8 +28,13 @@ import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { OperationsService } from "#modules/plugins/operations/service";
 import { RyotQLService } from "#modules/ryotql/service";
+import { AgentScriptService } from "#modules/scripts/agent/service";
+import {
+	defaultResultByteBudget,
+	minimumResultByteBudget,
+	truncateJsonResult,
+} from "#platform/tool-result";
 
-import { defaultResultByteBudget, minimumResultByteBudget, truncateJsonResult } from "./result";
 import { AgentDataDescription } from "./schemas";
 
 export type AgentTool = {
@@ -38,7 +44,7 @@ export type AgentTool = {
 	readonly hints: PluginOperation["hints"];
 	readonly output: PluginOperation["output"];
 	readonly source:
-		| { readonly kind: "describe-data" }
+		| { readonly kind: "run-script" | "describe-data" }
 		| { readonly kind: "query" | "collections" | "collection-members" }
 		| {
 				readonly kind: "operation";
@@ -54,6 +60,25 @@ export type AgentTool = {
 				readonly scope: "user" | "system";
 				readonly packageId: PluginPackageId;
 		  };
+};
+
+const runScriptArguments = Schema.Struct({
+	source: Schema.String,
+	allowWrites: Schema.optional(Schema.Boolean),
+});
+const runScriptTool: AgentTool = {
+	name: "run_script",
+	output: { type: "object" },
+	source: { kind: "run-script" },
+	hints: { readOnly: false, idempotent: false, destructive: true },
+	input: {
+		type: "object",
+		required: ["source"],
+		additionalProperties: false,
+		properties: { source: { type: "string" }, allowWrites: { default: false, type: "boolean" } },
+	},
+	description:
+		"Run a one-shot TypeScript agent script. Import defineScript and defineManifest from @ryot-app/plugin-backend-sdk/agent and Effect and Schema from /effect. Only log, span and executeRyotql are available by default. invokeOperation({ name, arguments }) requires allowWrites and approval before calling this tool. Completed runs replay when the caller reuses its idempotency key; interrupted runs cannot restart.",
 };
 
 const describeDataTool: AgentTool = {
@@ -171,6 +196,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			const operations = yield* OperationsService;
 			const catalogs = yield* DefinitionCatalog;
 			const ryotql = yield* RyotQLService;
+			const scripts = yield* AgentScriptService;
 			const declaredTools = Effect.fn("AgentToolsService.declaredTools")(function* (
 				userId: UserId,
 			) {
@@ -251,6 +277,38 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 					.sort((left, right) => left.tool.name.localeCompare(right.tool.name));
 			});
 
+			const invokeOperation = Effect.fn("AgentToolsService.invokeOperation")(function* (input: {
+				readonly name: string;
+				readonly userId: UserId;
+				readonly resource?: string;
+				readonly payload: JsonValue;
+				readonly contentHash?: string;
+				readonly idempotencyKey?: string;
+				readonly accessClass: "demo" | "standard";
+				readonly headers: PlatformHeaders.Headers;
+			}) {
+				const selected = (yield* operationTools(input.userId)).find(
+					({ tool }) => tool.name === input.name,
+				);
+				if (selected?.tool.source.kind !== "operation") {
+					return yield* new NotFound({ message: `Unknown agent tool: ${input.name}` });
+				}
+				if (input.accessClass === "demo" && !selected.demoAllowed) {
+					return yield* new DemoOperationProtected({
+						reason: { code: "demo-operation-protected" },
+					});
+				}
+				return yield* operations.invoke({
+					headers: input.headers,
+					payload: input.payload,
+					packageId: selected.tool.source.packageId,
+					operationSlug: selected.tool.source.operationSlug,
+					contentHash: input.contentHash ?? selected.tool.source.contentHash,
+					...(input.resource === undefined ? {} : { resource: input.resource }),
+					...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
+				});
+			});
+
 			const describeForUser = Effect.fn("AgentToolsService.describeForUser")(function* (
 				userId: UserId,
 			) {
@@ -314,6 +372,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				const tools = yield* operationTools(user.id);
 				return [
 					describeDataTool,
+					runScriptTool,
 					...queryTools,
 					...(yield* declaredTools(user.id)).map(({ tool }) => tool),
 					...tools
@@ -349,6 +408,59 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 						message: `Result byte budget must be an integer of at least ${minimumResultByteBudget}`,
 					});
 				}
+				if (input.name === runScriptTool.name) {
+					const args = yield* Schema.decodeUnknownEffect(runScriptArguments, {
+						onExcessProperty: "error",
+					})(input.arguments).pipe(
+						Effect.mapError((error) => new BadRequest({ message: error.message })),
+					);
+					if (authorization.accessClass === "demo" && args.allowWrites) {
+						return yield* new DemoOperationProtected({
+							reason: { code: "demo-operation-protected" },
+						});
+					}
+					const scriptResult = yield* scripts.run({
+						userId: user.id,
+						source: args.source,
+						allowWrites: args.allowWrites ?? false,
+						accessClass: authorization.accessClass,
+						...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
+						invokeOperation: (request, key) =>
+							sandboxHostEffect(
+								invokeOperation({
+									userId: user.id,
+									name: request.name,
+									idempotencyKey: key,
+									headers: input.headers,
+									payload: request.arguments,
+									accessClass: authorization.accessClass,
+									...(input.resource === undefined ? {} : { resource: input.resource }),
+								}),
+							),
+						executeRyotql: (request) =>
+							sandboxHostEffect(
+								Effect.gen(function* () {
+									const parsed = yield* Schema.decodeUnknownEffect(ExecutionRequest)(request);
+									const result = yield* ryotql.executeForUser(
+										user.id,
+										user.preferences.language,
+										"plugin",
+										parsed,
+										authorization.accessClass,
+										defaultResultByteBudget,
+									);
+									return yield* Schema.encodeEffect(Schema.toCodecJson(RyotQLResponse))(result);
+								}),
+							),
+					});
+					if (!scriptResult.truncated) {
+						return truncateJsonResult(scriptResult.value, byteBudget);
+					}
+					return byteBudget >= defaultResultByteBudget
+						? scriptResult
+						: truncateJsonResult(scriptResult, byteBudget);
+				}
+
 				if (input.name === describeDataTool.name) {
 					if (
 						input.arguments === null ||
@@ -459,24 +571,14 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 					);
 					return truncateJsonResult(json, Math.min(byteBudget, defaultResultByteBudget));
 				}
-				const selected = (yield* operationTools(user.id)).find(
-					({ tool }) => tool.name === input.name,
-				);
-				if (selected?.tool.source.kind !== "operation") {
-					return yield* new NotFound({ message: `Unknown agent tool: ${input.name}` });
-				}
-				if (authorization.accessClass === "demo" && !selected.demoAllowed) {
-					return yield* new DemoOperationProtected({
-						reason: { code: "demo-operation-protected" },
-					});
-				}
-				const result = yield* operations.invoke({
+				const result = yield* invokeOperation({
+					userId: user.id,
+					name: input.name,
 					headers: input.headers,
-					...(input.resource === undefined ? {} : { resource: input.resource }),
 					payload: input.arguments,
-					packageId: selected.tool.source.packageId,
-					operationSlug: selected.tool.source.operationSlug,
-					contentHash: input.contentHash ?? selected.tool.source.contentHash,
+					accessClass: authorization.accessClass,
+					...(input.resource === undefined ? {} : { resource: input.resource }),
+					...(input.contentHash === undefined ? {} : { contentHash: input.contentHash }),
 					...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
 				});
 				return truncateJsonResult(result, byteBudget);
