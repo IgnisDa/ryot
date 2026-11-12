@@ -225,8 +225,10 @@ message and user-provider records. Export traverses each owner-bound table by pr
 one row at a time, independently of runtime history pagination. The shared record/entry limits and
 spool backpressure apply. Restore stages composite kind/ID identities and reference edges on disk,
 allocates destination identities before rewriting, and writes in conversation/turn/call/message order.
-Text, tool descriptors, opaque arguments and opaque results retain their historical values. Only
-typed conversation, turn, message, call and inline preview page references change identity.
+Text, tool names, pinned capabilities, opaque arguments and opaque results retain their historical
+values. Only typed conversation, turn, message, call (including a capability call's parent) and
+inline preview page references change identity. A capability call's parent must be a model tool
+call in the same turn.
 
 Queued, running and awaiting-approval turns become interrupted history. Every unfinished call gains
 an inert `{ interrupted: true }` result, including approved and undecided calls; existing decisions

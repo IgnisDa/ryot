@@ -194,23 +194,33 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 					} else {
 						const turnId = AssistantTurnId.make(yield* idFor("turn", record.turnId));
 						if (record.kind === "call") {
+							const call =
+								record.call.kind === "capability"
+									? {
+											...record.call,
+											id: AssistantToolCallId.make(id),
+											parentId: AssistantToolCallId.make(
+												yield* idFor("call", record.call.parentId),
+											),
+										}
+									: { ...record.call, id: AssistantToolCallId.make(id) };
 							yield* session.run((db) =>
 								db
 									.insert(assistantTables.assistantToolCall)
 									.values({
 										...record,
 										id,
+										call,
 										userId,
 										turnId,
 										createdAt,
 										conversationId,
-										call: { ...record.call, id: AssistantToolCallId.make(id) },
 										decidedAt: record.decidedAt === null ? null : parseDate(record.decidedAt),
 										result: record.result ?? { truncated: false, value: { interrupted: true } },
 										completedAt: record.completedAt === null ? null : parseDate(record.completedAt),
 									}),
 							);
-							if (record.result === null) {
+							if (record.result === null && record.call.kind === "tool") {
 								const [conversation] = yield* session.run((db) =>
 									db
 										.update(assistantTables.assistantConversation)

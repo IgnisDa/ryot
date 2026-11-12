@@ -77,6 +77,9 @@ export const assistantReferences = (record: ArchiveAssistantRecord) => {
 	if (record.kind === "message" || record.kind === "call") {
 		add("turn", record.turnId);
 	}
+	if (record.kind === "call" && record.call.kind === "capability") {
+		add("call", record.call.parentId);
+	}
 	if (record.kind === "message") {
 		for (const part of record.parts) {
 			if (part.kind === "tool-call") {

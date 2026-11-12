@@ -1401,6 +1401,23 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								if (value.kind === "call" && value.call.id !== value.id) {
 									return yield* badRequest("Backup assistant call identity is inconsistent");
 								}
+								if (value.kind === "call" && value.call.kind === "capability") {
+									const [parentRow] = yield* staging.getRecords(runId, "assistant", [
+										assistantArchiveId("call", value.call.parentId),
+									]);
+									const parent = parentRow
+										? yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(parentRow.value)
+										: null;
+									if (
+										parent?.kind !== "call" ||
+										parent.call.kind !== "tool" ||
+										parent.turnId !== value.turnId
+									) {
+										return yield* badRequest(
+											"Backup assistant capability call parent is inconsistent",
+										);
+									}
+								}
 								if (value.kind === "message" || value.kind === "call") {
 									const [turnRow] = yield* staging.getRecords(runId, "assistant", [
 										assistantArchiveId("turn", value.turnId),

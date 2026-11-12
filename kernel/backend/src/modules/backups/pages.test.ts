@@ -13,6 +13,7 @@ import {
 	SavedViewId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import {
@@ -157,6 +158,8 @@ const beginRun = Effect.fn(function* (kind: "export" | "restore", userId: UserId
 });
 
 const historicalAssistantCall = (id: string): AssistantToolCall => ({
+	kind: "tool",
+	tool: "execute",
 	requiresApproval: true,
 	modelCallId: `model-${id}`,
 	id: AssistantToolCallId.make(id),
@@ -164,14 +167,6 @@ const historicalAssistantCall = (id: string): AssistantToolCall => ({
 		pageId: "assistant-page",
 		text: "Preserve this opaque history",
 		conversationId: "assistant-conversation-a",
-	},
-	descriptor: {
-		name: "run_script",
-		input: { type: "object" },
-		output: { type: "object" },
-		source: { kind: "run-script" },
-		description: "Historical script",
-		hints: { readOnly: false, destructive: true, idempotent: false },
 	},
 });
 
@@ -629,6 +624,34 @@ layer(services)((test) => {
 								},
 								{
 									round: 1,
+									position: 2,
+									userId: source,
+									decidedAt: now,
+									completedAt: now,
+									decision: "approve",
+									turnId: "assistant-turn-a",
+									id: "assistant-call-approved:write:0",
+									conversationId: "assistant-conversation-a",
+									result: { truncated: false, value: { written: true } },
+									call: {
+										hostCallIndex: 0,
+										kind: "capability",
+										requiresApproval: true,
+										arguments: { pageId: "assistant-page" },
+										parentId: AssistantToolCallId.make("assistant-call-approved"),
+										id: AssistantToolCallId.make("assistant-call-approved:write:0"),
+										capability: {
+											input: { type: "object" },
+											output: { type: "object" },
+											source: { kind: "kernel" },
+											description: "Delete a page",
+											id: CapabilityId.make("kernel:pages.delete"),
+											hints: { readOnly: false, destructive: true, idempotent: false },
+										},
+									},
+								},
+								{
+									round: 1,
 									position: 1,
 									userId: source,
 									turnId: "assistant-turn-a",
@@ -878,12 +901,17 @@ layer(services)((test) => {
 						.from(assistantTables.assistantToolCall)
 						.where(eq(assistantTables.assistantToolCall.userId, destination)),
 				);
-				expect(calls).toHaveLength(3);
+				expect(calls).toHaveLength(4);
 				expect(calls.every((row) => row.result !== null && row.call.id === row.id)).toBe(true);
 				expect(calls.filter((row) => row.decision === null)).toHaveLength(1);
-				expect(calls.filter((row) => row.decision === "approve")).toHaveLength(1);
+				expect(calls.filter((row) => row.decision === "approve")).toHaveLength(2);
 				expect(calls.filter((row) => row.decision === "decline")).toHaveLength(1);
-				for (const row of calls) {
+				const child = calls.find((row) => row.call.kind === "capability");
+				assert(child?.call.kind === "capability");
+				const parentId = child.call.parentId;
+				expect(calls.find((row) => row.id === parentId)?.decision).toBe("approve");
+				expect(child.result).toEqual({ truncated: false, value: { written: true } });
+				for (const row of calls.filter((candidate) => candidate.call.kind === "tool")) {
 					expect(row.call.arguments).toEqual({
 						pageId: "assistant-page",
 						text: "Preserve this opaque history",
@@ -912,7 +940,9 @@ layer(services)((test) => {
 					parts: [{ kind: "text" as const, text: "Continue after restore" }],
 				};
 				expect(assistantContext([...history, nextMessage]).at(-1)).toEqual(nextMessage);
-				for (const call of calls.filter((row) => row.turnId === interruptedTurn.id)) {
+				for (const call of calls.filter(
+					(row) => row.turnId === interruptedTurn.id && row.call.kind === "tool",
+				)) {
 					expect(
 						history
 							.flatMap((row) => row.parts)
