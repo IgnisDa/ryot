@@ -1,4 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
+import { apiKeysRecipe } from "@ryot-app/ryotql-recipes/api-keys";
 import { twoFactorStatusRecipe, userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 
 import type { Client } from "./auth";
@@ -13,6 +14,8 @@ export const refreshUserAvatar = (client: Client) => client.call((c) => c.accoun
 
 export const getTwoFactorStatus = (client: Client) =>
 	executeRyotQLRecipe(client, twoFactorStatusRecipe, {});
+
+export const getApiKeys = (client: Client) => executeRyotQLRecipe(client, apiKeysRecipe, {});
 
 export const updateUserSettingsPreferences = (
 	client: Client,

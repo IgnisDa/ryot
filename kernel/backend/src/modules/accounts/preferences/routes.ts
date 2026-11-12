@@ -22,6 +22,20 @@ export const UserSettingsRoutesLive = HttpApiBuilder.group(AppContract, "account
 				return yield* service.updatePreferences(user, payload).pipe(dieOnDbError);
 			}),
 		)
+		.handle("createApiKey", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				return yield* service.createApiKey(user, payload).pipe(dieOnDbError);
+			}),
+		)
+		.handle("revokeApiKey", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				return yield* service.revokeApiKey(user, params.apiKeyId).pipe(dieOnDbError);
+			}),
+		)
 		.handle("refreshAvatar", () =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;

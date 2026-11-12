@@ -27,7 +27,7 @@ import {
 	OAUTH_WEB_CLIENT_ID,
 	REPORTING_TIME_ZONE_HEADER,
 } from "@ryot-app/contract/oauth";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { ApiKeyId, UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	UserPreferences,
@@ -839,7 +839,36 @@ export class AuthService extends Context.Service<AuthService>()(
 				});
 			});
 
+			const createUserApiKey = Effect.fn("AuthService.createUserApiKey")(function* (
+				userId: UserId,
+				input: { readonly name: string; readonly expiresInDays: null | number },
+			) {
+				const created = yield* Effect.tryPromise({
+					catch: unknownToDbError,
+					try: () =>
+						auth.api.createApiKey({
+							body: {
+								userId,
+								name: input.name,
+								expiresIn:
+									input.expiresInDays === null
+										? null
+										: Duration.toSeconds(Duration.days(input.expiresInDays)),
+							},
+						}),
+				});
+				return { key: created.key, id: ApiKeyId.make(created.id) };
+			});
+			const revokeUserApiKey = Effect.fn("AuthService.revokeUserApiKey")(function* (
+				userId: UserId,
+				apiKeyId: ApiKeyId,
+			) {
+				yield* purgeApiKeyCaches(userId, yield* repository.deleteUserApiKey(userId, apiKeyId));
+			});
+
 			return {
+				revokeUserApiKey,
+				createUserApiKey,
 				purgeApiKeyCaches,
 				handler: auth.handler,
 				requestPasswordResetLink,

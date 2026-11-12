@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import { ApiKeyId } from "../../schema/brands";
+
 export const TwoFactorStatus = Schema.Struct({
 	enabled: Schema.Boolean,
 	available: Schema.Boolean,
@@ -13,3 +15,20 @@ export const AccountName = Schema.Trim.check(
 	Schema.isMinLength(1),
 	Schema.isMaxLength(ACCOUNT_NAME_MAX_LENGTH),
 );
+
+export const API_KEY_NAME_MAX_LENGTH = 32;
+
+export const API_KEY_MAX_EXPIRY_DAYS = 365;
+
+export const CreateApiKeyBody = Schema.Struct({
+	name: Schema.Trim.check(Schema.isMinLength(1), Schema.isMaxLength(API_KEY_NAME_MAX_LENGTH)),
+	expiresInDays: Schema.NullOr(
+		Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: API_KEY_MAX_EXPIRY_DAYS })),
+	),
+});
+
+export type CreateApiKeyBody = typeof CreateApiKeyBody.Type;
+
+export const CreatedApiKey = Schema.Struct({ id: ApiKeyId, key: Schema.String });
+
+export type CreatedApiKey = typeof CreatedApiKey.Type;

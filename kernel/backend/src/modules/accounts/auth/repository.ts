@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { UserId } from "@ryot-app/contract/schema/brands";
+import type { ApiKeyId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	UserPreferences,
 	type UserPreferencesPatch,
@@ -258,6 +258,18 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				);
 			});
 
+			const deleteUserApiKey = Effect.fn("AuthRepository.deleteUserApiKey")(function* (
+				userId: UserId,
+				apiKeyId: ApiKeyId,
+			) {
+				return yield* database.run((db) =>
+					db
+						.delete(schema.apikey)
+						.where(and(eq(schema.apikey.id, apiKeyId), eq(schema.apikey.referenceId, userId)))
+						.returning({ id: schema.apikey.id, key: schema.apikey.key }),
+				);
+			});
+
 			const findSession = Effect.fn("AuthRepository.findSession")(function* (sessionId: string) {
 				const [row] = yield* database.run((db) =>
 					db
@@ -361,6 +373,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 			return {
 				findSession,
 				findUserById,
+				deleteUserApiKey,
 				deleteUserApiKeys,
 				updateUserDisabled,
 				getUserPreferences,

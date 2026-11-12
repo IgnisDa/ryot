@@ -29,6 +29,7 @@ import {
 	executeRyotQL,
 	executeRyotQLRecipe,
 	findPluginInstallationByPackage,
+	getApiKeys,
 	getTwoFactorStatus,
 	getUserSettings,
 	listEventSchemas,
@@ -334,6 +335,16 @@ describe("shared demo access acceptance", () => {
 			expect(yield* Effect.flip(getTwoFactorStatus(demoClient))).toEqual(
 				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
 			);
+			expect(yield* Effect.flip(getApiKeys(demoClient))).toEqual(
+				new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+			);
+			expect(
+				yield* Effect.flip(
+					demoClient.call((c) =>
+						c.account.createApiKey({ payload: { name: "Demo", expiresInDays: null } }),
+					),
+				),
+			).toEqual(new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }));
 			yield* expectDemoSession(sessionCookie);
 		}),
 	);

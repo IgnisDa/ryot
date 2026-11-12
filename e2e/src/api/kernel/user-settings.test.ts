@@ -1,10 +1,15 @@
-import { ACCOUNT_NAME_MAX_LENGTH } from "@ryot-app/contract/modules/account/schemas";
+import {
+	ACCOUNT_NAME_MAX_LENGTH,
+	API_KEY_MAX_EXPIRY_DAYS,
+	API_KEY_NAME_MAX_LENGTH,
+} from "@ryot-app/contract/modules/account/schemas";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
-import { Effect, Schema } from "effect";
+import { Clock, Effect, Schema } from "effect";
 
 import {
 	createAuthenticatedClient,
 	enableTwoFactorForSessionEffect,
+	getApiKeys,
 	getTwoFactorStatus,
 	getUserSettings,
 	refreshUserAvatar,
@@ -46,6 +51,65 @@ describe("user settings", () => {
 				expect(response.status).toBe(400);
 			}
 			expect((yield* getUserSettings(owner.client)).name).toBe("Renée 新");
+		}),
+	);
+
+	it.live("creates, lists, authenticates with and revokes only the owner's API keys", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const other = yield* createAuthenticatedClient();
+			const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
+			const created = yield* owner.client.call((c) =>
+				c.account.createApiKey({ payload: { expiresInDays: 30, name: "  Scripts  " } }),
+			);
+			const permanent = yield* owner.client.call((c) =>
+				c.account.createApiKey({ payload: { name: "Sync", expiresInDays: null } }),
+			);
+			const keys = (yield* getApiKeys(owner.client)).items;
+			expect(
+				keys.map(({ id, name, start, lastUsedAt }) => ({ id, name, start, lastUsedAt })),
+			).toEqual([
+				{ name: "Sync", lastUsedAt: null, id: permanent.id, start: permanent.key.slice(0, 6) },
+				{ id: created.id, name: "Scripts", lastUsedAt: null, start: created.key.slice(0, 6) },
+			]);
+			expect(keys.find(({ id }) => id === permanent.id)?.expiresAt).toBeNull();
+			const expiresAt = keys.find(({ id }) => id === created.id)?.expiresAt;
+			expect(Date.parse(expiresAt ?? "") - (yield* Clock.currentTimeMillis)).toBeGreaterThan(
+				29 * 24 * 60 * 60 * 1000,
+			);
+			expect((yield* getApiKeys(other.client)).items).toEqual([]);
+
+			const useKey = (key: string) =>
+				Effect.gen(function* () {
+					const response = yield* webRequest(`${getApiUrl()}/account/preferences`, {
+						method: "PATCH",
+						body: yield* encode({}),
+						headers: { "x-api-key": key, "content-type": "application/json" },
+					});
+					return response.status;
+				});
+			expect(yield* useKey(created.key)).toBe(204);
+			yield* other.client.call((c) => c.account.revokeApiKey({ params: { apiKeyId: created.id } }));
+			expect(yield* useKey(created.key)).toBe(204);
+			yield* owner.client.call((c) => c.account.revokeApiKey({ params: { apiKeyId: created.id } }));
+			expect(yield* useKey(created.key)).toBe(401);
+			expect(yield* useKey(permanent.key)).toBe(204);
+			expect((yield* getApiKeys(owner.client)).items.map(({ id }) => id)).toEqual([permanent.id]);
+
+			for (const payload of [
+				{ name: "   ", expiresInDays: null },
+				{ expiresInDays: null, name: "x".repeat(API_KEY_NAME_MAX_LENGTH + 1) },
+				{ name: "Key", expiresInDays: 0 },
+				{ name: "Key", expiresInDays: API_KEY_MAX_EXPIRY_DAYS + 1 },
+				{ name: "Key", expiresInDays: 1.5 },
+			]) {
+				const response = yield* webRequest(`${getApiUrl()}/account/api-keys`, {
+					method: "POST",
+					body: yield* encode(payload),
+					headers: { "content-type": "application/json", authorization: `Bearer ${owner.token}` },
+				});
+				expect(response.status).toBe(400);
+			}
 		}),
 	);
 

@@ -24,6 +24,8 @@ Access tokens expire after 15 minutes and refresh tokens after 30 days. API midd
 
 User preferences are application data on the user row, not Better Auth user fields or session claims. Authenticated application reads decode the full canonical JSONB value. Preference commands validate a partial body, normalize language at the write boundary, and merge supplied fields in one row update; omitted fields remain unchanged. The database supplies complete defaults and rejects malformed stored values.
 
+Users manage their API keys through protected account endpoints: `POST /account/api-keys` mints a key through Better Auth's server-side API and returns the secret only in that response, and `DELETE /account/api-keys/:apiKeyId` deletes one owned key and purges its cache entries. Listing reads the RyotQL `apiKey` table. Expiry is optional and limited to 1–365 days.
+
 Account settings rename the current user through `PATCH /account/name`. The name is trimmed,
 required, and limited to 100 characters. The protected application endpoint uses the existing auth
 adapter and demo/lifecycle guards; web and native clients refresh UserInfo after saving. External
