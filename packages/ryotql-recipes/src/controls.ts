@@ -1,8 +1,12 @@
-import { BROWSE_SUBJECT_ALIAS } from "@ryot-app/contract/modules/filters/browse";
+import {
+	BROWSE_SUBJECT_ALIAS,
+	type EntitySchemaBrowse,
+} from "@ryot-app/contract/modules/filters/browse";
 import type { FilterField } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	definitionOwner,
 	ownerIdentityReference,
+	type PluginPackageReference,
 	type QueryOwnerReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type {
@@ -15,6 +19,7 @@ import type {
 	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/authored";
 import { controlTargets, mapScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import {
 	castBoolean,
@@ -26,9 +31,6 @@ import {
 	literal,
 	table,
 } from "@ryot-app/ryotql";
-import { nameSortTarget, reservedBrowseFieldKeys } from "@ryot-app/ryotql-recipes/browse";
-import { collectionsFilterTarget } from "@ryot-app/ryotql-recipes/filters";
-import { propertyFilterFields } from "@ryot-app/ryotql-recipes/property-filter-fields";
 import {
 	compileFilter,
 	type FilterTarget,
@@ -39,8 +41,10 @@ import { compileSort, type SortTarget } from "@ryot-app/ryotql/sort";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Result } from "effect";
 
-import { browseIssue } from "#modules/definitions/browse-validation";
-import type { CatalogEntitySchema } from "#modules/definitions/catalog";
+import { nameSortTarget, reservedBrowseFieldKeys } from "./browse";
+import { browseIssue } from "./browse-validation";
+import { collectionsFilterTarget } from "./filters";
+import { propertyFilterFields } from "./property-filter-fields";
 
 const fail = (message: string) => Result.fail(new Error(message));
 export type MembershipSource = {
@@ -48,10 +52,14 @@ export type MembershipSource = {
 	readonly propertiesSchema: AppSchema;
 };
 
-export type ControlSchema = Pick<
-	CatalogEntitySchema,
-	"slug" | "browse" | "pluginId" | "packageId" | "pluginScope" | "isEffective"
->;
+export type ControlSchema = {
+	readonly slug: string;
+	readonly isEffective: boolean;
+	readonly pluginId: null | string;
+	readonly browse: null | EntitySchemaBrowse;
+	readonly packageId: null | PluginPackageId;
+	readonly pluginScope: null | PluginPackageReference["scope"];
+};
 type Target = NonNullable<Controls["filter"]>;
 type AtomicTarget = Exclude<Target, { kind: "composite" }>;
 type ControlContext = {
@@ -501,7 +509,7 @@ export const compileControlSort = (
 	);
 
 export const hasMembershipControls = (document: RyotQLDocument) =>
-	Object.values(document.controls ?? {}).some(
+	[document.controls?.filter, document.controls?.sort].some(
 		(target) =>
 			target !== undefined &&
 			controlTargets(target).some(

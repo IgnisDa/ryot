@@ -5,15 +5,15 @@ import {
 } from "@ryot-app/contract/modules/filters/browse";
 import type { FilterValueType } from "@ryot-app/contract/modules/filters/schemas";
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
-import { reservedBrowseFieldKeys } from "@ryot-app/ryotql-recipes/browse";
 import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
-import { Result } from "effect";
-
 import {
 	queryExpressionKind,
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
-} from "#modules/ryotql/validator";
+} from "@ryot-app/ryotql/validator";
+import { Result } from "effect";
+
+import { reservedBrowseFieldKeys } from "./browse";
 
 const expectedKinds: Record<FilterValueType, string> = {
 	text: "text",

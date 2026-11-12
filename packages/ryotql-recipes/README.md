@@ -48,6 +48,12 @@ fields and sort choices; server binding compiles request values under caller aut
 `collectionsFilterField`, and the static linked-choice recipe. Compilation belongs to
 `@ryot-app/ryotql/filters` and `/sort`.
 
+`/controls` resolves browse and output control targets against effective entity-schema browse
+declarations; the kernel uses it at execution and describe time. `/stored-validation` validates every
+authored branch of a stored document and each control filter, sort, and branch sample against the
+catalog. `/browse-validation` checks entity-schema browse declarations. Ingestion, saved-view writes,
+pages, and `ryot plugin build` share these functions.
+
 `loadEntityWatches` batches distinct population IDs into reads of at most 100 rows.
 `loadEntitySchemaBrowse` batches schema selections into the same row bound and retains missing
 definitions as neutral browse entries. Provider materialization and library-link lookups expose

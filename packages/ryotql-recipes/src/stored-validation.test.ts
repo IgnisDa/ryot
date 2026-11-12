@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
 import type { Predicate, RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import { publicationBrowserSource } from "@ryot-app/ryotql-recipes/publication-browse";
 import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
+import { publicationBrowserSource } from "./publication-browse";
 import { storedValidationBranches } from "./stored-validation";
 
 const source = {
