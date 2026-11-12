@@ -4,11 +4,6 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { EntitySchemaSlug, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { RyotQLService } from "@ryot-app/kernel-backend/modules/ryotql/service";
-import {
-	MAX_ROOT_PAGE_SIZE,
-	savedViewDataSourceAccess,
-	validateRyotQLDocument,
-} from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import * as tables from "@ryot-app/kernel-backend/schema/tables/combined";
 import { makeAppConfigLayer } from "@ryot-app/kernel-backend/testing/effect";
@@ -17,6 +12,11 @@ import { entityPickerMaterializedRecipe } from "@ryot-app/ryotql-recipes/entity-
 import { loadCompleteRows } from "@ryot-app/ryotql-recipes/paging";
 import { providerEntityLinksRecipe } from "@ryot-app/ryotql-recipes/provider-entity-links";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+import {
+	MAX_ROOT_PAGE_SIZE,
+	savedViewDataSourceAccess,
+	validateRyotQLDocument,
+} from "@ryot-app/ryotql/validator";
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result } from "effect";

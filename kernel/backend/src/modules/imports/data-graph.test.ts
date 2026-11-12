@@ -6,11 +6,10 @@ import {
 	PluginId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-
 import {
 	buildDefinitionSnapshot,
 	definitionSourceFromSnapshot,
-} from "#modules/definitions/snapshot";
+} from "@ryot-app/definitions/snapshot";
 
 import { orderDataGraph } from "./data-graph";
 

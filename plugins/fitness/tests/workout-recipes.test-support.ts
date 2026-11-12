@@ -3,13 +3,10 @@ import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { revisionDefinitions } from "@ryot-app/kernel-backend/modules/definitions/source";
-import {
-	compileControlFilter,
-	resolveControl,
-} from "@ryot-app/kernel-backend/modules/ryotql/controls";
+import { revisionDefinitions } from "@ryot-app/definitions/source";
 import { PluginId } from "@ryot-app/plugin-kit/schema";
 import type { Recipe } from "@ryot-app/ryotql";
+import { compileControlFilter, resolveControl } from "@ryot-app/ryotql-recipes/controls";
 import {
 	bindRecipe,
 	bindTestRequest,

@@ -6,6 +6,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { DefinitionSource } from "@ryot-app/definitions/snapshot";
 import { assert } from "@ryot-app/testing/assert";
 import { Context, Effect, Layer, Redacted, Ref } from "effect";
 import { Workflow } from "effect/workflow";
@@ -25,7 +26,6 @@ import { AutomationRunRepository } from "#modules/automations/run-repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { recordingDatabaseLayer } from "#modules/entities/statement-recording.test-support";

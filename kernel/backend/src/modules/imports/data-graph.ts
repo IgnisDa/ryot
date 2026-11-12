@@ -6,10 +6,10 @@ import {
 } from "@ryot-app/contract/modules/imports/data-json";
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { definitionLookup, type DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { Schema } from "effect";
 
 import { collectEmbeddedReferenceIds } from "#modules/backups/data-references";
-import { definitionLookup, type DefinitionSnapshot } from "#modules/definitions/snapshot";
 
 export const DataGraphRecordSchema = Schema.Union([
 	Schema.Struct({ record: DataJsonEntity, kind: Schema.Literal("entity") }),

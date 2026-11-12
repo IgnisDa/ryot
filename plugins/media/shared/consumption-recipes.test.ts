@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { and, column, dateAdd, gte, literal, lt, table } from "@ryot-app/plugin-kit/ryotql";
 import { calendarPeriod, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { expressionDateWindow } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
+import { validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 
 import { bookRecipes } from "./book-recipes";
 import { consumptionPeriod } from "./consumption-recipes";

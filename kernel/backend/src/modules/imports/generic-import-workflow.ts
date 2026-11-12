@@ -27,6 +27,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { definitionLookup, DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import {
 	genericImportChunkOperationIds,
 	genericImportChunkSchema,
@@ -50,7 +51,6 @@ import {
 	CollectionsService,
 } from "#modules/collections/service";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { awaitEntityImport } from "#modules/entities/providers/entity-import-job";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";

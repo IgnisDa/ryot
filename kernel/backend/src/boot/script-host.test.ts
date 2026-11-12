@@ -30,6 +30,8 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import { buildDefinitionSnapshot, type DefinitionSource } from "@ryot-app/definitions/snapshot";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -44,9 +46,7 @@ import { withLifecycleBatchPlanning } from "#modules/automations/lifecycle.test-
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EntityUserDataService } from "#modules/entities/user-data/service";

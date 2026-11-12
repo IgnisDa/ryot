@@ -22,6 +22,7 @@ import {
 	RelationshipSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
@@ -32,7 +33,6 @@ import type {
 	LifecyclePreparedStep,
 } from "#modules/automations/lifecycle/write-step";
 import { runLifecycleWriteInline } from "#modules/automations/lifecycle/write-step";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { RelationshipSchemaReader } from "#modules/definitions/relationship-schemas";
 import type { EntitySnapshotResult } from "#modules/entities/mutation-outcomes";
 import { EntitiesService, type PendingEntityMutation } from "#modules/entities/service";

@@ -18,11 +18,14 @@ import type {
 	AppSchemaRuleCondition,
 	AppStringProperty,
 } from "@ryot-app/contract/schema/property-schema";
-import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
+import {
+	parseAppSchemaProperties,
+	parseAppSchemaPropertiesSafe,
+} from "@ryot-app/contract/schema/property-values";
 import { Effect } from "effect";
 
 import { fixtureExamplePropertiesSchema } from "./fixture.test-support";
-import { formatPropertyIssues, parseAppSchemaProperties } from "./runtime";
 
 const str = (overrides: Partial<AppStringProperty> = {}): AppPropertyDefinition => ({
 	label: "F",

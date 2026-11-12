@@ -7,6 +7,20 @@ import {
 	type EventSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	type CalendarSourceDefinition,
+	type DefinitionKind,
+	definitionRecord,
+	type DefinitionSnapshot,
+	type DefinitionSource,
+	type EntityRelationshipDefinitions,
+	type EntitySchemaSnapshot,
+	type EventSchemaDefinition,
+	type RelationshipSchemaDefinition,
+	type SavedViewDefinition,
+	type SignalSchemaDefinition,
+} from "@ryot-app/definitions/snapshot";
+import type { RevisionDefinitions } from "@ryot-app/definitions/source";
 import { and, eq, isNull, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 
@@ -24,20 +38,6 @@ import {
 	DefinitionCatalog,
 } from "./catalog";
 import { type DefinitionReadContext, DefinitionReadUnavailable } from "./read-context";
-import {
-	type CalendarSourceDefinition,
-	type DefinitionKind,
-	definitionRecord,
-	type DefinitionSnapshot,
-	type DefinitionSource,
-	type EntityRelationshipDefinitions,
-	type EntitySchemaSnapshot,
-	type EventSchemaDefinition,
-	type RelationshipSchemaDefinition,
-	type SavedViewDefinition,
-	type SignalSchemaDefinition,
-} from "./snapshot";
-import type { RevisionDefinitions } from "./source";
 
 type Placement = "isEffective" | "pluginScope";
 type ListedOption = { readonly listed: boolean };

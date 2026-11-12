@@ -24,6 +24,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { buildDefinitionSnapshot, type DefinitionSource } from "@ryot-app/definitions/snapshot";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -45,7 +46,6 @@ import {
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot, type DefinitionSource } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { EventsRepository } from "#modules/events/repository";

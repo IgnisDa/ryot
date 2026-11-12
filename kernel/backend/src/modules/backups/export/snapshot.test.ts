@@ -23,6 +23,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -43,8 +45,6 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { BackupStaging } from "#modules/backups/staging";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
-import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";

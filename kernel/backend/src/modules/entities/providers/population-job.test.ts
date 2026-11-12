@@ -16,6 +16,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -29,7 +30,6 @@ import {
 	type LifecyclePlan,
 	toLifecycleDispatchPlan,
 } from "#modules/automations/lifecycle/planning";
-import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EnrichmentRequestsRepository } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";

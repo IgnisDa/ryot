@@ -6,6 +6,7 @@ import {
 	SandboxProviderId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { revisionDefinitions } from "@ryot-app/definitions/source";
 import { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
@@ -26,7 +27,6 @@ import {
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { revisionDefinitions } from "#modules/definitions/source";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import {
 	lockPluginIngestionForUser,

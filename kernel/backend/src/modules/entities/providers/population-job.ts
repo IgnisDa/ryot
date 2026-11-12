@@ -12,6 +12,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import {
 	type ProviderDetailsChildEntity,
 	type ProviderDetailsRelatedEntityGroup,
@@ -27,7 +28,6 @@ import { populationLifecycleCommand } from "#modules/automations/lifecycle/comma
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";
 import { EntitiesRepository } from "#modules/entities/repository";

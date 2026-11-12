@@ -7,12 +7,12 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 

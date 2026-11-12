@@ -1,8 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";
 import { mediaReviewableOccurrencesRecipe, mediaReviewLinksRecipe } from "./review-link-recipes";

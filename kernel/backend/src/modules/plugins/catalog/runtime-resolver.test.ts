@@ -14,6 +14,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { definitionLookup } from "@ryot-app/definitions/snapshot";
 import {
 	clientArtifactMetadata,
 	clientDeclarationHash,
@@ -29,7 +30,6 @@ import { Effect, Result } from "effect";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { loadCatalogRelations, withCatalogRelations } from "#modules/definitions/catalog-relations";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { definitionLookup } from "#modules/definitions/snapshot";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 

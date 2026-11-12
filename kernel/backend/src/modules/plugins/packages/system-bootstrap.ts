@@ -1,11 +1,12 @@
 import { SandboxExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
 import { kernelScriptCompiledOutputs } from "#modules/definitions/kernel-scripts.compiled.generated";
-import { kernelDefinitionSource, kernelScripts } from "#modules/definitions/kernel-source";
+import { kernelScripts } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { DatabaseSession } from "#platform/db/session";

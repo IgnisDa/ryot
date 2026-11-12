@@ -23,6 +23,8 @@ import type {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { retainPropertySecrets } from "@ryot-app/contract/schema/property-secrets";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { generateId } from "better-auth";
 import { Context, DateTime, Effect, Layer, Result } from "effect";
 import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
@@ -31,10 +33,6 @@ import {
 	ManagedAssetReferenceLocker,
 	type OwnedManagedAssetPropertyRecord,
 } from "#lib/domain/managed-asset-writes";
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-} from "#modules/definitions/properties/runtime";
 import { DataImportAdmission } from "#modules/imports/data-admission";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IngestionRetirement } from "#modules/imports/retirement-service";

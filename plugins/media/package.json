@@ -183,10 +183,11 @@
 		"effect": "4.1.2"
 	},
 	"devDependencies": {
-		"@ryot-app/fitness-plugin": "workspace:*",
-		"@ryot-app/fixture-plugin": "workspace:*",
 		"@effect/platform-bun": "4.1.2",
 		"@ryot-app/cli": "workspace:*",
+		"@ryot-app/definitions": "workspace:*",
+		"@ryot-app/fitness-plugin": "workspace:*",
+		"@ryot-app/fixture-plugin": "workspace:*",
 		"@ryot-app/kernel-backend": "workspace:*",
 		"@ryot-app/plugin-client-contract": "workspace:*",
 		"@ryot-app/plugin-client-sdk": "workspace:*",

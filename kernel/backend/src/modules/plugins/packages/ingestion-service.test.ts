@@ -5,6 +5,7 @@ import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { assert } from "@ryot-app/testing/assert";
@@ -14,7 +15,6 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Cause, Context, Deferred, Effect, Exit, Fiber, Layer, Option, Ref } from "effect";
 
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import {
 	SandboxWorkflowReferenceRegistrationError,

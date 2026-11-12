@@ -2,10 +2,10 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { CreateReminderBody } from "@ryot-app/contract/modules/reminders/schemas";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { DateTime, Effect } from "effect";
 
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";

@@ -1,9 +1,9 @@
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntitySchemaSlug, EventSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
+import type { EventSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { EventSchemaDefinition } from "#modules/definitions/snapshot";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 
 type EventSchemaScopeInput = {

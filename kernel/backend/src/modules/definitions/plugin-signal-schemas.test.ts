@@ -1,17 +1,16 @@
 import { expect } from "bun:test";
 
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Result } from "effect";
 
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { fixtureManifest, fixturePluginIdentity } from "#modules/plugins/test-support";
-
-import { kernelDefinitionSource } from "./kernel-source";
-import { buildDefinitionSnapshot } from "./snapshot";
-import { mergeManifestDefinitions } from "./source";
 
 const signalDefinitions = () => {
 	const base = fixtureManifest();

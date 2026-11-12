@@ -1,10 +1,10 @@
 import { describe, expect, it } from "bun:test";
 
-import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { resolveReportingSelection, TimeZone } from "@ryot-app/plugin-kit/schema";
 import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { bindRecipe, recipeResponse } from "@ryot-app/ryotql-recipes/test-utils";
+import { validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 
 import {
 	fitnessAnalyticsTotalsRecipe,

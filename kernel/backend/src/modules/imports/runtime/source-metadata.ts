@@ -10,12 +10,10 @@ import {
 	type AppPropertyDefinition,
 	getOrderedAppSchemaFieldEntries,
 } from "@ryot-app/contract/schema/property-schema";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { Effect, Schema } from "effect";
 
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-} from "#modules/definitions/properties/runtime";
 import type { RegisteredImportSource } from "#modules/plugins/catalog/import-sources";
 
 export type ImportSourceFileInput = {

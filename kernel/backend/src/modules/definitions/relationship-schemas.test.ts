@@ -5,12 +5,12 @@ import {
 	type RelationshipSchemaReference,
 } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, RelationshipSchemaSlug, UserId } from "@ryot-app/contract/schema/brands";
+import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 
 import { RelationshipSchemaReader } from "./relationship-schemas";
 

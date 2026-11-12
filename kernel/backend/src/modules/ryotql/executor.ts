@@ -14,6 +14,13 @@ import type {
 	ScalarExpression,
 } from "@ryot-app/contract/modules/ryotql/language";
 import { isJsonValue } from "@ryot-app/contract/schema/json";
+import { canAccessCatalogTable, resolveCatalogField } from "@ryot-app/ryotql/catalog";
+import { scalarExpressionKind, type ScalarKind } from "@ryot-app/ryotql/expression-kind";
+import type {
+	ExpandedInclude,
+	ExpandedNamedQuery,
+	ExpandedRowsOutput,
+} from "@ryot-app/ryotql/validator";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
@@ -33,13 +40,10 @@ import { HmacSigner } from "#platform/storage/hmac-signer";
 
 import { definitionReadContext, pluginIdentityReferences } from "./binding";
 import {
-	canAccessCatalogTable,
-	type CatalogTable,
-	jsonElementsTable,
-	resolveCatalogField,
+	type PhysicalCatalogTable,
+	physicalJsonElementsTable,
 	type RyotQLExecutionScope,
 } from "./catalog";
-import { scalarExpressionKind, type ScalarKind } from "./expression-kind";
 import {
 	type AliasScope,
 	childScope,
@@ -56,7 +60,6 @@ import {
 	type QuerySet,
 	referencedGroups,
 } from "./planner";
-import type { ExpandedInclude, ExpandedNamedQuery, ExpandedRowsOutput } from "./validator";
 
 type SqlFragment = ReturnType<typeof sql>;
 type AggregateQuery = NamedQuery & { readonly output: AggregateOutput };
@@ -628,14 +631,14 @@ const compilePredicate = (predicate: Predicate, ctx: Context, total = false): Sq
 		: comparison;
 };
 
-const deniedTable = (table: CatalogTable) =>
-	new Error(`RyotQL compiler received denied table '${table.name}'`);
+const deniedTable = (table: PhysicalCatalogTable) =>
+	new Error(`RyotQL compiler received denied table '${table.relation}'`);
 
 const userVisibilityCondition = (
-	table: CatalogTable,
+	table: PhysicalCatalogTable,
 	scope: Extract<RyotQLExecutionScope, { type: "user" }>,
 ): null | SqlFragment => {
-	const policy = table.visibility.user;
+	const policy = table.policies.user;
 	if (!policy) {
 		throw deniedTable(table);
 	}
@@ -646,7 +649,7 @@ const userVisibilityCondition = (
 		return sql`${identifier(policy.column)} = ${scope.userId}`;
 	}
 	if (policy.type === "parentOwned") {
-		const column = qualifiedIdentifier(table.name, policy.column);
+		const column = qualifiedIdentifier(table.relation, policy.column);
 		const parentTable = identifier(policy.parentTable);
 		const parentColumn = qualifiedIdentifier(policy.parentTable, policy.parentColumn);
 		const parentOwnerColumn = qualifiedIdentifier(policy.parentTable, policy.parentOwnerColumn);
@@ -671,10 +674,10 @@ const ownedSlugsCondition = (
 	)})`;
 
 const pluginVisibilityCondition = (
-	table: CatalogTable,
+	table: PhysicalCatalogTable,
 	scope: Extract<RyotQLExecutionScope, { type: "plugin" }>,
 ): SqlFragment => {
-	const policy = table.visibility.plugin;
+	const policy = table.policies.plugin;
 	if (!policy) {
 		throw deniedTable(table);
 	}
@@ -712,13 +715,13 @@ const pluginVisibilityCondition = (
 		}
 		const ownership = scope.eventSchemas.map(
 			(eventSchema) =>
-				sql`(${qualifiedIdentifier(table.name, "event_schema_slug")} = ${eventSchema.eventSchemaSlug}::text AND event_scope_entity.entity_schema_slug = ${eventSchema.entitySchemaSlug}::text)`,
+				sql`(${qualifiedIdentifier(table.relation, "event_schema_slug")} = ${eventSchema.eventSchemaSlug}::text AND event_scope_entity.entity_schema_slug = ${eventSchema.entitySchemaSlug}::text)`,
 		);
 		return sql`EXISTS (
 			SELECT 1 FROM entity event_scope_entity
-			WHERE event_scope_entity.id = ${qualifiedIdentifier(table.name, "entity_id")}
+			WHERE event_scope_entity.id = ${qualifiedIdentifier(table.relation, "entity_id")}
 			AND event_scope_entity.entity_schema_plugin_id = ${scope.pluginId}::text
-			AND ${qualifiedIdentifier(table.name, "event_schema_plugin_id")} = ${scope.pluginId}::text
+			AND ${qualifiedIdentifier(table.relation, "event_schema_plugin_id")} = ${scope.pluginId}::text
 			AND (${sql.join(ownership, sql` OR `)})
 		)`;
 	}
@@ -735,10 +738,10 @@ const pluginVisibilityCondition = (
 	if (policy.ownership === "relationshipSchemaSlugs") {
 		return sql`${ownership} AND EXISTS (
 			SELECT 1 FROM definition_relationship_schema declaration
-			JOIN entity relationship_source ON relationship_source.id = ${qualifiedIdentifier(table.name, "source_entity_id")}
-			JOIN entity relationship_target ON relationship_target.id = ${qualifiedIdentifier(table.name, "target_entity_id")}
+			JOIN entity relationship_source ON relationship_source.id = ${qualifiedIdentifier(table.relation, "source_entity_id")}
+			JOIN entity relationship_target ON relationship_target.id = ${qualifiedIdentifier(table.relation, "target_entity_id")}
 			WHERE declaration.plugin_revision_id = ${scope.pluginRevisionId}
-			AND declaration.slug = ${qualifiedIdentifier(table.name, "relationship_schema_slug")}
+			AND declaration.slug = ${qualifiedIdentifier(table.relation, "relationship_schema_slug")}
 			AND relationship_source.entity_schema_plugin_id = ${scope.pluginId}
 			AND relationship_target.entity_schema_plugin_id = ${scope.pluginId}
 			AND (declaration.source_entity_schema_slug IS NULL OR declaration.source_entity_schema_slug = relationship_source.entity_schema_slug)
@@ -751,10 +754,10 @@ const pluginVisibilityCondition = (
 const publicationSubjectIds = sql`(SELECT publication_subject.entity_id FROM publication_subject)`;
 
 const publicationVisibilityCondition = (
-	table: CatalogTable,
+	table: PhysicalCatalogTable,
 	scope: Extract<RyotQLExecutionScope, { type: "publication" }>,
 ): SqlFragment => {
-	const policy = table.visibility.publication;
+	const policy = table.policies.publication;
 	if (!policy) {
 		throw deniedTable(table);
 	}
@@ -778,9 +781,9 @@ const publicationVisibilityCondition = (
 			AND (${identifier("plugin_id")} IS NULL OR ${identifier("plugin_id")} IN (SELECT system_plugin.id FROM plugin system_plugin WHERE system_plugin.owner_user_id IS NULL))`;
 };
 
-const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
-	if (table.name.startsWith("sourceEntity:")) {
-		const rows = scope.sourceEntities?.[table.name];
+const authorizedTable = (table: PhysicalCatalogTable, scope: RyotQLExecutionScope): SqlFragment => {
+	if (table.relation.startsWith("sourceEntity:")) {
+		const rows = scope.sourceEntities?.[table.relation];
 		if (rows === undefined) {
 			throw deniedTable(table);
 		}
@@ -789,7 +792,7 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 	if (!canAccessCatalogTable(table, scope)) {
 		throw deniedTable(table);
 	}
-	const definition = table.visibility.plugin;
+	const definition = table.policies.plugin;
 	if (definition?.type === "schemaDefinition") {
 		const context = definitionReadContext(scope);
 		if (context) {
@@ -799,7 +802,7 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 				scope.type === "user" ? scope.userId : null,
 			);
 			if (scope.type === "plugin") {
-				return sql`(SELECT * FROM (${pinned}) ${identifier(table.name)} WHERE ${pluginVisibilityCondition(table, scope)})`;
+				return sql`(SELECT * FROM (${pinned}) ${identifier(table.relation)} WHERE ${pluginVisibilityCondition(table, scope)})`;
 			}
 			if (scope.type === "user") {
 				const fields = sql.join(
@@ -809,7 +812,7 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 					),
 					sql`, `,
 				);
-				return sql`(SELECT ${fields} FROM ${identifier(table.name)} definition_read WHERE ${userVisibilityCondition(table, scope)} AND definition_read.plugin_id IS DISTINCT FROM ${context.pluginId}::text UNION ALL SELECT ${fields} FROM (${pinned}) definition_read WHERE EXISTS (SELECT 1 FROM user_plugin available WHERE available.user_id = ${scope.userId} AND available.plugin_id = ${context.pluginId} AND available.is_definition_effective))`;
+				return sql`(SELECT ${fields} FROM ${identifier(table.relation)} definition_read WHERE ${userVisibilityCondition(table, scope)} AND definition_read.plugin_id IS DISTINCT FROM ${context.pluginId}::text UNION ALL SELECT ${fields} FROM (${pinned}) definition_read WHERE EXISTS (SELECT 1 FROM user_plugin available WHERE available.user_id = ${scope.userId} AND available.plugin_id = ${context.pluginId} AND available.is_definition_effective))`;
 			}
 		}
 	}
@@ -822,8 +825,8 @@ const authorizedTable = (table: CatalogTable, scope: RyotQLExecutionScope): SqlF
 		condition = publicationVisibilityCondition(table, scope);
 	}
 	return condition
-		? sql`(SELECT * FROM ${identifier(table.name)} WHERE ${condition})`
-		: sql`(SELECT * FROM ${identifier(table.name)})`;
+		? sql`(SELECT * FROM ${identifier(table.relation)} WHERE ${condition})`
+		: sql`(SELECT * FROM ${identifier(table.relation)})`;
 };
 
 const runtimeKindSql = (value: SqlFragment) =>
@@ -1059,7 +1062,7 @@ const appendPrimaryKeyOrders = (
 	requested: readonly Order[],
 ): Order[] => {
 	const joins = query.joins ?? [];
-	const keyOrders = (alias: string, table: CatalogTable) =>
+	const keyOrders = (alias: string, table: PhysicalCatalogTable) =>
 		table.primaryKey
 			.filter((field) => !requested.some((order) => isColumnOrder(order.expr, alias, field)))
 			.map((field) => ({
@@ -1073,7 +1076,7 @@ const appendPrimaryKeyOrders = (
 			query.from,
 		].flatMap((reference) => keyOrders(reference.alias, lookupTable(scope, reference.alias).table)),
 		...joins.flatMap((join) =>
-			join.type === "jsonElements" ? keyOrders(join.alias, jsonElementsTable) : [],
+			join.type === "jsonElements" ? keyOrders(join.alias, physicalJsonElementsTable) : [],
 		),
 	];
 };

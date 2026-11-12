@@ -23,6 +23,19 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { deriveSavedViewQueries } from "@ryot-app/definitions/saved-view-queries";
+import {
+	isEntityBrowserRenderer,
+	validateSavedViewDefinition,
+} from "@ryot-app/definitions/saved-views";
+import {
+	buildDefinitionSnapshot,
+	type DefinitionSnapshot,
+	definitionSourceFromSnapshot,
+} from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
+import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Effect, Layer, Schema, Stream } from "effect";
@@ -34,13 +47,6 @@ import {
 	rewriteManagedAssetLocators,
 	rewritePropertyReferences,
 } from "#modules/backups/data-references";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
-import {
-	buildDefinitionSnapshot,
-	type DefinitionSnapshot,
-	definitionSourceFromSnapshot,
-} from "#modules/definitions/snapshot";
-import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { EventGroupConstraints } from "#modules/events/event-group-constraints";
 import { eventPropertyReferences } from "#modules/events/event-references";
@@ -52,12 +58,6 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/packages/types";
 import { resolvePluginUserSettings } from "#modules/plugins/preferences/user-settings";
-import { storedValidationBranches } from "#modules/ryotql/stored-validation";
-import {
-	isEntityBrowserRenderer,
-	validateSavedViewDefinition,
-} from "#modules/saved-views/definition-validation";
-import { deriveSavedViewQueries } from "#modules/saved-views/queries";
 import { DatabaseSession } from "#platform/db/session";
 
 import type { ValidatedArchiveBinary } from "../archive/archive";
@@ -868,19 +868,22 @@ export const preflightProvenance = Effect.fn(function* (
 				).pipe(Effect.mapError((error) => badRequest(error.message)));
 			}
 
-			yield* validateSavedViewDefinition(
-				renderer,
-				settings,
-				dataSources,
-				page?.kind === "page" ? page : null,
-				Object.values(definitions.entitySchemas).map((entry) =>
-					Object.assign({}, entry, {
-						packageId: null,
-						pluginScope: null,
-						isEffective: true,
-						browse: entry.browse ?? null,
-					}),
-				),
+			yield* Effect.fromResult(
+				validateSavedViewDefinition({
+					renderer,
+					settings,
+					dataSources,
+					options: { kernelBuiltin: false },
+					pluginPage: page?.kind === "page" ? page : null,
+					schemas: Object.values(definitions.entitySchemas).map((entry) =>
+						Object.assign({}, entry, {
+							packageId: null,
+							pluginScope: null,
+							isEffective: true,
+							browse: entry.browse ?? null,
+						}),
+					),
+				}),
 			).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 		}
 	}
@@ -2583,19 +2586,22 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						).pipe(Effect.mapError((error) => badRequest(error.message)));
 					}
 
-					yield* validateSavedViewDefinition(
-						renderer,
-						settings,
-						dataSources,
-						pluginPage?.kind === "page" ? pluginPage : null,
-						Object.values(definitions.entitySchemas).map((entry) =>
-							Object.assign({}, entry, {
-								packageId: null,
-								pluginScope: null,
-								isEffective: true,
-								browse: entry.browse ?? null,
-							}),
-						),
+					yield* Effect.fromResult(
+						validateSavedViewDefinition({
+							renderer,
+							settings,
+							dataSources,
+							options: { kernelBuiltin: false },
+							pluginPage: pluginPage?.kind === "page" ? pluginPage : null,
+							schemas: Object.values(definitions.entitySchemas).map((entry) =>
+								Object.assign({}, entry, {
+									packageId: null,
+									pluginScope: null,
+									isEffective: true,
+									browse: entry.browse ?? null,
+								}),
+							),
+						}),
 					).pipe(Effect.mapError(() => badRequest("Backup saved view definition is invalid")));
 					if (pluginPage?.kind === "page") {
 						yield* assetReferences

@@ -20,6 +20,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -31,7 +32,6 @@ import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { toLifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";

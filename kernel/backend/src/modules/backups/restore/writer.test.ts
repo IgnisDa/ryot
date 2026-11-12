@@ -22,6 +22,8 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { buildDefinitionSnapshot, type DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import {
 	ascending,
 	column,
@@ -47,8 +49,6 @@ import { managedAssetProperty } from "#lib/domain/managed-asset-writes.test-supp
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
-import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
-import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository, RESTORE_EVENT_BATCH_SIZE } from "#modules/events/repository";
@@ -68,7 +68,6 @@ import {
 import type { NormalizedPlugin, StoredPlugin } from "#modules/plugins/packages/types";
 import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
-import { validateSavedViewDefinition } from "#modules/saved-views/definition-validation";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
@@ -943,61 +942,6 @@ it.effect(
 			).pipe(Effect.flip);
 			expect(error.message).toContain("private entity cannot request global scope");
 		}),
-	testTimeout,
-);
-
-it.effect(
-	"rejects structurally valid restored plugin views with incompatible settings or data sources",
-	() =>
-		Effect.gen(function* () {
-			const renderer = { exportName: "page", pluginId: "plugin-id", kind: "plugin" as const };
-			const page = {
-				settingsSchema: {
-					unknownKeys: "strict" as const,
-					fields: {
-						label: {
-							label: "Label",
-							description: "Label",
-							type: "string" as const,
-							validation: { required: true },
-						},
-					},
-				} satisfies AppSchema,
-			};
-			const settingsError = yield* validateSavedViewDefinition(
-				renderer,
-				{ label: 42 },
-				provenanceQuery,
-				page,
-			).pipe(Effect.flip);
-			expect(settingsError.reason.code).toBe("settings-incompatible");
-
-			const invalidTable = table("missing-table", "missing");
-			const sourceError = yield* validateSavedViewDefinition(
-				renderer,
-				{ label: "valid" },
-				document({ invalid: rows(invalidTable, { fields: [] }) }),
-				page,
-			).pipe(Effect.flip);
-			expect(sourceError.reason).toMatchObject({ code: "settings-incompatible" });
-		}),
-	testTimeout,
-);
-
-it.effect(
-	"rejects unavailable plugin renderers through the canonical rule",
-	() =>
-		validateSavedViewDefinition(
-			{ kind: "plugin", exportName: "page", pluginId: "plugin-id" },
-			{},
-			provenanceQuery,
-			null,
-		).pipe(
-			Effect.flip,
-			Effect.tap((error) =>
-				Effect.sync(() => expect(error.reason.code).toBe("renderer-not-found")),
-			),
-		),
 	testTimeout,
 );
 

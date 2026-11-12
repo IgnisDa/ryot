@@ -1,10 +1,7 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-	browseConsistencyIssue,
-	browseIssue,
-} from "@ryot-app/kernel-backend/modules/definitions/browse-validation";
-import { revisionDefinitions } from "@ryot-app/kernel-backend/modules/definitions/source";
+import { revisionDefinitions } from "@ryot-app/definitions/source";
+import { browseConsistencyIssue, browseIssue } from "@ryot-app/ryotql-recipes/browse-validation";
 
 import { mediaPlugin } from "./plugin";
 

@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { RelationshipBadRequest } from "@ryot-app/contract/modules/relationships/schemas";
 import { EntityId, EntitySchemaSlug } from "@ryot-app/contract/schema/brands";
+import { definitionSourceFromSnapshot } from "@ryot-app/definitions/snapshot";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -9,7 +10,6 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { definitionSourceFromSnapshot } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";

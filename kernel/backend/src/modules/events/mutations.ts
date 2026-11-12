@@ -17,6 +17,7 @@ import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { EntityId, EventId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, DateTime, Duration, Effect, Layer, Schedule, Schema } from "effect";
@@ -33,7 +34,6 @@ import {
 	unchangedPolicyBatch,
 } from "#modules/automations/lifecycle/policy-batch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import {
 	type ApplyFoldChanges,
 	type FoldMode,

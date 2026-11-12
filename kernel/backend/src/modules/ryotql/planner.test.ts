@@ -22,10 +22,10 @@ import {
 	sum,
 	table,
 } from "@ryot-app/ryotql";
+import { validateAuthoredFixture } from "@ryot-app/ryotql/fixture.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { it } from "@voila.dev/effect-bun-test";
 
-import { validateAuthoredFixture } from "./fixture.test-support";
 import { planQuery, planScopes } from "./planner";
 
 const execution = {

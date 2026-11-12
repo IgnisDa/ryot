@@ -11,13 +11,13 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { EntitySchemaSnapshot } from "@ryot-app/definitions/snapshot";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Ref, Result } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { EntitySchemaSnapshot } from "#modules/definitions/snapshot";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";

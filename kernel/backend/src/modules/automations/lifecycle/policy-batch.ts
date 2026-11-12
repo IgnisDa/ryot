@@ -8,9 +8,9 @@ import {
 } from "@ryot-app/contract/modules/automations/lifecycle";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { Cause, Effect, Schema } from "effect";
 
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { DatabaseSession } from "#platform/db/session";

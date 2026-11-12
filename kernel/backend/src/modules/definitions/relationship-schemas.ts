@@ -12,10 +12,10 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 
 type RelationshipSchemaScope = {
 	readonly name: string;

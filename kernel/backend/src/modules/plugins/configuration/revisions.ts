@@ -4,14 +4,16 @@ import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/p
 import { type PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import {
+	parseAppSchemaProperties,
+	parseAppSchemaPropertiesSafe,
+} from "@ryot-app/contract/schema/property-values";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { generateId } from "better-auth";
 import { and, eq, isNotNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/core";
 

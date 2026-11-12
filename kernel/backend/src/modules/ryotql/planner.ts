@@ -7,38 +7,38 @@ import type {
 	ScalarExpression,
 	TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
+import { resolveCatalogField } from "@ryot-app/ryotql/catalog";
+import { type KindResolver, scalarExpressionKind } from "@ryot-app/ryotql/expression-kind";
+import type { ExpandedInclude, ExpandedNamedQuery } from "@ryot-app/ryotql/validator";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Function } from "effect";
 
 import {
-	type CatalogTable,
-	getCatalogTable,
-	jsonElementsTable,
-	resolveCatalogField,
+	type PhysicalCatalogTable,
+	physicalCatalogTable,
+	physicalJsonElementsTable,
 	type RyotQLExecutionScope,
 } from "./catalog";
-import { type KindResolver, scalarExpressionKind } from "./expression-kind";
-import type { ExpandedInclude, ExpandedNamedQuery } from "./validator";
 
 export type QuerySet = Include | CorrelatedQuerySet | Pick<NamedQuery, "from" | "joins" | "where">;
 
 export type PlannedTable = {
 	readonly sqlAlias: string;
-	readonly table: CatalogTable;
 	readonly joinedNullable: boolean;
+	readonly table: PhysicalCatalogTable;
 	readonly fields: ReadonlySet<string>;
-};
-
-export type AliasScope = {
-	readonly parent: undefined | AliasScope;
-	readonly execution: RyotQLExecutionScope;
-	readonly tables: ReadonlyMap<string, { readonly table: CatalogTable }>;
 };
 
 export type HoistedSource = {
 	readonly name: string;
 	readonly local: readonly Predicate[];
 	readonly keys: ReadonlyMap<string, { readonly column: string; readonly expr: ScalarExpression }>;
+};
+
+export type AliasScope = {
+	readonly parent: undefined | AliasScope;
+	readonly execution: RyotQLExecutionScope;
+	readonly tables: ReadonlyMap<string, { readonly table: PhysicalCatalogTable }>;
 };
 
 export type AggregateGroup = {
@@ -179,7 +179,7 @@ const collectColumns = (node: Node, columns: Map<string, Set<string>>): void => 
 };
 
 const requireTable = (name: string) => {
-	const table = getCatalogTable(name);
+	const table = physicalCatalogTable(name);
 	if (!table) {
 		throw new Error(`RyotQL planner received unknown table '${name}'`);
 	}
@@ -190,7 +190,11 @@ const queryTables = (query: QuerySet) => [
 	{ joinedNullable: false, alias: query.from.alias, table: requireTable(query.from.table) },
 	...(query.joins ?? []).map((join) =>
 		join.type === "jsonElements"
-			? { alias: join.alias, table: jsonElementsTable, joinedNullable: join.mode === "left" }
+			? {
+					alias: join.alias,
+					table: physicalJsonElementsTable,
+					joinedNullable: join.mode === "left",
+				}
 			: {
 					alias: join.table.alias,
 					joinedNullable: join.type === "left",

@@ -12,6 +12,7 @@ import {
 	type AppSchema,
 	materializeAppSchemaChoices,
 } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import {
 	providerSearchOptionsResultSchema,
 	providerSearchResultSchema,
@@ -19,7 +20,6 @@ import {
 import { generateId } from "better-auth";
 import { Clock, Context, Duration, Effect, Layer, Result, Schema } from "effect";
 
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import {
 	PluginRuntimeResolver,
 	UnsupportedProviderOperationError,

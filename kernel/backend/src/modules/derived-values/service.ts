@@ -6,6 +6,7 @@ import type { PluginProjection } from "@ryot-app/contract/modules/plugins/manife
 import type { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { AutomationExecutionId, EntityId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { isAdmissionQueueFull } from "@ryot-app/sandbox/host/admission";
 import { SandboxExecutor } from "@ryot-app/sandbox/host/executor";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -26,7 +27,6 @@ import { SecureRandom } from "effect/crypto";
 
 import { lifecycleActor, rootLifecycleCausation } from "#modules/automations/lifecycle/command";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { FoldScripts, FoldScriptsLive } from "#modules/scripts/executions/fold-scripts";

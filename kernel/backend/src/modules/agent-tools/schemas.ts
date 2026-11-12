@@ -1,10 +1,9 @@
-import { Schema } from "effect";
-
 import {
 	EntitySchemaDefinition,
 	EventSchemaDefinition,
 	RelationshipSchemaDefinition,
-} from "#modules/definitions/snapshot";
+} from "@ryot-app/definitions/snapshot";
+import { Schema } from "effect";
 
 export const AgentDataDescription = Schema.Struct({
 	relationshipSchemas: Schema.Array(RelationshipSchemaDefinition),

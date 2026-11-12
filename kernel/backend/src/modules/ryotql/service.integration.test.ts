@@ -63,6 +63,7 @@ import {
 import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
 import { twoFactorStatusRecipe } from "@ryot-app/ryotql-recipes/user-settings";
+import type { RyotQLAudience } from "@ryot-app/ryotql/catalog";
 import { assert } from "@ryot-app/testing/assert";
 import { anyOf } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -106,7 +107,6 @@ import { savedView, savedViewOverride } from "#schema/tables/views";
 import { makeAppConfigLayer, makeConfigProviderLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import type { RyotQLAudience } from "./catalog";
 import { RyotQLService } from "./service";
 
 const occurredAt = new Date(0);

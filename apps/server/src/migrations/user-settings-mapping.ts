@@ -1,6 +1,6 @@
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { formatPropertyIssues } from "@ryot-app/kernel-backend/modules/definitions/properties/runtime";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { resolvePluginUserSettings } from "@ryot-app/kernel-backend/modules/plugins/preferences/user-settings";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import { sql } from "drizzle-orm";

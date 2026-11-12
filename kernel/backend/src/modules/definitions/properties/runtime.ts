@@ -3,14 +3,11 @@ import {
 	AppSchema,
 	createPropertySchemaMessage,
 	type PropertyValidationError,
-	type PropertyValidationIssue,
 } from "@ryot-app/contract/schema/property-schema";
 import {
-	formatValidationError,
 	parseErrorToIssues,
 	toValidationError,
 } from "@ryot-app/contract/schema/property-validation";
-import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Effect, Result, Schema } from "effect";
 
 const decodeAppSchemaEither = (input: unknown, emptyFieldsMessage?: string) => {
@@ -36,18 +33,3 @@ const parsePropertySchemaInput = (
 
 export const parseLabeledPropertySchemaInput = (input: unknown, propertiesLabel: string) =>
 	parsePropertySchemaInput(input, { propertiesLabel });
-
-export const parseAppSchemaProperties = (input: {
-	kind: string;
-	properties: unknown;
-	propertiesSchema: AppSchema;
-	allowedMissingRequiredPaths?: ReadonlyArray<ReadonlyArray<string>>;
-}): Effect.Effect<Record<string, unknown>, PropertyValidationError> => {
-	const result = parseAppSchemaPropertiesSafe(input);
-	return result.success
-		? Effect.succeed(result.data)
-		: Effect.fail(toValidationError(result.issues));
-};
-
-export const formatPropertyIssues = (issues: ReadonlyArray<PropertyValidationIssue>) =>
-	formatValidationError(issues).join("; ");

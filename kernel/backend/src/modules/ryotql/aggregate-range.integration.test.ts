@@ -24,6 +24,7 @@ import {
 	sum,
 	table,
 } from "@ryot-app/ryotql";
+import { cursorPageContents } from "@ryot-app/ryotql/fixture.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -34,7 +35,6 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { cursorPageContents } from "./fixture.test-support";
 import { RyotQLService } from "./service";
 
 const start = castDate(literal("2026-01-01"));

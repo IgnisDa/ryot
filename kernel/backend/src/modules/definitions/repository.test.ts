@@ -7,6 +7,7 @@ import {
 	PluginRevisionId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -25,7 +26,6 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 
 import { DefinitionCatalog } from "./catalog";
-import { kernelDefinitionSource } from "./kernel-source";
 import { DefinitionRepository } from "./repository";
 import { seedKernelDefinitions } from "./test-support";
 

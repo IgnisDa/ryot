@@ -1,11 +1,8 @@
 import { describe, expect, it } from "bun:test";
 
-import {
-	savedViewDataSourceAccess,
-	validateRyotQLDocument,
-} from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 import { objectContaining } from "@ryot-app/testing/matchers";
 
 import { ryotqlDocumentNodes } from "../tests/ryotql-test-utils";

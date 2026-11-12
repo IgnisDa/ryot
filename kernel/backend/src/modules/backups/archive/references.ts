@@ -19,6 +19,7 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { isEntityBrowserRenderer } from "@ryot-app/definitions/saved-views";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
@@ -29,7 +30,6 @@ import {
 	requiredReference,
 	rewritePropertyReferences,
 } from "#modules/backups/data-references";
-import { isEntityBrowserRenderer } from "#modules/saved-views/definition-validation";
 
 import { rewriteSavedArgumentSources } from "../saved-arguments";
 import { archiveError, type BackupArchiveError } from "./error";

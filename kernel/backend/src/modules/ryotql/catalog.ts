@@ -1,6 +1,16 @@
-import type { FieldSelection, RowSelection } from "@ryot-app/contract/modules/ryotql/language";
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { AccessClass } from "@ryot-app/contract/oauth";
+import {
+	type CatalogField,
+	type CatalogTable,
+	type CatalogTableName,
+	type catalogTables,
+	getCatalogTable,
+	jsonElementsTable,
+	type RyotQLAudience,
+	SOURCE_ENTITY_TABLE_PREFIX,
+	sourceEntityTable,
+} from "@ryot-app/ryotql/catalog";
 import { sql } from "drizzle-orm";
 
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
@@ -12,35 +22,12 @@ import type {
 
 import { ingestionActivitiesSql, ingestionSummarySql } from "./ingestion-projection";
 
-export type RyotQLAudience = "kernel" | "plugin";
-
-export type CatalogFieldKind = "date" | "json" | "text" | "number" | "boolean";
-
-export type RyotQLAccess =
-	| { readonly type: "admin" }
-	| Pick<PluginExecutionScope, "type">
-	| Pick<PublicationExecutionScope, "type">
-	| Pick<UserExecutionScope, "type" | "audience" | "accessClass">;
-
-export type CatalogField = {
-	readonly column?: string;
-	readonly nullable: boolean;
-	readonly demoReadable?: false;
-	readonly kind: CatalogFieldKind;
-	readonly publicationReadable?: false;
-	readonly access?: "admin" | "kernel" | "publication";
-	readonly resolve: (context: CatalogFieldContext) => ReturnType<typeof sql>;
-};
-
 export type CatalogSource = (context: {
+	readonly source: SqlFragment;
 	readonly userId: null | string;
 	readonly fields: ReadonlySet<string>;
-	readonly source: ReturnType<typeof sql>;
-	readonly relation: (name: string) => ReturnType<typeof sql>;
-}) => {
-	readonly from: ReturnType<typeof sql>;
-	readonly ctes: Readonly<Record<string, ReturnType<typeof sql>>>;
-};
+	readonly relation: (name: string) => SqlFragment;
+}) => { readonly from: SqlFragment; readonly ctes: Readonly<Record<string, SqlFragment>> };
 
 export type RyotQLExecutionScope = (
 	UserExecutionScope | PluginExecutionScope | PublicationExecutionScope | { readonly type: "admin" }
@@ -52,22 +39,13 @@ export type RyotQLExecutionScope = (
 	>;
 };
 
-const noCtes: Readonly<Record<string, ReturnType<typeof sql>>> = {};
+type SqlFragment = ReturnType<typeof sql>;
 
-export type CatalogTable = {
-	readonly name: string;
-	readonly source?: CatalogSource;
-	readonly visibility: CatalogVisibility;
-	// Small per-user catalogs: an include reads one materialized copy instead of re-evaluating the
-	// view for every parent row.
-	readonly materializedInIncludes?: true;
-	readonly primaryKey: readonly [string, ...string[]];
-	readonly fields: Readonly<Record<string, CatalogField>>;
-};
+type PhysicalCatalogField = CatalogField & FieldBinding;
 
-type ExpandedCatalogSelections = {
-	readonly error: null | string;
-	readonly fields: FieldSelection[];
+type FieldBinding = {
+	readonly column?: string;
+	readonly resolve: (context: CatalogFieldContext) => SqlFragment;
 };
 
 type CatalogFieldContext = {
@@ -76,12 +54,33 @@ type CatalogFieldContext = {
 	readonly language: null | string;
 };
 
+const noCtes: Readonly<Record<string, SqlFragment>> = {};
+
+export type PhysicalCatalogTable = CatalogTable<PhysicalCatalogField> & {
+	readonly relation: string;
+	readonly source?: CatalogSource;
+	readonly policies: CatalogPolicies;
+};
+
+type LogicalTable<Name extends CatalogTableName> = (typeof catalogTables)[Name];
+
+type CatalogPolicies = {
+	readonly [Audience in keyof PolicyByAudience]?: PolicyByAudience[Audience];
+};
+
 /** Reads only a publication's subjects, which the statement receives as `publication_subject`. */
 type PublicationExecutionScope = {
 	readonly type: "publication";
 	readonly ownerUserId: string;
 	readonly subjectsJson: string;
 	readonly language: null | string;
+};
+
+type PolicyByAudience = {
+	readonly user: CatalogUserPolicy;
+	readonly plugin: CatalogPluginPolicy;
+	readonly admin: { readonly type: "all" };
+	readonly publication: CatalogPublicationPolicy;
 };
 
 type CatalogPublicationPolicy =
@@ -107,6 +106,31 @@ type UserExecutionScope = {
 	readonly definitionContext?: undefined | DefinitionReadContext;
 };
 
+type TableBinding<Name extends CatalogTableName> = {
+	readonly relation: string;
+	readonly source?: CatalogSource;
+	readonly fields: { readonly [Field in keyof LogicalTable<Name>["fields"]]: FieldBinding };
+	readonly policies: {
+		readonly [
+			Audience in keyof PolicyByAudience & keyof LogicalTable<Name>["visibility"]
+		]: PolicyByAudience[Audience];
+	};
+};
+
+type CatalogPluginPolicy =
+	| { readonly type: "eventDefinition" }
+	| {
+			readonly type: "schemaDefinition";
+			readonly kind: "event" | "entity" | "signal" | "relationship";
+	  }
+	| {
+			readonly column: string;
+			readonly ownerColumn: string;
+			readonly globalOnly: boolean;
+			readonly type: "discriminator";
+			readonly ownership: "entitySchemaSlugs" | "relationshipSchemaSlugs";
+	  };
+
 type CatalogUserPolicy =
 	| { readonly type: "public" }
 	| { readonly type: "self"; readonly column: string }
@@ -124,96 +148,66 @@ type CatalogUserPolicy =
 			readonly parentOwnerColumn: string;
 	  };
 
-type CatalogVisibility = {
-	readonly admin?: { readonly type: "all" };
-	readonly publication?: CatalogPublicationPolicy;
-	readonly user?: CatalogUserPolicy & {
-		readonly demoReadable?: false;
-		readonly pluginReadable: boolean;
-	};
-	readonly plugin?:
-		| { readonly type: "eventDefinition" }
-		| {
-				readonly type: "schemaDefinition";
-				readonly kind: "event" | "entity" | "signal" | "relationship";
-		  }
-		| {
-				readonly column: string;
-				readonly ownerColumn: string;
-				readonly globalOnly: boolean;
-				readonly type: "discriminator";
-				readonly ownership: "entitySchemaSlugs" | "relationshipSchemaSlugs";
-		  };
-};
-
-const physicalField = (column: string, kind: CatalogFieldKind, nullable = true): CatalogField => ({
-	kind,
-	column,
-	nullable,
-	resolve: ({ sqlAlias }) => sql`${sql.raw(sqlAlias)}.${sql.identifier(column)}`,
+const bindTable = (
+	logical: CatalogTable,
+	binding: {
+		readonly relation: string;
+		readonly source?: CatalogSource;
+		readonly policies: CatalogPolicies;
+		readonly fields: Readonly<Record<string, FieldBinding>>;
+	},
+): PhysicalCatalogTable => ({
+	...logical,
+	policies: binding.policies,
+	relation: binding.relation,
+	...(binding.source ? { source: binding.source } : {}),
+	fields: Object.fromEntries(
+		Object.entries(logical.fields).map(([name, field]) => {
+			const fieldBinding = binding.fields[name];
+			if (!fieldBinding) {
+				throw new Error(`Catalog field '${name}' has no physical binding`);
+			}
+			return [name, { ...field, ...fieldBinding }];
+		}),
+	),
 });
 
-const textArrayField = (column: string): CatalogField => ({
-	kind: "json",
-	nullable: false,
-	resolve: ({ sqlAlias }) => sql`to_jsonb(${sql.raw(sqlAlias)}.${sql.identifier(column)})`,
+const column = (name: string): FieldBinding => ({
+	column: name,
+	resolve: ({ sqlAlias }) => sql`${sql.raw(sqlAlias)}.${sql.identifier(name)}`,
 });
 
-const withAccess = (field: CatalogField, access: "admin" | "kernel"): CatalogField => ({
-	...field,
-	access,
+const textArrayField = (name: string): FieldBinding => ({
+	resolve: ({ sqlAlias }) => sql`to_jsonb(${sql.raw(sqlAlias)}.${sql.identifier(name)})`,
 });
 
-const unpublished = (field: CatalogField): CatalogField => ({
-	...field,
-	publicationReadable: false,
-});
-
-const standardOnly = (field: CatalogField): CatalogField => ({ ...field, demoReadable: false });
-
-const installationPackageId: CatalogField = {
-	kind: "text",
-	nullable: true,
+const installationPackageId: FieldBinding = {
 	resolve: ({ sqlAlias }) =>
 		sql.raw(
 			`(SELECT plugin.package_id FROM plugin_installation installation INNER JOIN plugin ON plugin.id = installation.plugin_id WHERE installation.id = ${sqlAlias}.plugin_installation_id)`,
 		),
 };
 
-const pluginActiveRevisionField = (
-	expression: string,
-	kind: CatalogFieldKind,
-	nullable: boolean,
-): CatalogField => ({
-	kind,
-	nullable,
+const pluginActiveRevisionField = (expression: string): FieldBinding => ({
 	resolve: ({ sqlAlias }) =>
 		sql.raw(
 			`(SELECT ${expression} FROM plugin_revision revision WHERE revision.id = ${sqlAlias}.active_revision_id)`,
 		),
 });
 
-const pluginMetadataField = (key: "icon" | "name" | "description"): CatalogField =>
-	pluginActiveRevisionField(`revision.${key}`, "text", true);
+const pluginMetadataField = (key: "icon" | "name" | "description"): FieldBinding =>
+	pluginActiveRevisionField(`revision.${key}`);
 
-const pluginClientApiVersion = pluginActiveRevisionField(
-	`(revision.client ->> 'apiVersion')::int`,
-	"number",
-	true,
-);
+const pluginClientApiVersion = pluginActiveRevisionField(`(revision.client ->> 'apiVersion')::int`);
 
-const localizedEntityName: CatalogField = {
-	kind: "text",
-	nullable: false,
+const localizedEntityName: FieldBinding = {
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.name`)
 			: sql`COALESCE((SELECT translation.name FROM entity_translation translation WHERE translation.entity_id = ${sql.raw(`${sqlAlias}.id`)} AND translation.language = ${language} AND translation.source_content_generation = ${sql.raw(`${sqlAlias}.content_generation`)}), ${sql.raw(`${sqlAlias}.name`)})`,
 };
 
-const localizedEntityProperties: CatalogField = {
-	kind: "json",
-	nullable: false,
+const localizedEntityProperties: FieldBinding = {
 	resolve: ({ language, sqlAlias }) =>
 		language === null
 			? sql.raw(`${sqlAlias}.properties`)
@@ -242,9 +236,7 @@ const enrichmentWorkState = (
 		order by request.sequence desc limit 1), 'idle')`;
 };
 
-const entityTranslationStatus: CatalogField = {
-	kind: "json",
-	nullable: false,
+const entityTranslationStatus: FieldBinding = {
 	resolve: (context) => {
 		const { language, sqlAlias } = context;
 		if (language === null) {
@@ -275,9 +267,7 @@ const entityTranslationStatus: CatalogField = {
 	},
 };
 
-const entityPopulationStatus: CatalogField = {
-	kind: "json",
-	nullable: false,
+const entityPopulationStatus: FieldBinding = {
 	resolve: (context) => {
 		const { sqlAlias } = context;
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
@@ -293,9 +283,7 @@ const entityPopulationStatus: CatalogField = {
 	},
 };
 
-const entityRelatedPopulationStatus: CatalogField = {
-	kind: "json",
-	nullable: false,
+const entityRelatedPopulationStatus: FieldBinding = {
 	resolve: (context) => {
 		const { sqlAlias } = context;
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
@@ -311,12 +299,11 @@ const entityRelatedPopulationStatus: CatalogField = {
 	},
 };
 
-const entity: CatalogTable = {
-	name: "entity",
-	primaryKey: ["id"],
-	visibility: {
+const entity: TableBinding<"entity"> = {
+	relation: "entity",
+	policies: {
 		publication: { type: "subject" },
-		user: { type: "owned", column: "user_id", includeGlobal: true, pluginReadable: true },
+		user: { type: "owned", column: "user_id", includeGlobal: true },
 		plugin: {
 			globalOnly: true,
 			type: "discriminator",
@@ -326,36 +313,31 @@ const entity: CatalogTable = {
 		},
 	},
 	fields: {
+		id: column("id"),
 		name: localizedEntityName,
+		userId: column("user_id"),
+		occursAt: column("occurs_at"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		externalId: column("external_id"),
+		providerId: column("provider_id"),
+		populatedAt: column("populated_at"),
 		properties: localizedEntityProperties,
-		id: physicalField("id", "text", false),
 		populationStatus: entityPopulationStatus,
 		translationStatus: entityTranslationStatus,
-		occursAt: physicalField("occurs_at", "date"),
-		externalId: physicalField("external_id", "text"),
-		providerId: physicalField("provider_id", "text"),
-		populatedAt: physicalField("populated_at", "date"),
-		userId: unpublished(physicalField("user_id", "text")),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
+		entitySchemaSlug: column("entity_schema_slug"),
 		relatedPopulationStatus: entityRelatedPopulationStatus,
-		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
-		entitySchemaPluginId: physicalField("entity_schema_plugin_id", "text"),
-		collectionOrderRevision: physicalField("collection_order_revision", "number", false),
-		providerCheckedAt: {
-			kind: "date",
-			nullable: true,
-			resolve: ({ sqlAlias }) =>
-				sql`(select max(request.base_checked_at) from entity_enrichment_request request where request.entity_id = ${sql.raw(`${sqlAlias}.id`)})`,
-		},
+		entitySchemaPluginId: column("entity_schema_plugin_id"),
+		collectionOrderRevision: column("collection_order_revision"),
 		publicationRank: {
-			kind: "number",
-			nullable: false,
-			access: "publication",
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(SELECT publication_subject.rank FROM publication_subject WHERE publication_subject.entity_id = ${sqlAlias}.id)`,
 				),
+		},
+		providerCheckedAt: {
+			resolve: ({ sqlAlias }) =>
+				sql`(select max(request.base_checked_at) from entity_enrichment_request request where request.entity_id = ${sql.raw(`${sqlAlias}.id`)})`,
 		},
 	},
 };
@@ -401,69 +383,58 @@ const eventSource: CatalogSource = (context) => {
 	};
 };
 
-const event: CatalogTable = {
-	name: "event",
-	primaryKey: ["id"],
+const event: TableBinding<"event"> = {
+	relation: "event",
 	source: eventSource,
-	visibility: {
+	policies: {
 		publication: { type: "none" },
 		plugin: { type: "eventDefinition" },
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+		user: { type: "owned", column: "user_id", includeGlobal: false },
 	},
 	fields: {
-		id: physicalField("id", "text", false),
-		userId: physicalField("user_id", "text", false),
-		entityId: physicalField("entity_id", "text", false),
-		revision: physicalField("revision", "number", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		projection: physicalField("projection_value", "json"),
-		properties: physicalField("properties", "json", false),
-		occurredAt: physicalField("occurred_at", "date", false),
-		sessionEntityId: physicalField("session_entity_id", "text"),
-		eventSchemaSlug: physicalField("event_schema_slug", "text", false),
-		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+		id: column("id"),
+		userId: column("user_id"),
+		revision: column("revision"),
+		entityId: column("entity_id"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		properties: column("properties"),
+		occurredAt: column("occurred_at"),
+		projection: column("projection_value"),
+		sessionEntityId: column("session_entity_id"),
+		eventSchemaSlug: column("event_schema_slug"),
+		eventSchemaPluginId: column("event_schema_plugin_id"),
 		projectionStatus: {
-			kind: "text",
-			nullable: false,
 			resolve: ({ sqlAlias }) => sql`coalesce(${sql.raw(sqlAlias)}.projection_status, 'none')`,
 		},
 		orderKey: {
-			kind: "text",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql`coalesce(${sql.raw(sqlAlias)}.order_key, ${sql.raw(sqlAlias)}.id)`,
 		},
 		orderCreatedAt: {
-			kind: "date",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql`coalesce(${sql.raw(sqlAlias)}.order_created_at, ${sql.raw(sqlAlias)}.created_at)`,
 		},
 	},
 };
 
-const eventScope: CatalogTable = {
-	primaryKey: ["id"],
-	name: "event_scope",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const eventScope: TableBinding<"eventScope"> = {
+	relation: "event_scope",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		entityId: physicalField("entity_id", "text", false),
-		revision: physicalField("revision", "number", false),
-		eventSchemaPluginId: physicalField("event_schema_plugin_id", "text"),
+		id: column("id"),
+		revision: column("revision"),
+		entityId: column("entity_id"),
+		eventSchemaPluginId: column("event_schema_plugin_id"),
 	},
 };
 
-const relationship: CatalogTable = {
-	primaryKey: ["id"],
-	name: "relationship",
-	visibility: {
+const relationship: TableBinding<"relationship"> = {
+	relation: "relationship",
+	policies: {
 		admin: { type: "all" },
 		publication: { type: "subjectLink" },
-		user: { type: "owned", column: "user_id", includeGlobal: true, pluginReadable: true },
+		user: { type: "owned", column: "user_id", includeGlobal: true },
 		plugin: {
 			globalOnly: false,
 			type: "discriminator",
@@ -473,32 +444,26 @@ const relationship: CatalogTable = {
 		},
 	},
 	fields: {
-		id: physicalField("id", "text", false),
-		userId: unpublished(physicalField("user_id", "text")),
-		createdAt: physicalField("created_at", "date", false),
-		properties: physicalField("properties", "json", false),
-		sourceEntityId: physicalField("source_entity_id", "text", false),
-		targetEntityId: physicalField("target_entity_id", "text", false),
-		relationshipSchemaSlug: physicalField("relationship_schema_slug", "text", false),
-		relationshipSchemaPluginId: physicalField("relationship_schema_plugin_id", "text"),
-		projection: unpublished({
-			kind: "json",
-			nullable: true,
+		id: column("id"),
+		userId: column("user_id"),
+		createdAt: column("created_at"),
+		properties: column("properties"),
+		sourceEntityId: column("source_entity_id"),
+		targetEntityId: column("target_entity_id"),
+		relationshipSchemaSlug: column("relationship_schema_slug"),
+		relationshipSchemaPluginId: column("relationship_schema_plugin_id"),
+		projection: {
 			resolve: ({ sqlAlias }) =>
 				sql`(select p.value from derived_value p where p.user_id = ${sql.raw(sqlAlias)}.user_id
 				and p.kind = 'relationship' and p.target_id = ${sql.raw(sqlAlias)}.id)`,
-		}),
+		},
 		collectionRank: {
-			kind: "number",
-			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(case when ${sqlAlias}.relationship_schema_slug = 'member-of' and ${sqlAlias}.relationship_schema_plugin_id is null then (${sqlAlias}.properties ->> 'rank')::double precision end)`,
 				),
 		},
-		projectionStatus: unpublished({
-			kind: "text",
-			nullable: false,
+		projectionStatus: {
 			resolve: ({ sqlAlias }) => sql`case when exists (select 1 from user_relationship_schema d
 					where d.user_id = ${sql.raw(sqlAlias)}.user_id
 					and d.plugin_id is not distinct from ${sql.raw(sqlAlias)}.relationship_schema_plugin_id
@@ -509,46 +474,36 @@ const relationship: CatalogTable = {
 					left join derived_value f on f.user_id = ${sql.raw(sqlAlias)}.user_id and f.kind = 'subject'
 						and f.target_id = ${sql.raw(sqlAlias)}.source_entity_id)
 				else 'none' end`,
-		}),
+		},
 	},
 };
 
-const plugin: CatalogTable = {
-	name: "plugin",
-	primaryKey: ["id"],
-	visibility: {
+const plugin: TableBinding<"plugin"> = {
+	relation: "plugin",
+	policies: {
 		admin: { type: "all" },
 		publication: { type: "systemPlugin" },
-		user: { type: "owned", includeGlobal: true, pluginReadable: true, column: "owner_user_id" },
+		user: { type: "owned", includeGlobal: true, column: "owner_user_id" },
 	},
 	fields: {
+		id: column("id"),
+		status: column("status"),
+		packageId: column("package_id"),
 		icon: pluginMetadataField("icon"),
 		name: pluginMetadataField("name"),
-		id: physicalField("id", "text", false),
+		activationId: column("activation_id"),
 		clientApiVersion: pluginClientApiVersion,
-		status: physicalField("status", "text", false),
+		activeRevisionId: column("active_revision_id"),
 		description: pluginMetadataField("description"),
-		packageId: physicalField("package_id", "text", false),
-		activationId: physicalField("activation_id", "text", false),
-		activeRevisionId: physicalField("active_revision_id", "text"),
-		version: pluginActiveRevisionField("revision.version", "text", true),
-		ingestedAt: pluginActiveRevisionField("revision.created_at", "date", true),
-		contentHash: pluginActiveRevisionField("revision.content_hash", "text", true),
-		configSchema: pluginActiveRevisionField("revision.client_config_schema", "json", true),
-		clientEntities: pluginActiveRevisionField("revision.client -> 'entities'", "json", true),
-		userSettingsSchema: pluginActiveRevisionField("revision.user_settings_schema", "json", true),
-		clientCollectionPages: pluginActiveRevisionField(
-			"revision.client -> 'collectionPages'",
-			"json",
-			true,
-		),
-		environmentConfigRevisionId: withAccess(
-			physicalField("environment_config_revision_id", "text"),
-			"admin",
-		),
+		version: pluginActiveRevisionField("revision.version"),
+		ingestedAt: pluginActiveRevisionField("revision.created_at"),
+		contentHash: pluginActiveRevisionField("revision.content_hash"),
+		environmentConfigRevisionId: column("environment_config_revision_id"),
+		configSchema: pluginActiveRevisionField("revision.client_config_schema"),
+		clientEntities: pluginActiveRevisionField("revision.client -> 'entities'"),
+		userSettingsSchema: pluginActiveRevisionField("revision.user_settings_schema"),
+		clientCollectionPages: pluginActiveRevisionField("revision.client -> 'collectionPages'"),
 		scope: {
-			kind: "text",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(`CASE WHEN ${sqlAlias}.owner_user_id IS NULL THEN 'system' ELSE 'user' END`),
 		},
@@ -576,9 +531,7 @@ const usableHomeSavedView = (
 	ELSE false
 END`;
 
-const effectiveHomeSavedView: CatalogField = {
-	kind: "json",
-	nullable: true,
+const effectiveHomeSavedView: FieldBinding = {
 	resolve: ({ sqlAlias }) =>
 		sql.raw(`COALESCE(
 			(SELECT ${sqlAlias}.home_saved_view FROM user_saved_view_effective home_selected
@@ -603,38 +556,34 @@ const effectiveHomeSavedView: CatalogField = {
 		)`),
 };
 
-const pluginInstallation: CatalogTable = {
-	primaryKey: ["id"],
-	name: "plugin_installation",
-	visibility: {
+const pluginInstallation: TableBinding<"pluginInstallation"> = {
+	relation: "plugin_installation",
+	policies: {
 		admin: { type: "all" },
 		user: {
 			type: "owned",
 			column: "user_id",
 			includeGlobal: false,
-			pluginReadable: true,
 			where: "uninstalled_at IS NULL",
 		},
 	},
 	fields: {
+		id: column("id"),
+		health: column("health"),
+		pluginId: column("plugin_id"),
+		isHidden: column("is_hidden"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		sortOrder: column("sort_order"),
+		config: column("client_config"),
 		homeSavedView: effectiveHomeSavedView,
-		id: physicalField("id", "text", false),
-		health: physicalField("health", "text", false),
-		pluginId: physicalField("plugin_id", "text", false),
-		healthReason: physicalField("health_reason", "text"),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		isHidden: physicalField("is_hidden", "boolean", false),
-		sortOrder: physicalField("sort_order", "number", false),
-		isInitialized: physicalField("is_initialized", "boolean", false),
-		incompatibilityReason: physicalField("incompatibility_reason", "text"),
-		config: withAccess(physicalField("client_config", "json", false), "kernel"),
-		userSettings: withAccess(physicalField("user_settings", "json", false), "kernel"),
-		configuredSecrets: withAccess(textArrayField("configured_secret_paths"), "kernel"),
-		activeConfigRevisionId: withAccess(physicalField("active_config_revision_id", "text"), "admin"),
+		healthReason: column("health_reason"),
+		userSettings: column("user_settings"),
+		isInitialized: column("is_initialized"),
+		incompatibilityReason: column("incompatibility_reason"),
+		activeConfigRevisionId: column("active_config_revision_id"),
+		configuredSecrets: textArrayField("configured_secret_paths"),
 		conflictingSystemPluginId: {
-			kind: "text",
-			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(SELECT system_plugin.id FROM plugin private_plugin JOIN plugin system_plugin ON system_plugin.package_id = private_plugin.package_id AND system_plugin.owner_user_id IS NULL AND system_plugin.status = 'active' WHERE private_plugin.id = ${sqlAlias}.plugin_id AND private_plugin.owner_user_id IS NOT NULL AND ${sqlAlias}.incompatibility_reason = 'package-identity-conflict')`,
@@ -644,121 +593,106 @@ const pluginInstallation: CatalogTable = {
 };
 
 const definitionFields = {
-	id: physicalField("id", "text", false),
-	slug: physicalField("slug", "text", false),
-	name: physicalField("name", "text", false),
-	pluginId: physicalField("plugin_id", "text"),
-	packageId: physicalField("package_id", "text"),
-	pluginRevisionId: physicalField("plugin_revision_id", "text"),
-	propertiesSchema: physicalField("properties_schema", "json", false),
+	id: column("id"),
+	slug: column("slug"),
+	name: column("name"),
+	pluginId: column("plugin_id"),
+	packageId: column("package_id"),
+	propertiesSchema: column("properties_schema"),
+	pluginRevisionId: column("plugin_revision_id"),
 };
 
-const effectiveDefinitionVisibility: CatalogVisibility = {
-	user: {
-		type: "owned",
-		column: "user_id",
-		includeGlobal: false,
-		pluginReadable: true,
-		where: "is_effective",
-	},
+const effectiveDefinitionPolicies: { readonly user: CatalogUserPolicy } = {
+	user: { type: "owned", column: "user_id", includeGlobal: false, where: "is_effective" },
 };
 
-const entitySchema: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_entity_schema",
-	visibility: {
-		...effectiveDefinitionVisibility,
+const entitySchema: TableBinding<"entitySchema"> = {
+	relation: "user_entity_schema",
+	policies: {
+		...effectiveDefinitionPolicies,
 		publication: { type: "systemDefinition" },
 		plugin: { kind: "entity", type: "schemaDefinition" },
 	},
 	fields: {
 		...definitionFields,
-		editor: physicalField("editor", "json"),
-		browse: physicalField("browse", "json"),
-		icon: physicalField("icon", "text", false),
-		userState: physicalField("user_state", "json"),
+		icon: column("icon"),
+		editor: column("editor"),
+		browse: column("browse"),
+		userState: column("user_state"),
 		mergeIdentityProperties: textArrayField("merge_identity_properties"),
 	},
 };
 
-const eventSchema: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_event_schema",
-	materializedInIncludes: true,
-	fields: {
-		...definitionFields,
-		entitySchemaSlug: physicalField("entity_schema_slug", "text", false),
-	},
-	visibility: {
-		...effectiveDefinitionVisibility,
+const eventSchema: TableBinding<"eventSchema"> = {
+	relation: "user_event_schema",
+	fields: { ...definitionFields, entitySchemaSlug: column("entity_schema_slug") },
+	policies: {
+		...effectiveDefinitionPolicies,
 		publication: { type: "systemDefinition" },
 		plugin: { kind: "event", type: "schemaDefinition" },
 	},
 };
 
-const relationshipSchema: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_relationship_schema",
-	visibility: {
-		...effectiveDefinitionVisibility,
+const relationshipSchema: TableBinding<"relationshipSchema"> = {
+	relation: "user_relationship_schema",
+	policies: {
+		...effectiveDefinitionPolicies,
 		publication: { type: "systemDefinition" },
 		plugin: { kind: "relationship", type: "schemaDefinition" },
 	},
 	fields: {
 		...definitionFields,
-		userWritePolicy: physicalField("user_write_policy", "text"),
-		sourceEntitySchemaSlug: physicalField("source_entity_schema_slug", "text"),
-		targetEntitySchemaSlug: physicalField("target_entity_schema_slug", "text"),
+		userWritePolicy: column("user_write_policy"),
+		sourceEntitySchemaSlug: column("source_entity_schema_slug"),
+		targetEntitySchemaSlug: column("target_entity_schema_slug"),
 	},
 };
 
-const signalSchema: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_signal_schema",
-	visibility: {
-		...effectiveDefinitionVisibility,
+const signalSchema: TableBinding<"signalSchema"> = {
+	relation: "user_signal_schema",
+	policies: {
+		...effectiveDefinitionPolicies,
 		plugin: { kind: "signal", type: "schemaDefinition" },
 	},
 	fields: {
 		...definitionFields,
-		catalogState: physicalField("catalog_state", "text", false),
-		audiencePolicy: physicalField("audience_policy", "json", false),
+		catalogState: column("catalog_state"),
+		audiencePolicy: column("audience_policy"),
 	},
 };
 
-const calendarSource: CatalogTable = {
-	primaryKey: ["pluginId", "slug"],
-	name: "user_calendar_source_effective",
-	visibility: effectiveDefinitionVisibility,
+const calendarSource: TableBinding<"calendarSource"> = {
+	policies: effectiveDefinitionPolicies,
+	relation: "user_calendar_source_effective",
 	fields: {
-		art: physicalField("art", "text"),
-		done: physicalField("done", "text"),
-		caption: physicalField("caption", "text"),
-		icon: physicalField("icon", "text", false),
-		name: physicalField("name", "text", false),
-		slug: physicalField("slug", "text", false),
-		query: physicalField("query", "json", false),
-		subject: physicalField("subject", "json", false),
-		startAt: physicalField("start_at", "text", false),
-		pluginId: physicalField("plugin_id", "text", false),
-		precision: physicalField("precision", "text", false),
-		isHidden: physicalField("is_hidden", "boolean", false),
+		art: column("art"),
+		done: column("done"),
+		icon: column("icon"),
+		name: column("name"),
+		slug: column("slug"),
+		query: column("query"),
+		caption: column("caption"),
+		subject: column("subject"),
+		startAt: column("start_at"),
+		pluginId: column("plugin_id"),
+		isHidden: column("is_hidden"),
+		precision: column("precision"),
 	},
 };
 
-const executableDefinitionVisibility: CatalogVisibility = {
-	user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
+const executableDefinitionPolicies: { readonly user: CatalogUserPolicy } = {
+	user: { type: "owned", column: "user_id", includeGlobal: false },
 };
 
 const executableDefinitionFields = {
-	id: physicalField("id", "text", false),
-	slug: physicalField("slug", "text", false),
-	name: physicalField("name", "text", false),
-	pluginId: physicalField("plugin_id", "text"),
-	packageId: physicalField("package_id", "text"),
-	pluginScope: physicalField("plugin_scope", "text"),
-	installationId: physicalField("installation_id", "text"),
-	description: physicalField("description", "text", false),
+	id: column("id"),
+	slug: column("slug"),
+	name: column("name"),
+	pluginId: column("plugin_id"),
+	packageId: column("package_id"),
+	description: column("description"),
+	pluginScope: column("plugin_scope"),
+	installationId: column("installation_id"),
 };
 
 const pluginConfigEnvironmentSegment = (value: string) =>
@@ -776,30 +710,23 @@ const missingPluginConfigKeys = (sqlAlias: string) => `COALESCE((
 		WHERE NOT COALESCE(${ingestionReadinessMetadataSql(sqlAlias)}->'availableConfigKeys', '[]'::jsonb) ? required_key.key
 	), '[]'::jsonb)`;
 
-const importSource: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_import_source",
-	visibility: executableDefinitionVisibility,
+const importSource: TableBinding<"importSource"> = {
+	relation: "user_import_source",
+	policies: executableDefinitionPolicies,
 	fields: {
 		...executableDefinitionFields,
-		plan: physicalField("plan", "json"),
-		exportHelp: physicalField("export_help", "json"),
-		inputSchema: physicalField("input_schema", "json", false),
-		workflowSlug: physicalField("workflow_slug", "text", false),
+		plan: column("plan"),
+		exportHelp: column("export_help"),
+		inputSchema: column("input_schema"),
+		workflowSlug: column("workflow_slug"),
 		requiredPluginConfigKeys: textArrayField("required_plugin_config_keys"),
 		readinessMetadata: {
-			kind: "json",
-			nullable: true,
 			resolve: ({ sqlAlias }) => sql.raw(ingestionReadinessMetadataSql(sqlAlias)),
 		},
 		missingPluginConfigKeys: {
-			kind: "json",
-			nullable: false,
 			resolve: ({ sqlAlias }) => sql.raw(missingPluginConfigKeys(sqlAlias)),
 		},
 		isStartable: {
-			kind: "boolean",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(${sqlAlias}.plugin_id IS NULL OR (${sqlAlias}.workflow_script_id IS NOT NULL AND jsonb_array_length(${missingPluginConfigKeys(sqlAlias)}) = 0))`,
@@ -808,34 +735,27 @@ const importSource: CatalogTable = {
 	},
 };
 
-const integrationProvider: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_integration_provider",
-	visibility: executableDefinitionVisibility,
+const integrationProvider: TableBinding<"integrationProvider"> = {
+	relation: "user_integration_provider",
+	policies: executableDefinitionPolicies,
 	fields: {
 		...executableDefinitionFields,
-		plan: physicalField("plan", "json"),
-		lot: physicalField("lot", "text", false),
-		scriptSlug: physicalField("script_slug", "text"),
-		settingsSchema: physicalField("settings_schema", "json", false),
-		requiresProKey: physicalField("requires_pro_key", "boolean", false),
-		supportsOwnershipSync: physicalField("supports_ownership_sync", "boolean", false),
+		lot: column("lot"),
+		plan: column("plan"),
+		scriptSlug: column("script_slug"),
+		settingsSchema: column("settings_schema"),
+		requiresProKey: column("requires_pro_key"),
+		supportsOwnershipSync: column("supports_ownership_sync"),
 		readinessMetadata: {
-			kind: "json",
-			nullable: true,
 			resolve: ({ sqlAlias }) => sql.raw(ingestionReadinessMetadataSql(sqlAlias)),
 		},
 		hasScript: {
-			kind: "boolean",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(${sqlAlias}.plugin_id IS NULL OR ${sqlAlias}.lot = 'push' OR ${sqlAlias}.script_id IS NOT NULL)`,
 				),
 		},
 		readinessConnections: {
-			kind: "json",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`COALESCE((SELECT jsonb_agg(jsonb_build_object('id', connection.id, 'field', connection.field, 'integrationId', connection.integration_id, 'provider', connection.oauth_provider_slug)) FROM oauth_connection connection WHERE connection.user_id = ${sqlAlias}.user_id AND connection.plugin_installation_id = ${sqlAlias}.installation_id AND connection.integration_provider_slug = ${sqlAlias}.slug AND connection.status = 'connected' AND (connection.expires_at IS NULL OR connection.expires_at > now())), '[]'::jsonb)`,
@@ -844,97 +764,82 @@ const integrationProvider: CatalogTable = {
 	},
 };
 
-const sandboxProvider: CatalogTable = {
-	primaryKey: ["id"],
-	materializedInIncludes: true,
-	name: "user_sandbox_provider",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const sandboxProvider: TableBinding<"sandboxProvider"> = {
+	relation: "user_sandbox_provider",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		slug: physicalField("slug", "text", false),
-		name: physicalField("name", "text", false),
-		pluginId: physicalField("plugin_id", "text", false),
-		packageId: physicalField("package_id", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		information: physicalField("information", "json", false),
-		rootEntitySchemaSlug: physicalField("root_entity_schema_slug", "text", false),
+		id: column("id"),
+		slug: column("slug"),
+		name: column("name"),
+		pluginId: column("plugin_id"),
+		packageId: column("package_id"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		information: column("information"),
+		rootEntitySchemaSlug: column("root_entity_schema_slug"),
 	},
 };
 
-const sandboxProviderOperation: CatalogTable = {
-	primaryKey: ["providerId", "operation"],
-	name: "user_sandbox_provider_operation",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const sandboxProviderOperation: TableBinding<"sandboxProviderOperation"> = {
+	relation: "user_sandbox_provider_operation",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		pluginId: physicalField("plugin_id", "text", false),
-		operation: physicalField("operation", "text", false),
-		packageId: physicalField("package_id", "text", false),
-		optionsSchema: physicalField("options_schema", "json"),
-		providerId: physicalField("provider_id", "text", false),
+		pluginId: column("plugin_id"),
+		operation: column("operation"),
+		packageId: column("package_id"),
+		providerId: column("provider_id"),
+		optionsSchema: column("options_schema"),
 	},
 };
 
-const page: CatalogTable = {
-	name: "page",
-	primaryKey: ["id"],
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
-	},
+const page: TableBinding<"page"> = {
+	relation: "page",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		slug: physicalField("slug", "text", false),
-		name: physicalField("name", "text", false),
-		origin: physicalField("origin", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		writeAccess: physicalField("write_access", "boolean", false),
-		draftRevision: physicalField("draft_revision", "number", false),
-		draftArtifactHash: physicalField("draft_artifact_hash", "text"),
-		publishedRevision: physicalField("published_revision", "number"),
-		draftDefinition: physicalField("draft_definition", "json", false),
-		publishedDefinition: physicalField("published_definition", "json"),
-		authorityRevision: physicalField("authority_revision", "number", false),
-		publishedArtifactHash: physicalField("published_artifact_hash", "text"),
-		draftCompiledRevision: physicalField("draft_compiled_revision", "number"),
-		draftDefinitionHash: physicalField("draft_definition_hash", "text", false),
-		publishedDefinitionHash: physicalField("published_definition_hash", "text"),
+		id: column("id"),
+		slug: column("slug"),
+		name: column("name"),
+		origin: column("origin"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		writeAccess: column("write_access"),
+		draftRevision: column("draft_revision"),
+		draftDefinition: column("draft_definition"),
+		publishedRevision: column("published_revision"),
+		authorityRevision: column("authority_revision"),
+		draftArtifactHash: column("draft_artifact_hash"),
+		publishedDefinition: column("published_definition"),
+		draftDefinitionHash: column("draft_definition_hash"),
+		publishedArtifactHash: column("published_artifact_hash"),
+		draftCompiledRevision: column("draft_compiled_revision"),
+		publishedDefinitionHash: column("published_definition_hash"),
 	},
 };
 
-const savedView: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_saved_view_effective",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const savedView: TableBinding<"savedView"> = {
+	relation: "user_saved_view_effective",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		sort: physicalField("sort", "text"),
-		id: physicalField("id", "text", false),
-		filter: physicalField("filter", "json"),
-		slug: physicalField("slug", "text", false),
-		name: physicalField("name", "text", false),
-		icon: physicalField("icon", "text", false),
-		pluginId: physicalField("plugin_id", "text"),
-		packageId: physicalField("package_id", "text"),
-		createdAt: physicalField("created_at", "date"),
-		updatedAt: physicalField("updated_at", "date"),
-		renderer: physicalField("renderer", "json", false),
-		settings: physicalField("settings", "json", false),
-		dataSources: physicalField("data_sources", "json"),
-		arguments: physicalField("arguments", "json", false),
-		revision: physicalField("revision", "number", false),
-		isHidden: physicalField("is_hidden", "boolean", false),
-		sortOrder: physicalField("sort_order", "number", false),
-		isBuiltin: physicalField("is_builtin", "boolean", false),
-		pluginInstallationId: physicalField("plugin_installation_id", "text"),
+		id: column("id"),
+		sort: column("sort"),
+		slug: column("slug"),
+		name: column("name"),
+		icon: column("icon"),
+		filter: column("filter"),
+		renderer: column("renderer"),
+		settings: column("settings"),
+		revision: column("revision"),
+		pluginId: column("plugin_id"),
+		isHidden: column("is_hidden"),
+		arguments: column("arguments"),
+		packageId: column("package_id"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		sortOrder: column("sort_order"),
+		isBuiltin: column("is_builtin"),
+		dataSources: column("data_sources"),
+		pluginInstallationId: column("plugin_installation_id"),
 		reference: {
-			kind: "json",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`CASE WHEN NOT ${sqlAlias}.is_builtin THEN jsonb_build_object('kind', 'custom', 'savedViewId', ${sqlAlias}.id) WHEN ${sqlAlias}.plugin_id IS NULL THEN jsonb_build_object('kind', 'kernel', 'slug', ${sqlAlias}.slug) ELSE jsonb_build_object('kind', 'plugin', 'pluginId', ${sqlAlias}.plugin_id, 'slug', ${sqlAlias}.slug) END`,
@@ -943,38 +848,30 @@ const savedView: CatalogTable = {
 	},
 };
 
-const notificationChannel: CatalogTable = {
-	primaryKey: ["id"],
-	name: "notification_channel",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const notificationChannel: TableBinding<"notificationChannel"> = {
+	relation: "notification_channel",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		channel: physicalField("platform", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		description: physicalField("description", "text", false),
-		isDisabled: physicalField("is_disabled", "boolean", false),
+		id: column("id"),
+		channel: column("platform"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		isDisabled: column("is_disabled"),
+		description: column("description"),
 	},
 };
 
-const notification: CatalogTable = {
-	primaryKey: ["id"],
-	name: "notification",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
-	},
+const notification: TableBinding<"notification"> = {
+	relation: "notification",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		reason: physicalField("reason", "text"),
-		outcome: physicalField("outcome", "text"),
-		state: physicalField("state", "text", false),
-		settledAt: physicalField("settled_at", "date"),
-		createdAt: physicalField("created_at", "date", false),
+		id: column("id"),
+		state: column("state"),
+		reason: column("reason"),
+		outcome: column("outcome"),
+		settledAt: column("settled_at"),
+		createdAt: column("created_at"),
 		reminderId: {
-			kind: "text",
-			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(select r.id from reminder r where r.formatter_run_id = ${sqlAlias}.source_run_id and r.user_id = ${sqlAlias}.user_id and r.removed_at is null)`,
@@ -983,105 +880,92 @@ const notification: CatalogTable = {
 	},
 };
 
-const notificationDelivery: CatalogTable = {
-	primaryKey: ["id"],
-	name: "notification_delivery",
-	visibility: {
+const notificationDelivery: TableBinding<"notificationDelivery"> = {
+	relation: "notification_delivery",
+	policies: {
 		user: {
 			parentColumn: "id",
 			type: "parentOwned",
-			pluginReadable: false,
 			column: "notification_id",
 			parentTable: "notification",
 			parentOwnerColumn: "user_id",
 		},
 	},
 	fields: {
-		id: physicalField("id", "text", false),
-		reason: physicalField("reason", "text"),
-		status: physicalField("status", "text", false),
-		claimedAt: physicalField("claimed_at", "date"),
-		settledAt: physicalField("settled_at", "date"),
-		channel: physicalField("channel", "text", false),
-		channelId: physicalField("channel_id", "text", false),
-		description: physicalField("description", "text", false),
-		notificationId: physicalField("notification_id", "text", false),
+		id: column("id"),
+		reason: column("reason"),
+		status: column("status"),
+		channel: column("channel"),
+		claimedAt: column("claimed_at"),
+		settledAt: column("settled_at"),
+		channelId: column("channel_id"),
+		description: column("description"),
+		notificationId: column("notification_id"),
 	},
 };
 
-const reminder: CatalogTable = {
-	name: "reminder",
-	primaryKey: ["id"],
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
-	},
+const reminder: TableBinding<"reminder"> = {
+	relation: "reminder",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		dueAt: physicalField("due_at", "date"),
-		reason: physicalField("reason", "text"),
-		message: physicalField("message", "text"),
-		outcome: physicalField("outcome", "text"),
-		timezone: physicalField("timezone", "text"),
-		entityId: physicalField("entity_id", "text"),
-		state: physicalField("state", "text", false),
-		settledAt: physicalField("settled_at", "date"),
-		removedAt: physicalField("removed_at", "date"),
-		entityTitle: physicalField("entity_title", "text"),
-		revision: physicalField("revision", "number", false),
-		processingAt: physicalField("processing_at", "date"),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		replacementId: physicalField("replacement_id", "text"),
-		parentEntityId: physicalField("parent_entity_id", "text"),
-		originalSchedule: physicalField("original_schedule", "json"),
+		id: column("id"),
+		state: column("state"),
+		dueAt: column("due_at"),
+		reason: column("reason"),
+		message: column("message"),
+		outcome: column("outcome"),
+		timezone: column("timezone"),
+		revision: column("revision"),
+		entityId: column("entity_id"),
+		settledAt: column("settled_at"),
+		removedAt: column("removed_at"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		entityTitle: column("entity_title"),
+		processingAt: column("processing_at"),
+		replacementId: column("replacement_id"),
+		parentEntityId: column("parent_entity_id"),
+		originalSchedule: column("original_schedule"),
 	},
 };
 
-const notificationSubscription: CatalogTable = {
-	primaryKey: ["id"],
-	name: "notification_subscription",
-	visibility: {
+const notificationSubscription: TableBinding<"notificationSubscription"> = {
+	relation: "notification_subscription",
+	policies: {
 		admin: { type: "all" },
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+		user: { type: "owned", column: "user_id", includeGlobal: false },
 	},
 	fields: {
-		id: physicalField("id", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		isActive: physicalField("is_active", "boolean", false),
-		signalSchemaSlug: physicalField("signal_schema_slug", "text", false),
-		userId: withAccess(physicalField("user_id", "text", false), "admin"),
-		signalSchemaPluginId: physicalField("signal_schema_plugin_id", "text"),
+		id: column("id"),
+		userId: column("user_id"),
+		isActive: column("is_active"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		signalSchemaSlug: column("signal_schema_slug"),
+		signalSchemaPluginId: column("signal_schema_plugin_id"),
 	},
 };
 
-const integration: CatalogTable = {
-	primaryKey: ["id"],
-	name: "integration",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const integration: TableBinding<"integration"> = {
+	relation: "integration",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
+		id: column("id"),
+		lot: column("lot"),
+		name: column("name"),
+		provider: column("provider"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
 		packageId: installationPackageId,
-		name: physicalField("name", "text"),
-		id: physicalField("id", "text", false),
-		lot: physicalField("lot", "text", false),
-		provider: physicalField("provider", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		lastFinishedAt: physicalField("last_finished_at", "date"),
-		isDisabled: physicalField("is_disabled", "boolean", false),
-		extraSettings: physicalField("extra_settings", "json", false),
-		syncOwnership: physicalField("sync_ownership", "boolean", false),
-		minimumProgress: physicalField("minimum_progress", "number", false),
-		maximumProgress: physicalField("maximum_progress", "number", false),
-		webhookToken: standardOnly(withAccess(physicalField("webhook_token", "text"), "kernel")),
-		providerSpecifics: standardOnly(
-			withAccess(physicalField("client_provider_specifics", "json", false), "kernel"),
-		),
+		isDisabled: column("is_disabled"),
+		webhookToken: column("webhook_token"),
+		extraSettings: column("extra_settings"),
+		syncOwnership: column("sync_ownership"),
+		lastFinishedAt: column("last_finished_at"),
+		minimumProgress: column("minimum_progress"),
+		maximumProgress: column("maximum_progress"),
+		providerSpecifics: column("client_provider_specifics"),
 		pluginId: {
-			kind: "text",
-			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(
 					`(SELECT installation.plugin_id FROM plugin_installation installation WHERE installation.id = ${sqlAlias}.plugin_installation_id AND installation.user_id = ${sqlAlias}.user_id)`,
@@ -1090,54 +974,37 @@ const integration: CatalogTable = {
 	},
 };
 
-const importRun: CatalogTable = {
-	primaryKey: ["id"],
-	name: "import_run",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	},
+const importRun: TableBinding<"importRun"> = {
+	relation: "import_run",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		startedAt: physicalField("started_at", "date"),
-		source: physicalField("source", "text", false),
-		status: physicalField("status", "text", false),
-		finishedAt: physicalField("finished_at", "date"),
-		expiryReason: physicalField("expiry_reason", "text"),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		blockDeadline: physicalField("block_deadline", "date"),
-		failureReason: physicalField("failure_reason", "json"),
-		integrationId: physicalField("integration_id", "text"),
-		blockReasons: physicalField("block_reasons", "json", false),
-		inputSummary: physicalField("input_summary", "json", false),
-		pluginInstallationId: physicalField("plugin_installation_id", "text"),
-		summary: {
-			kind: "json",
-			nullable: false,
-			resolve: ({ sqlAlias }) => ingestionSummarySql(sqlAlias),
-		},
-		activities: {
-			kind: "json",
-			nullable: false,
-			resolve: ({ sqlAlias }) => ingestionActivitiesSql(sqlAlias),
-		},
+		id: column("id"),
+		source: column("source"),
+		status: column("status"),
+		startedAt: column("started_at"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		finishedAt: column("finished_at"),
+		expiryReason: column("expiry_reason"),
+		blockReasons: column("block_reasons"),
+		inputSummary: column("input_summary"),
+		blockDeadline: column("block_deadline"),
+		failureReason: column("failure_reason"),
+		integrationId: column("integration_id"),
+		pluginInstallationId: column("plugin_installation_id"),
+		summary: { resolve: ({ sqlAlias }) => ingestionSummarySql(sqlAlias) },
+		activities: { resolve: ({ sqlAlias }) => ingestionActivitiesSql(sqlAlias) },
 	},
 };
 
-const importIssue: CatalogTable = {
-	name: "import_issue",
-	primaryKey: ["runId", "id"],
-	fields: {
-		id: physicalField("id", "text", false),
-		data: physicalField("data", "json", false),
-		runId: physicalField("run_id", "text", false),
-	},
-	visibility: {
+const importIssue: TableBinding<"importIssue"> = {
+	relation: "import_issue",
+	fields: { id: column("id"), data: column("data"), runId: column("run_id") },
+	policies: {
 		user: {
 			column: "run_id",
 			parentColumn: "id",
 			type: "parentOwned",
-			pluginReadable: true,
 			parentTable: "import_run",
 			parentOwnerColumn: "user_id",
 		},
@@ -1147,70 +1014,46 @@ const importIssue: CatalogTable = {
 const accountProviderExists = (sqlAlias: string, providerId: string) =>
 	`EXISTS (SELECT 1 FROM account WHERE account.user_id = ${sqlAlias}.id AND account.provider_id = '${providerId}')`;
 
-const user: CatalogTable = {
-	name: "user",
-	primaryKey: ["id"],
-	visibility: {
-		admin: { type: "all" },
-		user: { type: "self", column: "id", pluginReadable: false },
-	},
+const user: TableBinding<"user"> = {
+	relation: "user",
+	policies: { admin: { type: "all" }, user: { type: "self", column: "id" } },
 	fields: {
-		image: physicalField("image", "text"),
-		id: physicalField("id", "text", false),
-		name: physicalField("name", "text", false),
-		email: physicalField("email", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		preferences: physicalField("preferences", "json", false),
-		disabledAt: withAccess(physicalField("disabled_at", "date"), "admin"),
-		twoFactorEnabled: withAccess(physicalField("two_factor_enabled", "boolean"), "admin"),
+		id: column("id"),
+		name: column("name"),
+		image: column("image"),
+		email: column("email"),
+		createdAt: column("created_at"),
+		disabledAt: column("disabled_at"),
+		preferences: column("preferences"),
+		twoFactorEnabled: column("two_factor_enabled"),
 		twoFactorStatus: {
-			kind: "json",
-			nullable: false,
-			access: "kernel",
-			demoReadable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(`jsonb_build_object(
 				'enabled', COALESCE(${sqlAlias}.two_factor_enabled, false),
 				'available', ${accountProviderExists(sqlAlias, "credential")}
 			)`),
 		},
-		authState: withAccess(
-			{
-				kind: "text",
-				nullable: false,
-				resolve: ({ sqlAlias }) => {
-					const credential = accountProviderExists(sqlAlias, "credential");
-					const oidc = accountProviderExists(sqlAlias, "oidc");
-					return sql.raw(`CASE
-						WHEN ${credential} AND ${oidc} THEN 'mixed'
-						WHEN ${credential} THEN 'credential'
-						WHEN ${oidc} THEN 'oidc'
-						ELSE 'none'
-					END`);
-				},
+		authState: {
+			resolve: ({ sqlAlias }) => {
+				const credential = accountProviderExists(sqlAlias, "credential");
+				const oidc = accountProviderExists(sqlAlias, "oidc");
+				return sql.raw(`CASE
+					WHEN ${credential} AND ${oidc} THEN 'mixed'
+					WHEN ${credential} THEN 'credential'
+					WHEN ${oidc} THEN 'oidc'
+					ELSE 'none'
+				END`);
 			},
-			"admin",
-		),
+		},
 	},
 };
 
-const oauthConnection: CatalogTable = {
-	primaryKey: ["id"],
-	name: "oauth_connection",
-	visibility: {
-		user: {
-			type: "owned",
-			column: "user_id",
-			demoReadable: false,
-			includeGlobal: false,
-			pluginReadable: false,
-		},
-	},
+const oauthConnection: TableBinding<"oauthConnection"> = {
+	relation: "oauth_connection",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
+		id: column("id"),
 		status: {
-			kind: "text",
-			nullable: false,
 			resolve: ({ sqlAlias }) =>
 				sql.raw(`CASE
 				WHEN ${sqlAlias}.status <> 'failed'
@@ -1221,162 +1064,141 @@ const oauthConnection: CatalogTable = {
 	},
 };
 
-const backupRun: CatalogTable = {
-	primaryKey: ["id"],
-	name: "backup_run",
-	visibility: {
-		user: {
-			type: "owned",
-			column: "user_id",
-			demoReadable: false,
-			includeGlobal: false,
-			pluginReadable: false,
-		},
-	},
+const backupRun: TableBinding<"backupRun"> = {
+	relation: "backup_run",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		failure: physicalField("failure", "json"),
-		kind: physicalField("kind", "text", false),
-		status: physicalField("status", "text", false),
-		startedAt: physicalField("started_at", "date"),
-		expiresAt: physicalField("expires_at", "date"),
-		finishedAt: physicalField("finished_at", "date"),
-		progress: physicalField("progress", "number", false),
-		createdAt: physicalField("created_at", "date", false),
-		artifactProvider: physicalField("artifact_provider", "text"),
+		id: column("id"),
+		kind: column("kind"),
+		status: column("status"),
+		failure: column("failure"),
+		progress: column("progress"),
+		startedAt: column("started_at"),
+		expiresAt: column("expires_at"),
+		createdAt: column("created_at"),
+		finishedAt: column("finished_at"),
+		artifactProvider: column("artifact_provider"),
 	},
 };
 
-const entityTranslation: CatalogTable = {
-	name: "entity_translation",
-	primaryKey: ["entityId", "language"],
-	visibility: { admin: { type: "all" } },
+const entityTranslation: TableBinding<"entityTranslation"> = {
+	relation: "entity_translation",
+	policies: { admin: { type: "all" } },
 	fields: {
-		name: physicalField("name", "text"),
-		properties: physicalField("properties", "json"),
-		populatedAt: physicalField("populated_at", "date"),
-		language: physicalField("language", "text", false),
-		entityId: physicalField("entity_id", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
+		name: column("name"),
+		language: column("language"),
+		entityId: column("entity_id"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		properties: column("properties"),
+		populatedAt: column("populated_at"),
 	},
 };
 
-const sandboxScript: CatalogTable = {
-	primaryKey: ["id"],
-	name: "sandbox_script",
-	visibility: { admin: { type: "all" } },
+const sandboxScript: TableBinding<"sandboxScript"> = {
+	relation: "sandbox_script",
+	policies: { admin: { type: "all" } },
 	fields: {
-		id: physicalField("id", "text", false),
-		slug: physicalField("slug", "text", false),
-		name: physicalField("name", "text", false),
-		providerId: physicalField("provider_id", "text"),
-		metadata: physicalField("metadata", "json", false),
-		createdAt: physicalField("created_at", "date", false),
-		contentHash: physicalField("content_hash", "text", false),
-		pluginRevisionId: physicalField("plugin_revision_id", "text"),
-		compiledFormat: physicalField("compiled_format", "number", false),
+		id: column("id"),
+		slug: column("slug"),
+		name: column("name"),
+		metadata: column("metadata"),
+		createdAt: column("created_at"),
+		providerId: column("provider_id"),
+		contentHash: column("content_hash"),
+		compiledFormat: column("compiled_format"),
+		pluginRevisionId: column("plugin_revision_id"),
 	},
 };
 
-const userLifecycleOperation: CatalogTable = {
-	primaryKey: ["id"],
-	name: "user_lifecycle_operation",
-	visibility: { admin: { type: "all" } },
+const userLifecycleOperation: TableBinding<"userLifecycleOperation"> = {
+	relation: "user_lifecycle_operation",
+	policies: { admin: { type: "all" } },
 	fields: {
-		id: physicalField("id", "text", false),
-		failure: physicalField("failure", "json"),
-		kind: physicalField("kind", "text", false),
-		startedAt: physicalField("started_at", "date"),
-		status: physicalField("status", "text", false),
-		userId: physicalField("user_id", "text", false),
-		finishedAt: physicalField("finished_at", "date"),
-		resetResult: physicalField("reset_result", "json"),
-		createdAt: physicalField("created_at", "date", false),
+		id: column("id"),
+		kind: column("kind"),
+		status: column("status"),
+		userId: column("user_id"),
+		failure: column("failure"),
+		startedAt: column("started_at"),
+		createdAt: column("created_at"),
+		finishedAt: column("finished_at"),
+		resetResult: column("reset_result"),
 	},
 };
 
-const migrationReportDetail: CatalogTable = {
-	primaryKey: ["seq"],
-	name: "migration_report_detail",
-	visibility: { admin: { type: "all" } },
+const migrationReportDetail: TableBinding<"migrationReportDetail"> = {
+	relation: "migration_report_detail",
+	policies: { admin: { type: "all" } },
 	fields: {
-		seq: physicalField("seq", "number", false),
-		detail: physicalField("detail", "json", false),
-		createdAt: physicalField("created_at", "date", false),
-		reportSeq: physicalField("report_seq", "number", false),
+		seq: column("seq"),
+		detail: column("detail"),
+		createdAt: column("created_at"),
+		reportSeq: column("report_seq"),
 	},
 };
 
-const migrationReportTotalDetails: CatalogField = {
-	kind: "number",
-	nullable: true,
+const migrationReportTotalDetails: FieldBinding = {
 	resolve: ({ sqlAlias }) =>
 		sql.raw(`CASE WHEN ${sqlAlias}.code IS NULL THEN NULL ELSE COALESCE(${sqlAlias}.count, 0) END`),
 };
 
-const migrationReport: CatalogTable = {
-	primaryKey: ["seq"],
-	name: "migration_report",
-	visibility: { admin: { type: "all" } },
+const migrationReport: TableBinding<"migrationReport"> = {
+	relation: "migration_report",
+	policies: { admin: { type: "all" } },
 	fields: {
-		code: physicalField("code", "text"),
-		count: physicalField("count", "number"),
+		seq: column("seq"),
+		code: column("code"),
+		count: column("count"),
+		level: column("level"),
+		phase: column("phase"),
+		message: column("message"),
+		createdAt: column("created_at"),
 		totalDetails: migrationReportTotalDetails,
-		seq: physicalField("seq", "number", false),
-		level: physicalField("level", "text", false),
-		phase: physicalField("phase", "text", false),
-		message: physicalField("message", "text", false),
-		createdAt: physicalField("created_at", "date", false),
-		elapsedSeconds: physicalField("elapsed_seconds", "number"),
+		elapsedSeconds: column("elapsed_seconds"),
 	},
 };
 
-const publication: CatalogTable = {
-	primaryKey: ["id"],
-	name: "publication",
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
-	},
+const publication: TableBinding<"publication"> = {
+	relation: "publication",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
-		id: physicalField("id", "text", false),
-		icon: physicalField("icon", "text", false),
-		title: physicalField("title", "text", false),
-		source: physicalField("source", "json", false),
-		revokedAt: physicalField("revoked_at", "date"),
-		description: physicalField("description", "text"),
-		revision: physicalField("revision", "number", false),
-		createdAt: physicalField("created_at", "date", false),
-		updatedAt: physicalField("updated_at", "date", false),
-		showOwnerName: physicalField("show_owner_name", "boolean", false),
+		id: column("id"),
+		icon: column("icon"),
+		title: column("title"),
+		source: column("source"),
+		revision: column("revision"),
+		revokedAt: column("revoked_at"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+		description: column("description"),
+		showOwnerName: column("show_owner_name"),
 	},
 };
 
-const publicationLink: CatalogTable = {
-	primaryKey: ["id"],
-	name: "publication_link",
-	visibility: {
+const publicationLink: TableBinding<"publicationLink"> = {
+	relation: "publication_link",
+	policies: {
 		user: {
 			parentColumn: "id",
 			type: "parentOwned",
-			pluginReadable: false,
 			column: "publication_id",
 			parentTable: "publication",
 			parentOwnerColumn: "user_id",
 		},
 	},
 	fields: {
-		id: physicalField("id", "text", false),
-		label: physicalField("label", "text", false),
-		expiresAt: physicalField("expires_at", "date"),
-		revokedAt: physicalField("revoked_at", "date"),
-		createdAt: physicalField("created_at", "date", false),
-		lastExchangedAt: physicalField("last_exchanged_at", "date"),
-		publicationId: physicalField("publication_id", "text", false),
+		id: column("id"),
+		label: column("label"),
+		expiresAt: column("expires_at"),
+		revokedAt: column("revoked_at"),
+		createdAt: column("created_at"),
+		publicationId: column("publication_id"),
+		lastExchangedAt: column("last_exchanged_at"),
 	},
 };
 
-const tables: Readonly<Record<string, CatalogTable>> = {
+const bindings: { readonly [Name in CatalogTableName]: TableBinding<Name> } = {
 	page,
 	user,
 	event,
@@ -1414,102 +1236,36 @@ const tables: Readonly<Record<string, CatalogTable>> = {
 	notificationSubscription,
 };
 
-export const jsonElementsTable: CatalogTable = {
-	visibility: {},
-	name: "jsonElements",
-	primaryKey: ["ordinal"],
+const tables = new Map(
+	Object.entries(bindings).map(([name, binding]) => {
+		const logical = getCatalogTable(name);
+		if (!logical) {
+			throw new Error(`Catalog table '${name}' has no logical declaration`);
+		}
+		return [name, bindTable(logical, binding)] as const;
+	}),
+);
+
+export const physicalJsonElementsTable = bindTable(jsonElementsTable, {
+	policies: {},
+	relation: "jsonElements",
 	fields: {
-		ordinal: physicalField("ordinal", "number", false),
+		ordinal: column("ordinal"),
 		value: {
-			kind: "json",
-			nullable: true,
 			resolve: ({ sqlAlias }) =>
 				sql`NULLIF(${sql.raw(sqlAlias)}.${sql.identifier("value")}, 'null'::jsonb)`,
 		},
 	},
-};
-
-export const SOURCE_ENTITY_TABLE_PREFIX = "sourceEntity:";
-
-export const sourceEntityTable = (name: string): CatalogTable => ({
-	name,
-	primaryKey: ["rank"],
-	visibility: { user: { type: "public", pluginReadable: true } },
-	fields: {
-		rank: physicalField("rank", "number", false),
-		entityId: physicalField("entity_id", "text", false),
-	},
 });
 
-export const getCatalogTable = (name: string) => {
-	if (Object.hasOwn(tables, name)) {
-		return tables[name];
+export const physicalCatalogTable = (name: string): undefined | PhysicalCatalogTable => {
+	const table = tables.get(name);
+	if (table !== undefined || !name.startsWith(SOURCE_ENTITY_TABLE_PREFIX)) {
+		return table;
 	}
-	return name.startsWith(SOURCE_ENTITY_TABLE_PREFIX) ? sourceEntityTable(name) : undefined;
-};
-
-export const canAccessCatalogTable = (table: CatalogTable, access: RyotQLAccess) => {
-	if (access.type === "admin") {
-		return table.visibility.admin !== undefined;
-	}
-	if (access.type === "publication") {
-		return table.visibility.publication !== undefined;
-	}
-	if (access.type === "plugin") {
-		return table.visibility.plugin !== undefined;
-	}
-	const policy = table.visibility.user;
-	return (
-		policy !== undefined &&
-		(access.audience === "kernel" || policy.pluginReadable) &&
-		(access.accessClass !== "demo" || policy.demoReadable !== false)
-	);
-};
-
-const canAccessCatalogField = (field: CatalogField, access: RyotQLAccess) => {
-	if (access.type === "publication") {
-		return (
-			field.access === "publication" ||
-			(field.access === undefined && field.publicationReadable !== false)
-		);
-	}
-	return (
-		field.access !== "publication" &&
-		(access.type !== "user" || access.accessClass !== "demo" || field.demoReadable !== false) &&
-		(field.access === undefined ||
-			access.type === "admin" ||
-			(field.access === "kernel" && access.type === "user" && access.audience === "kernel"))
-	);
-};
-
-export const resolveCatalogField = (table: CatalogTable, name: string, access: RyotQLAccess) => {
-	const field = Object.hasOwn(table.fields, name) ? table.fields[name] : undefined;
-	return field && canAccessCatalogField(field, access) ? field : undefined;
-};
-
-export const expandCatalogSelections = (
-	selections: readonly RowSelection[],
-	resolveTable: (alias: string) => undefined | CatalogTable,
-	access: RyotQLAccess,
-): ExpandedCatalogSelections => {
-	const fields: FieldSelection[] = [];
-	for (const selection of selections) {
-		if ("key" in selection) {
-			fields.push(selection);
-			continue;
-		}
-		const table = resolveTable(selection.tableAlias);
-		if (!table) {
-			return { fields: [], error: `Unknown table alias '${selection.tableAlias}'` };
-		}
-		for (const [field, definition] of Object.entries(table.fields)) {
-			if (canAccessCatalogField(definition, access)) {
-				fields.push({
-					key: field,
-					expr: { field, type: "column", tableAlias: selection.tableAlias },
-				});
-			}
-		}
-	}
-	return { fields, error: null };
+	return bindTable(sourceEntityTable, {
+		relation: name,
+		policies: { user: { type: "public" } },
+		fields: { rank: column("rank"), entityId: column("entity_id") },
+	});
 };

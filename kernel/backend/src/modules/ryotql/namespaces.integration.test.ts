@@ -12,6 +12,7 @@ import {
 	PluginRevisionId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import {
 	aggregate,
 	and,
@@ -37,7 +38,6 @@ import { Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { loadCatalogRelations, withCatalogRelations } from "#modules/definitions/catalog-relations";
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { PluginRepository } from "#modules/plugins/packages/repository";

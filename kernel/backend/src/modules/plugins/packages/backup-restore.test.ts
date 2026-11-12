@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -16,7 +17,6 @@ import { Context, Effect, Layer, Ref, Schema } from "effect";
 
 import { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";

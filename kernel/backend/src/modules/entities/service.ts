@@ -23,6 +23,7 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import { collectImmutableProperties } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -47,7 +48,6 @@ import {
 	type LifecyclePreparedStep,
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntityUserDataAttachments } from "#modules/entities/user-data/attachments";
 import { EventsRepository } from "#modules/events/repository";
 import { EventsService, type PreparedEventDelete } from "#modules/events/service";

@@ -1,8 +1,7 @@
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { Effect, Schema } from "effect";
-
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 
 export const resolvePluginUserSettings = Effect.fn("resolvePluginUserSettings")(function* (
 	settingsSchema: AppSchema,

@@ -16,10 +16,9 @@ import { integrationProvidersRecipe } from "@ryot-app/ryotql-recipes/integration
 import { integrationRecipe } from "@ryot-app/ryotql-recipes/integrations";
 import { oauthConnectionStatusRecipe } from "@ryot-app/ryotql-recipes/oauth-connections";
 import { pluginInstallationsRecipe } from "@ryot-app/ryotql-recipes/plugin-installations";
+import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { twoFactorStatusRecipe, userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 import { Result } from "effect";
-
-import { storedValidationBranches } from "./stored-validation";
 
 const userAccess = { type: "user", audience: "kernel", accessClass: "standard" } as const;
 const adminAccess = { type: "admin" } as const;

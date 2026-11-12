@@ -23,6 +23,7 @@ import type {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Array as Arr, Cause, Context, DateTime, Effect, Layer, Schema } from "effect";
 
@@ -39,7 +40,6 @@ import {
 	canonicalLifecyclePolicyPatch,
 } from "#modules/automations/lifecycle/policy-patch";
 import { EventSchemaReader } from "#modules/definitions/event-schemas";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { EntitiesRepository } from "#modules/entities/repository";
 import {
 	assertStableUnder,

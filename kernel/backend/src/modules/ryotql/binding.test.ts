@@ -28,6 +28,12 @@ import {
 	star,
 	table,
 } from "@ryot-app/ryotql";
+import {
+	executableFieldsFixture,
+	executableFixture,
+	executablePredicateFixture,
+	validateAuthoredFixture,
+} from "@ryot-app/ryotql/fixture.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
@@ -35,12 +41,6 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { bindRyotQLDocument, pluginIdentityReferences } from "./binding";
-import {
-	executableFieldsFixture,
-	executableFixture,
-	executablePredicateFixture,
-	validateAuthoredFixture,
-} from "./fixture.test-support";
 
 const countMatchingValues = (value: unknown, key: string, expected: string): number => {
 	if (isUnknownArray(value)) {

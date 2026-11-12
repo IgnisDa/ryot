@@ -7,6 +7,7 @@ import {
 	type ReplacePageDraftBody,
 } from "@ryot-app/contract/modules/pages/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
@@ -14,7 +15,6 @@ import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { ClientPluginCompiler } from "#modules/pages/compiler";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { bindRyotQLDocument } from "#modules/ryotql/binding";
-import { storedValidationBranches } from "#modules/ryotql/stored-validation";
 import { DatabaseSession } from "#platform/db/session";
 
 import { definitionInvalid, preparePageDefinition } from "./definition";

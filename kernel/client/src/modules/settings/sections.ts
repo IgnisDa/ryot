@@ -46,7 +46,7 @@ export const settingsGroups = [
 				path: "/settings/import-data",
 			},
 			{ icon: "archive", slug: "backups", label: "Backups", path: "/settings/backups" },
-			{ icon: "file-text", slug: "pages", label: "Pages", path: "/settings/pages" },
+			{ slug: "pages", label: "Pages", icon: "file-text", path: "/settings/pages" },
 			{ icon: "link", slug: "publications", label: "Publications", path: "/settings/publications" },
 		],
 	},

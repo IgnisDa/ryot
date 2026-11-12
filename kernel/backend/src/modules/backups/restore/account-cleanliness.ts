@@ -11,6 +11,7 @@ import {
 import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
 import { PluginId, SignalSchemaSlug, type UserId } from "@ryot-app/contract/schema/brands";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import type { SavedViewDefinition } from "@ryot-app/definitions/snapshot";
 import { isEqual } from "@ryot-app/ts-utils/lodash";
 import { Context, Effect, Layer, Result } from "effect";
 
@@ -20,7 +21,6 @@ import {
 	type StoredNotificationSubscription,
 } from "#modules/automations/repository";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { SavedViewDefinition } from "#modules/definitions/snapshot";
 import {
 	type PluginInstallationHydratedState,
 	PluginInstallationRepository,

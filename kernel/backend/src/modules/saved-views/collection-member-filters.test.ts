@@ -10,9 +10,8 @@ import {
 	collectionMembersCountRecipe,
 	collectionMembersRecipe,
 } from "@ryot-app/ryotql-recipes/collections";
+import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 import { DateTime, Result } from "effect";
-
-import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 import { bindControlFixture } from "./controls.test-support";
 

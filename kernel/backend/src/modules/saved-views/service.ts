@@ -12,6 +12,8 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { deriveSavedViewQueries } from "@ryot-app/definitions/saved-view-queries";
+import { validateSavedViewDefinition } from "@ryot-app/definitions/saved-views";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -23,14 +25,11 @@ import { PluginInstallationRepository } from "#modules/plugins/installations/rep
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { bindRyotQLDocument } from "#modules/ryotql/binding";
 import { RyotQLService } from "#modules/ryotql/service";
-import { storedValidationBranches } from "#modules/ryotql/stored-validation";
 import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import { slugify } from "#platform/slug";
 import { trimToNull } from "#platform/validation";
 
-import { validateSavedViewDefinition } from "./definition-validation";
-import { deriveSavedViewQueries } from "./queries";
 import { buildSavedViewReorderPlan } from "./reorder";
 import { SavedViewsRepository } from "./repository";
 
@@ -111,28 +110,26 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						: yield* Effect.fromResult(
 								deriveSavedViewQueries(renderer, settings, document, trusted ?? false),
 							).pipe(Effect.mapError(definitionIncompatible));
-				yield* validateSavedViewDefinition(
-					renderer,
-					settings,
-					dataSources,
-					page?.kind === "page" ? page : null,
-					schemas,
-				);
-				if (dataSources !== null) {
-					const branches = yield* Effect.fromResult(
-						storedValidationBranches(dataSources, schemas),
-					).pipe(Effect.mapError(definitionIncompatible));
-					for (const branch of branches) {
-						yield* bindRyotQLDocument(
-							branch,
-							{ userId, type: "user", language: null, audience: "plugin", accessClass: "standard" },
-							catalog.map((plugin) => ({
-								pluginId: plugin.id,
-								scope: plugin.scope,
-								packageId: plugin.packageId,
-							})),
-						);
-					}
+				const branches = yield* Effect.fromResult(
+					validateSavedViewDefinition({
+						schemas,
+						renderer,
+						settings,
+						dataSources,
+						options: { kernelBuiltin: false },
+						pluginPage: page?.kind === "page" ? page : null,
+					}),
+				).pipe(Effect.mapError((reason) => new SavedViewBadRequest({ reason })));
+				for (const branch of branches) {
+					yield* bindRyotQLDocument(
+						branch,
+						{ userId, type: "user", language: null, audience: "plugin", accessClass: "standard" },
+						catalog.map((plugin) => ({
+							pluginId: plugin.id,
+							scope: plugin.scope,
+							packageId: plugin.packageId,
+						})),
+					);
 				}
 
 				if (page?.kind === "page") {

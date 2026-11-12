@@ -17,6 +17,8 @@ import {
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { type EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import type { createUserRelationshipSchema } from "@ryot-app/plugin-backend-sdk/core";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
@@ -28,9 +30,7 @@ import {
 	LifecyclePersistenceError,
 	type LifecyclePlanner,
 } from "#modules/automations/lifecycle/planning";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import type { DefinitionRepository } from "#modules/definitions/repository";
-import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import type { EntitiesRepository } from "#modules/entities/repository";
 import {
 	DomainLifecycleCommand,

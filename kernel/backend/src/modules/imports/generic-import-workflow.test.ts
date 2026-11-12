@@ -7,6 +7,8 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -17,9 +19,7 @@ import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { CollectionsService } from "#modules/collections/service";
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";

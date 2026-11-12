@@ -17,6 +17,9 @@ import {
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { buildDefinitionSnapshot, type DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import { PageClientArtifact, PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
@@ -33,10 +36,7 @@ import {
 	type DataReferenceError,
 	rewriteManagedAssetLocators,
 } from "#modules/backups/data-references";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot, type DefinitionSnapshot } from "#modules/definitions/snapshot";
-import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { EntitiesRepository, type PortableEntityRecord } from "#modules/entities/repository";
 import { type BackupExcludedEventSchema, EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";

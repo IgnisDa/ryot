@@ -7,6 +7,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -18,7 +19,6 @@ import { chunksOf } from "effect/Array";
 import { BackupRestorePersistence } from "#modules/backups/restore/persistence";
 import { restorePersistenceWithDatabase } from "#modules/backups/restore/persistence.test-support";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";

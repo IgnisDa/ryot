@@ -7,6 +7,7 @@ import { importRunFailureStages } from "@ryot-app/contract/modules/imports/types
 import type { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import type { ImportRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { EntityId, EventSchemaSlug } from "@ryot-app/contract/schema/brands";
+import { definitionLookup, DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import type { GenericImportWriteItem } from "@ryot-app/plugin-backend-sdk/imports";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Cause, DateTime, Effect, Schema } from "effect";
@@ -17,7 +18,6 @@ import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators"
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { requiredReference, rewritePropertyReferences } from "#modules/backups/data-references";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { definitionLookup, DefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService, PendingEntityMutation } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";

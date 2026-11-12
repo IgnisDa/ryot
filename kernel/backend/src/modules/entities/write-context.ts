@@ -3,12 +3,12 @@ import { LifecycleCommand } from "@ryot-app/contract/modules/automations/lifecyc
 import { DefinitionOwner, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { sandboxSubjectUserId } from "@ryot-app/contract/modules/scripts/schemas";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema, Struct } from "effect";
 
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { SandboxExecutionAuthorityLive } from "#modules/scripts/authorization/authority";

@@ -14,15 +14,13 @@ import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references"
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "@ryot-app/contract/modules/scripts/wire";
 import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import { PluginPackageId, pluginPackageSegments } from "@ryot-app/contract/schema/brands";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
 import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
+import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
 import { Cron, Effect, Result, Schema } from "effect";
 
-import {
-	formatPropertyIssues,
-	parseLabeledPropertySchemaInput,
-} from "#modules/definitions/properties/runtime";
-import type { DefinitionSnapshot } from "#modules/definitions/snapshot";
+import { parseLabeledPropertySchemaInput } from "#modules/definitions/properties/runtime";
 
 export class PluginValidationError extends Schema.TaggedError<
 	PluginValidationError,

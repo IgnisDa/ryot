@@ -10,13 +10,13 @@ import {
 	type SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import type { ProviderDetailsChildEntity } from "@ryot-app/plugin-backend-sdk/provider";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { DateTime, Effect, Schema } from "effect";
 
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
-import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";

@@ -5,9 +5,10 @@ import {
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { Context, Effect, Layer } from "effect";
 
-import { kernelDefinitionSource, kernelScripts } from "#modules/definitions/kernel-source";
+import { kernelScripts } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { DatabaseSession } from "#platform/db/session";
 

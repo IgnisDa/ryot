@@ -6,6 +6,7 @@ import {
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -17,7 +18,6 @@ import { Context, Deferred, Effect, Fiber, Layer, type Tracer } from "effect";
 
 import { LifecyclePlanner } from "#modules/automations/lifecycle/planning";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginRepository } from "#modules/plugins/packages/repository";

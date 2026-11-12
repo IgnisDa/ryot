@@ -9,6 +9,7 @@ import type { ExecutionRequest, ExecutionSource } from "@ryot-app/contract/modul
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, entitySchemaPredicate, or, table } from "@ryot-app/ryotql";
+import type { MembershipSource } from "@ryot-app/ryotql-recipes/controls";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Context, Effect, Layer, Schema } from "effect";
@@ -21,7 +22,6 @@ import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import type { RyotQLExecutionScope } from "./catalog";
-import type { MembershipSource } from "./controls";
 
 export type ResolvedSource = {
 	readonly identity: string;

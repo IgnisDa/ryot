@@ -11,6 +11,11 @@ import {
 import { KernelSavedViewRendererName } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { buildValidatedDefinitionSnapshot } from "@ryot-app/definitions/definition-set";
+import { definitionSourceFromSnapshot } from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import { type PluginArchivePackage, readPluginArchiveStream } from "@ryot-app/plugin-archive";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { Context, Effect, Layer, Result, Schema } from "effect";
@@ -21,13 +26,7 @@ import {
 } from "#lib/domain/managed-asset-writes";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-} from "#modules/definitions/properties/runtime";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { definitionSourceFromSnapshot } from "#modules/definitions/snapshot";
-import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
 
@@ -46,7 +45,6 @@ import {
 } from "../packages/pipeline";
 import { PluginRepository } from "../packages/repository";
 import { validateAdditiveSchemaEvolution } from "../packages/schema-evolution";
-import { buildValidatedDefinitionSnapshot } from "../packages/system-set";
 import type { NormalizedPlugin, StoredPlugin } from "../packages/types";
 import {
 	PluginValidationError,

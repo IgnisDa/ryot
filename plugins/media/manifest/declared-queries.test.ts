@@ -1,9 +1,9 @@
 import { expect, it } from "bun:test";
 
+import { validateDefinitionSet } from "@ryot-app/definitions/definition-set";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { fitnessPlugin } from "@ryot-app/fitness-plugin";
 import { fixturePlugin } from "@ryot-app/fixture-plugin";
-import { kernelDefinitionSource } from "@ryot-app/kernel-backend/modules/definitions/kernel-source";
-import { validateSystemPluginSet } from "@ryot-app/kernel-backend/modules/plugins/packages/system-set";
 
 import { mediaPlugin } from "./plugin";
 
@@ -15,5 +15,5 @@ it("accepts every declared Media and Fitness query through complete system inges
 		{ id: "fitness-owner", scope: "system" as const, manifest: { ...fitnessPlugin, scripts: [] } },
 		{ id: "fixture-owner", scope: "system" as const, manifest: { ...fixturePlugin, scripts: [] } },
 	];
-	expect(() => validateSystemPluginSet(kernelDefinitionSource(), plugins)).not.toThrow();
+	expect(() => validateDefinitionSet(kernelDefinitionSource(), plugins)).not.toThrow();
 });

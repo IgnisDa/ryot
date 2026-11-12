@@ -1,9 +1,7 @@
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { UserBootstrap } from "@ryot-app/kernel-backend/modules/accounts/provisioning/bootstrap";
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-} from "@ryot-app/kernel-backend/modules/definitions/properties/runtime";
 import { FoldRebuildJob } from "@ryot-app/kernel-backend/modules/derived-values/marks";
 import { IntegrationsRepository } from "@ryot-app/kernel-backend/modules/integrations/repository";
 import { AccountAdmission } from "@ryot-app/kernel-backend/modules/mutations/account-admission";

@@ -10,6 +10,9 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import type { SavedViewDefinition } from "@ryot-app/definitions/snapshot";
+import { materializeSavedView } from "@ryot-app/definitions/source";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
@@ -23,10 +26,7 @@ import { AutomationsRepository } from "#modules/automations/repository";
 import { CalendarSourcesServiceLive } from "#modules/calendar-sources/layer";
 import { CalendarSourcesService } from "#modules/calendar-sources/service";
 import { calendarSourcePackage } from "#modules/calendar-sources/test-support";
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { SavedViewDefinition } from "#modules/definitions/snapshot";
-import { materializeSavedView } from "#modules/definitions/source";
 import { seedKernelDefinitions } from "#modules/definitions/test-support";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import {

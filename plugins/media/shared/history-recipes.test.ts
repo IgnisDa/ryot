@@ -1,9 +1,9 @@
 import { describe, expect, it } from "bun:test";
 
-import { validateRyotQLDocument } from "@ryot-app/kernel-backend/modules/ryotql/validator";
 import { Result } from "@ryot-app/plugin-kit/effect";
 import { bindRecipe, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
 import { bindDocument } from "@ryot-app/ryotql/binding";
+import { validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 
 import {
 	flatCollectionAddedEventRow,

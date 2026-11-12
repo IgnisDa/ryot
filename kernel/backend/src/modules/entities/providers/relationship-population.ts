@@ -9,6 +9,8 @@ import {
 	type SandboxProviderId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import type { EntityRelationshipDefinitions } from "@ryot-app/definitions/snapshot";
 import type {
 	ProviderDetailsRelatedEntity,
 	ProviderDetailsRelatedEntityGroup,
@@ -17,8 +19,6 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Effect } from "effect";
 
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
-import type { EntityRelationshipDefinitions } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";

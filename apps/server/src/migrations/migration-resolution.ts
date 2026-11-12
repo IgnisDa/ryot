@@ -5,9 +5,9 @@ import type {
 import { identityTupleKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import * as fitnessPluginIdentity from "@ryot-app/fitness-plugin/shared/plugin-identity";
 import { DefinitionRepository } from "@ryot-app/kernel-backend/modules/definitions/repository";
-import type { DefinitionSnapshot } from "@ryot-app/kernel-backend/modules/definitions/snapshot";
 import { PluginRepository } from "@ryot-app/kernel-backend/modules/plugins/packages/repository";
 import { DatabaseSession } from "@ryot-app/kernel-backend/platform/db/session";
 import * as schema from "@ryot-app/kernel-backend/schema/tables/combined";

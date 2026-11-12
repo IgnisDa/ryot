@@ -11,6 +11,7 @@ import {
 	IntegrationId,
 } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -23,7 +24,6 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleExecution } from "#modules/automations/lifecycle/execution";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import { buildDefinitionSnapshot } from "#modules/definitions/snapshot";
 import { EntityImportWorkflowOperations } from "#modules/entities/providers/operations-workflow";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";

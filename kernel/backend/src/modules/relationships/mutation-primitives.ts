@@ -12,6 +12,7 @@ import {
 	RelationshipNotFound,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import type { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import { Effect, Schema } from "effect";
 
 import { lifecycleTrigger } from "#modules/automations/lifecycle/command";
@@ -20,7 +21,6 @@ import {
 	applyLifecyclePolicyPatch,
 	canonicalLifecyclePolicyPatch,
 } from "#modules/automations/lifecycle/policy-patch";
-import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import type { MutationEntity } from "#modules/entities/repository";
 import {
 	assertStableUnder,

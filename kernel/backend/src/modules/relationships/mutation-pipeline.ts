@@ -13,6 +13,7 @@ import {
 	RelationshipScope,
 } from "@ryot-app/contract/modules/relationships/schemas";
 import { RelationshipId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { RelationshipSchemaDefinition } from "@ryot-app/definitions/snapshot";
 import { Cause, Context, Effect, Layer, Schema, Struct } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
@@ -24,7 +25,6 @@ import {
 	runLifecycleWriteInline,
 } from "#modules/automations/lifecycle/write-step";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import type { RelationshipSchemaDefinition } from "#modules/definitions/snapshot";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
 import { AccountAdmission } from "#modules/mutations/account-admission";

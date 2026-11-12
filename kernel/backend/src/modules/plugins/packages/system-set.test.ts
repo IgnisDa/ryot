@@ -1,10 +1,9 @@
 import { expect, it } from "bun:test";
 
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { column, document, field, rows, schemaOwnerPredicate, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
-
-import { kernelDefinitionSource } from "#modules/definitions/kernel-source";
 
 import { fixtureManifest, fixturePluginIdentity, testPluginPackageId } from "../test-support";
 import { validateSystemPluginSet } from "./system-set";

@@ -1,17 +1,17 @@
 import { badRequest } from "@ryot-app/contract/errors";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import type { UserId } from "@ryot-app/contract/schema/brands";
+import {
+	buildDefinitionSnapshot,
+	type DefinitionSnapshot,
+	definitionSourceFromSnapshot,
+} from "@ryot-app/definitions/snapshot";
+import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
 import type { ArchivePrivatePlugin } from "#modules/backups/archive/schemas";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import {
-	buildDefinitionSnapshot,
-	type DefinitionSnapshot,
-	definitionSourceFromSnapshot,
-} from "#modules/definitions/snapshot";
-import { mergeManifestDefinitions } from "#modules/definitions/source";
 
 import { normalizePluginPackage, normalizePluginSource } from "./pipeline";
 import { PluginRepository } from "./repository";

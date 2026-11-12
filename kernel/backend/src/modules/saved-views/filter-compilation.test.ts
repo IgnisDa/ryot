@@ -18,9 +18,8 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { filter as filterPlaceholder } from "@ryot-app/ryotql/authoring";
+import { savedViewDataSourceAccess, validateRyotQLDocument } from "@ryot-app/ryotql/validator";
 import { DateTime, Result } from "effect";
-
-import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
 
 import { bindControlFixture } from "./controls.test-support";
 

@@ -1,9 +1,8 @@
 import type { SandboxBoundaryReason } from "@ryot-app/contract/modules/scripts/boundary-reason";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Effect } from "effect";
-
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 
 const requiredKeys = (metadata: unknown, name: string): ReadonlyArray<string> =>
 	isObjectRecord(metadata) && Array.isArray(metadata[name])

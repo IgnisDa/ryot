@@ -2,9 +2,9 @@ import type { IngestionPlan } from "@ryot-app/contract/modules/imports/ingestion
 import { evaluateIngestionReadiness } from "@ryot-app/contract/modules/plugins/ingestion-readiness";
 import type { IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { parseAppSchemaProperties } from "#modules/definitions/properties/runtime";
 import { OAuthConnectionsRepository } from "#modules/oauth-connections/repository";
 
 import { ImportSourceCatalog } from "./import-sources";
