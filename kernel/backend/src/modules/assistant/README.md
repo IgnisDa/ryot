@@ -80,14 +80,18 @@ Provider keys do not appear in metadata, RyotQL, model events or errors.
 `AssistantModel.live` provides the model through `EgressHttpClientLive`. `AssistantModel.layer`
 requires an injected `HttpClient` for transport tests; workflow tests can instead inject the
 `AssistantModel` service directly. `stream({ provider, prompt, tools })` yields typed
-`AssistantModelEvent` values: text deltas, complete JSON tool calls preserving `modelCallId`, and
+`AssistantModelEvent` values: text deltas, reasoning deltas with the response field that carried
+them (`reasoning` or `reasoning_content`), complete JSON tool calls preserving `modelCallId`, and
 finish reasons. It uses `@effect/ai-openai-compat` `OpenAiClient` and `OpenAiLanguageModel` with
 Effect `LanguageModel` streaming. The adapter handles Chat Completions and fragmented tool
 arguments. Tool resolution is disabled and validation deferred, leaving argument validation,
 approvals, dispatch, retry and round policy to the durable workflow. Provider-executed calls fail.
-`assistantProviderPrompt(system, messages)` converts persisted text, model tool calls and results
-to an Effect prompt using the original provider call IDs; UI approval and preview parts and
-capability writes are omitted.
+`assistantProviderPrompt(system, messages)` converts persisted text, reasoning, model tool calls
+and results to an Effect prompt using the original provider call IDs; UI approval and preview parts
+and capability writes are omitted. Consecutive assistant messages, a round's streamed text and its
+recorded calls, become one provider message, and reasoning is replayed in its original field because
+thinking-mode providers reject tool-call follow-ups without it. Each round stores its reasoning as a
+`reasoning` part beside its tool calls.
 
 Each request is capped at 1 MiB of serialized prompt/tool input, 8192 generated tokens, 256 KiB of
 streamed parts, 16,384 parts and two minutes including connection/header wait. Provider errors

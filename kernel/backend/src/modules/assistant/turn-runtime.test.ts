@@ -123,6 +123,7 @@ const harness = Effect.fn(function* (
 	options: {
 		readonly readOnly?: boolean;
 		readonly failBuild?: boolean;
+		readonly reasoning?: boolean;
 		readonly alwaysCall?: boolean;
 		readonly noProvider?: boolean;
 		readonly gatedWrite?: boolean;
@@ -166,6 +167,12 @@ const harness = Effect.fn(function* (
 					return Stream.fail(new AssistantModelError({ code: "provider-failed" }));
 				}
 				const events: AssistantModelEvent[] = [{ type: "text-delta", text: "x".repeat(600) }];
+				if (options.reasoning) {
+					events.push(
+						{ text: "Need ", field: "reasoning", type: "reasoning-delta" },
+						{ text: "a page.", field: "reasoning", type: "reasoning-delta" },
+					);
+				}
 				if (generated === 1 || options.alwaysCall) {
 					events.push({
 						arguments: {},
@@ -476,6 +483,25 @@ layer(services, { excludeTestServices: true })((test) => {
 					expect(setup.generated()).toBe(12);
 				}
 			}
+		}),
+	);
+
+	test.effect("stores a round's reasoning with the tool calls it produced", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({ readOnly: true, reasoning: true });
+			const payload = yield* admit();
+			const round = yield* setup.runtime.generate(payload, 1);
+			yield* setup.runtime.recordRound(payload, 1, round);
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			assert(state);
+			const message = state.messages.find((candidate) =>
+				candidate.parts.some((part) => part.kind === "tool-call"),
+			);
+			assert(message);
+			expect(message.parts.filter((part) => part.kind === "reasoning")).toEqual([
+				{ kind: "reasoning", field: "reasoning", text: "Need a page." },
+			]);
 		}),
 	);
 

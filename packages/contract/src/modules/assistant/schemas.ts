@@ -45,9 +45,16 @@ export const AssistantToolCall = Schema.Union([
 	}),
 ]);
 export type AssistantToolCall = typeof AssistantToolCall.Type;
+export const AssistantReasoningField = Schema.Literals(["reasoning", "reasoning_content"]);
+export type AssistantReasoningField = typeof AssistantReasoningField.Type;
 export const AssistantMessagePart = Schema.Union([
 	strictStruct({ text: Schema.String, kind: Schema.Literal("text") }),
 	strictStruct({ call: AssistantToolCall, kind: Schema.Literal("tool-call") }),
+	strictStruct({
+		text: Schema.String,
+		field: AssistantReasoningField,
+		kind: Schema.Literal("reasoning"),
+	}),
 	strictStruct({
 		result: AgentToolResult,
 		toolCallId: AssistantToolCallId,

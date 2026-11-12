@@ -1,5 +1,8 @@
 import { OpenAiClient, OpenAiLanguageModel } from "@effect/ai-openai-compat";
-import type { AssistantMessage } from "@ryot-app/contract/modules/assistant/schemas";
+import {
+	type AssistantMessage,
+	AssistantReasoningField,
+} from "@ryot-app/contract/modules/assistant/schemas";
 import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -19,6 +22,11 @@ export class AssistantModelError extends Schema.TaggedError<
 }) {}
 export const AssistantModelEvent = Schema.Union([
 	Schema.Struct({ text: Schema.String, type: Schema.Literal("text-delta") }),
+	Schema.Struct({
+		text: Schema.String,
+		field: AssistantReasoningField,
+		type: Schema.Literal("reasoning-delta"),
+	}),
 	Schema.Struct({
 		arguments: JsonValue,
 		name: Schema.NonEmptyString,
@@ -92,6 +100,7 @@ export class AssistantModel extends Context.Service<
 						);
 						let outputBytes = 0;
 						let events = 0;
+						let reasoningField: AssistantReasoningField = "reasoning_content";
 						return model
 							.streamText({
 								toolkit,
@@ -129,6 +138,17 @@ export class AssistantModel extends Context.Service<
 										}
 										if (part.type === "text-delta") {
 											return { text: part.delta, type: "text-delta" } satisfies AssistantModelEvent;
+										}
+										if (part.type === "reasoning-start") {
+											reasoningField =
+												part.metadata["openai-compat"]?.reasoningField ?? reasoningField;
+										}
+										if (part.type === "reasoning-delta") {
+											return {
+												text: part.delta,
+												field: reasoningField,
+												type: "reasoning-delta",
+											} satisfies AssistantModelEvent;
 										}
 										if (part.type === "tool-call") {
 											if (part.providerExecuted) {
@@ -196,23 +216,38 @@ export const assistantProviderPrompt = (
 				}),
 			);
 		} else if (message.role === "assistant") {
-			const content = message.parts.flatMap((part): (Prompt.TextPart | Prompt.ToolCallPart)[] => {
-				if (part.kind === "text") {
-					return [Prompt.makePart("text", { text: part.text })];
-				}
-				if (part.kind === "tool-call" && part.call.kind === "tool") {
-					return [
-						Prompt.makePart("tool-call", {
-							name: part.call.tool,
-							providerExecuted: false,
-							id: part.call.modelCallId,
-							params: part.call.arguments,
-						}),
-					];
-				}
-				return [];
-			});
-			if (content.length > 0) {
+			const content = message.parts.flatMap(
+				(part): (Prompt.TextPart | Prompt.ToolCallPart | Prompt.ReasoningPart)[] => {
+					if (part.kind === "text") {
+						return [Prompt.makePart("text", { text: part.text })];
+					}
+					if (part.kind === "reasoning") {
+						return [
+							Prompt.makePart("reasoning", {
+								text: part.text,
+								options: { "openai-compat": { reasoningField: part.field } },
+							}),
+						];
+					}
+					if (part.kind === "tool-call" && part.call.kind === "tool") {
+						return [
+							Prompt.makePart("tool-call", {
+								name: part.call.tool,
+								providerExecuted: false,
+								id: part.call.modelCallId,
+								params: part.call.arguments,
+							}),
+						];
+					}
+					return [];
+				},
+			);
+			const previous = history.at(-1);
+			if (previous?.role === "assistant") {
+				history[history.length - 1] = Prompt.makeMessage("assistant", {
+					content: [...previous.content, ...content],
+				});
+			} else if (content.length > 0) {
 				history.push(Prompt.makeMessage("assistant", { content }));
 			}
 		} else {

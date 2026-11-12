@@ -2,6 +2,7 @@ import {
 	AssistantError,
 	type AssistantMessage,
 	type AssistantMessagePart,
+	AssistantReasoningField,
 	AssistantToolCall,
 	type AssistantTurnFailure,
 } from "@ryot-app/contract/modules/assistant/schemas";
@@ -31,7 +32,10 @@ import {
 } from "./provider-model";
 import { AssistantRepository } from "./repository";
 
-export const AssistantRound = Schema.Struct({ calls: Schema.Array(AssistantToolCall) });
+export const AssistantRound = Schema.Struct({
+	calls: Schema.Array(AssistantToolCall),
+	reasoning: Schema.NullOr(Schema.Struct({ text: Schema.String, field: AssistantReasoningField })),
+});
 export type AssistantRound = typeof AssistantRound.Type;
 export type AssistantTurnPayload = { readonly userId: UserId; readonly turnId: string };
 
@@ -111,10 +115,13 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	) {
 		let state = yield* load(payload);
 		if (state.turn.round >= round) {
-			return { calls: state.calls.filter((call) => call.round === round).map((call) => call.call) };
+			return {
+				reasoning: null,
+				calls: state.calls.filter((call) => call.round === round).map((call) => call.call),
+			};
 		}
 		if (["failed", "completed", "interrupted"].includes(state.turn.status)) {
-			return { calls: [] };
+			return { calls: [], reasoning: null };
 		}
 		if (state.turn.status === "queued") {
 			yield* write(
@@ -149,6 +156,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		const prompt = promptFor(history);
 
 		let text = "";
+		let reasoning: AssistantRound["reasoning"] = null;
 		let persistedLength = -1;
 		const finishReasons: string[] = [];
 		const calls: AssistantToolCall[] = [];
@@ -177,6 +185,8 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 						if (text.length - persistedLength >= 512) {
 							yield* persistText();
 						}
+					} else if (event.type === "reasoning-delta") {
+						reasoning = { field: event.field, text: (reasoning?.text ?? "") + event.text };
 					} else if (event.type === "tool-call") {
 						if (
 							calls.some(
@@ -224,7 +234,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			return yield* Effect.fail(failure("provider-failed"));
 		}
 		yield* persistText();
-		return { calls };
+		return { calls, reasoning };
 	});
 	const recordRound = Effect.fn("AssistantTurnRuntime.recordRound")(function* (
 		payload: AssistantTurnPayload,
@@ -245,7 +255,11 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 				state.turn.conversationId,
 				payload.turnId,
 				state.turn.revision,
-				{ text: "", calls: result.calls },
+				{
+					text: "",
+					calls: result.calls,
+					parts: result.reasoning ? [{ kind: "reasoning", ...result.reasoning }] : [],
+				},
 			),
 		);
 	});

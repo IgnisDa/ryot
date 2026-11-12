@@ -1,10 +1,11 @@
 import { expect } from "bun:test";
 
 import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
+import { AssistantToolCallId } from "@ryot-app/contract/schema/brands";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { it, layer } from "@voila.dev/effect-bun-test";
-import { Effect, Fiber, Logger, Stream } from "effect";
+import { Effect, Fiber, Logger, Schema, Stream } from "effect";
 import { Prompt } from "effect/ai";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { IpNetwork } from "effect/net";
@@ -12,7 +13,12 @@ import { TestClock } from "effect/testing";
 
 import { withEgressPolicy } from "#platform/egress/http-client";
 
-import { AssistantModel, AssistantModelError, type AssistantModelRequest } from "./provider-model";
+import {
+	AssistantModel,
+	AssistantModelError,
+	type AssistantModelRequest,
+	assistantProviderPrompt,
+} from "./provider-model";
 
 const tool: AgentToolDescriptor = {
 	name: "search",
@@ -36,6 +42,9 @@ const request = {
 } as const;
 const sse = (delta: unknown, finish_reason: null | string = null) =>
 	`data: ${stableStringify({ created: 1, id: "response", model: "local", object: "chat.completion.chunk", choices: [{ delta, index: 0, finish_reason }] })}\n\n`;
+const ChatRequest = Schema.fromJsonString(
+	Schema.Struct({ messages: Schema.Array(Schema.Record(Schema.String, Schema.Unknown)) }),
+);
 const collect = Effect.fn(function* (client: HttpClient.HttpClient, input: AssistantModelRequest) {
 	const model = yield* AssistantModel.make.pipe(
 		Effect.provideService(HttpClient.HttpClient, client),
@@ -232,5 +241,82 @@ it.effect("sanitizes transport defects without exposing provider diagnostics", (
 		const exit = yield* Effect.exit(collect(client, request));
 		assertExitFails(exit, new AssistantModelError({ code: "provider-failed" }));
 		expect(stableStringify(exit)).not.toContain("secret-provider-diagnostic");
+	}),
+);
+
+it.effect("replays a round as one assistant message with its reasoning, text and tool calls", () =>
+	Effect.gen(function* () {
+		const bodies: string[] = [];
+		const client = HttpClient.make((incoming) =>
+			Effect.sync(() => {
+				if (incoming.body._tag === "Uint8Array") {
+					bodies.push(new TextDecoder().decode(incoming.body.body));
+				}
+				return HttpClientResponse.fromWeb(
+					incoming,
+					new Response(
+						[
+							sse({ reasoning_content: "Need the " }),
+							sse({ reasoning_content: "records." }),
+							sse({
+								tool_calls: [
+									{
+										index: 0,
+										type: "function",
+										id: "model-call-1",
+										function: { name: "search", arguments: '{"query":"recent"}' },
+									},
+								],
+							}),
+							sse({}, "tool_calls"),
+							"data: [DONE]\n\n",
+						].join(""),
+						{ headers: { "content-type": "text/event-stream" } },
+					),
+				);
+			}),
+		);
+		const events = yield* collect(client, request);
+		const reasoning = events.filter((event) => event.type === "reasoning-delta");
+		expect(reasoning).toEqual([
+			{ text: "Need the ", type: "reasoning-delta", field: "reasoning_content" },
+			{ text: "records.", type: "reasoning-delta", field: "reasoning_content" },
+		]);
+		const call = {
+			kind: "tool",
+			tool: "search",
+			requiresApproval: false,
+			modelCallId: "model-call-1",
+			arguments: { query: "recent" },
+			id: AssistantToolCallId.make("turn:1:0"),
+		} as const;
+		yield* collect(client, {
+			...request,
+			prompt: assistantProviderPrompt("system", [
+				{ role: "user", parts: [{ kind: "text", text: "Read records" }] },
+				{ role: "assistant", parts: [{ kind: "text", text: "Checking." }] },
+				{
+					role: "assistant",
+					parts: [
+						{ call, kind: "tool-call" },
+						{ kind: "reasoning", text: "Need the records.", field: "reasoning_content" },
+					],
+				},
+				{
+					role: "tool",
+					parts: [
+						{ kind: "tool-result", toolCallId: call.id, result: { value: [], truncated: false } },
+					],
+				},
+			]),
+		});
+		const followUp = yield* Schema.decodeUnknownEffect(ChatRequest)(bodies[1]);
+		const assistant = followUp.messages.filter((message) => message["role"] === "assistant");
+		expect(assistant).toHaveLength(1);
+		expect(assistant[0]).toMatchObject({
+			content: "Checking.",
+			tool_calls: [{ id: "model-call-1" }],
+			reasoning_content: "Need the records.",
+		});
 	}),
 );
