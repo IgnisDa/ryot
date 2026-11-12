@@ -1,14 +1,8 @@
-import { JsonValue } from "@ryot-app/contract/schema/json";
-import { Schema } from "effect";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 
 export const defaultResultByteBudget = 65_536;
 export const minimumResultByteBudget = 64;
-
-export const AgentToolResult = Schema.Union([
-	Schema.Struct({ value: JsonValue, truncated: Schema.Literal(false) }),
-	Schema.Struct({ jsonPrefix: Schema.String, truncated: Schema.Literal(true) }),
-]);
-export type AgentToolResult = typeof AgentToolResult.Type;
 
 const byteLength = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
 

@@ -146,3 +146,8 @@ validation and preserves mandatory kernel-composed windows.
 
 The kernel-audience `agentScriptExecution` catalog table exposes the current user's script history
 (source, write approval, timestamps and bounded result). Plugin-audience queries cannot read it.
+
+Assistant history uses the kernel-only, owner-scoped `assistantConversation`, `assistantTurn`,
+`assistantMessage` and `assistantToolCall` catalog tables. Ordered message parts include text,
+pinned calls, bounded results, approval decisions and page-preview identities. Provider settings
+and encrypted keys have no catalog table.

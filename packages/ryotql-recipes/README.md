@@ -123,3 +123,11 @@ Owner publication recipes select `publication.definition` using `PublicationDefi
 `source` argument. `sourcePublicationsRecipe` matches active kernel publication pages by their
 encoded `definition.arguments.source`; user pages are excluded. The backend catalog must expose
 the persisted `definition` JSON column.
+
+`assistantConversationsRecipe` lists conversation metadata ordered by latest update, with stable ID
+ordering. `assistantConversationRecipe` takes `{ conversationId }` by supplying that argument
+to the static recipe; its named results are `conversation`, `messages`, `turns` and `calls`. Each rows
+result has independent cursor pagination (maximum 100), and messages sort by their persisted sequence.
+Consumers must paginate all history needed for display. Call rows carry the current approval revision,
+immutable descriptor/input pin and bounded result. Exported decoded types are
+`AssistantConversationList` and `AssistantConversationDetail`.

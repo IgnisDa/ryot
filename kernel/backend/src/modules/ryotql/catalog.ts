@@ -767,6 +767,63 @@ const sandboxProviderOperation: TableBinding<"sandboxProviderOperation"> = {
 	},
 };
 
+const assistantConversation: TableBinding<"assistantConversation"> = {
+	relation: "assistant_conversation",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		title: column("title"),
+		revision: column("revision"),
+		createdAt: column("created_at"),
+		updatedAt: column("updated_at"),
+	},
+};
+const assistantTurn: TableBinding<"assistantTurn"> = {
+	relation: "assistant_turn",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		round: column("round"),
+		status: column("status"),
+		failure: column("failure"),
+		revision: column("revision"),
+		requestId: column("request_id"),
+		createdAt: column("created_at"),
+		completedAt: column("completed_at"),
+		conversationId: column("conversation_id"),
+	},
+};
+const assistantMessage: TableBinding<"assistantMessage"> = {
+	relation: "assistant_message",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		role: column("role"),
+		parts: column("parts"),
+		turnId: column("turn_id"),
+		sequence: column("sequence"),
+		createdAt: column("created_at"),
+		conversationId: column("conversation_id"),
+	},
+};
+const assistantToolCall: TableBinding<"assistantToolCall"> = {
+	relation: "assistant_tool_call",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		call: column("call"),
+		round: column("round"),
+		result: column("result"),
+		turnId: column("turn_id"),
+		position: column("position"),
+		revision: column("revision"),
+		decision: column("decision"),
+		createdAt: column("created_at"),
+		decidedAt: column("decided_at"),
+		completedAt: column("completed_at"),
+		conversationId: column("conversation_id"),
+	},
+};
 const agentScriptExecution: TableBinding<"agentScriptExecution"> = {
 	relation: "agent_script_execution",
 	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
@@ -1207,18 +1264,22 @@ const bindings: { readonly [Name in CatalogTableName]: TableBinding<Name> } = {
 	signalSchema,
 	notification,
 	sandboxScript,
+	assistantTurn,
 	calendarSource,
 	oauthConnection,
 	migrationReport,
 	sandboxProvider,
 	publicationLink,
+	assistantMessage,
 	entityTranslation,
+	assistantToolCall,
 	pluginInstallation,
 	relationshipSchema,
 	integrationProvider,
 	notificationChannel,
 	agentScriptExecution,
 	notificationDelivery,
+	assistantConversation,
 	migrationReportDetail,
 	userLifecycleOperation,
 	sandboxProviderOperation,

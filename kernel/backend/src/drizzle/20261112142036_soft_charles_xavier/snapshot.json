@@ -1,0 +1,1195 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "b1785240-7590-4a36-9419-ebe1b9e53e18",
+	"prevIds": ["0d42f4bf-0a7a-42ca-a268-e144d250d790"],
+	"footprints": [
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_conversation"],
+			"writes": [
+				"s|tbl|public.assistant_conversation",
+				"n|tbl|public.assistant_conversation",
+				"e|tbl|public.assistant_conversation",
+				"n|rel|public.assistant_conversation",
+				"n|type|public.assistant_conversation",
+				"n|rel|public.assistant_conversation_pkey",
+				"n|rel|public.assistant_conversation_id_user_id_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_message"],
+			"writes": [
+				"s|tbl|public.assistant_message",
+				"n|tbl|public.assistant_message",
+				"e|tbl|public.assistant_message",
+				"n|rel|public.assistant_message",
+				"n|type|public.assistant_message",
+				"n|rel|public.assistant_message_pkey",
+				"n|rel|public.assistant_message_conversation_id_sequence_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_provider"],
+			"writes": [
+				"s|tbl|public.assistant_provider",
+				"n|tbl|public.assistant_provider",
+				"e|tbl|public.assistant_provider",
+				"n|rel|public.assistant_provider",
+				"n|type|public.assistant_provider",
+				"n|rel|public.assistant_provider_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_tool_call"],
+			"writes": [
+				"s|tbl|public.assistant_tool_call",
+				"n|tbl|public.assistant_tool_call",
+				"e|tbl|public.assistant_tool_call",
+				"n|rel|public.assistant_tool_call",
+				"n|type|public.assistant_tool_call",
+				"n|rel|public.assistant_tool_call_pkey",
+				"n|rel|public.assistant_tool_call_turn_id_round_position_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_turn"],
+			"writes": [
+				"s|tbl|public.assistant_turn",
+				"n|tbl|public.assistant_turn",
+				"e|tbl|public.assistant_turn",
+				"n|rel|public.assistant_turn",
+				"n|type|public.assistant_turn",
+				"n|rel|public.assistant_turn_pkey",
+				"n|rel|public.assistant_turn_conversation_id_request_id_unique",
+				"n|rel|public.assistant_turn_id_conversation_id_user_id_unique"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": ["index", "public", "assistant_turn", "assistant_turn_active_unique"],
+			"writes": [
+				"s|idx|public.assistant_turn_active_unique",
+				"n|idx|public.assistant_turn_active_unique",
+				"e|idx|public.assistant_turn_active_unique",
+				"n|rel|public.assistant_turn_active_unique"
+			],
+			"reads": [
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_turn.conversation_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_conversation"],
+			"writes": [
+				"s|fk|public.assistant_conversation.assistant_conversation_user_id_user_id_fkey",
+				"n|fk|public.assistant_conversation.assistant_conversation_user_id_user_id_fkey",
+				"e|fk|public.assistant_conversation.assistant_conversation_user_id_user_id_fkey",
+				"n|con|public.assistant_conversation.assistant_conversation_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_conversation",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.assistant_conversation.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_message"],
+			"writes": [
+				"s|fk|public.assistant_message.assistant_message_5nOssrZ23nTD_fkey",
+				"n|fk|public.assistant_message.assistant_message_5nOssrZ23nTD_fkey",
+				"e|fk|public.assistant_message.assistant_message_5nOssrZ23nTD_fkey",
+				"n|con|public.assistant_message.assistant_message_5nOssrZ23nTD_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_message",
+				"n|sch|public",
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_message.turn_id",
+				"n|col|public.assistant_message.conversation_id",
+				"n|col|public.assistant_message.user_id",
+				"n|col|public.assistant_turn.id",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"e|uniqueness|public.assistant_turn.conversation_id.id.user_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_provider"],
+			"writes": [
+				"s|fk|public.assistant_provider.assistant_provider_user_id_user_id_fkey",
+				"n|fk|public.assistant_provider.assistant_provider_user_id_user_id_fkey",
+				"e|fk|public.assistant_provider.assistant_provider_user_id_user_id_fkey",
+				"n|con|public.assistant_provider.assistant_provider_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_provider",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.assistant_provider.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_tool_call"],
+			"writes": [
+				"s|fk|public.assistant_tool_call.assistant_tool_call_kwOjAAwu8Gpn_fkey",
+				"n|fk|public.assistant_tool_call.assistant_tool_call_kwOjAAwu8Gpn_fkey",
+				"e|fk|public.assistant_tool_call.assistant_tool_call_kwOjAAwu8Gpn_fkey",
+				"n|con|public.assistant_tool_call.assistant_tool_call_kwOjAAwu8Gpn_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_tool_call",
+				"n|sch|public",
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_tool_call.turn_id",
+				"n|col|public.assistant_tool_call.conversation_id",
+				"n|col|public.assistant_tool_call.user_id",
+				"n|col|public.assistant_turn.id",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"e|uniqueness|public.assistant_turn.conversation_id.id.user_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_turn"],
+			"writes": [
+				"s|fk|public.assistant_turn.assistant_turn_dX1hPmBw1nmZ_fkey",
+				"n|fk|public.assistant_turn.assistant_turn_dX1hPmBw1nmZ_fkey",
+				"e|fk|public.assistant_turn.assistant_turn_dX1hPmBw1nmZ_fkey",
+				"n|con|public.assistant_turn.assistant_turn_dX1hPmBw1nmZ_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|tbl|public.assistant_conversation",
+				"n|sch|public",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"n|col|public.assistant_conversation.id",
+				"n|col|public.assistant_conversation.user_id",
+				"e|uniqueness|public.assistant_conversation.id.user_id"
+			]
+		}
+	],
+	"deltas": [
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_conversation",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_message",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_provider",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_tool_call",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_turn",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "title",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "updated_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "revision",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "1",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "next_sequence",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "1",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "turn_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "sequence",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "conversation_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "role",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "parts",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "model",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "base_url",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "updated_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "encrypted_api_key",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "turn_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "decided_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "round",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "completed_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "position",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "conversation_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "revision",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "1",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "result",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "call",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "decision",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "failure",
+				"type": "jsonb",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "text",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "completed_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "request_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "conversation_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "round",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "0",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "revision",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "1",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "status",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "'queued'",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "assistant_turn_active_unique",
+				"nameExplicit": true,
+				"columns": [
+					{
+						"value": "conversation_id",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					}
+				],
+				"isUnique": true,
+				"where": "\"status\" in ('queued', 'running', 'awaiting-approval')",
+				"with": "",
+				"method": "btree",
+				"concurrently": false,
+				"entityType": "indexes"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "assistant_conversation_user_id_user_id_fkey",
+				"nameExplicit": false,
+				"columns": ["user_id"],
+				"schemaTo": "public",
+				"tableTo": "user",
+				"columnsTo": ["id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "assistant_message_5nOssrZ23nTD_fkey",
+				"nameExplicit": false,
+				"columns": ["turn_id", "conversation_id", "user_id"],
+				"schemaTo": "public",
+				"tableTo": "assistant_turn",
+				"columnsTo": ["id", "conversation_id", "user_id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "assistant_provider_user_id_user_id_fkey",
+				"nameExplicit": false,
+				"columns": ["user_id"],
+				"schemaTo": "public",
+				"tableTo": "user",
+				"columnsTo": ["id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "assistant_tool_call_kwOjAAwu8Gpn_fkey",
+				"nameExplicit": false,
+				"columns": ["turn_id", "conversation_id", "user_id"],
+				"schemaTo": "public",
+				"tableTo": "assistant_turn",
+				"columnsTo": ["id", "conversation_id", "user_id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "assistant_turn_dX1hPmBw1nmZ_fkey",
+				"nameExplicit": false,
+				"columns": ["conversation_id", "user_id"],
+				"schemaTo": "public",
+				"tableTo": "assistant_conversation",
+				"columnsTo": ["id", "user_id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "assistant_conversation_pkey",
+				"columns": ["id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "assistant_message_pkey",
+				"columns": ["id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "assistant_provider_pkey",
+				"columns": ["user_id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "assistant_tool_call_pkey",
+				"columns": ["id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "assistant_turn_pkey",
+				"columns": ["id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "assistant_conversation_id_user_id_unique",
+				"nameExplicit": false,
+				"columns": ["id", "user_id"],
+				"nullsNotDistinct": false,
+				"entityType": "uniques"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_message",
+				"name": "assistant_message_conversation_id_sequence_unique",
+				"nameExplicit": false,
+				"columns": ["conversation_id", "sequence"],
+				"nullsNotDistinct": false,
+				"entityType": "uniques"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_call",
+				"name": "assistant_tool_call_turn_id_round_position_unique",
+				"nameExplicit": false,
+				"columns": ["turn_id", "round", "position"],
+				"nullsNotDistinct": false,
+				"entityType": "uniques"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "assistant_turn_conversation_id_request_id_unique",
+				"nameExplicit": false,
+				"columns": ["conversation_id", "request_id"],
+				"nullsNotDistinct": false,
+				"entityType": "uniques"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "assistant_turn_id_conversation_id_user_id_unique",
+				"nameExplicit": false,
+				"columns": ["id", "conversation_id", "user_id"],
+				"nullsNotDistinct": false,
+				"entityType": "uniques"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_turn",
+				"name": "assistant_turn_status",
+				"value": "\"status\" in ('queued', 'running', 'awaiting-approval', 'completed', 'failed', 'interrupted')",
+				"entityType": "checks"
+			}
+		}
+	]
+}

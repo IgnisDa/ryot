@@ -156,3 +156,17 @@ export type PublicationId = typeof PublicationId.Type;
 export const PublicationLinkId = Schema.String.pipe(Schema.brand("PublicationLinkId"));
 
 export type PublicationLinkId = typeof PublicationLinkId.Type;
+
+export const AssistantConversationId = Schema.NonEmptyString.pipe(
+	Schema.brand("AssistantConversationId"),
+);
+export type AssistantConversationId = typeof AssistantConversationId.Type;
+
+export const AssistantMessageId = Schema.NonEmptyString.pipe(Schema.brand("AssistantMessageId"));
+export type AssistantMessageId = typeof AssistantMessageId.Type;
+
+export const AssistantTurnId = Schema.NonEmptyString.pipe(Schema.brand("AssistantTurnId"));
+export type AssistantTurnId = typeof AssistantTurnId.Type;
+
+export const AssistantToolCallId = Schema.NonEmptyString.pipe(Schema.brand("AssistantToolCallId"));
+export type AssistantToolCallId = typeof AssistantToolCallId.Type;

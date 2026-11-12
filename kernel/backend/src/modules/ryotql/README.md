@@ -218,3 +218,8 @@ Each read transaction also turns JIT off locally. Generated statements are large
 Agent scripts use the authenticated user's `plugin` audience and access class through the shared
 agent registry query port. The kernel-only `agentScriptExecution` table exposes user-owned source,
 approval, timestamps and bounded results for history; it never exposes the private execution principal.
+
+Assistant history binds `assistantConversation`, `assistantMessage`, `assistantTurn` and
+`assistantToolCall` directly to their owner-scoped physical tables. All four are kernel-only;
+plugin-audience queries cannot read them. The provider override and encrypted key have no logical
+or physical catalog binding.

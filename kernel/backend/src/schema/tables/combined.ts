@@ -10,6 +10,7 @@ export * from "./uploads";
 export * from "./entities";
 export * from "./mutations";
 export * from "./reminders";
+export * from "./assistant";
 export * from "./enrichment";
 export * from "./automations";
 export * from "./definitions";
@@ -26,4 +27,5 @@ export * from "./migration-reports";
 export * from "./oauth-connections";
 export * from "./workflow-executions";
 export * from "./provider-rate-limits";
+
 export * from "./signal-schedule-deliveries";
