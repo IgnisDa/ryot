@@ -35,7 +35,11 @@ import { getApiClient } from "./contract-client";
 import { listInstalledPlugins } from "./plugins";
 import { pollUntil } from "./polling";
 import { executeAdminRyotQLRecipe } from "./ryotql";
-import { authoredEntityBrowserSettings, rowsDataSources } from "./saved-views";
+import {
+	authoredEntityBrowserSettings,
+	rowsDataSourceDependencies,
+	rowsDataSources,
+} from "./saved-views";
 import { uploadPrivatePluginPackage } from "./temporary-archive";
 
 export type TestPluginScript = PluginScript extends infer Script
@@ -256,17 +260,22 @@ export const testPluginEntitySchema = (input: {
 	},
 });
 
-export const testPluginSavedView = (input: {
+export const testPluginSavedViews = (input: {
 	readonly slug: string;
 	readonly name?: string;
-}): TestPluginManifest["savedViews"][number] => ({
-	icon: "star",
-	sortOrder: 0,
-	slug: input.slug,
-	dataSources: rowsDataSources,
-	name: input.name ?? "E2E Plugin View",
-	settings: authoredEntityBrowserSettings,
-	renderer: { kind: "kernel", name: "entity-browser" },
+}): Pick<TestPluginManifest, "savedViews" | "dependencies"> => ({
+	dependencies: rowsDataSourceDependencies,
+	savedViews: [
+		{
+			icon: "star",
+			sortOrder: 0,
+			slug: input.slug,
+			dataSources: rowsDataSources,
+			name: input.name ?? "E2E Plugin View",
+			settings: authoredEntityBrowserSettings,
+			renderer: { kind: "kernel", name: "entity-browser" },
+		},
+	],
 });
 
 const operationScriptIds = (result: PluginOperationResult) =>

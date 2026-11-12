@@ -27,7 +27,7 @@ import {
 	requireRyotQLText,
 	testPluginManifest,
 	testPluginPackageId,
-	testPluginSavedView,
+	testPluginSavedViews,
 	updatePrivatePlugin,
 } from "~/fixtures/kernel";
 import { requirePresent } from "~/support/assertions";
@@ -57,14 +57,14 @@ const uninstallShippedPlugin = (pluginId: PluginId, activationId: string) =>
 
 const installShippedPlugin = (
 	packageId: PluginPackageId,
-	savedViews?: ReturnType<typeof testPluginManifest>["savedViews"],
+	views?: ReturnType<typeof testPluginSavedViews>,
 ) => {
 	const name = "E2E Reconciliation Shipped";
 	const slug = `e2e-reconciliation-${crypto.randomUUID()}`;
 	const entry = "backend/scripts/script.sandbox.ts";
 	const manifest = testPluginManifest({
 		packageId,
-		savedViews,
+		...views,
 		pluginSlug: pluginPackageSegments(packageId).name,
 		scripts: [
 			{
@@ -245,18 +245,18 @@ describe("system plugin reconciliation", () => {
 			Effect.gen(function* () {
 				const { client } = yield* createAuthenticatedClient(target);
 				const viewSlug = `e2e-shared-view-${yield* randomUuid}`;
-				const savedViews = [testPluginSavedView({ slug: viewSlug })];
+				const views = testPluginSavedViews({ slug: viewSlug });
 				const packageId = testPluginPackageId();
 				const shippedPackageId = testPluginPackageId();
 				const plugin = yield* installPrivatePlugin({
 					client,
 					packageId,
-					savedViews,
+					...views,
 					config: privateConfig,
 				});
 				expect(plugin.installation).toMatchObject({ health: "ready", healthReason: null });
 
-				yield* installShippedPlugin(shippedPackageId, savedViews);
+				yield* installShippedPlugin(shippedPackageId, views);
 				yield* reconcilePluginInstallations();
 
 				expect(yield* ownedInstallation(client, packageId)).toMatchObject({

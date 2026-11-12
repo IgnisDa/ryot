@@ -107,13 +107,13 @@ export const buildSavedViewDataSources = (
 	},
 });
 
-const mediaPluginOwner: PluginIdentityReference = {
-	kind: "package",
-	scope: "system",
-	packageId: mediaPlugin.metadata.packageId,
-};
+const mediaPluginPackage = { scope: "system", packageId: mediaPlugin.metadata.packageId } as const;
+
+const mediaPluginOwner: PluginIdentityReference = { kind: "package", ...mediaPluginPackage };
 
 export const rowsDataSources = buildSavedViewDataSources(["book"], mediaPluginOwner);
+
+export const rowsDataSourceDependencies = { media: mediaPluginPackage };
 
 const entityBrowserSettingsBase = {
 	pageSize: 2,

@@ -33,6 +33,7 @@ type PrivatePluginPackageInput = {
 	readonly pluginSlug?: string;
 	readonly operationSlug?: string;
 	readonly savedViews?: PrivatePluginManifest["savedViews"];
+	readonly dependencies?: PrivatePluginManifest["dependencies"];
 	readonly configSchema?: PrivatePluginManifest["configSchema"];
 	readonly packageId?: PrivatePluginManifest["metadata"]["packageId"];
 };
@@ -78,6 +79,7 @@ export const privatePluginPackage = (
 		pluginSlug,
 		packageId: input.packageId,
 		savedViews: input.savedViews,
+		dependencies: input.dependencies,
 		configSchema: input.configSchema ?? privatePluginConfigSchema,
 		scripts: [
 			{

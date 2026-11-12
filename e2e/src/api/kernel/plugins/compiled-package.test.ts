@@ -18,7 +18,7 @@ import {
 	installTestSupportSystemPlugin,
 	testPluginManifest,
 	testPluginPackageId,
-	testPluginSavedView,
+	testPluginSavedViews,
 } from "~/fixtures/kernel/test-plugin";
 import { expect, it } from "~/support/effect-test";
 import { getApiUrl } from "~/support/harness-target";
@@ -38,7 +38,7 @@ it.live("installs a system built-in view whose slug matches another user's custo
 				manifest: testPluginManifest({
 					packageId: testPluginPackageId(),
 					pluginSlug: `e2e-collision-${yield* randomUuid}`,
-					savedViews: [testPluginSavedView({ slug: custom.slug })],
+					...testPluginSavedViews({ slug: custom.slug }),
 				}),
 			}),
 			({ pluginId, activationId }) =>
