@@ -14,8 +14,12 @@ it.layer(pluginClientCompilerPlatformLayer)("SDK authoring reference", (test) =>
 		"generates deterministic public exports, type-only exports and props without internal paths",
 		() =>
 			Effect.gen(function* () {
-				const reference = yield* generateClientSdkReference();
-				expect(reference).toContain("## @ryot-app/plugin-client-sdk/react");
+				const topics = yield* generateClientSdkReference();
+				const names = topics.map(({ topic }) => topic);
+				const reference = topics.map(({ content }) => content).join("\n");
+				expect(names[0]).toBe("pages");
+				expect(topics[0]?.content).toContain("## Supported author imports");
+				expect(names).toContain("@ryot-app/plugin-client-sdk/react");
 				expect(reference).toContain("createRyotQuery:");
 				const ratingScale = reference.split("\n").find((line) => line.startsWith("RatingScale:"));
 				for (const value of ["hundred", "ten", "five", "three-point"]) {
@@ -24,21 +28,21 @@ it.layer(pluginClientCompilerPlatformLayer)("SDK authoring reference", (test) =>
 				expect(ratingScale).not.toContain("Literals<");
 				expect(reference).toContain("page: {");
 				expect(reference).toContain("query: <Success>");
-				expect(reference).toContain("## @ryot-app/plugin-ui-sdk/charts");
+				expect(names).toContain("@ryot-app/plugin-ui-sdk/charts");
 				expect(reference).toContain("MetricGrid:");
 				expect(reference).toContain('variant: "tiles" | "panel" | "plain"');
 				expect(reference).toContain("QueryStatusProps:");
 				expect(reference).toContain("\nonRetry: () => void;");
 				expect(reference).not.toContain("__@queryTypeId@");
 				for (const path of ["bootstrap", "runtime", "testing", "schedule"]) {
-					expect(reference).not.toContain(`## @ryot-app/plugin-client-sdk/${path}\n`);
+					expect(names).not.toContain(`@ryot-app/plugin-client-sdk/${path}`);
 				}
-				expect(reference).not.toContain("## motion/react");
+				expect(names).not.toContain("motion/react");
 				expect(reference).not.toContain("/__ryot_sdk_reference__");
 				expect(reference).not.toContain(Bun.fileURLToPath(new URL("../../..", import.meta.url)));
 				expect(reference).not.toContain("../Users/");
 				expect(reference).not.toContain("../home/");
-				expect(yield* generateClientSdkReference()).toBe(reference);
+				expect(yield* generateClientSdkReference()).toEqual(topics);
 			}),
 		{ timeout: 180_000 },
 	);

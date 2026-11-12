@@ -29,6 +29,8 @@ const sdkPackage = (specifier: string) =>
 		(name) => specifier === name || specifier.startsWith(`${name}/`),
 	);
 
+export type ClientSdkReferenceTopic = { readonly topic: string; readonly content: string };
+
 export const generateClientSdkReference = Effect.fn("generateClientSdkReference")(function* () {
 	const fs = yield* FileSystem.FileSystem;
 	const dependencies = yield* resolveClientPluginCompilerDependencies;
@@ -112,7 +114,8 @@ export const generateClientSdkReference = Effect.fn("generateClientSdkReference"
 							const module = yield* typeScriptRequest(() =>
 								checker.getSymbolAtLocation(statement.moduleSpecifier),
 							);
-							if (!module) {
+							const specifier = specifiers[index];
+							if (!module || specifier === undefined) {
 								return yield* Effect.die(
 									new Error(`SDK module could not be resolved: ${specifiers[index]}`),
 								);
@@ -168,7 +171,10 @@ export const generateClientSdkReference = Effect.fn("generateClientSdkReference"
 									}),
 								{ concurrency: 8 },
 							);
-							return `## ${specifiers[index]}\n\n\u0060\u0060\u0060ts\n${declarations.join("\n\n")}\n\u0060\u0060\u0060`;
+							return {
+								topic: specifier,
+								content: `# ${specifier}\n\nSignatures omit module qualifications.\n\n\u0060\u0060\u0060ts\n${declarations.join("\n\n")}\n\u0060\u0060\u0060\n`,
+							} satisfies ClientSdkReferenceTopic;
 						}),
 				);
 			}),
@@ -177,16 +183,18 @@ export const generateClientSdkReference = Effect.fn("generateClientSdkReference"
 		[dependencies.clientSdkRoot, dependencies.uiSdkRoot],
 		(root) => fs.readFileString(`${root}/../assistant-reference.md`),
 	);
-	return (
-		[
-			"# Client page SDK reference",
-			"Signatures omit module qualifications. Only the supported import list grants author import access; referenced implementation types do not grant additional imports. Inherited platform props use their standard React types.",
-			...guidance,
-			"## Supported author imports",
-			sortBy(CLIENT_DEPENDENCY_SPECIFIERS, (specifier) => specifier)
-				.map((specifier) => `- ${specifier}`)
-				.join("\n"),
-			...api,
-		].join("\n\n") + "\n"
-	);
+	const pages: ClientSdkReferenceTopic = {
+		topic: "pages",
+		content:
+			[
+				"# Page authoring",
+				"Only the supported import list grants author import access; referenced implementation types do not grant additional imports. Inherited platform props use their standard React types. Read an import's topic for its signatures.",
+				...guidance,
+				"## Supported author imports",
+				sortBy(CLIENT_DEPENDENCY_SPECIFIERS, (specifier) => specifier)
+					.map((specifier) => `- ${specifier}`)
+					.join("\n"),
+			].join("\n\n") + "\n",
+	};
+	return [pages, ...api];
 });

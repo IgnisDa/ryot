@@ -116,7 +116,7 @@ export default function Page() {
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 export const manifest = defineManifest({ kind: "script", name: "Agent compiler smoke", slug: "agent-smoke" });
 export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Unknown,
- run: (_input, host) => host.invokeOperation({ name: "testing.fixture.echo", arguments: {} }) });`,
+ run: (_input, host) => host.invokeCapability({ id: "kernel:pages.list", input: {} }) });`,
 	});
 	const backendOutput = yield* runWorker(backendWorkerPath, backendRequest);
 	const backendResponse = yield* Schema.decodeEffect(Schema.fromJsonString(CompilerWorkerResponse))(
@@ -130,7 +130,7 @@ export default defineScript({ manifest, input: Schema.Struct({}), output: Schema
 	);
 	if (
 		manifest.kind !== "script" ||
-		!manifest.capabilities.includes("invokeOperation") ||
+		!manifest.capabilities.includes("invokeCapability") ||
 		backendResponse.value.javascript.length === 0 ||
 		(yield* fs.exists(path.join(workspaceParentPath, "agent-smoke")))
 	) {
