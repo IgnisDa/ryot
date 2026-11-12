@@ -1,6 +1,11 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { SandboxScriptManifest } from "@ryot-app/contract/modules/scripts/schemas";
+import {
+	CompilerWorkerRequest,
+	CompilerWorkerResponse,
+} from "@ryot-app/plugin-backend-compiler/protocol";
 import { PluginClientCompilerFailure } from "@ryot-app/plugin-client-compiler/diagnostics";
 import {
 	decodeClientCompilerWorkerResponse,
@@ -45,28 +50,32 @@ export default function Page() {
 			),
 		},
 	});
-	const worker = yield* spawner.spawn(
-		ChildProcess.make(
-			process.execPath,
-			["--smol", "--no-orphans", "--no-install", "--no-env-file", workerPath],
-			{
-				stdout: "pipe",
-				stderr: "inherit",
-				stdin: Stream.succeed(new TextEncoder().encode(request)),
-			},
-		),
-	);
-	const output = yield* worker.stdout.pipe(
-		Stream.decodeText(),
-		Stream.runFold(
-			() => "",
-			(text, chunk) => text + chunk,
-		),
-	);
-	const exitCode = yield* worker.exitCode;
-	if (Number(exitCode) !== 0) {
-		return yield* Effect.die(new Error(`Client compiler worker exited: ${exitCode}`));
-	}
+	const runWorker = Effect.fnUntraced(function* (filename: string, payload: string) {
+		const worker = yield* spawner.spawn(
+			ChildProcess.make(
+				process.execPath,
+				["--smol", "--no-orphans", "--no-install", "--no-env-file", filename],
+				{
+					stdout: "pipe",
+					stderr: "inherit",
+					stdin: Stream.succeed(new TextEncoder().encode(payload)),
+				},
+			),
+		);
+		const output = yield* worker.stdout.pipe(
+			Stream.decodeText(),
+			Stream.runFold(
+				() => "",
+				(text, chunk) => text + chunk,
+			),
+		);
+		const exitCode = yield* worker.exitCode;
+		if (Number(exitCode) !== 0) {
+			return yield* Effect.die(new Error(`Compiler worker exited: ${exitCode}`));
+		}
+		return output;
+	});
+	const output = yield* runWorker(workerPath, request);
 	const response = yield* decodeClientCompilerWorkerResponse(output);
 	if (!response.success) {
 		const error = yield* Schema.encodeEffect(Schema.fromJsonString(PluginClientCompilerFailure))(
@@ -96,7 +105,40 @@ export default function Page() {
 	if (yield* fs.exists(path.join(workspaceParentPath, "smoke"))) {
 		return yield* Effect.die(new Error("Client compiler retained its workspace"));
 	}
-	return yield* Effect.log("Client compiler worker smoke passed");
+	yield* Effect.log("Client compiler worker smoke passed");
+	const backendWorkerPath = import.meta.url.endsWith(".ts")
+		? Bun.resolveSync("@ryot-app/plugin-backend-compiler/worker", import.meta.dir)
+		: path.join(import.meta.dir, "plugin-backend-compiler-worker.js");
+	const backendRequest = yield* Schema.encodeEffect(Schema.fromJsonString(CompilerWorkerRequest))({
+		workspaceParentPath,
+		workspaceJobId: "agent-smoke",
+		source: `import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/agent";
+import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
+export const manifest = defineManifest({ kind: "script", name: "Agent compiler smoke", slug: "agent-smoke" });
+export default defineScript({ manifest, input: Schema.Struct({}), output: Schema.Unknown,
+ run: (_input, host) => host.invokeOperation({ name: "testing.fixture.echo", arguments: {} }) });`,
+	});
+	const backendOutput = yield* runWorker(backendWorkerPath, backendRequest);
+	const backendResponse = yield* Schema.decodeEffect(Schema.fromJsonString(CompilerWorkerResponse))(
+		backendOutput,
+	);
+	if (!backendResponse.success) {
+		return yield* Effect.die(new Error(backendResponse.error.message));
+	}
+	const manifest = yield* Schema.decodeUnknownEffect(SandboxScriptManifest)(
+		backendResponse.value.manifest,
+	);
+	if (
+		manifest.kind !== "script" ||
+		!manifest.capabilities.includes("invokeOperation") ||
+		backendResponse.value.javascript.length === 0 ||
+		(yield* fs.exists(path.join(workspaceParentPath, "agent-smoke")))
+	) {
+		return yield* Effect.die(
+			new Error("Backend compiler emitted incomplete agent metadata or retained its workspace"),
+		);
+	}
+	return yield* Effect.log("Backend compiler worker smoke passed");
 });
 
 BunRuntime.runMain(Effect.scoped(program).pipe(Effect.provide(BunServices.layer)));

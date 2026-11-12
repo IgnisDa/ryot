@@ -106,3 +106,7 @@ memory, 256 KiB source, 1 MiB compiled JavaScript, 100 diagnostics, and 256 KiB 
 The supervisor sets the native TypeScript child's `GOMEMLIMIT` to half the process-tree budget
 (192 MiB), leaving room for the Bun worker, bundling, and mapped pages. This is a soft Go GC budget;
 the parent still kills the worker when the full process tree exceeds the hard memory limit.
+
+The agent SDK entry point is an allowed sandbox import and uses the same direct `defineScript` /
+`defineManifest` declaration analysis and compiler-derived host metadata. It does not create a separate
+compiler or capability policy; backend agent authority restricts the capabilities accepted for a run.
