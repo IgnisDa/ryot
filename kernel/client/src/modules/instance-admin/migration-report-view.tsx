@@ -133,65 +133,6 @@ function MigrationReportTable(props: { readonly entries: ReadonlyArray<Migration
 	);
 }
 
-function DetailList(props: { readonly entry: MigrationReportEntry }) {
-	const { entry } = props;
-	const code = entry.code;
-	if (code === null) {
-		return null;
-	}
-	const details = entry.details.items.map(({ detail }) => detail);
-	const remaining = (entry.totalDetails ?? details.length) - details.length;
-	return (
-		<div className="flex flex-col gap-3 px-2 pb-3">
-			{details.map((detail) => (
-				<div key={detail.key} className="flex flex-col gap-1">
-					<span className="text-xs font-medium text-text">{detail.label}</span>
-					<span className="text-xs leading-5 text-text-muted">{detail.sentence}</span>
-					{migrationReportDetailProvenance(detail).map((provenance) => (
-						<div key={provenance.key} className="flex gap-2">
-							<span className="w-28 font-mono text-[11px] text-text-subtle">{provenance.key}</span>
-							<span className="min-w-0 flex-1 font-mono text-[11px] break-all text-text-muted">
-								{provenance.value}
-							</span>
-						</div>
-					))}
-				</div>
-			))}
-			{details.length > 0 ? null : (
-				<span className="text-xs text-text-subtle">
-					Per-record detail is not recorded for this check.
-				</span>
-			)}
-			{remaining > 0 ? (
-				<span className="text-xs text-text-subtle">
-					...and {remaining.toLocaleString()} more, queryable in migration_report_detail.
-				</span>
-			) : null}
-			<div>
-				<Button
-					type="button"
-					variant="secondary"
-					onClick={() =>
-						Effect.runFork(
-							shareOrCopy({
-								text: buildMigrationReportClipboardText({
-									code,
-									details,
-									phase: entry.phase,
-									message: entry.message,
-									totalDetails: entry.totalDetails,
-								}),
-							}),
-						)
-					}
-				>
-					Copy details
-				</Button>
-			</div>
-		</div>
-	);
-}
-
 function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
 	const { entry } = props;
 	const [isExpanded, setIsExpanded] = useState(false);
@@ -245,5 +186,73 @@ function MigrationReportRow(props: { readonly entry: MigrationReportEntry }) {
 				</tr>
 			) : null}
 		</>
+	);
+}
+
+function DetailList(props: { readonly entry: MigrationReportEntry }) {
+	const { entry } = props;
+	const code = entry.code;
+	if (code === null) {
+		return null;
+	}
+	const details = entry.details.items.map(({ detail }) => detail);
+	const remaining = (entry.totalDetails ?? details.length) - details.length;
+	return (
+		<div className="grid gap-3 p-4">
+			<div className="flex flex-wrap items-center justify-between gap-3">
+				<span className="text-xs text-text-subtle">
+					{details.length === 0
+						? "Per-record detail is not recorded for this check."
+						: remaining > 0 &&
+							`...and ${remaining.toLocaleString()} more, queryable in migration_report_detail.`}
+				</span>
+				<Button
+					size="sm"
+					type="button"
+					variant="secondary"
+					onClick={() =>
+						Effect.runFork(
+							shareOrCopy({
+								text: buildMigrationReportClipboardText({
+									code,
+									details,
+									phase: entry.phase,
+									message: entry.message,
+									totalDetails: entry.totalDetails,
+								}),
+							}),
+						)
+					}
+				>
+					<AppIcon size={14} name="copy" />
+					Copy details
+				</Button>
+			</div>
+			{details.length > 0 && (
+				<ul className="grid gap-2">
+					{details.map((detail) => (
+						<li
+							key={detail.key}
+							className="grid gap-2 rounded-md border border-border bg-surface px-3 py-2.5"
+						>
+							<div className="grid gap-0.5">
+								<span className="text-xs font-medium text-text">{detail.label}</span>
+								<span className="text-xs leading-5 text-text-muted">{detail.sentence}</span>
+							</div>
+							<dl className="grid grid-cols-[repeat(auto-fill,minmax(11rem,1fr))] gap-x-4 gap-y-2">
+								{migrationReportDetailProvenance(detail).map((provenance) => (
+									<div key={provenance.key} className="grid min-w-0 gap-0.5">
+										<dt className="text-[11px] text-text-subtle">{provenance.key}</dt>
+										<dd className="font-mono text-[11px] break-all text-text-muted">
+											{provenance.value}
+										</dd>
+									</div>
+								))}
+							</dl>
+						</li>
+					))}
+				</ul>
+			)}
+		</div>
 	);
 }
