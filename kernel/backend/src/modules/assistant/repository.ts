@@ -134,6 +134,20 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				}
 				return row;
 			});
+			const refreshStatus = Effect.fn("AssistantRepository.refreshStatus")(function* (
+				turnId: string,
+			) {
+				const pending = yield* session.run((db) =>
+					db.select().from(calls).where(eq(calls.turnId, turnId)),
+				);
+				return yield* bumpTurn(turnId, {
+					status: pending.some(
+						(item) => item.result === null && item.call.requiresApproval && item.decision === null,
+					)
+						? "awaiting-approval"
+						: "running",
+				});
+			});
 			const createConversation = Effect.fn("AssistantRepository.createConversation")(function* (
 				userId: UserId,
 				title: string,
@@ -428,21 +442,101 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 						.set({ result: validated, completedAt: sql`now()` })
 						.where(eq(calls.id, toolCallId)),
 				);
+				const children = yield* session.run((db) =>
+					db.select().from(calls).where(eq(calls.turnId, turnId)),
+				);
+				const unsettled = children
+					.filter(
+						(item) =>
+							item.result === null &&
+							item.call.kind === "capability" &&
+							item.call.parentId === call.call.id,
+					)
+					.map((item) => item.id);
+				if (unsettled.length > 0) {
+					yield* session.run((db) =>
+						db
+							.update(calls)
+							.set({
+								completedAt: sql`now()`,
+								result: { truncated: false, value: { error: "not-executed" } },
+							})
+							.where(inArray(calls.id, unsettled)),
+					);
+				}
 				yield* appendMessage(userId, conversationId, turnId, "tool", [
 					{ result: validated, kind: "tool-result", toolCallId: call.call.id },
 					...parts,
 				]);
-				const pending = yield* session.run((db) =>
+				return yield* refreshStatus(turnId);
+			});
+			const recordCapabilityCall = Effect.fn("AssistantRepository.recordCapabilityCall")(function* (
+				userId: UserId,
+				conversationId: string,
+				turnId: string,
+				expectedRevision: number,
+				input: AssistantToolCall,
+			) {
+				const turn = yield* lockTurn(userId, conversationId, turnId, expectedRevision);
+				const call = yield* Schema.decodeEffect(AssistantToolCall)(input);
+				if (call.kind !== "capability") {
+					return yield* fail("tool-call-not-found");
+				}
+				const existing = yield* session.run((db) =>
 					db.select().from(calls).where(eq(calls.turnId, turnId)),
 				);
-				const updated = yield* bumpTurn(turnId, {
-					status: pending.some(
-						(item) => item.result === null && item.call.requiresApproval && item.decision === null,
-					)
-						? "awaiting-approval"
-						: "running",
-				});
-				return updated;
+				const parent = existing.find((item) => item.id === call.parentId);
+				if (parent?.result !== null) {
+					return yield* fail("turn-not-active");
+				}
+				if (existing.some((item) => item.id === call.id)) {
+					return turn;
+				}
+				yield* session.run((db) =>
+					db
+						.insert(calls)
+						.values({
+							call,
+							userId,
+							turnId,
+							id: call.id,
+							conversationId,
+							round: parent.round,
+							position: Math.max(...existing.map((item) => item.position)) + 1,
+						}),
+				);
+				return yield* bumpTurn(turnId, { status: "awaiting-approval" });
+			});
+			const settleCapabilityCall = Effect.fn("AssistantRepository.settleCapabilityCall")(function* (
+				userId: UserId,
+				conversationId: string,
+				turnId: string,
+				expectedRevision: number,
+				toolCallId: string,
+				result: AgentToolResult,
+			) {
+				yield* lockTurn(userId, conversationId, turnId, expectedRevision);
+				const validated = yield* Schema.decodeEffect(AgentToolResult)(result);
+				const [call] = yield* session.run((db) =>
+					db
+						.select()
+						.from(calls)
+						.where(and(eq(calls.id, toolCallId), eq(calls.turnId, turnId)))
+						.for("update"),
+				);
+				if (call?.call.kind !== "capability") {
+					return yield* fail("tool-call-not-found");
+				}
+				if (call.result !== null || call.decision === null) {
+					return yield* fail("turn-not-active");
+				}
+				yield* session.run((db) =>
+					db
+						.update(calls)
+						.set({ result: validated, completedAt: sql`now()` })
+						.where(eq(calls.id, toolCallId)),
+				);
+				return yield* refreshStatus(turnId);
 			});
 			const loadTurn = Effect.fn("AssistantRepository.loadTurn")(function* (
 				userId: UserId,
@@ -493,6 +587,8 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				recoverableTurns,
 				createConversation,
 				deleteConversation,
+				recordCapabilityCall,
+				settleCapabilityCall,
 			};
 		}),
 	},

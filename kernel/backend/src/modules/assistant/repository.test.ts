@@ -94,18 +94,12 @@ layer(AssistantRepository.layer.pipe(Layer.provideMerge(database)))((test) => {
 			);
 			assert(running);
 			const call: AssistantToolCall = {
+				kind: "tool",
+				tool: "page_publish",
 				requiresApproval: true,
 				modelCallId: "model-call",
 				id: AssistantToolCallId.make("approval-call"),
-				arguments: { source: "source", allowWrites: true },
-				descriptor: {
-					name: "run_script",
-					description: "Script",
-					input: { type: "object" },
-					output: { type: "object" },
-					source: { kind: "run-script" },
-					hints: { readOnly: false, destructive: true, idempotent: false },
-				},
+				arguments: { pageId: "page", expectedDraftRevision: 1 },
 			};
 			const paused = yield* session.transaction(
 				repository.recordRound(owner, conversationId, queued.id, running.revision, {

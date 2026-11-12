@@ -1,19 +1,19 @@
 import { expect } from "bun:test";
 
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { BadRequest, DbError } from "@ryot-app/contract/errors";
+import { DbError } from "@ryot-app/contract/errors";
 import {
 	AssistantError,
 	type AssistantTurnFailure,
 } from "@ryot-app/contract/modules/assistant/schemas";
-import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
-import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
+import { agentTools } from "@ryot-app/contract/schema/agent-tool";
 import {
 	AssistantConversationId,
 	AssistantTurnId,
 	SavedViewId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -22,9 +22,11 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Exit, Layer, Option, Schedule, Stream } from "effect";
 
 import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
-import { agentToolDescriptorPin } from "#modules/agent-tools/service";
+import type { AgentToolOutcome } from "#modules/agent-tools/service";
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
+import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
+import { truncateJsonResult } from "#platform/tool-result";
 import { PostgresWorkflowEngine } from "#platform/workflow/engine";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import { user } from "#schema/tables/auth";
@@ -43,13 +45,13 @@ import { AssistantWorkflowLive } from "./workflow-live";
 
 const owner = UserId.make("assistant-loop-owner");
 const other = UserId.make("assistant-loop-other");
-const descriptor: AgentToolDescriptor = {
-	output: {},
-	name: "page_compile",
+const writeCapability = {
 	input: { type: "object" },
-	description: "Compile a page",
-	source: { kind: "authoring" },
-	hints: { readOnly: false, idempotent: true, destructive: false },
+	output: { type: "object" },
+	description: "Delete a page",
+	source: { kind: "kernel" as const },
+	id: CapabilityId.make("kernel:pages.delete"),
+	hints: { readOnly: false, idempotent: false, destructive: true },
 };
 const preview = {
 	pageId: "page",
@@ -123,6 +125,7 @@ const harness = Effect.fn(function* (
 		readonly failBuild?: boolean;
 		readonly alwaysCall?: boolean;
 		readonly noProvider?: boolean;
+		readonly gatedWrite?: boolean;
 		readonly failProvider?: boolean;
 		readonly interruptAfterWrite?: boolean;
 	} = {},
@@ -135,11 +138,9 @@ const harness = Effect.fn(function* (
 	let changed = false;
 	let interrupted = false;
 	let retired = false;
-	const tool = options.readOnly
-		? { ...descriptor, hints: { ...descriptor.hints, readOnly: true } }
-		: descriptor;
+	const tool = options.gatedWrite ? agentTools.execute : agentTools.page_write;
+	const requiresApproval = !options.readOnly && !options.gatedWrite;
 	const runtime = yield* makeAssistantTurnRuntime({
-		sdk: "SDK reference",
 		checkAccount: () =>
 			retired
 				? Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }))
@@ -178,34 +179,41 @@ const harness = Effect.fn(function* (
 		},
 		tools: {
 			listTrusted: () => Effect.succeed([tool]),
-			validateTrusted: (_userId, input) =>
-				changed && input.descriptorPin !== undefined
-					? Effect.fail(new BadRequest({ message: "Descriptor changed" }))
-					: Effect.succeed({
-							tool,
-							hints: tool.hints,
-							requiresApproval: !tool.hints.readOnly,
-							descriptorPin: agentToolDescriptorPin(tool),
-						}),
+			validateTrusted: () =>
+				Effect.succeed({ tool, requiresApproval: changed ? !requiresApproval : requiresApproval }),
 			callTrusted: (userId, input) =>
 				Effect.gen(function* () {
 					invocations.push(input.idempotencyKey);
 					if (options.failBuild) {
-						return yield* new PageAuthoringError({
-							reason: {
-								code: "build-failed",
-								diagnostics: [
-									{
-										line: 1,
-										column: 3,
-										code: "TS2304",
-										file: "page.tsx",
-										severity: "error",
-										message: "Unknown identifier",
-									},
-								],
-							},
-						});
+						return {
+							state: "completed",
+							result: truncateJsonResult({ code: "TS2304", error: "build-failed" }),
+						} satisfies AgentToolOutcome;
+					}
+					if (options.gatedWrite) {
+						const write = { index: 0, input: { pageId: "page" }, capability: writeCapability };
+						const decision = yield* input.gate
+							.authorize(write)
+							.pipe(
+								Effect.catch((error) =>
+									error instanceof AgentRunSuspended ? Effect.succeed(null) : Effect.die(error),
+								),
+							);
+						if (decision === null) {
+							return { state: "suspended" } satisfies AgentToolOutcome;
+						}
+						if (!decision.approved) {
+							return {
+								state: "completed",
+								result: truncateJsonResult({ refused: decision.reason }),
+							} satisfies AgentToolOutcome;
+						}
+						writes.push(input.idempotencyKey);
+						yield* input.gate.settle(write, { state: "success", value: { deleted: true } });
+						return {
+							state: "completed",
+							result: truncateJsonResult({ deleted: true }),
+						} satisfies AgentToolOutcome;
 					}
 					const result = yield* session
 						.transaction(
@@ -228,7 +236,7 @@ const harness = Effect.fn(function* (
 						interrupted = true;
 						return yield* Effect.interrupt;
 					}
-					return result;
+					return { result, preview, state: "completed" } satisfies AgentToolOutcome;
 				}),
 		},
 	});
@@ -309,47 +317,105 @@ layer(services, { excludeTestServices: true })((test) => {
 			}),
 	);
 
-	test.effect("decline never dispatches and a changed descriptor cannot use a prior approval", () =>
+	test.effect("pauses execute at each write for approval and resumes the same execution", () =>
 		Effect.gen(function* () {
 			const repository = yield* AssistantRepository;
-			const session = yield* DatabaseSession;
-			for (const decision of ["decline", "approve"] as const) {
-				const setup = yield* harness();
+			for (const decision of ["approve", "decline"] as const) {
+				const setup = yield* harness({ gatedWrite: true });
 				const payload = yield* admit();
-				const round = yield* setup.runtime.generate(payload, 1);
-				yield* setup.runtime.recordRound(payload, 1, round);
-				const state = yield* repository.loadTurn(owner, payload.turnId);
-				assert(state);
-				const call = state.calls[0];
-				assert(call);
-				yield* session.transaction(
-					repository.decide(owner, {
+				yield* Effect.gen(function* () {
+					const service = yield* makeAssistantService(account);
+					yield* service.recover();
+					yield* until(
+						repository
+							.loadTurn(owner, payload.turnId)
+							.pipe(Effect.map((state) => state?.turn.status === "awaiting-approval")),
+					);
+					const state = yield* repository.loadTurn(owner, payload.turnId);
+					assert(state);
+					const [parent, child] = state.calls;
+					assert(parent?.call.kind === "tool" && child?.call.kind === "capability");
+					expect(parent.call.requiresApproval).toBe(false);
+					expect(child.call.parentId).toBe(parent.call.id);
+					expect(child.call.capability).toEqual(writeCapability);
+					expect(setup.writes).toEqual([]);
+					yield* service.decide(owner, {
 						decision,
-						toolCallId: call.id,
-						turnId: payload.turnId,
-						expectedRevision: call.revision,
-						conversationId: state.turn.conversationId,
-					}),
-				);
-				setup.changeDescriptor();
-				yield* setup.runtime.dispatch(payload, call.id);
-				expect(setup.invocations).toEqual([]);
-				const result = yield* repository.loadTurn(owner, payload.turnId);
-				assert(result);
-				expect(result.calls[0]?.result).toEqual(
-					decision === "decline"
-						? { truncated: false, value: { declined: true } }
-						: {
-								truncated: false,
-								value: {
-									error: "tool-failed",
-									instruction:
-										"The call was refused or failed. Discover the current tool and ask for approval again if needed.",
-								},
-							},
-				);
+						toolCallId: child.call.id,
+						expectedRevision: child.revision,
+						turnId: AssistantTurnId.make(payload.turnId),
+						conversationId: AssistantConversationId.make(state.turn.conversationId),
+					});
+					yield* until(
+						repository
+							.loadTurn(owner, payload.turnId)
+							.pipe(Effect.map((current) => current?.turn.status === "completed")),
+					);
+				}).pipe(withEngine(engineFor(setup.runtime)));
+				const finished = yield* repository.loadTurn(owner, payload.turnId);
+				assert(finished);
+				const [parent, child] = finished.calls;
+				expect(child?.result).toEqual({
+					truncated: false,
+					value: decision === "approve" ? { deleted: true } : { declined: true },
+				});
+				expect(parent?.result).toEqual({
+					truncated: false,
+					value:
+						decision === "approve"
+							? { deleted: true }
+							: { refused: "The user declined this write" },
+				});
+				expect(setup.writes).toHaveLength(decision === "approve" ? 1 : 0);
+				expect(setup.generated()).toBe(2);
 			}
 		}),
+	);
+
+	test.effect(
+		"decline never dispatches and a changed approval requirement cannot use a prior approval",
+		() =>
+			Effect.gen(function* () {
+				const repository = yield* AssistantRepository;
+				const session = yield* DatabaseSession;
+				for (const decision of ["decline", "approve"] as const) {
+					const setup = yield* harness();
+					const payload = yield* admit();
+					const round = yield* setup.runtime.generate(payload, 1);
+					yield* setup.runtime.recordRound(payload, 1, round);
+					const state = yield* repository.loadTurn(owner, payload.turnId);
+					assert(state);
+					const call = state.calls[0];
+					assert(call);
+					yield* session.transaction(
+						repository.decide(owner, {
+							decision,
+							toolCallId: call.id,
+							turnId: payload.turnId,
+							expectedRevision: call.revision,
+							conversationId: state.turn.conversationId,
+						}),
+					);
+					setup.changeDescriptor();
+					yield* setup.runtime.dispatch(payload, call.id);
+					expect(setup.invocations).toEqual([]);
+					const result = yield* repository.loadTurn(owner, payload.turnId);
+					assert(result);
+					expect(result.calls[0]?.result).toEqual(
+						decision === "decline"
+							? { truncated: false, value: { declined: true } }
+							: {
+									truncated: false,
+									value: {
+										error: "tool-failed",
+										message: "The tool's approval requirement changed",
+										instruction:
+											"The call was refused or failed. Correct it or ask for approval again if needed.",
+									},
+								},
+					);
+				}
+			}),
 	);
 
 	test.effect("replays after an owner write commits without duplicating writes or text", () =>

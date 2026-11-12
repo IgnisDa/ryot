@@ -13,6 +13,7 @@ import {
 	PublicationId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
+import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { assistantConversationRecipe } from "@ryot-app/ryotql-recipes/assistant";
 import { pageRecipe } from "@ryot-app/ryotql-recipes/pages";
@@ -55,17 +56,30 @@ const call = {
 	id: toolCallId,
 	decision: null,
 	call: {
+		kind: "tool",
 		arguments: {},
 		id: toolCallId,
+		tool: "page_write",
 		requiresApproval: true,
 		modelCallId: "model-call",
-		descriptor: {
+	},
+} satisfies Parameters<typeof AssistantApprovalCard>[0]["call"];
+const capabilityCall = {
+	...call,
+	call: {
+		arguments: {},
+		hostCallIndex: 0,
+		kind: "capability",
+		parentId: toolCallId,
+		requiresApproval: true,
+		id: AssistantToolCallId.make("write-call"),
+		capability: {
 			input: {},
 			output: {},
-			name: "page_create",
-			source: { kind: "authoring" },
-			description: "Create your page",
-			hints: { readOnly: false, idempotent: true, destructive: false },
+			source: { kind: "kernel" },
+			description: "Review the latest change",
+			id: CapabilityId.make("kernel:saved-views.update"),
+			hints: { readOnly: false, idempotent: false, destructive: false },
 		},
 	},
 } satisfies Parameters<typeof AssistantApprovalCard>[0]["call"];
@@ -278,18 +292,7 @@ it.live(
 									parts: [{ kind: "text", text: `Earlier reply ${i}` }],
 								}));
 						const calls = callsAfter
-							? [
-									{
-										...call,
-										call: {
-											...call.call,
-											descriptor: {
-												...call.call.descriptor,
-												description: "Review the latest change",
-											},
-										},
-									},
-								]
+							? [capabilityCall]
 							: Array.from({ length: 100 }, (_, i) => ({
 									...call,
 									id: `old-call-${i}`,
@@ -588,8 +591,8 @@ it.live(
 	"shows the stored write intent and all long source text before approval",
 	() =>
 		Effect.gen(function* () {
-			const source = `${"// source\n".repeat(1100)}invokeOperation("remove", { id: "last-target" });`;
-			const args = { source, allowWrites: true, page: { content: btoa(source) } };
+			const source = `${"// source\n".repeat(1100)}ryot.call("remove", { id: "last-target" });`;
+			const args = { code: source, readOnly: true, page: { content: btoa(source) } };
 			const decisions: DecideAssistantToolCallBody[] = [];
 			const view = mountHostedTestScreen(
 				<AssistantApprovalCard
@@ -610,9 +613,9 @@ it.live(
 				},
 			);
 			try {
-				expect(yield* Effect.promise(() => screen.findByText("page_create"))).toBeDefined();
+				expect(yield* Effect.promise(() => screen.findByText("page_write"))).toBeDefined();
 				yield* Effect.promise(() => screen.findByLabelText("Exact call arguments"));
-				expect(screen.getByText("allowWrites")).toBeDefined();
+				expect(screen.getByText("readOnly")).toBeDefined();
 				expect(screen.getByText("true")).toBeDefined();
 
 				let inspected = screen.getByLabelText("Exact call arguments").textContent;

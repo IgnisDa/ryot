@@ -1,17 +1,5 @@
 # Assistant
 
-## SDK Reference Loading
-
-`sdk-reference.ts` exports `loadAssistantSdkReference`, an Effect requiring `FileSystem` that
-returns the page-authoring system-prompt reference. The turn workflow loads it when constructing
-the model prompt. Unbundled TypeScript execution generates from current SDK sources through
-`@ryot-app/plugin-client-compiler/sdk-reference`; bundled JavaScript reads
-`assistant-sdk-reference.md` beside the bundle/shared chunks. Server build tooling generates that
-file before bundling. Loading failures propagate; there is no checked-in or stale fallback.
-
-The compiler owns registry filtering and API extraction. SDKs own guidance and compilable examples.
-The backend never imports server build tooling. The generated file must be deployed with `dist/`.
-
 ## Conversation persistence
 
 `AssistantRepository.layer` requires `DatabaseSession`. Services own transactions: every mutation
@@ -33,14 +21,20 @@ The repository exports:
   deterministic text message for an unfinished round; committed rounds are immutable. The caller
   omits this text from `recordRound`.
 - `recordRound(userId, conversationId, turnId, expectedRevision, { text, calls, parts? })` → updated
-  turn. Stores the completed model round, immutable call arguments and full descriptor pins;
-  `parts` may carry revision-bound page previews. Approval-requiring calls pause the turn.
+  turn. Stores the completed model round's tool calls with immutable arguments; `parts` may carry
+  revision-bound page previews. Approval-requiring calls pause the turn.
+- `recordCapabilityCall(userId, conversationId, turnId, expectedRevision, call)` → updated turn.
+  Stores an approval-requiring capability write requested by an unfinished `execute` call, with the
+  pinned capability, and pauses the turn. Recording the same call ID again is a no-op.
+- `settleCapabilityCall(userId, conversationId, turnId, expectedRevision, toolCallId, result)` →
+  updated turn. Stores a decided capability write's outcome without appending a message.
 - `decide(userId, { conversationId, turnId, toolCallId, expectedRevision, decision })` → updated
   call. Here `expectedRevision` fences the **call**, not the turn. The same decision replays; a
   competing decision fails. Persisting a decision also advances the turn revision.
 - `recordResult(userId, conversationId, turnId, expectedRevision, toolCallId, result)` → updated
   turn. Requires a recorded decision for approval-requiring calls. The service supplies the declined
   result without dispatching the tool. The result uses the shared bounded `AgentToolResult` envelope.
+  Capability writes of that call still without a result are marked not executed.
 - `loadTurn(userId, turnId)` → `{ turn, messages, calls } | null`. Messages contain the entire
   conversation in sequence order; calls contain this turn's pinned calls in round/position order.
 - `recoverableTurns` (an Effect) → queued/running/awaiting-approval rows for trusted workflow recovery.
@@ -48,8 +42,8 @@ The repository exports:
 Turn mutations fence the expected turn revision. A revision conflict means reload persisted state;
 never dispatch a tool based on an uncommitted decision. Provider runtime persistence is owned by its
 separate repository; `assistantProvider.encryptedApiKey` stores the existing `SubkeyCiphertext`
-envelope, and provider rows have no RyotQL catalog binding. The loop must retain the descriptor pin
-when dispatching tools and use stable call-based idempotency keys for external side effects.
+envelope, and provider rows have no RyotQL catalog binding. The loop must use stable call-based
+idempotency keys for external side effects.
 
 The kernel-only owner-scoped catalog exposes `assistantConversation`, `assistantMessage`,
 `assistantTurn` and `assistantToolCall`. It exposes neither provider keys nor provider settings.
@@ -89,10 +83,11 @@ requires an injected `HttpClient` for transport tests; workflow tests can instea
 `AssistantModelEvent` values: text deltas, complete JSON tool calls preserving `modelCallId`, and
 finish reasons. It uses `@effect/ai-openai-compat` `OpenAiClient` and `OpenAiLanguageModel` with
 Effect `LanguageModel` streaming. The adapter handles Chat Completions and fragmented tool
-arguments. Tool resolution is disabled and validation deferred, leaving descriptor validation,
+arguments. Tool resolution is disabled and validation deferred, leaving argument validation,
 approvals, dispatch, retry and round policy to the durable workflow. Provider-executed calls fail.
-`assistantProviderPrompt(system, messages)` converts persisted text, calls and results to an
-Effect prompt using the original provider call IDs; UI approval and preview parts are omitted.
+`assistantProviderPrompt(system, messages)` converts persisted text, model tool calls and results
+to an Effect prompt using the original provider call IDs; UI approval and preview parts and
+capability writes are omitted.
 
 Each request is capped at 1 MiB of serialized prompt/tool input, 8192 generated tokens, 256 KiB of
 streamed parts, 16,384 parts and two minutes including connection/header wait. Provider errors
@@ -112,30 +107,36 @@ conversations, provider overrides and account-owned workflow executions.
 
 Each model round is an activity. Text batches update one deterministic message for that round;
 restarting an unfinished model request replaces that message instead of appending replayed deltas.
-The completed round, including validated call arguments and descriptors, enters the workflow journal
-before its immutable calls are committed or dispatched. Calls execute sequentially with stable
-turn/round/position identities and call-based owner replay keys. The registry derives approval from
-validated argument-sensitive hints, and revalidates the persisted descriptor pin before dispatch.
-A changed descriptor refuses the call; the next round must discover and approve a new call.
+The completed round, including validated call arguments, enters the workflow journal before its
+immutable calls are committed or dispatched. Calls execute sequentially with stable
+turn/round/position identities and call-based owner replay keys. The [agent tools](../agent-tools/README.md)
+registry decides which tools require call approval (`page_write`, `page_publish`) and revalidates
+that requirement before dispatch; a changed requirement refuses the call.
+
+`execute` writes are approved one at a time. The turn's write gate records each write as a
+capability call (ID `<execute call>:write:<host call index>`) and suspends the execution; the
+workflow awaits that call's decision and dispatches the same `execute` call again, which replays its
+settled host calls and resumes at the write. An approved write dispatches only if the pinned
+capability still matches the current catalog; declined or changed writes throw inside the code.
+Each write's outcome is stored on its capability call.
 
 A decision commits before its durable deferred is completed. Workflow replay reads the persisted
 decision, covering a process exit between those operations. Duplicate decisions replay; competing
 and stale decisions fail. Declines persist a tool result without dispatch. All registry writes,
-including page draft creation, editing and compilation, require approval. Demo accounts cannot
-decide, save pages or change provider settings. Agent-script replay is owned by its execution
-receipt: interrupted or uncertain scripts remain refused rather than being rerun.
+including page writes and every `execute` write, require approval. Demo accounts cannot decide, save
+pages or change provider settings. Agent-script replay is owned by its persisted journal.
 
 The loop permits twelve model rounds and at most 32 calls in a round. The shared tool-result owner
 bounds each result to 64 KiB. Model context retains a bounded suffix of messages, keeping each tool
-call and all its results together; persisted history is never trimmed. The complete generated SDK reference remains in every system prompt. Context selection also
-measures the exact serialized prompt and current tool descriptors against the adapter's 1 MiB request
-cap; it drops whole history groups rather than authoring guidance. A request that cannot fit its core
-guidance and recent context fails. The model adapter separately bounds generated output, event
+call and all its results together; persisted history is never trimmed. The system prompt is short
+and points to `read_docs` for authoring guidance. Context selection also measures the exact
+serialized prompt and current tool descriptors against the adapter's 1 MiB request cap; it drops
+whole history groups. A request that cannot fit recent context fails. The model adapter separately bounds generated output, event
 count, tokens and request duration. Provider failures
 persist only public failure codes. Compiler failures instead become bounded repair results containing
 the actual build diagnostics.
 
-Successful `page_compile` calls persist a `page-preview` beside the tool result in the same
+Successful `page_write` calls persist a `page-preview` beside the tool result in the same
 transaction. `AssistantSavePage` verifies that the caller's selected turn contains the exact preview
 identity and that the current compiled draft still matches. Save pins the complete command input,
 then publishes through page authoring and creates a page saved view through its owner, using stable
@@ -157,7 +158,8 @@ queued admissions and opening the HTTP listener.
 Account backups retain conversations, ordered messages, turn history, pinned calls, approval
 decisions and results through the [backup pipeline](../backups/README.md#assistant-history).
 Restore remaps owner and typed record/page identities and interrupts formerly active turns.
-Unfinished calls receive inert interrupted results, so approved or undecided history cannot execute.
+Unfinished calls receive inert interrupted results, so approved or undecided history cannot execute;
+capability writes keep their parent call and receive no tool-result message.
 Opaque text and tool payloads remain unchanged. Historical draft previews need preparation again,
 because backups omit draft artifacts and compiled markers; deleted page previews become unavailable
 text. No workflow, wake or provider execution is restored.

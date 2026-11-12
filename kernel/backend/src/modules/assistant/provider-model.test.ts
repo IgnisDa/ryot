@@ -15,10 +15,9 @@ import { withEgressPolicy } from "#platform/egress/http-client";
 import { AssistantModel, AssistantModelError, type AssistantModelRequest } from "./provider-model";
 
 const tool: AgentToolDescriptor = {
-	output: {},
-	name: "lookup",
+	name: "search",
+	approval: "none",
 	description: "Read records",
-	source: { kind: "describe-data" },
 	hints: { readOnly: true, idempotent: true, destructive: false },
 	input: { type: "object", required: ["query"], properties: { query: { type: "string" } } },
 };
@@ -54,7 +53,7 @@ const response = () =>
 						index: 0,
 						type: "function",
 						id: "model-call-1",
-						function: { name: "lookup", arguments: '{"query":' },
+						function: { name: "search", arguments: '{"query":' },
 					},
 				],
 			}),
@@ -90,7 +89,7 @@ it.effect(
 			).toBe("Found records");
 			expect(events.filter((event) => event.type === "tool-call")).toEqual([
 				{
-					name: "lookup",
+					name: "search",
 					type: "tool-call",
 					modelCallId: "model-call-1",
 					arguments: { query: "recent" },
@@ -139,7 +138,7 @@ it.effect(
 								index: 0,
 								id: "bad",
 								type: "function",
-								function: { name: "lookup", arguments: "invalid-json" },
+								function: { name: "search", arguments: "invalid-json" },
 							},
 						],
 					}) +

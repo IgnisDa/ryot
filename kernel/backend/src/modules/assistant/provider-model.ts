@@ -179,7 +179,9 @@ export const assistantProviderPrompt = (
 	const calls = new Map(
 		messages.flatMap((message) =>
 			message.parts.flatMap((part) =>
-				part.kind === "tool-call" ? [[part.call.id, part.call] as const] : [],
+				part.kind === "tool-call" && part.call.kind === "tool"
+					? [[part.call.id, part.call] as const]
+					: [],
 			),
 		),
 	);
@@ -198,13 +200,13 @@ export const assistantProviderPrompt = (
 				if (part.kind === "text") {
 					return [Prompt.makePart("text", { text: part.text })];
 				}
-				if (part.kind === "tool-call") {
+				if (part.kind === "tool-call" && part.call.kind === "tool") {
 					return [
 						Prompt.makePart("tool-call", {
+							name: part.call.tool,
 							providerExecuted: false,
 							id: part.call.modelCallId,
 							params: part.call.arguments,
-							name: part.call.descriptor.name,
 						}),
 					];
 				}
@@ -224,11 +226,11 @@ export const assistantProviderPrompt = (
 				}
 				return [
 					Prompt.makePart("tool-result", {
+						name: call.tool,
 						isFailure: false,
 						result: part.result,
 						id: call.modelCallId,
 						providerExecuted: false,
-						name: call.descriptor.name,
 					}),
 				];
 			});

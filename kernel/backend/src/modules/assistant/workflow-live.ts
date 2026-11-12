@@ -22,6 +22,21 @@ export const AssistantWorkflowLive = Layer.unwrap(
 		const runtime = yield* AssistantTurnRuntime;
 		return implementWorkflow(AssistantTurnWorkflow, (payload: AssistantTurnPayload) =>
 			Effect.gen(function* () {
+				const awaitDecision = Effect.fn(function* (callId: string) {
+					const decision = yield* runtime
+						.decision(payload, callId)
+						.pipe(Effect.mapError(executionFailure));
+					if (decision === null) {
+						yield* DurableDeferred.await(assistantApproval(callId));
+					}
+				});
+				const dispatch = (name: string, callId: string) =>
+					makeActivity({
+						name,
+						error: AssistantTurnFailure,
+						success: Schema.NullOr(Schema.String),
+						execute: runtime.dispatch(payload, callId).pipe(Effect.mapError(executionFailure)),
+					});
 				if (!(yield* runtime.isActive(payload).pipe(Effect.mapError(executionFailure)))) {
 					return undefined;
 				}
@@ -43,14 +58,13 @@ export const AssistantWorkflowLive = Layer.unwrap(
 					yield* activity(`round:${round}:persist`, runtime.recordRound(payload, round, result));
 					for (const call of result.calls) {
 						if (call.requiresApproval) {
-							const decision = yield* runtime
-								.decision(payload, call.id)
-								.pipe(Effect.mapError(executionFailure));
-							if (decision === null) {
-								yield* DurableDeferred.await(assistantApproval(call.id));
-							}
+							yield* awaitDecision(call.id);
 						}
-						yield* activity(`call:${call.id}`, runtime.dispatch(payload, call.id));
+						let pending = yield* dispatch(`call:${call.id}`, call.id);
+						while (pending !== null) {
+							yield* awaitDecision(pending);
+							pending = yield* dispatch(`call:${call.id}:after:${pending}`, call.id);
+						}
 					}
 					if (result.calls.length === 0) {
 						yield* activity("complete", runtime.finish(payload, null));

@@ -5,16 +5,19 @@ import {
 	AssistantToolCall,
 	type AssistantTurnFailure,
 } from "@ryot-app/contract/modules/assistant/schemas";
-import { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import { AssistantToolCallId, type UserId } from "@ryot-app/contract/schema/brands";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Context, Effect, Layer, Option, Schema, Stream } from "effect";
+import { Context, Effect, Layer, Schema, Stream } from "effect";
 
 import { AuthService } from "#modules/accounts/auth/service";
-import { agentToolDescriptorPin, AgentToolsService } from "#modules/agent-tools/service";
+import { capabilityPin } from "#modules/agent-tools/catalog";
+import type { WriteGate, WriteRequest } from "#modules/agent-tools/execute";
+import { AgentToolsService } from "#modules/agent-tools/service";
 import { publishAssistantUpdated } from "#modules/live-updates/publish";
 import { AccountAdmission } from "#modules/mutations/account-admission";
+import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
 import { defaultResultByteBudget, truncateJsonResult } from "#platform/tool-result";
 
@@ -26,28 +29,35 @@ import {
 	assistantProviderPrompt,
 } from "./provider-model";
 import { AssistantRepository } from "./repository";
-import { loadAssistantSdkReference } from "./sdk-reference";
 
 export const AssistantRound = Schema.Struct({ calls: Schema.Array(AssistantToolCall) });
 export type AssistantRound = typeof AssistantRound.Type;
 export type AssistantTurnPayload = { readonly userId: UserId; readonly turnId: string };
 
 const failure = (code: AssistantTurnFailure["code"]): AssistantTurnFailure => ({ code });
-const toolFailure = (): AgentToolResult =>
+const toolFailure = (error: { readonly message: string }): AgentToolResult =>
 	truncateJsonResult({
 		error: "tool-failed",
-		instruction:
-			"The call was refused or failed. Discover the current tool and ask for approval again if needed.",
+		message: error.message,
+		instruction: "The call was refused or failed. Correct it or ask for approval again if needed.",
 	});
+const assistantSystemPrompt =
+	"You are Ryobot, the assistant inside Ryot. Inspect current data with tools instead of guessing. Find capabilities with search, then run them with execute; combine related calls in one execute and return only the fields you need. Every persisted write, including page authoring, requires user approval. Never claim a declined or failed call succeeded. Before building a page, read the pages documentation with read_docs. Write pages with page_write, repair compiler diagnostics with bounded changes and write again until the preview succeeds. Saving publishes a page and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.";
+
+const promptFor = (messages: readonly Pick<AssistantMessage, "role" | "parts">[]) =>
+	assistantProviderPrompt(
+		assistantSystemPrompt,
+		messages.filter(
+			(message) => message.role !== "user" || message.parts.some((part) => part.kind === "text"),
+		),
+	);
 
 export const makeAssistantTurnRuntime = Effect.fn(function* ({
-	sdk,
 	tools,
 	model,
 	providers,
 	checkAccount,
 }: {
-	readonly sdk: string;
 	readonly model: AssistantModel["Service"];
 	readonly providers: Pick<AssistantProviderConfiguration["Service"], "effective">;
 	readonly tools: Pick<
@@ -125,15 +135,6 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			return yield* Effect.fail(failure("provider-unavailable"));
 		}
 		const available = yield* tools.listTrusted(payload.userId);
-		const system = `You are an assistant. Use tools to inspect current data. All persisted writes, including page authoring, require user approval. Repair page compiler diagnostics with bounded changes, compile again, and show the successful preview. Saving publishes a page and creates a saved view; sharing uses the publication UI. Never claim a declined or failed call succeeded.\n\n${sdk}`;
-		const promptFor = (messages: readonly Pick<AssistantMessage, "role" | "parts">[]) =>
-			assistantProviderPrompt(
-				system,
-				messages.filter(
-					(message) =>
-						message.role !== "user" || message.parts.some((part) => part.kind === "text"),
-				),
-			);
 		const history = assistantContext(
 			state.messages.filter((message) => message.id !== `${payload.turnId}:round:${round}:text`),
 			assistantContextByteBudget,
@@ -177,7 +178,10 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 						}
 					} else if (event.type === "tool-call") {
 						if (
-							calls.some((candidate) => candidate.modelCallId === event.modelCallId) ||
+							calls.some(
+								(candidate) =>
+									candidate.kind === "tool" && candidate.modelCallId === event.modelCallId,
+							) ||
 							calls.length >= 32
 						) {
 							return yield* Effect.fail(failure("provider-failed"));
@@ -187,8 +191,9 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 							arguments: event.arguments,
 						});
 						calls.push({
+							kind: "tool",
+							tool: validated.tool.name,
 							arguments: event.arguments,
-							descriptor: validated.tool,
 							modelCallId: event.modelCallId,
 							requiresApproval: validated.requiresApproval,
 							id: AssistantToolCallId.make(`${payload.turnId}:${round}:${calls.length}`),
@@ -248,6 +253,92 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			? "decline"
 			: call.decision;
 	});
+	const latest = <A, E, R>(
+		payload: AssistantTurnPayload,
+		effect: (turn: {
+			readonly revision: number;
+			readonly conversationId: string;
+		}) => Effect.Effect<A, E, R>,
+	) =>
+		load(payload).pipe(
+			Effect.flatMap((state) => effect(state.turn)),
+			Effect.retry({
+				times: 32,
+				while: (error) => error instanceof AssistantError && error.reason.code === "revision-stale",
+			}),
+		);
+	const gate = (payload: AssistantTurnPayload, parentId: AssistantToolCallId): WriteGate => {
+		const childId = (index: number) => AssistantToolCallId.make(`${parentId}:write:${index}`);
+		const settle = (index: number, value: JsonValue) =>
+			latest(payload, (turn) =>
+				write(
+					payload.userId,
+					repository.settleCapabilityCall(
+						payload.userId,
+						turn.conversationId,
+						payload.turnId,
+						turn.revision,
+						childId(index),
+						truncateJsonResult(value),
+					),
+				),
+			);
+		const authorize = (request: WriteRequest) =>
+			Effect.gen(function* () {
+				const state = yield* load(payload).pipe(Effect.orDie);
+				const child = state.calls.find((candidate) => candidate.id === childId(request.index));
+				if (!child) {
+					yield* latest(payload, (turn) =>
+						write(
+							payload.userId,
+							repository.recordCapabilityCall(
+								payload.userId,
+								turn.conversationId,
+								payload.turnId,
+								turn.revision,
+								{
+									parentId,
+									kind: "capability",
+									requiresApproval: true,
+									arguments: request.input,
+									id: childId(request.index),
+									hostCallIndex: request.index,
+									capability: request.capability,
+								},
+							),
+						),
+					).pipe(Effect.orDie);
+					return yield* new AgentRunSuspended();
+				}
+				if (child.decision === null) {
+					return yield* new AgentRunSuspended();
+				}
+				if (child.call.kind !== "capability" || child.decision === "decline") {
+					if (child.result === null) {
+						yield* settle(request.index, { declined: true }).pipe(Effect.orDie);
+					}
+					return { approved: false, reason: "The user declined this write" } as const;
+				}
+				if (capabilityPin(child.call.capability) !== capabilityPin(request.capability)) {
+					if (child.result === null) {
+						yield* settle(request.index, { error: "capability-changed" }).pipe(Effect.orDie);
+					}
+					return {
+						approved: false,
+						reason: "The capability changed after approval; call it again to request approval",
+					} as const;
+				}
+				return { approved: true } as const;
+			});
+		return {
+			authorize,
+			settle: (request, outcome) =>
+				settle(
+					request.index,
+					outcome.state === "success" ? outcome.value : { error: outcome.message },
+				).pipe(Effect.orDie),
+		};
+	};
 	const dispatch = Effect.fn("AssistantTurnRuntime.dispatch")(function* (
 		payload: AssistantTurnPayload,
 		callId: string,
@@ -257,76 +348,75 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		if (!stored) {
 			return yield* new AssistantError({ reason: { code: "tool-call-not-found" } });
 		}
+		const call = stored.call;
 		if (
+			call.kind !== "tool" ||
 			stored.result !== null ||
 			!["queued", "running", "awaiting-approval"].includes(state.turn.status)
 		) {
-			return undefined;
+			return null;
 		}
-		const call = stored.call;
 		if (call.requiresApproval && stored.decision === null) {
 			return yield* new AssistantError({ reason: { code: "turn-not-active" } });
 		}
+		const parts: AssistantMessagePart[] = [];
 		let result: AgentToolResult;
 		if (stored.decision === "decline") {
 			result = truncateJsonResult({ declined: true });
 		} else {
 			const input = {
+				name: call.tool,
 				arguments: call.arguments,
-				name: call.descriptor.name,
+				gate: gate(payload, call.id),
 				byteBudget: defaultResultByteBudget,
-				descriptorPin: agentToolDescriptorPin(call.descriptor),
 				idempotencyKey: `assistant:${payload.turnId}:${call.id}`,
 			};
-			result = yield* Effect.gen(function* () {
+			const outcome = yield* Effect.gen(function* () {
 				const validated = yield* tools.validateTrusted(payload.userId, input);
 				if (validated.requiresApproval !== call.requiresApproval) {
-					return toolFailure();
+					return {
+						state: "completed" as const,
+						result: toolFailure({ message: "The tool's approval requirement changed" }),
+					};
 				}
 				return yield* tools.callTrusted(payload.userId, input);
 			}).pipe(
-				Effect.catch((error) => {
-					if (error._tag === "PageAuthoringError" && error.reason.code === "build-failed") {
-						return Effect.succeed(
-							truncateJsonResult({
-								error: "build-failed",
-								diagnostics: error.reason.diagnostics,
-								instruction: "Repair these compiler diagnostics and compile the same page again.",
-							}),
-						);
-					}
-					return Effect.succeed(toolFailure());
-				}),
+				Effect.catch((error) =>
+					Effect.succeed({ result: toolFailure(error), state: "completed" as const }),
+				),
 			);
-		}
-		const parts: AssistantMessagePart[] = [];
-		if (call.descriptor.name === "page_compile" && !result.truncated) {
-			const preview = Schema.decodeUnknownOption(PageDraftBuildIdentity)(result.value);
-			if (Option.isSome(preview)) {
-				parts.push({ kind: "page-preview", ...preview.value });
+			if (outcome.state === "suspended") {
+				const pending = (yield* load(payload)).calls.find(
+					(candidate) =>
+						candidate.call.kind === "capability" &&
+						candidate.call.parentId === call.id &&
+						candidate.result === null,
+				);
+				if (!pending) {
+					return yield* Effect.die("Suspended execution has no pending write");
+				}
+				return pending.call.id;
+			}
+			result = outcome.result;
+			if ("preview" in outcome) {
+				parts.push({ kind: "page-preview", ...outcome.preview });
 			}
 		}
-		yield* Effect.gen(function* () {
-			const latest = yield* load(payload);
-			yield* write(
+		yield* latest(payload, (turn) =>
+			write(
 				payload.userId,
 				repository.recordResult(
 					payload.userId,
-					latest.turn.conversationId,
+					turn.conversationId,
 					payload.turnId,
-					latest.turn.revision,
+					turn.revision,
 					callId,
 					result,
 					parts,
 				),
-			);
-		}).pipe(
-			Effect.retry({
-				times: 32,
-				while: (error) => error instanceof AssistantError && error.reason.code === "revision-stale",
-			}),
+			),
 		);
-		return undefined;
+		return null;
 	});
 	const finish = Effect.fn("AssistantTurnRuntime.finish")(function* (
 		payload: AssistantTurnPayload,
@@ -359,7 +449,6 @@ export class AssistantTurnRuntime extends Context.Service<AssistantTurnRuntime>(
 			return yield* makeAssistantTurnRuntime({
 				model: yield* AssistantModel,
 				tools: yield* AgentToolsService,
-				sdk: yield* loadAssistantSdkReference,
 				providers: yield* AssistantProviderConfiguration,
 				checkAccount: (userId) => auth.resolveTrustedAccount(userId).pipe(Effect.asVoid),
 			});

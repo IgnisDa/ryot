@@ -1,4 +1,5 @@
 import type { AssistantApprovalDecision } from "@ryot-app/contract/modules/assistant/schemas";
+import { agentTools } from "@ryot-app/contract/schema/agent-tool";
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
 import {
 	nextPageCursor,
@@ -63,6 +64,8 @@ export function AssistantApprovalCard(props: {
 				})
 				.pipe(Effect.ignore),
 		);
+	const subject = call.call.kind === "tool" ? agentTools[call.call.tool] : call.call.capability;
+	const name = call.call.kind === "tool" ? call.call.tool : call.call.capability.id;
 	let status = "Waiting for Ryobot";
 	if (call.decision === "approve") {
 		status = "Approved";
@@ -76,13 +79,13 @@ export function AssistantApprovalCard(props: {
 
 	return (
 		<Card className="grid gap-3">
-			<p className="font-medium">{call.call.descriptor.name}</p>
-			<p>{call.call.descriptor.description}</p>
+			<p className="font-medium">{name}</p>
+			<p>{subject.description}</p>
 			<AssistantCallArguments arguments={call.call.arguments} key={`${call.id}:${call.revision}`} />
 			{pending ? (
 				<>
 					<p>
-						{call.call.descriptor.hints.destructive
+						{subject.hints.destructive
 							? "This action may permanently change or remove data."
 							: "Ryobot needs your approval to make this change."}
 					</p>
