@@ -41,6 +41,7 @@ import {
 	Path,
 	type PlatformError,
 	Random,
+	Result,
 	Schema,
 	Stream,
 } from "effect";
@@ -92,27 +93,33 @@ const readPackageJson = Effect.fn("readPackageJson")(function* (directory: strin
 	);
 });
 
-const importManifest = Effect.fn("importManifest")(function* (directory: string, entry: string) {
+const importModule = Effect.fn("importModule")(function* (directory: string, entry: string) {
 	const path = yield* Path.Path;
-	const manifestUrl = yield* path.toFileUrl(path.resolve(directory, entry));
+	const moduleUrl = yield* path.toFileUrl(path.resolve(directory, entry));
 	const cacheBust = yield* Clock.currentTimeMillis;
 	const cacheBustNonce = yield* Random.nextInt;
-	const manifestModule = yield* Effect.tryPromise({
-		catch: (error) =>
-			new BuildError({ message: `Unable to load plugin manifest: ${String(error)}` }),
+	return yield* Effect.tryPromise({
+		catch: (error) => new BuildError({ message: `Unable to load ${entry}: ${String(error)}` }),
 		try: (): Promise<unknown> =>
-			import(`${manifestUrl.href}?cacheBust=${cacheBust}-${cacheBustNonce}`),
+			import(`${moduleUrl.href}?cacheBust=${cacheBust}-${cacheBustNonce}`),
 	});
+});
 
-	return yield* Schema.decodeUnknownEffect(
-		Schema.Struct({ default: AuthoredPluginManifestSchema }),
-	)(manifestModule).pipe(
+const decodeManifestModule = (module: unknown, label: string) =>
+	Schema.decodeUnknownEffect(Schema.Struct({ default: AuthoredPluginManifestSchema }))(module).pipe(
 		Effect.mapBoth({
-			onSuccess: (module) => module.default,
+			onSuccess: (decoded) => decoded.default,
 			onFailure: (error) =>
-				new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
+				new BuildError({ message: `Invalid plugin manifest${label}: ${String(error)}` }),
 		}),
 	);
+
+const ManifestIdentity = Schema.Struct({
+	default: Schema.Struct({
+		metadata: Schema.Struct({
+			packageId: AuthoredPluginManifestSchema.fields.metadata.fields.packageId,
+		}),
+	}),
 });
 
 const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
@@ -120,7 +127,7 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 	if (manifestEntry === undefined) {
 		return yield* new BuildError({ message: 'package.json must define exports["."].default' });
 	}
-	return yield* importManifest(cwd, manifestEntry);
+	return yield* decodeManifestModule(yield* importModule(cwd, manifestEntry), "");
 });
 
 const findInstalledPackage = Effect.fn("findInstalledPackage")(function* (
@@ -165,10 +172,12 @@ const loadDependencyManifests = Effect.fn("loadDependencyManifests")(function* (
 			return yield* Effect.void;
 		}
 		const packageJson = yield* readPackageJson(directory);
+		const pendingIds = new Set(pending.map(({ packageId }) => packageId));
 		const installed = new Map<
 			string,
 			{ readonly directory: string; readonly manifest: AuthoredPluginManifest }
 		>();
+		const unloadable: string[] = [];
 		for (const name of Object.keys({
 			...packageJson.peerDependencies,
 			...packageJson.devDependencies,
@@ -186,19 +195,25 @@ const loadDependencyManifests = Effect.fn("loadDependencyManifests")(function* (
 			if (entry === undefined) {
 				continue;
 			}
-			const candidate = yield* importManifest(location.value, entry).pipe(Effect.option);
-			if (Option.isSome(candidate)) {
-				installed.set(candidate.value.metadata.packageId, {
-					manifest: candidate.value,
-					directory: location.value,
-				});
+			const module = yield* importModule(location.value, entry).pipe(Effect.result);
+			if (Result.isFailure(module)) {
+				unloadable.push(`${name} (${module.failure.message})`);
+				continue;
 			}
+			const identity = Schema.decodeUnknownOption(ManifestIdentity)(module.success);
+			if (Option.isNone(identity) || !pendingIds.has(identity.value.default.metadata.packageId)) {
+				continue;
+			}
+			installed.set(identity.value.default.metadata.packageId, {
+				directory: location.value,
+				manifest: yield* decodeManifestModule(module.success, ` in ${name}`),
+			});
 		}
 		for (const reference of pending) {
 			const dependency = installed.get(reference.packageId);
 			if (dependency === undefined) {
 				return yield* new BuildError({
-					message: `Dependency ${reference.scope} package '${reference.packageId}' is not an installed plugin package`,
+					message: `Dependency ${reference.scope} package '${reference.packageId}' is not an installed plugin package${unloadable.length === 0 ? "" : `; unable to load ${unloadable.join(", ")}`}`,
 				});
 			}
 			resolved.set(dependencyKey(reference), {

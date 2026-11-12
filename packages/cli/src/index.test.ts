@@ -26,14 +26,14 @@ const createPlugin = Effect.fn("createPlugin")(function* () {
 
 const dependencyName = "@test/dependency-plugin";
 
-const dependencyManifest = (dependencyPackageId: string) => `export default {
+const dependencyManifest = (dependencyPackageId: string, entitySchemas: string) => `export default {
 	crons: [],
 	hooks: [],
 	workflows: [],
 	providers: [],
 	savedViews: [],
 	operations: [],
-	entitySchemas: [],
+	entitySchemas: ${entitySchemas},
 	signalSchemas: [],
 	importSources: [],
 	userBootstrap: [],
@@ -54,7 +54,7 @@ const dependencyManifest = (dependencyPackageId: string) => `export default {
 const declareDependency = Effect.fn("declareDependency")(function* (
 	plugin: string,
 	dependencyPackageId: string,
-	options: { readonly installed: boolean },
+	options: { readonly installed: boolean; readonly entitySchemas?: string },
 ) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
@@ -82,12 +82,15 @@ const declareDependency = Effect.fn("declareDependency")(function* (
 	);
 	yield* fs.writeFileString(
 		path.join(directory, "manifest.ts"),
-		dependencyManifest(dependencyPackageId),
+		dependencyManifest(dependencyPackageId, options.entitySchemas ?? "[]"),
 	);
 });
 
 const declaredQuery = (table: string) =>
 	`queries: { items: { description: "Items", document: { queries: { items: { from: { table: "${table}", alias: "item" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "item", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
+
+const browseQuery = (slug: string) =>
+	`queries: { records: { description: "Records", document: { controls: { filter: { kind: "browse", alias: "record", schemas: [{ slug: "${slug}", owner: { kind: "package", packageId: "test/other", scope: "system" } }] } }, queries: { records: { from: { table: "entity", alias: "record" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "record", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
 
 const collect = <E>(stream: Stream.Stream<Uint8Array, E>) =>
 	stream.pipe(
@@ -691,6 +694,61 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 				expect(result.exitCode).not.toBe(0);
 				expect(result.stdout + result.stderr).toContain(
 					"Dependency system package 'test/other' is not an installed plugin package",
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"reports the manifest error of an installed dependency that declares the package",
+		() =>
+			Effect.gen(function* () {
+				const plugin = yield* createPlugin();
+				yield* declareDependency(plugin, "test/other", {
+					installed: true,
+					entitySchemas: '"invalid"',
+				});
+
+				const result = yield* run(plugin, ["plugin", "build"]);
+
+				expect(result.exitCode).not.toBe(0);
+				expect(result.stdout + result.stderr).toContain(
+					`Invalid plugin manifest in ${dependencyName}`,
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"validates declared queries against dependency definitions",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				yield* declareDependency(plugin, "test/other", {
+					installed: true,
+					entitySchemas:
+						'[{ slug: "record", name: "Record", icon: "box", eventSchemas: [], propertiesSchema: { fields: {} } }]',
+				});
+				const manifestPath = path.join(plugin, "manifest.ts");
+				const declared = yield* fs.readFileString(manifestPath);
+				yield* fs.writeFileString(
+					manifestPath,
+					declared.replace("export default {", `export default {\n\t${browseQuery("record")}`),
+				);
+				expect((yield* run(plugin, ["plugin", "build"])).exitCode).toBe<unknown>(0);
+				yield* fs.remove(path.join(plugin, "dist"), { recursive: true });
+
+				yield* fs.writeFileString(
+					manifestPath,
+					declared.replace("export default {", `export default {\n\t${browseQuery("missing")}`),
+				);
+				const result = yield* run(plugin, ["plugin", "build"]);
+
+				expect(result.exitCode).not.toBe(0);
+				expect(result.stdout + result.stderr).toContain(
+					"Browse schema 'missing' is unavailable or duplicated",
 				);
 			}),
 		testTimeout,
