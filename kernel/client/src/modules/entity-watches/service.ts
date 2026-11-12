@@ -233,16 +233,6 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 					streamFiber = run(
 						api
 							.events(scope, {
-								onFrame: (frame) => {
-									if (!isCurrent()) {
-										return;
-									}
-									if (frame.type === "derived-data-updated") {
-										derivedDataUpdated(key);
-										return;
-									}
-									entityUpdated(frame);
-								},
 								onConnected: () => {
 									if (!isCurrent()) {
 										return;
@@ -254,6 +244,16 @@ export class EntityWatchService extends Context.Service<EntityWatchService>()(
 									connectedBefore = true;
 									asked.clear();
 									schedule();
+								},
+								onFrame: (frame) => {
+									if (!isCurrent()) {
+										return;
+									}
+									if (frame.type === "derived-data-updated" || frame.type === "assistant-updated") {
+										derivedDataUpdated(key);
+										return;
+									}
+									entityUpdated(frame);
 								},
 							})
 							.pipe(

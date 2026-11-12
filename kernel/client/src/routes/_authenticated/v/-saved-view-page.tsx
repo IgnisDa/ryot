@@ -25,7 +25,7 @@ import { usePageTitle } from "#/modules/navigation/page-title";
 import { mainContentProps } from "#/modules/navigation/skip-link";
 import { useClearClientPageDocument, useClientPageDocument } from "#/modules/pages/documents/state";
 import { ClientPagePending } from "#/modules/pages/loading";
-import { navigatePageSearch } from "#/modules/pages/runtime/document-host";
+import { navigatePageSearch } from "#/modules/pages/runtime/page-search";
 import { EntityPickerModal } from "#/modules/provider-add/modal";
 import { useEntityPickerSession } from "#/modules/provider-add/picker-session";
 import { useShareScreen } from "#/modules/publications/share-screen";

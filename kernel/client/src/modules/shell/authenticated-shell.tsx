@@ -374,6 +374,7 @@ export function AuthenticatedShell(props: {
 				onCreateCollection={() => setCreatingCollection(true)}
 				onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
+				onNavigateAssistant={() => navigate({ href: "/assistant" })}
 				customizePanel={
 					customizeActive && isDesktop ? (
 						<CustomizeSidebarPanel
@@ -418,6 +419,7 @@ export function AuthenticatedShell(props: {
 				onCustomize={() => openCustomize("workspaces")}
 				onCreateCollection={() => setCreatingCollection(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
+				onNavigateAssistant={() => navigate({ href: "/assistant" })}
 			/>
 			<RememberedWorkspaceContext value={rememberedPluginId}>
 				<DeviceScope scope={scope} runtime={runtime} onNavigate={navigateDeviceTarget} />

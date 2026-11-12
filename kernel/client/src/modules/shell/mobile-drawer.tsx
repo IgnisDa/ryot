@@ -48,6 +48,7 @@ type MobileDrawerProps = {
 	readonly triggerRef: RefObject<null | HTMLElement>;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
+	readonly onNavigateAssistant?: () => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
 	readonly expandedSections?: undefined | Partial<Record<SidebarSectionName, boolean>>;
@@ -142,6 +143,11 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							onCreateCollection={() => closeThen(props.onCreateCollection)}
 							onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
 							onSelectWorkspace={(workspace) => closeThen(() => props.onSelectWorkspace(workspace))}
+							onNavigateAssistant={
+								props.onNavigateAssistant === undefined
+									? undefined
+									: () => closeThen(() => props.onNavigateAssistant?.())
+							}
 						/>
 					</div>
 

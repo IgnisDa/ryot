@@ -421,3 +421,21 @@ The session refuses direct entity/collection writes, enrichment, uploads and cal
 changes from page frames, and closes mutation screens without opening them. These rules apply to
 imported plugins too. Ordinary plugin frames retain their capabilities. The preview route
 `/_authenticated/page-preview/$pageId` uses the same document host and bridge lifecycle.
+
+## Ryobot
+
+`modules/assistant` owns the `/assistant` conversation surface and `/settings/assistant` provider
+settings. Contract adapters run through `AuthenticatedApi`; history comes from the assistant recipes.
+The shared pagination controller traverses messages, calls and turns independently, including current
+approvals beyond the first page. Approval decisions use the canonical call revision. Turn submission
+and page save retain identical request IDs and inputs for retries.
+
+`assistant-updated` live frames enter the existing scope-fenced entity-watch transport and refresh
+canonical queries through `mutationCompleted`. Reconnect uses that same invalidation path. There is
+no separate assistant connection or polling loop.
+
+Inline drafts use `pages/runtime/page-document-host`, extracted from the shell document host. Each
+compiled identity mounts its own frame with the existing authenticated `srcdoc`, opaque origin,
+read-only draft authority and cancellable bridge. Embedded frames do not publish shell titles,
+navigate the conversation or register page shortcuts. Saving calls `assistant.savePage`; sharing
+reuses the user-page publication editor with the saved page selected, including snapshot mode.

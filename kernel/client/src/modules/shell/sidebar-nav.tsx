@@ -39,6 +39,7 @@ type SidebarNavProps = {
 	readonly current: null | PluginClientCatalogEntry;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly showWorkspaceShortcut?: boolean | undefined;
+	readonly onNavigateAssistant?: () => void | Promise<void>;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
@@ -102,6 +103,19 @@ export function SidebarNav(props: SidebarNavProps) {
 				<span className="min-w-0 flex-1 text-sm text-text-subtle">Search</span>
 				{props.showSearchShortcut && <ShortcutHint shortcut={KERNEL_SHORTCUTS.commandCenter} />}
 			</button>
+
+			<a
+				href="/assistant"
+				className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-text-muted hover:bg-surface-3"
+				onClick={
+					props.onNavigateAssistant === undefined
+						? undefined
+						: activateLink(props.onNavigateAssistant)
+				}
+			>
+				<AppIcon size={16} name="message-circle" />
+				Ryobot
+			</a>
 
 			<SidebarSection
 				title="Views"

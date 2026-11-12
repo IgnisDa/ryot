@@ -34,6 +34,7 @@ type DesktopSidebarProps = {
 	readonly current: null | PluginClientCatalogEntry;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
+	readonly onNavigateAssistant?: () => void | Promise<void>;
 	readonly onEditSection: (section: CustomizeSection) => void;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
@@ -74,6 +75,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							showSearchShortcut={props.shortcutsEnabled}
 							onCreateCollection={props.onCreateCollection}
 							showWorkspaceShortcut={props.shortcutsEnabled}
+							onNavigateAssistant={props.onNavigateAssistant}
 							workspaceSwitcherOpen={props.workspaceSwitcherOpen}
 							onCustomize={() => props.onEditSection("workspaces")}
 							onWorkspaceSwitcherOpenChange={props.onWorkspaceSwitcherOpenChange}

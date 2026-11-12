@@ -33,6 +33,7 @@ import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { Effect, Result } from "effect";
 import { useRef, useState } from "react";
 
+import type { AuthenticatedApiError } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
 import { schemaFormIcons } from "#/modules/ui/schema-form-icons";
 import { useSchemaFileUpload } from "#/modules/ui/schema-form-upload";
@@ -53,6 +54,35 @@ import {
 import { PublicationHeader } from "./status";
 
 const initialCursor: string | undefined = undefined;
+
+export function PublicationPageEditor(props: {
+	readonly pageId: string;
+	readonly disabled: boolean;
+	readonly onDone: () => void;
+	readonly publication: null | PublicationSummary;
+	readonly onCreated?: (publicationId: string) => void;
+}) {
+	const page = useRyotQuery(publicationPageQuery, { arguments: { pageId: props.pageId } });
+	if (page.data?.publishedDefinition == null) {
+		return (
+			<>
+				<Notice tone={page.isError ? "danger" : "info"}>
+					{page.isPending ? "Loading page…" : "This page is not published or is unavailable."}
+				</Notice>
+				<Button variant="ghost" onClick={props.onDone}>
+					Cancel
+				</Button>
+			</>
+		);
+	}
+	return (
+		<PublicationEditorForm
+			{...props}
+			page={{ kind: "page", pageId: props.pageId }}
+			schema={page.data.publishedDefinition.queries.parameters ?? { fields: {} }}
+		/>
+	);
+}
 
 export function PublicationsManager(props: {
 	readonly disabled: boolean;
@@ -124,34 +154,6 @@ export function PublicationsManager(props: {
 				/>
 			)}
 		</div>
-	);
-}
-
-function PublicationPageEditor(props: {
-	readonly pageId: string;
-	readonly disabled: boolean;
-	readonly onDone: () => void;
-	readonly publication: null | PublicationSummary;
-}) {
-	const page = useRyotQuery(publicationPageQuery, { arguments: { pageId: props.pageId } });
-	if (page.data?.publishedDefinition == null) {
-		return (
-			<>
-				<Notice tone={page.isError ? "danger" : "info"}>
-					{page.isPending ? "Loading page…" : "This page is not published or is unavailable."}
-				</Notice>
-				<Button variant="ghost" onClick={props.onDone}>
-					Cancel
-				</Button>
-			</>
-		);
-	}
-	return (
-		<PublicationEditorForm
-			{...props}
-			page={{ kind: "page", pageId: props.pageId }}
-			schema={page.data.publishedDefinition.queries.parameters ?? { fields: {} }}
-		/>
 	);
 }
 
@@ -279,7 +281,7 @@ function PublicationCard(props: {
 					detail: "The publication and its links are deleted permanently.",
 				};
 	return (
-		<Card className="grid gap-4">
+		<Card className="grid gap-4" id={`publication-${publication.id}`}>
 			<PublicationHeader heading="h2" publication={publication} />
 			<p className="text-sm text-text-muted">
 				{publication.definition.mode === "snapshot"
@@ -389,6 +391,7 @@ function PublicationEditorForm(props: {
 	readonly schema: AppSchema;
 	readonly onDone: () => void;
 	readonly publication: null | PublicationSummary;
+	readonly onCreated?: (publicationId: string) => void;
 	readonly page: PublicationSummary["definition"]["page"];
 }) {
 	const create = useRyotMutation(createPublicationMutation);
@@ -422,19 +425,27 @@ function PublicationEditorForm(props: {
 			icon: props.publication?.icon ?? "file-text",
 			description: description.trim() === "" ? null : description,
 		};
-		const effect =
+		const effect: Effect.Effect<null | string, AuthenticatedApiError> =
 			props.publication === null
-				? create.mutateEffect(details)
-				: command.mutateEffect({
-						action: "republish",
-						request: { payload: { ...details, publicationId: props.publication.id } },
-					});
+				? create.mutateEffect(details).pipe(Effect.map(({ publicationId }) => publicationId))
+				: command
+						.mutateEffect({
+							action: "republish",
+							request: { payload: { ...details, publicationId: props.publication.id } },
+						})
+						.pipe(Effect.as(null));
 		setError(null);
 		void Effect.runPromise(
 			effect.pipe(
 				Effect.match({
-					onSuccess: props.onDone,
 					onFailure: (failure) => setError(publicationFailureText(failure)),
+					onSuccess: (result) => {
+						if (result !== null && props.onCreated !== undefined) {
+							props.onCreated(result);
+						} else {
+							props.onDone();
+						}
+					},
 				}),
 			),
 		);

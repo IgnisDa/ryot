@@ -100,6 +100,7 @@ export function PageIframeHost(props: {
 	readonly active: boolean;
 	readonly inert?: boolean;
 	readonly theme: ThemeStore;
+	readonly embedded?: boolean;
 	readonly documentKey: string;
 	readonly compositionHash: string;
 	readonly page?: ClientPageContext;
@@ -541,6 +542,14 @@ export function PageIframeHost(props: {
 	});
 
 	const chrome = { compact, leading: props.chromeLeading, safeAreaTop: props.viewport.safeAreaTop };
+	if (frameStatus === "handshake-failure" && props.embedded) {
+		return (
+			<div role="alert">
+				<p>This preview could not be opened.</p>
+				<Button onClick={retryDocument}>Retry preview</Button>
+			</div>
+		);
+	}
 	if (frameStatus === "handshake-failure") {
 		return <PluginNotice {...chrome} onRetry={retryDocument} />;
 	}
@@ -558,6 +567,7 @@ export function PageIframeHost(props: {
 			{frameStatus === "ready" &&
 				props.active &&
 				props.inert !== true &&
+				props.embedded !== true &&
 				!updateAvailable &&
 				pageShortcuts.map((shortcut) => (
 					<PageShortcut
@@ -583,10 +593,17 @@ export function PageIframeHost(props: {
 			)}
 			{frameStatus === "ready" ? null : (
 				<div className="absolute inset-0">
-					<ClientPageLoading {...chrome} icon={props.icon} title={`Opening ${props.title}`} />
+					{props.embedded ? (
+						<p role="status">Loading preview…</p>
+					) : (
+						<ClientPageLoading {...chrome} icon={props.icon} title={`Opening ${props.title}`} />
+					)}
 				</div>
 			)}
-			{updateAvailable ? (
+			{updateAvailable && props.embedded ? (
+				<p role="status">This preview has changed. Prepare a new preview to continue.</p>
+			) : null}
+			{updateAvailable && !props.embedded ? (
 				<div className="absolute inset-0">
 					<PluginChromeFrame
 						compact={compact}

@@ -22,6 +22,7 @@ export const settingsGroups = [
 	{
 		label: "Connections",
 		sections: [
+			{ label: "Ryobot", slug: "assistant", icon: "message-circle", path: "/settings/assistant" },
 			{
 				icon: "globe",
 				slug: "integrations",

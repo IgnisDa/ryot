@@ -4,6 +4,7 @@ import { FetchHttpClient } from "effect/http";
 
 import { AccountApi } from "#/api/account";
 import { AdminApi } from "#/api/admin";
+import { AssistantApi } from "#/api/assistant";
 import { AuthenticatedApi } from "#/api/authenticated";
 import { AutomationsApi } from "#/api/automations";
 import { BackupsApi } from "#/api/backups";
@@ -42,6 +43,7 @@ export const TransportLive = Layer.mergeAll(
 );
 
 export const ApiLive = Layer.mergeAll(
+	AssistantApi.layer,
 	AutomationsApi.layer,
 	PublicApi.layer,
 	LiveUpdatesApi.layer,

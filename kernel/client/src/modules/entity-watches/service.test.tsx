@@ -4,7 +4,11 @@ import type {
 	LiveUpdateFrame,
 	PopulateEntitiesBody,
 } from "@ryot-app/contract/modules/live-updates/messages";
-import { EntityId } from "@ryot-app/contract/schema/brands";
+import {
+	AssistantConversationId,
+	AssistantTurnId,
+	EntityId,
+} from "@ryot-app/contract/schema/brands";
 import type { EntityUpdate } from "@ryot-app/plugin-client-sdk";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -244,6 +248,22 @@ describe("EntityWatchService", () => {
 				connections[1]?.listeners.onFrame({ type: "derived-data-updated" });
 				yield* Effect.promise(settle);
 				expect(refreshes).toBe(2);
+				connections[1]?.listeners.onFrame({
+					revision: 3,
+					type: "assistant-updated",
+					turnId: AssistantTurnId.make("turn"),
+					conversationId: AssistantConversationId.make("conversation"),
+				});
+				yield* Effect.promise(settle);
+				expect(refreshes).toBe(3);
+				connections[0]?.listeners.onFrame({
+					revision: 4,
+					type: "assistant-updated",
+					turnId: AssistantTurnId.make("turn"),
+					conversationId: AssistantConversationId.make("conversation"),
+				});
+				yield* Effect.promise(settle);
+				expect(refreshes).toBe(3);
 				yield* Fiber.interrupt(fiber);
 			}),
 		testTimeout,

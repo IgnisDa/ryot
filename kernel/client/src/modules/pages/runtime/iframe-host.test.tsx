@@ -52,6 +52,7 @@ const srcDoc = '<!doctype html><html><body><div id="app"></div></body></html>';
 
 function mount(
 	options: {
+		readonly embedded?: boolean;
 		readonly onReloadCurrent?: () => void;
 		readonly onLoadDocument?: () => Effect.Effect<string, Error>;
 		readonly subscribeResume?: (resumed: () => void) => () => void;
@@ -234,7 +235,9 @@ function mount(
 			});
 		},
 	});
-	const view = render(withCatalog(<PageIframeHost {...props(home, 0)} />));
+	const view = render(
+		withCatalog(<PageIframeHost {...props(home, 0)} embedded={options.embedded} />),
+	);
 	return {
 		...view,
 		states,
@@ -1150,3 +1153,22 @@ describe("PageIframeHost", () => {
 		testTimeout,
 	);
 });
+
+it.live(
+	"keeps embedded preview failures inside the conversation without another page heading",
+	() =>
+		Effect.gen(function* () {
+			const host = mount({
+				embedded: true,
+				onLoadDocument: () => Effect.fail(new AuthenticatedApiError({ cause: "unavailable" })),
+			});
+			try {
+				yield* Effect.promise(() => screen.findByText("This preview could not be opened."));
+				expect(screen.queryByRole("heading", { level: 1 })).toBeNull();
+				expect(screen.getByRole("button", { name: "Retry preview" })).toBeDefined();
+			} finally {
+				host.unmount();
+			}
+		}),
+	testTimeout,
+);

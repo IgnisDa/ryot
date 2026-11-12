@@ -113,6 +113,13 @@ export const destinationOptions = (input: {
 			id: `plugin:${plugin.installationId}`,
 		})),
 	{
+		label: "Ryobot",
+		href: "/assistant",
+		group: GO_TO_GROUP,
+		icon: "message-circle",
+		id: "kernel:assistant",
+	},
+	{
 		icon: "settings",
 		label: "Settings",
 		href: "/settings",

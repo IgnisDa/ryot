@@ -1,6 +1,7 @@
 import { Effect, Layer, Stream } from "effect";
 
 import { AccountApi } from "#/api/account";
+import { AssistantApi } from "#/api/assistant";
 import { AutomationsApi } from "#/api/automations";
 import { BackupsApi } from "#/api/backups";
 import { CalendarSourcesApi } from "#/api/calendar-sources";
@@ -159,6 +160,19 @@ export const makeRemindersApi = (overrides: Partial<RemindersApi["Service"]> = {
 		...overrides,
 	});
 
+export const makeAssistantApi = (overrides: Partial<AssistantApi["Service"]> = {}) =>
+	Layer.succeed(AssistantApi, {
+		submit: unused,
+		decide: unused,
+		savePage: unused,
+		deleteProvider: unused,
+		providerMetadata: unused,
+		configureProvider: unused,
+		createConversation: unused,
+		deleteConversation: unused,
+		...overrides,
+	});
+
 export const makeAutomationsApi = (overrides: Partial<AutomationsApi["Service"]> = {}) =>
 	Layer.succeed(AutomationsApi, {
 		installRule: unused,
@@ -232,6 +246,7 @@ export const KernelApiTestLayer = Layer.mergeAll(
 	makePluginsApi(),
 	makeSavedViewsApi(),
 	makeAccountApi(),
+	makeAssistantApi(),
 	makeIntegrationsApi(),
 	makeNotificationsApi(),
 	makeOAuthConnectionsApi(),

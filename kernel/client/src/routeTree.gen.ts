@@ -16,6 +16,7 @@ import { Route as InstanceAdminRouteRouteImport } from './routes/instance-admin/
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
+import { Route as AuthenticatedAssistantRouteImport } from './routes/_authenticated/assistant'
 import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_authenticated/customize-sidebar'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
@@ -36,6 +37,7 @@ import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsAboutRouteImport } from './routes/_authenticated/settings/about'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
+import { Route as AuthenticatedSettingsAssistantRouteImport } from './routes/_authenticated/settings/assistant'
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
 import { Route as AuthenticatedSettingsOauthReturnRouteImport } from './routes/_authenticated/settings/oauth-return'
@@ -90,6 +92,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAssistantRoute = AuthenticatedAssistantRouteImport.update({
+  id: '/assistant',
+  path: '/assistant',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCustomizeSidebarRoute =
@@ -199,6 +206,12 @@ const AuthenticatedSettingsAdministrationRoute =
   AuthenticatedSettingsAdministrationRouteImport.update({
     id: '/administration',
     path: '/administration',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
+const AuthenticatedSettingsAssistantRoute =
+  AuthenticatedSettingsAssistantRouteImport.update({
+    id: '/assistant',
+    path: '/assistant',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsBackupsRoute =
@@ -334,6 +347,7 @@ export interface FileRoutesByFullPath {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/assistant': typeof AuthenticatedAssistantRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
@@ -352,6 +366,7 @@ export interface FileRoutesByFullPath {
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
+  '/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
@@ -380,6 +395,7 @@ export interface FileRoutesByTo {
   '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/assistant': typeof AuthenticatedAssistantRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
@@ -399,6 +415,7 @@ export interface FileRoutesByTo {
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
+  '/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
@@ -430,6 +447,7 @@ export interface FileRoutesById {
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
+  '/_authenticated/assistant': typeof AuthenticatedAssistantRoute
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth_/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
@@ -449,6 +467,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
+  '/_authenticated/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
   '/_authenticated/settings/oauth-return': typeof AuthenticatedSettingsOauthReturnRoute
@@ -482,6 +501,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/settings'
+    | '/assistant'
     | '/customize-sidebar'
     | '/auth/callback'
     | '/instance-admin/logs'
@@ -500,6 +520,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/administration'
+    | '/settings/assistant'
     | '/settings/backups'
     | '/settings/notification-channels'
     | '/settings/oauth-return'
@@ -528,6 +549,7 @@ export interface FileRouteTypes {
     | '/demo'
     | '/onboarding'
     | '/reset-password'
+    | '/assistant'
     | '/customize-sidebar'
     | '/auth/callback'
     | '/instance-admin/logs'
@@ -547,6 +569,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/administration'
+    | '/settings/assistant'
     | '/settings/backups'
     | '/settings/notification-channels'
     | '/settings/oauth-return'
@@ -577,6 +600,7 @@ export interface FileRouteTypes {
     | '/onboarding'
     | '/reset-password'
     | '/_authenticated/settings'
+    | '/_authenticated/assistant'
     | '/_authenticated/customize-sidebar'
     | '/auth_/callback'
     | '/instance-admin/logs'
@@ -596,6 +620,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/about'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/administration'
+    | '/_authenticated/settings/assistant'
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
     | '/_authenticated/settings/oauth-return'
@@ -686,6 +711,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AuthenticatedIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/assistant': {
+      id: '/_authenticated/assistant'
+      path: '/assistant'
+      fullPath: '/assistant'
+      preLoaderRoute: typeof AuthenticatedAssistantRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/customize-sidebar': {
@@ -826,6 +858,13 @@ declare module '@tanstack/react-router' {
       path: '/administration'
       fullPath: '/settings/administration'
       preLoaderRoute: typeof AuthenticatedSettingsAdministrationRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
+    '/_authenticated/settings/assistant': {
+      id: '/_authenticated/settings/assistant'
+      path: '/assistant'
+      fullPath: '/settings/assistant'
+      preLoaderRoute: typeof AuthenticatedSettingsAssistantRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/backups': {
@@ -983,6 +1022,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAboutRoute: typeof AuthenticatedSettingsAboutRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
+  AuthenticatedSettingsAssistantRoute: typeof AuthenticatedSettingsAssistantRoute
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
   AuthenticatedSettingsOauthReturnRoute: typeof AuthenticatedSettingsOauthReturnRoute
@@ -1007,6 +1047,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
     AuthenticatedSettingsAdministrationRoute:
       AuthenticatedSettingsAdministrationRoute,
+    AuthenticatedSettingsAssistantRoute: AuthenticatedSettingsAssistantRoute,
     AuthenticatedSettingsBackupsRoute: AuthenticatedSettingsBackupsRoute,
     AuthenticatedSettingsNotificationChannelsRoute:
       AuthenticatedSettingsNotificationChannelsRoute,
@@ -1059,6 +1100,7 @@ const AuthenticatedPPublisherNameRouteRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
+  AuthenticatedAssistantRoute: typeof AuthenticatedAssistantRoute
   AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
@@ -1071,6 +1113,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
+  AuthenticatedAssistantRoute: AuthenticatedAssistantRoute,
   AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,
