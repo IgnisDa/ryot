@@ -4,8 +4,8 @@ import { ChipButton } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { useEffect } from "react";
 
+import type { EntitySyncFields } from "../../shared/entity-selections";
 import { useMediaEnrichment } from "./enrichment";
-import type { MediaEntitySummaryValue } from "./summary-state";
 
 const active = (state: string) => state === "queued" || state === "running" || state === "retrying";
 
@@ -25,7 +25,10 @@ const refreshLabel = (state: string) => {
 export function MediaProviderRefreshControl({
 	media,
 }: {
-	readonly media: MediaEntitySummaryValue;
+	readonly media: EntitySyncFields & {
+		readonly id: string;
+		readonly providerCheckedAt?: null | string;
+	};
 }) {
 	const refresh = useMediaEnrichment(media.id, "population", "refresh");
 	const schedule = useRyotSchedule();
@@ -43,7 +46,7 @@ export function MediaProviderRefreshControl({
 			() => undefined,
 		);
 	}, [busy, media.translationStatus.state, refreshPage, schedule]);
-	if (!media.canRefreshProvider) {
+	if (media.relatedPopulationStatus.availability === "none") {
 		return null;
 	}
 	const label = refreshLabel(state);
@@ -55,7 +58,7 @@ export function MediaProviderRefreshControl({
 				disabled={busy || refresh.isPending}
 				icon={<AppIcon size={13} name="rotate-ccw" />}
 				title={
-					media.providerCheckedAt === null
+					media.providerCheckedAt === null || media.providerCheckedAt === undefined
 						? undefined
 						: `Last checked: ${new Date(media.providerCheckedAt).toLocaleString()}`
 				}

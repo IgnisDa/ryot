@@ -161,7 +161,6 @@ const SHOW_SUMMARY_ROW = {
 	providerRating: 78.25,
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
-	canRefreshProvider: true,
 	productionStatus: "Ended",
 	publishDate: "2025-03-13",
 	description: "A synopsis.",
@@ -551,7 +550,6 @@ describe("media show query recipes", () => {
 		]);
 		expect(summary.output.fields.map((field) => ("key" in field ? field.key : null))).toEqual([
 			"providerCheckedAt",
-			"canRefreshProvider",
 			"id",
 			"name",
 			"schemaSlug",
@@ -715,7 +713,6 @@ describe("media show query recipes", () => {
 							watchProviders: null,
 							productionStatus: null,
 							providerCheckedAt: null,
-							canRefreshProvider: false,
 							genres: { items: [], pageInfo: { limit: 100, hasMore: false } },
 						},
 					]),

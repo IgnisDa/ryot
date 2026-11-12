@@ -1,5 +1,4 @@
-import type { EntitySyncState } from "@ryot-app/plugin-client-sdk";
-
+import type { EntitySyncFields } from "../../shared/entity-selections";
 import type { EpisodeLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaImage } from "../../shared/media-image";
 import { optionalText } from "./activity-timeline";
@@ -10,7 +9,7 @@ export type MediaEpisodeImagePurpose = MediaImage["purpose"];
 
 export type MediaEpisodeStateLabels = Record<EpisodeLifecycleState, string | undefined>;
 
-export type MediaEpisode = EntitySyncState & {
+export type MediaEpisode = EntitySyncFields & {
 	readonly id: string;
 	readonly name: string;
 	readonly images: MediaImages;

@@ -60,7 +60,14 @@ come from the [client SDK](../../packages/plugin-client-sdk/README.md) and
 ### Flat And Episodic Schemas
 
 Show and Podcast derive parent state from episodes through `EpisodicKindConfig`. Shows traverse
-seasons; podcasts traverse episodes directly. Episode lists are top-level cursor-paged queries,
+seasons; podcasts traverse episodes directly.
+
+An episode descriptor may supply `credits` from `createMediaEpisodeCredits`, built on
+`mediaEpisodeCreditsRecipe` and the full-list `mediaPeopleRecipe`; only Show does. When the episode's
+related availability is not `none`, its details modal shows bounded guest-star and crew sections
+with the shared related-status notices, opens the full cast and crew in the credits modal, and
+offers the provider refresh control. Opening the modal foregrounds the episode, which populates its
+credits once; later changes need an explicit refresh. Episode lists are top-level cursor-paged queries,
 never includes. Shared SDK pagination appends individual requests and preserves page-local asset
 scopes; container counts come from aggregates rather than loaded pages. Show episodes ascend;
 podcast episodes are newest first. Next-up resolves server-side
@@ -265,6 +272,10 @@ Population stays one hop deep: discovering related entities does not populate th
 TMDB and TVDB retain every returned credit rather than a fixed cast preview. TMDB keeps all crew
 jobs and billing order, including multiple roles for the same person. Show aggregate credits cover
 all episodes; guest and uncredited flags are recorded only when supported by source evidence.
+TMDB episode credits are `person-to-show-episode` relationships populated by `show.tmdb.related`,
+which declares `show-episode` in `relatedInputs` and reads `/tv/{show}/season/{n}/episode/{e}/credits`
+through the same child path as translation. Regular cast are not guests; guest stars are guests
+ordered after the cast. Episode credits do not feed association signals or person credit rails.
 
 TMDB Show `episodeOrders` contains external IDs, descriptions, and ordered groups of episode IDs.
 Positions belong to the alternate order, so stored episodes join by provider external ID, not season
@@ -392,11 +403,12 @@ deterministic child IDs. It does not build a global in-memory snapshot or dedupl
 user-owned fields are not exposed by the global query.
 
 Provider-backed root detail screens expose **Refresh provider data**, request activity, retry, and
-the last successful details check. Shared population admission coalesces matching monitoring and
+the last successful details check. The control appears whenever related availability is not `none`. Shared population admission coalesces matching monitoring and
 manual work; a completed manual refresh has a one-minute cooldown. Full refresh includes the root,
 child inventory and declared related groups, not recursive graph refresh. Current-language translation
 is checked even when canonical content is unchanged. Custom entities stay on the editor path, and
-provider children refresh through their parent. Existing monitoring-change detectors still run.
+provider children refresh their canonical data through their parent; a refresh on an episode with
+credits refreshes only those credits. Existing monitoring-change detectors still run.
 
 `media-ownership-set` accepts at most 50 visible built-in media entities and merges `owned` and an
 optional `ownedOn` date into each `in-media-library` relationship, adding library membership when

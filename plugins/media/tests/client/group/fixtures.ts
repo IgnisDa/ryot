@@ -21,7 +21,6 @@ export const groupSummaryRow = {
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
 	completedMemberCount: 2,
-	canRefreshProvider: true,
 	schemaSlug: "movie-group",
 	name: "The Matrix Collection",
 	description: "Humanity against the machines.",

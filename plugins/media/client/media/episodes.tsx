@@ -11,6 +11,7 @@ import type { ActivityEpisode, MediaActivityLogger } from "./activity-log/state"
 import type { MediaCursorPage } from "./cursor-page-state";
 import { MediaCursorPages, type MediaCursorPagesCopy } from "./cursor-pages";
 import { type MediaArtworkAspect, mediaAspectClass } from "./entity-presentation";
+import type { MediaEpisodeCredits } from "./episode-credits";
 import { MediaEpisodeDetails } from "./episode-details";
 import {
 	type MediaEpisode,
@@ -40,6 +41,7 @@ export type MediaEpisodePageInput<Scope extends object = object> = Scope & {
 
 export type MediaEpisodeRender<Episode extends MediaEpisode> = {
 	readonly entitySchemaSlug: string;
+	readonly credits?: MediaEpisodeCredits;
 	readonly aspect: MediaEpisodeArtworkAspect;
 	readonly purpose: MediaEpisodeImagePurpose;
 	readonly stateLabels: MediaEpisodeStateLabels;

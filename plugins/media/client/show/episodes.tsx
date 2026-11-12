@@ -20,6 +20,7 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import type { ShowEpisodeOrder } from "../../shared/show-episode-order";
 import {
 	SHOW_SEASON_LIMIT,
+	showEpisodeCreditRecipes,
 	showOrderEpisodesRecipe,
 	showOrderGroupCoverageRecipe,
 	showSeasonEpisodesRecipe,
@@ -28,6 +29,7 @@ import {
 import { MediaChildCreateAction, MediaEntityEditAction } from "../entity-editor/edit-action";
 import type { MediaActivityLogger } from "../media/activity-log/state";
 import { type MediaCursorPage, mediaCursorPageError } from "../media/cursor-page-state";
+import { createMediaEpisodeCredits } from "../media/episode-credits";
 import {
 	type MediaEpisodePageInput,
 	MediaEpisodePages,
@@ -172,6 +174,16 @@ const SHOW_EPISODE_RENDER: MediaEpisodeRender<ShowEpisode> = {
 	activityEpisode: showActivityEpisode,
 	numberLabel: mediaEpisodeNumberLabel,
 	stateLabels: { complete: "Watched", untracked: undefined, in_progress: "In progress" },
+	credits: createMediaEpisodeCredits({
+		recipes: showEpisodeCreditRecipes,
+		copy: {
+			crew: "Crew",
+			title: "Cast & crew",
+			guestStars: "Guest stars",
+			fullCredits: "Full cast & crew",
+			loading: "Fetching this episode's cast and crew.",
+		},
+	}),
 };
 
 const SHOW_ORDER_EPISODE_RENDER: MediaEpisodeRender<ShowOrderEpisode> = {

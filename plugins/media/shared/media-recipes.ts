@@ -6,6 +6,7 @@ import {
 	castText,
 	column,
 	conditional,
+	contains,
 	count,
 	defineRecipe,
 	descending,
@@ -167,14 +168,6 @@ export const mediaEntitySummarySelection = (entity: Table, provider: Table) => (
 	providerCheckedAt: selectedField(
 		column(entity, "providerCheckedAt"),
 		Schema.NullOr(Schema.String),
-	),
-	canRefreshProvider: selectedField(
-		conditional(
-			eq(column(provider, "rootEntitySchemaSlug"), column(entity, "entitySchemaSlug")),
-			literal(true),
-			literal(false),
-		),
-		Schema.Boolean,
 	),
 	...entityIdentitySelection(entity),
 	providerName: selectedField(column(provider, "name"), Schema.NullOr(Schema.String)),
@@ -464,6 +457,39 @@ const incomingCreditRows = (input: {
 				? `${input.creator}-to-${input.slug}`
 				: input.slug.map((slug) => `${input.creator}-to-${slug}`),
 	});
+export const mediaEpisodeCreditsRecipe =
+	(config: { readonly slug: string }) =>
+	(structural: { readonly reference: PluginIdentityReference }) => {
+		const section = (alias: string, credit: Parameters<typeof literal>[0]) => {
+			const person = table("entity", `${alias}Person`);
+			const relationship = table("relationship", `${alias}Relationship`);
+			const rows = incomingCreditRows({
+				relationship,
+				related: person,
+				creator: "person",
+				slug: config.slug,
+				reference: structural.reference,
+				limit: mediaDetailLimits.peopleLimit,
+				entityId: mediaEntityParameters.value("entityId"),
+			});
+			return selectedRows(relationship, {
+				...rows,
+				where: and(rows.where, contains(column(relationship, "properties"), literal(credit))),
+				selection: {
+					...creditSelection(person, relationship),
+					...creditCharacterSelection(relationship),
+				},
+			});
+		};
+		return defineRecipe({
+			map: (rows) => Result.succeed(rows),
+			parameters: mediaEntityParameters.schema,
+			queries: {
+				crew: section("crew", { creditKinds: ["crew"] }),
+				guestStars: section("guestStar", { isGuest: true }),
+			},
+		});
+	};
 export const mediaCompanyRecipe =
 	(config: { readonly slug: string }) =>
 	(structural: { readonly reference: PluginIdentityReference }) => {

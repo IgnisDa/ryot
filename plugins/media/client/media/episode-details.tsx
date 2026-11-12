@@ -9,6 +9,7 @@ import { MediaEntityEditAction } from "../entity-editor/edit-action";
 import { useQuickLog } from "./activity-log/quick-log";
 import { MediaDetailModal } from "./detail-modal";
 import { mediaAspectClass } from "./entity-presentation";
+import { MediaEpisodeCreditsSection } from "./episode-credits";
 import type { MediaEpisodeLog, MediaEpisodeRender } from "./episodes";
 import {
 	type MediaEpisode,
@@ -19,6 +20,7 @@ import {
 } from "./episodes-state";
 import { ManagedAssetImage } from "./managed-assets";
 import { MediaMarkdown } from "./primitives";
+import { MediaProviderRefreshControl } from "./provider-refresh";
 import { useMediaReminders } from "./reminders";
 
 export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
@@ -51,6 +53,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 			safeAreaTop={props.safeAreaTop}
 			closeLabel="Close episode details"
 			title={render.originLabel(episode)}
+			headerAside={<MediaProviderRefreshControl media={episode} />}
 		>
 			<div
 				className={clsx(
@@ -114,6 +117,17 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 					)}
 				</div>
 			</div>
+			{render.credits === undefined ||
+			episode.relatedPopulationStatus.availability === "none" ? null : (
+				<div className="mx-auto mt-8 max-w-4xl">
+					<MediaEpisodeCreditsSection
+						episode={episode}
+						compact={compact}
+						credits={render.credits}
+						safeAreaTop={props.safeAreaTop}
+					/>
+				</div>
+			)}
 		</MediaDetailModal>
 	);
 }

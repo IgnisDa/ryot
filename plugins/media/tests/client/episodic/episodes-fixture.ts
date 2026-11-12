@@ -4,12 +4,18 @@ import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import type { MediaActivityLogger } from "../../../client/media/activity-log/state";
 import type { MediaCursorPage } from "../../../client/media/cursor-page-state";
+import { createMediaEpisodeCredits } from "../../../client/media/episode-credits";
 import type {
 	MediaEpisodeLog,
 	MediaEpisodePageInput,
 	MediaEpisodeRender,
 } from "../../../client/media/episodes";
 import { mediaEpisodeNumberLabel } from "../../../client/media/episodes-state";
+import {
+	creditCharacterSelection,
+	mediaEpisodeCreditsRecipe,
+	mediaPeopleRecipe,
+} from "../../../shared/media-recipes";
 import { rowsResult } from "../query-result-fixture";
 import { type EpisodicFixtureEpisode, episodicFixtureEpisodesRecipe } from "./recipes";
 
@@ -97,3 +103,43 @@ export const EPISODIC_FIXTURE_LOG: MediaEpisodeLog = {
 	parentEntityId: "parent-1",
 	logger: EPISODIC_FIXTURE_LOGGER,
 };
+
+export const EPISODIC_FIXTURE_CREDITS = createMediaEpisodeCredits({
+	copy: {
+		crew: "Crew",
+		title: "Cast & crew",
+		guestStars: "Guest stars",
+		fullCredits: "Full cast & crew",
+		loading: "Fetching this episode's cast and crew.",
+	},
+	recipes: {
+		overviewRecipe: mediaEpisodeCreditsRecipe({ slug: "podcast-episode" }),
+		peopleRecipe: mediaPeopleRecipe({
+			slug: "podcast-episode",
+			personFields: creditCharacterSelection,
+		}),
+	},
+});
+
+export const episodicCreditRow = (overrides: Record<string, unknown>) => ({
+	order: 0,
+	images: [],
+	isGuest: null,
+	character: null,
+	creditKinds: null,
+	departments: null,
+	isUncredited: null,
+	isInMediaLibrary: false,
+	translationStatus: { state: "idle", availability: "none" },
+	populationStatus: { state: "succeeded", availability: "complete" },
+	relatedPopulationStatus: { state: "idle", availability: "missing" },
+	...overrides,
+});
+
+const creditRows = (items: readonly Record<string, unknown>[]) =>
+	rowsResult(items, { limit: 12, hasMore: false, nextCursor: null });
+
+export const episodicCreditsData = (input: {
+	readonly crew: readonly Record<string, unknown>[];
+	readonly guestStars: readonly Record<string, unknown>[];
+}) => ({ data: { crew: creditRows(input.crew), guestStars: creditRows(input.guestStars) } });

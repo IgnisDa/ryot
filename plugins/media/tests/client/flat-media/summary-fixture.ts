@@ -25,7 +25,6 @@ export const flatSummaryRow = {
 	progressPercent: null,
 	isInMediaLibrary: true,
 	providerCheckedAt: null,
-	canRefreshProvider: true,
 	publishDate: "1999-10-15",
 	productionStatus: "Released",
 	description: "An insomniac office worker.",

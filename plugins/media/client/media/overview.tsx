@@ -279,6 +279,71 @@ export function MediaCreditColumns(props: {
 	);
 }
 
+export function MediaOverviewBody<Overview>(props: {
+	readonly compact: boolean;
+	readonly entityId: string;
+	readonly safeAreaTop: number;
+	readonly noticeTitle: string;
+	readonly refresh: () => void;
+	readonly loadingDetail: string;
+	readonly state: MediaOverviewState<Overview>;
+	readonly relations: MediaOverviewRelationsRender<Overview>;
+	readonly related: MediaOverviewSubject["relatedPopulationStatus"];
+}) {
+	const { state } = props;
+	let notice: ReactNode = null;
+	if (props.related.state === "failed") {
+		notice = (
+			<MediaRelatedPopulationFailure entityId={props.entityId} noticeTitle={props.noticeTitle} />
+		);
+	} else if (isEnrichmentActive(props.related)) {
+		notice = (
+			<MediaOverviewNotice
+				title={props.noticeTitle}
+				status="Loading details..."
+				detail={props.loadingDetail}
+			/>
+		);
+	}
+	if (state.status === "loading") {
+		return (
+			notice ?? (
+				<MediaOverviewNotice
+					title={props.noticeTitle}
+					detail={props.loadingDetail}
+					status={
+						props.related.state === "idle" && props.related.availability === "missing"
+							? "Details not loaded"
+							: "Loading details..."
+					}
+				/>
+			)
+		);
+	}
+	if (state.status === "transport-error" || state.status === "malformed") {
+		const error = mediaOverviewError(state, props.noticeTitle);
+		return (
+			<MediaOverviewNotice
+				status={error.title}
+				detail={error.detail}
+				onRetry={props.refresh}
+				title={props.noticeTitle}
+			/>
+		);
+	}
+	return (
+		<>
+			{notice}
+			{props.relations({
+				compact: props.compact,
+				entityId: props.entityId,
+				overview: state.overview,
+				safeAreaTop: props.safeAreaTop,
+			})}
+		</>
+	);
+}
+
 export function MediaOverview<Overview>(props: {
 	readonly compact: boolean;
 	readonly noticeTitle: string;
@@ -534,70 +599,5 @@ function MediaOverviewNotice(props: {
 				)}
 			</div>
 		</MediaOverviewSection>
-	);
-}
-
-function MediaOverviewBody<Overview>(props: {
-	readonly compact: boolean;
-	readonly entityId: string;
-	readonly safeAreaTop: number;
-	readonly noticeTitle: string;
-	readonly refresh: () => void;
-	readonly loadingDetail: string;
-	readonly state: MediaOverviewState<Overview>;
-	readonly relations: MediaOverviewRelationsRender<Overview>;
-	readonly related: MediaOverviewSubject["relatedPopulationStatus"];
-}) {
-	const { state } = props;
-	let notice: ReactNode = null;
-	if (props.related.state === "failed") {
-		notice = (
-			<MediaRelatedPopulationFailure entityId={props.entityId} noticeTitle={props.noticeTitle} />
-		);
-	} else if (isEnrichmentActive(props.related)) {
-		notice = (
-			<MediaOverviewNotice
-				title={props.noticeTitle}
-				status="Loading details..."
-				detail={props.loadingDetail}
-			/>
-		);
-	}
-	if (state.status === "loading") {
-		return (
-			notice ?? (
-				<MediaOverviewNotice
-					title={props.noticeTitle}
-					detail={props.loadingDetail}
-					status={
-						props.related.state === "idle" && props.related.availability === "missing"
-							? "Details not loaded"
-							: "Loading details..."
-					}
-				/>
-			)
-		);
-	}
-	if (state.status === "transport-error" || state.status === "malformed") {
-		const error = mediaOverviewError(state, props.noticeTitle);
-		return (
-			<MediaOverviewNotice
-				status={error.title}
-				detail={error.detail}
-				onRetry={props.refresh}
-				title={props.noticeTitle}
-			/>
-		);
-	}
-	return (
-		<>
-			{notice}
-			{props.relations({
-				compact: props.compact,
-				entityId: props.entityId,
-				overview: state.overview,
-				safeAreaTop: props.safeAreaTop,
-			})}
-		</>
 	);
 }

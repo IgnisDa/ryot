@@ -12,6 +12,7 @@ import {
 	jsonPath,
 	literal,
 	selectedField,
+	type SelectedRow,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import { EnrichmentState, EntityId, EntitySchemaSlug } from "@ryot-app/plugin-kit/schema";
@@ -31,6 +32,8 @@ export const entitySyncSelection = (entity: Table) => ({
 		EnrichmentState,
 	),
 });
+
+export type EntitySyncFields = SelectedRow<ReturnType<typeof entitySyncSelection>>;
 
 export const entityIdentitySelection = (entity: Table) => ({
 	id: selectedField(column(entity, "id"), EntityId),

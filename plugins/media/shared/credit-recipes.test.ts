@@ -12,7 +12,7 @@ import { mediaPeopleRecipe } from "./media-recipes";
 import { movieRecipes } from "./movie-recipes";
 import { musicGroupRecipes } from "./music-group-recipes";
 import { personRecipes } from "./person-recipes";
-import { showRecipes } from "./show-recipes";
+import { showEpisodeCreditRecipes, showRecipes } from "./show-recipes";
 
 const rowsQuery = (
 	recipe: { document: ImportedRyotQLDocument; decode: Recipe<unknown, AppSchema>["decode"] },
@@ -117,6 +117,27 @@ describe("credit pagination recipes", () => {
 		expect(JSON.stringify(query.where)).toContain("person-to-movie");
 		expect(JSON.stringify(query.where)).toContain("movie-1");
 		expect(JSON.stringify(query.where)).not.toContain("in-media-library");
+	});
+
+	it("splits bounded episode credits into guest stars and crew", () => {
+		const recipe = bindRecipe(
+			showEpisodeCreditRecipes.overviewRecipe({ reference: { kind: "self" } }),
+			{ entityId: "episode-1" },
+		);
+		for (const [name, credit] of [
+			["guestStars", { isGuest: true }],
+			["crew", { creditKinds: ["crew"] }],
+		] as const) {
+			const query = rowsQuery(recipe, name);
+			expect(query.output.pagination).toEqual({ limit: 12 });
+			expect(
+				query.output.fields.map((field) => ("key" in field ? field.key : null)),
+			).toEqual<unknown>(arrayContaining(["roles", "character", "isGuest", "creditKinds"]));
+			const where = JSON.stringify(query.where);
+			expect(where).toContain("person-to-show-episode");
+			expect(where).toContain("episode-1");
+			expect(where).toContain(JSON.stringify({ value: credit, type: "literal" }));
+		}
 	});
 
 	it("does not select character fields for group people", () => {

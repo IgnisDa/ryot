@@ -233,7 +233,9 @@ describe("flat media detail screen", () => {
 	});
 
 	it("does not offer provider refresh for custom entries or provider children", () => {
-		const { unmount, container } = renderBody(readyState({ canRefreshProvider: false }));
+		const { unmount, container } = renderBody(
+			readyState({ relatedPopulationStatus: { state: "idle", availability: "none" } }),
+		);
 		expect(container.textContent).not.toContain("Refresh provider data");
 		unmount();
 	});

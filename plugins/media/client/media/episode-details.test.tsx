@@ -17,8 +17,11 @@ import {
 } from "../../tests/client/activity-log/fixtures";
 import {
 	decodeEpisodicEpisodePage,
+	EPISODIC_FIXTURE_CREDITS,
 	EPISODIC_FIXTURE_LOG,
 	EPISODIC_FIXTURE_RENDER,
+	episodicCreditRow,
+	episodicCreditsData,
 	episodicEpisode,
 	episodicEpisodePageData,
 	episodicFixtureEpisodesQuery,
@@ -124,6 +127,101 @@ describe("episode details", () => {
 					clickRyotElement(getByRole(dialog, "button", { name: "Close episode details" }));
 					expect(queryByRole(document.body, "dialog")).toBeNull();
 					yield* Effect.promise(() => waitFor(() => expect(document.activeElement).toBe(trigger)));
+					view.unmount();
+				}),
+			testTimeout,
+		);
+	}
+
+	for (const availability of ["missing", "none"] as const) {
+		it.live(
+			`${availability === "none" ? "omits" : "shows"} credits for an episode whose related data is ${availability}`,
+			() =>
+				Effect.gen(function* () {
+					const creditDocuments: unknown[] = [];
+					const view = mountRyotClient(
+						{
+							watchEntities,
+							query: (document) => {
+								const request = bindTestRequest(document);
+								if (JSON.stringify(request).includes("guestStarPerson")) {
+									creditDocuments.push(request);
+									return Effect.succeed(
+										episodicCreditsData({
+											crew: [
+												episodicCreditRow({
+													id: "person-2",
+													name: "Scribe",
+													roles: ["Writer"],
+													creditKinds: ["crew"],
+												}),
+											],
+											guestStars: [
+												episodicCreditRow({
+													isGuest: true,
+													id: "person-1",
+													name: "Visitor",
+													roles: ["Acting"],
+													character: "Doctor",
+												}),
+											],
+										}),
+									);
+								}
+								if (!JSON.stringify(request).includes("fixtureEpisode")) {
+									return contextQuery(request);
+								}
+								return Effect.succeed(
+									episodicEpisodePageData({
+										episodes: [
+											episodicEpisode({
+												name: "The Arrival",
+												relatedPopulationStatus: { availability, state: "idle" },
+											}),
+										],
+									}),
+								);
+							},
+						},
+						<MediaEpisodePages
+							copy={COPY}
+							nextUp={null}
+							compact={false}
+							editable={false}
+							safeAreaTop={12}
+							entityId="parent-1"
+							containerId="parent-1"
+							log={EPISODIC_FIXTURE_LOG}
+							query={episodicFixtureEpisodesQuery}
+							render={{ ...EPISODIC_FIXTURE_RENDER, credits: EPISODIC_FIXTURE_CREDITS }}
+						/>,
+					);
+					yield* Effect.promise(() => flushRyotClient());
+					yield* Effect.promise(() =>
+						waitFor(() =>
+							expect(
+								getByRole(view.container, "button", { name: "Open The Arrival" }),
+							).toBeDefined(),
+						),
+					);
+					clickRyotElement(getByRole(view.container, "button", { name: "Open The Arrival" }));
+					const dialog = getByRole(document.body, "dialog", { name: "The Arrival" });
+					yield* Effect.promise(() => flushRyotClient());
+					if (availability === "none") {
+						expect(creditDocuments).toEqual([]);
+						expect(dialog.textContent).not.toContain("Guest stars");
+						expect(queryByRole(dialog, "button", { name: "Refresh provider data" })).toBeNull();
+					} else {
+						yield* Effect.promise(() =>
+							waitFor(() => expect(dialog.textContent).toContain("Guest stars")),
+						);
+						expect(dialog.textContent).toContain("Visitor");
+						expect(dialog.textContent).toContain("as Doctor");
+						expect(dialog.textContent).toContain("Crew");
+						expect(dialog.textContent).toContain("Scribe");
+						expect(getByRole(dialog, "button", { name: "Full cast & crew" })).toBeDefined();
+						expect(getByRole(dialog, "button", { name: "Refresh provider data" })).toBeDefined();
+					}
 					view.unmount();
 				}),
 			testTimeout,

@@ -44,7 +44,12 @@ import {
 	showEpisodicKindConfig,
 } from "./lifecycle-expressions";
 import { MediaImageListSchema } from "./media-image";
-import { mediaWatchProviderSelection } from "./media-recipes";
+import {
+	creditCharacterSelection,
+	mediaEpisodeCreditsRecipe,
+	mediaPeopleRecipe,
+	mediaWatchProviderSelection,
+} from "./media-recipes";
 import { ShowEpisodeOrderListSchema } from "./show-episode-order";
 
 const SHOW_SEASON_RELATIONSHIP = "show-to-show-season";
@@ -149,6 +154,11 @@ export const showRecipes = mediaEpisodicRecipes({
 		),
 	}),
 });
+
+export const showEpisodeCreditRecipes = {
+	overviewRecipe: mediaEpisodeCreditsRecipe({ slug: "show-episode" }),
+	peopleRecipe: mediaPeopleRecipe({ slug: "show-episode", personFields: creditCharacterSelection }),
+};
 
 export const showSeasonEpisodesRecipe = episodicEpisodesRecipe({
 	order: "asc",
