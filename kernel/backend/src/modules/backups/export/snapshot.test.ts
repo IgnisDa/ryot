@@ -5,6 +5,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { BadRequest } from "@ryot-app/contract/errors";
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
+import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import type {
 	ListedSavedView,
 	ResultsTableSavedViewSettings,
@@ -38,7 +39,7 @@ import { objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, FileSystem, Layer, Ref } from "effect";
+import { Context, Effect, FileSystem, Layer, Ref, Result } from "effect";
 
 import { collectManagedAssetLocators } from "#lib/domain/managed-asset-locators";
 import { AuthRepository } from "#modules/accounts/auth/repository";
@@ -64,6 +65,7 @@ import * as tables from "#schema/tables/combined";
 import { collectExportFixtureRecords } from "../archive/archive.test-support";
 import { ARCHIVE_CODECS } from "../archive/schemas";
 import { decodeNdjson, IncrementalSha256 } from "../archive/streaming";
+import { publicationDefinition } from "../publications.test-support";
 import { BackupExportRepository, type BackupPropertyReferenceDeclaration } from "./repository";
 import {
 	BackupExportSnapshot,
@@ -547,19 +549,21 @@ const storedSystemPlugin = (id: string, packageId: PluginPackageId, contentHash:
 
 const pluginViewPublication = (id: string, pluginId: string) => ({
 	icon: "share",
+	snapshot: null,
 	description: null,
 	showOwnerName: false,
 	title: "Plugin view",
+	pageDefinition: null,
 	id: PublicationId.make(id),
 	createdAt: privateTimestamp,
-	source: {
+	definition: publicationDefinition({
 		kind: "saved-view" as const,
 		reference: {
 			slug: "retained-view",
 			kind: "plugin" as const,
 			pluginId: PluginId.make(pluginId),
 		},
-	},
+	}),
 });
 
 const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
@@ -623,29 +627,33 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 									? [
 											{
 												icon: "share",
+												snapshot: null,
 												description: null,
 												title: "Collection",
 												showOwnerName: false,
+												pageDefinition: null,
 												createdAt: privateTimestamp,
 												id: PublicationId.make("publication-collection"),
-												source: {
+												definition: publicationDefinition({
 													kind: "collection" as const,
 													collectionId: EntityId.make("private-entity"),
-												},
+												}),
 											},
 											pluginViewPublication("publication-retained", "private-plugin-id"),
 											pluginViewPublication("publication-removed-plugin", "removed-plugin-id"),
 											{
 												icon: "share",
+												snapshot: null,
 												description: null,
 												showOwnerName: false,
+												pageDefinition: null,
 												createdAt: privateTimestamp,
 												title: "Removed kernel view",
 												id: PublicationId.make("publication-removed-kernel"),
-												source: {
+												definition: publicationDefinition({
 													kind: "saved-view" as const,
 													reference: { slug: "removed-view", kind: "kernel" as const },
-												},
+												}),
 											},
 										]
 									: [],
@@ -852,7 +860,12 @@ layer(privateRecordsExportLayer())((test) => {
 				expect(records.calendarSourceOverrides).toEqual([
 					{ isHidden: true, pluginKey: privateKey, slug: "retained-dates" },
 				]);
-				expect(records.publications.map(({ id, source }) => ({ id, source }))).toEqual([
+				expect(
+					records.publications.map(({ id, definition }) => ({
+						id,
+						source: Result.getOrThrow(decodeEntitySourceReference(definition.arguments["source"])),
+					})),
+				).toEqual<unknown>([
 					{
 						id: "publication-collection",
 						source: { kind: "collection", collectionId: "private-entity" },
@@ -861,7 +874,7 @@ layer(privateRecordsExportLayer())((test) => {
 						id: "publication-retained",
 						source: {
 							kind: "saved-view",
-							reference: { kind: "plugin", slug: "retained-view", pluginKey: privateKey },
+							reference: { kind: "plugin", pluginId: privateKey, slug: "retained-view" },
 						},
 					},
 				]);

@@ -12,7 +12,11 @@ import { Effect, Result } from "effect";
 
 import { exportSavedArguments } from "./archive/references";
 import { rewritePropertyReferences } from "./data-references";
-import { rewriteSavedArgumentSources, savedArgumentSources } from "./saved-arguments";
+import {
+	importSavedArguments,
+	rewriteSavedArgumentSources,
+	savedArgumentSources,
+} from "./saved-arguments";
 
 const collection = encodeEntitySourceReference({
 	kind: "collection",
@@ -112,4 +116,62 @@ it.effect("rejects malformed source references and unknown saved arguments", () 
 		const unknown = yield* Effect.result(savedArgumentSources(document, { unknown: "value" }));
 		expect(Result.isFailure(unknown)).toBe(true);
 	}),
+);
+
+it.effect(
+	"keeps visitor parameters unbound while remapping owner sources and tolerates deleted frozen sources",
+	() =>
+		Effect.gen(function* () {
+			const declaration: RyotQLDocument = {
+				...document,
+				parameters: {
+					fields: {
+						source: sourceProperty,
+						text: { label: "Text", type: "string", description: "Opaque text" },
+						visitor: {
+							type: "string",
+							label: "Visitor",
+							description: "Visitor value",
+							validation: { required: true },
+						},
+					},
+				},
+			};
+			const archived = yield* exportSavedArguments(
+				declaration,
+				{ text: pluginView, source: pluginView },
+				new Map([["plugin-old", "system:test/source"]]),
+				true,
+			);
+			const restored = yield* importSavedArguments(
+				declaration,
+				archived,
+				new Map([["system:test/source", "plugin-new"]]),
+				new Map(),
+				new Map(),
+				{ partial: true },
+			);
+			expect(restored).toEqual({
+				text: pluginView,
+				source: encodeEntitySourceReference({
+					kind: "saved-view",
+					reference: { slug: "items", kind: "plugin", pluginId: PluginId.make("plugin-new") },
+				}),
+			});
+			const frozen = yield* importSavedArguments(
+				declaration,
+				{ source: collection },
+				new Map(),
+				new Map(),
+				new Map(),
+				{ frozen: true, partial: true },
+			);
+			expect(frozen).toEqual({ source: collection });
+			const live = yield* Effect.result(
+				importSavedArguments(declaration, { source: collection }, new Map(), new Map(), new Map(), {
+					partial: true,
+				}),
+			);
+			expect(Result.isFailure(live)).toBe(true);
+		}),
 );

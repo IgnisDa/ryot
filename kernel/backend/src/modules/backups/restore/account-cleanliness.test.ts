@@ -41,6 +41,7 @@ import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { BackupExportRepository } from "../export/repository";
+import { publicationDefinition } from "../publications.test-support";
 import {
 	type AccountCleanlinessState,
 	BackupAccountCleanliness,
@@ -595,7 +596,10 @@ layer(
 							description: null,
 							showOwnerName: false,
 							revokedAt: new Date(0),
-							source: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },
+							definition: publicationDefinition({
+								kind: "saved-view",
+								reference: { kind: "kernel", slug: "collections" },
+							}),
 						}),
 				);
 				expect((yield* reads.inspectRestoreTarget(userId))?.hasPublications).toBe(true);

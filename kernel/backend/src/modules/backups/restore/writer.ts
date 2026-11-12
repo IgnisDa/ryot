@@ -8,6 +8,8 @@ import {
 	identityTupleKey,
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import { bindPartialArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import {
 	EntityBrowserSavedViewSettings,
 	type SavedViewRenderer,
@@ -22,6 +24,7 @@ import {
 	SignalSchemaSlug,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { deriveSavedViewQueries } from "@ryot-app/definitions/saved-view-queries";
@@ -58,6 +61,7 @@ import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/packages/types";
 import { resolvePluginUserSettings } from "#modules/plugins/preferences/user-settings";
+import { PUBLICATION_RESULT_BYTES } from "#modules/publications/model";
 import { DatabaseSession } from "#platform/db/session";
 
 import type { ValidatedArchiveBinary } from "../archive/archive";
@@ -98,8 +102,18 @@ import {
 	STREAMED_SECTION_PATHS,
 	type StreamedSectionPath,
 } from "../archive/sections";
-import { importPageDefinition, pagePluginKeys, readPageArtifact } from "../pages";
-import { rewriteSavedArgumentSources, savedArgumentSources } from "../saved-arguments";
+import {
+	importPageDefinition,
+	pagePluginKeys,
+	readPageArtifact,
+	validatePageArtifactImports,
+} from "../pages";
+import {
+	kernelPublicationDocument,
+	publicationArguments,
+	rewritePublicationAssets,
+} from "../publications";
+import { importSavedArguments, savedArgumentSources } from "../saved-arguments";
 import { BACKUP_STAGE_BATCH_SIZE, BACKUP_STAGE_PAGE_BYTES, BackupStaging } from "../staging";
 import { BackupRestorePersistence } from "./persistence";
 
@@ -782,19 +796,46 @@ export const preflightProvenance = Effect.fn(function* (
 			"calendar source",
 		);
 	}
-	const userEntitiesById = new Map(records.entities.map((entity) => [entity.id, entity]));
-	for (const { source } of records.publications) {
-		if (source.kind === "collection") {
-			const collection =
-				userEntitiesById.get(source.collectionId) ?? endpointEntities.get(source.collectionId);
+	for (const publication of records.publications) {
+		if ((publication.definition.mode === "snapshot") !== (publication.snapshot !== null)) {
+			return yield* badRequest("Backup publication snapshot mode is inconsistent");
+		}
+		yield* importQueryPluginReferences(publication.document, pluginIdByKey);
+		yield* Effect.fromResult(
+			bindPartialArguments(publication.document.parameters, publication.definition.arguments),
+		).pipe(Effect.mapError(() => badRequest("Backup publication arguments are invalid")));
+		if (publication.definition.page.kind === "kernel" && !publication.snapshot) {
+			const canonical = kernelPublicationDocument(definitions);
 			if (
-				collection?.entitySchemaSlug !== "collection" ||
-				collection.entitySchemaPluginKey !== null
+				!canonical ||
+				stableStringify(canonical.parameters) !== stableStringify(publication.document.parameters)
 			) {
-				return yield* badRequest("Backup publication references an unavailable collection");
+				return yield* badRequest("Backup kernel publication parameters are invalid");
 			}
-		} else {
-			yield* assertArchivedSavedView(source.reference, "publication saved view");
+		}
+		for (const values of yield* publicationArguments(publication)) {
+			if (publication.snapshot) {
+				continue;
+			}
+			for (const { source } of values.sources) {
+				if (source.kind === "collection") {
+					const entity =
+						records.entities.find(({ id }) => id === source.collectionId) ??
+						endpointEntities.get(source.collectionId);
+					if (entity?.entitySchemaSlug !== "collection" || entity.entitySchemaPluginKey !== null) {
+						return yield* badRequest("Backup publication references an unavailable collection");
+					}
+				}
+				if (source.kind === "saved-view" && source.reference.kind !== "custom") {
+					const reference = source.reference;
+					yield* assertArchivedSavedView(
+						reference.kind === "kernel"
+							? reference
+							: { kind: "plugin", slug: reference.slug, pluginKey: reference.pluginId },
+						"publication argument source",
+					);
+				}
+			}
 		}
 	}
 	for (const view of records.savedViews) {
@@ -958,28 +999,6 @@ const restoredSavedViewReference = Effect.fn(function* (
 		yield* mappedPluginId(pluginIdByKey, reference.kind === "plugin" ? reference.pluginKey : null),
 		reference.slug,
 	);
-});
-
-const restoredPublicationSource = Effect.fn(function* (
-	source: ArchivePublication["source"],
-	pluginIdByKey: ReadonlyMap<string, string>,
-	context: Pick<RestoreRecordBatchContext, "entityIdMap" | "customViewIds">,
-) {
-	if (source.kind === "collection") {
-		const collectionId = context.entityIdMap.get(source.collectionId);
-		return collectionId
-			? { collectionId, kind: source.kind }
-			: yield* badRequest("Backup publication collection mapping is incomplete");
-	}
-	return {
-		kind: source.kind,
-		reference: yield* restoredSavedViewReference(
-			source.reference,
-			pluginIdByKey,
-			context.customViewIds,
-			"publication saved view",
-		),
-	};
 });
 
 type RestoreRecordBatchContext = {
@@ -1509,15 +1528,52 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						Effect.forEach(
 							rows,
 							(row) =>
-								Schema.decodeUnknownEffect(ArchivePublication)(row.value).pipe(
-									Effect.map(({ id, source }) => {
-										if (source.kind === "collection") {
-											add("publication", id, "entity", source.collectionId);
-										} else if (source.reference.kind === "custom") {
-											add("publication", id, "saved-view-custom", source.reference.savedViewId);
+								Effect.gen(function* () {
+									const value = yield* Schema.decodeUnknownEffect(ArchivePublication)(row.value);
+									if (value.definition.page.kind === "page") {
+										add("publication", value.id, "page", value.definition.page.pageId);
+									}
+									if (value.snapshot?.page) {
+										add("publication", value.id, "page", value.snapshot.page.pageId);
+									}
+									for (const values of yield* publicationArguments(value)) {
+										if (value.document.parameters && !value.snapshot) {
+											addProperties(
+												"publication",
+												value.id,
+												values.bound,
+												value.document.parameters,
+											);
 										}
-									}),
-								),
+										for (const { source } of values.sources) {
+											if (source.kind === "collection") {
+												add(
+													"publication",
+													value.id,
+													"entity",
+													source.collectionId,
+													!value.snapshot,
+												);
+											} else if (source.reference.kind === "custom") {
+												add(
+													"publication",
+													value.id,
+													"saved-view-custom",
+													source.reference.savedViewId,
+													!value.snapshot,
+												);
+											} else if (source.reference.kind === "plugin") {
+												add(
+													"publication",
+													value.id,
+													"installation",
+													source.reference.pluginId,
+													!value.snapshot,
+												);
+											}
+										}
+									}
+								}),
 							{ discard: true },
 						),
 					);
@@ -1705,19 +1761,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 											}
 										}
 										if (value.published) {
-											for (const target of value.published.artifact.imports) {
-												if (
-													!pageClients.get(pluginPackageKey(target.reference))?.exports?.[
-														target.exportName
-													]
-												) {
-													return yield* archiveError(
-														"invalid_entry",
-														"Page artifact imports an unavailable export",
-														"pages.ndjson",
-													);
-												}
-											}
+											yield* validatePageArtifactImports(value.published.artifact, pageClients);
 
 											yield* readPageArtifact(
 												value.published.artifact,
@@ -1803,28 +1847,79 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									break;
 								}
 								case "publications.ndjson": {
-									const values = yield* Effect.forEach(rows, (row) =>
-										Schema.decodeUnknownEffect(ArchivePublication)(row.value),
-									);
-									const endpoints = yield* staging.getEntityIdentities(runId, [
-										...new Set(
-											values.flatMap(({ source }) =>
-												source.kind === "collection" ? [source.collectionId] : [],
+									for (const row of rows) {
+										const value = yield* Schema.decodeUnknownEffect(ArchivePublication)(row.value);
+										const argumentValues = yield* publicationArguments(value);
+										const endpoints = yield* staging.getEntityIdentities(
+											runId,
+											argumentValues.flatMap(({ sources }) =>
+												sources.flatMap(({ source }) =>
+													source.kind === "collection" ? [source.collectionId] : [],
+												),
 											),
-										),
-									]);
-									yield* preflight(
-										emptyArchiveRecords(metadata, { publications: values }),
-										emptyEvents,
-										pluginIdByKey,
-										definitions,
-										required,
-										new Map(
-											endpoints
-												.filter(({ section }) => section === "entities.ndjson")
-												.map((endpoint) => [endpoint.id, endpoint]),
-										),
-									);
+										);
+										yield* preflight(
+											emptyArchiveRecords(metadata, { publications: [value] }),
+											emptyEvents,
+											pluginIdByKey,
+											definitions,
+											required,
+											new Map(
+												endpoints
+													.filter(({ section }) => section === "entities.ndjson")
+													.map((endpoint) => [endpoint.id, endpoint]),
+											),
+										);
+										if (value.definition.page.kind === "page") {
+											const [pageRow] = yield* staging.getRecords(runId, "page", [
+												value.definition.page.pageId,
+											]);
+											if (!pageRow) {
+												return yield* badRequest("Backup publication page is unavailable");
+											}
+											const page = yield* Schema.decodeUnknownEffect(ArchivePage)(pageRow.value);
+											if (
+												!value.snapshot &&
+												(!page.published ||
+													stableStringify(page.published.definition.queries) !==
+														stableStringify(value.document))
+											) {
+												return yield* badRequest(
+													"Backup publication document does not match its page",
+												);
+											}
+										}
+										if (value.snapshot) {
+											yield* savedArgumentSources(value.document, value.snapshot.arguments);
+											if (
+												Buffer.byteLength(
+													yield* Schema.encodeEffect(Schema.fromJsonString(RyotQLResponse))(
+														value.snapshot.result,
+													),
+												) > PUBLICATION_RESULT_BYTES
+											) {
+												return yield* badRequest("Backup publication snapshot is too large");
+											}
+											if (value.snapshot.page) {
+												const page = value.snapshot.page;
+												if (
+													value.definition.page.kind !== "page" ||
+													value.definition.page.pageId !== page.pageId ||
+													stableStringify(page.definition.queries) !==
+														stableStringify(value.document)
+												) {
+													return yield* badRequest(
+														"Backup publication snapshot page is inconsistent",
+													);
+												}
+												yield* importPageDefinition(page.definition, pluginIdByKey);
+												yield* validatePageArtifactImports(page.artifact, pageClients);
+												yield* readPageArtifact(page.artifact, page.definition, blobs);
+											} else if (value.definition.page.kind !== "kernel") {
+												return yield* badRequest("Backup publication snapshot page is missing");
+											}
+										}
+									}
 									break;
 								}
 								case "integrations.ndjson": {
@@ -2026,11 +2121,18 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						entityIds.add(event.sessionEntityId);
 					}
 				}
-				for (const { source } of records.publications) {
-					if (source.kind === "collection") {
-						entityIds.add(source.collectionId);
-					} else if (source.reference.kind === "custom") {
-						savedViewIds.add(source.reference.savedViewId);
+				for (const publication of records.publications) {
+					for (const values of yield* publicationArguments(publication)) {
+						if (publication.document.parameters) {
+							addPropertyRefs(values.bound, publication.document.parameters);
+						}
+						for (const { source } of values.sources) {
+							if (source.kind === "collection") {
+								entityIds.add(source.collectionId);
+							} else if (source.reference.kind === "custom") {
+								savedViewIds.add(source.reference.savedViewId);
+							}
+						}
 					}
 				}
 				const entityIdentityRows = yield* staging.getEntityIdentities(runId, [...entityIds]);
@@ -2114,13 +2216,14 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					...relationshipIds,
 				]);
 				const eventIdMap = yield* staging.resolveMappings(runId, "event", [...eventIds]);
-				const pageIds = yield* staging.resolveMappings(
-					runId,
-					"page",
-					records.savedViews.flatMap((view) =>
+				const pageIds = yield* staging.resolveMappings(runId, "page", [
+					...records.savedViews.flatMap((view) =>
 						view.kind === "custom" && view.renderer.kind === "page" ? [view.renderer.pageId] : [],
 					),
-				);
+					...records.publications.flatMap((publication) =>
+						publication.definition.page.kind === "page" ? [publication.definition.page.pageId] : [],
+					),
+				]);
 				const mappedViews = yield* staging.resolveMappings(runId, "saved-view", [...savedViewIds]);
 				const customViewIds = new Map(
 					[...mappedViews].map(
@@ -2208,6 +2311,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 				pluginIdByKey: ReadonlyMap<string, string>,
 				definitions: DefinitionSnapshot,
 				context: RestoreRecordBatchContext,
+				blobs: ReadonlyMap<string, ValidatedArchiveBinary>,
 			) {
 				const privatePlugins = yield* plugins.listPrivateForUser(userId);
 				const systemPlugins = yield* plugins.listActiveSystemPlugins();
@@ -2535,43 +2639,12 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							? installedPlugins.get(renderer.pluginId)?.client?.exports?.[renderer.exportName]
 							: undefined;
 					let dataSources = yield* importQueryPluginReferences(view.dataSources, pluginIdByKey);
-					const sourceArguments = yield* rewriteSavedArgumentSources(
+					const sourceArguments = yield* importSavedArguments(
 						dataSources,
 						view.arguments,
-						Effect.fn(function* (source) {
-							if (source.kind === "collection") {
-								const id = context.entityIdMap.get(source.collectionId);
-								if (!id) {
-									return yield* archiveError(
-										"missing_reference_mapping",
-										"Saved argument collection mapping is incomplete",
-									);
-								}
-								return { ...source, collectionId: id };
-							}
-							const reference = source.reference;
-							if (reference.kind === "kernel") {
-								return source;
-							}
-							if (reference.kind === "custom") {
-								const id = context.customViewIds.get(reference.savedViewId);
-								if (!id) {
-									return yield* archiveError(
-										"missing_reference_mapping",
-										"Saved argument view mapping is incomplete",
-									);
-								}
-								return { ...source, reference: { ...reference, savedViewId: id } };
-							}
-							const id = pluginIdByKey.get(reference.pluginId);
-							if (!id) {
-								return yield* archiveError(
-									"missing_reference_mapping",
-									"Saved argument plugin mapping is incomplete",
-								);
-							}
-							return { ...source, reference: { ...reference, pluginId: PluginId.make(id) } };
-						}),
+						pluginIdByKey,
+						context.entityIdMap,
+						context.customViewIds,
 					);
 					const argumentsValue = dataSources?.parameters
 						? yield* rewriteProperties(sourceArguments, dataSources.parameters)
@@ -2656,20 +2729,110 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					});
 				}
 				for (const publication of records.publications) {
-					const source = yield* restoredPublicationSource(
-						publication.source,
-						pluginIdByKey,
-						context,
-					);
-					yield* persistence.restorePublication({
-						userId,
-						source,
-						icon: publication.icon,
-						title: publication.title,
-						description: publication.description,
-						showOwnerName: publication.showOwnerName,
-						createdAt: parseDate(publication.createdAt),
+					const document = yield* importQueryPluginReferences(publication.document, pluginIdByKey);
+					if (!document) {
+						return yield* badRequest("Backup publication document is missing");
+					}
+					const frozen = publication.snapshot !== null;
+					const rewriteArguments = Effect.fnUntraced(function* (
+						values: Readonly<Record<string, JsonValue>>,
+					) {
+						const sources = yield* importSavedArguments(
+							document,
+							values,
+							pluginIdByKey,
+							context.entityIdMap,
+							context.customViewIds,
+							{ frozen, partial: true },
+						);
+						const entityIds = new Map(context.entityIdMap);
+						const relationshipIds = new Map(context.relationshipIdMap);
+						if (frozen && document.parameters) {
+							for (const reference of collectPropertyReferences(sources, document.parameters)) {
+								if (reference.kind === "entity-id" && !entityIds.has(reference.id)) {
+									entityIds.set(reference.id, EntityId.make(reference.id));
+								}
+								if (reference.kind === "relationship-id" && !relationshipIds.has(reference.id)) {
+									relationshipIds.set(reference.id, reference.id);
+								}
+							}
+						}
+						const references = document.parameters
+							? yield* rewritePropertyReferences(
+									sources,
+									document.parameters,
+									entityIds,
+									relationshipIds,
+									(id) => context.eventIdMap.get(id) ?? (frozen ? id : undefined),
+								).pipe(Effect.mapError((error) => archiveError(error.code, error.message)))
+							: sources;
+						return yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(
+							yield* rewritePublicationAssets(references, assetLocators),
+						);
 					});
+					const pageId =
+						publication.definition.page.kind === "page"
+							? context.pageIds.get(publication.definition.page.pageId)
+							: null;
+					if (publication.definition.page.kind === "page" && !pageId) {
+						return yield* badRequest("Backup publication page mapping is incomplete");
+					}
+					const definition = {
+						...publication.definition,
+						arguments: yield* rewriteArguments(publication.definition.arguments),
+						page: pageId
+							? { pageId, kind: "page" as const }
+							: { kind: "kernel" as const, name: "publication" as const },
+					};
+					let snapshot = null;
+					let artifact = null;
+					if (publication.snapshot) {
+						const captured = publication.snapshot;
+						let page = null;
+						if (captured.page) {
+							const prepared = yield* importPageDefinition(captured.page.definition, pluginIdByKey);
+							artifact = yield* readPageArtifact(
+								captured.page.artifact,
+								captured.page.definition,
+								blobs,
+							);
+							page = {
+								name: captured.page.name,
+								artifactHash: artifact.hash,
+								definition: prepared.definition,
+								revision: captured.page.revision,
+								definitionHash: prepared.definitionHash,
+								authorityRevision: captured.page.authorityRevision,
+								pageId: pageId ?? (yield* badRequest("Backup snapshot page mapping is incomplete")),
+							};
+						}
+						snapshot = {
+							page,
+							document,
+							arguments: yield* rewriteArguments(captured.arguments),
+							result: yield* Schema.decodeUnknownEffect(RyotQLResponse)(
+								yield* rewritePublicationAssets(captured.result, assetLocators),
+							),
+							settings: yield* Schema.decodeUnknownEffect(Schema.Record(Schema.String, JsonValue))(
+								yield* rewritePublicationAssets(captured.settings, assetLocators),
+							),
+						};
+					}
+					yield* persistence.restorePublication(
+						{
+							userId,
+							pageId,
+							snapshot,
+							definition,
+							icon: publication.icon,
+							title: publication.title,
+							description: publication.description,
+							showOwnerName: publication.showOwnerName,
+							createdAt: parseDate(publication.createdAt),
+							snapshotArtifactHash: artifact?.hash ?? null,
+						},
+						artifact,
+					);
 				}
 				for (const integration of records.integrations) {
 					const pluginId =
@@ -3352,6 +3515,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								pluginIdByKey,
 								definitions,
 								context,
+								blobs,
 							);
 						}),
 					);

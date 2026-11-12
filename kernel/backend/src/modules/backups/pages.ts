@@ -1,4 +1,5 @@
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
+import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	pluginPackageKey,
 	type PluginPackageReference,
@@ -151,4 +152,20 @@ export const readPageArtifact = Effect.fn(function* (
 		files.push({ contents, name: file.name, contentType: file.contentType });
 	}
 	return yield* validatePageArtifact({ ...metadata, files }, definition);
+});
+
+export const validatePageArtifactImports = Effect.fn(function* (
+	artifact: ArchivePageArtifact,
+	clients: ReadonlyMap<string, PluginManifest["client"]>,
+) {
+	for (const target of artifact.imports) {
+		if (!clients.get(pluginPackageKey(target.reference))?.exports?.[target.exportName]) {
+			return yield* archiveError(
+				"invalid_entry",
+				"Page artifact imports an unavailable export",
+				"pages.ndjson",
+			);
+		}
+	}
+	return yield* Effect.void;
 });

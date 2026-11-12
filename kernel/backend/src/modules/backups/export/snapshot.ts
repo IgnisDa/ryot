@@ -9,6 +9,7 @@ import {
 	type SavedViewReference,
 	savedViewReferenceKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	type BackupRunId,
 	EntityId,
@@ -16,6 +17,7 @@ import {
 	type PublicationId,
 	type UserId,
 } from "@ryot-app/contract/schema/brands";
+import { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { buildDefinitionSnapshot, type DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
@@ -29,6 +31,7 @@ import {
 	sortedManagedAssetLocators,
 } from "#lib/domain/managed-asset-locators";
 import { AuthRepository } from "#modules/accounts/auth/repository";
+import { managedAssetLocators } from "#modules/assets/storage/locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { AutomationsRepository } from "#modules/automations/repository";
 import {
@@ -91,6 +94,12 @@ import {
 	pagePluginKeys,
 	validatePageArtifact,
 } from "../pages";
+import {
+	kernelPublicationDocument,
+	publicationArguments,
+	rewritePublicationAssets,
+} from "../publications";
+import { savedArgumentSources } from "../saved-arguments";
 import { BackupStaging } from "../staging";
 import { BackupExportRepository, type BackupPropertyReferenceDeclaration } from "./repository";
 
@@ -760,25 +769,74 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						showOwnerName: row.showOwnerName,
 						createdAt: row.createdAt.toISOString(),
 					};
-					if (row.source.kind === "collection") {
-						publicationRecords.push({ ...archived, source: row.source });
+					const document =
+						row.snapshot?.document ??
+						row.pageDefinition?.queries ??
+						(row.definition.page.kind === "kernel" && context.definitionSnapshots[0]
+							? kernelPublicationDocument(context.definitionSnapshots[0])
+							: null);
+					if (!document) {
 						continue;
 					}
-					const reference = row.source.reference;
-					if (
-						reference.kind !== "custom" &&
-						!context.savedView(
-							reference.slug,
-							reference.kind === "plugin" ? reference.pluginId : null,
-						)
-					) {
-						continue;
+					if (!row.snapshot) {
+						const values = yield* savedArgumentSources(document, row.definition.arguments, true);
+						if (
+							values.sources.some(
+								({ source }) =>
+									source.kind === "saved-view" &&
+									source.reference.kind !== "custom" &&
+									!context.savedView(
+										source.reference.slug,
+										source.reference.kind === "plugin" ? source.reference.pluginId : null,
+									),
+							)
+						) {
+							continue;
+						}
+					}
+					const archivedDocument = yield* exportQueryPluginReferences(document, portablePackages);
+					if (!archivedDocument) {
+						return yield* archiveError("invalid_entry", "Publication document is missing");
+					}
+					let snapshot: ArchivePublication["snapshot"] = null;
+					if (row.snapshot) {
+						const captured = row.snapshot;
+						const page = captured.page;
+						let archivedPage = null;
+						if (page) {
+							const definition = yield* exportPageDefinition(page.definition, portablePackages);
+							const artifact = yield* validatePageArtifact(
+								yield* pageArtifacts.loadClientArtifact(page.artifactHash),
+								definition,
+							);
+							archivedPage = {
+								definition,
+								name: page.name,
+								pageId: page.pageId,
+								revision: page.revision,
+								artifact: describePageArtifact(artifact),
+								authorityRevision: page.authorityRevision,
+							};
+						}
+						snapshot = {
+							page: archivedPage,
+							result: captured.result,
+							settings: captured.settings,
+							arguments: yield* exportSavedArguments(document, captured.arguments, pluginKeyById),
+						};
 					}
 					publicationRecords.push({
 						...archived,
-						source: {
-							kind: row.source.kind,
-							reference: yield* archiveSavedViewReference(pluginKeyById, reference),
+						snapshot,
+						document: archivedDocument,
+						definition: {
+							...row.definition,
+							arguments: yield* exportSavedArguments(
+								document,
+								row.definition.arguments,
+								pluginKeyById,
+								true,
+							),
 						},
 					});
 				}
@@ -1169,9 +1227,24 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						additionalPropertyRecords.push({ propertiesSchema, properties: subscription.metadata });
 					}
 				}
+				for (const publication of data.publications) {
+					if (publication.document.parameters) {
+						for (const values of yield* publicationArguments(publication)) {
+							additionalPropertyRecords.push({
+								properties: values.bound,
+								propertiesSchema: publication.document.parameters,
+							});
+						}
+					}
+				}
 				const collectedLocators = new Map<string, ManagedAssetLocator>();
 				collectManagedAssetLocatorsInto(data.propertyRecords, collectedLocators);
 				collectManagedAssetLocatorsInto(additionalPropertyRecords, collectedLocators);
+				for (const publication of data.publications) {
+					for (const locator of managedAssetLocators(publication.snapshot)) {
+						collectedLocators.set(managedAssetLocatorKey(locator), locator);
+					}
+				}
 				const requestedLocators = sortedManagedAssetLocators(collectedLocators);
 				const managedAssets = yield* uploads.verifyManagedAssetOwnership(userId, requestedLocators);
 				const archiveLocators = new Map<string, AssetLocator>(
@@ -1475,12 +1548,51 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					savedViews: exportedViews,
 					entities: exportedEntities,
 					foldValues: data.foldValues,
-					publications: data.publications,
 					integrations: restoredIntegrations,
 					privatePlugins: data.privatePlugins,
 					relationships: exportedRelationships,
 					installations: exportedInstallations,
 					calendarSourceOverrides: data.calendarSourceOverrides,
+					publications: yield* Effect.forEach(data.publications, (publication) =>
+						Effect.gen(function* () {
+							const definition = {
+								...publication.definition,
+								arguments: yield* Schema.decodeUnknownEffect(
+									Schema.Record(Schema.String, JsonValue),
+								)(
+									yield* rewritePublicationAssets(
+										publication.definition.arguments,
+										archiveLocators,
+									),
+								),
+							};
+							const snapshot = publication.snapshot
+								? {
+										...publication.snapshot,
+										result: yield* Schema.decodeUnknownEffect(RyotQLResponse)(
+											yield* rewritePublicationAssets(publication.snapshot.result, archiveLocators),
+										),
+										settings: yield* Schema.decodeUnknownEffect(
+											Schema.Record(Schema.String, JsonValue),
+										)(
+											yield* rewritePublicationAssets(
+												publication.snapshot.settings,
+												archiveLocators,
+											),
+										),
+										arguments: yield* Schema.decodeUnknownEffect(
+											Schema.Record(Schema.String, JsonValue),
+										)(
+											yield* rewritePublicationAssets(
+												publication.snapshot.arguments,
+												archiveLocators,
+											),
+										),
+									}
+								: null;
+							return { ...publication, snapshot, definition };
+						}),
+					),
 				} satisfies ArchiveRecords;
 				const referencedPluginKeys = collectReferencedPluginKeys(records);
 				const requiredPlugins = context.installedPlugins
@@ -1608,6 +1720,35 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							collectEmbeddedEntityIds(propertyRecords),
 						);
 					}
+					let publicationAfter: undefined | PublicationId;
+					let hasPublications = true;
+					while (hasPublications) {
+						const rows = yield* exportRepository.listPublications(userId, {
+							limit: 1,
+							afterId: publicationAfter,
+						});
+						hasPublications = rows.length > 0;
+						for (const row of rows) {
+							const document = row.snapshot?.document ?? row.pageDefinition?.queries;
+							if (document?.parameters) {
+								yield* exportRepository.addDependencyIds(
+									runId,
+									collectEmbeddedEntityIds([
+										{ properties: row.definition.arguments, propertiesSchema: document.parameters },
+										...(row.snapshot
+											? [
+													{
+														properties: row.snapshot.arguments,
+														propertiesSchema: document.parameters,
+													},
+												]
+											: []),
+									]),
+								);
+							}
+							publicationAfter = row.id;
+						}
+					}
 					while ((yield* exportRepository.discoverSnapshotDependencies(runId, declarations)) > 0) {}
 					let totalBytes = 0;
 					const spool = <A, I>(path: StreamedSectionPath, codec: Schema.Codec<A, I>) => {
@@ -1688,9 +1829,53 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					>();
 					const redactions = new Set<string>();
 					let redactionBytes = 0;
+					const blobsByHash = new Map<
+						string,
+						ArchiveBlobManifest & { readonly filePath: string }
+					>();
+					const retainArtifact = Effect.fnUntraced(function* (artifact: PageClientArtifact) {
+						const artifactMetadata = describePageArtifact(artifact);
+						for (const file of artifact.files) {
+							const description = artifactMetadata.files.find(({ name }) => name === file.name);
+							if (!description) {
+								return yield* archiveError("invalid_entry", "Page file metadata is missing");
+							}
+							if (!blobsByHash.has(description.sha256)) {
+								if (
+									blobsByHash.size + assetsBySha.size + ARCHIVE_SECTION_PATHS.length + 1 >=
+									ARCHIVE_LIMITS.maxEntryCount
+								) {
+									return yield* archiveError(
+										"entry_count_exceeded",
+										"Backup binary entry limit exceeded",
+									);
+								}
+								const filePath = `${eventsPath}.blob-${description.sha256}`;
+								yield* fs.writeFile(filePath, file.contents);
+								blobsByHash.set(description.sha256, {
+									filePath,
+									size: description.size,
+									sha256: description.sha256,
+									path: `blobs/${description.sha256}`,
+									contentType: "application/octet-stream",
+								});
+							}
+						}
+						return yield* Effect.void;
+					});
 					const retainSummary = Effect.fnUntraced(function* (
 						page: Effect.Success<ReturnType<typeof prepareExportPage>>,
 					) {
+						for (const publication of page.records.publications) {
+							if (publication.snapshot?.page) {
+								const captured = publication.snapshot.page;
+								const artifact = yield* validatePageArtifact(
+									yield* pageArtifacts.loadClientArtifact(captured.artifact.hash),
+									captured.definition,
+								);
+								yield* retainArtifact(artifact);
+							}
+						}
 						for (const asset of page.managedAssets) {
 							const previous = assetsBySha.get(asset.sha256);
 							if (
@@ -1768,10 +1953,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						context,
 					);
 					yield* retainSummary(eventPage);
-					const blobsByHash = new Map<
-						string,
-						ArchiveBlobManifest & { readonly filePath: string }
-					>();
+
 					const packages = new Map(
 						context.installedPlugins.map((plugin) => [
 							plugin.id,
@@ -1808,34 +1990,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 									revision: row.publishedRevision,
 									artifact: describePageArtifact(artifact),
 								};
-								for (const file of artifact.files) {
-									const description = published.artifact.files.find(
-										({ name }) => name === file.name,
-									);
-									if (!description) {
-										return yield* archiveError("invalid_entry", "Page file metadata is missing");
-									}
-									if (!blobsByHash.has(description.sha256)) {
-										if (
-											blobsByHash.size + assetsBySha.size + ARCHIVE_SECTION_PATHS.length + 1 >=
-											ARCHIVE_LIMITS.maxEntryCount
-										) {
-											return yield* archiveError(
-												"entry_count_exceeded",
-												"Backup binary entry limit exceeded",
-											);
-										}
-										const filePath = `${eventsPath}.blob-${description.sha256}`;
-										yield* fs.writeFile(filePath, file.contents);
-										blobsByHash.set(description.sha256, {
-											filePath,
-											size: description.size,
-											sha256: description.sha256,
-											path: `blobs/${description.sha256}`,
-											contentType: "application/octet-stream",
-										});
-									}
-								}
+								yield* retainArtifact(artifact);
 							} else if (row.publishedRevision !== null || row.publishedArtifactHash !== null) {
 								return yield* archiveError(
 									"invalid_entry",

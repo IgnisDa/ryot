@@ -82,10 +82,10 @@ import {
 	type ArchiveEntitySnapshot,
 	ArchiveEvent,
 	archivePluginDefinitionContract,
-	type ArchivePublication,
 	type ArchiveRecords,
 } from "../archive/schemas";
 import { BackupExportSnapshot } from "../export/snapshot";
+import { publicationDefinition, publicationFields } from "../publications.test-support";
 import { BackupStaging } from "../staging";
 import { BackupRestorePersistence } from "./persistence";
 import { memoryStagingLayer, restoreFixtureRecords } from "./staging.test-support";
@@ -440,13 +440,13 @@ const provenanceQuery = document({
 const provenanceRecords = (
 	input: {
 		readonly builtinView?: boolean;
+		readonly publication?: unknown;
 		readonly viewKey?: null | string;
 		readonly entityKey?: null | string;
 		readonly calendarSourceKey?: string;
 		readonly dependencyKey?: null | string;
 		readonly relationshipKey?: null | string;
 		readonly subscriptionKey?: null | string;
-		readonly publication?: ArchivePublication["source"];
 	} = {},
 ): ArchiveRecords => ({
 	reminders: [],
@@ -487,7 +487,7 @@ const provenanceRecords = (
 						title: "Published",
 						showOwnerName: false,
 						id: "publication-id",
-						source: input.publication,
+						...publicationFields(input.publication),
 						createdAt: "2026-08-23T12:00:00.000Z",
 					},
 				],
@@ -756,7 +756,7 @@ it.effect(
 					records: provenanceRecords({
 						publication: {
 							kind: "saved-view",
-							reference: { kind: "plugin", slug: "owner-view", pluginKey: "foreign-key" },
+							reference: { kind: "plugin", slug: "owner-view", pluginId: "foreign-key" },
 						},
 					}),
 				},
@@ -765,20 +765,6 @@ it.effect(
 					name: "publication of an unavailable kernel view",
 					records: provenanceRecords({
 						publication: { kind: "saved-view", reference: { kind: "kernel", slug: "owner-view" } },
-					}),
-				},
-				{
-					event: provenanceEvent(),
-					name: "publication of a non-collection user entity",
-					records: provenanceRecords({
-						publication: { kind: "collection", collectionId: "user-entity" },
-					}),
-				},
-				{
-					event: provenanceEvent(),
-					name: "publication of an unknown collection",
-					records: provenanceRecords({
-						publication: { kind: "collection", collectionId: "archived-collection" },
 					}),
 				},
 			] as const;
@@ -804,7 +790,7 @@ it.effect(
 			for (const publication of [
 				{
 					kind: "saved-view",
-					reference: { kind: "plugin", slug: "owner-view", pluginKey: "owner-key" },
+					reference: { kind: "plugin", slug: "owner-view", pluginId: "owner-key" },
 				},
 				{ kind: "collection", collectionId: "archived-collection" },
 			] as const) {
@@ -2137,22 +2123,25 @@ describe("account backup restore in PostgreSQL", () => {
 											pluginId: sourceId,
 											slug: "bottle-dates",
 										});
-										yield* persistence.restorePublication({
-											icon: "share",
-											description: null,
-											userId: sourceUser,
-											showOwnerName: false,
-											createdAt: fixedDate,
-											title: "Plugin publication",
-											source: {
-												kind: "saved-view",
-												reference: {
-													kind: "plugin",
-													slug: "all-bottles",
-													pluginId: PluginId.make(sourceId),
-												},
+										yield* persistence.restorePublication(
+											{
+												icon: "share",
+												description: null,
+												userId: sourceUser,
+												showOwnerName: false,
+												createdAt: fixedDate,
+												title: "Plugin publication",
+												definition: publicationDefinition({
+													kind: "saved-view",
+													reference: {
+														kind: "plugin",
+														slug: "all-bottles",
+														pluginId: PluginId.make(sourceId),
+													},
+												}),
 											},
-										});
+											null,
+										);
 									}
 									let firstViewId: string | undefined;
 									for (const suffix of ["", "-extra", "-unassociated"]) {
@@ -2213,18 +2202,21 @@ describe("account backup restore in PostgreSQL", () => {
 										assert(view);
 										firstViewId ??= view.id;
 										if (suffix === "" && label === "B") {
-											yield* persistence.restorePublication({
-												icon: "share",
-												userId: sourceUser,
-												showOwnerName: true,
-												createdAt: fixedDate,
-												title: "Custom publication",
-												description: "Bottles worth sharing",
-												source: {
-													kind: "saved-view",
-													reference: { kind: "custom", savedViewId: SavedViewId.make(view.id) },
+											yield* persistence.restorePublication(
+												{
+													icon: "share",
+													userId: sourceUser,
+													showOwnerName: true,
+													createdAt: fixedDate,
+													title: "Custom publication",
+													description: "Bottles worth sharing",
+													definition: publicationDefinition({
+														kind: "saved-view",
+														reference: { kind: "custom", savedViewId: SavedViewId.make(view.id) },
+													}),
 												},
-											});
+												null,
+											);
 										}
 										if (suffix === "") {
 											yield* installations.setHomeSavedView(sourceUser, installation.id, {
@@ -2293,22 +2285,22 @@ describe("account backup restore in PostgreSQL", () => {
 						);
 						assert(sourceCustomView);
 						expect(
-							exportedRecords.publications.map(({ title, source }) => ({ title, source })),
+							exportedRecords.publications.map(({ title, definition }) => ({ title, definition })),
 						).toEqual<unknown>(
 							arrayContaining([
 								{
 									title: "Plugin publication",
-									source: {
+									definition: publicationDefinition({
 										kind: "saved-view",
-										reference: { kind: "plugin", pluginKey: firstKey, slug: "all-bottles" },
-									},
+										reference: { kind: "plugin", pluginId: firstKey, slug: "all-bottles" },
+									}),
 								},
 								{
 									title: "Custom publication",
-									source: {
+									definition: publicationDefinition({
 										kind: "saved-view",
 										reference: { kind: "custom", savedViewId: sourceCustomView.id },
-									},
+									}),
 								},
 							]),
 						);
@@ -2433,9 +2425,9 @@ describe("account backup restore in PostgreSQL", () => {
 							db
 								.select({
 									title: tables.publication.title,
-									source: tables.publication.source,
 									revision: tables.publication.revision,
 									revokedAt: tables.publication.revokedAt,
+									definition: tables.publication.definition,
 								})
 								.from(tables.publication)
 								.where(eq(tables.publication.userId, destinationUser)),
@@ -2446,19 +2438,19 @@ describe("account backup restore in PostgreSQL", () => {
 									revision: 1,
 									revokedAt: null,
 									title: "Plugin publication",
-									source: {
+									definition: publicationDefinition({
 										kind: "saved-view",
 										reference: { kind: "plugin", slug: "all-bottles", pluginId: ids.get(firstKey) },
-									},
+									}),
 								},
 								{
 									revision: 1,
 									revokedAt: null,
 									title: "Custom publication",
-									source: {
+									definition: publicationDefinition({
 										kind: "saved-view",
 										reference: { kind: "custom", savedViewId: restoredCustomView.id },
-									},
+									}),
 								},
 							]),
 						);
@@ -2619,10 +2611,10 @@ describe("account backup restore in PostgreSQL", () => {
 						);
 						expect(
 							reexportedRecords.publications.find(({ title }) => title === "Plugin publication")
-								?.source,
+								?.definition,
 						).toEqual(
 							exportedRecords.publications.find(({ title }) => title === "Plugin publication")
-								?.source,
+								?.definition,
 						);
 						expect(reexportedRecords.integrations).toHaveLength(6);
 						for (const integration of reexportedRecords.integrations) {

@@ -200,10 +200,23 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				function* (
 					input: Pick<
 						typeof schema.publication.$inferInsert,
-						"icon" | "title" | "userId" | "source" | "createdAt" | "description" | "showOwnerName"
+						| "icon"
+						| "title"
+						| "userId"
+						| "pageId"
+						| "snapshot"
+						| "createdAt"
+						| "definition"
+						| "description"
+						| "showOwnerName"
+						| "snapshotArtifactHash"
 					>,
+					artifact: null | PageClientArtifact,
 				) {
 					yield* session.requireTransaction;
+					if (artifact) {
+						yield* artifacts.persistClientArtifact(artifact);
+					}
 					yield* session.run((db) => db.insert(schema.publication).values(input));
 				},
 			);

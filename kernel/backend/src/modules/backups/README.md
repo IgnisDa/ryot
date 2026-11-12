@@ -154,8 +154,8 @@ Restore allocates page IDs before rewriting saved-view renderers and inserts pag
 published artifacts through backup-owned historical persistence inside the restore transaction.
 It never invokes the compiler. Draft preview artifacts and their compiled-revision markers,
 compositions and capability grants are omitted. Runtime composition is derived afresh. Any page,
-including an unpublished draft, makes a destination account unclean. Existing publication sources
-do not refer to authored pages and keep their current source model.
+including an unpublished draft, makes a destination account unclean. Publications reference the
+restored page identities.
 
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Built-ins use exact owner plus local slug; custom views have their own namespace. Homes use tagged custom, kernel, or plugin references. The archive format version remains 1.
 
@@ -181,14 +181,25 @@ delivery claim. Original date/time values remain, including whether a Processing
 sent. Settled/cancelled outcomes remain history. Existing reminders make an account unclean, including
 retained removal fences. Channels and delivery ledgers are not portable and are never restored.
 
-Publication records carry active publication definitions only: title, icon, description, owner-name
-visibility, creation time, and a source. A collection source names an archived user entity; restore
-rejects it unless that entity is a user-owned kernel collection. Custom saved-view sources name an
-archived custom view; built-in sources use a kernel slug or package key plus slug and must resolve to a
-restored definition. Export skips revoked publications and those whose source no longer resolves.
-Publication links are never archived, because their secrets exist only as hashes, so restored
-publications start active at revision 1 with no links. Existing publications, including revoked
-ones, make an account unclean.
+Publication records carry active publication details, the page reference, owner-bound arguments,
+and live or snapshot mode. The archived query declaration supplies argument reference metadata;
+restore verifies live declarations against the archived page and validates partial owner bindings.
+Encoded collection, custom-view and plugin-view arguments reuse saved-argument reference handling.
+Only schema-declared IDs are remapped. Ordinary strings and captured query result IDs remain frozen.
+Live publications follow the restored page's current published definition.
+
+Snapshots retain the captured page definition, name and revisions, fully bound capture arguments,
+settings and first-page query results. Captured managed locators are collected independently of
+source rows and rewritten through content-addressed assets, so deleting a source does not discard
+its captured assets. Missing historical argument targets remain inert captured values; references
+with archived targets are remapped. Snapshot documents are never executed during restore.
+
+The captured artifact has its own metadata and blob entries, independent of the page's current
+published artifact. Both survive when they differ. Restore validates and persists the captured
+artifact using the page artifact machinery, with no compiler. It recomputes captured definition
+hashes after mapping typed query owners. Publication links and visitor sessions are omitted;
+restored publications start active at revision 1 with no links. Existing publications, including
+revoked ones, make an account unclean.
 
 ## Failure Contract
 

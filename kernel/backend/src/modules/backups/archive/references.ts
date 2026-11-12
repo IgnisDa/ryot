@@ -204,6 +204,7 @@ export const exportSavedArguments = (
 	document: null | RyotQLDocument,
 	values: Readonly<Record<string, JsonValue>>,
 	pluginKeys: ReferenceMap,
+	partial = false,
 ) =>
 	rewriteSavedArgumentSources(
 		document,
@@ -221,6 +222,7 @@ export const exportSavedArguments = (
 			}
 			return { ...source, reference: { ...source.reference, pluginId: PluginId.make(key) } };
 		}),
+		partial,
 	);
 
 const archiveReferenceError = (error: DataReferenceError) =>
@@ -337,9 +339,37 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 	for (const subscription of records.notificationSubscriptions) {
 		add(subscription.signalSchemaPluginKey);
 	}
-	for (const { source } of records.publications) {
-		if (source.kind === "saved-view" && source.reference.kind === "plugin") {
-			add(source.reference.pluginKey);
+	for (const publication of records.publications) {
+		for (const reference of pluginIdentityReferences(publication.document)) {
+			if (reference.kind === "package") {
+				add(pluginPackageKey(reference));
+			}
+		}
+		for (const definition of publication.snapshot?.page
+			? [publication.snapshot.page.definition]
+			: []) {
+			for (const reference of Object.values(definition.pluginDependencies)) {
+				add(pluginPackageKey(reference));
+			}
+		}
+		for (const values of [
+			publication.definition.arguments,
+			...(publication.snapshot ? [publication.snapshot.arguments] : []),
+		]) {
+			for (const [key, property] of Object.entries(publication.document.parameters?.fields ?? {})) {
+				const value = values[key];
+				if (
+					property.type !== "string" ||
+					property.reference?.kind !== "entity-source" ||
+					typeof value !== "string"
+				) {
+					continue;
+				}
+				const source = Result.getOrThrow(decodeEntitySourceReference(value));
+				if (source.kind === "saved-view" && source.reference.kind === "plugin") {
+					add(source.reference.pluginId);
+				}
+			}
 		}
 	}
 	return referenced;

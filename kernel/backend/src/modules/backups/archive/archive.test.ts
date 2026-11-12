@@ -21,6 +21,7 @@ import { unzipSync, Zip, ZipPassThrough, zipSync } from "fflate";
 import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
 
+import { publicationFields } from "../publications.test-support";
 import {
 	type CreateArchiveInput,
 	createArchiveStream,
@@ -120,7 +121,7 @@ const records: ArchiveRecords = {
 			title: "Shared collection",
 			id: "publication-collection",
 			description: "Things I like",
-			source: { kind: "collection", collectionId: "entity-1" },
+			...publicationFields({ kind: "collection", collectionId: "entity-1" }),
 		},
 		{
 			icon: "list",
@@ -129,7 +130,10 @@ const records: ArchiveRecords = {
 			createdAt: timestamp,
 			showOwnerName: false,
 			id: "publication-custom",
-			source: { kind: "saved-view", reference: { kind: "custom", savedViewId: "view-1" } },
+			...publicationFields({
+				kind: "saved-view",
+				reference: { kind: "custom", savedViewId: "view-1" },
+			}),
 		},
 		{
 			icon: "list",
@@ -138,7 +142,10 @@ const records: ArchiveRecords = {
 			createdAt: timestamp,
 			showOwnerName: false,
 			id: "publication-kernel",
-			source: { kind: "saved-view", reference: { kind: "kernel", slug: "everything" } },
+			...publicationFields({
+				kind: "saved-view",
+				reference: { kind: "kernel", slug: "everything" },
+			}),
 		},
 		{
 			icon: "list",
@@ -147,10 +154,10 @@ const records: ArchiveRecords = {
 			createdAt: timestamp,
 			showOwnerName: false,
 			id: "publication-plugin",
-			source: {
+			...publicationFields({
 				kind: "saved-view",
-				reference: { kind: "plugin", slug: "fixture-view", pluginKey: systemKey },
-			},
+				reference: { kind: "plugin", pluginId: systemKey, slug: "fixture-view" },
+			}),
 		},
 	],
 };
@@ -1018,20 +1025,16 @@ layer(BunFileSystem.layer)((test) => {
 	);
 
 	test.effect(
-		"rejects publication records with source database plugin ids",
+		"rejects malformed publication page references",
 		() =>
 			Effect.gen(function* () {
 				const archive = yield* mutateArchive(input(), (files) => {
 					const publication = {
-						icon: "list",
-						description: null,
-						title: "Plugin view",
-						createdAt: timestamp,
-						showOwnerName: false,
-						id: "publication-plugin",
-						source: {
-							kind: "saved-view",
-							reference: { kind: "plugin", slug: "fixture-view", pluginId: "source-plugin-id" },
+						...records.publications[0],
+						definition: {
+							mode: "live",
+							arguments: {},
+							page: { kind: "page", pluginId: "source-plugin-id" },
 						},
 					};
 					return replaceSection(

@@ -15,7 +15,6 @@ import {
 import { alias } from "drizzle-orm/pg-core";
 import { Context, Effect, Layer, Schema } from "effect";
 
-import { userCollectionWhere } from "#modules/collections/repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -557,43 +556,32 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 				userId: UserId,
 				page: { readonly limit: number; readonly afterId: undefined | PublicationId },
 			) {
-				const source = schema.publication.source;
 				return yield* session.run((db) =>
 					db
 						.select({
 							id: schema.publication.id,
 							icon: schema.publication.icon,
 							title: schema.publication.title,
-							source: schema.publication.source,
+							snapshot: schema.publication.snapshot,
 							createdAt: schema.publication.createdAt,
+							definition: schema.publication.definition,
 							description: schema.publication.description,
 							showOwnerName: schema.publication.showOwnerName,
+							pageDefinition: pageSchema.page.publishedDefinition,
 						})
 						.from(schema.publication)
+						.leftJoin(
+							pageSchema.page,
+							and(
+								eq(pageSchema.page.id, schema.publication.pageId),
+								eq(pageSchema.page.userId, userId),
+							),
+						)
 						.where(
 							and(
 								eq(schema.publication.userId, userId),
 								isNull(schema.publication.revokedAt),
 								page.afterId === undefined ? undefined : gt(schema.publication.id, page.afterId),
-								sql`case
-									when ${source} ->> 'kind' = 'collection' then ${exists(
-										db
-											.select({ id: schema.entity.id })
-											.from(schema.entity)
-											.where(
-												and(
-													eq(schema.entity.id, sql`${source} ->> 'collectionId'`),
-													userCollectionWhere(userId),
-												),
-											),
-									)}
-									when ${source} #>> '{reference,kind}' = 'custom' then exists (
-										select 1 from ${schema.savedView}
-										where ${schema.savedView.id} = ${source} #>> '{reference,savedViewId}'
-											and ${schema.savedView.userId} = ${userId}
-									)
-									else true
-								end`,
 							),
 						)
 						.orderBy(asc(schema.publication.id))

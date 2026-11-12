@@ -11,7 +11,10 @@ import {
 import { NotificationOutcome } from "@ryot-app/contract/modules/notifications/delivery";
 import { PageDefinition, PageOrigin } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
-import { CreatePublicationBody } from "@ryot-app/contract/modules/publications/schemas";
+import {
+	CreatePublicationBody,
+	PublicationDefinition,
+} from "@ryot-app/contract/modules/publications/schemas";
 import {
 	REMINDER_MESSAGE_MAX_LENGTH,
 	ReminderReason,
@@ -19,6 +22,7 @@ import {
 	ReminderState,
 } from "@ryot-app/contract/modules/reminders/schemas";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	EntityBrowserPluginRouteAddAction,
 	EntityBrowserSavedViewSettings,
@@ -507,16 +511,31 @@ export const ArchiveReminder = strictStruct({
 export type ArchiveReminder = typeof ArchiveReminder.Type;
 
 export const ArchivePublication = strictStruct({
+	document: RyotQLDocument,
 	id: Schema.NonEmptyString,
 	createdAt: DataRecordTimestamp,
+	definition: PublicationDefinition,
 	icon: CreatePublicationBody.fields.icon,
 	title: CreatePublicationBody.fields.title,
 	description: CreatePublicationBody.fields.description,
 	showOwnerName: CreatePublicationBody.fields.showOwnerName,
-	source: Schema.Union([
-		strictStruct({ collectionId: Schema.String, kind: Schema.Literal("collection") }),
-		strictStruct({ kind: Schema.Literal("saved-view"), reference: ArchiveSavedViewReference }),
-	]),
+	snapshot: Schema.NullOr(
+		strictStruct({
+			result: RyotQLResponse,
+			settings: Schema.Record(Schema.String, JsonValue),
+			arguments: Schema.Record(Schema.String, JsonValue),
+			page: Schema.NullOr(
+				strictStruct({
+					name: Schema.String,
+					revision: positiveInteger,
+					definition: PageDefinition,
+					pageId: Schema.NonEmptyString,
+					artifact: ArchivePageArtifact,
+					authorityRevision: positiveInteger,
+				}),
+			),
+		}),
+	),
 });
 export type ArchivePublication = typeof ArchivePublication.Type;
 

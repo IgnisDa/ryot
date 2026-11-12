@@ -1,23 +1,24 @@
 import { expect } from "bun:test";
 
 import { BunFileSystem } from "@effect/platform-bun";
-import { badRequest } from "@ryot-app/contract/errors";
-import {
-	BackupRunId,
-	EntityId,
-	PublicationId,
-	SavedViewId,
-	UserId,
-} from "@ryot-app/contract/schema/brands";
-import { UTC } from "@ryot-app/contract/schema/time-zone";
+import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
+import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
+import { BackupRunId, EntityId, PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
+import {
+	clientArtifactFile,
+	pageClientArtifactMetadata,
+	pageDeclarationHash,
+} from "@ryot-app/plugin-client-contract";
+import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
-import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, inArray } from "drizzle-orm";
-import { Effect, FileSystem, Layer, Stream } from "effect";
+import { eq } from "drizzle-orm";
+import { Effect, FileSystem, Layer, Result, Stream } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
@@ -27,25 +28,22 @@ import { TranslationsRepository } from "#modules/entities/localization/repositor
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
+import { preparePageDefinition } from "#modules/pages/authoring/definition";
+import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
+import type { PublicationSnapshot } from "#modules/publications/model";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
+import { page } from "#schema/tables/pages";
 import { makeAppConfigLayer } from "#testing/effect";
 
 import { createArchiveStream, validateArchiveStream } from "./archive/archive";
-import {
-	archiveFixtureMetadata,
-	collectExportFixtureRecords,
-	collectFixtureRecords,
-} from "./archive/archive.test-support";
-import type { ArchivePublication, ArchiveRecords } from "./archive/schemas";
-import type { ArchiveMetadata, ArchiveSections } from "./archive/sections";
+import { collectExportFixtureRecords } from "./archive/archive.test-support";
 import { BackupExportSnapshot } from "./export/snapshot";
 import { BackupRestorePersistence } from "./restore/persistence";
-import { fixtureArchiveReaders } from "./restore/staging.test-support";
 import { BackupRestoreWriter } from "./restore/writer";
 import { BackupStaging } from "./staging";
 
@@ -61,6 +59,8 @@ const dependencies = Layer.mergeAll(
 	SavedViewsRepository.layer,
 	TranslationsRepository.layer,
 ).pipe(Layer.provide(makeAppConfigLayer()));
+const capturedAssetBytes = new TextEncoder().encode("captured-asset");
+const capturedAssetHash = sha256Hex(capturedAssetBytes);
 const services = Layer.mergeAll(
 	BackupExportSnapshot.layer,
 	BackupRestoreWriter.layer,
@@ -70,7 +70,21 @@ const services = Layer.mergeAll(
 	Layer.provideMerge(revisionDatabaseLayer),
 	Layer.provideMerge(BunFileSystem.layer),
 	Layer.provide(
-		Layer.mock(ManagedAssetsService, { verifyManagedAssetOwnership: () => Effect.succeed([]) }),
+		Layer.mock(ManagedAssetsService, {
+			verifyManagedAssetOwnership: (ownerUserId, locators) =>
+				Effect.succeed(
+					locators.map((locator) => ({
+						ownerUserId,
+						retiredAt: null,
+						key: locator.key,
+						provider: locator.type,
+						createdAt: new Date(0),
+						contentType: "image/png",
+						sha256: capturedAssetHash,
+						size: capturedAssetBytes.byteLength,
+					})),
+				),
+		}),
 	),
 );
 
@@ -97,187 +111,170 @@ const beginRun = Effect.fn(function* (kind: "export" | "restore", userId: UserId
 	return runId;
 });
 
-const replaceKernelDefinitions = Effect.gen(function* () {
-	const session = yield* DatabaseSession;
-	yield* session.transaction(
-		(yield* DefinitionRepository).replaceKernelDefinitions(kernelDefinitionSource()),
-	);
-});
-
-const stageAndPreflight = Effect.fn(function* (
-	metadata: ArchiveMetadata,
-	sections: ArchiveSections,
-) {
-	const writer = yield* BackupRestoreWriter;
-	const definitions = yield* (yield* DefinitionRepository).getUserSnapshot(destinationUser, {
-		listed: true,
-	});
-	const runId = yield* beginRun("restore", destinationUser);
-	yield* writer.stageArchive(runId, metadata, sections, new Map(), definitions);
-	yield* writer.preflightArchive(runId, metadata, new Map(), definitions, []);
-	return { runId, definitions };
-});
-
-const publication = (source: ArchivePublication["source"]): ArchivePublication => ({
-	source,
-	icon: "share",
-	description: null,
-	showOwnerName: false,
-	id: "archived-publication",
-	title: "Archived publication",
-	createdAt: createdAt.toISOString(),
-});
-
-const craftedRecords = (publications: ReadonlyArray<ArchivePublication>): ArchiveRecords => ({
-	publications,
-	entities: [],
-	reminders: [],
-	foldValues: [],
-	savedViews: [],
-	integrations: [],
-	installations: [],
-	relationships: [],
-	privatePlugins: [],
-	calendarSourceOverrides: [],
-	notificationSubscriptions: [],
-	profile: {
-		image: null,
-		name: "Archived",
-		preferences: {
-			language: null,
-			reportingTimeZone: UTC,
-			ratingScale: "hundred",
-			disableIntegrations: false,
-		},
-	},
-	entityDependencies: [
+const subject = table("entity", "subject");
+const definition: PageDefinition = {
+	pluginDependencies: {},
+	entry: "client/page.tsx",
+	files: [
 		{
-			properties: {},
-			provider: null,
-			translations: [],
-			externalId: null,
-			kind: "snapshot",
-			populatedAt: null,
-			id: "global-collection",
-			name: "Global collection",
-			entitySchemaPluginKey: null,
-			entitySchemaSlug: "collection",
-			identity: { kind: "unmanaged" },
-			createdAt: createdAt.toISOString(),
-			updatedAt: createdAt.toISOString(),
+			path: "client/page.tsx",
+			content: Buffer.from("export default () => null;").toString("base64"),
 		},
 	],
-});
-
-const stageCrafted = (publications: ReadonlyArray<ArchivePublication>) => {
-	const records = craftedRecords(publications);
-	return stageAndPreflight(
-		archiveFixtureMetadata(records),
-		fixtureArchiveReaders(records, { count: 0, sha256: "", read: () => Stream.empty }),
-	).pipe(Effect.scoped);
+	queries: {
+		...document({ items: rows(subject, { fields: [field("id", column(subject, "id"))] }) }),
+		parameters: {
+			fields: {
+				text: { label: "Text", type: "string", description: "Opaque text" },
+				visitor: {
+					type: "string",
+					label: "Visitor",
+					description: "Visitor input",
+					validation: { required: true },
+				},
+				source: {
+					type: "string",
+					label: "Source",
+					description: "Collection source",
+					reference: { kind: "entity-source" },
+				},
+			},
+		},
+	},
+};
+const artifactFor = (label: string) => {
+	const file = clientArtifactFile({
+		path: "module.js",
+		contentType: "text/javascript; charset=utf-8",
+		bytes: new TextEncoder().encode(`export default () => "${label}";`),
+	});
+	return {
+		...pageClientArtifactMetadata("page", [file], {
+			imports: [],
+			pageDeclarationHash: pageDeclarationHash(definition),
+		}),
+		files: [file],
+	};
 };
 
 layer(services)((test) => {
 	test.effect(
-		"round-trips active publication definitions without links and skips revoked or stale ones",
+		"round-trips live bindings and frozen page code and results independently of current page code, without links",
 		() =>
 			Effect.gen(function* () {
-				yield* replaceKernelDefinitions;
 				const session = yield* DatabaseSession;
-				const collectionId = EntityId.make("owner-collection");
-				const collectionSource = { collectionId, kind: "collection" as const };
-				const sourcePublicationIds = [
-					"publication-collection",
-					"publication-kernel",
-					"publication-revoked",
-					"publication-stale-collection",
-					"publication-stale-kernel",
-					"publication-stale-custom",
-				].map((id) => PublicationId.make(id));
+				const definitions = yield* DefinitionRepository;
+				const persistence = yield* BackupRestorePersistence;
+				const artifacts = yield* ClientArtifactsRepository;
+				yield* session.transaction(definitions.replaceKernelDefinitions(kernelDefinitionSource()));
+				const oldArtifact = artifactFor("captured");
+				const currentArtifact = artifactFor("current");
+				const currentDefinition: PageDefinition = {
+					...definition,
+					files: [
+						{
+							path: "client/page.tsx",
+							content: Buffer.from('export default () => "updated page";').toString("base64"),
+						},
+					],
+				};
+				const current = yield* preparePageDefinition(currentDefinition);
+				const prepared = yield* preparePageDefinition(definition);
+				const source = encodeEntitySourceReference({
+					kind: "collection",
+					collectionId: EntityId.make("deleted-source"),
+				});
+				const snapshot: PublicationSnapshot = {
+					document: definition.queries,
+					settings: { title: "Frozen" },
+					arguments: { source, visitor: "captured", text: "source-page" },
+					page: {
+						definition,
+						revision: 1,
+						authorityRevision: 1,
+						pageId: "source-page",
+						name: "Captured page",
+						artifactHash: oldArtifact.hash,
+						definitionHash: prepared.definitionHash,
+					},
+					result: {
+						data: {
+							items: {
+								type: "rows",
+								pageInfo: { limit: 20, hasMore: true, nextCursor: "captured-cursor" },
+								items: [
+									{
+										id: "deleted-source",
+										literal: "source-page",
+										asset: { type: "local", key: "captured-source-asset" },
+									},
+								],
+							},
+						},
+					},
+				};
 				yield* session.transaction(
 					Effect.gen(function* () {
-						yield* session.run((db) =>
-							db
-								.insert(tables.entity)
-								.values({
-									id: collectionId,
-									name: "Favorites",
-									userId: sourceUser,
-									entitySchemaPluginId: null,
-									entitySchemaSlug: "collection",
-								}),
+						yield* artifacts.persistClientArtifact(oldArtifact);
+						yield* persistence.restorePage(
+							{
+								slug: "page",
+								origin: "user",
+								draftRevision: 2,
+								id: "source-page",
+								userId: sourceUser,
+								name: "Current page",
+								publishedRevision: 2,
+								draftDefinition: currentDefinition,
+								publishedDefinition: currentDefinition,
+								publishedArtifactHash: currentArtifact.hash,
+								draftDefinitionHash: current.definitionHash,
+								publishedDefinitionHash: current.definitionHash,
+							},
+							currentArtifact,
 						);
 						yield* session.run((db) =>
 							db.insert(tables.publication).values([
 								{
-									createdAt,
-									revision: 3,
-									icon: "folders",
+									snapshot,
+									icon: "share",
+									title: "Frozen",
+									userId: sourceUser,
+									showOwnerName: false,
+									pageId: "source-page",
+									id: PublicationId.make("frozen"),
+									snapshotArtifactHash: oldArtifact.hash,
+									definition: {
+										mode: "snapshot",
+										arguments: { source },
+										page: { kind: "page", pageId: "source-page" },
+									},
+								},
+								{
+									title: "Live",
+									icon: "share",
 									userId: sourceUser,
 									showOwnerName: true,
-									source: collectionSource,
-									title: "Shared favorites",
-									description: "Things worth sharing",
-									id: PublicationId.make("publication-collection"),
-								},
-								{
-									createdAt,
-									icon: "list",
-									description: null,
-									userId: sourceUser,
-									showOwnerName: false,
-									title: "All collections",
-									id: PublicationId.make("publication-kernel"),
-									source: {
-										kind: "saved-view",
-										reference: { kind: "kernel", slug: "collections" },
+									pageId: "source-page",
+									id: PublicationId.make("live"),
+									definition: {
+										mode: "live",
+										arguments: { text: "source-page" },
+										page: { kind: "page", pageId: "source-page" },
 									},
 								},
 								{
-									createdAt,
-									icon: "folders",
+									icon: "share",
 									title: "Revoked",
-									description: null,
 									userId: sourceUser,
+									showOwnerName: false,
 									revokedAt: createdAt,
-									showOwnerName: false,
-									source: collectionSource,
-									id: PublicationId.make("publication-revoked"),
-								},
-								{
-									createdAt,
-									icon: "folders",
-									description: null,
-									userId: sourceUser,
-									showOwnerName: false,
-									title: "Deleted collection",
-									id: PublicationId.make("publication-stale-collection"),
-									source: { kind: "collection", collectionId: EntityId.make("deleted-collection") },
-								},
-								{
-									createdAt,
-									icon: "list",
-									description: null,
-									userId: sourceUser,
-									showOwnerName: false,
-									title: "Removed kernel view",
-									id: PublicationId.make("publication-stale-kernel"),
-									source: {
-										kind: "saved-view",
-										reference: { kind: "kernel", slug: "removed-view" },
-									},
-								},
-								{
-									createdAt,
-									icon: "list",
-									description: null,
-									userId: sourceUser,
-									showOwnerName: false,
-									title: "Deleted custom view",
-									id: PublicationId.make("publication-stale-custom"),
-									source: {
-										kind: "saved-view",
-										reference: { kind: "custom", savedViewId: SavedViewId.make("deleted-view") },
+									pageId: "source-page",
+									id: PublicationId.make("revoked"),
+									definition: {
+										mode: "live",
+										arguments: {},
+										page: { kind: "page", pageId: "source-page" },
 									},
 								},
 							]),
@@ -286,156 +283,163 @@ layer(services)((test) => {
 							db
 								.insert(tables.publicationLink)
 								.values({
-									label: "Friends",
-									tokenHash: "source-link-hash",
-									publicationId: PublicationId.make("publication-collection"),
+									label: "Private link",
+									tokenHash: "unexported-secret-hash",
+									publicationId: PublicationId.make("frozen"),
 								}),
 						);
 					}),
 				);
 				const fs = yield* FileSystem.FileSystem;
-				const directory = yield* fs.makeTempDirectoryScoped();
-				const exportRunId = yield* beginRun("export", sourceUser);
+				const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-publication-backup-" });
+				const exportRun = yield* beginRun("export", sourceUser);
 				const exported = yield* session.transaction(
 					(yield* BackupExportSnapshot).prepareExportSnapshot(
 						sourceUser,
-						`${directory}/events`,
-						exportRunId,
+						`${directory}/events.ndjson`,
+						exportRun,
 					),
 				);
-				const exportedRecords = yield* collectExportFixtureRecords(exported, fs);
-				expect(exportedRecords.publications).toEqual([
-					{
-						icon: "folders",
-						showOwnerName: true,
-						title: "Shared favorites",
-						id: "publication-collection",
-						createdAt: createdAt.toISOString(),
-						description: "Things worth sharing",
-						source: { kind: "collection", collectionId: "owner-collection" },
-					},
-					{
-						icon: "list",
-						description: null,
-						showOwnerName: false,
-						title: "All collections",
-						id: "publication-kernel",
-						createdAt: createdAt.toISOString(),
-						source: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },
-					},
-				]);
+				const records = yield* collectExportFixtureRecords(exported, fs);
+				expect(records.publications).toHaveLength(2);
+				expect(
+					records.publications.find(({ title }) => title === "Live")?.definition.arguments,
+				).toEqual({ text: "source-page" });
+				expect(exported.blobs).toHaveLength(2);
+				expect(exported.managedAssets.map(({ key }) => key)).toEqual(["captured-source-asset"]);
+				expect(
+					records.publications.find(({ title }) => title === "Frozen")?.snapshot?.result,
+				).toMatchObject({
+					data: { items: { items: [{ asset: { type: "local", key: capturedAssetHash } }] } },
+				});
+				expect(stableStringify(records.publications)).not.toContain("unexported-secret-hash");
 				const archive = yield* validateArchiveStream(
 					createArchiveStream({
-						assets: [],
 						appVersion: "test",
+						archiveId: exportRun,
 						records: exported.records,
 						redactions: exported.redactions,
 						createdAt: createdAt.toISOString(),
-						archiveId: "publication-round-trip",
 						requiredPlugins: exported.requiredPlugins,
-						sections: exported.sections.map((section) => ({
-							path: section.path,
-							count: section.count,
-							bytes: section.bytes,
-							sha256: section.sha256,
-							chunks: Stream.toAsyncIterable(fs.stream(section.filePath)),
+						blobs: exported.blobs.map(({ filePath, ...metadata }) => ({
+							metadata,
+							chunks: Stream.toAsyncIterable(fs.stream(filePath)),
 						})),
+						sections: exported.sections.map(({ filePath, ...section }) =>
+							Object.assign(section, { chunks: Stream.toAsyncIterable(fs.stream(filePath)) }),
+						),
+						assets: [
+							{
+								chunks: [capturedAssetBytes],
+								metadata: {
+									contentType: "image/png",
+									sha256: capturedAssetHash,
+									path: `assets/${capturedAssetHash}`,
+									size: capturedAssetBytes.byteLength,
+								},
+							},
+						],
 					}),
 					{ directory },
 				);
-				expect((yield* collectFixtureRecords(archive)).publications).toEqual(
-					exportedRecords.publications,
+				const writer = yield* BackupRestoreWriter;
+				const restoreRun = yield* beginRun("restore", destinationUser);
+				const destinationDefinitions = yield* definitions.getUserSnapshot(destinationUser, {
+					listed: true,
+				});
+				const blobs = new Map(archive.blobs.map((blob) => [blob.sha256, blob]));
+				yield* writer.stageArchive(
+					restoreRun,
+					archive.records,
+					archive.sections,
+					new Map(),
+					destinationDefinitions,
 				);
-				const { runId, definitions } = yield* stageAndPreflight(archive.records, archive.sections);
-				yield* session.transaction(
-					(yield* BackupRestoreWriter).restoreArchive(
-						destinationUser,
-						runId,
+				const withoutCapturedArtifact = new Map(blobs);
+				for (const file of oldArtifact.files) {
+					withoutCapturedArtifact.delete(sha256Hex(file.contents));
+				}
+				const missingCapture = yield* Effect.result(
+					writer.preflightArchive(
+						restoreRun,
 						archive.records,
 						new Map(),
-						definitions,
-						new Map(),
+						destinationDefinitions,
+						[],
+						withoutCapturedArtifact,
 					),
 				);
-				const restoredCollection = (yield* (yield* EntitiesRepository).listUserEntitiesForBackup(
-					destinationUser,
-				)).find(({ name }) => name === "Favorites");
-				assert(restoredCollection);
-				expect(restoredCollection.id).not.toBe(collectionId);
+				expect(Result.isFailure(missingCapture)).toBe(true);
+				yield* writer.preflightArchive(
+					restoreRun,
+					archive.records,
+					new Map(),
+					destinationDefinitions,
+					[],
+					blobs,
+				);
+				yield* session.transaction(
+					writer.restoreArchive(
+						destinationUser,
+						restoreRun,
+						archive.records,
+						new Map(),
+						destinationDefinitions,
+						new Map([
+							[`local:${capturedAssetHash}`, { type: "s3", key: "restored-captured-asset" }],
+						]),
+						blobs,
+					),
+				);
+				const [restoredPage] = yield* session.run((db) =>
+					db.select().from(page).where(eq(page.userId, destinationUser)),
+				);
+				assert(restoredPage);
+				expect(restoredPage.id).not.toBe("source-page");
+				expect(restoredPage.publishedArtifactHash).toBe(currentArtifact.hash);
 				const restored = yield* session.run((db) =>
 					db
 						.select()
 						.from(tables.publication)
-						.where(eq(tables.publication.userId, destinationUser))
-						.orderBy(tables.publication.title),
+						.where(eq(tables.publication.userId, destinationUser)),
 				);
-				expect(restored).toMatchObject([
-					{
-						createdAt,
-						revision: 1,
-						icon: "list",
-						revokedAt: null,
-						description: null,
-						showOwnerName: false,
-						title: "All collections",
-						source: { kind: "saved-view", reference: { kind: "kernel", slug: "collections" } },
+				const frozen = restored.find(({ title }) => title === "Frozen");
+				const live = restored.find(({ title }) => title === "Live");
+				assert(frozen?.snapshot && live);
+				expect(frozen.definition.page).toEqual({ kind: "page", pageId: restoredPage.id });
+				expect(frozen.snapshot.page?.pageId).toBe(restoredPage.id);
+				expect(frozen.snapshot.page?.definition).toEqual(definition);
+				expect(restoredPage.publishedDefinition).toEqual(currentDefinition);
+				expect(frozen.snapshotArtifactHash).toBe(oldArtifact.hash);
+				expect(frozen.snapshot.result).toEqual({
+					data: {
+						items: {
+							type: "rows",
+							pageInfo: { limit: 20, hasMore: true, nextCursor: "captured-cursor" },
+							items: [
+								{
+									id: "deleted-source",
+									literal: "source-page",
+									asset: { type: "s3", key: "restored-captured-asset" },
+								},
+							],
+						},
 					},
-					{
-						createdAt,
-						revision: 1,
-						icon: "folders",
-						revokedAt: null,
-						showOwnerName: true,
-						title: "Shared favorites",
-						description: "Things worth sharing",
-						source: { kind: "collection", collectionId: restoredCollection.id },
-					},
-				]);
-				for (const row of restored) {
-					expect(sourcePublicationIds).not.toContain(row.id);
-				}
+				});
+				expect(frozen.snapshot.arguments).toEqual(snapshot.arguments);
+				expect(frozen.snapshot.settings).toEqual(snapshot.settings);
+				expect(live.definition.arguments).toEqual({ text: "source-page" });
+				expect(live.snapshot).toBeNull();
+				expect(frozen.revision).toBe(1);
+				expect(yield* artifacts.loadClientArtifact(oldArtifact.hash)).toEqual(oldArtifact);
 				expect(
 					yield* session.run((db) =>
 						db
 							.select()
 							.from(tables.publicationLink)
-							.where(
-								inArray(
-									tables.publicationLink.publicationId,
-									restored.map(({ id }) => id),
-								),
-							),
+							.where(eq(tables.publicationLink.publicationId, frozen.id)),
 					),
 				).toEqual([]);
-			}).pipe(Effect.scoped),
-		testTimeout,
-	);
-
-	test.effect(
-		"rejects publications whose sources are not restored user collections or archived views",
-		() =>
-			Effect.gen(function* () {
-				yield* replaceKernelDefinitions;
-				assertExitFails(
-					yield* Effect.exit(
-						stageCrafted([publication({ kind: "collection", collectionId: "global-collection" })]),
-					),
-					badRequest("Backup publication references an unavailable collection"),
-				);
-				for (const source of [
-					{ kind: "collection", collectionId: "absent-collection" },
-					{ kind: "saved-view", reference: { kind: "custom", savedViewId: "absent-view" } },
-				] as const) {
-					const error = yield* stageCrafted([publication(source)]).pipe(Effect.flip);
-					expect(error).toMatchObject({
-						_tag: "BackupArchiveError",
-						reason: "missing_reference_mapping",
-					});
-				}
-				const unavailableView = yield* stageCrafted([
-					publication({ kind: "saved-view", reference: { kind: "kernel", slug: "absent-view" } }),
-				]).pipe(Effect.flip);
-				expect(unavailableView.message).toContain("unavailable publication saved view");
 			}),
 		testTimeout,
 	);
