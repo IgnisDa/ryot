@@ -68,7 +68,8 @@ uses elapsed hours/days/weeks and UTC calendar months/years; it does not perform
 addition across DST.
 
 Stored validation projects every choice and optional branch under a 256-branch budget and checks
-control targets independently, including filter and sort alternatives. Standalone browse and row-source
+control targets independently, including filter and sort alternatives. Each alternative validates only
+its compiled predicate, ordering, or value expression against the already-bound branch query. Standalone browse and row-source
 declarations have no caller parameters or controls; undeclared placeholders are refused. Their clock
 and reporting-zone expressions bind only after authoritative context is supplied. Calendar and signal
 row-source ordering and bounded windows remain kernel-owned.

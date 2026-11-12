@@ -1,11 +1,15 @@
-import type { FilterOperator, FilterRule } from "@ryot-app/contract/modules/filters/schemas";
 import {
 	NamedQuery as AuthoredQuery,
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/authored";
-import { RyotQLDocument as ExecutableDocument } from "@ryot-app/contract/modules/ryotql/language";
-import { authoredValidationBranches } from "@ryot-app/ryotql/binding";
-import { filterOperatorsFor, type FilterTarget } from "@ryot-app/ryotql/filters";
+import {
+	OrderBy,
+	Predicate,
+	RowsOutput,
+	type RyotQLDocument as ExecutableDocument,
+} from "@ryot-app/contract/modules/ryotql/language";
+import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
+import { filterOperatorsFor, sampleFilterRule } from "@ryot-app/ryotql/filters";
 import { Result, Schema } from "effect";
 
 import type { RyotQLAccess } from "./catalog";
@@ -17,7 +21,9 @@ import {
 } from "./controls";
 import { savedViewDataSourceAccess, validateRyotQLDocument } from "./validator";
 
-const controlQuery = (query: ExecutableDocument["queries"][string]) =>
+type ExecutableQuery = ExecutableDocument["queries"][string];
+
+const controlQuery = (query: ExecutableQuery) =>
 	Schema.decodeResult(AuthoredQuery)({
 		...query,
 		output:
@@ -29,72 +35,41 @@ const controlQuery = (query: ExecutableDocument["queries"][string]) =>
 				: { ...query.output, limit: query.output.limit ?? 1, maxLimit: query.output.limit ?? 1 },
 	});
 
-const semanticIssue = (input: unknown, access: RyotQLAccess): Error | undefined => {
-	const decoded = Schema.decodeUnknownResult(ExecutableDocument)(input);
-	if (Result.isFailure(decoded)) {
-		return new Error("Control did not produce an executable query", { cause: decoded.failure });
-	}
-	const { error } = validateRyotQLDocument(decoded.success, access);
+const decodePredicate = Schema.decodeUnknownResult(Predicate);
+const decodeOrderBy = Schema.decodeUnknownResult(Schema.Array(OrderBy));
+const decodeRowsOutput = Schema.decodeUnknownResult(RowsOutput);
+
+const accessIssue = (document: ExecutableDocument, access: RyotQLAccess): Error | undefined => {
+	const { error } = validateRyotQLDocument(document, access);
 	return error === null ? undefined : new Error(error);
 };
 
-const filterSample = (operator: FilterOperator, spec: FilterTarget["spec"]): FilterRule => {
-	const field = spec.key;
-	switch (operator) {
-		case "eq":
-		case "gte":
-		case "lte":
-			return { field, operator, value: 1 };
-		case "is":
-		case "contains":
-		case "notContains":
-			return { field, operator, value: "sample" };
-		case "empty":
-		case "isTrue":
-		case "isFalse":
-		case "notEmpty":
-			return { field, operator };
-		case "after":
-		case "before":
-			return { field, operator, value: "2026-01-01" };
-		case "anyOf":
-		case "allOf":
-		case "noneOf": {
-			const value =
-				spec.kind === "value" && (spec.type === "enum" || spec.type === "enum-list")
-					? spec.choices[0].value
-					: "sample";
-			return { field, operator, values: [value] };
-		}
-		case "between":
-			return { field, min: 1, max: 2, operator };
-		case "betweenDates":
-			return { field, operator, to: "2026-01-02", from: "2026-01-01" };
-		case "withinLastDays":
-			return { field, days: 1, operator };
-		default:
-			return operator satisfies never;
-	}
-};
+const executableIssue = (cause: unknown) =>
+	new Error("Control did not produce an executable query", { cause });
+
+const querySampleIssue = (
+	name: string,
+	query: ExecutableQuery,
+	access: RyotQLAccess,
+): Error | undefined => accessIssue({ queries: { [name]: query } }, access);
 
 export const storedValidationBranches = (
 	document: RyotQLDocument,
 	schemas: readonly ControlSchema[],
 	access: RyotQLAccess = savedViewDataSourceAccess,
 ): Result.Result<readonly ExecutableDocument[], Error> => {
-	const projections = authoredValidationBranches(document, {
-		now: new Date(0),
-		maximumBranches: 256,
-		reportingTimeZone: "UTC",
-		sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity:validation" }),
-	});
+	const projections = authoredValidationBranches(document, storedValidationContext());
 	if (Result.isFailure(projections)) {
 		return Result.fail(projections.failure);
 	}
+	const controlTargets = Object.entries(document.controls ?? {});
 	for (const branch of projections.success) {
-		const issue = semanticIssue(branch, access);
+		const issue = accessIssue(branch, access);
 		if (issue) {
 			return Result.fail(issue);
+		}
+		if (controlTargets.length === 0) {
+			continue;
 		}
 		const queries = Result.all(
 			Object.entries(branch.queries).map(([name, query]) =>
@@ -110,7 +85,7 @@ export const storedValidationBranches = (
 			if (!source) {
 				return Result.fail(new Error("Missing control source"));
 			}
-			for (const [kind, target] of Object.entries(document.controls ?? {})) {
+			for (const [kind, target] of controlTargets) {
 				const controls = resolveControl(target, source, schemas, fullDocument);
 				if (Result.isFailure(controls)) {
 					return Result.fail(controls.failure);
@@ -125,12 +100,13 @@ export const storedValidationBranches = (
 							if (query.output.type !== "rows") {
 								continue;
 							}
-							const check = semanticIssue(
-								{
-									queries: {
-										[name]: { ...query, output: { ...query.output, orderBy: order.success } },
-									},
-								},
+							const orderBy = decodeOrderBy(order.success);
+							if (Result.isFailure(orderBy)) {
+								return Result.fail(executableIssue(orderBy.failure));
+							}
+							const check = querySampleIssue(
+								name,
+								{ ...query, output: { ...query.output, orderBy: orderBy.success } },
 								access,
 							);
 							if (check) {
@@ -144,14 +120,19 @@ export const storedValidationBranches = (
 						const predicate = compileControlFilter(
 							{ ...controls.success, filters: [filter] },
 							source,
-							filterSample(operator, filter.spec),
+							sampleFilterRule(operator, filter.spec),
 							new Date(0),
 						);
 						if (Result.isFailure(predicate)) {
 							return Result.fail(predicate.failure);
 						}
-						const predicateIssue = semanticIssue(
-							{ queries: { [name]: { ...query, where: predicate.success } } },
+						const where = decodePredicate(predicate.success);
+						if (Result.isFailure(where)) {
+							return Result.fail(executableIssue(where.failure));
+						}
+						const predicateIssue = querySampleIssue(
+							name,
+							{ ...query, where: where.success },
 							access,
 						);
 						if (predicateIssue) {
@@ -162,20 +143,18 @@ export const storedValidationBranches = (
 						if (targetBranch.value === undefined) {
 							continue;
 						}
-						const branchIssue = semanticIssue(
-							{
-								queries: {
-									[name]: {
-										...query,
-										output: {
-											orderBy: [],
-											type: "rows",
-											pagination: { limit: 1 },
-											fields: [{ key: "value", expr: targetBranch.value }],
-										},
-									},
-								},
-							},
+						const output = decodeRowsOutput({
+							orderBy: [],
+							type: "rows",
+							pagination: { limit: 1 },
+							fields: [{ key: "value", expr: targetBranch.value }],
+						});
+						if (Result.isFailure(output)) {
+							return Result.fail(executableIssue(output.failure));
+						}
+						const branchIssue = querySampleIssue(
+							name,
+							{ ...query, output: output.success },
 							access,
 						);
 						if (branchIssue) {

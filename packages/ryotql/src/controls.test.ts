@@ -2,7 +2,12 @@ import { describe, expect, it } from "bun:test";
 
 import { DateTime, Result } from "effect";
 
-import { compileFilter, outputFilterTargets } from "./filters";
+import {
+	compileFilter,
+	filterOperatorsFor,
+	outputFilterTargets,
+	sampleFilterRule,
+} from "./filters";
 import {
 	ascending,
 	column,
@@ -66,6 +71,32 @@ describe("shared request controls", () => {
 			).toBe(true);
 		}
 	});
+	it("samples a compilable rule for every operator of a field type", () => {
+		const specs = [
+			{ key: "score", kind: "value", field: "score", label: "Score", type: "number" },
+			{ key: "score", type: "text", kind: "value", field: "score", label: "Score" },
+			{ key: "score", type: "date", kind: "value", field: "score", label: "Score" },
+		] as const;
+		for (const spec of specs) {
+			const targets = Result.getOrThrow(outputFilterTargets(source, [spec]));
+			for (const operator of filterOperatorsFor(spec)) {
+				const rule = sampleFilterRule(operator, spec);
+				expect(rule).toMatchObject({ operator, field: "score" });
+				expect(
+					Result.isSuccess(
+						compileFilter({
+							source,
+							targets,
+							filter: rule,
+							subject: undefined,
+							now: DateTime.makeUnsafe("2026-01-01T00:00:00Z"),
+						}),
+					),
+				).toBe(true);
+			}
+		}
+	});
+
 	it("compiles conditional sort targets with a stable ID tie-breaker and rejects unknown choices", () => {
 		const score = column(entity, "score");
 		const id = column(entity, "id");

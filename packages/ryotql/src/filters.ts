@@ -419,3 +419,42 @@ export const compileFilter = ({
 
 export const filterOperatorsFor = (field: FilterFieldSpec): readonly FilterOperator[] =>
 	field.kind === "value" ? filterOperators[field.type] : linkFilterOperators;
+
+export const sampleFilterRule = (operator: FilterOperator, spec: FilterFieldSpec): FilterRule => {
+	const field = spec.key;
+	switch (operator) {
+		case "eq":
+		case "gte":
+		case "lte":
+			return { field, operator, value: 1 };
+		case "is":
+		case "contains":
+		case "notContains":
+			return { field, operator, value: "sample" };
+		case "empty":
+		case "isTrue":
+		case "isFalse":
+		case "notEmpty":
+			return { field, operator };
+		case "after":
+		case "before":
+			return { field, operator, value: "2026-01-01" };
+		case "anyOf":
+		case "allOf":
+		case "noneOf": {
+			const value =
+				spec.kind === "value" && (spec.type === "enum" || spec.type === "enum-list")
+					? spec.choices[0].value
+					: "sample";
+			return { field, operator, values: [value] };
+		}
+		case "between":
+			return { field, min: 1, max: 2, operator };
+		case "betweenDates":
+			return { field, operator, to: "2026-01-02", from: "2026-01-01" };
+		case "withinLastDays":
+			return { field, days: 1, operator };
+		default:
+			return operator satisfies never;
+	}
+};
