@@ -341,6 +341,27 @@ const server = group(
 			description:
 				"Comma-separated CIDR networks that outbound requests from plugins, notifications, and OAuth may reach although they are loopback, private, or otherwise special-purpose, such as 192.168.1.0/24; link-local, metadata, multicast, and unspecified ranges cannot be allowed",
 		}),
+		assistant: group(
+			{ label: "Assistant", description: "Instance default OpenAI-compatible provider" },
+			{
+				model: stringField({
+					label: "Model",
+					envKey: "SERVER_ASSISTANT_MODEL",
+					description: "Provider model identifier",
+				}),
+				baseUrl: stringField({
+					label: "Base URL",
+					envKey: "SERVER_ASSISTANT_BASE_URL",
+					description: "Chat Completions API base URL, including its API prefix",
+				}),
+				apiKey: stringField({
+					secret: true,
+					label: "API key",
+					envKey: "SERVER_ASSISTANT_API_KEY",
+					description: "Optional provider API key; omit for unauthenticated endpoints",
+				}),
+			},
+		),
 	},
 );
 

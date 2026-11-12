@@ -46,6 +46,14 @@
 | `server.smtp.password` | `SERVER_SMTP_PASSWORD` | SMTP password | No | Yes | — |
 | `server.smtp.mailbox` | `SERVER_SMTP_MAILBOX` | SMTP sender mailbox | No | No | `Ryot <no-reply@ryot.io>` |
 
+#### Instance default OpenAI-compatible provider
+
+| App Config Key | Variable | Description | Required | Sensitive | Default |
+|---|---|---|---|---|---|
+| `server.assistant.model` | `SERVER_ASSISTANT_MODEL` | Provider model identifier | No | No | — |
+| `server.assistant.baseUrl` | `SERVER_ASSISTANT_BASE_URL` | Chat Completions API base URL, including its API prefix | No | No | — |
+| `server.assistant.apiKey` | `SERVER_ASSISTANT_API_KEY` | Optional provider API key; omit for unauthenticated endpoints | No | Yes | — |
+
 ### Sandbox execution settings
 
 | App Config Key | Variable | Description | Required | Sensitive | Default |

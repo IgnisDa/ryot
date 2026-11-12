@@ -168,13 +168,13 @@ export const makeAppConfigLayer = (
 			pluginsSystemDir: "./plugins",
 			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
+			assistant: { model: Option.none(), apiKey: Option.none(), baseUrl: Option.none() },
 		},
 	} satisfies AppConfigValue;
 	return Layer.succeed(AppConfig, {
 		...defaults,
 		...overrides,
 		users: { ...defaults.users, ...overrides?.users },
-		server: { ...defaults.server, ...overrides?.server },
 		sandbox: { ...defaults.sandbox, ...overrides?.sandbox },
 		database: { ...defaults.database, ...overrides?.database },
 		scheduler: { ...defaults.scheduler, ...overrides?.scheduler },
@@ -184,6 +184,11 @@ export const makeAppConfigLayer = (
 			...defaults.frontend,
 			...overrides?.frontend,
 			umami: { ...defaults.frontend.umami, ...overrides?.frontend?.umami },
+		},
+		server: {
+			...defaults.server,
+			...overrides?.server,
+			assistant: { ...defaults.server.assistant, ...overrides?.server?.assistant },
 		},
 		observability: {
 			...defaults.observability,

@@ -13,6 +13,7 @@ import {
 } from "effect";
 
 import { parseEgressAllowedNetworks } from "../egress/address-policy";
+import { parseHttpBaseUrl } from "./http-base-url";
 import { SystemConfigSource, type SystemConfigValue } from "./system";
 
 const logLevels: Record<string, LogLevel.LogLevel> = {
@@ -233,6 +234,30 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 			return yield* Effect.fail(
 				configError(
 					"SERVER_LOG_ROTATION_INTERVAL must be a supported rotation interval such as 30m, 1h, or 1d.",
+				),
+			);
+		}
+
+		const assistant = config.server.assistant;
+		const hasAssistantUrl = isNonEmpty(assistant.baseUrl);
+		const hasAssistantModel = isNonEmpty(assistant.model);
+		if (
+			hasAssistantUrl !== hasAssistantModel ||
+			(isNonEmptyRedacted(assistant.apiKey) && !hasAssistantUrl)
+		) {
+			return yield* Effect.fail(
+				configError(
+					"Set both SERVER_ASSISTANT_BASE_URL and SERVER_ASSISTANT_MODEL, or neither. SERVER_ASSISTANT_API_KEY is optional.",
+				),
+			);
+		}
+		if (
+			Option.isSome(assistant.baseUrl) &&
+			Result.isFailure(parseHttpBaseUrl(assistant.baseUrl.value))
+		) {
+			return yield* Effect.fail(
+				configError(
+					"SERVER_ASSISTANT_BASE_URL must be HTTP or HTTPS without credentials, query or fragment.",
 				),
 			);
 		}

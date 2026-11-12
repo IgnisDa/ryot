@@ -5,6 +5,7 @@ import { SecureRandom } from "effect/crypto";
 
 import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
 import { DatabaseSession } from "#platform/db/session";
+import { assistantProvider } from "#schema/tables/assistant";
 import { pluginConfigEncryptionKey, pluginConfigRevision } from "#schema/tables/core";
 import { importRun } from "#schema/tables/imports";
 import { oauthConnection } from "#schema/tables/oauth-connections";
@@ -44,6 +45,14 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 					Effect.all([
 						database.run((db) =>
 							db
+								.selectDistinct({
+									id: sql<null | string>`${assistantProvider.encryptedApiKey} ->> 'keyId'`,
+								})
+								.from(assistantProvider)
+								.where(isNotNull(assistantProvider.encryptedApiKey)),
+						),
+						database.run((db) =>
+							db
 								.selectDistinct({ id: pluginConfigRevision.encryptionKeyId })
 								.from(pluginConfigRevision)
 								.where(isNotNull(pluginConfigRevision.encryptedPayload)),
@@ -67,7 +76,8 @@ export class PluginConfigEncryptionKeyRepository extends Context.Service<PluginC
 								.where(isNotNull(importRun.preparedRelease)),
 						),
 					]).pipe(
-						Effect.map(([configKeys, oauthKeys, preparedReleaseKeys]) => [
+						Effect.map(([assistantKeys, configKeys, oauthKeys, preparedReleaseKeys]) => [
+							...assistantKeys.flatMap(({ id }) => (id === null ? [] : [{ id }])),
 							...configKeys,
 							...oauthKeys.flatMap((row) =>
 								Object.values(row).flatMap((id) => (id === null ? [] : [{ id }])),

@@ -27,6 +27,25 @@ plugins use their installation settings, never these environment variables.
 Run one backend process per database. A second process fails to start while the first owns the
 database. Stop the current process before starting its replacement, including during upgrades.
 
+## Ryobot providers
+
+An instance default needs `SERVER_ASSISTANT_BASE_URL` and `SERVER_ASSISTANT_MODEL`.
+Set `SERVER_ASSISTANT_API_KEY` if the provider requires authentication. The base URL must include
+the API prefix, for example `https://api.openai.com/v1`, without credentials, query or fragment.
+The provider must support OpenAI-compatible Chat Completions, streaming and tool calling.
+
+Users can configure a provider in Settings → Ryobot. Their configuration overrides the instance
+default completely, so a keyless user provider does not inherit the instance key. Saving without
+a new API key retains their previous encrypted key. Removing the user provider also removes its
+key and restores the instance default. To switch to a keyless user provider, remove it and add
+it again without a key. Demo sessions cannot change provider settings.
+
+Unauthenticated local model servers are supported. Allow their network explicitly with
+`SERVER_EGRESS_ALLOWED_NETWORKS`, for example `127.0.0.0/8` for a loopback endpoint, and use its
+API base URL such as `http://127.0.0.1:11434/v1`. All provider traffic follows the shared egress
+address policy. Keep the database's configuration encryption key when retaining encrypted user
+provider keys; losing it prevents decryption and Ryot refuses to silently replace it.
+
 ## Health endpoint
 
 Use `/api/system/health` for service health checks.

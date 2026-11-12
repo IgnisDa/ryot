@@ -186,6 +186,7 @@
         "@better-auth/oauth-provider": "1.7.21",
         "@dicebear/core": "10.7.0",
         "@dicebear/styles": "10.6.0",
+        "@effect/ai-openai-compat": "4.1.2",
         "@effect/platform-bun": "4.1.2",
         "@effect/sql-pg": "4.1.2",
         "@react-email/render": "2.2.0",
@@ -952,6 +953,8 @@
     "@docsearch/sidepanel-js": ["@docsearch/sidepanel-js@4.7.1", "", {}, "sha512-uyOKbC6rjHCZBVbLCSZVb1NDWzjbD27WqxTuRYnkTW717laEj2dX+W8Ho1fNHSyG4dqssIlPWlXdg+McGxxxxg=="],
 
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
+
+    "@effect/ai-openai-compat": ["@effect/ai-openai-compat@4.1.2", "", { "peerDependencies": { "effect": "^4.1.2" } }, "sha512-6NRpW6GTLoCIuGcs0mCX3cBSZZKJRX1Fo0oDA6NwUKraaAoYJM1gw8/P2vRfi0+G9xXS7EqO2Asgf7ecJb5/AQ=="],
 
     "@effect/atom-react": ["@effect/atom-react@4.1.2", "", { "peerDependencies": { "effect": "^4.1.2", "react": ">=19.0.0 <20.0.0", "scheduler": ">=0.25.0 <0.29.0" } }, "sha512-XRAm4lks2kzNFQIz9QTGKR02CaDTR9VJNRXDjDAR8OzM15ybrK4YkB7OlFZ9U+hxXe3DXJZx7RU1/xI2Em2PGQ=="],
 
