@@ -59,6 +59,7 @@
         "@effect/platform-bun": "4.1.2",
         "@effect/sql-pg": "4.1.2",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/definitions": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/media-plugin": "workspace:*",
@@ -190,6 +191,7 @@
         "@react-email/render": "2.2.0",
         "@ryot-app/config": "workspace:*",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/definitions": "workspace:*",
         "@ryot-app/email-templates": "workspace:*",
         "@ryot-app/kernel-renderers": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
@@ -314,6 +316,7 @@
       "dependencies": {
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/contract": "workspace:*",
+        "@ryot-app/definitions": "workspace:*",
         "@ryot-app/plugin-archive": "workspace:*",
         "@ryot-app/plugin-backend-compiler": "workspace:*",
         "@ryot-app/plugin-client-compiler": "workspace:*",
@@ -349,6 +352,19 @@
         "@ryot-app/testing": "workspace:*",
         "@voila.dev/effect-bun-test": "4.0.4",
         "bun-types": "1.4.4",
+      },
+    },
+    "packages/definitions": {
+      "name": "@ryot-app/definitions",
+      "dependencies": {
+        "@ryot-app/contract": "workspace:*",
+        "@ryot-app/ryotql": "workspace:*",
+        "@ryot-app/ryotql-recipes": "workspace:*",
+        "@ryot-app/ts-utils": "workspace:*",
+        "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@ryot-app/testing": "workspace:*",
       },
     },
     "packages/email-templates": {
@@ -579,6 +595,7 @@
       "devDependencies": {
         "@ryot-app/contract": "workspace:*",
         "@ryot-app/testing": "workspace:*",
+        "@voila.dev/effect-bun-test": "4.0.4",
       },
       "peerDependencies": {
         "@ryot-app/contract": "workspace:*",
@@ -675,6 +692,7 @@
       "devDependencies": {
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/cli": "workspace:*",
+        "@ryot-app/definitions": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
         "@ryot-app/plugin-client-compiler": "workspace:*",
         "@ryot-app/plugin-client-contract": "workspace:*",
@@ -736,6 +754,7 @@
       "devDependencies": {
         "@effect/platform-bun": "4.1.2",
         "@ryot-app/cli": "workspace:*",
+        "@ryot-app/definitions": "workspace:*",
         "@ryot-app/fitness-plugin": "workspace:*",
         "@ryot-app/fixture-plugin": "workspace:*",
         "@ryot-app/kernel-backend": "workspace:*",
@@ -1418,6 +1437,8 @@
     "@ryot-app/config": ["@ryot-app/config@workspace:packages/config"],
 
     "@ryot-app/contract": ["@ryot-app/contract@workspace:packages/contract"],
+
+    "@ryot-app/definitions": ["@ryot-app/definitions@workspace:packages/definitions"],
 
     "@ryot-app/docs": ["@ryot-app/docs@workspace:apps/docs"],
 

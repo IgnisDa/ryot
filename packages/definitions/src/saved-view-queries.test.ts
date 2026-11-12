@@ -2,11 +2,10 @@ import { describe, expect, it } from "bun:test";
 
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { entityBrowserFields } from "@ryot-app/contract/modules/saved-views/entity-browser-fields";
+import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { Result } from "effect";
 
-import { storedValidationBranches } from "#modules/ryotql/stored-validation";
-
-import { deriveSavedViewQueries } from "./queries";
+import { deriveSavedViewQueries } from "./saved-view-queries";
 
 const renderer = { kind: "kernel", name: "entity-browser" } as const;
 const settings = {

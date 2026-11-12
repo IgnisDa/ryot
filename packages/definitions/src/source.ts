@@ -19,13 +19,11 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { parseAppSchemaPropertiesSafe } from "@ryot-app/contract/schema/property-values";
 import { Array as Arr, Result, Schema } from "effect";
 
-import { formatPropertyIssues } from "#modules/definitions/properties/runtime";
-import { materializeSignalSchedule } from "#modules/definitions/signal-schedules";
-import { deriveSavedViewQueries } from "#modules/saved-views/queries";
-
+import { deriveSavedViewQueries } from "./saved-view-queries";
+import { pluginPageSettingsIssue } from "./saved-views";
+import { materializeSignalSchedule } from "./signal-schedules";
 import type { CalendarSourceDefinition, DefinitionSource, SavedViewDefinition } from "./snapshot";
 
 export const materializeSavedView = (
@@ -54,18 +52,10 @@ export const materializeSavedView = (
 	);
 	if (definition.renderer.kind === "plugin") {
 		const page = client?.exports?.[definition.renderer.exportName];
-		if (page?.kind !== "page") {
+		const issue = pluginPageSettingsIssue(definition.settings, page?.kind === "page" ? page : null);
+		if (issue) {
 			throw new Error(
-				`Invalid saved view ${definition.slug}: plugin renderer '${definition.renderer.exportName}' is not an advertised page export`,
-			);
-		}
-		const parsed = parseAppSchemaPropertiesSafe({
-			properties: definition.settings,
-			propertiesSchema: page.settingsSchema,
-		});
-		if (!parsed.success) {
-			throw new Error(
-				`Invalid saved view ${definition.slug}: ${formatPropertyIssues(parsed.issues)}`,
+				`Invalid saved view ${definition.slug}: ${issue.code === "renderer-not-found" ? `plugin renderer '${definition.renderer.exportName}' is not an advertised page export` : issue.message}`,
 			);
 		}
 		return {

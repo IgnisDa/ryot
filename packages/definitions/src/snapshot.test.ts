@@ -7,7 +7,7 @@ import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
 
-import { kernelDefinitionSource } from "./kernel-source";
+import { kernelDefinitionSource } from "./kernel-definitions";
 import {
 	buildDefinitionSnapshot,
 	definitionLookup,
@@ -184,10 +184,10 @@ it("throws for configured fields the source does not project during snapshot val
 			summary: { image: null, subtitle: { field: "title", displayKind: "text" } },
 		}),
 	).toThrow(
-		"Invalid saved view bottles: configured field 'title' must be a projected scalar field",
+		"Invalid saved view bottles: Entity-browser configured field 'title' must be a projected scalar field",
 	);
 	expect(() => buildBottleView({ summary: { image: "cover", subtitle: null } })).toThrow(
-		"Invalid saved view bottles: configured field 'cover' must be a projected scalar field",
+		"Invalid saved view bottles: Entity-browser configured field 'cover' must be a projected scalar field",
 	);
 });
 

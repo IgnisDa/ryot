@@ -21,11 +21,8 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import { relationshipEnds } from "@ryot-app/contract/modules/relationships/orientation";
 import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
-import type { RyotQLDocument as ExecutableDocument } from "@ryot-app/contract/modules/ryotql/language";
 import { RowSourcePrecision, RowSourceQuery } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
-	EntityBrowserSavedViewSettings,
-	ResultsTableSavedViewSettings,
 	SavedViewRenderer,
 	SavedViewSelection,
 	SavedViewSubject,
@@ -33,21 +30,14 @@ import {
 import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
+import { formatPropertyIssues } from "@ryot-app/contract/schema/property-validation";
+import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
+import { browseConsistencyIssue, browseIssue } from "@ryot-app/ryotql-recipes/browse-validation";
 import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
 import { Effect, Result, Schema } from "effect";
 
-import { browseConsistencyIssue, browseIssue } from "#modules/definitions/browse-validation";
-import {
-	formatPropertyIssues,
-	parseAppSchemaProperties,
-} from "#modules/definitions/properties/runtime";
-import { calendarSourceIssue } from "#modules/definitions/row-source-validation";
-import {
-	entityBrowserConfiguredFields,
-	resultsTableConfiguredFields,
-	unprojectedField,
-} from "#modules/definitions/saved-view-filters";
-import { savedViewDataSourceAccess, validateRyotQLDocument } from "#modules/ryotql/validator";
+import { calendarSourceIssue } from "./row-source-validation";
+import { savedViewIssueMessage, savedViewSourceIssue } from "./saved-views";
 
 const pluginIdField = { pluginId: Schema.NullOr(Schema.String) };
 
@@ -255,77 +245,24 @@ const assertSchemaDefinition = (
 	}
 };
 
-const validateConcreteSavedViewDefinition = (
-	savedView: Omit<SavedViewDefinition, "dataSources"> & {
-		readonly dataSources: null | ExecutableDocument;
-	},
-) => {
-	if (savedView.dataSources !== null) {
-		const { error: issue } = validateRyotQLDocument(
-			savedView.dataSources,
-			savedViewDataSourceAccess,
-		);
-		if (issue) {
-			throw new Error(`Invalid saved view ${savedView.slug}: ${issue}`);
-		}
-	}
-	if (savedView.renderer.kind !== "kernel") {
-		return;
-	}
-	if (savedView.renderer.name === "calendar" || savedView.renderer.name === "analytics") {
-		if (savedView.dataSources !== null || Object.keys(savedView.settings).length > 0) {
-			throw new Error(
-				`Invalid saved view ${savedView.slug}: ${savedView.renderer.name} views take no settings or data sources`,
-			);
-		}
-		return;
-	}
-	const settingsSchema =
-		savedView.renderer.name === "entity-browser" || savedView.renderer.name === "collection-browser"
-			? EntityBrowserSavedViewSettings
-			: ResultsTableSavedViewSettings;
-	const decoded = Schema.decodeUnknownResult(settingsSchema)(savedView.settings);
-	if (Result.isFailure(decoded)) {
-		throw new Error(
-			`Invalid saved view ${savedView.slug}: invalid ${savedView.renderer.name} settings`,
-		);
-	}
-	if (savedView.dataSources === null) {
-		throw new Error(`Invalid saved view ${savedView.slug}: data sources are required`);
-	}
-	const source = savedView.dataSources.queries[decoded.success.sourceName];
-	if (source?.output.type !== "rows") {
-		throw new Error(
-			`Invalid saved view ${savedView.slug}: source '${decoded.success.sourceName}' must produce rows`,
-		);
-	}
-	const unprojected = unprojectedField(
-		source,
-		"rowKeyFields" in decoded.success
-			? resultsTableConfiguredFields(decoded.success)
-			: entityBrowserConfiguredFields(decoded.success),
-	);
-	if (unprojected !== undefined) {
-		throw new Error(
-			`Invalid saved view ${savedView.slug}: configured field '${unprojected}' must be a projected scalar field`,
-		);
-	}
-};
-
 const validateDefinitionSource = (
 	source: DefinitionSource,
 	entitySchemas: Record<string, unknown>,
 	relationshipSchemas: Record<string, unknown>,
 ) => {
 	for (const savedView of source.savedViews) {
-		if (savedView.dataSources === null) {
-			validateConcreteSavedViewDefinition({ ...savedView, dataSources: null });
-		} else {
-			const branches = Result.getOrThrow(
-				authoredValidationBranches(savedView.dataSources, storedValidationContext()),
-			);
-			for (const branch of branches) {
-				validateConcreteSavedViewDefinition({ ...savedView, dataSources: branch });
+		const branches =
+			savedView.dataSources === null
+				? [null]
+				: Result.getOrThrow(
+						authoredValidationBranches(savedView.dataSources, storedValidationContext()),
+					);
+		for (const branch of branches) {
+			const issue = savedViewSourceIssue(savedView.renderer, savedView.settings, branch, {
+				kernelBuiltin: savedView.pluginId === null,
+			});
+			if (issue) {
+				throw new Error(`Invalid saved view ${savedView.slug}: ${savedViewIssueMessage(issue)}`);
 			}
 		}
 	}

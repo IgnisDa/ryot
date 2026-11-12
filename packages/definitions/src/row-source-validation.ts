@@ -6,14 +6,12 @@ import {
 } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
 import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
-import { Result } from "effect";
-
-import { getCatalogTable } from "#modules/ryotql/catalog";
 import {
 	queryExpressionKind,
 	savedViewDataSourceAccess,
 	validateRyotQLDocument,
-} from "#modules/ryotql/validator";
+} from "@ryot-app/ryotql/validator";
+import { Result } from "effect";
 
 import type { SignalScheduleDefinition } from "./signal-schedules";
 import type { CalendarSourceDefinition } from "./snapshot";
@@ -75,7 +73,7 @@ const rowSourceIssue = (
 			}
 		}
 		const table = subjectTable(boundQuery, subject);
-		if (table === undefined || getCatalogTable(table)?.name !== "entity") {
+		if (table !== "entity") {
 			return `subject alias '${subject.entityAlias}' must be an entity table in the query`;
 		}
 	}
