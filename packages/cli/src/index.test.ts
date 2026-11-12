@@ -24,6 +24,71 @@ const createPlugin = Effect.fn("createPlugin")(function* () {
 	return plugin;
 });
 
+const dependencyName = "@test/dependency-plugin";
+
+const dependencyManifest = (dependencyPackageId: string) => `export default {
+	crons: [],
+	hooks: [],
+	workflows: [],
+	providers: [],
+	savedViews: [],
+	operations: [],
+	entitySchemas: [],
+	signalSchemas: [],
+	importSources: [],
+	userBootstrap: [],
+	httpRateLimits: [],
+	relationshipSchemas: [],
+	integrationProviders: [],
+	configSchema: { fields: {}, unknownKeys: "strict" },
+	metadata: {
+		icon: "test",
+		version: "1.0.0",
+		name: "Dependency",
+		description: "A dependency fixture.",
+		packageId: "${dependencyPackageId}",
+	},
+};
+`;
+
+const declareDependency = Effect.fn("declareDependency")(function* (
+	plugin: string,
+	dependencyPackageId: string,
+	options: { readonly installed: boolean },
+) {
+	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
+	const manifestEntry = '{ ".": { "types": "./manifest.ts", "default": "./manifest.ts" } }';
+	yield* fs.writeFileString(
+		path.join(plugin, "package.json"),
+		`{ "name": "@ryot-app/cli-test-plugin", "type": "module", "exports": ${manifestEntry}, "dependencies": { "${dependencyName}": "*" } }`,
+	);
+	const manifestPath = path.join(plugin, "manifest.ts");
+	yield* fs.writeFileString(
+		manifestPath,
+		(yield* fs.readFileString(manifestPath)).replace(
+			"export default {",
+			`export default {\n\tdependencies: { media: { packageId: "${dependencyPackageId}", scope: "system" } },`,
+		),
+	);
+	if (!options.installed) {
+		return;
+	}
+	const directory = path.join(plugin, "node_modules", dependencyName);
+	yield* fs.makeDirectory(directory, { recursive: true });
+	yield* fs.writeFileString(
+		path.join(directory, "package.json"),
+		`{ "name": "${dependencyName}", "type": "module", "exports": ${manifestEntry} }`,
+	);
+	yield* fs.writeFileString(
+		path.join(directory, "manifest.ts"),
+		dependencyManifest(dependencyPackageId),
+	);
+});
+
+const declaredQuery = (table: string) =>
+	`queries: { items: { description: "Items", document: { queries: { items: { from: { table: "${table}", alias: "item" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "item", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
+
 const collect = <E>(stream: Stream.Stream<Uint8Array, E>) =>
 	stream.pipe(
 		Stream.decodeText({ encoding: "utf-8" }),
@@ -594,15 +659,7 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 				const path = yield* Path.Path;
 				const fs = yield* FileSystem.FileSystem;
 				const plugin = yield* createPlugin();
-				const manifestPath = path.join(plugin, "manifest.ts");
-				const manifest = yield* fs.readFileString(manifestPath);
-				yield* fs.writeFileString(
-					manifestPath,
-					manifest.replace(
-						"client: {",
-						`client: {\n\t\tpluginDependencies: { media: { packageId: "test/other", scope: "system" } },`,
-					),
-				);
+				yield* declareDependency(plugin, "test/other", { installed: true });
 				yield* fs.writeFileString(
 					path.join(plugin, "client", "home.tsx"),
 					'import Card from "@ryot-app/plugins/media/show-card";\nvoid Card;\nexport default function Home() { return null; }\n',
@@ -618,6 +675,52 @@ export default ${helper}({ manifest, run: (_input) => Effect.succeed(${automatio
 					{ exportName: "show-card", reference: { scope: "system", packageId: "test/other" } },
 				]);
 				expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects a declared dependency that is not an installed plugin package",
+		() =>
+			Effect.gen(function* () {
+				const plugin = yield* createPlugin();
+				yield* declareDependency(plugin, "test/other", { installed: false });
+
+				const result = yield* run(plugin, ["plugin", "build"]);
+
+				expect(result.exitCode).not.toBe(0);
+				expect(result.stdout + result.stderr).toContain(
+					"Dependency system package 'test/other' is not an installed plugin package",
+				);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"rejects declared queries that ingestion would reject before writing the archive",
+		() =>
+			Effect.gen(function* () {
+				const path = yield* Path.Path;
+				const fs = yield* FileSystem.FileSystem;
+				const plugin = yield* createPlugin();
+				const manifestPath = path.join(plugin, "manifest.ts");
+				const original = yield* fs.readFileString(manifestPath);
+				yield* fs.writeFileString(
+					manifestPath,
+					original.replace("export default {", `export default {\n\t${declaredQuery("entity")}`),
+				);
+				expect((yield* run(plugin, ["plugin", "build"])).exitCode).toBe<unknown>(0);
+				yield* fs.remove(path.join(plugin, "dist"), { recursive: true });
+
+				yield* fs.writeFileString(
+					manifestPath,
+					original.replace("export default {", `export default {\n\t${declaredQuery("user")}`),
+				);
+				const result = yield* run(plugin, ["plugin", "build"]);
+
+				expect(result.exitCode).not.toBe(0);
+				expect(result.stdout + result.stderr).toContain("Invalid plugin definitions");
+				expect(yield* fs.exists(path.join(plugin, "dist", archiveName))).toBe(false);
 			}),
 		testTimeout,
 	);

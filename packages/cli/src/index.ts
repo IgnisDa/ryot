@@ -5,6 +5,12 @@ import {
 	AuthoredPluginManifest as AuthoredPluginManifestSchema,
 	PluginManifest as PluginManifestSchema,
 } from "@ryot-app/contract/modules/plugins/manifest";
+import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
+import {
+	type DefinitionSetPlugin,
+	validateDefinitionSet,
+} from "@ryot-app/definitions/definition-set";
+import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import {
 	PluginArchiveError,
 	type PluginArchivePackage,
@@ -26,7 +32,18 @@ import {
 	type PluginClientArtifact,
 	pluginClientFileExtension,
 } from "@ryot-app/plugin-client-contract";
-import { Clock, Effect, FileSystem, Layer, Option, Path, Random, Schema, Stream } from "effect";
+import {
+	Clock,
+	Effect,
+	FileSystem,
+	Layer,
+	Option,
+	Path,
+	type PlatformError,
+	Random,
+	Schema,
+	Stream,
+} from "effect";
 import { Command, Flag } from "effect/cli";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -35,7 +52,12 @@ class BuildError extends Schema.TaggedError<BuildError, { readonly brand: unique
 	{ message: Schema.String },
 ) {}
 
+const PackageDependencies = Schema.optional(Schema.Record(Schema.String, Schema.String));
+
 const PackageJson = Schema.Struct({
+	dependencies: PackageDependencies,
+	devDependencies: PackageDependencies,
+	peerDependencies: PackageDependencies,
 	exports: Schema.optional(
 		Schema.Struct({
 			".": Schema.optional(Schema.Struct({ default: Schema.optional(Schema.String) })),
@@ -59,25 +81,20 @@ const isWithin = (path: Path.Path, root: string, candidate: string) => {
 	);
 };
 
-const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
+const readPackageJson = Effect.fn("readPackageJson")(function* (directory: string) {
 	const path = yield* Path.Path;
 	const fs = yield* FileSystem.FileSystem;
-	const packageJsonPath = path.join(cwd, "package.json");
-	const packageJsonSource = yield* fs.readFileString(packageJsonPath);
-	const packageJson = yield* Schema.decodeEffect(Schema.fromJsonString(PackageJson))(
-		packageJsonSource,
-	).pipe(
+	const source = yield* fs.readFileString(path.join(directory, "package.json"));
+	return yield* Schema.decodeEffect(Schema.fromJsonString(PackageJson))(source).pipe(
 		Effect.mapError(
 			(error) => new BuildError({ message: `Invalid package.json: ${String(error)}` }),
 		),
 	);
-	const manifestEntry = packageJson.exports?.["."]?.default;
-	if (manifestEntry === undefined) {
-		return yield* new BuildError({ message: 'package.json must define exports["."].default' });
-	}
+});
 
-	const manifestPath = path.resolve(cwd, manifestEntry);
-	const manifestUrl = yield* path.toFileUrl(manifestPath);
+const importManifest = Effect.fn("importManifest")(function* (directory: string, entry: string) {
+	const path = yield* Path.Path;
+	const manifestUrl = yield* path.toFileUrl(path.resolve(directory, entry));
 	const cacheBust = yield* Clock.currentTimeMillis;
 	const cacheBustNonce = yield* Random.nextInt;
 	const manifestModule = yield* Effect.tryPromise({
@@ -96,6 +113,134 @@ const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
 				new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
 		}),
 	);
+});
+
+const loadManifest = Effect.fn("loadManifest")(function* (cwd: string) {
+	const manifestEntry = (yield* readPackageJson(cwd)).exports?.["."]?.default;
+	if (manifestEntry === undefined) {
+		return yield* new BuildError({ message: 'package.json must define exports["."].default' });
+	}
+	return yield* importManifest(cwd, manifestEntry);
+});
+
+const findInstalledPackage = Effect.fn("findInstalledPackage")(function* (
+	name: string,
+	from: string,
+) {
+	const path = yield* Path.Path;
+	const fs = yield* FileSystem.FileSystem;
+	for (let directory = from; ; directory = path.dirname(directory)) {
+		const candidate = path.join(directory, "node_modules", name);
+		if (yield* fs.exists(path.join(candidate, "package.json"))) {
+			return Option.some(yield* fs.realPath(candidate));
+		}
+		if (path.dirname(directory) === directory) {
+			return Option.none<string>();
+		}
+	}
+});
+
+const dependencyKey = ({ scope, packageId }: PluginPackageReference) => `${scope}:${packageId}`;
+
+const loadDependencyManifests = Effect.fn("loadDependencyManifests")(function* (
+	cwd: string,
+	manifest: AuthoredPluginManifest,
+) {
+	const resolved = new Map<
+		string,
+		{ readonly manifest: AuthoredPluginManifest; readonly scope: PluginPackageReference["scope"] }
+	>();
+	const visit = Effect.fnUntraced(function* (
+		directory: string,
+		importer: AuthoredPluginManifest,
+	): Effect.fn.Return<
+		void,
+		BuildError | PlatformError.PlatformError,
+		Path.Path | FileSystem.FileSystem
+	> {
+		const pending = Object.values(importer.dependencies ?? {}).filter(
+			(reference) => !resolved.has(dependencyKey(reference)),
+		);
+		if (pending.length === 0) {
+			return yield* Effect.void;
+		}
+		const packageJson = yield* readPackageJson(directory);
+		const installed = new Map<
+			string,
+			{ readonly directory: string; readonly manifest: AuthoredPluginManifest }
+		>();
+		for (const name of Object.keys({
+			...packageJson.peerDependencies,
+			...packageJson.devDependencies,
+			...packageJson.dependencies,
+		})) {
+			const location = yield* findInstalledPackage(name, directory).pipe(
+				Effect.mapError(
+					(error) => new BuildError({ message: `Unable to locate ${name}: ${String(error)}` }),
+				),
+			);
+			if (Option.isNone(location)) {
+				continue;
+			}
+			const entry = (yield* readPackageJson(location.value)).exports?.["."]?.default;
+			if (entry === undefined) {
+				continue;
+			}
+			const candidate = yield* importManifest(location.value, entry).pipe(Effect.option);
+			if (Option.isSome(candidate)) {
+				installed.set(candidate.value.metadata.packageId, {
+					manifest: candidate.value,
+					directory: location.value,
+				});
+			}
+		}
+		for (const reference of pending) {
+			const dependency = installed.get(reference.packageId);
+			if (dependency === undefined) {
+				return yield* new BuildError({
+					message: `Dependency ${reference.scope} package '${reference.packageId}' is not an installed plugin package`,
+				});
+			}
+			resolved.set(dependencyKey(reference), {
+				scope: reference.scope,
+				manifest: dependency.manifest,
+			});
+			yield* visit(dependency.directory, dependency.manifest);
+		}
+		return yield* Effect.void;
+	});
+	yield* visit(cwd, manifest);
+	return [...resolved.values()];
+});
+
+const validateDefinitions = Effect.fn("validateDefinitions")(function* (
+	manifest: PluginManifest,
+	dependencies: ReadonlyArray<{
+		readonly manifest: AuthoredPluginManifest;
+		readonly scope: PluginPackageReference["scope"];
+	}>,
+) {
+	// A plugin that depends on a private package can only be installed privately itself.
+	const scope = Object.values(manifest.dependencies ?? {}).some(
+		(dependency) => dependency.scope === "user",
+	)
+		? "user"
+		: "system";
+	const plugins: DefinitionSetPlugin[] = [
+		...dependencies.map((dependency) => ({
+			scope: dependency.scope,
+			manifest: { ...dependency.manifest, scripts: [] },
+			id: dependencyKey({ ...dependency, packageId: dependency.manifest.metadata.packageId }),
+		})),
+		{ scope, manifest, id: dependencyKey({ scope, packageId: manifest.metadata.packageId }) },
+	];
+	yield* Effect.try({
+		try: () => validateDefinitionSet(kernelDefinitionSource(), plugins),
+		catch: (error) =>
+			new BuildError({
+				message: `Invalid plugin definitions: ${error instanceof Error ? error.message : String(error)}`,
+			}),
+	});
 });
 
 const collectSources = Effect.fn("collectSources")(function* (cwd: string) {
@@ -197,7 +342,7 @@ const compileClientArtifact = Effect.fn("compileClientArtifact")(function* (
 		name: manifest.metadata.name,
 		packageId: manifest.metadata.packageId,
 		apiVersion: manifest.client.apiVersion,
-		pluginDependencies: manifest.client.pluginDependencies ?? {},
+		pluginDependencies: manifest.dependencies ?? {},
 		clientDeclarationHash: clientDeclarationHash(manifest.client),
 		publicExports: Object.fromEntries(
 			Object.entries(manifest.client.exports ?? {}).map(([name, declaration]) => [
@@ -262,6 +407,7 @@ const buildPlugin = Effect.fn("buildPlugin")(function* ({ cwd, output }: BuildOp
 			(error) => new BuildError({ message: `Invalid plugin manifest: ${String(error)}` }),
 		),
 	);
+	yield* validateDefinitions(manifest, yield* loadDependencyManifests(cwd, authored));
 	yield* writeOutput(
 		path.resolve(cwd, output ?? `dist/${manifest.metadata.packageId}.zip`),
 		manifest,
