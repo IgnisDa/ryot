@@ -5,7 +5,7 @@ import {
 	type RowSourceQuery,
 } from "@ryot-app/contract/modules/ryotql/row-source";
 import type { SavedViewSubject } from "@ryot-app/contract/modules/saved-views/schemas";
-import { authoredValidationBranches } from "@ryot-app/ryotql/binding";
+import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
 import { Result } from "effect";
 
 import { getCatalogTable } from "#modules/ryotql/catalog";
@@ -39,12 +39,12 @@ const rowSourceIssue = (
 	if ("orderBy" in query.output || "pagination" in query.output) {
 		return "ordering and pagination are owned by the kernel";
 	}
-	const projections = authoredValidationBranches(rowSourceDocument(query), {
-		now: new Date(0),
-		maximumBranches: 256,
-		reportingTimeZone: "UTC",
-		sourceEntity: () => Result.fail(new Error("Stored row sources cannot select another source")),
-	});
+	const projections = authoredValidationBranches(
+		rowSourceDocument(query),
+		storedValidationContext(() =>
+			Result.fail(new Error("Stored row sources cannot select another source")),
+		),
+	);
 	if (Result.isFailure(projections)) {
 		return projections.failure.message;
 	}

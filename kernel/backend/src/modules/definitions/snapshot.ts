@@ -33,7 +33,7 @@ import {
 import { validateAppSchemaDefinition } from "@ryot-app/contract/schema/app-schema-definition";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { AppSchema, type PropertyValidationError } from "@ryot-app/contract/schema/property-schema";
-import { authoredValidationBranches } from "@ryot-app/ryotql/binding";
+import { authoredValidationBranches, storedValidationContext } from "@ryot-app/ryotql/binding";
 import { Effect, Result, Schema } from "effect";
 
 import { browseConsistencyIssue, browseIssue } from "#modules/definitions/browse-validation";
@@ -322,12 +322,7 @@ const validateDefinitionSource = (
 			validateConcreteSavedViewDefinition({ ...savedView, dataSources: null });
 		} else {
 			const branches = Result.getOrThrow(
-				authoredValidationBranches(savedView.dataSources, {
-					now: new Date(0),
-					maximumBranches: 256,
-					reportingTimeZone: "UTC",
-					sourceEntity: (_, alias) => Result.succeed({ alias, table: "sourceEntity:validation" }),
-				}),
+				authoredValidationBranches(savedView.dataSources, storedValidationContext()),
 			);
 			for (const branch of branches) {
 				validateConcreteSavedViewDefinition({ ...savedView, dataSources: branch });

@@ -184,6 +184,7 @@ export type BindingContext = {
 	readonly resolveSourceEntity?: (
 		reference: string,
 		alias: string,
+		parameter: string,
 	) => Result.Result<TableReference, Error>;
 	readonly sort?: (
 		query: string,
@@ -284,10 +285,11 @@ const materialize = (
 				typeof name === "string" && Object.hasOwn(boundArguments, name)
 					? boundArguments[name]
 					: undefined;
-			return typeof reference === "string" &&
+			return typeof name === "string" &&
+				typeof reference === "string" &&
 				typeof value["alias"] === "string" &&
 				context.resolveSourceEntity !== undefined
-				? context.resolveSourceEntity(reference, value["alias"])
+				? context.resolveSourceEntity(reference, value["alias"], name)
 				: fail("Source entity resolution is required");
 		}
 	}
@@ -448,6 +450,21 @@ export type StoredValidationContext = BindingContext & {
 	readonly sourceEntity: (parameter: string, alias: string) => Result.Result<TableReference, Error>;
 };
 
+export const storedValidationContext = (
+	sourceEntity: StoredValidationContext["sourceEntity"] = (_, alias) =>
+		Result.succeed({ alias, table: "sourceEntity:validation" }),
+): StoredValidationContext => ({
+	sourceEntity,
+	now: new Date(0),
+	maximumBranches: 256,
+	reportingTimeZone: "UTC",
+});
+
+const choicePrefix = "choice:";
+const setPrefix = "set:";
+const choiceKey = (parameter: unknown) => `${choicePrefix}${String(parameter)}`;
+const setKey = (parameter: unknown) => `${setPrefix}${String(parameter)}`;
+
 export const authoredValidationBranches = (
 	document: Authored.RyotQLDocument,
 	context: StoredValidationContext,
@@ -465,7 +482,7 @@ export const authoredValidationBranches = (
 		}
 		if (isObjectRecord(value)) {
 			if (value["type"] === "choice" && isObjectRecord(value["cases"])) {
-				const key = `choice:${String(value["parameter"])}`;
+				const key = choiceKey(value["parameter"]);
 				const selected = selections[key];
 				if (selected !== undefined) {
 					return decisions(value["cases"][selected], selections);
@@ -484,7 +501,7 @@ export const authoredValidationBranches = (
 				return Result.succeed(branches);
 			}
 			if (value["type"] === "whenSet") {
-				const key = `set:${String(value["parameter"])}`;
+				const key = setKey(value["parameter"]);
 				const selected = selections[key];
 				if (selected !== undefined) {
 					return selected === "yes"
@@ -518,108 +535,66 @@ export const authoredValidationBranches = (
 		}
 		return Result.succeed(branches);
 	};
-	const project = (value: unknown, selections: Selections): unknown => {
-		if (isUnknownArray(value)) {
-			return value.map((child) => project(child, selections));
+	const branchArguments = (
+		samples: Readonly<Record<string, unknown>>,
+		selections: Selections,
+	): Readonly<Record<string, unknown>> => {
+		const bound = { ...samples };
+		for (const [name, selection] of Object.entries(selections)) {
+			if (name.startsWith(choicePrefix)) {
+				bound[name.slice(choicePrefix.length)] = selection;
+			} else if (selection === "no") {
+				delete bound[name.slice(setPrefix.length)];
+			}
 		}
-		if (!isObjectRecord(value) || value["type"] === "literal") {
-			return value;
-		}
-		if (value["type"] === "choice" && isObjectRecord(value["cases"])) {
-			return project(
-				value["cases"][selections[`choice:${String(value["parameter"])}`] ?? ""],
-				selections,
-			);
-		}
-		if (value["type"] === "whenSet") {
-			return selections[`set:${String(value["parameter"])}`] === "yes"
-				? project(value["predicate"], selections)
-				: { type: "and", predicates: [] };
-		}
-		return Object.fromEntries(
-			Object.entries(value).map(([key, child]) => [key, project(child, selections)]),
-		);
+		return bound;
 	};
 
 	return Result.flatMap(validateAuthoredDocument(document), () => {
 		if (!Number.isSafeInteger(context.maximumBranches) || context.maximumBranches <= 0) {
 			return fail("A positive validation branch budget is required");
 		}
-		const boundArguments = Object.fromEntries(
-			Object.entries(document.parameters?.fields ?? {}).map(([name, property]) => [
-				name,
-				sampleValue(property),
-			]),
+		const fields = document.parameters?.fields ?? {};
+		const samples = Object.fromEntries(
+			Object.entries(fields).map(([name, property]) => [name, sampleValue(property)]),
 		);
-		const projectedContext: BindingContext = {
+		const branchContext: BindingContext = {
 			...context,
-			resolveSourceEntity: (_, alias) => fail(`Unresolved symbolic source '${alias}'`),
-		};
-		const replaceSources = (value: unknown): Result.Result<unknown, Error> => {
-			if (isUnknownArray(value)) {
-				return Result.all(value.map(replaceSources));
-			}
-			if (!isObjectRecord(value) || value["type"] === "literal") {
-				return Result.succeed(value);
-			}
-			if (
-				value["type"] === "sourceEntity" &&
-				typeof value["parameter"] === "string" &&
-				typeof value["alias"] === "string"
-			) {
-				return context.sourceEntity(value["parameter"], value["alias"]);
-			}
-			return Result.map(
-				Result.all(
-					Object.entries(value).map(([key, child]) =>
-						Result.map(replaceSources(child), (replaced) => [key, replaced] as const),
-					),
-				),
-				Object.fromEntries,
-			);
+			resolveSourceEntity: (_, alias, parameter) => context.sourceEntity(parameter, alias),
 		};
 		return Result.flatMap(decisions(document.queries, {}), (branches) =>
 			Result.all(
 				branches.map((branch) =>
-					Result.flatMap(replaceSources(project(document.queries, branch)), (sources) =>
-						Result.flatMap(
-							materialize(
-								sources,
-								"queries",
-								{
-									...boundArguments,
-									...Object.fromEntries(
-										Object.entries(branch)
-											.filter(([key]) => key.startsWith("choice:"))
-											.map(([key, selection]) => [key.slice(7), selection]),
-									),
-								},
-								projectedContext,
-								undefined,
-								undefined,
-								document.parameters?.fields ?? {},
-							),
-							(queries) => {
-								if (!isObjectRecord(queries)) {
-									return fail("Invalid query branches");
-								}
-								const stripped = Object.fromEntries(
-									Object.entries(queries).map(([name, query]) => {
-										if (!isObjectRecord(query) || !isObjectRecord(query["output"])) {
-											return [name, query];
-										}
-										const output = query["output"];
-										if (output["type"] === "rows" && isObjectRecord(output["pagination"])) {
-											const { maxLimit: _, ...pagination } = output["pagination"];
-											return [name, { ...query, output: { ...output, pagination } }];
-										}
-										const { maxLimit: _, ...aggregate } = output;
-										return [name, { ...query, output: aggregate }];
-									}),
-								);
-								return decodeDocument({ queries: stripped });
-							},
+					Result.flatMap(
+						materialize(
+							document.queries,
+							"queries",
+							branchArguments(samples, branch),
+							branchContext,
+							undefined,
+							undefined,
+							fields,
 						),
+						(queries) => {
+							if (!isObjectRecord(queries)) {
+								return fail("Invalid query branches");
+							}
+							const stripped = Object.fromEntries(
+								Object.entries(queries).map(([name, query]) => {
+									if (!isObjectRecord(query) || !isObjectRecord(query["output"])) {
+										return [name, query];
+									}
+									const output = query["output"];
+									if (output["type"] === "rows" && isObjectRecord(output["pagination"])) {
+										const { maxLimit: _, ...pagination } = output["pagination"];
+										return [name, { ...query, output: { ...output, pagination } }];
+									}
+									const { maxLimit: _, ...aggregate } = output;
+									return [name, { ...query, output: aggregate }];
+								}),
+							);
+							return decodeDocument({ queries: stripped });
+						},
 					),
 				),
 			),
