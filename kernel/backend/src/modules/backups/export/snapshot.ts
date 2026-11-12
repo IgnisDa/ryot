@@ -92,6 +92,7 @@ import {
 } from "../archive/schemas";
 import type { ArchiveMetadata, StreamedSectionPath } from "../archive/sections";
 import { encodeArchiveJsonLine, encodeNdjson, IncrementalSha256 } from "../archive/streaming";
+import { ArchiveAssistantRecord } from "../assistant";
 import { isDefaultSystemInstallation } from "../installation-state";
 import {
 	describeClientArtifact,
@@ -1813,6 +1814,7 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						};
 					};
 					const spools = {
+						assistant: spool("assistant.ndjson", ArchiveAssistantRecord),
 						pages: spool("pages.ndjson", ARCHIVE_CODECS["pages.ndjson"]),
 						entities: spool("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
 						reminders: spool("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
@@ -2055,6 +2057,98 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 								},
 							]);
 							afterPageId = row.id;
+						}
+					}
+					let afterAssistantConversation: string | undefined;
+					let assistantHasMore = true;
+					while (assistantHasMore) {
+						const rows = yield* exportRepository.listAssistantConversations(
+							userId,
+							afterAssistantConversation,
+						);
+						assistantHasMore = rows.length > 0;
+						for (const row of rows) {
+							const { userId: _userId, ...data } = row;
+							const record = yield* Schema.decodeEffect(ArchiveAssistantRecord)({
+								kind: "conversation",
+								...data,
+								createdAt: row.createdAt.toISOString(),
+								updatedAt: row.updatedAt.toISOString(),
+							});
+							yield* spools.assistant.append([record]);
+							afterAssistantConversation = row.id;
+						}
+					}
+					let afterAssistantTurn: string | undefined;
+					assistantHasMore = true;
+					while (assistantHasMore) {
+						const rows = yield* exportRepository.listAssistantTurns(userId, afterAssistantTurn);
+						assistantHasMore = rows.length > 0;
+						for (const row of rows) {
+							const { userId: _userId, ...data } = row;
+							const record = yield* Schema.decodeEffect(ArchiveAssistantRecord)({
+								kind: "turn",
+								...data,
+								createdAt: row.createdAt.toISOString(),
+								completedAt: row.completedAt?.toISOString() ?? null,
+							});
+							yield* spools.assistant.append([record]);
+							afterAssistantTurn = row.id;
+						}
+					}
+					let afterAssistantToolCall: string | undefined;
+					assistantHasMore = true;
+					while (assistantHasMore) {
+						const rows = yield* exportRepository.listAssistantToolCalls(
+							userId,
+							afterAssistantToolCall,
+						);
+						assistantHasMore = rows.length > 0;
+						for (const row of rows) {
+							const { userId: _userId, ...data } = row;
+							const record = yield* Schema.decodeEffect(ArchiveAssistantRecord)({
+								kind: "call",
+								...data,
+								createdAt: row.createdAt.toISOString(),
+								decidedAt: row.decidedAt?.toISOString() ?? null,
+								completedAt: row.completedAt?.toISOString() ?? null,
+							});
+							yield* spools.assistant.append([record]);
+							afterAssistantToolCall = row.id;
+						}
+					}
+					let afterAssistantMessage: string | undefined;
+					assistantHasMore = true;
+					while (assistantHasMore) {
+						const rows = yield* exportRepository.listAssistantMessages(
+							userId,
+							afterAssistantMessage,
+						);
+						assistantHasMore = rows.length > 0;
+						for (const row of rows) {
+							const { userId: _userId, ...data } = row;
+							const record = yield* Schema.decodeEffect(ArchiveAssistantRecord)({
+								kind: "message",
+								...data,
+								createdAt: row.createdAt.toISOString(),
+							});
+							yield* spools.assistant.append([record]);
+							afterAssistantMessage = row.id;
+						}
+					}
+					const assistantProvider = yield* exportRepository.readAssistantProvider(userId);
+					if (assistantProvider) {
+						yield* spools.assistant.append([
+							{
+								...assistantProvider,
+								id: "provider",
+								kind: "provider",
+								createdAt: assistantProvider.createdAt.toISOString(),
+								updatedAt: assistantProvider.updatedAt.toISOString(),
+							},
+						]);
+						if (assistantProvider.hasApiKey) {
+							redactions.add("/assistant/provider/apiKey");
 						}
 					}
 					if (!metadata) {

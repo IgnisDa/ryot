@@ -46,6 +46,8 @@ import {
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Schema } from "effect";
 
+import { ArchiveAssistantRecord } from "../assistant";
+
 const nonNegativeInteger = Schema.Finite.pipe(
 	Schema.check(Schema.isInt()),
 	Schema.check(Schema.isGreaterThanOrEqualTo(0)),
@@ -78,6 +80,7 @@ export const ARCHIVE_SECTION_PATHS = [
 	"reminders.ndjson",
 	"publications.ndjson",
 	"fold-values.ndjson",
+	"assistant.ndjson",
 ] as const;
 
 export type ArchiveSectionPath = (typeof ARCHIVE_SECTION_PATHS)[number];
@@ -574,6 +577,7 @@ export const ARCHIVE_CODECS = {
 	"saved-views.ndjson": ArchiveSavedView,
 	"publications.ndjson": ArchivePublication,
 	"integrations.ndjson": ArchiveIntegration,
+	"assistant.ndjson": ArchiveAssistantRecord,
 	"installations.ndjson": ArchiveInstallation,
 	"relationships.ndjson": ArchiveRelationship,
 	"private-plugins.ndjson": ArchivePrivatePlugin,

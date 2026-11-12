@@ -9,7 +9,7 @@ Creating a run queues its `backup-export` or `backup-restore` [job](../../platfo
 A backup is a non-Zip64 ZIP with entries in this order:
 
 1. `manifest.json` at entry 0.
-2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `pages.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, `reminders.ndjson`, `publications.ndjson`, and `fold-values.ndjson`.
+2. `profile.json`, then `private-plugins.ndjson`, `installations.ndjson`, `entities.ndjson`, `entity-dependencies.ndjson`, `relationships.ndjson`, `events.ndjson`, `pages.ndjson`, `saved-views.ndjson`, `calendar-source-overrides.ndjson`, `integrations.ndjson`, `notification-subscriptions.ndjson`, `reminders.ndjson`, `publications.ndjson`, `fold-values.ndjson`, and `assistant.ndjson`.
 3. Uncompressed content-addressed assets at `assets/<sha256>` and generic binary blobs at `blobs/<sha256>`.
 
 The manifest contains `format: "ryot-backup"`, version 1, archive/application identity, creation time, redaction paths, required plugins, ordered section `{ path, count, sha256 }` records, and asset and binary blob `{ path, size, sha256, contentType }` records. Other versions are rejected as unsupported. Export and restore use the same current archive schema and validate paths, digests, references, and ordering.
@@ -31,7 +31,7 @@ account preferences still make the target unclean.
 ## Streaming
 
 Every usage-sized NDJSON section is disk-backed: entities, dependencies, relationships, events,
-pages, saved views, calendar overrides, integrations, subscriptions, reminders, and publications. Export uses stable
+pages, saved views, calendar overrides, integrations, subscriptions, reminders, publications and assistant history. Export uses stable
 keyset pages and incrementally counts and hashes each spool. ZIP entry streams open on demand and
 advance under storage backpressure. Profile, private packages, installations, and the manifest retain
 strict metadata limits.
@@ -160,7 +160,7 @@ restored page identities.
 
 Client page compositions are derived from restored compiled artifacts and current runtime state. The archive contains custom views and only non-default built-in state overrides (or a selected built-in home), not copies of built-in content. Built-ins use exact owner plus local slug; custom views have their own namespace. Homes use tagged custom, kernel, or plugin references. The archive format version remains 1.
 
-Private plugin backups contain no authoring source. Only manifest configuration and integration settings fields may be redacted. Managed assets use content-addressed locators.
+Private plugin backups contain no authoring source. Manifest configuration, integration settings and the user assistant provider key may be redacted. Managed assets use content-addressed locators.
 
 Account restore retains user-owned canonical data, relationships, event facts, and required snapshot
 dependencies. Enrichment requests, generated translations, and job and workflow state are not exported.
@@ -217,3 +217,27 @@ argument reference edges, remaps entity/event/relationship IDs and tagged collec
 source references from schema metadata, then regenerates browser-derived queries and validates all
 stored branches and controls. Ordinary strings and opaque JSON remain unchanged. Source references
 and growing ID mappings are processed one bounded staging page at a time.
+
+## Assistant history
+
+`assistant.ndjson` is a required streamed section containing tagged conversation, turn, tool-call,
+message and user-provider records. Export traverses each owner-bound table by primary-key cursor,
+one row at a time, independently of runtime history pagination. The shared record/entry limits and
+spool backpressure apply. Restore stages composite kind/ID identities and reference edges on disk,
+allocates destination identities before rewriting, and writes in conversation/turn/call/message order.
+Text, tool descriptors, opaque arguments and opaque results retain their historical values. Only
+typed conversation, turn, message, call and inline preview page references change identity.
+
+Queued, running and awaiting-approval turns become interrupted history. Every unfinished call gains
+an inert `{ interrupted: true }` result, including approved and undecided calls; existing decisions
+and completed results remain intact. No assistant workflows, wakes or execution authority are
+created. Draft preview page IDs are remapped, but compiled draft markers/artifacts remain omitted;
+the preview host reports these historical previews as unavailable and the user must prepare them
+again. Previews of deleted pages become explicit unavailable text.
+
+Only user provider URL/model configuration is exported. Key presence is recorded and
+`/assistant/provider/apiKey` appears in manifest redactions when applicable; plaintext, ciphertext,
+encryption attribution and instance provider configuration never enter the archive. Backups offer
+no secret-inclusive option. Restored user overrides have no key: re-enter it in Settings → Ryobot
+before using an authenticated provider. The override remains selected rather than silently using
+instance credentials. Assistant history or any provider override makes the destination unclean.

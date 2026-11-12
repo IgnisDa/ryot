@@ -103,6 +103,7 @@ import {
 	STREAMED_SECTION_PATHS,
 	type StreamedSectionPath,
 } from "../archive/sections";
+import { ArchiveAssistantRecord, assistantArchiveId, assistantReferences } from "../assistant";
 import {
 	importPageDefinition,
 	pagePluginKeys,
@@ -375,6 +376,7 @@ const archiveSectionNamespaces = {
 	"events.ndjson": "event",
 	"entities.ndjson": "entity",
 	"reminders.ndjson": "reminder",
+	"assistant.ndjson": "assistant",
 	"fold-values.ndjson": "fold-value",
 	"saved-views.ndjson": "saved-view",
 	"integrations.ndjson": "integration",
@@ -1169,6 +1171,9 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						if (path === "pages.ndjson") {
 							auxiliaryNamespace = "page-slug";
 						}
+						if (path === "assistant.ndjson") {
+							auxiliaryNamespace = "assistant-identity";
+						}
 
 						const flush = Effect.gen(function* () {
 							if (batch.length > 0) {
@@ -1196,7 +1201,38 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 						});
 						yield* Stream.runForEach(reader.read(), (value) =>
 							Effect.gen(function* () {
-								const id = sectionRecordId(path, value);
+								let id = sectionRecordId(path, value);
+								if (path === "assistant.ndjson") {
+									const record = yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(value);
+									id = assistantArchiveId(record.kind, record.id);
+									if (record.kind === "message") {
+										auxiliaryBatch.push({
+											value: { id },
+											id: identityTupleKey(
+												"message",
+												record.conversationId,
+												String(record.sequence),
+											),
+										});
+									}
+									if (record.kind === "call") {
+										auxiliaryBatch.push({
+											value: { id },
+											id: identityTupleKey(
+												"call",
+												record.turnId,
+												String(record.round),
+												String(record.position),
+											),
+										});
+									}
+									if (record.kind === "turn") {
+										auxiliaryBatch.push({
+											value: { id },
+											id: identityTupleKey("request", record.conversationId, record.requestId),
+										});
+									}
+								}
 								if (id.length === 0) {
 									return yield* archiveError(
 										"invalid_entry",
@@ -1355,6 +1391,77 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								yield* flushReferences();
 							}),
 						);
+					yield* forEachReferencePage("assistant.ndjson", (rows) =>
+						Effect.gen(function* () {
+							for (const row of rows) {
+								const value = yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(row.value);
+								for (const ref of assistantReferences(value)) {
+									add("assistant", row.id, ref.namespace, ref.id, ref.namespace !== "page");
+								}
+								if (value.kind === "call" && value.call.id !== value.id) {
+									return yield* badRequest("Backup assistant call identity is inconsistent");
+								}
+								if (value.kind === "message" || value.kind === "call") {
+									const [turnRow] = yield* staging.getRecords(runId, "assistant", [
+										assistantArchiveId("turn", value.turnId),
+									]);
+									if (turnRow) {
+										const turn = yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(
+											turnRow.value,
+										);
+										if (turn.kind !== "turn" || turn.conversationId !== value.conversationId) {
+											return yield* badRequest("Backup assistant turn ownership is inconsistent");
+										}
+									}
+								}
+								if (value.kind === "message") {
+									const [conversationRow] = yield* staging.getRecords(runId, "assistant", [
+										assistantArchiveId("conversation", value.conversationId),
+									]);
+									if (conversationRow) {
+										const conversation = yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(
+											conversationRow.value,
+										);
+										if (
+											conversation.kind !== "conversation" ||
+											conversation.nextSequence <= value.sequence
+										) {
+											return yield* badRequest("Backup assistant message sequence is inconsistent");
+										}
+									}
+									for (const part of value.parts) {
+										let id: null | string = null;
+										if (part.kind === "tool-call") {
+											id = part.call.id;
+										}
+										if (part.kind === "tool-result" || part.kind === "approval") {
+											id = part.toolCallId;
+										}
+										if (id !== null) {
+											const [callRow] = yield* staging.getRecords(runId, "assistant", [
+												assistantArchiveId("call", id),
+											]);
+											if (callRow) {
+												const call = yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(
+													callRow.value,
+												);
+												if (
+													call.kind !== "call" ||
+													call.conversationId !== value.conversationId ||
+													call.turnId !== value.turnId ||
+													(part.kind === "tool-call" &&
+														stableStringify(part.call) !== stableStringify(call.call))
+												) {
+													return yield* badRequest("Backup assistant message call is inconsistent");
+												}
+											}
+										}
+									}
+								}
+							}
+							return yield* Effect.void;
+						}),
+					);
 					const entitySchemaFor = (slug: string, key: null | string) => {
 						const ownerId = key === null ? null : pluginIdByKey.get(key);
 						return ownerId === undefined
@@ -1817,6 +1924,8 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 									);
 									break;
 								}
+								case "assistant.ndjson":
+									return yield* Effect.void;
 								case "reminders.ndjson": {
 									const values = yield* Effect.forEach(rows, (row) =>
 										Schema.decodeUnknownEffect(ArchiveReminder)(row.value),
@@ -2931,6 +3040,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 								}> = [];
 								switch (path) {
 									case "pages.ndjson":
+									case "assistant.ndjson":
 										for (const row of rows) {
 											mappings.push({ id: row.id, destinationId: yield* newUuid });
 										}
@@ -3422,6 +3532,25 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					}
 					yield* forEachStagePage(runId, path, (rows) =>
 						Effect.gen(function* () {
+							if (path === "assistant.ndjson") {
+								for (const row of rows) {
+									const value = yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(
+										row.value,
+									);
+									const refs = assistantReferences(value);
+									const assistantIds = yield* staging.resolveMappings(runId, "assistant", [
+										row.id,
+										...refs.filter((ref) => ref.namespace === "assistant").map((ref) => ref.id),
+									]);
+									const pageIds = yield* staging.resolveMappings(
+										runId,
+										"page",
+										refs.filter((ref) => ref.namespace === "page").map((ref) => ref.id),
+									);
+									yield* persistence.restoreAssistant(userId, value, assistantIds, pageIds);
+								}
+								return yield* Effect.void;
+							}
 							let records: ArchiveRecords;
 							let events: ReadonlyArray<ArchiveEvent> = [];
 							switch (path) {

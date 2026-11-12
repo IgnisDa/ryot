@@ -36,6 +36,7 @@ export const fixtureArchiveReaders = (
 ): ArchiveSections => ({
 	"events.ndjson": eventReader,
 	"pages.ndjson": fixtureReader([]),
+	"assistant.ndjson": fixtureReader([]),
 	"entities.ndjson": fixtureReader(records.entities),
 	"reminders.ndjson": fixtureReader(records.reminders),
 	"fold-values.ndjson": fixtureReader(records.foldValues),

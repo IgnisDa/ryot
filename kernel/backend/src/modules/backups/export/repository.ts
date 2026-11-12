@@ -18,6 +18,7 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DatabaseSession } from "#platform/db/session";
+import * as assistantTables from "#schema/tables/assistant";
 import * as schema from "#schema/tables/combined";
 import * as pageSchema from "#schema/tables/pages";
 
@@ -100,6 +101,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 								hasManagedAssets: sql<boolean>`exists (select 1 from ${schema.managedAsset} where ${schema.managedAsset.ownerUserId} = ${userId})`,
 								hasNotificationChannels: sql<boolean>`exists (select 1 from ${schema.notificationChannel} where ${schema.notificationChannel.userId} = ${userId})`,
 								hasCalendarSourceOverrides: sql<boolean>`exists (select 1 from ${schema.calendarSourceOverride} where ${schema.calendarSourceOverride.userId} = ${userId})`,
+								hasAssistant: sql<boolean>`exists (select 1 from ${assistantTables.assistantConversation} where ${assistantTables.assistantConversation.userId} = ${userId}) or exists (select 1 from ${assistantTables.assistantProvider} where ${assistantTables.assistantProvider.userId} = ${userId})`,
 								hasNonBootstrapEntities: sql<boolean>`
 								exists (
 									select 1 from ${schema.entity}
@@ -694,17 +696,114 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 				},
 			);
 
+			const listAssistantConversations = Effect.fn(
+				"BackupExportRepository.listAssistantConversations",
+			)(function* (userId: UserId, afterId?: string) {
+				return yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantConversation)
+						.where(
+							and(
+								eq(assistantTables.assistantConversation.userId, userId),
+								afterId === undefined
+									? undefined
+									: gt(assistantTables.assistantConversation.id, afterId),
+							),
+						)
+						.orderBy(asc(assistantTables.assistantConversation.id))
+						.limit(1),
+				);
+			});
+			const listAssistantTurns = Effect.fn("BackupExportRepository.listAssistantTurns")(function* (
+				userId: UserId,
+				afterId?: string,
+			) {
+				return yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantTurn)
+						.where(
+							and(
+								eq(assistantTables.assistantTurn.userId, userId),
+								afterId === undefined ? undefined : gt(assistantTables.assistantTurn.id, afterId),
+							),
+						)
+						.orderBy(asc(assistantTables.assistantTurn.id))
+						.limit(1),
+				);
+			});
+			const listAssistantToolCalls = Effect.fn("BackupExportRepository.listAssistantToolCalls")(
+				function* (userId: UserId, afterId?: string) {
+					return yield* session.run((db) =>
+						db
+							.select()
+							.from(assistantTables.assistantToolCall)
+							.where(
+								and(
+									eq(assistantTables.assistantToolCall.userId, userId),
+									afterId === undefined
+										? undefined
+										: gt(assistantTables.assistantToolCall.id, afterId),
+								),
+							)
+							.orderBy(asc(assistantTables.assistantToolCall.id))
+							.limit(1),
+					);
+				},
+			);
+			const listAssistantMessages = Effect.fn("BackupExportRepository.listAssistantMessages")(
+				function* (userId: UserId, afterId?: string) {
+					return yield* session.run((db) =>
+						db
+							.select()
+							.from(assistantTables.assistantMessage)
+							.where(
+								and(
+									eq(assistantTables.assistantMessage.userId, userId),
+									afterId === undefined
+										? undefined
+										: gt(assistantTables.assistantMessage.id, afterId),
+								),
+							)
+							.orderBy(asc(assistantTables.assistantMessage.id))
+							.limit(1),
+					);
+				},
+			);
+			const readAssistantProvider = Effect.fn("BackupExportRepository.readAssistantProvider")(
+				function* (userId: UserId) {
+					const [row] = yield* session.run((db) =>
+						db
+							.select({
+								model: assistantTables.assistantProvider.model,
+								baseUrl: assistantTables.assistantProvider.baseUrl,
+								createdAt: assistantTables.assistantProvider.createdAt,
+								updatedAt: assistantTables.assistantProvider.updatedAt,
+								hasApiKey: sql<boolean>`${assistantTables.assistantProvider.encryptedApiKey} is not null`,
+							})
+							.from(assistantTables.assistantProvider)
+							.where(eq(assistantTables.assistantProvider.userId, userId)),
+					);
+					return row;
+				},
+			);
 			return {
 				listPages,
 				listReminders,
 				listFoldValues,
 				listPublications,
 				addDependencyIds,
+				listAssistantTurns,
 				assertMetadataBounds,
 				inspectRestoreTarget,
 				discoverDependencies,
+				listAssistantMessages,
+				readAssistantProvider,
+				listAssistantToolCalls,
 				findPublicationSources,
 				listSavedViewOverrides,
+				listAssistantConversations,
 				listCalendarSourceOverrides,
 				discoverSnapshotDependencies,
 				listReferencedInstallationIds,

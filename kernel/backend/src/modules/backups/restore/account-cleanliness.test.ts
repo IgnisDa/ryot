@@ -78,6 +78,7 @@ const cleanState = (overrides: Partial<AccountCleanlinessState> = {}): AccountCl
 	pluginState: [],
 	hasPages: false,
 	hasEvents: false,
+	hasAssistant: false,
 	hasReminders: false,
 	expectedSavedViews: [],
 	hasIntegrations: false,
@@ -485,6 +486,7 @@ describe("classifyAccountCleanliness", () => {
 		["calendar-source-overrides", { hasCalendarSourceOverrides: true }],
 		["publications", { hasPublications: true }],
 		["pages", { hasPages: true }],
+		["assistant", { hasAssistant: true }],
 	] as const)("rejects %s", (category, override) => {
 		expect(classifyAccountCleanliness(cleanState(override))).toBe(category);
 	});

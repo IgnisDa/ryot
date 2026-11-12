@@ -16,6 +16,7 @@ export const STREAMED_SECTION_PATHS = [
 	"reminders.ndjson",
 	"publications.ndjson",
 	"fold-values.ndjson",
+	"assistant.ndjson",
 ] as const;
 
 export type StreamedSectionPath = (typeof STREAMED_SECTION_PATHS)[number];

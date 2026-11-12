@@ -1,9 +1,18 @@
 import { expect } from "bun:test";
 
 import { BunFileSystem } from "@effect/platform-bun";
+import { badRequest } from "@ryot-app/contract/errors";
+import type { AssistantToolCall } from "@ryot-app/contract/modules/assistant/schemas";
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
-import { BackupRunId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AssistantConversationId,
+	AssistantToolCallId,
+	BackupRunId,
+	PluginId,
+	SavedViewId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import {
@@ -22,6 +31,7 @@ import { DateTime, Effect, FileSystem, Layer, Stream } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
+import { assistantContext } from "#modules/assistant/context";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
@@ -35,6 +45,7 @@ import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-s
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
+import * as assistantTables from "#schema/tables/assistant";
 import * as tables from "#schema/tables/combined";
 import { page } from "#schema/tables/pages";
 import { makeAppConfigLayer } from "#testing/effect";
@@ -44,6 +55,7 @@ import { archiveError } from "./archive/error";
 import { BackupExportRepository } from "./export/repository";
 import { BackupExportSnapshot } from "./export/snapshot";
 import { exportPageDefinition, importPageDefinition, readPageArtifact } from "./pages";
+import { BackupAccountCleanliness } from "./restore/account-cleanliness";
 import { BackupRestorePersistence } from "./restore/persistence";
 import { BackupRestoreWriter } from "./restore/writer";
 import { BackupStaging } from "./staging";
@@ -118,6 +130,7 @@ const dependencies = Layer.mergeAll(
 	TranslationsRepository.layer,
 ).pipe(Layer.provide(makeAppConfigLayer()));
 const services = Layer.mergeAll(
+	BackupAccountCleanliness.layer,
 	BackupExportSnapshot.layer,
 	BackupRestoreWriter.layer,
 	BackupRestorePersistence.layer,
@@ -141,6 +154,25 @@ const beginRun = Effect.fn(function* (kind: "export" | "restore", userId: UserId
 	yield* Effect.addFinalizer(() => staging.cleanup(runId).pipe(Effect.orDie));
 	yield* staging.begin(runId);
 	return runId;
+});
+
+const historicalAssistantCall = (id: string): AssistantToolCall => ({
+	requiresApproval: true,
+	modelCallId: `model-${id}`,
+	id: AssistantToolCallId.make(id),
+	arguments: {
+		pageId: "assistant-page",
+		text: "Preserve this opaque history",
+		conversationId: "assistant-conversation-a",
+	},
+	descriptor: {
+		name: "run_script",
+		input: { type: "object" },
+		output: { type: "object" },
+		source: { kind: "run-script" },
+		description: "Historical script",
+		hints: { readOnly: false, destructive: true, idempotent: false },
+	},
 });
 
 layer(services)((test) => {
@@ -498,6 +530,424 @@ layer(services)((test) => {
 					published.publishedArtifactHash ?? "",
 				);
 				expect(restoredArtifact).toEqual(artifact);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"round-trips bounded assistant history, redacts providers and interrupts executable work",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const fs = yield* FileSystem.FileSystem;
+				const definitions = yield* DefinitionRepository;
+				const source = UserId.make("assistant-backup-source");
+				const destination = UserId.make("assistant-backup-destination");
+				const providerOnly = UserId.make("assistant-backup-provider-only");
+				const now = DateTime.toDate(DateTime.makeUnsafe("2026-11-11T00:00:00.000Z"));
+				yield* session.run((db) =>
+					db.insert(tables.user).values([
+						{
+							id: providerOnly,
+							name: "Provider only",
+							email: "assistant-provider-only@example.test",
+						},
+						{ id: source, name: "Source", email: "assistant-backup-source@example.test" },
+						{
+							id: destination,
+							name: "Destination",
+							email: "assistant-backup-destination@example.test",
+						},
+					]),
+				);
+
+				const prepared = yield* preparePageDefinition(definition);
+				yield* session.transaction(
+					Effect.gen(function* () {
+						yield* (yield* BackupRestorePersistence).restorePage(
+							{
+								userId: source,
+								origin: "assistant",
+								id: "assistant-page",
+								slug: "assistant-page",
+								name: "Historical page",
+								draftDefinition: definition,
+								draftDefinitionHash: prepared.definitionHash,
+							},
+							null,
+						);
+						yield* session.run((db) =>
+							db.insert(assistantTables.assistantConversation).values([
+								{
+									userId: source,
+									nextSequence: 272,
+									title: "Older conversation",
+									id: "assistant-conversation-a",
+								},
+								{
+									userId: source,
+									nextSequence: 3,
+									title: "Other conversation",
+									id: "assistant-conversation-b",
+								},
+							]),
+						);
+						yield* session.run((db) =>
+							db.insert(assistantTables.assistantTurn).values([
+								{
+									round: 1,
+									userId: source,
+									id: "assistant-turn-a",
+									text: "Older question",
+									requestId: "request-a",
+									status: "awaiting-approval",
+									conversationId: "assistant-conversation-a",
+								},
+								{
+									round: 1,
+									userId: source,
+									completedAt: now,
+									status: "completed",
+									id: "assistant-turn-b",
+									text: "Other question",
+									requestId: "request-b",
+									conversationId: "assistant-conversation-b",
+								},
+							]),
+						);
+						yield* session.run((db) =>
+							db.insert(assistantTables.assistantToolCall).values([
+								{
+									round: 1,
+									position: 0,
+									userId: source,
+									decidedAt: now,
+									decision: "approve",
+									turnId: "assistant-turn-a",
+									id: "assistant-call-approved",
+									conversationId: "assistant-conversation-a",
+									call: historicalAssistantCall("assistant-call-approved"),
+								},
+								{
+									round: 1,
+									position: 1,
+									userId: source,
+									turnId: "assistant-turn-a",
+									id: "assistant-call-pending",
+									conversationId: "assistant-conversation-a",
+									call: historicalAssistantCall("assistant-call-pending"),
+								},
+								{
+									round: 1,
+									position: 0,
+									userId: source,
+									decidedAt: now,
+									completedAt: now,
+									decision: "decline",
+									turnId: "assistant-turn-b",
+									id: "assistant-call-declined",
+									conversationId: "assistant-conversation-b",
+									call: historicalAssistantCall("assistant-call-declined"),
+									result: { truncated: false, value: { declined: true, pageId: "assistant-page" } },
+								},
+							]),
+						);
+						yield* session.run((db) =>
+							db.insert(assistantTables.assistantMessage).values([
+								...Array.from({ length: 270 }, (_, index) => ({
+									userId: source,
+									sequence: index + 1,
+									turnId: "assistant-turn-a",
+									role: "assistant" as const,
+									conversationId: "assistant-conversation-a",
+									id: `old-message-${String(index).padStart(3, "0")}`,
+									parts: [{ kind: "text" as const, text: `Old text ${index}` }],
+								})),
+								{
+									sequence: 271,
+									userId: source,
+									role: "assistant",
+									turnId: "assistant-turn-a",
+									id: "assistant-message-calls",
+									conversationId: "assistant-conversation-a",
+									parts: [
+										{ kind: "tool-call", call: historicalAssistantCall("assistant-call-approved") },
+										{
+											revision: 2,
+											kind: "approval",
+											decision: "approve",
+											toolCallId: AssistantToolCallId.make("assistant-call-approved"),
+										},
+										{ kind: "tool-call", call: historicalAssistantCall("assistant-call-pending") },
+										{
+											draftRevision: 1,
+											kind: "page-preview",
+											pageId: "assistant-page",
+											artifactHash: "a".repeat(64),
+											definitionHash: prepared.definitionHash,
+										},
+									],
+								},
+								{
+									sequence: 1,
+									role: "tool",
+									userId: source,
+									turnId: "assistant-turn-b",
+									id: "assistant-message-result",
+									conversationId: "assistant-conversation-b",
+									parts: [
+										{ kind: "tool-call", call: historicalAssistantCall("assistant-call-declined") },
+										{
+											revision: 2,
+											kind: "approval",
+											decision: "decline",
+											toolCallId: AssistantToolCallId.make("assistant-call-declined"),
+										},
+										{
+											kind: "tool-result",
+											toolCallId: AssistantToolCallId.make("assistant-call-declined"),
+											result: {
+												truncated: false,
+												value: { declined: true, pageId: "assistant-page" },
+											},
+										},
+									],
+								},
+							]),
+						);
+						yield* session.run((db) =>
+							db
+								.insert(assistantTables.assistantProvider)
+								.values({
+									userId: source,
+									model: "historical-model",
+									baseUrl: "https://model.example.test/v1",
+									encryptedApiKey: {
+										keyId: "source-key",
+										nonce: "source-nonce",
+										ciphertext: "NEVER-EXPORT-CIPHERTEXT",
+									},
+								}),
+						);
+					}),
+				);
+				const reads = yield* BackupExportRepository;
+				yield* session.run((db) =>
+					db
+						.insert(assistantTables.assistantProvider)
+						.values({
+							userId: providerOnly,
+							model: "keyless-model",
+							baseUrl: "https://model.example.test/v1",
+						}),
+				);
+				expect((yield* reads.inspectRestoreTarget(providerOnly))?.hasAssistant).toBe(true);
+				expect(
+					yield* Effect.flip((yield* BackupAccountCleanliness).assertAccountIsClean(providerOnly)),
+				).toMatchObject({ reason: { category: "assistant", code: "account-not-clean" } });
+				expect((yield* reads.inspectRestoreTarget(source))?.hasAssistant).toBe(true);
+				expect((yield* reads.inspectRestoreTarget(destination))?.hasAssistant).toBe(false);
+				expect(
+					yield* Effect.flip((yield* BackupAccountCleanliness).assertAccountIsClean(source)),
+				).toMatchObject({ reason: { category: "assistant", code: "account-not-clean" } });
+				let after: string | undefined;
+				let count = 0;
+				let more = true;
+				while (more) {
+					const messagePage = yield* reads.listAssistantMessages(source, after);
+					expect(messagePage.length).toBeLessThanOrEqual(1);
+					more = messagePage.length > 0;
+					count += messagePage.length;
+					after = messagePage[0]?.id;
+				}
+				expect(count).toBe(272);
+				const directory = yield* fs.makeTempDirectoryScoped({ prefix: "ryot-assistant-backup-" });
+				const exportRun = yield* beginRun("export", source);
+				const exported = yield* session.transaction(
+					(yield* BackupExportSnapshot).prepareExportSnapshot(
+						source,
+						`${directory}/history`,
+						exportRun,
+					),
+				);
+				expect(exported.redactions).toContain("/assistant/provider/apiKey");
+				const assistantSection = exported.sections.find(
+					(section) => section.path === "assistant.ndjson",
+				);
+				assert(assistantSection);
+				const json = yield* fs.readFileString(assistantSection.filePath);
+				expect(json).not.toContain("NEVER-EXPORT-CIPHERTEXT");
+				expect(json).not.toContain("encryptedApiKey");
+				const archive = yield* validateArchiveStream(
+					createArchiveStream({
+						blobs: [],
+						assets: [],
+						appVersion: "test",
+						archiveId: exportRun,
+						records: exported.records,
+						createdAt: now.toISOString(),
+						redactions: exported.redactions,
+						requiredPlugins: exported.requiredPlugins,
+						sections: exported.sections.map(({ filePath, ...section }) =>
+							Object.assign(section, { chunks: Stream.toAsyncIterable(fs.stream(filePath)) }),
+						),
+					}),
+					{ directory },
+				);
+				const writer = yield* BackupRestoreWriter;
+				const invalidRun = yield* beginRun("restore", destination);
+				const snapshot = yield* definitions.getUserSnapshot(destination, { listed: true });
+				assertExitFails(
+					yield* Effect.exit(
+						writer.stageArchive(
+							invalidRun,
+							archive.records,
+							{
+								...archive.sections,
+								"assistant.ndjson": {
+									...archive.sections["assistant.ndjson"],
+									read: () =>
+										archive.sections["assistant.ndjson"]
+											.read()
+											.pipe(
+												Stream.map((record) =>
+													record.kind === "message" && record.id === "assistant-message-calls"
+														? Object.assign({}, record, {
+																conversationId: AssistantConversationId.make(
+																	"assistant-conversation-b",
+																),
+															})
+														: record,
+												),
+											),
+								},
+							},
+							new Map(),
+							snapshot,
+						),
+					),
+					badRequest("Backup assistant turn ownership is inconsistent"),
+				);
+				yield* session.run((db) =>
+					db
+						.update(tables.backupRun)
+						.set({ status: "failed" })
+						.where(eq(tables.backupRun.id, invalidRun)),
+				);
+				const restoreRun = yield* beginRun("restore", destination);
+
+				yield* writer.stageArchive(
+					restoreRun,
+					archive.records,
+					archive.sections,
+					new Map(),
+					snapshot,
+				);
+				yield* writer.preflightArchive(restoreRun, archive.records, new Map(), snapshot, []);
+				yield* session.transaction(
+					writer.restoreArchive(
+						destination,
+						restoreRun,
+						archive.records,
+						new Map(),
+						snapshot,
+						new Map(),
+					),
+				);
+				const conversations = yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantConversation)
+						.where(eq(assistantTables.assistantConversation.userId, destination)),
+				);
+				expect(conversations).toHaveLength(2);
+				expect(
+					conversations.every(
+						(row) => !["assistant-conversation-a", "assistant-conversation-b"].includes(row.id),
+					),
+				).toBe(true);
+				const turns = yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantTurn)
+						.where(eq(assistantTables.assistantTurn.userId, destination)),
+				);
+				expect(turns.map((row) => row.status).sort()).toEqual(["completed", "interrupted"]);
+				const calls = yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantToolCall)
+						.where(eq(assistantTables.assistantToolCall.userId, destination)),
+				);
+				expect(calls).toHaveLength(3);
+				expect(calls.every((row) => row.result !== null && row.call.id === row.id)).toBe(true);
+				expect(calls.filter((row) => row.decision === null)).toHaveLength(1);
+				expect(calls.filter((row) => row.decision === "approve")).toHaveLength(1);
+				expect(calls.filter((row) => row.decision === "decline")).toHaveLength(1);
+				for (const row of calls) {
+					expect(row.call.arguments).toEqual({
+						pageId: "assistant-page",
+						text: "Preserve this opaque history",
+						conversationId: "assistant-conversation-a",
+					});
+				}
+				const messages = yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantMessage)
+						.where(eq(assistantTables.assistantMessage.userId, destination)),
+				);
+				expect(messages).toHaveLength(274);
+				const interruptedTurn = turns.find((turn) => turn.status === "interrupted");
+				assert(interruptedTurn);
+				const restoredConversation = conversations.find(
+					(row) => row.id === interruptedTurn.conversationId,
+				);
+				assert(restoredConversation);
+				const history = messages
+					.filter((row) => row.conversationId === restoredConversation.id)
+					.sort((a, b) => a.sequence - b.sequence);
+				expect(restoredConversation.nextSequence).toBe((history.at(-1)?.sequence ?? 0) + 1);
+				const nextMessage = {
+					role: "user" as const,
+					parts: [{ kind: "text" as const, text: "Continue after restore" }],
+				};
+				expect(assistantContext([...history, nextMessage]).at(-1)).toEqual(nextMessage);
+				for (const call of calls.filter((row) => row.turnId === interruptedTurn.id)) {
+					expect(
+						history
+							.flatMap((row) => row.parts)
+							.filter((part) => part.kind === "tool-result" && part.toolCallId === call.id),
+					).toHaveLength(1);
+				}
+				expect(
+					messages.some((row) =>
+						row.parts.some((part) => part.kind === "text" && part.text === "Old text 269"),
+					),
+				).toBe(true);
+				const [restoredPage] = yield* session.run((db) =>
+					db.select().from(page).where(eq(page.userId, destination)),
+				);
+				assert(restoredPage);
+				expect(restoredPage.draftArtifactHash).toBeNull();
+				const preview = messages
+					.flatMap((row) => row.parts)
+					.find((part) => part.kind === "page-preview");
+				assert(preview?.kind === "page-preview");
+				expect(preview.pageId).toBe(restoredPage.id);
+				expect(preview.pageId).not.toBe("assistant-page");
+				const [provider] = yield* session.run((db) =>
+					db
+						.select()
+						.from(assistantTables.assistantProvider)
+						.where(eq(assistantTables.assistantProvider.userId, destination)),
+				);
+				expect(provider).toMatchObject({
+					userId: destination,
+					encryptedApiKey: null,
+					model: "historical-model",
+					baseUrl: "https://model.example.test/v1",
+				});
+				expect((yield* reads.inspectRestoreTarget(destination))?.hasAssistant).toBe(true);
 			}),
 		testTimeout,
 	);

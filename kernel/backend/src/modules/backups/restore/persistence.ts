@@ -7,6 +7,10 @@ import type {
 } from "@ryot-app/contract/modules/integrations/schemas";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
 import {
+	AssistantConversationId,
+	AssistantMessageId,
+	AssistantToolCallId,
+	AssistantTurnId,
 	EntityId,
 	RelationshipId,
 	type SignalSchemaSlug,
@@ -28,9 +32,12 @@ import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions"
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { upsertSavedViewOverride } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
+import * as assistantTables from "#schema/tables/assistant";
 import * as backupSchema from "#schema/tables/backups";
 import * as schema from "#schema/tables/combined";
 import { page } from "#schema/tables/pages";
+
+import { type ArchiveAssistantRecord, assistantArchiveId } from "../assistant";
 
 type RestoreTranslationInput = Pick<
 	typeof schema.entityTranslation.$inferInsert,
@@ -108,6 +115,8 @@ type RestoreInstallationInput = Pick<
 		readonly configuredSecretPaths?: ReadonlyArray<string>;
 	};
 
+const parseDate = (value: string) => new Date(value);
+
 export class BackupRestorePersistence extends Context.Service<BackupRestorePersistence>()(
 	"@ryot-app/kernel-backend/modules/backups/restore/persistence/BackupRestorePersistence",
 	{
@@ -116,6 +125,177 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 			const configs = yield* PluginConfigRevisions;
 			const installations = yield* PluginInstallationRepository;
 			const artifacts = yield* ClientArtifactsRepository;
+			const restoreAssistant = Effect.fn("BackupRestorePersistence.restoreAssistant")(function* (
+				userId: UserId,
+				record: ArchiveAssistantRecord,
+				ids: ReadonlyMap<string, string>,
+				pageIds: ReadonlyMap<string, string>,
+			) {
+				yield* session.requireTransaction;
+				const idFor = (kind: ArchiveAssistantRecord["kind"], id: string) => {
+					const mapped = ids.get(assistantArchiveId(kind, id));
+					return mapped === undefined
+						? badRequest("Backup assistant mapping is incomplete")
+						: Effect.succeed(mapped);
+				};
+				const { kind, ...value } = record;
+				const createdAt = parseDate(value.createdAt);
+				if (record.kind === "provider") {
+					yield* session.run((db) =>
+						db
+							.insert(assistantTables.assistantProvider)
+							.values({
+								userId,
+								createdAt,
+								model: record.model,
+								encryptedApiKey: null,
+								baseUrl: record.baseUrl,
+								updatedAt: parseDate(record.updatedAt),
+							}),
+					);
+				} else if (record.kind === "conversation") {
+					const id = yield* idFor(kind, record.id);
+					yield* session.run((db) =>
+						db
+							.insert(assistantTables.assistantConversation)
+							.values({
+								id,
+								userId,
+								createdAt,
+								title: record.title,
+								revision: record.revision,
+								nextSequence: record.nextSequence,
+								updatedAt: parseDate(record.updatedAt),
+							}),
+					);
+				} else {
+					const id = yield* idFor(kind, record.id);
+					const conversationId = AssistantConversationId.make(
+						yield* idFor("conversation", record.conversationId),
+					);
+					if (record.kind === "turn") {
+						const active =
+							record.status === "queued" ||
+							record.status === "running" ||
+							record.status === "awaiting-approval";
+						yield* session.run((db) =>
+							db
+								.insert(assistantTables.assistantTurn)
+								.values({
+									...record,
+									id,
+									userId,
+									createdAt,
+									conversationId,
+									status: active ? "interrupted" : record.status,
+									completedAt: record.completedAt === null ? null : parseDate(record.completedAt),
+								}),
+						);
+					} else {
+						const turnId = AssistantTurnId.make(yield* idFor("turn", record.turnId));
+						if (record.kind === "call") {
+							yield* session.run((db) =>
+								db
+									.insert(assistantTables.assistantToolCall)
+									.values({
+										...record,
+										id,
+										userId,
+										turnId,
+										createdAt,
+										conversationId,
+										call: { ...record.call, id: AssistantToolCallId.make(id) },
+										decidedAt: record.decidedAt === null ? null : parseDate(record.decidedAt),
+										result: record.result ?? { truncated: false, value: { interrupted: true } },
+										completedAt: record.completedAt === null ? null : parseDate(record.completedAt),
+									}),
+							);
+							if (record.result === null) {
+								const [conversation] = yield* session.run((db) =>
+									db
+										.update(assistantTables.assistantConversation)
+										.set({
+											nextSequence: sql`${assistantTables.assistantConversation.nextSequence} + 1`,
+										})
+										.where(eq(assistantTables.assistantConversation.id, conversationId))
+										.returning({
+											nextSequence: assistantTables.assistantConversation.nextSequence,
+										}),
+								);
+								if (!conversation) {
+									return yield* badRequest("Restored assistant conversation is missing");
+								}
+								yield* session.run((db) =>
+									db
+										.insert(assistantTables.assistantMessage)
+										.values({
+											userId,
+											turnId,
+											createdAt,
+											role: "tool",
+											conversationId,
+											id: crypto.randomUUID(),
+											sequence: conversation.nextSequence - 1,
+											parts: [
+												{
+													kind: "tool-result",
+													toolCallId: AssistantToolCallId.make(id),
+													result: { truncated: false, value: { interrupted: true } },
+												},
+											],
+										}),
+								);
+							}
+						} else {
+							const parts = yield* Effect.forEach(record.parts, (part) =>
+								Effect.gen(function* () {
+									if (part.kind === "tool-call") {
+										return {
+											...part,
+											call: {
+												...part.call,
+												id: AssistantToolCallId.make(yield* idFor("call", part.call.id)),
+											},
+										};
+									}
+									if (part.kind === "tool-result" || part.kind === "approval") {
+										return {
+											...part,
+											toolCallId: AssistantToolCallId.make(yield* idFor("call", part.toolCallId)),
+										};
+									}
+									if (part.kind === "page-preview") {
+										const pageId = pageIds.get(part.pageId);
+										if (pageId === undefined) {
+											return {
+												kind: "text" as const,
+												text: "This historical page preview is no longer available.",
+											};
+										}
+										return { ...part, pageId };
+									}
+									return part;
+								}),
+							);
+							yield* session.run((db) =>
+								db
+									.insert(assistantTables.assistantMessage)
+									.values({
+										parts,
+										userId,
+										turnId,
+										createdAt,
+										conversationId,
+										role: record.role,
+										sequence: record.sequence,
+										id: AssistantMessageId.make(id),
+									}),
+							);
+						}
+					}
+				}
+				return yield* Effect.void;
+			});
 			const restorePage = Effect.fn("BackupRestorePersistence.restorePage")(function* (
 				input: typeof page.$inferInsert,
 				artifact: null | PageClientArtifact,
@@ -709,6 +889,7 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 				restoreEvents,
 				restoreForUser,
 				restoreReminder,
+				restoreAssistant,
 				restoreFoldValue,
 				activateRestored,
 				reserveDependency,

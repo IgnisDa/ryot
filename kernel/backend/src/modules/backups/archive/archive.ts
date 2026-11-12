@@ -969,6 +969,7 @@ const validateExtracted = (
 		"pages.ndjson": createSectionReader("pages.ndjson", ARCHIVE_CODECS["pages.ndjson"]),
 		"events.ndjson": createSectionReader("events.ndjson", ARCHIVE_CODECS["events.ndjson"]),
 		"entities.ndjson": createSectionReader("entities.ndjson", ARCHIVE_CODECS["entities.ndjson"]),
+		"assistant.ndjson": createSectionReader("assistant.ndjson", ARCHIVE_CODECS["assistant.ndjson"]),
 		"reminders.ndjson": createSectionReader("reminders.ndjson", ARCHIVE_CODECS["reminders.ndjson"]),
 		"fold-values.ndjson": createSectionReader(
 			"fold-values.ndjson",
