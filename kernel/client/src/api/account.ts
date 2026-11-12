@@ -14,6 +14,10 @@ export class AccountApi extends Context.Service<AccountApi>()(
 					api.run(scope, (client) => client.account.refreshAvatar()),
 				rename: (scope: ApiScope, request: ContractRequest<"account", "rename">) =>
 					api.run(scope, (client) => client.account.rename(request)),
+				createApiKey: (scope: ApiScope, request: ContractRequest<"account", "createApiKey">) =>
+					api.run(scope, (client) => client.account.createApiKey(request)),
+				revokeApiKey: (scope: ApiScope, request: ContractRequest<"account", "revokeApiKey">) =>
+					api.run(scope, (client) => client.account.revokeApiKey(request)),
 				updatePreferences: (
 					scope: ApiScope,
 					request: ContractRequest<"account", "updatePreferences">,

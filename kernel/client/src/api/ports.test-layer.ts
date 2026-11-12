@@ -210,6 +210,8 @@ export const makePublicationVisitsApi = (
 export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =>
 	Layer.succeed(AccountApi, {
 		rename: unused,
+		createApiKey: unused,
+		revokeApiKey: unused,
 		refreshAvatar: unused,
 		updatePreferences: unused,
 		...overrides,

@@ -37,6 +37,7 @@ import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authen
 import { Route as AuthenticatedSettingsAboutRouteImport } from './routes/_authenticated/settings/about'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
+import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings/api-keys'
 import { Route as AuthenticatedSettingsAssistantRouteImport } from './routes/_authenticated/settings/assistant'
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
@@ -208,6 +209,12 @@ const AuthenticatedSettingsAdministrationRoute =
     path: '/administration',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsApiKeysRoute =
+  AuthenticatedSettingsApiKeysRouteImport.update({
+    id: '/api-keys',
+    path: '/api-keys',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsAssistantRoute =
   AuthenticatedSettingsAssistantRouteImport.update({
     id: '/assistant',
@@ -366,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
+  '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -415,6 +423,7 @@ export interface FileRoutesByTo {
   '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
+  '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -467,6 +476,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
+  '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -520,6 +530,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/administration'
+    | '/settings/api-keys'
     | '/settings/assistant'
     | '/settings/backups'
     | '/settings/notification-channels'
@@ -569,6 +580,7 @@ export interface FileRouteTypes {
     | '/settings/about'
     | '/settings/account'
     | '/settings/administration'
+    | '/settings/api-keys'
     | '/settings/assistant'
     | '/settings/backups'
     | '/settings/notification-channels'
@@ -620,6 +632,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/about'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/administration'
+    | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/assistant'
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
@@ -860,6 +873,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsAdministrationRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/api-keys': {
+      id: '/_authenticated/settings/api-keys'
+      path: '/api-keys'
+      fullPath: '/settings/api-keys'
+      preLoaderRoute: typeof AuthenticatedSettingsApiKeysRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/assistant': {
       id: '/_authenticated/settings/assistant'
       path: '/assistant'
@@ -1022,6 +1042,7 @@ interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsAboutRoute: typeof AuthenticatedSettingsAboutRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
+  AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
   AuthenticatedSettingsAssistantRoute: typeof AuthenticatedSettingsAssistantRoute
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -1047,6 +1068,7 @@ const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteCh
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
     AuthenticatedSettingsAdministrationRoute:
       AuthenticatedSettingsAdministrationRoute,
+    AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
     AuthenticatedSettingsAssistantRoute: AuthenticatedSettingsAssistantRoute,
     AuthenticatedSettingsBackupsRoute: AuthenticatedSettingsBackupsRoute,
     AuthenticatedSettingsNotificationChannelsRoute:
