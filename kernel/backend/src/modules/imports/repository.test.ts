@@ -8,6 +8,7 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Ref } from "effect";
 
+import { mapDatabaseErrors } from "#platform/db/errors";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";
@@ -51,6 +52,7 @@ const otherConstraintFailure = new DbError({
 	message: "duplicate key",
 	constraint: "import_run_pkey",
 });
+let savepointCalls = 0;
 const makeRepositoryLayer = (conflict: DbError) =>
 	Layer.provideMerge(
 		ImportsRepository.layer.pipe(
@@ -58,27 +60,35 @@ const makeRepositoryLayer = (conflict: DbError) =>
 				Layer.unwrap(
 					Effect.gen(function* () {
 						const admitted = yield* Ref.make(false);
-						return fakeDatabaseSession({
-							execute: () => Effect.void,
-							select: () => ({
-								from: () => ({
-									where: () => ({
-										for: () => Effect.succeed([{ id: userId }]),
-										limit: () => Effect.succeed([{ id: userId }]),
+						return fakeDatabaseSession(
+							{
+								execute: () => Effect.void,
+								select: () => ({
+									from: () => ({
+										where: () => ({
+											for: () => Effect.succeed([{ id: userId }]),
+											limit: () => Effect.succeed([{ id: userId }]),
+										}),
 									}),
 								}),
-							}),
-							insert: () => ({
-								values: () => ({
-									returning: () =>
-										Ref.getAndSet(admitted, true).pipe(
-											Effect.flatMap((alreadyAdmitted) =>
-												alreadyAdmitted ? Effect.fail(conflict) : Effect.succeed([row]),
+								insert: () => ({
+									values: () => ({
+										returning: () =>
+											Ref.getAndSet(admitted, true).pipe(
+												Effect.flatMap((alreadyAdmitted) =>
+													alreadyAdmitted ? Effect.fail(conflict) : Effect.succeed([row]),
+												),
 											),
-										),
+									}),
 								}),
-							}),
-						});
+							},
+							{
+								savepoint: (work) => {
+									savepointCalls += 1;
+									return mapDatabaseErrors(work);
+								},
+							},
+						);
 					}),
 				),
 			),
@@ -101,6 +111,7 @@ layer(makeRepositoryLayer(activeRunConflict))((test) => {
 				);
 				expect(runs.filter((run) => run !== null)).toHaveLength(1);
 				expect(runs.filter((run) => run === null)).toHaveLength(1);
+				expect(savepointCalls).toBe(2);
 			}),
 		testTimeout,
 	);

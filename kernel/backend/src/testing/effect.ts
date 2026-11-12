@@ -58,6 +58,7 @@ export const fakeDatabaseSession = (
 		isTransactionActive: active,
 		carry: Effect.succeed((work) => work),
 		acquireUserWriteLock: (userId) => Effect.asVoid(run(userWriteLockStatement(userId))),
+		savepoint: (work) => requireTransaction.pipe(Effect.andThen(mapDatabaseErrors(work))),
 		transaction: (work) =>
 			requireRoot.pipe(
 				Effect.andThen(mapDatabaseErrors(work.pipe(Effect.provideService(active, true)))),

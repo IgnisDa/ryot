@@ -315,11 +315,13 @@ export class ImportsRepository extends Context.Service<ImportsRepository>()(
 					if (!user) {
 						return null;
 					}
-					return yield* createIntegrationRun({ ...input, integrationLot: "yank" }).pipe(
-						Effect.catchIf(isUniqueConstraintError("import_run_integration_active_unique"), () =>
-							Effect.succeed(null),
-						),
-					);
+					return yield* database
+						.savepoint(createIntegrationRun({ ...input, integrationLot: "yank" }))
+						.pipe(
+							Effect.catchIf(isUniqueConstraintError("import_run_integration_active_unique"), () =>
+								Effect.succeed(null),
+							),
+						);
 				},
 			);
 
