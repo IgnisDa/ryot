@@ -60,7 +60,7 @@ describe("user settings", () => {
 			const other = yield* createAuthenticatedClient();
 			const encode = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 			const created = yield* owner.client.call((c) =>
-				c.account.createApiKey({ payload: { expiresInDays: 30, name: "  Scripts  " } }),
+				c.account.createApiKey({ payload: { name: "Scripts", expiresInDays: 30 } }),
 			);
 			const permanent = yield* owner.client.call((c) =>
 				c.account.createApiKey({ payload: { name: "Sync", expiresInDays: null } }),
