@@ -311,10 +311,10 @@ export const domainSandboxHostContracts = {
 		success: upsertGlobalRelationshipsDataSchema,
 		result: upsertGlobalRelationshipsResultSchema,
 	},
-	invokeOperation: {
+	invokeCapability: {
 		success: jsonValueSchema,
 		result: hostResultSchema(jsonValueSchema),
-		args: Schema.Tuple([Schema.Struct({ name: Schema.String, arguments: jsonValueSchema })]),
+		args: Schema.Tuple([Schema.Struct({ id: Schema.String, input: jsonValueSchema })]),
 	},
 } as const;
 export type DomainSandboxHostMethodMap = SandboxHostMethodMapFromContracts<

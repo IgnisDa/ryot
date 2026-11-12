@@ -6,10 +6,7 @@ import { SANDBOX_SCRIPT_DEFINITION } from "./driver";
 
 export { defineManifest } from "./driver";
 
-export type AgentHost = Pick<
-	SandboxHostMethodMap,
-	"log" | "span" | "executeRyotql" | "invokeOperation"
->;
+export type AgentHost = Pick<SandboxHostMethodMap, "log" | "span" | "invokeCapability">;
 
 export const defineScript = <
 	const Manifest extends ScriptManifest,

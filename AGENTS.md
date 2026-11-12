@@ -33,6 +33,7 @@
 - Default to no comments. Explain only non-obvious constraints the code cannot express; remove redundant or stale comments when editing.
 - Ask before adding type-checker bypass casts or lint suppressions. The documented `effecttsgo/async-function` exemption is the only standing exception.
 - Application-owned asynchronous work uses Effect. Native Promises belong at platform/framework boundaries; use readable async/await there with the narrow documented exemption, not Promise chains.
+- Model-written `execute` code is a platform boundary: its generated wrapper exposes an async/await `ryot.call` client over the Effect host.
 - Resolve dependencies in service constructors and feature-owned Layers; boot Layers compose features. Use `Effect.fn`/`Effect.fnUntraced` for reusable operations and `Effect.gen` for local flow.
 - Derive types from Effect Schema and existing types. Build queries with `@ryot-app/ryotql` and named recipes; colocate result schemas, decoders, and types with recipes. Consumers never parse generic `RowItem` values; reusable wire codecs belong in `@ryot-app/contract`.
 - Key rolling queries by stable selections; compute moving timestamps from the supplied clock during execution.

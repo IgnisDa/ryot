@@ -143,7 +143,6 @@ export const SandboxExecutionSubject = Schema.Union([
 	strictStruct({ type: Schema.Literal("system") }),
 	strictStruct({
 		userId: UserId,
-		allowWrites: Schema.Boolean,
 		type: Schema.Literal("agent"),
 		accessClass: Schema.Literals(["standard", "demo"]),
 	}),

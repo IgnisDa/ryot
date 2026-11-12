@@ -67,6 +67,17 @@ export const catalogTables = {
 			eventSchemaPluginId: { kind: "text", nullable: true },
 		},
 	},
+	agentScriptExecution: {
+		primaryKey: ["id"],
+		visibility: { user: { pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			result: { kind: "json", nullable: true },
+			source: { kind: "text", nullable: false },
+			createdAt: { kind: "date", nullable: false },
+			completedAt: { kind: "date", nullable: true },
+		},
+	},
 	assistantConversation: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: false } },
@@ -87,18 +98,6 @@ export const catalogTables = {
 			packageId: { kind: "text", nullable: false },
 			providerId: { kind: "text", nullable: false },
 			optionsSchema: { kind: "json", nullable: true },
-		},
-	},
-	agentScriptExecution: {
-		primaryKey: ["id"],
-		visibility: { user: { pluginReadable: false } },
-		fields: {
-			id: { kind: "text", nullable: false },
-			result: { kind: "json", nullable: true },
-			source: { kind: "text", nullable: false },
-			createdAt: { kind: "date", nullable: false },
-			completedAt: { kind: "date", nullable: true },
-			allowWrites: { kind: "boolean", nullable: false },
 		},
 	},
 	notificationChannel: {

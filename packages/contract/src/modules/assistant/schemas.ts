@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { AgentToolDescriptor } from "../../schema/agent-tool";
+import { AgentToolName } from "../../schema/agent-tool";
 import {
 	AssistantConversationId,
 	AssistantMessageId,
@@ -8,6 +8,7 @@ import {
 	AssistantTurnId,
 	SavedViewId,
 } from "../../schema/brands";
+import { Capability } from "../../schema/capability";
 import { JsonValue } from "../../schema/json";
 import { AgentToolResult } from "../../schema/tool-result";
 import { HttpUrl, strictStruct } from "../../schema/utils";
@@ -24,13 +25,25 @@ export const AssistantTurnStatus = Schema.Literals([
 export type AssistantTurnStatus = typeof AssistantTurnStatus.Type;
 export const AssistantApprovalDecision = Schema.Literals(["approve", "decline"]);
 export type AssistantApprovalDecision = typeof AssistantApprovalDecision.Type;
-export const AssistantToolCall = strictStruct({
-	arguments: JsonValue,
-	id: AssistantToolCallId,
-	descriptor: AgentToolDescriptor,
-	requiresApproval: Schema.Boolean,
-	modelCallId: Schema.NonEmptyString,
-});
+export const AssistantToolCall = Schema.Union([
+	strictStruct({
+		tool: AgentToolName,
+		arguments: JsonValue,
+		id: AssistantToolCallId,
+		kind: Schema.Literal("tool"),
+		requiresApproval: Schema.Boolean,
+		modelCallId: Schema.NonEmptyString,
+	}),
+	strictStruct({
+		arguments: JsonValue,
+		capability: Capability,
+		id: AssistantToolCallId,
+		parentId: AssistantToolCallId,
+		requiresApproval: Schema.Boolean,
+		kind: Schema.Literal("capability"),
+		hostCallIndex: Schema.Int.check(Schema.isGreaterThanOrEqualTo(0)),
+	}),
+]);
 export type AssistantToolCall = typeof AssistantToolCall.Type;
 export const AssistantMessagePart = Schema.Union([
 	strictStruct({ text: Schema.String, kind: Schema.Literal("text") }),

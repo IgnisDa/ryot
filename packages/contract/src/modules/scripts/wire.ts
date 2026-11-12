@@ -25,7 +25,7 @@ export const DOMAIN_SANDBOX_HOST_CAPABILITIES = [
 	"listEventSchemas",
 	"listIntegrations",
 	"executeRyotql",
-	"invokeOperation",
+	"invokeCapability",
 	"ensureUserEntities",
 	"createUserEntity",
 	"commitUserChanges",

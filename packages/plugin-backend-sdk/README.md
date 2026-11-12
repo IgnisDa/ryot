@@ -127,27 +127,9 @@ provider scripts, which report failures through their results.
 ## Agent scripts
 
 `@ryot-app/plugin-backend-sdk/agent` exposes `defineManifest`, `defineScript` and the `AgentHost`
-type. Import Effect and Schema from `@ryot-app/plugin-backend-sdk/effect`. Agent definitions use an
-empty object input and a JSON output schema. Their host exposes `log`, `span`, `executeRyotql` and
-`invokeOperation({ name, arguments })`. The last method requires approval through the run's
-`allowWrites` flag; narrowing TypeScript types never grants capabilities.
-
-```ts
-import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/agent";
-import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
-
-export const manifest = defineManifest({ kind: "script", name: "Compute", slug: "compute" });
-export default defineScript({
-  manifest,
-  input: Schema.Struct({}),
-  output: Schema.Struct({ total: Schema.Number }),
-  run: (_input, host) =>
-    Effect.gen(function* () {
-      yield* host.log([{ level: "info", message: "Computed total" }]);
-      return { total: 42 };
-    }),
-});
-```
-
-Agent scripts cannot use HTTP, raw mutations, filesystem or plugin-owned configuration. They run
-once with bounded logs/results; completed calls may replay through the caller's idempotency key.
+type for kernel-generated agent executions. Agents do not author these definitions: the `execute`
+agent tool wraps model-written code in one. Agent definitions use an empty object input and a JSON
+output. Their host exposes `log`, `span` and `invokeCapability({ id, input })`; the kernel authorizes
+each capability call, including per-write approval, and narrowing TypeScript types never grants
+capabilities. Agent scripts cannot use HTTP, raw mutations, direct queries, filesystem or
+plugin-owned configuration.
