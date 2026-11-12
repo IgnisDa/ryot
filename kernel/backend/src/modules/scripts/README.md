@@ -270,31 +270,31 @@ the sandbox continues to own only isolation and its generic host boundary.
 
 ## Agent scripts
 
-`agent/` compiles submitted TypeScript with `SandboxCompiler` and executes it once as an `agent`
-subject. The principal carries the authenticated user, access class and per-run write approval; it
-has no plugin revision, provider or kernel identity. Only `log`, `span` and `executeRyotql` are
-available by default. Compiler-derived metadata requesting HTTP, raw writes, files, configuration,
-cache or other host capabilities is rejected before execution. `invokeOperation` additionally
-requires `allowWrites`; demo credentials cannot approve it.
+`agent/` compiles submitted TypeScript with `SandboxCompiler` and executes it as an `agent` subject.
+The principal carries the authenticated user and access class; it has no plugin revision, provider
+or kernel identity. Only `log`, `span` and `invokeCapability` are available. Compiler-derived
+metadata requesting HTTP, raw writes, queries, files, configuration, cache or other host
+capabilities is rejected before execution.
 
-The agent registry supplies query and operation ports bound to the authenticated credential. Reads
-use the user's plugin audience and demo policy. Operation names resolve only user-authenticated
-operations, through the same discovery and `OperationsService.invoke` path as ordinary agent tools.
-Operation validation, revision/configuration pins, policies and hooks remain owned by that service.
-Each operation key includes the agent execution ID and host-call index.
+The caller supplies the `invokeCapability` port, bound to its authenticated credential; the
+[agent tools](../agent-tools/README.md) registry resolves capabilities, owns write authorization and
+dispatches through each capability's owner. Each call receives its host-call index and the key
+`<execution ID>:<index>`. A port may fail with `AgentRunSuspended`: the run persists the journal of
+settled calls and returns `{ state: "suspended" }` without completing.
 
-Agent execution uses the existing sandbox host-call deferral and receipt protocol in memory. The
-isolate releases its slot before an operation can start nested sandbox work; resumed calls verify
-request identities and replay their previous results. The run has one overall sandbox execution
-timeout, the existing memory/call/journal limits, bounded diagnostics/logs, and the shared tool-result
-byte budget. It is not registered with the workflow engine or recovered after a process restart.
+Agent execution uses the sandbox host-call deferral and receipt protocol: each unrecorded call ends
+the invocation, the backend settles it, appends the receipt to the journal and runs the script again
+from the start, replaying recorded results. The journal is persisted after every settled batch with a
+length fence, so a concurrent runner cannot fork it. Running the same execution again resumes from
+the persisted journal; the start time stays the row's creation time and the compiled content hash
+must match the pinned principal. Each run attempt has one sandbox execution timeout, the existing
+memory/call/journal limits, bounded diagnostics/logs, and the shared tool-result byte budget.
 
-`AgentScriptRepository` alone writes `agent_script_execution`. It records source, approval, exact
-principal and bounded final results, including compiler diagnostics and logs. Completed calls with
-the same caller idempotency key replay the retained result; changed inputs conflict. Concurrent or
-interrupted executions fail closed instead of starting again, since replaying fresh reads after an
-uncertain write could change call identity. History rows cascade with the user. The kernel-audience
-`agentScriptExecution` RyotQL table exposes only that user's history, without the private principal.
+`AgentScriptRepository` alone writes `agent_script_execution`. It records source, journal, exact
+principal and bounded final results, including compiler diagnostics and logs. Completed executions
+with the same caller idempotency key replay the retained result; changed inputs or authority
+conflict. History rows cascade with the user. The kernel-audience `agentScriptExecution` RyotQL table
+exposes only that user's history, without the private principal or journal.
 
 The bounded JSON envelope is defined once in the client-safe
 `@ryot-app/contract/schema/tool-result` module as `AgentToolResult`. Script history and assistant

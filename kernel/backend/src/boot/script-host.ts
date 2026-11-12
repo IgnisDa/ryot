@@ -62,7 +62,7 @@ import { makeUserCommandScriptHost } from "#modules/user-commands/script-host";
 
 export const makeAdditionalScriptHostFunctions = Effect.gen(function* () {
 	return {
-		invokeOperation: () => Effect.fail({ message: "Operation calls require an agent run" }),
+		invokeCapability: () => Effect.fail({ message: "Capability calls require an agent run" }),
 		...(yield* makeAuthScriptHost),
 		...(yield* makeAssetsScriptHost),
 		...(yield* makeDefinitionScriptHost),

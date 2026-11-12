@@ -832,7 +832,6 @@ const agentScriptExecution: TableBinding<"agentScriptExecution"> = {
 		source: column("source"),
 		result: column("result"),
 		createdAt: column("created_at"),
-		allowWrites: column("allow_writes"),
 		completedAt: column("completed_at"),
 	},
 };

@@ -102,16 +102,11 @@ describe("sandbox execution authority", () => {
 					);
 					const principal = makeUserPrincipal({
 						scriptId: SandboxScriptId.make("agent-authority"),
-						metadata: { kind: "script", runtimeImports: [], capabilities: ["executeRyotql"] },
-						subject: { type: "agent", userId: owner, allowWrites: false, accessClass: "standard" },
+						subject: { type: "agent", userId: owner, accessClass: "standard" },
+						metadata: { kind: "script", runtimeImports: [], capabilities: ["invokeCapability"] },
 					});
 					assertExitFails(yield* Effect.exit(authority.resolve(principal)), missingArtifact());
-					yield* repository.create({
-						userId: owner,
-						source: "source",
-						allowWrites: false,
-						id: principal.scriptId,
-					});
+					yield* repository.create({ userId: owner, source: "source", id: principal.scriptId });
 					yield* repository.pin(owner, principal.scriptId, principal);
 					expect(yield* authority.resolve(principal)).toBe("user");
 					assertExitFails(
@@ -121,7 +116,6 @@ describe("sandbox execution authority", () => {
 								subject: {
 									...principal.subject,
 									type: "agent",
-									allowWrites: false,
 									accessClass: "standard",
 									userId: UserId.make("other"),
 								},
@@ -133,12 +127,7 @@ describe("sandbox execution authority", () => {
 						yield* Effect.exit(
 							authority.resolve({
 								...principal,
-								subject: {
-									type: "agent",
-									userId: owner,
-									allowWrites: true,
-									accessClass: "standard",
-								},
+								subject: { type: "agent", userId: owner, accessClass: "demo" },
 							}),
 						),
 						missingArtifact(),

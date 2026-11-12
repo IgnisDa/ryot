@@ -24,10 +24,10 @@ type SandboxCapabilityRequirement = {
 const SANDBOX_CAPABILITY_REQUIREMENTS = {
 	scratch: { subjects: [], bridge: false },
 	"artifact-read": { subjects: [], bridge: false },
-	invokeOperation: { bridge: true, subjects: ["agent"] as const },
 	createUserEntity: { bridge: true, subjects: ["user"] as const },
 	deleteUserEntity: { bridge: true, subjects: ["user"] as const },
 	updateUserEntity: { bridge: true, subjects: ["user"] as const },
+	invokeCapability: { bridge: true, subjects: ["agent"] as const },
 	commitUserChanges: { bridge: true, subjects: ["user"] as const },
 	updateUserSettings: { bridge: true, subjects: ["user"] as const },
 	clearUserEntityData: { bridge: true, subjects: ["user"] as const },
@@ -100,7 +100,7 @@ const SANDBOX_CAPABILITY_REQUIREMENTS = {
 		bridge: true,
 		requiresSystemPlugin: true,
 		systemKinds: ["script", "automation"] as const,
-		subjects: ["user", "automation-run", "system", "projection", "agent"],
+		subjects: ["user", "automation-run", "system", "projection"],
 	},
 } satisfies Record<SandboxHostCapability, SandboxCapabilityRequirement>;
 
@@ -219,9 +219,6 @@ const sandboxCapabilityError = (
 ) => {
 	const requirement = sandboxCapabilityRequirement(capability);
 	const subject = input.principal.subject;
-	if (subject.type === "agent" && capability === "invokeOperation" && !subject.allowWrites) {
-		return "invokeOperation requires an approved write run";
-	}
 	if (
 		subject.type === "projection" &&
 		!POLICY_SAFE_SANDBOX_CAPABILITIES.some((safe) => safe === capability)

@@ -1,0 +1,1 @@
+ALTER TABLE "agent_script_execution" DROP COLUMN "allow_writes";
