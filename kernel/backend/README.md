@@ -115,3 +115,7 @@ read through the RyotQL catalog; preparation and iframe authority compose their 
 read-only sessions, with owner bindings, live published-page resolution and frozen snapshot capture.
 Visitor code shares page graph preparation and scoped artifact grants; result references govern
 managed-asset access and snapshot retention.
+
+The [assistant repository](src/modules/assistant/README.md) stores owner-scoped conversations,
+ordered messages, revision-fenced turns and immutable tool-call inputs/pins. Provider overrides
+store encrypted keys independently and have no RyotQL catalog binding.

@@ -12,6 +12,7 @@ import { Context, DateTime, Effect, Layer, Schema } from "effect";
 
 import { ImportsRepository } from "#modules/imports/repository";
 import { DatabaseSession } from "#platform/db/session";
+import { assistantConversation, assistantProvider } from "#schema/tables/assistant";
 import * as authSchema from "#schema/tables/auth";
 import * as automationSchema from "#schema/tables/automations";
 import * as backupSchema from "#schema/tables/backups";
@@ -94,6 +95,13 @@ export class UserLifecycleRepository extends Context.Service<UserLifecycleReposi
 						yield* database.run((db) =>
 							db.delete(workflowExecution).where(eq(workflowExecution.accountUserId, userId)),
 						);
+						yield* database.run((db) =>
+							db.delete(assistantConversation).where(eq(assistantConversation.userId, userId)),
+						);
+						yield* database.run((db) =>
+							db.delete(assistantProvider).where(eq(assistantProvider.userId, userId)),
+						);
+
 						yield* imports.assertPayloadsReleased({ userId });
 						yield* database.run((db) =>
 							Effect.gen(function* () {

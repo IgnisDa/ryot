@@ -20,6 +20,13 @@ import {
 	UploadServicesLive,
 } from "#modules/assets/layer";
 import { ManagedAssetsRepository } from "#modules/assets/storage/managed-assets-repository";
+import {
+	AssistantRecoveryLive,
+	AssistantSavePageLive,
+	AssistantServiceLive,
+	AssistantWorkflowDefinitionsLive,
+} from "#modules/assistant/layer";
+import { AssistantProviderConfiguration } from "#modules/assistant/provider-configuration";
 import { DirectPolicyAttempts } from "#modules/automations/execution";
 import {
 	AutomationReconciliationLive,
@@ -253,6 +260,9 @@ const FoldExecutorProvidedLive = FoldExecutorInstalledLive.pipe(
 );
 
 const ServicesLive = Layer.mergeAll(
+	AssistantProviderConfiguration.layer,
+	AssistantServiceLive,
+	AssistantSavePageLive,
 	AuthServiceLive,
 	BackupServicesLive,
 	CollectionsServiceLive,
@@ -330,6 +340,7 @@ const ServicesWithTestSupportLive = Layer.merge(
 
 // Boot merges feature-owned definitions and keeps cross-feature composition explicit here.
 const RuntimeWorkflowDefinitionsLive = Layer.mergeAll(
+	AssistantWorkflowDefinitionsLive,
 	ImportWorkflowDefinitionsLive,
 	GenericImportChunksProvidedLive,
 	Layer.provide(
@@ -392,7 +403,10 @@ const RuntimeWorkLive = Layer.merge(RuntimeWorkflowDefinitionsLive, RuntimeJobsL
 
 const RuntimeLive = Layer.mergeAll(
 	RuntimeWorkLive,
-	ServerLive,
+	ServerLive.pipe(
+		Layer.provide(AssistantRecoveryLive),
+		Layer.provide(RuntimeWorkflowDefinitionsLive),
+	),
 	RuntimeSchedulersLive,
 	DirectPolicyAttemptsInstalledLive,
 	FoldExecutorProvidedLive,

@@ -70,7 +70,8 @@ does not reseed it; incomplete recovery uses a fresh private activation token an
 installation job. Guarded lifecycle completion sets readiness and initialization together.
 
 A bootstrap entry that declares entities runs no script. The user bootstrap and the installation job
-hand it to the `PluginBootstrapEntities` port, which boot binds to the entity service. It ensures
+hand it to the `PluginBootstrapEntities` port. The provisioning Layer binds the user bootstrap
+dispatcher to the entity service; boot binds the port for job handlers. It ensures
 the entities with kernel authority, under an execution ID keyed by the installation and entry, dated
 at the installation's creation so a retry derives the same entities. The ensure returns the hook dispatch plans its
 writes made, and the caller dispatches them after the ensure commits.
@@ -148,3 +149,9 @@ Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, an
 `makeAppConfigLayer` from the explicit `modules/ryotql/service`, `testing/isolated-database`, and
 `testing/effect` package entry points. Seed through the exported `platform/db/session` and
 `schema/tables/combined` modules; fixtures must include the actual installation/revision authority.
+
+`OperationsService.invokeTrusted({ userId, ...command })` is an internal user-operation entrypoint
+for persisted server work. It reloads account authorization through `AuthService.resolveTrustedAccount`
+and shares HTTP invocation's admission, runtime pins, validation, lifecycle hooks and replay. It
+cannot dispatch integration-auth operations or carry page-frame authority. Registry source pins
+add installation, revision and configuration constraints checked under the ingestion fence.

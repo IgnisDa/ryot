@@ -93,3 +93,18 @@ These contracts define no snapshot storage, snapshot navigation policy, or live-
 Sandbox subjects include a user-scoped `agent` with its access class and per-run write approval.
 The generic host capability vocabulary includes `invokeOperation`; backend owners resolve and
 validate operation authority. These wire shapes do not confer plugin ownership.
+
+## Assistant
+
+`modules/assistant/contract` registers `AssistantGroup`: `createConversation`, `deleteConversation`,
+`submit`, `decide`, `providerMetadata`, `configureProvider`, `deleteProvider` and `savePage`. Conversation creation,
+submission and deletion explicitly allow demos; services restrict their tools to read-only behavior.
+Approval, provider configuration and page saving are demo-protected. Submission returns only the
+conversation and turn IDs and uses a caller request ID for replay. Decisions fence a tool-call
+revision. Provider key omission retains the stored key; deletion removes the entire user override.
+
+`modules/assistant/schemas` owns conversation/turn/message schemas, pinned tool descriptors and
+inputs, approvals, and revision-bound page-preview parts using `PageDraftBuildIdentity`. Save-page
+commands include that build identity and a request ID; implementation must atomically record replay
+and publish/create the saved view. Shared bounded results live in `schema/tool-result.AgentToolResult`.
+Provider metadata reports key presence only. No key is part of a persisted-history read model.

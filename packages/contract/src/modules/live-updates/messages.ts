@@ -1,6 +1,6 @@
 import { Schema } from "effect";
 
-import { EntityId } from "../../schema/brands";
+import { AssistantConversationId, AssistantTurnId, EntityId } from "../../schema/brands";
 
 export const EntityUpdatedReason = Schema.Literals([
 	"populated",
@@ -23,7 +23,19 @@ export type EntityUpdatedFrame = typeof EntityUpdatedFrame.Type;
 
 const DerivedDataUpdatedFrame = Schema.Struct({ type: Schema.Literal("derived-data-updated") });
 
-export const LiveUpdateFrame = Schema.Union([EntityUpdatedFrame, DerivedDataUpdatedFrame]);
+export const AssistantUpdatedFrame = Schema.Struct({
+	revision: Schema.Int,
+	turnId: AssistantTurnId,
+	conversationId: AssistantConversationId,
+	type: Schema.Literal("assistant-updated"),
+});
+export type AssistantUpdatedFrame = typeof AssistantUpdatedFrame.Type;
+
+export const LiveUpdateFrame = Schema.Union([
+	EntityUpdatedFrame,
+	DerivedDataUpdatedFrame,
+	AssistantUpdatedFrame,
+]);
 export type LiveUpdateFrame = typeof LiveUpdateFrame.Type;
 
 export const LIVE_UPDATES_CONNECTED_EVENT = "connected";

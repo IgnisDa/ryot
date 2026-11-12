@@ -8,6 +8,7 @@ import {
 	AuthUserBootstrapScheduler,
 } from "#modules/accounts/auth/service";
 import { NotificationSubscriptionsServiceLive } from "#modules/automations/layer";
+import { PluginBootstrapEntitiesRuntimeLive } from "#modules/entities/layer";
 import { PluginRuntimeResolverLive } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginInstallationRuntimeLive } from "#modules/plugins/layer";
@@ -24,6 +25,7 @@ export const PluginUserBootstrapDispatcherLive = PluginUserBootstrapDispatcher.l
 			ScriptExecutionServiceLive,
 			PluginRuntimeResolverLive,
 			PluginInstallationRepository.layer,
+			PluginBootstrapEntitiesRuntimeLive,
 		),
 	),
 );

@@ -1,5 +1,10 @@
 import { EntityUpdatedReason } from "@ryot-app/contract/modules/live-updates/messages";
-import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	AssistantConversationId,
+	AssistantTurnId,
+	EntityId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { Array as Arr, Effect, Schema } from "effect";
 
 import { broadcastStatement } from "#platform/broadcast";
@@ -52,4 +57,30 @@ export const publishDerivedDataUpdated = Effect.fn("publishDerivedDataUpdated")(
 				Effect.logWarning("Derived data refresh publication failed", cause),
 			),
 		);
+});
+
+export const assistantUpdatedTopic = "assistant-updated";
+export const AssistantUpdatedMessage = Schema.fromJsonString(
+	Schema.Struct({
+		userId: UserId,
+		revision: Schema.Int,
+		turnId: AssistantTurnId,
+		conversationId: AssistantConversationId,
+	}),
+);
+
+export const publishAssistantUpdated = Effect.fn("publishAssistantUpdated")(function* (
+	userId: UserId,
+	conversationId: string,
+	turnId: string,
+	revision: number,
+) {
+	const session = yield* DatabaseSession;
+	const message = yield* Schema.encodeEffect(AssistantUpdatedMessage)({
+		userId,
+		revision,
+		turnId: AssistantTurnId.make(turnId),
+		conversationId: AssistantConversationId.make(conversationId),
+	}).pipe(Effect.orDie);
+	yield* session.run((db) => db.execute(broadcastStatement(assistantUpdatedTopic, message)));
 });

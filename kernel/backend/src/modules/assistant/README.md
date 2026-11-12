@@ -1,0 +1,168 @@
+# Assistant
+
+## SDK Reference Loading
+
+`sdk-reference.ts` exports `loadAssistantSdkReference`, an Effect requiring `FileSystem` that
+returns the page-authoring system-prompt reference. The turn workflow loads it when constructing
+the model prompt. Unbundled TypeScript execution generates from current SDK sources through
+`@ryot-app/plugin-client-compiler/sdk-reference`; bundled JavaScript reads
+`assistant-sdk-reference.md` beside the bundle/shared chunks. Server build tooling generates that
+file before bundling. Loading failures propagate; there is no checked-in or stale fallback.
+
+The compiler owns registry filtering and API extraction. SDKs own guidance and compilable examples.
+The backend never imports server build tooling. The generated file must be deployed with `dist/`.
+
+## Conversation persistence
+
+`AssistantRepository.layer` requires `DatabaseSession`. Services own transactions: every mutation
+requires an active transaction, acquires the conversation row lock first, and never holds a lock
+across model or tool execution. Account deletion cascades through conversations, turns, messages,
+calls and the provider override. Account reset assembly must delete conversations and provider
+settings alongside other user data.
+
+The repository exports:
+
+- `createConversation(userId, title)` → `{ conversationId }`.
+- `deleteConversation(userId, conversationId)` rejects any queued, running or awaiting-approval turn.
+- `submit(userId, { conversationId, requestId, text })` → persisted turn. Reusing the request ID
+  replays that turn; changing its text fails. A different request fails while a turn is active.
+- `transition(userId, conversationId, turnId, expectedRevision, status, failure?)` → updated turn.
+  Status is `running`, `completed`, `failed` or `interrupted`. Completion and starting another model
+  round require every previous call to have a result.
+- `setRoundText(userId, conversationId, turnId, round, text)` → updated turn. Replaces the
+  deterministic text message for an unfinished round; committed rounds are immutable. The caller
+  omits this text from `recordRound`.
+- `recordRound(userId, conversationId, turnId, expectedRevision, { text, calls, parts? })` → updated
+  turn. Stores the completed model round, immutable call arguments and full descriptor pins;
+  `parts` may carry revision-bound page previews. Approval-requiring calls pause the turn.
+- `decide(userId, { conversationId, turnId, toolCallId, expectedRevision, decision })` → updated
+  call. Here `expectedRevision` fences the **call**, not the turn. The same decision replays; a
+  competing decision fails. Persisting a decision also advances the turn revision.
+- `recordResult(userId, conversationId, turnId, expectedRevision, toolCallId, result)` → updated
+  turn. Requires a recorded decision for approval-requiring calls. The service supplies the declined
+  result without dispatching the tool. The result uses the shared bounded `AgentToolResult` envelope.
+- `loadTurn(userId, turnId)` → `{ turn, messages, calls } | null`. Messages contain the entire
+  conversation in sequence order; calls contain this turn's pinned calls in round/position order.
+- `recoverableTurns` (an Effect) → queued/running/awaiting-approval rows for trusted workflow recovery.
+
+Turn mutations fence the expected turn revision. A revision conflict means reload persisted state;
+never dispatch a tool based on an uncommitted decision. Provider runtime persistence is owned by its
+separate repository; `assistantProvider.encryptedApiKey` stores the existing `SubkeyCiphertext`
+envelope, and provider rows have no RyotQL catalog binding. The loop must retain the descriptor pin
+when dispatching tools and use stable call-based idempotency keys for external side effects.
+
+The kernel-only owner-scoped catalog exposes `assistantConversation`, `assistantMessage`,
+`assistantTurn` and `assistantToolCall`. It exposes neither provider keys nor provider settings.
+Read access and demo write approval restrictions remain service responsibilities.
+
+Terminal failures use `AssistantTurnFailure` codes (`provider-unavailable`, `provider-failed`,
+`tool-failed`, `round-limit`, `execution-failed`), never provider diagnostic prose. Services must use
+account mutation admission before entering these transactions, including during workflow recovery,
+so account disable/reset and queued work obey the shared lifecycle rules.
+
+## Provider configuration and model streaming
+
+`AssistantProviderConfiguration.layer` composes the provider repository and the existing persisted
+configuration encryption-key service; it requires `DatabaseSession`, `AppConfig` and `SecureRandom`.
+`configure(userId, accessClass, body)` and `remove(userId, accessClass)` reject demo sessions, take
+the user's write lock, and admit the account inside their transaction. `metadata(userId)` returns
+only the effective base URL, model, source and key presence, or `null`. This is computed status,
+not a provider-row read API. The internal `effective(userId)` additionally returns a redacted key.
+
+A user override replaces the whole instance provider, including its authentication. Omitting
+`apiKey` on a configuration write retains that user's prior encrypted key; a first keyless write
+uses no authentication. Removing the override deletes its key and falls back to the instance
+provider. To clear a key while retaining a keyless override, remove the override then configure it
+again without a key. Instance defaults require both `SERVER_ASSISTANT_BASE_URL` and
+`SERVER_ASSISTANT_MODEL`; `SERVER_ASSISTANT_API_KEY` is optional. Base URLs include the API prefix
+(such as `/v1`) and cannot contain credentials, a query or a fragment.
+
+Keys use the existing `SubkeyCiphertext` envelope, dedicated HKDF context
+`ryot/assistant/provider-api-key`, and authenticated user attribution. The shared encryption-key
+retention check includes assistant ciphertext; missing or mismatched keys fail closed rather than
+replacing a key needed by retained data. Copying ciphertext to another user fails authentication.
+Provider keys do not appear in metadata, RyotQL, model events or errors.
+
+`AssistantModel.live` provides the model through `EgressHttpClientLive`. `AssistantModel.layer`
+requires an injected `HttpClient` for transport tests; workflow tests can instead inject the
+`AssistantModel` service directly. `stream({ provider, prompt, tools })` yields typed
+`AssistantModelEvent` values: text deltas, complete JSON tool calls preserving `modelCallId`, and
+finish reasons. It uses `@effect/ai-openai-compat` `OpenAiClient` and `OpenAiLanguageModel` with
+Effect `LanguageModel` streaming. The adapter handles Chat Completions and fragmented tool
+arguments. Tool resolution is disabled and validation deferred, leaving descriptor validation,
+approvals, dispatch, retry and round policy to the durable workflow. Provider-executed calls fail.
+`assistantProviderPrompt(system, messages)` converts persisted text, calls and results to an
+Effect prompt using the original provider call IDs; UI approval and preview parts are omitted.
+
+Each request is capped at 1 MiB of serialized prompt/tool input, 8192 generated tokens, 256 KiB of
+streamed parts, 16,384 parts and two minutes including connection/header wait. Provider errors
+become fixed `AssistantModelError` codes without response bodies or diagnostics. Provider tracing
+is disabled to keep SDK error and response data out of spans. Egress restrictions apply to every
+request; local endpoints require an explicit `SERVER_EGRESS_ALLOWED_NETWORKS` allowance.
+
+## Durable turn loop
+
+`AssistantService` admits one turn per conversation in a caller transaction, then dispatches
+`AssistantTurnWorkflow` with the account identity and turn ID. Request IDs replay the existing turn
+and reject changed text. The boot recovery pass dispatches admitted queued turns that committed
+before workflow admission. The PostgreSQL workflow engine separately restores running and waiting
+executions. Payloads contain no session credentials; each activity resolves the current trusted
+account and every persistence transaction uses account mutation admission. Account reset removes
+conversations, provider overrides and account-owned workflow executions.
+
+Each model round is an activity. Text batches update one deterministic message for that round;
+restarting an unfinished model request replaces that message instead of appending replayed deltas.
+The completed round, including validated call arguments and descriptors, enters the workflow journal
+before its immutable calls are committed or dispatched. Calls execute sequentially with stable
+turn/round/position identities and call-based owner replay keys. The registry derives approval from
+validated argument-sensitive hints, and revalidates the persisted descriptor pin before dispatch.
+A changed descriptor refuses the call; the next round must discover and approve a new call.
+
+A decision commits before its durable deferred is completed. Workflow replay reads the persisted
+decision, covering a process exit between those operations. Duplicate decisions replay; competing
+and stale decisions fail. Declines persist a tool result without dispatch. All registry writes,
+including page draft creation, editing and compilation, require approval. Demo accounts cannot
+decide, save pages or change provider settings. Agent-script replay is owned by its execution
+receipt: interrupted or uncertain scripts remain refused rather than being rerun.
+
+The loop permits twelve model rounds and at most 32 calls in a round. The shared tool-result owner
+bounds each result to 64 KiB. Model context retains a bounded suffix of messages, keeping each tool
+call and all its results together; persisted history is never trimmed. The complete generated SDK reference remains in every system prompt. Context selection also
+measures the exact serialized prompt and current tool descriptors against the adapter's 1 MiB request
+cap; it drops whole history groups rather than authoring guidance. A request that cannot fit its core
+guidance and recent context fails. The model adapter separately bounds generated output, event
+count, tokens and request duration. Provider failures
+persist only public failure codes. Compiler failures instead become bounded repair results containing
+the actual build diagnostics.
+
+Successful `page_compile` calls persist a `page-preview` beside the tool result in the same
+transaction. `AssistantSavePage` verifies that the caller's selected turn contains the exact preview
+identity and that the current compiled draft still matches. Save pins the complete command input,
+then publishes through page authoring and creates a page saved view through its owner, using stable
+independent replay keys. A retry after publication succeeds reuses that publication and view receipt.
+A completed Save replays its result even if the draft changes later. Share uses the existing client
+publication manager.
+
+All turn changes publish transaction-bound `assistant-updated` hints containing the conversation,
+turn and revision. The live-update hub sends them only to the owning user's streams. These are
+invalidation hints: clients read canonical messages and recover on reconnect rather than applying
+text deltas from the transport.
+
+HTTP routes call the assistant, provider configuration and Save owners. Feature Layers compose the
+registry, provider, page and saved-view services; boot registers runtime workflows before recovering
+queued admissions and opening the HTTP listener.
+
+## Backups
+
+Account backups retain conversations, ordered messages, turn history, pinned calls, approval
+decisions and results through the [backup pipeline](../backups/README.md#assistant-history).
+Restore remaps owner and typed record/page identities and interrupts formerly active turns.
+Unfinished calls receive inert interrupted results, so approved or undecided history cannot execute.
+Opaque text and tool payloads remain unchanged. Historical draft previews need preparation again,
+because backups omit draft artifacts and compiled markers; deleted page previews become unavailable
+text. No workflow, wake or provider execution is restored.
+
+User provider URL/model overrides are portable, but API keys are always redacted. Re-enter a
+restored provider's key in Settings → Ryobot. Ciphertext is never copied across users, and instance
+provider settings and credentials are never exported. Existing history or a provider override makes
+an account ineligible as a clean restore destination.

@@ -20,6 +20,8 @@ import {
 import { Broadcast } from "#platform/broadcast";
 
 import {
+	AssistantUpdatedMessage,
+	assistantUpdatedTopic,
 	DerivedDataUpdatedMessage,
 	derivedDataUpdatedTopic,
 	EntityUpdatedMessage,
@@ -86,6 +88,18 @@ export class LiveUpdates extends Context.Service<LiveUpdates>()(
 					}
 				}
 			});
+			yield* broadcast.subscribe(assistantUpdatedTopic, (message) => {
+				const decoded = Schema.decodeOption(AssistantUpdatedMessage)(message);
+				if (Option.isNone(decoded)) {
+					return;
+				}
+				const { userId, ...frame } = decoded.value;
+				const bytes = frameBytes({ type: "assistant-updated", ...frame });
+				for (const target of streams.get(userId) ?? []) {
+					offer(target, bytes);
+				}
+			});
+
 			yield* broadcast.subscribe(derivedDataUpdatedTopic, (message) => {
 				const decoded = Schema.decodeOption(DerivedDataUpdatedMessage)(message);
 				if (Option.isSome(decoded)) {
