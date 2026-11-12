@@ -1,8 +1,9 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
+import { kernelCapabilityId } from "@ryot-app/contract/schema/capability";
 import { assistantConversationRecipe } from "@ryot-app/ryotql-recipes/assistant";
 import { pagesRecipe } from "@ryot-app/ryotql-recipes/pages";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Effect } from "effect";
+import { Effect, Schema } from "effect";
 
 import {
 	type AssistantProviderReply,
@@ -11,16 +12,27 @@ import {
 import { createAuthenticatedClient } from "~/fixtures/kernel/auth";
 import { pollUntil } from "~/fixtures/kernel/polling";
 import { executeRyotQLRecipe } from "~/fixtures/kernel/ryotql";
-import { expect, it } from "~/support/effect-test";
+import { assert, expect, it } from "~/support/effect-test";
 import { startIsolatedApiServer } from "~/support/isolated-harness";
+
+const ProviderRequest = Schema.Struct({
+	tools: Schema.Array(Schema.Struct({ function: Schema.Struct({ name: Schema.String }) })),
+});
+const scripted = (replies: readonly AssistantProviderReply[]) => {
+	let round = 0;
+	return () => Effect.sync(() => replies[round++] ?? { text: "Done." });
+};
 
 it.live("uses instance tools, overrides with a user provider, and fences write decisions", () =>
 	Effect.gen(function* () {
-		let round = 0;
-		const instance = yield* startAssistantProvider(() =>
-			Effect.sync((): AssistantProviderReply =>
-				round++ === 0 ? { arguments: {}, name: "page_list" } : { text: "No pages yet." },
-			),
+		const instance = yield* startAssistantProvider(
+			scripted([
+				{
+					name: "execute",
+					arguments: { code: 'return await ryot.call("kernel:pages.list", {});' },
+				},
+				{ text: "No pages yet." },
+			]),
 		);
 		const server = yield* startIsolatedApiServer({
 			label: "assistant-provider-precedence",
@@ -56,13 +68,24 @@ it.live("uses instance tools, overrides with a user provider, and fences write d
 		yield* submit("List my pages");
 		const read = yield* finished();
 		expect(
-			read.calls.items.map((call) => ({
-				decision: call.decision,
-				name: call.call.descriptor.name,
-				approval: call.call.requiresApproval,
+			read.calls.items.map(({ call, decision }) => ({
+				decision,
+				kind: call.kind,
+				approval: call.requiresApproval,
 			})),
-		).toEqual([{ decision: null, approval: false, name: "page_list" }]);
+		).toEqual([{ kind: "tool", decision: null, approval: false }]);
+		expect(read.calls.items[0]?.result).toMatchObject({ truncated: false, value: { error: null } });
 		expect(stableStringify(read.messages.items)).toContain("No pages yet.");
+		const advertised = yield* Schema.decodeUnknownEffect(ProviderRequest)(
+			instance.requests[0]?.body,
+		);
+		expect(advertised.tools.map((tool) => tool.function.name)).toEqual([
+			"search",
+			"execute",
+			"read_docs",
+			"page_write",
+			"page_publish",
+		]);
 		const payload = {
 			name: "Approved draft",
 			slug: "approved-draft",
@@ -80,13 +103,22 @@ it.live("uses instance tools, overrides with a user provider, and fences write d
 				],
 			},
 		} satisfies ContractPayload<"pageAuthoring", "create">;
-		let userRound = 0;
-		const user = yield* startAssistantProvider(() =>
-			Effect.sync((): AssistantProviderReply =>
-				userRound++ % 2 === 0
-					? { arguments: payload, name: "page_create" }
-					: { text: "Decision handled." },
-			),
+		const user = yield* startAssistantProvider(
+			scripted([
+				{ arguments: payload, name: "page_write" },
+				{ text: "Decision handled." },
+				{ arguments: payload, name: "page_write" },
+				{ text: "Decision handled." },
+				{
+					name: "execute",
+					arguments: {
+						code: `const pages = await ryot.call("kernel:pages.list", {});
+const pageId = String(pages.data["pages"]?.items[0]?.["id"]);
+return await ryot.call("kernel:pages.delete", { pageId });`,
+					},
+				},
+				{ text: "Deleted." },
+			]),
 		);
 		yield* client.call((api) =>
 			api.assistant.configureProvider({
@@ -147,8 +179,36 @@ it.live("uses instance tools, overrides with a user provider, and fences write d
 				})),
 			).toEqual(decision === "decline" ? [] : [{ writeAccess: false, name: "Approved draft" }]);
 		}
+		yield* submit("Delete the draft");
+		const write = yield* pollUntil(
+			"pending capability write",
+			detail.pipe(
+				Effect.map(
+					(value) =>
+						value.calls.items.find(
+							(call) => call.call.kind === "capability" && call.decision === null,
+						) ?? null,
+				),
+			),
+		);
+		assert(write.call.kind === "capability", "The pending write is a capability call");
+		expect(write.call.capability.id).toBe(kernelCapabilityId("pages.delete"));
+		expect((yield* executeRyotQLRecipe(client, pagesRecipe, {})).items).toHaveLength(1);
+		yield* client.call((api) =>
+			api.assistant.decide({
+				payload: {
+					conversationId,
+					decision: "approve",
+					turnId: write.turnId,
+					toolCallId: write.id,
+					expectedRevision: write.revision,
+				},
+			}),
+		);
+		yield* finished();
+		expect((yield* executeRyotQLRecipe(client, pagesRecipe, {})).items).toEqual([]);
 		expect(instance.requests).toHaveLength(2);
-		expect(user.requests).toHaveLength(4);
+		expect(user.requests).toHaveLength(6);
 		expect(user.requests[0]?.headers.authorization).toBe("Bearer user-test-key");
 		expect(stableStringify(user.requests[0]?.body)).toContain('"model":"user-model"');
 		yield* client.call((api) => api.assistant.deleteProvider());

@@ -1,9 +1,5 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
-import {
-	CreatePageBody,
-	PageDraftRevisionBody,
-	ReplacePageDraftBody,
-} from "@ryot-app/contract/modules/pages/schemas";
+import { PageWriteInput } from "@ryot-app/contract/schema/agent-tool";
 import { assistantConversationRecipe } from "@ryot-app/ryotql-recipes/assistant";
 import { pagesRecipe } from "@ryot-app/ryotql-recipes/pages";
 import { publicationsRecipe } from "@ryot-app/ryotql-recipes/publications";
@@ -43,42 +39,24 @@ it.live(
 					const step = round++;
 					if (step === 0) {
 						return {
-							name: "page_create",
-							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(CreatePageBody))({
+							name: "page_write",
+							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(PageWriteInput))({
 								slug,
 								definition: bad,
 								name: "Generated recap",
 							}),
 						};
 					}
-					const pages = yield* executeRyotQLRecipe(client, pagesRecipe, {});
-					const page = pages.items.find((item) => item.slug === slug);
-					assert(page !== undefined, "Approved draft should exist before the next provider round");
 					if (step === 1) {
+						const pages = yield* executeRyotQLRecipe(client, pagesRecipe, {});
+						const page = pages.items.find((item) => item.slug === slug);
+						assert(page !== undefined, "Approved draft should exist before the repair round");
 						return {
-							name: "page_compile",
-							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(PageDraftRevisionBody))({
-								pageId: page.id,
-								expectedDraftRevision: 1,
-							}),
-						};
-					}
-					if (step === 2) {
-						return {
-							name: "page_replace_draft",
-							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(ReplacePageDraftBody))({
+							name: "page_write",
+							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(PageWriteInput))({
 								pageId: page.id,
 								definition: good,
 								expectedDraftRevision: 1,
-							}),
-						};
-					}
-					if (step === 3) {
-						return {
-							name: "page_compile",
-							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(PageDraftRevisionBody))({
-								pageId: page.id,
-								expectedDraftRevision: 2,
 							}),
 						};
 					}
@@ -100,9 +78,9 @@ it.live(
 			yield* owner.goto(`${getFrontendUrl()}/assistant?conversationId=${conversationId}`);
 			yield* owner.getByRole("textbox", { name: "Message Ryobot" }).fill("Build my recap page");
 			yield* owner.getByRole("button", { exact: true, name: "Send" }).click();
-			for (const name of ["page_create", "page_compile", "page_replace_draft", "page_compile"]) {
+			for (const step of ["create", "repair"]) {
 				const pending = yield* pollUntil(
-					`approval for ${name}`,
+					`approval for the ${step} page_write`,
 					detail.pipe(
 						Effect.map(
 							(value) =>
@@ -113,8 +91,9 @@ it.live(
 						),
 					),
 				);
-				expect(pending.call.descriptor.name).toBe(name);
-				if (name === "page_create") {
+				assert(pending.call.kind === "tool", "Page writes are model tool calls");
+				expect(pending.call.tool).toBe("page_write");
+				if (step === "create") {
 					expect((yield* executeRyotQLRecipe(client, pagesRecipe, {})).items).toEqual([]);
 				}
 				yield* owner.getByRole("button", { exact: true, name: "Approve" }).click();
@@ -137,9 +116,9 @@ it.live(
 					),
 				),
 			);
-			expect(complete.calls.items).toHaveLength(4);
-			expect(stableStringify(complete.calls.items[1]?.result)).toContain("build-failed");
-			expect(stableStringify(provider.requests[2]?.body)).toContain("build-failed");
+			expect(complete.calls.items).toHaveLength(2);
+			expect(stableStringify(complete.calls.items[0]?.result)).toContain("build-failed");
+			expect(stableStringify(provider.requests[1]?.body)).toContain("build-failed");
 			yield* owner
 				.locator("iframe")
 				.contentFrame()
@@ -203,9 +182,7 @@ it.live(
 			expect((yield* detail).calls.items.map((call) => call.decision)).toEqual([
 				"approve",
 				"approve",
-				"approve",
-				"approve",
 			]);
-			expect(provider.requests).toHaveLength(5);
+			expect(provider.requests).toHaveLength(3);
 		}).pipe(PlaywrightSpawner.withBrowser),
 );

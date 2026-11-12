@@ -82,13 +82,23 @@ const describeData = (headers: Record<string, string>, session: string) =>
 		const listed = yield* rpc(headers, "tools/list", {}, session);
 		expect(listed.status).toBe(200);
 		const tools = yield* Schema.decodeUnknownEffect(Tools)(yield* resultBody(listed));
-		expect(
-			tools.result.tools.find(({ name }) => name === "describe_data")?.annotations.readOnlyHint,
-		).toBe(true);
+		expect(tools.result.tools.map(({ name }) => name)).toEqual([
+			"search",
+			"execute",
+			"read_docs",
+			"page_write",
+			"page_publish",
+		]);
+		expect(tools.result.tools.find(({ name }) => name === "search")?.annotations.readOnlyHint).toBe(
+			true,
+		);
 		const called = yield* rpc(
 			headers,
 			"tools/call",
-			{ arguments: {}, name: "describe_data" },
+			{
+				name: "execute",
+				arguments: { code: 'return await ryot.call("kernel:data.describe", {});' },
+			},
 			session,
 		);
 		expect(called.status).toBe(200);
