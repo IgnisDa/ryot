@@ -8,7 +8,7 @@ import { encodeJsonString } from "@ryot-app/ts-utils/json";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
-import { kernelScripts } from "../src/modules/definitions/kernel-source";
+import { kernelScripts } from "../src/modules/definitions/builtin-scripts";
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 

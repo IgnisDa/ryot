@@ -5,8 +5,8 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer } from "effect";
 
+import { kernelScripts } from "#modules/definitions/builtin-scripts";
 import { kernelScriptCompiledOutputs } from "#modules/definitions/kernel-scripts.compiled.generated";
-import { kernelScripts } from "#modules/definitions/kernel-source";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { ScriptGarbageCollector } from "#modules/garbage-collection/scripts";
 import { DatabaseSession } from "#platform/db/session";

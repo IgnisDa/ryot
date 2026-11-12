@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 
-import { kernelScripts } from "./kernel-source";
+import { kernelScripts } from "./builtin-scripts";
 
 it("ships the signal notification script as the only kernel script", () => {
 	expect(kernelScripts.map(({ slug }) => slug)).toEqual(["automation.notification"]);
