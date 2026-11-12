@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "2912be72-3399-4303-9b04-430cd71d28b6",
+	"id": "62ba250b-84b3-4f93-8603-e091641729a3",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -15411,6 +15411,19 @@
 			"schema": "public",
 			"table": "plugin_revision",
 			"name": "memberships",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision",
+			"name": "dependencies",
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": false,

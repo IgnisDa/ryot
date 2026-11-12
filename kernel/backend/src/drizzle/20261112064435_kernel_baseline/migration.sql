@@ -968,6 +968,7 @@ CREATE TABLE "plugin_revision" (
 	"hooks" jsonb NOT NULL,
 	"crons" jsonb NOT NULL,
 	"memberships" jsonb,
+	"dependencies" jsonb,
 	"scripts" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"workflows" jsonb NOT NULL,
