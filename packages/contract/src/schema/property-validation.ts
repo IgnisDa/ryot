@@ -10,6 +10,9 @@ export const formatValidationError = (issues: ReadonlyArray<PropertyValidationIs
 		issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message,
 	);
 
+export const formatPropertyIssues = (issues: ReadonlyArray<PropertyValidationIssue>) =>
+	formatValidationError(issues).join("; ");
+
 export const toValidationError = (issues: ReadonlyArray<PropertyValidationIssue>) =>
 	new PropertyValidationError({
 		issues: [...issues],

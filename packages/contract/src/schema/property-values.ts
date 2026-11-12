@@ -22,9 +22,10 @@ import {
 	isAppSchemaPathEffectivelyRequired,
 	isAppSchemaPathHidden,
 	isMissingAppSchemaRequiredValue,
+	type PropertyValidationError,
 	type PropertyValidationIssue,
 } from "./property-schema";
-import { parseErrorToIssues } from "./property-validation";
+import { parseErrorToIssues, toValidationError } from "./property-validation";
 import { TimeZone } from "./time-zone";
 import { Email, HttpUrl } from "./utils";
 
@@ -550,4 +551,13 @@ export const parseAppSchemaPropertiesSafe = (input: {
 		omitValueAtPath(decoded.success, path);
 	}
 	return { success: true, data: decoded.success };
+};
+
+export const parseAppSchemaProperties = (
+	input: Parameters<typeof parseAppSchemaPropertiesSafe>[0],
+): Effect.Effect<Record<string, unknown>, PropertyValidationError> => {
+	const result = parseAppSchemaPropertiesSafe(input);
+	return result.success
+		? Effect.succeed(result.data)
+		: Effect.fail(toValidationError(result.issues));
 };
