@@ -180,6 +180,7 @@ CREATE TABLE "calendar_source_override" (
 );
 --> statement-breakpoint
 CREATE TABLE "client_artifact" (
+	"page_declaration_hash" text,
 	"format" smallint NOT NULL,
 	"client_declaration_hash" text,
 	"api_version" smallint NOT NULL,
@@ -324,11 +325,14 @@ CREATE TABLE "definition_saved_view" (
 	"name" text NOT NULL,
 	"position" integer NOT NULL,
 	"id" text PRIMARY KEY,
+	"sort" text,
 	"icon" text NOT NULL,
 	"sort_order" integer NOT NULL,
+	"filter" jsonb,
 	"data_sources" jsonb,
 	"settings" jsonb NOT NULL,
 	"renderer" jsonb NOT NULL,
+	"arguments" jsonb DEFAULT '{}' NOT NULL,
 	"plugin_revision_id" text,
 	CONSTRAINT "definition_saved_view_revision_slug_unique" UNIQUE NULLS NOT DISTINCT("plugin_revision_id","slug")
 );
@@ -858,6 +862,29 @@ CREATE TABLE "oauth_resource" (
 	"dpop_bound_access_tokens_required" boolean DEFAULT false
 );
 --> statement-breakpoint
+CREATE TABLE "page" (
+	"slug" text NOT NULL,
+	"name" text NOT NULL,
+	"published_revision" integer,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"published_definition_hash" text,
+	"draft_compiled_revision" integer,
+	"draft_definition_hash" text NOT NULL,
+	"origin" text NOT NULL,
+	"draft_revision" integer DEFAULT 1 NOT NULL,
+	"write_access" boolean DEFAULT false NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"authority_revision" integer DEFAULT 1 NOT NULL,
+	"published_definition" jsonb,
+	"draft_definition" jsonb NOT NULL,
+	"id" text PRIMARY KEY,
+	"draft_artifact_hash" text,
+	"published_artifact_hash" text,
+	"user_id" text NOT NULL,
+	CONSTRAINT "page_id_user_unique" UNIQUE("id","user_id"),
+	CONSTRAINT "page_user_slug_unique" UNIQUE("user_id","slug")
+);
+--> statement-breakpoint
 CREATE TABLE "plugin" (
 	"status" text NOT NULL,
 	"active_revision_id" text,
@@ -935,6 +962,7 @@ CREATE TABLE "plugin_revision" (
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"client" jsonb,
 	"manifest" jsonb NOT NULL,
+	"queries" jsonb,
 	"package_id" text NOT NULL,
 	"client_config_schema" jsonb NOT NULL,
 	"hooks" jsonb NOT NULL,
@@ -1082,11 +1110,13 @@ CREATE TABLE "sandbox_workflow_reference" (
 );
 --> statement-breakpoint
 CREATE TABLE "saved_view" (
+	"sort" text,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
 	"icon" text NOT NULL,
 	"plugin_installation_id" text,
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"filter" jsonb,
 	"revision" integer DEFAULT 1 NOT NULL,
 	"sort_order" integer DEFAULT 0 NOT NULL,
 	"data_sources" jsonb,
@@ -1096,6 +1126,8 @@ CREATE TABLE "saved_view" (
 	"settings" jsonb NOT NULL,
 	"id" text PRIMARY KEY,
 	"user_id" text NOT NULL,
+	"arguments" jsonb DEFAULT '{}' NOT NULL,
+	"page_id" text GENERATED ALWAYS AS (case when renderer ->> 'kind' = 'page' then renderer ->> 'pageId' end) STORED,
 	CONSTRAINT "saved_view_user_slug_unique" UNIQUE("user_id","slug")
 );
 --> statement-breakpoint
@@ -1485,6 +1517,9 @@ ALTER TABLE "oauth_consent" ADD CONSTRAINT "oauth_consent_client_id_oauth_client
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_session_id_session_id_fkey" FOREIGN KEY ("session_id") REFERENCES "session"("id") ON DELETE SET NULL;--> statement-breakpoint
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_client_id_oauth_client_client_id_fkey" FOREIGN KEY ("client_id") REFERENCES "oauth_client"("client_id");--> statement-breakpoint
 ALTER TABLE "oauth_refresh_token" ADD CONSTRAINT "oauth_refresh_token_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "page" ADD CONSTRAINT "page_draft_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("draft_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
+ALTER TABLE "page" ADD CONSTRAINT "page_published_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("published_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
+ALTER TABLE "page" ADD CONSTRAINT "page_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_owner_user_id_user_id_fkey" FOREIGN KEY ("owner_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_active_revision_owner_fk" FOREIGN KEY ("active_revision_id","id") REFERENCES "plugin_revision"("id","plugin_id");--> statement-breakpoint
 ALTER TABLE "plugin" ADD CONSTRAINT "plugin_environment_config_revision_fk" FOREIGN KEY ("environment_config_revision_id","active_revision_id") REFERENCES "plugin_config_revision"("id","plugin_revision_id");--> statement-breakpoint
@@ -1511,6 +1546,7 @@ ALTER TABLE "sandbox_script" ADD CONSTRAINT "sandbox_script_plugin_revision_id_p
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_NZbiTLiwtL2v_fkey" FOREIGN KEY ("plugin_installation_id") REFERENCES "plugin_installation"("id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "sandbox_workflow_reference" ADD CONSTRAINT "sandbox_workflow_reference_script_id_sandbox_script_id_fkey" FOREIGN KEY ("script_id") REFERENCES "sandbox_script"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_page_owner_fk" FOREIGN KEY ("page_id","user_id") REFERENCES "page"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view" ADD CONSTRAINT "saved_view_plugin_installation_owner_fk" FOREIGN KEY ("plugin_installation_id","user_id") REFERENCES "plugin_installation"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "saved_view_override" ADD CONSTRAINT "saved_view_override_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint

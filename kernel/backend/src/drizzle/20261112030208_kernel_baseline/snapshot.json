@@ -2,7 +2,7 @@
 	"type": "base",
 	"version": "9",
 	"dialect": "postgres",
-	"id": "b6d2d852-d2c7-450c-b8c2-b3c86d3f1e79",
+	"id": "2912be72-3399-4303-9b04-430cd71d28b6",
 	"prevIds": ["00000000-0000-0000-0000-000000000000"],
 	"footprints": [
 		{
@@ -768,6 +768,21 @@
 				"n|type|public.oauth_resource",
 				"n|rel|public.oauth_resource_pkey",
 				"n|rel|public.oauth_resource_identifier_key"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "page"],
+			"writes": [
+				"s|tbl|public.page",
+				"n|tbl|public.page",
+				"e|tbl|public.page",
+				"n|rel|public.page",
+				"n|type|public.page",
+				"n|rel|public.page_pkey",
+				"n|rel|public.page_id_user_unique",
+				"n|rel|public.page_user_slug_unique"
 			],
 			"reads": ["n|sch|public"]
 		},
@@ -5366,6 +5381,63 @@
 		},
 		{
 			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "page"],
+			"writes": [
+				"s|fk|public.page.page_draft_artifact_hash_client_artifact_hash_fkey",
+				"n|fk|public.page.page_draft_artifact_hash_client_artifact_hash_fkey",
+				"e|fk|public.page.page_draft_artifact_hash_client_artifact_hash_fkey",
+				"n|con|public.page.page_draft_artifact_hash_client_artifact_hash_fkey"
+			],
+			"reads": [
+				"n|tbl|public.page",
+				"n|sch|public",
+				"n|tbl|public.client_artifact",
+				"n|sch|public",
+				"n|col|public.page.draft_artifact_hash",
+				"n|col|public.client_artifact.hash",
+				"e|uniqueness|public.client_artifact.hash"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "page"],
+			"writes": [
+				"s|fk|public.page.page_published_artifact_hash_client_artifact_hash_fkey",
+				"n|fk|public.page.page_published_artifact_hash_client_artifact_hash_fkey",
+				"e|fk|public.page.page_published_artifact_hash_client_artifact_hash_fkey",
+				"n|con|public.page.page_published_artifact_hash_client_artifact_hash_fkey"
+			],
+			"reads": [
+				"n|tbl|public.page",
+				"n|sch|public",
+				"n|tbl|public.client_artifact",
+				"n|sch|public",
+				"n|col|public.page.published_artifact_hash",
+				"n|col|public.client_artifact.hash",
+				"e|uniqueness|public.client_artifact.hash"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "page"],
+			"writes": [
+				"s|fk|public.page.page_user_id_user_id_fkey",
+				"n|fk|public.page.page_user_id_user_id_fkey",
+				"e|fk|public.page.page_user_id_user_id_fkey",
+				"n|con|public.page.page_user_id_user_id_fkey"
+			],
+			"reads": [
+				"n|tbl|public.page",
+				"n|sch|public",
+				"n|tbl|public.user",
+				"n|sch|public",
+				"n|col|public.page.user_id",
+				"n|col|public.user.id",
+				"e|uniqueness|public.user.id"
+			]
+		},
+		{
+			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "plugin"],
 			"writes": [
 				"s|fk|public.plugin.plugin_owner_user_id_user_id_fkey",
@@ -5870,6 +5942,27 @@
 			"statementType": "create_fk",
 			"statementTarget": ["table", "public", "saved_view"],
 			"writes": [
+				"s|fk|public.saved_view.saved_view_page_owner_fk",
+				"n|fk|public.saved_view.saved_view_page_owner_fk",
+				"e|fk|public.saved_view.saved_view_page_owner_fk",
+				"n|con|public.saved_view.saved_view_page_owner_fk"
+			],
+			"reads": [
+				"n|tbl|public.saved_view",
+				"n|sch|public",
+				"n|tbl|public.page",
+				"n|sch|public",
+				"n|col|public.saved_view.page_id",
+				"n|col|public.saved_view.user_id",
+				"n|col|public.page.id",
+				"n|col|public.page.user_id",
+				"e|uniqueness|public.page.id.user_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "saved_view"],
+			"writes": [
 				"s|fk|public.saved_view.saved_view_plugin_installation_owner_fk",
 				"n|fk|public.saved_view.saved_view_plugin_installation_owner_fk",
 				"e|fk|public.saved_view.saved_view_plugin_installation_owner_fk",
@@ -6247,6 +6340,7 @@
 			"entityType": "tables"
 		},
 		{ "schema": "public", "name": "oauth_resource", "isRlsEnabled": false, "entityType": "tables" },
+		{ "schema": "public", "name": "page", "isRlsEnabled": false, "entityType": "tables" },
 		{ "schema": "public", "name": "plugin", "isRlsEnabled": false, "entityType": "tables" },
 		{
 			"schema": "public",
@@ -8049,6 +8143,19 @@
 		{
 			"schema": "public",
 			"table": "client_artifact",
+			"name": "page_declaration_hash",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "client_artifact",
 			"name": "format",
 			"type": "smallint",
 			"typeSchema": null,
@@ -9336,6 +9443,19 @@
 		{
 			"schema": "public",
 			"table": "definition_saved_view",
+			"name": "sort",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_saved_view",
 			"name": "icon",
 			"type": "text",
 			"typeSchema": null,
@@ -9353,6 +9473,19 @@
 			"type": "integer",
 			"typeSchema": null,
 			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_saved_view",
+			"name": "filter",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -9394,6 +9527,19 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "definition_saved_view",
+			"name": "arguments",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'{}'",
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -14301,6 +14447,240 @@
 		},
 		{
 			"schema": "public",
+			"table": "page",
+			"name": "slug",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "name",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "published_revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "updated_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "published_definition_hash",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "draft_compiled_revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "draft_definition_hash",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "origin",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "draft_revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "write_access",
+			"type": "boolean",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "false",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "created_at",
+			"type": "timestamp(3) with time zone",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "authority_revision",
+			"type": "integer",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "1",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "published_definition",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "draft_definition",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "draft_artifact_hash",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "published_artifact_hash",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "user_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
 			"table": "plugin",
 			"name": "status",
 			"type": "text",
@@ -14956,6 +15336,19 @@
 			"type": "jsonb",
 			"typeSchema": null,
 			"notNull": true,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "plugin_revision",
+			"name": "queries",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
@@ -16265,6 +16658,19 @@
 		{
 			"schema": "public",
 			"table": "saved_view",
+			"name": "sort",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "saved_view",
 			"name": "slug",
 			"type": "text",
 			"typeSchema": null,
@@ -16323,6 +16729,19 @@
 			"notNull": true,
 			"dimensions": 0,
 			"default": "now()",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "saved_view",
+			"name": "filter",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
 			"generated": null,
 			"identity": null,
 			"entityType": "columns"
@@ -16441,6 +16860,35 @@
 			"dimensions": 0,
 			"default": null,
 			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "saved_view",
+			"name": "arguments",
+			"type": "jsonb",
+			"typeSchema": null,
+			"notNull": true,
+			"dimensions": 0,
+			"default": "'{}'",
+			"generated": null,
+			"identity": null,
+			"entityType": "columns"
+		},
+		{
+			"schema": "public",
+			"table": "saved_view",
+			"name": "page_id",
+			"type": "text",
+			"typeSchema": null,
+			"notNull": false,
+			"dimensions": 0,
+			"default": null,
+			"generated": {
+				"as": "case when renderer ->> 'kind' = 'page' then renderer ->> 'pageId' end",
+				"type": "stored"
+			},
 			"identity": null,
 			"entityType": "columns"
 		},
@@ -22433,6 +22881,45 @@
 		},
 		{
 			"schema": "public",
+			"table": "page",
+			"name": "page_draft_artifact_hash_client_artifact_hash_fkey",
+			"nameExplicit": false,
+			"columns": ["draft_artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "page_published_artifact_hash_client_artifact_hash_fkey",
+			"nameExplicit": false,
+			"columns": ["published_artifact_hash"],
+			"schemaTo": "public",
+			"tableTo": "client_artifact",
+			"columnsTo": ["hash"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "NO ACTION",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "page_user_id_user_id_fkey",
+			"nameExplicit": false,
+			"columns": ["user_id"],
+			"schemaTo": "public",
+			"tableTo": "user",
+			"columnsTo": ["id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
 			"table": "plugin",
 			"name": "plugin_owner_user_id_user_id_fkey",
 			"nameExplicit": false,
@@ -22767,6 +23254,19 @@
 			"columnsTo": ["id"],
 			"onUpdate": "NO ACTION",
 			"onDelete": "CASCADE",
+			"entityType": "fks"
+		},
+		{
+			"schema": "public",
+			"table": "saved_view",
+			"name": "saved_view_page_owner_fk",
+			"nameExplicit": true,
+			"columns": ["page_id", "user_id"],
+			"schemaTo": "public",
+			"tableTo": "page",
+			"columnsTo": ["id", "user_id"],
+			"onUpdate": "NO ACTION",
+			"onDelete": "RESTRICT",
 			"entityType": "fks"
 		},
 		{
@@ -23342,6 +23842,14 @@
 		},
 		{
 			"schema": "public",
+			"table": "page",
+			"name": "page_pkey",
+			"columns": ["id"],
+			"nameExplicit": false,
+			"entityType": "pks"
+		},
+		{
+			"schema": "public",
 			"table": "plugin",
 			"name": "plugin_pkey",
 			"columns": ["id"],
@@ -23685,6 +24193,24 @@
 			"name": "oauth_connection_integration_field_unique",
 			"nameExplicit": true,
 			"columns": ["integration_id", "field"],
+			"nullsNotDistinct": false,
+			"entityType": "uniques"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "page_id_user_unique",
+			"nameExplicit": true,
+			"columns": ["id", "user_id"],
+			"nullsNotDistinct": false,
+			"entityType": "uniques"
+		},
+		{
+			"schema": "public",
+			"table": "page",
+			"name": "page_user_slug_unique",
+			"nameExplicit": true,
+			"columns": ["user_id", "slug"],
 			"nullsNotDistinct": false,
 			"entityType": "uniques"
 		},
