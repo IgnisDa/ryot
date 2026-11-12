@@ -14,6 +14,17 @@ CREATE TABLE "account" (
 	"updated_at" timestamp(3) with time zone NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "agent_script_execution" (
+	"id" text PRIMARY KEY,
+	"source" text NOT NULL,
+	"completed_at" timestamp(3) with time zone,
+	"result" jsonb,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"principal" jsonb,
+	"user_id" text NOT NULL,
+	"journal" jsonb DEFAULT '[]' NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "apikey" (
 	"name" text,
 	"start" text,
@@ -37,6 +48,72 @@ CREATE TABLE "apikey" (
 	"config_id" text DEFAULT 'default' NOT NULL,
 	"rate_limit_time_window" integer DEFAULT 86400000,
 	"reference_id" text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "assistant_conversation" (
+	"id" text PRIMARY KEY,
+	"title" text NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"next_sequence" integer DEFAULT 1 NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"user_id" text NOT NULL,
+	CONSTRAINT "assistant_conversation_id_user_id_unique" UNIQUE("id","user_id")
+);
+--> statement-breakpoint
+CREATE TABLE "assistant_message" (
+	"id" text PRIMARY KEY,
+	"turn_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"sequence" integer NOT NULL,
+	"conversation_id" text NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"role" text NOT NULL,
+	"parts" jsonb NOT NULL,
+	CONSTRAINT "assistant_message_conversation_id_sequence_unique" UNIQUE("conversation_id","sequence")
+);
+--> statement-breakpoint
+CREATE TABLE "assistant_provider" (
+	"model" text NOT NULL,
+	"base_url" text NOT NULL,
+	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"encrypted_api_key" jsonb,
+	"user_id" text PRIMARY KEY
+);
+--> statement-breakpoint
+CREATE TABLE "assistant_tool_call" (
+	"id" text PRIMARY KEY,
+	"turn_id" text NOT NULL,
+	"user_id" text NOT NULL,
+	"decided_at" timestamp(3) with time zone,
+	"round" integer NOT NULL,
+	"completed_at" timestamp(3) with time zone,
+	"position" integer NOT NULL,
+	"conversation_id" text NOT NULL,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"result" jsonb,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"call" jsonb NOT NULL,
+	"decision" text,
+	CONSTRAINT "assistant_tool_call_turn_id_round_position_unique" UNIQUE("turn_id","round","position")
+);
+--> statement-breakpoint
+CREATE TABLE "assistant_turn" (
+	"text" text NOT NULL,
+	"id" text PRIMARY KEY,
+	"user_id" text NOT NULL,
+	"completed_at" timestamp(3) with time zone,
+	"request_id" text NOT NULL,
+	"conversation_id" text NOT NULL,
+	"round" integer DEFAULT 0 NOT NULL,
+	"revision" integer DEFAULT 1 NOT NULL,
+	"failure" jsonb,
+	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
+	"status" text DEFAULT 'queued' NOT NULL,
+	CONSTRAINT "assistant_turn_conversation_id_request_id_unique" UNIQUE("conversation_id","request_id"),
+	CONSTRAINT "assistant_turn_id_conversation_id_user_id_unique" UNIQUE("id","conversation_id","user_id"),
+	CONSTRAINT "assistant_turn_status" CHECK ("status" in ('queued', 'running', 'awaiting-approval', 'completed', 'failed', 'interrupted'))
 );
 --> statement-breakpoint
 CREATE TABLE "automation_run" (
@@ -995,6 +1072,7 @@ CREATE TABLE "provider_rate_limit" (
 );
 --> statement-breakpoint
 CREATE TABLE "publication" (
+	"page_id" text,
 	"description" text,
 	"icon" text NOT NULL,
 	"title" text NOT NULL,
@@ -1002,8 +1080,10 @@ CREATE TABLE "publication" (
 	"updated_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"show_owner_name" boolean NOT NULL,
 	"revision" integer DEFAULT 1 NOT NULL,
+	"snapshot" jsonb,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
-	"source" jsonb NOT NULL,
+	"definition" jsonb NOT NULL,
+	"snapshot_artifact_hash" text,
 	"user_id" text NOT NULL,
 	"id" text PRIMARY KEY
 );
@@ -1282,6 +1362,7 @@ CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpo
 CREATE INDEX "apikey_configId_idx" ON "apikey" ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" ("reference_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" ("key");--> statement-breakpoint
+CREATE UNIQUE INDEX "assistant_turn_active_unique" ON "assistant_turn" ("conversation_id") WHERE "status" in ('queued', 'running', 'awaiting-approval');--> statement-breakpoint
 CREATE INDEX "automation_run_reconciliation_idx" ON "automation_run" ("status","next_attempt_at","queued_at","id");--> statement-breakpoint
 CREATE INDEX "automation_run_history_idx" ON "automation_run" ("execution_user_id","queued_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
 CREATE INDEX "automation_run_trigger_idx" ON "automation_run" ("trigger_id");--> statement-breakpoint
@@ -1433,7 +1514,13 @@ CREATE INDEX "workflow_execution_active_idx" ON "workflow_execution" ("workflow_
 CREATE INDEX "workflow_execution_account_idx" ON "workflow_execution" ("account_user_id") WHERE "status" = 'active';--> statement-breakpoint
 CREATE INDEX "workflow_execution_cleanup_idx" ON "workflow_execution" ("expired_at") WHERE "expired_at" is not null and "cleared_at" is null;--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "agent_script_execution" ADD CONSTRAINT "agent_script_execution_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "apikey" ADD CONSTRAINT "apikey_reference_id_user_id_fkey" FOREIGN KEY ("reference_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_conversation" ADD CONSTRAINT "assistant_conversation_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_message" ADD CONSTRAINT "assistant_message_5nOssrZ23nTD_fkey" FOREIGN KEY ("turn_id","conversation_id","user_id") REFERENCES "assistant_turn"("id","conversation_id","user_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_provider" ADD CONSTRAINT "assistant_provider_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_tool_call" ADD CONSTRAINT "assistant_tool_call_kwOjAAwu8Gpn_fkey" FOREIGN KEY ("turn_id","conversation_id","user_id") REFERENCES "assistant_turn"("id","conversation_id","user_id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "assistant_turn" ADD CONSTRAINT "assistant_turn_dX1hPmBw1nmZ_fkey" FOREIGN KEY ("conversation_id","user_id") REFERENCES "assistant_conversation"("id","user_id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_sandbox_script_id_sandbox_script_id_fkey" FOREIGN KEY ("sandbox_script_id") REFERENCES "sandbox_script"("id");--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "automation_run" ADD CONSTRAINT "automation_run_execution_user_id_user_id_fkey" FOREIGN KEY ("execution_user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
@@ -1532,7 +1619,9 @@ ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_Y0qNbD8s1J
 ALTER TABLE "plugin_installation" ADD CONSTRAINT "plugin_installation_plugin_id_plugin_id_fkey" FOREIGN KEY ("plugin_id") REFERENCES "plugin"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_owner_package_fk" FOREIGN KEY ("plugin_id","package_id") REFERENCES "plugin"("id","package_id") ON DELETE CASCADE ON UPDATE RESTRICT;--> statement-breakpoint
 ALTER TABLE "plugin_revision" ADD CONSTRAINT "plugin_revision_client_artifact_package_fk" FOREIGN KEY ("client_artifact_hash","package_id") REFERENCES "client_artifact"("hash","package_id");--> statement-breakpoint
+ALTER TABLE "publication" ADD CONSTRAINT "publication_snapshot_artifact_hash_client_artifact_hash_fkey" FOREIGN KEY ("snapshot_artifact_hash") REFERENCES "client_artifact"("hash");--> statement-breakpoint
 ALTER TABLE "publication" ADD CONSTRAINT "publication_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
+ALTER TABLE "publication" ADD CONSTRAINT "publication_page_owner_fk" FOREIGN KEY ("page_id","user_id") REFERENCES "page"("id","user_id") ON DELETE RESTRICT;--> statement-breakpoint
 ALTER TABLE "publication_link" ADD CONSTRAINT "publication_link_publication_id_publication_id_fkey" FOREIGN KEY ("publication_id") REFERENCES "publication"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_user_id_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "user"("id") ON DELETE CASCADE;--> statement-breakpoint
 ALTER TABLE "relationship" ADD CONSTRAINT "relationship_relationship_schema_plugin_id_plugin_id_fkey" FOREIGN KEY ("relationship_schema_plugin_id") REFERENCES "plugin"("id") ON DELETE RESTRICT;--> statement-breakpoint

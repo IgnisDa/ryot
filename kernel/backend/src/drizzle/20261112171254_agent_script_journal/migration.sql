@@ -1,1 +1,0 @@
-ALTER TABLE "agent_script_execution" ADD COLUMN "journal" jsonb DEFAULT '[]' NOT NULL;
