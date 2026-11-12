@@ -1,6 +1,15 @@
 import { expect } from "bun:test";
 
 import type { ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import { assert } from "@ryot-app/testing/assert";
+import { it } from "@voila.dev/effect-bun-test";
+
+import { getCatalogTable } from "./catalog";
+import {
+	executableFieldsFixture,
+	executableFixture,
+	validateAuthoredFixture,
+} from "./fixture.test-support";
 import {
 	aggregate,
 	and,
@@ -47,16 +56,7 @@ import {
 	sum,
 	table,
 	titleCase,
-} from "@ryot-app/ryotql";
-import { assert } from "@ryot-app/testing/assert";
-import { it } from "@voila.dev/effect-bun-test";
-
-import { getCatalogTable } from "./catalog";
-import {
-	executableFieldsFixture,
-	executableFixture,
-	validateAuthoredFixture,
-} from "./fixture.test-support";
+} from "./index";
 import { validateRyotQLDocument } from "./validator";
 
 const userAccess = { type: "user", audience: "kernel", accessClass: "standard" } as const;
@@ -131,21 +131,21 @@ it("returns expanded fields and nested includes in declaration order with lexica
 	expect(children.fields).toEqual(
 		executableFieldsFixture([
 			field("parentId", column(entity, "id")),
-			field("ordinal", column(elements, "ordinal")),
 			field("value", column(elements, "value")),
+			field("ordinal", column(elements, "ordinal")),
 		]),
 	);
 	expect(children.include?.[0].fields).toEqual(
 		executableFieldsFixture([
-			field("ordinal", column(elements, "ordinal")),
 			field("value", column(elements, "value")),
+			field("ordinal", column(elements, "ordinal")),
 			field("childId", column(child, "id")),
 		]),
 	);
 	expect(second.output.fields.map(({ key }) => key)).toEqual([
 		"before",
-		"ordinal",
 		"value",
+		"ordinal",
 		"after",
 	]);
 	expect(input.queries.second.output.fields[1]).toEqual(wildcard);
@@ -310,21 +310,19 @@ it("exposes only approved application-table fields", () => {
 			"rootEntitySchemaSlug",
 		]),
 	);
-	expect(getCatalogTable("sandboxProvider")?.name).toBe("user_sandbox_provider");
 	expect(getCatalogTable("sandboxProvider")?.primaryKey).toEqual(["id"]);
 	expect(getCatalogTable("sandboxProvider")?.visibility).toEqual({
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+		user: { pluginReadable: true },
 	});
 	expect(new Set(Object.keys(getCatalogTable("sandboxProviderOperation")?.fields ?? {}))).toEqual(
 		new Set(["pluginId", "operation", "packageId", "providerId", "optionsSchema"]),
 	);
-	expect(getCatalogTable("sandboxProviderOperation")?.name).toBe("user_sandbox_provider_operation");
 	expect(getCatalogTable("sandboxProviderOperation")?.primaryKey).toEqual([
 		"providerId",
 		"operation",
 	]);
 	expect(getCatalogTable("sandboxProviderOperation")?.visibility).toEqual({
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+		user: { pluginReadable: true },
 	});
 	expect(new Set(Object.keys(getCatalogTable("savedView")?.fields ?? {}))).toEqual(
 		new Set([
@@ -354,11 +352,8 @@ it("exposes only approved application-table fields", () => {
 		new Set(["id", "channel", "createdAt", "updatedAt", "isDisabled", "description"]),
 	);
 	const notificationChannel = getCatalogTable("notificationChannel");
-	expect(notificationChannel?.name).toBe("notification_channel");
 	expect(notificationChannel?.primaryKey).toEqual(["id"]);
-	expect(notificationChannel?.visibility).toEqual({
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	});
+	expect(notificationChannel?.visibility).toEqual({ user: { pluginReadable: true } });
 	expect(notificationChannel && "plugin" in notificationChannel.visibility).toBe(false);
 	const notificationSubscription = getCatalogTable("notificationSubscription");
 	expect(
@@ -377,11 +372,10 @@ it("exposes only approved application-table fields", () => {
 		signalSchemaSlug: "text",
 		signalSchemaPluginId: "text",
 	});
-	expect(notificationSubscription?.name).toBe("notification_subscription");
 	expect(notificationSubscription?.primaryKey).toEqual(["id"]);
 	expect(notificationSubscription?.visibility).toEqual({
-		admin: { type: "all" },
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
+		admin: true,
+		user: { pluginReadable: true },
 	});
 	expect(notificationSubscription && "plugin" in notificationSubscription.visibility).toBe(false);
 	expect(new Set(Object.keys(getCatalogTable("integration")?.fields ?? {}))).toEqual(
@@ -405,11 +399,8 @@ it("exposes only approved application-table fields", () => {
 		]),
 	);
 	const integration = getCatalogTable("integration");
-	expect(integration?.name).toBe("integration");
 	expect(integration?.primaryKey).toEqual(["id"]);
-	expect(integration?.visibility).toEqual({
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	});
+	expect(integration?.visibility).toEqual({ user: { pluginReadable: true } });
 	expect(integration && "plugin" in integration.visibility).toBe(false);
 	expect(new Set(Object.keys(getCatalogTable("importRun")?.fields ?? {}))).toEqual(
 		new Set([
@@ -436,21 +427,8 @@ it("exposes only approved application-table fields", () => {
 	);
 	const importRun = getCatalogTable("importRun");
 	const importIssue = getCatalogTable("importIssue");
-	expect(importRun?.name).toBe("import_run");
-	expect(importRun?.visibility).toEqual({
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: true },
-	});
-	expect(importIssue?.name).toBe("import_issue");
-	expect(importIssue?.visibility).toEqual({
-		user: {
-			column: "run_id",
-			parentColumn: "id",
-			type: "parentOwned",
-			pluginReadable: true,
-			parentTable: "import_run",
-			parentOwnerColumn: "user_id",
-		},
-	});
+	expect(importRun?.visibility).toEqual({ user: { pluginReadable: true } });
+	expect(importIssue?.visibility).toEqual({ user: { pluginReadable: true } });
 	expect(importRun && "plugin" in importRun.visibility).toBe(false);
 	expect(importIssue && "plugin" in importIssue.visibility).toBe(false);
 });

@@ -480,7 +480,7 @@ const addJsonElements = (
 	if (expressionKind(join.expr, scope, executionScope) !== "json") {
 		return "JSON elements joins require a JSON expression";
 	}
-	scope.set(join.alias, { table: jsonElementsTable, key: jsonElementsTable.name });
+	scope.set(join.alias, { key: "jsonElements", table: jsonElementsTable });
 	return null;
 };
 
@@ -497,7 +497,7 @@ const expressionScope = (query: CorrelatedQuerySet, ancestors: AliasScope) => {
 	addReference(query.from);
 	for (const join of query.joins ?? []) {
 		if (join.type === "jsonElements") {
-			scope.set(join.alias, { table: jsonElementsTable, key: jsonElementsTable.name });
+			scope.set(join.alias, { key: "jsonElements", table: jsonElementsTable });
 		} else {
 			addReference(join.table);
 		}

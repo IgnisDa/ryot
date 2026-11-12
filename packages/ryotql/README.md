@@ -108,6 +108,15 @@ projections substitute an empty filter and the sort fallback. Saved-view argumen
 validated before persistence. Runtime binding, identity binding and source resolution are followed
 by semantic/access validation again.
 
+## Catalog and semantic validation
+
+`/catalog` declares every queryable table with its logical fields, kinds, nullability, primary key,
+and per-audience access. It holds no relation names, columns, or SQL; the kernel binds those.
+`/validator` exports `validateRyotQLDocument(document, access)`, which checks an executable document
+against the catalog: table and field access, alias scope, correlation, aggregate and ordering rules,
+include bounds, and result limits. Stored documents use `savedViewDataSourceAccess`, the plugin
+audience of a standard user.
+
 ## Execution boundary
 
 HTTP execution, sandbox host calls, and iframe bridge execution use `ExecutionRequest` from

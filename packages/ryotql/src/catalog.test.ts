@@ -1,7 +1,6 @@
 import { expect } from "bun:test";
 
 import { it } from "@voila.dev/effect-bun-test";
-import { sql } from "drizzle-orm";
 
 import {
 	canAccessCatalogTable,
@@ -15,17 +14,13 @@ import {
 const textField = (access?: CatalogField["access"]): CatalogField => ({
 	kind: "text",
 	nullable: false,
-	resolve: () => sql`NULL`,
 	...(access ? { access } : {}),
 });
 
 const kernelOnlyTable: CatalogTable = {
 	primaryKey: ["id"],
-	name: "kernel_only",
+	visibility: { user: { pluginReadable: false } },
 	fields: { id: textField(), audit: textField("admin"), secret: textField("kernel") },
-	visibility: {
-		user: { type: "owned", column: "user_id", includeGlobal: false, pluginReadable: false },
-	},
 };
 
 const kernel = {
@@ -47,7 +42,7 @@ it("grants tables only to scopes whose policy the table declares", () => {
 	expect(canAccessCatalogTable(kernelOnlyTable, admin)).toBe(false);
 	expect(canAccessCatalogTable(kernelOnlyTable, system)).toBe(false);
 
-	const adminOnlyTable = { ...kernelOnlyTable, visibility: { admin: { type: "all" } } } as const;
+	const adminOnlyTable = { ...kernelOnlyTable, visibility: { admin: true } } as const;
 	expect(canAccessCatalogTable(adminOnlyTable, admin)).toBe(true);
 	expect(canAccessCatalogTable(adminOnlyTable, kernel)).toBe(false);
 	expect(canAccessCatalogTable(adminOnlyTable, plugin)).toBe(false);

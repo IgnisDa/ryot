@@ -6,9 +6,9 @@ import type {
 import type { RowsResult } from "@ryot-app/contract/modules/ryotql/language";
 import { FieldSelection as ExecutableFieldSelection } from "@ryot-app/contract/modules/ryotql/language";
 import type { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
-import { bindDocument } from "@ryot-app/ryotql/binding";
 import { Result, Schema } from "effect";
 
+import { bindDocument } from "./binding";
 import type { RyotQLAccess } from "./catalog";
 import { validateRyotQLDocument } from "./validator";
 

@@ -2,6 +2,11 @@ import { expect } from "bun:test";
 
 import type { ScalarExpression, TableReference } from "@ryot-app/contract/modules/ryotql/authored";
 import { ScalarExpression as ExecutableScalarExpression } from "@ryot-app/contract/modules/ryotql/language";
+import { it } from "@voila.dev/effect-bun-test";
+import { Result, Schema } from "effect";
+
+import { getCatalogTable } from "./catalog";
+import type { ScalarKind } from "./expression-kind";
 import {
 	ascending,
 	average,
@@ -37,12 +42,7 @@ import {
 	round,
 	sum,
 	table,
-} from "@ryot-app/ryotql";
-import { it } from "@voila.dev/effect-bun-test";
-import { Result, Schema } from "effect";
-
-import { getCatalogTable } from "./catalog";
-import type { ScalarKind } from "./expression-kind";
+} from "./index";
 import { expressionKind } from "./validator";
 
 const userAccess = { type: "user", audience: "kernel", accessClass: "standard" } as const;
