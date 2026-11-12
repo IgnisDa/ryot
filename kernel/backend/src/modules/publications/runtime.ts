@@ -63,7 +63,7 @@ export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 					}
 				}
 				const prepared = yield* pages
-					.preparePublication(userId, definition.page, snapshot?.page)
+					.preparePublication(userId, definition.page, snapshot ?? undefined)
 					.pipe(
 						Effect.catchTag("ClientPagePreparationError", (error) =>
 							Effect.fail(
@@ -280,12 +280,14 @@ export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 					count && Result.isSuccess(count)
 						? { ...resolved.settings, itemCount: count.success }
 						: resolved.settings;
+				yield* pages.retainPublicationComposition(resolved.prepared.capturedComposition);
 				return {
 					result,
 					settings,
 					document: resolved.document,
 					page: resolved.prepared.page,
 					arguments: capturedArguments,
+					composition: resolved.prepared.capturedComposition,
 				} satisfies PublicationSnapshot;
 			});
 

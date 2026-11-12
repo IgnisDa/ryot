@@ -581,6 +581,11 @@ const privateRecordsExportLayer = (savedViews: ListedSavedView[] = []) =>
 						discoverSnapshotDependencies: () => Effect.succeed(0),
 						addDependencyIds: (_runId, ids) => Ref.set(reads.embeddedDependencyIds, ids),
 						listReferencedInstallationIds: () => Effect.succeed(["installation-private"]),
+						findPublicationSources: () =>
+							Effect.succeed({
+								customViews: new Set<string>(),
+								collections: new Set(["private-entity"]),
+							}),
 						listSavedViewOverrides: (_userId, page) =>
 							Effect.succeed(
 								page?.after === undefined
@@ -1071,6 +1076,11 @@ const eventPagesExportLayer = withExportReads((reads) =>
 					listCalendarSourceOverrides: () => Effect.succeed([]),
 					discoverSnapshotDependencies: () => Effect.succeed(0),
 					listReferencedInstallationIds: () => Effect.succeed([]),
+					findPublicationSources: () =>
+						Effect.succeed({
+							customViews: new Set<string>(),
+							collections: new Set(["private-entity"]),
+						}),
 				}),
 				Layer.mock(BackupStaging, { listRecords: () => Effect.succeed([]) }),
 				BunFileSystem.layer,

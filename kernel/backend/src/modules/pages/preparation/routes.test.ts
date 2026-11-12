@@ -108,6 +108,7 @@ const routesLayer = Layer.unwrap(
 				isIdentityCurrent: () => Effect.die("unused"),
 				preparePublication: () => Effect.die("unused"),
 				publicationDocument: () => Effect.die("unused"),
+				retainPublicationComposition: () => Effect.die("unused"),
 				document: (current, requested) =>
 					Ref.update(requests, (all) => [
 						...all,

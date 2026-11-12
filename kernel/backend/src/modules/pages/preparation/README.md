@@ -82,7 +82,13 @@ use that compiled draft identity through the revision-fenced page source, never 
 or a caller-supplied inline document.
 
 Publication preparation reuses page graph resolution with a system-only plugin catalog. It accepts a
-frozen published-page descriptor for snapshots; live publications resolve the current published page.
+frozen published-page descriptor and captured composition identity/runtime entries for snapshots;
+live publications resolve the current published page.
 Runtime system artifacts can use scoped visitor capability grants, alongside the user page's own
 artifact. Private plugin dependency closures cannot resolve in this catalog. Publication documents
 use the shared artifact-access callback rather than a separate public-only composition pipeline.
+
+Snapshot composition materialization uses the captured graph and runtime entries through the same
+composition service. It checks current system installation eligibility without resolving current
+exports or selecting current artifact hashes. Capture retains image artifacts in durable storage;
+visitor grants and their session revocation checks remain unchanged.

@@ -5,7 +5,7 @@ import { Context, Effect, Layer } from "effect";
 import { ImageClientArtifacts } from "#modules/pages/bundles/image-artifacts";
 import { ClientArtifactStore } from "#modules/pages/bundles/store";
 
-import { composeClientPage } from "./composition";
+import { clientPageArtifactHashes, composeClientPage } from "./composition";
 import type { ResolvedClientPageGraph } from "./graph";
 import { PagesRepository } from "./repository";
 
@@ -27,19 +27,13 @@ export class ClientPageCompositionService extends Context.Service<ClientPageComp
 			});
 			const getOrMaterialize = Effect.fn("ClientPageComposition.getOrMaterialize")(function* (
 				graph: ResolvedClientPageGraph,
+				runtimeEntries: Readonly<Record<string, string>> = image.runtime.entries,
 			) {
 				const existing = yield* find(graph);
 				if (existing) {
 					return existing;
 				}
-				const hashes = new Set([
-					graph.identity.runtimeArtifactHash,
-					...graph.identity.contributors.map((contributor) =>
-						contributor.kind === "plugin"
-							? contributor.clientArtifactHash
-							: contributor.artifactHash,
-					),
-				]);
+				const hashes = clientPageArtifactHashes(graph.identity);
 				const descriptions = new Map<
 					string,
 					NonNullable<Effect.Success<ReturnType<typeof store.describe>>>
@@ -52,11 +46,7 @@ export class ClientPageCompositionService extends Context.Service<ClientPageComp
 					descriptions.set(hash, description);
 				}
 				const manifest = yield* Effect.sync(() =>
-					composeClientPage({
-						artifacts: descriptions,
-						identity: graph.identity,
-						runtimeEntries: image.runtime.entries,
-					}),
+					composeClientPage({ runtimeEntries, artifacts: descriptions, identity: graph.identity }),
 				);
 				const compositionHash = sha256Hex(stableStringify(manifest));
 				yield* repository.createComposition({

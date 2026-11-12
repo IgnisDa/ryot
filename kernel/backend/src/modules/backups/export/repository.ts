@@ -1,3 +1,4 @@
+import type { EntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import type { BackupRunId, PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	and,
@@ -648,6 +649,51 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 						.limit(1),
 				);
 			});
+			const findPublicationSources = Effect.fn("BackupExportRepository.findPublicationSources")(
+				function* (userId: UserId, sources: readonly EntitySourceReference[]) {
+					const collectionIds = sources.flatMap((source) =>
+						source.kind === "collection" ? [source.collectionId] : [],
+					);
+					const customViewIds = sources.flatMap((source) =>
+						source.kind === "saved-view" && source.reference.kind === "custom"
+							? [source.reference.savedViewId]
+							: [],
+					);
+					const collections = collectionIds.length
+						? yield* session.run((db) =>
+								db
+									.select({ id: schema.entity.id })
+									.from(schema.entity)
+									.where(
+										and(
+											eq(schema.entity.userId, userId),
+											inArray(schema.entity.id, collectionIds),
+											eq(schema.entity.entitySchemaSlug, "collection"),
+											isNull(schema.entity.entitySchemaPluginId),
+										),
+									),
+							)
+						: [];
+					const views = customViewIds.length
+						? yield* session.run((db) =>
+								db
+									.select({ id: schema.savedView.id })
+									.from(schema.savedView)
+									.where(
+										and(
+											eq(schema.savedView.userId, userId),
+											inArray(schema.savedView.id, customViewIds),
+										),
+									),
+							)
+						: [];
+					return {
+						customViews: new Set(views.map(({ id }) => id)),
+						collections: new Set(collections.map(({ id }) => id)),
+					};
+				},
+			);
+
 			return {
 				listPages,
 				listReminders,
@@ -657,6 +703,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 				assertMetadataBounds,
 				inspectRestoreTarget,
 				discoverDependencies,
+				findPublicationSources,
 				listSavedViewOverrides,
 				listCalendarSourceOverrides,
 				discoverSnapshotDependencies,

@@ -41,6 +41,16 @@ export class ClientArtifactStore extends Context.Service<ClientArtifactStore>()(
 				findFile,
 				isPublic: (hash: string) => image.publicArtifactHashes.has(hash),
 				exists: (hash: string) => Effect.map(describe(hash), (metadata) => metadata !== null),
+				retain: Effect.fn("ClientArtifactStore.retain")(function* (hashes: readonly string[]) {
+					for (const hash of hashes) {
+						const artifact = image.imageArtifactsByHash.get(hash);
+						if (artifact) {
+							yield* repository.persistClientArtifact(artifact);
+						} else {
+							yield* repository.loadClientArtifact(hash);
+						}
+					}
+				}),
 			};
 		}),
 	},

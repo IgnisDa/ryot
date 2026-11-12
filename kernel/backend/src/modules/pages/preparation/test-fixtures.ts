@@ -1,5 +1,6 @@
 import type { ClientPageCompositionIdentity } from "@ryot-app/contract/modules/pages/schemas";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { kernelPublicationRenderer } from "@ryot-app/kernel-renderers";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -7,6 +8,10 @@ import {
 	CLIENT_COMPILER_VERSION,
 	pluginExportSpecifier,
 } from "@ryot-app/plugin-client-contract";
+import { Effect } from "effect";
+
+import { resolveClientPageGraph } from "./graph";
+import type { PublishedPage } from "./published-page";
 
 export const pageReference = {
 	scope: "user" as const,
@@ -113,3 +118,25 @@ export const descriptions = () =>
 			},
 		],
 	]);
+
+export const publicationComposition = Effect.fn(function* (
+	page: null | PublishedPage,
+	runtimeArtifactHash: string = "a".repeat(64),
+	rendererArtifactHash: string = "b".repeat(64),
+) {
+	const graph = yield* resolveClientPageGraph(
+		page
+			? { ...page, page: true, plugins: [], clientImports: [], runtimeArtifactHash }
+			: {
+					plugins: [],
+					kernel: true,
+					clientImports: [],
+					runtimeArtifactHash,
+					rendererArtifactHash,
+					rendererName: kernelPublicationRenderer.name,
+					sourceHash: kernelPublicationRenderer.sourceHash,
+					definition: kernelPublicationRenderer.definition,
+				},
+	);
+	return { identity: graph.identity, runtimeEntries: { bootstrap: "bootstrap.js" } };
+});

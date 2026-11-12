@@ -22,7 +22,11 @@ import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema
 import { parseAppSchemaProperties } from "@ryot-app/contract/schema/property-values";
 import { buildDefinitionSnapshot, type DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
-import { PageClientArtifact, PluginClientArtifact } from "@ryot-app/plugin-client-contract";
+import {
+	type ClientArtifact,
+	PageClientArtifact,
+	PluginClientArtifact,
+} from "@ryot-app/plugin-client-contract";
 import { Context, Effect, FileSystem, Layer, Schema } from "effect";
 
 import {
@@ -45,6 +49,7 @@ import { type BackupExcludedEventSchema, EventsRepository } from "#modules/event
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { resolveIntegrationSettingsSchema } from "#modules/integrations/settings-schema";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
+import { clientPageArtifactHashes } from "#modules/pages/preparation/composition";
 import { concretePluginConfigSecretPaths } from "#modules/plugins/configuration/redaction";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
@@ -89,6 +94,7 @@ import type { ArchiveMetadata, StreamedSectionPath } from "../archive/sections";
 import { encodeArchiveJsonLine, encodeNdjson, IncrementalSha256 } from "../archive/streaming";
 import { isDefaultSystemInstallation } from "../installation-state";
 import {
+	describeClientArtifact,
 	describePageArtifact,
 	exportPageDefinition,
 	pagePluginKeys,
@@ -780,16 +786,23 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 					}
 					if (!row.snapshot) {
 						const values = yield* savedArgumentSources(document, row.definition.arguments, true);
+						const existing = yield* exportRepository.findPublicationSources(
+							userId,
+							values.sources.map(({ source }) => source),
+						);
 						if (
-							values.sources.some(
-								({ source }) =>
-									source.kind === "saved-view" &&
-									source.reference.kind !== "custom" &&
-									!context.savedView(
-										source.reference.slug,
-										source.reference.kind === "plugin" ? source.reference.pluginId : null,
-									),
-							)
+							values.sources.some(({ source }) => {
+								if (source.kind === "collection") {
+									return !existing.collections.has(source.collectionId);
+								}
+								if (source.reference.kind === "custom") {
+									return !existing.customViews.has(source.reference.savedViewId);
+								}
+								return !context.savedView(
+									source.reference.slug,
+									source.reference.kind === "plugin" ? source.reference.pluginId : null,
+								);
+							})
 						) {
 							continue;
 						}
@@ -823,6 +836,14 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							result: captured.result,
 							settings: captured.settings,
 							arguments: yield* exportSavedArguments(document, captured.arguments, pluginKeyById),
+							composition: {
+								...captured.composition,
+								artifacts: yield* Effect.forEach(
+									clientPageArtifactHashes(captured.composition.identity),
+									(hash) =>
+										Effect.map(pageArtifacts.loadClientArtifact(hash), describeClientArtifact),
+								),
+							},
 						};
 					}
 					publicationRecords.push({
@@ -1833,8 +1854,8 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						string,
 						ArchiveBlobManifest & { readonly filePath: string }
 					>();
-					const retainArtifact = Effect.fnUntraced(function* (artifact: PageClientArtifact) {
-						const artifactMetadata = describePageArtifact(artifact);
+					const retainArtifact = Effect.fnUntraced(function* (artifact: ClientArtifact) {
+						const artifactMetadata = describeClientArtifact(artifact);
 						for (const file of artifact.files) {
 							const description = artifactMetadata.files.find(({ name }) => name === file.name);
 							if (!description) {
@@ -1867,13 +1888,10 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						page: Effect.Success<ReturnType<typeof prepareExportPage>>,
 					) {
 						for (const publication of page.records.publications) {
-							if (publication.snapshot?.page) {
-								const captured = publication.snapshot.page;
-								const artifact = yield* validatePageArtifact(
-									yield* pageArtifacts.loadClientArtifact(captured.artifact.hash),
-									captured.definition,
-								);
-								yield* retainArtifact(artifact);
+							if (publication.snapshot) {
+								for (const artifact of publication.snapshot.composition.artifacts) {
+									yield* retainArtifact(yield* pageArtifacts.loadClientArtifact(artifact.hash));
+								}
 							}
 						}
 						for (const asset of page.managedAssets) {

@@ -9,6 +9,20 @@ import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 import { pageModule } from "./graph";
 import { kernelRendererModule } from "./kernel-renderers";
 
+export type CapturedClientPageComposition = {
+	readonly identity: ClientPageCompositionIdentity;
+	readonly runtimeEntries: Readonly<Record<string, string>>;
+};
+
+export const clientPageArtifactHashes = (identity: ClientPageCompositionIdentity) => [
+	...new Set([
+		identity.runtimeArtifactHash,
+		...identity.contributors.map((contributor) =>
+			contributor.kind === "plugin" ? contributor.clientArtifactHash : contributor.artifactHash,
+		),
+	]),
+];
+
 export type ArtifactDescription = {
 	readonly files: ReadonlyArray<{ readonly name: string; readonly contentType: string }>;
 };

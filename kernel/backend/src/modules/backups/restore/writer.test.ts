@@ -2140,7 +2140,7 @@ describe("account backup restore in PostgreSQL", () => {
 													},
 												}),
 											},
-											null,
+											[],
 										);
 									}
 									let firstViewId: string | undefined;
@@ -2215,7 +2215,7 @@ describe("account backup restore in PostgreSQL", () => {
 														reference: { kind: "custom", savedViewId: SavedViewId.make(view.id) },
 													}),
 												},
-												null,
+												[],
 											);
 										}
 										if (suffix === "") {

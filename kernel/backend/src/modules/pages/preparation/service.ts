@@ -24,10 +24,12 @@ import {
 	PluginRuntimeResolver,
 } from "#modules/plugins/catalog/runtime-resolver";
 
+import { type CapturedClientPageComposition, clientPageArtifactHashes } from "./composition";
 import { ClientPageCompositionService } from "./composition-service";
 import { generateClientDocument, generateClientDocumentWithAccess } from "./document";
 import {
 	clientPageCodeContributors,
+	clientPageGraphFromIdentity,
 	type GraphPlugin,
 	resolveClientPageGraph,
 	type ResolvedClientPageGraph,
@@ -610,15 +612,50 @@ export class PagesService extends Context.Service<PagesService>()(
 			const publicationComposition = Effect.fn("Pages.publicationComposition")(function* (
 				ownerUserId: UserId,
 				reference: PublicationPageReference,
-				frozen?: null | PublishedPage,
+				frozen?: {
+					readonly page: null | PublishedPage;
+					readonly composition: CapturedClientPageComposition;
+				},
 			) {
 				const available = (yield* listAvailable(ownerUserId)).filter(
 					(plugin) => plugin.scope === "system",
 				);
+				if (frozen) {
+					for (const contributor of frozen.composition.identity.contributors) {
+						if (contributor.kind !== "plugin") {
+							continue;
+						}
+						if (
+							contributor.scope !== "system" ||
+							!available.some(
+								(plugin) =>
+									plugin.id === contributor.pluginId &&
+									plugin.packageId === contributor.packageId &&
+									plugin.health === "ready",
+							)
+						) {
+							return yield* new ClientPagePreparationError({
+								reason: {
+									code: "dependency-unavailable",
+									reference: { scope: contributor.scope, packageId: contributor.packageId },
+								},
+							});
+						}
+					}
+					const identity = frozen.composition.identity;
+					const composition = yield* compositions.getOrMaterialize(
+						clientPageGraphFromIdentity(identity),
+						frozen.composition.runtimeEntries,
+					);
+					return {
+						composition,
+						page: frozen.page,
+						capturedComposition: frozen.composition,
+						contributors: clientPageCodeContributors(identity, available, false),
+					};
+				}
 				const page =
-					reference.kind === "page"
-						? (frozen ?? (yield* publishedPage(ownerUserId, reference.pageId)))
-						: null;
+					reference.kind === "page" ? yield* publishedPage(ownerUserId, reference.pageId) : null;
 				const graph = page
 					? yield* pageGraph(page, available)
 					: yield* resolveKernelRendererGraph(available, kernelPublicationRenderer);
@@ -627,21 +664,23 @@ export class PagesService extends Context.Service<PagesService>()(
 					page,
 					composition,
 					contributors: clientPageCodeContributors(graph.identity, available),
+					capturedComposition: { identity: graph.identity, runtimeEntries: image.runtime.entries },
 				};
 			});
 			const preparePublication = Effect.fn("Pages.preparePublication")(function* (
 				ownerUserId: UserId,
 				reference: PublicationPageReference,
-				frozen?: null | PublishedPage,
+				frozen?: {
+					readonly page: null | PublishedPage;
+					readonly composition: CapturedClientPageComposition;
+				},
 			) {
-				const { page, composition, contributors } = yield* publicationComposition(
-					ownerUserId,
-					reference,
-					frozen,
-				);
+				const { page, composition, contributors, capturedComposition } =
+					yield* publicationComposition(ownerUserId, reference, frozen);
 				return {
 					page,
 					contributors,
+					capturedComposition,
 					composition: compositionFor(composition),
 					rendererName: kernelPublicationRenderer.name,
 				};
@@ -651,7 +690,10 @@ export class PagesService extends Context.Service<PagesService>()(
 				compositionHash: string,
 				reference: PublicationPageReference,
 				access: (hash: string) => Effect.Effect<string, DbError>,
-				frozen?: null | PublishedPage,
+				frozen?: {
+					readonly page: null | PublishedPage;
+					readonly composition: CapturedClientPageComposition;
+				},
 			) {
 				const { composition } = yield* publicationComposition(ownerUserId, reference, frozen);
 				if (composition.compositionHash !== compositionHash) {
@@ -663,7 +705,15 @@ export class PagesService extends Context.Service<PagesService>()(
 					access,
 				).pipe(Effect.provideService(ClientArtifactStore, artifactStore));
 			});
-			return { prepare, document, isIdentityCurrent, preparePublication, publicationDocument };
+			return {
+				prepare,
+				document,
+				isIdentityCurrent,
+				preparePublication,
+				publicationDocument,
+				retainPublicationComposition: (composition: CapturedClientPageComposition) =>
+					artifactStore.retain(clientPageArtifactHashes(composition.identity)),
+			};
 		}),
 	},
 ) {

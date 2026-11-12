@@ -7,6 +7,7 @@ import {
 import { pluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
 import { CLIENT_PLUGIN_COMPILER_LIMITS } from "@ryot-app/plugin-client-compiler/limits";
 import {
+	ClientArtifact,
 	isPluginClientArtifactContentType,
 	PageClientArtifact,
 	pageClientArtifactMetadata,
@@ -22,7 +23,7 @@ import { preparePageDefinition } from "#modules/pages/authoring/definition";
 import type { ValidatedArchiveBinary } from "./archive/archive";
 import { archiveError } from "./archive/error";
 import { exportQueryPluginReferences, importQueryPluginReferences } from "./archive/references";
-import type { ArchivePageArtifact } from "./archive/schemas";
+import type { ArchiveClientArtifact, ArchivePageArtifact } from "./archive/schemas";
 
 export const exportPageDefinition = Effect.fn(function* (
 	definition: PageDefinition,
@@ -56,7 +57,7 @@ export const pagePluginKeys = (definition: PageDefinition) =>
 		),
 	]);
 
-export const describePageArtifact = (artifact: PageClientArtifact): ArchivePageArtifact => ({
+export const describeClientArtifact = (artifact: ClientArtifact): ArchiveClientArtifact => ({
 	...artifact,
 	files: artifact.files.map(({ name, contents, contentType }) => ({
 		name,
@@ -64,6 +65,31 @@ export const describePageArtifact = (artifact: PageClientArtifact): ArchivePageA
 		size: contents.byteLength,
 		sha256: sha256Hex(contents),
 	})),
+});
+
+export const describePageArtifact = (artifact: PageClientArtifact): ArchivePageArtifact => ({
+	...artifact,
+	files: describeClientArtifact(artifact).files,
+});
+
+const validateClientArtifactFiles = Effect.fn(function* (files: ClientArtifact["files"]) {
+	let size = 0;
+	for (const file of files) {
+		size += file.contents.byteLength;
+		if (
+			canonicalRelativePosixPathIssue(file.name) !== null ||
+			!isPluginClientArtifactContentType(file.contentType)
+		) {
+			return yield* archiveError("invalid_entry", "Invalid client artifact file", "pages.ndjson");
+		}
+		if (file.contentType.startsWith("text/javascript")) {
+			yield* Effect.try({
+				try: () => decodeExecutableText(file.contents),
+				catch: () => archiveError("invalid_entry", "Invalid client JavaScript", "pages.ndjson"),
+			});
+		}
+	}
+	return size;
 });
 
 export const validatePageArtifact = Effect.fn(function* (
@@ -74,22 +100,7 @@ export const validatePageArtifact = Effect.fn(function* (
 		Effect.mapError((error) => archiveError("invalid_entry", error.message, "pages.ndjson")),
 	);
 	const declarations = new Set(Object.values(definition.pluginDependencies).map(pluginPackageKey));
-	let size = 0;
-	for (const file of artifact.files) {
-		size += file.contents.byteLength;
-		if (
-			canonicalRelativePosixPathIssue(file.name) !== null ||
-			!isPluginClientArtifactContentType(file.contentType)
-		) {
-			return yield* archiveError("invalid_entry", "Invalid page artifact file", "pages.ndjson");
-		}
-		if (file.contentType.startsWith("text/javascript")) {
-			yield* Effect.try({
-				try: () => decodeExecutableText(file.contents),
-				catch: () => archiveError("invalid_entry", "Invalid page JavaScript", "pages.ndjson"),
-			});
-		}
-	}
+	const size = yield* validateClientArtifactFiles(artifact.files);
 	if (
 		size > CLIENT_PLUGIN_COMPILER_LIMITS.artifactBytes ||
 		artifact.files.length > CLIENT_PLUGIN_COMPILER_LIMITS.artifactFileCount ||
@@ -110,9 +121,8 @@ export const validatePageArtifact = Effect.fn(function* (
 	return artifact;
 });
 
-export const readPageArtifact = Effect.fn(function* (
-	metadata: ArchivePageArtifact,
-	definition: PageDefinition,
+const readClientArtifactFiles = Effect.fn(function* (
+	metadata: ArchiveClientArtifact,
 	blobs: ReadonlyMap<string, ValidatedArchiveBinary>,
 ) {
 	let size = 0;
@@ -151,7 +161,29 @@ export const readPageArtifact = Effect.fn(function* (
 		}
 		files.push({ contents, name: file.name, contentType: file.contentType });
 	}
-	return yield* validatePageArtifact({ ...metadata, files }, definition);
+	return files;
+});
+
+export const readClientArtifact = Effect.fn(function* (
+	metadata: ArchiveClientArtifact,
+	blobs: ReadonlyMap<string, ValidatedArchiveBinary>,
+) {
+	const files = yield* readClientArtifactFiles(metadata, blobs);
+	yield* validateClientArtifactFiles(files);
+	return yield* Schema.decodeEffect(ClientArtifact)({ ...metadata, files }).pipe(
+		Effect.mapError((error) => archiveError("invalid_entry", error.message)),
+	);
+});
+
+export const readPageArtifact = Effect.fn(function* (
+	metadata: ArchivePageArtifact,
+	definition: PageDefinition,
+	blobs: ReadonlyMap<string, ValidatedArchiveBinary>,
+) {
+	return yield* validatePageArtifact(
+		{ ...metadata, files: yield* readClientArtifactFiles(metadata, blobs) },
+		definition,
+	);
 });
 
 export const validatePageArtifactImports = Effect.fn(function* (

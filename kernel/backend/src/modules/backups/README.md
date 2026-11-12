@@ -153,7 +153,8 @@ MIME types, byte limits, imports, declaration identity and the owning package's 
 Restore allocates page IDs before rewriting saved-view renderers and inserts pages and immutable
 published artifacts through backup-owned historical persistence inside the restore transaction.
 It never invokes the compiler. Draft preview artifacts and their compiled-revision markers,
-compositions and capability grants are omitted. Runtime composition is derived afresh. Any page,
+derived composition rows and capability grants are omitted. Live composition is derived afresh;
+snapshot composition uses its captured graph. Any page,
 including an unpublished draft, makes a destination account unclean. Publications reference the
 restored page identities.
 
@@ -186,7 +187,9 @@ and live or snapshot mode. The archived query declaration supplies argument refe
 restore verifies live declarations against the archived page and validates partial owner bindings.
 Encoded collection, custom-view and plugin-view arguments reuse saved-argument reference handling.
 Only schema-declared IDs are remapped. Ordinary strings and captured query result IDs remain frozen.
-Live publications follow the restored page's current published definition.
+Live publications follow the restored page's current published definition. Export omits live
+publications whose bound collection or custom/built-in view no longer exists, including encoded
+entity-source arguments. Frozen snapshots remain independent of source existence.
 
 Snapshots retain the captured page definition, name and revisions, fully bound capture arguments,
 settings and first-page query results. Captured managed locators are collected independently of
@@ -196,8 +199,11 @@ with archived targets are remapped. Snapshot documents are never executed during
 
 The captured artifact has its own metadata and blob entries, independent of the page's current
 published artifact. Both survive when they differ. Restore validates and persists the captured
-artifact using the page artifact machinery, with no compiler. It recomputes captured definition
-hashes after mapping typed query owners. Publication links and visitor sessions are omitted;
+artifact using the page artifact machinery, with no compiler. Captured composition identities,
+runtime entries, and all dependency/kernel/runtime artifact metadata and blob bytes are also retained
+independently of current plugin artifacts. Restore reconstructs these generic artifacts without
+compilation and remaps composition page and plugin bindings; it never resolves current exports.
+Captured definition hashes are recomputed after mapping typed query owners. Publication links and visitor sessions are omitted;
 restored publications start active at revision 1 with no links. Existing publications, including
 revoked ones, make an account unclean.
 

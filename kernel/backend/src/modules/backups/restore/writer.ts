@@ -38,6 +38,7 @@ import {
 	definitionSourceFromSnapshot,
 } from "@ryot-app/definitions/snapshot";
 import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
+import type { ClientArtifact } from "@ryot-app/plugin-client-contract";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -109,8 +110,10 @@ import {
 	validatePageArtifactImports,
 } from "../pages";
 import {
+	importPublicationComposition,
 	kernelPublicationDocument,
 	publicationArguments,
+	readPublicationComposition,
 	rewritePublicationAssets,
 } from "../publications";
 import { importSavedArguments, savedArgumentSources } from "../saved-arguments";
@@ -1900,6 +1903,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 											) {
 												return yield* badRequest("Backup publication snapshot is too large");
 											}
+											yield* readPublicationComposition(value.snapshot, blobs);
 											if (value.snapshot.page) {
 												const page = value.snapshot.page;
 												if (
@@ -1913,8 +1917,6 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 													);
 												}
 												yield* importPageDefinition(page.definition, pluginIdByKey);
-												yield* validatePageArtifactImports(page.artifact, pageClients);
-												yield* readPageArtifact(page.artifact, page.definition, blobs);
 											} else if (value.definition.page.kind !== "kernel") {
 												return yield* badRequest("Backup publication snapshot page is missing");
 											}
@@ -2786,16 +2788,17 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 					};
 					let snapshot = null;
 					let artifact = null;
+					let capturedArtifacts: readonly ClientArtifact[] = [];
 					if (publication.snapshot) {
 						const captured = publication.snapshot;
+						capturedArtifacts = yield* readPublicationComposition(captured, blobs);
 						let page = null;
 						if (captured.page) {
 							const prepared = yield* importPageDefinition(captured.page.definition, pluginIdByKey);
-							artifact = yield* readPageArtifact(
-								captured.page.artifact,
-								captured.page.definition,
-								blobs,
-							);
+							artifact =
+								capturedArtifacts.find(
+									(candidate) => candidate.hash === captured.page?.artifact.hash,
+								) ?? (yield* badRequest("Backup snapshot page artifact is missing"));
 							page = {
 								name: captured.page.name,
 								artifactHash: artifact.hash,
@@ -2810,6 +2813,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							page,
 							document,
 							arguments: yield* rewriteArguments(captured.arguments),
+							composition: importPublicationComposition(captured.composition, pluginIdByKey, page),
 							result: yield* Schema.decodeUnknownEffect(RyotQLResponse)(
 								yield* rewritePublicationAssets(captured.result, assetLocators),
 							),
@@ -2831,7 +2835,7 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 							createdAt: parseDate(publication.createdAt),
 							snapshotArtifactHash: artifact?.hash ?? null,
 						},
-						artifact,
+						capturedArtifacts,
 					);
 				}
 				for (const integration of records.integrations) {

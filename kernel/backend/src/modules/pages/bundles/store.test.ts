@@ -49,8 +49,9 @@ const fakeRepositoryLayer = Layer.effectContext(
 		return Context.make(
 			ClientArtifactsRepository,
 			ClientArtifactsRepository.of({
-				persistClientArtifact: () => Effect.void,
-				loadClientArtifact: () => Effect.die(new Error("Unexpected full artifact read")),
+				persistClientArtifact: (artifact) => record(`persist:${artifact.hash}`),
+				loadClientArtifact: (hash) =>
+					record(`load:${hash}`).pipe(Effect.as({ ...metadata, hash, files: [file] })),
 				findArtifactFile: (hash, name) =>
 					record(`file:${hash}/${name}`).pipe(
 						Effect.as(
@@ -104,5 +105,18 @@ layer(storeLayer)((test) => {
 				]);
 			}),
 		testTimeout,
+	);
+});
+
+layer(storeLayer)("snapshot code retention", (test) => {
+	test.effect("persists image bytes and verifies already durable dependency artifacts", () =>
+		Effect.gen(function* () {
+			const store = yield* ClientArtifactStore;
+			yield* store.retain([publicHash, privateHash]);
+			expect(yield* (yield* FakeClientArtifactsRepository).databaseReads).toEqual([
+				`persist:${publicHash}`,
+				`load:${privateHash}`,
+			]);
+		}),
 	);
 });

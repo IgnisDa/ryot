@@ -122,6 +122,4 @@ Owner publication recipes select `publication.definition` using `PublicationDefi
 (`page`, `arguments`, `mode`). `publicationSourceArguments(EntitySourceReference)` encodes the
 `source` argument. `sourcePublicationsRecipe` matches active kernel publication pages by their
 encoded `definition.arguments.source`; user pages are excluded. The backend catalog must expose
-the persisted `definition` JSON column. The old `publicationSubjectSchemasRecipe`,
-`publicationBrowserSource`, `publicationItemDetailsRecipe`, `publicationItemLinksRecipe`, and
-`PublicationSubjectSchema` exports are removed; callers run the declared names by reference.
+the persisted `definition` JSON column.

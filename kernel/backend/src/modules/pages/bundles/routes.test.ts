@@ -29,6 +29,7 @@ const servicesLayer = Layer.effectContext(
 		return Context.make(
 			ClientArtifactStore,
 			ClientArtifactStore.of({
+				retain: () => Effect.die("unused"),
 				exists: () => Effect.succeed(false),
 				describe: () => Effect.succeed(null),
 				isPublic: (hash) => hash === publicHash,

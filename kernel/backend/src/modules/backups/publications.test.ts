@@ -3,10 +3,20 @@ import { expect } from "bun:test";
 import { BunFileSystem } from "@effect/platform-bun";
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
-import { BackupRunId, EntityId, PublicationId, UserId } from "@ryot-app/contract/schema/brands";
+import {
+	BackupRunId,
+	EntityId,
+	PluginId,
+	PluginPackageId,
+	PublicationId,
+	SavedViewId,
+	UserId,
+} from "@ryot-app/contract/schema/brands";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import {
 	clientArtifactFile,
+	clientArtifactMetadata,
+	clientRuntimeArtifactMetadata,
 	pageClientArtifactMetadata,
 	pageDeclarationHash,
 } from "@ryot-app/plugin-client-contract";
@@ -30,6 +40,7 @@ import { EventsRepository } from "#modules/events/repository";
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { preparePageDefinition } from "#modules/pages/authoring/definition";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
+import { publicationComposition } from "#modules/pages/preparation/test-fixtures";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import type { PublicationSnapshot } from "#modules/publications/model";
@@ -184,6 +195,61 @@ layer(services)((test) => {
 					kind: "collection",
 					collectionId: EntityId.make("deleted-source"),
 				});
+				const runtimeFile = clientArtifactFile({
+					path: "bootstrap.js",
+					contentType: "text/javascript; charset=utf-8",
+					bytes: new TextEncoder().encode("export {}; // captured runtime"),
+				});
+				const runtimeArtifact = {
+					...clientRuntimeArtifactMetadata("runtime", [runtimeFile]),
+					files: [runtimeFile],
+				};
+				const dependencyFile = clientArtifactFile({
+					path: "module.js",
+					contentType: "text/javascript; charset=utf-8",
+					bytes: new TextEncoder().encode('export const main = () => "old dependency";'),
+				});
+				const dependencyArtifact = {
+					...clientArtifactMetadata(
+						"dependency",
+						PluginPackageId.make("test/dependency"),
+						[dependencyFile],
+						{ imports: [], clientDeclarationHash: "d".repeat(64) },
+					),
+					files: [dependencyFile],
+				};
+				const currentDependencyFile = clientArtifactFile({
+					path: "module.js",
+					contentType: "text/javascript; charset=utf-8",
+					bytes: new TextEncoder().encode('export const replacement = () => "current dependency";'),
+				});
+				const currentDependencyArtifact = {
+					...clientArtifactMetadata(
+						"dependency",
+						dependencyArtifact.packageId,
+						[currentDependencyFile],
+						{ imports: [], clientDeclarationHash: "e".repeat(64) },
+					),
+					files: [currentDependencyFile],
+				};
+
+				const capturedPage = {
+					definition,
+					revision: 1,
+					authorityRevision: 1,
+					pageId: "source-page",
+					name: "Captured page",
+					artifactHash: oldArtifact.hash,
+					definitionHash: prepared.definitionHash,
+				};
+				const capturedComposition = yield* publicationComposition(
+					capturedPage,
+					runtimeArtifact.hash,
+				);
+				const deletedCustomSource = encodeEntitySourceReference({
+					kind: "saved-view",
+					reference: { kind: "custom", savedViewId: SavedViewId.make("deleted-view") },
+				});
 				const snapshot: PublicationSnapshot = {
 					document: definition.queries,
 					settings: { title: "Frozen" },
@@ -212,10 +278,40 @@ layer(services)((test) => {
 							},
 						},
 					},
+					composition: {
+						...capturedComposition,
+						identity: {
+							...capturedComposition.identity,
+							contributors: [
+								...capturedComposition.identity.contributors,
+								{
+									kind: "plugin",
+									scope: "system",
+									pluginDependencies: {},
+									revisionId: "old-revision",
+									contentHash: "old-content",
+									packageId: dependencyArtifact.packageId,
+									pluginId: PluginId.make("old-dependency"),
+									clientArtifactHash: dependencyArtifact.hash,
+									exports: [
+										{
+											name: "main",
+											kind: "presentation",
+											entry: "client/main.tsx",
+											automaticEntityPresentations: false,
+										},
+									],
+								},
+							],
+						},
+					},
 				};
 				yield* session.transaction(
 					Effect.gen(function* () {
 						yield* artifacts.persistClientArtifact(oldArtifact);
+						yield* artifacts.persistClientArtifact(runtimeArtifact);
+						yield* artifacts.persistClientArtifact(dependencyArtifact);
+						yield* artifacts.persistClientArtifact(currentDependencyArtifact);
 						yield* persistence.restorePage(
 							{
 								slug: "page",
@@ -251,6 +347,23 @@ layer(services)((test) => {
 									},
 								},
 								{
+									icon: "share",
+									userId: sourceUser,
+									showOwnerName: false,
+									pageId: "source-page",
+									title: "Frozen custom source",
+									snapshotArtifactHash: oldArtifact.hash,
+									snapshot: {
+										...snapshot,
+										arguments: { ...snapshot.arguments, source: deletedCustomSource },
+									},
+									definition: {
+										mode: "snapshot",
+										arguments: { source: deletedCustomSource },
+										page: { kind: "page", pageId: "source-page" },
+									},
+								},
+								{
 									title: "Live",
 									icon: "share",
 									userId: sourceUser,
@@ -263,6 +376,21 @@ layer(services)((test) => {
 										page: { kind: "page", pageId: "source-page" },
 									},
 								},
+								...[
+									{ source, label: "Deleted collection" },
+									{ source: deletedCustomSource, label: "Deleted custom view" },
+								].map(({ label, source: liveSource }) => ({
+									title: label,
+									icon: "share",
+									userId: sourceUser,
+									showOwnerName: false,
+									pageId: "source-page",
+									definition: {
+										mode: "live" as const,
+										arguments: { source: liveSource },
+										page: { kind: "page" as const, pageId: "source-page" },
+									},
+								})),
 								{
 									icon: "share",
 									title: "Revoked",
@@ -301,11 +429,26 @@ layer(services)((test) => {
 					),
 				);
 				const records = yield* collectExportFixtureRecords(exported, fs);
-				expect(records.publications).toHaveLength(2);
+				expect(records.publications.map(({ title }) => title).sort()).toEqual([
+					"Frozen",
+					"Frozen custom source",
+					"Live",
+				]);
 				expect(
 					records.publications.find(({ title }) => title === "Live")?.definition.arguments,
 				).toEqual({ text: "source-page" });
-				expect(exported.blobs).toHaveLength(2);
+				expect(exported.blobs).toHaveLength(4);
+				expect(exported.blobs.map(({ sha256 }) => sha256)).toContain(
+					sha256Hex(dependencyFile.contents),
+				);
+				expect(exported.blobs.map(({ sha256 }) => sha256)).not.toContain(
+					sha256Hex(currentDependencyFile.contents),
+				);
+				expect(
+					records.publications
+						.find(({ title }) => title === "Frozen")
+						?.snapshot?.composition.artifacts.map(({ hash }) => hash),
+				).toContain(dependencyArtifact.hash);
 				expect(exported.managedAssets.map(({ key }) => key)).toEqual(["captured-source-asset"]);
 				expect(
 					records.publications.find(({ title }) => title === "Frozen")?.snapshot?.result,
@@ -378,6 +521,16 @@ layer(services)((test) => {
 					[],
 					blobs,
 				);
+				yield* session.run((db) =>
+					db
+						.delete(tables.clientArtifactFile)
+						.where(eq(tables.clientArtifactFile.artifactHash, dependencyArtifact.hash)),
+				);
+				yield* session.run((db) =>
+					db
+						.delete(tables.clientArtifact)
+						.where(eq(tables.clientArtifact.hash, dependencyArtifact.hash)),
+				);
 				yield* session.transaction(
 					writer.restoreArchive(
 						destinationUser,
@@ -430,8 +583,29 @@ layer(services)((test) => {
 				expect(frozen.snapshot.settings).toEqual(snapshot.settings);
 				expect(live.definition.arguments).toEqual({ text: "source-page" });
 				expect(live.snapshot).toBeNull();
+				expect(
+					restored.find(({ title }) => title === "Frozen custom source")?.snapshot?.arguments[
+						"source"
+					],
+				).toBe(deletedCustomSource);
 				expect(frozen.revision).toBe(1);
 				expect(yield* artifacts.loadClientArtifact(oldArtifact.hash)).toEqual(oldArtifact);
+				expect(yield* artifacts.loadClientArtifact(dependencyArtifact.hash)).toEqual(
+					dependencyArtifact,
+				);
+				expect(
+					frozen.snapshot.composition.identity.contributors.find(
+						(contributor) => contributor.kind === "plugin",
+					),
+				).toMatchObject({
+					revisionId: "old-revision",
+					clientArtifactHash: dependencyArtifact.hash,
+				});
+				expect(
+					frozen.snapshot.composition.identity.contributors.find(
+						(contributor) => contributor.kind === "page",
+					),
+				).toMatchObject({ pageId: restoredPage.id });
 				expect(
 					yield* session.run((db) =>
 						db

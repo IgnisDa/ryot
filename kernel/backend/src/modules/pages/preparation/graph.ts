@@ -35,6 +35,10 @@ export type ResolvedClientPageGraph = {
 	readonly identity: ClientPageCompositionIdentity;
 };
 
+export const clientPageGraphFromIdentity = (
+	identity: ClientPageCompositionIdentity,
+): ResolvedClientPageGraph => ({ identity, compositionKey: sha256Hex(stableStringify(identity)) });
+
 export type GraphPlugin = Pick<
 	AvailablePlugin,
 	| "id"
@@ -52,6 +56,7 @@ export type GraphPlugin = Pick<
 export const clientPageCodeContributors = (
 	identity: ClientPageCompositionIdentity,
 	available: ReadonlyArray<AvailablePlugin>,
+	requireCurrentRevision = true,
 ): readonly ClientPageCodeContributor[] => {
 	const byId = new Map(available.map((plugin) => [plugin.id, plugin]));
 	return identity.contributors.map((contributor) => {
@@ -70,7 +75,7 @@ export const clientPageCodeContributors = (
 		if (
 			!installed ||
 			installed.packageId !== contributor.packageId ||
-			installed.pluginRevisionId !== contributor.revisionId
+			(requireCurrentRevision && installed.pluginRevisionId !== contributor.revisionId)
 		) {
 			throw new Error(`Missing runtime installation for ${contributor.pluginId}`);
 		}
@@ -447,5 +452,5 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			})),
 		],
 	};
-	return { identity, compositionKey: sha256Hex(stableStringify(identity)) };
+	return clientPageGraphFromIdentity(identity);
 });

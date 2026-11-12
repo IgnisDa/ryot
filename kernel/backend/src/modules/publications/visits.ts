@@ -240,7 +240,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 								}),
 								({ token }) => token,
 							),
-						found.publication.snapshot?.page,
+						found.publication.snapshot ?? undefined,
 					)
 					.pipe(Effect.catchTag("ClientPagePreparationError", () => Effect.succeed(null)));
 				if (!generated) {

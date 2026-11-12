@@ -150,6 +150,7 @@ const documentDependenciesLayer = Layer.effectContext(
 		return Context.make(
 			ClientArtifactStore,
 			ClientArtifactStore.of({
+				retain: () => Effect.die("unused"),
 				findFile: () => Effect.succeed(null),
 				isPublic: (hash) => hash === "a".repeat(64),
 				exists: (hash) => Effect.succeed(description.has(hash)),

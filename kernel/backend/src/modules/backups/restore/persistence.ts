@@ -14,7 +14,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
-import type { PageClientArtifact } from "@ryot-app/plugin-client-contract";
+import type { ClientArtifact, PageClientArtifact } from "@ryot-app/plugin-client-contract";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -211,10 +211,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						| "showOwnerName"
 						| "snapshotArtifactHash"
 					>,
-					artifact: null | PageClientArtifact,
+					capturedArtifacts: readonly ClientArtifact[],
 				) {
 					yield* session.requireTransaction;
-					if (artifact) {
+					for (const artifact of capturedArtifacts) {
 						yield* artifacts.persistClientArtifact(artifact);
 					}
 					yield* session.run((db) => db.insert(schema.publication).values(input));

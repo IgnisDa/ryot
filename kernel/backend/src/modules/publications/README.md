@@ -21,23 +21,27 @@ one database snapshot and one execution clock. Missing required arguments fail c
 response must fit 2 MB; failed capture leaves the previous publication intact. Snapshot reads never
 execute a query or fall back to live data, and reject changed arguments, filters, sorts or pagination.
 Refresh is a republish. Display metadata and the published page definition, revision, declaration
-hash and compiled artifact hash are frozen with the results. A foreign key retains the frozen page
-artifact even after the owner republishes the page.
+hash and compiled artifact hash are frozen with the results. The captured composition also freezes
+all dependency exports and artifact identities, kernel renderer code, and runtime entries until refresh.
+Capture persists image-owned artifacts alongside the already durable page and plugin artifacts.
 
 `publication.definition` stores `PublicationDefinition`. The nullable `pageId` is its owned user-page
 reference. `publication.snapshot` stores `PublicationSnapshot` from `model.ts`: `{page, document,
-arguments, settings, result}`. `page` is a nullable `PublishedPage` descriptor; user pages include their
-source definition and artifact hash. `result` is the complete `RyotQLResponse` with capture clock and
+arguments, settings, result, composition}`. `page` is a nullable `PublishedPage` descriptor; user pages
+include their source definition and artifact hash. `result` is the complete `RyotQLResponse` with capture clock and
 all query results. `snapshotArtifactHash` mirrors `snapshot.page.artifactHash` for retention. Backups
-must export the frozen artifact bytes as well as these fields, remap page/source and result asset
-references, and restore them without compilation. Links and sessions are never portable.
+must export every captured composition artifact and its metadata as well as these fields, remap
+page/source and result asset references, and restore them without compilation. Links and sessions are never portable.
 
 ## Code And Assets
 
 Visitor composition uses the ordinary page graph, import checks, dependency closure and capability
 pipeline. Only system plugins enter its catalog, including system artifacts that require private
-capability URLs. Owner-private plugin dependencies fail preparation. User-page frames always receive
-`writeAccess: false`. Artifact grants are scoped to the visitor session and publication revision;
+capability URLs. Owner-private plugin dependencies fail preparation. Snapshot visits assemble the
+captured graph with the ordinary composition machinery; dependency updates or removed exports never replace captured code.
+Each captured plugin must still be a ready system installation of the same package, so unavailable
+dependencies report `dependency-unavailable` until eligibility returns or the snapshot is refreshed.
+User-page frames always receive `writeAccess: false`. Artifact grants are scoped to the visitor session and publication revision;
 file delivery rechecks session/link expiry, revocation, owner disablement and the instance switch.
 
 Managed assets are authorized only after they occur in a successful live result, with grants scoped

@@ -94,6 +94,7 @@ const compositionLayer = ClientPageCompositionService.layer.pipe(
 						ClientArtifactStore,
 						ClientArtifactStore.of({
 							isPublic: () => true,
+							retain: () => Effect.die("unused"),
 							findFile: () => Effect.succeed(null),
 							exists: (hash) => Effect.succeed(files.has(hash)),
 							describe: (hash) => {
@@ -164,5 +165,19 @@ layer(compositionLayer)((test) => {
 				expect(Exit.isFailure(yield* Effect.exit(compositions.getOrMaterialize(graph)))).toBe(true);
 			}),
 		testTimeout,
+	);
+});
+
+layer(compositionLayer)("captured runtime entries", (test) => {
+	test.effect("materializes captured entry bindings independently of the current image", () =>
+		Effect.gen(function* () {
+			const service = yield* ClientPageCompositionService;
+			const composition = yield* service.getOrMaterialize(graph, {
+				sdk: "bootstrap.js",
+				bootstrap: "runtime.js",
+			});
+			expect(composition.manifest.bootstrap.file).toBe("runtime.js");
+			expect(composition.manifest.imports["sdk"]?.file).toBe("bootstrap.js");
+		}),
 	);
 });

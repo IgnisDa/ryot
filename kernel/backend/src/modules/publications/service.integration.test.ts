@@ -33,6 +33,7 @@ import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
 import { PagesService } from "#modules/pages/preparation/service";
+import { publicationComposition } from "#modules/pages/preparation/test-fixtures";
 import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
 import { TransientValues } from "#platform/transient-values";
@@ -188,8 +189,9 @@ const testPages = Layer.effect(
 			document: () => Effect.die("unused"),
 			isIdentityCurrent: () => Effect.die("unused"),
 			publicationDocument: () => Effect.die("unused"),
+			retainPublicationComposition: () => Effect.void,
 			preparePublication: Effect.fn(function* (userId, reference, frozen) {
-				let page = frozen ?? null;
+				let page = frozen?.page ?? null;
 				if (!page && reference.kind === "page") {
 					const [row] = yield* session.run((db) =>
 						db
@@ -221,6 +223,7 @@ const testPages = Layer.effect(
 					page,
 					contributors: [],
 					rendererName: "publication",
+					capturedComposition: frozen?.composition ?? (yield* publicationComposition(page)),
 					composition: {
 						format: 1,
 						hash: "test",

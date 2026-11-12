@@ -9,7 +9,11 @@ import {
 	relationshipDataFields,
 } from "@ryot-app/contract/modules/imports/data-json";
 import { NotificationOutcome } from "@ryot-app/contract/modules/notifications/delivery";
-import { PageDefinition, PageOrigin } from "@ryot-app/contract/modules/pages/schemas";
+import {
+	ClientPageCompositionIdentity,
+	PageDefinition,
+	PageOrigin,
+} from "@ryot-app/contract/modules/pages/schemas";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	CreatePublicationBody,
@@ -34,8 +38,10 @@ import { isNamedTimeZone } from "@ryot-app/contract/schema/time-zone";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import {
+	ClientRuntimeArtifactMetadata,
 	PageClientArtifactMetadata,
 	PluginClientArtifactFromBase64,
+	PluginClientArtifactMetadata,
 } from "@ryot-app/plugin-client-contract";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Schema } from "effect";
@@ -115,6 +121,24 @@ export const ArchivePageArtifact = strictStruct({
 	),
 });
 export type ArchivePageArtifact = typeof ArchivePageArtifact.Type;
+
+export const ArchiveClientArtifact = Schema.Union([
+	ArchivePageArtifact,
+	strictStruct({
+		...ClientRuntimeArtifactMetadata.fields,
+		files: ArchivePageArtifact.fields.files,
+	}),
+	strictStruct({ ...PluginClientArtifactMetadata.fields, files: ArchivePageArtifact.fields.files }),
+]);
+export type ArchiveClientArtifact = typeof ArchiveClientArtifact.Type;
+
+export const ArchivePublicationComposition = strictStruct({
+	identity: ClientPageCompositionIdentity,
+	artifacts: Schema.Array(ArchiveClientArtifact),
+	runtimeEntries: Schema.Record(Schema.String, Schema.String),
+});
+
+export type ArchivePublicationComposition = typeof ArchivePublicationComposition.Type;
 
 export const ArchivePage = strictStruct({
 	origin: PageOrigin,
@@ -522,6 +546,7 @@ export const ArchivePublication = strictStruct({
 	snapshot: Schema.NullOr(
 		strictStruct({
 			result: RyotQLResponse,
+			composition: ArchivePublicationComposition,
 			settings: Schema.Record(Schema.String, JsonValue),
 			arguments: Schema.Record(Schema.String, JsonValue),
 			page: Schema.NullOr(

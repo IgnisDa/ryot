@@ -9,6 +9,7 @@ import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/refe
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { fixtureManifest } from "@ryot-app/contract/testing";
+import { kernelPublicationRenderer } from "@ryot-app/kernel-renderers";
 import { pageDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
@@ -32,6 +33,7 @@ import { ClientPageCompositionService } from "./composition-service";
 import { resolveClientPageGraph, type ResolvedClientPageGraph } from "./graph";
 import { PagesRepository } from "./repository";
 import { PagesService } from "./service";
+import { publicationComposition } from "./test-fixtures";
 
 const createdAt = new Date(0);
 const runtimeHash = "a".repeat(64);
@@ -64,10 +66,12 @@ const pageRow = {
 	publishedDefinitionHash: "published-definition",
 } satisfies typeof page.$inferSelect;
 const pluginHash = "b".repeat(64);
+const updatedPluginHash = "d".repeat(64);
 const artifacts = new Map([
 	[pageHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
 	[pluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
 	[runtimeHash, { files: [{ name: "bootstrap.js", contentType: "text/javascript" }] }],
+	[updatedPluginHash, { files: [{ name: "module.js", contentType: "text/javascript" }] }],
 ]);
 const manifest = fixtureManifest();
 const routeTarget = {
@@ -184,6 +188,7 @@ const stored = (graph: ResolvedClientPageGraph) => ({
 class ArtifactVisibility extends Context.Service<
 	ArtifactVisibility,
 	{
+		readonly importPage: Effect.Effect<void>;
 		readonly hide: (hash: string) => Effect.Effect<void>;
 		readonly setDeclaration: (definition: typeof pageDefinition) => Effect.Effect<void>;
 	}
@@ -194,6 +199,10 @@ const recordingDependenciesLayer = Layer.effectContext(
 		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
 		const privateHashes = new Set([pageHash]);
 		let declarationHash = pageDeclarationHash(pageDefinition);
+		let pageImports: readonly {
+			readonly exportName: string;
+			readonly reference: { readonly scope: "system"; readonly packageId: typeof plugin.packageId };
+		}[] = [];
 		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
 		return Context.make(
 			ClientPageCompositionService,
@@ -206,6 +215,7 @@ const recordingDependenciesLayer = Layer.effectContext(
 			Context.add(
 				ClientArtifactStore,
 				ClientArtifactStore.of({
+					retain: () => Effect.die("unused"),
 					findFile: () => Effect.succeed(null),
 					isPublic: (hash) => !privateHashes.has(hash),
 					exists: (hash) => Effect.succeed(artifacts.has(hash)),
@@ -217,12 +227,12 @@ const recordingDependenciesLayer = Layer.effectContext(
 										...description,
 										hash,
 										format: 1,
-										imports: [],
 										apiVersion: 1,
 										packageId: null,
 										bridgeVersion: 1,
 										compilerVersion: 1,
 										clientDeclarationHash: null,
+										imports: hash === pageHash ? pageImports : [],
 										...(hash === pageHash ? { pageDeclarationHash: declarationHash } : {}),
 									}
 								: null,
@@ -254,6 +264,11 @@ const recordingDependenciesLayer = Layer.effectContext(
 					Effect.sync(() => {
 						declarationHash = pageDeclarationHash(definition);
 					}),
+				importPage: Effect.sync(() => {
+					pageImports = [
+						{ exportName: "main", reference: { scope: "system", packageId: plugin.packageId } },
+					];
+				}),
 			}),
 		);
 	}),
@@ -624,6 +639,131 @@ layer(pagesLayer)((test) => {
 				);
 			}),
 		testTimeout,
+	);
+});
+
+layer(pagesLayer)("frozen publication code", (test) => {
+	test.effect(
+		"freezes dependency exports and artifacts until refresh while checking current eligibility",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const available = yield* AvailablePlugins;
+				const visibility = yield* ArtifactVisibility;
+				const system = { ...plugin, ownerUserId: null, scope: "system" as const };
+				const definition = {
+					...pageDefinition,
+					pluginDependencies: {
+						dependency: { scope: "system" as const, packageId: plugin.packageId },
+					},
+				};
+				yield* available.set([system]);
+				yield* visibility.setDeclaration(definition);
+				yield* visibility.importPage;
+				yield* visibility.hide(pluginHash);
+				yield* selections.setPage({ ...pageRow, publishedDefinition: definition });
+				const reference = { pageId: pageRow.id, kind: "page" as const };
+				const captured = yield* service.preparePublication(pageRow.userId, reference);
+				const frozen = { page: captured.page, composition: captured.capturedComposition };
+				const changed = {
+					...system,
+					contentHash: "updated-content",
+					pluginRevisionId: "updated-revision",
+					clientArtifactHash: updatedPluginHash,
+				};
+				yield* available.set([changed]);
+				const unchanged = yield* service.preparePublication(pageRow.userId, reference, frozen);
+				expect(unchanged.capturedComposition).toEqual(captured.capturedComposition);
+				expect(
+					unchanged.contributors.find((contributor) => contributor.kind === "plugin"),
+				).toMatchObject({ revisionId: "revision", contentHash: "source-hash" });
+				const refreshed = yield* service.preparePublication(pageRow.userId, reference);
+				expect(refreshed.capturedComposition.identity).not.toEqual(
+					captured.capturedComposition.identity,
+				);
+				expect(
+					refreshed.capturedComposition.identity.contributors.find(
+						(contributor) => contributor.kind === "plugin",
+					),
+				).toMatchObject({ clientArtifactHash: updatedPluginHash });
+				expect(
+					refreshed.contributors.find((contributor) => contributor.kind === "plugin"),
+				).toMatchObject({ revisionId: "updated-revision" });
+				yield* available.set([
+					{
+						...changed,
+						manifest: { ...changed.manifest, client: { ...changed.manifest.client, exports: {} } },
+					},
+				]);
+				const requested: string[] = [];
+				const document = yield* service.publicationDocument(
+					pageRow.userId,
+					captured.composition.hash,
+					reference,
+					(hash) =>
+						Effect.sync(() => {
+							requested.push(hash);
+							return pageToken;
+						}),
+					frozen,
+				);
+				expect(
+					Object.values(document?.importMap.imports ?? {}).some((url) => url.includes(pluginHash)),
+				).toBe(true);
+				expect(
+					Object.values(document?.importMap.imports ?? {}).some((url) =>
+						url.includes(updatedPluginHash),
+					),
+				).toBe(false);
+				expect(requested).toContain(pluginHash);
+				expect(
+					yield* service.preparePublication(pageRow.userId, reference).pipe(Effect.flip),
+				).toMatchObject({ reason: { code: "export-not-found" } });
+				for (const plugins of [
+					[],
+					[plugin],
+					[{ ...changed, health: "needs-configuration" as const }],
+				]) {
+					yield* available.set(plugins);
+					expect(
+						yield* service.preparePublication(pageRow.userId, reference, frozen).pipe(Effect.flip),
+					).toMatchObject({ reason: { code: "dependency-unavailable" } });
+				}
+			}),
+	);
+
+	test.effect(
+		"uses captured kernel and runtime artifacts without resolving current kernel sources",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				yield* (yield* AvailablePlugins).set([]);
+				const composition = yield* publicationComposition(null, runtimeHash, pageHash);
+				const frozen = { page: null, composition };
+				const prepared = yield* service.preparePublication(
+					pageRow.userId,
+					{ kind: "kernel", name: "publication" },
+					frozen,
+				);
+				expect(prepared.capturedComposition).toEqual(composition);
+				const document = yield* service.publicationDocument(
+					pageRow.userId,
+					prepared.composition.hash,
+					{ kind: "kernel", name: "publication" },
+					() => Effect.succeed(pageToken),
+					frozen,
+				);
+				expect(document?.bootstrap).toContain(runtimeHash);
+				expect(
+					Object.values(document?.importMap.imports ?? {}).some((url) => url.includes(pageHash)),
+				).toBe(true);
+				expect(prepared.contributors).toContainEqual({
+					kind: "kernel-renderer",
+					name: kernelPublicationRenderer.name,
+					sourceHash: kernelPublicationRenderer.sourceHash,
+				});
+			}),
 	);
 });
 
