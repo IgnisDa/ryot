@@ -1,14 +1,19 @@
-import type { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
+import type { PublicationDefinition } from "@ryot-app/contract/modules/publications/schemas";
 import { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
 import { generateId } from "better-auth";
-import { boolean, index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
+import { boolean, foreignKey, index, integer, jsonb, snakeCase, text } from "drizzle-orm/pg-core";
+
+import type { PublicationSnapshot } from "#modules/publications/model";
 
 import { user } from "./auth";
+import { clientArtifact } from "./client-artifacts";
+import { page } from "./pages";
 import { timestamptz, updatedAtColumn } from "./timestamps";
 
 export const publication = snakeCase.table(
 	"publication",
 	{
+		pageId: text(),
 		description: text(),
 		icon: text().notNull(),
 		title: text().notNull(),
@@ -16,8 +21,10 @@ export const publication = snakeCase.table(
 		updatedAt: updatedAtColumn(),
 		showOwnerName: boolean().notNull(),
 		revision: integer().notNull().default(1),
+		snapshot: jsonb().$type<PublicationSnapshot>(),
 		createdAt: timestamptz().defaultNow().notNull(),
-		source: jsonb().$type<PublicationSource>().notNull(),
+		definition: jsonb().$type<PublicationDefinition>().notNull(),
+		snapshotArtifactHash: text().references(() => clientArtifact.hash),
 		userId: text()
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -26,7 +33,14 @@ export const publication = snakeCase.table(
 			.primaryKey()
 			.$defaultFn(() => /* @__PURE__ */ PublicationId.make(generateId())),
 	},
-	(table) => [index("publication_user_id_idx").on(table.userId)],
+	(table) => [
+		index("publication_user_id_idx").on(table.userId),
+		foreignKey({
+			name: "publication_page_owner_fk",
+			columns: [table.pageId, table.userId],
+			foreignColumns: [page.id, page.userId],
+		}).onDelete("restrict"),
+	],
 );
 
 export const publicationLink = snakeCase.table(

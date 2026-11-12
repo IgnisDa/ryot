@@ -155,7 +155,8 @@ export class PageAuthoringRepository extends Context.Service<PageAuthoringReposi
 					.pipe(
 						Effect.mapError((error) =>
 							(error.code === "23001" || error.code === "23503") &&
-							((error.table === "saved_view" && error.constraint === "saved_view_page_owner_fk") ||
+							(error.constraint === "publication_page_owner_fk" ||
+								(error.table === "saved_view" && error.constraint === "saved_view_page_owner_fk") ||
 								error.constraint === `${error.table}_page_id_user_id_fkey`)
 								? new PageAuthoringError({ reason: { code: "page-in-use" } })
 								: error,

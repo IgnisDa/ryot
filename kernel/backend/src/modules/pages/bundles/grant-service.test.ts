@@ -9,10 +9,12 @@ import { ReusableCapabilityGrantStore } from "#modules/pages/bundles/reusable-ca
 import { TransientValues } from "#platform/transient-values";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
+import { ClientArtifactGrantAuthority } from "./grant-authority";
 import { ClientArtifactGrantService } from "./grant-service";
 
 const grantServiceLayer = ClientArtifactGrantService.layer.pipe(
 	Layer.provide(ReusableCapabilityGrantStore.layer),
+	Layer.provide(ClientArtifactGrantAuthority.denied),
 	Layer.provideMerge(TransientValues.layer),
 	Layer.provideMerge(isolatedDatabaseLayer("artifact_grants")),
 );

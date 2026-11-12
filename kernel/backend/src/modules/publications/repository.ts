@@ -1,4 +1,4 @@
-import type { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
+import type { PublicationDefinition } from "@ryot-app/contract/modules/publications/schemas";
 import type { PublicationId, PublicationLinkId, UserId } from "@ryot-app/contract/schema/brands";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -7,12 +7,15 @@ import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";
 import { publication, publicationLink } from "#schema/tables/publications";
 
+import type { PublicationSnapshot } from "./model";
+
 type PublicationDetails = {
 	readonly icon: string;
 	readonly title: string;
 	readonly showOwnerName: boolean;
-	readonly source: PublicationSource;
 	readonly description: null | string;
+	readonly definition: PublicationDefinition;
+	readonly snapshot: null | PublicationSnapshot;
 };
 
 export class PublicationsRepository extends Context.Service<PublicationsRepository>()(
@@ -61,7 +64,13 @@ export class PublicationsRepository extends Context.Service<PublicationsReposito
 				const [row] = yield* session.run((db) =>
 					db
 						.insert(publication)
-						.values({ ...details, userId })
+						.values({
+							...details,
+							userId,
+							snapshotArtifactHash: details.snapshot?.page?.artifactHash ?? null,
+							pageId:
+								details.definition.page.kind === "page" ? details.definition.page.pageId : null,
+						})
 						.returning({ id: publication.id, revision: publication.revision }),
 				);
 				if (!row) {
@@ -78,7 +87,13 @@ export class PublicationsRepository extends Context.Service<PublicationsReposito
 				const [row] = yield* session.run((db) =>
 					db
 						.update(publication)
-						.set({ ...details, revision: sql`${publication.revision} + 1` })
+						.set({
+							...details,
+							revision: sql`${publication.revision} + 1`,
+							snapshotArtifactHash: details.snapshot?.page?.artifactHash ?? null,
+							pageId:
+								details.definition.page.kind === "page" ? details.definition.page.pageId : null,
+						})
 						.where(
 							and(
 								eq(publication.id, publicationId),

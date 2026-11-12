@@ -114,7 +114,7 @@ export const PublicationVisitsRoutesLive = HttpApiBuilder.group(
 					const principal = yield* PublicationPrincipal;
 					const visits = yield* PublicationVisitsService;
 					return yield* visits
-						.describe(principal, payload.source, payload.arguments)
+						.describe(principal, payload.query, payload.arguments)
 						.pipe(dieOnDbError);
 				}),
 			)

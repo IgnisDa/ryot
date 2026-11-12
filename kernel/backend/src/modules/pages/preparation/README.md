@@ -80,3 +80,9 @@ frames always have `writeAccess: false`, with no operation targets, including wh
 has a write grant. Draft edits invalidate preview preparation and documents. Preview queries must
 use that compiled draft identity through the revision-fenced page source, never the published source
 or a caller-supplied inline document.
+
+Publication preparation reuses page graph resolution with a system-only plugin catalog. It accepts a
+frozen published-page descriptor for snapshots; live publications resolve the current published page.
+Runtime system artifacts can use scoped visitor capability grants, alongside the user page's own
+artifact. Private plugin dependency closures cannot resolve in this catalog. Publication documents
+use the shared artifact-access callback rather than a separate public-only composition pipeline.

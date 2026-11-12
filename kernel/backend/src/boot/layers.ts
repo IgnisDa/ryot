@@ -91,10 +91,7 @@ import {
 } from "#modules/notifications/layer";
 import { OAuthConnectionsServiceLive } from "#modules/oauth-connections/layer";
 import { PageAuthoringServiceLive } from "#modules/pages/authoring/layer";
-import {
-	ClientArtifactGrantServiceLive,
-	ClientArtifactStoreLive,
-} from "#modules/pages/bundles/layer";
+import { ClientArtifactStoreLive } from "#modules/pages/bundles/layer";
 import { PagesServiceLive } from "#modules/pages/preparation/layer";
 import { PluginCatalogHub, PluginCatalogInvalidatorLive } from "#modules/plugins/catalog/events";
 import { IntegrationProviderCatalog } from "#modules/plugins/catalog/integration-providers";
@@ -113,7 +110,10 @@ import {
 	PluginInstallationJobOperationsProvidedLive,
 } from "#modules/plugins/operations/layer";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { PublicationsServiceLive } from "#modules/publications/layer";
+import {
+	PublicationArtifactGrantsLive,
+	PublicationsServiceLive,
+} from "#modules/publications/layer";
 import { RelationshipsServiceLive } from "#modules/relationships/layer";
 import { ReminderEntityLifecycleLive } from "#modules/reminders/entity-lifecycle";
 import {
@@ -302,7 +302,7 @@ const ServicesLive = Layer.mergeAll(
 	PagesServiceLive,
 	PageAuthoringServiceLive,
 	PublicationsServiceLive,
-	ClientArtifactGrantServiceLive,
+	PublicationArtifactGrantsLive,
 	ClientArtifactStoreLive,
 	AutomationReconciliationLive,
 	AutomationRetentionLive,

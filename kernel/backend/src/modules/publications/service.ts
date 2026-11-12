@@ -2,25 +2,24 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import {
 	type CreatePublicationBody,
 	type CreatePublicationLinkBody,
-	PUBLICATION_SUBJECT_LIMIT,
 	PublicationBadRequest,
 	PublicationNotFound,
 	PublicationsDisabled,
-	type PublicationSource,
 	type PublicationStatusResponse,
 	type RepublishPublicationBody,
 } from "@ryot-app/contract/modules/publications/schemas";
 import type { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { sql } from "drizzle-orm";
 import { Clock, Context, DateTime, Effect, Layer } from "effect";
 
-import { RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 import { generateOpaqueTicket } from "#platform/http/opaque-tickets";
 import { trimToNull } from "#platform/validation";
 
 import { PublicationsRepository } from "./repository";
+import { PublicationRuntime } from "./runtime";
 import { PublicationSessions } from "./sessions";
 
 type OwnerUser = Pick<CurrentUserValue, "id" | "preferences">;
@@ -33,7 +32,7 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 	{
 		make: Effect.gen(function* () {
 			const config = yield* AppConfig;
-			const ryotql = yield* RyotQLService;
+			const runtime = yield* PublicationRuntime;
 			const session = yield* DatabaseSession;
 			const sessions = yield* PublicationSessions;
 			const repository = yield* PublicationsRepository;
@@ -44,37 +43,16 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 
 			const write = <A, E, R>(user: OwnerUser, work: Effect.Effect<A, E, R>) =>
 				session
-					.transaction(Effect.andThen(session.acquireUserWriteLock(user.id), work))
-					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
-
-			const evaluate = Effect.fn("Publications.evaluate")(function* (
-				user: OwnerUser,
-				source: PublicationSource,
-			) {
-				return yield* ryotql
-					.resolvePublicationSubjects({
-						source,
-						ownerUserId: user.id,
-						language: user.preferences.language,
-						subjectLimit: PUBLICATION_SUBJECT_LIMIT,
-					})
-					.pipe(
-						Effect.map((subjects): PublicationStatusResponse => ({
-							status: "ready",
-							itemCount: subjects.length,
-						})),
-						Effect.catchTags({
-							RyotQLInternalError: () =>
-								Effect.succeed<PublicationStatusResponse>({ status: "source-unavailable" }),
-							RyotQLBadRequest: (error) =>
-								Effect.succeed<PublicationStatusResponse>(
-									error.reason.code === "subject-limit-exceeded"
-										? { status: "too-large", limit: error.reason.limit }
-										: { status: "source-unavailable" },
-								),
+					.transaction(
+						Effect.gen(function* () {
+							yield* session.run((db) =>
+								db.execute(sql`SET TRANSACTION ISOLATION LEVEL REPEATABLE READ`),
+							);
+							yield* session.acquireUserWriteLock(user.id);
+							return yield* work;
 						}),
-					);
-			});
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 
 			const prepareDetails = Effect.fn("Publications.prepareDetails")(function* (
 				user: OwnerUser,
@@ -92,19 +70,16 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 						reason: { field: "icon", code: "required-field" },
 					});
 				}
-				const status = yield* evaluate(user, body.source);
-				if (status.status === "source-unavailable") {
-					return yield* new PublicationBadRequest({ reason: { code: "source-unavailable" } });
-				}
-				if (status.status === "too-large") {
-					return yield* new PublicationBadRequest({
-						reason: { limit: status.limit, code: "scope-too-large" },
-					});
-				}
+				const definition = { page: body.page, mode: body.mode, arguments: body.arguments };
+				const snapshot = yield* runtime.capture(
+					{ userId: user.id, language: user.preferences.language },
+					definition,
+				);
 				return {
 					icon,
 					title,
-					source: body.source,
+					snapshot,
+					definition,
 					showOwnerName: body.showOwnerName,
 					description: trimToNull(body.description ?? ""),
 				};
@@ -135,8 +110,13 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				body: CreatePublicationBody,
 			) {
 				yield* requireEnabled;
-				const details = yield* prepareDetails(user, body);
-				const created = yield* write(user, repository.insert(user.id, details));
+				const created = yield* write(
+					user,
+					Effect.gen(function* () {
+						const details = yield* prepareDetails(user, body);
+						return yield* repository.insert(user.id, details);
+					}),
+				);
 				return { publicationId: created.id, revision: created.revision };
 			});
 
@@ -146,10 +126,12 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 			) {
 				yield* requireEnabled;
 				yield* requireActive(user, body.publicationId);
-				const details = yield* prepareDetails(user, body);
 				const updated = yield* write(
 					user,
-					repository.republish(user.id, body.publicationId, details),
+					Effect.gen(function* () {
+						const details = yield* prepareDetails(user, body);
+						return yield* repository.republish(user.id, body.publicationId, details);
+					}),
 				);
 				if (!updated) {
 					return yield* new PublicationBadRequest({ reason: { code: "publication-revoked" } });
@@ -223,7 +205,27 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 				publicationId: PublicationId,
 			) {
 				const owned = yield* requireOwned(user, publicationId);
-				return yield* evaluate(user, owned.source);
+				return yield* Effect.gen(function* () {
+					if (owned.definition.mode === "live") {
+						yield* runtime.capture(
+							{ userId: user.id, language: user.preferences.language },
+							owned.definition,
+						);
+					} else {
+						yield* runtime.resolve(user.id, owned.definition, owned.snapshot);
+					}
+				}).pipe(
+					Effect.as<PublicationStatusResponse>({ status: "ready" }),
+					Effect.catchTag("PublicationBadRequest", (error) =>
+						Effect.succeed<PublicationStatusResponse>(
+							"field" in error.reason ||
+								error.reason.code === "expiry-in-past" ||
+								error.reason.code === "publication-revoked"
+								? { status: "needs-attention", reason: { code: "source-unavailable" } }
+								: { reason: error.reason, status: "needs-attention" },
+						),
+					),
+				);
 			});
 
 			const preview = Effect.fn("Publications.preview")(function* (

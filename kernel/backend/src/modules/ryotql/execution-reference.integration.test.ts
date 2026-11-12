@@ -3,7 +3,6 @@ import { expect } from "bun:test";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
-import type { ExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { collectionArguments, collectionMembersRecipe } from "@ryot-app/ryotql-recipes/collections";
 import { assert } from "@ryot-app/testing/assert";
@@ -400,44 +399,6 @@ layer(database)((test) => {
 							reference: { kind: "custom", savedViewId: SavedViewId.make("cycle") },
 						},
 					}),
-				),
-				new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
-			);
-		}),
-	);
-
-	test.effect("refuses stored visitor sources and hides owner-only browse metadata", () =>
-		Effect.gen(function* () {
-			const service = yield* RyotQLService;
-			const publication = {
-				language: null,
-				subjectLimit: 100,
-				ownerUserId: "owner",
-				source: { kind: "collection" as const, collectionId: EntityId.make("shelf") },
-			};
-			const sources: readonly ExecutionSource[] = [
-				{ query: "items", kind: "savedView", reference: savedReference },
-				{ kind: "page", pageId: "page", query: "items" },
-			];
-			for (const source of sources) {
-				assertExitFails(
-					yield* Effect.exit(service.executeForPublication(publication, { source }, 1024)),
-					new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
-				);
-			}
-			const document: RyotQLDocument = {
-				...selection,
-				controls: {
-					filter: {
-						alias: "item",
-						kind: "browse",
-						schemas: [{ slug: "unsafe", owner: { kind: "kernel" } }],
-					},
-				},
-			};
-			assertExitFails(
-				yield* Effect.exit(
-					service.describeForPublication(publication, { document, kind: "inline" }),
 				),
 				new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
 			);

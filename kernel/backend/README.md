@@ -110,3 +110,8 @@ Use `assertExitFails` from `@ryot-app/testing/effect-assertions` for typed failu
 User-authored pages have a separate [authoring lifecycle](src/modules/pages/authoring/README.md)
 with revision-fenced drafts, server compilation and immutable published artifacts. Page rows are
 read through the RyotQL catalog; preparation and iframe authority compose their persisted metadata.
+
+[Publications](src/modules/publications/README.md) expose declared page queries through anonymous,
+read-only sessions, with owner bindings, live published-page resolution and frozen snapshot capture.
+Visitor code shares page graph preparation and scoped artifact grants; result references govern
+managed-asset access and snapshot retention.

@@ -15,10 +15,11 @@ export class PublicationSessions extends Context.Service<PublicationSessions>()(
 	"@ryot-app/kernel-backend/modules/publications/sessions/PublicationSessions",
 	{
 		make: Effect.gen(function* () {
+			const values = yield* TransientValues;
 			const tickets = makeOpaqueTickets({
+				values,
 				codec: SessionValue,
 				unavailable: (cause) => cause,
-				values: yield* TransientValues,
 				ttlSeconds: SESSION_TTL_SECONDS,
 				key: (tokenHash) => `publication-session:${tokenHash}`,
 				invalid: () => new PublicationUnavailable({ reason: { code: "session-expired" } }),
@@ -49,7 +50,13 @@ export class PublicationSessions extends Context.Service<PublicationSessions>()(
 				return { ...value, sessionKey: hash };
 			});
 
-			return { find, start };
+			const findKey = Effect.fn("PublicationSessions.findKey")(function* (key: string) {
+				const raw = yield* values.get(`publication-session:${key}`);
+				return raw === null
+					? null
+					: yield* Schema.decodeEffect(SessionValue)(raw).pipe(Effect.orElseSucceed(() => null));
+			});
+			return { find, start, findKey };
 		}),
 	},
 ) {

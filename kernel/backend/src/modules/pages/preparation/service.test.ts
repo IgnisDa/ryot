@@ -20,7 +20,10 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
 import { ImageClientArtifacts } from "#modules/pages/bundles/image-artifacts";
 import { ClientArtifactStore } from "#modules/pages/bundles/store";
-import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
+import {
+	type AvailablePlugin,
+	PluginRuntimeResolver,
+} from "#modules/plugins/catalog/runtime-resolver";
 import { DatabaseSession } from "#platform/db/session";
 import type { page } from "#schema/tables/pages";
 
@@ -144,15 +147,18 @@ const savedView = (id: SavedViewId, revision: number, exportName = "main") => ({
 type SavedView = ReturnType<typeof savedView>;
 const savedViewReferenceKey = (reference: SavedViewReference) => JSON.stringify(reference);
 
-class AvailablePlugins extends Context.Service<
-	AvailablePlugins,
-	{ readonly revoke: Effect.Effect<void> }
->()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/AvailablePlugins") {}
-
 class RecordedPrepareCalls extends Context.Service<
 	RecordedPrepareCalls,
 	{ readonly calls: Effect.Effect<ReadonlyArray<string>> }
 >()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/RecordedPrepareCalls") {}
+
+class AvailablePlugins extends Context.Service<
+	AvailablePlugins,
+	{
+		readonly revoke: Effect.Effect<void>;
+		readonly set: (plugins: readonly AvailablePlugin[]) => Effect.Effect<void>;
+	}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/AvailablePlugins") {}
 
 class PageSelections extends Context.Service<
 	PageSelections,
@@ -175,9 +181,19 @@ const stored = (graph: ResolvedClientPageGraph) => ({
 	}),
 });
 
+class ArtifactVisibility extends Context.Service<
+	ArtifactVisibility,
+	{
+		readonly hide: (hash: string) => Effect.Effect<void>;
+		readonly setDeclaration: (definition: typeof pageDefinition) => Effect.Effect<void>;
+	}
+>()("@ryot-app/kernel-backend/modules/pages/preparation/service.test/ArtifactVisibility") {}
+
 const recordingDependenciesLayer = Layer.effectContext(
 	Effect.gen(function* () {
 		const calls = yield* Ref.make<ReadonlyArray<string>>([]);
+		const privateHashes = new Set([pageHash]);
+		let declarationHash = pageDeclarationHash(pageDefinition);
 		const record = (call: string) => Ref.update(calls, (all) => [...all, call]);
 		return Context.make(
 			ClientPageCompositionService,
@@ -191,7 +207,7 @@ const recordingDependenciesLayer = Layer.effectContext(
 				ClientArtifactStore,
 				ClientArtifactStore.of({
 					findFile: () => Effect.succeed(null),
-					isPublic: (hash) => hash !== pageHash,
+					isPublic: (hash) => !privateHashes.has(hash),
 					exists: (hash) => Effect.succeed(artifacts.has(hash)),
 					describe: (hash) => {
 						const description = artifacts.get(hash);
@@ -207,9 +223,7 @@ const recordingDependenciesLayer = Layer.effectContext(
 										bridgeVersion: 1,
 										compilerVersion: 1,
 										clientDeclarationHash: null,
-										...(hash === pageHash
-											? { pageDeclarationHash: pageDeclarationHash(pageDefinition) }
-											: {}),
+										...(hash === pageHash ? { pageDeclarationHash: declarationHash } : {}),
 									}
 								: null,
 						);
@@ -231,6 +245,16 @@ const recordingDependenciesLayer = Layer.effectContext(
 				}),
 			),
 			Context.add(RecordedPrepareCalls, { calls: Ref.get(calls) }),
+			Context.add(ArtifactVisibility, {
+				hide: (hash) =>
+					Effect.sync(() => {
+						privateHashes.add(hash);
+					}),
+				setDeclaration: (definition) =>
+					Effect.sync(() => {
+						declarationHash = pageDeclarationHash(definition);
+					}),
+			}),
 		);
 	}),
 );
@@ -302,7 +326,7 @@ const pagesLayer = PagesService.layer.pipe(
 			),
 			Layer.effectContext(
 				Effect.gen(function* () {
-					const available = yield* Ref.make<ReadonlyArray<typeof plugin>>([plugin]);
+					const available = yield* Ref.make<ReadonlyArray<AvailablePlugin>>([plugin]);
 					return Context.make(
 						PluginRuntimeResolver,
 						PluginRuntimeResolver.of(
@@ -317,7 +341,12 @@ const pagesLayer = PagesService.layer.pipe(
 									}),
 							}),
 						),
-					).pipe(Context.add(AvailablePlugins, { revoke: Ref.set(available, []) }));
+					).pipe(
+						Context.add(AvailablePlugins, {
+							revoke: Ref.set(available, []),
+							set: (plugins) => Ref.set(available, plugins),
+						}),
+					);
 				}),
 			),
 			Layer.succeed(
@@ -595,5 +624,62 @@ layer(pagesLayer)((test) => {
 				);
 			}),
 		testTimeout,
+	);
+});
+
+layer(pagesLayer)("publication artifact closure", (test) => {
+	test.effect(
+		"accepts private-capability system artifacts and refuses private plugin dependencies",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PagesService;
+				const selections = yield* PageSelections;
+				const available = yield* AvailablePlugins;
+				const visibility = yield* ArtifactVisibility;
+				yield* available.set([{ ...plugin, scope: "system", ownerUserId: null }]);
+				yield* visibility.hide(pluginHash);
+				const definition = {
+					...pageDefinition,
+					pluginDependencies: {
+						dependency: { scope: "system" as const, packageId: plugin.packageId },
+					},
+				};
+				yield* visibility.setDeclaration(definition);
+				yield* selections.setPage({ ...pageRow, publishedDefinition: definition });
+				const reference = { pageId: pageRow.id, kind: "page" as const };
+				const prepared = yield* service.preparePublication(pageRow.userId, reference);
+				expect(
+					prepared.contributors.some(
+						(contributor) => contributor.kind === "plugin" && contributor.pluginId === plugin.id,
+					),
+				).toBe(true);
+				const requested: string[] = [];
+				const document = yield* service.publicationDocument(
+					pageRow.userId,
+					prepared.composition.hash,
+					reference,
+					(hash) =>
+						Effect.sync(() => {
+							requested.push(hash);
+							return pageToken;
+						}),
+				);
+				expect(document).not.toBeNull();
+				expect(requested).toEqual([pluginHash, pageHash].sort());
+				const privateDefinition = {
+					...pageDefinition,
+					pluginDependencies: {
+						dependency: { scope: "user" as const, packageId: plugin.packageId },
+					},
+				};
+				yield* visibility.setDeclaration(privateDefinition);
+				yield* available.set([plugin]);
+				yield* selections.setPage({ ...pageRow, publishedDefinition: privateDefinition });
+				expect(
+					yield* service.preparePublication(pageRow.userId, reference).pipe(Effect.flip),
+				).toMatchObject({
+					reason: { reference: { scope: "user" }, code: "dependency-unavailable" },
+				});
+			}),
 	);
 });

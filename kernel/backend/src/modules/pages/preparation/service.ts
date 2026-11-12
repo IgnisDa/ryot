@@ -1,4 +1,5 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
+import type { DbError } from "@ryot-app/contract/errors";
 import {
 	ClientPageDocumentStale,
 	ClientPagePreparationError,
@@ -7,6 +8,7 @@ import {
 	type PreparedClientPage,
 } from "@ryot-app/contract/modules/pages/schemas";
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import type { PublicationPageReference } from "@ryot-app/contract/modules/publications/schemas";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { kernelPublicationRenderer } from "@ryot-app/kernel-renderers";
@@ -23,7 +25,7 @@ import {
 } from "#modules/plugins/catalog/runtime-resolver";
 
 import { ClientPageCompositionService } from "./composition-service";
-import { generateClientDocument, generatePublicClientDocument } from "./document";
+import { generateClientDocument, generateClientDocumentWithAccess } from "./document";
 import {
 	clientPageCodeContributors,
 	type GraphPlugin,
@@ -37,6 +39,7 @@ import {
 	resolvePluginPageTarget,
 	resolvePluginRoutePlugin,
 } from "./prepare";
+import type { PublishedPage } from "./published-page";
 import { PagesRepository } from "./repository";
 
 const savedViewUnavailable = () =>
@@ -155,6 +158,53 @@ export class PagesService extends Context.Service<PagesService>()(
 				bridgeVersion: composition.identity.bridgeVersion,
 				compilerVersion: composition.identity.compilerVersion,
 			});
+			const publishedPage = Effect.fn("Pages.publishedPage")(function* (
+				userId: UserId,
+				pageId: string,
+			) {
+				const row = yield* repository.findPage(userId, pageId);
+				if (
+					!row?.publishedDefinition ||
+					row.publishedRevision === null ||
+					!row.publishedArtifactHash ||
+					!row.publishedDefinitionHash
+				) {
+					return yield* new ClientPagePreparationError({
+						reason: { pageId, code: "page-unavailable" },
+					});
+				}
+				return {
+					pageId,
+					name: row.name,
+					revision: row.publishedRevision,
+					definition: row.publishedDefinition,
+					artifactHash: row.publishedArtifactHash,
+					authorityRevision: row.authorityRevision,
+					definitionHash: row.publishedDefinitionHash,
+				} satisfies PublishedPage;
+			});
+			const pageGraph = Effect.fn("Pages.pageGraph")(function* (
+				page: PublishedPage,
+				available: readonly GraphPlugin[],
+			) {
+				const artifact = yield* artifactStore.describe(page.artifactHash);
+				if (
+					!artifact ||
+					!("pageDeclarationHash" in artifact) ||
+					artifact.pageDeclarationHash !== pageDeclarationHash(page.definition)
+				) {
+					return yield* new ClientPagePreparationError({
+						reason: { pageId: page.pageId, code: "page-unavailable" },
+					});
+				}
+				return yield* resolveClientPageGraph({
+					...page,
+					page: true,
+					plugins: available,
+					runtimeArtifactHash,
+					clientImports: artifact.imports,
+				});
+			});
 			const resolvePage = Effect.fn(function* (
 				userId: UserId,
 				pageId: string,
@@ -178,26 +228,18 @@ export class PagesService extends Context.Service<PagesService>()(
 				if (!definition || revision === null || !artifactHash || !definitionHash) {
 					return yield* unavailable();
 				}
-				const artifact = yield* artifactStore.describe(artifactHash);
-				if (
-					!artifact ||
-					!("pageDeclarationHash" in artifact) ||
-					artifact.pageDeclarationHash !== pageDeclarationHash(definition)
-				) {
-					return yield* unavailable();
-				}
-				const graph = yield* resolveClientPageGraph({
-					pageId,
-					revision,
-					page: true,
-					definition,
-					artifactHash,
-					name: row.name,
-					definitionHash,
-					plugins: available,
-					runtimeArtifactHash,
-					clientImports: artifact.imports,
-				});
+				const graph = yield* pageGraph(
+					{
+						pageId,
+						revision,
+						definition,
+						artifactHash,
+						definitionHash,
+						name: row.name,
+						authorityRevision: row.authorityRevision,
+					},
+					available,
+				);
 				return {
 					graph,
 					pageId,
@@ -565,25 +607,40 @@ export class PagesService extends Context.Service<PagesService>()(
 					Effect.provideService(ClientArtifactGrantService, artifactGrants),
 				);
 			});
-			// Visitors receive no artifact grants, so their pages compose only image-shipped artifacts.
 			const publicationComposition = Effect.fn("Pages.publicationComposition")(function* (
 				ownerUserId: UserId,
+				reference: PublicationPageReference,
+				frozen?: null | PublishedPage,
 			) {
 				const available = (yield* listAvailable(ownerUserId)).filter(
-					(plugin) =>
-						plugin.scope === "system" &&
-						typeof plugin.clientArtifactHash === "string" &&
-						artifactStore.isPublic(plugin.clientArtifactHash),
+					(plugin) => plugin.scope === "system",
 				);
-				const graph = yield* resolveKernelRendererGraph(available, kernelPublicationRenderer);
+				const page =
+					reference.kind === "page"
+						? (frozen ?? (yield* publishedPage(ownerUserId, reference.pageId)))
+						: null;
+				const graph = page
+					? yield* pageGraph(page, available)
+					: yield* resolveKernelRendererGraph(available, kernelPublicationRenderer);
 				const composition = yield* compositions.getOrMaterialize(graph);
-				return { composition, contributors: clientPageCodeContributors(graph.identity, available) };
+				return {
+					page,
+					composition,
+					contributors: clientPageCodeContributors(graph.identity, available),
+				};
 			});
 			const preparePublication = Effect.fn("Pages.preparePublication")(function* (
 				ownerUserId: UserId,
+				reference: PublicationPageReference,
+				frozen?: null | PublishedPage,
 			) {
-				const { composition, contributors } = yield* publicationComposition(ownerUserId);
+				const { page, composition, contributors } = yield* publicationComposition(
+					ownerUserId,
+					reference,
+					frozen,
+				);
 				return {
+					page,
 					contributors,
 					composition: compositionFor(composition),
 					rendererName: kernelPublicationRenderer.name,
@@ -592,14 +649,18 @@ export class PagesService extends Context.Service<PagesService>()(
 			const publicationDocument = Effect.fn("Pages.publicationDocument")(function* (
 				ownerUserId: UserId,
 				compositionHash: string,
+				reference: PublicationPageReference,
+				access: (hash: string) => Effect.Effect<string, DbError>,
+				frozen?: null | PublishedPage,
 			) {
-				const { composition } = yield* publicationComposition(ownerUserId);
+				const { composition } = yield* publicationComposition(ownerUserId, reference, frozen);
 				if (composition.compositionHash !== compositionHash) {
 					return null;
 				}
-				return yield* generatePublicClientDocument(
+				return yield* generateClientDocumentWithAccess(
 					composition.compositionHash,
 					composition.manifest,
+					access,
 				).pipe(Effect.provideService(ClientArtifactStore, artifactStore));
 			});
 			return { prepare, document, isIdentityCurrent, preparePublication, publicationDocument };

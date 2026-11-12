@@ -33,15 +33,13 @@ const encodeLocatorKeys = Schema.encodeEffect(
 	Schema.fromJsonString(Schema.Struct({ keys: Schema.Array(Schema.String) })),
 );
 
-const encodeEntityIds = Schema.encodeEffect(Schema.fromJsonString(Schema.Array(Schema.String)));
-
 const locatorObjectsPath =
 	'strict $.** ? (@.type() == "object" && @."type".type() == "string" && @."key".type() == "string" && @."key" == $keys[*])';
 
 const locatorKeys = (locators: ReadonlyArray<ManagedAssetLocator>) =>
 	encodeLocatorKeys({ keys: [...new Set(locators.map(({ key }) => key))] }).pipe(Effect.orDie);
 
-const scanLocators = (keys: string, from: SQL, column: Column, where: SQL) => sql`
+const scanLocators = (keys: string, from: SQL, column: SQL | Column, where: SQL) => sql`
 	select found.value->>'type' as type, found.value->>'key' as key
 	from ${from}
 	cross join lateral jsonb_path_query(${column}, ${locatorObjectsPath}::jsonpath, ${keys}::jsonb, true) as found(value)
@@ -130,9 +128,14 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 					const owned = (column: Column) => sql`${column} = ${ownerUserId}`;
 					const ownedOrUnowned = (column: Column) =>
 						sql`(${column} = ${ownerUserId} or ${column} is null)`;
-					const scan = (from: SQL, column: Column, where: SQL) =>
+					const scan = (from: SQL, column: SQL | Column, where: SQL) =>
 						scanLocators(keys, from, column, where);
 					const scans = [
+						scan(
+							sql`${tables.publication}`,
+							sql`${tables.publication.snapshot}->'result'`,
+							owned(tables.publication.userId),
+						),
 						scan(
 							sql`${tables.entity}`,
 							tables.entity.properties,
@@ -201,36 +204,7 @@ export class ManagedAssetReferencesRepository extends Context.Service<ManagedAss
 				},
 			);
 
-			const referencedByEntities = Effect.fn(
-				"ManagedAssetReferencesRepository.referencedByEntities",
-			)(function* (entityIds: ReadonlyArray<string>, locators: ReadonlyArray<ManagedAssetLocator>) {
-				if (entityIds.length === 0 || locators.length === 0) {
-					return [];
-				}
-				const keys = yield* locatorKeys(locators);
-				const ids = yield* encodeEntityIds(entityIds).pipe(Effect.orDie);
-				const subject = (column: Column) =>
-					sql`${column} in (select value from jsonb_array_elements_text(${ids}::jsonb))`;
-				return yield* matchingLocators(
-					[
-						scanLocators(
-							keys,
-							sql`${tables.entity}`,
-							tables.entity.properties,
-							subject(tables.entity.id),
-						),
-						scanLocators(
-							keys,
-							sql`${tables.entityTranslation}`,
-							tables.entityTranslation.properties,
-							subject(tables.entityTranslation.entityId),
-						),
-					],
-					locators,
-				);
-			});
-
-			return { referencedLocators, referencedByEntities };
+			return { referencedLocators };
 		}),
 	},
 ) {

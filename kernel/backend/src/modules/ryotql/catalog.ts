@@ -30,7 +30,7 @@ export type CatalogSource = (context: {
 }) => { readonly from: SqlFragment; readonly ctes: Readonly<Record<string, SqlFragment>> };
 
 export type RyotQLExecutionScope = (
-	UserExecutionScope | PluginExecutionScope | PublicationExecutionScope | { readonly type: "admin" }
+	UserExecutionScope | PluginExecutionScope | { readonly type: "admin" }
 ) & {
 	readonly cursorIdentity?: string;
 	readonly sourceRevisions?: Readonly<Record<string, number>>;
@@ -68,27 +68,11 @@ type CatalogPolicies = {
 	readonly [Audience in keyof PolicyByAudience]?: PolicyByAudience[Audience];
 };
 
-/** Reads only a publication's subjects, which the statement receives as `publication_subject`. */
-type PublicationExecutionScope = {
-	readonly type: "publication";
-	readonly ownerUserId: string;
-	readonly subjectsJson: string;
-	readonly language: null | string;
-};
-
 type PolicyByAudience = {
 	readonly user: CatalogUserPolicy;
 	readonly plugin: CatalogPluginPolicy;
 	readonly admin: { readonly type: "all" };
-	readonly publication: CatalogPublicationPolicy;
 };
-
-type CatalogPublicationPolicy =
-	| { readonly type: "none" }
-	| { readonly type: "subject" }
-	| { readonly type: "subjectLink" }
-	| { readonly type: "systemPlugin" }
-	| { readonly type: "systemDefinition" };
 
 type PluginExecutionScope = PluginSchemaScope & {
 	readonly type: "plugin";
@@ -302,7 +286,6 @@ const entityRelatedPopulationStatus: FieldBinding = {
 const entity: TableBinding<"entity"> = {
 	relation: "entity",
 	policies: {
-		publication: { type: "subject" },
 		user: { type: "owned", column: "user_id", includeGlobal: true },
 		plugin: {
 			globalOnly: true,
@@ -329,12 +312,6 @@ const entity: TableBinding<"entity"> = {
 		relatedPopulationStatus: entityRelatedPopulationStatus,
 		entitySchemaPluginId: column("entity_schema_plugin_id"),
 		collectionOrderRevision: column("collection_order_revision"),
-		publicationRank: {
-			resolve: ({ sqlAlias }) =>
-				sql.raw(
-					`(SELECT publication_subject.rank FROM publication_subject WHERE publication_subject.entity_id = ${sqlAlias}.id)`,
-				),
-		},
 		providerCheckedAt: {
 			resolve: ({ sqlAlias }) =>
 				sql`(select max(request.base_checked_at) from entity_enrichment_request request where request.entity_id = ${sql.raw(`${sqlAlias}.id`)})`,
@@ -387,7 +364,6 @@ const event: TableBinding<"event"> = {
 	relation: "event",
 	source: eventSource,
 	policies: {
-		publication: { type: "none" },
 		plugin: { type: "eventDefinition" },
 		user: { type: "owned", column: "user_id", includeGlobal: false },
 	},
@@ -433,7 +409,6 @@ const relationship: TableBinding<"relationship"> = {
 	relation: "relationship",
 	policies: {
 		admin: { type: "all" },
-		publication: { type: "subjectLink" },
 		user: { type: "owned", column: "user_id", includeGlobal: true },
 		plugin: {
 			globalOnly: false,
@@ -482,7 +457,6 @@ const plugin: TableBinding<"plugin"> = {
 	relation: "plugin",
 	policies: {
 		admin: { type: "all" },
-		publication: { type: "systemPlugin" },
 		user: { type: "owned", includeGlobal: true, column: "owner_user_id" },
 	},
 	fields: {
@@ -610,7 +584,6 @@ const entitySchema: TableBinding<"entitySchema"> = {
 	relation: "user_entity_schema",
 	policies: {
 		...effectiveDefinitionPolicies,
-		publication: { type: "systemDefinition" },
 		plugin: { kind: "entity", type: "schemaDefinition" },
 	},
 	fields: {
@@ -626,18 +599,13 @@ const entitySchema: TableBinding<"entitySchema"> = {
 const eventSchema: TableBinding<"eventSchema"> = {
 	relation: "user_event_schema",
 	fields: { ...definitionFields, entitySchemaSlug: column("entity_schema_slug") },
-	policies: {
-		...effectiveDefinitionPolicies,
-		publication: { type: "systemDefinition" },
-		plugin: { kind: "event", type: "schemaDefinition" },
-	},
+	policies: { ...effectiveDefinitionPolicies, plugin: { kind: "event", type: "schemaDefinition" } },
 };
 
 const relationshipSchema: TableBinding<"relationshipSchema"> = {
 	relation: "user_relationship_schema",
 	policies: {
 		...effectiveDefinitionPolicies,
-		publication: { type: "systemDefinition" },
 		plugin: { kind: "relationship", type: "schemaDefinition" },
 	},
 	fields: {
@@ -1166,11 +1134,11 @@ const publication: TableBinding<"publication"> = {
 		id: column("id"),
 		icon: column("icon"),
 		title: column("title"),
-		source: column("source"),
 		revision: column("revision"),
 		revokedAt: column("revoked_at"),
 		createdAt: column("created_at"),
 		updatedAt: column("updated_at"),
+		definition: column("definition"),
 		description: column("description"),
 		showOwnerName: column("show_owner_name"),
 	},

@@ -2,10 +2,8 @@ import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import type { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
 import { documentTables, type RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import type { RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import type {
@@ -51,18 +49,6 @@ import { RyotQLSources } from "./sources";
 
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
 const PUBLICATION_STATEMENT_TIMEOUT_MS = 10_000;
-
-/** A publication's resolved scope query, executed as its owner only to select the visible subjects. */
-export type PublicationSubjectQuery = {
-	readonly ownerUserId: string;
-	readonly subjectLimit: number;
-	readonly language: null | string;
-	readonly source: PublicationSource;
-};
-
-const SubjectsJson = Schema.fromJsonString(
-	Schema.Array(Schema.Struct({ rank: Schema.Int, entity_id: Schema.String })),
-);
 
 const invalidQuery = () => new RyotQLBadRequest({ reason: { code: "invalid-query" } });
 
@@ -246,11 +232,6 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						),
 					];
 				}
-				if (scope.type === "publication") {
-					return (yield* catalogs.forUser(scope.ownerUserId)).entitySchemas.filter(
-						(entry) => entry.pluginScope !== "user",
-					);
-				}
 				if (scope.type === "plugin") {
 					return (yield* catalogs.revision(scope.pluginRevisionId)).entitySchemas.map((entry) =>
 						Object.assign({}, entry, {
@@ -315,9 +296,6 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				let ownerId: string | undefined;
 				if (scope.type === "user") {
 					ownerId = scope.userId;
-				}
-				if (scope.type === "publication") {
-					ownerId = scope.ownerUserId;
 				}
 				const [owner] =
 					ownerId === undefined
@@ -443,7 +421,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					budget.rows += rows.length;
 					if (budget.rows > 10000) {
 						return yield* new RyotQLBadRequest({
-							reason: { limit: 10000, code: "subject-limit-exceeded" },
+							reason: { limit: 10000, code: "source-limit-exceeded" },
 						});
 					}
 					sourceEntities[`sourceEntity:${reference}`] = rows;
@@ -647,111 +625,35 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			) =>
 				runRead(RYOTQL_STATEMENT_TIMEOUT_MS, () => describeSource(scope, source, argumentsValue));
 
-			const readSubjects = Effect.fn("RyotQLService.readSubjects")(function* (
-				transaction: EffectPgDatabase,
-				source: PublicationSubjectQuery,
-				executionNow?: Date,
+			const executeDeclared = Effect.fn("RyotQLService.executeDeclared")(function* (
+				owner: { readonly userId: string; readonly language: null | string },
+				document: RyotQLDocument,
+				request: { readonly query?: string } & Omit<ExecutionRequest, "source">,
+				resultBytes: number,
 			) {
-				const reference = encodeEntitySourceReference(source.source);
-				const document: RyotQLDocument = {
-					parameters: {
-						fields: {
-							source: {
-								label: "Source",
-								type: "string" as const,
-								validation: { required: true },
-								description: "Stored entity selection",
-								reference: { kind: "entity-source" as const },
-							},
-						},
-					},
-					queries: {
-						subjects: {
-							from: { alias: "subject", parameter: "source", type: "sourceEntity" as const },
-							output: {
-								orderBy: [],
-								type: "rows" as const,
-								pagination: { limit: 1, maxLimit: 1 },
-								fields: [
-									{
-										key: "id",
-										expr: { field: "entityId", tableAlias: "subject", type: "column" as const },
-									},
-								],
-							},
-						},
-					},
-				};
-				const prepared = yield* prepareRequest(
-					transaction,
-					{
-						type: "user",
-						audience: "plugin",
-						accessClass: "standard",
-						language: source.language,
-						userId: source.ownerUserId,
-					},
-					{ arguments: { source: reference }, source: { document, kind: "inline" } },
-					[],
-					{ rows: 0, sources: 0, revisions: {}, identities: [] },
-					undefined,
-					executionNow,
-				).pipe(Effect.catchTag("DemoOperationProtected", invalidQuery));
-				const subjects = prepared.scope.sourceEntities?.[`sourceEntity:${reference}`];
-				if (subjects === undefined) {
+				const scope = {
+					...owner,
+					type: "user",
+					audience: "plugin",
+					accessClass: "standard",
+				} as const;
+				if (request.query !== undefined && !Object.hasOwn(document.queries, request.query)) {
 					return yield* invalidQuery();
 				}
-				if (subjects.length > source.subjectLimit) {
-					return yield* new RyotQLBadRequest({
-						reason: { limit: source.subjectLimit, code: "subject-limit-exceeded" },
-					});
-				}
-				return subjects;
-			});
-
-			const resolvePublicationSubjects = (source: PublicationSubjectQuery) =>
-				runRead(PUBLICATION_STATEMENT_TIMEOUT_MS, (transaction) =>
-					readSubjects(transaction, source),
-				);
-
-			const publicationRead = Effect.fn("RyotQLService.publicationRead")(function* <A, E, R>(
-				source: PublicationSubjectQuery,
-				body: (
-					transaction: EffectPgDatabase,
-					scope: Extract<RyotQLExecutionScope, { type: "publication" }>,
-					now: Date,
-				) => Effect.Effect<A, E, R>,
-			) {
 				return yield* runRead(PUBLICATION_STATEMENT_TIMEOUT_MS, (transaction) =>
 					Effect.gen(function* () {
 						const now = DateTime.toDateUtc(yield* DateTime.now);
-						const subjects = yield* readSubjects(transaction, source, now);
-						const scope = {
-							language: source.language,
-							type: "publication" as const,
-							ownerUserId: source.ownerUserId,
-							subjectsJson: yield* Schema.encodeEffect(SubjectsJson)(
-								subjects.map(({ rank, entityId }) => ({ rank, entity_id: entityId })),
-							).pipe(Effect.orDie),
-						};
-						return yield* body(transaction, scope, now);
-					}),
-				);
-			});
-			const executeForPublication = Effect.fn("RyotQLService.executeForPublication")(function* (
-				source: PublicationSubjectQuery,
-				request: ExecutionRequest,
-				resultBytes: number,
-			) {
-				if (request.source.kind !== "inline") {
-					return yield* invalidQuery();
-				}
-				return yield* publicationRead(source, (transaction, scope, now) =>
-					Effect.gen(function* () {
 						const prepared = yield* prepareRequest(
 							transaction,
 							scope,
-							request,
+							{
+								...request,
+								source: {
+									document,
+									kind: "inline",
+									...(request.query === undefined ? {} : { query: request.query }),
+								},
+							},
 							[],
 							{ rows: 0, sources: 0, revisions: {}, identities: [] },
 							undefined,
@@ -759,23 +661,44 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						);
 						const result = yield* runDocument(transaction, prepared.scope, prepared.document, {
 							resultBytes,
-							relationsOwner: source.ownerUserId,
-							loadCatalog: Effect.map(readyUserPlugins(source.ownerUserId), (plugins) =>
-								plugins.filter((entry) => entry.scope === "system"),
-							),
+							relationsOwner: owner.userId,
+							loadCatalog: scopePlugins(transaction, scope),
 						});
 						return { ...result, execution: prepared.execution };
 					}),
 				).pipe(Effect.catchTag("DemoOperationProtected", invalidQuery));
 			});
-			const describeForPublication = (
-				source: PublicationSubjectQuery,
-				requested: ExecutionSource,
+			const describeDeclared = Effect.fn("RyotQLService.describeDeclared")(function* (
+				owner: { readonly userId: string; readonly language: null | string },
+				document: RyotQLDocument,
+				query: string,
 				argumentsValue?: ExecutionRequest["arguments"],
-			) =>
-				requested.kind !== "inline"
-					? Effect.fail(invalidQuery())
-					: publicationRead(source, (_, scope) => describeSource(scope, requested, argumentsValue));
+			) {
+				const scope = {
+					...owner,
+					type: "user",
+					audience: "plugin",
+					accessClass: "standard",
+				} as const;
+				return yield* runRead(PUBLICATION_STATEMENT_TIMEOUT_MS, () =>
+					Effect.gen(function* () {
+						for (const [name, property] of Object.entries(document.parameters?.fields ?? {})) {
+							if (property.type !== "string" || property.reference?.kind !== "entity-source") {
+								continue;
+							}
+							const reference = argumentsValue?.[name] ?? property.defaultValue;
+							if (typeof reference === "string") {
+								yield* sources.entitySource(scope, reference);
+							}
+						}
+						return yield* describeSource(
+							scope,
+							{ query, document, kind: "inline" },
+							argumentsValue,
+						);
+					}),
+				);
+			});
 
 			const executeForUser = (
 				userId: string,
@@ -827,11 +750,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				execute,
 				executeForUser,
 				executeForAdmin,
+				executeDeclared,
 				executeForPlugin,
-				executeForPublication,
-				describeForPublication,
+				describeDeclared,
 				executeForPluginAudience,
-				resolvePublicationSubjects,
 				describeForAdmin: (
 					source: ExecutionSource,
 					argumentsValue?: ExecutionRequest["arguments"],

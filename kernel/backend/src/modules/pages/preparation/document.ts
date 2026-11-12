@@ -124,7 +124,7 @@ export const renderClientDocument = (
 	};
 };
 
-const documentWithAccess = Effect.fnUntraced(function* <E, R>(
+export const generateClientDocumentWithAccess = Effect.fnUntraced(function* <E, R>(
 	compositionHash: string,
 	manifest: ClientPageCompositionManifest,
 	privateAccess: (hash: string) => Effect.Effect<string, E, R>,
@@ -157,16 +157,7 @@ export const generateClientDocument = Effect.fn("Pages.generateDocument")(functi
 	manifest: ClientPageCompositionManifest,
 ) {
 	const grants = yield* ClientArtifactGrantService;
-	return yield* documentWithAccess(compositionHash, manifest, (hash) =>
+	return yield* generateClientDocumentWithAccess(compositionHash, manifest, (hash) =>
 		Effect.map(grants.issue(userId, hash), ({ token }) => token),
-	);
-});
-
-export const generatePublicClientDocument = Effect.fn("Pages.generatePublicDocument")(function* (
-	compositionHash: string,
-	manifest: ClientPageCompositionManifest,
-) {
-	return yield* documentWithAccess(compositionHash, manifest, (hash) =>
-		Effect.die(new Error(`Public client document requires a private artifact: ${hash}`)),
 	);
 });

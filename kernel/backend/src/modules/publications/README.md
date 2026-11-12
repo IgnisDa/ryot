@@ -1,57 +1,62 @@
 # Publications
 
-A publication is a read-only, live presentation of a subset of one user's entities. Its source is
-either a kernel collection the owner has (its members, in collection order) or an entity-browser
-saved view the owner can open (its current results, limited to the view's subject schemas). Sources
-resolve on every request, so edits, additions, and removals, including changes to the saved view's
-query, show up without republishing. Republishing replaces the title, icon, description, owner-name
-choice, and source, and bumps `revision`. `SERVER_DISABLE_PUBLICATIONS` turns off publishing and every
-visit without deleting anything.
+A publication binds a kernel publication page or an owned published user page to owner arguments
+and a `live` or `snapshot` mode. Republishing atomically replaces its definition, presentation and
+snapshot and increments the revision. User-page references use an owner-preserving composite foreign
+key; deleting an in-use page fails with `page-in-use`, including revoked publications.
 
-## Subjects
+Live visits follow the latest published page. Visitors send only a declared query name and values;
+the server chooses the document, overrides visitor arguments with owner bindings, and runs under the
+owner's standard, plugin-audience authority in a read-only transaction. User pages may deliberately
+select owner data. The kernel page instead builds `items`, `count`, `item` and `linked` from the
+canonical encoded `sourceEntity` reference and system/kernel authored entity-browser presentation projections. Safe projection filtering shares the recipe policy after subject-alias rebasing; conflicting
+projections fail readiness with a field-specific issue. It exposes no
+owner/event columns, and both relationship endpoints remain inside the bound selection. Unset item
+IDs produce empty item and linked results. No anonymous endpoint accepts query documents.
 
-Every visitor request resolves the collection or saved-view reference through canonical `sourceEntity` authority and binding as the owner, in the `plugin` audience, inside the same read-only transaction as the visitor's query. The distinct
-subject IDs, ranked by that query's order, become the subject set. More than
-`PUBLICATION_SUBJECT_LIMIT` subjects refuses the request instead of truncating. A deleted collection,
-a missing saved view, or one that no longer uses the entity-browser renderer makes the publication
-unavailable. Visitor queries then run in the RyotQL publication scope (see the
-[RyotQL README](../ryotql/README.md#scopes-and-visibility)), which only ever sees that set.
+## Snapshots
 
-Creating or republishing evaluates the source first and refuses one that is unavailable or too
-large. The owner-only `status` endpoint evaluates it the same way, so the owner can see the current
-item count or why a publication needs attention.
+Snapshot publication captures every declared query's first result page with bound/default arguments,
+one database snapshot and one execution clock. Missing required arguments fail capture. The combined
+response must fit 2 MB; failed capture leaves the previous publication intact. Snapshot reads never
+execute a query or fall back to live data, and reject changed arguments, filters, sorts or pagination.
+Refresh is a republish. Display metadata and the published page definition, revision, declaration
+hash and compiled artifact hash are frozen with the results. A foreign key retains the frozen page
+artifact even after the owner republishes the page.
 
-Saved-view queries bind plugin references at execution time. Visitor queries may reference only
-system plugins, and the visitor page composes only system plugins whose client artifacts are public,
-so publications never expose private plugin code.
+`publication.definition` stores `PublicationDefinition`. The nullable `pageId` is its owned user-page
+reference. `publication.snapshot` stores `PublicationSnapshot` from `model.ts`: `{page, document,
+arguments, settings, result}`. `page` is a nullable `PublishedPage` descriptor; user pages include their
+source definition and artifact hash. `result` is the complete `RyotQLResponse` with capture clock and
+all query results. `snapshotArtifactHash` mirrors `snapshot.page.artifactHash` for retention. Backups
+must export the frozen artifact bytes as well as these fields, remap page/source and result asset
+references, and restore them without compilation. Links and sessions are never portable.
 
-## Links And Sessions
+## Code And Assets
 
-A publication has any number of labelled links. A link secret is shown once and stored only as a
-SHA-256 hash; it travels in the URL fragment (`/share/<publicationId>#<secret>`), so it never reaches
-server logs or referrers. Visitors exchange it for a one-hour session stored by token hash in
-transient values, which never outlives the link's expiry. Visitor requests carry the session in the
-`x-ryot-publication-session` header and never establish a `CurrentUser`.
+Visitor composition uses the ordinary page graph, import checks, dependency closure and capability
+pipeline. Only system plugins enter its catalog, including system artifacts that require private
+capability URLs. Owner-private plugin dependencies fail preparation. User-page frames always receive
+`writeAccess: false`. Artifact grants are scoped to the visitor session and publication revision;
+file delivery rechecks session/link expiry, revocation, owner disablement and the instance switch.
 
-Every visitor request rechecks the instance switch, the publication and link revocation, link expiry,
-and whether the owner is disabled, so revoking or expiring takes effect on the next request. Owner
-previews are linkless sessions minted for the owner; they end only with the publication or session.
+Managed assets are authorized only after they occur in a successful live result, with grants scoped
+to the visitor session and publication revision, or directly from stored snapshot results. Guessed
+locators are refused. Generic managed-asset retention scans publication snapshots, so removing a
+source reference does not collect an asset still present in frozen results.
 
-## Limits
+Kernel visitor settings carry `{mode, itemCount?, ownerName, description, browser, itemDetails}`.
+`browser` and safe item-detail descriptors come from the canonical kernel publication recipe.
+The publication presentation carries `mode`, as do context settings; user pages receive their published read-only frame authority.
 
-Link exchanges are limited to ten per visitor address per minute, so one visitor cannot lock others
-out of a publication. The address comes from `requestClientAddress` in the auth module, which
-resolves it exactly as Better Auth does for its own rate limits; requests without a trustworthy address
-share one limit. Each session allows six concurrent reads, enough for
-a page's parallel queries. These limits are per process. Visitor statements time out after ten
-seconds and results are capped at 2 MB. Asset downloads resolve only for managed assets referenced by
-a current subject's properties or translations.
+## Links, Sessions And Limits
 
-## Query boundary
+The instance switch disables publishing and every visit without deleting publications. Link secrets
+are shown once and stored as SHA-256 hashes. URL fragments keep secrets out of request logs and
+referrers. A link exchange creates a one-hour hashed-token session, bounded by link expiry. Owner
+previews are linkless visitor sessions. Every HTTP request rechecks publication/link revocation,
+expiry and owner disablement. Requests never establish `CurrentUser`.
 
-Visitor RyotQL takes the same `ExecutionRequest` as authenticated execution, restricted to inline
-sources, including an optional selected name. Saved-view, plugin and page sources are refused.
-Arguments, controls, reporting zone and clock bind server-side under the existing publication scope.
-Visitor describe uses the same session, source cap and visibility checks, returning only metadata
-validated against publication-readable fields and effective kernel/system definitions. Source loading
-shares the canonical entity-source resolver; there is no client-side or publication-specific binder.
+Exchanges permit ten attempts per visitor address per minute, resolved through the authentication
+module's trusted address handling. Sessions allow six concurrent reads. Query statements time out
+after ten seconds; live responses and complete snapshot captures are bounded to 2 MB.
