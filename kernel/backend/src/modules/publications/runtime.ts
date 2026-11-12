@@ -246,24 +246,28 @@ export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 				const capturedArguments = yield* Schema.decodeUnknownEffect(
 					Schema.Record(Schema.String, JsonValue),
 				)(argumentsResult.success).pipe(Effect.orDie);
-				const result = yield* ryotql
-					.executeDeclared(
-						owner,
-						resolved.document,
-						{ arguments: capturedArguments },
-						PUBLICATION_RESULT_BYTES,
-					)
-					.pipe(
-						Effect.mapError(
-							(error) =>
-								new PublicationBadRequest({
-									reason:
-										error._tag === "RyotQLBadRequest" && error.reason.code === "result-too-large"
-											? { code: "snapshot-too-large", limitBytes: PUBLICATION_RESULT_BYTES }
-											: { code: "source-unavailable" },
-								}),
-						),
-					);
+				const result =
+					Object.keys(resolved.document.queries).length === 0
+						? { data: {} }
+						: yield* ryotql
+								.executeDeclared(
+									owner,
+									resolved.document,
+									{ arguments: capturedArguments },
+									PUBLICATION_RESULT_BYTES,
+								)
+								.pipe(
+									Effect.mapError(
+										(error) =>
+											new PublicationBadRequest({
+												reason:
+													error._tag === "RyotQLBadRequest" &&
+													error.reason.code === "result-too-large"
+														? { code: "snapshot-too-large", limitBytes: PUBLICATION_RESULT_BYTES }
+														: { code: "source-unavailable" },
+											}),
+									),
+								);
 				if (
 					Buffer.byteLength(
 						yield* Schema.encodeEffect(Schema.fromJsonString(RyotQLResponse))(result).pipe(

@@ -48,7 +48,10 @@ for (const mode of ["live", "snapshot"] as const) {
 			const sheet = owner.getByRole("dialog", { name: "Share" });
 			if (mode === "snapshot") {
 				yield* sheet.getByRole("button", { exact: true, name: "Mode: Live" }).click();
-				yield* sheet.getByRole("radio", { exact: true, name: "Snapshot" }).click();
+				yield* owner
+					.getByRole("dialog", { exact: true, name: "Mode" })
+					.getByRole("radio", { exact: true, name: "Snapshot" })
+					.click();
 			}
 			yield* sheet.getByRole("button", { name: "Publish and create link" }).click();
 			const linkField = sheet.getByRole("textbox", { name: "New link" });

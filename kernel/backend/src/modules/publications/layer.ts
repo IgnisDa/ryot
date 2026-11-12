@@ -16,7 +16,10 @@ import { PublicationsService } from "./service";
 import { PublicationSessions } from "./sessions";
 import { PublicationVisitsService } from "./visits";
 
-export const PublicationArtifactGrantsLive = ClientArtifactGrantService.layer.pipe(
+export const PublicationArtifactGrantsLive = Layer.effect(
+	ClientArtifactGrantService,
+	ClientArtifactGrantService.make,
+).pipe(
 	Layer.provide(ReusableCapabilityGrantStoreLive),
 	Layer.provide(
 		PublicationArtifactAuthorityLive.pipe(

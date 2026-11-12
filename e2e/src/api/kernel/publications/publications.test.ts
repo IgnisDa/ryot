@@ -1,5 +1,6 @@
 import { PUBLICATION_SESSION_HEADER } from "@ryot-app/contract/modules/publications/schemas";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Schema } from "effect";
 
 import {
@@ -57,7 +58,7 @@ describe("publications", () => {
 
 			expect(
 				yield* client.call((c) => c.publications.status({ payload: { publicationId } })),
-			).toEqual({ itemCount: 1, status: "ready" });
+			).toEqual({ status: "ready" });
 
 			const page = yield* visitor.call((c) => c.publicationVisits.page(), headers);
 			expect(page.publication).toMatchObject({ itemCount: 1, publicationId, title: "Shelf" });
@@ -165,7 +166,7 @@ describe("publications", () => {
 			);
 			expect(
 				requireRows(after.data["items"], "items").items.map((item) => item["__entityBrowserId"]),
-			).toEqual([member.id, outsider.id]);
+			).toEqual(sortBy([member.id, outsider.id]));
 			expect(requireRows(after.data["items"], "items").items).toHaveLength(2);
 		}),
 	);
