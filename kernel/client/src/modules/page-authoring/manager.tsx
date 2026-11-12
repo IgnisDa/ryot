@@ -15,12 +15,15 @@ import {
 	Field,
 	LoadMoreButton,
 	Notice,
+	RadioGroup,
 	RowGroup,
+	SearchField,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { AppIcon, appIconNames } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PageRecord } from "@ryot-app/ryotql-recipes/pages";
 import { useNavigate, useRouter } from "@tanstack/react-router";
+import clsx from "clsx";
 import { Effect, Schema } from "effect";
 import { useRef, useState } from "react";
 
@@ -225,6 +228,11 @@ function PageEditor(props: {
 	const view = useRyotMutation(createPageViewMutation);
 	const [name, setName] = useState(page?.name ?? "");
 	const [slug, setSlug] = useState(page?.slug ?? "");
+	const [viewIcon, setViewIcon] = useState("file-text");
+	const [iconQuery, setIconQuery] = useState("");
+	const iconOptions = appIconNames
+		.filter((value) => value.includes(iconQuery.trim().toLowerCase()))
+		.map((value) => ({ value, label: value }));
 	const [entry, setEntry] = useState(page?.draftDefinition.entry ?? "client/page.tsx");
 	const [dependencies, setDependencies] = useState(
 		JSON.stringify(page?.draftDefinition.pluginDependencies ?? {}, null, 2),
@@ -531,6 +539,54 @@ function PageEditor(props: {
 							title="Navigation"
 							detail="Create a saved view of the published page. Query values are controlled by page code."
 						>
+							<div className="grid gap-2">
+								<div className="flex items-center justify-between gap-2">
+									<span className="text-sm font-medium text-text">Icon</span>
+									<span className="flex items-center gap-1.5 font-mono text-xs text-text-muted">
+										<AppIcon size={14} name={viewIcon} />
+										{viewIcon}
+									</span>
+								</div>
+								<div className="overflow-hidden rounded-lg border border-border-card bg-surface">
+									<div className="border-b border-border p-2">
+										<SearchField
+											value={iconQuery}
+											label="Search icons"
+											onChange={setIconQuery}
+											placeholder="Search icons"
+											icon={<AppIcon size={15} name="search" />}
+											clearIcon={<AppIcon name="x" size={14} />}
+										/>
+									</div>
+									{iconOptions.length === 0 ? (
+										<p className="px-4 py-6 text-center text-sm text-text-muted">No icons match.</p>
+									) : (
+										<RadioGroup
+											value={viewIcon}
+											label="View icon"
+											options={iconOptions}
+											onChange={setViewIcon}
+											className="grid max-h-48 grid-cols-[repeat(auto-fill,minmax(2.5rem,1fr))] gap-1 overflow-y-auto p-2"
+											renderOption={(option, selected) => ({
+												content: (
+													<span
+														title={option.value}
+														className="flex size-full items-center justify-center"
+													>
+														<AppIcon size={18} name={option.value} />
+													</span>
+												),
+												className: clsx(
+													"flex size-10 items-center justify-center rounded-md",
+													selected
+														? "bg-accent-soft text-accent-text ring-1 ring-accent-border ring-inset"
+														: "text-text-muted hover:bg-hover hover:text-text",
+												),
+											})}
+										/>
+									)}
+								</div>
+							</div>
 							<div>
 								<Button
 									disabled={busy}
@@ -540,8 +596,8 @@ function PageEditor(props: {
 											view
 												.mutateEffect({
 													settings: {},
+													icon: viewIcon,
 													name: page.name,
-													icon: "file-text",
 													dataSources: null,
 													renderer: { kind: "page", pageId: page.id },
 												})

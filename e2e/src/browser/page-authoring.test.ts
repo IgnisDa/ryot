@@ -28,6 +28,9 @@ it.live(
 			const owner = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(owner, email, password);
 			yield* owner.goto(`${getFrontendUrl()}/settings/pages`);
+			expect(
+				yield* owner.getByRole("link", { name: "Read the pages guide" }).getAttribute("href"),
+			).toBe("https://docs.ryot.io/concepts/pages.html");
 			yield* owner.getByRole("button", { exact: true, name: "New page" }).click();
 			yield* owner.getByLabel("Name", { exact: true }).fill(name);
 			yield* owner.getByLabel("Slug", { exact: true }).fill(`page-${suffix}`);
@@ -63,13 +66,26 @@ it.live(
 			yield* owner.goto(`${getFrontendUrl()}/settings/pages`);
 			yield* owner.getByRole("button", { exact: true, name: `Manage ${name}` }).click();
 			yield* owner.getByRole("button", { exact: true, name: "Publish" }).click();
+			const icons = owner.getByRole("radiogroup", { name: "View icon" });
+			yield* owner.getByLabel("Search icons", { exact: true }).fill("no-such-icon");
+			yield* owner.getByText("No icons match.", { exact: true }).waitFor({ state: "visible" });
+			yield* owner.getByLabel("Search icons", { exact: true }).fill("dumb");
+			expect(yield* icons.getByRole("radio").count).toBe(1);
+			yield* icons.getByRole("radio", { exact: true, name: "dumbbell" }).click();
+			expect(
+				yield* icons
+					.getByRole("radio", { exact: true, name: "dumbbell" })
+					.getAttribute("aria-checked"),
+			).toBe("true");
 			yield* owner.getByRole("button", { exact: true, name: "Create view and open" }).click();
 			yield* owner
 				.locator("iframe")
 				.contentFrame()
 				.getByRole("heading", { exact: true, name: marker })
 				.waitFor({ state: "visible" });
-			yield* owner.getByRole("link", { name, exact: true }).first().waitFor({ state: "visible" });
+			const viewLink = owner.getByRole("link", { name, exact: true }).first();
+			yield* viewLink.waitFor({ state: "visible" });
+			expect(yield* viewLink.locator('[data-app-icon="dumbbell"]').count).toBe(1);
 			const viewId = requirePresent(
 				owner.url().split("/v/c/")[1],
 				"Expected a custom saved-view route",

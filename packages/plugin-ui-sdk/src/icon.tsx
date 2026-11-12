@@ -218,6 +218,8 @@ const icons = {
 	"sliders-horizontal": SlidersHorizontal,
 };
 
+export const appIconNames = Object.keys(icons).sort();
+
 type AppIconProps = { readonly name: string; readonly size?: number; readonly className?: string };
 
 const isIconName = (name: string): name is keyof typeof icons => Object.hasOwn(icons, name);

@@ -42,3 +42,19 @@ it.live("keeps account and server-wide sections on their own pages", () =>
 		yield* page.waitForURL((url) => url.pathname.startsWith("/instance-admin"));
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
+
+it.live("scrolls a short settings sidebar to every section with registered icons", () =>
+	Effect.gen(function* () {
+		const { email, password } = yield* createTestUser();
+		const browser = yield* Playwright.Browser;
+		const page = yield* browser.newPage({ viewport: { width: 1280, height: 480 } });
+		yield* signInThroughHostedOAuth(page, email, password);
+
+		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
+		const about = settingsSidebar(page).getByRole("link", { name: "About" });
+		yield* about.waitFor({ state: "attached" });
+		expect(yield* settingsSidebar(page).locator('[data-app-icon="fallback"]').count).toBe(0);
+		yield* about.click();
+		yield* page.waitForURL((url) => url.pathname === "/settings/about");
+	}).pipe(PlaywrightSpawner.withBrowser),
+);
