@@ -2,7 +2,6 @@ import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client
 import type { AutomationTrigger } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { SignalSchemaReference } from "@ryot-app/contract/modules/plugins/references";
 import { NotificationSubscriptionId } from "@ryot-app/contract/schema/brands";
-import type { Recipe } from "@ryot-app/ryotql";
 import {
 	column,
 	defineRecipe,
@@ -65,12 +64,12 @@ const collectAutomationRecords = <Item, Error, Requirements>(
 export const listAutomationCatalog = (client: Client) =>
 	collectRyotQLRecipeItems(client, activeSignalSchemasRecipe, {}, "signals");
 
-export const listNotificationSubscriptions = (
-	client: Client,
-	input: Recipe.Arguments<typeof notificationSubscriptionsRecipe>,
-) =>
-	executeRyotQLRecipe(client, notificationSubscriptionsRecipe, input).pipe(
-		Effect.map((result) => result.items),
+export const listNotificationSubscriptions = (client: Client) =>
+	collectRyotQLRecipeItems(
+		client,
+		notificationSubscriptionsRecipe,
+		{},
+		"notificationSubscriptions",
 	);
 
 export const getNotificationSubscription = (client: Client, ruleId: string) =>

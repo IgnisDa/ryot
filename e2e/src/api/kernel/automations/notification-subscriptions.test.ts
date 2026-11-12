@@ -51,7 +51,7 @@ describe("notification subscription catalog and rules", () => {
 			const catalog = (yield* listAutomationCatalog(client)).filter(({ pluginId }) =>
 				shippedOwners.has(pluginId),
 			);
-			const rules = yield* listNotificationSubscriptions(client, { limit: 100 });
+			const rules = yield* listNotificationSubscriptions(client);
 
 			expect(catalog.map((schema) => schema.slug).sort()).toEqual<unknown>([
 				"company.media-group.associated",
@@ -86,7 +86,7 @@ describe("notification subscription catalog and rules", () => {
 			const owner = yield* createAuthenticatedClient();
 			const other = yield* createAuthenticatedClient();
 			const catalog = yield* listAutomationCatalog(owner.client);
-			const ownerRules = yield* listNotificationSubscriptions(owner.client, { limit: 100 });
+			const ownerRules = yield* listNotificationSubscriptions(owner.client);
 			const reviewSchema = requirePresent(
 				catalog.find((schema) => schema.slug === "review.created"),
 				"Expected the review notification schema",

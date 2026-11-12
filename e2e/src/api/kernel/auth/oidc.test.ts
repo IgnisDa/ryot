@@ -304,7 +304,7 @@ describe("OIDC sign-in happy path (API A)", () => {
 			const client = makeSession(targetA(), headers);
 			const [catalog, rules] = yield* Effect.all([
 				collectRyotQLRecipeItems(client, activeSignalSchemasRecipe, {}, "signals"),
-				listNotificationSubscriptions(client, { limit: 100 }),
+				listNotificationSubscriptions(client),
 			]);
 			expect(rules).toHaveLength(catalog.length);
 			expect(rules.map((rule) => rule.signalSchemaSlug).sort()).toEqual(

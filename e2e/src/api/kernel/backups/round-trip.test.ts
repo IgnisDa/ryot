@@ -724,9 +724,7 @@ describe("backup export and restore round trip", () => {
 				c.savedViews.update({ payload: { isHidden: true, reference: builtinView.reference } }),
 			);
 
-			const sourceSubscriptions = yield* listNotificationSubscriptions(source.client, {
-				limit: 100,
-			});
+			const sourceSubscriptions = yield* listNotificationSubscriptions(source.client);
 			const notificationSubscription = requirePresent(
 				sourceSubscriptions.find(({ signalSchemaSlug }) => signalSchemaSlug === "review.created"),
 				"Missing default review notification subscription",
@@ -874,9 +872,7 @@ describe("backup export and restore round trip", () => {
 				dataSources: null,
 				renderer: { kind: "plugin", exportName: "backup-page" },
 			});
-			const restoredSubscriptions = yield* listNotificationSubscriptions(target.client, {
-				limit: 100,
-			});
+			const restoredSubscriptions = yield* listNotificationSubscriptions(target.client);
 			expect(
 				requirePresent(
 					restoredSubscriptions.find(
