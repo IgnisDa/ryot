@@ -23,3 +23,14 @@ artifacts, watches local changes, and restarts the server.
 SDK-owned examples. Ship it beside the server bundle and shared chunks. Production loads this file
 without loading build tooling or regenerating the topics; unbundled development generates them from
 current sources.
+
+`assistant-eval.ts` measures Ryobot against a running server with real provider calls, so it is
+kept out of CI. Create an API key for a dedicated account and run
+`RYOT_EVAL_API_URL=http://localhost:<port>/api RYOT_EVAL_API_KEY=<key> bun run tooling/assistant-eval.ts`
+from `apps/server`. When `SERVER_ASSISTANT_MODEL` and `SERVER_ASSISTANT_BASE_URL` are set (Bun also
+loads them from `.env`), the script configures them, with the optional `SERVER_ASSISTANT_API_KEY`, as
+the account's own provider; otherwise the account's resolved provider is used. `RYOT_EVAL_ONLY` takes
+comma-separated task names. Each task starts a conversation, approves every write, and checks the
+turn status, the tools and capabilities used and, for page tasks, the resulting page state. The
+script removes leftover `eval-` pages first, prints a summary table, and writes a JSON report with
+each answer to `tmp/`.
