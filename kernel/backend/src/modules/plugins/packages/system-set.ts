@@ -49,12 +49,18 @@ export const validateSystemPluginSet = (
 			httpRateLimits: manifest.httpRateLimits,
 		})),
 	);
-	const source = mergeManifestDefinitions(kernel, plugins);
+	return buildValidatedDefinitionSnapshot(mergeManifestDefinitions(kernel, plugins), plugins);
+};
+
+export const buildValidatedDefinitionSnapshot = (
+	source: DefinitionSource,
+	plugins: ReadonlyArray<SystemSetPlugin>,
+) => {
 	validateStoredQueries(source, plugins);
 	return buildDefinitionSnapshot(source);
 };
 
-export const validateStoredQueries = (
+const validateStoredQueries = (
 	source: DefinitionSource,
 	plugins: ReadonlyArray<SystemSetPlugin>,
 ) => {

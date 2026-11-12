@@ -26,10 +26,7 @@ import {
 	parseAppSchemaProperties,
 } from "#modules/definitions/properties/runtime";
 import { DefinitionRepository } from "#modules/definitions/repository";
-import {
-	buildDefinitionSnapshot,
-	definitionSourceFromSnapshot,
-} from "#modules/definitions/snapshot";
+import { definitionSourceFromSnapshot } from "#modules/definitions/snapshot";
 import { mergeManifestDefinitions } from "#modules/definitions/source";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { DatabaseSession } from "#platform/db/session";
@@ -49,7 +46,7 @@ import {
 } from "../packages/pipeline";
 import { PluginRepository } from "../packages/repository";
 import { validateAdditiveSchemaEvolution } from "../packages/schema-evolution";
-import { validateStoredQueries } from "../packages/system-set";
+import { buildValidatedDefinitionSnapshot } from "../packages/system-set";
 import type { NormalizedPlugin, StoredPlugin } from "../packages/types";
 import {
 	PluginValidationError,
@@ -119,11 +116,10 @@ const buildEffectiveDefinitions = (
 				definitionSourceFromSnapshot(systemDefinitions),
 				plugins,
 			);
-			validateStoredQueries(source, [
+			return buildValidatedDefinitionSnapshot(source, [
 				...systemPlugins.map((plugin) => ({ ...plugin, scope: "system" as const })),
 				...plugins.map((plugin) => ({ ...plugin, scope: "user" as const })),
 			]);
-			return buildDefinitionSnapshot(source);
 		},
 	});
 

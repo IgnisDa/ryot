@@ -129,7 +129,9 @@ receipt. Retrying an interrupted uninstall retains the same fence and cleanup ow
 `manifest.queries` is an optional record of `{ description, document }`, where `document` is an
 authored, parameterized RyotQL document. Operation metadata is independent and retains its existing
 shape. Ingestion validates all query branches and catalog-dependent controls against the effective
-system/private definition set. The immutable `plugin_revision.queries` section is the runtime read
+system/private definition set. A definition set is validated once, in the transaction that produces it:
+kernel definition replacement at startup, a changed system package, uninstall, and installation changes.
+An unchanged system package is not revalidated. The immutable `plugin_revision.queries` section is the runtime read
 source; execution does not load the cold manifest. User calls require the exact available installation;
 pinned system scripts resolve their own declared queries at the retained revision.
 

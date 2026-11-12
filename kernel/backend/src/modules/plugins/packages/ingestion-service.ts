@@ -66,7 +66,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 			);
 			const validateSystemSet = Effect.fn("PluginIngestionService.validateSystemSet")(function* (
 				plugins: ReadonlyArray<SystemSetEntry>,
-				validateCompiledScripts?: boolean,
 			) {
 				const kernel = yield* definitions.readKernelSource;
 				const snapshot = yield* Effect.try({
@@ -80,11 +79,7 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						validatePluginManifestReferences(plugin.manifest).pipe(
 							Effect.andThen(validateIntegrationProviderSettingsSchemas(plugin.manifest)),
 							Effect.andThen(validateImportSourceInputSchemas(plugin.manifest)),
-							Effect.andThen(
-								validateCompiledScripts === false
-									? Effect.void
-									: validatePluginExecutableScripts(plugin),
-							),
+							Effect.andThen(validatePluginExecutableScripts(plugin)),
 						),
 					{ discard: true },
 				);
@@ -128,16 +123,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 						},
 					});
 				}
-				yield* validateSystemSet(
-					[
-						...installed.filter((plugin) =>
-							target ? plugin.id !== target.pluginId : plugin.packageId !== packageId,
-						),
-						{ manifest, scripts: [], id: target?.pluginId ?? `pending:${packageId}` },
-					],
-					false,
-				);
-
 				const cached = yield* repository.findByContentHash({
 					packageId,
 					...(target ? { pluginId: target.pluginId } : {}),
@@ -155,7 +140,6 @@ export class PluginIngestionService extends Context.Service<PluginIngestionServi
 							if (!authoritative) {
 								return null;
 							}
-							yield* validateSystemSet(plugins);
 							if (environmentResolution === "immediate") {
 								yield* repository.resolveEnvironmentConfig(authoritative);
 							}
