@@ -12,7 +12,7 @@ export function SettingsLayout(props: { readonly children: ReactNode }) {
 		<div className="flex h-full min-h-0">
 			<aside
 				data-testid="settings-sidebar"
-				className="hidden w-60 shrink-0 flex-col border-r border-border bg-surface px-4 py-8 md:flex"
+				className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r border-border bg-surface px-4 py-8 md:flex"
 			>
 				<h2 className="mb-6 px-3 font-display text-2xl font-semibold text-text">Settings</h2>
 				<nav aria-label="Settings sections">
