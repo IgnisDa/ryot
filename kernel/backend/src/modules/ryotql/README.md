@@ -123,7 +123,7 @@ System-plugin ownership checks use the exact local plugin ID and pinned declarat
 | `importSource`, `integrationProvider`                                                                      | Of the user's executable plugins           |   no   |  no   | —                                                                      |
 | `entityTranslation`, `sandboxScript`, `userLifecycleOperation`, `migrationReport`, `migrationReportDetail` | —                                          |   no   |  yes  | —                                                                      |
 
-`catalog.ts` lists each table's fields. Sandbox script bodies are never fields, including for admin readers. Artifact keys, raw or decrypted configuration and integration settings, and the script and configuration pins of executable definitions are never fields; configuration and integration settings are read through their write-time redacted projections.
+`@ryot-app/ryotql/catalog` declares each table's logical fields, kinds, and audience access; semantic validation reads only that declaration. The kernel `catalog.ts` binds every logical table and field to its relation, SQL resolver, source, and visibility policy, and its types require a binding for each. Sandbox script bodies are never fields, including for admin readers. Artifact keys, raw or decrypted configuration and integration settings, and the script and configuration pins of executable definitions are never fields; configuration and integration settings are read through their write-time redacted projections.
 
 `sandboxProviderOperation` reads a user-scoped view of the active manifest and its matching provider scripts. Operations have no separate persisted identity or timestamps.
 

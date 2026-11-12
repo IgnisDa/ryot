@@ -20,7 +20,8 @@
 | `packages/plugin-client-sdk`, `packages/plugin-ui-sdk`, `packages/plugin-backend-sdk` | Environment-neutral plugin-facing APIs and UI components.                                                                                                               |
 | `packages/plugin-backend-compiler`, `packages/plugin-client-compiler`                 | Independent compiler engines sharing only generic `packages/typescript-compiler` infrastructure, not policies, protocols, limits, or public APIs.                       |
 | `packages/cli`, `packages/plugin-archive`                                             | Canonical plugin builds and deterministic archive reading/writing.                                                                                                      |
-| `packages/ryotql`, `packages/ryotql-recipes`                                          | Query documents and application recipes; domain recipes live in each plugin's `shared/`.                                                                                |
+| `packages/ryotql`, `packages/ryotql-recipes`                                          | Query documents, the logical catalog and semantic validation, application recipes, and control resolution; domain recipes live in each plugin's `shared/`.             |
+| `packages/definitions`                                                                | Definition model, kernel baseline definitions, and definition-set validation shared by ingestion and `ryot plugin build`.                                               |
 | `packages/kernel-renderers`                                                           | Kernel-shipped saved-view renderers compiled as client plugin sources.                                                                                                  |
 
 ## Engineering

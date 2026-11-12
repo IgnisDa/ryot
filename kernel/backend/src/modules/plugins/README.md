@@ -135,12 +135,15 @@ An unchanged system package is not revalidated. The immutable `plugin_revision.q
 source; execution does not load the cold manifest. User calls require the exact available installation;
 pinned system scripts resolve their own declared queries at the retained revision.
 
-External manifest tests use `validateSystemPluginSet` from
-`@ryot-app/kernel-backend/modules/plugins/packages/system-set` with `kernelDefinitionSource()` from
-`@ryot-app/kernel-backend/modules/definitions/kernel-source` and the complete available plugin set
-`[{ id, manifest, scope }]`. Scope defaults to `system`. This is the ingestion validator: it checks
-every authored branch, resolves owners against that set, rejects unavailable or wrong-scope owners,
-checks controls independently, and builds the definition snapshot. Invalid declarations throw.
+`validateDefinitionSet` from `@ryot-app/definitions/definition-set`, with `kernelDefinitionSource()`
+from `@ryot-app/definitions/kernel-definitions` and the complete available plugin set
+`[{ id, manifest, scope }]`, is the definition validator. Scope defaults to `system`. It checks every
+authored branch, resolves owners against that set, rejects unavailable or wrong-scope owners, checks
+controls independently, and builds the definition snapshot. Invalid declarations throw.
+`validateSystemPluginSet` adds the deployment rules for active system packages: unique package IDs,
+configuration environment keys, and HTTP rate-limit lookups. `ryot plugin build` runs the same
+definition validator over the plugin and its declared dependency closure; ingestion still validates
+every archive.
 Service integration tests use `RyotQLService.layer`, `isolatedDatabaseLayer`, and
 `makeAppConfigLayer` from the explicit `modules/ryotql/service`, `testing/isolated-database`, and
 `testing/effect` package entry points. Seed through the exported `platform/db/session` and
