@@ -7,6 +7,7 @@ import {
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
+	Badge,
 	Button,
 	Card,
 	DestructiveConfirmation,
@@ -14,12 +15,16 @@ import {
 	Field,
 	LoadMoreButton,
 	Notice,
+	RowGroup,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
+import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PageRecord } from "@ryot-app/ryotql-recipes/pages";
 import { useNavigate, useRouter } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
 import { useRef, useState } from "react";
+
+import { SettingsSection } from "#/modules/settings/settings-section";
 
 import { DefinitionForm } from "./definition-form";
 import {
@@ -67,13 +72,21 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 		);
 	}
 	return (
-		<div className="grid gap-4">
-			<p className="text-sm text-text-muted">
-				Upload or paste a self-contained page, compile a read-only preview, then publish it and add
-				a view to navigation.
-			</p>
-			<div>
-				<Button disabled={props.disabled} onClick={() => setSelected("new")}>
+		<div className="grid gap-6">
+			<div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+				<div className="grid gap-1">
+					<p className="text-sm text-text-muted">
+						Upload or paste a self-contained page, compile a read-only preview, then publish it and
+						add a view to navigation.
+					</p>
+					<DocsLink />
+				</div>
+				<Button
+					disabled={props.disabled}
+					className="shrink-0 self-start"
+					onClick={() => setSelected("new")}
+				>
+					<AppIcon size={15} name="plus" />
 					New page
 				</Button>
 			</div>
@@ -83,30 +96,82 @@ export function PagesManager(props: { readonly disabled: boolean }) {
 				</Notice>
 			)}
 			{!query.isPending && !query.isError && pages.length === 0 && (
-				<EmptyState title="No pages yet" description="Create a page to get started." />
+				<EmptyState
+					title="No pages yet"
+					description="Create a page to get started."
+					icon={<AppIcon size={36} name="file-text" className="text-text-subtle" />}
+				/>
 			)}
-			{pages.map((page) => (
-				<Card key={page.id} className="grid gap-2">
-					<h2 className="font-semibold">{page.name}</h2>
-					<p className="text-sm text-text-muted">
-						Draft {page.draftRevision} ·{" "}
-						{page.publishedRevision === null
-							? "Unpublished"
-							: `Published ${page.publishedRevision}`}
-					</p>
-					<div>
-						<Button variant="secondary" onClick={() => setSelected(page.id)}>
-							Manage {page.name}
-						</Button>
-					</div>
-				</Card>
-			))}
+			{pages.length > 0 && (
+				<RowGroup>
+					{pages.map((page) => (
+						<div key={page.id} className="flex items-center justify-between gap-3 px-4 py-3">
+							<div className="grid min-w-0 gap-1.5">
+								<h2 className="truncate font-semibold text-text">{page.name}</h2>
+								<PageStatus
+									draftRevision={page.draftRevision}
+									publishedRevision={page.publishedRevision}
+								/>
+							</div>
+							<Button
+								size="sm"
+								variant="secondary"
+								aria-label={`Manage ${page.name}`}
+								onClick={() => setSelected(page.id)}
+							>
+								Manage
+								<AppIcon size={14} name="chevron-right" />
+							</Button>
+						</div>
+					))}
+				</RowGroup>
+			)}
 			{query.data?.pageInfo.hasMore === true && (
 				<LoadMoreButton
 					label="Load more"
 					onClick={query.fetchNextPage}
 					isFetchingNextPage={query.isFetchingNextPage}
 				/>
+			)}
+		</div>
+	);
+}
+
+function DocsLink() {
+	return (
+		<a
+			target="_blank"
+			rel="noreferrer"
+			href="https://docs.ryot.io/concepts/pages.html"
+			className="flex items-center gap-1.5 self-start py-1 text-sm font-medium text-accent-text"
+		>
+			Read the pages guide
+			<AppIcon size={14} name="external-link" />
+		</a>
+	);
+}
+
+function PageStatus(props: {
+	readonly slug?: string;
+	readonly draftRevision: number;
+	readonly origin?: PageRecord["origin"];
+	readonly publishedRevision: null | number;
+}) {
+	return (
+		<div className="flex flex-wrap items-center gap-1.5">
+			{props.slug !== undefined && (
+				<Badge variant="outline" className="font-mono">
+					{props.slug}
+				</Badge>
+			)}
+			<Badge variant="neutral">Draft {props.draftRevision}</Badge>
+			<Badge variant={props.publishedRevision === null ? "neutral" : "success"}>
+				{props.publishedRevision === null ? "Unpublished" : `Published ${props.publishedRevision}`}
+			</Badge>
+			{props.origin !== undefined && (
+				<Badge variant="neutral">
+					{props.origin === "assistant" ? "Assistant authored" : "User authored"}
+				</Badge>
 			)}
 		</div>
 	);
@@ -253,15 +318,28 @@ function PageEditor(props: {
 			),
 		);
 	};
+	const draftStatus = () => {
+		if (dirty) {
+			return "Unsaved changes. Save and compile to preview this definition.";
+		}
+		if (compiled !== null && !conflict) {
+			return "Compiled. Preview is always read-only.";
+		}
+		return "Saved. Compile to preview this draft.";
+	};
 	const reason = authoringReason(failure);
 	return (
-		<div className="grid gap-4">
-			<Button variant="ghost" onClick={props.onDone}>
-				All pages
-			</Button>
-			<Card className="grid gap-4">
-				{page === null ? (
-					<>
+		<div className="grid gap-8">
+			<div className="flex items-center justify-between gap-3">
+				<Button size="sm" variant="ghost" className="-ml-2.5" onClick={props.onDone}>
+					<AppIcon size={15} name="chevron-left" />
+					All pages
+				</Button>
+				<DocsLink />
+			</div>
+			{page === null ? (
+				<SettingsSection title="New page" detail="Name the page and choose its URL slug.">
+					<Card className="grid gap-4">
 						<Field label="Name">
 							{(control) => (
 								<TextField
@@ -280,148 +358,158 @@ function PageEditor(props: {
 									required
 									value={slug}
 									disabled={busy}
+									className="font-mono"
 									onChange={(event) => setSlug(event.target.value)}
 								/>
 							)}
 						</Field>
-					</>
-				) : (
-					<>
-						<h2 className="font-semibold">{page.name}</h2>
-						<p className="text-sm text-text-muted">
-							{page.slug} · Draft {revision} ·{" "}
-							{page.publishedRevision === null
-								? "Unpublished"
-								: `Published ${page.publishedRevision}`}{" "}
-							· {page.origin === "assistant" ? "Assistant authored" : "User authored"}
-						</p>
-					</>
-				)}
-				<DefinitionForm
-					entry={entry}
-					files={files}
-					queries={queries}
-					onError={setMessage}
-					dependencies={dependencies}
-					disabled={busy || conflict}
-					onEntry={(value) => {
-						changed();
-						setEntry(value);
-					}}
-					onFiles={(value) => {
-						changed();
-						setFiles(value);
-					}}
-					onQueries={(value) => {
-						changed();
-						setQueries(value);
-					}}
-					onDependencies={(value) => {
-						changed();
-						setDependencies(value);
-					}}
-				/>
-				<div className="flex flex-wrap gap-2">
-					<Button
-						onClick={save}
-						disabled={busy || conflict || !dirty || name.trim() === "" || slug.trim() === ""}
-					>
-						{page === null ? "Create draft" : "Save draft"}
-					</Button>
-					{page !== null && (
-						<>
-							<Button
-								variant="secondary"
-								disabled={busy || dirty || conflict}
-								onClick={() =>
-									run(
-										{
-											action: "compile",
-											payload: { pageId: page.id, expectedDraftRevision: revision },
-										},
-										() => {
-											props.onReload?.();
-										},
-									)
-								}
-							>
-								Compile draft
-							</Button>
-							<Button
-								disabled={busy || dirty || conflict}
-								onClick={() =>
-									run(
-										{
-											action: "publish",
-											payload: { pageId: page.id, expectedDraftRevision: revision },
-										},
-										() => {
-											setMessage("Page published.");
-											props.onReload?.();
-										},
-									)
-								}
-							>
-								Publish
-							</Button>
-						</>
-					)}
-				</div>
-				{dirty && page !== null && (
-					<p role="status" className="text-sm text-text-muted">
-						Unsaved changes. Save and compile to preview this definition.
-					</p>
-				)}
-				{compiled !== null && !dirty && !conflict && (
-					<div>
-						<Button
-							variant="secondary"
-							onClick={() =>
-								void navigate({
-									to: "/page-preview/$pageId",
-									params: { pageId: compiled.pageId },
-									search: {
-										artifactHash: compiled.artifactHash,
-										draftRevision: compiled.draftRevision,
-										definitionHash: compiled.definitionHash,
-									},
-								})
-							}
-						>
-							Preview compiled draft
-						</Button>
-						<p className="text-sm text-text-muted">Preview is always read-only.</p>
-					</div>
-				)}
-			</Card>
-			{message !== null && <Notice tone="info">{message}</Notice>}
-			{failure !== null && <Notice tone="danger">{authoringFailureText(failure)}</Notice>}
-			{reason?.code === "build-failed" && (
-				<ul className="grid gap-2" aria-label="Compile diagnostics">
-					{reason.diagnostics.map((diagnostic) => (
-						<li
-							className="break-words font-mono text-sm"
-							key={`${diagnostic.file}:${diagnostic.line}:${diagnostic.column}:${diagnostic.code}:${diagnostic.message}`}
-						>
-							{diagnostic.file}:{diagnostic.line}:{diagnostic.column} [{diagnostic.code}]{" "}
-							{diagnostic.message}
-						</li>
-					))}
-				</ul>
+					</Card>
+				</SettingsSection>
+			) : (
+				<header className="grid gap-2">
+					<h2 className="font-display text-2xl font-semibold text-text">{page.name}</h2>
+					<PageStatus
+						slug={page.slug}
+						origin={page.origin}
+						draftRevision={revision}
+						publishedRevision={page.publishedRevision}
+					/>
+				</header>
 			)}
+			<DefinitionForm
+				entry={entry}
+				files={files}
+				queries={queries}
+				onError={setMessage}
+				dependencies={dependencies}
+				disabled={busy || conflict}
+				onEntry={(value) => {
+					changed();
+					setEntry(value);
+				}}
+				onFiles={(value) => {
+					changed();
+					setFiles(value);
+				}}
+				onQueries={(value) => {
+					changed();
+					setQueries(value);
+				}}
+				onDependencies={(value) => {
+					changed();
+					setDependencies(value);
+				}}
+			/>
+			<div className="grid gap-3">
+				<Card className="grid gap-3">
+					<div className="flex flex-wrap items-center gap-2">
+						<Button
+							onClick={save}
+							variant={page === null ? "primary" : "secondary"}
+							disabled={busy || conflict || !dirty || name.trim() === "" || slug.trim() === ""}
+						>
+							{page === null ? "Create draft" : "Save draft"}
+						</Button>
+						{page !== null && (
+							<>
+								<Button
+									variant="secondary"
+									disabled={busy || dirty || conflict}
+									onClick={() =>
+										run(
+											{
+												action: "compile",
+												payload: { pageId: page.id, expectedDraftRevision: revision },
+											},
+											() => {
+												props.onReload?.();
+											},
+										)
+									}
+								>
+									Compile draft
+								</Button>
+								{compiled !== null && !dirty && !conflict && (
+									<Button
+										variant="secondary"
+										onClick={() =>
+											void navigate({
+												to: "/page-preview/$pageId",
+												params: { pageId: compiled.pageId },
+												search: {
+													artifactHash: compiled.artifactHash,
+													draftRevision: compiled.draftRevision,
+													definitionHash: compiled.definitionHash,
+												},
+											})
+										}
+									>
+										<AppIcon size={15} name="eye" />
+										Preview compiled draft
+									</Button>
+								)}
+								<Button
+									className="sm:ml-auto"
+									disabled={busy || dirty || conflict}
+									onClick={() =>
+										run(
+											{
+												action: "publish",
+												payload: { pageId: page.id, expectedDraftRevision: revision },
+											},
+											() => {
+												setMessage("Page published.");
+												props.onReload?.();
+											},
+										)
+									}
+								>
+									Publish
+								</Button>
+							</>
+						)}
+					</div>
+					{page !== null && (
+						<div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
+							<p role="status" className="text-sm text-text-muted">
+								{draftStatus()}
+							</p>
+							<Button size="sm" disabled={busy} variant="ghost" onClick={props.onReload}>
+								Reload latest draft (discard local changes)
+							</Button>
+						</div>
+					)}
+				</Card>
+				{message !== null && <Notice tone="info">{message}</Notice>}
+				{failure !== null && <Notice tone="danger">{authoringFailureText(failure)}</Notice>}
+				{reason?.code === "build-failed" && (
+					<Card className="overflow-x-auto">
+						<ul className="grid gap-2" aria-label="Compile diagnostics">
+							{reason.diagnostics.map((diagnostic) => (
+								<li
+									className="break-words font-mono text-sm text-danger"
+									key={`${diagnostic.file}:${diagnostic.line}:${diagnostic.column}:${diagnostic.code}:${diagnostic.message}`}
+								>
+									{diagnostic.file}:{diagnostic.line}:{diagnostic.column} [{diagnostic.code}]{" "}
+									{diagnostic.message}
+								</li>
+							))}
+						</ul>
+					</Card>
+				)}
+			</div>
 			{page !== null && (
 				<>
-					<Button disabled={busy} variant="secondary" onClick={props.onReload}>
-						Reload latest draft (discard local changes)
-					</Button>
-					<Card className="grid gap-3">
-						<h3 className="font-semibold">Write access</h3>
-						<p className="text-sm text-text-muted">
-							{page.writeAccess ? "Granted" : "Not granted"}. Published page operations require your
-							grant. Assistant edits revoke it. Previews stay read-only.
-						</p>
-						<div>
+					<SettingsSection
+						title="Write access"
+						detail="Published page operations require your grant. Assistant edits revoke it. Previews stay read-only."
+					>
+						<div className="flex flex-wrap items-center gap-3">
+							<Badge dot variant={page.writeAccess ? "success" : "neutral"}>
+								{page.writeAccess ? "Granted" : "Not granted"}
+							</Badge>
 							<Button
+								size="sm"
 								disabled={busy}
 								variant="secondary"
 								onClick={() =>
@@ -437,23 +525,23 @@ function PageEditor(props: {
 								{page.writeAccess ? "Revoke write access" : "Grant write access"}
 							</Button>
 						</div>
-					</Card>
+					</SettingsSection>
 					{page.publishedRevision !== null && (
-						<Card className="grid gap-3">
-							<h3 className="font-semibold">Navigation</h3>
-							<p className="text-sm text-text-muted">
-								Create a saved view of the published page. Query values are controlled by page code.
-							</p>
+						<SettingsSection
+							title="Navigation"
+							detail="Create a saved view of the published page. Query values are controlled by page code."
+						>
 							<div>
 								<Button
 									disabled={busy}
+									variant="secondary"
 									onClick={() => {
 										void Effect.runPromise(
 											view
 												.mutateEffect({
-													icon: "file",
 													settings: {},
 													name: page.name,
+													icon: "file-text",
 													dataSources: null,
 													renderer: { kind: "page", pageId: page.id },
 												})
@@ -471,19 +559,28 @@ function PageEditor(props: {
 									Create view and open
 								</Button>
 							</div>
-						</Card>
+						</SettingsSection>
 					)}
-					<Button
-						ref={trigger}
-						disabled={busy}
-						variant="dangerGhost"
-						onClick={() => {
-							setFailure(null);
-							setConfirming(true);
-						}}
+					<SettingsSection
+						title="Delete page"
+						detail="The draft and published page are deleted permanently. Remove saved views and publications using this page first."
 					>
-						Delete page
-					</Button>
+						<div>
+							<Button
+								ref={trigger}
+								disabled={busy}
+								className="-ml-3.5"
+								variant="dangerGhost"
+								onClick={() => {
+									setFailure(null);
+									setConfirming(true);
+								}}
+							>
+								<AppIcon size={15} name="trash-2" />
+								Delete page
+							</Button>
+						</div>
+					</SettingsSection>
 					{confirming && (
 						<DestructiveConfirmation
 							triggerRef={trigger}
