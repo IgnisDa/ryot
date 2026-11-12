@@ -212,9 +212,9 @@ export const builtinRelationshipSchemas = (): BuiltinRelationshipSchema[] => [
 	})),
 	...buildCreditRelationshipSchemas({
 		sourceSlug: "person",
-		targetEntitySchemaSlugs: builtinMediaEntitySchemaSlugs,
 		characterDescription: "Character played by this person in this production",
 		orderDescription: "Display order of this person in the production credits",
+		targetEntitySchemaSlugs: [...builtinMediaEntitySchemaSlugs, "show-episode"],
 		rolesItemDescription: "A specific role name (e.g. Director, Actor, Writer)",
 		rolesDescription: "Roles this person filled in this production (e.g. Director, Actor, Writer)",
 	}),

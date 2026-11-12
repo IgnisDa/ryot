@@ -15,6 +15,7 @@ import {
 	type TmdbTrendingHost,
 } from "../../../lib/vendors/tmdb";
 import { getTmdbShowDetails } from "./details";
+import { getTmdbEpisodeCredits } from "./episode-credits";
 import { translateTmdbShow } from "./translation";
 
 const canonicalLanguage = "en";
@@ -76,6 +77,15 @@ export const details = defineProvider({
 	run: (input, host) =>
 		Effect.flatMap(getTmdbAccessToken(host), (token) =>
 			getTmdbShowDetails(input, host, canonicalLanguage, token),
+		),
+});
+
+export const related = defineProvider({
+	operation: "related",
+	manifest: httpManifest,
+	run: (input, host) =>
+		Effect.flatMap(getTmdbAccessToken(host), (token) =>
+			getTmdbEpisodeCredits(input, host, canonicalLanguage, token),
 		),
 });
 

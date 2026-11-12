@@ -5,6 +5,7 @@ import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineSandboxTestHost, runSandboxTestScript } from "@ryot-app/plugin-backend-sdk/testing";
 
 import details, { manifest as detailsManifest } from "./details.sandbox";
+import related, { manifest as relatedManifest } from "./related.sandbox";
 import resolve, { manifest as resolveManifest } from "./resolve.sandbox";
 import search, { manifest as searchManifest } from "./search.sandbox";
 import { manifest } from "./shared";
@@ -63,11 +64,13 @@ describe("show.tmdb sandbox script", () => {
 		expect([
 			[searchManifest.slug, search.operation],
 			[detailsManifest.slug, details.operation],
+			[relatedManifest.slug, related.operation],
 			[resolveManifest.slug, resolve.operation],
 			[translateManifest.slug, translate.operation],
 		]).toEqual([
 			["show.tmdb.search", "search"],
 			["show.tmdb.details", "details"],
+			["show.tmdb.related", "related"],
 			["show.tmdb.resolve", "resolve"],
 			["show.tmdb.translate", "translate"],
 		]);
@@ -840,6 +843,134 @@ describe("show.tmdb sandbox script", () => {
 			),
 		);
 	});
+
+	const episodeCreditsInput = {
+		continuation: null,
+		externalId: "62000",
+		direction: "incoming" as const,
+		entitySchemaSlug: "show-episode",
+		relationshipSchemaSlug: "person-to-show-episode",
+		properties: { seasonNumber: 9, episodeNumber: 1, parentShowExternalId: "2316" },
+	};
+
+	it("credits an episode's cast, guest stars after the cast, and every crew job", () => {
+		const requests: URL[] = [];
+		const host = makeHost((_method, url) => {
+			requests.push(new URL(url));
+			return httpSuccess({
+				cast: [{ id: 1, order: 0, name: "Regular", character: "Lead" }],
+				guest_stars: [
+					{ id: 2, order: 1, name: "Visitor", character: "Doctor" },
+					{ id: 3, order: 0, name: "Cameo", character: "Self (uncredited)" },
+				],
+				crew: [
+					{ id: 4, job: "Writer", name: "Writer", department: "Writing" },
+					{ id: 4, name: "Writer", job: "Director", department: "Directing" },
+				],
+			});
+		});
+		return Effect.runPromise(
+			runSandboxTestScript(related, episodeCreditsInput, host, execution).pipe(
+				Effect.map((result) => {
+					expect(requests.map(({ pathname }) => pathname)).toEqual([
+						"/3/tv/2316/season/9/episode/1/credits",
+					]);
+					expect(result).toEqual({
+						coverage: { status: "complete" },
+						entities: [
+							{
+								name: "Regular",
+								externalId: "1",
+								providerSlug: "person.tmdb",
+								relationshipProperties: {
+									order: 0,
+									isGuest: false,
+									roles: ["Acting"],
+									character: "Lead",
+									isUncredited: false,
+									creditKinds: ["cast"],
+									departments: ["Acting"],
+								},
+							},
+							{
+								name: "Visitor",
+								externalId: "2",
+								providerSlug: "person.tmdb",
+								relationshipProperties: {
+									order: 2,
+									isGuest: true,
+									roles: ["Acting"],
+									character: "Doctor",
+									isUncredited: false,
+									creditKinds: ["cast"],
+									departments: ["Acting"],
+								},
+							},
+							{
+								name: "Cameo",
+								externalId: "3",
+								providerSlug: "person.tmdb",
+								relationshipProperties: {
+									order: 1,
+									isGuest: true,
+									roles: ["Acting"],
+									isUncredited: true,
+									creditKinds: ["cast"],
+									departments: ["Acting"],
+									character: "Self (uncredited)",
+								},
+							},
+							{
+								name: "Writer",
+								externalId: "4",
+								providerSlug: "person.tmdb",
+								relationshipProperties: {
+									creditKinds: ["crew"],
+									roles: ["Writer", "Director"],
+									departments: ["Writing", "Directing"],
+								},
+							},
+						],
+					});
+				}),
+			),
+		);
+	});
+
+	it("reports episode credits without cast, guest star, and crew arrays as source-limited", () =>
+		Effect.runPromise(
+			runSandboxTestScript(
+				related,
+				episodeCreditsInput,
+				makeHost(() => httpSuccess({ cast: [], crew: [] })),
+				execution,
+			).pipe(
+				Effect.map((result) => {
+					expect(result).toEqual({
+						entities: [],
+						coverage: {
+							status: "source-limited",
+							reason: "TMDB episode credits did not include cast, guest star, and crew arrays",
+						},
+					});
+				}),
+			),
+		));
+
+	it("rejects related work other than show episode person credits", () =>
+		Effect.runPromise(
+			runSandboxTestScript(
+				related,
+				{ ...episodeCreditsInput, entitySchemaSlug: "show-season" },
+				makeHost(() => httpSuccess({})),
+				execution,
+			).pipe(
+				Effect.flip,
+				Effect.map((error) => {
+					expect(error.message).toBe("show.tmdb related supports only show episode person credits");
+				}),
+			),
+		));
 
 	it("upserts TMDB trending shows and returns deduplicated entity ids in fetch order", () => {
 		const requestedPages: string[] = [];

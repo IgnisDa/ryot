@@ -210,6 +210,8 @@ export const collectPeople = (
 	crew: unknown,
 	createdBy?: unknown,
 	options: {
+		/** An episode's own guest stars, credited after its cast. */
+		readonly guestStars?: unknown;
 		readonly guestStarInventoryComplete?: boolean;
 		readonly currentRegularCast?: ReadonlySet<string>;
 		readonly guestStarAppearances?: ReadonlyMap<string, number>;
@@ -291,6 +293,16 @@ export const collectPeople = (
 				...(guestClassification === undefined ? {} : { isGuest: guestClassification }),
 			});
 		}
+	}
+	const castCount = recordsValue(cast).length;
+	for (const [index, guest] of recordsValue(options.guestStars).entries()) {
+		addPerson(guest, "Acting", {
+			isGuest: true,
+			creditKind: "cast",
+			department: "Acting",
+			character: stringValue(guest["character"]),
+			order: castCount + (numberValue(guest["order"]) ?? index),
+		});
 	}
 	for (const member of recordsValue(crew)) {
 		const listedJobs = recordsValue(member["jobs"]);

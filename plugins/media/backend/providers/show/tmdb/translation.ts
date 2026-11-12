@@ -1,6 +1,5 @@
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ProviderTranslateInput } from "@ryot-app/plugin-backend-sdk/provider";
-import { asRecord } from "@ryot-app/plugin-backend-sdk/wire";
 
 import { mediaFailureMessage } from "../../../lib/error-message";
 import { MediaSandboxError } from "../../../lib/failures";
@@ -14,6 +13,7 @@ import {
 	tmdbGet,
 	type TmdbHost,
 } from "../../../lib/vendors/tmdb";
+import { tmdbShowChildPath } from "./child-path";
 
 const getTranslationRequest = (input: ProviderTranslateInput) => {
 	if (!/^\d+$/.test(input.externalId)) {
@@ -28,52 +28,14 @@ const getTranslationRequest = (input: ProviderTranslateInput) => {
 		};
 	}
 
-	const properties = asRecord(input.properties);
-	if (!properties) {
-		throw new Error("properties must be an object for TMDB show translation");
-	}
-	const seasonNumberValue = properties["seasonNumber"];
-	const seasonNumber =
-		typeof seasonNumberValue === "number" &&
-		Number.isInteger(seasonNumberValue) &&
-		seasonNumberValue >= 0
-			? seasonNumberValue
-			: null;
-	const parentShowExternalId = stringValue(properties["parentShowExternalId"]);
-	if (seasonNumber === null) {
-		throw new Error("seasonNumber is required for TMDB show child translation");
-	}
-	if (!parentShowExternalId || !/^\d+$/.test(parentShowExternalId)) {
-		throw new Error("parentShowExternalId must be a numeric TMDB show ID");
-	}
-	if (input.entitySchemaSlug === "show-season") {
-		return {
-			imageKey: "posters",
-			purpose: "cover" as const,
-			imagesPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/images`,
-			translationsPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/translations`,
-		};
-	}
-
-	const episodeNumberValue = properties["episodeNumber"];
-	const episodeNumber =
-		typeof episodeNumberValue === "number" &&
-		Number.isInteger(episodeNumberValue) &&
-		episodeNumberValue >= 0
-			? episodeNumberValue
-			: null;
-	if (input.entitySchemaSlug === "show-episode") {
-		if (episodeNumber === null) {
-			throw new Error("episodeNumber is required for TMDB show episode translation");
-		}
-		return {
-			imageKey: "stills",
-			purpose: "still" as const,
-			imagesPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/episode/${episodeNumber}/images`,
-			translationsPath: `/tv/${parentShowExternalId}/season/${seasonNumber}/episode/${episodeNumber}/translations`,
-		};
-	}
-	throw new Error("show.tmdb translate supports only show, show-season, and show-episode");
+	const path = tmdbShowChildPath(input);
+	const episode = input.entitySchemaSlug === "show-episode";
+	return {
+		imagesPath: `${path}/images`,
+		translationsPath: `${path}/translations`,
+		imageKey: episode ? "stills" : "posters",
+		purpose: episode ? ("still" as const) : ("cover" as const),
+	};
 };
 
 export const translateTmdbShow = (input: ProviderTranslateInput, host: TmdbHost, token: string) => {
