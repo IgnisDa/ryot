@@ -63,7 +63,7 @@ layer(Layer.provideMerge(quarantineLayer, BunCrypto.layerSecureRandom))((test) =
 					const principal = makeUserPrincipal({
 						contentHash,
 						pluginRevision: null,
-						subject: { userId, type: "agent", allowWrites: false, accessClass: "standard" },
+						subject: { userId, type: "agent", accessClass: "standard" },
 					});
 					const session = yield* open(principal, "user");
 					expect(session.identities).toEqual([

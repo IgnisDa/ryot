@@ -963,15 +963,26 @@ export default defineWorkflow({
 );
 
 it.effect(
-	"rejects async initialization and fails at a deterministic analysis budget",
+	"rejects async initialization, allows awaiting inside functions and fails at a deterministic analysis budget",
 	() =>
 		Effect.gen(function* () {
-			const entries = ["async-initializer.sandbox.ts", "budget.sandbox.ts"];
+			const entries = [
+				"async-initializer.sandbox.ts",
+				"budget.sandbox.ts",
+				"async-body.sandbox.ts",
+			];
 			const outcome = yield* withProject(
 				{
 					"async-initializer.sandbox.ts": `
 const initialized = await Promise.resolve("ready");
 export default initialized;
+`,
+					"async-body.sandbox.ts": `
+const run = async (value: Promise<string>) => {
+	const resolved = await value;
+	return resolved;
+};
+export default () => run(Promise.resolve("ready"));
 `,
 					"budget.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
@@ -983,14 +994,16 @@ export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "htt
 				(project) => {
 					const asyncEntry = project.entrySourceFiles["async-initializer.sandbox.ts"];
 					const budgetEntry = project.entrySourceFiles["budget.sandbox.ts"];
-					if (!asyncEntry || !budgetEntry) {
+					const bodyEntry = project.entrySourceFiles["async-body.sandbox.ts"];
+					if (!asyncEntry || !budgetEntry || !bodyEntry) {
 						return Effect.die("Missing analysis budget fixture entry");
 					}
 					const analyze = createSandboxExecutionAnalyzer(project);
 					return Effect.gen(function* () {
 						const asyncResult = yield* analyze(asyncEntry);
+						const bodyResult = yield* analyze(bodyEntry);
 						const budgetFailure = yield* analyze(budgetEntry, 1).pipe(Effect.flip);
-						return { asyncResult, budgetFailure };
+						return { bodyResult, asyncResult, budgetFailure };
 					});
 				},
 			);
@@ -1001,6 +1014,7 @@ export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "htt
 					message: "Asynchronous module initialization is unsupported",
 				}),
 			]);
+			expect(outcome.bodyResult.diagnostics).toEqual([]);
 			expect(outcome.budgetFailure).toBeInstanceOf(PluginBackendCompilerFailure);
 			if (outcome.budgetFailure instanceof PluginBackendCompilerFailure) {
 				expect(outcome.budgetFailure.diagnostics).toEqual<unknown>([

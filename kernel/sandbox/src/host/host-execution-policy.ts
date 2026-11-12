@@ -12,7 +12,7 @@ export const SANDBOX_HOST_EXECUTION_POLICY = {
 	requestFolds: { resultBytes: KiB, dispatch: "service" },
 	deleteEvents: { resultBytes: MiB, dispatch: "lifecycle" },
 	updateEvents: { resultBytes: MiB, dispatch: "lifecycle" },
-	invokeOperation: { resultBytes: MiB, dispatch: "service" },
+	invokeCapability: { resultBytes: MiB, dispatch: "service" },
 	createUserEntity: { resultBytes: MiB, dispatch: "service" },
 	deleteUserEntity: { resultBytes: MiB, dispatch: "service" },
 	updateUserEntity: { resultBytes: MiB, dispatch: "service" },

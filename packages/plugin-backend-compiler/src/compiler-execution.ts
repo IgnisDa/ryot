@@ -30,6 +30,10 @@ const children = (node: ts.Node) => {
 	return result;
 };
 
+const isInsideFunction = (node: ts.Node): boolean =>
+	!ts.isSourceFile(node) &&
+	(ts.isFunctionLikeDeclaration(node.parent) || isInsideFunction(node.parent));
+
 export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess) => {
 	const checker = project.checker;
 	const getSymbolAtLocation = (node: ts.Node) =>
@@ -717,7 +721,7 @@ export const createSandboxExecutionAnalyzer = (project: TypeScriptProjectAccess)
 			currentNode = node;
 			steps += 1;
 			yield* checkSteps();
-			if (ts.isAwaitExpression(node)) {
+			if (ts.isAwaitExpression(node) && !isInsideFunction(node)) {
 				fail(node, "Asynchronous module initialization is unsupported");
 				return;
 			}
