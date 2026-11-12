@@ -455,6 +455,30 @@ One publication model replaces today's source publications.
   - Runs are recorded for the user's history but are not durable workflows.
 - **Order:** read-only scripts ship first; `invokeOperation` follows.
 
+**F implementation complete and validated.** The agent principal owns no plugin,
+provider or kernel identity. The shared registry exposes `run_script`, compiles its TypeScript against
+the small backend SDK agent entry point, and binds reads to the authenticated user's plugin audience
+and demo access class. Production assembly emits the backend compiler worker beside the server
+bundle, and the image smoke check compiles an agent SDK script through it. Raw writes, HTTP, files
+and plugin configuration remain unavailable.
+`allowWrites` gates operation calls and is refused for demo sessions. Operation discovery/dispatch is
+shared with ordinary registry operation tools and calls the existing `OperationsService`, preserving
+validation, revision pins, policies and hooks.
+
+One-shot runs use sandbox deferral and bounded in-memory call receipts, releasing isolate capacity
+before nested operation execution. Execution ID plus call index supplies operation idempotency.
+Completed caller retries replay their retained result; concurrent or interrupted runs fail closed
+rather than restarting with fresh reads. No durable workflow is registered. User-owned history retains
+source, approval, principal and bounded diagnostics/logs/results; a kernel-only RyotQL table exposes
+history without principals. Shared tool-result budgeting bounds retention and transport output.
+
+Review and cleanup are complete. Repository-wide checks pass. Affected-package tests pass for
+contract, backend SDK/compiler, RyotQL and sandbox. The backend run passed all agent-script tests,
+including replay-log preservation, but had five failures under heavy system load. All five passed
+in separate single-worker reruns with unchanged timeouts and resource limits: compiler-worker
+cleanup, sandbox pool headroom, operation sandbox fixtures, provider-search sandbox fixtures and
+large-batch entity commits. These isolated passes satisfy the accepted validation criterion.
+
 ### G. Ryobot
 
 **Module.** A kernel `assistant` module owns conversations, messages (text, tool calls, tool
