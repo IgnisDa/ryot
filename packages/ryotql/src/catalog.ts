@@ -9,14 +9,12 @@ export type CatalogField = {
 	readonly nullable: boolean;
 	readonly demoReadable?: false;
 	readonly kind: CatalogFieldKind;
-	readonly publicationReadable?: false;
-	readonly access?: "admin" | "kernel" | "publication";
+	readonly access?: "admin" | "kernel";
 };
 
 export type RyotQLAccess =
 	| { readonly type: "admin" }
 	| { readonly type: "plugin" }
-	| { readonly type: "publication" }
 	| { readonly type: "user"; readonly audience: RyotQLAudience; readonly accessClass: AccessClass };
 
 export type CatalogTable<Field extends CatalogField = CatalogField> = {
@@ -31,7 +29,6 @@ export type CatalogTable<Field extends CatalogField = CatalogField> = {
 type CatalogVisibility = {
 	readonly admin?: true;
 	readonly plugin?: true;
-	readonly publication?: true;
 	readonly user?: { readonly demoReadable?: false; readonly pluginReadable: boolean };
 };
 
@@ -190,6 +187,21 @@ export const catalogTables = {
 			compiledFormat: { kind: "number", nullable: false },
 		},
 	},
+	eventSchema: {
+		primaryKey: ["id"],
+		materializedInIncludes: true,
+		visibility: { plugin: true, user: { pluginReadable: true } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			slug: { kind: "text", nullable: false },
+			name: { kind: "text", nullable: false },
+			pluginId: { kind: "text", nullable: true },
+			packageId: { kind: "text", nullable: true },
+			pluginRevisionId: { kind: "text", nullable: true },
+			propertiesSchema: { kind: "json", nullable: false },
+			entitySchemaSlug: { kind: "text", nullable: false },
+		},
+	},
 	notificationDelivery: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: false } },
@@ -203,21 +215,6 @@ export const catalogTables = {
 			channelId: { kind: "text", nullable: false },
 			description: { kind: "text", nullable: false },
 			notificationId: { kind: "text", nullable: false },
-		},
-	},
-	eventSchema: {
-		primaryKey: ["id"],
-		materializedInIncludes: true,
-		visibility: { plugin: true, publication: true, user: { pluginReadable: true } },
-		fields: {
-			id: { kind: "text", nullable: false },
-			slug: { kind: "text", nullable: false },
-			name: { kind: "text", nullable: false },
-			pluginId: { kind: "text", nullable: true },
-			packageId: { kind: "text", nullable: true },
-			pluginRevisionId: { kind: "text", nullable: true },
-			propertiesSchema: { kind: "json", nullable: false },
-			entitySchemaSlug: { kind: "text", nullable: false },
 		},
 	},
 	signalSchema: {
@@ -258,10 +255,10 @@ export const catalogTables = {
 			id: { kind: "text", nullable: false },
 			icon: { kind: "text", nullable: false },
 			title: { kind: "text", nullable: false },
-			source: { kind: "json", nullable: false },
 			revokedAt: { kind: "date", nullable: true },
 			createdAt: { kind: "date", nullable: false },
 			updatedAt: { kind: "date", nullable: false },
+			definition: { kind: "json", nullable: false },
 			description: { kind: "text", nullable: true },
 			revision: { kind: "number", nullable: false },
 			showOwnerName: { kind: "boolean", nullable: false },
@@ -285,7 +282,7 @@ export const catalogTables = {
 	},
 	relationshipSchema: {
 		primaryKey: ["id"],
-		visibility: { plugin: true, publication: true, user: { pluginReadable: true } },
+		visibility: { plugin: true, user: { pluginReadable: true } },
 		fields: {
 			id: { kind: "text", nullable: false },
 			slug: { kind: "text", nullable: false },
@@ -335,7 +332,7 @@ export const catalogTables = {
 	},
 	entitySchema: {
 		primaryKey: ["id"],
-		visibility: { plugin: true, publication: true, user: { pluginReadable: true } },
+		visibility: { plugin: true, user: { pluginReadable: true } },
 		fields: {
 			id: { kind: "text", nullable: false },
 			slug: { kind: "text", nullable: false },
@@ -353,24 +350,24 @@ export const catalogTables = {
 	},
 	relationship: {
 		primaryKey: ["id"],
-		visibility: { admin: true, plugin: true, publication: true, user: { pluginReadable: true } },
+		visibility: { admin: true, plugin: true, user: { pluginReadable: true } },
 		fields: {
 			id: { kind: "text", nullable: false },
+			userId: { kind: "text", nullable: true },
 			createdAt: { kind: "date", nullable: false },
+			projection: { kind: "json", nullable: true },
 			properties: { kind: "json", nullable: false },
 			sourceEntityId: { kind: "text", nullable: false },
 			targetEntityId: { kind: "text", nullable: false },
 			collectionRank: { kind: "number", nullable: true },
+			projectionStatus: { kind: "text", nullable: false },
 			relationshipSchemaSlug: { kind: "text", nullable: false },
 			relationshipSchemaPluginId: { kind: "text", nullable: true },
-			userId: { kind: "text", nullable: true, publicationReadable: false },
-			projection: { kind: "json", nullable: true, publicationReadable: false },
-			projectionStatus: { kind: "text", nullable: false, publicationReadable: false },
 		},
 	},
 	event: {
 		primaryKey: ["id"],
-		visibility: { plugin: true, publication: true, user: { pluginReadable: true } },
+		visibility: { plugin: true, user: { pluginReadable: true } },
 		fields: {
 			id: { kind: "text", nullable: false },
 			userId: { kind: "text", nullable: false },
@@ -502,6 +499,29 @@ export const catalogTables = {
 			providerSpecifics: { kind: "json", nullable: false, access: "kernel", demoReadable: false },
 		},
 	},
+	entity: {
+		primaryKey: ["id"],
+		visibility: { plugin: true, user: { pluginReadable: true } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			name: { kind: "text", nullable: false },
+			userId: { kind: "text", nullable: true },
+			occursAt: { kind: "date", nullable: true },
+			externalId: { kind: "text", nullable: true },
+			providerId: { kind: "text", nullable: true },
+			createdAt: { kind: "date", nullable: false },
+			updatedAt: { kind: "date", nullable: false },
+			properties: { kind: "json", nullable: false },
+			populatedAt: { kind: "date", nullable: true },
+			populationStatus: { kind: "json", nullable: false },
+			entitySchemaSlug: { kind: "text", nullable: false },
+			providerCheckedAt: { kind: "date", nullable: true },
+			translationStatus: { kind: "json", nullable: false },
+			entitySchemaPluginId: { kind: "text", nullable: true },
+			relatedPopulationStatus: { kind: "json", nullable: false },
+			collectionOrderRevision: { kind: "number", nullable: false },
+		},
+	},
 	page: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: false } },
@@ -549,7 +569,7 @@ export const catalogTables = {
 	},
 	plugin: {
 		primaryKey: ["id"],
-		visibility: { admin: true, publication: true, user: { pluginReadable: true } },
+		visibility: { admin: true, user: { pluginReadable: true } },
 		fields: {
 			id: { kind: "text", nullable: false },
 			icon: { kind: "text", nullable: true },
@@ -597,30 +617,6 @@ export const catalogTables = {
 			pluginInstallationId: { kind: "text", nullable: true },
 		},
 	},
-	entity: {
-		primaryKey: ["id"],
-		visibility: { plugin: true, publication: true, user: { pluginReadable: true } },
-		fields: {
-			id: { kind: "text", nullable: false },
-			name: { kind: "text", nullable: false },
-			occursAt: { kind: "date", nullable: true },
-			externalId: { kind: "text", nullable: true },
-			providerId: { kind: "text", nullable: true },
-			createdAt: { kind: "date", nullable: false },
-			updatedAt: { kind: "date", nullable: false },
-			properties: { kind: "json", nullable: false },
-			populatedAt: { kind: "date", nullable: true },
-			populationStatus: { kind: "json", nullable: false },
-			entitySchemaSlug: { kind: "text", nullable: false },
-			providerCheckedAt: { kind: "date", nullable: true },
-			translationStatus: { kind: "json", nullable: false },
-			entitySchemaPluginId: { kind: "text", nullable: true },
-			relatedPopulationStatus: { kind: "json", nullable: false },
-			collectionOrderRevision: { kind: "number", nullable: false },
-			userId: { kind: "text", nullable: true, publicationReadable: false },
-			publicationRank: { kind: "number", nullable: false, access: "publication" },
-		},
-	},
 } as const satisfies Readonly<Record<string, CatalogTable>>;
 
 export type CatalogTableName = keyof typeof catalogTables;
@@ -656,9 +652,6 @@ export const canAccessCatalogTable = (table: CatalogTable, access: RyotQLAccess)
 	if (access.type === "admin") {
 		return table.visibility.admin !== undefined;
 	}
-	if (access.type === "publication") {
-		return table.visibility.publication !== undefined;
-	}
 	if (access.type === "plugin") {
 		return table.visibility.plugin !== undefined;
 	}
@@ -671,14 +664,7 @@ export const canAccessCatalogTable = (table: CatalogTable, access: RyotQLAccess)
 };
 
 const canAccessCatalogField = (field: CatalogField, access: RyotQLAccess) => {
-	if (access.type === "publication") {
-		return (
-			field.access === "publication" ||
-			(field.access === undefined && field.publicationReadable !== false)
-		);
-	}
 	return (
-		field.access !== "publication" &&
 		(access.type !== "user" || access.accessClass !== "demo" || field.demoReadable !== false) &&
 		(field.access === undefined ||
 			access.type === "admin" ||

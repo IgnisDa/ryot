@@ -82,3 +82,46 @@ using their declared limits. Supply every ungrouped aggregate explicitly; the he
 scalar values. Overrides are preserved verbatim, including deliberately malformed test results.
 
 `pagesRecipe` lists owner-scoped page metadata; `pageRecipe` reads a page and its draft/published definitions by `pageId`. Both use the kernel-only `page` catalog. Compiled draft revision and artifact hash support revision-bound, read-only preview composition.
+
+## Kernel publication page
+
+`kernelPublicationPage({ schemas })` in `publication-browse` authors one server declaration with
+exactly `items`, `count`, `item`, and `linked`. `schemas` is a nonempty authorized structural catalog:
+each entry supplies `{ slug, pluginId, browse, presentationFields, sortTypes? }`. Presentation fields
+are existing entity presentation projections rebased to the `subject` entity alias; they must read
+only that entity's public columns. They cannot use events, relationships, correlated reads, owner
+user IDs, query parameters, or reserved output keys. `sortTypes` supplies the scalar type (`text`,
+`number`, `date`, or `boolean`) by key for each sort-only browse declaration. Value declarations
+already carry their type. The backend must resolve this catalog under owner authority and provide
+stable ordering of its schemas/fields. No visitor fragments participate in declaration construction.
+
+The document requires `source`, a string with AppSchema reference kind `entity-source`, encoded by
+`encodeEntitySourceReference` and bound by the publication owner. Optional `search` filters item
+names. Optional `entityId` selects live detail/link reads; without it, explicit guards make `item`
+and `linked` empty, allowing first-page snapshot capture without a selected entity. Source rank
+and entity ID provide default ordering. `item` joins the bound source; `linked` returns source
+entities only when the selected endpoint also belongs to the source. Relationship columns are used
+only in predicates, never returned. There is no publication RyotQL scope or inline visitor fallback.
+
+The factory returns the recipe (`document`, `parameters`, `queries`, `decode`), sanitized `browse`,
+entity-browser `settings`, and response decoders `decodeItems`, `decodeCount`, `decodeItem`, and
+`decodeLinked`. Each rows query projects `EntityBrowserRowFields`, `name`, schema-conditional JSON
+presentation fields, and private detail/control output keys. Existing entity-browser decoding
+produces `{ items, pageInfo }` with entity references, sync state, presentation rows, and cells.
+`decodeItem` returns one such item with formatted `details`, or `undefined`; invalid detail values
+fail decoding. Detail values accept null, text, finite numbers, booleans, and text arrays.
+`count` projects one finite `count`; `decodeCount` returns that number. Per-query raw result
+decoders remain available on `queries`; the recipe decoder handles a response containing all four.
+
+Snapshots capture the first page with no selection and disable server-dependent interactions;
+live selection supplies `entityId`. Live publications follow the latest published page code;
+snapshots retain captured code until refresh. Those execution and UI policies belong to the backend
+and renderer. These declarations require no alternative snapshot queries.
+
+Owner publication recipes select `publication.definition` using `PublicationDefinition`
+(`page`, `arguments`, `mode`). `publicationSourceArguments(EntitySourceReference)` encodes the
+`source` argument. `sourcePublicationsRecipe` matches active kernel publication pages by their
+encoded `definition.arguments.source`; user pages are excluded. The backend catalog must expose
+the persisted `definition` JSON column. The old `publicationSubjectSchemasRecipe`,
+`publicationBrowserSource`, `publicationItemDetailsRecipe`, `publicationItemLinksRecipe`, and
+`PublicationSubjectSchema` exports are removed; callers run the declared names by reference.

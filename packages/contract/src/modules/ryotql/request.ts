@@ -53,6 +53,12 @@ export const RequestValues = {
 export const ExecutionRequest = strictStruct({ source: ExecutionSource, ...RequestValues });
 export type ExecutionRequest = typeof ExecutionRequest.Type;
 export const VisitorRequest = strictStruct({ query: Schema.NonEmptyString, ...RequestValues });
+export type VisitorRequest = typeof VisitorRequest.Type;
+export const VisitorDescribeRequest = strictStruct({
+	query: Schema.NonEmptyString,
+	arguments: RequestValues.arguments,
+});
+export type VisitorDescribeRequest = typeof VisitorDescribeRequest.Type;
 export const DescribeRequest = strictStruct({
 	source: ExecutionSource,
 	arguments: RequestValues.arguments,

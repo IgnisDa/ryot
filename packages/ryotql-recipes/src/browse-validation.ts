@@ -34,7 +34,7 @@ const expressionBranches = (expression: ScalarExpression) =>
 		),
 	);
 
-const subjectExpressionKind = (expression: ScalarExpression) => {
+export const browseExpressionKind = (expression: ScalarExpression) => {
 	const branches = expressionBranches(expression);
 	if (Result.isFailure(branches)) {
 		return undefined;
@@ -61,7 +61,7 @@ const expressionIssue = (
 			return `browse field '${key}' expression is invalid: ${error}`;
 		}
 	}
-	const kind = subjectExpressionKind(expression);
+	const kind = browseExpressionKind(expression);
 	return accepts(kind) ? undefined : `browse field '${key}' expression has kind '${kind}'`;
 };
 
@@ -121,7 +121,7 @@ const browseFieldShape = (browseField: BrowseField) => {
 		return `value:${browseField.type}`;
 	}
 	if (browseField.kind === "sort") {
-		return `sort:${subjectExpressionKind(browseField.expression)}`;
+		return `sort:${browseExpressionKind(browseField.expression)}`;
 	}
 	return browseField.kind === "relationship"
 		? `relationship:${browseField.direction}`

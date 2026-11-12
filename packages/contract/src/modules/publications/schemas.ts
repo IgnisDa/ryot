@@ -2,23 +2,39 @@ import { Schema } from "effect";
 
 import { PublicationId, PublicationLinkId } from "../../schema/brands";
 import { JsonValue } from "../../schema/json";
+import { PropertyValidationIssue } from "../../schema/property-schema";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
-import { ClientPageCodeContributor } from "../pages/schemas";
-import { RyotQLDocument } from "../ryotql/authored";
-import { EntitySourceReference } from "../ryotql/entity-source";
+import { ClientPageCodeContributor, PageFrameAuthority } from "../pages/schemas";
+import { PluginPackageReference } from "../plugins/references";
 
-export const PUBLICATION_SUBJECT_LIMIT = 5000;
 export const PUBLICATION_SESSION_HEADER = "x-ryot-publication-session";
 
 const boundedText = (maxLength: number) =>
 	Schema.String.pipe(Schema.check(Schema.isMaxLength(maxLength)));
 
-export const PublicationSource = EntitySourceReference;
-export type PublicationSource = typeof PublicationSource.Type;
+const KernelPublicationPageReference = strictStruct({
+	kind: Schema.Literal("kernel"),
+	name: Schema.Literal("publication"),
+});
+export const PublicationPageReference = Schema.Union([
+	KernelPublicationPageReference,
+	strictStruct({ kind: Schema.Literal("page"), pageId: Schema.NonEmptyString }),
+]);
+export type PublicationPageReference = typeof PublicationPageReference.Type;
+
+export const PublicationMode = Schema.Literals(["live", "snapshot"]);
+export type PublicationMode = typeof PublicationMode.Type;
+
+export const PublicationDefinition = strictStruct({
+	mode: PublicationMode,
+	page: PublicationPageReference,
+	arguments: Schema.Record(Schema.String, JsonValue),
+});
+export type PublicationDefinition = typeof PublicationDefinition.Type;
 
 const PublicationDetailsFields = {
 	title: boundedText(120),
-	source: PublicationSource,
+	...PublicationDefinition.fields,
 	icon: Schema.NonEmptyString,
 	showOwnerName: Schema.Boolean,
 	description: Schema.NullOr(boundedText(2000)),
@@ -40,10 +56,24 @@ export const PublicationResponse = strictStruct({
 
 export const PublicationIdBody = strictStruct({ publicationId: PublicationId });
 
+export const PublicationReadinessIssue = Schema.Union([
+	strictStruct({ code: Schema.Literal("page-unavailable") }),
+	strictStruct({
+		reference: PluginPackageReference,
+		code: Schema.Literal("dependency-unavailable"),
+	}),
+	strictStruct({ code: Schema.Literal("source-unavailable") }),
+	strictStruct({
+		code: Schema.Literal("bindings-invalid"),
+		issues: Schema.Array(PropertyValidationIssue),
+	}),
+	strictStruct({ limitBytes: Schema.Int, code: Schema.Literal("snapshot-too-large") }),
+]);
+export type PublicationReadinessIssue = typeof PublicationReadinessIssue.Type;
+
 export const PublicationStatusResponse = Schema.Union([
-	strictStruct({ itemCount: Schema.Int, status: Schema.Literal("ready") }),
-	strictStruct({ limit: Schema.Int, status: Schema.Literal("too-large") }),
-	strictStruct({ status: Schema.Literal("source-unavailable") }),
+	strictStruct({ status: Schema.Literal("ready"), itemCount: Schema.optional(Schema.Int) }),
+	strictStruct({ reason: PublicationReadinessIssue, status: Schema.Literal("needs-attention") }),
 ]);
 export type PublicationStatusResponse = typeof PublicationStatusResponse.Type;
 
@@ -75,20 +105,28 @@ const PublicationPresentation = strictStruct({
 	icon: Schema.String,
 	title: Schema.String,
 	revision: Schema.Int,
-	itemCount: Schema.Int,
+	mode: PublicationMode,
 	publicationId: PublicationId,
+	itemCount: Schema.optional(Schema.Int),
 	ownerName: Schema.NullOr(Schema.String),
 	description: Schema.NullOr(Schema.String),
 });
 
 const PublicationPageContext = strictStruct({
-	dataSources: Schema.NullOr(RyotQLDocument),
+	dataSources: Schema.Null,
 	settings: Schema.Record(Schema.String, JsonValue),
 	contributors: Schema.Array(ClientPageCodeContributor),
 	route: strictStruct({ params: Schema.Record(Schema.String, Schema.String) }),
-	renderer: strictStruct({ name: Schema.String, kind: Schema.Literal("kernel") }),
 	view: Schema.NullOr(strictStruct({ icon: Schema.String, name: Schema.String })),
 	target: strictStruct({ publicationId: PublicationId, kind: Schema.Literal("publication") }),
+	renderer: Schema.Union([
+		KernelPublicationPageReference,
+		strictStruct({
+			...PageFrameAuthority.fields,
+			stage: Schema.Literal("published"),
+			writeAccess: Schema.Literal(false),
+		}),
+	]),
 });
 
 export const PublicationVisitorPage = strictStruct({
@@ -107,8 +145,7 @@ export type PublicationVisitorPage = typeof PublicationVisitorPage.Type;
 export const PublicationDocumentBody = strictStruct({ compositionHash: Schema.String });
 
 const PublicationBadRequestReason = Schema.Union([
-	Schema.Struct({ code: Schema.Literal("source-unavailable") }),
-	Schema.Struct({ limit: Schema.Int, code: Schema.Literal("scope-too-large") }),
+	PublicationReadinessIssue,
 	Schema.Struct({
 		code: Schema.Literal("required-field"),
 		field: Schema.Literals(["title", "icon", "label"]),
@@ -144,8 +181,11 @@ export const PublicationUnavailableCode = Schema.Literals([
 	"expired",
 	"revoked",
 	"not-found",
-	"too-large",
-	"unavailable",
+	"page-unavailable",
+	"dependency-unavailable",
+	"source-unavailable",
+	"bindings-invalid",
+	"snapshot-too-large",
 	"session-expired",
 ]);
 export type PublicationUnavailableCode = typeof PublicationUnavailableCode.Type;

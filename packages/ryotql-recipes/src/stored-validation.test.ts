@@ -4,7 +4,7 @@ import type { Predicate, RyotQLDocument } from "@ryot-app/contract/modules/ryotq
 import { assert } from "@ryot-app/testing/assert";
 import { Result } from "effect";
 
-import { publicationBrowserSource } from "./publication-browse";
+import { kernelPublicationPage } from "./publication-browse";
 import { storedValidationBranches } from "./stored-validation";
 
 const source = {
@@ -39,9 +39,11 @@ const nameField = {
 
 describe("stored authored validation", () => {
 	it("validates publication browser controls across the full document", () => {
-		const browser = publicationBrowserSource([{ slug: "root", pluginId: null }]);
+		const browser = kernelPublicationPage({
+			schemas: [{ slug: "root", browse: null, pluginId: null, presentationFields: [] }],
+		});
 		const result = storedValidationBranches(
-			browser.dataSources,
+			browser.document,
 			[
 				{
 					slug: "root",
@@ -52,11 +54,11 @@ describe("stored authored validation", () => {
 					isEffective: true,
 				},
 			],
-			{ type: "publication" },
+			{ type: "user", audience: "plugin", accessClass: "standard" },
 		);
 		assert(Result.isSuccess(result));
 		for (const branch of result.success) {
-			expect(Object.keys(branch.queries)).toEqual(["source", "ids", "count"]);
+			expect(Object.keys(branch.queries)).toEqual(["count", "items", "linked", "item"]);
 		}
 	});
 

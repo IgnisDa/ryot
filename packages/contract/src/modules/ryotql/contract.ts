@@ -9,6 +9,7 @@ import { RyotQLResponse } from "./language";
 import { DescribeRequest, DescribeResponse, ExecutionRequest } from "./request";
 
 const RyotQLBadRequestReason = Schema.Union([
+	Schema.Struct({ limit: Schema.Int, code: Schema.Literal("source-limit-exceeded") }),
 	Schema.Struct({
 		code: Schema.Literal("source-unavailable"),
 		kind: Schema.Literals(["inline", "savedView", "plugin", "page", "page-preview"]),
@@ -28,7 +29,6 @@ const RyotQLBadRequestReason = Schema.Union([
 	Schema.Struct({ code: Schema.Literal("invalid-cursor") }),
 	Schema.Struct({ limitMs: Schema.Finite, code: Schema.Literal("query-timeout") }),
 	Schema.Struct({ limitBytes: Schema.Finite, code: Schema.Literal("result-too-large") }),
-	Schema.Struct({ limit: Schema.Int, code: Schema.Literal("subject-limit-exceeded") }),
 ]);
 
 export class RyotQLBadRequest extends Schema.TaggedError<

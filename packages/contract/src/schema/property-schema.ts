@@ -196,7 +196,7 @@ type AppPropertyBase<TValidation> = {
 	readonly validation?: undefined | TValidation;
 };
 
-const PropertyValidationIssue = Schema.Struct({
+export const PropertyValidationIssue = Schema.Struct({
 	message: Schema.String,
 	path: Schema.Array(Schema.String),
 });

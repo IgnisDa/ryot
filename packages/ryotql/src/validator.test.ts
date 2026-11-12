@@ -202,7 +202,6 @@ it("exposes only approved entity fields", () => {
 			"externalId",
 			"providerId",
 			"populatedAt",
-			"publicationRank",
 			"populationStatus",
 			"entitySchemaSlug",
 			"providerCheckedAt",

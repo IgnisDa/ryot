@@ -15,7 +15,7 @@ import { DownloadResolutionInput, DownloadResolutionResponse } from "../assets/s
 import { ClientCompositionDocument } from "../pages/schemas";
 import { RyotQLBadRequest, RyotQLInternalError } from "../ryotql/contract";
 import { RyotQLResponse } from "../ryotql/language";
-import { DescribeRequest, DescribeResponse, ExecutionRequest } from "../ryotql/request";
+import { DescribeResponse, VisitorDescribeRequest, VisitorRequest } from "../ryotql/request";
 import {
 	CreatePublicationBody,
 	CreatePublicationLinkBody,
@@ -72,14 +72,17 @@ export const PublicationsGroup = HttpApiGroup.make("publications")
 			error: ownerErrors,
 			payload: CreatePublicationBody,
 			success: PublicationResponse.pipe(HttpApiSchema.status(201)),
-		}).annotate(OpenApi.Description, "Creates a publication from a scope query"),
+		}).annotate(OpenApi.Description, "Creates a publication of a page with owner-bound arguments"),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.put("protected")("republish", "/publications", {
 			error: ownerErrors,
 			success: PublicationResponse,
 			payload: RepublishPublicationBody,
-		}).annotate(OpenApi.Description, "Replaces a publication's frozen definition"),
+		}).annotate(
+			OpenApi.Description,
+			"Replaces a publication's page, owner-bound arguments and mode",
+		),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("protected")("revoke", "/publications/revoke", {
@@ -117,7 +120,7 @@ export const PublicationsGroup = HttpApiGroup.make("publications")
 			error: ownerErrors,
 			payload: PublicationIdBody,
 			success: PublicationStatusResponse,
-		}).annotate(OpenApi.Description, "Evaluates a publication's source as visitors would see it"),
+		}).annotate(OpenApi.Description, "Evaluates whether a publication is ready for visitors"),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("allowed")("preview", "/publications/preview", {
@@ -165,7 +168,7 @@ export const PublicationVisitsGroup = HttpApiGroup.make("publicationVisits")
 	.add(
 		HttpApiEndpoint.post("ryotql", "/publications/visit/ryotql", {
 			success: RyotQLResponse,
-			payload: ExecutionRequest,
+			payload: VisitorRequest,
 			error: [
 				...visitorErrors,
 				RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
@@ -175,13 +178,13 @@ export const PublicationVisitsGroup = HttpApiGroup.make("publicationVisits")
 			.middleware(PublicationMiddleware)
 			.annotate(
 				OpenApi.Description,
-				"Reads published rows; only the published subjects are visible",
+				"Runs a declared query of the publication's page with owner bindings enforced",
 			),
 	)
 	.add(
 		HttpApiEndpoint.post("describe", "/publications/visit/ryotql/describe", {
-			payload: DescribeRequest,
 			success: DescribeResponse,
+			payload: VisitorDescribeRequest,
 			error: [
 				...visitorErrors,
 				RyotQLBadRequest.pipe(HttpApiSchema.status(400)),
@@ -189,10 +192,7 @@ export const PublicationVisitsGroup = HttpApiGroup.make("publicationVisits")
 			],
 		})
 			.middleware(PublicationMiddleware)
-			.annotate(
-				OpenApi.Description,
-				"Describe query parameters and controls under publication visibility.",
-			),
+			.annotate(OpenApi.Description, "Describes a declared query of the publication's page."),
 	)
 	.add(
 		HttpApiEndpoint.post("assets", "/publications/visit/assets", {
@@ -203,6 +203,6 @@ export const PublicationVisitsGroup = HttpApiGroup.make("publicationVisits")
 			.middleware(PublicationMiddleware)
 			.annotate(
 				OpenApi.Description,
-				"Resolves download URLs for stored files referenced by published subjects",
+				"Resolves download URLs for stored files referenced by published results",
 			),
 	);

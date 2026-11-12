@@ -39,8 +39,10 @@ is the executable grammar and response format. They share scalar grammar machine
 
 `modules/ryotql/request` defines inline, saved-view, plugin-package and page execution sources,
 request arguments/filter/sort/pages, visitor requests and describe request/response schemas. All
-RyotQL execution HTTP payloads use `ExecutionRequest`; the backend loads sources under the caller's
-authority before binding. Describe routes return normalized strict parameters and resolved control
+Authenticated RyotQL execution HTTP payloads use `ExecutionRequest`; the backend loads sources
+under the caller's authority before binding. Publication visitors use `VisitorRequest` and
+`VisitorDescribeRequest`, naming only a query of the publication's page, without execution sources
+or inline documents. Describe routes return normalized strict parameters and resolved control
 choices. Query responses carry optional generic `execution` metadata (`now` in epoch milliseconds
 and the account `timeZone`) captured from the same context used to bind expressions. Reporting
 consumers require this metadata, including for empty results.
@@ -62,3 +64,28 @@ provides input/output descriptions; normalization, reference authority, managed 
 membership and business rules remain authoritative Effect validation.
 
 The pages module includes authored `PageDefinition` documents and demo-protected page mutation contracts alongside client preparation. Actor/origin is server-owned; row reads use RyotQL page recipes. Build results identify the compiled draft revision, definition hash and artifact hash for read-only preview composition.
+
+## Publications
+
+`modules/publications/schemas` defines `PublicationDefinition` as `{ page, arguments, mode }`.
+`PublicationPageReference` selects `{ kind: "kernel", name: "publication" }` or
+`{ kind: "page", pageId }`; `PublicationMode` is `live` or `snapshot`. Create and republish bodies
+include this definition alongside title, description, icon and owner-name settings. Link and session
+contracts remain separate from the definition.
+
+Owner arguments are partial bindings. `modules/ryotql/parameters.bindPartialArguments` validates
+explicit values with the same AppSchema definitions, normalization and conditional rules as
+`bindArguments`, while allowing absent required parameters and returning only explicitly supplied
+keys. Defaults participate in validation but do not become owner bindings. At execution the backend
+must overlay owner bindings on visitor arguments, then use full `bindArguments` to apply defaults and
+validate required values. Share intents use `modules/ryotql/entity-source.EntitySourceReference`;
+the host converts that intent to the kernel publication page and an encoded source argument.
+
+`PublicationStatusResponse` is ready (with optional `itemCount`) or needs-attention with a
+`PublicationReadinessIssue`: page-unavailable, dependency-unavailable (package reference),
+source-unavailable, bindings-invalid (AppSchema issues), or snapshot-too-large (`limitBytes`). Owner
+bad requests use the same readiness reasons. Visitor unavailability exposes reason codes without
+owner diagnostics. Visitor presentation includes `mode`, also available as `context.settings.mode`. Visitor presentation counts are optional; contexts carry no query documents and
+select either the kernel publication renderer or a published, read-only page renderer.
+
+These contracts define no snapshot storage, snapshot navigation policy, or live-page revision policy.

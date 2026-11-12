@@ -1,3 +1,4 @@
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
 import { validateAppSchemaDefinition } from "../../schema/app-schema-definition";
@@ -68,7 +69,11 @@ export const ParameterSchema = AppSchema.check(
 	),
 );
 
-export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}) => {
+const bindParameterArguments = (
+	schema: AppSchema | undefined,
+	input: unknown,
+	partial: boolean,
+) => {
 	const definition = schema ?? { fields: {} };
 	const issues = validateParameterSchema(definition);
 	if (issues.length > 0) {
@@ -77,6 +82,25 @@ export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}
 	const parsed = parseAppSchemaPropertiesSafe({
 		properties: input,
 		propertiesSchema: { ...definition, unknownKeys: "strict" },
+		allowedMissingRequiredPaths: partial
+			? Object.keys(definition.fields)
+					.filter((key) => !isObjectRecord(input) || !Object.hasOwn(input, key))
+					.map((key) => [key])
+			: [],
 	});
-	return parsed.success ? Result.succeed(parsed.data) : Result.fail(parsed.issues);
+	return parsed.success
+		? Result.succeed(
+				Object.fromEntries(
+					Object.entries(parsed.data).filter(
+						([key]) => !partial || (isObjectRecord(input) && Object.hasOwn(input, key)),
+					),
+				),
+			)
+		: Result.fail(parsed.issues);
 };
+
+export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
+	bindParameterArguments(schema, input, false);
+
+export const bindPartialArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
+	bindParameterArguments(schema, input, true);

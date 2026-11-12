@@ -1,4 +1,8 @@
-import { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
+import { PublicationDefinition } from "@ryot-app/contract/modules/publications/schemas";
+import {
+	encodeEntitySourceReference,
+	type EntitySourceReference,
+} from "@ryot-app/contract/modules/ryotql/entity-source";
 import type { TableReference } from "@ryot-app/contract/modules/ryotql/language";
 import { PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
 import {
@@ -10,6 +14,7 @@ import {
 	eq,
 	isNull,
 	jsonPath,
+	literal,
 	selectedField,
 	selectedInclude,
 	selectedRows,
@@ -20,11 +25,6 @@ import { parameters } from "@ryot-app/ryotql/authoring";
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
-import {
-	savedViewReferenceArguments,
-	savedViewReferenceFields,
-	savedViewReferencePredicate,
-} from "./saved-view-records";
 
 const publicationSelection = (publication: TableReference) => {
 	const link = table("publicationLink", "link");
@@ -52,10 +52,10 @@ const publicationSelection = (publication: TableReference) => {
 			icon: selectedField(column(publication, "icon"), Schema.String),
 			title: selectedField(column(publication, "title"), Schema.String),
 			revision: selectedField(column(publication, "revision"), Schema.Int),
-			source: selectedField(column(publication, "source"), PublicationSource),
 			createdAt: selectedField(column(publication, "createdAt"), IsoDateString),
 			updatedAt: selectedField(column(publication, "updatedAt"), IsoDateString),
 			showOwnerName: selectedField(column(publication, "showOwnerName"), Schema.Boolean),
+			definition: selectedField(column(publication, "definition"), PublicationDefinition),
 			revokedAt: selectedField(column(publication, "revokedAt"), Schema.NullOr(IsoDateString)),
 			description: selectedField(column(publication, "description"), Schema.NullOr(Schema.String)),
 		},
@@ -82,29 +82,20 @@ export const publicationsRecipe = (() => {
 	});
 })();
 
-/** The owner's active publications of exactly this source, newest first. */
 const sourceParameters = parameters({
 	fields: {
-		...savedViewReferenceFields,
-		collectionId: {
+		source: {
 			type: "string",
-			defaultValue: "",
-			label: "Collection",
-			description: "Collection source ID",
-		},
-		sourceKind: {
-			type: "enum",
 			label: "Source",
 			validation: { required: true },
-			description: "Publication source kind",
-			choices: { kind: "static", values: [{ value: "collection" }, { value: "saved-view" }] },
+			description: "Encoded entity source",
+			reference: { kind: "entity-source" },
 		},
 	},
 });
-export const publicationSourceArguments = (source: PublicationSource) =>
-	source.kind === "collection"
-		? { sourceKind: source.kind, collectionId: source.collectionId }
-		: { sourceKind: source.kind, ...savedViewReferenceArguments(source.reference) };
+export const publicationSourceArguments = (source: EntitySourceReference) => ({
+	source: encodeEntitySourceReference(source),
+});
 const sourcePublication = table("publication", "publication");
 export const sourcePublicationsRecipe = defineRecipe({
 	parameters: sourceParameters.schema,
@@ -116,24 +107,17 @@ export const sourcePublicationsRecipe = defineRecipe({
 			where: and(
 				isNull(column(sourcePublication, "revokedAt")),
 				eq(
-					castText(jsonPath(column(sourcePublication, "source"), "kind")),
-					sourceParameters.value("sourceKind"),
+					castText(jsonPath(column(sourcePublication, "definition"), "page", "kind")),
+					literal("kernel"),
 				),
-				sourceParameters.choice("sourceKind", {
-					collection: eq(
-						castText(jsonPath(column(sourcePublication, "source"), "collectionId")),
-						sourceParameters.value("collectionId"),
-					),
-					"saved-view": savedViewReferencePredicate(
-						jsonPath(column(sourcePublication, "source"), "reference"),
-						{
-							slug: sourceParameters.value("slug"),
-							id: sourceParameters.value("savedViewId"),
-							pluginId: sourceParameters.value("pluginId"),
-							kind: sourceParameters.value("referenceKind"),
-						},
-					),
-				}),
+				eq(
+					castText(jsonPath(column(sourcePublication, "definition"), "page", "name")),
+					literal("publication"),
+				),
+				eq(
+					castText(jsonPath(column(sourcePublication, "definition"), "arguments", "source")),
+					sourceParameters.value("source"),
+				),
 			),
 			...publicationSelection(sourcePublication),
 		}),
