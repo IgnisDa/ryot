@@ -148,7 +148,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				return result.value;
 			});
 
-			const invoke = Effect.fn("OperationsService.invoke")(function* (input: {
+			const invokeInternal = Effect.fn("OperationsService.invokeInternal")(function* (input: {
 				readonly resource?: string;
 				readonly payload: JsonValue;
 				readonly contentHash?: string;
@@ -156,8 +156,14 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				readonly operationSlug: string;
 				readonly idempotencyKey?: string;
 				readonly packageId: PluginPackageId;
-				readonly headers: PlatformHeaders.Headers;
 				readonly pageAuthority?: PageOperationAuthority;
+				readonly identity:
+					{ readonly userId: UserId } | { readonly headers: PlatformHeaders.Headers };
+				readonly sourcePin?: {
+					readonly revisionId: string;
+					readonly installationId: string;
+					readonly configRevisionId: string;
+				};
 			}) {
 				if (input.submittedAt !== undefined) {
 					yield* requireOpenSubmission(input.submittedAt);
@@ -190,6 +196,17 @@ export class OperationsService extends Context.Service<OperationsService>()(
 						pluginId: selected.pluginId,
 						operationSlug: input.operationSlug,
 					});
+					if (
+						resolved &&
+						input.sourcePin !== undefined &&
+						(input.sourcePin.revisionId !== resolved.plugin.pluginRevisionId ||
+							input.sourcePin.configRevisionId !== resolved.plugin.pluginConfigRevisionId ||
+							input.sourcePin.installationId !== resolved.plugin.installationId)
+					) {
+						return yield* new PluginConflictError({
+							reason: { pluginId: selected.pluginId, code: "source-revision-stale" },
+						});
+					}
 					if (contentHash === undefined || !resolved) {
 						return resolved;
 					}
@@ -210,12 +227,17 @@ export class OperationsService extends Context.Service<OperationsService>()(
 					.resolve(input.payload)
 					.pipe(Effect.catchTag("NotFound", () => scopeNotFound));
 
-				const authenticated = yield* auth
-					.resolveRequestCredential(new Headers(input.headers), input.resource)
-					.pipe(
-						Effect.map(Result.succeed),
-						Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
-					);
+				const credential: Effect.Effect<
+					Effect.Success<ReturnType<typeof auth.resolveTrustedAccount>>,
+					| Effect.Error<ReturnType<typeof auth.resolveTrustedAccount>>
+					| Effect.Error<ReturnType<typeof auth.resolveRequestCredential>>
+				> = "userId" in input.identity
+					? auth.resolveTrustedAccount(input.identity.userId)
+					: auth.resolveRequestCredential(new Headers(input.identity.headers), input.resource);
+				const authenticated = yield* credential.pipe(
+					Effect.map(Result.succeed),
+					Effect.catchTag("AuthUnauthorized", (error) => Effect.succeed(Result.fail(error))),
+				);
 				const pinDispatch = Effect.fn("OperationsService.pinDispatch")(function* (
 					dispatchInput: Omit<DispatchInput, "executionId" | "pluginRevision">,
 					resolved: NonNullable<Effect.Success<ReturnType<typeof resolveOperation>>>,
@@ -407,6 +429,9 @@ export class OperationsService extends Context.Service<OperationsService>()(
 									resolved,
 								);
 							}
+							if ("userId" in input.identity) {
+								return yield* operationNotFound;
+							}
 							if (resolved) {
 								const scope = yield* resolveIntegrationScope.pipe(
 									Effect.catchTag("BadRequest", () =>
@@ -438,6 +463,11 @@ export class OperationsService extends Context.Service<OperationsService>()(
 							}
 						}
 
+						if ("userId" in input.identity) {
+							return yield* Result.isFailure(authenticated)
+								? authenticated.failure
+								: operationNotFound;
+						}
 						const scope = yield* resolveIntegrationScope.pipe(
 							Effect.asSome,
 							Effect.catchTag("BadRequest", () => Effect.succeedNone),
@@ -492,7 +522,14 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				return result;
 			});
 
-			return { invoke };
+			type Input = Parameters<typeof invokeInternal>[0];
+			const invoke = (
+				input: Omit<Input, "identity"> & { readonly headers: PlatformHeaders.Headers },
+			) => invokeInternal({ ...input, identity: { headers: input.headers } });
+			const invokeTrusted = (
+				input: { readonly userId: UserId } & Omit<Input, "identity" | "resource" | "pageAuthority">,
+			) => invokeInternal({ ...input, identity: { userId: input.userId } });
+			return { invoke, invokeTrusted };
 		}),
 	},
 ) {

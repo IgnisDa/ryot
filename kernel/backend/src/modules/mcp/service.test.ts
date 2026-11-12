@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { getMcpOAuthResource } from "@ryot-app/contract/oauth";
+import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -10,12 +11,12 @@ import { Deferred, Effect, Fiber, Schema } from "effect";
 import { HttpRouter } from "effect/http";
 import { TestClock } from "effect/testing";
 
-import type { AgentTool, AgentToolsService } from "#modules/agent-tools/service";
+import type { AgentToolsService } from "#modules/agent-tools/service";
 
 import { makeMcpTransport, protectedResourceMetadata } from "./service";
 
 const origin = "https://ryot.example";
-const descriptor = (name: string): AgentTool => ({
+const descriptor = (name: string): AgentToolDescriptor => ({
 	name,
 	output: { type: "object" },
 	description: `Describe ${name}`,

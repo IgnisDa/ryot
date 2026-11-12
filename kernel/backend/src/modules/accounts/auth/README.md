@@ -103,3 +103,8 @@ through the provider, validates its registered redirect (including native loopba
 and returns only `{ clientName, redirectOrigin, scope: "ryot:api" }`. Invalid or altered queries
 return 400; valid queries without a hosted session return 401. The page carries the original signed
 query into login when the session has expired. Display parameters never become authorization input.
+
+Internal durable work uses `AuthService.resolveTrustedAccount(userId)` with its persisted account
+identity. This reloads disabled/bootstrap state, preferences, demo classification and the lifecycle
+write guard; it neither synthesizes a transport credential nor keeps an original bearer token alive.
+Public transports continue using `resolveRequestCredential` and never accept a trusted identity.

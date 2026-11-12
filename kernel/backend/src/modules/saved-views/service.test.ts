@@ -22,6 +22,8 @@ import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
+import { DatabaseSession } from "#platform/db/session";
+import * as tables from "#schema/tables/auth";
 import { makeAppConfigLayer } from "#testing/effect";
 import type { MockOverrides } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
@@ -154,7 +156,15 @@ const makeLayer = (options: {
 			return SavedViewsService.layer.pipe(
 				Layer.provideMerge(
 					Layer.mergeAll(
-						isolatedDatabaseLayer("saved_views_test"),
+						Layer.effectDiscard(
+							Effect.flatMap(DatabaseSession, (session) =>
+								session.run((db) =>
+									db
+										.insert(tables.user)
+										.values({ id: user.id, name: user.name, email: user.email }),
+								),
+							),
+						).pipe(Layer.provideMerge(isolatedDatabaseLayer("saved_views_test"))),
 						repositoryMock({
 							customSlugExists: () => Effect.succeed(false),
 							...options.repository,

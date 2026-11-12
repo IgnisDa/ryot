@@ -5,7 +5,7 @@ plugin runtime catalog and the existing operation service. The registry has no t
 
 ## Service API
 
-- `list(headers, resource?)` authenticates a session or API-key credential and returns `AgentTool[]`.
+- `list(headers, resource?)` authenticates a session or API-key credential and returns `AgentToolDescriptor[]`.
 - `describeData(headers)` authenticates the credential and returns the complete typed
   `AgentDataDescription`: effective entity schemas with properties, browse fields and nested event
   schemas, plus relationship schemas and their endpoints/properties. Projection schemas are included
@@ -96,3 +96,34 @@ carry bounded JSON, logs or compilation diagnostics and an execution ID; history
 The shared JSON result budget is implemented in `platform/tool-result.ts` and used both when retaining
 script results and when returning tool responses. A smaller caller budget may truncate the retained
 script result further.
+
+## Durable assistant entrypoints
+
+The internal API is `listTrusted(userId)`, `validateTrusted(userId, call)` and
+`callTrusted(userId, { ...call, descriptorPin, idempotencyKey })`. The account ID comes from the
+server's persisted turn identity, never model arguments or a public principal. Each entrypoint calls
+`AuthService.resolveTrustedAccount`, which reloads preferences, disabled/bootstrap state, demo
+classification and lifecycle blocking without retaining a bearer credential. HTTP and MCP continue
+using `list` / `call` and ordinary request authentication.
+
+`validateTrusted` returns `{ tool: AgentToolDescriptor, descriptorPin, hints, requiresApproval }`. It validates
+JSON Schema inputs before the approval decision; authoritative command and sandbox schemas still
+validate at execution. `run_script` has effective read-only hints when `allowWrites` is absent or
+false; its static MCP hints remain conservative. Retain the descriptor pin with the approved call.
+The pin fingerprints the complete descriptor, including immutable source identities. Invocation
+rejects catalog changes, and operation admission rechecks installation, code and configuration pins.
+Results use the contract's bounded `AgentToolResult` envelope, defined in `@ryot-app/contract/schema/tool-result`.
+
+`page_list` / `page_get` and `saved_view_list` / `saved_view_get` read canonical kernel recipes,
+including page draft sources and saved selections. Mutations use their owning services:
+`page_create`, `page_replace_draft`, `page_compile`, `page_publish`, `page_delete`,
+`saved_view_create`, `saved_view_update`, `saved_view_delete`. Compile returns the draft build
+identity consumed by the existing preview host; build failures preserve typed diagnostics. Registry
+create/edit commands use assistant origin supplied by server execution context, including MCP, and clear write grants. Ordinary page HTTP authoring remains user-origin. No registry
+tool grants write access. Demo sessions cannot call authoring mutations.
+
+Durable callers must supply a stable per-call idempotency key. Page and saved-view mutation owners
+commit receipts in the same transaction as their changes, including creates and revision-fenced
+replacements. Compilation stays outside transactions; its retained build receipt commits with the
+artifact reference. Receipts follow the shared retention window. Operation and agent-script replay
+continue using their existing execution owners; interrupted agent runs stay failed closed.

@@ -608,9 +608,13 @@ for (const [size, installationId] of [
 						references: [custom(`custom-${(size - 1).toString().padStart(2, "0")}`)],
 					});
 					const statements = yield* (yield* StatementLog).lastTransaction;
-					expect(statements).toHaveLength(7);
+					expect(statements).toHaveLength(8);
 					expect(statements[0]).toContain("pg_advisory_xact_lock_shared");
 					expect(statements[1]).toContain("pg_advisory_xact_lock(hashtext(");
+					const admissions = statements.filter((statement) => statement.includes('from "user"'));
+					expect(admissions).toHaveLength(1);
+					expect(admissions[0]).toContain('"retiring_at"');
+					expect(admissions[0]).toContain('for share of "user"');
 					expect(
 						statements.filter(
 							(statement) =>
@@ -628,12 +632,13 @@ for (const [size, installationId] of [
 					const before = yield* stored;
 					yield* service.reorder(user, { installationId, references: result.references });
 					const unchangedStatements = yield* (yield* StatementLog).lastTransaction;
-					expect(unchangedStatements).toHaveLength(5);
+					expect(unchangedStatements).toHaveLength(6);
+					expect(
+						unchangedStatements.filter((statement) => statement.includes('from "user"')),
+					).toEqual(admissions);
 					expect(
 						unchangedStatements.filter((statement) =>
-							/^(insert into "saved_view_override"|update "saved_view"|delete from "saved_view_override")/.test(
-								statement,
-							),
+							/^(insert into|update|delete from) /.test(statement),
 						),
 					).toEqual([]);
 					const after = yield* stored;

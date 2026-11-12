@@ -6,6 +6,7 @@ import {
 	getOAuthIssuer,
 	OAUTH_API_SCOPE,
 } from "@ryot-app/contract/oauth";
+import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { Context, Deferred, Effect, Layer, Schedule, Schema, ScopedCache, Semaphore } from "effect";
 import { McpProtocol, McpSchema, McpServer } from "effect/ai";
@@ -13,7 +14,7 @@ import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effe
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { AuthService } from "#modules/accounts/auth/service";
-import { type AgentTool, AgentToolsService } from "#modules/agent-tools/service";
+import { agentToolDescriptorPin, AgentToolsService } from "#modules/agent-tools/service";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig } from "#platform/config/service";
 
@@ -73,7 +74,9 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 				).pipe(Effect.provideService(Layer.CurrentMemoMap, connectionMemoMap));
 				const registry = yield* Deferred.await(registryReady);
 				const mutex = yield* Semaphore.make(1);
-				const refresh = Effect.fn("McpTransport.refresh")(function* (listed: readonly AgentTool[]) {
+				const refresh = Effect.fn("McpTransport.refresh")(function* (
+					listed: readonly AgentToolDescriptor[],
+				) {
 					const next = new Map<string, string>();
 					for (const tool of listed) {
 						next.set(
@@ -120,6 +123,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 										resource,
 										name: tool.name,
 										arguments: args,
+										descriptorPin: agentToolDescriptorPin(tool),
 										...(tool.source.kind === "operation"
 											? { contentHash: tool.source.contentHash }
 											: {}),

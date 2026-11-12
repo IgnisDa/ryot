@@ -4,6 +4,7 @@ import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
+import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { sandboxHostContracts } from "@ryot-app/plugin-backend-sdk/core";
 import type { SandboxHostError } from "@ryot-app/plugin-backend-sdk/wire";
@@ -23,7 +24,7 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { generateId } from "better-auth";
 import { Clock, Context, DateTime, Effect, Layer, Schema } from "effect";
 
-import { AgentToolResult, truncateJsonResult } from "#platform/tool-result";
+import { truncateJsonResult } from "#platform/tool-result";
 
 import { isSandboxCapabilityAllowed } from "../authorization/capabilities";
 import type { ScriptExecutionPrincipal } from "../authorization/principal";

@@ -256,6 +256,22 @@ const makeLayer = (input: {
 				}),
 				Layer.mock(AuthService)({
 					handler: () => Promise.reject(new Error("unused")),
+					resolveTrustedAccount: (userId) =>
+						Effect.succeed({
+							authorization: { accessClass: input.accessClass ?? "standard" },
+							user: {
+								id: userId,
+								image: null,
+								name: "User",
+								email: "user@example.com",
+								preferences: {
+									language: null,
+									reportingTimeZone: UTC,
+									ratingScale: "hundred",
+									disableIntegrations: false,
+								},
+							},
+						}),
 					resolveRequestCredential: () =>
 						input.currentUserId
 							? Effect.succeed({
@@ -1293,6 +1309,44 @@ layer(
 					yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })),
 					new PluginRequestError({ reason: { code: "page-write-access-required" } }),
 				);
+			}),
+		testTimeout,
+	);
+});
+
+layer(makeLayer({ available: [systemUserOperation] }))((test) => {
+	test.effect(
+		"dispatches trusted user commands through ordinary admission without bearer headers and rejects changed pins",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* OperationsService;
+				const fake = yield* FakeOperationDependencies;
+				const request = {
+					payload: {},
+					userId: USER_ONE,
+					packageId: SYSTEM_PACKAGE_ID,
+					operationSlug: OPERATION_SLUG,
+					idempotencyKey: "trusted-operation",
+				};
+				expect(yield* service.invokeTrusted(request)).toBe("ok");
+				expect(yield* service.invokeTrusted(request)).toBe("ok");
+				expect(yield* fake.referenceRegistrations).toHaveLength(1);
+				expect(yield* fake.captured).toHaveLength(1);
+				expect(
+					yield* Effect.flip(
+						service.invokeTrusted({
+							...request,
+							sourcePin: {
+								configRevisionId: "changed",
+								revisionId: "fixture-revision",
+								installationId: systemUserOperation.installationId,
+							},
+						}),
+					),
+				).toMatchObject({ _tag: "PluginConflictError", reason: { code: "source-revision-stale" } });
+				expect(
+					yield* Effect.flip(service.invoke({ ...request, headers: Headers.empty })),
+				).toMatchObject({ _tag: "AuthUnauthorized" });
 			}),
 		testTimeout,
 	);

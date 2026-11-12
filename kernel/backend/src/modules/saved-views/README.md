@@ -63,3 +63,8 @@ They require null data sources, empty settings and arguments, and no saved filte
 supplies query values. Create, update and clone share these constraints. The renderer JSON is the
 single page reference; a generated `page_id` column supplies a composite foreign key with `user_id`
 to the page owner. The database rejects cross-owner references and deletion of an in-use page.
+
+Internal create, update and delete callers may supply stable idempotency keys. Their owning
+transactions admit the account and commit command results with the row changes under the existing
+ingestion/account locks. A create replay returns the original ID and cannot create a second row
+after a crash. Keys reused with different payloads fail validation.

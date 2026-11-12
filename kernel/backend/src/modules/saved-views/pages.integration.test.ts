@@ -93,6 +93,12 @@ layer(services)((test) => {
 					icon: "file",
 					name: "Page view",
 				});
+				const replayInput = { ...config, icon: "file", name: "Replay" };
+				const replay = yield* service.create(owner, replayInput, undefined, "view-create");
+				expect(yield* service.create(owner, replayInput, undefined, "view-create")).toEqual(replay);
+				const replayReference = { savedViewId: replay.id, kind: "custom" as const };
+				const deleted = yield* service.delete(owner, replayReference, "view-delete");
+				expect(yield* service.delete(owner, replayReference, "view-delete")).toEqual(deleted);
 				const reference = { kind: "custom" as const, savedViewId: created.id };
 				yield* service.update(owner, reference, { ...config, name: "Renamed", isHidden: false });
 				const clone = yield* service.clone(owner, reference);

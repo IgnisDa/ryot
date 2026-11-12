@@ -46,3 +46,10 @@ Operations retain this constraint in the sandbox user subject. The existing work
 principal and inherited child subjects persist it through execution and recovery. Sandbox authority
 rechecks it against the page row for each invocation and fresh host call, including durable dispatch.
 Code/configuration pins and previously decoded principals do not preserve revoked page grants.
+
+Trusted command callers may supply an idempotency key to create, replace, compile, publish and
+remove. Each command fingerprints its actor/input and commits its result receipt with the page
+mutation. Replayed replacement returns its original revision before applying the stale revision
+fence again; replayed removal succeeds after the row is gone. Compilation runs outside the
+transaction, while the build receipt and artifact/page reference commit atomically. Page writes
+use account admission after the shared ingestion fence and account write lock.

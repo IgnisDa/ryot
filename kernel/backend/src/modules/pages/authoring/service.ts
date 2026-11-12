@@ -1,8 +1,12 @@
 import { DbError } from "@ryot-app/contract/errors";
+import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import {
 	type CreatePageBody,
 	PageAuthoringError,
+	PageBuildResult,
+	PageDraftResult,
 	type PageDraftRevisionBody,
+	PageMutationResult,
 	type PageOrigin,
 	type ReplacePageDraftBody,
 } from "@ryot-app/contract/modules/pages/schemas";
@@ -11,6 +15,8 @@ import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-valida
 import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { AccountAdmission } from "#modules/mutations/account-admission";
+import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { ClientPluginCompiler } from "#modules/pages/compiler";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
@@ -27,6 +33,8 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 	{
 		make: Effect.gen(function* () {
 			const session = yield* DatabaseSession;
+			const keys = yield* IdempotencyKeys.make;
+			const admission = yield* AccountAdmission.make;
 			const repository = yield* PageAuthoringRepository;
 			const compiler = yield* ClientPluginCompiler;
 			const artifacts = yield* ClientArtifactsRepository;
@@ -76,10 +84,12 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			const lockCatalog = Effect.fn(function* (userId: UserId) {
 				yield* lockPluginIngestionShared(session, [userId]);
 				yield* session.acquireUserWriteLock(userId);
+				yield* admission.admitAccount(userId);
 			});
 			const create = Effect.fn("PageAuthoringService.create")(function* (
 				actor: PageAuthoringActor,
 				input: CreatePageBody,
+				idempotencyKey?: string,
 			) {
 				const prepared = yield* preparePageDefinition(input.definition);
 				return yield* session
@@ -87,11 +97,29 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 						Effect.gen(function* () {
 							yield* lockCatalog(actor.userId);
 							yield* checkDependencies(actor.userId, prepared.definition);
-							return yield* repository.create(actor.userId, {
+							const write = repository.create(actor.userId, {
 								...input,
 								...prepared,
 								origin: actor.kind,
 							});
+							return yield* idempotencyKey === undefined
+								? write
+								: keys
+										.once(
+											idempotencyIdentity({
+												key: idempotencyKey,
+												kind: "page:create",
+												userId: actor.userId,
+												request: { actor, input },
+											}),
+											PageDraftResult,
+											write,
+										)
+										.pipe(
+											Effect.catchTag("IdempotencyConflict", () =>
+												definitionInvalid("Page idempotency key was reused with different input"),
+											),
+										);
 						}),
 					)
 					.pipe(
@@ -105,29 +133,105 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			const replaceDraft = Effect.fn("PageAuthoringService.replaceDraft")(function* (
 				actor: PageAuthoringActor,
 				input: ReplacePageDraftBody,
+				idempotencyKey?: string,
 			) {
 				const prepared = yield* preparePageDefinition(input.definition);
+				const write = Effect.gen(function* () {
+					yield* requireRevision(actor.userId, input, true);
+					yield* checkDependencies(actor.userId, prepared.definition);
+					return yield* repository.replaceDraft(
+						actor.userId,
+						input.pageId,
+						prepared.definition,
+						prepared.definitionHash,
+						actor.kind,
+					);
+				});
 				return yield* session.transaction(
 					Effect.gen(function* () {
 						yield* lockCatalog(actor.userId);
-						yield* requireRevision(actor.userId, input, true);
-						yield* checkDependencies(actor.userId, prepared.definition);
-						return yield* repository.replaceDraft(
-							actor.userId,
-							input.pageId,
-							prepared.definition,
-							prepared.definitionHash,
-							actor.kind,
-						);
+						return yield* idempotencyKey === undefined
+							? write
+							: keys
+									.once(
+										idempotencyIdentity({
+											key: idempotencyKey,
+											userId: actor.userId,
+											kind: "page:replace",
+											request: { actor, input },
+										}),
+										PageDraftResult,
+										write,
+									)
+									.pipe(
+										Effect.catchTag("IdempotencyConflict", () =>
+											definitionInvalid("Page idempotency key was reused with different input"),
+										),
+									);
 					}),
 				);
+			});
+			const recordBuild = Effect.fn(function* (
+				userId: UserId,
+				pageId: string,
+				locked: Effect.Success<ReturnType<typeof requirePage>>,
+				artifactHash: string,
+				publish: boolean,
+			) {
+				const catalog = yield* checkDependencies(userId, locked.draftDefinition);
+				if (publish && Object.keys(locked.draftDefinition.queries.queries).length > 0) {
+					const branches = yield* Effect.fromResult(
+						storedValidationBranches(locked.draftDefinition.queries, catalog.entitySchemas),
+					).pipe(Effect.mapError((error) => definitionInvalid(error.message)));
+					for (const branch of branches) {
+						yield* bindRyotQLDocument(
+							branch,
+							{ userId, type: "user", language: null, audience: "plugin", accessClass: "standard" },
+							catalog.plugins.filter(
+								(plugin) => plugin.isExecutable && plugin.isDefinitionEffective,
+							),
+						).pipe(
+							Effect.mapError(() => definitionInvalid("Query references an unavailable plugin")),
+						);
+					}
+				}
+				yield* repository.recordBuild(userId, pageId, locked, artifactHash, publish);
+				return {
+					pageId,
+					artifactHash,
+					draftRevision: locked.draftRevision,
+					definitionHash: locked.draftDefinitionHash,
+				};
 			});
 			const build = Effect.fn("PageAuthoringService.build")(function* (
 				userId: UserId,
 				input: PageDraftRevisionBody,
 				publish: boolean,
+				idempotencyKey?: string,
 			) {
 				yield* session.requireRoot;
+				const identity =
+					idempotencyKey === undefined
+						? undefined
+						: idempotencyIdentity({
+								userId,
+								request: input,
+								key: idempotencyKey,
+								kind: publish ? "page:publish" : "page:compile",
+							});
+				const replay =
+					identity === undefined
+						? null
+						: yield* keys
+								.read(identity, PageBuildResult)
+								.pipe(
+									Effect.catchTag("IdempotencyConflict", () =>
+										definitionInvalid("Page idempotency key was reused with different input"),
+									),
+								);
+				if (replay) {
+					return replay.response;
+				}
 				const current = yield* requireRevision(userId, input, false);
 				const prepared = yield* preparePageDefinition(current.draftDefinition);
 				yield* checkDependencies(userId, prepared.definition);
@@ -153,46 +257,65 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 								}),
 						),
 					);
+				const write = Effect.gen(function* () {
+					const locked = yield* requireRevision(userId, input, true);
+					yield* artifacts.persistClientArtifact(artifact);
+					return yield* recordBuild(userId, input.pageId, locked, artifact.hash, publish);
+				});
 				return yield* session.transaction(
 					Effect.gen(function* () {
 						yield* lockCatalog(userId);
-						const locked = yield* requireRevision(userId, input, true);
-						const catalog = yield* checkDependencies(userId, locked.draftDefinition);
-						if (publish && Object.keys(locked.draftDefinition.queries.queries).length > 0) {
-							const branches = yield* Effect.fromResult(
-								storedValidationBranches(locked.draftDefinition.queries, catalog.entitySchemas),
-							).pipe(Effect.mapError((error) => definitionInvalid(error.message)));
-							for (const branch of branches) {
-								yield* bindRyotQLDocument(
-									branch,
-									{
-										userId,
-										type: "user",
-										language: null,
-										audience: "plugin",
-										accessClass: "standard",
-									},
-									catalog.plugins.filter(
-										(plugin) => plugin.isExecutable && plugin.isDefinitionEffective,
-									),
-								).pipe(
-									Effect.mapError(() =>
-										definitionInvalid("Query references an unavailable plugin"),
-									),
-								);
-							}
-						}
-						yield* artifacts.persistClientArtifact(artifact);
-						yield* repository.recordBuild(userId, input.pageId, locked, artifact.hash, publish);
-						return {
-							pageId: input.pageId,
-							artifactHash: artifact.hash,
-							draftRevision: locked.draftRevision,
-							definitionHash: locked.draftDefinitionHash,
-						};
+						return yield* identity === undefined
+							? write
+							: keys
+									.once(identity, PageBuildResult, write)
+									.pipe(
+										Effect.catchTag("IdempotencyConflict", () =>
+											definitionInvalid("Page idempotency key was reused with different input"),
+										),
+									);
 					}),
 				);
 			});
+			const publishCompiledDraft = Effect.fn("PageAuthoringService.publishCompiledDraft")(
+				function* (userId: UserId, input: PageDraftBuildIdentity, idempotencyKey: string) {
+					return yield* session
+						.transaction(
+							Effect.gen(function* () {
+								yield* lockCatalog(userId);
+								const identity = idempotencyIdentity({
+									userId,
+									request: input,
+									key: idempotencyKey,
+									kind: "page:publish-compiled-draft",
+								});
+								const replay = yield* keys.lockedRead(identity, PageBuildResult);
+								if (replay) {
+									return replay.response;
+								}
+								yield* repository.lock(userId, input.pageId);
+								const current = yield* repository.findCompiledDraft(userId, input);
+								if (!current) {
+									return null;
+								}
+								const result = yield* recordBuild(
+									userId,
+									input.pageId,
+									current,
+									input.artifactHash,
+									true,
+								);
+								yield* keys.record(identity, PageBuildResult, result);
+								return result;
+							}),
+						)
+						.pipe(
+							Effect.catchTag("IdempotencyConflict", () =>
+								definitionInvalid("Page idempotency key was reused with different input"),
+							),
+						);
+				},
+			);
 			const setWriteAccess = Effect.fn("PageAuthoringService.setWriteAccess")(function* (
 				ownerUserId: UserId,
 				pageId: string,
@@ -208,11 +331,33 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			const remove = Effect.fn("PageAuthoringService.remove")(function* (
 				userId: UserId,
 				pageId: string,
+				idempotencyKey?: string,
 			) {
+				const write = Effect.gen(function* () {
+					yield* requirePage(userId, pageId, true);
+					return yield* repository.remove(userId, pageId);
+				});
 				return yield* session.transaction(
 					Effect.gen(function* () {
-						yield* requirePage(userId, pageId, true);
-						return yield* repository.remove(userId, pageId);
+						yield* lockCatalog(userId);
+						return yield* idempotencyKey === undefined
+							? write
+							: keys
+									.once(
+										idempotencyIdentity({
+											userId,
+											key: idempotencyKey,
+											kind: "page:delete",
+											request: { pageId },
+										}),
+										PageMutationResult,
+										write,
+									)
+									.pipe(
+										Effect.catchTag("IdempotencyConflict", () =>
+											definitionInvalid("Page idempotency key was reused with different input"),
+										),
+									);
 					}),
 				);
 			});
@@ -221,8 +366,11 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				remove,
 				replaceDraft,
 				setWriteAccess,
-				publish: (userId: UserId, input: PageDraftRevisionBody) => build(userId, input, true),
-				compile: (userId: UserId, input: PageDraftRevisionBody) => build(userId, input, false),
+				publishCompiledDraft,
+				publish: (userId: UserId, input: PageDraftRevisionBody, idempotencyKey?: string) =>
+					build(userId, input, true, idempotencyKey),
+				compile: (userId: UserId, input: PageDraftRevisionBody, idempotencyKey?: string) =>
+					build(userId, input, false, idempotencyKey),
 			};
 		}),
 	},

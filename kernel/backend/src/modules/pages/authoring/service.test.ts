@@ -13,7 +13,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
-import { Context, Deferred, Effect, Fiber, Layer } from "effect";
+import { Context, Deferred, Effect, Fiber, Layer, Result } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
@@ -139,6 +139,94 @@ const database = services.pipe(
 );
 
 layer(database)((test) => {
+	test.effect("replays assistant creates, edits, builds and deletes from atomic receipts", () =>
+		Effect.gen(function* () {
+			const service = yield* PageAuthoringService;
+			const repository = yield* PageAuthoringRepository;
+			const actor = { userId: owner, kind: "assistant" as const };
+			const input = { definition, slug: "replay", name: "Replay" };
+			const created = yield* service.create(actor, input, "create");
+			expect(yield* service.create(actor, input, "create")).toEqual(created);
+			yield* service.setWriteAccess(owner, created.pageId, true);
+			const replacement = { definition, pageId: created.pageId, expectedDraftRevision: 1 };
+			const replaced = yield* service.replaceDraft(actor, replacement, "replace");
+			expect(yield* service.replaceDraft(actor, replacement, "replace")).toEqual(replaced);
+			expect((yield* repository.find(owner, created.pageId))?.writeAccess).toBe(false);
+			expect((yield* repository.find(owner, created.pageId))?.draftRevision).toBe(2);
+			const build = { pageId: created.pageId, expectedDraftRevision: 2 };
+			const compiled = yield* service.compile(owner, build, "compile");
+			expect(yield* service.compile(owner, build, "compile")).toEqual(compiled);
+			const removed = yield* service.remove(owner, created.pageId, "remove");
+			expect(yield* service.remove(owner, created.pageId, "remove")).toEqual(removed);
+			expect(yield* repository.find(owner, created.pageId)).toBeNull();
+			expect(
+				Result.isFailure(
+					yield* Effect.result(service.create(actor, { ...input, name: "Changed" }, "create")),
+				),
+			).toBe(true);
+		}),
+	);
+
+	test.effect("compiled publication fences admission and replays after draft replacement", () =>
+		Effect.gen(function* () {
+			const service = yield* PageAuthoringService;
+			const repository = yield* PageAuthoringRepository;
+			const session = yield* DatabaseSession;
+			const actor = { userId: owner, kind: "assistant" as const };
+			const { pageId } = yield* service.create(actor, {
+				definition,
+				slug: "compiled-publication",
+				name: "Compiled publication",
+			});
+			const compiled = yield* service.compile(owner, { pageId, expectedDraftRevision: 1 });
+			expect(
+				yield* service.publishCompiledDraft(
+					owner,
+					{ ...compiled, artifactHash: "wrong" },
+					"wrong-artifact",
+				),
+			).toBeNull();
+			expect(
+				yield* service.publishCompiledDraft(
+					owner,
+					{ ...compiled, definitionHash: "wrong" },
+					"wrong-definition",
+				),
+			).toBeNull();
+			expect(yield* service.publishCompiledDraft(other, compiled, "other-owner")).toBeNull();
+			expect((yield* repository.find(owner, pageId))?.publishedRevision).toBeNull();
+			const published = yield* service
+				.publishCompiledDraft(owner, compiled, "publication")
+				.pipe(Effect.provideService(CompileFailure, true));
+			expect(published).toEqual(compiled);
+			yield* service.replaceDraft(actor, { pageId, definition, expectedDraftRevision: 1 });
+			const edited = yield* repository.find(owner, pageId);
+			expect(yield* service.publishCompiledDraft(owner, compiled, "publication")).toEqual(compiled);
+			expect(yield* repository.find(owner, pageId)).toEqual(edited);
+			expect(yield* service.publishCompiledDraft(owner, compiled, "new-publication")).toBeNull();
+			expect(
+				Result.isFailure(
+					yield* Effect.result(
+						service.publishCompiledDraft(
+							owner,
+							{ ...compiled, artifactHash: "changed" },
+							"publication",
+						),
+					),
+				),
+			).toBe(true);
+			const receipts = yield* session.run((db) =>
+				db
+					.select()
+					.from(tables.idempotencyKey)
+					.where(
+						sql`${tables.idempotencyKey.userId} = ${owner} and ${tables.idempotencyKey.key} like 'page:publish-compiled-draft:%'`,
+					),
+			);
+			expect(receipts).toHaveLength(1);
+		}),
+	);
+
 	test.effect("publishes a static page without named queries", () =>
 		Effect.gen(function* () {
 			const service = yield* PageAuthoringService;

@@ -5,6 +5,7 @@ import {
 	type CreateSavedViewBody,
 	type ReorderSavedViewsBody,
 	SavedViewBadRequest,
+	SavedViewCommandResponse,
 	SavedViewNotFound,
 	type SavedViewRenderer,
 	SavedViewRendererConfig,
@@ -18,6 +19,8 @@ import { Context, Effect, Layer, Schema } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { AccountAdmission } from "#modules/mutations/account-admission";
+import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginSavedViewReferences } from "#modules/plugins/catalog/saved-view-references";
@@ -54,6 +57,8 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 			const installations = yield* PluginInstallationRepository;
 			const pluginRepository = yield* PluginRepository;
 			const session = yield* DatabaseSession;
+			const keys = yield* IdempotencyKeys.make;
+			const admission = yield* AccountAdmission.make;
 			const assetReferences = yield* ManagedAssetReferenceLocker.make;
 			const transact = <A, E, R>(userId: UserId, work: Effect.Effect<A, E, R>) =>
 				session
@@ -61,6 +66,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						Effect.gen(function* () {
 							yield* pluginRepository.lockIngestionShared([userId]);
 							yield* session.acquireUserWriteLock(userId);
+							yield* admission.admitAccount(userId);
 							const result = yield* work;
 							yield* invalidator.user(userId);
 							return result;
@@ -203,6 +209,7 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 				user: Pick<CurrentUserValue, "id">,
 				payload: CreateSavedViewBody & { slug?: string | undefined },
 				trusted?: boolean,
+				idempotencyKey?: string,
 			) {
 				const name = trimToNull(payload.name);
 				if (!name) {
@@ -216,167 +223,223 @@ export class SavedViewsService extends Context.Service<SavedViewsService>()(
 						reason: { field: "slug", code: "required-field" },
 					});
 				}
-				const created = yield* mapDatabaseErrors(
+				const write = Effect.gen(function* () {
+					if (yield* repository.customSlugExists(user.id, slug)) {
+						return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
+					}
+					const dataSources = yield* prepareDefinition(
+						user.id,
+						payload.renderer,
+						payload.settings,
+						payload.dataSources,
+						trusted,
+					);
+					const pluginInstallationId = payload.workspaceInstallationId
+						? yield* requireInstallation(user.id, payload.workspaceInstallationId)
+						: null;
+					return (
+						(yield* repository.create(user.id, {
+							slug,
+							name,
+							dataSources,
+							...(yield* prepareSelection(dataSources, payload, user.id)),
+							userId: user.id,
+							icon: payload.icon,
+							pluginInstallationId,
+							renderer: payload.renderer,
+							settings: payload.settings,
+						})) ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }))
+					);
+				});
+				return yield* mapDatabaseErrors(
 					transact(
 						user.id,
-						Effect.gen(function* () {
-							if (yield* repository.customSlugExists(user.id, slug)) {
-								return yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } });
-							}
-							const dataSources = yield* prepareDefinition(
-								user.id,
-								payload.renderer,
-								payload.settings,
-								payload.dataSources,
-								trusted,
-							);
-							const pluginInstallationId = payload.workspaceInstallationId
-								? yield* requireInstallation(user.id, payload.workspaceInstallationId)
-								: null;
-							return (
-								(yield* repository.create(user.id, {
-									slug,
-									name,
-									dataSources,
-									...(yield* prepareSelection(dataSources, payload, user.id)),
-									userId: user.id,
-									icon: payload.icon,
-									pluginInstallationId,
-									renderer: payload.renderer,
-									settings: payload.settings,
-								})) ?? (yield* new SavedViewBadRequest({ reason: { code: "duplicate-name" } }))
-							);
-						}),
+						idempotencyKey === undefined
+							? write
+							: keys
+									.once(
+										idempotencyIdentity({
+											userId: user.id,
+											request: payload,
+											key: idempotencyKey,
+											kind: "saved-view:create",
+										}),
+										SavedViewCommandResponse,
+										write,
+									)
+									.pipe(
+										Effect.catchTag("IdempotencyConflict", () =>
+											definitionIncompatible(
+												new Error("Saved view idempotency key was reused with different input"),
+											),
+										),
+									),
 					),
 				);
-				return created;
 			});
 			const update = Effect.fn(function* (
 				user: CurrentUserValue,
 				reference: SavedViewReference,
 				payload: UpdateSavedViewBody & { sortOrder?: number | undefined },
+				idempotencyKey?: string,
 			) {
-				const result = yield* mapDatabaseErrors(
+				const write = Effect.gen(function* () {
+					const current =
+						reference.kind === "custom"
+							? ((yield* repository.lockCustom(user.id, reference.savedViewId)) ??
+								(yield* missing(reference)))
+							: yield* requireSavedView(user.id, reference);
+					if (reference.kind !== "custom") {
+						if (
+							payload.name !== undefined ||
+							payload.icon !== undefined ||
+							"renderer" in payload ||
+							payload.workspaceInstallationId !== undefined
+						) {
+							return yield* immutable(reference);
+						}
+						const updated =
+							(yield* repository.setBuiltinState(
+								user.id,
+								reference,
+								payload.isHidden,
+								payload.sortOrder ?? current.sortOrder,
+							)) ?? (yield* missing(reference));
+						if (payload.isHidden) {
+							yield* installations.clearHomeSavedViewReferences(user.id, reference);
+						}
+						return { id: updated.id };
+					}
+					const name = trimToNull(payload.name ?? current.name);
+					if (!name) {
+						return yield* new SavedViewBadRequest({
+							reason: { field: "name", code: "required-field" },
+						});
+					}
+					const config = "renderer" in payload ? payload : current;
+					const { renderer, settings } = config;
+					const dataSources =
+						"renderer" in payload || (!payload.isHidden && current.isHidden)
+							? yield* prepareDefinition(
+									user.id,
+									renderer,
+									settings,
+									config.dataSources,
+									!("renderer" in payload),
+								)
+							: current.dataSources;
+					let pluginInstallationId: null | string;
+					if (payload.workspaceInstallationId === undefined) {
+						pluginInstallationId = current.pluginInstallationId;
+					} else if (payload.workspaceInstallationId === null) {
+						pluginInstallationId = null;
+					} else {
+						pluginInstallationId = yield* requireInstallation(
+							user.id,
+							payload.workspaceInstallationId,
+						);
+					}
+					const updated =
+						(yield* repository.updateCustom(
+							user.id,
+							reference.savedViewId,
+							{
+								name,
+								renderer,
+								settings,
+								dataSources,
+								...(yield* prepareSelection(
+									dataSources,
+									{
+										arguments: payload.arguments ?? current.arguments,
+										sort: payload.sort === undefined ? current.sort : (payload.sort ?? undefined),
+										filter:
+											payload.filter === undefined ? current.filter : (payload.filter ?? undefined),
+									},
+									user.id,
+									reference,
+								)),
+								pluginInstallationId,
+								isHidden: payload.isHidden,
+								sortOrder: payload.sortOrder,
+								icon: payload.icon ?? current.icon,
+							},
+							current.pluginInstallationId,
+						)) ?? (yield* missing(reference));
+					if (payload.isHidden) {
+						yield* installations.clearHomeSavedViewReferences(user.id, reference);
+					}
+					return updated;
+				});
+				return yield* mapDatabaseErrors(
 					transact(
 						user.id,
-						Effect.gen(function* () {
-							const current =
-								reference.kind === "custom"
-									? ((yield* repository.lockCustom(user.id, reference.savedViewId)) ??
-										(yield* missing(reference)))
-									: yield* requireSavedView(user.id, reference);
-							if (reference.kind !== "custom") {
-								if (
-									payload.name !== undefined ||
-									payload.icon !== undefined ||
-									"renderer" in payload ||
-									payload.workspaceInstallationId !== undefined
-								) {
-									return yield* immutable(reference);
-								}
-								const updated =
-									(yield* repository.setBuiltinState(
-										user.id,
-										reference,
-										payload.isHidden,
-										payload.sortOrder ?? current.sortOrder,
-									)) ?? (yield* missing(reference));
-								if (payload.isHidden) {
-									yield* installations.clearHomeSavedViewReferences(user.id, reference);
-								}
-								return { id: updated.id };
-							}
-							const name = trimToNull(payload.name ?? current.name);
-							if (!name) {
-								return yield* new SavedViewBadRequest({
-									reason: { field: "name", code: "required-field" },
-								});
-							}
-							const config = "renderer" in payload ? payload : current;
-							const { renderer, settings } = config;
-							const dataSources =
-								"renderer" in payload || (!payload.isHidden && current.isHidden)
-									? yield* prepareDefinition(
-											user.id,
-											renderer,
-											settings,
-											config.dataSources,
-											!("renderer" in payload),
-										)
-									: current.dataSources;
-							let pluginInstallationId: null | string;
-							if (payload.workspaceInstallationId === undefined) {
-								pluginInstallationId = current.pluginInstallationId;
-							} else if (payload.workspaceInstallationId === null) {
-								pluginInstallationId = null;
-							} else {
-								pluginInstallationId = yield* requireInstallation(
-									user.id,
-									payload.workspaceInstallationId,
-								);
-							}
-							const updated =
-								(yield* repository.updateCustom(
-									user.id,
-									reference.savedViewId,
-									{
-										name,
-										renderer,
-										settings,
-										dataSources,
-										...(yield* prepareSelection(
-											dataSources,
-											{
-												arguments: payload.arguments ?? current.arguments,
-												sort:
-													payload.sort === undefined ? current.sort : (payload.sort ?? undefined),
-												filter:
-													payload.filter === undefined
-														? current.filter
-														: (payload.filter ?? undefined),
-											},
-											user.id,
-											reference,
-										)),
-										pluginInstallationId,
-										isHidden: payload.isHidden,
-										sortOrder: payload.sortOrder,
-										icon: payload.icon ?? current.icon,
-									},
-									current.pluginInstallationId,
-								)) ?? (yield* missing(reference));
-							if (payload.isHidden) {
-								yield* installations.clearHomeSavedViewReferences(user.id, reference);
-							}
-							return updated;
-						}),
+						idempotencyKey === undefined
+							? write
+							: keys
+									.once(
+										idempotencyIdentity({
+											userId: user.id,
+											key: idempotencyKey,
+											kind: "saved-view:update",
+											request: { payload, reference },
+										}),
+										SavedViewCommandResponse,
+										write,
+									)
+									.pipe(
+										Effect.catchTag("IdempotencyConflict", () =>
+											definitionIncompatible(
+												new Error("Saved view idempotency key was reused with different input"),
+											),
+										),
+									),
 					),
 				);
-				return result;
 			});
 			const deleteView = Effect.fn(function* (
 				user: CurrentUserValue,
 				reference: SavedViewReference,
+				idempotencyKey?: string,
 			) {
 				if (reference.kind !== "custom") {
 					return yield* immutable(reference);
 				}
-				const result = yield* mapDatabaseErrors(
+				const write = Effect.gen(function* () {
+					if (!(yield* repository.lockCustom(user.id, reference.savedViewId))) {
+						return yield* missing(reference);
+					}
+					yield* installations.clearHomeSavedViewReferences(user.id, reference);
+					return (
+						(yield* repository.deleteCustom(user.id, reference.savedViewId)) ??
+						(yield* missing(reference))
+					);
+				});
+				return yield* mapDatabaseErrors(
 					transact(
 						user.id,
-						Effect.gen(function* () {
-							if (!(yield* repository.lockCustom(user.id, reference.savedViewId))) {
-								return yield* missing(reference);
-							}
-							yield* installations.clearHomeSavedViewReferences(user.id, reference);
-							return (
-								(yield* repository.deleteCustom(user.id, reference.savedViewId)) ??
-								(yield* missing(reference))
-							);
-						}),
+						idempotencyKey === undefined
+							? write
+							: keys
+									.once(
+										idempotencyIdentity({
+											userId: user.id,
+											request: reference,
+											key: idempotencyKey,
+											kind: "saved-view:delete",
+										}),
+										SavedViewCommandResponse,
+										write,
+									)
+									.pipe(
+										Effect.catchTag("IdempotencyConflict", () =>
+											definitionIncompatible(
+												new Error("Saved view idempotency key was reused with different input"),
+											),
+										),
+									),
 					),
 				);
-				return result;
 			});
 			const clone = Effect.fn(function* (user: CurrentUserValue, reference: SavedViewReference) {
 				const source = yield* requireSavedView(user.id, reference);

@@ -31,3 +31,8 @@ catalog refresh, disabled credentials and cross-user session isolation. Focused 
 keys, OAuth registration and consent, resource audience separation, discovery and real registry
 list/call. These tests do not establish compatibility with Claude Desktop or another installed client;
 those require actual client runs against a reachable deployment.
+
+Handlers send the full registry descriptor fingerprint back with each call, alongside existing
+source pins. Changed descriptions, schemas, hints or source identities therefore invalidate a
+retained handler. Static `run_script` annotations remain write/destructive; the assistant registry
+separately computes effective hints only after validating the specific invocation arguments.

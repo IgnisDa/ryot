@@ -1,17 +1,12 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot-app/contract/errors";
-import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { appSchemaJsonSchema } from "@ryot-app/contract/schema/app-schema-json-schema";
-import {
-	PluginId,
-	type PluginPackageId,
-	PluginRevisionId,
-	type UserId,
-} from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginRevisionId, type UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import {
 	allCollectionsRecipe,
@@ -19,7 +14,9 @@ import {
 	collectionMembersRecipe,
 } from "@ryot-app/ryotql-recipes/collections";
 import { sandboxHostEffect } from "@ryot-app/sandbox/host/invocation";
-import { Context, Effect, Layer, Result, Schema } from "effect";
+import { sha256Base64Url } from "@ryot-app/ts-utils/crypto";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { Context, Effect, JsonSchema, Layer, Result, Schema, SchemaRepresentation } from "effect";
 import type { Headers as PlatformHeaders } from "effect/http";
 
 import { AuthService } from "#modules/accounts/auth/service";
@@ -35,38 +32,27 @@ import {
 	truncateJsonResult,
 } from "#platform/tool-result";
 
+import { AgentAuthoringTools, authoringTools } from "./authoring";
 import { AgentDataDescription } from "./schemas";
 
-export type AgentTool = {
-	readonly name: string;
-	readonly description: string;
-	readonly input: PluginOperation["input"];
-	readonly hints: PluginOperation["hints"];
-	readonly output: PluginOperation["output"];
-	readonly source:
-		| { readonly kind: "run-script" | "describe-data" }
-		| { readonly kind: "query" | "collections" | "collection-members" }
-		| {
-				readonly kind: "operation";
-				readonly contentHash: string;
-				readonly operationSlug: string;
-				readonly packageId: PluginPackageId;
-		  }
-		| {
-				readonly query: string;
-				readonly pluginId: string;
-				readonly revisionId: string;
-				readonly kind: "declared-query";
-				readonly scope: "user" | "system";
-				readonly packageId: PluginPackageId;
-		  };
-};
+export const agentToolDescriptorPin = (tool: AgentToolDescriptor) =>
+	sha256Base64Url(stableStringify(tool));
+export const AgentToolCall = Schema.Struct({
+	name: Schema.String,
+	arguments: JsonValue,
+	revisionId: Schema.optional(Schema.String),
+	byteBudget: Schema.optional(Schema.Finite),
+	contentHash: Schema.optional(Schema.String),
+	descriptorPin: Schema.optional(Schema.String),
+	idempotencyKey: Schema.optional(Schema.String),
+});
+export type AgentToolCall = typeof AgentToolCall.Type;
 
 const runScriptArguments = Schema.Struct({
 	source: Schema.String,
 	allowWrites: Schema.optional(Schema.Boolean),
 });
-const runScriptTool: AgentTool = {
+const runScriptTool: AgentToolDescriptor = {
 	name: "run_script",
 	output: { type: "object" },
 	source: { kind: "run-script" },
@@ -81,7 +67,7 @@ const runScriptTool: AgentTool = {
 		"Run a one-shot TypeScript agent script. Import defineScript and defineManifest from @ryot-app/plugin-backend-sdk/agent and Effect and Schema from /effect. Only log, span and executeRyotql are available by default. invokeOperation({ name, arguments }) requires allowWrites and approval before calling this tool. Completed runs replay when the caller reuses its idempotency key; interrupted runs cannot restart.",
 };
 
-const describeDataTool: AgentTool = {
+const describeDataTool: AgentToolDescriptor = {
 	name: "describe_data",
 	output: { type: "object" },
 	source: { kind: "describe-data" },
@@ -98,7 +84,7 @@ const memberParameters = {
 		Object.entries(membersRecipe.parameters.fields).filter(([key]) => key !== "source"),
 	),
 };
-const queryTools: readonly AgentTool[] = [
+const queryTools: readonly AgentToolDescriptor[] = [
 	{
 		name: "query",
 		hints: readHints,
@@ -186,6 +172,10 @@ const cappedRequest = (request: ExecutionRequest, document: RyotQLDocument): Exe
 	},
 });
 
+export type AgentToolValidation = Effect.Success<
+	ReturnType<AgentToolsService["Service"]["validateTrusted"]>
+>;
+
 export class AgentToolsService extends Context.Service<AgentToolsService>()(
 	"@ryot-app/kernel-backend/modules/agent-tools/service/AgentToolsService",
 	{
@@ -197,11 +187,13 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			const catalogs = yield* DefinitionCatalog;
 			const ryotql = yield* RyotQLService;
 			const scripts = yield* AgentScriptService;
+			const authoring = yield* AgentAuthoringTools;
 			const declaredTools = Effect.fn("AgentToolsService.declaredTools")(function* (
 				userId: UserId,
 			) {
 				const catalog = yield* catalogs.forUser(userId);
-				const tools: { readonly tool: AgentTool; readonly document: RyotQLDocument }[] = [];
+				const tools: { readonly document: RyotQLDocument; readonly tool: AgentToolDescriptor }[] =
+					[];
 				for (const plugin of catalog.plugins) {
 					if (plugin.health !== "ready" || !plugin.isDefinitionEffective || !plugin.isExecutable) {
 						continue;
@@ -248,10 +240,10 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				const available = yield* runtime.listOperationsAvailableToUser(userId);
 				return available
 					.flatMap(({ plugin, operation }) => {
-						if (operation.auth !== "user") {
+						if (operation.auth !== "user" || plugin.pluginConfigRevisionId === null) {
 							return [];
 						}
-						const tool: AgentTool = {
+						const tool: AgentToolDescriptor = {
 							input: operation.input,
 							hints: operation.hints,
 							output: operation.output,
@@ -262,6 +254,9 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 								packageId: plugin.packageId,
 								operationSlug: operation.slug,
 								contentHash: plugin.contentHash,
+								revisionId: plugin.pluginRevisionId,
+								installationId: plugin.installationId,
+								configRevisionId: plugin.pluginConfigRevisionId,
 							},
 						};
 						return [
@@ -283,9 +278,10 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				readonly resource?: string;
 				readonly payload: JsonValue;
 				readonly contentHash?: string;
+				readonly descriptorPin?: string;
 				readonly idempotencyKey?: string;
 				readonly accessClass: "demo" | "standard";
-				readonly headers: PlatformHeaders.Headers;
+				readonly headers?: PlatformHeaders.Headers;
 			}) {
 				const selected = (yield* operationTools(input.userId)).find(
 					({ tool }) => tool.name === input.name,
@@ -293,20 +289,35 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				if (selected?.tool.source.kind !== "operation") {
 					return yield* new NotFound({ message: `Unknown agent tool: ${input.name}` });
 				}
+				if (
+					input.descriptorPin !== undefined &&
+					input.descriptorPin !== agentToolDescriptorPin(selected.tool)
+				) {
+					return yield* new BadRequest({
+						message: "Tool descriptor changed; discover and approve again",
+					});
+				}
 				if (input.accessClass === "demo" && !selected.demoAllowed) {
 					return yield* new DemoOperationProtected({
 						reason: { code: "demo-operation-protected" },
 					});
 				}
-				return yield* operations.invoke({
-					headers: input.headers,
+				const operationInput = {
 					payload: input.payload,
 					packageId: selected.tool.source.packageId,
 					operationSlug: selected.tool.source.operationSlug,
 					contentHash: input.contentHash ?? selected.tool.source.contentHash,
+					sourcePin: {
+						revisionId: selected.tool.source.revisionId,
+						installationId: selected.tool.source.installationId,
+						configRevisionId: selected.tool.source.configRevisionId,
+					},
 					...(input.resource === undefined ? {} : { resource: input.resource }),
 					...(input.idempotencyKey === undefined ? {} : { idempotencyKey: input.idempotencyKey }),
-				});
+				};
+				return yield* input.headers === undefined
+					? operations.invokeTrusted({ ...operationInput, userId: input.userId })
+					: operations.invoke({ ...operationInput, headers: input.headers });
 			});
 
 			const describeForUser = Effect.fn("AgentToolsService.describeForUser")(function* (
@@ -361,25 +372,31 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				};
 			});
 
-			const list = Effect.fn("AgentToolsService.list")(function* (
-				headers: PlatformHeaders.Headers,
-				resource?: string,
-			) {
-				const { user, authorization } = yield* auth.resolveRequestCredential(
-					new Headers(headers),
-					resource,
-				);
+			const listForAccount = Effect.fn("AgentToolsService.listForAccount")(function* ({
+				user,
+				authorization,
+			}: Effect.Success<ReturnType<typeof auth.resolveTrustedAccount>>) {
 				const tools = yield* operationTools(user.id);
 				return [
 					describeDataTool,
 					runScriptTool,
 					...queryTools,
+					...authoringTools.filter(
+						(tool) => authorization.accessClass !== "demo" || tool.hints.readOnly,
+					),
 					...(yield* declaredTools(user.id)).map(({ tool }) => tool),
 					...tools
 						.filter(({ demoAllowed }) => authorization.accessClass !== "demo" || demoAllowed)
 						.map(({ tool }) => tool),
 				];
 			});
+
+			const list = (headers: PlatformHeaders.Headers, resource?: string) =>
+				auth
+					.resolveRequestCredential(new Headers(headers), resource)
+					.pipe(Effect.flatMap(listForAccount));
+			const listTrusted = (userId: UserId) =>
+				auth.resolveTrustedAccount(userId).pipe(Effect.flatMap(listForAccount));
 
 			const describeData = Effect.fn("AgentToolsService.describeData")(function* (
 				headers: PlatformHeaders.Headers,
@@ -388,25 +405,46 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				return yield* describeForUser(user.id);
 			});
 
-			const call = Effect.fn("AgentToolsService.call")(function* (input: {
-				readonly name: string;
-				readonly resource?: string;
-				readonly byteBudget?: number;
-				readonly revisionId?: string;
-				readonly arguments: JsonValue;
-				readonly contentHash?: string;
-				readonly idempotencyKey?: string;
-				readonly headers: PlatformHeaders.Headers;
-			}) {
-				const { user, authorization } = yield* auth.resolveRequestCredential(
-					new Headers(input.headers),
-					input.resource,
-				);
+			const callForAccount = Effect.fn("AgentToolsService.callForAccount")(function* (
+				input: AgentToolCall & {
+					readonly resource?: string;
+					readonly headers?: PlatformHeaders.Headers;
+				},
+				account: Effect.Success<ReturnType<typeof auth.resolveTrustedAccount>>,
+			) {
+				const { user, authorization } = account;
+				if (input.descriptorPin !== undefined) {
+					const tool = (yield* listForAccount(account)).find(
+						(candidate) => candidate.name === input.name,
+					);
+					if (!tool || agentToolDescriptorPin(tool) !== input.descriptorPin) {
+						return yield* new BadRequest({
+							message: "Tool descriptor changed; discover and approve again",
+						});
+					}
+				}
+
 				const byteBudget = input.byteBudget ?? defaultResultByteBudget;
 				if (!Number.isSafeInteger(byteBudget) || byteBudget < minimumResultByteBudget) {
 					return yield* new BadRequest({
 						message: `Result byte budget must be an integer of at least ${minimumResultByteBudget}`,
 					});
+				}
+				const authored = authoringTools.find((candidate) => candidate.name === input.name);
+				if (authored) {
+					if (authorization.accessClass === "demo" && !authored.hints.readOnly) {
+						return yield* new DemoOperationProtected({
+							reason: { code: "demo-operation-protected" },
+						});
+					}
+					const value = yield* authoring.call(
+						user,
+						input.name,
+						input.arguments,
+						input.idempotencyKey,
+						authorization.accessClass,
+					);
+					return truncateJsonResult(value, byteBudget);
 				}
 				if (input.name === runScriptTool.name) {
 					const args = yield* Schema.decodeUnknownEffect(runScriptArguments, {
@@ -431,7 +469,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 									userId: user.id,
 									name: request.name,
 									idempotencyKey: key,
-									headers: input.headers,
+									...(input.headers === undefined ? {} : { headers: input.headers }),
 									payload: request.arguments,
 									accessClass: authorization.accessClass,
 									...(input.resource === undefined ? {} : { resource: input.resource }),
@@ -475,7 +513,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 					).pipe(Effect.orDie);
 					return truncateJsonResult(value, byteBudget);
 				}
-				const canonical = queryTools.find((tool) => tool.name === input.name);
+				const canonical = queryTools.find((candidate) => candidate.name === input.name);
 				const declared = canonical
 					? undefined
 					: (yield* declaredTools(user.id)).find(({ tool }) => tool.name === input.name);
@@ -574,7 +612,8 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				const result = yield* invokeOperation({
 					userId: user.id,
 					name: input.name,
-					headers: input.headers,
+					...(input.descriptorPin === undefined ? {} : { descriptorPin: input.descriptorPin }),
+					...(input.headers === undefined ? {} : { headers: input.headers }),
 					payload: input.arguments,
 					accessClass: authorization.accessClass,
 					...(input.resource === undefined ? {} : { resource: input.resource }),
@@ -584,7 +623,68 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				return truncateJsonResult(result, byteBudget);
 			});
 
-			return { list, call, describeData };
+			const call = (
+				input: AgentToolCall & {
+					readonly resource?: string;
+					readonly headers: PlatformHeaders.Headers;
+				},
+			) =>
+				auth
+					.resolveRequestCredential(new Headers(input.headers), input.resource)
+					.pipe(Effect.flatMap((account) => callForAccount(input, account)));
+			const validateTrusted = Effect.fn("AgentToolsService.validateTrusted")(function* (
+				userId: UserId,
+				input: AgentToolCall,
+			) {
+				const tools = yield* listTrusted(userId);
+				const tool = tools.find((candidate) => candidate.name === input.name);
+				if (!tool) {
+					return yield* new NotFound({ message: `Unknown agent tool: ${input.name}` });
+				}
+				const descriptorPin = agentToolDescriptorPin(tool);
+				if (input.descriptorPin !== undefined && descriptorPin !== input.descriptorPin) {
+					return yield* new BadRequest({
+						message: "Tool descriptor changed; discover and approve again",
+					});
+				}
+				const schema = yield* Effect.try({
+					catch: () => new BadRequest({ message: "Tool input schema cannot be validated" }),
+					try: () =>
+						SchemaRepresentation.fromJsonSchemaDocument(
+							JsonSchema.fromSchemaDraft2020_12(tool.input),
+							{ patterns: "apply" },
+						),
+				});
+				yield* Schema.decodeEffect(Schema.toType(schema))(input.arguments).pipe(
+					Effect.mapError((error) => new BadRequest({ message: error.message })),
+				);
+
+				const hints =
+					input.name === runScriptTool.name
+						? yield* Schema.decodeUnknownEffect(runScriptArguments, { onExcessProperty: "error" })(
+								input.arguments,
+							).pipe(
+								Effect.mapBoth({
+									onFailure: (error) => new BadRequest({ message: error.message }),
+									onSuccess: (args) => (args.allowWrites ? runScriptTool.hints : readHints),
+								}),
+							)
+						: tool.hints;
+				return {
+					tool,
+					hints,
+					descriptorPin,
+					requiresApproval: !hints.readOnly || hints.destructive,
+				};
+			});
+			const callTrusted = (
+				userId: UserId,
+				input: AgentToolCall & { readonly descriptorPin: string; readonly idempotencyKey: string },
+			) =>
+				auth
+					.resolveTrustedAccount(userId)
+					.pipe(Effect.flatMap((account) => callForAccount(input, account)));
+			return { list, call, listTrusted, callTrusted, describeData, validateTrusted };
 		}),
 	},
 ) {

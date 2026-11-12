@@ -30,7 +30,9 @@ import { eq } from "drizzle-orm";
 import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 import { Headers as PlatformHeaders } from "effect/http";
 
-import { AuthService } from "#modules/accounts/auth/service";
+import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
+import { AuthRepository } from "#modules/accounts/auth/repository";
+import { AuthService, resolveTrustedAccount } from "#modules/accounts/auth/service";
 import { OperationsService } from "#modules/plugins/operations/service";
 import {
 	installRevisionPackage,
@@ -43,9 +45,12 @@ import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";
 
+import { AgentAuthoringTools } from "./authoring";
 import { AgentToolsService } from "./service";
 
-type Invocation = Parameters<OperationsService["Service"]["invoke"]>[0];
+type Invocation =
+	| Parameters<OperationsService["Service"]["invoke"]>[0]
+	| Parameters<OperationsService["Service"]["invokeTrusted"]>[0];
 class Invocations extends Context.Service<Invocations, Ref.Ref<readonly Invocation[]>>()(
 	"@ryot-app/kernel-backend/modules/agent-tools/service.test/Invocations",
 ) {}
@@ -55,40 +60,50 @@ const recipient = UserId.make("recipient");
 const headers = (userId = owner, demo = false) =>
 	PlatformHeaders.fromInput({ "x-test-user": userId, "x-test-demo": String(demo) });
 
-const authLayer = Layer.mock(AuthService)({
-	handler: () => Promise.reject(new Error("Unused HTTP authentication boundary")),
-	resolveRequestCredential: (requestHeaders) => {
-		const requestedUserId = requestHeaders.get("x-test-user");
-		const userId = [owner, recipient].find((candidate) => candidate === requestedUserId);
-		return userId === owner || userId === recipient
-			? Effect.succeed({
-					authorization: {
-						userId,
-						credential: { kind: "api-key", keyId: "registry-test" },
-						accessClass: requestHeaders.get("x-test-demo") === "true" ? "demo" : "standard",
-					},
-					user: {
-						id: userId,
-						image: null,
-						name: "User",
-						accountUserId: userId,
-						email: `${userId}@example.test`,
-						preferences: {
-							language: null,
-							reportingTimeZone: UTC,
-							ratingScale: "hundred",
-							disableIntegrations: false,
-						},
-					},
-				})
-			: Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }));
-	},
-});
+const authLayer = Layer.unwrap(
+	Effect.gen(function* () {
+		const repository = yield* AuthRepository.make;
+		const lifecycle = yield* LifecycleWriteGuard.make;
+		return Layer.mock(AuthService)({
+			handler: () => Promise.reject(new Error("Unused HTTP authentication boundary")),
+			resolveTrustedAccount: (userId) =>
+				resolveTrustedAccount(userId, repository, lifecycle, recipient),
+			resolveRequestCredential: (requestHeaders) => {
+				const requestedUserId = requestHeaders.get("x-test-user");
+				const userId = [owner, recipient].find((candidate) => candidate === requestedUserId);
+				return userId === owner || userId === recipient
+					? Effect.succeed({
+							authorization: {
+								userId,
+								credential: { kind: "api-key", keyId: "registry-test" },
+								accessClass: requestHeaders.get("x-test-demo") === "true" ? "demo" : "standard",
+							},
+							user: {
+								id: userId,
+								image: null,
+								name: "User",
+								accountUserId: userId,
+								email: `${userId}@example.test`,
+								preferences: {
+									language: null,
+									reportingTimeZone: UTC,
+									ratingScale: "hundred",
+									disableIntegrations: false,
+								},
+							},
+						})
+					: Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }));
+			},
+		});
+	}),
+);
 const recordingLayer = Layer.effect(Invocations, Ref.make<readonly Invocation[]>([]));
 const operationsLayer = Layer.unwrap(
 	Effect.map(Invocations, (calls) =>
 		Layer.mock(OperationsService)({
 			invoke: (input) =>
+				Ref.update(calls, (all) => [...all, input]).pipe(Effect.as({ accepted: input.payload })),
+			invokeTrusted: (input) =>
 				Ref.update(calls, (all) => [...all, input]).pipe(Effect.as({ accepted: input.payload })),
 		}),
 	),
@@ -99,6 +114,7 @@ const registryLayer = AgentToolsService.layer.pipe(
 	Layer.provideMerge(
 		Layer.mergeAll(
 			authLayer,
+			Layer.mock(AgentAuthoringTools)({}),
 			operationsLayer,
 			Layer.succeed(AgentScriptService, {
 				run: (input) =>
@@ -269,7 +285,9 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					const registry = yield* AgentToolsService;
 					const installed = yield* installRevisionPackage(registryPackage("private"), owner);
 					const tools = yield* registry.list(headers());
-					expect(tools.map(({ name }) => name)).toEqual([
+					expect(
+						tools.filter(({ source }) => source.kind !== "authoring").map(({ name }) => name),
+					).toEqual([
 						"describe_data",
 						"run_script",
 						"query",
@@ -284,13 +302,11 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					expect(read.input).toEqual(operation("read", true).input);
 					expect(read.output).toEqual({ type: "object" });
 					expect(read.hints).toEqual({ readOnly: true, idempotent: true, destructive: false });
-					expect((yield* registry.list(headers(recipient))).map(({ name }) => name)).toEqual([
-						"describe_data",
-						"run_script",
-						"query",
-						"collections",
-						"collection-members",
-					]);
+					expect(
+						(yield* registry.list(headers(recipient)))
+							.filter(({ source }) => source.kind !== "authoring")
+							.map(({ name }) => name),
+					).toEqual(["describe_data", "run_script", "query", "collections", "collection-members"]);
 					expect(
 						yield* registry.call({
 							name: read.name,
@@ -308,6 +324,11 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 							payload: { value: "input" },
 							contentHash: "private-content",
 							packageId: read.source.packageId,
+							sourcePin: {
+								revisionId: read.source.revisionId,
+								installationId: read.source.installationId,
+								configRevisionId: read.source.configRevisionId,
+							},
 						},
 					]);
 					assertExitFails(
@@ -322,13 +343,11 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 							.set({ isHidden: true })
 							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 					);
-					expect((yield* registry.list(headers())).map(({ name }) => name)).toEqual([
-						"describe_data",
-						"run_script",
-						"query",
-						"collections",
-						"collection-members",
-					]);
+					expect(
+						(yield* registry.list(headers()))
+							.filter(({ source }) => source.kind !== "authoring")
+							.map(({ name }) => name),
+					).toEqual(["describe_data", "run_script", "query", "collections", "collection-members"]);
 				}),
 			testTimeout,
 		);
@@ -351,26 +370,22 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 							.set({ health: "installing" })
 							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 					);
-					expect((yield* registry.list(headers())).map(({ name }) => name)).toEqual([
-						"describe_data",
-						"run_script",
-						"query",
-						"collections",
-						"collection-members",
-					]);
+					expect(
+						(yield* registry.list(headers()))
+							.filter(({ source }) => source.kind !== "authoring")
+							.map(({ name }) => name),
+					).toEqual(["describe_data", "run_script", "query", "collections", "collection-members"]);
 					yield* session.run((db) =>
 						db
 							.update(tables.pluginInstallation)
 							.set({ health: "ready", activeConfigRevisionId: null })
 							.where(eq(tables.pluginInstallation.id, installed.installation.id)),
 					);
-					expect((yield* registry.list(headers())).map(({ name }) => name)).toEqual([
-						"describe_data",
-						"run_script",
-						"query",
-						"collections",
-						"collection-members",
-					]);
+					expect(
+						(yield* registry.list(headers()))
+							.filter(({ source }) => source.kind !== "authoring")
+							.map(({ name }) => name),
+					).toEqual(["describe_data", "run_script", "query", "collections", "collection-members"]);
 				}),
 			testTimeout,
 		);
@@ -387,7 +402,11 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 					const registry = yield* AgentToolsService;
 					yield* installRevisionPackage(registryPackage("system"));
 					yield* installRevisionPackage(registryPackage("demo-private"), owner);
-					expect((yield* registry.list(headers(owner, true))).map(({ name }) => name)).toEqual([
+					expect(
+						(yield* registry.list(headers(owner, true)))
+							.filter(({ source }) => source.kind !== "authoring")
+							.map(({ name }) => name),
+					).toEqual([
 						"describe_data",
 						"run_script",
 						"query",
@@ -744,5 +763,130 @@ layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))("agent query regi
 				expect(Result.isFailure(denied)).toBe(true);
 			}),
 		testTimeout,
+	);
+});
+
+layer(registryLayer.pipe(Layer.provide(makeAppConfigLayer())))("trusted agent tools", (test) => {
+	test.effect(
+		"reloads persisted authorization, validates effective script hints and rejects changed descriptors",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ bootstrapCompletedAt: new Date() })
+						.where(eq(tables.user.id, owner)),
+				);
+				const registry = yield* AgentToolsService;
+				assertExitFails(
+					yield* Effect.exit(registry.list(PlatformHeaders.empty)),
+					new AuthUnauthorized({ reason: { code: "authentication-required" } }),
+				);
+				const installation = yield* installRevisionPackage(registryPackage("trusted"), owner);
+				const selected = yield* registry.validateTrusted(owner, {
+					name: "testing.trusted.write",
+					arguments: { value: "trusted" },
+				});
+				expect(selected.requiresApproval).toBe(true);
+				expect(
+					yield* registry.callTrusted(owner, {
+						name: selected.tool.name,
+						idempotencyKey: "trusted",
+						arguments: { value: "trusted" },
+						descriptorPin: selected.descriptorPin,
+					}),
+				).toEqual({ truncated: false, value: { accepted: { value: "trusted" } } });
+				const recorded = yield* Ref.get(yield* Invocations);
+				expect(recorded.length).toBe(1);
+				expect(recorded[0]).toMatchObject({ userId: owner, idempotencyKey: "trusted" });
+				expect(recorded[0]).not.toHaveProperty("headers");
+				yield* session.run((db) =>
+					db
+						.update(tables.pluginInstallation)
+						.set({ isHidden: true })
+						.where(eq(tables.pluginInstallation.id, installation.installation.id)),
+				);
+				assertExitFails(
+					yield* Effect.exit(
+						registry.callTrusted(owner, {
+							name: selected.tool.name,
+							idempotencyKey: "trusted",
+							arguments: { value: "trusted" },
+							descriptorPin: selected.descriptorPin,
+						}),
+					),
+					new BadRequest({ message: "Tool descriptor changed; discover and approve again" }),
+				);
+				const read = yield* registry.validateTrusted(owner, {
+					name: "run_script",
+					arguments: { source: "read", allowWrites: false },
+				});
+				expect(read.hints.readOnly).toBe(true);
+				expect(read.requiresApproval).toBe(false);
+				expect(read.tool.hints.readOnly).toBe(false);
+				yield* session.run((db) =>
+					db
+						.update(tables.user)
+						.set({ bootstrapCompletedAt: new Date() })
+						.where(eq(tables.user.id, recipient)),
+				);
+				expect(
+					(yield* registry.listTrusted(recipient)).some((tool) => tool.name === "page_create"),
+				).toBe(false);
+				assertExitFails(
+					yield* Effect.exit(
+						registry.callTrusted(recipient, {
+							name: "run_script",
+							idempotencyKey: "demo-script",
+							descriptorPin: read.descriptorPin,
+							arguments: { source: "read", allowWrites: true },
+						}),
+					),
+					new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }),
+				);
+
+				const write = yield* registry.validateTrusted(owner, {
+					name: "run_script",
+					arguments: { source: "read", allowWrites: true },
+				});
+				expect(write.requiresApproval).toBe(true);
+				expect(
+					Result.isFailure(
+						yield* Effect.result(
+							registry.validateTrusted(owner, {
+								name: "run_script",
+								arguments: { source: "read", allowWrites: "false" },
+							}),
+						),
+					),
+				).toBe(true);
+				assertExitFails(
+					yield* Effect.exit(
+						registry.callTrusted(owner, {
+							name: "run_script",
+							descriptorPin: "changed",
+							idempotencyKey: "changed",
+							arguments: { source: "read" },
+						}),
+					),
+					new BadRequest({ message: "Tool descriptor changed; discover and approve again" }),
+				);
+				expect(
+					(yield* registry.listTrusted(owner)).some((tool) => tool.name === "page_create"),
+				).toBe(true);
+				expect(
+					(yield* registry.listTrusted(owner)).some(
+						(tool) => tool.name === "page_set_write_access",
+					),
+				).toBe(false);
+				yield* session.run((db) =>
+					db.update(tables.user).set({ disabledAt: new Date() }).where(eq(tables.user.id, owner)),
+				);
+				assertExitFails(
+					yield* Effect.exit(registry.listTrusted(owner)),
+					new AuthUnauthorized({ reason: { code: "authentication-required" } }),
+				);
+			}),
 	);
 });

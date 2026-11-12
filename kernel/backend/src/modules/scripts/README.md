@@ -295,3 +295,7 @@ the same caller idempotency key replay the retained result; changed inputs confl
 interrupted executions fail closed instead of starting again, since replaying fresh reads after an
 uncertain write could change call identity. History rows cascade with the user. The kernel-audience
 `agentScriptExecution` RyotQL table exposes only that user's history, without the private principal.
+
+The bounded JSON envelope is defined once in the client-safe
+`@ryot-app/contract/schema/tool-result` module as `AgentToolResult`. Script history and assistant
+conversation tool-result parts share this schema; byte budgeting remains in `platform/tool-result`.

@@ -706,6 +706,30 @@ export const resolveCredential = <E>(
 		};
 	});
 
+export const resolveTrustedAccount = Effect.fn("resolveTrustedAccount")(function* (
+	userId: UserId,
+	repository: Pick<AuthRepository["Service"], "findUserById">,
+	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
+	demoAccountId: null | string,
+) {
+	const user = yield* repository.findUserById(userId);
+	if (!user || user.disabledAt || (yield* lifecycle.isActive(userId))) {
+		return yield* authenticationRequired();
+	}
+	if (!user.bootstrapCompletedAt) {
+		return yield* new UserInitializing({ reason: { code: "user-initializing" } });
+	}
+	const preferences = yield* Schema.decodeEffect(UserPreferences)(user.preferences).pipe(
+		Effect.mapError((error) => new DbError({ message: error.message })),
+	);
+	return {
+		user: { id: userId, preferences, name: user.name, email: user.email, image: user.image },
+		authorization: {
+			accessClass: userId === demoAccountId ? ("demo" as const) : ("standard" as const),
+		},
+	};
+});
+
 export class AuthService extends Context.Service<AuthService>()(
 	"@ryot-app/kernel-backend/modules/accounts/auth/service/AuthService",
 	{
@@ -836,6 +860,13 @@ export class AuthService extends Context.Service<AuthService>()(
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { name }),
 					).pipe(Effect.asVoid),
+				resolveTrustedAccount: (userId: UserId) =>
+					resolveTrustedAccount(
+						userId,
+						repository,
+						lifecycle,
+						Option.getOrNull(config.users.demoAccountId),
+					),
 				updateUserImage: (userId: UserId, image: string) =>
 					withInternalAdapter(({ internalAdapter }) =>
 						internalAdapter.updateUser(userId, { image }),
