@@ -170,3 +170,15 @@ sign-ups.
 The database's volume is kept across deploys and is part of the nightly backups. To deploy
 the [docker compose](./index.md#installation) file from a terminal instead, see the
 [step-by-step guide](https://pethost.dev/blog/self-host-ryot/).
+
+## ZopDay
+
+[![Deploy Ryot on ZopDay](https://zop.dev/deploytozopday-inkhard.svg)](https://zop.dev/zopday/app/deploy?image=ignisda/ryot&port=8000&name=ryot&utm_source=github&utm_medium=one_click&utm_content=ryot)
+
+[ZopDay](https://zop.dev/zopday) opens a deploy screen for the `ignisda/ryot` image with port
+`8000` already set. Choose ZopCloud to have it run fully managed, or connect your own AWS,
+GCP or Azure account and ZopDay deploys it there instead.
+
+Create a PostgreSQL database from ZopDay in the same account and set `DATABASE_URL` to it,
+then set `SERVER_ADMIN_ACCESS_TOKEN` to a long random string before deploying. Open the
+address and create your first user via the web interface's registration page.
