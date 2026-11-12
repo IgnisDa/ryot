@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -7,11 +8,7 @@ import { eq } from "drizzle-orm";
 import { Effect, Layer } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
-import {
-	fixtureManifest,
-	insertPluginRevision,
-	testPluginPackageId,
-} from "#modules/plugins/test-support";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";

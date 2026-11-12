@@ -14,6 +14,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -27,7 +28,6 @@ import { CollectionOrderingService } from "#modules/collections/ordering-service
 import { CollectionsRepository } from "#modules/collections/repository";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import {
 	type CreateRelationshipInput,
 	RelationshipsRepository,

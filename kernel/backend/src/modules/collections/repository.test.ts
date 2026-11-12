@@ -11,6 +11,7 @@ import {
 	PluginId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import type { EntitySchemaSnapshot } from "@ryot-app/definitions/snapshot";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -19,7 +20,6 @@ import { Context, Effect, Layer, Ref, Result } from "effect";
 
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { fakeDatabaseSession } from "#testing/effect";

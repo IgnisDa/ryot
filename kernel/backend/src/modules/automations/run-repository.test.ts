@@ -11,7 +11,7 @@ import {
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { AutomationHookSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import {
@@ -32,7 +32,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { bindParameterLimit, insertChunkSize } from "#platform/db/bind-parameters";
 import { DatabaseSession } from "#platform/db/session";
 import { user } from "#schema/tables/auth";

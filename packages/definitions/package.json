@@ -18,6 +18,7 @@
 		"effect": "4.1.2"
 	},
 	"devDependencies": {
-		"@ryot-app/testing": "workspace:*"
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4"
 	}
 }

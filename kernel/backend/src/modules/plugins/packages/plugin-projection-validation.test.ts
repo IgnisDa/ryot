@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
 
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
 
-import { fixtureManifest } from "../test-support";
 import { PluginValidationError, validatePluginManifestReferences } from "./validation";
 
 const score = { label: "Score", description: "Score", type: "number" as const };

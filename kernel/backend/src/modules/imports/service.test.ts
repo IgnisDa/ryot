@@ -4,6 +4,7 @@ import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import { PluginId, SandboxScriptId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
@@ -17,7 +18,6 @@ import {
 } from "#modules/plugins/catalog/import-sources";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { DownloadTickets } from "#platform/storage/download-tickets";
 import { makeWorkflowEngine } from "#testing/effect";
 

@@ -4,6 +4,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import { dataJsonSource } from "@ryot-app/contract/modules/imports/data-json";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import {
 	CLIENT_API_VERSION,
 	clientArtifactMetadata,
@@ -19,7 +20,6 @@ import { unzipSync, Zip, ZipPassThrough, zipSync } from "fflate";
 
 import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
 
 import {
 	type CreateArchiveInput,

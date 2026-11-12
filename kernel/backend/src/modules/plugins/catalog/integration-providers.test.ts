@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginId, PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -13,7 +14,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "../packages/revision.test-support";
-import { testPluginPackageId } from "../test-support";
 import { IntegrationProviderCatalog } from "./integration-providers";
 
 const owner = UserId.make("owner");

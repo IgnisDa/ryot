@@ -4,7 +4,11 @@ import { encodePluginCatalogInvalidatedMessage } from "@ryot-app/contract/module
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginId, type UserId } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import {
+	emptySandboxExecutionMetadata,
+	fixtureManifest,
+	testPluginPackageId,
+} from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
@@ -26,7 +30,7 @@ import { databaseLayer, type MockOverrides } from "#testing/effect";
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { loadPluginSource } from "../source.test-support";
-import { fixtureManifest, fixturePackageRoot, testPluginPackageId } from "../test-support";
+import { fixturePackageRoot } from "../test-support";
 import { PluginIngestionRetirement } from "./ingestion-retirement";
 import { PluginIngestionService } from "./ingestion-service";
 import { toPluginScriptDescriptor } from "./pipeline";

@@ -15,6 +15,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
@@ -41,7 +42,6 @@ import {
 	IngestionReadinessError,
 	IngestionReadinessService,
 } from "#modules/plugins/catalog/readiness-service";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import type { DatabaseSession } from "#platform/db/session";
 import { JobQueue } from "#platform/jobs/queue";
 import { ProKeyService } from "#platform/pro-key";

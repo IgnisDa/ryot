@@ -1,11 +1,11 @@
 import { expect, test } from "bun:test";
 
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
 
-import { fixtureManifest } from "../test-support";
 import { SchemaEvolutionError, validateAdditiveSchemaEvolution } from "./schema-evolution";
 
 const entityWithFields = (

@@ -3,13 +3,13 @@ import { expect } from "bun:test";
 import { ClientPagePreparationError } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntityId, EntitySchemaSlug, PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import type { AvailablePlugin } from "#modules/plugins/catalog/runtime-resolver";
-import { fixtureManifest } from "#modules/plugins/test-support";
 
 import {
 	clientPageOperationTargets,

@@ -9,6 +9,7 @@ import {
 	PluginRevisionId,
 	SandboxScriptId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -24,7 +25,6 @@ import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { enrichmentRequestRow } from "#modules/entities/enrichment/requests.test-support";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DatabaseSession } from "#platform/db/session";

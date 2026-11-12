@@ -2,12 +2,11 @@ import { expect } from "bun:test";
 
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { document, field, literal, pluginId, rows, table } from "@ryot-app/ryotql";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-
-import { testPluginPackageId } from "#modules/plugins/test-support";
 
 import {
 	exportQueryPluginReferences,

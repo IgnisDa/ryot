@@ -12,6 +12,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { PluginClientArtifactFromBase64 } from "@ryot-app/plugin-client-contract";
 import { assert } from "@ryot-app/testing/assert";
 import { partialFake } from "@ryot-app/testing/fakes";
@@ -32,7 +33,6 @@ import { PluginIngestionService } from "#modules/plugins/packages/ingestion-serv
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import type { PluginSource } from "#modules/plugins/packages/types";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { PluginCronService } from "#modules/scheduler/plugin-cron";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";

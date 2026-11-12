@@ -2,12 +2,12 @@ import { expect } from "bun:test";
 
 import { pluginConfigEnvironmentKey } from "@ryot-app/contract/modules/plugins/plugin-config";
 import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import type { RegisteredImportSource } from "#modules/plugins/catalog/import-sources";
-import { fixtureManifest } from "#modules/plugins/test-support";
 
 import {
 	buildImportInputSummary,

@@ -13,7 +13,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -21,7 +21,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect, Layer, Schema } from "effect";
 
-import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { automationRun, automationTrigger } from "#schema/tables/automations";
 import { plugin, pluginConfigRevision, sandboxScript } from "#schema/tables/core";

@@ -4,6 +4,7 @@ import { BunFileSystem } from "@effect/platform-bun";
 import type { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { BackupRunId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import {
 	clientArtifactFile,
@@ -31,7 +32,6 @@ import { preparePageDefinition } from "#modules/pages/authoring/definition";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";

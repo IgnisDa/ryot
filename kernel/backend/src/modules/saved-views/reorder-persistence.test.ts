@@ -6,6 +6,7 @@ import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/refe
 import { SavedViewBadRequest } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, PluginPackageId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -22,7 +23,7 @@ import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";

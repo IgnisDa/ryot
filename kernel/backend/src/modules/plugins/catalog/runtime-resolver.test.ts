@@ -14,6 +14,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { definitionLookup } from "@ryot-app/definitions/snapshot";
 import {
 	clientArtifactMetadata,
@@ -41,7 +42,6 @@ import {
 	revisionPackage,
 } from "../packages/revision.test-support";
 import type { NormalizedPlugin } from "../packages/types";
-import { testPluginPackageId } from "../test-support";
 import { PluginRuntimeResolver } from "./runtime-resolver";
 
 const owner = UserId.make("owner");

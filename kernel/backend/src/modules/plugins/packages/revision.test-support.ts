@@ -1,6 +1,7 @@
 import { BunCrypto } from "@effect/platform-bun";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { randomUuid } from "@ryot-app/testing/random";
 import { eq, sql } from "drizzle-orm";
@@ -21,7 +22,6 @@ import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "../configuration/encryption-key";
 import { PluginConfigRevisions } from "../configuration/revisions";
 import { PluginInstallationRepository } from "../installations/repository";
-import { fixtureManifest, testPluginPackageId } from "../test-support";
 import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";

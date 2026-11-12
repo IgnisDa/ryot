@@ -15,6 +15,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { SandboxExecutionAuthority } from "@ryot-app/sandbox/host/authority";
 import type { SandboxInlineProgress } from "@ryot-app/sandbox/host/inline-progress";
 import { makeSandboxShortWait } from "@ryot-app/sandbox/host/short-wait";
@@ -51,7 +52,6 @@ import {
 	type HttpRateLimitAuthorityResolution,
 	PluginHttpRateLimitAuthority,
 } from "#modules/plugins/catalog/http-rate-limit-authority";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipBatchSummary } from "#modules/relationships/mutation-pipeline";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";

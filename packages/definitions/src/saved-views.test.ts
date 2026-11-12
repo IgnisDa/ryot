@@ -1,6 +1,6 @@
 import { expect, it } from "bun:test";
 
-import { RyotQLDocument as AuthoredDocument } from "@ryot-app/contract/modules/ryotql/authored";
+import { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type {
 	EntityBrowserSavedViewSettings,
 	ResultsTableSavedViewSettings,
@@ -247,7 +247,7 @@ it("accepts valid results-table filter fields and rejects invalid ones", () => {
 });
 
 it("rejects relationship filter fields on results tables", () => {
-	const decoded = Schema.decodeUnknownResult(AuthoredDocument)({
+	const decoded = Schema.decodeUnknownResult(RyotQLDocument)({
 		...dataSources,
 		controls: {
 			filter: {

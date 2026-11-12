@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
 
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq } from "drizzle-orm";
 import { Effect } from "effect";
 
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 

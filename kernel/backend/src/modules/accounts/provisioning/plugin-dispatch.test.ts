@@ -3,7 +3,7 @@ import { expect } from "bun:test";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { SandboxExecutionPayload } from "@ryot-app/contract/modules/scripts/schemas";
 import { PluginPackageId, SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -21,7 +21,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";

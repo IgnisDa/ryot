@@ -8,7 +8,11 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import {
+	emptySandboxExecutionMetadata,
+	fixtureManifest,
+	testPluginPackageId,
+} from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -19,7 +23,6 @@ import { WorkflowEngine } from "effect/workflow/WorkflowEngine";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import type { PluginRevision, StoredPluginIdentity } from "#modules/plugins/packages/types";
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { makeAppConfigLayer, makeWorkflowEngine } from "#testing/effect";
 
 import {

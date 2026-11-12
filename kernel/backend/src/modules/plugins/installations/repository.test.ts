@@ -1,6 +1,7 @@
 import { describe, expect } from "bun:test";
 
 import { type PluginPackageId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -21,7 +22,6 @@ import {
 	revisionPackage,
 } from "../packages/revision.test-support";
 import { SystemPlugins } from "../packages/system";
-import { fixtureManifest } from "../test-support";
 import { PluginInstallationRepository } from "./repository";
 
 const owner = UserId.make("owner");

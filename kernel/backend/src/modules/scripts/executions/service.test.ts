@@ -8,6 +8,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { jsonByteLength } from "@ryot-app/plugin-backend-compiler/limits";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -17,7 +18,6 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import {
 	makeAppConfigLayer,

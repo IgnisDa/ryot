@@ -1,12 +1,12 @@
 import { expect } from "bun:test";
 
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Cause, Effect, Exit, Option } from "effect";
 
-import { fixtureManifest } from "../test-support";
 import {
 	decodePluginManifest,
 	PluginPackageReservedError,

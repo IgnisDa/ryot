@@ -8,6 +8,7 @@ import {
 	SandboxProviderId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { SandboxSidecarSupervisor } from "@ryot-app/sandbox/host/supervisor";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { anyOf } from "@ryot-app/testing/matchers";
@@ -21,7 +22,6 @@ import { ImportsService } from "#modules/imports/service";
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { createPluginConfigEncryption } from "#platform/config/plugin-config-encryption";
 import type { DatabaseSession } from "#platform/db/session";

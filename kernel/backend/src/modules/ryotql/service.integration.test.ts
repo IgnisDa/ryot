@@ -21,6 +21,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import {
 	aggregate,
 	and,
@@ -73,11 +74,7 @@ import { eq, sql } from "drizzle-orm";
 import { Effect, Layer, Option, Result } from "effect";
 
 import { redactPluginConfig } from "#modules/plugins/configuration/redaction";
-import {
-	fixtureManifest,
-	insertPluginRevision,
-	testPluginPackageId,
-} from "#modules/plugins/test-support";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { account, user } from "#schema/tables/auth";
 import { notificationSubscription } from "#schema/tables/automations";

@@ -10,6 +10,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { makeUserSubject } from "@ryot-app/sandbox/host/run-input.test-support";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
 import { assert } from "@ryot-app/testing/assert";
@@ -19,7 +20,6 @@ import { Duration, Effect, Fiber, Layer, Ref, Schema } from "effect";
 import { FetchHttpClient, HttpClient, HttpClientResponse } from "effect/http";
 import { TestClock } from "effect/testing";
 
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import {
 	emptyScriptsDigest,

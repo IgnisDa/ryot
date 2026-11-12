@@ -1,11 +1,11 @@
 import { expect } from "bun:test";
 
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Exit } from "effect";
 
-import { fixtureManifest } from "../test-support";
 import { validatePluginManifestReferences } from "./validation";
 
 const cronManifest = () => {

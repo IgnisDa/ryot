@@ -1,4 +1,6 @@
 import type { SandboxExecutionMetadata } from "./modules/plugins/execution-metadata";
+import type { PluginManifest } from "./modules/plugins/manifest";
+import { PluginPackageId } from "./schema/brands";
 
 export const emptySandboxExecutionMetadata = {
 	capabilities: [],
@@ -8,3 +10,104 @@ export const emptySandboxExecutionMetadata = {
 	optionalPluginConfigKeys: [],
 	requiredPluginConfigKeys: [],
 } as const satisfies SandboxExecutionMetadata;
+
+const fixturePackageId = PluginPackageId.make("test/fixture");
+
+export const testPluginPackageId = () => PluginPackageId.make(`test/${crypto.randomUUID()}`);
+
+export const fixturePluginIdentity = (name = "fixture", packageId = fixturePackageId) =>
+	({ packageId, ownerId: null, scope: "system", id: `${name}-plugin-id` }) as const;
+
+export const fixtureManifest = (packageId = fixturePackageId) =>
+	({
+		savedViews: [],
+		httpRateLimits: [],
+		crons: [] as PluginManifest["crons"],
+		workflows: [] as PluginManifest["workflows"],
+		providers: [] as PluginManifest["providers"],
+		operations: [] as PluginManifest["operations"],
+		configSchema: { fields: {}, unknownKeys: "strict" },
+		userBootstrap: [] as PluginManifest["userBootstrap"],
+		importSources: [] as PluginManifest["importSources"],
+		integrationProviders: [] as PluginManifest["integrationProviders"],
+		metadata: {
+			packageId,
+			icon: "box",
+			name: "Fixture",
+			version: "1.0.0",
+			description: "Fixture plugin",
+		},
+		relationshipSchemas: [
+			{
+				name: "Fixture Link",
+				slug: "fixture-link",
+				propertiesSchema: { fields: {} },
+				sourceEntitySchemaSlug: "fixture-entity",
+				targetEntitySchemaSlug: "fixture-entity",
+			},
+		],
+		signalSchemas: [
+			{
+				name: "Fixture Signal",
+				slug: "fixture.signal",
+				catalogState: "active",
+				propertiesSchema: { fields: {} },
+				audiencePolicy: { kind: "actor" },
+				notificationHookSlug: "fixture.automation",
+			},
+		],
+		scripts: [
+			{
+				...emptySandboxExecutionMetadata,
+				kind: "automation",
+				name: "Fixture Automation",
+				slug: "fixture.automation",
+				automationType: "automation",
+				entry: "backend/automations/fixture.sandbox.ts",
+				inputProjection: {
+					signal: { properties: [] },
+					entity: { properties: [], compareProperties: [], parentEntityProperties: [] },
+				},
+			},
+		],
+		hooks: [
+			{
+				stage: "after",
+				delivery: "async",
+				slug: "fixture.automation",
+				name: "Fixture automation",
+				scriptSlug: "fixture.automation",
+				targets: [
+					{ resource: "entity", operation: "create", entitySchemaSlug: "fixture-entity" },
+					{ operation: "emit", resource: "signal", signalSchemaSlug: "fixture.signal" },
+				],
+			},
+		] as PluginManifest["hooks"],
+		entitySchemas: [
+			{
+				icon: "box",
+				name: "Fixture",
+				slug: "fixture-entity",
+				eventSchemas: [
+					{
+						name: "Changed",
+						slug: "changed",
+						propertiesSchema: {
+							fields: { value: { type: "string", label: "Value", description: "Changed value" } },
+						},
+					},
+				],
+				propertiesSchema: {
+					fields: {
+						name: { label: "Name", type: "string", description: "Fixture name" },
+						kind: {
+							type: "enum",
+							label: "Kind",
+							description: "Fixture kind",
+							choices: { kind: "static", values: [{ value: "one" }, { value: "two" }] },
+						},
+					},
+				},
+			},
+		],
+	}) satisfies PluginManifest;

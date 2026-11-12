@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { readPluginArchive, writePluginArchive } from "@ryot-app/plugin-archive";
 import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import {
@@ -14,7 +15,7 @@ import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { loadPluginSource } from "../source.test-support";
-import { fixtureManifest, fixturePackageRoot } from "../test-support";
+import { fixturePackageRoot } from "../test-support";
 import { normalizePluginSource } from "./pipeline";
 
 const manifest = () => ({

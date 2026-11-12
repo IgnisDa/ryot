@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { DEFAULT_AUTOMATION_RETRY_POLICY } from "@ryot-app/contract/modules/automations/lifecycle";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -27,7 +28,6 @@ import * as tables from "#schema/tables/combined";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginInstallationRepository } from "../installations/repository";
 import { fixtureClientArtifact } from "../source.test-support";
-import { fixtureManifest, testPluginPackageId } from "../test-support";
 import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";
 import {

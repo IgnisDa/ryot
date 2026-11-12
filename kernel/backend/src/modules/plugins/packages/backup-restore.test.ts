@@ -2,6 +2,7 @@ import { describe, expect } from "bun:test";
 
 import { pluginPackageKey } from "@ryot-app/contract/modules/plugins/references";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import type { DefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import {
 	CLIENT_API_VERSION,
@@ -22,7 +23,6 @@ import * as tables from "#schema/tables/combined";
 import { databaseLayer } from "#testing/effect";
 
 import { fixtureClientArtifact } from "../source.test-support";
-import { fixtureManifest } from "../test-support";
 import { PluginBackupRestore } from "./backup-restore";
 import { pluginContentHash } from "./pipeline";
 import { PluginRepository } from "./repository";

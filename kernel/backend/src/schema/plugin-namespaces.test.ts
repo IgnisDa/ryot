@@ -3,6 +3,7 @@ import { describe, expect } from "bun:test";
 import { DbError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { PluginId, PluginRevisionId, UserId } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -18,7 +19,7 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { insertPluginRevision, testPluginPackageId } from "#modules/plugins/test-support";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 
 import * as tables from "./tables/combined";

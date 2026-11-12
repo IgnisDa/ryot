@@ -365,6 +365,7 @@
       },
       "devDependencies": {
         "@ryot-app/testing": "workspace:*",
+        "@voila.dev/effect-bun-test": "4.0.4",
       },
     },
     "packages/email-templates": {

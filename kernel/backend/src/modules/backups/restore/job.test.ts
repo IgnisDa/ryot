@@ -5,6 +5,7 @@ import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import { BackupBadRequest } from "@ryot-app/contract/modules/backups/schemas";
 import { BackupRunId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { derivedFake } from "@ryot-app/testing/fakes";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -16,7 +17,6 @@ import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { ObjectStorageService } from "#modules/assets/storage/object-storage";
 import { UploadIntentsService } from "#modules/assets/uploads/intents";
 import { PluginBackupRestore } from "#modules/plugins/packages/backup-restore";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { databaseLayer, makeAppConfigLayer, type MockOverrides } from "#testing/effect";
 

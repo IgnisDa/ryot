@@ -7,6 +7,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { Effect, Layer } from "effect";
 
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
@@ -17,7 +18,6 @@ import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import type { ImportItemResult } from "#modules/mutations/idempotency";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { emptyScriptsDigest } from "#modules/scripts/authorization/principal.test-support";
 import { JobQueue } from "#platform/jobs/queue";

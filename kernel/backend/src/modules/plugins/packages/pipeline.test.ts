@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { PluginRequestError } from "@ryot-app/contract/modules/plugins/schemas";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -15,7 +16,6 @@ import { Effect } from "effect";
 
 import { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";
 
-import { fixtureManifest } from "../test-support";
 import { normalizePluginSource, pluginContentHash, structurePluginFailure } from "./pipeline";
 
 const encoder = new TextEncoder();

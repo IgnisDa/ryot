@@ -23,6 +23,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { mergeManifestDefinitions } from "@ryot-app/definitions/source";
 import {
@@ -54,7 +55,6 @@ import { pluginContentHash } from "#modules/plugins/packages/pipeline";
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
 import { fixtureClientArtifact } from "#modules/plugins/source.test-support";
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { RelationshipsRepository } from "#modules/relationships/repository";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";

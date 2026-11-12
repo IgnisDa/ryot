@@ -1,10 +1,10 @@
 import { expect } from "bun:test";
 
 import type { PluginMembership } from "@ryot-app/contract/modules/plugins/manifest";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Exit } from "effect";
 
-import { fixtureManifest } from "../test-support";
 import { validatePluginManifestReferences } from "./validation";
 
 const membership: PluginMembership = {

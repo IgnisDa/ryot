@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { column, document, field, rows, table } from "@ryot-app/ryotql";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -21,7 +22,6 @@ import { PluginCatalogInvalidator } from "#modules/plugins/catalog/events";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { makeAppConfigLayer } from "#testing/effect";
 import type { MockOverrides } from "#testing/effect";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";

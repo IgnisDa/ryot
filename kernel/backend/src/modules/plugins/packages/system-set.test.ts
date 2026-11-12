@@ -1,11 +1,15 @@
 import { expect, it } from "bun:test";
 
 import { PluginId } from "@ryot-app/contract/schema/brands";
+import {
+	fixtureManifest,
+	fixturePluginIdentity,
+	testPluginPackageId,
+} from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { column, document, field, rows, schemaOwnerPredicate, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 
-import { fixtureManifest, fixturePluginIdentity, testPluginPackageId } from "../test-support";
 import { validateSystemPluginSet } from "./system-set";
 
 const emptySource = {

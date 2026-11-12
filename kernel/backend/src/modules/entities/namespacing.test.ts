@@ -12,6 +12,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
@@ -39,7 +40,6 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { relationshipDatabaseLayer } from "#modules/relationships/lifecycle.test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";

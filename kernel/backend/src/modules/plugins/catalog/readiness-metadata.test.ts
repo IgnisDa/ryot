@@ -1,9 +1,9 @@
 import { expect } from "bun:test";
 
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { it } from "@voila.dev/effect-bun-test";
 
 import { oauthRevisionPackage } from "../packages/revision.test-support";
-import { fixtureManifest } from "../test-support";
 import { availablePluginConfigKeys, ingestionReadinessMetadata } from "./readiness-metadata";
 
 it("includes valid false and zero defaults without exposing configuration values", () => {

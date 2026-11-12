@@ -8,6 +8,7 @@ import {
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import type { SavedViewRenderer } from "@ryot-app/contract/modules/saved-views/schemas";
 import { EntityId, PluginId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { pageDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { partialFake } from "@ryot-app/testing/fakes";
@@ -20,7 +21,6 @@ import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service
 import { ImageClientArtifacts } from "#modules/pages/bundles/image-artifacts";
 import { ClientArtifactStore } from "#modules/pages/bundles/store";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import type { page } from "#schema/tables/pages";
 

@@ -10,7 +10,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { arrayContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -28,7 +28,6 @@ import { makeAppConfigLayer } from "#testing/effect";
 
 import { PluginConfigRevisions } from "../configuration/revisions";
 import { PluginInstallationRepository } from "../installations/repository";
-import { fixtureManifest } from "../test-support";
 import { PluginRepository } from "./repository";
 import type { NormalizedPlugin } from "./types";
 

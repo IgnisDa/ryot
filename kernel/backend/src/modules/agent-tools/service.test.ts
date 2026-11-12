@@ -8,7 +8,7 @@ import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import {
 	column,
 	defineRecipe,
@@ -36,7 +36,6 @@ import {
 	revisionDatabaseLayer,
 } from "#modules/plugins/packages/revision.test-support";
 import type { NormalizedPlugin } from "#modules/plugins/packages/types";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { RyotQLService } from "#modules/ryotql/service";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";

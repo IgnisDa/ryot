@@ -10,6 +10,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import type { SavedViewDefinition } from "@ryot-app/definitions/snapshot";
 import { materializeSavedView } from "@ryot-app/definitions/source";
@@ -34,7 +35,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";

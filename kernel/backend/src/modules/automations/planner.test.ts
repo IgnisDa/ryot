@@ -15,7 +15,11 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import {
+	emptySandboxExecutionMetadata,
+	fixtureManifest,
+	testPluginPackageId,
+} from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { makeRecordingTracer, recordedStatements } from "@ryot-app/testing/recording-tracer";
@@ -38,7 +42,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { DirectScriptExecutor } from "#modules/scripts/executions/workflow";
 import { DatabaseSession } from "#platform/db/session";

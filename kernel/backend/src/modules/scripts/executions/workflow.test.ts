@@ -14,6 +14,7 @@ import {
 	SandboxScriptId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import {
 	workflowDurableResultSchema,
 	workflowReplayEnvelopeSchema,
@@ -36,7 +37,6 @@ import { Workflow } from "effect/workflow";
 import { WorkflowEngine, WorkflowInstance } from "effect/workflow/WorkflowEngine";
 
 import { mutationAdmissionTestLayer } from "#modules/mutations/admission.test-support";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import type { ScriptExecutionPrincipal } from "#modules/scripts/authorization/principal";
 import {
 	emptyScriptsDigest,

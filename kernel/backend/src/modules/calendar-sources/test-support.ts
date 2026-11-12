@@ -1,9 +1,9 @@
 import type { PluginCalendarSource } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, type PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { column, eq, field, pluginId, table } from "@ryot-app/ryotql";
 
 import { revisionPackage } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 
 const entity = table("entity", "entity");
 

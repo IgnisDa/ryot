@@ -21,6 +21,7 @@ import {
 	ImportRunId,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -52,7 +53,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { DomainWriteChecksLive } from "#modules/entities/write-context";
 import { ImportsRepository } from "#modules/imports/repository";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
 import * as tables from "#schema/tables/combined";

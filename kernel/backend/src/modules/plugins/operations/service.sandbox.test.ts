@@ -7,6 +7,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 import { Headers } from "effect/http";
@@ -22,7 +23,6 @@ import {
 
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import { PluginRepository } from "../packages/repository";
-import { fixtureManifest } from "../test-support";
 import { OperationsService } from "./service";
 
 const epoch = new Date(0);

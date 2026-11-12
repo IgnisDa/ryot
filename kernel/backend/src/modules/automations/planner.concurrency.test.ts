@@ -5,7 +5,7 @@ import {
 	AutomationTriggerId,
 	SignalSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -21,7 +21,7 @@ import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PluginConfigRevisions } from "#modules/plugins/configuration/revisions";
 import { PluginRepository } from "#modules/plugins/packages/repository";
-import { fixtureManifest, insertPluginRevision } from "#modules/plugins/test-support";
+import { insertPluginRevision } from "#modules/plugins/test-support";
 import { DatabaseSession, setLocalStatementTimeout } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { applyBaselineMigration, baselineMigrationStatements } from "#testing/baseline-migration";

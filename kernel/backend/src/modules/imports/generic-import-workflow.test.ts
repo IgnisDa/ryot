@@ -7,6 +7,7 @@ import type {
 } from "@ryot-app/contract/modules/imports/ingestion";
 import { AutomationExecutionId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import type { GenericImportChunk } from "@ryot-app/plugin-backend-sdk/imports";
@@ -25,7 +26,6 @@ import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { EventsService } from "#modules/events/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipsService } from "#modules/relationships/service";
 import type { ScriptPluginRevision } from "#modules/scripts/authorization/principal";
 import { emptySchemaScope } from "#modules/scripts/authorization/principal.test-support";

@@ -5,15 +5,7 @@ import type {
 	PluginSignalSchedule,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { EntitySchemaSlug, SignalSchemaSlug } from "@ryot-app/contract/schema/brands";
-import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
-import { calendarSourceIssue } from "@ryot-app/definitions/row-source-validation";
-import { materializeSignalSchedule } from "@ryot-app/definitions/signal-schedules";
-import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
-import {
-	materializeCalendarSource,
-	mergeManifestDefinitions,
-	revisionDefinitions,
-} from "@ryot-app/definitions/source";
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import {
 	castBoolean,
 	castJson,
@@ -26,8 +18,12 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 
-import { validateSystemPluginSet } from "#modules/plugins/packages/system-set";
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
+import { validateDefinitionSet } from "./definition-set";
+import { kernelDefinitionSource } from "./kernel-definitions";
+import { calendarSourceIssue } from "./row-source-validation";
+import { materializeSignalSchedule } from "./signal-schedules";
+import { buildDefinitionSnapshot } from "./snapshot";
+import { materializeCalendarSource, mergeManifestDefinitions, revisionDefinitions } from "./source";
 
 const entity = table("entity", "entity");
 
@@ -164,7 +160,7 @@ describe("calendar sources in definition snapshots", () => {
 					mergeManifestDefinitions(kernelDefinitionSource(), [plugin(invalid)]),
 				),
 			).toThrow("Invalid calendar source entity-dates");
-			expect(() => validateSystemPluginSet(kernelDefinitionSource(), [plugin(invalid)])).toThrow(
+			expect(() => validateDefinitionSet(kernelDefinitionSource(), [plugin(invalid)])).toThrow(
 				"Invalid calendar source entity-dates",
 			);
 		}
@@ -236,7 +232,7 @@ describe("signal schedule materialization", () => {
 			"Invalid signal schedule entity-due",
 		);
 		expect(() =>
-			validateSystemPluginSet(kernelDefinitionSource(), [{ manifest, id: "plugin-1" }]),
+			validateDefinitionSet(kernelDefinitionSource(), [{ manifest, id: "plugin-1" }]),
 		).toThrow("Invalid signal schedule entity-due");
 	});
 });

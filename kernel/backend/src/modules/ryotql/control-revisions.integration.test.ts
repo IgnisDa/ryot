@@ -5,6 +5,7 @@ import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored"
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { PluginId, PluginRevisionId, SavedViewId, UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { and, entitySchemaPredicate, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -19,7 +20,6 @@ import {
 	revisionDatabaseLayer,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { makeAppConfigLayer } from "#testing/effect";

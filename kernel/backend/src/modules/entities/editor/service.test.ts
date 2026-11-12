@@ -15,6 +15,7 @@ import {
 	RelationshipSchemaSlug,
 	UserId,
 } from "@ryot-app/contract/schema/brands";
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { column, field, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -34,7 +35,6 @@ import {
 	installRevisionPackage,
 	revisionPackage,
 } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import {
 	command,
 	relationshipDatabaseLayer,

@@ -7,11 +7,11 @@ import {
 	PluginPackageId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
-import { revisionDefinitions } from "@ryot-app/definitions/source";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { column, document, field, pluginId, rows, table } from "@ryot-app/ryotql";
 import { assert } from "@ryot-app/testing/assert";
 
-import { fixtureManifest } from "#modules/plugins/test-support";
+import { revisionDefinitions } from "./source";
 
 const browserSettings = {
 	pageSize: 20,

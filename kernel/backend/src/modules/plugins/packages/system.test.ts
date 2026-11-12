@@ -3,6 +3,7 @@ import { expect } from "bun:test";
 import { BunServices } from "@effect/platform-bun";
 import { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { PluginArchiveError, writePluginArchive } from "@ryot-app/plugin-archive";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
@@ -13,7 +14,7 @@ import type { Path } from "effect";
 import { Effect, FileSystem, Layer, Schema } from "effect";
 
 import { loadPluginSource } from "../source.test-support";
-import { fixtureManifest, fixturePackageRoot } from "../test-support";
+import { fixturePackageRoot } from "../test-support";
 import { discoverSystemPlugins } from "./system";
 
 const withRoot = <A, E>(

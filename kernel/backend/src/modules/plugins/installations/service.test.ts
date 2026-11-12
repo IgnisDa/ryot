@@ -10,11 +10,16 @@ import {
 } from "@ryot-app/contract/modules/plugins/schemas";
 import { AuthoredSavedViewRendererConfig } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import {
+	emptySandboxExecutionMetadata,
+	fixtureManifest,
+	testPluginPackageId,
+} from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { PLUGIN_ARCHIVE_LIMITS, writePluginArchive } from "@ryot-app/plugin-archive";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { layer } from "@voila.dev/effect-bun-test";
@@ -42,8 +47,6 @@ import { PluginRevisionActivation } from "../packages/revision-activation";
 import { SystemPlugins } from "../packages/system";
 import { validateSystemPluginSet } from "../packages/system-set";
 import type { StoredPlugin } from "../packages/types";
-import { fixtureClientArtifact } from "../source.test-support";
-import { fixtureManifest, testPluginPackageId } from "../test-support";
 import { PluginInstallationLifecycleDispatcher } from "./job";
 import {
 	type PluginInstallationHydratedState,
@@ -2425,38 +2428,30 @@ layer(
 	}),
 )("plugin installation harness", (test) => {
 	test.effect(
-		"does not clear quarantine when a client dependency is unavailable",
+		"does not clear quarantine when a declared dependency is unavailable",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* PluginInstallationService;
 				const fake = yield* FakeInstallationDependencies;
-				const client = {
-					homeView: null,
-					apiVersion: 1 as const,
-					pluginDependencies: {
-						missing: { scope: "user" as const, packageId: testPluginPackageId() },
-					},
-				};
-				const manifest = privateManifest({ client });
 				const failure = failureOf(
 					yield* Effect.exit(
 						service.updatePrivatePlugin({
 							userId,
-							manifest,
 							compiledScripts: [],
 							contentHash: privatePlugin.contentHash,
 							installationId: incompatibleInstallation.id,
-							compiledClient: fixtureClientArtifact(
-								manifest.metadata.name,
-								manifest.metadata.packageId,
-								client,
-							),
+							manifest: privateManifest({
+								dependencies: { missing: { scope: "user", packageId: testPluginPackageId() } },
+							}),
 						}),
 					),
 				);
 				expect(failure).toMatchObject({
 					_tag: "PluginRequestError",
-					reason: { code: "validation-failed" },
+					reason: {
+						code: "validation-failed",
+						diagnostics: [{ message: stringContaining("is unavailable") }],
+					},
 				});
 				expect(yield* fake.persisted).toEqual([]);
 				expect(yield* fake.healthUpdates).toEqual([]);

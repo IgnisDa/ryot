@@ -30,6 +30,7 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
+import { fixtureManifest } from "@ryot-app/contract/testing";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { buildDefinitionSnapshot, type DefinitionSource } from "@ryot-app/definitions/snapshot";
 import type { ChangeUserRelationshipBatch } from "@ryot-app/plugin-backend-sdk/core";
@@ -68,7 +69,6 @@ import { OAuthConnectionsService } from "#modules/oauth-connections/service";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
 import { PluginUserSettingsWriter } from "#modules/plugins/preferences/user-settings-writer";
-import { fixtureManifest } from "#modules/plugins/test-support";
 import { RelationshipMutationPipeline } from "#modules/relationships/mutation-pipeline";
 import {
 	relationshipMutationLockKey,

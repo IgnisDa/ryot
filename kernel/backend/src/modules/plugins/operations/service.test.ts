@@ -21,7 +21,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
-import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
+import { emptySandboxExecutionMetadata, fixtureManifest } from "@ryot-app/contract/testing";
 import { scriptsDigestOf } from "@ryot-app/sandbox/host/executor.test-support";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -49,7 +49,6 @@ import { isolatedDatabaseLayer } from "#testing/isolated-database";
 import { PluginRuntimeResolver } from "../catalog/runtime-resolver";
 import type { PluginInstallationHydratedState } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
-import { fixtureManifest } from "../test-support";
 import { OperationsService } from "./service";
 
 const SYSTEM_ID = PluginId.make("fixture-plugin-id");

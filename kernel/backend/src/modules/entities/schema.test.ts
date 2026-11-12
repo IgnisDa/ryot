@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { testPluginPackageId } from "@ryot-app/contract/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { sql } from "drizzle-orm";
@@ -7,7 +8,6 @@ import { Effect, Exit, Result } from "effect";
 import { Client } from "pg";
 
 import { revisionDatabaseLayer } from "#modules/plugins/packages/revision.test-support";
-import { testPluginPackageId } from "#modules/plugins/test-support";
 import { DatabaseSession } from "#platform/db/session";
 import * as tables from "#schema/tables/combined";
 import { testDatabaseUrl } from "#testing/database";

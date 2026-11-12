@@ -6,13 +6,12 @@ import type {
 } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { fixtureManifest, testPluginPackageId } from "@ryot-app/contract/testing";
 import { pluginExportSpecifier } from "@ryot-app/plugin-client-contract";
 import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
-
-import { fixtureManifest, testPluginPackageId } from "#modules/plugins/test-support";
 
 import { type ArtifactDescription, composeClientPage } from "./composition";
 import type { GraphPlugin } from "./graph";
@@ -663,6 +662,61 @@ it.effect(
 					artifactHash: contributor.clientArtifactHash,
 				});
 			}
+		}),
+	testTimeout,
+);
+
+it.effect(
+	"composes without ready dependencies that ship no client",
+	() =>
+		Effect.gen(function* () {
+			const pageExport = {
+				kind: "page" as const,
+				entry: "client/page.tsx",
+				settingsSchema: { fields: {} },
+				automaticEntityPresentations: false,
+			};
+			const { client: _, ...backendOnly } = plugin("backend-only", {
+				exports: {},
+				apiVersion: 1,
+				homeView: null,
+			}).manifest;
+			const dependency = {
+				...plugin("backend-only", { apiVersion: 1, homeView: null }),
+				manifest: backendOnly,
+			};
+			const root = plugin("query-consumer", {
+				apiVersion: 1,
+				homeView: null,
+				exports: { main: pageExport },
+				dependencies: { library: dependencyReference("backend-only") },
+			});
+			const graph = yield* resolveClientPageGraph({
+				plugin: root,
+				exportName: "main",
+				application: "page",
+				plugins: [root, dependency],
+				runtimeArtifactHash: "runtime",
+			});
+			expect(
+				graph.identity.contributors.flatMap((contributor) =>
+					contributor.kind === "plugin" ? [contributor.pluginId] : [],
+				),
+			).toEqual<unknown>([root.id]);
+			expect(
+				(yield* Effect.flip(
+					resolveClientPageGraph({
+						plugin: root,
+						exportName: "main",
+						application: "page",
+						runtimeArtifactHash: "runtime",
+						plugins: [root, { ...dependency, health: "failed" }],
+					}),
+				)).reason,
+			).toEqual<unknown>({
+				code: "dependency-unavailable",
+				reference: dependencyReference("backend-only"),
+			});
 		}),
 	testTimeout,
 );
