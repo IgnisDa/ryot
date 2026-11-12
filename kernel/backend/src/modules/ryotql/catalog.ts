@@ -1092,6 +1092,19 @@ const user: TableBinding<"user"> = {
 	},
 };
 
+const apiKey: TableBinding<"apiKey"> = {
+	relation: "apikey",
+	policies: { user: { type: "owned", includeGlobal: false, column: "reference_id" } },
+	fields: {
+		id: column("id"),
+		name: column("name"),
+		start: column("start"),
+		createdAt: column("created_at"),
+		expiresAt: column("expires_at"),
+		lastUsedAt: column("last_request"),
+	},
+};
+
 const oauthConnection: TableBinding<"oauthConnection"> = {
 	relation: "oauth_connection",
 	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
@@ -1246,6 +1259,7 @@ const bindings: { readonly [Name in CatalogTableName]: TableBinding<Name> } = {
 	page,
 	user,
 	event,
+	apiKey,
 	entity,
 	plugin,
 	reminder,

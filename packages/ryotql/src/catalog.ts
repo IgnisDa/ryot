@@ -100,6 +100,18 @@ export const catalogTables = {
 			optionsSchema: { kind: "json", nullable: true },
 		},
 	},
+	apiKey: {
+		primaryKey: ["id"],
+		visibility: { user: { demoReadable: false, pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			name: { kind: "text", nullable: true },
+			start: { kind: "text", nullable: true },
+			expiresAt: { kind: "date", nullable: true },
+			createdAt: { kind: "date", nullable: false },
+			lastUsedAt: { kind: "date", nullable: true },
+		},
+	},
 	notificationChannel: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: true } },

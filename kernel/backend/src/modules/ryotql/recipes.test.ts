@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 
+import { apiKeysRecipe } from "@ryot-app/ryotql-recipes/api-keys";
 import { backupRunRecipe, backupRunsRecipe } from "@ryot-app/ryotql-recipes/backups";
 import {
 	activeSignalSchemasRecipe,
@@ -27,6 +28,7 @@ const recipes = [
 	["user settings", userSettingsRecipe.document, userAccess],
 	["two-factor status", twoFactorStatusRecipe.document, userAccess],
 	["OAuth connection status", oauthConnectionStatusRecipe.document, userAccess],
+	["API keys", apiKeysRecipe.document, userAccess],
 	["backup runs", backupRunsRecipe.document, userAccess],
 	["backup run", backupRunRecipe.document, userAccess],
 	["plugin installations", pluginInstallationsRecipe.document, userAccess],
