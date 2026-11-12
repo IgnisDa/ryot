@@ -145,3 +145,13 @@ the emitted page identity, artifact references and workspace cleanup.
 Page declaration identity includes only entry and portable scoped package references. Queries, page
 IDs, installation IDs, ownership and write grants remain runtime metadata. Restoring a page can remap
 those references while retaining its compiled artifact bytes and hash; no compiler is needed.
+
+## Authoring Reference
+
+`./sdk-reference` exports `generateClientSdkReference()`, an Effect requiring `FileSystem`. It
+resolves only client/UI SDK entrypoints admitted by the compiler dependency registry and uses the
+same TypeScript project settings and public export resolution as authored compilation. The output
+contains sorted exports, signatures, component props, supported imports and SDK-owned
+`assistant-reference.md` guidance/examples. It contains no timestamps or machine paths.
+Server builds package this generated Markdown for the assistant; unbundled development generates
+from current SDK sources. No generated API inventory is maintained in source control.

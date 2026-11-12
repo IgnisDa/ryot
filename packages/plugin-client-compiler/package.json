@@ -22,6 +22,10 @@
 		"./worker": {
 			"types": "./src/worker.ts",
 			"default": "./src/worker.ts"
+		},
+		"./sdk-reference": {
+			"types": "./src/sdk-reference.ts",
+			"default": "./src/sdk-reference.ts"
 		}
 	},
 	"scripts": {

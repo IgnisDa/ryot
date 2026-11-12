@@ -17,3 +17,8 @@ loading compiler workers. Linux uses the root-owned installation and separate si
 reports unconfined development. Run `bun turbo --filter=@ryot-app/server dev` from the repository
 root. Turbo builds or restores dependency artifacts before server dev; `apps/server/dev.ts` assembles
 artifacts, watches local changes, and restarts the server.
+
+`assistant-sdk-reference.ts` generates `dist/assistant-sdk-reference.md` during every server build
+from the compiler's allowed SDK entries and SDK-owned examples. Ship it beside the server bundle
+and shared chunks. Production loads this file without loading build tooling or regenerating the
+reference; unbundled development generates the reference from current sources.

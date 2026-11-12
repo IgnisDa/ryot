@@ -545,3 +545,7 @@ Publication frames always use projection-only entity presentations, including ke
 pages. `EntityResults` and `EntityBrowserResults` accept `navigationEnabled` (default `true`); `false`
 renders nested SDK links as static content, including table rows and imported presentations. Snapshot
 renderers use this to avoid detail navigation, and do not issue queries for paging or controls.
+
+The SDK-owned [assistant reference](assistant-reference.md) provides page entry, declared-query,
+presentation and draft-identity guidance plus a compiler-validated example. The client compiler
+combines it with generated public signatures for assistant page authoring.

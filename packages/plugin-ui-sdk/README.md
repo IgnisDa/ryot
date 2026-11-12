@@ -286,3 +286,6 @@ that scroll or wrap.
 handle is a real button, supports Arrow/Home/End, and announces the new position through a live
 region. Consumers supply item key, label, handle icon, and pickup/drop platform feedback. Successful
 keyboard moves also give drop feedback.
+
+The SDK-owned [assistant reference](assistant-reference.md) supplies page presentation guidance and
+a compiler-validated composition example alongside the generated public component props.
