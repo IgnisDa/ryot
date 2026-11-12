@@ -193,47 +193,45 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 					return { plugin, installation };
 				},
 			);
-			const validateClientDependencies = Effect.fn(
-				"PluginInstallationService.validateClientDependencies",
-			)(function* (plugin: NormalizedPlugin, userId: UserId) {
-				const references = Object.values(plugin.manifest.client?.pluginDependencies ?? {});
-				if (references.length === 0) {
-					return yield* Effect.void;
-				}
-				const usable = new Set(
-					(yield* installations.listForUser(userId))
-						.filter((state) => state.health === "ready" && !state.isHidden)
-						.map(({ pluginId }) => pluginId),
-				);
-				const system = yield* repository.listActiveSystemPlugins();
-				const privatePlugins = yield* repository.listPrivateForUser(userId);
-				for (const reference of references) {
-					const target = (reference.scope === "system" ? system : privatePlugins).find(
-						({ packageId }) => packageId === reference.packageId,
-					);
-					if (!target || !usable.has(target.id)) {
-						return yield* new PluginValidationError({
-							issues: [
-								`Client dependency ${reference.scope}/${reference.packageId} is unavailable`,
-							],
-						});
+			const validateDependencies = Effect.fn("PluginInstallationService.validateDependencies")(
+				function* (plugin: NormalizedPlugin, userId: UserId) {
+					const references = Object.values(plugin.manifest.dependencies ?? {});
+					if (references.length === 0) {
+						return yield* Effect.void;
 					}
-					for (const imported of plugin.compiledClient?.imports ?? []) {
-						if (
-							imported.reference.packageId === reference.packageId &&
-							imported.reference.scope === reference.scope &&
-							!Object.hasOwn(target.manifest.client?.exports ?? {}, imported.exportName)
-						) {
+					const usable = new Set(
+						(yield* installations.listForUser(userId))
+							.filter((state) => state.health === "ready" && !state.isHidden)
+							.map(({ pluginId }) => pluginId),
+					);
+					const system = yield* repository.listActiveSystemPlugins();
+					const privatePlugins = yield* repository.listPrivateForUser(userId);
+					for (const reference of references) {
+						const target = (reference.scope === "system" ? system : privatePlugins).find(
+							({ packageId }) => packageId === reference.packageId,
+						);
+						if (!target || !usable.has(target.id)) {
 							return yield* new PluginValidationError({
-								issues: [
-									`Client dependency ${reference.scope}/${reference.packageId} does not export ${imported.exportName}`,
-								],
+								issues: [`Dependency ${reference.scope}/${reference.packageId} is unavailable`],
 							});
 						}
+						for (const imported of plugin.compiledClient?.imports ?? []) {
+							if (
+								imported.reference.packageId === reference.packageId &&
+								imported.reference.scope === reference.scope &&
+								!Object.hasOwn(target.manifest.client?.exports ?? {}, imported.exportName)
+							) {
+								return yield* new PluginValidationError({
+									issues: [
+										`Dependency ${reference.scope}/${reference.packageId} does not export ${imported.exportName}`,
+									],
+								});
+							}
+						}
 					}
-				}
-				return yield* Effect.void;
-			});
+					return yield* Effect.void;
+				},
+			);
 
 			const withPrivatePluginPackage = <A, E, R>(
 				input: PrivatePluginPackageInput,
@@ -595,7 +593,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 										reason: { packageId, code: "already-installed" },
 									});
 								}
-								yield* validateClientDependencies(normalized, input.userId);
+								yield* validateDependencies(normalized, input.userId);
 								const pluginId = yield* ingestionLock.persistUserPlugin(normalized, {
 									scope: "user",
 									ownerId: input.userId,
@@ -732,7 +730,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 												reason: { pluginId, code: "source-revision-stale" },
 											});
 										}
-										yield* validateClientDependencies(normalized, input.userId);
+										yield* validateDependencies(normalized, input.userId);
 										if (
 											currentInstallation.health === "incompatible" &&
 											!currentInstallation.isInitialized &&
@@ -916,7 +914,7 @@ export class PluginInstallationService extends Context.Service<PluginInstallatio
 									reason: { pluginId, code: "source-revision-stale" },
 								});
 							}
-							yield* validateClientDependencies(normalized, userId);
+							yield* validateDependencies(normalized, userId);
 							yield* lockSettingsAssetReferences({
 								properties: config,
 								ownerUserId: userId,

@@ -110,7 +110,7 @@ export const verifyPluginClientArtifact = (
 		return false;
 	}
 	const declarationHash = clientDeclarationHash(manifest.client);
-	const dependencies = Object.values(manifest.client.pluginDependencies ?? {});
+	const dependencies = Object.values(manifest.dependencies ?? {});
 	return (
 		artifact.packageId === manifest.metadata.packageId &&
 		artifact.clientDeclarationHash === declarationHash &&

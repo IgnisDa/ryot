@@ -676,7 +676,7 @@ export class PluginRepository extends Context.Service<PluginRepository>()(
 					const scope = previous.scope;
 					if (
 						consumers.some(({ ownerId, manifest }) =>
-							Object.values(manifest.client?.pluginDependencies ?? {}).some(
+							Object.values(manifest.dependencies ?? {}).some(
 								(reference) =>
 									reference.packageId === previous.packageId &&
 									reference.scope === scope &&

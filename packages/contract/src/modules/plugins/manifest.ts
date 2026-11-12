@@ -14,10 +14,15 @@ import {
 } from "../automations/lifecycle";
 import { AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
-import { RyotQLDocument as AuthoredRyotQLDocument } from "../ryotql/authored";
+import {
+	mapScalarExpression,
+	pluginIdentityReferences,
+	RyotQLDocument as AuthoredRyotQLDocument,
+} from "../ryotql/authored";
 import { OutputFieldKey } from "../ryotql/language";
 import {
 	rowSourceAliases,
+	rowSourceDocument,
 	RowSourcePrecision,
 	rowSourceProjectedKeys,
 	RowSourceQuery,
@@ -37,6 +42,7 @@ import {
 	AuthoredEventSchemaReference,
 	AuthoredRelationshipSchemaReference,
 	KernelDefinitionOwner,
+	type PluginIdentityReference,
 	PluginPackageReference,
 } from "./references";
 
@@ -229,7 +235,7 @@ const PluginClientExports = Schema.Record(Schema.String, PluginClientExport).pip
 	Schema.check(pluginManifestSlugKeys),
 );
 
-export const PluginClientDependencies = Schema.Record(Schema.String, PluginPackageReference).pipe(
+export const PluginDependencies = Schema.Record(Schema.String, PluginPackageReference).pipe(
 	Schema.check(pluginManifestSlugKeys),
 );
 
@@ -269,7 +275,6 @@ export const PluginClientEntry = strictStruct({
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	entities: Schema.optional(PluginClientEntities),
 	notFoundPage: Schema.optional(pluginManifestSlug),
-	pluginDependencies: Schema.optional(PluginClientDependencies),
 	collectionPages: Schema.optional(PluginClientCollectionPages),
 	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
 	analyticsSections: Schema.optional(
@@ -1025,6 +1030,7 @@ const PluginManifestAuthoredFields = {
 	signalSchemas: Schema.Array(PluginSignalSchema),
 	importSources: Schema.Array(PluginImportSource),
 	userBootstrap: Schema.Array(PluginUserBootstrap),
+	dependencies: Schema.optional(PluginDependencies),
 	relationshipSchemas: Schema.Array(PluginRelationshipSchema),
 	memberships: Schema.optional(Schema.Array(PluginMembership)),
 	userSettingsSchema: Schema.optional(PluginUserSettingsSchema),
@@ -1102,6 +1108,60 @@ const hasValidHookTargets = (manifest: typeof AuthoredPluginManifestFields.Type)
 		),
 	);
 };
+
+const authoredPackageReferences = (
+	manifest: Pick<
+		typeof AuthoredPluginManifestFields.Type,
+		"queries" | "savedViews" | "entitySchemas" | "calendarSources" | "signalSchedules"
+	>,
+) => {
+	const references: PluginPackageReference[] = [];
+	const collect = (reference: PluginIdentityReference) => {
+		if (reference.kind === "package") {
+			references.push(reference);
+		}
+		return reference;
+	};
+	const documents = [
+		...Object.values(manifest.queries ?? {}).map(({ document }) => document),
+		...manifest.savedViews.flatMap(({ dataSources }) =>
+			dataSources === null ? [] : [dataSources],
+		),
+		...[...(manifest.calendarSources ?? []), ...(manifest.signalSchedules ?? [])].map(({ query }) =>
+			rowSourceDocument(query),
+		),
+	];
+	for (const document of documents) {
+		pluginIdentityReferences(document).forEach(collect);
+	}
+	for (const { browse } of manifest.entitySchemas) {
+		for (const field of browse?.fields ?? []) {
+			if (field.kind === "value" || field.kind === "sort") {
+				mapScalarExpression(field.expression, { reference: collect });
+			}
+		}
+	}
+	return references;
+};
+
+const declaredDependencies = Schema.makeFilter(
+	(
+		manifest: Parameters<typeof authoredPackageReferences>[0] &
+			Pick<typeof AuthoredPluginManifestFields.Type, "dependencies">,
+	) => {
+		const declared = Object.values(manifest.dependencies ?? {});
+		const undeclared = authoredPackageReferences(manifest).find(
+			({ scope, packageId }) =>
+				!declared.some(
+					(dependency) => dependency.packageId === packageId && dependency.scope === scope,
+				),
+		);
+		return (
+			undeclared === undefined ||
+			`Referenced ${undeclared.scope} package '${undeclared.packageId}' must be a declared dependency`
+		);
+	},
+);
 
 const hasValidClientManifestReferences = (
 	manifest: Pick<
@@ -1336,6 +1396,7 @@ const hasValidAuthoredPluginManifestReferences = (
 };
 
 export const AuthoredPluginManifest = AuthoredPluginManifestFields.pipe(
+	Schema.check(declaredDependencies),
 	Schema.check(
 		Schema.makeFilter(
 			(manifest) =>
@@ -1539,6 +1600,7 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 };
 
 export const PluginManifest = PluginManifestFields.pipe(
+	Schema.check(declaredDependencies),
 	Schema.check(
 		Schema.makeFilter(
 			(manifest) =>

@@ -12,15 +12,14 @@ import {
 	type RyotQLDocument,
 } from "@ryot-app/contract/modules/ryotql/authored";
 import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
-import { rowSourceDocument } from "@ryot-app/contract/modules/ryotql/row-source";
 import {
 	EntityBrowserSavedViewSettings,
 	mapEntityBrowserAddActionSchema,
 } from "@ryot-app/contract/modules/saved-views/schemas";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
-import { isEntityBrowserRenderer } from "@ryot-app/definitions/saved-views";
 import type { AppPropertyDefinition, AppSchema } from "@ryot-app/contract/schema/property-schema";
+import { isEntityBrowserRenderer } from "@ryot-app/definitions/saved-views";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Array as Arr, Effect, Result, Schema } from "effect";
@@ -251,11 +250,10 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 		}
 	};
 	for (const plugin of records.privatePlugins) {
-		for (const dependency of Object.values(plugin.manifest.client?.pluginDependencies ?? {})) {
+		for (const dependency of Object.values(plugin.manifest.dependencies ?? {})) {
 			add(pluginPackageKey(dependency));
 		}
 		for (const view of plugin.manifest.savedViews) {
-			addQueryPackages(view.dataSources);
 			for (const [name, property] of Object.entries(view.dataSources?.parameters?.fields ?? {})) {
 				if (property.type !== "string" || property.reference?.kind !== "entity-source") {
 					continue;
@@ -271,9 +269,6 @@ export const collectReferencedPluginKeys = (records: ArchiveRecords) => {
 					add(source.reference.pluginId);
 				}
 			}
-		}
-		for (const source of plugin.manifest.calendarSources ?? []) {
-			addQueryPackages(rowSourceDocument(source.query));
 		}
 	}
 	for (const installation of records.installations) {

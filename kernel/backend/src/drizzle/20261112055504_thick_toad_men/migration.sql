@@ -1,0 +1,1 @@
+ALTER TABLE "plugin_revision" ADD COLUMN "dependencies" jsonb;

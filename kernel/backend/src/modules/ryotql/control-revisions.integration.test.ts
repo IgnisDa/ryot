@@ -233,6 +233,7 @@ layer(
 					...ownPackage,
 					manifest: {
 						...ownPackage.manifest,
+						dependencies: { foreign: { scope: "system", packageId: foreignPackageId } },
 						queries: {
 							...ownPackage.manifest.queries,
 							foreign: { document: foreignDocument, description: "Foreign items" },

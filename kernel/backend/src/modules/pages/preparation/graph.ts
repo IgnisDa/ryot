@@ -206,7 +206,11 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 			reference: PluginPackageReference,
 		): Effect.Effect<void, ClientPagePreparationError> =>
 			Effect.gen(function* () {
-				const { plugin, client } = yield* readyPlugin(reference);
+				const candidate = catalog.get(pluginPackageKey(reference));
+				if (candidate?.health === "ready" && !candidate.manifest.client) {
+					return yield* Effect.void;
+				}
+				const { plugin } = yield* readyPlugin(reference);
 				const cycleStart = visiting.findIndex(({ id }) => id === plugin.id);
 				if (cycleStart !== -1) {
 					return yield* new ClientPagePreparationError({
@@ -220,8 +224,8 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 					return yield* Effect.void;
 				}
 				visiting.push(plugin);
-				yield* validateImports(plugin.id, client.pluginDependencies ?? {}, plugin.clientImports);
-				for (const dependency of dependencies(client.pluginDependencies ?? {})) {
+				yield* validateImports(plugin.id, plugin.manifest.dependencies ?? {}, plugin.clientImports);
+				for (const dependency of dependencies(plugin.manifest.dependencies ?? {})) {
 					yield* visit(dependency);
 				}
 				visiting.pop();
@@ -435,7 +439,7 @@ export const resolveClientPageGraph = Effect.fn("Pages.resolve-composition-graph
 				pluginId: PluginId.make(plugin.id),
 				revisionId: plugin.pluginRevisionId,
 				clientArtifactHash: artifactHash(plugin),
-				pluginDependencies: plugin.manifest.client?.pluginDependencies ?? {},
+				pluginDependencies: plugin.manifest.dependencies ?? {},
 				exports: ordered(
 					Object.entries(plugin.manifest.client?.exports ?? {}),
 					([name]) => name,

@@ -311,13 +311,7 @@ describe("plugin archive", () => {
 				const { client, ...withoutClient } = fixture.manifest;
 				const manifests = [
 					withoutClient,
-					{
-						...fixture.manifest,
-						client: {
-							...client,
-							pluginDependencies: { whiskey: { packageId, scope: "system" as const } },
-						},
-					},
+					{ ...fixture.manifest, client: { ...client, entities: {} } },
 					{
 						...fixture.manifest,
 						client: {

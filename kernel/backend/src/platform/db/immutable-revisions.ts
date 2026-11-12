@@ -13,6 +13,7 @@ export const pluginRevisionSections = (manifest: SQL) => ({
 	icon: sql`${manifest} -> 'metadata' ->> 'icon'`.as("icon"),
 	operations: sql`${manifest} -> 'operations'`.as("operations"),
 	memberships: sql`${manifest} -> 'memberships'`.as("memberships"),
+	dependencies: sql`${manifest} -> 'dependencies'`.as("dependencies"),
 	version: sql`${manifest} -> 'metadata' ->> 'version'`.as("version"),
 	configSchema: sql`${manifest} -> 'configSchema'`.as("config_schema"),
 	signalSchemas: sql`${manifest} -> 'signalSchemas'`.as("signal_schemas"),

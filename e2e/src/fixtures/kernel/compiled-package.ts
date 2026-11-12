@@ -42,7 +42,7 @@ const compileClient = (manifest: PluginManifest, files: PluginPackageInput["file
 		name: manifest.metadata.name,
 		apiVersion: client.apiVersion,
 		packageId: manifest.metadata.packageId,
-		pluginDependencies: client.pluginDependencies ?? {},
+		pluginDependencies: manifest.dependencies ?? {},
 		clientDeclarationHash: clientDeclarationHash(client),
 		publicExports: Object.fromEntries(
 			Object.entries(client.exports ?? {}).map(([name, declaration]) => [

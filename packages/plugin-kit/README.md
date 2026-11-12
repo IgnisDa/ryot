@@ -44,16 +44,21 @@ pass `{ kind: "self" }`. Browser contributors call `usePluginIdentity(packageId)
 the page owner. Ordinary HTTP queries use `local` or `{ kind: "package", packageId, scope }`
 references, never `self`.
 
-Client dependencies are an importer-local alias map:
+Plugin dependencies are a top-level, importer-local alias map:
 
 ```ts
-pluginDependencies: {
+dependencies: {
   catalog: { packageId: PluginPackageId.make("ryot/catalog"), scope: "system" },
 }
 ```
 
-Imports use `@ryot-app/plugins/catalog/<export-name>`. Dependencies do not grant read or write
-authority, and contributors share one JavaScript realm, so identity bindings do not isolate modules.
+Every `package` reference in declared queries, saved views, browse fields, calendar sources, and
+signal schedules must name a declared dependency. Client imports use
+`@ryot-app/plugins/catalog/<export-name>`. Installation requires each dependency to be available, and
+page composition includes dependencies that ship a client. `ryot plugin build` loads each dependency
+from an installed npm package whose `exports["."].default` is its manifest. Dependencies do not grant
+read or write authority, and contributors share one JavaScript realm, so identity bindings do not
+isolate modules.
 
 System configuration keys are `RYOT_PLUGIN__<PUBLISHER>__<NAME>__<CONFIG_KEY>`, uppercased with `-`
 replaced by `_`. Private configuration never reads environment variables.

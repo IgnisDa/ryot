@@ -11,7 +11,7 @@ import {
 import { JsonValue } from "../../schema/json";
 import { AppSchema } from "../../schema/property-schema";
 import { strictStruct } from "../../schema/utils";
-import { PluginClientDependencies } from "../plugins/manifest";
+import { PluginDependencies } from "../plugins/manifest";
 import { PluginPackageReference, SavedViewReference } from "../plugins/references";
 import { RyotQLDocument } from "../ryotql/authored";
 import { PageDraftBuildIdentity } from "./identity";
@@ -22,9 +22,9 @@ export const ClientRendererDefinition = strictStruct({
 	entry: Schema.String,
 	settingsSchema: AppSchema,
 	analyticsSections: Schema.Boolean,
+	pluginDependencies: PluginDependencies,
 	files: Schema.Array(ClientRendererFile),
 	automaticEntityPresentations: Schema.Boolean,
-	pluginDependencies: PluginClientDependencies,
 });
 export type ClientRendererDefinition = typeof ClientRendererDefinition.Type;
 
@@ -213,7 +213,7 @@ const PageCompositionContributor = strictStruct({
 	artifactHash: Schema.String,
 	kind: Schema.Literal("page"),
 	definitionHash: Schema.String,
-	pluginDependencies: PluginClientDependencies,
+	pluginDependencies: PluginDependencies,
 });
 
 const ClientPageCompositionIdentityBase = {
@@ -239,9 +239,9 @@ const ClientPageCompositionIdentityBase = {
 				name: Schema.String,
 				sourceHash: Schema.String,
 				artifactHash: Schema.String,
+				pluginDependencies: PluginDependencies,
 				kind: Schema.Literal("kernel-renderer"),
 				automaticEntityPresentations: Schema.Boolean,
-				pluginDependencies: PluginClientDependencies,
 			}),
 			strictStruct({
 				pluginId: PluginId,
@@ -250,8 +250,8 @@ const ClientPageCompositionIdentityBase = {
 				packageId: PluginPackageId,
 				kind: Schema.Literal("plugin"),
 				clientArtifactHash: Schema.String,
+				pluginDependencies: PluginDependencies,
 				scope: PluginPackageReference.fields.scope,
-				pluginDependencies: PluginClientDependencies,
 				exports: Schema.Array(ClientPagePublicExportIdentity),
 			}),
 		]),
@@ -477,8 +477,8 @@ export class ClientPageDocumentStale extends Schema.TaggedError<
 export const PageDefinition = strictStruct({
 	entry: Schema.String,
 	queries: RyotQLDocument,
+	pluginDependencies: PluginDependencies,
 	files: Schema.Array(ClientRendererFile),
-	pluginDependencies: PluginClientDependencies,
 });
 export type PageDefinition = typeof PageDefinition.Type;
 

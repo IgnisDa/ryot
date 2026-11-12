@@ -12,7 +12,6 @@ import {
 	CLIENT_API_VERSION,
 	collectionPagePath,
 	definePlugin,
-	type PluginClientEntry,
 	PluginManifest,
 	PluginOperation,
 } from "./manifest";
@@ -481,13 +480,8 @@ describe("definePlugin", () => {
 		"decodes declarative public client exports by kind",
 		() =>
 			Effect.gen(function* () {
-				const pluginDependencies: NonNullable<PluginClientEntry["pluginDependencies"]> = {
-					fixture: { scope: "system", packageId: PluginPackageId.make("test/dependency") },
-					"private-fixture": { scope: "user", packageId: PluginPackageId.make("test/second") },
-				};
 				const client = {
 					homeView: null,
-					pluginDependencies,
 					notFoundPage: "dashboard",
 					apiVersion: CLIENT_API_VERSION,
 					entities: {
@@ -559,11 +553,6 @@ describe("definePlugin", () => {
 					},
 					{ ...client, exports: { ...client.exports, "../card": client.exports.card } },
 					{ ...client, exports: { card: { ...client.exports.card, entry: "backend/card.tsx" } } },
-					{ ...client, pluginDependencies: { fixture: { scope: "system", packageId: "fixture" } } },
-					{
-						...client,
-						pluginDependencies: { "Fixture Alias": { scope: "system", packageId: "ryot/fixture" } },
-					},
 					{ ...client, entities: { missing: { gridPresentation: "row" } } },
 					{ ...client, entities: { thing: { gridPresentation: "card" } } },
 					{ ...client, entities: { thing: { createRoute: "/things/new" } } },
@@ -596,6 +585,56 @@ describe("definePlugin", () => {
 						),
 					),
 				).toEqual(invalidClients.map(() => true));
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"requires every referenced plugin package to be a declared dependency",
+		() =>
+			Effect.gen(function* () {
+				const dependency = {
+					scope: "system",
+					packageId: PluginPackageId.make("test/dependency"),
+				} as const;
+				const queries = {
+					items: {
+						description: "Dependency entities",
+						document: {
+							queries: {
+								items: {
+									...queryDocument.queries.entities,
+									where: {
+										operator: "eq",
+										type: "comparison",
+										right: { type: "pluginId", reference: { kind: "package", ...dependency } },
+										left: { type: "column", tableAlias: "entity", field: "entitySchemaPluginId" },
+									},
+								},
+							},
+						},
+					},
+				};
+				const declared = yield* Schema.decodeEffect(PluginManifest)({
+					...manifest,
+					queries,
+					dependencies: { library: dependency },
+				});
+				expect(declared.dependencies).toEqual({ library: dependency });
+				const undeclared = yield* Effect.flip(
+					Schema.decodeEffect(PluginManifest)({ ...manifest, queries }),
+				);
+				expect(String(undeclared)).toContain(
+					"Referenced system package 'test/dependency' must be a declared dependency",
+				);
+				for (const dependencies of [
+					{ fixture: { scope: "system", packageId: "fixture" } },
+					{ "Fixture Alias": { scope: "system", packageId: "ryot/fixture" } },
+				]) {
+					yield* Effect.flip(
+						Schema.decodeUnknownEffect(PluginManifest)({ ...manifest, dependencies }),
+					);
+				}
 			}),
 		testTimeout,
 	);

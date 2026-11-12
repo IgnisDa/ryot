@@ -597,13 +597,13 @@ const namespacePackage = (input: {
 				},
 			},
 		},
+		...(input.dependency
+			? { dependencies: { whiskey: { scope: "user" as const, packageId: input.dependency } } }
+			: {}),
 		clientDefinition: {
 			apiVersion: 1,
 			homeView: "all-bottles",
 			routes: { "/": "home" },
-			pluginDependencies: input.dependency
-				? { whiskey: { scope: "user", packageId: input.dependency } }
-				: {},
 			exports: {
 				catalog: {
 					kind: "component",

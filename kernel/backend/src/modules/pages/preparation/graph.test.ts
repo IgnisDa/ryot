@@ -33,7 +33,13 @@ const dependencyReference = (name: string) => ({
 	packageId: packageIdFor(name),
 });
 
-const plugin = (name: string, client: NonNullable<PluginManifest["client"]>): GraphPlugin => {
+const plugin = (
+	name: string,
+	{
+		dependencies,
+		...client
+	}: Pick<PluginManifest, "dependencies"> & NonNullable<PluginManifest["client"]>,
+): GraphPlugin => {
 	const manifest = fixtureManifest();
 	return {
 		scope: "user",
@@ -45,7 +51,12 @@ const plugin = (name: string, client: NonNullable<PluginManifest["client"]>): Gr
 		packageId: packageIdFor(name),
 		clientArtifactHash: `${name}-hash`,
 		pluginRevisionId: `${name}-revision`,
-		manifest: { ...manifest, client, metadata: { name: manifest.metadata.name } },
+		manifest: {
+			...manifest,
+			client,
+			metadata: { name: manifest.metadata.name },
+			...(dependencies ? { dependencies } : {}),
+		},
 	};
 };
 
@@ -114,16 +125,11 @@ it.effect(
 				},
 			});
 			const original = analyticsPlugin("analytics-owner");
-			const client = original.manifest.client;
-			assert(client);
 			const owner = {
 				...original,
 				manifest: {
 					...original.manifest,
-					client: {
-						...client,
-						pluginDependencies: { shared: dependencyReference("analytics-dependency") },
-					},
+					dependencies: { shared: dependencyReference("analytics-dependency") },
 				},
 			};
 			const other = analyticsPlugin("analytics-other");
@@ -191,16 +197,11 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			const original = analyticsPlugin("unavailable-owner");
-			const client = original.manifest.client;
-			assert(client);
 			const broken = {
 				...original,
 				manifest: {
 					...original.manifest,
-					client: {
-						...client,
-						pluginDependencies: { missing: dependencyReference("uninstalled") },
-					},
+					dependencies: { missing: dependencyReference("uninstalled") },
 				},
 			};
 			const good = analyticsPlugin("ready-owner");
@@ -253,7 +254,7 @@ it.effect(
 				apiVersion: 1,
 				homeView: null,
 				entities: { entity: { gridPresentation: "card" } },
-				pluginDependencies: { missing: dependencyReference("unavailable-dependency") },
+				dependencies: { missing: dependencyReference("unavailable-dependency") },
 				analyticsSections: {
 					activity: {
 						sortOrder: 0,
@@ -359,7 +360,7 @@ it.effect(
 			apiVersion: 1,
 			homeView: null,
 			entities: { entity: { gridPresentation: "card" } },
-			pluginDependencies: { dependency: dependencyReference("dependency") },
+			dependencies: { dependency: dependencyReference("dependency") },
 			exports: {
 				card: {
 					kind: "presentation",
@@ -478,7 +479,7 @@ it.effect(
 		const page = plugin("page", {
 			apiVersion: 1,
 			homeView: null,
-			pluginDependencies: { dependency: dependencyReference("dependency") },
+			dependencies: { dependency: dependencyReference("dependency") },
 			exports: {
 				main: {
 					kind: "page",
@@ -608,22 +609,19 @@ it.effect(
 				apiVersion: 1,
 				homeView: null,
 				exports: { main: pageExport },
-				pluginDependencies: { whiskey: dependencyReference("left-dependency") },
+				dependencies: { whiskey: dependencyReference("left-dependency") },
 			});
 			const right = plugin("right", {
 				apiVersion: 1,
 				homeView: null,
 				exports: { main: pageExport },
-				pluginDependencies: { whiskey: dependencyReference("right-dependency") },
+				dependencies: { whiskey: dependencyReference("right-dependency") },
 			});
 			const root = plugin("root", {
 				apiVersion: 1,
 				homeView: null,
 				exports: { main: pageExport },
-				pluginDependencies: {
-					left: dependencyReference("left"),
-					right: dependencyReference("right"),
-				},
+				dependencies: { left: dependencyReference("left"), right: dependencyReference("right") },
 			});
 			const plugins = Array.from([root, left, right, leftDependency, rightDependency], (entry) => ({
 				...entry,
@@ -773,13 +771,13 @@ it.effect(
 				apiVersion: 1,
 				homeView: null,
 				exports: { main: pageExport },
-				pluginDependencies: { next: dependencyReference("cycle-right") },
+				dependencies: { next: dependencyReference("cycle-right") },
 			});
 			const right = plugin("cycle-right", {
 				apiVersion: 1,
 				homeView: null,
 				exports: { main: pageExport },
-				pluginDependencies: { next: dependencyReference("cycle-left") },
+				dependencies: { next: dependencyReference("cycle-left") },
 			});
 			const input = {
 				plugin: left,
@@ -815,7 +813,7 @@ it.effect(
 					apiVersion: 1,
 					homeView: null,
 					exports: { main: pageExport },
-					pluginDependencies: { whiskey: dependencyReference("import-target") },
+					dependencies: { whiskey: dependencyReference("import-target") },
 				}),
 				clientImports: [{ exportName: "missing", reference: dependencyReference("import-target") }],
 			};
@@ -830,19 +828,7 @@ it.effect(
 				code: "export-not-found",
 				exportName: pluginExportSpecifier(target, "missing"),
 			});
-			const undeclared = {
-				...importer,
-				manifest: {
-					...importer.manifest,
-					client: {
-						...importer.manifest.client,
-						homeView: null,
-						apiVersion: 1 as const,
-						pluginDependencies: {},
-						exports: { main: pageExport },
-					},
-				},
-			};
+			const undeclared = { ...importer, manifest: { ...importer.manifest, dependencies: {} } };
 			expect(
 				(yield* Effect.flip(
 					resolveClientPageGraph({ ...input, plugin: undeclared, plugins: [undeclared, target] }),

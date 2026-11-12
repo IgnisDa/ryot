@@ -43,13 +43,12 @@ export const analyticsContributionPackage = Effect.fn(function* (
 		manifest: testPluginManifest({
 			pluginSlug: `analytics-${yield* randomUuid}`,
 			packageId: input.packageId ?? testPluginPackageId(),
+			...(input.dependency === undefined
+				? {}
+				: { dependencies: { required: { scope: "user", packageId: input.dependency } } }),
 			clientDefinition: {
 				homeView: null,
 				apiVersion: CLIENT_API_VERSION,
-				pluginDependencies:
-					input.dependency === undefined
-						? {}
-						: { required: { scope: "user", packageId: input.dependency } },
 				analyticsSections: {
 					failure: { icon: "box", sortOrder: 1, exportName: "failure", name: "Fixture failure" },
 					activity: { icon: "box", sortOrder: 0, exportName: "activity", name: "Fixture activity" },

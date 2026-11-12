@@ -1,7 +1,7 @@
 import {
 	CLIENT_API_VERSION,
-	PluginClientDependencies,
 	type PluginClientEntry,
+	PluginDependencies,
 	pluginManifestSlug,
 } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
@@ -82,7 +82,7 @@ export type ClientRuntimeArtifactMetadata = typeof ClientRuntimeArtifactMetadata
 
 export const PageClientDeclaration = strictStruct({
 	entry: Schema.String,
-	pluginDependencies: Schema.optional(PluginClientDependencies),
+	pluginDependencies: Schema.optional(PluginDependencies),
 });
 export type PageClientDeclaration = typeof PageClientDeclaration.Type;
 

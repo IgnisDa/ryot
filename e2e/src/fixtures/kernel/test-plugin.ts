@@ -79,6 +79,7 @@ type TestPluginManifestInput = {
 		| "workflows"
 		| "savedViews"
 		| "operations"
+		| "dependencies"
 		| "configSchema"
 		| "importSources"
 		| "entitySchemas"
@@ -230,6 +231,7 @@ export const testPluginManifest = (input: TestPluginManifestInput): TestPluginMa
 		),
 	),
 	...(input.clientDefinition ? { client: input.clientDefinition } : {}),
+	...(input.dependencies ? { dependencies: input.dependencies } : {}),
 	configSchema: input.configSchema ?? { fields: {}, unknownKeys: "strict" as const },
 	metadata: {
 		version: "1.0.0",

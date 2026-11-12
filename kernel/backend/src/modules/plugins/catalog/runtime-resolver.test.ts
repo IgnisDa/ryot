@@ -183,6 +183,7 @@ const withClient = (
 	value: ReturnType<typeof revisionPackage>,
 	client: PluginClientEntry,
 	imports: readonly PluginClientImport[],
+	dependencies?: PluginManifest["dependencies"],
 ) => {
 	const files = [
 		{
@@ -205,7 +206,7 @@ const withClient = (
 	];
 	return {
 		...value,
-		manifest: { ...value.manifest, client },
+		manifest: { ...value.manifest, client, ...(dependencies ? { dependencies } : {}) },
 		compiledClient: {
 			...clientArtifactMetadata(
 				value.manifest.metadata.name,
@@ -964,7 +965,6 @@ describe("catalog reads across revision boundaries", () => {
 					const client: PluginClientEntry = {
 						homeView: null,
 						apiVersion: CLIENT_API_VERSION,
-						pluginDependencies: { target: reference },
 						exports: {
 							home: {
 								kind: "component",
@@ -976,7 +976,7 @@ describe("catalog reads across revision boundaries", () => {
 					const firstImport: PluginClientImport = { reference, exportName: "card" };
 					const secondImport: PluginClientImport = { reference, exportName: "other" };
 					const installed = yield* installRevisionPackage(
-						withClient(original, client, [firstImport]),
+						withClient(original, client, [firstImport], { target: reference }),
 					);
 					const captured = yield* runtime.findPluginAvailableToUser(owner, installed.pluginId);
 					assert(captured);
@@ -987,7 +987,9 @@ describe("catalog reads across revision boundaries", () => {
 						"whiskey-entity",
 						original.manifest.metadata.packageId,
 					);
-					yield* installRevisionPackage(withClient(next, client, [secondImport]));
+					yield* installRevisionPackage(
+						withClient(next, client, [secondImport], { target: reference }),
+					);
 					expect(
 						(yield* runtime.findPluginAvailableToUser(owner, installed.pluginId))?.clientImports,
 					).toEqual([secondImport]);

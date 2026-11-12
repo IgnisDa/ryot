@@ -55,6 +55,7 @@ const AvailablePluginSections = Schema.Struct({
 	client: PluginManifest.fields.client,
 	workflows: PluginManifest.fields.workflows,
 	operations: PluginManifest.fields.operations,
+	dependencies: PluginManifest.fields.dependencies,
 	metadata: Schema.Struct({ name: PluginManifest.fields.metadata.fields.name }),
 });
 
@@ -219,6 +220,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 							operations: schema.pluginRevision.operations,
 							pluginRevisionId: userPlugin.activeRevisionId,
 							contentHash: schema.pluginRevision.contentHash,
+							dependencies: schema.pluginRevision.dependencies,
 							pluginConfigRevisionId: userPlugin.configRevisionId,
 							clientArtifactHash: schema.pluginRevision.clientArtifactHash,
 							clientImports: sql<
@@ -240,10 +242,16 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				);
 				const result = yield* Effect.forEach(
 					rows,
-					({ name, client, workflows, operations, ...row }) =>
+					({ name, client, workflows, operations, dependencies, ...row }) =>
 						Effect.map(
 							decodeStoredSchema(
-								{ workflows, operations, metadata: { name }, ...(client ? { client } : {}) },
+								{
+									workflows,
+									operations,
+									metadata: { name },
+									...(client ? { client } : {}),
+									...(dependencies ? { dependencies } : {}),
+								},
 								AvailablePluginSections,
 								`Plugin ${row.packageId} has an invalid retained manifest`,
 							),

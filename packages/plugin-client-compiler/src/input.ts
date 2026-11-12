@@ -1,4 +1,4 @@
-import { PluginClientDependencies } from "@ryot-app/contract/modules/plugins/manifest";
+import { PluginDependencies } from "@ryot-app/contract/modules/plugins/manifest";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { CLIENT_API_VERSION } from "@ryot-app/plugin-client-contract";
 import { Schema } from "effect";
@@ -26,7 +26,7 @@ export const clientPluginCompilerInputSchema = <Encoded, DecodingServices, Encod
 		name: Schema.String,
 		files: Schema.Record(Schema.String, contents),
 		apiVersion: Schema.Literal(CLIENT_API_VERSION),
-		pluginDependencies: Schema.optional(PluginClientDependencies),
+		pluginDependencies: Schema.optional(PluginDependencies),
 		publicExports: Schema.Record(Schema.String, ClientPluginCompilerPackageExport),
 	};
 	return Schema.Union([
