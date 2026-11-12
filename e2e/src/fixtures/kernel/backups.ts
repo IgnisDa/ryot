@@ -86,7 +86,7 @@ export const restoreBackup = (client: Client, bytes: Uint8Array) =>
 
 export const readBackupSection = (
 	bytes: Uint8Array,
-	path: "events.ndjson" | "entity-dependencies.ndjson",
+	path: "events.ndjson" | "publications.ndjson" | "entity-dependencies.ndjson",
 ) =>
 	Effect.forEach(
 		new TextDecoder()

@@ -51,13 +51,19 @@ It lists titles suggested by the collection's items, with titles suggested by mo
 3. Copy the link, or select **Share** on a phone.
 
 The link is shown only once. Anyone with it can view the collection's items without an account, but
-not your history, ratings, or other collections. The page stays up to date as the collection changes.
+not your history, ratings, or other collections. Live pages stay up to date as the collection changes.
 Saved views in the item browser have the same **Share** button.
 
 Select **Share** again, or open **Settings → Publications**, to see how many items are shared, preview
 the page as a visitor, add links with an optional expiry, revoke a link, or stop sharing. A
-publication needs attention when its collection or view is deleted or it shares more than 5,000
-items.
+publication needs attention when its page, source, or required plugin becomes unavailable.
+
+Choose **Live** to show current data and page code. Choose **Snapshot** to freeze the first page of
+results and page code. Snapshots have no search, filters, sorting, load more, or item navigation.
+Select **Refresh** to republish with current results and code.
+
+In **Settings → Publications**, create a publication by choosing one of your published pages.
+Collection and saved-view sharing uses the kernel page with its source bound for visitors.
 
 Backups include what you have shared, but not its links. After restoring a backup, create new links.
 

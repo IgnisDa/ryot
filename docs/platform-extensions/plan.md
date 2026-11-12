@@ -388,6 +388,10 @@ references are remapped on restore.
 
 ### E. Publications on pages
 
+Acceptance migration is in progress; E remains pending parent final validation. Accepted decision:
+snapshots freeze first-page results and page code, with no search, filtering, sorting, load more,
+or detail navigation. Refresh republishes results and code; live uses current code and data.
+
 One publication model replaces today's source publications.
 
 - **Model.** A publication is `{ page, arguments, mode }`:

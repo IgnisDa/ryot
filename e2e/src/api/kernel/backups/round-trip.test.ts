@@ -1,9 +1,11 @@
 import { dataJsonSourceReference } from "@ryot-app/contract/modules/imports/data-json";
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
+import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import {
 	EntitySchemaSlug,
 	EventSchemaSlug,
+	PublicationId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -22,6 +24,7 @@ import {
 	cloneSavedView,
 	collectRyotQLRecipeItems,
 	createAuthenticatedClient,
+	createCollection,
 	createEntity,
 	createIntegration,
 	createPluginSavedView,
@@ -94,6 +97,99 @@ const requireSettingsForField = (
 	);
 
 describe("backup export and restore round trip", () => {
+	for (const mode of ["live", "snapshot"] as const) {
+		it.live(`restores ${mode} publications without sharing their links`, () =>
+			Effect.gen(function* () {
+				const source = yield* createAuthenticatedClient();
+				const target = yield* createAuthenticatedClient();
+				const collection = yield* createCollection(source.client, { name: "Published collection" });
+				const argumentsValue = {
+					source: encodeEntitySourceReference({ kind: "collection", collectionId: collection.id }),
+				};
+				const original = yield* source.client.call((c) =>
+					c.publications.create({
+						payload: {
+							mode,
+							icon: "book",
+							showOwnerName: false,
+							arguments: argumentsValue,
+							title: "Portable publication",
+							description: "Retained presentation",
+							page: { kind: "kernel", name: "publication" },
+						},
+					}),
+				);
+				const link = yield* source.client.call((c) =>
+					c.publications.createLink({
+						payload: {
+							expiresAt: null,
+							label: "Excluded link",
+							publicationId: original.publicationId,
+						},
+					}),
+				);
+				const backup = yield* exportAndDownloadBackup(source.client);
+				const before = yield* readBackupSection(backup.bytes, "publications.ndjson");
+				expect(before).toHaveLength(1);
+				const restored = yield* restoreBackup(target.client, backup.bytes);
+				assertCompleted(restored.run, "publication restore");
+				const exported = yield* exportAndDownloadBackup(target.client);
+				const after = yield* readBackupSection(exported.bytes, "publications.ndjson");
+				expect(after).toHaveLength(1);
+				const row = requirePresent(after[0], "Restored publication missing");
+				expect(row["id"]).not.toBe(original.publicationId);
+				const publicationId = yield* Schema.decodeUnknownEffect(PublicationId)(row["id"]);
+				const rejectedLink = yield* Effect.flip(
+					target.client.call((c) =>
+						c.publicationVisits.exchange({ payload: { publicationId, secret: link.secret } }),
+					),
+				);
+				assertTaggedError(rejectedLink, "PublicationUnavailable");
+				const preview = yield* target.client.call((c) =>
+					c.publications.preview({ payload: { publicationId } }),
+				);
+				expect(preview.sessionToken.length).toBeGreaterThan(0);
+				expect(row["definition"]).toMatchObject({
+					mode,
+					page: { kind: "kernel", name: "publication" },
+				});
+				const restoredCollectionId = yield* findEntityIdByName(target.client, {
+					name: collection.name,
+					entitySchema: { owner: { kind: "kernel" }, slug: EntitySchemaSlug.make("collection") },
+				});
+				expect(restoredCollectionId).not.toBe(collection.id);
+				expect(row["definition"]).toMatchObject({
+					arguments: {
+						source: encodeEntitySourceReference({
+							kind: "collection",
+							collectionId: restoredCollectionId,
+						}),
+					},
+				});
+				if (mode === "snapshot") {
+					const snapshot = yield* Schema.decodeUnknownEffect(
+						Schema.Record(Schema.String, Schema.Json),
+					)(row["snapshot"]);
+					const originalSnapshot = yield* Schema.decodeUnknownEffect(
+						Schema.Record(Schema.String, Schema.Json),
+					)(before[0]?.["snapshot"]);
+					expect(snapshot["result"]).toEqual(originalSnapshot["result"]);
+					expect(snapshot["arguments"]).toEqual({
+						source: encodeEntitySourceReference({
+							kind: "collection",
+							collectionId: restoredCollectionId,
+						}),
+					});
+				} else {
+					expect(row["snapshot"]).toBeNull();
+				}
+				const serialized = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(after);
+				expect(serialized).not.toContain(link.secret);
+				expect(serialized).not.toContain(link.linkId);
+			}),
+		);
+	}
+
 	it.live(
 		"restores a missing compact provider reference without provider access or historical recapture",
 		() =>
