@@ -3,8 +3,8 @@ import type { AssistantMessage } from "@ryot-app/contract/modules/assistant/sche
 import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { Cause, Context, Effect, Layer, References, Schema, Stream } from "effect";
-import { Prompt, Tool, Toolkit } from "effect/ai";
+import { Cause, Context, Effect, Layer, Option, References, Schema, Stream } from "effect";
+import { AiError, Prompt, Tool, Toolkit } from "effect/ai";
 import { HttpClient } from "effect/http";
 
 import { EgressHttpClientLive } from "#platform/egress/http-client";
@@ -42,6 +42,23 @@ const limits = {
 	requestBytes: assistantModelRequestByteBudget,
 } as const;
 const bytes = (value: string) => new TextEncoder().encode(value).byteLength;
+const providerFailureDetails = (cause: Cause.Cause<unknown>) => {
+	const error = Cause.findErrorOption(cause);
+	if (Option.isNone(error)) {
+		return { error: Cause.pretty(cause) };
+	}
+	if (!AiError.isAiError(error.value)) {
+		return { error: String(error.value) };
+	}
+	const reason = error.value.reason;
+	const http = "http" in reason ? reason.http : undefined;
+	return {
+		reason: reason._tag,
+		error: error.value.message,
+		status: http?.response?.status,
+		body: http?.body === undefined ? undefined : http.body.slice(0, 2_000),
+	};
+};
 
 export class AssistantModel extends Context.Service<
 	AssistantModel,
@@ -87,7 +104,21 @@ export class AssistantModel extends Context.Service<
 								Stream.catchCause((cause) =>
 									Cause.hasInterrupts(cause)
 										? Stream.failCause(Cause.interrupt())
-										: Stream.fail(new AssistantModelError({ code: "provider-failed" })),
+										: Stream.fromEffect(
+												Effect.logWarning(
+													"Assistant provider request failed",
+													providerFailureDetails(cause),
+												).pipe(
+													Effect.annotateLogs({
+														model: request.provider.model,
+														source: request.provider.source,
+														provider: request.provider.baseUrl,
+													}),
+													Effect.andThen(
+														Effect.fail(new AssistantModelError({ code: "provider-failed" })),
+													),
+												),
+											),
 								),
 								Stream.mapEffect(
 									Effect.fn(function* (part) {

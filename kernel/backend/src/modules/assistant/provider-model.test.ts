@@ -3,8 +3,8 @@ import { expect } from "bun:test";
 import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { it } from "@voila.dev/effect-bun-test";
-import { Effect, Fiber, Stream } from "effect";
+import { it, layer } from "@voila.dev/effect-bun-test";
+import { Effect, Fiber, Logger, Stream } from "effect";
 import { Prompt } from "effect/ai";
 import { HttpClient, HttpClientResponse } from "effect/http";
 import { IpNetwork } from "effect/net";
@@ -157,6 +157,32 @@ it.effect(
 			}
 		}),
 );
+
+const providerLogMessages: unknown[] = [];
+const providerLogLayer = Logger.layer([
+	Logger.make<unknown, void>((options) => {
+		providerLogMessages.push(options.message);
+	}),
+]);
+
+layer(providerLogLayer)((test) => {
+	test.effect("logs provider diagnostics without exposing them in the failure", () =>
+		Effect.gen(function* () {
+			const client = HttpClient.make((incoming) =>
+				Effect.succeed(
+					HttpClientResponse.fromWeb(
+						incoming,
+						new Response('{"error":{"message":"secret-provider-diagnostic"}}', { status: 500 }),
+					),
+				),
+			);
+			const exit = yield* Effect.exit(collect(client, request));
+			assertExitFails(exit, new AssistantModelError({ code: "provider-failed" }));
+			expect(stableStringify(providerLogMessages)).toContain("secret-provider-diagnostic");
+			expect(stableStringify(exit)).not.toContain("secret-provider-diagnostic");
+		}),
+	);
+});
 
 it.effect("rejects oversized prompts before making a request", () =>
 	Effect.gen(function* () {
