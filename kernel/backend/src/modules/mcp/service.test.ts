@@ -2,8 +2,8 @@ import { expect } from "bun:test";
 
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
 import { getMcpOAuthResource } from "@ryot-app/contract/oauth";
-import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { UserId } from "@ryot-app/contract/schema/brands";
+import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
@@ -16,14 +16,18 @@ import type { AgentToolsService } from "#modules/agent-tools/service";
 import { makeMcpTransport, protectedResourceMetadata } from "./service";
 
 const origin = "https://ryot.example";
-const descriptor = (name: string): AgentToolDescriptor => ({
-	name,
-	output: { type: "object" },
-	description: `Describe ${name}`,
-	source: { kind: "describe-data" },
-	hints: { readOnly: true, idempotent: true, destructive: false },
-	input: { $ref: "#/$defs/Input", $defs: { Input: { type: "object", properties: {} } } },
-});
+const write = {
+	index: 0,
+	input: {},
+	capability: {
+		input: {},
+		output: {},
+		description: "Delete a page",
+		source: { kind: "kernel" as const },
+		id: CapabilityId.make("kernel:pages.delete"),
+		hints: { readOnly: false, idempotent: false, destructive: true },
+	},
+};
 const SessionResult = Schema.Struct({
 	result: Schema.Struct({
 		tools: Schema.Array(
@@ -51,7 +55,7 @@ const parseFrame = (text: string) =>
 const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["call"]) {
 	const context = yield* Effect.context();
 	const calls: Parameters<AgentToolsService["Service"]["call"]>[0][] = [];
-	const state = { disabled: false, retiring: false, names: ["first"] };
+	const state = { disabled: false, retiring: false };
 	const transport = yield* makeMcpTransport(
 		{
 			resolveRequestCredential: (headers, resource) =>
@@ -64,8 +68,8 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 					return {
 						authorization: {
 							userId: key,
-							accessClass: "standard",
 							credential: { keyId: key, kind: "api-key" },
+							accessClass: key.startsWith("demo") ? "demo" : "standard",
 						},
 						user: {
 							name: key,
@@ -83,13 +87,16 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 				}),
 		},
 		{
-			list: () => Effect.succeed(state.names.map(descriptor)),
 			call:
 				call ??
 				((input) =>
-					Effect.sync(() => {
+					Effect.gen(function* () {
 						calls.push(input);
-						return { truncated: false, value: { name: input.name } };
+						const decision = yield* input.gate.authorize(write).pipe(Effect.orDie);
+						return {
+							state: "completed",
+							result: { truncated: false, value: { decision, name: input.name } },
+						} as const;
 					})),
 		},
 		origin,
@@ -105,6 +112,7 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 		session?: string,
 		params?: unknown,
 		id: null | number = 1,
+		query = "",
 	) =>
 		Effect.gen(function* () {
 			const body = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
@@ -115,7 +123,7 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 			});
 			return yield* Effect.promise(() =>
 				web.handler(
-					new Request(`${origin}/api/mcp`, {
+					new Request(`${origin}/api/mcp${query}`, {
 						body: method === "DELETE" ? undefined : body,
 						method: method === "DELETE" ? "DELETE" : "POST",
 						headers: {
@@ -135,8 +143,35 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 	return { calls, state, request };
 });
 
+const initialize = Effect.fn(function* (
+	request: Effect.Success<ReturnType<typeof makeHarness>>["request"],
+	key: string,
+	query: string,
+) {
+	const response = yield* request(
+		"initialize",
+		key,
+		undefined,
+		{ capabilities: {}, protocolVersion: "2025-06-18", clientInfo: { name: "test", version: "1" } },
+		1,
+		query,
+	);
+	const session = response.headers.get("mcp-session-id");
+	if (!session) {
+		throw new Error("Missing MCP session");
+	}
+	yield* Effect.promise(() => response.text());
+	return session;
+});
+
+const toolNames = Effect.fn(function* (response: Response) {
+	return (yield* parseFrame(yield* Effect.promise(() => response.text()))).result.tools.map(
+		({ name }) => name,
+	);
+});
+
 it.live(
-	"authenticates every request, isolates sessions, refreshes tools and delegates with request credentials",
+	"authenticates every request, isolates sessions and serves the fixed tools with a write gate",
 	() =>
 		Effect.gen(function* () {
 			const { calls, state, request } = yield* makeHarness();
@@ -145,80 +180,83 @@ it.live(
 			expect(unauthorized.headers.get("www-authenticate")).toContain(
 				"/.well-known/oauth-protected-resource/api/mcp",
 			);
-			const init = yield* request("initialize", "alice", undefined, {
-				capabilities: {},
-				protocolVersion: "2025-06-18",
-				clientInfo: { name: "test", version: "1" },
-			});
-			expect(init.status).toBe(200);
-			const session = init.headers.get("mcp-session-id");
-			expect(session).toBeString();
-			if (!session) {
-				throw new Error("Missing MCP session");
-			}
-			yield* Effect.promise(() => init.text());
+			const session = yield* initialize(request, "alice", "");
 			const listed = yield* request("tools/list", "alice", session);
-			const listText = yield* Effect.promise(() => listed.text());
-
-			expect((yield* parseFrame(listText)).result.tools).toEqual([
-				{
-					name: "first",
-					annotations: {
-						readOnlyHint: true,
-						openWorldHint: true,
-						idempotentHint: true,
-						destructiveHint: false,
-					},
-				},
+			const tools = (yield* parseFrame(yield* Effect.promise(() => listed.text()))).result.tools;
+			expect(tools.map(({ name }) => name)).toEqual([
+				"search",
+				"execute",
+				"read_docs",
+				"page_write",
+				"page_publish",
 			]);
+			expect(tools.find(({ name }) => name === "execute")?.annotations).toEqual({
+				readOnlyHint: false,
+				openWorldHint: true,
+				idempotentHint: false,
+				destructiveHint: true,
+			});
 			const called = yield* request("tools/call", "alice", session, {
-				name: "first",
-				arguments: {},
+				name: "execute",
+				arguments: { code: "return 1;" },
 			});
 			expect(called.status).toBe(200);
-			expect(yield* Effect.promise(() => called.text())).toContain("first");
+			expect(yield* Effect.promise(() => called.text())).toContain('\\"approved\\":true');
 			expect(calls).toHaveLength(1);
+			expect(calls[0]?.name).toBe("execute");
 			expect(calls[0]?.headers["x-api-key"]).toBe("alice");
 			expect(calls[0]?.resource).toBe(getMcpOAuthResource(origin));
 			const foreign = yield* request("tools/list", "bob", session);
 			expect(foreign.status).toBe(404);
 			yield* Effect.promise(() => foreign.text());
-			state.names = ["second"];
-			const changed = yield* request("tools/list", "alice", session);
-			expect(
-				(yield* parseFrame(yield* Effect.promise(() => changed.text()))).result.tools.map(
-					({ name }) => name,
-				),
-			).toEqual(["second"]);
 			state.retiring = true;
 			expect(
-				(yield* request("tools/call", "alice", session, { arguments: {}, name: "second" })).status,
+				(yield* request("tools/call", "alice", session, { arguments: {}, name: "search" })).status,
 			).toBe(401);
 			state.retiring = false;
 			state.disabled = true;
 			expect(
-				(yield* request("tools/call", "alice", session, { arguments: {}, name: "second" })).status,
+				(yield* request("tools/call", "alice", session, { arguments: {}, name: "search" })).status,
 			).toBe(401);
 			expect(calls).toHaveLength(1);
 		}).pipe(Effect.scoped),
 	testTimeout,
 );
 
-const initialize = Effect.fn(function* (
-	request: Effect.Success<ReturnType<typeof makeHarness>>["request"],
-) {
-	const response = yield* request("initialize", "alice", undefined, {
-		capabilities: {},
-		protocolVersion: "2025-06-18",
-		clientInfo: { name: "test", version: "1" },
-	});
-	const session = response.headers.get("mcp-session-id");
-	if (!session) {
-		throw new Error("Missing MCP session");
-	}
-	yield* Effect.promise(() => response.text());
-	return session;
-});
+it.live(
+	"read-only and demo connections hide page writes and read-only connections refuse writes",
+	() =>
+		Effect.gen(function* () {
+			const { calls, request } = yield* makeHarness();
+			const readOnly = yield* initialize(request, "alice", "?readonly=true");
+			expect(
+				yield* toolNames(
+					yield* request("tools/list", "alice", readOnly, undefined, 1, "?readonly=true"),
+				),
+			).toEqual(["search", "execute", "read_docs"]);
+			const refused = yield* request(
+				"tools/call",
+				"alice",
+				readOnly,
+				{ name: "execute", arguments: { code: "return 1;" } },
+				1,
+				"?readonly=true",
+			);
+			expect(yield* Effect.promise(() => refused.text())).toContain(
+				"This MCP connection is read-only",
+			);
+			expect(calls).toHaveLength(1);
+			const writable = yield* request("tools/list", "alice", readOnly);
+			expect(writable.status).toBe(404);
+			yield* Effect.promise(() => writable.text());
+			const demo = yield* initialize(request, "demo-user", "");
+			expect(yield* toolNames(yield* request("tools/list", "demo-user", demo))).toEqual([
+				"search",
+				"execute",
+				"read_docs",
+			]);
+		}).pipe(Effect.scoped),
+);
 
 for (const action of ["cancel", "terminate"] as const) {
 	it.live(`allows ${action} while a tool call is waiting`, () =>
@@ -231,10 +269,10 @@ for (const action of ["cancel", "terminate"] as const) {
 					Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
 				),
 			);
-			const session = yield* initialize(request);
+			const session = yield* initialize(request, "alice", "");
 			const pending = yield* request("tools/call", "alice", session, {
-				name: "first",
 				arguments: {},
+				name: "search",
 			}).pipe(Effect.forkScoped);
 			yield* Deferred.await(started);
 			const response =
@@ -261,10 +299,10 @@ it.effect(
 					Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
 				),
 			);
-			const session = yield* initialize(request);
+			const session = yield* initialize(request, "alice", "");
 			const pending = yield* request("tools/call", "alice", session, {
-				name: "first",
 				arguments: {},
+				name: "search",
 			}).pipe(Effect.forkScoped);
 			yield* Deferred.await(started);
 			state.disabled = true;

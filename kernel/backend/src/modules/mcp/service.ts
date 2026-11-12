@@ -6,15 +6,16 @@ import {
 	getOAuthIssuer,
 	OAUTH_API_SCOPE,
 } from "@ryot-app/contract/oauth";
-import type { AgentToolDescriptor } from "@ryot-app/contract/schema/agent-tool";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { Context, Deferred, Effect, Layer, Schedule, Schema, ScopedCache, Semaphore } from "effect";
+import { strictStruct } from "@ryot-app/contract/schema/utils";
+import { Context, Deferred, Effect, Layer, Schedule, Schema, ScopedCache } from "effect";
 import { McpProtocol, McpSchema, McpServer } from "effect/ai";
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { AuthService } from "#modules/accounts/auth/service";
-import { agentToolDescriptorPin, AgentToolsService } from "#modules/agent-tools/service";
+import type { WriteGate } from "#modules/agent-tools/execute";
+import { AgentToolsService, availableAgentTools } from "#modules/agent-tools/service";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig } from "#platform/config/service";
 
@@ -30,9 +31,16 @@ export const protectedResourceMetadata = (origin: string) => ({
 	authorization_servers: [getOAuthIssuer(origin)],
 });
 
+const ConnectionIdentity = strictStruct({
+	readOnly: Schema.Boolean,
+	authorization: AuthorizationContext,
+});
+const isReadOnlyRequest = (url: string) =>
+	new URL(url, "http://localhost").searchParams.get("readonly") === "true";
+
 export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 	auth: Pick<AuthService["Service"], "resolveRequestCredential">,
-	tools: Pick<AgentToolsService["Service"], "list" | "call">,
+	tools: Pick<AgentToolsService["Service"], "call">,
 	origin: string,
 	lifecycle: Pick<LifecycleWriteGuard["Service"], "isActive">,
 ) {
@@ -44,10 +52,21 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 	const connections = yield* ScopedCache.make({
 		capacity: 1024,
 		timeToLive: "30 minutes",
-		lookup: (_identity: string) =>
+		lookup: (identity: string) =>
 			Effect.gen(function* () {
+				const { readOnly, authorization } = yield* Schema.decodeEffect(
+					Schema.fromJsonString(ConnectionIdentity),
+				)(identity).pipe(Effect.orDie);
+				const gate: WriteGate = {
+					settle: () => Effect.void,
+					authorize: () =>
+						Effect.succeed(
+							readOnly
+								? { approved: false, reason: "This MCP connection is read-only" }
+								: { approved: true },
+						),
+				};
 				const registryReady = yield* Deferred.make<McpServer.McpServer["Service"]>();
-				const current = new Map<string, string>();
 				const registrations = Layer.effectDiscard(
 					Effect.gen(function* () {
 						const registry = yield* McpServer.McpServer;
@@ -73,92 +92,70 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 					}),
 				).pipe(Effect.provideService(Layer.CurrentMemoMap, connectionMemoMap));
 				const registry = yield* Deferred.await(registryReady);
-				const mutex = yield* Semaphore.make(1);
-				const refresh = Effect.fn("McpTransport.refresh")(function* (
-					listed: readonly AgentToolDescriptor[],
-				) {
-					const next = new Map<string, string>();
-					for (const tool of listed) {
-						next.set(
-							tool.name,
-							yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(tool).pipe(
-								Effect.orDie,
-							),
-						);
+				for (const tool of availableAgentTools(authorization.accessClass)) {
+					if (readOnly && tool.approval === "call") {
+						continue;
 					}
-					for (const tool of listed) {
-						if (current.get(tool.name) === next.get(tool.name)) {
-							continue;
-						}
-						const inputSchema = yield* Schema.decodeEffect(McpSchema.ToolJson)({
-							type: "object",
-							...tool.input,
-						}).pipe(Effect.orDie);
-						yield* registry.addTool({
-							annotations: Context.make(McpSchema.EnabledWhen, () => current.has(tool.name)),
-							tool: new McpSchema.Tool({
-								inputSchema,
-								name: tool.name,
-								description: tool.description,
-								annotations: {
-									openWorldHint: true,
-									readOnlyHint: tool.hints.readOnly,
-									idempotentHint: tool.hints.idempotent,
-									destructiveHint: tool.hints.destructive,
-								},
-							}),
-							handle: (argumentsValue: unknown) =>
-								Effect.gen(function* () {
-									const headers = yield* RequestHeaders;
-									const args = yield* Schema.decodeUnknownEffect(JsonValue)(
-										argumentsValue ?? {},
-									).pipe(
-										Effect.mapError(
-											() =>
-												new McpSchema.InvalidParams({ message: "Tool arguments must be JSON." }),
-										),
-									);
-									const result = yield* tools.call({
-										headers,
-										resource,
-										name: tool.name,
-										arguments: args,
-										descriptorPin: agentToolDescriptorPin(tool),
-										...(tool.source.kind === "operation"
-											? { contentHash: tool.source.contentHash }
-											: {}),
-										...(tool.source.kind === "declared-query"
-											? { revisionId: tool.source.revisionId }
-											: {}),
-									});
-									return new McpSchema.CallToolResult({
-										content: [
-											{
-												type: "text",
-												text: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
-													result,
-												).pipe(Effect.orDie),
-											},
-										],
-									});
-								}).pipe(
-									Effect.catch((error) =>
-										Effect.succeed(
-											new McpSchema.CallToolResult({
-												isError: true,
-												content: [{ type: "text", text: error.message }],
-											}),
-										),
+					const inputSchema = yield* Schema.decodeEffect(McpSchema.ToolJson)({
+						type: "object",
+						...tool.input,
+					}).pipe(Effect.orDie);
+					yield* registry.addTool({
+						annotations: Context.empty(),
+						tool: new McpSchema.Tool({
+							inputSchema,
+							name: tool.name,
+							description: tool.description,
+							annotations: {
+								openWorldHint: true,
+								readOnlyHint: tool.hints.readOnly,
+								idempotentHint: tool.hints.idempotent,
+								destructiveHint: tool.hints.destructive,
+							},
+						}),
+						handle: (argumentsValue: unknown) =>
+							Effect.gen(function* () {
+								const headers = yield* RequestHeaders;
+								const args = yield* Schema.decodeUnknownEffect(JsonValue)(
+									argumentsValue ?? {},
+								).pipe(
+									Effect.mapError(
+										() => new McpSchema.InvalidParams({ message: "Tool arguments must be JSON." }),
+									),
+								);
+								const outcome = yield* tools.call({
+									gate,
+									headers,
+									resource,
+									name: tool.name,
+									arguments: args,
+								});
+								if (outcome.state === "suspended") {
+									return yield* Effect.die("MCP tool calls cannot suspend");
+								}
+								return new McpSchema.CallToolResult({
+									content: [
+										{
+											type: "text",
+											text: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+												outcome.result,
+											).pipe(Effect.orDie),
+										},
+									],
+								});
+							}).pipe(
+								Effect.catch((error) =>
+									Effect.succeed(
+										new McpSchema.CallToolResult({
+											isError: true,
+											content: [{ type: "text", text: error.message }],
+										}),
 									),
 								),
-						});
-					}
-					current.clear();
-					for (const [name, fingerprint] of next) {
-						current.set(name, fingerprint);
-					}
-				});
-				return { app, mutex, refresh };
+							),
+					});
+				}
+				return { app };
 			}),
 	});
 	yield* ScopedCache.keys(connections).pipe(
@@ -179,14 +176,12 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 		) {
 			return yield* new AuthUnauthorized({ reason: { code: "write-blocked" } });
 		}
-		const identity = yield* Schema.encodeEffect(Schema.fromJsonString(AuthorizationContext))(
+		const identity = yield* Schema.encodeEffect(Schema.fromJsonString(ConnectionIdentity))({
 			authorization,
-		).pipe(Effect.orDie);
-		const connection = yield* ScopedCache.get(connections, identity).pipe(Effect.orDie);
-		yield* connection.mutex.withPermits(1)(
-			tools.list(request.headers, resource).pipe(Effect.flatMap(connection.refresh)),
-		);
-		return yield* connection.app;
+			readOnly: isReadOnlyRequest(request.url),
+		}).pipe(Effect.orDie);
+		const { app } = yield* ScopedCache.get(connections, identity).pipe(Effect.orDie);
+		return yield* app;
 	}).pipe(
 		Effect.catchTag("AuthUnauthorized", () =>
 			Effect.succeed(
