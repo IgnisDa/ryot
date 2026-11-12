@@ -5,6 +5,7 @@ import {
 	AssistantToolCall,
 	type AssistantTurnFailure,
 } from "@ryot-app/contract/modules/assistant/schemas";
+import { AgentToolName } from "@ryot-app/contract/schema/agent-tool";
 import { AssistantToolCallId, type UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
@@ -186,16 +187,26 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 						) {
 							return yield* Effect.fail(failure("provider-failed"));
 						}
-						const validated = yield* tools.validateTrusted(payload.userId, {
-							name: event.name,
-							arguments: event.arguments,
-						});
+						if (!Schema.is(AgentToolName)(event.name)) {
+							yield* Effect.logWarning("Assistant model called an unknown tool", {
+								tool: event.name,
+							});
+							return yield* Effect.fail(failure("provider-failed"));
+						}
+						const requiresApproval = yield* tools
+							.validateTrusted(payload.userId, { name: event.name, arguments: event.arguments })
+							.pipe(
+								Effect.map((validated) => validated.requiresApproval),
+								Effect.catchTag(["BadRequest", "DemoOperationProtected"], () =>
+									Effect.succeed(false),
+								),
+							);
 						calls.push({
 							kind: "tool",
-							tool: validated.tool.name,
+							requiresApproval,
+							tool: event.name,
 							arguments: event.arguments,
 							modelCallId: event.modelCallId,
-							requiresApproval: validated.requiresApproval,
 							id: AssistantToolCallId.make(`${payload.turnId}:${round}:${calls.length}`),
 						});
 					} else {
@@ -207,6 +218,9 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			Effect.mapError(() => failure("provider-failed")),
 		);
 		if (!finishReasons.some((reason) => reason === "stop" || reason === "tool-calls")) {
+			yield* Effect.logWarning("Assistant model stream ended without a usable finish reason", {
+				finishReasons,
+			});
 			return yield* Effect.fail(failure("provider-failed"));
 		}
 		yield* persistText();

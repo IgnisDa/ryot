@@ -1,7 +1,7 @@
 import { expect } from "bun:test";
 
 import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { DbError } from "@ryot-app/contract/errors";
+import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import {
 	AssistantError,
 	type AssistantTurnFailure,
@@ -127,6 +127,7 @@ const harness = Effect.fn(function* (
 		readonly noProvider?: boolean;
 		readonly gatedWrite?: boolean;
 		readonly failProvider?: boolean;
+		readonly invalidArguments?: boolean;
 		readonly interruptAfterWrite?: boolean;
 	} = {},
 ) {
@@ -180,7 +181,12 @@ const harness = Effect.fn(function* (
 		tools: {
 			listTrusted: () => Effect.succeed([tool]),
 			validateTrusted: () =>
-				Effect.succeed({ tool, requiresApproval: changed ? !requiresApproval : requiresApproval }),
+				options.invalidArguments
+					? Effect.fail(new BadRequest({ message: 'Expected string at ["query"]' }))
+					: Effect.succeed({
+							tool,
+							requiresApproval: changed ? !requiresApproval : requiresApproval,
+						}),
 			callTrusted: (userId, input) =>
 				Effect.gen(function* () {
 					invocations.push(input.idempotencyKey);
@@ -470,6 +476,29 @@ layer(services, { excludeTestServices: true })((test) => {
 					expect(setup.generated()).toBe(12);
 				}
 			}
+		}),
+	);
+
+	test.effect("returns invalid tool arguments to the model instead of failing the turn", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({ invalidArguments: true });
+			const payload = yield* admit();
+			yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			assert(state);
+			expect(state.turn.status).toBe("completed");
+			expect(setup.generated()).toBe(2);
+			expect(setup.invocations).toEqual([]);
+			const [call] = state.calls;
+			assert(call);
+			expect(call.decision).toBeNull();
+			expect(call.call.requiresApproval).toBe(false);
+			assert(call.result && !call.result.truncated);
+			expect(call.result.value).toMatchObject({
+				error: "tool-failed",
+				message: 'Expected string at ["query"]',
+			});
 		}),
 	);
 

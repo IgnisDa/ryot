@@ -4,6 +4,8 @@ import { PageDefinition, PageDraftRevisionBody } from "../modules/pages/schemas"
 import { PluginOperationHints, PluginOperationJsonSchema } from "../modules/plugins/manifest";
 import { strictStruct } from "./utils";
 
+const optionalInput = <S extends Schema.Top>(schema: S) => Schema.optional(Schema.NullOr(schema));
+
 export const AgentToolName = Schema.Literals([
 	"search",
 	"execute",
@@ -14,24 +16,24 @@ export const AgentToolName = Schema.Literals([
 export type AgentToolName = typeof AgentToolName.Type;
 
 export const SearchCapabilitiesInput = strictStruct({
-	query: Schema.optional(Schema.String),
-	namespace: Schema.optional(Schema.NonEmptyString),
-	detail: Schema.optional(Schema.Literals(["names", "summary", "full"])),
-	limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 50 }))),
+	query: optionalInput(Schema.String),
+	namespace: optionalInput(Schema.NonEmptyString),
+	detail: optionalInput(Schema.Literals(["names", "summary", "full"])),
+	limit: optionalInput(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 50 }))),
 });
 export type SearchCapabilitiesInput = typeof SearchCapabilitiesInput.Type;
 export const ExecuteInput = strictStruct({ code: Schema.NonEmptyString });
 export const ReadDocsInput = strictStruct({
-	topic: Schema.optional(Schema.NonEmptyString),
-	page: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+	topic: optionalInput(Schema.NonEmptyString),
+	page: optionalInput(Schema.Int.check(Schema.isGreaterThan(0))),
 });
 export type ReadDocsInput = typeof ReadDocsInput.Type;
 export const PageWriteInput = strictStruct({
 	definition: PageDefinition,
-	name: Schema.optional(Schema.NonEmptyString),
-	slug: Schema.optional(Schema.NonEmptyString),
-	pageId: Schema.optional(Schema.NonEmptyString),
-	expectedDraftRevision: Schema.optional(Schema.Int.check(Schema.isGreaterThan(0))),
+	name: optionalInput(Schema.NonEmptyString),
+	slug: optionalInput(Schema.NonEmptyString),
+	pageId: optionalInput(Schema.NonEmptyString),
+	expectedDraftRevision: optionalInput(Schema.Int.check(Schema.isGreaterThan(0))),
 });
 export type PageWriteInput = typeof PageWriteInput.Type;
 export const PagePublishInput = PageDraftRevisionBody;

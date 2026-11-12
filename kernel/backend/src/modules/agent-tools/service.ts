@@ -172,7 +172,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				const actor = { userId: account.user.id, kind: "assistant" as const };
 				const draftKey = keyed(idempotencyKey, "draft");
 				let draft: { readonly pageId: string; readonly draftRevision: number };
-				if (input.pageId !== undefined && input.expectedDraftRevision !== undefined) {
+				if (input.pageId != null && input.expectedDraftRevision != null) {
 					draft = yield* pages.replaceDraft(
 						actor,
 						{
@@ -182,7 +182,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 						},
 						draftKey,
 					);
-				} else if (input.name !== undefined && input.slug !== undefined) {
+				} else if (input.name != null && input.slug != null) {
 					draft = yield* pages.create(
 						actor,
 						{ name: input.name, slug: input.slug, definition: input.definition },
@@ -254,7 +254,9 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				if (decoded.name === "read_docs") {
 					const { page, topic } = decoded.input;
 					return yield* completed(
-						topic === undefined ? listAgentDocs(docs) : yield* readAgentDocs(docs, topic, page),
+						topic == null
+							? listAgentDocs(docs)
+							: yield* readAgentDocs(docs, topic, page ?? undefined),
 					);
 				}
 				if (decoded.name === "page_write") {

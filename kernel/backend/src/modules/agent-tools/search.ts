@@ -27,12 +27,11 @@ export const searchCapabilities = (
 	input: SearchCapabilitiesInput,
 ) => {
 	const terms = tokens(input.query ?? "");
-	if (terms.length === 0 && input.namespace === undefined) {
+	if (terms.length === 0 && input.namespace == null) {
 		return { namespaces, instruction: "Search with a query, a namespace, or both." };
 	}
 	const candidates = capabilities.filter(
-		(capability) =>
-			input.namespace === undefined || capabilityOwner(capability.id) === input.namespace,
+		(capability) => input.namespace == null || capabilityOwner(capability.id) === input.namespace,
 	);
 	const ranked =
 		terms.length === 0
