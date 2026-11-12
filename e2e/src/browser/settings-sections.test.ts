@@ -28,16 +28,14 @@ it.live("keeps account and server-wide sections on their own pages", () =>
 		expect(yield* page.getByRole("heading", { name: "Version" }).count).toBe(0);
 		expect(yield* page.getByRole("link", { name: /Instance Admin/ }).count).toBe(0);
 
-		yield* settingsSidebar(page).getByRole("link", { name: "About" }).click();
-		yield* page.waitForURL((url) => url.pathname === "/settings/about");
+		expect(yield* settingsSidebar(page).getByRole("link", { name: "About" }).count).toBe(0);
+		yield* settingsSidebar(page).getByRole("link", { name: "Administration" }).click();
+		yield* page.waitForURL((url) => url.pathname === "/settings/administration");
 		yield* page
 			.getByRole("heading", { level: 2, name: "Version" })
 			.locator("xpath=ancestor::section[1]")
 			.getByText("Server", { exact: true })
 			.waitFor({ state: "visible" });
-
-		yield* settingsSidebar(page).getByRole("link", { name: "Administration" }).click();
-		yield* page.waitForURL((url) => url.pathname === "/settings/administration");
 		yield* page.getByRole("link", { name: /Instance Admin/ }).click();
 		yield* page.waitForURL((url) => url.pathname.startsWith("/instance-admin"));
 	}).pipe(PlaywrightSpawner.withBrowser),
@@ -51,10 +49,10 @@ it.live("scrolls a short settings sidebar to every section with registered icons
 		yield* signInThroughHostedOAuth(page, email, password);
 
 		yield* page.goto(`${getFrontendUrl()}/settings/preferences`);
-		const about = settingsSidebar(page).getByRole("link", { name: "About" });
-		yield* about.waitFor({ state: "attached" });
+		const administration = settingsSidebar(page).getByRole("link", { name: "Administration" });
+		yield* administration.waitFor({ state: "attached" });
 		expect(yield* settingsSidebar(page).locator('[data-app-icon="fallback"]').count).toBe(0);
-		yield* about.click();
-		yield* page.waitForURL((url) => url.pathname === "/settings/about");
+		yield* administration.click();
+		yield* page.waitForURL((url) => url.pathname === "/settings/administration");
 	}).pipe(PlaywrightSpawner.withBrowser),
 );

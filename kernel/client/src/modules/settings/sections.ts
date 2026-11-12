@@ -35,7 +35,7 @@ export const settingsGroups = [
 				label: "Notification channels",
 				path: "/settings/notification-channels",
 			},
-			{ icon: "key-round", slug: "api-keys", label: "API keys", path: "/settings/api-keys" },
+			{ slug: "api-keys", icon: "key-round", label: "API keys", path: "/settings/api-keys" },
 		],
 	},
 	{
@@ -61,7 +61,6 @@ export const settingsGroups = [
 				label: "Administration",
 				path: "/settings/administration",
 			},
-			{ icon: "info", slug: "about", label: "About", path: "/settings/about" },
 		],
 	},
 ] as const;

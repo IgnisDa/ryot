@@ -134,7 +134,7 @@ describe("OAuth connection return route", () => {
 				]);
 				expect(mounted.closed).toEqual(["closed"]);
 
-				yield* Effect.promise(() => mounted.router.navigate({ to: "/settings/about" }));
+				yield* Effect.promise(() => mounted.router.navigate({ to: "/settings/administration" }));
 				yield* Effect.promise(() => mounted.router.navigate({ to: RETURN_PATH }));
 
 				yield* Effect.promise(() => screen.findByText("Nothing to connect"));

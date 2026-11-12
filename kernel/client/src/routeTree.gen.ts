@@ -34,7 +34,6 @@ import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPagePreviewPageIdRouteImport } from './routes/_authenticated/page-preview/$pageId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
-import { Route as AuthenticatedSettingsAboutRouteImport } from './routes/_authenticated/settings/about'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
 import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings/api-keys'
@@ -189,12 +188,6 @@ const AuthenticatedSettingsSplatRoute =
   AuthenticatedSettingsSplatRouteImport.update({
     id: '/$',
     path: '/$',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedSettingsAboutRoute =
-  AuthenticatedSettingsAboutRouteImport.update({
-    id: '/about',
-    path: '/about',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsAccountRoute =
@@ -370,7 +363,6 @@ export interface FileRoutesByFullPath {
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
-  '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -420,7 +412,6 @@ export interface FileRoutesByTo {
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
-  '/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -473,7 +464,6 @@ export interface FileRoutesById {
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
-  '/_authenticated/settings/about': typeof AuthenticatedSettingsAboutRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
   '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
@@ -527,7 +517,6 @@ export interface FileRouteTypes {
     | '/e/$entityId'
     | '/page-preview/$pageId'
     | '/settings/$'
-    | '/settings/about'
     | '/settings/account'
     | '/settings/administration'
     | '/settings/api-keys'
@@ -577,7 +566,6 @@ export interface FileRouteTypes {
     | '/e/$entityId'
     | '/page-preview/$pageId'
     | '/settings/$'
-    | '/settings/about'
     | '/settings/account'
     | '/settings/administration'
     | '/settings/api-keys'
@@ -629,7 +617,6 @@ export interface FileRouteTypes {
     | '/_authenticated/e/$entityId'
     | '/_authenticated/page-preview/$pageId'
     | '/_authenticated/settings/$'
-    | '/_authenticated/settings/about'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/administration'
     | '/_authenticated/settings/api-keys'
@@ -852,13 +839,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSplatRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
-    '/_authenticated/settings/about': {
-      id: '/_authenticated/settings/about'
-      path: '/about'
-      fullPath: '/settings/about'
-      preLoaderRoute: typeof AuthenticatedSettingsAboutRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
@@ -1039,7 +1019,6 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
-  AuthenticatedSettingsAboutRoute: typeof AuthenticatedSettingsAboutRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
   AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
@@ -1064,7 +1043,6 @@ interface AuthenticatedSettingsRouteRouteChildren {
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
   {
     AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
-    AuthenticatedSettingsAboutRoute: AuthenticatedSettingsAboutRoute,
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
     AuthenticatedSettingsAdministrationRoute:
       AuthenticatedSettingsAdministrationRoute,

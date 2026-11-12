@@ -317,7 +317,7 @@ describe("settings navigation", () => {
 					"Account",
 					"Reminders",
 				]);
-				expect(labels("Server")).toEqual(["Administration", "About"]);
+				expect(labels("Server")).toEqual(["Administration"]);
 			}),
 		testTimeout,
 	);
@@ -1095,15 +1095,13 @@ describe("administration settings", () => {
 			}),
 		testTimeout,
 	);
-});
 
-describe("about settings", () => {
 	it.live(
 		"names the connected server on native and points at sign out to change it",
 		() =>
 			Effect.gen(function* () {
 				mountView(
-					"/settings/about",
+					"/settings/administration",
 					undefined,
 					undefined,
 					undefined,
@@ -1112,7 +1110,7 @@ describe("about settings", () => {
 					undefined,
 					makeOAuthRouteStubs({}, {}, { isNative: true }),
 				);
-				yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Administration" }));
 
 				const section = screen.getByRole("heading", { name: "Server" }).closest("section");
 				expect(section?.textContent).toContain("https://ryot.example");
@@ -1127,8 +1125,8 @@ describe("about settings", () => {
 		"hides the server section on web, where the origin cannot be changed",
 		() =>
 			Effect.gen(function* () {
-				mountView("/settings/about");
-				yield* Effect.promise(() => screen.findByRole("heading", { name: "About" }));
+				mountView("/settings/administration");
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Administration" }));
 
 				expect(screen.queryByRole("heading", { name: "Server" })).toBeNull();
 			}),
