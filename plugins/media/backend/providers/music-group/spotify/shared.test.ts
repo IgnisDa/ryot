@@ -237,8 +237,10 @@ describe("music-group.spotify sandbox script", () => {
 				const result = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "al1",
 						direction: "outgoing",
+						entitySchemaSlug: "music-group",
 						continuation: group.coverage.continuation,
 						relationshipSchemaSlug: "music-group-to-music",
 					},
@@ -287,8 +289,10 @@ describe("music-group.spotify sandbox script", () => {
 				const first = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "al1",
 						direction: "outgoing",
+						entitySchemaSlug: "music-group",
 						continuation: { offset: 1, total: 43 },
 						relationshipSchemaSlug: "music-group-to-music",
 					},
@@ -302,8 +306,10 @@ describe("music-group.spotify sandbox script", () => {
 				const last = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "al1",
 						direction: "outgoing",
+						entitySchemaSlug: "music-group",
 						continuation: first.coverage.continuation,
 						relationshipSchemaSlug: "music-group-to-music",
 					},
@@ -343,8 +349,10 @@ describe("music-group.spotify sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "al1",
 					direction: "outgoing",
+					entitySchemaSlug: "music-group",
 					continuation: { total: 3, offset: 1 },
 					relationshipSchemaSlug: "music-group-to-music",
 				},
@@ -374,8 +382,10 @@ describe("music-group.spotify sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "al1",
 					direction: "outgoing",
+					entitySchemaSlug: "music-group",
 					continuation: { total: 4, offset: 0 },
 					relationshipSchemaSlug: "music-group-to-music",
 				},
@@ -400,8 +410,10 @@ describe("music-group.spotify sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "al1",
 					direction: "outgoing",
+					entitySchemaSlug: "music-group",
 					continuation: { total: 3, offset: 1 },
 					relationshipSchemaSlug: "music-group-to-music",
 				},

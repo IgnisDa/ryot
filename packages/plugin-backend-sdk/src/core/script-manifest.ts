@@ -2,7 +2,10 @@ import {
 	AutomationAfterInputProjection,
 	AutomationPolicyInputProjection,
 } from "@ryot-app/contract/modules/automations/lifecycle";
-import { ProviderTranslationInputs } from "@ryot-app/contract/modules/plugins/provider-inputs";
+import {
+	ProviderRelatedInputs,
+	ProviderTranslationInputs,
+} from "@ryot-app/contract/modules/plugins/provider-inputs";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -23,6 +26,7 @@ export const sandboxManifestSchema = Schema.Union([
 		...sandboxManifestBaseFields,
 		kind: Schema.Literal("provider"),
 		searchOptionsSchema: Schema.optional(appSchema),
+		relatedInputs: Schema.optional(ProviderRelatedInputs),
 		translationInputs: Schema.optional(ProviderTranslationInputs),
 	}),
 	strictStruct({ ...sandboxManifestBaseFields, kind: Schema.Literal("operation") }),

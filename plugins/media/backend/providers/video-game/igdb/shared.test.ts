@@ -696,7 +696,9 @@ const runRelated = (
 		{
 			externalId,
 			continuation,
+			properties: {},
 			direction: "outgoing",
+			entitySchemaSlug: "video-game",
 			relationshipSchemaSlug: "video-game-to-video-game",
 		},
 		host,
@@ -905,8 +907,10 @@ describe("video-game.igdb game relationships", () => {
 				runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "472",
 						direction: "outgoing",
+						entitySchemaSlug: "video-game",
 						relationshipSchemaSlug: "video-game-to-video-game",
 						continuation: { offset: 500, parentType: "Main Game" },
 					},

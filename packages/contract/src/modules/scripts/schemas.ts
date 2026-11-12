@@ -19,7 +19,7 @@ import {
 } from "../automations/lifecycle";
 import { PageOperationAuthority } from "../pages/identity";
 import { SandboxExecutionMetadata } from "../plugins/execution-metadata";
-import { ProviderTranslationInputs } from "../plugins/provider-inputs";
+import { ProviderRelatedInputs, ProviderTranslationInputs } from "../plugins/provider-inputs";
 import { SandboxBoundaryReason } from "./boundary-reason";
 import { POLICY_SAFE_SANDBOX_CAPABILITIES } from "./wire";
 
@@ -42,6 +42,7 @@ export const SandboxScriptMetadata = Schema.Struct({
 	name: Schema.optional(Schema.String),
 	slug: Schema.optional(Schema.String),
 	kind: Schema.optional(SandboxScriptKind),
+	relatedInputs: Schema.optional(ProviderRelatedInputs),
 	capabilities: Schema.optional(Schema.Array(Schema.String)),
 	translationInputs: Schema.optional(ProviderTranslationInputs),
 	runtimeImports: SandboxExecutionMetadata.fields.runtimeImports,
@@ -90,6 +91,7 @@ export const SandboxScriptManifest = Schema.Union([
 	Schema.Struct({
 		...SandboxScriptManifestFields,
 		kind: Schema.Literal("provider"),
+		relatedInputs: Schema.optional(ProviderRelatedInputs),
 		translationInputs: Schema.optional(ProviderTranslationInputs),
 		searchOptionsSchema: Schema.optional(Schema.toType(AppSchema)),
 	}),

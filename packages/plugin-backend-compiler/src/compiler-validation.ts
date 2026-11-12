@@ -159,6 +159,18 @@ export const validateSandboxEntry = Effect.fn("validateSandboxEntry")(function* 
 			),
 		]);
 	}
+	if (
+		extracted.manifest.kind === "provider" &&
+		inspection.providerOperation !== "related" &&
+		extracted.manifest.relatedInputs !== undefined
+	) {
+		return yield* sandboxCompilationFailure([
+			pluginBackendCompilerDiagnostic(
+				"RYOT_MANIFEST",
+				"Only related providers may declare relatedInputs",
+			),
+		]);
+	}
 	if (extracted.manifest.kind === "workflow") {
 		const diagnostics = workflowSourceFiles(sourceFile, sourceFiles).flatMap((file) =>
 			inspectWorkflowImports(file).concat(inspectWorkflowDeterminism(file)),

@@ -37,7 +37,7 @@ import {
 } from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
-import { ProviderTranslationInputs } from "./provider-inputs";
+import { ProviderRelatedInputs, ProviderTranslationInputs } from "./provider-inputs";
 import {
 	AuthoredEventSchemaReference,
 	AuthoredRelationshipSchemaReference,
@@ -645,7 +645,14 @@ export const PluginScript = Schema.Union([
 			...PluginScriptFields,
 			kind: Schema.Literal("provider"),
 			providerSlug: sandboxManifestSlug,
-			providerOperation: Schema.Literals(["details", "related", "resolve", "search-options"]),
+			providerOperation: Schema.Literal("related"),
+			relatedInputs: Schema.optional(ProviderRelatedInputs),
+		}),
+		strictStruct({
+			...PluginScriptFields,
+			kind: Schema.Literal("provider"),
+			providerSlug: sandboxManifestSlug,
+			providerOperation: Schema.Literals(["details", "resolve", "search-options"]),
 		}),
 	]),
 ]);
@@ -1530,15 +1537,38 @@ const hasValidPluginManifestReferences = (manifest: typeof PluginManifestFields.
 		return false;
 	}
 	const providerScripts = manifest.scripts.filter((script) => script.kind === "provider");
+	const declaresProperties = (schemaSlug: string, keys: ReadonlyArray<string>) => {
+		const entitySchema = manifest.entitySchemas.find(({ slug }) => slug === schemaSlug);
+		return (
+			entitySchema !== undefined &&
+			keys.every((key) => Object.hasOwn(entitySchema.propertiesSchema.fields, key))
+		);
+	};
 	for (const script of providerScripts) {
-		if (script.providerOperation !== "translate") {
+		if (
+			script.providerOperation === "translate" &&
+			!Object.entries(script.translationInputs).every(([schemaSlug, keys]) =>
+				declaresProperties(schemaSlug, keys),
+			)
+		) {
+			return false;
+		}
+		if (script.providerOperation !== "related" || script.relatedInputs === undefined) {
 			continue;
 		}
-		for (const [schemaSlug, keys] of Object.entries(script.translationInputs)) {
-			const entitySchema = manifest.entitySchemas.find(({ slug }) => slug === schemaSlug);
+		const provider = manifest.providers.find(({ slug }) => slug === script.providerSlug);
+		for (const [schemaSlug, input] of Object.entries(script.relatedInputs)) {
 			if (
-				!entitySchema ||
-				!keys.every((key) => Object.hasOwn(entitySchema.propertiesSchema.fields, key))
+				schemaSlug === provider?.rootEntitySchemaSlug ||
+				!declaresProperties(schemaSlug, input.properties) ||
+				!input.groups.every((group) =>
+					manifest.relationshipSchemas.some(
+						(relationship) =>
+							relationship.slug === group.relationshipSchemaSlug &&
+							relationship[`${relationshipEnds(group.direction).anchor}EntitySchemaSlug`] ===
+								schemaSlug,
+					),
+				)
 			) {
 				return false;
 			}

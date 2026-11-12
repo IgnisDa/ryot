@@ -112,6 +112,13 @@ export const declaredScriptMetadata = (script: PluginScript): PluginScriptMetada
 			translationInputs: script.translationInputs,
 		};
 	}
+	if (script.providerOperation === "related") {
+		return {
+			...provider,
+			providerOperation: script.providerOperation,
+			...(script.relatedInputs ? { relatedInputs: script.relatedInputs } : {}),
+		};
+	}
 	if (script.providerOperation === "search") {
 		return {
 			...provider,

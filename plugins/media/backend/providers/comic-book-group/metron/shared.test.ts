@@ -165,8 +165,10 @@ describe("comic-book-group.metron sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "10",
 					direction: "outgoing",
+					entitySchemaSlug: "comic-book-group",
 					continuation: { page: 2, offset: 100 },
 					relationshipSchemaSlug: "comic-book-group-to-comic-book",
 				},
@@ -190,8 +192,10 @@ describe("comic-book-group.metron sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "10",
 					direction: "outgoing",
+					entitySchemaSlug: "comic-book-group",
 					continuation: { page: 2, offset: 100 },
 					relationshipSchemaSlug: "comic-book-group-to-comic-book",
 				},
@@ -255,8 +259,10 @@ describe("comic-book-group.metron sandbox script", () => {
 						related,
 						{
 							continuation,
+							properties: {},
 							externalId: "10",
 							direction: "outgoing",
+							entitySchemaSlug: "comic-book-group",
 							relationshipSchemaSlug: "comic-book-group-to-comic-book",
 						},
 						host,
@@ -334,8 +340,10 @@ describe("comic-book-group.metron sandbox script", () => {
 				const result = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "10",
 						direction: "outgoing",
+						entitySchemaSlug: "comic-book-group",
 						continuation: firstGroup.coverage.continuation,
 						relationshipSchemaSlug: "comic-book-group-to-comic-book",
 					},
@@ -380,8 +388,10 @@ describe("comic-book-group.metron sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "10",
 					direction: "outgoing",
+					entitySchemaSlug: "comic-book-group",
 					continuation: { page: 2, offset: 100 },
 					relationshipSchemaSlug: "comic-book-group-to-comic-book",
 				},

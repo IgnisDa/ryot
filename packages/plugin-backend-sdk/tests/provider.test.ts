@@ -143,15 +143,19 @@ describe("provider related pages", () => {
 				expect(definition.output).toBe(providerRelatedResultSchema);
 				expect(
 					yield* Schema.decodeEffect(definition.input)({
+						properties: {},
 						direction: "outgoing",
 						externalId: " company-1 ",
 						continuation: { page: 2 },
+						entitySchemaSlug: "company",
 						relationshipSchemaSlug: "company-to-record",
 					}),
 				).toEqual({
+					properties: {},
 					direction: "outgoing",
 					externalId: "company-1",
 					continuation: { page: 2 },
+					entitySchemaSlug: "company",
 					relationshipSchemaSlug: "company-to-record",
 				});
 				const host = defineSandboxTestHost(manifest, {});
@@ -159,9 +163,11 @@ describe("provider related pages", () => {
 					yield* runSandboxTestScript(
 						definition,
 						{
+							properties: {},
 							direction: "outgoing",
 							externalId: "company-1",
 							continuation: { page: 2 },
+							entitySchemaSlug: "company",
 							relationshipSchemaSlug: "company-to-record",
 						},
 						host,
@@ -200,8 +206,10 @@ describe("provider related pages", () => {
 				expect(
 					(yield* Effect.flip(
 						Schema.decodeEffect(providerRelatedInputSchema)({
+							properties: {},
 							direction: "outgoing",
 							externalId: "company-1",
+							entitySchemaSlug: "company",
 							relationshipSchemaSlug: "company-to-record",
 							continuation: { cursor: "a".repeat(4 * 1024) },
 						}),

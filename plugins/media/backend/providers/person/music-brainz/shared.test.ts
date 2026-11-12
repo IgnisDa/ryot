@@ -176,9 +176,11 @@ describe("person.music-brainz sandbox script", () => {
 					const result = yield* runSandboxTestScript(
 						related,
 						{
+							properties: {},
 							externalId: "a1",
 							direction: "outgoing",
 							relationshipSchemaSlug,
+							entitySchemaSlug: "person",
 							continuation: { total: 5, offset: 1 },
 						},
 						host,
@@ -206,8 +208,10 @@ describe("person.music-brainz sandbox script", () => {
 				const first = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "a1",
 						direction: "outgoing",
+						entitySchemaSlug: "person",
 						continuation: { offset: 0, total: 23 },
 						relationshipSchemaSlug: "person-to-music",
 					},
@@ -227,8 +231,10 @@ describe("person.music-brainz sandbox script", () => {
 				const second = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "a1",
 						direction: "outgoing",
+						entitySchemaSlug: "person",
 						relationshipSchemaSlug: "person-to-music",
 						continuation: first.coverage.continuation,
 					},
@@ -241,8 +247,10 @@ describe("person.music-brainz sandbox script", () => {
 				const last = yield* runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "a1",
 						direction: "outgoing",
+						entitySchemaSlug: "person",
 						relationshipSchemaSlug: "person-to-music",
 						continuation: second.coverage.continuation,
 					},
@@ -268,8 +276,10 @@ describe("person.music-brainz sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "a1",
 					direction: "outgoing",
+					entitySchemaSlug: "person",
 					continuation: { total: 3, offset: 1 },
 					relationshipSchemaSlug: "person-to-music",
 				},
@@ -299,8 +309,10 @@ describe("person.music-brainz sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "a1",
 					direction: "outgoing",
+					entitySchemaSlug: "person",
 					continuation: { total: 4, offset: 0 },
 					relationshipSchemaSlug: "person-to-music",
 				},

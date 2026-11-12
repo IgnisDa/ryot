@@ -18,8 +18,10 @@ const makeHost = (route: (url: string) => unknown) =>
 	});
 const execution = { metadata: {}, sandboxScriptId: "script_test" };
 const relatedInput = {
+	properties: {},
 	externalId: "g1",
 	direction: "outgoing" as const,
+	entitySchemaSlug: "music-group",
 	relationshipSchemaSlug: "music-group-to-music",
 };
 

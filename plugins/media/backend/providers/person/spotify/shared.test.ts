@@ -32,7 +32,12 @@ const artist = {
 	genres: ["rock", "indie"],
 	external_urls: { spotify: "https://open.spotify.com/artist/a1" },
 };
-const relatedInput = { externalId: "a1", direction: "outgoing" as const };
+const relatedInput = {
+	properties: {},
+	externalId: "a1",
+	entitySchemaSlug: "person",
+	direction: "outgoing" as const,
+};
 
 describe("person.spotify sandbox script", () => {
 	it("declares the canonical related entrypoint", () => {

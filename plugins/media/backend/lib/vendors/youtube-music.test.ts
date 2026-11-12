@@ -230,8 +230,10 @@ it.live.each(["menu", "url"] as const)(
 			]);
 			expect(requests).toHaveLength(2);
 			const base = {
+				properties: {},
 				externalId: "MPRalbum",
 				direction: "outgoing" as const,
+				entitySchemaSlug: "music-group",
 				relationshipSchemaSlug: "music-group-to-music",
 			};
 			const pageTwo = yield* buildAlbumRelated(client, {
@@ -333,8 +335,10 @@ it.live.each([{}, new Error("Album continuation unavailable")])(
 			expect(details.relatedEntityGroups[0]?.coverage.status).toBe("more");
 			const error = yield* Effect.flip(
 				buildAlbumRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "MPRalbum",
+					entitySchemaSlug: "music-group",
 					relationshipSchemaSlug: "music-group-to-music",
 					continuation: {
 						offset: 2,
@@ -379,8 +383,10 @@ it.live.each([
 			});
 			const error = yield* Effect.flip(
 				buildAlbumRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "MPRalbum",
+					entitySchemaSlug: "music-group",
 					relationshipSchemaSlug: "music-group-to-music",
 					continuation: {
 						offset: 2,
@@ -410,8 +416,10 @@ it.live(
 			]);
 			const error = yield* Effect.flip(
 				buildAlbumRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "MPRalbum",
+					entitySchemaSlug: "music-group",
 					relationshipSchemaSlug: "music-group-to-music",
 					continuation: {
 						offset: 2,
@@ -441,8 +449,10 @@ it.live.each([
 			]);
 			const error = yield* Effect.flip(
 				buildAlbumRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "MPRalbum",
+					entitySchemaSlug: "music-group",
 					relationshipSchemaSlug: "music-group-to-music",
 					continuation: {
 						offset,
@@ -473,8 +483,10 @@ it.live(
 			]);
 			yield* buildAlbumDetails(client, "MPRalbum");
 			const input = {
+				properties: {},
 				externalId: "MPRalbum",
 				direction: "outgoing" as const,
+				entitySchemaSlug: "music-group",
 				relationshipSchemaSlug: "music-group-to-music",
 				continuation: {
 					offset: 2,
@@ -856,7 +868,9 @@ it.live.each(["token", "endpoint"] as const)(
 			const details = yield* buildArtistDetails(client, "UCartist");
 			expect(requests).toHaveLength(1);
 			const base = {
+				properties: {},
 				externalId: "UCartist",
+				entitySchemaSlug: "person",
 				direction: "outgoing" as const,
 				relationshipSchemaSlug: "person-to-music",
 			};
@@ -924,7 +938,9 @@ it.live.each([
 			const details = yield* buildArtistDetails(client, "UCartist");
 			expect(requests).toHaveLength(1);
 			const base = {
+				properties: {},
 				externalId: "UCartist",
+				entitySchemaSlug: "person",
 				direction: "outgoing" as const,
 				relationshipSchemaSlug: "person-to-music-group",
 			};
@@ -993,9 +1009,11 @@ it.live.each([
 			const { client, requests } = yield* recordedClient("browse", responses);
 			const error = yield* Effect.flip(
 				buildArtistRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "UCartist",
 					relationshipSchemaSlug,
+					entitySchemaSlug: "person",
 					continuation: { source, ...(token ? { token } : {}) },
 				}),
 			);
@@ -1012,8 +1030,10 @@ it.live(
 			const { client } = yield* recordedClient("browse", [artistInventoryResponse(), {}]);
 			const error = yield* Effect.flip(
 				buildArtistRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "UCartist",
+					entitySchemaSlug: "person",
 					continuation: { source: 0 },
 					relationshipSchemaSlug: "person-to-music-group",
 				}),
@@ -1030,8 +1050,10 @@ it.live(
 			const { client, requests } = yield* recordedClient("browse", []);
 			const error = yield* Effect.flip(
 				buildArtistRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "UCartist",
+					entitySchemaSlug: "person",
 					continuation: { source: -1 },
 					relationshipSchemaSlug: "person-to-music",
 				}),
@@ -1052,8 +1074,10 @@ it.live(
 			]);
 			const error = yield* Effect.flip(
 				buildArtistRelated(client, {
+					properties: {},
 					direction: "outgoing",
 					externalId: "UCartist",
+					entitySchemaSlug: "person",
 					relationshipSchemaSlug: "person-to-music",
 					continuation: { source: 0, token: "page-2" },
 				}),

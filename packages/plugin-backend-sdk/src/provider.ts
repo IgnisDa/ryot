@@ -139,8 +139,10 @@ export const providerDetailsRelatedEntityGroupSchema = strictStruct({
 export const providerRelatedInputSchema = strictStruct({
 	externalId: trimmedNonEmptyString,
 	relationshipSchemaSlug: Schema.String,
+	entitySchemaSlug: trimmedNonEmptyString,
 	continuation: providerContinuationSchema,
 	direction: Schema.Literals(["incoming", "outgoing"]),
+	properties: Schema.Record(Schema.String, jsonValueSchema),
 });
 export const providerRelatedResultSchema = strictStruct({
 	coverage: providerInventoryCoverageSchema,

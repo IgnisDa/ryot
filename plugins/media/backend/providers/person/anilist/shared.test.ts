@@ -40,9 +40,11 @@ describe("person.anilist sandbox script", () => {
 				runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "1",
 						direction: "outgoing",
 						continuation: { page: 2 },
+						entitySchemaSlug: "person",
 						relationshipSchemaSlug: "person-to-anime",
 					},
 					host,
@@ -66,9 +68,11 @@ describe("person.anilist sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "1",
 					direction: "outgoing",
 					continuation: { page: 2 },
+					entitySchemaSlug: "person",
 					relationshipSchemaSlug: "person-to-anime",
 				},
 				host,
@@ -100,9 +104,11 @@ describe("person.anilist sandbox script", () => {
 					runSandboxTestScript(
 						related,
 						{
+							properties: {},
 							externalId: "1",
 							direction: "outgoing",
 							continuation: { page: 2 },
+							entitySchemaSlug: "person",
 							relationshipSchemaSlug: "person-to-anime",
 						},
 						host,
@@ -253,9 +259,11 @@ describe("person.anilist sandbox script", () => {
 				return runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "1",
 						direction: "outgoing",
 						continuation: { page: 2 },
+						entitySchemaSlug: "person",
 						relationshipSchemaSlug: "person-to-manga",
 					},
 					host,
@@ -272,9 +280,11 @@ describe("person.anilist sandbox script", () => {
 				return runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "1",
 						direction: "outgoing",
 						continuation: { page: 3 },
+						entitySchemaSlug: "person",
 						relationshipSchemaSlug: "person-to-manga",
 					},
 					host,

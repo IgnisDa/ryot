@@ -275,6 +275,16 @@ const editorRelationship = (slug: string, sourceEntitySchemaSlug: null | string)
 	targetEntitySchemaSlug: "target.test",
 });
 
+const childEntitySchema = {
+	icon: "box",
+	name: "Child",
+	eventSchemas: [],
+	slug: "entity.child",
+	propertiesSchema: {
+		fields: { parentExternalId: { type: "string", label: "Parent", description: "Parent ID" } },
+	},
+};
+
 describe("definePlugin", () => {
 	it.effect(
 		"accepts explicit root and child translation selections from the same plugin",
@@ -293,20 +303,7 @@ describe("definePlugin", () => {
 				const candidate = {
 					...manifest,
 					scripts: [...manifest.scripts, translated],
-					entitySchemas: [
-						...manifest.entitySchemas,
-						{
-							icon: "box",
-							name: "Child",
-							eventSchemas: [],
-							slug: "entity.child",
-							propertiesSchema: {
-								fields: {
-									parentExternalId: { type: "string", label: "Parent", description: "Parent ID" },
-								},
-							},
-						},
-					],
+					entitySchemas: [...manifest.entitySchemas, childEntitySchema],
 				};
 				expect(
 					(yield* Schema.decodeUnknownEffect(PluginManifest)(candidate)).scripts.at(-1),
@@ -328,6 +325,68 @@ describe("definePlugin", () => {
 					Schema.decodeUnknownResult(PluginManifest)({
 						...candidate,
 						scripts: [...manifest.scripts, { ...translated, providerOperation: "resolve" }],
+					}),
+				).toSatisfy(Result.isFailure);
+			}),
+		testTimeout,
+	);
+
+	it.effect(
+		"accepts related inputs only for child schemas, declared properties and anchored relationships",
+		() =>
+			Effect.gen(function* () {
+				const group = {
+					direction: "incoming",
+					synchronization: "authoritative",
+					relationshipSchemaSlug: "child.credits",
+				};
+				const related = {
+					...emptySandboxExecutionMetadata,
+					name: "Related",
+					kind: "provider",
+					providerOperation: "related",
+					providerSlug: "provider.test",
+					slug: "provider.test.related",
+					entry: "scripts/related.sandbox.ts",
+					relatedInputs: { "entity.child": { groups: [group], properties: ["parentExternalId"] } },
+				};
+				const candidate = {
+					...manifest,
+					scripts: [...manifest.scripts, related],
+					entitySchemas: [...manifest.entitySchemas, childEntitySchema],
+					relationshipSchemas: [
+						...manifest.relationshipSchemas,
+						{
+							name: "Credits",
+							slug: "child.credits",
+							propertiesSchema: { fields: {} },
+							sourceEntitySchemaSlug: "entity.test",
+							targetEntitySchemaSlug: "entity.child",
+						},
+					],
+				};
+				expect(
+					(yield* Schema.decodeUnknownEffect(PluginManifest)(candidate)).scripts.at(-1),
+				).toMatchObject({ relatedInputs: related.relatedInputs });
+				for (const relatedInputs of [
+					{ "entity.test": { properties: [], groups: [group] } },
+					{ "entity.child": { groups: [group], properties: ["undeclared"] } },
+					{ "entity.child": { properties: [], groups: [{ ...group, direction: "outgoing" }] } },
+					{ "entity.child": { properties: [], groups: [group, group] } },
+					{ "entity.child": { groups: [], properties: [] } },
+					{},
+				]) {
+					expect(
+						Schema.decodeUnknownResult(PluginManifest)({
+							...candidate,
+							scripts: [...manifest.scripts, { ...related, relatedInputs }],
+						}),
+					).toSatisfy(Result.isFailure);
+				}
+				expect(
+					Schema.decodeUnknownResult(PluginManifest)({
+						...candidate,
+						scripts: [...manifest.scripts, { ...related, providerOperation: "details" }],
 					}),
 				).toSatisfy(Result.isFailure);
 			}),

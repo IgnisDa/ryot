@@ -677,6 +677,58 @@ export default defineProvider({ manifest, operation: "${operation}", run: () => 
 	}
 
 	test.effect(
+		"preserves related inputs on related providers and rejects them elsewhere",
+		() =>
+			Effect.gen(function* () {
+				const relatedInputs = `{ "record-part": { properties: ["position"], groups: [{ relationshipSchemaSlug: "person-to-record-part", direction: "incoming", synchronization: "authoritative" }] } }`;
+				const source = (operation: "details" | "related") => `
+import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
+import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
+import { defineProvider } from "@ryot-app/plugin-backend-sdk/provider";
+export const manifest = defineManifest({
+  kind: "provider", name: "Provider", slug: "record.catalog.${operation}",
+  relatedInputs: ${relatedInputs},
+});
+export default defineProvider({ manifest, operation: "${operation}", run: () => Effect.die("unused") });
+`;
+				const [compiled] = yield* derivePluginSandboxScripts({
+					"backend/providers/record/catalog/related.sandbox.ts": source("related"),
+				});
+				if (!compiled) {
+					throw new Error("Expected a compiled related provider");
+				}
+				const expected = {
+					"record-part": {
+						properties: ["position"],
+						groups: [
+							{
+								direction: "incoming",
+								synchronization: "authoritative",
+								relationshipSchemaSlug: "person-to-record-part",
+							},
+						],
+					},
+				};
+				expect(
+					yield* Schema.decodeEffect(SandboxScriptMetadata)(
+						declaredScriptMetadata(compiled.script),
+					),
+				).toMatchObject({ relatedInputs: expected });
+				const failure = yield* compilePluginSandboxSourceEntries(
+					{ "provider.sandbox.ts": source("details") },
+					[{ kind: "provider", providerOperation: "details", entry: "provider.sandbox.ts" }],
+				).pipe(Effect.flip);
+				expect(failure.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_MANIFEST",
+						message: "Only related providers may declare relatedInputs",
+					}),
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"rejects obsolete multi-driver definitions with a clear diagnostic",
 		() =>
 			Effect.gen(function* () {

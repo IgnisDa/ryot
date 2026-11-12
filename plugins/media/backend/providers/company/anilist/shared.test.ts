@@ -35,9 +35,11 @@ describe("company.anilist sandbox script", () => {
 				runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "1",
 						direction: "outgoing",
 						continuation: { page: 2 },
+						entitySchemaSlug: "company",
 						relationshipSchemaSlug: "company-to-anime",
 					},
 					host,
@@ -54,9 +56,11 @@ describe("company.anilist sandbox script", () => {
 			runSandboxTestScript(
 				related,
 				{
+					properties: {},
 					externalId: "1",
 					direction: "outgoing",
 					continuation: { page: 2 },
+					entitySchemaSlug: "company",
 					relationshipSchemaSlug: "company-to-anime",
 				},
 				host,
@@ -81,9 +85,11 @@ describe("company.anilist sandbox script", () => {
 					runSandboxTestScript(
 						related,
 						{
+							properties: {},
 							externalId: "1",
 							direction: "outgoing",
 							continuation: { page: 2 },
+							entitySchemaSlug: "company",
 							relationshipSchemaSlug: "company-to-anime",
 						},
 						host,
@@ -194,9 +200,11 @@ describe("company.anilist sandbox script", () => {
 				return runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "1",
 						direction: "outgoing",
 						continuation: { page: 2 },
+						entitySchemaSlug: "company",
 						relationshipSchemaSlug: "company-to-manga",
 					},
 					host,
@@ -208,9 +216,11 @@ describe("company.anilist sandbox script", () => {
 				return runSandboxTestScript(
 					related,
 					{
+						properties: {},
 						externalId: "1",
 						direction: "outgoing",
 						continuation: { page: 3 },
+						entitySchemaSlug: "company",
 						relationshipSchemaSlug: "company-to-manga",
 					},
 					host,

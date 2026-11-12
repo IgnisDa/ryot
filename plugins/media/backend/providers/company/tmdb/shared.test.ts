@@ -129,8 +129,10 @@ describe("company.tmdb sandbox script", () => {
 
 const input = (relationshipSchemaSlug: string, continuation: JsonValue) => ({
 	continuation,
+	properties: {},
 	externalId: "1",
 	relationshipSchemaSlug,
+	entitySchemaSlug: "company",
 	direction: "outgoing" as const,
 });
 

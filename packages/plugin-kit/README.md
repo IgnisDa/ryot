@@ -133,7 +133,8 @@ Every `details` related-entity group and `related` result declares `coverage`:
 - `{ status: "source-limited", reason }` means the source cannot supply the declared inventory.
 
 A group with more pages requires a `related` script. It receives
-`{ externalId, relationshipSchemaSlug, direction, continuation }` and returns `{ entities, coverage }`.
+`{ externalId, entitySchemaSlug, properties, relationshipSchemaSlug, direction, continuation }` and
+returns `{ entities, coverage }`; `properties` is empty for root pages.
 Each run is its own sandbox execution with its own host-call budget. The kernel writes each page as
 it arrives, so a page must be self-contained. Only complete coverage permits an `authoritative` sweep;
 a source-limited result fails explicitly without writing that page, deleting stale relationships, or
@@ -143,6 +144,14 @@ that a source's entire catalog was fetched. Do not disguise an arbitrary invento
 A full population waits for all related pages and authoritative sweeps before marking related data
 complete; root data is published earlier and pages remain visible while partial. See the
 [provider population](../../kernel/backend/src/modules/entities/providers/README.md#paged-related-groups).
+
+A `related` script may also declare `relatedInputs`, which gives child entity schemas their own
+related level. Each entry names the child's addressing properties and its groups
+(`relationshipSchemaSlug`, `direction`, `synchronization`); each group's relationship must anchor on
+the child schema, and the provider root cannot be declared. A child's related level populates on
+foreground interest or refresh: its first page receives a `null` continuation and the selected
+properties. The parent's population still owns the child's canonical data. See
+[child related groups](../../kernel/backend/src/modules/entities/providers/README.md#child-related-groups).
 
 Each `translate` provider script declares `translationInputs`, a map from supported entity-schema
 slugs to the canonical property keys the script needs. The kernel pins this declaration with the
@@ -164,7 +173,7 @@ Renaming a script slug requires updating its manifest references. See the
 Each entry default-exports exactly one direct definition with static manifest, input schema, output
 schema, and Effect-returning `run`. `defineManifest` contains the script identity and kind plus its
 kind-specific authored fields, such as an automation `inputProjection` or provider
-`searchOptionsSchema` or `translationInputs`. It does not contain capabilities, configuration
+`searchOptionsSchema`, `relatedInputs`, or `translationInputs`. It does not contain capabilities, configuration
 requirements, OAuth fields, or executable dependencies. The compiler derives those from the entry's
 used code and writes them to the build-derived script metadata. There are no driver maps or runtime
 kind selection.
