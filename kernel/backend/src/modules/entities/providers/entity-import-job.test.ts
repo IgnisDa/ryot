@@ -150,7 +150,7 @@ const makeHarness = (options: Harness = {}) => {
 		Layer.succeed(EntityImportWorkflowOperations, {
 			processSandbox: () => Effect.die("unused"),
 			processRelatedPage: () => Effect.die("unused"),
-			requireRelatedScript: () => Effect.die("unused"),
+			resolveRelatedInputs: () => Effect.die("unused"),
 			processProviderResolve: () => Effect.die("unused"),
 			preRegisterProviderImport: () => Effect.die("unused"),
 			completeProviderEntityImport: () =>

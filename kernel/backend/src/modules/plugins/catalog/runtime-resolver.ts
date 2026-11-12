@@ -751,8 +751,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				if (
 					!provider ||
 					input.entitySchema.owner.kind !== "plugin" ||
-					provider.pluginId !== input.entitySchema.owner.pluginId ||
-					provider.rootEntitySchemaSlug !== input.entitySchema.slug
+					provider.pluginId !== input.entitySchema.owner.pluginId
 				) {
 					return null;
 				}
@@ -851,6 +850,24 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 								: null,
 					};
 				});
+			const populatesEntitySchema = Effect.fn(function* (input: {
+				readonly userId: null | UserId;
+				readonly entitySchemaSlug: string;
+				readonly provider: {
+					readonly id: SandboxProviderId;
+					readonly rootEntitySchemaSlug: string;
+				};
+			}) {
+				if (input.provider.rootEntitySchemaSlug === input.entitySchemaSlug) {
+					return true;
+				}
+				const related = yield* resolveProviderOperation(
+					"related",
+					input.userId,
+					input.provider.id,
+				).pipe(Effect.catchTag("UnsupportedProviderOperationError", () => Effect.succeed(null)));
+				return related?.metadata.relatedInputs?.[input.entitySchemaSlug] !== undefined;
+			});
 			const resolveConfigKeyLabels = Effect.fn(function* (
 				pluginRevisionId: null | string,
 				keys: ReadonlyArray<string>,
@@ -877,6 +894,7 @@ export class PluginRuntimeResolver extends Context.Service<PluginRuntimeResolver
 				resolveUserPackage,
 				listSchemaProviders,
 				findActiveScriptById,
+				populatesEntitySchema,
 				findActiveProviderById,
 				resolveConfigKeyLabels,
 				resolveActivePluginCron,

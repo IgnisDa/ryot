@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { SandboxRunError } from "@ryot-app/contract/errors";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import type { ProviderRelatedInputs } from "@ryot-app/contract/modules/plugins/provider-inputs";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import {
 	AutomationExecutionId,
@@ -39,6 +40,7 @@ import { RELATED_PAGES_MAX_PAGES, runPopulationAttempt } from "./population-job"
 
 const userId = UserId.make("relationship-owner");
 const bottle = EntitySchemaSlug.make("bottle");
+const label = EntitySchemaSlug.make("label");
 const titleProperties = {
 	fields: { title: { type: "string", label: "Title", description: "Title" } },
 } as const;
@@ -49,24 +51,35 @@ const fixturePackage = (): NormalizedPlugin => {
 		...source,
 		manifest: {
 			...source.manifest,
-			entitySchemas: [
+			entitySchemas: [bottle, label].map((slug) => ({
+				slug,
+				name: slug,
+				icon: "box",
+				eventSchemas: [],
+				propertiesSchema: titleProperties,
+			})),
+			relationshipSchemas: [
+				...[
+					{ anchor: bottle, slug: "credits" },
+					{ anchor: bottle, slug: "references" },
+					{ anchor: label, slug: "label-credits" },
+				].map(({ slug, anchor }) => ({
+					slug,
+					name: "Credits",
+					sourceEntitySchemaSlug: anchor,
+					targetEntitySchemaSlug: "bottle",
+					propertiesSchema: {
+						fields: { role: { label: "Role", description: "Role", type: "string" as const } },
+					},
+				})),
 				{
-					icon: "box",
-					slug: "bottle",
-					name: "bottle",
-					eventSchemas: [],
-					propertiesSchema: titleProperties,
+					name: "Labels",
+					slug: "bottle-labels",
+					targetEntitySchemaSlug: "label",
+					sourceEntitySchemaSlug: "bottle",
+					propertiesSchema: { fields: {} },
 				},
 			],
-			relationshipSchemas: ["credits", "references"].map((slug) => ({
-				slug,
-				name: "Credits",
-				sourceEntitySchemaSlug: "bottle",
-				targetEntitySchemaSlug: "bottle",
-				propertiesSchema: {
-					fields: { role: { label: "Role", type: "string", description: "Role" } },
-				},
-			})),
 		},
 	};
 };
@@ -102,11 +115,24 @@ const completed = (value: unknown) => ({
 });
 
 type PageResult = "fail" | SandboxExecutionResult;
+
+const labelInputs: ProviderRelatedInputs = {
+	label: {
+		properties: ["title"],
+		groups: [
+			{
+				direction: "outgoing",
+				synchronization: "authoritative",
+				relationshipSchemaSlug: "label-credits",
+			},
+		],
+	},
+};
 type RelatedPageHandler = (continuation: JsonValue) => PageResult | Effect.Effect<PageResult>;
 
 const harness = Effect.fnUntraced(function* (
 	scope: string,
-	config: { readonly relatedScript?: boolean } = {},
+	config: { readonly relatedScript?: boolean; readonly relatedInputs?: ProviderRelatedInputs } = {},
 ) {
 	const session = yield* DatabaseSession;
 	const runtime = yield* PluginRuntimeResolver;
@@ -134,7 +160,11 @@ const harness = Effect.fnUntraced(function* (
 		writeContext: principal,
 	});
 	const relatedRuns = yield* Ref.make<
-		ReadonlyArray<{ executionId: string; continuation: JsonValue }>
+		ReadonlyArray<{
+			executionId: string;
+			continuation: JsonValue;
+			properties: Readonly<Record<string, JsonValue>>;
+		}>
 	>([]);
 	const operations = (
 		details: unknown,
@@ -144,17 +174,20 @@ const harness = Effect.fnUntraced(function* (
 		processSandbox: () => Effect.succeed(completed(details)),
 		processProviderResolve: () => Effect.die("unexpected provider resolve"),
 		preRegisterProviderImport: () => Effect.die("unexpected provider pre-registration"),
-		requireRelatedScript: () =>
+		resolveRelatedInputs: () =>
 			config.relatedScript !== false
-				? Effect.void
+				? Effect.succeed(config.relatedInputs ?? null)
 				: Effect.fail(
 						new SandboxRunError({
 							kind: "missing-artifact",
 							message: "Pinned provider related script is unavailable",
 						}),
 					),
-		processRelatedPage: (_payload, executionId, continuation) =>
-			Ref.update(relatedRuns, (all) => [...all, { executionId, continuation }]).pipe(
+		processRelatedPage: (payload, executionId, continuation) =>
+			Ref.update(relatedRuns, (all) => [
+				...all,
+				{ executionId, continuation, properties: payload.properties },
+			]).pipe(
 				Effect.flatMap(() => {
 					const result = handler(continuation);
 					return Effect.isEffect(result) ? result : Effect.succeed(result);
@@ -178,17 +211,20 @@ const harness = Effect.fnUntraced(function* (
 		mode: "ensure" | "refresh",
 		details: unknown,
 		handler?: RelatedPageHandler,
+		target: { readonly externalId: string; readonly entitySchemaSlug: EntitySchemaSlug } = {
+			externalId: "root",
+			entitySchemaSlug: bottle,
+		},
 	) =>
 		runPopulationAttempt(
 			{
+				...target,
 				mode,
 				executionId,
 				level: "full",
 				requestAttempt: 1,
-				externalId: "root",
 				requestId: executionId,
 				providerId: provider.id,
-				entitySchemaSlug: bottle,
 				command: commandFor(executionId),
 				entityScope: { userId, type: "user" },
 				pluginId: PluginId.make(installed.pluginId),
@@ -216,23 +252,26 @@ const harness = Effect.fnUntraced(function* (
 						.sort((left, right) => String(left.externalId).localeCompare(String(right.externalId))),
 				),
 			);
-	return {
-		credits,
-		populate,
-		relatedRuns: Ref.get(relatedRuns),
-		root: session
+	const stored = (externalId: string) =>
+		session
 			.run((db) =>
 				db
 					.select()
 					.from(tables.entity)
 					.where(
 						and(
-							eq(tables.entity.externalId, "root"),
+							eq(tables.entity.externalId, externalId),
 							eq(tables.entity.entitySchemaPluginId, installed.pluginId),
 						),
 					),
 			)
-			.pipe(Effect.map(([row]) => (row ? { ...row, id: EntityId.make(row.id) } : null))),
+			.pipe(Effect.map(([row]) => (row ? { ...row, id: EntityId.make(row.id) } : null)));
+	return {
+		stored,
+		credits,
+		populate,
+		root: stored("root"),
+		relatedRuns: Ref.get(relatedRuns),
 		status: (entityId: ListedEntity["id"]) =>
 			session
 				.run((db) =>
@@ -258,6 +297,17 @@ const page = (
 	entities: ReadonlyArray<ReturnType<typeof related>>,
 	coverage: ProviderDetailsRelatedEntityGroup["coverage"],
 ) => completed({ entities, coverage });
+
+const labelOne = { externalId: "label-1", entitySchemaSlug: label };
+
+const seedLabel = (h: Effect.Success<ReturnType<typeof harness>>) =>
+	h.populate("seed-child", "ensure", {
+		name: "Root",
+		relatedEntityGroups: [],
+		properties: { title: "Root" },
+		expectedChildEntitySchemaSlug: label,
+		childEntities: [{ ...labelOne, name: "Label", properties: { title: "Label one" } }],
+	});
 
 const seedRoot = (h: Effect.Success<ReturnType<typeof harness>>) =>
 	h.populate("seed", "ensure", rootDetails([group([related("stale"), related("keep", "old")])]));
@@ -783,6 +833,74 @@ layer(
 						db.select().from(tables.entity).where(eq(tables.entity.externalId, "unwritten")),
 					),
 				).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"populates a child's declared related groups from its selected properties",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("child", { relatedInputs: labelInputs });
+				yield* seedLabel(h);
+				const child = yield* h.stored("label-1");
+				assert(child);
+				expect(child.relatedPopulatedAt).toBeNull();
+
+				yield* h.populate(
+					"child-full",
+					"ensure",
+					null,
+					(continuation) =>
+						continuation === null
+							? page([related("maker")], { status: "more", continuation: "next" })
+							: page([related("bottler", "bottler")], { status: "complete" }),
+					labelOne,
+				);
+				expect(yield* h.relatedRuns).toEqual([
+					{
+						continuation: null,
+						properties: { title: "Label one" },
+						executionId: "child-full-sandbox-related-0-0",
+					},
+					{
+						continuation: "next",
+						properties: { title: "Label one" },
+						executionId: "child-full-sandbox-related-0-1",
+					},
+				]);
+				expect(
+					(yield* h.credits(child, "label-credits")).map(({ externalId }) => externalId),
+				).toEqual(["bottler", "maker"]);
+				expect((yield* h.stored("label-1"))?.relatedPopulatedAt).not.toBeNull();
+
+				yield* h.populate(
+					"child-refresh",
+					"refresh",
+					null,
+					() => page([related("maker")], { status: "complete" }),
+					labelOne,
+				);
+				expect(
+					(yield* h.credits(child, "label-credits")).map(({ externalId }) => externalId),
+				).toEqual(["maker"]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"refuses a child whose related script declares no groups for its schema",
+		() =>
+			Effect.gen(function* () {
+				const h = yield* harness("undeclared-child");
+				yield* seedLabel(h);
+
+				const error = yield* h
+					.populate("child-full", "ensure", null, undefined, labelOne)
+					.pipe(Effect.catchTag("DbError", Effect.die), Effect.flip);
+
+				expect(error.message).toBe("Provider declares no related groups for entity schema 'label'");
+				expect(yield* h.relatedRuns).toEqual([]);
 			}),
 		testTimeout,
 	);

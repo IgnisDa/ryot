@@ -11,7 +11,7 @@ import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
 import { stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq, inArray } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { PgDialect } from "drizzle-orm/pg-core";
 import { Context, DateTime, Effect, Layer, Ref } from "effect";
 import { chunksOf } from "effect/Array";
@@ -368,9 +368,6 @@ layer(entityRepositoriesLayer)((test) => {
 				yield* update("Renamed", { a: 1, b: 3 }, populatedAt);
 				yield* session.transaction(repository.stampRelatedPopulated(entityId, populatedAt));
 				expect(yield* generation).toBe(3);
-				yield* update("Renamed", { a: 1, b: 3 });
-				yield* session.transaction(repository.stampChildRelatedPopulated([entityId]));
-				expect(yield* generation).toBe(3);
 			}),
 		testTimeout,
 	);
@@ -645,49 +642,26 @@ layer(entityRepositoriesLayer)((test) => {
 				const populatedAt = DateTime.toDateUtc(DateTime.makeUnsafe("2026-10-01T00:00:00.000Z"));
 				const earlier = DateTime.toDateUtc(DateTime.makeUnsafe("2026-09-01T00:00:00.000Z"));
 				const root = EntityId.make("related-root");
-				const child = EntityId.make("related-child");
-				const stampedChild = EntityId.make("related-stamped-child");
-				const unpopulatedChild = EntityId.make("related-unpopulated-child");
 				yield* session.run((db) =>
-					db.insert(tables.entity).values([
-						{ id: root, populatedAt, name: "Root", entitySchemaSlug: "record" },
-						{ id: child, populatedAt, name: "Child", entitySchemaSlug: "record" },
-						{
-							populatedAt,
-							name: "Stamped",
-							id: stampedChild,
-							entitySchemaSlug: "record",
-							relatedPopulatedAt: earlier,
-						},
-						{ name: "Unpopulated", id: unpopulatedChild, entitySchemaSlug: "record" },
-					]),
+					db
+						.insert(tables.entity)
+						.values([{ id: root, populatedAt, name: "Root", entitySchemaSlug: "record" }]),
 				);
 
-				yield* session.transaction(
-					Effect.all([
-						repository.stampRelatedPopulated(root, populatedAt),
-						repository.stampChildRelatedPopulated([child, stampedChild, child, unpopulatedChild]),
-					]),
-				);
+				yield* session.transaction(repository.stampRelatedPopulated(root, populatedAt));
 				yield* session.transaction(repository.stampRelatedPopulated(root, earlier));
 				yield* session.transaction(repository.invalidateRelatedPopulated(root, earlier, "older"));
 
-				const rows = yield* session.run((db) =>
+				const [stamped] = yield* session.run((db) =>
 					db
 						.select({
-							id: tables.entity.id,
 							contentGeneration: tables.entity.contentGeneration,
 							relatedPopulatedAt: tables.entity.relatedPopulatedAt,
 						})
 						.from(tables.entity)
-						.where(inArray(tables.entity.id, [root, child, stampedChild, unpopulatedChild])),
+						.where(eq(tables.entity.id, root)),
 				);
-				const byId = new Map(rows.map((row) => [row.id, row]));
-				expect(byId.get(root)).toMatchObject({ relatedPopulatedAt: populatedAt });
-				expect(rows.map(({ contentGeneration }) => contentGeneration)).toEqual([1, 1, 1, 1]);
-				expect(byId.get(child)?.relatedPopulatedAt).toEqual(populatedAt);
-				expect(byId.get(stampedChild)?.relatedPopulatedAt).toEqual(earlier);
-				expect(byId.get(unpopulatedChild)?.relatedPopulatedAt).toBeNull();
+				expect(stamped).toEqual({ contentGeneration: 1, relatedPopulatedAt: populatedAt });
 				yield* session.transaction(
 					repository.invalidateRelatedPopulated(root, populatedAt, "current"),
 				);

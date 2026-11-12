@@ -132,6 +132,8 @@ const populationReferencesLayer = (
 			captureDependencies,
 			unownedRepositories,
 			Layer.mock(PluginRuntimeResolver)({
+				populatesEntitySchema: ({ provider, entitySchemaSlug }) =>
+					Effect.succeed(provider.rootEntitySchemaSlug === entitySchemaSlug),
 				findProviderAvailableToUser: (_userId, providerId) =>
 					Effect.succeed(
 						authorizes(providerId)

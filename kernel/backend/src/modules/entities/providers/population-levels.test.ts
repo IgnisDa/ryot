@@ -171,7 +171,7 @@ const setup = Effect.gen(function* () {
 			Effect.provideService(EntityImportWorkflowOperations, {
 				processRelatedPage: () => Effect.die("unused"),
 				completeProviderEntityImport: () => Effect.void,
-				requireRelatedScript: () => Effect.die("unused"),
+				resolveRelatedInputs: () => Effect.die("unused"),
 				processProviderResolve: () => Effect.die("unused"),
 				preRegisterProviderImport: () => Effect.die("unused"),
 				processSandbox: () =>
@@ -246,7 +246,7 @@ const populationDatabaseLayer = () =>
 
 layer(populationDatabaseLayer())((test) => {
 	test.effect(
-		"keeps mixed-case provider siblings attached to their own subtrees and stamps new children",
+		"keeps mixed-case provider siblings attached to their own subtrees and adds new children",
 		() =>
 			Effect.gen(function* () {
 				const { entity, populate, relationships } = yield* setup;
@@ -279,8 +279,8 @@ layer(populationDatabaseLayer())((test) => {
 				const expectedEdges = children.map((child, index) => {
 					const leaf = leaves[index];
 					assert(child?.populatedAt && leaf?.populatedAt);
-					expect(child.relatedPopulatedAt).toEqual(child.populatedAt);
-					expect(leaf.relatedPopulatedAt).toEqual(leaf.populatedAt);
+					expect(child.relatedPopulatedAt).toBeNull();
+					expect(leaf.relatedPopulatedAt).toBeNull();
 					return { targetEntityId: leaf.id, sourceEntityId: child.id };
 				});
 				expect(yield* relationships("part-part")).toEqual<unknown>(
@@ -307,7 +307,7 @@ layer(populationDatabaseLayer())((test) => {
 				});
 				const fresh = yield* entity("new");
 				assert(fresh?.populatedAt);
-				expect(fresh.relatedPopulatedAt).toEqual(fresh.populatedAt);
+				expect(fresh.relatedPopulatedAt).toBeNull();
 				expect(yield* relationships("part-part")).toEqual<unknown>(
 					arrayContaining(expectedEdges.map((edge): unknown => objectContaining(edge))),
 				);
@@ -316,7 +316,6 @@ layer(populationDatabaseLayer())((test) => {
 					assert(child?.externalId);
 					const refreshed = yield* entity(child.externalId);
 					expect(refreshed?.id).toBe(child.id);
-					expect(refreshed?.relatedPopulatedAt).toEqual(child.relatedPopulatedAt);
 				}
 			}),
 		testTimeout,
@@ -338,7 +337,7 @@ layer(populationDatabaseLayer())((test) => {
 				const basePart = yield* entity("part");
 				assert(base?.populatedAt && basePart?.populatedAt);
 				expect(base.relatedPopulatedAt).toBeNull();
-				expect(basePart.relatedPopulatedAt).toEqual(basePart.populatedAt);
+				expect(basePart.relatedPopulatedAt).toBeNull();
 				expect(yield* relationships("credits")).toEqual([]);
 				expect(yield* relationships("bottle-part")).toHaveLength(1);
 

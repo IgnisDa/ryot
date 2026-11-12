@@ -1,6 +1,7 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import type { ExecutionLane } from "@ryot-app/contract/modules/automations/lifecycle";
 import type { ListedEntity } from "@ryot-app/contract/modules/entities/schemas";
+import type { ProviderRelatedInputs } from "@ryot-app/contract/modules/plugins/provider-inputs";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import type { SandboxProviderId, UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
@@ -27,6 +28,7 @@ import type {
 } from "./schemas";
 
 type RelatedPageInput = EntityImportPayload & {
+	readonly properties: Readonly<Record<string, JsonValue>>;
 	readonly group: {
 		readonly relationshipSchemaSlug: string;
 		readonly direction: "incoming" | "outgoing";
@@ -44,7 +46,9 @@ type ProviderResolveOperationInput = {
 };
 
 type EntityImportWorkflowOperationsValue = {
-	requireRelatedScript: (payload: EntityImportPayload) => Effect.Effect<void, SandboxRunError>;
+	resolveRelatedInputs: (
+		payload: EntityImportPayload,
+	) => Effect.Effect<null | ProviderRelatedInputs, SandboxRunError>;
 	completeProviderEntityImport: (
 		payload: ProviderEntityImportWorkflowPayload,
 		importedEntity: ListedEntity,
@@ -171,7 +175,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				});
 			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
-		const requireRelatedScript = (payload: EntityImportPayload) =>
+		const resolveRelatedInputs = (payload: EntityImportPayload) =>
 			Effect.gen(function* () {
 				const principal = payload.command.writeContext;
 				if (!principal?.pluginRevision || principal.pluginRevision.id !== payload.pluginId) {
@@ -180,17 +184,15 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 						message: "Provider related requires the admitted plugin pin",
 					});
 				}
-				return yield* resolvePinnedProviderScript({
+				const script = yield* resolvePinnedProviderScript({
 					operation: "related",
 					command: payload.command,
 					providerId: payload.providerId,
 					pluginRevision: principal.pluginRevision,
 					userId: payload.entityScope.type === "user" ? payload.entityScope.userId : null,
 				});
-			}).pipe(
-				Effect.asVoid,
-				Effect.mapError((error) => toSandboxRunError(error, "infrastructure")),
-			);
+				return script.metadata.relatedInputs ?? null;
+			}).pipe(Effect.mapError((error) => toSandboxRunError(error, "infrastructure")));
 
 		const processSandboxEntityDetails = (
 			payload: EntityImportPayload,
@@ -209,8 +211,10 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 		) =>
 			executePinnedProviderOperation(payload, "related", executionId, {
 				continuation,
+				properties: payload.properties,
 				externalId: payload.externalId,
 				direction: payload.group.direction,
+				entitySchemaSlug: payload.entitySchemaSlug,
 				relationshipSchemaSlug: payload.group.relationshipSchemaSlug,
 			});
 
@@ -372,7 +376,7 @@ export const EntityImportWorkflowOperationsLive = Layer.effect(
 				});
 
 		return {
-			requireRelatedScript,
+			resolveRelatedInputs,
 			preRegisterProviderImport,
 			completeProviderEntityImport,
 			processSandbox: processSandboxEntityDetails,

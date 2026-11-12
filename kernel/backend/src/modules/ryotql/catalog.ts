@@ -273,9 +273,16 @@ const entityRelatedPopulationStatus: FieldBinding = {
 		const providerId = sql.raw(`${sqlAlias}.provider_id`);
 		const externalId = sql.raw(`${sqlAlias}.external_id`);
 		const relatedPopulatedAt = sql.raw(`${sqlAlias}.related_populated_at`);
+		const schemaSlug = sql.raw(`${sqlAlias}.entity_schema_slug`);
+		const populated = sql`exists (select 1 from sandbox_provider provider
+			where provider.id = ${providerId} and (provider.root_entity_schema_slug = ${schemaSlug} or exists (select 1 from plugin owner
+			join definition_provider_operation operation on operation.plugin_revision_id = owner.active_revision_id and operation.provider_slug = provider.slug and operation.operation = 'related'
+			join sandbox_script script on script.plugin_revision_id = operation.plugin_revision_id and script.slug = operation.script_slug and script.provider_id = provider.id
+			where owner.id = provider.plugin_id and script.metadata -> 'relatedInputs' ? ${schemaSlug})))`;
 		const availability = sql`CASE
-			WHEN ${relatedPopulatedAt} IS NOT NULL THEN 'complete'
 			WHEN ${providerId} IS NULL OR ${externalId} IS NULL THEN 'none'
+			WHEN NOT ${populated} THEN 'none'
+			WHEN ${relatedPopulatedAt} IS NOT NULL THEN 'complete'
 			WHEN exists (select 1 from relationship related where related.user_id is not distinct from ${sql.raw(`${sqlAlias}.user_id`)} and (related.source_entity_id = ${sql.raw(`${sqlAlias}.id`)} or related.target_entity_id = ${sql.raw(`${sqlAlias}.id`)})) THEN 'partial'
 			ELSE 'missing'
 		END`;

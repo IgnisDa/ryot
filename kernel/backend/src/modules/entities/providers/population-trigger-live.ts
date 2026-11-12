@@ -55,7 +55,11 @@ export const EntityPopulationTriggerLive = Layer.effect(
 					if (
 						!provider ||
 						provider.pluginId !== input.entitySchemaPluginId ||
-						provider.rootEntitySchemaSlug !== input.entitySchemaSlug
+						!(yield* pluginRuntime.populatesEntitySchema({
+							provider,
+							userId: executingUserId,
+							entitySchemaSlug: input.entitySchemaSlug,
+						}))
 					) {
 						return false;
 					}

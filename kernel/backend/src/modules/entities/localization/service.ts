@@ -1,16 +1,16 @@
 import { SandboxRunError, toSandboxRunError } from "@ryot-app/contract/errors";
 import { definitionKey, definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { AutomationExecutionId, UserId } from "@ryot-app/contract/schema/brands";
-import { JsonValue } from "@ryot-app/contract/schema/json";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import { sandboxContextError } from "@ryot-app/sandbox/protocol/limits";
-import { Context, DateTime, Effect, Layer, Schema } from "effect";
+import { Context, DateTime, Effect, Layer } from "effect";
 
 import { ManagedAssetReferenceLocker } from "#lib/domain/managed-asset-writes";
 import { rootLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import type { EnrichmentRequestInput } from "#modules/entities/enrichment/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
+import { selectProviderInputProperties } from "#modules/entities/provider-inputs";
 import { DomainWriteChecks } from "#modules/entities/write-context";
 import { PluginRuntimeResolver } from "#modules/plugins/catalog/runtime-resolver";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
@@ -268,30 +268,10 @@ export class TranslationsService extends Context.Service<TranslationsService>()(
 							}
 							yield* checks.check({ writeContext: principal }, owner, entity.userId, true);
 							yield* checks.check(payload.command, owner, entity.userId, true);
-							for (const key of selectedKeys) {
-								if (
-									!Object.hasOwn(entity.properties, key) ||
-									entity.properties[key] === undefined
-								) {
-									return yield* new SandboxRunError({
-										kind: "invalid-input",
-										message: `Translation input property '${key}' is unavailable`,
-									});
-								}
-							}
-							const selected = Object.fromEntries(
-								selectedKeys.map((key) => [key, entity.properties[key]]),
-							);
-							const properties = yield* Schema.decodeUnknownEffect(
-								Schema.Record(Schema.String, JsonValue),
-							)(selected).pipe(
-								Effect.mapError(
-									() =>
-										new SandboxRunError({
-											kind: "invalid-input",
-											message: "Translation input properties must be JSON",
-										}),
-								),
+							const properties = yield* selectProviderInputProperties(
+								"Translation",
+								entity.properties,
+								selectedKeys,
 							);
 							const contextError = sandboxContextError({
 								properties,

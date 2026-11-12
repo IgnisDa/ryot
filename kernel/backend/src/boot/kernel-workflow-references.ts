@@ -262,17 +262,34 @@ export const KernelWorkflowReferencesLive = Layer.effect(
 										}),
 								),
 								Effect.flatMap((provider) =>
-									provider &&
-									provider.pluginId === callerPlugin.id &&
-									provider.rootEntitySchemaSlug === item.entitySchemaSlug &&
-									callerScope.entitySchemaSlugs.includes(item.entitySchemaSlug)
-										? Effect.succeed({ item, provider })
-										: Effect.fail(
-												new SandboxRunError({
-													kind: "script-failure",
-													message: `Provider '${item.providerId}' is unavailable or has no exact binding to entity schema '${item.entitySchemaSlug}' owned by plugin '${callerPlugin.id}'`,
-												}),
-											),
+									Effect.gen(function* () {
+										if (
+											provider &&
+											provider.pluginId === callerPlugin.id &&
+											callerScope.entitySchemaSlugs.includes(item.entitySchemaSlug) &&
+											(yield* pluginRuntime
+												.populatesEntitySchema({
+													userId,
+													provider,
+													entitySchemaSlug: item.entitySchemaSlug,
+												})
+												.pipe(
+													Effect.mapError(
+														(error) =>
+															new SandboxRunError({
+																kind: "infrastructure",
+																message: unknownToMessage(error),
+															}),
+													),
+												))
+										) {
+											return { item, provider };
+										}
+										return yield* new SandboxRunError({
+											kind: "script-failure",
+											message: `Provider '${item.providerId}' is unavailable or has no exact binding to entity schema '${item.entitySchemaSlug}' owned by plugin '${callerPlugin.id}'`,
+										});
+									}),
 								),
 							),
 						);

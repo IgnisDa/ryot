@@ -10,19 +10,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import {
-	and,
-	asc,
-	count,
-	eq,
-	gt,
-	inArray,
-	isNotNull,
-	isNull,
-	or,
-	type SQL,
-	sql,
-} from "drizzle-orm";
+import { and, asc, count, eq, gt, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
 import { chunksOf } from "effect/Array";
 
@@ -950,26 +938,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				return row?.generation === generation;
 			});
 
-			const stampChildRelatedPopulated = Effect.fn("EntitiesRepository.stampChildRelatedPopulated")(
-				function* (entityIds: ReadonlyArray<EntityId>) {
-					yield* session.requireTransaction;
-					for (const ids of chunksOf([...new Set(entityIds)].sort(), STATEMENT_CHUNK_SIZE)) {
-						yield* session.run((db) =>
-							db
-								.update(schema.entity)
-								.set({ relatedPopulatedAt: sql`${schema.entity.populatedAt}` })
-								.where(
-									and(
-										inArray(schema.entity.id, ids),
-										isNotNull(schema.entity.populatedAt),
-										isNull(schema.entity.relatedPopulatedAt),
-									),
-								),
-						);
-					}
-				},
-			);
-
 			const deleteByIds = Effect.fn("EntitiesRepository.deleteByIds")(function* (
 				ids: readonly [EntityId, ...EntityId[]],
 			) {
@@ -1078,7 +1046,6 @@ export class EntitiesRepository extends Context.Service<EntitiesRepository>()(
 				getClientPageEntityForUser,
 				lockUserEntityEnsureScopes,
 				getEntityMergeScopeForUser,
-				stampChildRelatedPopulated,
 				lockProviderEntityMutations,
 				findUserEntityWithoutProvenance,
 				holdsRelatedPopulationGeneration,

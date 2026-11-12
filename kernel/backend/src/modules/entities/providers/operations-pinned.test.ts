@@ -195,6 +195,7 @@ for (const scope of ["system", "user"] as const) {
 						yield* service.processRelatedPage(
 							{
 								...payload,
+								properties: {},
 								group: { direction: "outgoing", relationshipSchemaSlug: "retained-link" },
 							},
 							"related",
@@ -228,7 +229,7 @@ for (const scope of ["system", "user"] as const) {
 						}
 						assertExitFails(
 							yield* Effect.exit(
-								service.requireRelatedScript({ ...payload, providerId: foreignProvider.id }),
+								service.resolveRelatedInputs({ ...payload, providerId: foreignProvider.id }),
 							),
 							new SandboxRunError({
 								kind: "invalid-input",
@@ -237,7 +238,7 @@ for (const scope of ["system", "user"] as const) {
 						);
 						assertExitFails(
 							yield* Effect.exit(
-								service.requireRelatedScript({
+								service.resolveRelatedInputs({
 									...payload,
 									command: { ...payload.command, writeContext: activePrincipal },
 								}),

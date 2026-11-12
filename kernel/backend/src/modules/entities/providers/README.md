@@ -51,8 +51,22 @@ A `full` run awaits all related groups, pages, and required sweeps before stampi
 only: it ignores any returned `relatedEntityGroups` (no relationship writes, no generation claims,
 no sweeps, no related pages) and stamps `populated_at` alone, so existing relationships stay
 untouched. Providers should skip related fetches at `base`; a provider that ignores `level` stays
-valid. Child entities have no related level: every child-set write stamps `related_populated_at`
-with the child's `populated_at` when it is still null.
+valid. Child-set writes never stamp a child's related level.
+
+### Child related groups
+
+A provider's root population owns its children's canonical data. A child entity has a related level
+only when the provider's `related` script declares the child's schema in `relatedInputs`, with the
+canonical properties that address the child and its related groups. Other children report related
+availability `none`. Population admission, enrichment refresh and retry, and the kernel population
+reference all accept the provider root or a declared child schema through
+`PluginRuntimeResolver.populatesEntitySchema`; imports stay root-only.
+
+A child population requires the stored child and runs no `details` script. A `base` request does
+nothing. A `full` request reads the pinned `related` script's declaration, selects the declared
+properties (missing ones fail before any write), claims the related generation, and fetches each
+declared group from a `null` continuation. Pages, sweeps, supersession, and the final related stamp
+follow the root rules below. Refreshing a root does not refresh its children's related groups.
 
 `ensure` at `base` runs only while `populated_at` is null; `ensure` at `full` also runs while
 `related_populated_at` is null, upgrading a base-populated entity. `refresh` always requests `full`.

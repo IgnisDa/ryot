@@ -1583,7 +1583,7 @@ layer(EnrichmentRequests.layer.pipe(Layer.provideMerge(relationshipDatabaseLayer
 						Effect.provideService(EntityImportWorkflowOperations, {
 							processRelatedPage: () => Effect.die("unused"),
 							completeProviderEntityImport: () => Effect.void,
-							requireRelatedScript: () => Effect.die("unused"),
+							resolveRelatedInputs: () => Effect.die("unused"),
 							processProviderResolve: () => Effect.die("Unexpected provider resolve"),
 							preRegisterProviderImport: () => Effect.die("Unexpected provider pre-registration"),
 							processSandbox: () =>

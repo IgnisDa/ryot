@@ -6,7 +6,7 @@ Entity enrichment runs provider population and translation as durable work. Enti
 
 `populationStatus`, `relatedPopulationStatus`, and `translationStatus` each contain `{ availability, state }`. Availability is `missing`, `partial`, `complete`, or `none`; state is `idle`, `queued`, `running`, `retrying`, `succeeded`, `failed`, or `cancelled`.
 
-Availability describes persisted entity data and is shared for the entity. State comes from the latest applicable request for the requester; translation state also matches the requested language and canonical content generation. A missing or partial value does not imply active work. An idle state means there is no applicable active request. See [RyotQL derived fields](../../ryotql/README.md#derived-fields) for the catalog contract.
+Availability describes persisted entity data and is shared for the entity. Related availability is `none` unless the entity's provider populates related data for its schema: the provider root, or a child schema its `related` script declares (see [child related groups](../providers/README.md#child-related-groups)). State comes from the latest applicable request for the requester; translation state also matches the requested language and canonical content generation. A missing or partial value does not imply active work. An idle state means there is no applicable active request. See [RyotQL derived fields](../../ryotql/README.md#derived-fields) for the catalog contract.
 
 ## Provider population
 
@@ -16,7 +16,7 @@ A `base` population writes the root entity and child entities and publishes that
 
 ## Translation inputs and freshness
 
-Each `translate` script declares `translationInputs`: supported entity-schema slugs mapped to the canonical property keys the script needs. The declaration is pinned with the provider script revision. The kernel supplies only those selected canonical properties. Missing selected properties or an oversized translation input fails closed; the kernel does not fall back to passing all properties.
+Each `translate` script declares `translationInputs`: supported entity-schema slugs mapped to the canonical property keys the script needs. The declaration is pinned with the provider script revision. The kernel supplies only those selected canonical properties. Missing selected properties or an oversized translation input fails closed; the kernel does not fall back to passing all properties. A `related` script's `relatedInputs` selects child properties the same way.
 
 Canonical `contentGeneration` increments only when entity `name` or canonical `properties` change. Translation work captures that generation, and the overlay stores it as `sourceContentGeneration`. Commit accepts an overlay only while its source generation still matches the entity, so stale translation work cannot replace an overlay for newer canonical content.
 

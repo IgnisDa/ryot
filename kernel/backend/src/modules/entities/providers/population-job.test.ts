@@ -288,7 +288,6 @@ const populationLayer = (options: {
 				Layer.mock(EntitiesRepository)({
 					lockMutationKeys: () => Effect.void,
 					invalidateRelatedPopulated: () => Effect.void,
-					stampChildRelatedPopulated: () => Effect.void,
 					findPopulationTarget: () => Effect.succeed(null),
 					stampRelatedPopulated: () => record("related-stamp"),
 					holdsRelatedPopulationGeneration: () => Effect.succeed(true),
@@ -396,18 +395,18 @@ layer(
 
 layer(populationLayer({ dispatch: () => ({ warnings: [], entry: "dispatch" }) }))((test) => {
 	test.effect(
-		"rejects a root schema that does not belong to its exact provider",
+		"refuses a non-root schema without a child its parent populated",
 		() =>
 			Effect.gen(function* () {
 				const payload = (yield* FakePopulationWrites).payload;
-				const executionId = "population-missing-root-schema";
+				const executionId = "population-missing-child";
 				const error = yield* Effect.flip(
 					runPopulationAttempt(
 						{ ...payload, executionId, entitySchemaSlug: childSchemaSlug },
 						executionId,
 					),
 				);
-				expect(error.message).toBe("Provider root schema does not match its exact owner");
+				expect(error.message).toBe("Provider child entity has not been populated by its parent");
 			}),
 		testTimeout,
 	);

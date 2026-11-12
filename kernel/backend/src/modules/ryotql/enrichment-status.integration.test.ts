@@ -99,30 +99,66 @@ const catalogLayer = Layer.unwrap(
 			translationInputs: { record: ["name"] },
 			providerSlug: "enrichment-catalog-provider",
 		} satisfies PluginManifest["scripts"][number];
-		const { entry, ...metadata } = translationScript;
+		const relatedScript = {
+			...emptySandboxExecutionMetadata,
+			name: "Related",
+			kind: "provider",
+			providerOperation: "related",
+			slug: "enrichment-catalog.related",
+			entry: "backend/related.sandbox.ts",
+			providerSlug: "enrichment-catalog-provider",
+			relatedInputs: {
+				part: {
+					properties: [],
+					groups: [
+						{
+							direction: "incoming",
+							synchronization: "authoritative",
+							relationshipSchemaSlug: "record-to-part",
+						},
+					],
+				},
+			},
+		} satisfies PluginManifest["scripts"][number];
 		const [providerDefinition] = base.manifest.providers;
-		assert(providerDefinition);
+		const [recordSchema] = base.manifest.entitySchemas;
+		assert(providerDefinition && recordSchema);
 		const installed = yield* installRevisionPackage({
 			...base,
 			scripts: [
 				...base.scripts,
-				{
+				...[translationScript, relatedScript].map(({ entry, ...metadata }) => ({
 					entry,
 					metadata,
 					compiledFormat: 1,
 					slug: metadata.slug,
 					name: metadata.name,
-					contentHash: "translation",
-					compiledCode: "translation",
-				},
+					contentHash: metadata.slug,
+					compiledCode: metadata.slug,
+				})),
 			],
 			manifest: {
 				...base.manifest,
-				scripts: [...base.manifest.scripts, translationScript],
+				scripts: [...base.manifest.scripts, translationScript, relatedScript],
 				providers: [
 					{
 						...providerDefinition,
 						information: { ...providerDefinition.information, canonicalLanguage: "en" },
+					},
+				],
+				entitySchemas: [
+					recordSchema,
+					{ ...recordSchema, slug: "part", name: "part" },
+					{ ...recordSchema, slug: "note", name: "note" },
+				],
+				relationshipSchemas: [
+					...base.manifest.relationshipSchemas,
+					{
+						name: "Parts",
+						slug: "record-to-part",
+						targetEntitySchemaSlug: "part",
+						propertiesSchema: { fields: {} },
+						sourceEntitySchemaSlug: "record",
 					},
 				],
 			},
@@ -143,7 +179,10 @@ const catalogLayer = Layer.unwrap(
 	}),
 ).pipe(Layer.provideMerge(revisionDatabaseLayer));
 
-const seedEntity = Effect.fnUntraced(function* (id: string, contentGeneration?: number) {
+const seedEntity = Effect.fnUntraced(function* (
+	id: string,
+	overrides: Partial<typeof entity.$inferInsert> = {},
+) {
 	const fixture = yield* EnrichmentCatalogFixture;
 	yield* (yield* DatabaseSession).run((db) =>
 		db
@@ -157,7 +196,7 @@ const seedEntity = Effect.fnUntraced(function* (id: string, contentGeneration?: 
 				providerId: fixture.providerId,
 				properties: canonicalProperties,
 				entitySchemaPluginId: fixture.pluginId,
-				contentGeneration: contentGeneration ?? 1,
+				...overrides,
 			}),
 	);
 	return EntityId.make(id);
@@ -245,11 +284,32 @@ layer(catalogLayer.pipe(Layer.provide(makeAppConfigLayer())))((test) => {
 	);
 
 	test.effect(
+		"reports related data as unavailable for a child schema its provider does not populate",
+		() =>
+			Effect.gen(function* () {
+				const part = yield* seedEntity("declared-part", { entitySchemaSlug: "part" });
+				const note = yield* seedEntity("undeclared-note", {
+					entitySchemaSlug: "note",
+					relatedPopulatedAt: populatedAt,
+				});
+				expect((yield* readEntity(owner, part)).relatedPopulationStatus).toEqual({
+					state: "idle",
+					availability: "missing",
+				});
+				expect((yield* readEntity(owner, note)).relatedPopulationStatus).toEqual({
+					state: "idle",
+					availability: "none",
+				});
+			}),
+		testTimeout,
+	);
+
+	test.effect(
 		"hides stale translation content and work until the current generation is translated, including negative caches",
 		() =>
 			Effect.gen(function* () {
 				const session = yield* DatabaseSession;
-				const entityId = yield* seedEntity("localized", 2);
+				const entityId = yield* seedEntity("localized", { contentGeneration: 2 });
 				yield* session.run((db) =>
 					db
 						.insert(entityTranslation)

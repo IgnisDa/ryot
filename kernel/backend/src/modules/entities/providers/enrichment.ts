@@ -63,7 +63,11 @@ export class EntityEnrichmentService extends Context.Service<EntityEnrichmentSer
 					if (
 						provider?.pluginId !== entity.entitySchemaPluginId ||
 						(input.operation === "population" &&
-							provider.rootEntitySchemaSlug !== entity.entitySchemaSlug)
+							!(yield* pluginRuntime.populatesEntitySchema({
+								provider,
+								userId: user.id,
+								entitySchemaSlug: entity.entitySchemaSlug,
+							})))
 					) {
 						return yield* refused("provider-unavailable");
 					}

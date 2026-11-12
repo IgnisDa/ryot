@@ -237,7 +237,6 @@ class FakeProviderWrites extends Context.Service<
 	{
 		readonly persisted: Effect.Effect<ReadonlyArray<UpsertInput>>;
 		readonly reconciliations: Effect.Effect<ReadonlyArray<Reconciliation>>;
-		readonly stampedChildren: Effect.Effect<ReadonlyArray<ReadonlyArray<EntityId>>>;
 	}
 >()(
 	"@ryot-app/kernel-backend/modules/entities/providers/population-children.test/FakeProviderWrites",
@@ -250,17 +249,10 @@ const providerWritesLayer = (options: {
 		Effect.gen(function* () {
 			const transaction = yield* makeTransaction<UpsertInput>();
 			const reconciliations = yield* Ref.make<ReadonlyArray<Reconciliation>>([]);
-			const stampedChildren = yield* Ref.make<ReadonlyArray<ReadonlyArray<EntityId>>>([]);
 			const { reconciled } = options;
 			return Layer.mergeAll(
 				transaction.database,
 				definitionsLayer,
-				Layer.mock(EntitiesRepository)({
-					stampChildRelatedPopulated: (ids) =>
-						transaction
-							.expectTransaction(true)
-							.pipe(Effect.andThen(Ref.update(stampedChildren, (all) => [...all, ids]))),
-				}),
 				Layer.mock(EntitiesService)({
 					persistPlannedProviderUpserts: (input) =>
 						Effect.forEach(input.items, (item) =>
@@ -306,7 +298,6 @@ const providerWritesLayer = (options: {
 				Layer.succeed(FakeProviderWrites, {
 					persisted: transaction.persisted,
 					reconciliations: Ref.get(reconciliations),
-					stampedChildren: Ref.get(stampedChildren),
 				}),
 			);
 		}),
@@ -325,7 +316,7 @@ layer(
 	}),
 )((it) => {
 	it.effect(
-		"commits children and stamps in provider order with entity then relationship plans",
+		"commits children in provider order with entity then relationship plans",
 		() =>
 			Effect.gen(function* () {
 				const result = yield* writeChildEntitySet({
@@ -345,9 +336,6 @@ layer(
 				});
 				expect(yield* persistedExternalIds).toEqual(["b", "A"]);
 				expect(result.processedChildren.map(({ entity }) => entity.externalId)).toEqual(["b", "A"]);
-				expect(yield* (yield* FakeProviderWrites).stampedChildren).toEqual<unknown>([
-					["entity-b", "entity-A"],
-				]);
 				expect(result.relationshipResults).toEqual([
 					{ created: 2, updated: 0, deleted: 0, upserted: 2 },
 				]);
@@ -561,7 +549,6 @@ const rootPopulationLayer = Layer.unwrap(
 				lockMutationKeys: () => Effect.void,
 				stampRelatedPopulated: () => Effect.void,
 				invalidateRelatedPopulated: () => Effect.void,
-				stampChildRelatedPopulated: () => Effect.void,
 				findPopulationTarget: () => Effect.succeed(null),
 				holdsRelatedPopulationGeneration: () => Effect.succeed(true),
 			}),

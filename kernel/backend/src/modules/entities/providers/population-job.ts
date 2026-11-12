@@ -30,6 +30,7 @@ import type { LifecycleDispatchPlan } from "#modules/automations/lifecycle/plann
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { EnrichmentRequests } from "#modules/entities/enrichment/requests";
 import { TranslationsService } from "#modules/entities/localization/service";
+import { selectProviderInputProperties } from "#modules/entities/provider-inputs";
 import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import { type DomainLifecycleCommand, DomainWriteChecks } from "#modules/entities/write-context";
@@ -512,15 +513,23 @@ const stampRelatedPopulatedAt = Effect.fn("stampProviderRelatedPopulatedAt")(fun
 	).pipe(mapDbErrorToSandbox);
 });
 
-type RelatedGroupRun = {
+type RelatedPage = Pick<ProviderDetailsRelatedEntityGroup, "coverage" | "entities">;
+
+type RelatedGroupRun = RelatedTarget & {
 	readonly index: number;
+	readonly group: RelatedGroupHeader;
+};
+
+type RelatedGroupHeader = Pick<
+	ProviderDetailsRelatedEntityGroup,
+	"direction" | "synchronization" | "relationshipSchemaSlug"
+>;
+
+type RelatedTarget = {
 	readonly entityId: EntityId;
 	readonly generation: string;
 	readonly population: AutomationPopulationContext;
-	readonly group: Pick<
-		ProviderDetailsRelatedEntityGroup,
-		"direction" | "synchronization" | "relationshipSchemaSlug"
-	>;
+	readonly properties: Readonly<Record<string, JsonValue>>;
 };
 
 const sweepRelatedGroup = Effect.fn("sweepRelatedGroup")(function* (
@@ -556,57 +565,47 @@ const sweepRelatedGroup = Effect.fn("sweepRelatedGroup")(function* (
 	return "complete" as const;
 });
 
-/** Writes a group's later pages, one transaction each, and sweeps an authoritative group once they are all in. */
-const finishRelatedGroup = Effect.fn("finishRelatedGroup")(function* (
+const fetchRelatedPage = Effect.fn("fetchRelatedPage")(function* (
+	payload: PopulationWritePayload,
+	run: RelatedGroupRun,
+	pageIndex: number,
+	continuation: JsonValue,
+) {
+	const operations = yield* EntityImportWorkflowOperations;
+	const sandboxResult = yield* operations.processRelatedPage(
+		{ ...payload, group: run.group, properties: run.properties },
+		`${payload.executionId}-sandbox-related-${run.index}-${pageIndex}`,
+		continuation,
+	);
+	if (sandboxResult.error) {
+		return yield* new SandboxRunError({
+			kind: sandboxResult.error.kind,
+			message: sandboxResult.error.message,
+			...(sandboxResult.error.data === undefined ? {} : { data: sandboxResult.error.data }),
+		});
+	}
+	return yield* Schema.decodeUnknownEffect(providerRelatedResultSchema)(sandboxResult.value).pipe(
+		Effect.mapError(
+			(error) =>
+				new SandboxRunError({
+					kind: "invalid-output",
+					message: `Invalid related entities: ${error.message}`,
+				}),
+		),
+	);
+});
+
+/** Writes a group's pages, one transaction each, and sweeps an authoritative group once they are all in. */
+const synchronizeRelatedGroup = Effect.fn("synchronizeRelatedGroup")(function* (
 	payload: PopulationWritePayload,
 	definitions: EntityRelationshipDefinitions,
 	run: RelatedGroupRun,
-	firstPage: { readonly coverage: ProviderDetailsRelatedEntityGroup["coverage"] },
-	firstKept: ReadonlyArray<EntityId>,
+	firstPage: RelatedPage,
 ) {
-	const operations = yield* EntityImportWorkflowOperations;
-	const kept = new Set(firstKept);
-	let coverage = firstPage.coverage;
+	const kept = new Set<EntityId>();
 	const seenContinuations = new Set<string>();
-	for (let pageIndex = 1; coverage.status === "more"; pageIndex += 1) {
-		if (pageIndex >= RELATED_PAGES_MAX_PAGES) {
-			return yield* new SandboxRunError({
-				kind: "invalid-output",
-				message: "Related entity pages reached the page limit",
-			});
-		}
-		const continuation: JsonValue = coverage.continuation;
-		const continuationKey = stableStringify(continuation);
-		if (seenContinuations.has(continuationKey)) {
-			return yield* new SandboxRunError({
-				kind: "invalid-output",
-				message: "Related entity pages repeated a continuation without completing",
-			});
-		}
-		seenContinuations.add(continuationKey);
-		const sandboxResult = yield* operations.processRelatedPage(
-			{ ...payload, group: run.group },
-			`${payload.executionId}-sandbox-related-${run.index}-${pageIndex}`,
-			continuation,
-		);
-		if (sandboxResult.error) {
-			return yield* new SandboxRunError({
-				kind: sandboxResult.error.kind,
-				message: sandboxResult.error.message,
-				...(sandboxResult.error.data === undefined ? {} : { data: sandboxResult.error.data }),
-			});
-		}
-		const page = yield* Schema.decodeUnknownEffect(providerRelatedResultSchema)(
-			sandboxResult.value,
-		).pipe(
-			Effect.mapError(
-				(error) =>
-					new SandboxRunError({
-						kind: "invalid-output",
-						message: `Invalid related entities: ${error.message}`,
-					}),
-			),
-		);
+	let page = firstPage;
+	for (let pageIndex = 0; ; pageIndex += 1) {
 		if (page.coverage.status === "source-limited") {
 			return yield* new SandboxRunError({
 				kind: "invalid-output",
@@ -629,11 +628,63 @@ const finishRelatedGroup = Effect.fn("finishRelatedGroup")(function* (
 		for (const id of synchronized.relatedEntityIds) {
 			kept.add(id);
 		}
-		coverage = page.coverage;
+		if (page.coverage.status !== "more") {
+			break;
+		}
+		if (pageIndex + 1 >= RELATED_PAGES_MAX_PAGES) {
+			return yield* new SandboxRunError({
+				kind: "invalid-output",
+				message: "Related entity pages reached the page limit",
+			});
+		}
+		const continuation: JsonValue = page.coverage.continuation;
+		const continuationKey = stableStringify(continuation);
+		if (seenContinuations.has(continuationKey)) {
+			return yield* new SandboxRunError({
+				kind: "invalid-output",
+				message: "Related entity pages repeated a continuation without completing",
+			});
+		}
+		seenContinuations.add(continuationKey);
+		page = yield* fetchRelatedPage(payload, run, pageIndex + 1, continuation);
 	}
 	return run.group.synchronization === "authoritative"
 		? yield* sweepRelatedGroup(payload, definitions, run, kept)
 		: ("complete" as const);
+});
+
+const synchronizeRelatedGroups = Effect.fn("synchronizeRelatedGroups")(function* (
+	payload: PopulationWritePayload,
+	definitions: EntityRelationshipDefinitions,
+	target: RelatedTarget,
+	groups: ReadonlyArray<{
+		readonly group: RelatedGroupHeader;
+		readonly firstPage: (
+			run: RelatedGroupRun,
+		) => Effect.Effect<
+			RelatedPage,
+			SandboxRunError,
+			Effect.Services<ReturnType<typeof fetchRelatedPage>>
+		>;
+	}>,
+) {
+	const outcomes = yield* Effect.forEach(groups, ({ group, firstPage }, index) => {
+		const run = { ...target, index, group };
+		return firstPage(run).pipe(
+			Effect.flatMap((page) => synchronizeRelatedGroup(payload, definitions, run, page)),
+			Effect.result,
+		);
+	});
+	if (outcomes.some((outcome) => Result.isSuccess(outcome) && outcome.success === "superseded")) {
+		return yield* supersededPopulation();
+	}
+	for (const outcome of outcomes) {
+		if (Result.isFailure(outcome)) {
+			return yield* outcome.failure;
+		}
+	}
+	yield* stampRelatedPopulatedAt(payload, target.entityId, target.generation);
+	return yield* publishPrimaryEntity(payload, target.entityId, "enrichment-updated");
 });
 
 const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
@@ -657,7 +708,7 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	const details = yield* validateEntityDetails(sandboxResult.value);
 	const relatedEntityGroups = options.level === "full" ? details.relatedEntityGroups : [];
 	if (relatedEntityGroups.some(({ coverage }) => coverage.status === "more")) {
-		yield* operations.requireRelatedScript(payload);
+		yield* operations.resolveRelatedInputs(payload);
 	}
 	const rootPreviouslyPopulated = existing !== null && existing.populatedAt !== null;
 	const scopeEntity = {
@@ -691,47 +742,92 @@ const synchronizeEntityGraph = Effect.fn("synchronizeEntityGraph")(function* (
 	if (options.level === "base") {
 		return stamped.result.entity;
 	}
-	const outcomes = yield* Effect.forEach(relatedEntityGroups, (group, index) =>
-		Effect.gen(function* () {
-			if (group.coverage.status === "source-limited") {
-				return yield* new SandboxRunError({
-					kind: "invalid-output",
-					message: `Provider inventory ${group.relationshipSchemaSlug} is source-limited: ${group.coverage.reason}`,
-				});
-			}
-			const firstPage = yield* syncRelatedEntityGroupScope(
-				payload,
-				definitions,
-				entity.id,
-				group,
-				index,
-				population,
-				{ pageIndex: 0, generation: executionId },
-			);
-			if (firstPage.superseded) {
-				yield* logSupersededRelatedGroup(entity.id, group, index, 0);
-				return "superseded" as const;
-			}
-			return yield* finishRelatedGroup(
-				payload,
-				definitions,
-				{ index, group, population, entityId: entity.id, generation: executionId },
-				{ coverage: group.coverage },
-				firstPage.relatedEntityIds,
-			);
-		}).pipe(Effect.result),
+	yield* synchronizeRelatedGroups(
+		payload,
+		definitions,
+		{ population, properties: {}, entityId: entity.id, generation: executionId },
+		relatedEntityGroups.map(({ entities, coverage, ...group }) => ({
+			group,
+			firstPage: () => Effect.succeed({ entities, coverage }),
+		})),
 	);
-	if (outcomes.some((outcome) => Result.isSuccess(outcome) && outcome.success === "superseded")) {
-		return yield* supersededPopulation();
-	}
-	for (const outcome of outcomes) {
-		if (Result.isFailure(outcome)) {
-			return yield* outcome.failure;
-		}
-	}
-	yield* stampRelatedPopulatedAt(payload, entity.id, executionId);
-	yield* publishPrimaryEntity(payload, entity.id, "enrichment-updated");
 	return stamped.result.entity;
+});
+
+const claimRelatedPopulation = Effect.fn("claimProviderRelatedPopulation")(function* (
+	payload: PopulationWritePayload,
+	entityId: EntityId,
+	generation: string,
+) {
+	const session = yield* DatabaseSession;
+	const checks = yield* DomainWriteChecks;
+	const repository = yield* EntitiesRepository;
+	const scope = getEntityWriteScope(payload);
+	yield* retryOnDeadlock(
+		session.transaction(
+			Effect.gen(function* () {
+				yield* populationWriteGuard(payload);
+				yield* checks.check(
+					payload.command,
+					definitionOwner(payload.pluginId),
+					scope.scope === "user" ? scope.userId : null,
+					true,
+				);
+				yield* repository.lockMutationKeys([entityId]);
+				yield* repository.invalidateRelatedPopulated(
+					entityId,
+					DateTime.toDateUtc(DateTime.makeUnsafe(payload.command.occurredAt)),
+					generation,
+				);
+			}),
+		),
+	).pipe(mapDbErrorToSandbox);
+});
+
+/** A child's provider data belongs to its parent's population; only the related groups its `related` script declares are populated here. */
+const synchronizeChildRelatedGroups = Effect.fn("synchronizeChildRelatedGroups")(function* (
+	payload: PopulationWritePayload,
+	definitions: EntityRelationshipDefinitions,
+	child: ListedEntity,
+	executionId: string,
+) {
+	const operations = yield* EntityImportWorkflowOperations;
+	const declared = (yield* operations.resolveRelatedInputs(payload))?.[payload.entitySchemaSlug];
+	if (declared === undefined) {
+		return yield* new SandboxRunError({
+			kind: "invalid-input",
+			message: `Provider declares no related groups for entity schema '${payload.entitySchemaSlug}'`,
+		});
+	}
+	const properties = yield* selectProviderInputProperties(
+		"Related",
+		toSandboxJsonObject(child.properties),
+		declared.properties,
+	);
+	yield* claimRelatedPopulation(payload, child.id, executionId);
+	yield* synchronizeRelatedGroups(
+		payload,
+		definitions,
+		{
+			properties,
+			entityId: child.id,
+			generation: executionId,
+			population: {
+				rootPreviouslyPopulated: true,
+				scopeEntity: {
+					id: child.id,
+					name: child.name,
+					entitySchemaPluginId: payload.pluginId,
+					entitySchemaSlug: payload.entitySchemaSlug,
+				},
+			},
+		},
+		declared.groups.map((group) => ({
+			group,
+			firstPage: (run: RelatedGroupRun) => fetchRelatedPage(payload, run, 0, null),
+		})),
+	);
+	return child;
 });
 
 export const ProviderEntityPopulationPayload = Schema.Struct({
@@ -762,12 +858,6 @@ export const runPopulationAttempt = Effect.fn("runPopulationAttempt")(
 					(error) => new SandboxRunError({ kind: "invalid-input", message: error.message }),
 				),
 			);
-		if (provider.rootEntitySchemaSlug !== payload.entitySchemaSlug) {
-			return yield* new SandboxRunError({
-				kind: "invalid-input",
-				message: "Provider root schema does not match its exact owner",
-			});
-		}
 		yield* Effect.annotateCurrentSpan({
 			executionId,
 			providerId: payload.providerId,
@@ -790,6 +880,17 @@ export const runPopulationAttempt = Effect.fn("runPopulationAttempt")(
 			(payload.level === "base" || target.relatedPopulated)
 		) {
 			return target.entity;
+		}
+		if (provider.rootEntitySchemaSlug !== payload.entitySchemaSlug) {
+			if (existing === null) {
+				return yield* new SandboxRunError({
+					kind: "invalid-input",
+					message: "Provider child entity has not been populated by its parent",
+				});
+			}
+			return payload.level === "base"
+				? existing
+				: yield* synchronizeChildRelatedGroups(payload, definitions, existing, executionId);
 		}
 		return yield* synchronizeEntityGraph(
 			payload,

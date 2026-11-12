@@ -17,7 +17,6 @@ import { DateTime, Effect, Schema } from "effect";
 
 import { populationLifecycleCommand } from "#modules/automations/lifecycle/command";
 import { LifecycleDispatchPlan } from "#modules/automations/lifecycle/planning";
-import { EntitiesRepository } from "#modules/entities/repository";
 import { EntitiesService } from "#modules/entities/service";
 import type { DomainLifecycleCommand } from "#modules/entities/write-context";
 import { retryOnDeadlock } from "#platform/db/errors";
@@ -82,7 +81,6 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 ) {
 	const session = yield* DatabaseSession;
 	const entities = yield* EntitiesService;
-	const repository = yield* EntitiesRepository;
 	const childSchemaSlugs = new Set(
 		input.childEntities.map(({ entitySchemaSlug }) => entitySchemaSlug),
 	);
@@ -176,9 +174,6 @@ export const writeChildEntitySet = Effect.fn("writeChildEntitySet")(function* (
 					entity,
 					entitySchemaSlug: entity.entitySchemaSlug,
 				}));
-				yield* repository.stampChildRelatedPopulated(
-					processedChildren.map(({ entity }) => entity.id),
-				);
 				const relationshipWork = relationshipDefinition
 					? yield* persistPlannedRelationshipSynchronization({
 							...scope,
