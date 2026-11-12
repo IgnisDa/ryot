@@ -1,127 +1,85 @@
 import type { DescribeResponse } from "@ryot-app/plugin-client-sdk";
-import { BrowserInlineError, countLabel } from "@ryot-app/plugin-client-sdk/browser";
-import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
+import {
+	BrowserInlineError,
+	type BrowserQueryInput,
+	countLabel,
+	EntityBrowserController,
+	EntityBrowserResults,
+} from "@ryot-app/plugin-client-sdk/browser";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import { usePageContext, usePluginSearch } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { PluginScreenFrame } from "@ryot-app/plugin-client-sdk/screen";
 import { StatusMessage } from "@ryot-app/plugin-ui-sdk";
-import { type BrowseSchema, loadEntitySchemaBrowse } from "@ryot-app/ryotql-recipes/browse";
 import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
+import { PublicationItemDetailField } from "@ryot-app/ryotql-recipes/publication-browse";
 import {
-	publicationBrowse,
-	publicationBrowserSource,
-	type PublicationSubjectSchema,
-	publicationSubjectSchemasRecipe,
-} from "@ryot-app/ryotql-recipes/publication-browse";
+	decodeEntityBrowserResult,
+	decodeSavedViewCount,
+	EntityBrowserPageInput,
+	type EntityBrowserResult,
+} from "@ryot-app/ryotql-recipes/saved-views";
 import { useState } from "react";
 
-import { EntityBrowserView } from "./entity-browser";
-import { PublicationItem } from "./publication-item";
+import { PublicationItem, PublicationResults } from "./publication-item";
 
 const PublicationPageInput = Schema.Struct({
-	view: Schema.NullOr(Schema.Struct({ icon: Schema.String, name: Schema.String })),
+	view: EntityBrowserPageInput.fields.view,
 	target: Schema.Struct({ publicationId: Schema.String, kind: Schema.Literal("publication") }),
 	settings: Schema.Struct({
-		itemCount: Schema.Int,
 		ownerName: Schema.NullOr(Schema.String),
+		itemCount: Schema.optionalKey(Schema.Int),
 		description: Schema.NullOr(Schema.String),
+		mode: Schema.Literals(["live", "snapshot"]),
+		browser: EntityBrowserPageInput.fields.settings,
+		itemDetails: Schema.Array(PublicationItemDetailField),
 	}),
 });
+type PublicationInput = typeof PublicationPageInput.Type;
 
-const subjectsQuery = createRyotQuery<
-	string,
-	{
-		readonly browse: readonly BrowseSchema[];
-		readonly schemas: readonly PublicationSubjectSchema[];
-	}
->(({ client }) =>
-	Effect.gen(function* () {
-		const schemas = yield* client.data.query(publicationSubjectSchemasRecipe, {});
-		const [first, ...rest] = schemas;
-		if (first === undefined) {
-			return { schemas, browse: [] };
-		}
-		const browse = yield* loadEntitySchemaBrowse([first, ...rest], (recipe) =>
-			client.data.query(recipe, {}),
-		);
-		return { schemas, browse: publicationBrowse(browse) };
-	}),
+const controlsQuery = createRyotQuery<null, typeof DescribeResponse.Type>(({ client }) =>
+	client.page.describe("items"),
 );
 
-const PublicationSummary = ({
-	settings,
-}: {
-	readonly settings: typeof PublicationPageInput.Type.settings;
-}) => (
+const PublicationSummary = ({ settings }: { readonly settings: PublicationInput["settings"] }) => (
 	<header className="grid gap-2">
 		{settings.description === null ? null : (
 			<p className="max-w-prose text-sm text-text-muted">{settings.description}</p>
 		)}
 		<p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-text-muted">
 			{settings.ownerName === null ? null : (
-				<>
-					<span>
-						Shared by <strong className="font-semibold text-text">{settings.ownerName}</strong>
-					</span>
-					<span aria-hidden>·</span>
-				</>
+				<span>
+					Shared by <strong className="font-semibold text-text">{settings.ownerName}</strong>
+				</span>
 			)}
-			<span>{countLabel(settings.itemCount)}</span>
+			{settings.ownerName !== null && settings.itemCount !== undefined ? (
+				<span aria-hidden>·</span>
+			) : null}
+			{settings.itemCount === undefined ? null : <span>{countLabel(settings.itemCount)}</span>}
 		</p>
 	</header>
 );
 
-const PublicationBrowser = ({ input }: { readonly input: typeof PublicationPageInput.Type }) => {
-	const itemId = usePluginSearch().get("item");
-	const subjects = useRyotQuery(subjectsQuery, input.target.publicationId);
-	const title = input.view?.name ?? "Publication";
-	const [controlQuery] = useState(() =>
-		createRyotQuery<readonly PublicationSubjectSchema[], null | typeof DescribeResponse.Type>(
-			({ client, input: schemas }) => {
-				const [first, ...rest] = schemas;
-				return first === undefined
-					? Effect.succeed(null)
-					: client.data.describe({
-							kind: "inline",
-							query: "source",
-							document: publicationBrowserSource([first, ...rest]).dataSources,
-						});
-			},
+const LiveBrowser = ({ input }: { readonly input: PublicationInput }) => {
+	const controls = useRyotQuery(controlsQuery, null);
+	const browser = input.settings.browser;
+	const [query] = useState(() =>
+		createRyotQuery<BrowserQueryInput, EntityBrowserResult, Error>(
+			({ client, input: { filter, cursor, searchText, sortChoice } }) =>
+				client.page.query("items", {
+					arguments: { search: searchText },
+					...(filter === null ? {} : { filter }),
+					...(sortChoice === "" ? {} : { sort: sortChoice }),
+					decode: (response) => decodeEntityBrowserResult(response, "items", browser),
+					pages: {
+						items: { limit: browser.pageSize, ...(cursor === null ? {} : { after: cursor }) },
+					},
+				}),
+			{ cancelOnUnmount: true },
 		),
 	);
-	const controls = useRyotQuery(controlQuery, subjects.data?.schemas ?? []);
-	if (subjects.data === undefined) {
-		return (
-			<PluginScreenFrame title={title}>
-				{subjects.isError ? (
-					<BrowserInlineError
-						onRetry={subjects.refetch}
-						title="Publication unavailable"
-						message="The published items could not be loaded."
-					/>
-				) : null}
-			</PluginScreenFrame>
-		);
-	}
-	const [first, ...rest] = subjects.data.schemas;
-	if (first === undefined) {
-		return (
-			<PluginScreenFrame title={title}>
-				<StatusMessage tone="success">Nothing is published here yet.</StatusMessage>
-			</PluginScreenFrame>
-		);
-	}
-	if (itemId !== null && itemId !== "") {
-		return (
-			<PublicationItem
-				entityId={itemId}
-				schemas={[first, ...rest]}
-				browse={subjects.data.browse}
-				publicationId={input.target.publicationId}
-			/>
-		);
-	}
-	if (controls.data === undefined || controls.data === null || controls.isError) {
+	const title = input.view?.name ?? "Publication";
+	if (controls.data === undefined || controls.isError) {
 		return (
 			<PluginScreenFrame title={title}>
 				{controls.isError ? (
@@ -137,20 +95,95 @@ const PublicationBrowser = ({ input }: { readonly input: typeof PublicationPageI
 		);
 	}
 	return (
-		<EntityBrowserView
-			selectable={false}
-			key={JSON.stringify(subjects.data)}
+		<EntityBrowserController
+			name={title}
+			query={query}
+			layouts={browser.layouts}
+			sortChoices={controls.data.sort}
+			icon={input.view?.icon ?? "library"}
 			errorTitle="Publication unavailable"
+			defaultLayout={browser.defaultLayout}
+			identityKey={input.target.publicationId}
+			canSearch={browser.controls?.search !== undefined}
+			filterFields={queryFilterFields(controls.data.filter)}
 			errorMessage="The published items could not be loaded."
-			viewContext={{ publication: input.target.publicationId }}
 			renderSummary={() => <PublicationSummary settings={input.settings} />}
-			input={{ ...publicationBrowserSource([first, ...rest]), view: input.view }}
-			controls={{
-				sortChoices: controls.data.sort,
-				filterFields: queryFilterFields(controls.data.filter),
-			}}
+			count={(client, { filter, searchText }) =>
+				client.page.query("count", {
+					arguments: { search: searchText },
+					...(filter === null ? {} : { filter }),
+					decode: decodeSavedViewCount,
+				})
+			}
+			renderResults={(results) => (
+				<EntityBrowserResults
+					items={results.items}
+					selection={undefined}
+					layout={results.layout}
+					settled={results.settled}
+					columns={browser.tableColumns}
+					viewContext={{ publication: input.target.publicationId }}
+				/>
+			)}
 		/>
 	);
+};
+
+const SnapshotBrowser = ({ input }: { readonly input: PublicationInput }) => {
+	const [query] = useState(() =>
+		createRyotQuery<null, EntityBrowserResult>(({ client }) =>
+			client.page.query("items", {
+				decode: (response) => decodeEntityBrowserResult(response, "items", input.settings.browser),
+			}),
+		),
+	);
+	const result = useRyotQuery(query, null);
+	return (
+		<PluginScreenFrame title={input.view?.name ?? "Publication"}>
+			<div className="grid content-start gap-5">
+				<PublicationSummary settings={input.settings} />
+				<StatusMessage tone="pending">
+					This snapshot shows only the first page captured when it was published.
+				</StatusMessage>
+				{result.data === undefined && result.isError ? (
+					<BrowserInlineError
+						onRetry={result.refetch}
+						title="Publication unavailable"
+						message="The published items could not be loaded."
+					/>
+				) : null}
+				{result.data?.items.length === 0 ? (
+					<StatusMessage tone="success">Nothing is published here yet.</StatusMessage>
+				) : null}
+				{result.data !== undefined && result.data.items.length > 0 ? (
+					<PublicationResults
+						layout="grid"
+						items={result.data.items}
+						navigationEnabled={false}
+						publicationId={input.target.publicationId}
+					/>
+				) : null}
+			</div>
+		</PluginScreenFrame>
+	);
+};
+
+const PublicationBrowser = ({ input }: { readonly input: PublicationInput }) => {
+	const itemId = usePluginSearch().get("item");
+	if (input.settings.mode === "snapshot") {
+		return <SnapshotBrowser input={input} />;
+	}
+	if (itemId !== null && itemId !== "") {
+		return (
+			<PublicationItem
+				entityId={itemId}
+				browser={input.settings.browser}
+				itemDetails={input.settings.itemDetails}
+				publicationId={input.target.publicationId}
+			/>
+		);
+	}
+	return <LiveBrowser input={input} />;
 };
 
 export default function PublicationPage() {

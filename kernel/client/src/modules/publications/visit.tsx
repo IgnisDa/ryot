@@ -55,13 +55,25 @@ const unavailableCopy: Record<PublicationUnavailableCode, { title: string; detai
 	disabled: { title: "Sharing disabled", detail: "This server does not allow shared pages." },
 	"not-found": { title: "Link not found", detail: "This link is incomplete or does not exist." },
 	expired: { title: "Link expired", detail: "This link has expired. Ask the owner for a new one." },
-	unavailable: {
+	"source-unavailable": {
+		title: "Page unavailable",
+		detail: "The shared data source is unavailable.",
+	},
+	"page-unavailable": {
 		title: "Page unavailable",
 		detail: "This shared page is not available right now.",
 	},
-	"too-large": {
+	"snapshot-too-large": {
 		title: "Page unavailable",
-		detail: "This page shares more items than this server allows.",
+		detail: "This snapshot exceeds the server size limit.",
+	},
+	"dependency-unavailable": {
+		title: "Page unavailable",
+		detail: "A required page dependency is unavailable.",
+	},
+	"bindings-invalid": {
+		title: "Page unavailable",
+		detail: "The page arguments need attention from its owner.",
 	},
 	"session-expired": {
 		title: "Link needed",
@@ -184,6 +196,7 @@ function PublicationVisitAttempt(props: {
 	return (
 		<main {...mainContentProps} className="flex h-dvh flex-col bg-bg">
 			{credentials.secret === null && <PreviewBanner />}
+
 			<div className="min-h-0 flex-1">
 				<PublicationFrame
 					page={state.page}

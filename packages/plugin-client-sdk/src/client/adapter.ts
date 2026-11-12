@@ -5,7 +5,8 @@ import type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins
 import type {
 	DescribeRequest,
 	ExecutionRequest,
-	ExecutionSource,
+	VisitorDescribeRequest,
+	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
 import type { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type {
@@ -97,10 +98,10 @@ export type OperationInvocation<
 };
 
 export type RyotClientAdapter = {
-	readonly pageQuerySource?: (name: string) => undefined | ExecutionSource;
 	readonly readUserPreferences?: () => Effect.Effect<unknown, RyotClientError>;
 	readonly navigate?: (mode: "push" | "replace", target: RyotNavigationTarget) => void;
 	readonly query: (request: ExecutionRequest) => Effect.Effect<unknown, RyotClientError>;
+	readonly pageQuery?: (request: VisitorRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly registerFlush?: (flush: () => Effect.Effect<void, RyotClientError>) => () => void;
 	readonly upload: (request: PluginUploadRequest) => Effect.Effect<unknown, RyotClientError>;
 	readonly device?: (request: PluginDeviceRequest) => Effect.Effect<unknown, RyotClientError>;
@@ -110,6 +111,9 @@ export type RyotClientAdapter = {
 	readonly navigatePageSearch?: (mode: "push" | "replace", update: RyotPageSearchUpdate) => void;
 	readonly saveEntity?: (
 		request: EntityEditorSaveRequest,
+	) => Effect.Effect<unknown, RyotClientError>;
+	readonly pageDescribe?: (
+		request: VisitorDescribeRequest,
 	) => Effect.Effect<unknown, RyotClientError>;
 	readonly accessStorage?: (
 		request: StorageAdapterRequest,

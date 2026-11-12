@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { EntityId, PublicationId, PublicationLinkId } from "@ryot-app/contract/schema/brands";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -19,7 +20,6 @@ const source = { collectionId, kind: "collection" } as const;
 const rowsPage = { limit: 20, hasMore: false, nextCursor: null };
 
 const publication = (linkRevokedAt: null | string) => ({
-	source,
 	revision: 1,
 	icon: "library",
 	revokedAt: null,
@@ -29,6 +29,11 @@ const publication = (linkRevokedAt: null | string) => ({
 	showOwnerName: false,
 	createdAt: "2026-11-01T00:00:00.000Z",
 	updatedAt: "2026-11-01T00:00:00.000Z",
+	definition: {
+		mode: "live",
+		page: { kind: "kernel", name: "publication" },
+		arguments: { source: encodeEntitySourceReference(source) },
+	},
 	links: {
 		pageInfo: { limit: 100, hasMore: false },
 		items: [
@@ -112,7 +117,15 @@ it.live(
 				);
 				expect(link).toHaveProperty("value", "https://ryot.example/share/publication-1#secret-1");
 				expect(view.requests).toEqual([
-					{ source, icon: "library", description: null, title: "Road trips", showOwnerName: false },
+					{
+						mode: "live",
+						icon: "library",
+						description: null,
+						title: "Road trips",
+						showOwnerName: false,
+						page: { kind: "kernel", name: "publication" },
+						arguments: { source: encodeEntitySourceReference(source) },
+					},
 					{ expiresAt: null, label: "Shared link", publicationId: "publication-1" },
 				]);
 

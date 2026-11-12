@@ -15,13 +15,22 @@ screens. Saved views retain their URL-owned provider-add screen.
 
 `modules/publications` owns publication management in settings, the share sheet that answers
 `screens.sharePublication` from collection and saved-view pages, and the unauthenticated
-`/share/$publicationId` visitor route. The visitor route takes the link secret or owner preview
-session from the URL fragment, clears the fragment, keeps credentials in tab-scoped session storage,
-and runs the publication page in the same sandboxed iframe host. Its bridge answers RyotQL and asset
-reads through the visitor session, answers user preferences with the defaults (UTC, ratings out of
-100), and refuses every write, upload, and kernel screen. Entity
-navigation becomes the `item` search parameter on the same route, so the browser back button returns
-to the list. Owner previews open in the app with a banner to exit; they never use the link secret.
+`/share/$publicationId` visitor route. Settings creates publications from published user pages and
+binds optional owner arguments through the schema form. Collection and entity-browser sharing binds
+the kernel publication page's encoded `source` argument. Both use one publication definition with
+page, arguments and mode. Live follows the latest published page and current data; snapshot freezes
+page code and the first page of every declared query until the owner refreshes via republish. The
+management surface exposes mode, refresh, status, links, visitor preview, revoke and delete.
+
+The visitor route takes the link secret or owner preview session from the URL fragment, clears the
+fragment, keeps credentials in tab-scoped session storage, and runs the publication page in the same
+sandboxed iframe host. Its bridge accepts named page queries and descriptions only, using the visitor
+session's authority; documents, arbitrary page IDs, writes, operations, uploads and kernel screens
+are refused. Presentation reads use only projected query fields, with no fallback loaders. Snapshot
+pages cannot use server-dependent interactions such as search, filters, sorting, pagination or detail
+navigation. Live entity navigation becomes the `item` search parameter on the same route, so the
+browser back button returns to the list. Owner previews open in the app with a banner to exit; they
+never use the link secret. Visitor user preferences use the defaults (UTC, ratings out of 100).
 
 `modules/plugins` owns installation management and the executable catalog. `modules/pages` owns how
 a prepared page executes: `preparation` resolves targets and freshness, `documents` owns the

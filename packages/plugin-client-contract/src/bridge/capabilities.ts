@@ -31,6 +31,8 @@ import {
 	DescribeRequest,
 	DescribeResponse,
 	ExecutionRequest,
+	VisitorDescribeRequest,
+	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -739,6 +741,16 @@ const ryotqlRequestFields = { requestId: Schema.String, type: Schema.Literal("ry
 export const PluginBridgeRyotQLRequest = Schema.Union([
 	strictStruct({
 		...ryotqlRequestFields,
+		request: VisitorDescribeRequest,
+		action: Schema.Literal("page-describe"),
+	}),
+	strictStruct({
+		...ryotqlRequestFields,
+		request: VisitorRequest,
+		action: Schema.Literal("page-execute"),
+	}),
+	strictStruct({
+		...ryotqlRequestFields,
 		request: ExecutionRequest,
 		action: Schema.Literal("execute"),
 	}),
@@ -753,6 +765,8 @@ export type PluginBridgeRyotQLRequest = Schema.Schema.Type<typeof PluginBridgeRy
 
 export type PluginRyotQLRequest =
 	| { readonly action: "execute"; readonly request: ExecutionRequest }
+	| { readonly action: "page-execute"; readonly request: VisitorRequest }
+	| { readonly action: "page-describe"; readonly request: VisitorDescribeRequest }
 	| { readonly action: "describe"; readonly request: typeof DescribeRequest.Type };
 
 export const PluginBridgeRyotQLCancel = strictStruct({

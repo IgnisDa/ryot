@@ -1,16 +1,14 @@
 import type { ContractRequest } from "@ryot-app/contract/client";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import type {
-	PublicationSource,
-	PublicationStatusResponse,
-} from "@ryot-app/contract/modules/publications/schemas";
+import type { PublicationStatusResponse } from "@ryot-app/contract/modules/publications/schemas";
+import type { EntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { PublicationId } from "@ryot-app/contract/schema/brands";
 import {
 	createRyotHostMutation,
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { allCollectionsRecipe } from "@ryot-app/ryotql-recipes/collections";
+import { pageRecipe, pagesRecipe } from "@ryot-app/ryotql-recipes/pages";
 import {
 	publicationSourceArguments,
 	publicationsRecipe,
@@ -21,7 +19,6 @@ import {
 import {
 	type SavedViewRecord,
 	savedViewRecordRecipe,
-	savedViewRecordsRecipe,
 	savedViewReferenceArguments,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
 import { Effect, Schema } from "effect";
@@ -31,7 +28,6 @@ import { PublicationsApi } from "#/api/publications";
 import { KernelHostServices } from "#/host-services";
 
 export const PUBLICATIONS_PAGE_SIZE = 20;
-const SOURCE_LIMIT = 100;
 
 class PublicationsLoadError extends Schema.TaggedError<
 	PublicationsLoadError,
@@ -55,7 +51,7 @@ export const publicationsQuery = createRyotQuery<
 );
 
 export const sourcePublicationsQuery = createRyotQuery<
-	PublicationSource,
+	EntitySourceReference,
 	readonly PublicationSummary[],
 	PublicationsLoadError
 >(
@@ -96,35 +92,8 @@ export const publicationStatusQuery = createRyotHostQuery<
 	{ cancelOnUnmount: true, hostServices: KernelHostServices },
 );
 
-export const publicationSourcesQuery = createRyotQuery(
-	({ client }) =>
-		Effect.all(
-			{
-				collections: client.data.query(
-					allCollectionsRecipe,
-					{},
-					{ pages: { collections: { limit: SOURCE_LIMIT } } },
-				),
-				savedViews: client.data.query(
-					savedViewRecordsRecipe,
-					{ includeHidden: true },
-					{ pages: { savedViews: { limit: SOURCE_LIMIT } } },
-				),
-			},
-			{ concurrency: 2 },
-		).pipe(
-			Effect.mapBoth({
-				onFailure: (cause) => new PublicationsLoadError({ cause }),
-				onSuccess: ({ savedViews, collections }) => ({
-					collections: collections.items,
-					savedViews: savedViews.items.filter(
-						({ renderer }) => renderer.kind === "kernel" && renderer.name === "entity-browser",
-					),
-				}),
-			}),
-		),
-	{ cancelOnUnmount: true },
-);
+export const publicationPagesQuery = createRyotQuery(pagesRecipe);
+export const publicationPageQuery = createRyotQuery(pageRecipe);
 
 export type PublicationCommand =
 	| { readonly action: "delete"; readonly request: ContractRequest<"publications", "delete"> }

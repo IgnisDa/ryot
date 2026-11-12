@@ -777,8 +777,7 @@ describe("declared page queries", () => {
 				const requests: unknown[] = [];
 				const client = createRyotClient(
 					createTestRyotAdapter({
-						pageQuerySource: (query) => ({ query, kind: "page", pageId: "page" }),
-						query: (request) => {
+						pageQuery: (request) => {
 							requests.push(request);
 							return Effect.succeed({ value: "selected" });
 						},
@@ -791,11 +790,7 @@ describe("declared page queries", () => {
 				});
 				expect(result).toBe("selected");
 				expect(requests).toEqual([
-					{
-						pages: { items: { limit: 5 } },
-						arguments: { search: "caller" },
-						source: { kind: "page", pageId: "page", query: "items" },
-					},
+					{ query: "items", pages: { items: { limit: 5 } }, arguments: { search: "caller" } },
 				]);
 			}),
 		testTimeout,

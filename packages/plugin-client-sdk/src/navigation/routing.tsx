@@ -181,6 +181,8 @@ const navigationTargetHref = (target: RyotNavigationTarget) =>
 		Match.exhaustive,
 	);
 
+export const NavigationEnabledContext = createContext(true);
+
 export const PluginLink = ({
 	to,
 	onClick,
@@ -190,6 +192,7 @@ export const PluginLink = ({
 	...rest
 }: PluginLinkProps) => {
 	const client = useRyot();
+	const navigationEnabled = useContext(NavigationEnabledContext);
 	const href = navigationTargetHref(to);
 
 	const handleClick = (event: MouseEvent<HTMLAnchorElement>) => {
@@ -209,6 +212,14 @@ export const PluginLink = ({
 			event.preventDefault();
 		}
 	};
+
+	if (!navigationEnabled) {
+		return (
+			<span title={rest.title} className={rest.className}>
+				{children}
+			</span>
+		);
+	}
 
 	return (
 		<a

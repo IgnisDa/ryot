@@ -12,7 +12,7 @@ import type {
 } from "@ryot-app/ryotql-recipes/saved-views";
 import type { ReactNode } from "react";
 
-import { PluginLink } from "../navigation/routing";
+import { NavigationEnabledContext, PluginLink } from "../navigation/routing";
 import type { EntitySettle } from "../refresh/settle";
 import { CellThumbnail, CellValue, isAssetCell } from "./display-value";
 
@@ -113,8 +113,10 @@ export function BrowserTable({
 	columns,
 	selection,
 	renderItemActions,
+	navigationEnabled = true,
 }: {
 	readonly settled: EntitySettle;
+	readonly navigationEnabled?: boolean;
 	readonly items: readonly BrowserItem[];
 	readonly columns: null | BrowserColumns;
 	readonly selection: undefined | ItemSelection;
@@ -122,19 +124,21 @@ export function BrowserTable({
 }) {
 	const declared = browserColumns(columns, settled, selection);
 	return (
-		<div className="w-full max-w-6xl overflow-x-auto">
-			<DataTable
-				data={items}
-				getRowId={(item) => item.entityId}
-				rowClassName="h-15 border-b border-border"
-				className="w-full border-collapse text-left"
-				headerClassName="border-b border-border text-xs text-text-muted"
-				columns={
-					renderItemActions === undefined || selection !== undefined
-						? declared
-						: [...declared, actionsColumn(renderItemActions)]
-				}
-			/>
-		</div>
+		<NavigationEnabledContext.Provider value={navigationEnabled}>
+			<div className="w-full max-w-6xl overflow-x-auto">
+				<DataTable
+					data={items}
+					getRowId={(item) => item.entityId}
+					rowClassName="h-15 border-b border-border"
+					className="w-full border-collapse text-left"
+					headerClassName="border-b border-border text-xs text-text-muted"
+					columns={
+						renderItemActions === undefined || selection !== undefined
+							? declared
+							: [...declared, actionsColumn(renderItemActions)]
+					}
+				/>
+			</div>
+		</NavigationEnabledContext.Provider>
 	);
 }

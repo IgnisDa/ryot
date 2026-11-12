@@ -23,6 +23,9 @@ export function PublicationHeader(props: {
 					<Heading className="truncate text-base font-semibold text-text">
 						{publication.title}
 					</Heading>
+					<Badge variant="neutral">
+						{publication.definition.mode === "snapshot" ? "Snapshot" : "Live"}
+					</Badge>
 					{!active && <Badge variant="danger">Revoked</Badge>}
 				</div>
 				{active ? (
@@ -46,6 +49,9 @@ function PublicationStatusLine(props: { readonly publicationId: PublicationId })
 	}
 	if (status.data.status === "ready") {
 		const count = status.data.itemCount;
+		if (count === undefined) {
+			return <span className="text-xs text-text-muted">Ready</span>;
+		}
 		return (
 			<span className="text-xs text-text-muted">
 				{count === 1 ? "1 item" : `${count.toLocaleString()} items`}
@@ -54,9 +60,15 @@ function PublicationStatusLine(props: { readonly publicationId: PublicationId })
 	}
 	return (
 		<span className="text-xs font-medium text-danger">
-			{status.data.status === "too-large"
-				? `Needs attention: shares more than ${status.data.limit.toLocaleString()} items`
-				: "Needs attention: its collection or view no longer exists"}
+			{
+				{
+					"page-unavailable": "Needs attention: page is unavailable",
+					"source-unavailable": "Needs attention: source is unavailable",
+					"bindings-invalid": "Needs attention: check the bound arguments",
+					"dependency-unavailable": "Needs attention: a page dependency is unavailable",
+					"snapshot-too-large": "Needs attention: snapshot exceeds the server size limit",
+				}[status.data.reason.code]
+			}
 		</span>
 	);
 }

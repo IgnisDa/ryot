@@ -36,7 +36,11 @@ import {
 import type { RyotClient } from "../client/client";
 import { RyotClientError } from "../client/errors";
 import { isComponentType } from "../component-type";
-import { PluginLink, usePluginScreenSurface } from "../navigation/routing";
+import {
+	NavigationEnabledContext,
+	PluginLink,
+	usePluginScreenSurface,
+} from "../navigation/routing";
 import { createRyotQuery, type RyotQuery } from "../queries/definitions";
 import { useRyotQuery } from "../queries/hooks";
 import { useEntityRefresh } from "../refresh/entity-hooks";
@@ -513,8 +517,10 @@ export const EntityResults = ({
 	viewContext,
 	presentations,
 	renderItemActions,
+	navigationEnabled = true,
 }: {
 	readonly viewContext: JsonValue;
+	readonly navigationEnabled?: boolean;
 	readonly layout: EntityResultsLayout;
 	readonly selection?: undefined | ItemSelection;
 	readonly references: readonly EntityReference[];
@@ -731,47 +737,49 @@ export const EntityResults = ({
 		// oxlint-disable-next-line react-hooks/exhaustive-deps -- The registry's entries change state without changing map identity.
 	}, [layout, presentations, references, registry, presentationState, allowQueries]);
 	return (
-		<div className="@container">
-			<div className={resultsLayoutClasses[layout]}>
-				{items.map((item) => (
-					<SettleHighlight
-						className="rounded-lg"
-						key={item.reference.entityId}
-						reason={settled.get(item.reference.entityId)}
-					>
-						<ObservedEntity register={register} entityId={item.reference.entityId}>
-							<SelectableItem
-								selection={selection}
-								id={item.reference.entityId}
-								label={item.reference.name ?? schemaSlugLabel(item.reference.entitySchemaSlug)}
-							>
-								{renderItemActions === undefined || selection !== undefined ? (
-									<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
-								) : (
-									<div
-										className={
-											layout === "grid" ? "relative min-w-0" : "flex min-w-0 items-center gap-2"
-										}
-									>
-										<div className="min-w-0 flex-1">
-											<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
-										</div>
+		<NavigationEnabledContext.Provider value={navigationEnabled}>
+			<div className="@container">
+				<div className={resultsLayoutClasses[layout]}>
+					{items.map((item) => (
+						<SettleHighlight
+							className="rounded-lg"
+							key={item.reference.entityId}
+							reason={settled.get(item.reference.entityId)}
+						>
+							<ObservedEntity register={register} entityId={item.reference.entityId}>
+								<SelectableItem
+									selection={selection}
+									id={item.reference.entityId}
+									label={item.reference.name ?? schemaSlugLabel(item.reference.entitySchemaSlug)}
+								>
+									{renderItemActions === undefined || selection !== undefined ? (
+										<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+									) : (
 										<div
 											className={
-												layout === "grid"
-													? "absolute top-2 right-2 rounded-sm bg-raised/90 shadow-sm backdrop-blur-sm"
-													: undefined
+												layout === "grid" ? "relative min-w-0" : "flex min-w-0 items-center gap-2"
 											}
 										>
-											{renderItemActions(item.reference)}
+											<div className="min-w-0 flex-1">
+												<EntityResultItem item={item} layout={layout} viewContext={viewContext} />
+											</div>
+											<div
+												className={
+													layout === "grid"
+														? "absolute top-2 right-2 rounded-sm bg-raised/90 shadow-sm backdrop-blur-sm"
+														: undefined
+												}
+											>
+												{renderItemActions(item.reference)}
+											</div>
 										</div>
-									</div>
-								)}
-							</SelectableItem>
-						</ObservedEntity>
-					</SettleHighlight>
-				))}
+									)}
+								</SelectableItem>
+							</ObservedEntity>
+						</SettleHighlight>
+					))}
+				</div>
 			</div>
-		</div>
+		</NavigationEnabledContext.Provider>
 	);
 };

@@ -9,7 +9,7 @@ import { act, type ReactNode, useState, useSyncExternalStore } from "react";
 import { createRoot, type Root } from "react-dom/client";
 
 import type { EntityUpdate, RyotClientAdapter } from "../client/adapter";
-import { createPluginRouteResolver, PluginRouter } from "../navigation/routing";
+import { createPluginRouteResolver, PluginLink, PluginRouter } from "../navigation/routing";
 import { createPluginNavigationStore } from "../navigation/store";
 import { RyotProvider } from "../queries/provider";
 import { usePageRefresh } from "../refresh/page-registry";
@@ -291,6 +291,55 @@ const RefreshableResults = ({
 };
 
 describe("EntityResults", () => {
+	it.live(
+		"renders projected cards and imported presentation links as static content when navigation is disabled",
+		() =>
+			Effect.gen(function* () {
+				const definition = defineEntityPresentation<string>({
+					loader: unusedPresentationLoader,
+					prepare: () => Result.succeed({ one: "Projected" }),
+					component: ({ data, reference: entity }) => (
+						<PluginLink to={{ kind: "entity", entityId: entity.entityId }}>{data}</PluginLink>
+					),
+				});
+				const registrations: readonly EntityPresentationRegistration[] = [
+					{
+						layout: "grid",
+						ownerPluginId: "owner",
+						entitySchemaSlug: "item",
+						load: () => Promise.resolve(definition),
+					},
+				];
+				const { draw, clock, container } = render(
+					registrations,
+					<EntityResults
+						layout="grid"
+						viewContext={null}
+						navigationEnabled={false}
+						presentations={presentationsFor("one")}
+						references={[reference("one"), reference("generic", { ownerPluginId: null })]}
+					/>,
+					{},
+					false,
+				);
+				yield* flush(clock);
+				expect(container.textContent).toContain("Projected");
+				expect(container.textContent).toContain("Entity generic");
+				expect(container.querySelector("a")).toBeNull();
+				draw(
+					<EntityResults
+						layout="grid"
+						viewContext={null}
+						references={[reference("one")]}
+						presentations={presentationsFor("one")}
+					/>,
+				);
+				yield* flush(clock);
+				expect(container.querySelector("a")?.textContent).toBe("Projected");
+			}),
+		testTimeout,
+	);
+
 	it.live(
 		"loads and caches one lazy definition per provider",
 		() =>

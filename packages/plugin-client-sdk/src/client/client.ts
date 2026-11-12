@@ -23,6 +23,8 @@ import {
 	DescribeResponse,
 	ExecutionRequest,
 	type ExecutionSource,
+	VisitorDescribeRequest,
+	VisitorRequest,
 } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, type PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, JsonValue } from "@ryot-app/contract/schema/json";
@@ -154,6 +156,24 @@ const openScreen = <Request, Outcome>(
 		Effect.flatMap((outcome) => decodeCapability(outcomeSchema, outcome)),
 	);
 };
+
+const decodeQuery = <Success>(
+	program: Effect.Effect<unknown, RyotClientError>,
+	decode: (response: unknown) => Result.Result<Success, unknown>,
+): Effect.Effect<Success, RyotClientError> =>
+	program.pipe(
+		Effect.flatMap((response) =>
+			Effect.try({
+				try: () => decode(response),
+				catch: () => new RyotClientError({ reason: "malformed-result" }),
+			}),
+		),
+		Effect.flatMap((decoded) =>
+			Result.isFailure(decoded)
+				? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
+				: Effect.succeed(decoded.success),
+		),
+	);
 
 export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const overlays: Array<() => boolean> = [];
@@ -475,20 +495,12 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 	const executeQuery = <Success>(
 		request: ExecutionRequest,
 		decode: (response: unknown) => Result.Result<Success, unknown>,
-	): Effect.Effect<Success, RyotClientError> =>
-		adapterEffect(() => adapter.query(request)).pipe(
-			Effect.flatMap((response) =>
-				Effect.try({
-					try: () => decode(response),
-					catch: () => new RyotClientError({ reason: "malformed-result" }),
-				}),
-			),
-			Effect.flatMap((decoded) =>
-				Result.isFailure(decoded)
-					? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
-					: Effect.succeed(decoded.success),
-			),
+	) =>
+		decodeQuery(
+			adapterEffect(() => adapter.query(request)),
+			decode,
 		);
+
 	return {
 		overlayBack,
 		userPreferences,
@@ -589,26 +601,6 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 				mutateCollection({ input, action: "remove-membership" }, MembershipResponse),
 			reorderMembership: (input: typeof ReorderMembershipBody.Encoded) =>
 				mutateCollection({ input, action: "reorder-membership" }, ReorderMembershipResponse),
-		},
-		page: {
-			query: <Success>(
-				name: string,
-				request: Omit<ExecutionRequest, "source"> & {
-					readonly decode: (response: unknown) => Result.Result<Success, unknown>;
-				},
-			): Effect.Effect<Success, RyotClientError> =>
-				Effect.gen(function* () {
-					const source = adapter.pageQuerySource?.(name);
-					if (!source) {
-						return yield* new RyotClientError({ reason: "invalid-request" });
-					}
-					const { decode, ...values } = request;
-					const parsed = Schema.decodeResult(ExecutionRequest)({ ...values, source });
-					if (Result.isFailure(parsed)) {
-						return yield* new RyotClientError({ reason: "invalid-input" });
-					}
-					return yield* executeQuery(parsed.success, decode);
-				}),
 		},
 		iosLiveActivities: {
 			end: (
@@ -751,6 +743,46 @@ export const createRyotClient = (adapter: RyotClientAdapter) => {
 					throw asTransportError(error);
 				}
 			},
+		},
+		page: {
+			describe: (name: string, argumentsValue?: ExecutionRequest["arguments"]) =>
+				Effect.gen(function* () {
+					const describePage = adapter.pageDescribe;
+					if (!describePage) {
+						return yield* new RyotClientError({ reason: "invalid-request" });
+					}
+					const parsed = Schema.decodeResult(VisitorDescribeRequest)({
+						query: name,
+						...(argumentsValue === undefined ? {} : { arguments: argumentsValue }),
+					});
+					if (Result.isFailure(parsed)) {
+						return yield* new RyotClientError({ reason: "invalid-input" });
+					}
+					return yield* adapterEffect(() => describePage(parsed.success)).pipe(
+						Effect.flatMap((value) => decodeCapability(DescribeResponse, value)),
+					);
+				}),
+			query: <Success>(
+				name: string,
+				request: Omit<ExecutionRequest, "source"> & {
+					readonly decode: (response: unknown) => Result.Result<Success, unknown>;
+				},
+			): Effect.Effect<Success, RyotClientError> =>
+				Effect.gen(function* () {
+					const query = adapter.pageQuery;
+					if (!query) {
+						return yield* new RyotClientError({ reason: "invalid-request" });
+					}
+					const { decode, ...values } = request;
+					const parsed = Schema.decodeResult(VisitorRequest)({ ...values, query: name });
+					if (Result.isFailure(parsed)) {
+						return yield* new RyotClientError({ reason: "invalid-input" });
+					}
+					return yield* decodeQuery(
+						adapterEffect(() => query(parsed.success)),
+						decode,
+					);
+				}),
 		},
 		operations: {
 			backgroundSettled: (listener: (settlement: BackgroundSettlement) => void) => {

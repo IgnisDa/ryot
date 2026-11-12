@@ -16,7 +16,6 @@ const ANALYTICS_PATHS = [
 ] as const satisfies readonly KernelRendererPath[];
 
 const PUBLICATION_PATHS = [
-	"client/entity-browser.tsx",
 	"client/publication-item.tsx",
 ] as const satisfies readonly KernelRendererPath[];
 

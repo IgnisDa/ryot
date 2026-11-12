@@ -582,9 +582,12 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		}
 		const renderer = currentPage?.renderer;
 		const denied =
-			renderer?.kind === "page" &&
+			(renderer?.kind === "page" || currentPage?.target.kind === "publication") &&
 			(type === "operation" || type === "background-operation"
-				? renderer.stage === "draft" || !renderer.writeAccess
+				? currentPage?.target.kind === "publication" ||
+					renderer?.kind !== "page" ||
+					renderer.stage === "draft" ||
+					!renderer.writeAccess
 				: type === "user-settings" || pageDirectMutationTypes.has(type));
 		const run = (): Effect.Effect<object> =>
 			denied
@@ -769,6 +772,18 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 
 	function handleRyotQL(request: PluginBridgeRyotQLRequest) {
 		runRequest(request.requestId, "ryotql", (): Effect.Effect<PluginRyotQLOutcome> => {
+			if (currentPage?.target.kind === "publication") {
+				if (request.action === "page-execute") {
+					return options.onRyotQL({ action: "page-execute", request: request.request });
+				}
+				if (request.action === "page-describe") {
+					return options.onRyotQL({ action: "page-describe", request: request.request });
+				}
+				return Effect.succeed({ outcome: "failure", reason: "query-failed" });
+			}
+			if (request.action === "page-execute" || request.action === "page-describe") {
+				return Effect.succeed({ outcome: "failure", reason: "query-failed" });
+			}
 			if (currentPage?.renderer.kind !== "page") {
 				return options.onRyotQL(request);
 			}
@@ -820,7 +835,7 @@ export function openPluginBridge(options: PluginBridgeOptions): PluginBridgeSess
 		type: HostScreenType,
 		open: () => Effect.Effect<{ readonly kind: string }>,
 	) {
-		if (currentPage?.renderer.kind === "page") {
+		if (currentPage?.renderer.kind === "page" || currentPage?.target.kind === "publication") {
 			runRequest(requestId, type, () =>
 				Effect.succeed({
 					outcome: "success",

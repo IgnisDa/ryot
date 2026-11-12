@@ -15,6 +15,9 @@ export class PluginQueriesService extends Context.Service<PluginQueriesService>(
 				readonly request: PluginRyotQLRequest;
 			}) {
 				const request = invocation.request;
+				if (request.action === "page-execute" || request.action === "page-describe") {
+					return { outcome: "failure", reason: "query-failed" } as const;
+				}
 				const program: Effect.Effect<
 					Extract<PluginRyotQLOutcome, { readonly outcome: "success" }>["response"],
 					AuthenticatedApiError

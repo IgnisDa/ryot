@@ -153,8 +153,7 @@ export const queryPublication = Effect.fn("queryPublication")(function* (
 	api: PublicationVisitsApi["Service"],
 	request: PluginRyotQLRequest,
 ) {
-	const source = request.request.source;
-	if (source.kind !== "inline") {
+	if (request.action !== "page-execute" && request.action !== "page-describe") {
 		return { outcome: "failure", reason: "query-failed" } as const;
 	}
 	const program = (
@@ -163,9 +162,9 @@ export const queryPublication = Effect.fn("queryPublication")(function* (
 		Extract<PluginRyotQLOutcome, { readonly outcome: "success" }>["response"],
 		PublicationVisitApiError
 	> =>
-		request.action === "describe"
-			? api.describe(scope, { payload: { ...request.request, source } })
-			: api.ryotql(scope, { payload: { ...request.request, source } });
+		request.action === "page-describe"
+			? api.describe(scope, { payload: request.request })
+			: api.ryotql(scope, { payload: request.request });
 	return yield* session
 		.run(program)
 		.pipe(

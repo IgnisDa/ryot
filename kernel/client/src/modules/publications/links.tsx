@@ -33,14 +33,23 @@ export const publicationFailureText = (error: unknown) => {
 		if (reason.code === "required-field") {
 			return `Enter a ${reason.field}.`;
 		}
-		if (reason.code === "scope-too-large") {
-			return `This shares more than ${reason.limit.toLocaleString()} items, which is more than this server allows.`;
+		if (reason.code === "snapshot-too-large") {
+			return `The snapshot exceeds the server limit of ${reason.limitBytes.toLocaleString()} bytes.`;
 		}
 		if (reason.code === "source-unavailable") {
 			return "This collection or view can no longer be published.";
 		}
 		if (reason.code === "expiry-in-past") {
 			return "Choose an expiry in the future.";
+		}
+		if (reason.code === "page-unavailable") {
+			return "This page is not published or is unavailable.";
+		}
+		if (reason.code === "dependency-unavailable") {
+			return "A page dependency is unavailable.";
+		}
+		if (reason.code === "bindings-invalid") {
+			return reason.issues.map((issue) => issue.message).join("; ");
 		}
 		return "This publication was revoked.";
 	}

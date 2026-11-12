@@ -112,11 +112,14 @@ This package derives specialized fields from generic HTTP-contract schemas such 
 RyotQL documents, and asset locators. The dependency remains one-way: `@ryot-app/contract` must not
 import this package.
 
-RyotQL messages select `action: "execute" | "describe"`. Execute carries the canonical
+RyotQL messages select `action: "execute" | "describe" | "page-execute" | "page-describe"`. Execute carries the canonical
 `ExecutionRequest`; describe carries its canonical source and optional arguments. Runtime paging,
 filter, and sort values remain outside the authored document. The shared cancellation message
 interrupts either action. Page-context data sources are authored definitions; binding belongs to
-the server execution boundary.
+the server execution boundary. Publication frames use `page-execute` and `page-describe` with a
+query name and runtime values only, without documents or page IDs. The host admits those actions
+only for its prepared publication context and routes them under the visitor session. Both use the
+same request correlation, result validation and cancellation as other RyotQL reads.
 
 Page renderers carry `PageFrameAuthority` for the entire iframe, including imported contributors.
 `pageQuerySource` derives a named published source or the exact compiled-preview source from that

@@ -510,7 +510,7 @@ Options carry `pages`, `filter`, and `sort`; runtime values never rebuild the au
 `selectRecipe(recipe, name)` retains the full document but executes and decodes one named result.
 `client.data.execute(request, decode)` supports stored references; `client.data.describe(source, arguments?)`
 returns server-authorized parameter and control metadata. Both preserve query cancellation across
-the iframe bridge. Publication adapters forward inline requests and descriptions in the visitor scope.
+the iframe bridge. Publication adapters accept only named current-page queries and descriptions in the visitor scope.
 
 `createRyotQuery(recipe)` keys its shared cache by document hash, selected query, and canonical request
 values. Pass `{ arguments, pages?, filter?, sort? }` as hook input. Keep rolling reporting/filter
@@ -522,7 +522,9 @@ selections stable; the server supplies the execution clock.
 from the current page definition. `decode` projects the response with the same `Result` contract as
 `client.data.execute`. The page supplies all runtime query values. The SDK uses the existing query
 transport, including interruption and cancellation; it does not send an inline document. Calls outside
-a page fail with `invalid-request`.
+a page fail with `invalid-request`. `client.page.describe(name, arguments?)` returns the named query's
+parameter schema and controls. Both APIs work in authored and kernel publication pages; publication
+requests carry only the name and runtime values, and the host supplies visitor authority.
 
 The entire page iframe, including imported plugin components, can read only its own declared queries.
 The host rejects inline documents, plugin queries, saved-view sources, foreign pages and their
@@ -538,3 +540,8 @@ background calls fail with the displayable `page-write-access-required` reason w
 or stale. Background attempts retain the original page authority across retries. Direct entity saves,
 collection writes, enrichment, uploads, calendar visibility changes and mutation screens (including the provider entity picker) are refused
 in page frames. Plugin operations are the page's write capability.
+
+Publication frames always use projection-only entity presentations, including kernel publication
+pages. `EntityResults` and `EntityBrowserResults` accept `navigationEnabled` (default `true`); `false`
+renders nested SDK links as static content, including table rows and imported presentations. Snapshot
+renderers use this to avoid detail navigation, and do not issue queries for paging or controls.

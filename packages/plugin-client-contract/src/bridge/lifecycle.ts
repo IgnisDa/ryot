@@ -1,6 +1,6 @@
 import { ProviderLibraryMembership } from "@ryot-app/contract/modules/entity-providers/schemas";
 import { EntitySchemaReference } from "@ryot-app/contract/modules/plugins/references";
-import { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
+import { EntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { EntityId } from "@ryot-app/contract/schema/brands";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
@@ -435,7 +435,7 @@ export type PluginBridgeChangeCollectionMembersScreenResult = Schema.Schema.Type
 	typeof PluginBridgeChangeCollectionMembersScreenResult
 >;
 
-export const SharePublicationRequest = strictStruct({ source: PublicationSource });
+export const SharePublicationRequest = strictStruct({ source: EntitySourceReference });
 
 export type SharePublicationRequest = Schema.Schema.Type<typeof SharePublicationRequest>;
 

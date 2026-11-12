@@ -8,6 +8,7 @@ import {
 	EntitySchemaSlug,
 	PluginId,
 	PluginPackageId,
+	PublicationId,
 	RelationshipId,
 	RelationshipSchemaSlug,
 } from "@ryot-app/contract/schema/brands";
@@ -3904,6 +3905,83 @@ const authoredPage = (stage: "draft" | "published", writeAccess = false): Client
 });
 
 describe("page frame authority", () => {
+	for (const renderer of [
+		{ kind: "kernel", name: "publication" },
+		authoredPage("published", true).renderer,
+	] as const) {
+		it.live(
+			`fences ${renderer.kind} publication frames to named queries and refuses operations`,
+			() =>
+				Effect.gen(function* () {
+					const calls: PluginRyotQLRequest[] = [];
+					const operations: string[] = [];
+					const { init, received, pluginPort } = connect({
+						onOperation: () => {
+							operations.push("invoke");
+							return Effect.succeed({ value: null, outcome: "success" });
+						},
+						onRyotQL: (request) => {
+							calls.push(request);
+							return Effect.succeed({ outcome: "success", response: { data: {} } });
+						},
+						page: {
+							...authoredPage("published", true),
+							renderer,
+							target: { kind: "publication", publicationId: PublicationId.make("publication") },
+						},
+					});
+					pluginPort.postMessage(readyFor(init));
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(1)));
+					const requests = [
+						{ action: "execute", request: { source: { document, kind: "inline" } } },
+						{
+							action: "describe",
+							request: { source: { kind: "page", query: "items", pageId: "foreign" } },
+						},
+						{
+							action: "execute",
+							request: { source: { kind: "page", query: "items", pageId: "authored" } },
+						},
+					];
+					for (const [index, request] of requests.entries()) {
+						pluginPort.postMessage({
+							...request,
+							type: "ryotql-request",
+							requestId: `forbidden-${index}`,
+						});
+					}
+					pluginPort.postMessage({ ...capabilityRequests.operation, requestId: "operation" });
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(5)));
+					expect(calls).toEqual([]);
+					expect(operations).toEqual([]);
+					expect(received.slice(1)).toEqual([
+						...requests.map((_, index) => ({
+							outcome: "failure",
+							type: "ryotql-result",
+							reason: "query-failed",
+							requestId: `forbidden-${index}`,
+						})),
+						{
+							outcome: "failure",
+							requestId: "operation",
+							type: "operation-result",
+							reason: "page-write-access-required",
+						},
+					]);
+					const request = { query: "items", arguments: { selected: "caller" } };
+					pluginPort.postMessage({
+						request,
+						requestId: "allowed",
+						action: "page-execute",
+						type: "ryotql-request",
+					});
+					yield* Effect.promise(() => waitFor(() => expect(received).toHaveLength(6)));
+					expect(calls).toEqual([{ request, action: "page-execute" }]);
+				}),
+			testTimeout,
+		);
+	}
+
 	it.live(
 		"denies imported plugin settings reads outside declared page queries",
 		() =>

@@ -289,6 +289,9 @@ const openEditor = (
 					saveListeners.forEach((listener) => listener(request.input));
 				}
 			} else if (request.type === "ryotql-request") {
+				if (!("source" in request.request)) {
+					throw new Error("Expected an owner query request");
+				}
 				const data: Record<string, QueryData[string]> = {};
 				for (const queryName of Object.keys(bindTestRequest(request.request).queries)) {
 					if (

@@ -128,7 +128,9 @@ const bootstrapClientApplication = (
 				<AnalyticsSectionsProvider registrations={analyticsSections}>
 					<EntityPresentationRegistryProvider
 						registrations={registrations}
-						allowQueries={currentPage?.renderer.kind !== "page"}
+						allowQueries={
+							currentPage?.renderer.kind !== "page" && currentPage?.target.kind !== "publication"
+						}
 					>
 						<PageStoreProvider store={pageStore}>
 							<KernelShortcutForwarder runtime={runtime} />

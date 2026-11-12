@@ -34,15 +34,20 @@ result matching the current search and filters, go to the kernel collection memb
 `screens.changeCollectionMembers`: saved views and the collections list offer **Add to collection**,
 and collection detail also offers **Remove**. Publications offer no selection.
 
-The publication renderer reuses the entity browser over a publication's subjects in published
-order, under a summary of the description, the owner's name when shown, and the item count that the
-host passes as renderer settings. It offers only fields and filters that read entity columns, because
-visitors cannot read events or the owner's collections. Browsing waits for control metadata, with a
-retry state that preserves URL filters and sort. Inline executions retain the full authored document
-and select the requested query by name, including filtered counts that reference source controls.
-Opening a card sets the `item` page search
-parameter, which shows that item's card, its entity-column browse values, and the other published
-items it is linked to.
+The publication kernel page executes only its authorized named `items`, `count`, `item`, and
+`linked` queries through `client.page.query`. Live browsing waits for `client.page.describe("items")`
+before mounting the shared controller, preserving URL search, filters, and sort through metadata
+loading and retries. The backend supplies browser settings and safe item-detail descriptors from
+`kernelPublicationPage`; visitors never discover schemas, submit query documents, or read fallback
+entities. Cards use projected presentation fields, and item details and related cards come only from
+the source-bound `item` and `linked` results.
+
+Live publications retain search, filters, sort, load more, and item navigation. Snapshot publications
+request only the captured `items` result without arguments or paging, ignore query-control and item
+URL parameters, and show static cards through the SDK's disabled-navigation primitive. They hide
+query controls, details, and pagination, and explicitly explain that only the first captured page
+is shown. Both modes retain the publication description, optional owner name, and optional item
+count supplied by the backend. Publications offer no selection.
 
 Collection detail and entity-browser saved views offer **Share**, which opens the kernel share sheet
 through `screens.sharePublication`. Collection-browser views do not, because only entity-browser

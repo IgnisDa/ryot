@@ -33,9 +33,11 @@ export function EntityBrowserResults({
 	selection,
 	viewContext,
 	renderItemActions,
+	navigationEnabled = true,
 }: {
 	readonly settled: EntitySettle;
 	readonly viewContext: JsonValue;
+	readonly navigationEnabled?: boolean;
 	readonly layout: EntityBrowserLayout;
 	readonly columns: null | BrowserColumns;
 	readonly selection: undefined | ItemSelection;
@@ -51,6 +53,7 @@ export function EntityBrowserResults({
 					settled={settled}
 					columns={columns}
 					selection={selection}
+					navigationEnabled={navigationEnabled}
 					renderItemActions={renderItemActions}
 				/>
 			) : (
@@ -60,6 +63,7 @@ export function EntityBrowserResults({
 					references={references}
 					viewContext={viewContext}
 					presentations={presentations}
+					navigationEnabled={navigationEnabled}
 					renderItemActions={renderItemActions}
 				/>
 			)}

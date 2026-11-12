@@ -105,6 +105,9 @@ const mountTemplate = (input: {
 					},
 				});
 			} else if (request.type === "ryotql-request") {
+				if (!("source" in request.request)) {
+					throw new Error("Expected an owner query request");
+				}
 				const data: Extract<QueryReply["response"], { readonly data: unknown }>["data"] =
 					Object.fromEntries(
 						Object.keys(bindTestRequest(request.request).queries).map((name) => {

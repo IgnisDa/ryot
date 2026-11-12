@@ -1,6 +1,6 @@
 import { afterEach, describe, expect } from "bun:test";
 
-import { PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
+import { PluginId, PluginPackageId, PublicationId } from "@ryot-app/contract/schema/brands";
 import {
 	CLIENT_API_VERSION,
 	CLIENT_ARTIFACT_FORMAT,
@@ -147,6 +147,90 @@ afterEach(() => {
 });
 
 describe("plugin Effect request engine", () => {
+	for (const renderer of [
+		{ kind: "kernel", name: "publication" },
+		{
+			revision: 1,
+			kind: "page",
+			stage: "published",
+			pageId: "authored",
+			writeAccess: false,
+			authorityRevision: 1,
+			definitionHash: "definition",
+		},
+	] as const) {
+		it.live(
+			`executes named queries and cancels them in ${renderer.kind} publication frames`,
+			() =>
+				Effect.gen(function* () {
+					const { runtime, channel, messages } = yield* openRuntime({
+						...runtimePage,
+						renderer,
+						target: { kind: "publication", publicationId: PublicationId.make("publication") },
+					});
+					const request = {
+						query: "items",
+						pages: { items: { limit: 5 } },
+						arguments: { search: "selected" },
+					};
+					const call = yield* Effect.forkChild(
+						runtime.client.page.query("items", {
+							pages: request.pages,
+							decode: Result.succeed,
+							arguments: request.arguments,
+						}),
+						{ startImmediately: true },
+					);
+					yield* waitForMessagePortMacrotask;
+					expect(sent(messages, "ryotql-request")).toEqual([
+						{ request, requestId: "ryotql-1", type: "ryotql-request", action: "page-execute" },
+					]);
+					channel.port1.postMessage({
+						outcome: "success",
+						requestId: "ryotql-1",
+						type: "ryotql-result",
+						response: { data: {} },
+					});
+					expect(yield* Fiber.join(call)).toEqual({ data: {} });
+					const description = yield* Effect.forkChild(
+						runtime.client.page.describe("items", { search: "selected" }),
+						{ startImmediately: true },
+					);
+					yield* waitForMessagePortMacrotask;
+					expect(sent(messages, "ryotql-request").at(-1)).toEqual({
+						requestId: "ryotql-2",
+						type: "ryotql-request",
+						action: "page-describe",
+						request: { query: "items", arguments: { search: "selected" } },
+					});
+					channel.port1.postMessage({
+						outcome: "success",
+						requestId: "ryotql-2",
+						type: "ryotql-result",
+						response: { sort: [], filter: [], parameters: { fields: {} } },
+					});
+					expect(yield* Fiber.join(description)).toEqual({
+						sort: [],
+						filter: [],
+						parameters: { fields: {} },
+					});
+
+					const pending = yield* Effect.forkChild(
+						runtime.client.page.query("items", { decode: Result.succeed }),
+						{ startImmediately: true },
+					);
+					yield* waitForMessagePortMacrotask;
+					yield* Fiber.interrupt(pending);
+					yield* waitForMessagePortMacrotask;
+					expect(sent(messages, "ryotql-cancel")).toEqual([
+						{ requestId: "ryotql-3", type: "ryotql-cancel" },
+					]);
+					runtime.dispose();
+				}),
+			testTimeout,
+		);
+	}
+
 	it.live(
 		"sends plugin preferences targets through the bridge for push and replace",
 		() =>

@@ -5,7 +5,12 @@ import {
 	EntitySchemaReference,
 	SavedViewReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import type { DescribeRequest, ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import type {
+	DescribeRequest,
+	ExecutionRequest,
+	VisitorDescribeRequest,
+	VisitorRequest,
+} from "@ryot-app/contract/modules/ryotql/request";
 import { EntityId, type PluginId, PluginPackageId } from "@ryot-app/contract/schema/brands";
 import {
 	type AddToCollectionRequest,
@@ -714,7 +719,6 @@ export const createPluginRuntime = (
 		manageCollectionReviews,
 		changeCollectionMembers,
 		setCalendarSourceVisibility,
-		pageQuerySource: (name) => (currentPage ? pageQuerySource(currentPage, name) : undefined),
 		device: (request: PluginDeviceRequest) =>
 			sendRequest("device", (requestId) => ({ ...request, requestId, type: "device-request" })),
 		openExternalLink: (request) =>
@@ -808,6 +812,48 @@ export const createPluginRuntime = (
 					publishInterest();
 				},
 			};
+		},
+		pageQuery: (request: VisitorRequest) => {
+			if (currentPage?.target.kind === "publication") {
+				return sendRequest(
+					"ryotql",
+					(requestId) =>
+						({
+							request,
+							requestId,
+							type: "ryotql-request",
+							action: "page-execute",
+						}) satisfies PluginBridgeRyotQLRequest,
+					(requestId) => ({ requestId, type: "ryotql-cancel" }) satisfies PluginBridgeRyotQLCancel,
+				);
+			}
+			const source = currentPage ? pageQuerySource(currentPage, request.query) : undefined;
+			if (!source) {
+				return Effect.fail(new RyotClientError({ reason: "invalid-request" }));
+			}
+			const { query: _query, ...values } = request;
+			return query({ ...values, source });
+		},
+		pageDescribe: (request: VisitorDescribeRequest) => {
+			if (currentPage?.target.kind === "publication") {
+				return sendRequest(
+					"ryotql",
+					(requestId) =>
+						({
+							request,
+							requestId,
+							type: "ryotql-request",
+							action: "page-describe",
+						}) satisfies PluginBridgeRyotQLRequest,
+					(requestId) => ({ requestId, type: "ryotql-cancel" }) satisfies PluginBridgeRyotQLCancel,
+				);
+			}
+			const source = currentPage ? pageQuerySource(currentPage, request.query) : undefined;
+			if (!source) {
+				return Effect.fail(new RyotClientError({ reason: "invalid-request" }));
+			}
+			const { query: _query, ...values } = request;
+			return describe({ ...values, source });
 		},
 	});
 

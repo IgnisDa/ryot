@@ -1,5 +1,9 @@
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
-import type { PublicationSource } from "@ryot-app/contract/modules/publications/schemas";
+import type { PublicationMode } from "@ryot-app/contract/modules/publications/schemas";
+import {
+	encodeEntitySourceReference,
+	type EntitySourceReference,
+} from "@ryot-app/contract/modules/ryotql/entity-source";
 import { type EntityId, PublicationId } from "@ryot-app/contract/schema/brands";
 import type {
 	SharePublicationOutcome,
@@ -26,6 +30,7 @@ import {
 	PublicationLinks,
 	publicationShareUrl,
 } from "./links";
+import { PublicationModeField } from "./mode-field";
 import { usePublicationPreview } from "./preview";
 import {
 	COLLECTION_PUBLICATION_ICON,
@@ -45,7 +50,7 @@ type CreatedShareLink = { readonly url: string; readonly title: string };
 type PublishFormProps = {
 	readonly disabled: boolean;
 	readonly serverUrl: ServerOrigin;
-	readonly source: PublicationSource;
+	readonly source: EntitySourceReference;
 	readonly onCreated: (link: CreatedShareLink) => void;
 };
 
@@ -75,7 +80,7 @@ export function ShareSheet(props: {
 	readonly disabled: boolean;
 	readonly onClose: () => void;
 	readonly serverUrl: ServerOrigin;
-	readonly source: PublicationSource;
+	readonly source: EntitySourceReference;
 }) {
 	const { disabled, serverUrl: server } = props;
 	const publications = useRyotQuery(sourcePublicationsQuery, props.source);
@@ -235,6 +240,7 @@ function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDe
 	const createLink = useRyotMutation(createPublicationLinkMutation);
 	const [title, setTitle] = useState(props.defaults.name);
 	const [showOwnerName, setShowOwnerName] = useState(false);
+	const [mode, setMode] = useState<PublicationMode>("live");
 	const [error, setError] = useState<null | string>(null);
 
 	const submit = (event: SubmitEvent<HTMLFormElement>) => {
@@ -243,11 +249,13 @@ function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDe
 		void Effect.runPromise(
 			Effect.gen(function* () {
 				const { publicationId } = yield* publish.mutateEffect({
+					mode,
 					title,
 					showOwnerName,
 					description: null,
-					source: props.source,
 					icon: props.defaults.icon,
+					page: { kind: "kernel", name: "publication" },
+					arguments: { source: encodeEntitySourceReference(props.source) },
 				});
 				const { secret } = yield* createLink.mutateEffect({
 					expiresAt: null,
@@ -272,6 +280,7 @@ function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDe
 				showOwnerName={showOwnerName}
 				onShowOwnerNameChange={setShowOwnerName}
 			/>
+			<PublicationModeField value={mode} onChange={setMode} />
 			{error === null ? null : <Notice tone="danger">{error}</Notice>}
 			<div>
 				<Button

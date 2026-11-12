@@ -33,12 +33,9 @@ export type EntityBrowserResultsRenderer = (
 	input: BrowserResultsInput<EntityBrowserResult>,
 ) => ReactNode;
 
-type ControllerProps = ComponentProps<typeof EntityBrowserController<EntityBrowserResult, Error>>;
+type BrowserViewInput = Pick<typeof EntityBrowserPageInput.Type, "view" | "target" | "settings">;
 
-type BrowserViewInput = { readonly target?: typeof EntityBrowserPageInput.Type.target } & Pick<
-	typeof EntityBrowserPageInput.Type,
-	"view" | "settings" | "dataSources"
->;
+type ControllerProps = ComponentProps<typeof EntityBrowserController<EntityBrowserResult, Error>>;
 
 const controlsQuery = createRyotQuery<
 	typeof EntityBrowserPageInput.Type.target,
@@ -79,16 +76,11 @@ export const EntityBrowserView = ({
 }) => {
 	const ryot = useRyot();
 	const schedule = useRyotSchedule();
-	const source = (query: string): ExecutionSource => {
-		if (input.target !== undefined) {
-			return { query, kind: "savedView", reference: input.target.reference };
-		}
-		const selected = input.dataSources.queries[query];
-		if (selected === undefined) {
-			throw new Error(`Missing publication query '${query}'`);
-		}
-		return { query, kind: "inline", document: input.dataSources };
-	};
+	const source = (query: string): ExecutionSource => ({
+		query,
+		kind: "savedView",
+		reference: input.target.reference,
+	});
 	const argumentsFor = (searchText: string) =>
 		input.settings.controls?.search === undefined
 			? {}

@@ -46,7 +46,7 @@ const tokenOf = (scope: PublicationVisitScope) => Effect.succeed(scope.sessionTo
 
 describe("publication visit session", () => {
 	it.effect(
-		"rejects stored visitor sources before opening a session and forwards inline execution and describe",
+		"rejects documents and stored sources before opening a session and forwards named queries",
 		() =>
 			Effect.gen(function* () {
 				const exchanged: string[] = [];
@@ -71,6 +71,7 @@ describe("publication visit session", () => {
 					credentials: { session: null, secret: "secret" },
 				});
 				for (const source of [
+					{ kind: "inline", document: { queries: {} } },
 					{ query: "items", kind: "savedView", reference: { slug: "items", kind: "kernel" } },
 					{ kind: "page", query: "items", pageId: "page-1" },
 					{ kind: "plugin", query: "items", scope: "system", packageId: "example/plugin" },
@@ -84,31 +85,41 @@ describe("publication visit session", () => {
 				}
 				expect(calls).toEqual([]);
 				expect(exchanged).toEqual([]);
-				const source = { kind: "inline", document: { queries: {} } } as const;
 				expect(
 					yield* queryPublication(session, api, {
-						action: "execute",
-						request: { source, arguments: { name: "selected" } },
+						action: "page-execute",
+						request: {
+							query: "items",
+							pages: { items: { limit: 5 } },
+							arguments: { name: "selected" },
+						},
 					}),
 				).toEqual({ outcome: "success", response: { data: {} } });
-				expect(
-					yield* queryPublication(session, api, {
-						action: "describe",
-						request: { source, arguments: { name: "selected" } },
-					}),
-				).toMatchObject({ outcome: "success" });
 				expect(calls).toMatchObject([
 					{
 						action: "execute",
 						scope: { sessionToken: "session-1" },
-						request: { payload: { source, arguments: { name: "selected" } } },
-					},
-					{
-						action: "describe",
-						scope: { sessionToken: "session-1" },
-						request: { payload: { source, arguments: { name: "selected" } } },
+						request: {
+							payload: {
+								query: "items",
+								pages: { items: { limit: 5 } },
+								arguments: { name: "selected" },
+							},
+						},
 					},
 				]);
+
+				expect(
+					yield* queryPublication(session, api, {
+						action: "page-describe",
+						request: { query: "items", arguments: { name: "selected" } },
+					}),
+				).toMatchObject({ outcome: "success" });
+				expect(calls.at(-1)).toEqual({
+					action: "describe",
+					scope: { origin, sessionToken: "session-1" },
+					request: { payload: { query: "items", arguments: { name: "selected" } } },
+				});
 				expect(exchanged).toEqual(["secret"]);
 			}),
 		testTimeout,
