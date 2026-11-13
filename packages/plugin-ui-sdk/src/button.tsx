@@ -77,6 +77,7 @@ export function Button({
 const iconToneClasses = {
 	filled: "bg-surface-2 text-text hover:bg-surface-3",
 	ghost: "text-text-muted hover:bg-hover hover:text-text",
+	accent: "bg-accent text-accent-ink hover:bg-accent-hover",
 	danger: "text-text-muted hover:bg-danger-soft hover:text-danger",
 } as const;
 

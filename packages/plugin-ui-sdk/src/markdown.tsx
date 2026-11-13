@@ -7,6 +7,7 @@ import { directive } from "micromark-extension-directive";
 import { createContext, type ReactNode, useContext, useState } from "react";
 import Markdown, { type Components } from "react-markdown";
 import remarkDirective from "remark-directive";
+import remarkGfm from "remark-gfm";
 
 const isHttpUrl = Schema.is(HttpUrl);
 const MarkdownLinkCallback = createContext<(url: string) => void>(() => undefined);
@@ -158,6 +159,21 @@ const markdownComponents: Components = {
 	),
 };
 
+const basicElements = [
+	"p",
+	"strong",
+	"em",
+	"ul",
+	"ol",
+	"li",
+	"blockquote",
+	"br",
+	"a",
+	"span",
+	"div",
+	"details",
+];
+
 export function MarkdownContent(props: {
 	readonly text: string;
 	readonly onOpenLink: (url: string) => void;
@@ -168,21 +184,74 @@ export function MarkdownContent(props: {
 				skipHtml
 				unwrapDisallowed
 				components={markdownComponents}
+				allowedElements={basicElements}
 				urlTransform={(url) => (isHttpUrl(url) ? url : "")}
 				remarkPlugins={[remarkDirective, transformDirectives]}
+			>
+				{props.text}
+			</Markdown>
+		</MarkdownLinkCallback.Provider>
+	);
+}
+
+const heading = "mt-4 mb-2 font-semibold text-text first:mt-0";
+const documentComponents: Components = {
+	...markdownComponents,
+	del: ({ children }) => <del>{children}</del>,
+	hr: () => <hr className="my-4 border-border" />,
+	h3: ({ children }) => <h4 className={`${heading} text-body`}>{children}</h4>,
+	h4: ({ children }) => <h5 className={`${heading} text-body`}>{children}</h5>,
+	h1: ({ children }) => <h3 className={`${heading} text-heading`}>{children}</h3>,
+	h2: ({ children }) => <h3 className={`${heading} text-heading`}>{children}</h3>,
+	td: ({ children }) => <td className="border-b border-border px-2 py-1.5">{children}</td>,
+	code: ({ children }) => (
+		<code className="rounded-sm bg-surface-2 px-1 py-px font-mono text-[0.9em]">{children}</code>
+	),
+	th: ({ children }) => (
+		<th className="border-b border-border-emphasis px-2 py-1.5 text-left font-medium text-text-subtle">
+			{children}
+		</th>
+	),
+	table: ({ children }) => (
+		<div className="mb-2 overflow-x-auto">
+			<table className="w-full border-collapse text-label tabular-nums">{children}</table>
+		</div>
+	),
+	pre: ({ children }) => (
+		<pre className="mb-2 overflow-x-auto rounded-md bg-surface-2 p-3 font-mono text-label [&_code]:bg-transparent [&_code]:p-0">
+			{children}
+		</pre>
+	),
+};
+
+export function MarkdownDocument(props: {
+	readonly text: string;
+	readonly onOpenLink: (url: string) => void;
+}) {
+	return (
+		<MarkdownLinkCallback.Provider value={props.onOpenLink}>
+			<Markdown
+				skipHtml
+				unwrapDisallowed
+				remarkPlugins={[remarkGfm]}
+				components={documentComponents}
+				urlTransform={(url) => (isHttpUrl(url) ? url : "")}
 				allowedElements={[
-					"p",
-					"strong",
-					"em",
-					"ul",
-					"ol",
-					"li",
-					"blockquote",
-					"br",
-					"a",
-					"span",
-					"div",
-					"details",
+					...basicElements,
+					"h1",
+					"h2",
+					"h3",
+					"h4",
+					"hr",
+					"del",
+					"code",
+					"pre",
+					"table",
+					"thead",
+					"tbody",
+					"tr",
+					"th",
+					"td",
 				]}
 			>
 				{props.text}

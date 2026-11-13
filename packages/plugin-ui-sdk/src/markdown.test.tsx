@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 
 import { fireEvent, render, screen } from "@testing-library/react";
 
-import { MarkdownContent, markdownPlainText } from "./markdown";
+import { MarkdownContent, MarkdownDocument, markdownPlainText } from "./markdown";
 
 describe("Markdown content", () => {
 	it("preserves the starting number of an ordered list", () => {
@@ -134,5 +134,23 @@ describe("Markdown content", () => {
 		}
 		fireEvent.click(screen.getByRole("link", { name: "source" }));
 		expect(opened).toEqual(["https://inner.test"]);
+	});
+});
+
+describe("Markdown document", () => {
+	it("renders headings, tables and code while dropping raw HTML and unsafe links", () => {
+		const { container } = render(
+			<MarkdownDocument
+				onOpenLink={() => undefined}
+				text={
+					'## Progress\n\n| Month | Best |\n| --- | --- |\n| Aug | 84.6 |\n\nUse `query`:\n\n```\nselect 1\n```\n\n<b onclick="x">raw</b> [bad](javascript:alert(1))'
+				}
+			/>,
+		);
+		expect(screen.getByRole("heading", { name: "Progress" })).toBeDefined();
+		expect(screen.getAllByRole("cell").map((cell) => cell.textContent)).toEqual(["Aug", "84.6"]);
+		expect(container.querySelector("pre")?.textContent).toBe("select 1\n");
+		expect(container.querySelector("b")).toBeNull();
+		expect(screen.queryByRole("link", { name: "bad" })).toBeNull();
 	});
 });

@@ -3,8 +3,7 @@ import type { ReactNode } from "react";
 
 import { Button, IconButton } from "./button";
 import { MotionList } from "./motion";
-
-export type ActivityTone = "error" | "pending" | "success" | "warning";
+import { type ActivityTone, StatusDot } from "./status-dot";
 
 export type ActivityAction = { readonly label: string; readonly onClick: () => void };
 
@@ -24,13 +23,6 @@ const toneClasses = {
 	success: "text-success",
 	warning: "text-warning",
 	pending: "text-text-muted",
-} as const satisfies Record<ActivityTone, string>;
-
-const markerClasses = {
-	error: "bg-danger",
-	success: "bg-success",
-	warning: "bg-warning",
-	pending: "animate-pulse bg-text-subtle motion-reduce:animate-none",
 } as const satisfies Record<ActivityTone, string>;
 
 export function ActivityTray(props: {
@@ -74,10 +66,7 @@ export function Toast(props: {
 			aria-label={`${entry.source}: ${entry.title}`}
 			className="pointer-events-auto flex w-full gap-3 rounded-lg border border-border-card bg-raised p-3 text-sm text-text shadow-card"
 		>
-			<span
-				aria-hidden="true"
-				className={clsx("mt-1.5 size-2 shrink-0 rounded-full", markerClasses[entry.tone])}
-			/>
+			<StatusDot tone={entry.tone} className="mt-1.5" />
 			<div className="flex min-w-0 flex-1 flex-col gap-0.5">
 				<p className="truncate text-micro font-medium tracking-wide text-text-subtle uppercase">
 					{entry.source}

@@ -27,7 +27,7 @@ Heavy or optional surfaces remain on subpaths:
 | `./icon`        | The complete registered product icon set                          |
 | `./sync`        | Entity population and translation marks                           |
 | `./tint`        | Best-effort image tint extraction                                 |
-| `./markdown`    | Safe Markdown content and spoiler-free plain preview              |
+| `./markdown`    | Safe Markdown content, documents and spoiler-free plain preview   |
 
 Do not re-export these from the root barrel. Components accept icons as `ReactNode` and schema forms
 accept upload transport as a prop, keeping this package independent of auth, servers, and client
@@ -122,6 +122,8 @@ reduced motion inside its document, not through kernel-only CSS.
 | `MenuSelect`                      | Compact "Label: Value" toolbar choice that opens an anchored radio `Menu`; use `Select` for form fields.                                                                                                                                                                                                                                             |
 | `Timeline`                        | `TimelineGroup` dates and `TimelineEntry` rows with semantic markers; `expand` reveals collapsed batches. Markers are decorative, so titles carry the meaning.                                                                                                                                                                                       |
 | `ActivityTray` / `Toast`          | Shell-owned activity notices: attributed `source`, text-only `title`/`status`/`detail`, one optional action, and dismissal. The tray owns one visually hidden polite region; callers throttle its `announcement`. Compact trays span the bottom above the safe area.                                                                                 |
+| `StatusDot`                       | Decorative `ActivityTone` marker shared by toasts and status lists; pair it with a text label.                                                                                                                                                                                                                                                       |
+| `JsonSchemaValues`                | Read-only labeled view of a JSON value described by a JSON Schema document. Follows `$defs` references and `anyOf`/`oneOf` branches, orders fields by the schema, labels them from `title` or the humanized key, and lists unknown fields last.                                                                                                      |
 
 `groupColors`, `groupColorVariable`, and `Card.groupColor` provide labeled group identity; never
 communicate identity through color alone.
@@ -149,6 +151,10 @@ Raw HTML is skipped. Unknown directives retain their content without applying at
 Directive attributes are ignored. `markdownPlainText` parses the same directive syntax, removes
 spoiler bodies and raw HTML, and produces readable text for clamped previews. Typography is inherited
 from the caller; all component styles use scannable Tailwind utilities and theme tokens.
+
+`MarkdownDocument` takes the same props for longer generated text. It also renders headings (shifted
+below the screen heading), horizontal rules, inline and block code, strikethrough and GitHub tables,
+with the same link, raw HTML and URL rules.
 
 ## Charts
 
@@ -258,6 +264,11 @@ the scroller through `scrollRootRef`.
 Layout branches use the kernel-provided `compact` boolean, not responsive utilities, because a plugin
 iframe's media queries measure the iframe rather than the outer viewport. The frame accepts no class
 name for its owned layout; use `width="readable"` for a narrow column. Safe-area top is a numeric prop.
+
+`useFollowEnd(scrollRoot, content, key)` keeps a growing scroller pinned to its end while the reader
+is there. Scrolling away stops following until the reader returns to the end; a new `key` moves them
+to the end again, and `undefined` disables it. `content` must wrap everything inside the scroller so
+its growth is observed.
 
 Title-collapse observation follows the sentinel node, including search-row replacement. Search keeps
 a visually hidden semantic `<h1>` and opaque bar.
