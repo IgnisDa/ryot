@@ -51,6 +51,8 @@ OIDC, and two-factor users complete sign-in on this server route.
 ## API keys
 
 API keys are personal automation credentials sent in `X-Api-Key`. They are not OAuth client
-credentials. Expiry, rate limits, ownership, and revocation apply.
+credentials. Expiry, rate limits, ownership, and revocation apply. Create and revoke them in
+**Settings → Access**; each key is read only, asks before each change, or changes data without
+asking. Keys without a recorded access level are read only.
 
 For AI apps, see [Connect an AI app with MCP](./mcp.md) for API-key and OAuth connections.

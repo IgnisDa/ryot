@@ -10,33 +10,24 @@ Choose **Streamable HTTP** in an AI app that supports remote MCP servers. For ex
 address is `https://ryot.example`, enter `https://ryot.example/api/mcp`.
 
 The connection acts as your Ryot account. It can read your data and use the operations exposed by
-your installed plugins, including operations that change or delete data. Review requests in your AI
-app before approving them.
+your installed plugins. What it may change depends on the access level you give it.
 
-## Connect with an API key
+## Access levels
 
-If you have a personal Ryot API key, configure the MCP connection to send this header on every
-request:
+Every connection has one of three access levels:
 
-```text
-X-Api-Key: <your-api-key>
-```
+| Level                         | What the app can do                                                                                          |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| **Read only**                 | Read your data. It cannot change anything.                                                                   |
+| **Ask before each change**    | Read your data. Each change is shown to you in your AI app, and happens only after you approve it.           |
+| **Allow changes without asking** | Read and change your data, including through your plugins, without asking you first.                      |
 
-Keep the key private. API keys are personal credentials; they are not OAuth client IDs or client
-secrets.
+**Ask before each change** needs an AI app that supports MCP elicitation, which lets Ryot ask you
+to confirm a change. If your app does not support it, Ryot refuses the change and says so; connect
+again with **Allow changes without asking** only if you trust the app. Check your app's
+documentation for elicitation support.
 
-Ryot currently has no API-key management screen. For setup through an API, use a signed-in hosted
-browser session to send `POST /api/auth/api-key/create` with a JSON body such as:
-
-```json
-{ "name": "My MCP client", "expiresIn": 2592000 }
-```
-
-This example expires after 30 days. Save the response's `key` in your MCP client and keep its `id`
-for revocation. To revoke it, send `POST /api/auth/api-key/delete` with `{ "keyId": "<id>" }` using
-the hosted session. These management endpoints require Ryot's hosted session cookie; an API access
-token is not a substitute. Use OAuth below for an interactive setup that does not require managing
-keys through an API.
+Choose the lowest level that does the job. A level can only be raised by connecting again.
 
 ## Connect with OAuth
 
@@ -50,13 +41,33 @@ When the app opens your browser:
    authentication if prompted.
 2. Check the registered app name and the redirect origin shown on the consent page. App names are
    supplied during registration; Ryot does not verify the publisher.
-3. Review the `ryot:api` permission. It grants access to your Ryot API, including reads and changes;
-   there is no separate read-only permission.
+3. Choose the access level. It starts at **Ask before each change** and never goes above what the app
+   asked for.
 4. Choose **Approve** to connect or **Deny** to return without granting access.
 
 For clients that ask for the OAuth resource explicitly, use the same complete MCP endpoint URL:
 `<FRONTEND_URL>/api/mcp`. Public clients use `token_endpoint_auth_method: none`; confidential-client
 registration is not supported. Ryot's own web and mobile apps keep their existing sign-in flow.
+
+## Connect with an API key
+
+Use a key for an app that cannot sign in through your browser. Open **Settings → Access**, choose
+**Create key**, name it, pick an access level and an expiry, and copy the key. It is shown only
+once. Configure the MCP connection to send it on every request:
+
+```text
+X-Api-Key: <your-api-key>
+```
+
+Keep the key private. API keys are personal credentials; they are not OAuth client IDs or client
+secrets. Apps that cannot ask you to confirm changes cannot use **Ask before each change**; pick
+**Read only** or **Allow changes without asking** for their keys.
+
+## Review and revoke access
+
+**Settings → Access** lists connected apps and API keys with their access level and when they were
+last used. Choose **Revoke** to cut off an app or key. A key stops working immediately. A revoked
+app cannot renew its access and loses it within 15 minutes.
 
 ## Make your server reachable
 

@@ -339,9 +339,11 @@ receives them instead of the router. `/oauth/login`, its signed `oauth_query`, a
 from `ServerService` form the server contract.
 
 `/oauth/consent` reads server-verified consent details before showing a registered app's name,
-redirect origin and `ryot:api` permission. `HostedAuthService` submits the original signed query to
-Better Auth's `oauth2.consent` API for both approval and denial; its client handles the provider's
-continuation redirect. Missing hosted sessions return to `/oauth/login` with that query intact, so
+redirect origin and identity permissions, and offers the write access levels up to the requested one.
+`HostedAuthService` submits the original signed query and the chosen scopes to Better Auth's
+`oauth2.consent` API for both approval and denial; its client handles the provider's continuation
+redirect. Settings → Access lists connected apps and API keys through one credential list and
+revokes either. Missing hosted sessions return to `/oauth/login` with that query intact, so
 password, OIDC, two-factor and account initialization continue through the existing hosted flow.
 The page never uses an app name, redirect origin or scope read directly from the browser query.
 First-party authorization still follows the provider's existing consent-skipping policy.
