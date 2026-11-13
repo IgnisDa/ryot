@@ -281,9 +281,10 @@ export class HostedAuthService extends Context.Service<HostedAuthService>()(
 						}),
 					"Could not open the identity provider.",
 				).pipe(Effect.asVoid);
-			const submitConsent = (oauthQuery: string, accept: boolean) =>
+			const submitConsent = (oauthQuery: string, accept: boolean, scopes: readonly string[]) =>
 				request(
-					() => client().oauth2.consent({ accept, oauth_query: oauthQuery }),
+					() =>
+						client().oauth2.consent({ accept, scope: scopes.join(" "), oauth_query: oauthQuery }),
 					"Could not submit your decision. Try again.",
 				).pipe(Effect.asVoid);
 

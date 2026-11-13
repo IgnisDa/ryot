@@ -21,14 +21,14 @@ import {
 export const CollectionsGroup = HttpApiGroup.make("collections")
 	.annotate(OpenApi.Description, "Manages collections and their memberships")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("create", "/collections", {
+		AuthenticatedMutationEndpoint.post("demo-write")("create", "/collections", {
 			payload: CreateCollectionBody,
 			success: CollectionResponse.pipe(HttpApiSchema.status(201)),
 			error: [CollectionBadRequest.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Creates a collection"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("allowed")("update", "/collections", {
+		AuthenticatedMutationEndpoint.patch("demo-write")("update", "/collections", {
 			success: CollectionResponse,
 			payload: UpdateCollectionBody,
 			error: [
@@ -41,7 +41,7 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")("delete", "/collections", {
+		AuthenticatedMutationEndpoint.delete("demo-write")("delete", "/collections", {
 			payload: DeleteCollectionBody,
 			success: DeleteCollectionResponse,
 			error: [
@@ -51,17 +51,21 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 		}).annotate(OpenApi.Description, "Deletes a collection and its memberships"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("createMembership", "/collections/memberships", {
-			payload: CreateMembershipBody,
-			success: MembershipResponse.pipe(HttpApiSchema.status(201)),
-			error: [
-				CollectionBadRequest.pipe(HttpApiSchema.status(400)),
-				CollectionNotFound.pipe(HttpApiSchema.status(404)),
-			],
-		}).annotate(OpenApi.Description, "Adds an entity to a collection"),
+		AuthenticatedMutationEndpoint.post("demo-write")(
+			"createMembership",
+			"/collections/memberships",
+			{
+				payload: CreateMembershipBody,
+				success: MembershipResponse.pipe(HttpApiSchema.status(201)),
+				error: [
+					CollectionBadRequest.pipe(HttpApiSchema.status(400)),
+					CollectionNotFound.pipe(HttpApiSchema.status(404)),
+				],
+			},
+		).annotate(OpenApi.Description, "Adds an entity to a collection"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("demo-write")(
 			"reorderMembership",
 			"/collections/memberships/reorder",
 			{
@@ -75,7 +79,7 @@ export const CollectionsGroup = HttpApiGroup.make("collections")
 		).annotate(OpenApi.Description, "Moves a member in the collection's manual order"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")(
+		AuthenticatedMutationEndpoint.delete("demo-write")(
 			"deleteMembership",
 			"/collections/memberships",
 			{

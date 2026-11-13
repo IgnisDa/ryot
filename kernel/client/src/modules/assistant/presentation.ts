@@ -1,8 +1,5 @@
-import type {
-	AssistantToolCall,
-	AssistantTurnFailure,
-} from "@ryot-app/contract/modules/assistant/schemas";
-import { type AgentToolName, agentTools } from "@ryot-app/contract/schema/agent-tool";
+import type { AssistantTurnFailure } from "@ryot-app/contract/modules/assistant/schemas";
+import type { AgentToolName } from "@ryot-app/contract/schema/agent-tool";
 import type {
 	AssistantTranscriptStep,
 	AssistantTranscriptTurn,
@@ -13,39 +10,14 @@ import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 export const ASSISTANT_NAME = "Ryo";
 
 const toolLabels = {
-	read_docs: { detail: "topic", done: "Read docs", approval: "Read docs", running: "Reading docs" },
-	execute: {
-		detail: null,
-		done: "Ran a script",
-		approval: "Run a script",
-		running: "Running a script",
-	},
-	page_publish: {
-		detail: null,
-		approval: "Publish page",
-		done: "Published a page",
-		running: "Publishing a page",
-	},
-	page_write: {
-		detail: "name",
-		done: "Wrote a page draft",
-		approval: "Write a page draft",
-		running: "Writing a page draft",
-	},
-	search: {
-		detail: "query",
-		done: "Searched capabilities",
-		approval: "Search capabilities",
-		running: "Searching capabilities",
-	},
+	read_docs: { detail: "topic", done: "Read docs", running: "Reading docs" },
+	execute: { detail: null, done: "Ran a script", running: "Running a script" },
+	page_publish: { detail: null, done: "Published a page", running: "Publishing a page" },
+	page_write: { detail: "name", done: "Wrote a page draft", running: "Writing a page draft" },
+	search: { detail: "query", done: "Searched capabilities", running: "Searching capabilities" },
 } as const satisfies Record<
 	AgentToolName,
-	{
-		readonly done: string;
-		readonly running: string;
-		readonly approval: string;
-		readonly detail: null | string;
-	}
+	{ readonly done: string; readonly running: string; readonly detail: null | string }
 >;
 
 export const stepTitle = (step: AssistantTranscriptStep) => {
@@ -72,30 +44,8 @@ export const stepDetail = (step: AssistantTranscriptStep): string | undefined =>
 	return undefined;
 };
 
-export const approvalSubject = (call: AssistantToolCall, catalog: PluginClientCatalog) => {
-	if (call.kind === "tool") {
-		const tool = agentTools[call.tool];
-		return {
-			source: "Ryot",
-			schema: tool.input,
-			description: tool.description,
-			destructive: tool.hints.destructive,
-			title: toolLabels[call.tool].approval,
-		};
-	}
-	const { capability } = call;
-	const { source } = capability;
-	return {
-		title: capability.title,
-		schema: capability.input,
-		description: capability.description,
-		destructive: capability.hints.destructive,
-		source:
-			source.kind === "kernel"
-				? "Ryot"
-				: (catalog.find((entry) => entry.packageId === source.packageId)?.name ?? source.packageId),
-	};
-};
+export const catalogSourceName = (catalog: PluginClientCatalog) => (packageId: string) =>
+	catalog.find((entry) => entry.packageId === packageId)?.name ?? packageId;
 
 export const workedFor = (turn: Pick<AssistantTranscriptTurn, "createdAt" | "completedAt">) => {
 	if (turn.completedAt === null) {

@@ -53,13 +53,13 @@ const systemConfig = (
 });
 
 const details = {
-	scopes: ["ryot:api"],
 	clientName: "Registered app",
 	redirectOrigin: "https://client.example",
+	scopes: ["ryot:read", "ryot:write", "ryot:write:unattended"],
 } as const;
 
 const mountConsent = (overrides: Partial<HostedAuthService["Service"]> = {}) => {
-	const decisions: Array<{ query: string; accept: boolean }> = [];
+	const decisions: Array<{ query: string; accept: boolean; scopes: readonly string[] }> = [];
 	const queries: string[] = [];
 	const oauth = makeOAuthRouteStubs(
 		{},
@@ -69,9 +69,9 @@ const mountConsent = (overrides: Partial<HostedAuthService["Service"]> = {}) => 
 					queries.push(query);
 					return details;
 				}),
-			submitConsent: (query, accept) =>
+			submitConsent: (query, accept, scopes) =>
 				Effect.sync(() => {
-					decisions.push({ query, accept });
+					decisions.push({ query, accept, scopes });
 				}),
 			...overrides,
 		},
@@ -122,7 +122,10 @@ describe("Hosted OAuth consent", () => {
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Approve access" }));
 				expect(screen.getByText("Registered app")).not.toBeNull();
 				expect(screen.getByText("https://client.example")).not.toBeNull();
-				expect(screen.getByText("ryot:api")).not.toBeNull();
+				expect(screen.getByRole("button", { name: /^Access:/ }).textContent).toContain(
+					"Ask before each change",
+				);
+				expect(screen.queryByRole("listitem")).toBeNull();
 				expect(screen.queryByText("openid")).toBeNull();
 				expect(screen.queryByText("offline_access")).toBeNull();
 				expect(mounted.queries).toEqual([signedOAuthQuery]);
@@ -132,14 +135,14 @@ describe("Hosted OAuth consent", () => {
 	);
 
 	it.live(
-		"explains each requested identity, refresh and data permission",
+		"explains each requested identity and refresh permission",
 		() =>
 			Effect.gen(function* () {
 				mountConsent({
 					consentDetails: () =>
 						Effect.succeed({
 							...details,
-							scopes: ["openid", "email", "profile", "offline_access", "ryot:api"],
+							scopes: ["openid", "email", "profile", "offline_access", "ryot:read"],
 						}),
 				});
 				yield* Effect.promise(() => screen.findByRole("heading", { name: "Approve access" }));
@@ -148,7 +151,6 @@ describe("Hosted OAuth consent", () => {
 					"email — Read your email address and whether it is verified.",
 					"profile — Read your name and profile picture.",
 					"offline_access — Keep access through refresh tokens when you are away.",
-					"ryot:api — Read, change and delete your Ryot data, including through your installed plugins.",
 				]);
 			}),
 		testTimeout,
@@ -178,12 +180,50 @@ describe("Hosted OAuth consent", () => {
 				const button = yield* Effect.promise(() => screen.findByRole("button", { name: action }));
 				yield* Effect.promise(() => userEvent.click(button));
 				yield* Effect.promise(() =>
-					waitFor(() => expect(mounted.decisions).toEqual([{ accept, query: signedOAuthQuery }])),
+					waitFor(() =>
+						expect(mounted.decisions).toEqual([
+							{ accept, query: signedOAuthQuery, scopes: ["ryot:read", "ryot:write"] },
+						]),
+					),
 				);
 				expect(screen.getByRole<HTMLButtonElement>("button", { name: "Approve" }).disabled).toBe(
 					true,
 				);
 				expect(screen.getByRole<HTMLButtonElement>("button", { name: "Deny" }).disabled).toBe(true);
+			}),
+		testTimeout,
+	);
+
+	it.live.each([
+		{
+			choice: "Allow changes without asking",
+			granted: ["ryot:read", "ryot:write", "ryot:write:unattended"],
+			requested: ["ryot:read", "ryot:write", "ryot:write:unattended"],
+		},
+		{ choice: "Read only", granted: ["ryot:read"], requested: ["ryot:read"] },
+	] as const)(
+		"grants $choice within the requested access",
+		({ choice, granted, requested }) =>
+			Effect.gen(function* () {
+				const mounted = mountConsent({
+					consentDetails: () => Effect.succeed({ ...details, scopes: [...requested] }),
+				});
+				const access = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: /^Access:/ }),
+				);
+				yield* Effect.promise(() => userEvent.click(access));
+				expect(screen.getAllByRole("radio")).toHaveLength(requested.length);
+				yield* Effect.promise(() => userEvent.click(screen.getByRole("radio", { name: choice })));
+				yield* Effect.promise(() =>
+					userEvent.click(screen.getByRole("button", { name: "Approve" })),
+				);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(mounted.decisions).toEqual([
+							{ accept: true, scopes: granted, query: signedOAuthQuery },
+						]),
+					),
+				);
 			}),
 		testTimeout,
 	);

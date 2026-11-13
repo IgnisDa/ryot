@@ -14,8 +14,11 @@ rules.
 | `page_write`   | none      | Creates or replaces a private page draft and compiles it                       |
 | `page_publish` | call      | Publishes a compiled draft revision                                            |
 
-Drafts stay private until published, so only publishing needs call approval. Demo credentials and
-read-only MCP connections do not see tools that write directly (`page_write`, `page_publish`). Credentials are resolved at each service call:
+Drafts stay private until published, so only publishing needs call approval, and only for `confirm`
+write access. Demo credentials and `none` write access do not see tools that write directly
+(`page_write`, `page_publish`). `agentToolHints` derives transport hints from write access: `none`
+marks every tool read-only, and only `unattended` keeps destructive hints, because the server
+confirms writes for `confirm`. Credentials are resolved at each service call:
 `list`/`call` authenticate request headers with the transport's OAuth resource, and
 `listTrusted`/`validateTrusted`/`callTrusted` reload the persisted account for durable assistant
 turns. Results use the shared bounded `AgentToolResult` envelope from
@@ -64,15 +67,20 @@ anything runs. The wrapper adapts the Effect host call to async/await and turns 
 `Error`s whose messages the code can inspect.
 
 Each `ryot.call` is one `invokeCapability` host call. Read-only capabilities dispatch immediately.
-Every other capability passes through the caller's `WriteGate`:
+Every other capability passes through `credentialWriteGate`, chosen from the credential's write
+access: `none` declines, `unattended` approves, and `confirm` uses the transport's confirmation gate,
+declining when the transport has none. A `WriteGate`:
 
 - `authorize` approves, declines with a reason, or fails with `AgentRunSuspended`. A suspension
   persists the agent script journal and returns `{ state: "suspended" }`; calling `execute` again
   with the same idempotency key replays settled calls and resumes at the pending write.
 - `settle` receives each authorized write's outcome.
 
-Host-call idempotency keys are `<execution>:<host call index>`, so a write retried after a crash
-replays through its owner's idempotency. Ryo and MCP supply their own gates; see their READMEs.
+Approved plugin operations dispatch with `writeConfirmed`, so the operation service does not refuse
+them for lacking `unattended` access. Host-call idempotency keys are `<execution>:<host call index>`,
+so a write retried after a crash replays through its owner's idempotency. Ryo and MCP supply only
+their confirmation gates; see their READMEs. `approvalSubject` in `@ryot-app/contract` describes a
+pending tool call or write for every confirmation surface.
 
 ## Pages and documentation
 

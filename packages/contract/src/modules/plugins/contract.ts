@@ -7,6 +7,7 @@ import {
 	AuthUnauthorized,
 	DemoOperationProtected,
 	UserInitializing,
+	WriteAccessDenied,
 } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
 import { SubmissionExpired } from "../../errors";
@@ -56,7 +57,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		}).annotate(OpenApi.Description, "Streams plugin catalog events for the caller."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("inspect", "/plugins/inspect", {
+		AuthenticatedMutationEndpoint.post("write")("inspect", "/plugins/inspect", {
 			success: PluginInspection,
 			payload: InspectPluginBody,
 			error: [
@@ -70,7 +71,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("install", "/plugins", {
+		AuthenticatedMutationEndpoint.post("write")("install", "/plugins", {
 			payload: InstallPluginBody,
 			success: PluginInstallResult.pipe(HttpApiSchema.status(201)),
 			error: [
@@ -83,7 +84,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")(
+		AuthenticatedMutationEndpoint.put("write")(
 			"update",
 			"/plugins/installations/:installationId/package",
 			{
@@ -102,7 +103,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")(
+		AuthenticatedMutationEndpoint.delete("write")(
 			"uninstall",
 			"/plugins/installations/:installationId/:activationId",
 			{
@@ -119,7 +120,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("protected")(
+		AuthenticatedMutationEndpoint.patch("write")(
 			"updatePluginState",
 			"/plugins/installations/:installationId/state",
 			{
@@ -138,7 +139,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")(
+		AuthenticatedMutationEndpoint.put("write")(
 			"setHomeView",
 			"/plugins/installations/:installationId/home-view",
 			{
@@ -153,7 +154,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		).annotate(OpenApi.Description, "Sets or clears the caller's plugin home saved view."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")(
+		AuthenticatedMutationEndpoint.put("write")(
 			"saveUserSettings",
 			"/plugins/installations/:installationId/user-settings",
 			{
@@ -168,7 +169,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 		).annotate(OpenApi.Description, "Saves the caller's settings for a plugin installation."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")(
+		AuthenticatedMutationEndpoint.delete("write")(
 			"resetUserSettings",
 			"/plugins/installations/:installationId/user-settings",
 			{
@@ -187,7 +188,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 	.middleware(AuthMiddleware)
 	.add(
 		// Operation manifests enforce their own demo access when invoked.
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("read")(
 			"invoke",
 			"/plugins/:publisher/:name/operations/:operationSlug",
 			{
@@ -201,6 +202,7 @@ export const PluginsGroup = HttpApiGroup.make("plugins")
 				error: [
 					AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 					DemoOperationProtected.pipe(HttpApiSchema.status(403)),
+					WriteAccessDenied.pipe(HttpApiSchema.status(403)),
 					PluginConflictError.pipe(HttpApiSchema.status(409)),
 					PluginNotFoundError.pipe(HttpApiSchema.status(404)),
 					PluginRequestError.pipe(HttpApiSchema.status(400)),

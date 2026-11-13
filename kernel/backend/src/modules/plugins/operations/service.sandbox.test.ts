@@ -111,6 +111,7 @@ const fakeLayer = Layer.unwrap(
 						authorization: {
 							userId: realSandboxUserId,
 							accessClass: "standard" as const,
+							writeAccess: "unattended" as const,
 							credential: { keyId: "test-key", kind: "api-key" as const },
 						},
 						user: {

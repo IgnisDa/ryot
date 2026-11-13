@@ -21,21 +21,21 @@ const uploadErrors = [
 export const UploadsGroup = HttpApiGroup.make("uploads")
 	.annotate(OpenApi.Description, "Creates upload and download URLs and accepts temporary files")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("createIntent", "/uploads/intents", {
+		AuthenticatedMutationEndpoint.post("demo-write")("createIntent", "/uploads/intents", {
 			error: uploadErrors,
 			payload: UploadIntentInput,
 			success: UploadIntentResponse,
 		}).annotate(OpenApi.Description, "Creates a provider-neutral upload intent"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("demo-write")(
 			"completeIntent",
 			"/uploads/intents/:intentId/complete",
 			{ error: uploadErrors, success: CompleteUploadResponse, params: { intentId: Schema.String } },
 		).annotate(OpenApi.Description, "Completes an upload intent"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("resolveDownloads", "/uploads/downloads", {
+		AuthenticatedMutationEndpoint.post("read")("resolveDownloads", "/uploads/downloads", {
 			error: uploadErrors,
 			payload: DownloadResolutionInput,
 			success: DownloadResolutionResponse,

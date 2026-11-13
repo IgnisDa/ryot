@@ -170,12 +170,12 @@ it.live(
 				})).status,
 			).toBe(400);
 			expect((yield* register("unknown")).status).toBe(400);
-			const registered = yield* register("ryot:api offline_access");
+			const registered = yield* register("ryot:read offline_access");
 			expect(registered.status).toBe(201);
 			const { client_id } = yield* Schema.decodeUnknownEffect(Registration)(
 				yield* Effect.promise(() => registered.json()),
 			);
-			const begin = () => authorize(client_id, "ryot:api offline_access");
+			const begin = () => authorize(client_id, "ryot:read offline_access");
 			const authorization = yield* begin();
 			expect(authorization.status).toBe(302);
 			const consent = new URL(authorization.headers.get("location") ?? "", origin);
@@ -189,7 +189,7 @@ it.live(
 			expect(details.status).toBe(200);
 			expect(yield* Effect.promise(() => details.json())).toEqual({
 				clientName: "Example Client",
-				scopes: ["ryot:api", "offline_access"],
+				scopes: ["ryot:read", "offline_access"],
 				redirectOrigin: "https://client.example",
 			});
 			const denied = yield* send("/oauth2/consent", { accept: false, oauth_query: signed }, cookie);
@@ -217,7 +217,7 @@ it.live(
 			expect(
 				(yield* send("/oauth2/consent-details", { oauth_query: forged.toString() }, cookie)).status,
 			).toBe(400);
-			const invalidScope = yield* authorize(client_id, "unknown ryot:api");
+			const invalidScope = yield* authorize(client_id, "unknown ryot:read");
 			expect(invalidScope.status).toBe(302);
 			expect(
 				new URL(invalidScope.headers.get("location") ?? "", origin).searchParams.get("error"),
@@ -227,22 +227,22 @@ it.live(
 );
 
 it.live.each([
-	{ email: false, profile: false, refresh: false, identity: false, scope: "ryot:api" },
+	{ email: false, profile: false, refresh: false, identity: false, scope: "ryot:read" },
 	{
 		email: false,
 		refresh: true,
 		profile: false,
 		identity: false,
-		scope: "ryot:api offline_access",
+		scope: "ryot:read offline_access",
 	},
-	{ email: true, identity: true, profile: false, refresh: false, scope: "openid email ryot:api" },
-	{ email: false, identity: true, profile: false, refresh: false, scope: "openid ryot:api" },
+	{ email: true, identity: true, profile: false, refresh: false, scope: "openid email ryot:read" },
+	{ email: false, identity: true, profile: false, refresh: false, scope: "openid ryot:read" },
 	{
 		email: true,
 		profile: true,
 		refresh: true,
 		identity: true,
-		scope: "openid email profile offline_access ryot:api",
+		scope: "openid email profile offline_access ryot:read",
 	},
 ])(
 	"issues only the approved permissions and claims for $scope",
@@ -250,13 +250,23 @@ it.live.each([
 		Effect.gen(function* () {
 			const { send, user, token, cookie, verify, register, userInfo, authorize } =
 				yield* makeHarness();
-			const registered = yield* register("openid email profile offline_access ryot:api");
+			const registered = yield* register(
+				"openid email profile offline_access ryot:read ryot:write ryot:write:unattended",
+			);
 			expect(registered.status).toBe(201);
 			const registration = yield* Schema.decodeUnknownEffect(Registration)(
 				yield* Effect.promise(() => registered.json()),
 			);
 			expect(new Set(registration.scope.split(" "))).toEqual(
-				new Set(["email", "openid", "profile", "ryot:api", "offline_access"]),
+				new Set([
+					"email",
+					"openid",
+					"profile",
+					"ryot:read",
+					"ryot:write",
+					"offline_access",
+					"ryot:write:unattended",
+				]),
 			);
 			const authorization = yield* authorize(registration.client_id, scope);
 			expect(authorization.status).toBe(302);
@@ -359,6 +369,46 @@ it.live.each([
 );
 
 it.live(
+	"lets consent narrow the requested access scopes",
+	() =>
+		Effect.gen(function* () {
+			const { send, token, cookie, register, authorize } = yield* makeHarness();
+			const registered = yield* register();
+			const { client_id } = yield* Schema.decodeUnknownEffect(Registration)(
+				yield* Effect.promise(() => registered.json()),
+			);
+			const authorization = yield* authorize(
+				client_id,
+				"ryot:read ryot:write ryot:write:unattended",
+			);
+			const signed = new URL(authorization.headers.get("location") ?? "", origin).search.slice(1);
+			const accepted = yield* send(
+				"/oauth2/consent",
+				{ accept: true, oauth_query: signed, scope: "ryot:read ryot:write" },
+				cookie,
+			);
+			const approval = yield* Schema.decodeUnknownEffect(Continuation)(
+				yield* Effect.promise(() => accepted.json()),
+			);
+			const code = new URL(approval.url).searchParams.get("code");
+			assert(code !== null);
+			const exchanged = yield* token({
+				code,
+				client_id,
+				redirect_uri: callback,
+				code_verifier: verifier,
+				grant_type: "authorization_code",
+				resource: getMcpOAuthResource(origin),
+			});
+			const tokens = yield* Schema.decodeUnknownEffect(Tokens)(
+				yield* Effect.promise(() => exchanged.json()),
+			);
+			expect(new Set(tokens.scope.split(" "))).toEqual(new Set(["ryot:read", "ryot:write"]));
+		}).pipe(Effect.scoped),
+	testTimeout,
+);
+
+it.live(
 	"keeps identity grants separate from data access and restricts registration to MCP",
 	() =>
 		Effect.gen(function* () {
@@ -369,7 +419,15 @@ it.live(
 				yield* Effect.promise(() => registered.json()),
 			);
 			expect(new Set(defaults.scope.split(" "))).toEqual(
-				new Set(["email", "openid", "profile", "ryot:api", "offline_access"]),
+				new Set([
+					"email",
+					"openid",
+					"profile",
+					"ryot:read",
+					"ryot:write",
+					"offline_access",
+					"ryot:write:unattended",
+				]),
 			);
 			const oidc = yield* register("openid email");
 			expect(oidc.status).toBe(201);

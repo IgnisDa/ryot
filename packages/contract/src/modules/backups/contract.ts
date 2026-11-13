@@ -17,7 +17,7 @@ import {
 export const BackupsGroup = HttpApiGroup.make("backups")
 	.annotate(OpenApi.Description, "Manages backup export and restore runs")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("createExport", "/backups/exports", {
+		AuthenticatedMutationEndpoint.post("write")("createExport", "/backups/exports", {
 			success: BackupRunIdResponse.pipe(HttpApiSchema.status(201)),
 			error: [
 				BackupConflict.pipe(HttpApiSchema.status(409)),
@@ -27,7 +27,7 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 		}).annotate(OpenApi.Description, "Starts a backup export"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("read")(
 			"createDownloadTicket",
 			"/backups/runs/:id/download-url",
 			{
@@ -43,7 +43,7 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 		).annotate(OpenApi.Description, "Creates a short-lived URL to download a backup run"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("deleteRun", "/backups/runs/:id", {
+		AuthenticatedMutationEndpoint.delete("write")("deleteRun", "/backups/runs/:id", {
 			params: { id: BackupRunId },
 			success: BackupRunIdResponse,
 			error: [
@@ -55,7 +55,7 @@ export const BackupsGroup = HttpApiGroup.make("backups")
 		}).annotate(OpenApi.Description, "Deletes a backup run by ID"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("createRestore", "/backups/restores", {
+		AuthenticatedMutationEndpoint.post("write")("createRestore", "/backups/restores", {
 			payload: CreateRestoreBody,
 			success: BackupRunIdResponse.pipe(HttpApiSchema.status(201)),
 			error: [

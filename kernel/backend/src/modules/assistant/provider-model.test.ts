@@ -22,6 +22,7 @@ import {
 
 const tool: AgentToolDescriptor = {
 	name: "search",
+	title: "Search",
 	approval: "none",
 	description: "Read records",
 	hints: { readOnly: true, idempotent: true, destructive: false },

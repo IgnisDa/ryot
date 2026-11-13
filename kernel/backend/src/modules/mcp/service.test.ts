@@ -1,10 +1,11 @@
 import { expect } from "bun:test";
 
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
-import { getMcpOAuthResource } from "@ryot-app/contract/oauth";
+import { getMcpOAuthResource, type WriteAccess } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
+import { assert } from "@ryot-app/testing/assert";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Fiber, Schema } from "effect";
@@ -53,6 +54,13 @@ const parseFrame = (text: string) =>
 			?.slice(6) ?? text,
 	);
 
+const writeAccessOf = (key: string): WriteAccess => {
+	if (key.startsWith("read")) {
+		return "none";
+	}
+	return key.startsWith("confirm") ? "confirm" : "unattended";
+};
+
 const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["call"]) {
 	const context = yield* Effect.context();
 	const calls: Parameters<AgentToolsService["Service"]["call"]>[0][] = [];
@@ -69,6 +77,7 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 					return {
 						authorization: {
 							userId: key,
+							writeAccess: writeAccessOf(key),
 							credential: { keyId: key, kind: "api-key" },
 							accessClass: key.startsWith("demo") ? "demo" : "standard",
 						},
@@ -93,7 +102,18 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 				((input) =>
 					Effect.gen(function* () {
 						calls.push(input);
-						const decision = yield* input.gate.authorize(write).pipe(Effect.orDie);
+						if (input.confirm === null) {
+							return {
+								state: "completed",
+								result: { truncated: false, value: { decision: "unavailable" } },
+							} as const;
+						}
+						const decision = yield* input.confirm
+							.authorize(write)
+							.pipe(Effect.catchTag("AgentRunSuspended", () => Effect.succeed(null)));
+						if (decision === null) {
+							return { state: "suspended" } as const;
+						}
 						return {
 							state: "completed",
 							result: { truncated: false, value: { decision, name: input.name } },
@@ -113,19 +133,17 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 		session?: string,
 		params?: unknown,
 		id: null | number = 1,
-		query = "",
+		extraHeaders: Readonly<Record<string, string>> = {},
+		body?: unknown,
 	) =>
 		Effect.gen(function* () {
-			const body = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))({
-				...(id === null ? {} : { id }),
-				method,
-				params,
-				jsonrpc: "2.0",
-			});
+			const encoded = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))(
+				body ?? { ...(id === null ? {} : { id }), method, params, jsonrpc: "2.0" },
+			);
 			return yield* Effect.promise(() =>
 				web.handler(
-					new Request(`${origin}/api/mcp${query}`, {
-						body: method === "DELETE" ? undefined : body,
+					new Request(`${origin}/api/mcp`, {
+						body: method === "DELETE" ? undefined : encoded,
 						method: method === "DELETE" ? "DELETE" : "POST",
 						headers: {
 							"content-type": "application/json",
@@ -134,6 +152,7 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 							...(session
 								? { "mcp-session-id": session, "mcp-protocol-version": "2025-06-18" }
 								: {}),
+							...extraHeaders,
 						},
 					}),
 					context,
@@ -147,16 +166,13 @@ const makeHarness = Effect.fn(function* (call?: AgentToolsService["Service"]["ca
 const initialize = Effect.fn(function* (
 	request: Effect.Success<ReturnType<typeof makeHarness>>["request"],
 	key: string,
-	query: string,
+	capabilities: Readonly<Record<string, unknown>> = {},
 ) {
-	const response = yield* request(
-		"initialize",
-		key,
-		undefined,
-		{ capabilities: {}, protocolVersion: "2025-06-18", clientInfo: { name: "test", version: "1" } },
-		1,
-		query,
-	);
+	const response = yield* request("initialize", key, undefined, {
+		capabilities,
+		protocolVersion: "2025-06-18",
+		clientInfo: { name: "test", version: "1" },
+	});
 	const session = response.headers.get("mcp-session-id");
 	if (!session) {
 		throw new Error("Missing MCP session");
@@ -181,7 +197,7 @@ it.live(
 			expect(unauthorized.headers.get("www-authenticate")).toContain(
 				"/.well-known/oauth-protected-resource/api/mcp",
 			);
-			const session = yield* initialize(request, "alice", "");
+			const session = yield* initialize(request, "alice");
 			const listed = yield* request("tools/list", "alice", session);
 			const tools = (yield* parseFrame(yield* Effect.promise(() => listed.text()))).result.tools;
 			expect(tools.map(({ name }) => name)).toEqual([
@@ -202,7 +218,9 @@ it.live(
 				arguments: { code: "return 1;" },
 			});
 			expect(called.status).toBe(200);
-			expect(yield* Effect.promise(() => called.text())).toContain('\\"approved\\":true');
+			expect(yield* Effect.promise(() => called.text())).toContain(
+				'\\"decision\\":\\"unavailable\\"',
+			);
 			expect(calls).toHaveLength(1);
 			expect(calls[0]?.name).toBe("execute");
 			expect(calls[0]?.headers["x-api-key"]).toBe("alice");
@@ -225,37 +243,150 @@ it.live(
 );
 
 it.live(
-	"read-only and demo connections hide page writes and read-only connections refuse writes",
+	"derives tools and hints from write access and hides page writes from demo credentials",
 	() =>
 		Effect.gen(function* () {
-			const { calls, request } = yield* makeHarness();
-			const readOnly = yield* initialize(request, "alice", "?readonly=true");
-			expect(
-				yield* toolNames(
-					yield* request("tools/list", "alice", readOnly, undefined, 1, "?readonly=true"),
-				),
-			).toEqual(["search", "execute", "read_docs"]);
-			const refused = yield* request(
-				"tools/call",
-				"alice",
-				readOnly,
-				{ name: "execute", arguments: { code: "return 1;" } },
-				1,
-				"?readonly=true",
-			);
-			expect(yield* Effect.promise(() => refused.text())).toContain(
-				"This MCP connection is read-only",
-			);
-			expect(calls).toHaveLength(1);
-			const writable = yield* request("tools/list", "alice", readOnly);
-			expect(writable.status).toBe(404);
-			yield* Effect.promise(() => writable.text());
-			const demo = yield* initialize(request, "demo-user", "");
+			const { request } = yield* makeHarness();
+			const readOnly = yield* initialize(request, "read-alice");
+			const response = yield* request("tools/list", "read-alice", readOnly);
+			const listed = yield* parseFrame(yield* Effect.promise(() => response.text()));
+			expect(listed.result.tools.map(({ name }) => name)).toEqual([
+				"search",
+				"execute",
+				"read_docs",
+			]);
+			expect(listed.result.tools.find(({ name }) => name === "execute")?.annotations).toEqual({
+				readOnlyHint: true,
+				openWorldHint: true,
+				idempotentHint: false,
+				destructiveHint: false,
+			});
+			const demo = yield* initialize(request, "demo-user");
 			expect(yield* toolNames(yield* request("tools/list", "demo-user", demo))).toEqual([
 				"search",
 				"execute",
 				"read_docs",
 			]);
+		}).pipe(Effect.scoped),
+);
+
+const readEvents = Effect.fn(function* (
+	reader: { readonly read: () => Promise<{ readonly done: boolean; readonly value?: Uint8Array }> },
+	until: string,
+) {
+	const decoder = new TextDecoder();
+	let text = "";
+	while (!text.includes(until)) {
+		const chunk = yield* Effect.promise(() => reader.read());
+		if (chunk.done) {
+			return text;
+		}
+		text += decoder.decode(chunk.value);
+	}
+	return text;
+});
+
+const ElicitationRequest = Schema.Struct({
+	method: Schema.Literal("elicitation/create"),
+	id: Schema.Union([Schema.String, Schema.Finite]),
+	params: Schema.Struct({ message: Schema.String }),
+});
+
+it.live(
+	"asks sessionful clients to confirm each write and call-approved tool through elicitation",
+	() =>
+		Effect.gen(function* () {
+			const { calls, request } = yield* makeHarness();
+			const session = yield* initialize(request, "confirm-alice", { elicitation: {} });
+			const confirmCall = Effect.fn(function* (params: unknown, action: "accept" | "decline") {
+				const response = yield* request("tools/call", "confirm-alice", session, params, 7);
+				const body = response.body;
+				assert(body !== null);
+				const reader = body.getReader();
+				const asked = yield* readEvents(reader, "elicitation/create");
+				const line = asked
+					.split("\n")
+					.find((candidate) => candidate.includes("elicitation/create"));
+				const elicitation = yield* Schema.decodeEffect(Schema.fromJsonString(ElicitationRequest))(
+					line?.slice("data: ".length) ?? "",
+				);
+				const answered = yield* request(
+					"",
+					"confirm-alice",
+					session,
+					undefined,
+					null,
+					{},
+					{ jsonrpc: "2.0", id: elicitation.id, result: { action, content: {} } },
+				);
+				expect(answered.status).toBe(202);
+				return { message: elicitation.params.message, result: yield* readEvents(reader, '"id":7') };
+			});
+			const approved = yield* confirmCall(
+				{ name: "execute", arguments: { code: "return 1;" } },
+				"accept",
+			);
+			expect(approved.message).toContain("Allow Fixture capability (Ryot)?");
+			expect(approved.result).toContain('\\"approved\\":true');
+			const declined = yield* confirmCall(
+				{ name: "page_publish", arguments: { pageId: "page", expectedDraftRevision: 1 } },
+				"decline",
+			);
+			expect(declined.message).toContain("Allow Publish page (Ryot)?");
+			expect(declined.result).toContain("The user declined this change");
+			expect(calls.map(({ name }) => name)).toEqual(["execute"]);
+		}).pipe(Effect.scoped),
+);
+
+const InputRequired = Schema.Struct({
+	result: Schema.Struct({
+		requestState: Schema.String,
+		resultType: Schema.Literal("input_required"),
+		inputRequests: Schema.Record(Schema.String, Schema.Struct({ method: Schema.String })),
+	}),
+});
+
+it.live(
+	"returns sessionless write confirmations as input requests and resumes the same execution",
+	() =>
+		Effect.gen(function* () {
+			const { calls, request } = yield* makeHarness();
+			const call = (capabilities: Readonly<Record<string, unknown>>, extra = {}) =>
+				request(
+					"tools/call",
+					"confirm-bob",
+					undefined,
+					{
+						name: "execute",
+						arguments: { code: "return 1;" },
+						_meta: {
+							"io.modelcontextprotocol/protocolVersion": "2026-07-28",
+							"io.modelcontextprotocol/clientCapabilities": capabilities,
+						},
+						...extra,
+					},
+					1,
+					{
+						"mcp-name": "execute",
+						"mcp-method": "tools/call",
+						"mcp-protocol-version": "2026-07-28",
+					},
+				).pipe(Effect.flatMap((response) => Effect.promise(() => response.text())));
+			const required = yield* Schema.decodeEffect(Schema.fromJsonString(InputRequired))(
+				yield* call({ elicitation: { form: {} } }),
+			).pipe(Effect.orDie);
+			const { requestState, inputRequests } = required.result;
+			expect(inputRequests).toEqual({ "write-0": { method: "elicitation/create" } });
+			const resumed = yield* call(
+				{ elicitation: { form: {} } },
+				{ requestState, inputResponses: { "write-0": { content: {}, action: "accept" } } },
+			);
+			expect(resumed).toContain('\\"approved\\":true');
+			expect(calls.map(({ idempotencyKey }) => idempotencyKey)).toEqual([
+				`mcp:${requestState}`,
+				`mcp:${requestState}`,
+			]);
+			expect(yield* call({})).toContain('\\"decision\\":\\"unavailable\\"');
 		}).pipe(Effect.scoped),
 );
 
@@ -270,7 +401,7 @@ for (const action of ["cancel", "terminate"] as const) {
 					Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
 				),
 			);
-			const session = yield* initialize(request, "alice", "");
+			const session = yield* initialize(request, "alice");
 			const pending = yield* request("tools/call", "alice", session, {
 				arguments: {},
 				name: "search",
@@ -300,7 +431,7 @@ it.effect(
 					Effect.onInterrupt(() => Deferred.succeed(interrupted, undefined)),
 				),
 			);
-			const session = yield* initialize(request, "alice", "");
+			const session = yield* initialize(request, "alice");
 			const pending = yield* request("tools/call", "alice", session, {
 				arguments: {},
 				name: "search",
@@ -323,6 +454,14 @@ it("advertises the MCP resource and its authorization server", () => {
 		resource: `${origin}/api/mcp`,
 		bearer_methods_supported: ["header"],
 		authorization_servers: [`${origin}/api/auth`],
-		scopes_supported: ["openid", "profile", "email", "offline_access", "ryot:api"],
+		scopes_supported: [
+			"openid",
+			"profile",
+			"email",
+			"offline_access",
+			"ryot:read",
+			"ryot:write",
+			"ryot:write:unattended",
+		],
 	});
 });

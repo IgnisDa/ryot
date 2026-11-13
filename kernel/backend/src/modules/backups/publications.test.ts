@@ -342,8 +342,8 @@ layer(services)((test) => {
 									snapshotArtifactHash: oldArtifact.hash,
 									definition: {
 										mode: "snapshot",
-										arguments: { source, visitor: "captured" },
 										visitorParameters: [],
+										arguments: { source, visitor: "captured" },
 										page: { kind: "page", pageId: "source-page" },
 									},
 								},
@@ -361,8 +361,8 @@ layer(services)((test) => {
 									definition: {
 										mode: "snapshot",
 										visitorParameters: [],
-										arguments: { source: deletedCustomSource, visitor: "captured" },
 										page: { kind: "page", pageId: "source-page" },
+										arguments: { visitor: "captured", source: deletedCustomSource },
 									},
 								},
 								{

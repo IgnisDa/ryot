@@ -7,14 +7,10 @@ import { CalendarSourceNotFound, SetCalendarSourceVisibilityBody } from "./schem
 export const CalendarSourcesGroup = HttpApiGroup.make("calendarSources")
 	.annotate(OpenApi.Description, "Manages per-user calendar source visibility")
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")(
-			"setVisibility",
-			"/calendar-sources/visibility",
-			{
-				payload: SetCalendarSourceVisibilityBody,
-				success: SetCalendarSourceVisibilityBody,
-				error: CalendarSourceNotFound.pipe(HttpApiSchema.status(404)),
-			},
-		).annotate(OpenApi.Description, "Hides or shows one effective calendar source"),
+		AuthenticatedMutationEndpoint.put("write")("setVisibility", "/calendar-sources/visibility", {
+			payload: SetCalendarSourceVisibilityBody,
+			success: SetCalendarSourceVisibilityBody,
+			error: CalendarSourceNotFound.pipe(HttpApiSchema.status(404)),
+		}).annotate(OpenApi.Description, "Hides or shows one effective calendar source"),
 	)
 	.middleware(AuthMiddleware);

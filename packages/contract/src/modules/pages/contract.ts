@@ -42,14 +42,14 @@ export const PageBundlesGroup = HttpApiGroup.make("pageBundles")
 export const PagesGroup = HttpApiGroup.make("pages")
 	.annotate(OpenApi.Description, "Prepares client pages")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("prepare", "/pages/prepare", {
+		AuthenticatedMutationEndpoint.post("read")("prepare", "/pages/prepare", {
 			success: PreparedClientPage,
 			payload: PrepareClientPageBody,
 			error: [ClientPagePreparationError.pipe(HttpApiSchema.status(404))],
 		}).annotate(OpenApi.Description, "Resolves a client page and looks up its composition"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("checkFreshness", "/pages/freshness", {
+		AuthenticatedMutationEndpoint.post("read")("checkFreshness", "/pages/freshness", {
 			payload: CheckClientPageFreshnessBody,
 			success: CheckClientPageFreshnessResponse,
 		}).annotate(
@@ -58,7 +58,7 @@ export const PagesGroup = HttpApiGroup.make("pages")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("document", "/pages/document", {
+		AuthenticatedMutationEndpoint.post("read")("document", "/pages/document", {
 			success: ClientCompositionDocument,
 			payload: ClientCompositionDocumentBody,
 			error: [ClientPageDocumentStale.pipe(HttpApiSchema.status(409))],
@@ -72,42 +72,42 @@ export const PagesGroup = HttpApiGroup.make("pages")
 export const PageAuthoringGroup = HttpApiGroup.make("pageAuthoring")
 	.annotate(OpenApi.Description, "Authors, compiles and publishes user-owned client pages")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("create", "/pages", {
+		AuthenticatedMutationEndpoint.post("write")("create", "/pages", {
 			payload: CreatePageBody,
 			success: PageDraftResult,
 			error: [PageAuthoringError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Creates an owned page with its initial source draft"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")("replaceDraft", "/pages/draft", {
+		AuthenticatedMutationEndpoint.put("write")("replaceDraft", "/pages/draft", {
 			success: PageDraftResult,
 			payload: ReplacePageDraftBody,
 			error: [PageAuthoringError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Replaces a page draft at the expected draft revision"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("compile", "/pages/compile", {
+		AuthenticatedMutationEndpoint.post("write")("compile", "/pages/compile", {
 			success: PageBuildResult,
 			payload: PageDraftRevisionBody,
 			error: [PageAuthoringError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Compiles the current page draft for preview"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("publish", "/pages/publish", {
+		AuthenticatedMutationEndpoint.post("write")("publish", "/pages/publish", {
 			success: PageBuildResult,
 			payload: PageDraftRevisionBody,
 			error: [PageAuthoringError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Compiles and publishes the current page draft"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")("setWriteAccess", "/pages/write-access", {
+		AuthenticatedMutationEndpoint.put("write")("setWriteAccess", "/pages/write-access", {
 			success: PageMutationResult,
 			payload: SetPageWriteAccessBody,
 			error: [PageAuthoringError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Updates write authority for an owned page"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("delete", "/pages", {
+		AuthenticatedMutationEndpoint.delete("write")("delete", "/pages", {
 			payload: PageIdBody,
 			success: PageMutationResult,
 			error: [PageAuthoringError.pipe(HttpApiSchema.status(400))],

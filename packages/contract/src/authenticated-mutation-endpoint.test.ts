@@ -5,7 +5,7 @@ import { HttpApi } from "effect/http-api";
 
 import { AuthMiddleware } from "./auth-middleware";
 import { AppContract } from "./contract";
-import { DemoAccessPolicy } from "./http-annotations";
+import { MutationPolicy } from "./http-annotations";
 import { LocalUploadsGroup } from "./modules/assets/contract";
 import { CalendarSourcesGroup } from "./modules/calendar-sources/contract";
 import { EntitiesGroup } from "./modules/entities/contract";
@@ -16,7 +16,7 @@ import { RelationshipsGroup } from "./modules/relationships/contract";
 import { AdminRyotQLGroup, RyotQLGroup } from "./modules/ryotql/contract";
 
 describe("authenticated mutation endpoints", () => {
-	it("carry an explicit demo policy through the assembled contract", () => {
+	it("carry an explicit mutation policy through the assembled contract", () => {
 		HttpApi.reflect(AppContract, {
 			onGroup: () => undefined,
 			onEndpoint: ({ endpoint }) => {
@@ -24,52 +24,42 @@ describe("authenticated mutation endpoints", () => {
 					endpoint.middlewares.has(AuthMiddleware) &&
 					["PUT", "POST", "PATCH", "DELETE"].includes(endpoint.method)
 				) {
-					expect(endpoint.annotations.mapUnsafe.has(DemoAccessPolicy.key), endpoint.path).toBe(
-						true,
-					);
+					expect(endpoint.annotations.mapUnsafe.has(MutationPolicy.key), endpoint.path).toBe(true);
 				}
 			},
 		});
 
-		expect(Context.get(PluginsGroup.endpoints.install.annotations, DemoAccessPolicy)).toBe(
-			"protected",
+		expect(Context.get(PluginsGroup.endpoints.install.annotations, MutationPolicy)).toBe("write");
+		expect(Context.get(RyotQLGroup.endpoints.execute.annotations, MutationPolicy)).toBe("read");
+		expect(Context.get(PluginsGroup.endpoints.invoke.annotations, MutationPolicy)).toBe("read");
+		expect(Context.get(EntitiesGroup.endpoints.saveEditor.annotations, MutationPolicy)).toBe(
+			"write",
 		);
-		expect(Context.get(RyotQLGroup.endpoints.execute.annotations, DemoAccessPolicy)).toBe(
-			"allowed",
-		);
-		expect(Context.get(PluginsGroup.endpoints.invoke.annotations, DemoAccessPolicy)).toBe(
-			"allowed",
-		);
-		expect(Context.get(EntitiesGroup.endpoints.saveEditor.annotations, DemoAccessPolicy)).toBe(
-			"protected",
-		);
-		expect(Context.get(EntitiesGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
-			"protected",
-		);
+		expect(Context.get(EntitiesGroup.endpoints.create.annotations, MutationPolicy)).toBe("write");
 		for (const endpoint of [
 			EntityUserDataGroup.endpoints.clearEntityUserData,
 			EntityUserDataGroup.endpoints.mergeEntityUserData,
 		]) {
-			expect(Context.get(endpoint.annotations, DemoAccessPolicy)).toBe("protected");
+			expect(Context.get(endpoint.annotations, MutationPolicy)).toBe("write");
 		}
-		expect(
-			Context.get(EntitiesGroup.endpoints.requestEnrichment.annotations, DemoAccessPolicy),
-		).toBe("allowed");
-		expect(Context.get(RelationshipsGroup.endpoints.create.annotations, DemoAccessPolicy)).toBe(
-			"protected",
+		expect(Context.get(EntitiesGroup.endpoints.requestEnrichment.annotations, MutationPolicy)).toBe(
+			"demo-write",
+		);
+		expect(Context.get(RelationshipsGroup.endpoints.create.annotations, MutationPolicy)).toBe(
+			"write",
 		);
 		expect(
-			Context.get(CalendarSourcesGroup.endpoints.setVisibility.annotations, DemoAccessPolicy),
-		).toBe("protected");
+			Context.get(CalendarSourcesGroup.endpoints.setVisibility.annotations, MutationPolicy),
+		).toBe("write");
 	});
 
-	it("keeps admin and signed-token mutations outside the demo policy", () => {
+	it("keeps admin and signed-token mutations outside the mutation policy", () => {
 		for (const endpoint of [
 			AdminRyotQLGroup.endpoints.execute,
 			IntegrationsGroup.endpoints.webhook,
 			LocalUploadsGroup.endpoints.put,
 		]) {
-			expect(endpoint.annotations.mapUnsafe.has(DemoAccessPolicy.key), endpoint.path).toBe(false);
+			expect(endpoint.annotations.mapUnsafe.has(MutationPolicy.key), endpoint.path).toBe(false);
 		}
 	});
 });

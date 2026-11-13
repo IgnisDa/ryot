@@ -6,7 +6,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Result } from "effect";
 
 import { DemoOperationProtected } from "../../auth-middleware";
-import { DemoAccessPolicy } from "../../http-annotations";
+import { MutationPolicy } from "../../http-annotations";
 import { UserId } from "../../schema/brands";
 import {
 	decodePluginCatalogInvalidatedMessage,
@@ -72,7 +72,7 @@ describe("PluginsGroup", () => {
 			PluginsGroup.endpoints.uninstall,
 			PluginsGroup.endpoints.setHomeView,
 		]) {
-			expect(Context.get(endpoint.annotations, DemoAccessPolicy)).toBe("protected");
+			expect(Context.get(endpoint.annotations, MutationPolicy)).toBe("write");
 		}
 	});
 

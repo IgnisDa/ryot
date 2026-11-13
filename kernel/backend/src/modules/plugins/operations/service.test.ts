@@ -1,6 +1,10 @@
 import { expect } from "bun:test";
 
-import { AuthUnauthorized, DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import {
+	AuthUnauthorized,
+	DemoOperationProtected,
+	WriteAccessDenied,
+} from "@ryot-app/contract/auth-middleware";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import type { PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import {
@@ -9,7 +13,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import type { AccessClass } from "@ryot-app/contract/oauth";
+import type { AccessClass, WriteAccess } from "@ryot-app/contract/oauth";
 import {
 	IntegrationId,
 	PluginConfigRevisionId,
@@ -90,6 +94,7 @@ type AvailableOperation = (
 	| Pick<Extract<PluginOperation, { auth: "integration" }>, "auth">
 	| Pick<Extract<PluginOperation, { auth: "user" }>, "auth" | "demoAccess">
 ) & {
+	readonly writes?: true;
 	readonly ownerId: UserId;
 	readonly scriptId?: string;
 	readonly pluginId: PluginId;
@@ -150,7 +155,7 @@ const resolvedOperation = (available: AvailableOperation) => ({
 					title: "Fixture operation",
 					demoAccess: available.demoAccess,
 					description: "Fixture operation",
-					hints: { readOnly: true, idempotent: true, destructive: false },
+					hints: { idempotent: true, destructive: false, readOnly: available.writes !== true },
 				}
 			: {
 					auth: available.auth,
@@ -210,6 +215,7 @@ const makeLayer = (input: {
 	sandboxValue?: unknown;
 	currentUserId?: UserId;
 	accessClass?: AccessClass;
+	writeAccess?: WriteAccess;
 	activeSourceHash?: string;
 	integration?: null | IntegrationRecord;
 	available?: ReadonlyArray<AvailableOperation>;
@@ -260,7 +266,10 @@ const makeLayer = (input: {
 					handler: () => Promise.reject(new Error("unused")),
 					resolveTrustedAccount: (userId) =>
 						Effect.succeed({
-							authorization: { accessClass: input.accessClass ?? "standard" },
+							authorization: {
+								writeAccess: "confirm" as const,
+								accessClass: input.accessClass ?? "standard",
+							},
 							user: {
 								id: userId,
 								image: null,
@@ -280,6 +289,7 @@ const makeLayer = (input: {
 									authorization: {
 										userId: input.currentUserId,
 										accessClass: input.accessClass ?? "standard",
+										writeAccess: input.writeAccess ?? "unattended",
 										credential: { kind: "api-key", keyId: "test-key" },
 									},
 									user: {
@@ -460,6 +470,7 @@ const expectError = (
 const invoke = (input: {
 	payload?: JsonValue;
 	contentHash?: string;
+	writeConfirmed?: true;
 	operationSlug?: string;
 	idempotencyKey?: string;
 	packageId: PluginPackageId;
@@ -468,6 +479,7 @@ const invoke = (input: {
 	Effect.flatMap(OperationsService, (service) =>
 		service.invoke({
 			headers: Headers.empty,
+			...(input.writeConfirmed === undefined ? {} : { writeConfirmed: input.writeConfirmed }),
 			...(input.pageAuthority === undefined ? {} : { pageAuthority: input.pageAuthority }),
 			packageId: input.packageId,
 			payload: input.payload ?? {},
@@ -810,6 +822,29 @@ layer(
 					DemoOperationProtected,
 				);
 				expect(yield* fake.events).toEqual(["lock"]);
+			}),
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		writeAccess: "confirm",
+		currentUserId: USER_ONE,
+		available: [{ ...systemUserOperation, writes: true }],
+	}),
+)((test) => {
+	test.effect(
+		"refuses unconfirmed writes from credentials that cannot write unattended",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeOperationDependencies;
+				expectError(
+					yield* Effect.exit(invoke({ packageId: SYSTEM_PACKAGE_ID })),
+					WriteAccessDenied,
+				);
+				expect(yield* fake.events).toEqual(["lock"]);
+				expect(yield* invoke({ writeConfirmed: true, packageId: SYSTEM_PACKAGE_ID })).toBe("ok");
 			}),
 		testTimeout,
 	);

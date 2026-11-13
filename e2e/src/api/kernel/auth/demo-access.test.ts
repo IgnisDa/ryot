@@ -341,7 +341,9 @@ describe("shared demo access acceptance", () => {
 			expect(
 				yield* Effect.flip(
 					demoClient.call((c) =>
-						c.account.createApiKey({ payload: { name: "Demo", expiresInDays: null } }),
+						c.account.createApiKey({
+							payload: { name: "Demo", expiresInDays: null, writeAccess: "unattended" },
+						}),
 					),
 				),
 			).toEqual(new DemoOperationProtected({ reason: { code: "demo-operation-protected" } }));

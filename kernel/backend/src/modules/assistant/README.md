@@ -125,7 +125,8 @@ turn/round/position identities and call-based owner replay keys. The [agent tool
 registry decides which tools require call approval (`page_publish`) and revalidates
 that requirement before dispatch; a changed requirement refuses the call.
 
-`execute` writes are approved one at a time. The turn's write gate records each write as a
+`execute` writes are approved one at a time. Trusted turns have `confirm` write access, so the
+agent tools use the turn's confirmation gate for every write. That gate records each write as a
 capability call (ID `<execute call>:write:<host call index>`) and suspends the execution; the
 workflow awaits that call's decision and dispatches the same `execute` call again, which replays its
 settled host calls and resumes at the write. An approved write dispatches only if the pinned

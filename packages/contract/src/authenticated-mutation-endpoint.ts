@@ -1,23 +1,23 @@
 import { HttpApiEndpoint } from "effect/http-api";
 
-import { DemoAccessPolicy } from "./http-annotations";
+import { MutationPolicy } from "./http-annotations";
 
-const withDemoAccessPolicy =
+const withMutationPolicy =
 	<Method extends "PUT" | "POST" | "PATCH" | "DELETE">(method: Method) =>
-	(policy: DemoAccessPolicy) =>
+	(policy: MutationPolicy) =>
 		new Proxy(HttpApiEndpoint.make(method), {
 			apply(target, thisArg, args) {
 				const endpoint: unknown = Reflect.apply(target, thisArg, args);
 				if (!HttpApiEndpoint.isHttpApiEndpoint(endpoint)) {
 					throw new TypeError("Expected an HTTP API endpoint");
 				}
-				return endpoint.annotate(DemoAccessPolicy, policy);
+				return endpoint.annotate(MutationPolicy, policy);
 			},
 		});
 
 export const AuthenticatedMutationEndpoint = {
-	put: withDemoAccessPolicy("PUT"),
-	post: withDemoAccessPolicy("POST"),
-	patch: withDemoAccessPolicy("PATCH"),
-	delete: withDemoAccessPolicy("DELETE"),
+	put: withMutationPolicy("PUT"),
+	post: withMutationPolicy("POST"),
+	patch: withMutationPolicy("PATCH"),
+	delete: withMutationPolicy("DELETE"),
 };

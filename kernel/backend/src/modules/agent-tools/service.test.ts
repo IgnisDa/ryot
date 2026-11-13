@@ -5,6 +5,7 @@ import { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import { PageAuthoringError } from "@ryot-app/contract/modules/pages/schemas";
 import type { PluginManifest, PluginOperation } from "@ryot-app/contract/modules/plugins/manifest";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
+import { WriteAccess } from "@ryot-app/contract/oauth";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -46,7 +47,7 @@ import { makeAppConfigLayer } from "#testing/effect";
 
 import { CapabilityCatalog } from "./catalog";
 import { AgentDocs } from "./docs";
-import type { WriteGate, WriteRequest } from "./execute";
+import { confirmationUnavailable, type WriteGate, type WriteRequest } from "./execute";
 import { KernelCapabilities } from "./kernel-capabilities";
 import { AgentToolsService } from "./service";
 
@@ -56,8 +57,12 @@ class Recorded extends Context.Service<Recorded, Ref.Ref<readonly unknown[]>>()(
 
 const owner = UserId.make("owner");
 const recipient = UserId.make("recipient");
-const headers = (userId = owner, demo = false) =>
-	PlatformHeaders.fromInput({ "x-test-user": userId, "x-test-demo": String(demo) });
+const headers = (userId = owner, demo = false, writeAccess: WriteAccess = "confirm") =>
+	PlatformHeaders.fromInput({
+		"x-test-user": userId,
+		"x-test-demo": String(demo),
+		"x-test-write-access": writeAccess,
+	});
 
 const authLayer = Layer.unwrap(
 	Effect.gen(function* () {
@@ -73,11 +78,6 @@ const authLayer = Layer.unwrap(
 				return userId === undefined
 					? Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }))
 					: Effect.succeed({
-							authorization: {
-								userId,
-								credential: { kind: "api-key", keyId: "registry-test" },
-								accessClass: requestHeaders.get("x-test-demo") === "true" ? "demo" : "standard",
-							},
 							user: {
 								id: userId,
 								image: null,
@@ -90,6 +90,15 @@ const authLayer = Layer.unwrap(
 									ratingScale: "hundred",
 									disableIntegrations: false,
 								},
+							},
+							authorization: {
+								userId,
+								credential: { kind: "api-key", keyId: "registry-test" },
+								accessClass: requestHeaders.get("x-test-demo") === "true" ? "demo" : "standard",
+								writeAccess:
+									WriteAccess.literals.find(
+										(access) => access === requestHeaders.get("x-test-write-access"),
+									) ?? "confirm",
 							},
 						});
 			},
@@ -297,14 +306,23 @@ const recordingGate = (
 				),
 			),
 	}));
-const call = (name: string, args: JsonValue, gate: WriteGate, userId = owner, demo = false) =>
+const call = (
+	name: string,
+	args: JsonValue,
+	confirm: null | WriteGate,
+	userId = owner,
+	demo = false,
+	writeAccess: WriteAccess = "confirm",
+) =>
 	Effect.flatMap(AgentToolsService, (registry) =>
-		registry.call({ name, gate, arguments: args, headers: headers(userId, demo) }).pipe(
-			Effect.map((outcome) => {
-				assert(outcome.state === "completed");
-				return outcome;
-			}),
-		),
+		registry
+			.call({ name, confirm, arguments: args, headers: headers(userId, demo, writeAccess) })
+			.pipe(
+				Effect.map((outcome) => {
+					assert(outcome.state === "completed");
+					return outcome;
+				}),
+			),
 	);
 const Outcomes = Schema.decodeUnknownEffect(
 	Schema.Array(
@@ -579,9 +597,45 @@ layer(registryLayer)("agent tools", (test) => {
 					name: "execute",
 					headers: headers(),
 					arguments: { code: calls },
-					gate: yield* recordingGate(() => Effect.fail(new AgentRunSuspended())),
+					confirm: yield* recordingGate(() => Effect.fail(new AgentRunSuspended())),
 				});
 				expect(suspended).toEqual({ state: "suspended" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"applies the credential's write access to tools and execute writes",
+		() =>
+			Effect.gen(function* () {
+				yield* installRevisionPackage(registryPackage("access-owner"), owner);
+				const code = yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
+					{ input: { value: "write" }, id: "testing/access-owner:operations/write" },
+				]);
+				const registry = yield* AgentToolsService;
+				expect(
+					(yield* registry.list(headers(owner, false, "none"))).map(({ name }) => name),
+				).toEqual(["search", "execute", "read_docs"]);
+				const asked = yield* Ref.make(0);
+				const confirm = yield* recordingGate(() =>
+					Ref.update(asked, (count) => count + 1).pipe(Effect.as(true)),
+				);
+				const outcome = (writeAccess: WriteAccess, gate: null | WriteGate) =>
+					call("execute", { code }, gate, owner, false, writeAccess).pipe(
+						Effect.flatMap(({ result }) => Outcomes(value(result))),
+					);
+				expect(yield* outcome("none", confirm)).toEqual([
+					{ error: "This connection is read-only" },
+				]);
+				expect(yield* outcome("confirm", null)).toEqual([{ error: confirmationUnavailable }]);
+				expect(yield* outcome("unattended", confirm)).toEqual([
+					{ value: { accepted: { value: "write" } } },
+				]);
+				expect(yield* Ref.get(asked)).toBe(0);
+				expect(yield* outcome("confirm", confirm)).toEqual([
+					{ value: { accepted: { value: "write" } } },
+				]);
+				expect(yield* Ref.get(asked)).toBe(1);
 			}),
 		testTimeout,
 	);
@@ -599,7 +653,7 @@ layer(registryLayer)("agent tools", (test) => {
 					entry: "client/page.tsx",
 				};
 				const created = yield* (yield* AgentToolsService).call({
-					gate,
+					confirm: gate,
 					name: "page_write",
 					headers: headers(),
 					idempotencyKey: "write",

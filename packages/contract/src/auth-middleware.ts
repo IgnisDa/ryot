@@ -1,7 +1,7 @@
 import { Context, Schema } from "effect";
 import { HttpApiMiddleware, HttpApiSchema, HttpApiSecurity } from "effect/http-api";
 
-import type { AuthorizationContext as AuthorizationContextValue } from "./oauth";
+import { type AuthorizationContext as AuthorizationContextValue, WriteAccess } from "./oauth";
 import type { UserId } from "./schema/brands";
 import type { UserPreferences } from "./schema/user-preferences";
 
@@ -59,6 +59,13 @@ export class DemoOperationProtected extends Schema.TaggedError<
 	reason: Schema.Struct({ code: Schema.Literal("demo-operation-protected") }),
 }) {}
 
+export class WriteAccessDenied extends Schema.TaggedError<
+	WriteAccessDenied,
+	{ readonly brand: unique symbol }
+>()("WriteAccessDenied", {
+	reason: Schema.Struct({ writeAccess: WriteAccess, code: Schema.Literal("write-access-denied") }),
+}) {}
+
 export class AdminMiddleware extends HttpApiMiddleware.Service<
 	AdminMiddleware,
 	{ provides: AdminAccess }
@@ -83,6 +90,7 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
 	error: [
 		AuthUnauthorized.pipe(HttpApiSchema.status(401)),
 		DemoOperationProtected.pipe(HttpApiSchema.status(403)),
+		WriteAccessDenied.pipe(HttpApiSchema.status(403)),
 		AuthRateLimited.pipe(HttpApiSchema.status(429)),
 		UserInitializing.pipe(HttpApiSchema.status(503)),
 	],

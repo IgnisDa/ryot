@@ -1,25 +1,30 @@
 import { AuthUnauthorized } from "@ryot-app/contract/auth-middleware";
+import { BadRequest } from "@ryot-app/contract/errors";
 import {
 	AuthorizationContext,
 	getMcpOAuthResource,
 	getMcpResourceMetadataUrl,
 	getOAuthIssuer,
 } from "@ryot-app/contract/oauth";
+import { approvalSubject, type ApprovalTarget } from "@ryot-app/contract/schema/approval";
 import { JsonValue } from "@ryot-app/contract/schema/json";
-import { strictStruct } from "@ryot-app/contract/schema/utils";
-import { Context, Deferred, Effect, Layer, Schedule, Schema, ScopedCache } from "effect";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { generateId } from "better-auth";
+import { Context, Deferred, Effect, Layer, Option, Schedule, Schema, ScopedCache } from "effect";
 import { McpProtocol, McpSchema, McpServer } from "effect/ai";
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { oauthPolicy, oauthResourcePolicies } from "#modules/accounts/auth/oauth-policy";
 import { AuthService } from "#modules/accounts/auth/service";
-import type { WriteGate } from "#modules/agent-tools/execute";
+import { changeDeclined, confirmationUnavailable } from "#modules/agent-tools/execute";
 import {
+	agentToolHints,
 	AgentToolsService,
 	availableAgentTools,
-	writesDirectly,
+	requiresCallConfirmation,
 } from "#modules/agent-tools/service";
+import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig } from "#platform/config/service";
 
@@ -35,12 +40,64 @@ export const protectedResourceMetadata = (origin: string) => ({
 	scopes_supported: oauthResourcePolicies(origin).mcp.allowedScopes,
 });
 
-const ConnectionIdentity = strictStruct({
-	readOnly: Schema.Boolean,
-	authorization: AuthorizationContext,
+const ElicitationResponse = Schema.Struct({
+	action: Schema.Literals(["accept", "decline", "cancel"]),
 });
-const isReadOnlyRequest = (url: string) =>
-	new URL(url, "http://localhost").searchParams.get("readonly") === "true";
+
+const supportsFormElicitation = (capabilities: McpSchema.ClientCapabilities) =>
+	capabilities.elicitation !== undefined &&
+	(capabilities.elicitation.form !== undefined || capabilities.elicitation.url === undefined);
+
+const confirmationMessage = (target: ApprovalTarget, input: JsonValue) => {
+	const subject = approvalSubject(target, (packageId) => packageId);
+	return `Allow ${subject.title} (${subject.source})?\n\n${subject.description}\n\nInput:\n${stableStringify(input)}`;
+};
+
+const writeDecision = (
+	approved: boolean,
+): { readonly approved: true } | { readonly reason: string; readonly approved: false } =>
+	approved ? { approved: true } : { approved: false, reason: changeDeclined };
+
+const mcpConfirmation = Effect.gen(function* () {
+	const context = yield* McpSchema.McpRequestContext;
+	const reverse = yield* Effect.serviceOption(McpSchema.McpServerClient);
+	const pending: Record<string, McpSchema.McpInputRequest> = {};
+	const confirm = (
+		key: string,
+		target: ApprovalTarget,
+		input: JsonValue,
+	): Effect.Effect<boolean, AgentRunSuspended> => {
+		const params = {
+			mode: "form" as const,
+			message: confirmationMessage(target, input),
+			requestedSchema: { properties: {}, type: "object" as const },
+		};
+		if (Option.isSome(reverse)) {
+			return Effect.gen(function* () {
+				const client = yield* reverse.value.getClient;
+				const result = yield* client.elicit(new McpSchema.ElicitRequestFormParams(params));
+				return result.action === "accept";
+			}).pipe(
+				Effect.scoped,
+				Effect.orElseSucceed(() => false),
+			);
+		}
+		const response = context.inputResponses?.[key];
+		if (response !== undefined) {
+			return Schema.decodeUnknownEffect(ElicitationResponse)(response).pipe(
+				Effect.map(({ action }) => action === "accept"),
+				Effect.orElseSucceed(() => false),
+			);
+		}
+		pending[key] = { params, method: "elicitation/create" };
+		return Effect.fail(new AgentRunSuspended());
+	};
+	return {
+		pending,
+		requestState: context.requestState ?? generateId(),
+		confirm: supportsFormElicitation(context.clientCapabilities) ? confirm : null,
+	};
+});
 
 export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 	auth: Pick<AuthService["Service"], "resolveRequestCredential">,
@@ -58,18 +115,9 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 		timeToLive: "30 minutes",
 		lookup: (identity: string) =>
 			Effect.gen(function* () {
-				const { readOnly, authorization } = yield* Schema.decodeEffect(
-					Schema.fromJsonString(ConnectionIdentity),
+				const authorization = yield* Schema.decodeEffect(
+					Schema.fromJsonString(AuthorizationContext),
 				)(identity).pipe(Effect.orDie);
-				const gate: WriteGate = {
-					settle: () => Effect.void,
-					authorize: () =>
-						Effect.succeed(
-							readOnly
-								? { approved: false, reason: "This MCP connection is read-only" }
-								: { approved: true },
-						),
-				};
 				const registryReady = yield* Deferred.make<McpServer.McpServer["Service"]>();
 				const registrations = Layer.effectDiscard(
 					Effect.gen(function* () {
@@ -96,14 +144,12 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 					}),
 				).pipe(Effect.provideService(Layer.CurrentMemoMap, connectionMemoMap));
 				const registry = yield* Deferred.await(registryReady);
-				for (const tool of availableAgentTools(authorization.accessClass)) {
-					if (readOnly && writesDirectly(tool)) {
-						continue;
-					}
+				for (const tool of availableAgentTools(authorization)) {
 					const inputSchema = yield* Schema.decodeEffect(McpSchema.ToolJson)({
 						type: "object",
 						...tool.input,
 					}).pipe(Effect.orDie);
+					const hints = agentToolHints(tool, authorization.writeAccess);
 					yield* registry.addTool({
 						annotations: Context.empty(),
 						tool: new McpSchema.Tool({
@@ -112,9 +158,9 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 							description: tool.description,
 							annotations: {
 								openWorldHint: true,
-								readOnlyHint: tool.hints.readOnly,
-								idempotentHint: tool.hints.idempotent,
-								destructiveHint: tool.hints.destructive,
+								readOnlyHint: hints.readOnly,
+								idempotentHint: hints.idempotent,
+								destructiveHint: hints.destructive,
 							},
 						}),
 						handle: (argumentsValue: unknown) =>
@@ -127,15 +173,36 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 										() => new McpSchema.InvalidParams({ message: "Tool arguments must be JSON." }),
 									),
 								);
+								const { confirm, pending, requestState } = yield* mcpConfirmation;
+								if (requiresCallConfirmation(tool, authorization.writeAccess)) {
+									if (confirm === null) {
+										return yield* new BadRequest({ message: confirmationUnavailable });
+									}
+									if (!(yield* confirm("call", { kind: "tool", tool: tool.name }, args))) {
+										return yield* new BadRequest({ message: changeDeclined });
+									}
+								}
 								const outcome = yield* tools.call({
-									gate,
 									headers,
 									resource,
 									name: tool.name,
 									arguments: args,
+									idempotencyKey: `mcp:${requestState}`,
+									confirm:
+										confirm === null
+											? null
+											: {
+													settle: () => Effect.void,
+													authorize: (write) =>
+														confirm(
+															`write-${write.index}`,
+															{ kind: "capability", capability: write.capability },
+															write.input,
+														).pipe(Effect.map(writeDecision)),
+												},
 								});
 								if (outcome.state === "suspended") {
-									return yield* Effect.die("MCP tool calls cannot suspend");
+									return new McpSchema.InputRequired({ requestState, inputRequests: pending });
 								}
 								return new McpSchema.CallToolResult({
 									content: [
@@ -148,6 +215,9 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 									],
 								});
 							}).pipe(
+								Effect.catchTag("AgentRunSuspended", (): Effect.Effect<McpSchema.InputRequired> =>
+									Effect.die("MCP confirmation suspended outside an input request"),
+								),
 								Effect.catch((error) =>
 									Effect.succeed(
 										new McpSchema.CallToolResult({
@@ -180,10 +250,9 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 		) {
 			return yield* new AuthUnauthorized({ reason: { code: "write-blocked" } });
 		}
-		const identity = yield* Schema.encodeEffect(Schema.fromJsonString(ConnectionIdentity))({
+		const identity = yield* Schema.encodeEffect(Schema.fromJsonString(AuthorizationContext))(
 			authorization,
-			readOnly: isReadOnlyRequest(request.url),
-		}).pipe(Effect.orDie);
+		).pipe(Effect.orDie);
 		const { app } = yield* ScopedCache.get(connections, identity).pipe(Effect.orDie);
 		return yield* app;
 	}).pipe(
@@ -193,7 +262,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 					status: 401,
 					headers: {
 						"Cache-Control": "no-store",
-						"WWW-Authenticate": `Bearer resource_metadata="${getMcpResourceMetadataUrl(origin)}", scope="${oauthPolicy.requiredScopes.join(" ")}"`,
+						"WWW-Authenticate": `Bearer resource_metadata="${getMcpResourceMetadataUrl(origin)}", scope="${oauthPolicy.challengeScopes.join(" ")}"`,
 					},
 				}),
 			),

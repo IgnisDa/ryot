@@ -163,7 +163,7 @@ describe("MCP Streamable HTTP", () => {
 					token_endpoint_auth_method: "none",
 					redirect_uris: ["https://client.example/callback"],
 					grant_types: ["authorization_code", "refresh_token"],
-					scope: "openid email profile offline_access ryot:api",
+					scope: "openid email profile offline_access ryot:read ryot:write ryot:write:unattended",
 				});
 				expect(registered.status).toBe(201);
 				const { client_id } = yield* Schema.decodeUnknownEffect(Registration)(
@@ -173,7 +173,10 @@ describe("MCP Streamable HTTP", () => {
 				authorize.searchParams.set("client_id", client_id);
 				authorize.searchParams.set("redirect_uri", "https://client.example/callback");
 				authorize.searchParams.set("resource", getMcpOAuthResource(pending.frontendOrigin));
-				authorize.searchParams.set("scope", "openid email profile offline_access ryot:api");
+				authorize.searchParams.set(
+					"scope",
+					"openid email profile offline_access ryot:read ryot:write ryot:write:unattended",
+				);
 				const begin = () =>
 					webRequest(authorize, { redirect: "manual", headers: { cookie: owner.sessionCookie } });
 				const response = yield* begin();
@@ -200,11 +203,23 @@ describe("MCP Streamable HTTP", () => {
 				expect(details).toEqual({
 					clientName: "E2E MCP Client",
 					redirectOrigin: "https://client.example",
-					scopes: ["openid", "email", "profile", "offline_access", "ryot:api"],
+					scopes: [
+						"openid",
+						"email",
+						"profile",
+						"offline_access",
+						"ryot:read",
+						"ryot:write",
+						"ryot:write:unattended",
+					],
 				});
 				const decision = yield* postJson(
 					`${getApiUrl()}/auth/oauth2/consent`,
-					{ accept: true, oauth_query: signed },
+					{
+						accept: true,
+						oauth_query: signed,
+						scope: "openid email profile offline_access ryot:read",
+					},
 					{ cookie: owner.sessionCookie },
 				);
 				expect(decision.status).toBe(200);
@@ -235,7 +250,7 @@ describe("MCP Streamable HTTP", () => {
 					yield* Effect.promise(() => exchanged.json()),
 				);
 				expect(new Set(tokens.scope.split(" "))).toEqual(
-					new Set(["email", "openid", "profile", "ryot:api", "offline_access"]),
+					new Set(["email", "openid", "profile", "ryot:read", "offline_access"]),
 				);
 				expect(tokens.id_token).toBeString();
 				const info = yield* webRequest(

@@ -244,6 +244,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 				const operationInput = {
 					payload: input,
 					packageId: source.packageId,
+					writeConfirmed: true as const,
 					contentHash: source.contentHash,
 					operationSlug: source.operationSlug,
 					sourcePin: {

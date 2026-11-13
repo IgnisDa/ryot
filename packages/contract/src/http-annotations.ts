@@ -1,10 +1,10 @@
 import { Context } from "effect";
 
-export type DemoAccessPolicy = "allowed" | "protected";
+export type MutationPolicy = "read" | "write" | "demo-write";
 
-export const DemoAccessPolicy = Context.Reference<DemoAccessPolicy>(
-	"@ryot-app/contract/DemoAccessPolicy",
-	{ defaultValue: () => "allowed" },
+export const MutationPolicy = Context.Reference<MutationPolicy>(
+	"@ryot-app/contract/MutationPolicy",
+	{ defaultValue: () => "read" },
 );
 
 export const LogRouteTemplate = Context.Reference<boolean>("@ryot-app/contract/LogRouteTemplate", {

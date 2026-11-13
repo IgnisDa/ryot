@@ -7,14 +7,17 @@ import {
 	CurrentUser,
 	DemoOperationProtected,
 	UserInitializing,
+	WriteAccessDenied,
 } from "@ryot-app/contract/auth-middleware";
 import { EntitiesGroup } from "@ryot-app/contract/modules/entities/contract";
 import { PluginsGroup } from "@ryot-app/contract/modules/plugins/contract";
+import { RyotQLGroup } from "@ryot-app/contract/modules/ryotql/contract";
 import {
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
+	type WriteAccess,
 } from "@ryot-app/contract/oauth";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { UTC } from "@ryot-app/contract/schema/time-zone";
@@ -50,18 +53,21 @@ const userRecord = {
 	},
 };
 
+const fullScope = "openid ryot:read ryot:write ryot:write:unattended";
+
 const resolvedOAuth = {
-	authorization: {
-		userId: userRecord.id,
-		accessClass: "standard" as const,
-		credential: { kind: "oauth", clientId: "ryot-web" } as const,
-	},
 	user: {
 		name: userRecord.name,
 		image: userRecord.image,
 		email: userRecord.email,
 		id: UserId.make(userRecord.id),
 		preferences: userRecord.preferences,
+	},
+	authorization: {
+		userId: userRecord.id,
+		accessClass: "standard" as const,
+		writeAccess: "unattended" as const,
+		credential: { kind: "oauth", clientId: "ryot-web" } as const,
 	},
 };
 const disabledUserRecord = { ...userRecord, disabledAt: new Date("2026-08-31T00:00:00.000Z") };
@@ -138,7 +144,7 @@ it("extracts only explicit application credentials", () => {
 
 it("configures OAuth verification for the Ryot issuer, resource, JWKS, and API scope", () => {
 	expect(getOAuthVerificationOptions("https://ryot.example")).toEqual({
-		requiredScopes: ["ryot:api"],
+		requiredScopes: ["ryot:read"],
 		jwksUrl: "https://ryot.example/api/auth/jwks",
 		verifyOptions: {
 			audience: "https://ryot.example/api",
@@ -153,7 +159,7 @@ it.effect(
 		Effect.gen(function* () {
 			const resolved = yield* resolveCredential(
 				{ kind: "oauth", token: "token" },
-				() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+				() => Promise.resolve({ sub: "user-1", scope: fullScope, client_id: "ryot-web" }),
 				() => Promise.reject(new Error("unused")),
 				() => Effect.succeed(userRecord),
 			);
@@ -173,12 +179,17 @@ it.effect(
 					Promise.resolve({
 						valid: true,
 						error: null,
-						key: { id: "key-1", referenceId: "user-1" },
+						key: {
+							id: "key-1",
+							referenceId: "user-1",
+							permissions: { scopes: ["ryot:read", "ryot:write"] },
+						},
 					}),
 				() => Effect.succeed(userRecord),
 			);
 			expect(resolved.authorization).toEqual({
 				userId: "user-1",
+				writeAccess: "confirm",
 				accessClass: "standard",
 				credential: { keyId: "key-1", kind: "api-key" },
 			});
@@ -193,7 +204,7 @@ it.effect(
 			const error = yield* Effect.flip(
 				resolveCredential(
 					{ kind: "oauth", token: "token" },
-					() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+					() => Promise.resolve({ sub: "user-1", scope: fullScope, client_id: "ryot-web" }),
 					() => Promise.reject(new Error("unused")),
 					() => Effect.succeed({ ...userRecord, bootstrapCompletedAt: null }),
 				),
@@ -228,7 +239,7 @@ it.effect(
 const oauth = (clientId: string, userId = "user-1") =>
 	resolveCredential(
 		{ kind: "oauth", token: "token" },
-		() => Promise.resolve({ sub: userId, client_id: clientId }),
+		() => Promise.resolve({ sub: userId, scope: fullScope, client_id: clientId }),
 		() => Promise.reject(new Error("unused")),
 		() => Effect.succeed({ ...userRecord, id: userId }),
 		"user-1",
@@ -265,7 +276,11 @@ it.effect(
 const verifyApiKey = () => Promise.resolve({ key: null, error: null, valid: false });
 const findUser = (userId: string) => Effect.succeed({ ...userRecord, id: userId });
 const verifyWithoutSession = () =>
-	Promise.resolve({ sub: "user-1", client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID });
+	Promise.resolve({
+		sub: "user-1",
+		scope: fullScope,
+		client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
+	});
 
 it.effect(
 	"requires active impersonation sessions without changing standard OAuth access",
@@ -297,6 +312,7 @@ it.effect(
 					Promise.resolve({
 						sub: "user-1",
 						sid: "session-1",
+						scope: fullScope,
 						client_id: OAUTH_IMPERSONATION_WEB_CLIENT_ID,
 					}),
 				verifyApiKey,
@@ -307,6 +323,7 @@ it.effect(
 			expect(impersonated.authorization).toEqual({
 				userId: "user-1",
 				accessClass: "standard",
+				writeAccess: "unattended",
 				impersonation: { expiresAt: 1_800_000_000_000 },
 				credential: {
 					kind: "oauth",
@@ -317,7 +334,7 @@ it.effect(
 
 			const standard = yield* resolveCredential(
 				{ kind: "oauth", token: "token" },
-				() => Promise.resolve({ sub: "user-1", client_id: OAUTH_WEB_CLIENT_ID }),
+				() => Promise.resolve({ sub: "user-1", scope: fullScope, client_id: OAUTH_WEB_CLIENT_ID }),
 				verifyApiKey,
 				findUser,
 				"user-1",
@@ -347,7 +364,7 @@ it.effect(
 				const error = yield* Effect.flip(
 					resolveCredential(
 						{ kind: "oauth", token: "token" },
-						() => Promise.resolve({ sub: "user-1", client_id: "ryot-web" }),
+						() => Promise.resolve({ sub: "user-1", scope: fullScope, client_id: "ryot-web" }),
 						() => Promise.reject(new Error("unused")),
 						() => Effect.succeed(user),
 					),
@@ -458,8 +475,10 @@ const request = (
 	endpoint:
 		| typeof PluginsGroup.endpoints.events
 		| typeof PluginsGroup.endpoints.install
+		| typeof RyotQLGroup.endpoints.describe
 		| typeof EntitiesGroup.endpoints.saveEditor
 		| typeof PluginsGroup.endpoints.updatePluginState,
+	writeAccess: WriteAccess = "unattended",
 ) => {
 	let handlerCalled = false;
 	const middleware = makeAuthMiddleware(
@@ -468,7 +487,7 @@ const request = (
 			oauthUser: () =>
 				Effect.succeed({
 					...resolvedOAuth,
-					authorization: { ...resolvedOAuth.authorization, accessClass },
+					authorization: { ...resolvedOAuth.authorization, accessClass, writeAccess },
 				}),
 		},
 		{ isActive: () => Effect.succeed(false) },
@@ -528,6 +547,43 @@ it.effect(
 );
 
 it.effect(
+	"refuses endpoint writes unless the credential may write without confirmation",
+	() =>
+		Effect.gen(function* () {
+			for (const writeAccess of ["none", "confirm"] as const) {
+				const write = request("standard", PluginsGroup.endpoints.install, writeAccess);
+				expect(yield* Effect.flip(write.effect)).toEqual(
+					new WriteAccessDenied({ reason: { writeAccess, code: "write-access-denied" } }),
+				);
+				expect(write.handlerCalled()).toBe(false);
+				const read = request("standard", RyotQLGroup.endpoints.describe, writeAccess);
+				expect((yield* read.effect).status).toBe(204);
+			}
+		}),
+	testTimeout,
+);
+
+const scopedWriteAccess = (scope: string) =>
+	resolveCredential(
+		{ kind: "oauth", token: "token" },
+		() => Promise.resolve({ scope, sub: "user-1", client_id: "client" }),
+		verifyApiKey,
+		findUser,
+	).pipe(Effect.map(({ authorization }) => authorization.writeAccess));
+
+it.effect(
+	"derives write access from OAuth scopes",
+	() =>
+		Effect.gen(function* () {
+			expect(yield* scopedWriteAccess("ryot:read")).toBe("none");
+			expect(yield* scopedWriteAccess("ryot:read ryot:write")).toBe("confirm");
+			expect(yield* scopedWriteAccess("ryot:read ryot:write:unattended")).toBe("none");
+			expect(yield* scopedWriteAccess(fullScope)).toBe("unattended");
+		}),
+	testTimeout,
+);
+
+it.effect(
 	"accepts only the configured admin token",
 	() =>
 		Effect.gen(function* () {
@@ -552,7 +608,7 @@ it("verifies MCP tokens against their own resource audience", () => {
 	expect(
 		getOAuthVerificationOptions("https://ryot.example", "https://ryot.example/api/mcp"),
 	).toEqual({
-		requiredScopes: ["ryot:api"],
+		requiredScopes: ["ryot:read"],
 		jwksUrl: "https://ryot.example/api/auth/jwks",
 		verifyOptions: {
 			issuer: "https://ryot.example/api/auth",

@@ -30,14 +30,14 @@ export const RemindersGroup = HttpApiGroup.make("reminders")
 		}).annotate(OpenApi.Description, "Read server notification delivery and scan configuration."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("create", "/reminders", {
+		AuthenticatedMutationEndpoint.post("write")("create", "/reminders", {
 			error: reminderErrors,
 			payload: CreateReminderBody,
 			success: ReminderCommandResult.pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Create a reminder."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("protected")("edit", "/reminders/:reminderId", {
+		AuthenticatedMutationEndpoint.patch("write")("edit", "/reminders/:reminderId", {
 			error: reminderErrors,
 			payload: EditReminderBody,
 			success: ReminderCommandResult,
@@ -45,7 +45,7 @@ export const RemindersGroup = HttpApiGroup.make("reminders")
 		}).annotate(OpenApi.Description, "Edit a reminder by ID."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("cancel", "/reminders/:reminderId/cancel", {
+		AuthenticatedMutationEndpoint.post("write")("cancel", "/reminders/:reminderId/cancel", {
 			error: reminderErrors,
 			payload: ChangeReminderBody,
 			success: ReminderCommandResult,
@@ -53,7 +53,7 @@ export const RemindersGroup = HttpApiGroup.make("reminders")
 		}).annotate(OpenApi.Description, "Cancel a reminder by ID."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("remove", "/reminders/:reminderId", {
+		AuthenticatedMutationEndpoint.delete("write")("remove", "/reminders/:reminderId", {
 			error: reminderErrors,
 			payload: ChangeReminderBody,
 			success: ReminderCommandResult,

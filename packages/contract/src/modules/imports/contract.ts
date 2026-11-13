@@ -15,7 +15,7 @@ import {
 export const ImportsGroup = HttpApiGroup.make("imports")
 	.annotate(OpenApi.Description, "Creates and manages data import runs")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("createRun", "/imports/runs", {
+		AuthenticatedMutationEndpoint.post("demo-write")("createRun", "/imports/runs", {
 			payload: CreateImportRunBody,
 			success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(201)),
 			error: [
@@ -25,7 +25,7 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 		}).annotate(OpenApi.Description, "Creates an import run"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("cancelRun", "/imports/runs/:runId/cancel", {
+		AuthenticatedMutationEndpoint.post("demo-write")("cancelRun", "/imports/runs/:runId/cancel", {
 			params: { runId: ImportRunId },
 			success: Schema.Struct({ id: ImportRunId }).pipe(HttpApiSchema.status(202)),
 			error: [
@@ -35,7 +35,7 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 		}).annotate(OpenApi.Description, "Cancels an import run by ID"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")("deleteRun", "/imports/runs/:runId", {
+		AuthenticatedMutationEndpoint.delete("demo-write")("deleteRun", "/imports/runs/:runId", {
 			params: { runId: ImportRunId },
 			success: Schema.Struct({ id: Schema.String }),
 			error: [
@@ -45,7 +45,7 @@ export const ImportsGroup = HttpApiGroup.make("imports")
 		}).annotate(OpenApi.Description, "Deletes an import run by ID"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("read")(
 			"createFailuresDownloadTicket",
 			"/imports/runs/:runId/failures/download-url",
 			{

@@ -17,7 +17,7 @@ import {
 export const OAuthConnectionsGroup = HttpApiGroup.make("oauthConnections")
 	.annotate(OpenApi.Description, "Link external accounts to integration settings through OAuth.")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("create", "/oauth-connections", {
+		AuthenticatedMutationEndpoint.post("write")("create", "/oauth-connections", {
 			payload: CreateOAuthConnectionBody,
 			error: [OAuthConnectionRequestError.pipe(HttpApiSchema.status(400))],
 			success: CreateOAuthConnectionResponse.pipe(HttpApiSchema.status(201)),
@@ -27,7 +27,7 @@ export const OAuthConnectionsGroup = HttpApiGroup.make("oauthConnections")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")(
+		AuthenticatedMutationEndpoint.post("write")(
 			"complete",
 			"/oauth-connections/:connectionId/complete",
 			{

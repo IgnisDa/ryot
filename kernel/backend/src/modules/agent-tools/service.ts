@@ -1,6 +1,7 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { BadRequest, NotFound } from "@ryot-app/contract/errors";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
+import type { AuthorizationContext, WriteAccess } from "@ryot-app/contract/oauth";
 import {
 	type AgentToolDescriptor,
 	AgentToolName,
@@ -29,7 +30,12 @@ import {
 
 import { type AgentAccount, CapabilityCatalog, capabilityNamespaces } from "./catalog";
 import { AgentDocs, listAgentDocs, readAgentDocs } from "./docs";
-import { executeSource, referencedCapabilities, type WriteGate } from "./execute";
+import {
+	credentialWriteGate,
+	executeSource,
+	referencedCapabilities,
+	type WriteGate,
+} from "./execute";
 import { searchCapabilities } from "./search";
 
 export type AgentToolOutcome =
@@ -46,8 +52,8 @@ type AgentToolCall = {
 	readonly idempotencyKey?: string;
 };
 type AgentToolInvocation = AgentToolCall & {
-	readonly gate: WriteGate;
 	readonly resource?: string;
+	readonly confirm: null | WriteGate;
 	readonly headers?: PlatformHeaders.Headers;
 };
 
@@ -83,15 +89,28 @@ const decodeToolInput = (name: AgentToolName, value: JsonValue) => {
 const keyed = (key: string | undefined, suffix: string) =>
 	key === undefined ? undefined : `${key}:${suffix}`;
 
-export const writesDirectly = (tool: AgentToolDescriptor) =>
+type ToolAuthority = Pick<AuthorizationContext, "accessClass" | "writeAccess">;
+
+const writesDirectly = (tool: AgentToolDescriptor) =>
 	!tool.hints.readOnly && tool.approval !== "per-write";
 
-export const availableAgentTools = (
-	accessClass: "demo" | "standard",
-): readonly AgentToolDescriptor[] =>
+export const availableAgentTools = (authority: ToolAuthority): readonly AgentToolDescriptor[] =>
 	AgentToolName.literals
 		.map((name) => agentTools[name])
-		.filter((tool) => accessClass !== "demo" || !writesDirectly(tool));
+		.filter(
+			(tool) =>
+				(authority.accessClass !== "demo" && authority.writeAccess !== "none") ||
+				!writesDirectly(tool),
+		);
+
+export const requiresCallConfirmation = (tool: AgentToolDescriptor, writeAccess: WriteAccess) =>
+	tool.approval === "call" && writeAccess === "confirm";
+
+export const agentToolHints = (tool: AgentToolDescriptor, writeAccess: WriteAccess) => ({
+	idempotent: tool.hints.idempotent,
+	readOnly: tool.hints.readOnly || writeAccess === "none",
+	destructive: tool.hints.destructive && writeAccess === "unattended",
+});
 
 export class AgentToolsService extends Context.Service<AgentToolsService>()(
 	"@ryot-app/kernel-backend/modules/agent-tools/service/AgentToolsService",
@@ -109,7 +128,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				const name = yield* decode(AgentToolName, call.name).pipe(
 					Effect.mapError(() => new NotFound({ message: `Unknown agent tool: ${call.name}` })),
 				);
-				const tool = availableAgentTools(account.authorization.accessClass).find(
+				const tool = availableAgentTools(account.authorization).find(
 					(candidate) => candidate.name === name,
 				);
 				if (!tool) {
@@ -118,7 +137,11 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 					});
 				}
 				const decoded = yield* decodeToolInput(name, call.arguments);
-				return { tool, decoded, requiresApproval: tool.approval === "call" };
+				return {
+					tool,
+					decoded,
+					requiresApproval: requiresCallConfirmation(tool, account.authorization.writeAccess),
+				};
 			});
 			const execute = Effect.fn("AgentToolsService.execute")(function* (
 				account: AgentAccount,
@@ -126,6 +149,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				invocation: AgentToolInvocation,
 			) {
 				const capabilities = yield* catalog.list(account);
+				const gate = credentialWriteGate(account.authorization.writeAccess, invocation.confirm);
 				const run = yield* scripts.run({
 					userId: account.user.id,
 					accessClass: account.authorization.accessClass,
@@ -149,15 +173,15 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 								index: hostCall.index,
 								capability: entry.capability,
 							};
-							const decision = yield* invocation.gate.authorize(write);
+							const decision = yield* gate.authorize(write);
 							if (!decision.approved) {
 								return yield* new BadRequest({ message: decision.reason });
 							}
 							return yield* catalog.invoke(account, entry, request.input, options).pipe(
 								Effect.tapError((error) =>
-									invocation.gate.settle(write, { state: "failure", message: error.message }),
+									gate.settle(write, { state: "failure", message: error.message }),
 								),
-								Effect.tap((value) => invocation.gate.settle(write, { value, state: "success" })),
+								Effect.tap((value) => gate.settle(write, { value, state: "success" })),
 							);
 						}).pipe(
 							Effect.mapError((error) =>
@@ -271,7 +295,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			const list = (headers: PlatformHeaders.Headers, resource?: string) =>
 				auth
 					.resolveRequestCredential(new Headers(headers), resource)
-					.pipe(Effect.map((account) => availableAgentTools(account.authorization.accessClass)));
+					.pipe(Effect.map((account) => availableAgentTools(account.authorization)));
 			const call = (input: AgentToolInvocation & { readonly headers: PlatformHeaders.Headers }) =>
 				auth
 					.resolveRequestCredential(new Headers(input.headers), input.resource)
@@ -279,7 +303,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 			const listTrusted = (userId: UserId) =>
 				auth
 					.resolveTrustedAccount(userId)
-					.pipe(Effect.map((account) => availableAgentTools(account.authorization.accessClass)));
+					.pipe(Effect.map((account) => availableAgentTools(account.authorization)));
 			const validateTrusted = (userId: UserId, input: AgentToolCall) =>
 				auth.resolveTrustedAccount(userId).pipe(
 					Effect.flatMap((account) => validateForAccount(account, input)),

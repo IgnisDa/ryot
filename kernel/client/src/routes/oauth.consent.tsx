@@ -1,9 +1,18 @@
-import type { OAuthConsentDetails, OAuthScope } from "@ryot-app/contract/oauth";
+import {
+	isOAuthAccessScope,
+	type OAuthAccessScope,
+	type OAuthConsentDetails,
+	type OAuthScope,
+	type WriteAccess,
+	writeAccessFromScopes,
+	writeAccessScopes,
+} from "@ryot-app/contract/oauth";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
 import { useEffect, useRef, useState } from "react";
 
+import { WriteAccessField } from "#/modules/access/write-access";
 import { HostedAuthService } from "#/modules/auth/hosted-service";
 import { AuthStatus } from "#/modules/auth/status";
 import { usePageTitle } from "#/modules/navigation/page-title";
@@ -86,14 +95,23 @@ function ConsentForm(props: {
 	const controller = useRef(new AbortController());
 	useEffect(() => () => controller.current.abort(), []);
 
+	const maximum = writeAccessFromScopes(props.details.scopes);
+	const [writeAccess, setWriteAccess] = useState<WriteAccess>(
+		maximum === "unattended" ? "confirm" : maximum,
+	);
+
 	function decide(accept: boolean) {
 		if (pending) {
 			return;
 		}
 		setPending(true);
 		setError(undefined);
+		const scopes = [
+			...props.details.scopes.filter((scope) => !isOAuthAccessScope(scope)),
+			...writeAccessScopes[writeAccess],
+		];
 		runtime.runFork(
-			auth.submitConsent(props.oauthQuery, accept).pipe(
+			auth.submitConsent(props.oauthQuery, accept, scopes).pipe(
 				Effect.catch((failure) =>
 					Effect.sync(() => {
 						setPending(false);
@@ -110,22 +128,34 @@ function ConsentForm(props: {
 		return <ConsentLogin oauthQuery={props.oauthQuery} />;
 	}
 
-	return <ConsentRequest error={error} decide={decide} pending={pending} details={props.details} />;
+	return (
+		<ConsentRequest
+			error={error}
+			decide={decide}
+			pending={pending}
+			maximum={maximum}
+			details={props.details}
+			writeAccess={writeAccess}
+			onWriteAccessChange={setWriteAccess}
+		/>
+	);
 }
 
-const permissionDescriptions: Record<OAuthScope, string> = {
+const permissionDescriptions: Record<Exclude<OAuthScope, OAuthAccessScope>, string> = {
 	openid: "Identify your account.",
 	profile: "Read your name and profile picture.",
 	email: "Read your email address and whether it is verified.",
 	offline_access: "Keep access through refresh tokens when you are away.",
-	"ryot:api": "Read, change and delete your Ryot data, including through your installed plugins.",
 };
 
 function ConsentRequest(props: {
 	readonly error?: string;
 	readonly pending: boolean;
+	readonly maximum: WriteAccess;
+	readonly writeAccess: WriteAccess;
 	readonly details: OAuthConsentDetails;
 	readonly decide: (accept: boolean) => void;
+	readonly onWriteAccessChange: (access: WriteAccess) => void;
 }) {
 	usePageTitle("Approve access");
 	return (
@@ -145,14 +175,24 @@ function ConsentRequest(props: {
 				<p>
 					You will return to <strong className="break-all">{props.details.redirectOrigin}</strong>.
 				</p>
+				<WriteAccessField
+					maximum={props.maximum}
+					disabled={props.pending}
+					value={props.writeAccess}
+					onChange={props.onWriteAccessChange}
+				/>
 				<div>
 					<h2 className="font-medium">Requested permissions</h2>
 					<ul className="ui-stack">
-						{props.details.scopes.map((scope) => (
-							<li key={scope}>
-								<code>{scope}</code> — {permissionDescriptions[scope]}
-							</li>
-						))}
+						{props.details.scopes.flatMap((scope) =>
+							isOAuthAccessScope(scope)
+								? []
+								: [
+										<li key={scope}>
+											<code>{scope}</code> — {permissionDescriptions[scope]}
+										</li>,
+									],
+						)}
 					</ul>
 				</div>
 				<p className="text-sm text-text-subtle">

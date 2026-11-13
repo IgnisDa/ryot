@@ -10,24 +10,24 @@ import { AccountName, CreateApiKeyBody, CreatedApiKey } from "./schemas";
 export const AccountGroup = HttpApiGroup.make("account")
 	.annotate(OpenApi.Description, "Manage the current user's settings.")
 	.add(
-		AuthenticatedMutationEndpoint.patch("protected")("rename", "/account/name", {
+		AuthenticatedMutationEndpoint.patch("write")("rename", "/account/name", {
 			payload: Schema.Struct({ name: AccountName }),
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Change the current user's display name."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("protected")("updatePreferences", "/account/preferences", {
+		AuthenticatedMutationEndpoint.patch("write")("updatePreferences", "/account/preferences", {
 			payload: UserPreferencesPatch,
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Update the current user's preferences."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("refreshAvatar", "/account/avatar", {
+		AuthenticatedMutationEndpoint.post("demo-write")("refreshAvatar", "/account/avatar", {
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Generate a new profile avatar for the current user."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("createApiKey", "/account/api-keys", {
+		AuthenticatedMutationEndpoint.post("write")("createApiKey", "/account/api-keys", {
 			payload: CreateApiKeyBody,
 			success: CreatedApiKey.pipe(HttpApiSchema.status(201)),
 		}).annotate(
@@ -36,10 +36,9 @@ export const AccountGroup = HttpApiGroup.make("account")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")(
-			"revokeApiKey",
-			"/account/api-keys/:apiKeyId",
-			{ params: { apiKeyId: ApiKeyId }, success: Schema.Void.pipe(HttpApiSchema.status(204)) },
-		).annotate(OpenApi.Description, "Revoke one of the current user's API keys."),
+		AuthenticatedMutationEndpoint.delete("write")("revokeApiKey", "/account/api-keys/:apiKeyId", {
+			params: { apiKeyId: ApiKeyId },
+			success: Schema.Void.pipe(HttpApiSchema.status(204)),
+		}).annotate(OpenApi.Description, "Revoke one of the current user's API keys."),
 	)
 	.middleware(AuthMiddleware);

@@ -68,14 +68,14 @@ const ownerErrors = [
 export const PublicationsGroup = HttpApiGroup.make("publications")
 	.annotate(OpenApi.Description, "Publishes read-only presentations of selected user content")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("create", "/publications", {
+		AuthenticatedMutationEndpoint.post("write")("create", "/publications", {
 			error: ownerErrors,
 			payload: CreatePublicationBody,
 			success: PublicationResponse.pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Creates a publication of a page with owner-bound arguments"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")("republish", "/publications", {
+		AuthenticatedMutationEndpoint.put("write")("republish", "/publications", {
 			error: ownerErrors,
 			success: PublicationResponse,
 			payload: RepublishPublicationBody,
@@ -85,21 +85,21 @@ export const PublicationsGroup = HttpApiGroup.make("publications")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("revoke", "/publications/revoke", {
+		AuthenticatedMutationEndpoint.post("write")("revoke", "/publications/revoke", {
 			error: ownerErrors,
 			success: Schema.Void,
 			payload: PublicationIdBody,
 		}).annotate(OpenApi.Description, "Revokes a publication and all of its links"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("delete", "/publications", {
+		AuthenticatedMutationEndpoint.delete("write")("delete", "/publications", {
 			error: ownerErrors,
 			success: Schema.Void,
 			payload: PublicationIdBody,
 		}).annotate(OpenApi.Description, "Deletes a publication and its links"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("createLink", "/publications/links", {
+		AuthenticatedMutationEndpoint.post("write")("createLink", "/publications/links", {
 			error: ownerErrors,
 			payload: CreatePublicationLinkBody,
 			success: PublicationLinkResponse.pipe(HttpApiSchema.status(201)),
@@ -109,21 +109,21 @@ export const PublicationsGroup = HttpApiGroup.make("publications")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("revokeLink", "/publications/links/revoke", {
+		AuthenticatedMutationEndpoint.post("write")("revokeLink", "/publications/links/revoke", {
 			error: ownerErrors,
 			success: Schema.Void,
 			payload: PublicationLinkIdBody,
 		}).annotate(OpenApi.Description, "Revokes one publication link"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("status", "/publications/status", {
+		AuthenticatedMutationEndpoint.post("read")("status", "/publications/status", {
 			error: ownerErrors,
 			payload: PublicationIdBody,
 			success: PublicationStatusResponse,
 		}).annotate(OpenApi.Description, "Evaluates whether a publication is ready for visitors"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("preview", "/publications/preview", {
+		AuthenticatedMutationEndpoint.post("read")("preview", "/publications/preview", {
 			error: ownerErrors,
 			payload: PublicationIdBody,
 			success: PublicationSessionResponse,

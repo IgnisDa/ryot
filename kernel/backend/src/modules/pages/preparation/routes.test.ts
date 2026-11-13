@@ -95,6 +95,7 @@ const routesLayer = Layer.unwrap(
 								authorization: {
 									userId: user.id,
 									accessClass: "standard" as const,
+									writeAccess: "unattended" as const,
 									credential: { clientId: "ryot-web", kind: "oauth" as const },
 								},
 							}),

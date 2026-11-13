@@ -1,4 +1,4 @@
-import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
+import { DemoOperationProtected, WriteAccessDenied } from "@ryot-app/contract/auth-middleware";
 import type { BadRequest, DbError, NotFound } from "@ryot-app/contract/errors";
 import type { PageOperationAuthority } from "@ryot-app/contract/modules/pages/identity";
 import {
@@ -154,6 +154,7 @@ export class OperationsService extends Context.Service<OperationsService>()(
 				readonly contentHash?: string;
 				readonly submittedAt?: string;
 				readonly operationSlug: string;
+				readonly writeConfirmed?: true;
 				readonly idempotencyKey?: string;
 				readonly packageId: PluginPackageId;
 				readonly pageAuthority?: PageOperationAuthority;
@@ -415,6 +416,15 @@ export class OperationsService extends Context.Service<OperationsService>()(
 								) {
 									return yield* new DemoOperationProtected({
 										reason: { code: "demo-operation-protected" },
+									});
+								}
+								if (
+									!resolved.operation.hints.readOnly &&
+									input.writeConfirmed !== true &&
+									authorization.writeAccess !== "unattended"
+								) {
+									return yield* new WriteAccessDenied({
+										reason: { code: "write-access-denied", writeAccess: authorization.writeAccess },
 									});
 								}
 								return yield* pinDispatch(

@@ -60,7 +60,10 @@ const preview = {
 	artifactHash: "artifact",
 	definitionHash: "definition",
 };
-const account = () => Effect.succeed({ authorization: { accessClass: "standard" as const } });
+const account = () =>
+	Effect.succeed({
+		authorization: { writeAccess: "confirm" as const, accessClass: "standard" as const },
+	});
 const database = Layer.effectDiscard(
 	Effect.gen(function* () {
 		const session = yield* DatabaseSession;
@@ -206,7 +209,9 @@ const harness = Effect.fn(function* (
 					}
 					if (options.gatedWrite) {
 						const write = { index: 0, input: { pageId: "page" }, capability: writeCapability };
-						const decision = yield* input.gate
+						const gate = input.confirm;
+						assert(gate !== null);
+						const decision = yield* gate
 							.authorize(write)
 							.pipe(
 								Effect.catch((error) =>
@@ -223,7 +228,7 @@ const harness = Effect.fn(function* (
 							} satisfies AgentToolOutcome;
 						}
 						writes.push(input.idempotencyKey);
-						yield* input.gate.settle(write, { state: "success", value: { deleted: true } });
+						yield* gate.settle(write, { state: "success", value: { deleted: true } });
 						return {
 							state: "completed",
 							result: truncateJsonResult({ deleted: true }),
@@ -620,7 +625,7 @@ layer(services, { excludeTestServices: true })((test) => {
 			assert(call);
 			yield* Effect.gen(function* () {
 				const service = yield* makeAssistantService(() =>
-					Effect.succeed({ authorization: { accessClass: "demo" } }),
+					Effect.succeed({ authorization: { accessClass: "demo", writeAccess: "confirm" } }),
 				);
 				assertExitFails(
 					yield* Effect.exit(
@@ -670,7 +675,10 @@ layer(services, { excludeTestServices: true })((test) => {
 				const receipts = new Map<string, { id: SavedViewId }>();
 				const save = yield* makeAssistantSavePage({
 					resolveAccount: (userId) =>
-						Effect.succeed({ user: { id: userId }, authorization: { accessClass: "standard" } }),
+						Effect.succeed({
+							user: { id: userId },
+							authorization: { writeAccess: "confirm", accessClass: "standard" },
+						}),
 					pages: {
 						publishCompiledDraft: (_userId, _input, key) =>
 							Effect.sync(() => {

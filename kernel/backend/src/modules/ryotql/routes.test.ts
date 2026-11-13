@@ -51,6 +51,7 @@ const credential = (accessClass: AccessClass, kind: CredentialKind) => ({
 	authorization: {
 		accessClass,
 		userId: user.id,
+		writeAccess: "unattended" as const,
 		credential:
 			kind === "oauth"
 				? { clientId: "ryot-web", kind: "oauth" as const }

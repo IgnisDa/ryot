@@ -215,7 +215,7 @@ describe("hosted consent details", () => {
 			Effect.gen(function* () {
 				const requests: Array<{ url: string; init?: RequestInit }> = [];
 				const details = {
-					scopes: ["ryot:api"],
+					scopes: ["ryot:read"],
 					clientName: "Registered app",
 					redirectOrigin: "https://client.example",
 				} as const;
@@ -261,8 +261,8 @@ describe("hosted consent details", () => {
 
 	it.live.each([
 		{ clientName: "App", scopes: ["unknown"], redirectOrigin: "https://client.example" },
-		{ clientName: "App", scopes: ["ryot:api"] },
-		{ clientName: 1, scopes: ["ryot:api"], redirectOrigin: "https://client.example" },
+		{ clientName: "App", scopes: ["ryot:read"] },
+		{ clientName: 1, scopes: ["ryot:read"], redirectOrigin: "https://client.example" },
 	])(
 		"rejects invalid consent details: %j",
 		(payload) =>

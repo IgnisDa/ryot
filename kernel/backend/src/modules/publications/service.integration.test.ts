@@ -462,7 +462,9 @@ layer(publicationsLayer())("publication page execution", (test) => {
 				}),
 			};
 			expect(
-				yield* visits.query(principal, { query: "items", arguments: otherSource }).pipe(Effect.flip),
+				yield* visits
+					.query(principal, { query: "items", arguments: otherSource })
+					.pipe(Effect.flip),
 			).toMatchObject({ reason: { code: "invalid-query" } });
 			expect(
 				yield* visits.describe(principal, "items", otherSource).pipe(Effect.flip),

@@ -19,7 +19,7 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("allowed")(
+		AuthenticatedMutationEndpoint.patch("demo-write")(
 			"renameConversation",
 			"/assistant/conversations",
 			{
@@ -30,7 +30,7 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		).annotate(OpenApi.Description, "Rename an owned assistant conversation."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")(
+		AuthenticatedMutationEndpoint.delete("demo-write")(
 			"deleteConversation",
 			"/assistant/conversations",
 			{
@@ -41,7 +41,7 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		).annotate(OpenApi.Description, "Delete an idle assistant conversation and its history."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("submit", "/assistant/turns", {
+		AuthenticatedMutationEndpoint.post("demo-write")("submit", "/assistant/turns", {
 			payload: S.SubmitAssistantTurnBody,
 			success: S.SubmitAssistantTurnResult,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
@@ -51,7 +51,7 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("interrupt", "/assistant/interrupts", {
+		AuthenticatedMutationEndpoint.post("demo-write")("interrupt", "/assistant/interrupts", {
 			success: S.SubmitAssistantTurnResult,
 			payload: S.InterruptAssistantTurnBody,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
@@ -61,14 +61,14 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("decide", "/assistant/decisions", {
+		AuthenticatedMutationEndpoint.post("write")("decide", "/assistant/decisions", {
 			success: S.SubmitAssistantTurnResult,
 			payload: S.DecideAssistantToolCallBody,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
 		}).annotate(OpenApi.Description, "Persist an approval decision and wake the waiting turn."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")("configureProvider", "/assistant/provider", {
+		AuthenticatedMutationEndpoint.put("write")("configureProvider", "/assistant/provider", {
 			success: Schema.Void,
 			payload: S.ConfigureAssistantProviderBody,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
@@ -78,7 +78,7 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("deleteProvider", "/assistant/provider", {
+		AuthenticatedMutationEndpoint.delete("write")("deleteProvider", "/assistant/provider", {
 			success: Schema.Void,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
 		}).annotate(
@@ -87,7 +87,7 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("savePage", "/assistant/pages/save", {
+		AuthenticatedMutationEndpoint.post("write")("savePage", "/assistant/pages/save", {
 			payload: S.SaveAssistantPageBody,
 			success: S.SaveAssistantPageResult,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],

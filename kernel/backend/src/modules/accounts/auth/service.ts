@@ -10,9 +10,11 @@ import {
 	CurrentUser,
 	DemoOperationProtected,
 	UserInitializing,
+	WriteAccessDenied,
 } from "@ryot-app/contract/auth-middleware";
 import { DbError, unknownToDbError } from "@ryot-app/contract/errors";
-import { DemoAccessPolicy } from "@ryot-app/contract/http-annotations";
+import { MutationPolicy } from "@ryot-app/contract/http-annotations";
+import type { CreateApiKeyBody } from "@ryot-app/contract/modules/account/schemas";
 import {
 	type AccessClass,
 	type AuthorizationContext as AuthorizationContextValue,
@@ -24,6 +26,8 @@ import {
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_WEB_CLIENT_ID,
 	REPORTING_TIME_ZONE_HEADER,
+	writeAccessFromScopes,
+	writeAccessScopes,
 } from "@ryot-app/contract/oauth";
 import { ApiKeyId, UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
@@ -555,8 +559,14 @@ type VerifiedCredential = Omit<AuthorizationContextValue, "accessClass">;
 type ApiKeyVerification = {
 	readonly valid: boolean;
 	readonly error: unknown;
-	readonly key: null | { readonly id: string; readonly referenceId: string };
+	readonly key: null | {
+		readonly id: string;
+		readonly referenceId: string;
+		readonly permissions?: null | undefined | { readonly [key: string]: readonly string[] };
+	};
 };
+
+export const API_KEY_SCOPES_PERMISSION = "scopes";
 
 const rateLimitError = Schema.Struct({
 	code: Schema.Literal("RATE_LIMITED"),
@@ -586,6 +596,7 @@ const resolveOAuthCredential = (
 			Schema.decodeUnknownEffect(
 				Schema.Struct({
 					sub: Schema.String,
+					scope: Schema.String,
 					client_id: Schema.String,
 					sid: Schema.optional(Schema.String),
 				}),
@@ -593,8 +604,9 @@ const resolveOAuthCredential = (
 		),
 		Effect.mapBoth({
 			onFailure: authenticationRequired,
-			onSuccess: ({ sub, sid, client_id }) => ({
+			onSuccess: ({ sub, sid, scope, client_id }) => ({
 				userId: sub,
+				writeAccess: writeAccessFromScopes(scope.split(" ")),
 				credential: {
 					kind: "oauth",
 					clientId: client_id,
@@ -618,7 +630,11 @@ const resolveApiKeyCredential = Effect.fn("resolveApiKeyCredential")(function* (
 	if (!result.valid || !result.key) {
 		return yield* authenticationRequired();
 	}
-	return { userId: result.key.referenceId, credential: { kind: "api-key", keyId: result.key.id } };
+	return {
+		userId: result.key.referenceId,
+		credential: { kind: "api-key", keyId: result.key.id },
+		writeAccess: writeAccessFromScopes(result.key.permissions?.[API_KEY_SCOPES_PERMISSION] ?? []),
+	};
 });
 
 export const getOAuthVerificationOptions = (
@@ -699,6 +715,7 @@ export const resolveCredential = <E>(
 				accessClass,
 				userId: user.id,
 				credential: verified.credential,
+				writeAccess: verified.writeAccess,
 				...(impersonation ? { impersonation } : {}),
 			},
 		};
@@ -720,11 +737,13 @@ export const resolveTrustedAccount = Effect.fn("resolveTrustedAccount")(function
 	const preferences = yield* Schema.decodeEffect(UserPreferences)(user.preferences).pipe(
 		Effect.mapError((error) => new DbError({ message: error.message })),
 	);
+	const authorization: Pick<AuthorizationContextValue, "accessClass" | "writeAccess"> = {
+		writeAccess: "confirm",
+		accessClass: userId === demoAccountId ? "demo" : "standard",
+	};
 	return {
+		authorization,
 		user: { id: userId, preferences, name: user.name, email: user.email, image: user.image },
-		authorization: {
-			accessClass: userId === demoAccountId ? ("demo" as const) : ("standard" as const),
-		},
 	};
 });
 
@@ -839,7 +858,7 @@ export class AuthService extends Context.Service<AuthService>()(
 
 			const createUserApiKey = Effect.fn("AuthService.createUserApiKey")(function* (
 				userId: UserId,
-				input: { readonly name: string; readonly expiresInDays: null | number },
+				input: CreateApiKeyBody,
 			) {
 				const created = yield* Effect.tryPromise({
 					catch: unknownToDbError,
@@ -848,6 +867,9 @@ export class AuthService extends Context.Service<AuthService>()(
 							body: {
 								userId,
 								name: input.name,
+								permissions: {
+									[API_KEY_SCOPES_PERMISSION]: [...writeAccessScopes[input.writeAccess]],
+								},
 								expiresIn:
 									input.expiresInDays === null
 										? null
@@ -950,11 +972,14 @@ export const makeAuthMiddleware = (
 		Effect.gen(function* () {
 			const request = yield* HttpServerRequest.HttpServerRequest;
 			const { user, authorization } = yield* resolved;
-			if (
-				authorization.accessClass === "demo" &&
-				Context.get(endpoint.annotations, DemoAccessPolicy) === "protected"
-			) {
+			const policy = Context.get(endpoint.annotations, MutationPolicy);
+			if (authorization.accessClass === "demo" && policy === "write") {
 				return yield* new DemoOperationProtected({ reason: { code: "demo-operation-protected" } });
+			}
+			if (policy !== "read" && authorization.writeAccess !== "unattended") {
+				return yield* new WriteAccessDenied({
+					reason: { code: "write-access-denied", writeAccess: authorization.writeAccess },
+				});
 			}
 			if (
 				request.method !== "GET" &&

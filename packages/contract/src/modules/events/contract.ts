@@ -18,7 +18,7 @@ import {
 export const EventsGroup = HttpApiGroup.make("events")
 	.annotate(OpenApi.Description, "Create and mutate entity events.")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("create", "/events", {
+		AuthenticatedMutationEndpoint.post("demo-write")("create", "/events", {
 			payload: Schema.Array(CreateEventItem),
 			error: [EventsInternalError.pipe(HttpApiSchema.status(500))],
 			success: CreateEventsResponse.pipe(HttpApiSchema.status(201)),
@@ -28,7 +28,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("allowed")("update", "/events/:eventId", {
+		AuthenticatedMutationEndpoint.patch("demo-write")("update", "/events/:eventId", {
 			payload: EventUpdateRequest,
 			params: { eventId: EventId },
 			success: EventMutationResponse,
@@ -41,7 +41,7 @@ export const EventsGroup = HttpApiGroup.make("events")
 		}).annotate(OpenApi.Description, "Update an event owned by the authenticated user."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")("delete", "/events/:eventId", {
+		AuthenticatedMutationEndpoint.delete("demo-write")("delete", "/events/:eventId", {
 			params: { eventId: EventId },
 			success: EventMutationResponse,
 			error: [

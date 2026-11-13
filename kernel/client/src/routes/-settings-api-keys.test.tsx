@@ -158,7 +158,9 @@ it.live(
 				screen.findByRole("dialog", { name: "Save your API key" }),
 			);
 			expect(within(revealed).getByLabelText("New API key").textContent).toBe("abc123secretvalue");
-			expect(requests).toEqual([{ payload: { name: "Laptop", expiresInDays: null } }]);
+			expect(requests).toEqual([
+				{ payload: { name: "Laptop", expiresInDays: null, writeAccess: "confirm" } },
+			]);
 			fireEvent.click(within(revealed).getByRole("button", { name: "Done" }));
 			yield* Effect.promise(() => screen.findByRole("listitem"));
 			expect(screen.getByText("Laptop")).toBeTruthy();

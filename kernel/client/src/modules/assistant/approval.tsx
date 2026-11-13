@@ -1,4 +1,5 @@
 import type { AssistantApprovalDecision } from "@ryot-app/contract/modules/assistant/schemas";
+import { approvalSubject } from "@ryot-app/contract/schema/approval";
 import type { AssistantConversationId } from "@ryot-app/contract/schema/brands";
 import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import { Badge, Button, JsonSchemaValues, Notice } from "@ryot-app/plugin-ui-sdk";
@@ -11,7 +12,7 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import { Effect } from "effect";
 import { useState } from "react";
 
-import { approvalSubject, ASSISTANT_NAME } from "./presentation";
+import { ASSISTANT_NAME, catalogSourceName } from "./presentation";
 import { assistantFailureText, decideMutation } from "./service";
 
 const settled = {
@@ -30,7 +31,7 @@ export function AssistantApproval(props: {
 	const decide = useRyotMutation(decideMutation);
 	const [raw, setRaw] = useState(false);
 	const { call } = props;
-	const subject = approvalSubject(call.call, props.catalog);
+	const subject = approvalSubject(call.call, catalogSourceName(props.catalog));
 	if (props.state !== "pending") {
 		const outcome = settled[props.state];
 		return (

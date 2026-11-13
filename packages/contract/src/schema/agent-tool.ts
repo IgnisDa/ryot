@@ -61,6 +61,7 @@ export const AgentToolDescriptor = strictStruct({
 	name: AgentToolName,
 	description: Schema.String,
 	hints: PluginOperationHints,
+	title: Schema.NonEmptyString,
 	input: PluginOperationJsonSchema,
 	approval: Schema.Literals(["none", "call", "per-write"]),
 });
@@ -83,6 +84,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		approval: "call",
 		hints: writeHints,
 		name: "page_publish",
+		title: "Publish page",
 		input: toAgentJsonSchema(PagePublishInput),
 		description: "Publish a compiled page draft revision.",
 	},
@@ -90,6 +92,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		hints: readHints,
 		approval: "none",
 		name: "read_docs",
+		title: "Read docs",
 		input: toAgentJsonSchema(ReadDocsInput),
 		description:
 			"Read Ryot documentation. Without a topic it lists topics. Long topics are split into pages, starting at 1. Read the pages topic before writing a page.",
@@ -98,6 +101,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		approval: "none",
 		hints: writeHints,
 		name: "page_write",
+		title: "Write a page draft",
 		input: toAgentJsonSchema(PageWriteInput),
 		description:
 			"Create a page draft (name, slug, definition) or replace one (pageId, expectedDraftRevision, definition), then compile it. Give each file as { path, text } with its UTF-8 source. Returns the draft preview identity, or compiler diagnostics to repair before writing again.",
@@ -106,16 +110,18 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		name: "search",
 		hints: readHints,
 		approval: "none",
+		title: "Search capabilities",
 		input: toAgentJsonSchema(DiscoveryInput),
 		description:
 			'Find Ryot capabilities: data schemas and queries, collections, pages, saved views and installed plugin operations and queries. Without a query it lists namespaces. Detail "names" returns IDs, "summary" (default) adds descriptions and hints, "full" adds the TypeScript input and output types used by execute.',
 	},
 	execute: {
 		name: "execute",
+		title: "Run a script",
 		approval: "per-write",
 		input: toAgentJsonSchema(ExecuteInput),
 		hints: { readOnly: false, idempotent: false, destructive: true },
 		description:
-			'Run TypeScript in a sandbox. `code` is the body of an async function with `ryot` in scope. Call capabilities with `await ryot.call(id, input)` and `return` a JSON result, for example `return await ryot.call("kernel:collections.list", {});`. Reads run immediately. Every write asks the user for approval and throws when declined. There is no network, import or timer access. Type errors are reported before anything runs.',
+			'Run TypeScript in a sandbox. `code` is the body of an async function with `ryot` in scope. Call capabilities with `await ryot.call(id, input)` and `return` a JSON result, for example `return await ryot.call("kernel:collections.list", {});`. Reads run immediately. Writes the user has not allowed in advance ask for approval, and throw when declined or not allowed. There is no network, import or timer access. Type errors are reported before anything runs.',
 	},
 };

@@ -39,14 +39,41 @@ export type OAuthClientId = typeof OAuthClientId.Type;
 export const NativeOAuthApplicationId = Schema.Literals(OAUTH_NATIVE_APPLICATION_IDS);
 export type NativeOAuthApplicationId = typeof NativeOAuthApplicationId.Type;
 
-export const OAUTH_API_SCOPE = "ryot:api";
+export const OAUTH_READ_SCOPE = "ryot:read";
+export const OAUTH_WRITE_SCOPE = "ryot:write";
+export const OAUTH_UNATTENDED_WRITE_SCOPE = "ryot:write:unattended";
+export const OAUTH_ACCESS_SCOPES = [
+	OAUTH_READ_SCOPE,
+	OAUTH_WRITE_SCOPE,
+	OAUTH_UNATTENDED_WRITE_SCOPE,
+] as const;
 export const OAUTH_IDENTITY_SCOPES = ["openid", "profile", "email"] as const;
 export const OAUTH_OFFLINE_ACCESS_SCOPE = "offline_access";
 export const OAUTH_SCOPES = [
 	...OAUTH_IDENTITY_SCOPES,
 	OAUTH_OFFLINE_ACCESS_SCOPE,
-	OAUTH_API_SCOPE,
+	...OAUTH_ACCESS_SCOPES,
 ] as const;
+
+export const OAuthAccessScope = Schema.Literals(OAUTH_ACCESS_SCOPES);
+export type OAuthAccessScope = typeof OAuthAccessScope.Type;
+export const isOAuthAccessScope = Schema.is(OAuthAccessScope);
+
+export const WriteAccess = Schema.Literals(["none", "confirm", "unattended"]);
+export type WriteAccess = typeof WriteAccess.Type;
+
+export const writeAccessScopes = {
+	none: [OAUTH_READ_SCOPE],
+	unattended: OAUTH_ACCESS_SCOPES,
+	confirm: [OAUTH_READ_SCOPE, OAUTH_WRITE_SCOPE],
+} as const satisfies Record<WriteAccess, readonly OAuthAccessScope[]>;
+
+export const writeAccessFromScopes = (scopes: readonly string[]): WriteAccess => {
+	if (scopes.includes(OAUTH_WRITE_SCOPE) && scopes.includes(OAUTH_UNATTENDED_WRITE_SCOPE)) {
+		return "unattended";
+	}
+	return scopes.includes(OAUTH_WRITE_SCOPE) ? "confirm" : "none";
+};
 export const OAuthScope = Schema.Literals(OAUTH_SCOPES);
 export type OAuthScope = typeof OAuthScope.Type;
 export const OAUTH_SCOPE = OAUTH_SCOPES.join(" ");
@@ -211,6 +238,7 @@ const ApiKeyCredential = strictStruct({ keyId: Schema.String, kind: Schema.Liter
 export const AuthorizationContext = strictStruct({
 	userId: Schema.String,
 	accessClass: AccessClass,
+	writeAccess: WriteAccess,
 	impersonation: Schema.optional(ImpersonationSession),
 	credential: Schema.Union([OAuthCredential, ApiKeyCredential]),
 });

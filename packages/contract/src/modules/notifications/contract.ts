@@ -16,13 +16,13 @@ import {
 export const NotificationsGroup = HttpApiGroup.make("notifications")
 	.annotate(OpenApi.Description, "Manage and test notification channels.")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("createChannel", "/notifications/channels", {
+		AuthenticatedMutationEndpoint.post("write")("createChannel", "/notifications/channels", {
 			payload: CreateNotificationChannelBody,
 			success: Schema.Struct({ id: NotificationChannelId }).pipe(HttpApiSchema.status(201)),
 		}).annotate(OpenApi.Description, "Create a notification channel."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.patch("protected")(
+		AuthenticatedMutationEndpoint.patch("write")(
 			"updateChannel",
 			"/notifications/channels/:channelId",
 			{
@@ -34,7 +34,7 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 		).annotate(OpenApi.Description, "Update a notification channel by ID."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")(
+		AuthenticatedMutationEndpoint.delete("write")(
 			"deleteChannel",
 			"/notifications/channels/:channelId",
 			{
@@ -45,17 +45,13 @@ export const NotificationsGroup = HttpApiGroup.make("notifications")
 		).annotate(OpenApi.Description, "Delete a notification channel by ID."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")(
-			"testChannels",
-			"/notifications/channels/test",
-			{
-				success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(202)),
-				error: [
-					SubmissionExpired,
-					NotificationAdmissionConflictError.pipe(HttpApiSchema.status(409)),
-					NotificationAdmissionUnavailableError.pipe(HttpApiSchema.status(503)),
-				],
-			},
-		).annotate(OpenApi.Description, "Send a test notification through configured channels."),
+		AuthenticatedMutationEndpoint.post("write")("testChannels", "/notifications/channels/test", {
+			success: Schema.Struct({ id: Schema.String }).pipe(HttpApiSchema.status(202)),
+			error: [
+				SubmissionExpired,
+				NotificationAdmissionConflictError.pipe(HttpApiSchema.status(409)),
+				NotificationAdmissionUnavailableError.pipe(HttpApiSchema.status(503)),
+			],
+		}).annotate(OpenApi.Description, "Send a test notification through configured channels."),
 	)
 	.middleware(AuthMiddleware);

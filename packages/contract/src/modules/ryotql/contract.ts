@@ -3,7 +3,6 @@ import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema, OpenApi } from "effect/ht
 
 import { AdminMiddleware, AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { DemoAccessPolicy } from "../../http-annotations";
 import { PluginIdentityReference } from "../plugins/references";
 import { RyotQLResponse } from "./language";
 import { DescribeRequest, DescribeResponse, ExecutionRequest } from "./request";
@@ -55,13 +54,13 @@ const execution = {
 export const RyotQLGroup = HttpApiGroup.make("ryotql")
 	.annotate(OpenApi.Description, "Execute focused relational reads against application data.")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("execute", "/ryotql/execute", execution).annotate(
+		AuthenticatedMutationEndpoint.post("read")("execute", "/ryotql/execute", execution).annotate(
 			OpenApi.Description,
 			"Execute a RyotQL document and return its named results.",
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("read")(
 			"executePlugin",
 			"/ryotql/plugin/execute",
 			execution,
@@ -71,28 +70,24 @@ export const RyotQLGroup = HttpApiGroup.make("ryotql")
 		),
 	)
 	.add(
-		HttpApiEndpoint.post("describe", "/ryotql/describe", {
+		AuthenticatedMutationEndpoint.post("read")("describe", "/ryotql/describe", {
 			...execution,
 			payload: DescribeRequest,
 			success: DescribeResponse,
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(
-				OpenApi.Description,
-				"Describe query parameters and controls under the caller’s read visibility.",
-			),
+		}).annotate(
+			OpenApi.Description,
+			"Describe query parameters and controls under the caller’s read visibility.",
+		),
 	)
 	.add(
-		HttpApiEndpoint.post("describePlugin", "/ryotql/plugin/describe", {
+		AuthenticatedMutationEndpoint.post("read")("describePlugin", "/ryotql/plugin/describe", {
 			...execution,
 			payload: DescribeRequest,
 			success: DescribeResponse,
-		})
-			.annotate(DemoAccessPolicy, "allowed")
-			.annotate(
-				OpenApi.Description,
-				"Describe query parameters and controls under the caller’s read visibility.",
-			),
+		}).annotate(
+			OpenApi.Description,
+			"Describe query parameters and controls under the caller’s read visibility.",
+		),
 	)
 	.middleware(AuthMiddleware);
 

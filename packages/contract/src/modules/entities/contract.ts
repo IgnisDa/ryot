@@ -20,7 +20,7 @@ import {
 
 export const EntitiesGroup = HttpApiGroup.make("entities")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("populate", "/entities/populate", {
+		AuthenticatedMutationEndpoint.post("demo-write")("populate", "/entities/populate", {
 			payload: PopulateEntitiesBody,
 		}).annotate(
 			OpenApi.Description,
@@ -29,7 +29,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 	)
 	.annotate(OpenApi.Description, "Create entities.")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("create", "/entities", {
+		AuthenticatedMutationEndpoint.post("write")("create", "/entities", {
 			payload: CreateEntityBody,
 			success: EntityMutationResult.pipe(HttpApiSchema.status(201)),
 			error: [
@@ -40,7 +40,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 		}).annotate(OpenApi.Description, "Create an entity."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("saveEditor", "/entities/editor", {
+		AuthenticatedMutationEndpoint.post("write")("saveEditor", "/entities/editor", {
 			success: EntityEditorSaveResult,
 			payload: EntityEditorSaveRequest,
 			error: [
@@ -57,7 +57,7 @@ export const EntitiesGroup = HttpApiGroup.make("entities")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("demo-write")(
 			"requestEnrichment",
 			"/entities/:entityId/enrichment",
 			{

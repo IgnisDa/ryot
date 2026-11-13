@@ -25,14 +25,14 @@ const providerEntityErrors = [
 export const EntityProvidersGroup = HttpApiGroup.make("entityProviders")
 	.annotate(OpenApi.Description, "Searches and imports provider entities.")
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("search", "/entity-providers/search", {
+		AuthenticatedMutationEndpoint.post("read")("search", "/entity-providers/search", {
 			error: providerEntityErrors,
 			payload: SearchProviderEntitiesBody,
 			success: SearchProviderEntitiesResponse,
 		}).annotate(OpenApi.Description, "Searches a configured entity provider."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
+		AuthenticatedMutationEndpoint.post("read")(
 			"searchOptions",
 			"/entity-providers/search-options",
 			{
@@ -43,7 +43,7 @@ export const EntityProvidersGroup = HttpApiGroup.make("entityProviders")
 		).annotate(OpenApi.Description, "Resolves a configured provider's search options schema."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")("import", "/entity-providers/imports", {
+		AuthenticatedMutationEndpoint.post("demo-write")("import", "/entity-providers/imports", {
 			payload: ImportEntityBody,
 			success: Schema.Struct({ jobId: Schema.String }),
 			error: [
@@ -63,7 +63,7 @@ export const EntityProvidersGroup = HttpApiGroup.make("entityProviders")
 		}).annotate(OpenApi.Description, "Retrieve the result of an entity import job."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("allowed")(
+		AuthenticatedMutationEndpoint.delete("demo-write")(
 			"cancelImport",
 			"/entity-providers/imports/:jobId",
 			{

@@ -412,7 +412,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			const input = {
 				name: call.tool,
 				arguments: call.arguments,
-				gate: gate(payload, call.id),
+				confirm: gate(payload, call.id),
 				byteBudget: defaultResultByteBudget,
 				idempotencyKey: `assistant:${payload.turnId}:${call.id}`,
 			};

@@ -13,7 +13,7 @@ import {
 export const AutomationsGroup = HttpApiGroup.make("automations")
 	.annotate(OpenApi.Description, "Manages notification rules.")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("installRule", "/automations/rules", {
+		AuthenticatedMutationEndpoint.post("write")("installRule", "/automations/rules", {
 			payload: InstallNotificationRuleBody,
 			success: Schema.Struct({ id: NotificationSubscriptionId }).pipe(HttpApiSchema.status(201)),
 			error: [
@@ -23,7 +23,7 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 		}).annotate(OpenApi.Description, "Installs a notification rule."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")(
+		AuthenticatedMutationEndpoint.post("write")(
 			"activateRule",
 			"/automations/rules/:ruleId/activate",
 			{
@@ -34,7 +34,7 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 		).annotate(OpenApi.Description, "Activates an installed notification rule."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")(
+		AuthenticatedMutationEndpoint.post("write")(
 			"deactivateRule",
 			"/automations/rules/:ruleId/deactivate",
 			{
@@ -45,7 +45,7 @@ export const AutomationsGroup = HttpApiGroup.make("automations")
 		).annotate(OpenApi.Description, "Deactivates an installed notification rule."),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("deleteRule", "/automations/rules/:ruleId", {
+		AuthenticatedMutationEndpoint.delete("write")("deleteRule", "/automations/rules/:ruleId", {
 			params: { ruleId: NotificationSubscriptionId },
 			success: Schema.Struct({ id: NotificationSubscriptionId }),
 			error: [AutomationNotFoundError.pipe(HttpApiSchema.status(404))],

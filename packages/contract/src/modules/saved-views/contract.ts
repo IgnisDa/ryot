@@ -18,7 +18,7 @@ import {
 export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 	.annotate(OpenApi.Description, "Manages saved views")
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("create", "/saved-views", {
+		AuthenticatedMutationEndpoint.post("write")("create", "/saved-views", {
 			payload: CreateSavedViewBody,
 			success: SavedViewCommandResponse.pipe(HttpApiSchema.status(201)),
 			error: [
@@ -28,7 +28,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		}).annotate(OpenApi.Description, "Creates a saved view"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.put("protected")("update", "/saved-views", {
+		AuthenticatedMutationEndpoint.put("write")("update", "/saved-views", {
 			success: SavedViewCommandResponse,
 			payload: updateSavedViewBody({ reference: SavedViewReference }),
 			error: [
@@ -39,7 +39,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		}).annotate(OpenApi.Description, "Updates an exact saved view"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.delete("protected")("delete", "/saved-views", {
+		AuthenticatedMutationEndpoint.delete("write")("delete", "/saved-views", {
 			success: SavedViewCommandResponse,
 			payload: strictStruct({ reference: SavedViewReference }),
 			error: [
@@ -49,7 +49,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		}).annotate(OpenApi.Description, "Deletes a custom saved view"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("clone", "/saved-views/clone", {
+		AuthenticatedMutationEndpoint.post("write")("clone", "/saved-views/clone", {
 			payload: strictStruct({ reference: SavedViewReference }),
 			success: SavedViewCommandResponse.pipe(HttpApiSchema.status(201)),
 			error: [
@@ -60,7 +60,7 @@ export const SavedViewsGroup = HttpApiGroup.make("savedViews")
 		}).annotate(OpenApi.Description, "Clones an exact saved view"),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("protected")("reorder", "/saved-views/reorder", {
+		AuthenticatedMutationEndpoint.post("write")("reorder", "/saved-views/reorder", {
 			payload: ReorderSavedViewsBody,
 			success: ReorderSavedViewsResponse,
 			error: [SavedViewBadRequest.pipe(HttpApiSchema.status(400))],

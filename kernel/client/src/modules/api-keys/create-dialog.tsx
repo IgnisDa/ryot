@@ -1,4 +1,5 @@
 import { API_KEY_NAME_MAX_LENGTH } from "@ryot-app/contract/modules/account/schemas";
+import type { WriteAccess } from "@ryot-app/contract/oauth";
 import { useRyotMutation, useRyotSchedule } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
@@ -12,6 +13,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Effect } from "effect";
 import { type RefObject, type SubmitEvent, useId, useRef, useState } from "react";
 
+import { WriteAccessField } from "#/modules/access/write-access";
 import { shareOrCopy, sharesNatively } from "#/modules/device/share";
 import { formatDateLabel } from "#/modules/ui/run/run-status";
 
@@ -40,6 +42,7 @@ export function CreateApiKeyDialog(props: {
 	const nameRef = useRef<HTMLInputElement>(null);
 	const [name, setName] = useState("");
 	const [expiry, setExpiry] = useState<Expiry>("90");
+	const [writeAccess, setWriteAccess] = useState<WriteAccess>("confirm");
 	const [nameError, setNameError] = useState<string | undefined>();
 	const [created, setCreated] = useState<null | Created>(null);
 	const days = expiryOptions.find((option) => option.value === expiry)?.days ?? null;
@@ -54,7 +57,7 @@ export function CreateApiKeyDialog(props: {
 		setNameError(undefined);
 		void Effect.runPromise(
 			create
-				.mutateEffect({ name: trimmed, expiresInDays: days })
+				.mutateEffect({ writeAccess, name: trimmed, expiresInDays: days })
 				.pipe(
 					Effect.match({
 						onFailure: () => undefined,
@@ -113,6 +116,11 @@ export function CreateApiKeyDialog(props: {
 						/>
 					)}
 				</Field>
+				<WriteAccessField
+					value={writeAccess}
+					onChange={setWriteAccess}
+					disabled={create.isPending}
+				/>
 				<div className="grid gap-1.5">
 					<span aria-hidden="true" className="text-label font-medium text-text">
 						Expiration
@@ -197,8 +205,8 @@ function RevealedKey(props: { readonly created: Created }) {
 				</code>
 			</div>
 			<Notice tone="warning" icon={<AppIcon size={16} name="lock" />}>
-				Anyone with this key can read and change your data. If it leaks, revoke it and create a new
-				one.
+				Anyone with this key can use it with the access you chose. If it leaks, revoke it and create
+				a new one.
 			</Notice>
 		</div>
 	);
