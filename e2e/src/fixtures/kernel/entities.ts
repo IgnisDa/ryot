@@ -134,14 +134,12 @@ export const findEntityIdByName = (
 						where: and(
 							eq(column(entity, "name"), literal(input.name)),
 							eq(column(entity, "entitySchemaSlug"), literal(input.entitySchema.slug)),
-							eq(
-								column(entity, "entitySchemaPluginId"),
-								literal(
-									input.entitySchema.owner.kind === "plugin"
-										? input.entitySchema.owner.pluginId
-										: null,
-								),
-							),
+							input.entitySchema.owner.kind === "plugin"
+								? eq(
+										column(entity, "entitySchemaPluginId"),
+										literal(input.entitySchema.owner.pluginId),
+									)
+								: isNull(column(entity, "entitySchemaPluginId")),
 						),
 					}),
 				}),
