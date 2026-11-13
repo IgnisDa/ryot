@@ -31,14 +31,14 @@ const tokens = (accessToken: string, accessTokenExpiresAt = now + 900_000) =>
 		idToken,
 		accessToken,
 		accessTokenExpiresAt,
-		scope: "openid ryot:api",
+		scope: "openid ryot:read",
 		refreshToken: `refresh-${accessToken}`,
 	});
 const response = (accessToken: string) => ({
 	expires_in: 900,
 	id_token: idToken,
 	token_type: "Bearer",
-	scope: "openid ryot:api",
+	scope: "openid ryot:read",
 	access_token: accessToken,
 	expires_at: now / 1000 + 900,
 	refresh_token: `refresh-${accessToken}`,

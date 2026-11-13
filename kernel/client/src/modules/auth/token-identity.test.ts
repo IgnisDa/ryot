@@ -15,7 +15,7 @@ const tokenSet = (accessToken: string) =>
 			accessToken,
 			idToken: "id-token",
 			accessTokenExpiresAt: 1,
-			scope: "openid ryot:api",
+			scope: "openid ryot:read",
 		}),
 	);
 

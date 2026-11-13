@@ -16,11 +16,11 @@ your installed plugins. What it may change depends on the access level you give 
 
 Every connection has one of three access levels:
 
-| Level                         | What the app can do                                                                                          |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------ |
-| **Read only**                 | Read your data. It cannot change anything.                                                                   |
-| **Ask before each change**    | Read your data. Each change is shown to you in your AI app, and happens only after you approve it.           |
-| **Allow changes without asking** | Read and change your data, including through your plugins, without asking you first.                      |
+| Level                            | What the app can do                                                                                |
+| -------------------------------- | -------------------------------------------------------------------------------------------------- |
+| **Read only**                    | Read your data. It cannot change anything.                                                         |
+| **Ask before each change**       | Read your data. Each change is shown to you in your AI app, and happens only after you approve it. |
+| **Allow changes without asking** | Read and change your data, including through your plugins, without asking you first.               |
 
 **Ask before each change** needs an AI app that supports MCP elicitation, which lets Ryot ask you
 to confirm a change. If your app does not support it, Ryot refuses the change and says so; connect

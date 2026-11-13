@@ -167,7 +167,9 @@ describe("publications", () => {
 				headers,
 			);
 			expect(
-				requireRows(after.data["items"], "items").items.map((item) => item["__entityBrowserId"]),
+				sortBy(
+					requireRows(after.data["items"], "items").items.map((item) => item["__entityBrowserId"]),
+				),
 			).toEqual(sortBy([member.id, outsider.id]));
 			expect(requireRows(after.data["items"], "items").items).toHaveLength(2);
 		}),

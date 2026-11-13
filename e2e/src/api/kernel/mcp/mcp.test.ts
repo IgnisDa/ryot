@@ -83,7 +83,11 @@ const connect = (headers: Record<string, string>) =>
 			"MCP initialization omitted session",
 		);
 	});
-const describeData = (headers: Record<string, string>, session: string) =>
+const describeData = (
+	headers: Record<string, string>,
+	session: string,
+	writeAccess: "none" | "unattended",
+) =>
 	Effect.gen(function* () {
 		const listed = yield* rpc(headers, "tools/list", {}, session);
 		expect(listed.status).toBe(200);
@@ -92,8 +96,7 @@ const describeData = (headers: Record<string, string>, session: string) =>
 			"search",
 			"execute",
 			"read_docs",
-			"page_write",
-			"page_publish",
+			...(writeAccess === "none" ? [] : ["page_write", "page_publish"]),
 		]);
 		expect(tools.result.tools.find(({ name }) => name === "search")?.annotations.readOnlyHint).toBe(
 			true,
@@ -138,11 +141,18 @@ describe("MCP Streamable HTTP", () => {
 				expect(yield* Effect.promise(() => discovery.json())).toHaveProperty(
 					"registration_endpoint",
 				);
-				const owner = yield* createTestUser();
-				const key = yield* createApiKey(owner.sessionCookie);
+				const owner = yield* createAuthenticatedClient();
+				const { key } = yield* owner.client.call((c) =>
+					c.account.createApiKey({
+						payload: { name: "MCP", expiresInDays: null, writeAccess: "unattended" },
+					}),
+				);
 				const headers = { "x-api-key": key };
 				const session = yield* connect(headers);
-				yield* describeData(headers, session);
+				yield* describeData(headers, session, "unattended");
+				const readOnlyKey = yield* createApiKey(owner.sessionCookie);
+				const readOnlyHeaders = { "x-api-key": readOnlyKey };
+				yield* describeData(readOnlyHeaders, yield* connect(readOnlyHeaders), "none");
 				const other = yield* createTestUser();
 				const otherKey = yield* createApiKey(other.sessionCookie);
 				const foreign = yield* rpc({ "x-api-key": otherKey }, "tools/list", {}, session);
@@ -271,7 +281,7 @@ describe("MCP Streamable HTTP", () => {
 				});
 
 				const headers = { Authorization: `Bearer ${tokens.access_token}` };
-				yield* describeData(headers, yield* connect(headers));
+				yield* describeData(headers, yield* connect(headers), "none");
 				const refreshedResponse = yield* webRequest(
 					getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH),
 					{
@@ -293,7 +303,7 @@ describe("MCP Streamable HTTP", () => {
 					yield* Effect.promise(() => refreshedResponse.json()),
 				);
 				const refreshedHeaders = { Authorization: `Bearer ${refreshed.access_token}` };
-				yield* describeData(refreshedHeaders, yield* connect(refreshedHeaders));
+				yield* describeData(refreshedHeaders, yield* connect(refreshedHeaders), "none");
 
 				const genericApi = yield* webRequest(`${getApiUrl()}/ryotql/execute`, {
 					headers,

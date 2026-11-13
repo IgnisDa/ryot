@@ -41,7 +41,7 @@ const plan: OAuthLaunchPlan = {
 };
 
 const originalTokens = makeStoredTokenSet({
-	scope: "openid ryot:api",
+	scope: "openid ryot:read",
 	idToken: "original-id-token",
 	accessTokenExpiresAt: 100_000,
 	accessToken: "original-access-token",

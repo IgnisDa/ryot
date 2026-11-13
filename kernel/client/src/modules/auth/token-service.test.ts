@@ -49,7 +49,7 @@ const tokenResponse = (overrides: Record<string, unknown> = {}) => ({
 	refresh_token: "refresh-1",
 	expires_at: now / 1000 + 900,
 	id_token: idToken("nonce-1"),
-	scope: "openid profile email offline_access ryot:api",
+	scope: "openid profile email offline_access ryot:read",
 	...overrides,
 });
 
@@ -119,7 +119,7 @@ const pending = () =>
 const tokenSet = (overrides: Partial<StoredTokenSet> = {}): StoredTokenSet => ({
 	tokenType: "Bearer",
 	accessToken: "expired",
-	scope: "openid ryot:api",
+	scope: "openid ryot:read",
 	refreshToken: "refresh-1",
 	accessTokenExpiresAt: now,
 	idToken: idToken("nonce-1"),
@@ -164,7 +164,7 @@ describe("OAuth token service", () => {
 						idToken: idToken("nonce-1"),
 						clientId: OAUTH_WEB_CLIENT_ID,
 						accessTokenExpiresAt: now + 900_000,
-						scope: "openid profile email offline_access ryot:api",
+						scope: "openid profile email offline_access ryot:read",
 					});
 					expect(yield* persisted.takePending(origin, "state-1")).toBeNull();
 				}),
