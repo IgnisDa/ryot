@@ -67,7 +67,6 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"validation-failed": "The plugin failed validation.",
 	"home-view-hidden": "The plugin's home view is hidden.",
 	"already-installed": "This package is already installed.",
-	"package-archive-invalid": "The plugin archive is invalid.",
 	"compilation-failed": "The plugin archive failed to compile.",
 	"operation-not-found": "The plugin operation does not exist.",
 	"page-write-access-required": "Page write access is required.",
@@ -76,6 +75,7 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"installation-not-found": "This installation no longer exists.",
 	"saved-view-referenced": "Your saved views still use this plugin.",
 	"integration-referenced": "Your integrations still use this plugin.",
+	"package-archive-invalid": "This file is not a valid plugin archive.",
 	"asset-forbidden": "A file in these settings is not available to you.",
 	"operation-scope-not-found": "The plugin operation scope does not exist.",
 	"installation-not-ready": "This installation is not ready for that change.",
@@ -83,7 +83,6 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"entity-referenced": "Your library still has entities that use this plugin.",
 	"home-view-renderer-unavailable": "The plugin's home view renderer is unavailable.",
 	"package-id-mismatch": "The archive's package ID does not match this installation.",
-	"reserved-system-identity": "This package identity is reserved for system plugins.",
 	"invalid-operation-scope": "The plugin declares an operation with an invalid scope.",
 	"definition-referenced": "Your data still uses definitions this plugin would remove.",
 	"upload-unavailable": "The uploaded archive is no longer available. Upload it again.",
@@ -93,13 +92,37 @@ const failureDetails: Record<(typeof DeclaredPluginFailure.Type)["reason"]["code
 	"source-revision-stale": "This installation changed since it was loaded. Refresh and try again.",
 	"referenced-definition-incompatible":
 		"The update is incompatible with definitions your data uses.",
+	"reserved-system-identity":
+		"This package ID is reserved for Ryot's own plugins. Change the publisher in the plugin's package ID, rebuild it, and try again.",
+};
+
+const rebuildRequiredIssues = new Set([
+	"unexpected-entry",
+	"manifest-invalid",
+	"missing-manifest",
+	"duplicate-manifest",
+	"compiled-client-invalid",
+	"compiled-script-invalid",
+]);
+
+const failureDetail = (failure: typeof DeclaredPluginFailure.Type) => {
+	const { reason } = failure;
+	if (reason.code !== "package-archive-invalid") {
+		return failureDetails[reason.code];
+	}
+	if (rebuildRequiredIssues.has(reason.issue)) {
+		return "This archive was not built for this version of Ryot. Rebuild it with `ryot plugin build` and try again.";
+	}
+	return reason.issue.endsWith("-exceeded")
+		? "This archive is larger than this server allows."
+		: failureDetails[reason.code];
 };
 
 const commandFailure = (cause: unknown) =>
 	new PluginManagementError({
 		detail:
 			cause instanceof AuthenticatedApiError && Schema.is(DeclaredPluginFailure)(cause.cause)
-				? failureDetails[cause.cause.reason.code]
+				? failureDetail(cause.cause)
 				: "The plugin command failed.",
 	});
 

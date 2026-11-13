@@ -1,6 +1,9 @@
 import { expect } from "bun:test";
 
-import { PluginConflictError } from "@ryot-app/contract/modules/plugins/schemas";
+import {
+	PluginConflictError,
+	PluginRequestError,
+} from "@ryot-app/contract/modules/plugins/schemas";
 import { createRyotClient } from "@ryot-app/plugin-client-sdk";
 import { createTestRyotAdapter } from "@ryot-app/plugin-client-sdk/testing";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
@@ -17,6 +20,8 @@ class Commands extends Context.Service<
 	Commands,
 	{ readonly calls: Effect.Effect<readonly unknown[]> }
 >()("@ryot-app/kernel-client/modules/plugins/management/service.test/Commands") {}
+
+const invalidArchiveIssues = ["manifest-invalid", "entry-count-exceeded", "malformed-zip"] as const;
 
 const dependencies = Layer.effectContext(
 	Effect.gen(function* () {
@@ -42,8 +47,18 @@ const dependencies = Layer.effectContext(
 							}),
 						}),
 					),
-				inspect: (_scope, request) =>
-					Ref.update(calls, (all) => [...all, { request, method: "inspect" }]).pipe(
+				inspect: (_scope, request) => {
+					const issue = invalidArchiveIssues.find((item) => item === request.payload.uploadToken);
+					if (issue !== undefined) {
+						return Effect.fail(
+							new AuthenticatedApiError({
+								cause: new PluginRequestError({
+									reason: { issue, code: "package-archive-invalid" },
+								}),
+							}),
+						);
+					}
+					return Ref.update(calls, (all) => [...all, { request, method: "inspect" }]).pipe(
 						Effect.as({
 							operations: [],
 							configSchema: { fields: {}, unknownKeys: "strict" as const },
@@ -55,7 +70,8 @@ const dependencies = Layer.effectContext(
 								description: installation.description,
 							},
 						}),
-					),
+					);
+				},
 			}),
 		);
 	}),
@@ -87,6 +103,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			}),
 		testTimeout,
 	);
+
 	test.effect(
 		"re-enables the retained installation without uploading or selecting the system copy",
 		() =>
@@ -108,6 +125,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			}),
 		testTimeout,
 	);
+
 	test.effect(
 		"explains why an installation that data still references cannot be removed",
 		() =>
@@ -120,6 +138,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			}),
 		testTimeout,
 	);
+
 	test.effect(
 		"inspects an uploaded archive against the selected installation",
 		() =>
@@ -140,6 +159,7 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			}),
 		testTimeout,
 	);
+
 	test.effect(
 		"installs and updates packages from uploaded archive tokens with replacement config",
 		() =>
@@ -168,6 +188,24 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 						method: "state",
 						request: { payload: { config }, params: { installationId: "private-installation" } },
 					},
+				]);
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"explains invalid archives by whether a rebuild, a smaller archive, or another file is needed",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginManagementService;
+				const details = [];
+				for (const uploadToken of invalidArchiveIssues) {
+					details.push((yield* Effect.flip(service.inspect(scope, { uploadToken }))).detail);
+				}
+				expect(details).toEqual([
+					"This archive was not built for this version of Ryot. Rebuild it with `ryot plugin build` and try again.",
+					"This archive is larger than this server allows.",
+					"This file is not a valid plugin archive.",
 				]);
 			}),
 		testTimeout,
