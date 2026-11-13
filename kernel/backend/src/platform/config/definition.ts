@@ -123,7 +123,7 @@ const sandbox = group(
 			label: "Worker concurrency",
 			envKey: "SANDBOX_WORKER_CONCURRENCY",
 			description:
-				"Global sandbox execution concurrency across trust and snapshot tiers; each process opens up to 4 + 2 × this many PostgreSQL connections, so keep it within available database and memory headroom",
+				"Global sandbox execution concurrency across trust and snapshot tiers; each process opens up to 5 + 3 × this many PostgreSQL connections, so keep it within available database and memory headroom",
 		}),
 	},
 );

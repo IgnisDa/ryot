@@ -1,4 +1,5 @@
 import { BunCrypto } from "@effect/platform-bun";
+import type { PgClient } from "@effect/sql-pg";
 import { randomUuid } from "@ryot-app/testing/random";
 import { sql } from "drizzle-orm";
 import { Context, Effect, Layer } from "effect";
@@ -17,7 +18,10 @@ export class IsolatedDatabase extends Context.Service<IsolatedDatabase, { readon
 ) {}
 
 // The drop is registered before the isolated pool is built, so it runs after that pool closes.
-export const isolatedDatabaseLayer = (prefix: string) =>
+export const isolatedDatabaseLayer = (
+	prefix: string,
+	pool: Omit<PgClient.PgPoolConfig, "url"> = {},
+) =>
 	Layer.unwrap(
 		Effect.gen(function* () {
 			const name = `${prefix}_${(yield* randomUuid).replaceAll("-", "")}`;
@@ -33,7 +37,7 @@ export const isolatedDatabaseLayer = (prefix: string) =>
 			);
 			const url = yield* testDatabaseUrlFor(name);
 			return Layer.effect(DatabaseSession, DatabaseSession.make).pipe(
-				Layer.provideMerge(testPgClientLayer({ database: name })),
+				Layer.provideMerge(testPgClientLayer({ ...pool, database: name })),
 				Layer.fresh,
 				Layer.provideMerge(Layer.succeed(IsolatedDatabase, { url })),
 			);

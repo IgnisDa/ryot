@@ -21,7 +21,7 @@ product eligibility, or implements product capabilities; the backend provides th
 
 The Rust sidecar runs each invocation in a fresh isolate. The sidecar and backend use a duplex inherited socket with framed messages. An execution-scoped host-call gate validates each operation, and sealed SDK bindings expose only the approved host surface.
 
-`G` is global sandbox concurrency and defaults to 2. Pool sizing reserves `4 + G` connections for primary database work. Native host-call leases are capped at `G`; nested calls reuse their parent lease.
+`G` is global sandbox concurrency and defaults to 2. Pool sizing reserves `5 + G` connections for primary database work. Native host-call leases are capped at `G`; nested calls reuse their parent lease. `SandboxStateStore` has its own `G` connections, so recovery and crash protection never wait behind primary work.
 
 Memory planning is computed/logged once at startup by `memory-plan.ts` and `transient-memory.ts`:
 

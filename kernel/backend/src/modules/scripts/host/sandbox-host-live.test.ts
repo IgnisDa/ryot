@@ -6,13 +6,19 @@ import { UserId } from "@ryot-app/contract/schema/brands";
 import { hostSuccess } from "@ryot-app/plugin-backend-sdk/wire";
 import { SandboxHostFunctions } from "@ryot-app/sandbox/host/host-functions";
 import { automationRunSubject } from "@ryot-app/sandbox/host/run-input.test-support";
+import { SandboxStateStore } from "@ryot-app/sandbox/host/state-store";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
+import { randomUuid } from "@ryot-app/testing/random";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Effect, Layer } from "effect";
+import { sql } from "drizzle-orm";
+import { Deferred, Effect, Fiber, Layer, Redacted } from "effect";
 
+import { DatabaseSession } from "#platform/db/session";
 import { CurrentJobId } from "#platform/jobs/worker";
+import { makeAppConfigLayer } from "#testing/effect";
+import { IsolatedDatabase, isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import {
 	makeSubjectRunInput,
@@ -20,7 +26,7 @@ import {
 } from "../authorization/principal.test-support";
 import { ScriptHostImplementations } from "./host-implementations";
 import { unusedSandboxHostImplementations } from "./host-implementations.test-support";
-import { SandboxHostFunctionsLive } from "./sandbox-host-live";
+import { SandboxHostFunctionsLive, SandboxStateStoreLive } from "./sandbox-host-live";
 
 const hostFunctionsLayer = SandboxHostFunctionsLive.pipe(
 	Layer.provide(Layer.succeed(ScriptHostImplementations, unusedSandboxHostImplementations())),
@@ -121,6 +127,54 @@ layer(recordingHostFunctionsLayer)("SandboxHostFunctionsLive job identity", (it)
 				}
 
 				expect(recordedJobs).toEqual(["current", null]);
+			}),
+		testTimeout,
+	);
+});
+
+const exhaustedApplicationPoolLayer = SandboxStateStoreLive.pipe(
+	Layer.provide(
+		Layer.unwrap(
+			Effect.map(IsolatedDatabase, ({ url }) =>
+				makeAppConfigLayer({
+					sandbox: { workerConcurrency: 1 },
+					database: { url: Redacted.make(url) },
+				}),
+			),
+		),
+	),
+	Layer.provideMerge(isolatedDatabaseLayer("sandbox_state", { maxConnections: 1 })),
+);
+
+layer(exhaustedApplicationPoolLayer)("SandboxStateStoreLive", (it) => {
+	it.effect(
+		"keeps protection state available while application statements hold every pooled connection",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const store = yield* SandboxStateStore;
+				const held = yield* Deferred.make<void>();
+				const release = yield* Deferred.make<void>();
+				const holder = yield* session
+					.transaction(
+						session
+							.run((db) => db.execute(sql`select 1`))
+							.pipe(
+								Effect.andThen(Deferred.succeed(held, undefined)),
+								Effect.andThen(Deferred.await(release)),
+							),
+					)
+					.pipe(Effect.forkChild);
+				yield* Deferred.await(held);
+				const key = `sandbox:test:${yield* randomUuid}`;
+				const written = yield* store.update([key], () => ({
+					result: "written",
+					writes: new Map([[key, { value: "protected" }]]),
+				}));
+				expect(written).toBe("written");
+				expect(yield* store.read([key])).toEqual(new Map([[key, "protected"]]));
+				yield* Deferred.succeed(release, undefined);
+				yield* Fiber.join(holder);
 			}),
 		testTimeout,
 	);

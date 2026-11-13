@@ -140,6 +140,7 @@ const fixedApplicationConnections = 5;
 export const databaseConnectionBudget = (config: {
 	readonly sandbox: { readonly workerConcurrency: number };
 }) => ({
+	sandboxState: config.sandbox.workerConcurrency,
 	sandboxDispatch: config.sandbox.workerConcurrency,
 	application: fixedApplicationConnections + config.sandbox.workerConcurrency,
 });
