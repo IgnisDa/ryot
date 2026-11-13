@@ -10,7 +10,6 @@ import type { VisitorRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { type PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import { decodeSavedViewCount } from "@ryot-app/ryotql-recipes/saved-views";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Clock, Context, Duration, Effect, Layer, Result } from "effect";
 
 import { managedAssetLocators } from "#modules/assets/storage/locators";
@@ -26,7 +25,7 @@ import { TransientValues } from "#platform/transient-values";
 import { PublicationVisitLimits } from "./limits";
 import { PUBLICATION_RESULT_BYTES } from "./model";
 import { PublicationsRepository } from "./repository";
-import { PublicationRuntime } from "./runtime";
+import { PublicationRuntime, visitorArguments } from "./runtime";
 import { PublicationSessions } from "./sessions";
 
 const snapshotRequestMessage = "Snapshot pages accept only their published arguments";
@@ -265,13 +264,8 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 					if (!snapshot) {
 						return yield* unavailable("page-unavailable");
 					}
+					yield* visitorArguments(snapshot.arguments, [], request.arguments);
 					if (
-						(request.arguments &&
-							Object.entries(request.arguments).some(
-								([key, value]) =>
-									!Object.hasOwn(snapshot.arguments, key) ||
-									stableStringify(value) !== stableStringify(snapshot.arguments[key]),
-							)) ||
 						request.filter !== undefined ||
 						request.sort !== undefined ||
 						(request.pages && Object.keys(request.pages).length > 0)
@@ -294,7 +288,14 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 					ryotql.executeDeclared(
 						{ userId: publication.userId, language: found.owner.preferences.language },
 						found.document,
-						runtime.request(publication.definition, request),
+						{
+							...request,
+							arguments: yield* visitorArguments(
+								publication.definition.arguments,
+								publication.definition.visitorParameters,
+								request.arguments,
+							),
+						},
 						PUBLICATION_RESULT_BYTES,
 						clientPagePluginRevisions(found.prepared.capturedComposition.identity),
 					),
@@ -319,17 +320,10 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 				}
 				if (found.publication.definition.mode === "snapshot") {
 					const snapshot = found.publication.snapshot;
-					if (
-						!snapshot ||
-						(argumentsValue &&
-							Object.entries(argumentsValue).some(
-								([key, value]) =>
-									!Object.hasOwn(snapshot.arguments, key) ||
-									stableStringify(value) !== stableStringify(snapshot.arguments[key]),
-							))
-					) {
+					if (!snapshot) {
 						return yield* invalidQuery(snapshotRequestMessage);
 					}
+					yield* visitorArguments(snapshot.arguments, [], argumentsValue);
 					return { sort: [], filter: [], parameters: found.document.parameters ?? { fields: {} } };
 				}
 				return yield* limits.withSessionPermit(
@@ -338,7 +332,11 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 						{ userId: found.publication.userId, language: found.owner.preferences.language },
 						found.document,
 						queryName,
-						{ ...argumentsValue, ...found.publication.definition.arguments },
+						yield* visitorArguments(
+							found.publication.definition.arguments,
+							found.publication.definition.visitorParameters,
+							argumentsValue,
+						),
 					),
 				);
 			});

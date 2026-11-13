@@ -70,7 +70,12 @@ export class PublicationsService extends Context.Service<PublicationsService>()(
 						reason: { field: "icon", code: "required-field" },
 					});
 				}
-				const definition = { page: body.page, mode: body.mode, arguments: body.arguments };
+				const definition = {
+					page: body.page,
+					mode: body.mode,
+					arguments: body.arguments,
+					visitorParameters: body.visitorParameters,
+				};
 				const snapshot = yield* runtime.capture(
 					{ userId: user.id, language: user.preferences.language },
 					definition,

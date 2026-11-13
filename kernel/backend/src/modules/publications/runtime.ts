@@ -1,7 +1,8 @@
+import { bindPublicationArguments } from "@ryot-app/contract/modules/publications/bindings";
 import type { PublicationDefinition } from "@ryot-app/contract/modules/publications/schemas";
 import { PublicationBadRequest } from "@ryot-app/contract/modules/publications/schemas";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
-import { bindArguments, bindPartialArguments } from "@ryot-app/contract/modules/ryotql/parameters";
+import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import type { VisitorRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
@@ -12,13 +13,14 @@ import {
 	PublicationItemDetailField,
 } from "@ryot-app/ryotql-recipes/publication-browse";
 import { decodeSavedViewCount } from "@ryot-app/ryotql-recipes/saved-views";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { clientPagePluginRevisions } from "#modules/pages/preparation/composition";
 import { PagesService } from "#modules/pages/preparation/service";
 import { pageQueryDocument } from "#modules/pages/query-document";
-import { RyotQLService } from "#modules/ryotql/service";
+import { invalidQuery, RyotQLService } from "#modules/ryotql/service";
 
 import { PUBLICATION_RESULT_BYTES, type PublicationSnapshot } from "./model";
 
@@ -26,10 +28,18 @@ const KernelSettings = Schema.Struct({
 	browser: EntityBrowserSavedViewSettings,
 	itemDetails: Schema.Array(PublicationItemDetailField),
 });
-const publicationRequest = (definition: PublicationDefinition, visitor: VisitorRequest) => ({
-	...visitor,
-	arguments: { ...visitor.arguments, ...definition.arguments },
-});
+export const visitorArguments = (
+	owner: Readonly<Record<string, JsonValue>>,
+	adjustable: readonly string[],
+	visitor: VisitorRequest["arguments"] = {},
+) =>
+	Object.entries(visitor).some(
+		([key, value]) =>
+			!adjustable.includes(key) &&
+			(!Object.hasOwn(owner, key) || stableStringify(value) !== stableStringify(owner[key])),
+	)
+		? Effect.fail(invalidQuery("Visitors can change only the parameters the owner allows"))
+		: Effect.succeed({ ...owner, ...visitor });
 
 export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 	"@ryot-app/kernel-backend/modules/publications/runtime/PublicationRuntime",
@@ -125,7 +135,7 @@ export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 				document: Effect.Success<ReturnType<typeof resolve>>["document"],
 				definition: PublicationDefinition,
 			) {
-				const bound = bindPartialArguments(document.parameters, definition.arguments);
+				const bound = bindPublicationArguments(document.parameters, definition);
 				if (Result.isFailure(bound)) {
 					return yield* new PublicationBadRequest({
 						reason: { issues: bound.failure, code: "bindings-invalid" },
@@ -227,7 +237,7 @@ export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 				} satisfies PublicationSnapshot;
 			});
 
-			return { resolve, capture, validateBindings, request: publicationRequest };
+			return { resolve, capture, validateBindings };
 		}),
 	},
 ) {

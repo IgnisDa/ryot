@@ -9,8 +9,8 @@ import {
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
 import { resolvePluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
+import { bindPublicationArguments } from "@ryot-app/contract/modules/publications/bindings";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
-import { bindPartialArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import {
 	EntityBrowserSavedViewSettings,
 	type SavedViewRenderer,
@@ -807,7 +807,7 @@ export const preflightProvenance = Effect.fn(function* (
 		}
 		yield* importQueryPluginReferences(publication.document, pluginIdByKey);
 		yield* Effect.fromResult(
-			bindPartialArguments(publication.document.parameters, publication.definition.arguments),
+			bindPublicationArguments(publication.document.parameters, publication.definition),
 		).pipe(Effect.mapError(() => badRequest("Backup publication arguments are invalid")));
 		if (publication.definition.page.kind === "kernel" && !publication.snapshot) {
 			const canonical = kernelPublicationDocument(definitions);

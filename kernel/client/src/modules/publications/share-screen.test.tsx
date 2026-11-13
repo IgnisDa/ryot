@@ -31,6 +31,7 @@ const publication = (linkRevokedAt: null | string) => ({
 	updatedAt: "2026-11-01T00:00:00.000Z",
 	definition: {
 		mode: "live",
+		visitorParameters: ["search", "entityId"],
 		page: { kind: "kernel", name: "publication" },
 		arguments: { source: encodeEntitySourceReference(source) },
 	},
@@ -123,6 +124,7 @@ it.live(
 						description: null,
 						title: "Road trips",
 						showOwnerName: false,
+						visitorParameters: ["search", "entityId"],
 						page: { kind: "kernel", name: "publication" },
 						arguments: { source: encodeEntitySourceReference(source) },
 					},

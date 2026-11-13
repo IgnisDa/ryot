@@ -4,6 +4,7 @@ import {
 	definitionOwner,
 	ownerIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
+import type { PublicationMode } from "@ryot-app/contract/modules/publications/schemas";
 import type { Controls, ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
 import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import {
@@ -133,6 +134,9 @@ const schemaReference = (schema: BrowseSchema) => ({
 	owner: definitionOwner(schema.pluginId),
 	slug: EntitySchemaSlug.make(schema.slug),
 });
+
+export const kernelPublicationVisitorParameters = (mode: PublicationMode) =>
+	mode === "live" ? ["search", "entityId"] : [];
 
 export const kernelPublicationPage = (input: {
 	readonly schemas: readonly [PublicationCatalogSchema, ...PublicationCatalogSchema[]];

@@ -1,5 +1,12 @@
+import {
+	bindPublicationArguments,
+	publicationOwnerSchema,
+} from "@ryot-app/contract/modules/publications/bindings";
 import type { PublicationMode } from "@ryot-app/contract/modules/publications/schemas";
-import { bindPartialArguments } from "@ryot-app/contract/modules/ryotql/parameters";
+import {
+	type ParameterExposureRisk,
+	parameterExposureRisk,
+} from "@ryot-app/contract/modules/ryotql/parameters";
 import { PublicationId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -29,6 +36,7 @@ import {
 	toSchemaFormPayload,
 	useSchemaForm,
 } from "@ryot-app/plugin-ui-sdk/schema-form";
+import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { Effect, Result } from "effect";
 import { useRef, useState } from "react";
@@ -386,6 +394,12 @@ function PublicationCard(props: {
 	);
 }
 
+const exposureRiskText: Record<ParameterExposureRisk, null | string> = {
+	bounded: null,
+	"free-text": "Visitors could enter any text",
+	identifier: "Visitors could read any of your items by ID",
+};
+
 function PublicationEditorForm(props: {
 	readonly disabled: boolean;
 	readonly schema: AppSchema;
@@ -408,19 +422,21 @@ function PublicationEditorForm(props: {
 			? current?.page.kind === "kernel"
 			: current?.page.kind === "page" && props.page.pageId === current.page.pageId;
 	const bound = samePage ? (current?.arguments ?? {}) : {};
-	const [bindings, setBindings] = useState(() => Object.keys(bound));
-	const bindingSchema: AppSchema = {
-		...props.schema,
-		fields: Object.fromEntries(
-			Object.entries(props.schema.fields).filter(([key]) => bindings.includes(key)),
-		),
-	};
+	const [visitorChoices, setVisitorChoices] = useState<readonly string[]>(() =>
+		samePage ? (current?.visitorParameters ?? []) : [],
+	);
+	let visitorParameters = mode === "live" ? visitorChoices : [];
+	if (props.page.kind === "kernel") {
+		visitorParameters = kernelPublicationVisitorParameters(mode);
+	}
+	const ownerSchema = publicationOwnerSchema(props.schema, visitorParameters);
 	const save = (argumentsValue: Record<string, JsonValue>) => {
 		const details = {
 			mode,
 			title,
 			showOwnerName,
 			page: props.page,
+			visitorParameters,
 			arguments: argumentsValue,
 			icon: props.publication?.icon ?? "file-text",
 			description: description.trim() === "" ? null : description,
@@ -451,14 +467,18 @@ function PublicationEditorForm(props: {
 		);
 	};
 	const form = useSchemaForm({
-		schemas: [bindingSchema],
+		schemas: [ownerSchema],
 		onSubmit: (values) => {
 			if (props.page.kind === "kernel") {
 				save(bound);
 				return;
 			}
-			const payload = toSchemaFormPayload(bindingSchema, values);
-			const parsed = bindPartialArguments(props.schema, payload);
+			const payload = toSchemaFormPayload(ownerSchema, values);
+			const parsed = bindPublicationArguments(props.schema, {
+				mode,
+				visitorParameters,
+				arguments: payload,
+			});
 			if (Result.isFailure(parsed)) {
 				setError(parsed.failure.map((issue) => issue.message).join("; "));
 				return;
@@ -496,29 +516,35 @@ function PublicationEditorForm(props: {
 			{props.page.kind === "page" && Object.keys(props.schema.fields).length > 0 ? (
 				<div className="grid gap-2">
 					<p className="text-sm text-text-muted">
-						Choose which arguments to bind for every visitor. Unbound arguments come from the page.
-						Snapshots require enough values to execute every query at publish time.
+						Set the value of each argument for every visitor. Visitors can set any value for
+						arguments you let them change, and the page reads your data with it. Snapshots require
+						enough values to execute every query at publish time.
 					</p>
 					<fieldset className="grid gap-3" disabled={props.disabled}>
-						{Object.entries(props.schema.fields).map(([key, field]) => (
-							<div key={key} className="flex items-center justify-between gap-3">
-								<span className="text-sm text-text">Bind {field.label}</span>
-								<Switch
-									label={`Bind ${field.label}`}
-									checked={bindings.includes(key)}
-									onChange={(checked) =>
-										setBindings((currentBindings) =>
-											checked
-												? [...currentBindings, key]
-												: currentBindings.filter((binding) => binding !== key),
-										)
-									}
-								/>
-							</div>
-						))}
+						{Object.entries(props.schema.fields).map(([key, field]) => {
+							const risk = exposureRiskText[parameterExposureRisk(field)];
+							return (
+								<div key={key} className="grid gap-1">
+									<div className="flex items-center justify-between gap-3">
+										<span className="text-sm text-text">Visitors can change {field.label}</span>
+										<Switch
+											disabled={mode === "snapshot"}
+											checked={visitorParameters.includes(key)}
+											label={`Visitors can change ${field.label}`}
+											onChange={(checked) =>
+												setVisitorChoices((choices) =>
+													checked ? [...choices, key] : choices.filter((choice) => choice !== key),
+												)
+											}
+										/>
+									</div>
+									{risk === null ? null : <span className="text-xs text-warning">{risk}</span>}
+								</div>
+							);
+						})}
 						<SchemaForm
 							form={form}
-							schema={bindingSchema}
+							schema={ownerSchema}
 							icons={schemaFormIcons}
 							uploadFile={uploadFile}
 							onChange={() => undefined}

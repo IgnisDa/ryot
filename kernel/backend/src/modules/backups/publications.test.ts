@@ -342,7 +342,8 @@ layer(services)((test) => {
 									snapshotArtifactHash: oldArtifact.hash,
 									definition: {
 										mode: "snapshot",
-										arguments: { source },
+										arguments: { source, visitor: "captured" },
+										visitorParameters: [],
 										page: { kind: "page", pageId: "source-page" },
 									},
 								},
@@ -359,7 +360,8 @@ layer(services)((test) => {
 									},
 									definition: {
 										mode: "snapshot",
-										arguments: { source: deletedCustomSource },
+										visitorParameters: [],
+										arguments: { source: deletedCustomSource, visitor: "captured" },
 										page: { kind: "page", pageId: "source-page" },
 									},
 								},
@@ -372,6 +374,7 @@ layer(services)((test) => {
 									id: PublicationId.make("live"),
 									definition: {
 										mode: "live",
+										visitorParameters: ["visitor"],
 										arguments: { text: "source-page" },
 										page: { kind: "page", pageId: "source-page" },
 									},
@@ -387,6 +390,7 @@ layer(services)((test) => {
 									pageId: "source-page",
 									definition: {
 										mode: "live" as const,
+										visitorParameters: ["visitor"],
 										arguments: { source: liveSource },
 										page: { kind: "page" as const, pageId: "source-page" },
 									},
@@ -402,6 +406,7 @@ layer(services)((test) => {
 									definition: {
 										mode: "live",
 										arguments: {},
+										visitorParameters: ["visitor"],
 										page: { kind: "page", pageId: "source-page" },
 									},
 								},

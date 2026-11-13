@@ -14,6 +14,7 @@ import {
 	type PluginUserSettingsPage,
 	pluginUserSettingsRecipe,
 } from "@ryot-app/ryotql-recipes/plugin-user-settings";
+import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import { anyOf, objectContaining } from "@ryot-app/testing/matchers";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Schema } from "effect";
@@ -116,6 +117,7 @@ describe("backup export and restore round trip", () => {
 							title: "Portable publication",
 							description: "Retained presentation",
 							page: { kind: "kernel", name: "publication" },
+							visitorParameters: kernelPublicationVisitorParameters(mode),
 						},
 					}),
 				);

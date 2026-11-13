@@ -6,8 +6,15 @@ snapshot and increments the revision. User-page references use an owner-preservi
 key; deleting an in-use page fails with `page-in-use`, including revoked publications.
 
 Live visits follow the latest published page. Visitors send only a declared query name and values;
-the server chooses the document, overrides visitor arguments with owner bindings, and runs under the
-owner's standard, plugin-audience authority in a read-only transaction. User pages may deliberately
+the server chooses the document and runs under the owner's standard, plugin-audience authority in a
+read-only transaction. `PublicationDefinition.visitorParameters` lists the parameters visitors may
+change; owner `arguments` supply every other value and act as defaults for visitor parameters.
+Visitor values for any other parameter must equal the owner's value or the request fails as
+`invalid-query`, so owner values are never silently replaced. `bindPublicationArguments` in
+`@ryot-app/contract` validates definitions for publishing, backups and the owner form: visitor
+parameters must be declared, snapshots have none, and every other required parameter needs an owner
+value or default. The kernel page's visitor parameters (`search` and `entityId` in live mode) come
+from its recipe. User pages may deliberately
 select owner data. The kernel page instead builds `items`, `count`, `item` and `linked` from the
 canonical encoded `sourceEntity` reference and plugin-declared `entity` presentation sources.
 The shared RyotQL executor resolves complete sources; declarations that read private columns or

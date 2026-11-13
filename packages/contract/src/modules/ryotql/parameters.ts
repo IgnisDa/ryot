@@ -108,3 +108,18 @@ export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}
 
 export const bindPartialArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
 	bindParameterArguments(schema, input, true);
+
+export type ParameterExposureRisk = "bounded" | "free-text" | "identifier";
+
+export const parameterExposureRisk = (property: AppPropertyDefinition): ParameterExposureRisk => {
+	if (property.type === "array") {
+		return parameterExposureRisk(property.items);
+	}
+	if (property.type !== "string") {
+		return "bounded";
+	}
+	if (property.reference !== undefined) {
+		return "identifier";
+	}
+	return property.format === undefined ? "free-text" : "bounded";
+};

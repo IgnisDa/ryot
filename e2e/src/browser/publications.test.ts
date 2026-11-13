@@ -1,4 +1,5 @@
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
+import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
@@ -133,6 +134,7 @@ it.live("renders an authored page anonymously and freezes snapshot code until re
 						arguments: {},
 						description: null,
 						showOwnerName: false,
+						visitorParameters: [],
 						page: { kind: "page", pageId: authored.pageId },
 					},
 				}),
@@ -180,6 +182,7 @@ it.live("renders an authored page anonymously and freezes snapshot code until re
 							title: "snapshot",
 							description: null,
 							showOwnerName: false,
+							visitorParameters: [],
 							publicationId: visit.publicationId,
 							page: { kind: "page", pageId: authored.pageId },
 						},
@@ -228,6 +231,7 @@ for (const mode of ["live", "snapshot"] as const) {
 						description: null,
 						showOwnerName: false,
 						page: { kind: "kernel", name: "publication" },
+						visitorParameters: kernelPublicationVisitorParameters(mode),
 						arguments: {
 							source: encodeEntitySourceReference({ kind: "collection", collectionId: shelf.id }),
 						},

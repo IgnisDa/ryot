@@ -28,6 +28,7 @@ export type PublicationMode = typeof PublicationMode.Type;
 export const PublicationDefinition = strictStruct({
 	mode: PublicationMode,
 	page: PublicationPageReference,
+	visitorParameters: Schema.Array(Schema.String),
 	arguments: Schema.Record(Schema.String, JsonValue),
 });
 export type PublicationDefinition = typeof PublicationDefinition.Type;

@@ -4,6 +4,7 @@ import {
 } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { kernelDefinitionSource } from "@ryot-app/definitions/kernel-definitions";
 import { buildDefinitionSnapshot } from "@ryot-app/definitions/snapshot";
+import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import { Result, Schema } from "effect";
 
 import { kernelPublicationDocument } from "./publications";
@@ -13,6 +14,7 @@ export const publicationDocument = kernelPublicationDocument(
 ) ?? { queries: {} };
 export const publicationDefinition = (source: unknown) => ({
 	mode: "live" as const,
+	visitorParameters: kernelPublicationVisitorParameters("live"),
 	page: { kind: "kernel" as const, name: "publication" as const },
 	arguments: {
 		source: encodeEntitySourceReference(

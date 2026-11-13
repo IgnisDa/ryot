@@ -62,8 +62,11 @@ Choose **Live** to show current data and page code. Choose **Snapshot** to freez
 results and page code. Snapshots have no search, filters, sorting, load more, or item navigation.
 Select **Refresh** to republish with current results and code.
 
-In **Settings → Publications**, create a publication by choosing one of your published pages.
-Collection and saved-view sharing uses the kernel page with its source bound for visitors.
+In **Settings → Publications**, create a publication by choosing one of your published pages, then
+set a value for each of its arguments. Visitors cannot change an argument unless you turn on
+**Visitors can change** for it; they can then set any value, and the page reads your data with it.
+Arguments that select items by ID or accept free text are marked, because a visitor could use them to
+read data the page does not show. Snapshots never let visitors change arguments.
 
 Backups include what you have shared, but not its links. After restoring a backup, create new links.
 

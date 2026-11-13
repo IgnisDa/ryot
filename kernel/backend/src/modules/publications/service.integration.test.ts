@@ -284,6 +284,7 @@ const details = {
 	title: "Shelf",
 	description: null,
 	showOwnerName: false,
+	visitorParameters: ["search", "entityId"],
 	page: { kind: "kernel", name: "publication" },
 	arguments: {
 		source: encodeEntitySourceReference({
@@ -292,6 +293,7 @@ const details = {
 		}),
 	},
 } as const;
+const snapshotDetails = { ...details, mode: "snapshot", visitorParameters: [] } as const;
 
 const publishWithLink = (expiresAt: null | string = null) =>
 	Effect.gen(function* () {
@@ -446,23 +448,39 @@ layer(publicationsLayer())((test) => {
 });
 
 layer(publicationsLayer())("publication page execution", (test) => {
-	test.effect("enforces owner bindings and refuses undeclared names", () =>
+	test.effect("lets visitors change only allowed parameters and refuses undeclared names", () =>
 		Effect.gen(function* () {
 			const publications = yield* PublicationsService;
 			const visits = yield* PublicationVisitsService;
 			const { publicationId } = yield* publications.create(owner, details);
 			const preview = yield* publications.preview(owner, publicationId);
 			const principal = yield* visits.authenticate(preview.sessionToken);
-			const response = yield* visits.query(principal, {
-				query: "items",
-				arguments: {
-					source: encodeEntitySourceReference({
-						kind: "collection",
-						collectionId: EntityId.make("missing"),
-					}),
-				},
-			});
-			expect(response.data["items"]).toMatchObject({ items: [{ __entityBrowserId: "a" }] });
+			const otherSource = {
+				source: encodeEntitySourceReference({
+					kind: "collection",
+					collectionId: EntityId.make("missing"),
+				}),
+			};
+			expect(
+				yield* visits.query(principal, { query: "items", arguments: otherSource }).pipe(Effect.flip),
+			).toMatchObject({ reason: { code: "invalid-query" } });
+			expect(
+				yield* visits.describe(principal, "items", otherSource).pipe(Effect.flip),
+			).toMatchObject({ reason: { code: "invalid-query" } });
+			expect(
+				yield* visits.query(principal, { query: "items", arguments: details.arguments }),
+			).toMatchObject({ data: { items: { items: [{ __entityBrowserId: "a" }] } } });
+			expect(
+				yield* visits.query(principal, { query: "items", arguments: { search: "missing" } }),
+			).toMatchObject({ data: { items: { items: [] } } });
+			for (const input of [
+				{ ...details, visitorParameters: ["unknown"] },
+				{ ...details, mode: "snapshot" as const },
+			]) {
+				expect(yield* publications.create(owner, input).pipe(Effect.flip)).toMatchObject({
+					reason: { code: "bindings-invalid" },
+				});
+			}
 			expect(yield* visits.query(principal, { query: "guessed" }).pipe(Effect.flip)).toMatchObject({
 				reason: { code: "invalid-query" },
 			});
@@ -479,7 +497,7 @@ layer(publicationsLayer())("publication page execution", (test) => {
 			const publications = yield* PublicationsService;
 			const visits = yield* PublicationVisitsService;
 			const session = yield* DatabaseSession;
-			const input = { ...details, mode: "snapshot" as const };
+			const input = snapshotDetails;
 			const { publicationId } = yield* publications.create(owner, input);
 			const preview = yield* publications.preview(owner, publicationId);
 			const principal = yield* visits.authenticate(preview.sessionToken);
@@ -534,6 +552,7 @@ layer(publicationsLayer())("publication page execution", (test) => {
 				const input = {
 					...details,
 					arguments: {},
+					visitorParameters: [],
 					page: { pageId: "page", kind: "page" as const },
 				};
 				const live = yield* publications.create(owner, input);
@@ -597,7 +616,12 @@ layer(publicationsLayer())("publication result assets", (test) => {
 					.set({ properties: { cover: locator, hidden: guessed } })
 					.where(eq(tables.entity.id, "a")),
 			);
-			const input = { ...details, arguments: {}, page: { kind: "page", pageId: "page" } as const };
+			const input = {
+				...details,
+				arguments: {},
+				visitorParameters: [],
+				page: { kind: "page", pageId: "page" } as const,
+			};
 			yield* session.run((db) =>
 				db
 					.update(tables.page)
@@ -673,6 +697,7 @@ layer(publicationsLayer())("publication result assets", (test) => {
 				const input = {
 					...details,
 					arguments: {},
+					visitorParameters: [],
 					mode: "snapshot" as const,
 					page: { pageId: "page", kind: "page" as const },
 				};
@@ -776,10 +801,7 @@ layer(publicationsLayer())("stored snapshot validation", (test) => {
 				const visits = yield* PublicationVisitsService;
 				const repository = yield* PublicationsRepository;
 				const session = yield* DatabaseSession;
-				const { publicationId } = yield* publications.create(owner, {
-					...details,
-					mode: "snapshot",
-				});
+				const { publicationId } = yield* publications.create(owner, snapshotDetails);
 				const principal = yield* publications
 					.preview(owner, publicationId)
 					.pipe(Effect.flatMap((preview) => visits.authenticate(preview.sessionToken)));

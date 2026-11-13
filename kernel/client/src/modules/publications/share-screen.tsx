@@ -12,6 +12,7 @@ import type {
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Dialog, Notice, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import type { PublicationSummary } from "@ryot-app/ryotql-recipes/publications";
 import { useNavigate, useRouteContext } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -255,6 +256,7 @@ function PublishDetails(props: PublishFormProps & { readonly defaults: PublishDe
 					description: null,
 					icon: props.defaults.icon,
 					page: { kind: "kernel", name: "publication" },
+					visitorParameters: kernelPublicationVisitorParameters(mode),
 					arguments: { source: encodeEntitySourceReference(props.source) },
 				});
 				const { secret } = yield* createLink.mutateEffect({

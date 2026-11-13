@@ -1,5 +1,6 @@
 import { PUBLICATION_SESSION_HEADER } from "@ryot-app/contract/modules/publications/schemas";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
+import { kernelPublicationVisitorParameters } from "@ryot-app/ryotql-recipes/publication-browse";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Schema } from "effect";
 
@@ -32,6 +33,7 @@ const publishCollection = (client: Client, mode: "live" | "snapshot" = "live") =
 					description: null,
 					showOwnerName: true,
 					page: { kind: "kernel", name: "publication" },
+					visitorParameters: kernelPublicationVisitorParameters(mode),
 					arguments: {
 						source: encodeEntitySourceReference({ kind: "collection", collectionId: shelf.id }),
 					},
@@ -48,7 +50,7 @@ describe("publications", () => {
 	it.live("lets an anonymous visitor read only the published entities until revoked", () =>
 		Effect.gen(function* () {
 			const { client } = yield* createAuthenticatedClient();
-			const { link, member, publicationId } = yield* publishCollection(client);
+			const { link, member, outsider, publicationId } = yield* publishCollection(client);
 			const visitor = getApiClient();
 
 			const session = yield* visitor.call((c) =>
@@ -82,26 +84,25 @@ describe("publications", () => {
 			});
 			expect(inline.status).toBe(400);
 
-			const overridden = yield* visitor.call(
-				(c) =>
-					c.publicationVisits.ryotql({
-						payload: {
-							query: "items",
-							arguments: {
-								source: encodeEntitySourceReference({
-									kind: "collection",
-									collectionId: member.id,
-								}),
+			const overridden = yield* Effect.flip(
+				visitor.call(
+					(c) =>
+						c.publicationVisits.ryotql({
+							payload: {
+								query: "items",
+								arguments: {
+									source: encodeEntitySourceReference({
+										kind: "collection",
+										collectionId: outsider.id,
+									}),
+								},
 							},
-						},
-					}),
-				headers,
-			);
-			expect(
-				requireRows(overridden.data["items"], "items").items.map(
-					(item) => item["__entityBrowserId"],
+						}),
+					headers,
 				),
-			).toEqual([member.id]);
+			);
+			assertTaggedError(overridden, "RyotQLBadRequest");
+			expect(overridden.reason).toMatchObject({ code: "invalid-query" });
 			const undeclared = yield* Effect.flip(
 				visitor.call(
 					(c) => c.publicationVisits.ryotql({ payload: { query: "undeclared" } }),
@@ -153,6 +154,7 @@ describe("publications", () => {
 						mode: "snapshot",
 						description: null,
 						showOwnerName: true,
+						visitorParameters: [],
 						page: { kind: "kernel", name: "publication" },
 						arguments: {
 							source: encodeEntitySourceReference({ kind: "collection", collectionId: shelf.id }),
@@ -228,6 +230,7 @@ describe("publications", () => {
 							title: "Private",
 							description: null,
 							showOwnerName: false,
+							visitorParameters: [],
 							page: { kind: "page", pageId: page.pageId },
 						},
 					}),
