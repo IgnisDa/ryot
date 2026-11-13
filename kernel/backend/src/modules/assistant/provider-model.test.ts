@@ -210,6 +210,54 @@ it.effect("rejects oversized prompts before making a request", () =>
 	}),
 );
 
+const streamedToolArguments = (chunks: number, text: string) =>
+	HttpClient.make((incoming) =>
+		Effect.succeed(
+			HttpClientResponse.fromWeb(
+				incoming,
+				new Response(
+					[
+						sse({
+							tool_calls: [
+								{
+									index: 0,
+									type: "function",
+									id: "model-call-1",
+									function: { name: "search", arguments: '{"query":"' },
+								},
+							],
+						}),
+						...Array.from({ length: chunks }, () =>
+							sse({ tool_calls: [{ index: 0, function: { arguments: text } }] }),
+						),
+						sse({ tool_calls: [{ index: 0, function: { arguments: '"}' } }] }),
+						sse({}, "tool_calls"),
+						"data: [DONE]\n\n",
+					].join(""),
+					{ headers: { "content-type": "text/event-stream" } },
+				),
+			),
+		),
+	);
+
+it.effect("bounds streamed content rather than per-chunk framing", () =>
+	Effect.gen(function* () {
+		const events = yield* collect(streamedToolArguments(20_000, "page"), request);
+		expect(events.filter((event) => event.type === "tool-call")).toEqual([
+			{
+				name: "search",
+				type: "tool-call",
+				modelCallId: "model-call-1",
+				arguments: { query: "page".repeat(20_000) },
+			},
+		]);
+		assertExitFails(
+			yield* Effect.exit(collect(streamedToolArguments(257, "x".repeat(1_024)), request)),
+			new AssistantModelError({ code: "output-limit" }),
+		);
+	}),
+);
+
 it.effect("bounds streamed output and cancels a stalled provider request", () =>
 	Effect.gen(function* () {
 		const oversized = HttpClient.make((incoming) =>

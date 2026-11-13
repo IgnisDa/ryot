@@ -101,6 +101,8 @@ export const AssistantTurnFailure = strictStruct({
 	code: Schema.Literals([
 		"provider-unavailable",
 		"provider-failed",
+		"request-limit",
+		"output-limit",
 		"tool-failed",
 		"round-limit",
 		"execution-failed",

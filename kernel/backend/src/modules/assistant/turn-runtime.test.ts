@@ -129,10 +129,10 @@ const harness = Effect.fn(function* (
 		readonly alwaysCall?: boolean;
 		readonly noProvider?: boolean;
 		readonly gatedWrite?: boolean;
-		readonly failProvider?: boolean;
 		readonly invalidArguments?: boolean;
 		readonly answerWithoutTools?: boolean;
 		readonly interruptAfterWrite?: boolean;
+		readonly failProvider?: AssistantModelError["code"];
 	} = {},
 ) {
 	const session = yield* DatabaseSession;
@@ -167,7 +167,7 @@ const harness = Effect.fn(function* (
 			stream: (request) => {
 				generated += 1;
 				if (options.failProvider) {
-					return Stream.fail(new AssistantModelError({ code: "provider-failed" }));
+					return Stream.fail(new AssistantModelError({ code: options.failProvider }));
 				}
 				const events: AssistantModelEvent[] = [{ type: "text-delta", text: "x".repeat(600) }];
 				if (options.reasoning) {
@@ -508,24 +508,23 @@ layer(services, { excludeTestServices: true })((test) => {
 	test.effect("bounds model rounds and records provider failures without diagnostic prose", () =>
 		Effect.gen(function* () {
 			const repository = yield* AssistantRepository;
-			for (const options of [
-				{ readOnly: true, alwaysCall: true },
-				{ failProvider: true },
-				{ noProvider: true },
-			]) {
+			const cases: readonly (readonly [
+				NonNullable<Parameters<typeof harness>[0]>,
+				AssistantTurnFailure["code"],
+			])[] = [
+				[{ readOnly: true, alwaysCall: true }, "round-limit"],
+				[{ failProvider: "provider-failed" }, "provider-failed"],
+				[{ failProvider: "request-limit" }, "request-limit"],
+				[{ failProvider: "output-limit" }, "output-limit"],
+				[{ noProvider: true }, "provider-unavailable"],
+			];
+			for (const [options, code] of cases) {
 				const setup = yield* harness(options);
 				const payload = yield* admit();
 				yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
 				const state = yield* repository.loadTurn(owner, payload.turnId);
 				assert(state);
 				expect(state.turn.status).toBe("failed");
-				let code: AssistantTurnFailure["code"] = "provider-failed";
-				if (options.alwaysCall) {
-					code = "round-limit";
-				}
-				if (options.noProvider) {
-					code = "provider-unavailable";
-				}
 				expect(state.turn.failure).toEqual({ code });
 				if (options.alwaysCall) {
 					expect(setup.generated()).toBe(13);

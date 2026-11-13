@@ -58,7 +58,7 @@ so it needs no maintenance and restored history reports it correctly. It exposes
 Read access and demo write approval restrictions remain service responsibilities.
 
 Terminal failures use `AssistantTurnFailure` codes (`provider-unavailable`, `provider-failed`,
-`tool-failed`, `round-limit`, `execution-failed`), never provider diagnostic prose. Services must use
+`request-limit`, `output-limit`, `tool-failed`, `round-limit`, `execution-failed`), never provider diagnostic prose. Services must use
 account mutation admission before entering these transactions, including during workflow recovery,
 so account disable/reset and queued work obey the shared lifecycle rules.
 
@@ -153,8 +153,9 @@ within 256 KiB, keeping each tool call and all its results together; persisted h
 trimmed. The system prompt is short and points to `read_docs` for authoring guidance. Context
 selection also measures the exact serialized prompt and current tool descriptors against the
 adapter's 1 MiB request cap; it drops whole history groups. A request that cannot fit the current
-user message fails. The model adapter separately bounds generated output, event count, tokens and
-request duration. Provider failures are logged by code and persist only public failure codes. Compiler failures instead become bounded repair results containing
+user message fails. The model adapter separately bounds generated text, reasoning and tool-argument
+bytes, event count, tokens and request duration; exceeding the request or output bound fails the turn
+with `request-limit` or `output-limit`. Provider failures are logged by code and persist only public failure codes. Compiler failures instead become bounded repair results containing
 the actual build diagnostics.
 
 Successful `page_write` calls persist a `page-preview` beside the tool result in the same

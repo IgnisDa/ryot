@@ -43,7 +43,7 @@ export type AssistantModelRequest = {
 };
 export const assistantModelRequestByteBudget = 1_048_576;
 const limits = {
-	events: 16_384,
+	events: 65_536,
 	maxTokens: 32_768,
 	outputBytes: 262_144,
 	timeout: "2 minutes",
@@ -132,7 +132,13 @@ export class AssistantModel extends Context.Service<
 								Stream.mapEffect(
 									Effect.fn(function* (part) {
 										events += 1;
-										outputBytes += bytes(stableStringify(part));
+										if (
+											part.type === "text-delta" ||
+											part.type === "reasoning-delta" ||
+											part.type === "tool-params-delta"
+										) {
+											outputBytes += bytes(part.delta);
+										}
 										if (events > limits.events || outputBytes > limits.outputBytes) {
 											return yield* new AssistantModelError({ code: "output-limit" });
 										}

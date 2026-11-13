@@ -58,10 +58,20 @@ export const workedFor = (turn: Pick<AssistantTranscriptTurn, "createdAt" | "com
 	return seconds < 60 ? `${seconds} s` : `${Math.round(seconds / 60)} min`;
 };
 
+const retryText = `${ASSISTANT_NAME} could not finish this reply. You can try again.`;
+
+const turnFailureTexts: Record<AssistantTurnFailure["code"], string> = {
+	"tool-failed": retryText,
+	"round-limit": retryText,
+	"provider-failed": retryText,
+	"execution-failed": retryText,
+	"request-limit": "This conversation is too long to continue. Start a new conversation.",
+	"provider-unavailable": `Your provider is unavailable. Check Settings → ${ASSISTANT_NAME}.`,
+	"output-limit": `${ASSISTANT_NAME}'s reply exceeded the response size limit. Try a smaller request.`,
+};
+
 export const turnFailureText = (failure: null | AssistantTurnFailure) =>
-	failure?.code === "provider-unavailable"
-		? `Your provider is unavailable. Check Settings → ${ASSISTANT_NAME}.`
-		: `${ASSISTANT_NAME} could not finish this reply. You can try again.`;
+	failure === null ? retryText : turnFailureTexts[failure.code];
 
 export const assistantStarters = (catalog: PluginClientCatalog) => [
 	...catalog.flatMap((entry) =>

@@ -27,6 +27,7 @@ import { assistantContext, assistantContextByteBudget, assistantTurnHistory } fr
 import { AssistantProviderConfiguration } from "./provider-configuration";
 import {
 	AssistantModel,
+	AssistantModelError,
 	assistantModelRequestByteBudget,
 	assistantProviderPrompt,
 } from "./provider-model";
@@ -160,7 +161,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		);
 		if (history.length === 0) {
 			yield* Effect.logWarning("Assistant history did not fit the model request budget");
-			return yield* Effect.fail(failure("provider-failed"));
+			return yield* Effect.fail(failure("request-limit"));
 		}
 		const prompt = promptFor(history, final);
 
@@ -239,7 +240,9 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 					error: "code" in error ? error.code : String(error),
 				}),
 			),
-			Effect.mapError(() => failure("provider-failed")),
+			Effect.mapError((error) =>
+				failure(error instanceof AssistantModelError ? error.code : "provider-failed"),
+			),
 		);
 		if (!finishReasons.some((reason) => reason === "stop" || reason === "tool-calls")) {
 			yield* Effect.logWarning("Assistant model stream ended without a usable finish reason", {
