@@ -1,10 +1,10 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
 import type { EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
-import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { EpisodicLifecycleState } from "../../shared/lifecycle-expressions";
 import type { MediaOverviewRows, MediaUnlinkedCreatorsOverview } from "../../shared/media-recipes";
 import { mediaActivityExpandLabel, mediaActivityRunLabel } from "./activity-copy";
@@ -135,7 +135,7 @@ export type MediaEpisodicSchemaDescriptor<
 		readonly companiesRecipe: MediaCreditsRecipe;
 		readonly overviewRecipe: MediaEntityRecipe<Overview>;
 		readonly activityRecipe: MediaEntityRecipe<Activity>;
-		readonly presentationSource: MediaPresentationSource<Presentation>;
+		readonly presentationSource: SelectedRowsSource<Presentation>;
 		readonly summaryRecipe: MediaEntityRecipe<EpisodicSummaryResult<Summary>>;
 		readonly historyRecipe: MediaHistoryRecipe<
 			MediaEpisodicHistoryEvent<Origin & MediaEpisodicEpisodeValue>

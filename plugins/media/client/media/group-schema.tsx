@@ -4,12 +4,11 @@ import type {
 	PluginIdentityReference,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { createRyotQuery } from "@ryot-app/plugin-client-sdk/react";
-import type { Recipe } from "@ryot-app/plugin-client-sdk/ryotql";
+import type { Recipe, SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
-import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type {
 	MediaReviewActivityEvent,
 	MediaReviewActivityResult,
@@ -131,7 +130,7 @@ type GroupSummary = GroupProgress &
 type MediaGroupSchemaRecipes<Summary, Presentation, Member> = {
 	readonly peopleRecipe: MediaCreditsRecipe;
 	readonly companiesRecipe: MediaCreditsRecipe;
-	readonly presentationSource: MediaPresentationSource<Presentation>;
+	readonly presentationSource: SelectedRowsSource<Presentation>;
 	readonly historyRecipe: MediaHistoryRecipe<MediaReviewActivityEvent>;
 	readonly activityRecipe: MediaEntityRecipe<MediaReviewActivityResult>;
 	readonly summaryRecipe: MediaEntityRecipe<GroupSummaryResult<Summary>>;

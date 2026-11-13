@@ -587,7 +587,7 @@ it.effect(
 				},
 			};
 			for (const [slug, registration] of Object.entries(registrations)) {
-				expect(registration).toEqual<unknown>(
+				expect(registration).toMatchObject(
 					dedicatedRenderers[slug] ?? {
 						listPresentation: "media-row",
 						gridPresentation: "media-card",

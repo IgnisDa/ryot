@@ -35,6 +35,7 @@ import {
 	type SelectedQuery,
 	type SelectedRow,
 	selectedRows,
+	selectedRowsSource,
 	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -50,10 +51,7 @@ import {
 	consumptionTotalsSelection,
 	consumptionValue,
 } from "./consumption-recipes";
-import {
-	mediaPresentationImageSelection,
-	selectedPresentationSource,
-} from "./entity-presentations";
+import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -1095,8 +1093,7 @@ export const mediaEpisodicRecipes = <
 		presentationEntity,
 		`${config.alias}PresentationLifecycle`,
 	);
-	const presentationSource = selectedPresentationSource({
-		table: presentationEntity,
+	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: {
 			...entityIdentitySelection(presentationEntity),
 			state: selectedField(presentationLifecycle.state, EpisodicLifecycleStateSchema),

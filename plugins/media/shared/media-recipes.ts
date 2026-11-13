@@ -35,6 +35,8 @@ import {
 	type SelectedQuery,
 	type SelectedRow,
 	selectedRows,
+	type SelectedRowsSource,
+	selectedRowsSource,
 	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
@@ -49,11 +51,7 @@ import { ConsumedOnSelection } from "./consumed-on";
 import { MediaPosition } from "./consumption";
 import type { ConsumptionMeasureUnit } from "./consumption-allocation";
 import { mediaConsumptionTotalsSelection } from "./consumption-recipes";
-import {
-	mediaPresentationImageSelection,
-	type MediaPresentationSource,
-	selectedPresentationSource,
-} from "./entity-presentations";
+import { mediaPresentationImageSelection } from "./entity-presentations";
 import {
 	entityId,
 	entityIdentitySelection,
@@ -982,11 +980,11 @@ export type MediaUnlinkedCreatorsOverview = {
 		undefined | SelectedQuerySuccess<ReturnType<typeof mediaUnlinkedCreatorsQuery>>;
 };
 
+export type MediaPresentationDataOf<Recipes extends { readonly presentationSource: unknown }> =
+	Recipes["presentationSource"] extends SelectedRowsSource<infer Data> ? Data : never;
+
 export type MediaActivityEventOf<Recipes extends { readonly activityRecipe: unknown }> =
 	MediaActivityOf<Recipes> extends { readonly events: readonly (infer Event)[] } ? Event : never;
-
-export type MediaPresentationDataOf<Recipes extends { readonly presentationSource: unknown }> =
-	Recipes["presentationSource"] extends MediaPresentationSource<infer Data> ? Data : never;
 export type MediaActivityOf<Recipes extends { readonly activityRecipe: unknown }> =
 	Recipes["activityRecipe"] extends (...args: never[]) => infer RecipeValue
 		? Recipe.Success<RecipeValue>
@@ -1148,8 +1146,7 @@ export const mediaFlatRecipes = <
 		);
 
 	const presentationEntity = table("entity", "entity");
-	const presentationSource = selectedPresentationSource({
-		table: presentationEntity,
+	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: presentationSelection(presentationEntity, `${config.alias}Presentation`),
 	});
 

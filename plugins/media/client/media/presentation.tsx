@@ -2,7 +2,6 @@ import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
 import {
 	defineEntityPresentation,
 	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
 	PluginLink,
 	useRyotViewport,
@@ -16,10 +15,7 @@ import {
 	type MediaPresentationData,
 	mediaPresentationSource,
 } from "../../shared/entity-presentations";
-import {
-	createMediaPresentationLoader,
-	createMediaPresentationPrepare,
-} from "./entity-presentation";
+import { createMediaPresentationPrepare, mediaEntityPresentation } from "./entity-presentation";
 import { ManagedAssetImage } from "./managed-assets";
 
 export type MediaPresentationViewData = MediaPresentationData & {
@@ -41,13 +37,6 @@ export const prepareMediaPresentations: EntityPresentationPrepare<MediaPresentat
 	const { references } = context;
 	const slug = references[0]?.entitySchemaSlug ?? "";
 	return createMediaPresentationPrepare(mediaPresentationSource(slug))(context);
-};
-
-export const loadMediaPresentations: EntityPresentationLoader<MediaPresentationViewData> = (
-	context,
-) => {
-	const slug = context.references[0]?.entitySchemaSlug ?? "";
-	return createMediaPresentationLoader(mediaPresentationSource(slug))(context);
 };
 
 export function MediaCardContent(props: {
@@ -161,12 +150,12 @@ function MediaFacts(props: { readonly schemaName: string; readonly data: MediaPr
 
 export const mediaCardPresentation = defineEntityPresentation({
 	component: MediaCard,
-	loader: loadMediaPresentations,
 	prepare: prepareMediaPresentations,
+	entity: mediaEntityPresentation("poster", "grid"),
 });
 
 export const mediaRowPresentation = defineEntityPresentation({
 	component: MediaRow,
-	loader: loadMediaPresentations,
 	prepare: prepareMediaPresentations,
+	entity: mediaEntityPresentation("poster", "list"),
 });

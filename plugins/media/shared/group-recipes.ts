@@ -18,12 +18,13 @@ import {
 	reportingTimeZone,
 	selectedField,
 	selectedRows,
+	selectedRowsSource,
 	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
-import { preferredMediaImageExpression, selectedPresentationSource } from "./entity-presentations";
+import { preferredMediaImageExpression } from "./entity-presentations";
 import {
 	entityIdentitySelection,
 	mediaLibrarySelection,
@@ -233,8 +234,7 @@ export const mediaGroupRecipes = <
 
 	const presentationEntity = table("entity", "entity");
 	const presentationCover = membership(presentationEntity, `${config.alias}PresentationCover`);
-	const presentationSource = selectedPresentationSource({
-		table: presentationEntity,
+	const presentationSource = selectedRowsSource(presentationEntity, {
 		selection: {
 			...entityIdentitySelection(presentationEntity),
 			image: selectedField(

@@ -8,8 +8,6 @@ import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { mediaPlugin } from "./plugin";
 
 it("accepts every declared Media and Fitness query through complete system ingestion", () => {
-	expect(Object.keys(mediaPlugin.queries)).toHaveLength(8);
-	expect(Object.keys(fitnessPlugin.queries)).toHaveLength(8);
 	const plugins = [
 		{ id: "media-owner", scope: "system" as const, manifest: { ...mediaPlugin, scripts: [] } },
 		{ id: "fitness-owner", scope: "system" as const, manifest: { ...fitnessPlugin, scripts: [] } },

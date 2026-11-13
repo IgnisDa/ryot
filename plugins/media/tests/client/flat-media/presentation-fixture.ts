@@ -1,6 +1,5 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
-
-import type { MediaPresentationSource } from "../../../shared/entity-presentations";
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 
 const presentationRowDefaults = {
 	image: null,
@@ -17,7 +16,7 @@ const presentationRowDefaults = {
 };
 
 export const decodeFlatPresentation = <Presentation>(
-	recipes: { readonly presentationSource: MediaPresentationSource<Presentation> },
+	recipes: { readonly presentationSource: SelectedRowsSource<Presentation> },
 	row: Record<string, unknown>,
 ) => {
 	const decoded = Result.getOrThrow(

@@ -1,6 +1,6 @@
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { Recipe } from "@ryot-app/plugin-kit/ryotql";
 
-import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 import {
 	episodicEpisodesRecipe,
 	episodicParentCoverageQuery,
@@ -54,6 +54,6 @@ export type EpisodicFixtureEpisode = Recipe.Success<
 	ReturnType<typeof episodicFixtureEpisodesRecipe>
 >["items"][number];
 export type EpisodicFixturePresentationData =
-	typeof episodicFixtureRecipes.presentationSource extends MediaPresentationSource<infer Data>
+	typeof episodicFixtureRecipes.presentationSource extends SelectedRowsSource<infer Data>
 		? Data
 		: never;

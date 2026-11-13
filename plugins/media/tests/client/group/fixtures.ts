@@ -1,8 +1,8 @@
 import { Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import { bindRecipe } from "@ryot-app/ryotql-recipes/test-utils";
 
 import type { MediaEntityRecipe as ImportedMediaEntityRecipe } from "../../../client/media/detail-queries";
-import type { MediaPresentationSource } from "../../../shared/entity-presentations";
 import { creatorActivityData } from "../creator/activity-fixture";
 import { rowsResult } from "../query-result-fixture";
 import { decodeMediaSummaryResult } from "../summary-fixture";
@@ -127,7 +127,7 @@ export const decodeCreditGroupOverview = () =>
 	decodeCreditGroupOverviewOf(creditGroupFixtureRecipes);
 
 export const decodeGroupPresentation = <Presentation>(
-	recipes: { readonly presentationSource: MediaPresentationSource<Presentation> },
+	recipes: { readonly presentationSource: SelectedRowsSource<Presentation> },
 	row: Record<string, unknown>,
 ) => {
 	const decoded = Result.getOrThrow(

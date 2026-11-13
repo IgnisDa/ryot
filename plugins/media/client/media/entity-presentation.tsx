@@ -1,27 +1,19 @@
-import {
-	type EntitySyncState,
-	type ManagedAssetLocator,
-	RyotClientError,
-} from "@ryot-app/plugin-client-sdk";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { EntitySyncState, ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
 	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
-	PluginId,
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
-import {
-	type MediaPresentationSource,
-	mediaPresentationSourceRecipe,
-} from "../../shared/entity-presentations";
+import { mediaEntityPresentationSource } from "../../shared/entity-presentations";
 import { collectManagedAssetLocators, type MediaImageAsset, type MediaImages } from "./image";
 import { MediaLibraryTitle } from "./library-title";
 import { ManagedAssetImage } from "./managed-assets";
@@ -91,7 +83,7 @@ export const mediaArtworkClass = (input: {
 
 export const createMediaPresentationPrepare =
 	<Data extends MediaSavedViewPresentationSubject>(
-		source: MediaPresentationSource<Data>,
+		source: SelectedRowsSource<Data>,
 	): EntityPresentationPrepare<MediaPresentationViewData<Data>> =>
 	({ sources, references }) => {
 		const decoded = Result.all(
@@ -120,31 +112,6 @@ const prepareMediaPresentationRows = <Data extends MediaSavedViewPresentationSub
 	const batchAssets = collectManagedAssetLocators(rows.map(({ image }) => image ?? undefined));
 	return Object.fromEntries(rows.map((row) => [row.id, { ...row, batchAssets }]));
 };
-
-export const createMediaPresentationLoader =
-	<Data extends MediaSavedViewPresentationSubject>(
-		source: MediaPresentationSource<Data>,
-	): EntityPresentationLoader<MediaPresentationViewData<Data>> =>
-	({ client, references }) => {
-		const selected = references[0];
-		if (selected === undefined) {
-			return Effect.succeed({});
-		}
-		if (selected.ownerPluginId === null) {
-			return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
-		}
-		const entitySchemaSlug = references[0]?.entitySchemaSlug ?? "";
-		const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-		return client.data
-			.query(
-				mediaPresentationSourceRecipe(source, {
-					entitySchemaSlug,
-					reference: { kind: "local", pluginId: PluginId.make(selected.ownerPluginId) },
-				}),
-				{ entityIds },
-			)
-			.pipe(Effect.map(prepareMediaPresentationRows));
-	};
 
 export function MediaEntityArtwork(props: {
 	readonly compact: boolean;
@@ -284,11 +251,10 @@ function MediaPresentationTitle(props: {
 
 export const defineMediaPresentationPair = <Data extends MediaSavedViewPresentationSubject>(input: {
 	readonly aspect: MediaArtworkAspect;
-	readonly source: MediaPresentationSource<Data>;
+	readonly source: SelectedRowsSource<Data>;
 	readonly Facts: (props: { readonly data: Data; readonly compact: boolean }) => ReactNode;
 }) => {
 	const { Facts } = input;
-	const loader = createMediaPresentationLoader(input.source);
 	const prepare = createMediaPresentationPrepare(input.source);
 	const Card = ({
 		data,
@@ -321,7 +287,39 @@ export const defineMediaPresentationPair = <Data extends MediaSavedViewPresentat
 		);
 	};
 	return {
-		rowPresentation: defineEntityPresentation({ loader, prepare, component: Row }),
-		cardPresentation: defineEntityPresentation({ loader, prepare, component: Card }),
+		rowPresentation: defineEntityPresentation({
+			prepare,
+			component: Row,
+			entity: mediaEntityPresentation(input.aspect, "list"),
+		}),
+		cardPresentation: defineEntityPresentation({
+			prepare,
+			component: Card,
+			entity: mediaEntityPresentation(input.aspect, "grid"),
+		}),
 	};
+};
+
+type EntityMediaData = MediaPresentationViewData<
+	Result.Result.Success<ReturnType<ReturnType<typeof mediaEntityPresentationSource>["decode"]>>
+>;
+const prepareEntityMedia: EntityPresentationPrepare<EntityMediaData> = (context) =>
+	createMediaPresentationPrepare(
+		mediaEntityPresentationSource(context.references[0]?.entitySchemaSlug ?? ""),
+	)(context);
+export const mediaEntityPresentation = (aspect: MediaArtworkAspect, layout: "grid" | "list") => {
+	const Presentation = ({ data, reference }: EntityPresentationComponentProps<EntityMediaData>) => {
+		const { compact } = useRyotViewport();
+		const Content = layout === "grid" ? MediaCardContent : MediaRowContent;
+		return (
+			<Content
+				data={data}
+				aspect={aspect}
+				compact={compact}
+				entityId={reference.entityId}
+				facts={<>{[data.primary, data.secondary].filter((value) => value !== null).join(" · ")}</>}
+			/>
+		);
+	};
+	return defineEntityPresentation({ component: Presentation, prepare: prepareEntityMedia });
 };

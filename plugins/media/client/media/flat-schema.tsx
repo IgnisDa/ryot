@@ -1,11 +1,11 @@
 import type { EntitySettleReason } from "@ryot-app/plugin-client-sdk";
 import type { EntityRendererProps } from "@ryot-app/plugin-client-sdk/plugin";
+import type { SelectedRowsSource } from "@ryot-app/plugin-client-sdk/ryotql";
 import type { TabOption } from "@ryot-app/plugin-ui-sdk";
 import clsx from "clsx";
 import { createElement, type ReactNode } from "react";
 
 import type { MediaPosition } from "../../shared/consumption";
-import type { MediaPresentationSource } from "../../shared/entity-presentations";
 import type { MediaLifecycleState } from "../../shared/lifecycle-expressions";
 import type {
 	MediaFlatActivityEvent,
@@ -132,7 +132,7 @@ export type MediaFlatSchemaDescriptor<
 		readonly peopleRecipe: MediaCreditsRecipe;
 		readonly companiesRecipe: MediaCreditsRecipe;
 		readonly overviewRecipe: MediaEntityRecipe<Overview>;
-		readonly presentationSource: MediaPresentationSource<Presentation>;
+		readonly presentationSource: SelectedRowsSource<Presentation>;
 		readonly summaryRecipe: MediaEntityRecipe<FlatSummaryResult<Summary>>;
 		readonly historyRecipe: MediaHistoryRecipe<MediaFlatActivityEvent<NoInfer<Extra>>>;
 		readonly activityRecipe: MediaEntityRecipe<MediaFlatActivityResult<NoInfer<Extra>>>;

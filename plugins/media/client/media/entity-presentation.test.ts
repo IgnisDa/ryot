@@ -1,11 +1,11 @@
 import { describe, expect, it } from "bun:test";
 
-import { createRyotClient } from "@ryot-app/plugin-client-sdk";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import type { EntityPresentationSource, EntityReference } from "@ryot-app/plugin-client-sdk/plugin";
-import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 
-import { loadMediaPresentations, prepareMediaPresentations } from "./presentation";
+import { mediaPlugin } from "../../manifest/plugin";
+import { mediaEntityPresentation } from "./entity-presentation";
+import { prepareMediaPresentations } from "./presentation";
 
 const reference = (entityId: string): EntityReference => ({
 	entityId,
@@ -78,31 +78,22 @@ describe("media entity presentation preparation", () => {
 			prepareMediaPresentations({ sources: new Map(), references: [reference("missing")] })._tag,
 		).toBe("Failure");
 	});
+});
 
-	it("loads one query batch when embedded presentation sources are unavailable", () => {
-		const documents: unknown[] = [];
-		const managed = { type: "s3", key: "portrait" } as const;
-		const client = createRyotClient({
-			upload: () => Effect.succeed({}),
-			query: (document) => {
-				documents.push(bindTestRequest(document));
-				return Effect.succeed({
-					data: {
-						presentation: {
-							type: "rows",
-							items: [source("one", managed), source("two", managed)],
-							pageInfo: { limit: 100, hasMore: false, nextCursor: null },
-						},
-					},
-				});
-			},
-		});
-
-		const loaded = Effect.runSync(
-			loadMediaPresentations({ client, references: [reference("one"), reference("two")] }),
+it("prepares public cards for every media schema without private progress or ratings", () => {
+	for (const schemaSlug of Object.keys(mediaPlugin.client.entities)) {
+		const { rating: _rating, ...data } = source("one", { type: "local", key: "poster" });
+		const result = Result.getOrThrow(
+			mediaEntityPresentation("poster", "grid").prepare({
+				sources: new Map([["one", { ...data, schemaSlug }]]),
+				references: [{ ...reference("one"), entitySchemaSlug: schemaSlug }],
+			}),
 		);
-
-		expect(documents).toHaveLength(1);
-		expect(loaded.one?.batchAssets).toEqual([managed]);
-	});
+		expect(result["one"]).toMatchObject({
+			id: "one",
+			schemaSlug,
+			image: { type: "local", key: "poster" },
+		});
+		expect(result["one"]).not.toHaveProperty("rating");
+	}
 });

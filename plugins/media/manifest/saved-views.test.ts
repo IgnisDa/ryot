@@ -16,7 +16,7 @@ const source = (name: string) => {
 };
 
 describe("media saved views", () => {
-	it("keeps table projections first and appends the show presentation fields", () => {
+	it("selects the show table columns independently of card data", () => {
 		const { output } = source("All Shows");
 
 		expect(output.fields.map((selection) => ("key" in selection ? selection.key : null))).toEqual([
@@ -28,18 +28,6 @@ describe("media saved views", () => {
 			"userRating",
 			"ownerPluginId",
 			"entitySchemaSlug",
-			"id",
-			"schemaSlug",
-			"populationStatus",
-			"translationStatus",
-			"relatedPopulationStatus",
-			"state",
-			"publishDate",
-			"airedEpisodes",
-			"watchedEpisodes",
-			"upcomingEpisodes",
-			"inProgressEpisodes",
-			"storedSeasons",
 		]);
 		expect(
 			output.fields.some((selection) => "key" in selection && selection.key === "images"),

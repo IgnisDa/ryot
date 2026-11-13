@@ -52,6 +52,7 @@ import {
 } from "../shared/media-schema-slugs";
 import { MediaUserDataInput, MediaUserDataOutput } from "../shared/media-user-data-operations";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
+import { mediaPresentationDeclaration } from "../shared/presentation-sources";
 import {
 	DEFAULT_UPCOMING_DAYS_AHEAD,
 	MAX_UPCOMING_DAYS_AHEAD,
@@ -535,6 +536,7 @@ const schemaClient = (slug: string) => ({
 		listPresentation: `${slug}-row`,
 		gridPresentation: `${slug}-card`,
 		createRoute: mediaEntityCreateRoute(slug),
+		presentation: mediaPresentationDeclaration(slug),
 	},
 	exports: {
 		[`${slug}-row`]: {
@@ -574,6 +576,7 @@ const creatorClients = ["person", "company"].map((slug) => ({
 		listPresentation: "media-row",
 		gridPresentation: "media-card",
 		createRoute: mediaEntityCreateRoute(slug),
+		presentation: mediaPresentationDeclaration(slug),
 	},
 }));
 

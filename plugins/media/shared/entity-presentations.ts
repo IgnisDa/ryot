@@ -1,31 +1,22 @@
-import { Result, Schema } from "@ryot-app/plugin-kit/effect";
+import { Schema } from "@ryot-app/plugin-kit/effect";
 import {
-	and,
 	ascending,
 	castText,
 	coalesce,
 	column,
 	concat,
 	conditional,
-	defineRecipe,
-	entitySchemaPredicate,
 	eq,
-	inArray,
 	isNotNull,
 	jsonArrayFirst,
 	jsonElement,
 	jsonPath,
 	literal,
-	parameters,
 	selectedField,
-	type SelectedIncludes,
-	type SelectedRow,
 	type SelectedRowsSource,
 	selectedRowsSource,
-	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import {
 	entityIdentitySelection,
@@ -36,55 +27,6 @@ import {
 } from "./entity-selections";
 import { MediaImageAssetSchema } from "./media-image";
 import { averageUserRating } from "./user-rating";
-
-export type MediaPresentationSource<Data> = SelectedRowsSource<Data>;
-
-export const selectedPresentationSource = <
-	const Selection extends SelectedSelection,
-	const Includes extends undefined | SelectedIncludes = undefined,
->(input: {
-	readonly table: Table;
-	readonly selection: Selection;
-	readonly include?: Includes | undefined;
-}): MediaPresentationSource<SelectedRow<Selection, Includes>> => {
-	return selectedRowsSource(input.table, {
-		selection: input.selection,
-		...(input.include === undefined ? {} : { include: input.include }),
-	});
-};
-
-const presentationParameters = parameters({
-	fields: {
-		entityIds: {
-			type: "array",
-			label: "Titles",
-			validation: { required: true },
-			description: "Media entities to present",
-			items: { type: "string", label: "Entity", description: "Media entity ID" },
-		},
-	},
-});
-
-export const mediaPresentationSourceRecipe = <Data>(
-	source: MediaPresentationSource<Data>,
-	input: { readonly entitySchemaSlug: string; readonly reference: PluginIdentityReference },
-) => {
-	const entity = table("entity", "entity");
-	return defineRecipe({
-		parameters: presentationParameters.schema,
-		map: ({ presentation }) => Result.succeed(presentation.items),
-		queries: {
-			presentation: source.query({
-				limit: 100,
-				orderBy: [ascending(column(entity, "id"))],
-				where: and(
-					entitySchemaPredicate(entity, input.entitySchemaSlug, input.reference),
-					inArray(column(entity, "id"), presentationParameters.list("entityIds")),
-				),
-			}),
-		},
-	});
-};
 
 export const preferredMediaImageExpression = (entity: Table, purpose = "cover") => {
 	const images = propertyJson(entity, "images");
@@ -143,15 +85,21 @@ const secondaryExpression = (media: Table, slug: string) => {
 	}
 };
 
+const mediaEntitySelection = (media: Table, slug: string) => ({
+	...entityIdentitySelection(media),
+	...mediaPresentationImageSelection(media),
+	primary: selectedField(primaryExpression(media, slug), Schema.NullOr(Schema.String)),
+	secondary: selectedField(secondaryExpression(media, slug), Schema.NullOr(Schema.String)),
+});
+export const mediaEntityPresentationSource = (slug: string) => {
+	const media = table("entity", "entity");
+	return selectedRowsSource(media, { selection: mediaEntitySelection(media, slug) });
+};
 export const mediaPresentationSource = (slug: string) => {
 	const media = table("entity", "entity");
-	return selectedPresentationSource({
-		table: media,
+	return selectedRowsSource(media, {
 		selection: {
-			...entityIdentitySelection(media),
-			...mediaPresentationImageSelection(media),
-			primary: selectedField(primaryExpression(media, slug), Schema.NullOr(Schema.String)),
-			secondary: selectedField(secondaryExpression(media, slug), Schema.NullOr(Schema.String)),
+			...mediaEntitySelection(media, slug),
 			rating: selectedField(
 				averageUserRating(
 					"presentationReview",
@@ -165,6 +113,4 @@ export const mediaPresentationSource = (slug: string) => {
 };
 
 export type MediaPresentationData =
-	ReturnType<typeof mediaPresentationSource> extends MediaPresentationSource<infer Data>
-		? Data
-		: never;
+	ReturnType<typeof mediaPresentationSource> extends SelectedRowsSource<infer Data> ? Data : never;
