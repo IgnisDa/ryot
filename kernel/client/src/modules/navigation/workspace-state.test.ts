@@ -24,6 +24,7 @@ const workspace = (
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
+	assistantStarters: null,
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	...overrides,

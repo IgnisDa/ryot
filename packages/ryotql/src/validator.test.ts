@@ -271,6 +271,7 @@ it("exposes only approved application-table fields", () => {
 			"clientEntities",
 			"activeRevisionId",
 			"clientApiVersion",
+			"assistantStarters",
 			"userSettingsSchema",
 			"clientCollectionPages",
 			"environmentConfigRevisionId",

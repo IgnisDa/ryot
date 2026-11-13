@@ -42,6 +42,7 @@ const entry = {
 	homeSavedView: null,
 	clientEntities: null,
 	pluginId: "plugin-1",
+	assistantStarters: null,
 	packageId: "test/fixture",
 	contentHash: "source-hash",
 	installationId: "installation-1",

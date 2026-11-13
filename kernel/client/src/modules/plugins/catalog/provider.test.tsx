@@ -36,6 +36,7 @@ const catalog: PluginClientCatalog = [
 		clientApiVersion: 1,
 		homeSavedView: null,
 		clientEntities: null,
+		assistantStarters: null,
 		contentHash: "source-hash",
 		installationId: "installation-1",
 		pluginId: PluginId.make("plugin-1"),

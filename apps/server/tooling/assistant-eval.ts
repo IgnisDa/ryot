@@ -226,21 +226,18 @@ const program = Effect.gen(function* () {
 	const runTask = Effect.fn("assistantEval.runTask")(function* (task: EvalTask) {
 		const started = yield* Clock.currentTimeMillis;
 		const { conversationId } = yield* call((api) =>
-			api.assistant.createConversation({ payload: { title: `Eval: ${task.name}` } }),
-		);
-		yield* call((api) =>
-			api.assistant.submit({
-				payload: { conversationId, text: task.prompt, requestId: crypto.randomUUID() },
-			}),
+			api.assistant.submit({ payload: { text: task.prompt, requestId: crypto.randomUUID() } }),
 		);
 		let approvals = 0;
 		const polled: null | AssistantConversationDetail = yield* recipe(assistantConversationRecipe, {
 			conversationId,
 		}).pipe(
 			Effect.flatMap((detail) => {
-				const pending = detail.calls.items.find(
-					(item) => item.call.requiresApproval && item.decision === null && item.result === null,
-				);
+				const pending = detail.turns.items
+					.flatMap((turn) => turn.calls.items)
+					.find(
+						(item) => item.call.requiresApproval && item.decision === null && item.result === null,
+					);
 				if (pending !== undefined) {
 					approvals += 1;
 					return call((api) =>
@@ -270,7 +267,7 @@ const program = Effect.gen(function* () {
 		}
 		const settled = polled;
 		const turn = settled.turns.items[0];
-		const calls = settled.calls.items;
+		const calls = turn?.calls.items ?? [];
 		const used = new Set(
 			calls.flatMap(({ call: item }) => (item.kind === "tool" ? [item.tool] : [])),
 		);
@@ -299,7 +296,7 @@ const program = Effect.gen(function* () {
 				misses.push(`page ${slug} ${actual}`);
 			}
 		}
-		const answer = settled.messages.items
+		const answer = (turn?.messages.items ?? [])
 			.filter((message) => message.role === "assistant")
 			.flatMap((message) =>
 				message.parts.flatMap((part) => (part.kind === "text" ? [part.text] : [])),

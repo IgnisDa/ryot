@@ -483,6 +483,7 @@ const plugin: TableBinding<"plugin"> = {
 		configSchema: pluginActiveRevisionField("revision.client_config_schema"),
 		clientEntities: pluginActiveRevisionField("revision.client -> 'entities'"),
 		userSettingsSchema: pluginActiveRevisionField("revision.user_settings_schema"),
+		assistantStarters: pluginActiveRevisionField("revision.client -> 'assistantStarters'"),
 		clientCollectionPages: pluginActiveRevisionField("revision.client -> 'collectionPages'"),
 		scope: {
 			resolve: ({ sqlAlias }) =>
@@ -776,6 +777,18 @@ const assistantConversation: TableBinding<"assistantConversation"> = {
 		revision: column("revision"),
 		createdAt: column("created_at"),
 		updatedAt: column("updated_at"),
+		status: {
+			resolve: ({ sqlAlias }) =>
+				sql.raw(`coalesce((select case latest.status
+					when 'queued' then 'working'
+					when 'running' then 'working'
+					when 'awaiting-approval' then 'awaiting-approval'
+					when 'failed' then 'failed'
+					else 'idle' end
+				from assistant_turn latest
+				where latest.conversation_id = ${sqlAlias}.id and latest.user_id = ${sqlAlias}.user_id
+				order by latest.created_at desc, latest.id desc limit 1), 'idle')`),
+		},
 	},
 };
 const assistantTurn: TableBinding<"assistantTurn"> = {
@@ -783,6 +796,7 @@ const assistantTurn: TableBinding<"assistantTurn"> = {
 	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
 	fields: {
 		id: column("id"),
+		text: column("text"),
 		round: column("round"),
 		status: column("status"),
 		failure: column("failure"),

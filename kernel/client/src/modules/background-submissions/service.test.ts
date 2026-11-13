@@ -52,6 +52,7 @@ const catalogEntry = (target: BackgroundSubmissionTarget) =>
 		clientApiVersion: 1,
 		homeSavedView: null,
 		clientEntities: null,
+		assistantStarters: null,
 		name: target.pluginName,
 		pluginId: target.pluginId,
 		packageId: target.packageId,

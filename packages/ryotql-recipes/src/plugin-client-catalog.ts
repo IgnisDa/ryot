@@ -1,4 +1,7 @@
-import { PluginClientEntities } from "@ryot-app/contract/modules/plugins/manifest";
+import {
+	PluginAssistantStarters,
+	PluginClientEntities,
+} from "@ryot-app/contract/modules/plugins/manifest";
 import {
 	PluginPackageReference,
 	SavedViewReference,
@@ -60,6 +63,10 @@ export const pluginClientCatalogRecipe = (() => {
 					homeSavedView: selectedField(
 						column(installation, "homeSavedView"),
 						Schema.NullOr(SavedViewReference),
+					),
+					assistantStarters: selectedField(
+						column(plugin, "assistantStarters"),
+						Schema.NullOr(PluginAssistantStarters),
 					),
 				},
 			}),

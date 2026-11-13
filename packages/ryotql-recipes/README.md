@@ -124,10 +124,13 @@ Owner publication recipes select `publication.definition` using `PublicationDefi
 encoded `definition.arguments.source`; user pages are excluded. The backend catalog must expose
 the persisted `definition` JSON column.
 
-`assistantConversationsRecipe` lists conversation metadata ordered by latest update, with stable ID
-ordering. `assistantConversationRecipe` takes `{ conversationId }` by supplying that argument
-to the static recipe; its named results are `conversation`, `messages`, `turns` and `calls`. Each rows
-result has independent cursor pagination (maximum 100), and messages sort by their persisted sequence.
-Consumers must paginate all history needed for display. Call rows carry the current approval revision,
-immutable descriptor/input pin and bounded result. Exported decoded types are
+`assistantConversationsRecipe` lists conversation metadata and derived `status` (`idle`, `working`,
+`awaiting-approval` or `failed`, from the latest turn) ordered by latest update, with stable ID
+ordering. `assistantAwaitingApprovalRecipe` lists conversations waiting for a decision.
+`assistantConversationRecipe` takes `{ conversationId }`; its named results are `conversation` and
+`turns`. Turns page newest first (ten per page) and include up to 100 of their messages and calls each.
+Call rows carry the current approval revision, immutable descriptor/input pin and bounded result.
+`projectAssistantTurn` turns one turn row into the ordered transcript entries clients render: replies,
+grouped steps, approvals placed after the step that requested them, and page previews. A turn whose
+messages or calls exceed one include page is marked `partial`. Exported decoded types are
 `AssistantConversationList` and `AssistantConversationDetail`.

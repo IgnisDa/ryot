@@ -18,6 +18,7 @@ const entry = {
 	packageId: "ryot/other",
 	contentHash: "source-hash",
 	installationId: "installation-1",
+	assistantStarters: ["Summarize my items"],
 	clientEntities: { item: { createRoute: "/items/new" } },
 };
 
