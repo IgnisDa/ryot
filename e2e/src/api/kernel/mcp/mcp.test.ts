@@ -4,8 +4,8 @@ import {
 	getOAuthEndpoint,
 	getOAuthIssuer,
 	OAUTH_CONSENT_DETAILS_PATH,
-	OAUTH_MCP_SCOPES,
 	OAUTH_TOKEN_PATH,
+	OAUTH_USERINFO_PATH,
 	OAuthConsentDetails,
 	OAuthConsentDetailsRequest,
 	OAuthTokenResponse,
@@ -160,10 +160,10 @@ describe("MCP Streamable HTTP", () => {
 				const registered = yield* postJson(`${getApiUrl()}/auth/oauth2/register`, {
 					response_types: ["code"],
 					client_name: "E2E MCP Client",
-					scope: OAUTH_MCP_SCOPES.join(" "),
 					token_endpoint_auth_method: "none",
 					redirect_uris: ["https://client.example/callback"],
 					grant_types: ["authorization_code", "refresh_token"],
+					scope: "openid email profile offline_access ryot:api",
 				});
 				expect(registered.status).toBe(201);
 				const { client_id } = yield* Schema.decodeUnknownEffect(Registration)(
@@ -173,7 +173,7 @@ describe("MCP Streamable HTTP", () => {
 				authorize.searchParams.set("client_id", client_id);
 				authorize.searchParams.set("redirect_uri", "https://client.example/callback");
 				authorize.searchParams.set("resource", getMcpOAuthResource(pending.frontendOrigin));
-				authorize.searchParams.set("scope", OAUTH_MCP_SCOPES.join(" "));
+				authorize.searchParams.set("scope", "openid email profile offline_access ryot:api");
 				const begin = () =>
 					webRequest(authorize, { redirect: "manual", headers: { cookie: owner.sessionCookie } });
 				const response = yield* begin();
@@ -198,9 +198,9 @@ describe("MCP Streamable HTTP", () => {
 					yield* Effect.promise(() => detailsResponse.json()),
 				);
 				expect(details).toEqual({
-					scope: "ryot:api",
 					clientName: "E2E MCP Client",
 					redirectOrigin: "https://client.example",
+					scopes: ["openid", "email", "profile", "offline_access", "ryot:api"],
 				});
 				const decision = yield* postJson(
 					`${getApiUrl()}/auth/oauth2/consent`,
@@ -234,6 +234,21 @@ describe("MCP Streamable HTTP", () => {
 				const tokens = yield* Schema.decodeUnknownEffect(OAuthTokenResponse)(
 					yield* Effect.promise(() => exchanged.json()),
 				);
+				expect(new Set(tokens.scope.split(" "))).toEqual(
+					new Set(["email", "openid", "profile", "ryot:api", "offline_access"]),
+				);
+				expect(tokens.id_token).toBeString();
+				const info = yield* webRequest(
+					getOAuthEndpoint(pending.serverOrigin, OAUTH_USERINFO_PATH),
+					{ headers: { Authorization: `Bearer ${tokens.access_token}` } },
+				);
+				expect(info.status).toBe(200);
+				expect(yield* Effect.promise(() => info.json())).toMatchObject({
+					sub: owner.userId,
+					email: owner.email,
+					email_verified: false,
+				});
+
 				const headers = { Authorization: `Bearer ${tokens.access_token}` };
 				yield* describeData(headers, yield* connect(headers));
 				const refreshedResponse = yield* webRequest(
