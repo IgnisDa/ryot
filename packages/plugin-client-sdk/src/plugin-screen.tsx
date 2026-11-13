@@ -1,17 +1,31 @@
 import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
-import { ScreenBarButton, ScreenFrame, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
+import {
+	Button,
+	MenuButton,
+	type MenuItem,
+	ScreenBarButton,
+	ScreenFrame,
+} from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Match } from "effect";
-import type { ComponentProps, ReactNode, Ref } from "react";
+import { type ComponentProps, type ReactNode, type Ref, useRef } from "react";
 import { createPortal } from "react-dom";
 
-import { filtersLabel } from "./filters";
+import { activeFiltersPhrase, filtersLabel, ViewFiltersSheet } from "./filters";
 import {
 	usePageShortcut,
 	usePluginChrome,
 	usePluginScreenSurface,
 	usePluginTitle,
 } from "./navigation/routing";
+
+type ViewOptions = {
+	readonly open: boolean;
+	readonly content: ReactNode;
+	readonly activeCount: number;
+	readonly compactTitle: string;
+	readonly onOpenChange: (open: boolean) => void;
+};
 
 type PluginScreenFrameProps = {
 	readonly meta?: ReactNode;
@@ -23,12 +37,13 @@ type PluginScreenFrameProps = {
 	readonly titleIcon?: ReactNode;
 	readonly searchRow?: ReactNode;
 	readonly barActions?: ReactNode;
+	readonly primaryAction?: ReactNode;
+	readonly viewOptions?: ViewOptions;
 	readonly floatingAction?: ReactNode;
 	readonly hideTitle?: boolean | undefined;
+	readonly menuActions?: ReadonlyArray<MenuItem>;
 	readonly hero?: ComponentProps<typeof ScreenFrame>["hero"];
 };
-
-const control = "text-text hover:bg-surface-2";
 
 export function PluginScreenFrame({
 	meta,
@@ -42,22 +57,22 @@ export function PluginScreenFrame({
 	searchRow,
 	titleIcon,
 	barActions,
+	menuActions,
+	viewOptions,
+	primaryAction,
 	floatingAction,
 }: PluginScreenFrameProps) {
 	const chrome = usePluginChrome();
+	const optionsTrigger = useRef<HTMLButtonElement>(null);
 	const { floatingRoot, scrollRootRef } = usePluginScreenSurface();
 	const leading = Match.value(chrome.leading).pipe(
 		Match.when("back", () => (
-			<ScreenBarButton className={control} onClick={chrome.back} label={backLabel ?? "Go back"}>
+			<ScreenBarButton onClick={chrome.back} label={backLabel ?? "Go back"}>
 				<AppIcon size={22} name="chevron-left" />
 			</ScreenBarButton>
 		)),
 		Match.when("drawer", () => (
-			<ScreenBarButton
-				className={control}
-				onClick={chrome.openDrawer}
-				label={menuLabel ?? "Open navigation"}
-			>
+			<ScreenBarButton onClick={chrome.openDrawer} label={menuLabel ?? "Open navigation"}>
 				<AppIcon size={22} name="menu" />
 			</ScreenBarButton>
 		)),
@@ -65,6 +80,31 @@ export function PluginScreenFrame({
 		Match.exhaustive,
 	);
 	usePluginTitle(title);
+	const openOptions = () => viewOptions?.onOpenChange(true);
+	const moreActions =
+		menuActions === undefined || menuActions.length === 0
+			? undefined
+			: (trigger: "bar" | "toolbar") => (
+					<MenuButton trigger={trigger} items={menuActions} label="More actions" />
+				);
+	const toolbar =
+		actions === undefined &&
+		viewOptions === undefined &&
+		moreActions === undefined &&
+		primaryAction === undefined ? undefined : (
+			<div className="flex flex-wrap items-center justify-end gap-2">
+				{actions}
+				{viewOptions && (
+					<ViewFiltersButton
+						ref={optionsTrigger}
+						onClick={openOptions}
+						activeCount={viewOptions.activeCount}
+					/>
+				)}
+				{moreActions?.("toolbar")}
+				{primaryAction}
+			</div>
+		);
 
 	return (
 		<>
@@ -72,18 +112,42 @@ export function PluginScreenFrame({
 				meta={meta}
 				hero={hero}
 				leading={leading}
-				actions={actions}
+				actions={toolbar}
 				title={title ?? ""}
 				hideTitle={hideTitle}
 				searchRow={searchRow}
 				titleIcon={titleIcon}
-				barActions={barActions}
 				compact={chrome.compact}
 				scrollRootRef={scrollRootRef}
 				safeAreaTop={chrome.safeAreaTop}
+				barActions={
+					<>
+						{barActions}
+						{viewOptions && (
+							<ScreenBarButton
+								ref={optionsTrigger}
+								onClick={openOptions}
+								label={`${viewOptions.compactTitle}, ${activeFiltersPhrase(viewOptions.activeCount)}`}
+							>
+								<AppIcon size={22} name="sliders-horizontal" />
+							</ScreenBarButton>
+						)}
+						{moreActions?.("bar")}
+					</>
+				}
 			>
 				<main>{children}</main>
 			</ScreenFrame>
+			{viewOptions?.open && (
+				<ViewFiltersSheet
+					compact={chrome.compact}
+					triggerRef={optionsTrigger}
+					onClose={() => viewOptions.onOpenChange(false)}
+					title={chrome.compact ? viewOptions.compactTitle : "Filters"}
+				>
+					{viewOptions.content}
+				</ViewFiltersSheet>
+			)}
 			{floatingAction !== undefined &&
 				floatingRoot !== null &&
 				createPortal(floatingAction, floatingRoot)}
@@ -121,29 +185,27 @@ export const viewResultLabel = (input: {
 	return `${input.loaded.toLocaleString()}${input.hasMore ? "+" : ""} ${input.loaded === 1 && !input.hasMore ? one : other}`;
 };
 
-export function ViewFiltersButton({
+function ViewFiltersButton({
 	ref,
 	onClick,
 	activeCount,
 }: {
 	readonly onClick: () => void;
 	readonly activeCount: number;
-	readonly ref?: undefined | Ref<HTMLButtonElement>;
+	readonly ref: Ref<HTMLButtonElement>;
 }) {
 	usePageShortcut("F", onClick);
 
 	return (
-		<button
+		<Button
 			ref={ref}
-			type="button"
+			shortcut="F"
 			onClick={onClick}
-			aria-keyshortcuts="F"
+			variant="secondary"
 			aria-label={filtersLabel(activeCount)}
-			className="flex h-8.5 items-center gap-2 rounded-md border border-border-strong bg-bg px-3"
 		>
 			<AppIcon size={15} name="sliders-horizontal" className="text-text-muted" />
-			<span className="text-[13px] text-text">Filters</span>
-			<ShortcutHint shortcut="F" />
-		</button>
+			Filters
+		</Button>
 	);
 }

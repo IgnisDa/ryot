@@ -4,11 +4,11 @@ import type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views
 import {
 	Button,
 	type ItemSelection,
+	type MenuItem,
 	ScreenBarButton,
 	SearchField,
 	SegmentedControl,
 	Select,
-	ShortcutHint,
 	useValueChange,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
@@ -23,19 +23,11 @@ import type { Effect } from "effect";
 import { type ReactNode, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
 
 import type { RyotClient } from "../client/client";
-import {
-	activeFiltersPhrase,
-	FilterChips,
-	FilterRules,
-	type ViewFilter,
-	type ViewFilterField,
-	ViewFiltersSheet,
-} from "../filters";
+import { FilterChips, FilterRules, type ViewFilter, type ViewFilterField } from "../filters";
 import { usePageShortcut, usePluginLocation, useRyotViewport } from "../navigation/routing";
 import {
 	normalizeViewSearch,
 	PluginScreenFrame,
-	ViewFiltersButton,
 	viewLayoutOptions,
 	viewResultLabel,
 } from "../plugin-screen";
@@ -80,8 +72,6 @@ export type BrowserResultsInput<Page extends BrowserPage> = {
 	readonly items: readonly Page["items"][number][];
 };
 
-type HeaderAction = { readonly icon: string; readonly label: string; readonly run: () => void };
-
 type BrowserItem = {
 	readonly entityId: string;
 	readonly name: null | string;
@@ -118,8 +108,8 @@ type EntityBrowserControllerProps<Page extends BrowserPage, Failure extends Erro
 	readonly filterFields: readonly ViewFilterField[];
 	readonly sortChoices: readonly BrowseSortChoice[];
 	readonly selection?: undefined | BrowserSelectionSource;
+	readonly menuActions?: undefined | ReadonlyArray<MenuItem>;
 	readonly query: RyotQuery<BrowserQueryInput, Page, Failure>;
-	readonly headerActions?: undefined | readonly HeaderAction[];
 	readonly renderSummary?: undefined | ((loaded: number) => ReactNode);
 	readonly renderResults: (input: BrowserResultsInput<Page>) => ReactNode;
 	readonly noun?: undefined | { readonly one: string; readonly other: string };
@@ -160,13 +150,13 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	knownTotal,
 	sortChoices,
 	identityKey,
+	menuActions,
 	errorMessage,
 	emptyMessage,
 	filterFields,
 	renderResults,
 	renderSummary,
 	defaultLayout,
-	headerActions,
 	canSearch = true,
 	layouts: availableLayouts,
 	defaultSortLabel = "Default order",
@@ -216,8 +206,6 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	const [optionsOpen, setOptionsOpen] = useState(false);
 	const searchInput = useRef<HTMLInputElement>(null);
 	const searchTrigger = useRef<HTMLButtonElement>(null);
-	const optionsTrigger = useRef<HTMLButtonElement>(null);
-	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const identity = browserIdentity(identityKey, searchText, sortChoice, filter);
 	const result = useRyotInfiniteQuery(
 		query,
@@ -391,10 +379,10 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	const itemSelection: undefined | ItemSelection = selectionActive
 		? { toggle: selecting.toggle, isSelected: selecting.isSelected }
 		: undefined;
-	const screenActions: readonly HeaderAction[] = [
-		...(headerActions ?? []),
+	const actions: ReadonlyArray<MenuItem> = [
+		...(menuActions ?? []),
 		...(selection !== undefined && hasItems && !selectionActive && !staleCollection
-			? [{ label: "Select", icon: "circle-check", run: selecting.start }]
+			? [{ key: "select", label: "Select", icon: "circle-check", onSelect: selecting.start }]
 			: []),
 	];
 
@@ -474,234 +462,194 @@ export function EntityBrowserController<Page extends BrowserPage, Failure extend
 	}
 
 	return (
-		<>
-			<PluginScreenFrame
-				title={name}
-				floatingAction={floatingAction}
-				titleIcon={<AppIcon size={20} name={icon} className="shrink-0 text-text-muted" />}
-				searchRow={
-					searchOpen && canSearch ? (
-						<>
-							<ScreenBarButton label="Exit search" onClick={closeSearch} className="text-text">
-								<AppIcon size={22} name="chevron-left" />
-							</ScreenBarButton>
-							{searchField("h-9.5 flex-1", true)}
-						</>
-					) : undefined
-				}
-				barActions={
+		<PluginScreenFrame
+			title={name}
+			menuActions={actions}
+			floatingAction={floatingAction}
+			titleIcon={<AppIcon size={20} name={icon} className="shrink-0 text-text-muted" />}
+			primaryAction={
+				add && (
+					<Button shortcut="A" onClick={() => add.open()}>
+						<AppIcon size={15} name="plus" />
+						{add.label}
+					</Button>
+				)
+			}
+			actions={
+				<>
+					{canSearch && searchField("h-9 w-60")}
+					<SegmentedControl
+						value={layout}
+						options={layouts}
+						onChange={setLayout}
+						label={`${name} layout`}
+					/>
+				</>
+			}
+			barActions={
+				canSearch && (
+					<ScreenBarButton
+						ref={searchTrigger}
+						label="Search this view"
+						onClick={() => setSearchOpen(true)}
+					>
+						<AppIcon size={22} name="search" />
+					</ScreenBarButton>
+				)
+			}
+			searchRow={
+				searchOpen && canSearch ? (
 					<>
-						{screenActions.map((action) => (
-							<ScreenBarButton
-								key={action.label}
-								label={action.label}
-								onClick={action.run}
-								className="text-text-muted"
-							>
-								<AppIcon size={22} name={action.icon} />
-							</ScreenBarButton>
-						))}
-						{canSearch && (
-							<ScreenBarButton
-								ref={searchTrigger}
-								label="Search this view"
-								className="text-text-muted"
-								onClick={() => setSearchOpen(true)}
-							>
-								<AppIcon size={22} name="search" />
-							</ScreenBarButton>
-						)}
-						<ScreenBarButton
-							ref={optionsTrigger}
-							className="text-text-muted"
-							onClick={() => setOptionsOpen(true)}
-							label={`View options, ${activeFiltersPhrase(filterCount)}`}
-						>
-							<AppIcon size={22} name="sliders-horizontal" />
+						<ScreenBarButton label="Exit search" onClick={closeSearch}>
+							<AppIcon size={22} name="chevron-left" />
 						</ScreenBarButton>
+						{searchField("h-9.5 flex-1", true)}
 					</>
-				}
-				meta={
-					<>
-						<div
-							role="status"
-							className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
-						>
-							<span>
-								{viewResultLabel({
-									noun,
-									hasMore,
-									total: knownMatching,
-									loaded: current.items.length,
-								})}
-							</span>
-							{hasMore && !unfiltered && !showCount && count && (
-								<Button variant="link" onClick={() => setShowCount(true)}>
-									Count all
-								</Button>
-							)}
-							{hasMore && !unfiltered && showCount && count && (
-								<BrowserCount
-									count={count}
-									key={identity}
-									onTotal={setTotal}
-									input={{ searchText, filter: filter ?? null }}
-								/>
-							)}
-							<SyncCountLine populating={summary.populating} translating={summary.translating} />
-							{transitioning && <span>Updating...</span>}
-						</div>
-						<FilterChips
-							filter={filter}
-							onChange={setFilter}
-							fields={filterFields}
-							onOpen={() => setOptionsOpen(true)}
-						/>
-					</>
-				}
-				actions={
-					<div className="flex flex-wrap items-center justify-end gap-2.5">
-						{canSearch && searchField("h-8.5 w-60")}
-						<SegmentedControl
-							value={layout}
-							options={layouts}
-							onChange={setLayout}
-							label={`${name} layout`}
-						/>
-						<ViewFiltersButton
-							ref={filtersTrigger}
-							activeCount={filterCount}
-							onClick={() => setOptionsOpen(true)}
-						/>
-						{screenActions.map((action) => (
-							<Button key={action.label} variant="secondary" onClick={action.run}>
-								<AppIcon size={15} name={action.icon} />
-								{action.label}
+				) : undefined
+			}
+			meta={
+				<>
+					<div
+						role="status"
+						className="flex h-10 items-center gap-2 text-xs text-text-muted @2xl:text-sm"
+					>
+						<span>
+							{viewResultLabel({
+								noun,
+								hasMore,
+								total: knownMatching,
+								loaded: current.items.length,
+							})}
+						</span>
+						{hasMore && !unfiltered && !showCount && count && (
+							<Button variant="link" onClick={() => setShowCount(true)}>
+								Count all
 							</Button>
-						))}
-						{add && (
-							<button
-								type="button"
-								aria-keyshortcuts="A"
-								onClick={() => add.open()}
-								className="flex h-8.5 items-center gap-2 rounded-md bg-accent px-3.5"
-							>
-								<AppIcon size={15} name="plus" className="text-accent-ink" />
-								<span className="text-[13px] font-semibold text-accent-ink">{add.label}</span>
-								<ShortcutHint onAccent shortcut="A" className="ml-1" />
-							</button>
 						)}
+						{hasMore && !unfiltered && showCount && count && (
+							<BrowserCount
+								count={count}
+								key={identity}
+								onTotal={setTotal}
+								input={{ searchText, filter: filter ?? null }}
+							/>
+						)}
+						<SyncCountLine populating={summary.populating} translating={summary.translating} />
+						{transitioning && <span>Updating...</span>}
 					</div>
-				}
-			>
-				<section
-					aria-busy={result.isFetching}
-					className="@container grid w-full content-start gap-5"
-				>
-					{renderSummary?.(current.items.length)}
-					{content}
-					{!initial && result.isError && (
-						<div
-							role="alert"
-							className="flex items-center justify-center gap-3 text-sm text-danger"
-						>
-							<span>
-								{staleCollection
-									? "This collection changed. Reload to continue."
-									: "More results could not be loaded."}
-							</span>
-							<Button
-								variant="ghost"
-								className="text-sm"
-								onClick={staleCollection ? result.refetch : result.retry}
-							>
-								{staleCollection ? "Reload collection" : "Retry"}
-							</Button>
-						</div>
-					)}
-					{hasItems && !result.isError && (
-						<div className="flex w-full flex-col items-center gap-2.5 py-2 @2xl:py-7">
-							<BrowserPagination
-								name={name}
-								disabled={result.isFetching}
-								hasMore={result.hasNextPage}
-								loaded={current.items.length}
-								onLoadMore={result.fetchNextPage}
-								isFetchingNextPage={result.isFetchingNextPage}
-							/>
-						</div>
-					)}
-				</section>
-			</PluginScreenFrame>
-			{optionsOpen && (
-				<ViewFiltersSheet
-					compact={compact}
-					onClose={() => setOptionsOpen(false)}
-					title={compact ? "View options" : "Filters"}
-					triggerRef={compact ? optionsTrigger : filtersTrigger}
-				>
-					{compact && (
-						<div className="mt-4 flex items-center justify-between gap-3">
-							<span className="text-[15px] text-text">View as</span>
-							<SegmentedControl
-								value={layout}
-								options={layouts}
-								label={`${name} layout`}
-								onChange={(next) => {
-									setLayout(next);
-									setOptionsOpen(false);
-								}}
-							/>
-						</div>
-					)}
-					{sortChoices.length > 0 && (
-						<div className="mt-4 flex flex-wrap items-center gap-2">
-							<div className="min-w-0 flex-1 basis-48">
-								<Select
-									label="Sort by"
-									value={selectedSort?.key ?? ""}
-									checkIcon={<AppIcon size={14} name="check" />}
-									chevronIcon={<AppIcon size={14} name="chevron-down" />}
-									choices={[
-										{ value: "", label: defaultSortLabel },
-										...sortChoices.map(({ key, label }) => ({ label, value: key })),
-									]}
-									onChange={(key) => {
-										if (key === (selectedSort?.key ?? "")) {
-											return;
-										}
-										const choice = sortChoices.find((candidate) => candidate.key === key);
-										setQueryControls({
-											sort: choice ? `${choice.key}-${choice.defaultDirection}` : "",
-										});
+					<FilterChips
+						filter={filter}
+						onChange={setFilter}
+						fields={filterFields}
+						onOpen={() => setOptionsOpen(true)}
+					/>
+				</>
+			}
+			viewOptions={{
+				open: optionsOpen,
+				activeCount: filterCount,
+				compactTitle: "View options",
+				onOpenChange: setOptionsOpen,
+				content: (
+					<>
+						{compact && (
+							<div className="mt-4 flex items-center justify-between gap-3">
+								<span className="text-[15px] text-text">View as</span>
+								<SegmentedControl
+									value={layout}
+									options={layouts}
+									label={`${name} layout`}
+									onChange={(next) => {
+										setLayout(next);
+										setOptionsOpen(false);
 									}}
 								/>
 							</div>
-							<Button
-								type="button"
-								variant="outline"
-								disabled={selectedSort === undefined}
-								aria-label={`Sort direction: ${directionLabel}`}
-								onClick={() => {
-									if (selectedSort) {
-										setQueryControls({ sort: `${selectedSort.key}-${ascending ? "desc" : "asc"}` });
-									}
-								}}
-							>
-								<AppIcon size={14} name={selectedSort ? directionIcon : "arrow-up-down"} />
-								{directionLabel}
-							</Button>
-						</div>
-					)}
-					<FilterRules
-						filter={filter}
-						compact={compact}
-						onChange={setFilter}
-						fields={filterFields}
-					/>
-				</ViewFiltersSheet>
-			)}
-		</>
+						)}
+						{sortChoices.length > 0 && (
+							<div className="mt-4 flex flex-wrap items-center gap-2">
+								<div className="min-w-0 flex-1 basis-48">
+									<Select
+										label="Sort by"
+										value={selectedSort?.key ?? ""}
+										checkIcon={<AppIcon size={14} name="check" />}
+										chevronIcon={<AppIcon size={14} name="chevron-down" />}
+										choices={[
+											{ value: "", label: defaultSortLabel },
+											...sortChoices.map(({ key, label }) => ({ label, value: key })),
+										]}
+										onChange={(key) => {
+											if (key === (selectedSort?.key ?? "")) {
+												return;
+											}
+											const choice = sortChoices.find((candidate) => candidate.key === key);
+											setQueryControls({
+												sort: choice ? `${choice.key}-${choice.defaultDirection}` : "",
+											});
+										}}
+									/>
+								</div>
+								<Button
+									type="button"
+									variant="outline"
+									disabled={selectedSort === undefined}
+									aria-label={`Sort direction: ${directionLabel}`}
+									onClick={() => {
+										if (selectedSort) {
+											setQueryControls({
+												sort: `${selectedSort.key}-${ascending ? "desc" : "asc"}`,
+											});
+										}
+									}}
+								>
+									<AppIcon size={14} name={selectedSort ? directionIcon : "arrow-up-down"} />
+									{directionLabel}
+								</Button>
+							</div>
+						)}
+						<FilterRules
+							filter={filter}
+							compact={compact}
+							onChange={setFilter}
+							fields={filterFields}
+						/>
+					</>
+				),
+			}}
+		>
+			<section aria-busy={result.isFetching} className="@container grid w-full content-start gap-5">
+				{renderSummary?.(current.items.length)}
+				{content}
+				{!initial && result.isError && (
+					<div role="alert" className="flex items-center justify-center gap-3 text-sm text-danger">
+						<span>
+							{staleCollection
+								? "This collection changed. Reload to continue."
+								: "More results could not be loaded."}
+						</span>
+						<Button
+							variant="ghost"
+							className="text-sm"
+							onClick={staleCollection ? result.refetch : result.retry}
+						>
+							{staleCollection ? "Reload collection" : "Retry"}
+						</Button>
+					</div>
+				)}
+				{hasItems && !result.isError && (
+					<div className="flex w-full flex-col items-center gap-2.5 py-2 @2xl:py-7">
+						<BrowserPagination
+							name={name}
+							disabled={result.isFetching}
+							hasMore={result.hasNextPage}
+							loaded={current.items.length}
+							onLoadMore={result.fetchNextPage}
+							isFetchingNextPage={result.isFetchingNextPage}
+						/>
+					</div>
+				)}
+			</section>
+		</PluginScreenFrame>
 	);
 }
 

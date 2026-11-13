@@ -40,6 +40,12 @@ export const waitForSearchParam = (page: Playwright.Page, value: null | string) 
 
 export const pluginFrame = (page: Playwright.Page) => page.locator("iframe:visible").contentFrame();
 
+export const chooseMenuItem = (container: Playwright.FrameLocator, trigger: string, item: string) =>
+	Effect.gen(function* () {
+		yield* container.getByRole("button", { exact: true, name: trigger }).click();
+		yield* container.getByRole("menuitem", { name: item, exact: true }).click();
+	});
+
 export const activePluginIframe = (page: Playwright.Page) =>
 	page.locator('main > div:not([aria-hidden="true"]) iframe');
 

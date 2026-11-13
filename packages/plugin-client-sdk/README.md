@@ -407,7 +407,7 @@ declared table columns for saved-view items. `count` reads the total for the cur
 filter on demand. An `add` action names its button and states whether it searches online; only
 online-search actions offer "Search online" from empty and no-match states.
 
-Passing `selection` adds **Select**. Items become toggles that block their own links and actions,
+Caller `menuActions` and **Select** share the frame's **More actions** menu. Passing `selection` adds **Select**. Items become toggles that block their own links and actions,
 and a selection bar offers the caller's bulk actions. A selection holds explicit IDs, or every match
 of the current search and filter minus exclusions; changing search, sort, or filters clears it.
 Before an action runs, `readIds` pages through matching IDs (`ENTITY_IDS_PAGE_SIZE` per page from
@@ -497,6 +497,12 @@ not inherit an unintended transformed containing block. Pinned chrome uses
 `PluginScreenFrame.floatingAction`. Visibility comes from rendered screen roles; imperative writes
 are limited to transition transforms and scrim opacity. Shared focused-field visibility is installed
 in every plugin document because the host cannot inspect sandboxed focus.
+
+`PluginScreenFrame` composes one toolbar from caller `actions`, `viewOptions`, `menuActions`, and
+`primaryAction`, in that order, and the compact bar from `barActions`, a view-options button, and the
+overflow menu. `viewOptions` is controlled by its caller and owns its triggers, the `F` shortcut, and
+the filters sheet (titled `compactTitle` in compact layouts). `menuActions` renders as a single
+**More actions** menu so secondary screen actions never widen the toolbar.
 
 Shared Layers construct synchronously and React context distributes their services. Location,
 screen, and active-screen contexts remain per-screen because several retained screens coexist.

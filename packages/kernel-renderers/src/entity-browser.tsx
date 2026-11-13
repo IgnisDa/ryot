@@ -57,8 +57,8 @@ export const EntityBrowserView = ({
 	errorTitle,
 	selectable,
 	viewContext,
+	menuActions,
 	errorMessage,
-	headerActions,
 	renderSummary,
 	renderResults,
 }: Omit<EntityBrowserPageProps, "shareable"> & {
@@ -66,7 +66,7 @@ export const EntityBrowserView = ({
 	readonly selectable: boolean;
 	readonly errorMessage: string;
 	readonly input: BrowserViewInput;
-	readonly headerActions?: ControllerProps["headerActions"];
+	readonly menuActions?: ControllerProps["menuActions"];
 	readonly renderSummary?: ControllerProps["renderSummary"];
 	readonly viewContext: ComponentProps<typeof EntityBrowserResults>["viewContext"];
 	readonly controls: {
@@ -114,8 +114,8 @@ export const EntityBrowserView = ({
 			query={query}
 			name={viewName}
 			errorTitle={errorTitle}
+			menuActions={menuActions}
 			errorMessage={errorMessage}
-			headerActions={headerActions}
 			renderSummary={renderSummary}
 			layouts={input.settings.layouts}
 			sortChoices={controls.sortChoices}
@@ -239,14 +239,15 @@ const BrowseDefinitions = ({
 				sortChoices: controls.data.sort,
 				filterFields: queryFilterFields(controls.data.filter),
 			}}
-			headerActions={
+			menuActions={
 				shareable === false
 					? undefined
 					: [
 							{
+								key: "share",
 								icon: "share",
 								label: "Share",
-								run: () =>
+								onSelect: () =>
 									openScreen(
 										ryot.screens.sharePublication({
 											source: { kind: "saved-view", reference: input.target.reference },

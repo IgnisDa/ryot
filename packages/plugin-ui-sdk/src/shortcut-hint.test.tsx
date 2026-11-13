@@ -39,14 +39,13 @@ describe("ShortcutHint", () => {
 		render(
 			<>
 				<ShortcutHint shortcut="/" />
-				<ShortcutHint onAccent shortcut="A" className="ml-1" />
+				<ShortcutHint shortcut="A" className="ml-1" />
 			</>,
 		);
 
 		expect(screen.getByText("/").querySelector("svg")).toBeNull();
-		const accentHint = screen.getByText("A");
-		expect(accentHint.querySelector("svg")).toBeNull();
-		expect(accentHint.classList.contains("text-accent-ink")).toBe(true);
-		expect(accentHint.classList.contains("ml-1")).toBe(true);
+		const letterHint = screen.getByText("A");
+		expect(letterHint.querySelector("svg")).toBeNull();
+		expect(letterHint.classList.contains("ml-1")).toBe(true);
 	});
 });

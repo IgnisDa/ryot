@@ -5,7 +5,7 @@ import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, createCollection } from "~/fixtures/kernel";
 import { createExerciseEntityFixture } from "~/fixtures/plugins/fitness";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { chooseMenuItem, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -31,7 +31,7 @@ it.live("reorders a kernel collection and opens memberships without member field
 		yield* signInThroughHostedOAuth(page, email, password);
 		yield* page.goto(`${getFrontendUrl()}/e/${collection.id}`);
 		const detail = page.locator("iframe").contentFrame();
-		yield* detail.getByRole("button", { exact: true, name: "Reorder" }).click();
+		yield* chooseMenuItem(detail, "More actions", "Reorder");
 		yield* detail
 			.getByRole("button", { exact: true, name: `Reorder Gamma ${suffix}` })
 			.press("ArrowDown");
@@ -67,7 +67,7 @@ it.live("reorders a kernel collection and opens memberships without member field
 			`Gamma ${suffix}`,
 			`Beta ${suffix}`,
 		]);
-		yield* detail.getByRole("button", { exact: true, name: "Reorder" }).click();
+		yield* chooseMenuItem(detail, "More actions", "Reorder");
 		yield* order
 			.getByRole("button", { exact: true, name: `Reorder Beta ${suffix}` })
 			.waitFor({ state: "visible" });

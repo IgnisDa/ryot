@@ -16,6 +16,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { chooseMenuItem, openMenu } from "@ryot-app/testing/menus";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -186,9 +187,7 @@ describe("entity browser", () => {
 				yield* Effect.promise(() =>
 					answerBrowser(page, answered, [browserRow("item-1", "Example")]),
 				);
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Share" })),
-				);
+				yield* chooseMenuItem("More actions", "Share");
 				const share = yield* Effect.promise(() =>
 					waitFor(() => {
 						const found = page
@@ -217,9 +216,7 @@ describe("entity browser", () => {
 						browserRow("item-2", "Second"),
 					]),
 				);
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
-				);
+				yield* chooseMenuItem("More actions", "Select");
 				const selection = screen.getByRole("region", { name: "Selection" });
 				expect(within(selection).getByRole("button", { name: "Add to collection" })).toHaveProperty(
 					"disabled",
@@ -281,7 +278,9 @@ describe("entity browser", () => {
 				yield* Effect.promise(() =>
 					waitFor(() => expect(page.container?.textContent).toContain("1 result")),
 				);
-				expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
+				yield* openMenu("More actions");
+				expect(screen.getByRole("menuitem", { name: "Select" })).toBeTruthy();
+				expect(screen.queryByRole("menuitem", { name: "Share" })).toBeNull();
 			}),
 		testTimeout,
 	);

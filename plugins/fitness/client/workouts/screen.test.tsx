@@ -16,6 +16,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { encodeFilterParam } from "@ryot-app/ryotql-recipes/filters";
 import { assert } from "@ryot-app/testing/assert";
+import { chooseMenuItem } from "@ryot-app/testing/menus";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, waitFor, within } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -468,8 +469,10 @@ describe("all workouts page", () => {
 			Effect.gen(function* () {
 				const { page, answerPending } = openPage();
 				answerCurrent = answerPending;
-				yield* settle(() => expect(body.getByRole("button", { name: "Select" })).toBeTruthy());
-				fireEvent.click(body.getByRole("button", { name: "Select" }));
+				yield* settle(() =>
+					expect(body.getByRole("button", { name: "More actions" })).toBeTruthy(),
+				);
+				yield* chooseMenuItem("More actions", "Select");
 				fireEvent.click(body.getByRole("checkbox", { name: "Select Legs" }));
 				expect(body.getByRole("region", { name: "Selection" }).textContent).toContain("1 selected");
 				fireEvent.click(body.getByRole("button", { name: "Add to collection" }));
@@ -505,8 +508,10 @@ describe("all workouts page", () => {
 					},
 				});
 				answerCurrent = answerPending;
-				yield* settle(() => expect(body.getByRole("button", { name: "Select" })).toBeTruthy());
-				fireEvent.click(body.getByRole("button", { name: "Select" }));
+				yield* settle(() =>
+					expect(body.getByRole("button", { name: "More actions" })).toBeTruthy(),
+				);
+				yield* chooseMenuItem("More actions", "Select");
 				fireEvent.click(body.getByRole("button", { name: "Select all matching" }));
 				yield* settle(() =>
 					expect(body.getByRole("region", { name: "Selection" }).textContent).toContain(

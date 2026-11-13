@@ -8,10 +8,8 @@ import { Effect, Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	FilterChips,
 	FilterRules,
-	filtersLabel,
 	useViewFilter,
 	type ViewFilter,
-	ViewFiltersSheet,
 } from "@ryot-app/plugin-client-sdk/filters";
 import { PluginLink, usePageContext, useRyotViewport } from "@ryot-app/plugin-client-sdk/plugin";
 import {
@@ -22,8 +20,8 @@ import {
 	useRyotInfiniteQuery,
 	useRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import { PluginScreenFrame, ViewFiltersButton } from "@ryot-app/plugin-client-sdk/screen";
-import { Button, LoadMoreButton, ScreenBarButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
+import { PluginScreenFrame, viewResultLabel } from "@ryot-app/plugin-client-sdk/screen";
+import { Button, LoadMoreButton, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { DataTable, type DataTableColumn, displayValueText } from "@ryot-app/plugin-ui-sdk/table";
 import { queryFilterFields } from "@ryot-app/ryotql-recipes/filters";
@@ -32,7 +30,7 @@ import {
 	ResultsTablePageInput,
 	type ResultsTableResult,
 } from "@ryot-app/ryotql-recipes/saved-views";
-import { useRef, useState } from "react";
+import { useState } from "react";
 
 type TableItem = ResultsTableResult["items"][number];
 
@@ -96,8 +94,6 @@ const ResultsTableContent = ({
 	const viewIcon = input.view?.icon ?? "table";
 	const { compact } = useRyotViewport();
 	const [filtersOpen, setFiltersOpen] = useState(false);
-	const optionsTrigger = useRef<HTMLButtonElement>(null);
-	const filtersTrigger = useRef<HTMLButtonElement>(null);
 	const filterFields = queryFilterFields(fields);
 	const { filter, setFilter, activeCount } = useViewFilter(filterFields);
 	const [query] = useState(() =>
@@ -150,29 +146,28 @@ const ResultsTableContent = ({
 			<PluginScreenFrame
 				title={viewName}
 				titleIcon={<AppIcon size={20} name={viewIcon} className="shrink-0 text-text-muted" />}
-				actions={
-					<ViewFiltersButton
-						ref={filtersTrigger}
-						activeCount={activeCount}
-						onClick={() => setFiltersOpen(true)}
-					/>
-				}
-				barActions={
-					<ScreenBarButton
-						ref={optionsTrigger}
-						className="text-text-muted"
-						label={filtersLabel(activeCount)}
-						onClick={() => setFiltersOpen(true)}
-					>
-						<AppIcon size={22} name="sliders-horizontal" />
-					</ScreenBarButton>
-				}
+				viewOptions={{
+					activeCount,
+					open: filtersOpen,
+					compactTitle: "Filters",
+					onOpenChange: setFiltersOpen,
+					content: (
+						<FilterRules
+							filter={filter}
+							compact={compact}
+							onChange={setFilter}
+							fields={filterFields}
+						/>
+					),
+				}}
 				meta={
 					<>
 						<p role="status" className="text-xs text-text-muted @2xl:text-sm">
-							{`${state.items.length.toLocaleString()}${
-								state.pageInfo?.hasMore ? "+" : ""
-							} ${state.items.length === 1 && !state.pageInfo?.hasMore ? "result" : "results"}`}
+							{viewResultLabel({
+								total: undefined,
+								loaded: state.items.length,
+								hasMore: state.pageInfo?.hasMore ?? false,
+							})}
 						</p>
 						<FilterChips
 							filter={filter}
@@ -248,21 +243,6 @@ const ResultsTableContent = ({
 					)}
 				</section>
 			</PluginScreenFrame>
-			{filtersOpen && (
-				<ViewFiltersSheet
-					title="Filters"
-					compact={compact}
-					onClose={() => setFiltersOpen(false)}
-					triggerRef={compact ? optionsTrigger : filtersTrigger}
-				>
-					<FilterRules
-						filter={filter}
-						compact={compact}
-						onChange={setFilter}
-						fields={filterFields}
-					/>
-				</ViewFiltersSheet>
-			)}
 		</ManagedAssetProvider>
 	);
 };

@@ -3,7 +3,7 @@ import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, createCollection } from "~/fixtures/kernel";
-import { signInThroughHostedOAuth } from "~/support/browser";
+import { chooseMenuItem, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
 
@@ -39,12 +39,7 @@ for (const mode of ["live", "snapshot"] as const) {
 			const owner = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(owner, email, password);
 			yield* owner.goto(`${getFrontendUrl()}/e/${shelf.id}`);
-			yield* owner
-				.locator("iframe")
-				.contentFrame()
-				.getByRole("button", { exact: true, name: "Share" })
-				.first()
-				.click();
+			yield* chooseMenuItem(owner.locator("iframe").contentFrame(), "More actions", "Share");
 			const sheet = owner.getByRole("dialog", { name: "Share" });
 			if (mode === "snapshot") {
 				yield* sheet.getByRole("button", { exact: true, name: "Mode: Live" }).click();
@@ -88,12 +83,7 @@ for (const mode of ["live", "snapshot"] as const) {
 			}
 
 			yield* owner.reload;
-			yield* owner
-				.locator("iframe")
-				.contentFrame()
-				.getByRole("button", { exact: true, name: "Share" })
-				.first()
-				.click();
+			yield* chooseMenuItem(owner.locator("iframe").contentFrame(), "More actions", "Share");
 			yield* owner
 				.getByRole("dialog", { name: "Share" })
 				.getByRole("button", { exact: true, name: "Revoke" })

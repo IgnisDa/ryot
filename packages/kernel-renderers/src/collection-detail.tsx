@@ -90,7 +90,8 @@ const CollectionBrowser = ({
 		(link) => ({
 			icon: link.icon,
 			label: link.label,
-			run: () =>
+			key: `${link.packageId}${link.path}`,
+			onSelect: () =>
 				ryot.navigation.push({
 					search: {},
 					path: link.path,
@@ -180,17 +181,6 @@ const CollectionBrowser = ({
 					filter === null ? {} : { filter },
 				)
 			}
-			headerActions={[
-				...pageActions,
-				{
-					icon: "star",
-					label: "Reviews",
-					run: () => openScreen(ryot.screens.manageCollectionReviews({ collectionId })),
-				},
-				{ run: onReorder, label: "Reorder", icon: "arrow-up-down" },
-				{ run: share, icon: "share", label: "Share" },
-				{ icon: "pencil", run: editCollection, label: "Edit collection" },
-			]}
 			selection={{
 				actions: [addToCollectionAction(ryot), removeFromCollectionAction(ryot, collectionId)],
 				readIds: (client, { after, filter, searchText }) =>
@@ -203,6 +193,18 @@ const CollectionBrowser = ({
 						},
 					),
 			}}
+			menuActions={[
+				...pageActions,
+				{
+					icon: "star",
+					key: "reviews",
+					label: "Reviews",
+					onSelect: () => openScreen(ryot.screens.manageCollectionReviews({ collectionId })),
+				},
+				{ key: "reorder", label: "Reorder", onSelect: onReorder, icon: "arrow-up-down" },
+				{ key: "share", icon: "share", label: "Share", onSelect: share },
+				{ key: "edit", icon: "pencil", onSelect: editCollection, label: "Edit collection" },
+			]}
 			renderResults={(results) => (
 				<EntityBrowserResults
 					items={results.items}

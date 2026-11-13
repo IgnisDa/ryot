@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/plugin-client-sdk/testing";
 import { assert } from "@ryot-app/testing/assert";
 import { objectContaining } from "@ryot-app/testing/matchers";
+import { chooseMenuItem, openMenu } from "@ryot-app/testing/menus";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent, screen, waitFor } from "@testing-library/dom";
 import { it } from "@voila.dev/effect-bun-test";
@@ -273,9 +274,7 @@ describe("collection detail", () => {
 			Effect.gen(function* () {
 				const page = openCollection();
 				yield* answerCollection(page, { total: 0, groups: [], members: [], name: "Empty shelf" });
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Reviews" })),
-				);
+				yield* chooseMenuItem("More actions", "Reviews");
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(page.messages).toContainEqual(
@@ -320,10 +319,12 @@ describe("collection detail", () => {
 						},
 					},
 				});
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Related" })),
+				yield* openMenu("More actions");
+				const related = yield* Effect.promise(() =>
+					screen.findByRole("menuitem", { name: "Related" }),
 				);
-				expect(screen.queryByRole("button", { name: "Unused" })).toBeNull();
+				expect(screen.queryByRole("menuitem", { name: "Unused" })).toBeNull();
+				fireEvent.click(related);
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(page.clientMessages()).toContainEqual<unknown>({
@@ -351,9 +352,7 @@ describe("collection detail", () => {
 				const third = { ...itemMember, name: "Third", entityId: "item-3" };
 				const members = [itemMember, second, third];
 				yield* answerCollection(page, { members, revision: 7, name: "Shelf" });
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" })),
-				);
+				yield* chooseMenuItem("More actions", "Reorder");
 				const initial = yield* request(page, "members", 1);
 				replyMembers(page, initial.requestId, { members, revision: 7 });
 				fireEvent.keyDown(
@@ -405,7 +404,7 @@ describe("collection detail", () => {
 					revision: 8,
 					members: [second, itemMember, third],
 				});
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "More actions" }));
 			}),
 		testTimeout,
 	);
@@ -418,9 +417,7 @@ describe("collection detail", () => {
 					const page = openCollection();
 					const members = [itemMember, { ...itemMember, name: "Second", entityId: "item-2" }];
 					yield* answerCollection(page, { members, revision: 4, name: "Shelf" });
-					fireEvent.click(
-						yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" })),
-					);
+					yield* chooseMenuItem("More actions", "Reorder");
 					const initial = yield* request(page, "members", 1);
 					replyMembers(page, initial.requestId, { members, revision: 4 });
 					fireEvent.click(
@@ -478,9 +475,7 @@ describe("collection detail", () => {
 					hasMore: true,
 					members: [itemMember],
 				});
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Reorder" })),
-				);
+				yield* chooseMenuItem("More actions", "Reorder");
 				const initial = yield* request(page, "members", 1);
 				replyMembers(page, initial.requestId, {
 					revision: 2,
@@ -522,9 +517,7 @@ describe("collection detail", () => {
 					hasMore: true,
 					members: [itemMember],
 				});
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
-				);
+				yield* chooseMenuItem("More actions", "Select");
 				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
 				fireEvent.click(screen.getByRole("button", { name: "Load more results" }));
 				const next = yield* request(page, "members", 1);
@@ -532,12 +525,17 @@ describe("collection detail", () => {
 				yield* Effect.promise(() => screen.findByRole("button", { name: "Reload collection" }));
 				expect(screen.getByText("Sample")).toBeTruthy();
 				expect(screen.queryByRole("region", { name: "Selection" })).toBeNull();
-				expect(screen.queryByRole("button", { name: "Select" })).toBeNull();
+				yield* openMenu("More actions");
+				expect(screen.getByRole("menuitem", { name: "Reorder" })).toBeTruthy();
+				expect(screen.queryByRole("menuitem", { name: "Select" })).toBeNull();
+				fireEvent.keyDown(document, { key: "Escape" });
 				fireEvent.click(screen.getByRole("button", { name: "Reload collection" }));
 				const reload = yield* request(page, "members", 2);
 				expect(reload.request.pages?.["members"]?.after).toBeUndefined();
 				replyMembers(page, reload.requestId, { revision: 3, members: [itemMember] });
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Select" }));
+				yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("alert")).toBeNull()));
+				yield* openMenu("More actions");
+				expect(screen.getByRole("menuitem", { name: "Select" })).toBeTruthy();
 				expect(screen.queryByRole("region", { name: "Selection" })).toBeNull();
 			}),
 		testTimeout,
@@ -549,9 +547,7 @@ describe("collection detail", () => {
 			Effect.gen(function* () {
 				const page = openCollection();
 				yield* answerCollection(page, { revision: 2, name: "Shelf", members: [itemMember] });
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
-				);
+				yield* chooseMenuItem("More actions", "Select");
 				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
 				expect(screen.getByRole("region", { name: "Selection" }).textContent).toContain(
 					"1 selected",
@@ -582,7 +578,7 @@ describe("collection detail", () => {
 				yield* answerCollection(page, { name: "Road Trips", description: "Long drives" });
 				yield* Effect.promise(() => waitFor(() => screen.getByText("Long drives")));
 
-				fireEvent.click(screen.getByRole("button", { name: "Edit collection" }));
+				yield* chooseMenuItem("More actions", "Edit collection");
 				const edit = yield* hostScreenRequest(page, "edit-collection-screen");
 				expect(edit.collectionId).toBe<unknown>("col-1");
 				page.send({
@@ -613,9 +609,7 @@ describe("collection detail", () => {
 			Effect.gen(function* () {
 				const page = openCollection();
 				yield* answerCollection(page, { name: "Road Trips" });
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Share" })),
-				);
+				yield* chooseMenuItem("More actions", "Share");
 				yield* Effect.promise(() =>
 					waitFor(() =>
 						expect(page.clientMessages()).toContainEqual<unknown>(
@@ -639,9 +633,7 @@ describe("collection detail", () => {
 					name: "Road Trips",
 					members: [itemMember, { ...itemMember, name: "Other", entityId: "item-2" }],
 				});
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
-				);
+				yield* chooseMenuItem("More actions", "Select");
 				fireEvent.click(screen.getByRole("checkbox", { name: "Select Sample" }));
 				expect(
 					screen.getByRole("checkbox", { name: "Select Sample" }).getAttribute("aria-checked"),
@@ -674,9 +666,7 @@ describe("collection detail", () => {
 			Effect.gen(function* () {
 				const page = openCollection("col-1", "search=sample");
 				yield* answerCollection(page, { name: "Items", hasMore: true, members: [itemMember] });
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("button", { name: "Select" })),
-				);
+				yield* chooseMenuItem("More actions", "Select");
 				fireEvent.click(screen.getByRole("button", { name: "Select all matching" }));
 				const count = yield* Effect.promise(() =>
 					waitFor(() => {

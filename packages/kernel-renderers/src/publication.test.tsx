@@ -256,7 +256,7 @@ describe("publication renderer", () => {
 				expect(screen.getByText("Ada")).toBeTruthy();
 				expect(screen.getByText("2 items")).toBeTruthy();
 				yield* Effect.promise(() => screen.findByText("Beta"));
-				expect(screen.queryByRole("button", { name: "Select" })).toBeNull();
+				expect(screen.queryByRole("button", { name: "More actions" })).toBeNull();
 			}),
 		testTimeout,
 	);
