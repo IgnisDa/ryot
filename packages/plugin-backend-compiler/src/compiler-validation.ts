@@ -1,15 +1,17 @@
 import type { SandboxSourceExecutionMetadata } from "@ryot-app/contract/modules/plugins/execution-metadata";
 import type { SandboxManifest } from "@ryot-app/plugin-backend-sdk/core";
 import type { ProviderOperation } from "@ryot-app/plugin-backend-sdk/provider";
+import {
+	type TypeScriptProjectDiagnostics,
+	typeScriptProjectErrors,
+} from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 import * as ts from "typescript/unstable/ast";
-import { type Diagnostic, DiagnosticCategory } from "typescript/unstable/async";
 
 import {
 	type PluginBackendCompilerDiagnostic,
 	pluginBackendCompilerDiagnostic,
 	sandboxCompilationFailure,
-	toTypeScriptDiagnostic,
 } from "./compiler-diagnostics";
 import { extractSandboxManifest } from "./compiler-manifest";
 import { validateSandboxCapabilities } from "./compiler-metadata";
@@ -22,7 +24,6 @@ import {
 	resolveRelativeModulePath,
 	sandboxDefinitionMismatch,
 } from "./compiler-source";
-import { SANDBOX_COMPILER_LIMITS } from "./limits";
 
 export type SandboxEntryDeclaration =
 	| { readonly kind: "provider"; readonly providerOperation: ProviderOperation }
@@ -69,25 +70,17 @@ export const inspectSandboxEntry = Effect.fn("inspectSandboxEntry")(function* (
 	return inspected;
 });
 
-export const validateSandboxProjectDiagnostics = (
-	project: {
-		readonly diagnostics: readonly Diagnostic[];
-		readonly sourceFiles: readonly ts.SourceFile[];
-	},
-	fallbackSourceFile: ts.SourceFile,
-) => {
-	const typeErrors = project.diagnostics.filter(
-		(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
+export const validateSandboxProjectDiagnostics = (project: {
+	readonly diagnostics: TypeScriptProjectDiagnostics;
+}) => {
+	const errors = typeScriptProjectErrors(
+		project.diagnostics,
+		pluginBackendCompilerDiagnostic(
+			"RYOT_COMPILER_ENVIRONMENT",
+			"Sandbox compiler dependencies failed type checking",
+		),
 	);
-	return typeErrors.length === 0
-		? Effect.void
-		: sandboxCompilationFailure(
-				typeErrors
-					.slice(0, SANDBOX_COMPILER_LIMITS.diagnosticCount)
-					.map((diagnostic) =>
-						toTypeScriptDiagnostic(diagnostic, project.sourceFiles, fallbackSourceFile),
-					),
-			);
+	return errors.length === 0 ? Effect.void : sandboxCompilationFailure(errors);
 };
 
 const workflowSourceFiles = (entry: ts.SourceFile, sourceFiles: ReadonlyArray<ts.SourceFile>) => {

@@ -1,10 +1,6 @@
-import {
-	normalizeTypeScriptDiagnostic,
-	TypeScriptCompilerDiagnostic,
-} from "@ryot-app/typescript-compiler";
+import { TypeScriptCompilerDiagnostic } from "@ryot-app/typescript-compiler";
 import { Schema } from "effect";
 import * as ts from "typescript/unstable/ast";
-import type { Diagnostic } from "typescript/unstable/async";
 
 import { SANDBOX_COMPILER_LIMITS, utf8ByteLength } from "./limits";
 
@@ -96,13 +92,6 @@ export const sandboxCompilationFailure = (
 		message: compilationFailedMessage,
 		diagnostics: limitSandboxCompilationDiagnostics(diagnostics),
 	});
-
-export const toTypeScriptDiagnostic = (
-	diagnostic: Diagnostic,
-	files: readonly ts.SourceFile[],
-	entry: ts.SourceFile,
-): PluginBackendCompilerDiagnostic =>
-	normalizeTypeScriptDiagnostic(diagnostic, files, entry, sandboxLogicalFile);
 
 export const sandboxDiagnosticAt = (
 	node: ts.Node,

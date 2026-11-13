@@ -63,26 +63,38 @@ const diagnosticSeverity = (category: DiagnosticCategory) => {
 const diagnosticMessage = (diagnostic: Diagnostic): string =>
 	[diagnostic.text, ...(diagnostic.messageChain ?? []).map(diagnosticMessage)].join("\n");
 
-export const normalizeTypeScriptDiagnostic = (
+const normalizeDiagnostic = (
 	diagnostic: Diagnostic,
-	files: readonly ts.SourceFile[],
-	fallbackFile: ts.SourceFile,
-	logicalFile: (fileName: string) => string,
+	file: string,
+	sourceFile: undefined | ts.SourceFile,
 ): TypeScriptCompilerDiagnostic => {
-	const file =
-		files.find((sourceFile) => sourceFile.fileName === diagnostic.fileName) ?? fallbackFile;
-	const start = Math.max(0, diagnostic.pos);
-	const location = diagnostic.fileName ? file.getLineAndCharacterOfPosition(start) : undefined;
-
+	const location = sourceFile?.getLineAndCharacterOfPosition(Math.max(0, diagnostic.pos));
 	return {
+		file,
 		code: `TS${diagnostic.code}`,
 		line: (location?.line ?? 0) + 1,
 		column: (location?.character ?? 0) + 1,
 		message: diagnosticMessage(diagnostic),
 		severity: diagnosticSeverity(diagnostic.category),
-		file: logicalFile(diagnostic.fileName ?? fallbackFile.fileName),
 		...(diagnostic.end > diagnostic.pos ? { length: diagnostic.end - diagnostic.pos } : {}),
 	};
+};
+
+export type TypeScriptProjectDiagnostics = {
+	readonly project: readonly TypeScriptCompilerDiagnostic[];
+	readonly environment: readonly TypeScriptCompilerDiagnostic[];
+};
+
+export const typeScriptProjectErrors = (
+	diagnostics: TypeScriptProjectDiagnostics,
+	environmentFailure: TypeScriptCompilerDiagnostic,
+): readonly TypeScriptCompilerDiagnostic[] => {
+	const errors = (list: readonly TypeScriptCompilerDiagnostic[]) =>
+		list.filter(({ severity }) => severity === "error");
+	const environment = errors(diagnostics.environment);
+	return environment.length > 0
+		? [environmentFailure, ...environment]
+		: errors(diagnostics.project);
 };
 
 export const resolveTypeScriptCompilerPath = (from: string) => {
@@ -97,8 +109,8 @@ export const resolveTypeScriptCompilerPath = (from: string) => {
 export type TypeScriptProjectAccess = {
 	readonly checker: Checker;
 	readonly program: Program;
-	readonly diagnostics: readonly Diagnostic[];
 	readonly sourceFiles: readonly ts.SourceFile[];
+	readonly diagnostics: TypeScriptProjectDiagnostics;
 	readonly entrySourceFiles: Readonly<Record<string, ts.SourceFile>>;
 };
 
@@ -179,12 +191,48 @@ export const withTypeScriptProject = <A, E, R>(
 					),
 				);
 
+				const diagnostics = [...projectDiagnostics.flat(), ...fileDiagnostics.flat(2)];
+				const loadedFileNames = new Set(files.map(({ fileName }) => fileName));
+				const dependencyFiles = yield* Effect.forEach(
+					new Set(
+						diagnostics.flatMap(({ fileName }) =>
+							fileName && !loadedFileNames.has(fileName) ? [fileName] : [],
+						),
+					),
+					(fileName) => typeScriptRequest(() => program.getSourceFile(fileName)),
+				);
+				const sourceFilesByName = new Map(
+					[...files, ...dependencyFiles.filter((file) => file !== undefined)].map((file) => [
+						file.fileName,
+						file,
+					]),
+				);
+				const projectFileDiagnostics: TypeScriptCompilerDiagnostic[] = [];
+				const environmentDiagnostics: TypeScriptCompilerDiagnostic[] = [];
+				for (const diagnostic of diagnostics) {
+					const { fileName } = diagnostic;
+					const sourceFile = fileName ? sourceFilesByName.get(fileName) : undefined;
+					if (fileName && isVirtualPath(fileName)) {
+						projectFileDiagnostics.push(
+							normalizeDiagnostic(
+								diagnostic,
+								fileName.slice(options.virtualRoot.length + 1),
+								sourceFile,
+							),
+						);
+					} else {
+						environmentDiagnostics.push(
+							normalizeDiagnostic(diagnostic, fileName ?? "tsconfig.json", sourceFile),
+						);
+					}
+				}
+
 				return yield* use({
 					program,
 					entrySourceFiles,
 					sourceFiles: files,
 					checker: project.checker,
-					diagnostics: [...projectDiagnostics.flat(), ...fileDiagnostics.flat(2)],
+					diagnostics: { project: projectFileDiagnostics, environment: environmentDiagnostics },
 				});
 			}),
 		(api) => Effect.promise(() => api.close()),

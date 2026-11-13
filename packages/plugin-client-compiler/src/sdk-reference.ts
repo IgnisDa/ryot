@@ -10,13 +10,7 @@ import {
 	isExportSpecifier,
 	isImportDeclaration,
 } from "typescript/unstable/ast";
-import {
-	DiagnosticCategory,
-	NodeBuilderFlags,
-	SignatureKind,
-	SymbolFlags,
-	type Type,
-} from "typescript/unstable/async";
+import { NodeBuilderFlags, SignatureKind, SymbolFlags, type Type } from "typescript/unstable/async";
 
 import {
 	CLIENT_DEPENDENCY_SPECIFIERS,
@@ -58,12 +52,12 @@ export const generateClientSdkReference = Effect.fn("generateClientSdkReference"
 		},
 		({ checker, diagnostics, entrySourceFiles }) =>
 			Effect.gen(function* () {
-				const errors = diagnostics.filter(
-					(diagnostic) => diagnostic.category === DiagnosticCategory.Error,
+				const errors = [...diagnostics.project, ...diagnostics.environment].filter(
+					({ severity }) => severity === "error",
 				);
 				if (errors.length > 0) {
 					return yield* new TypeScriptProjectError({
-						message: errors.map((error) => error.text).join("\n"),
+						message: errors.map((error) => error.message).join("\n"),
 					});
 				}
 				const sdkRoots = [dependencies.clientSdkRoot, dependencies.uiSdkRoot].map((root) =>

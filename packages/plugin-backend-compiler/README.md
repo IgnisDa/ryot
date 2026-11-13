@@ -13,6 +13,7 @@ uses `@ryot-app/vite-compiler` for the complete Sandbox ESM build profile and sc
 | `./platform`                              | `pluginBackendCompilerPlatformLayer`, the Bun file system and Vite build services compiles require | Entrypoints and test harnesses that run compiles                          |
 | `./plugins`                               | `compilePluginSandboxEntries`, `compilePluginSandboxSourceEntries`, and entry-path helpers         | Kernel source-zero generation and sandbox runner tests                    |
 | `./plugin-manifest`                       | `derivePluginSandboxScripts` and `compilePluginManifestScripts`                                    | Local `ryot plugin build` and compiler tests                              |
+| `./script-metadata`                       | `declaredScriptMetadata`, the compile-free metadata view of a declared plugin script               | Kernel plugin ingestion                                                   |
 | `./protocol`, `./diagnostics`, `./limits` | Worker wire types, diagnostics, and shared limits                                                  | Kernel supervisors, runtime services, and CLI code                        |
 | `./runtime-build/*`                       | Trusted dependency registry, payload, source walking, and process capture                          | Kernel build and server runtime-image verification                        |
 
@@ -23,7 +24,8 @@ semantic and Vite Sandbox ESM build stages, but retain their separate public API
 ## Build Pipeline
 
 The compiler creates a TypeScript 7 no-emit project, inspects each entry's import policy and
-definition shape, and then reports bounded semantic diagnostics. Only inspected entries reach
+definition shape, and then reports bounded semantic diagnostics. Type errors in the SDK or other
+resolved dependencies fail with `RYOT_COMPILER_ENVIRONMENT` instead of being attributed to the script. Only inspected entries reach
 validation of execution metadata, declarations, workflows, and literal manifests; validated entries
 compile with bounded concurrency. A semantic or policy failure never reaches the build stage.
 

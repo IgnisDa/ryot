@@ -107,13 +107,7 @@ const createSandboxPackageProject = (
 						]),
 			),
 		);
-		const fallbackSourceFile = project.entries[0]?.sourceFile;
-		if (!fallbackSourceFile) {
-			return yield* sandboxCompilationFailure([
-				pluginBackendCompilerDiagnostic("RYOT_SANDBOX_ENTRY", "Sandbox entries were not loaded"),
-			]);
-		}
-		return { project, dependencies, fallbackSourceFile };
+		return { project, dependencies };
 	});
 
 const inspectSandboxPackageEntries = (
@@ -208,12 +202,9 @@ export const compileSandboxPackageEntries = (
 		if (entries.length === 0) {
 			return [];
 		}
-		const { project, dependencies, fallbackSourceFile } = yield* createSandboxPackageProject(
-			sources,
-			entries,
-		);
+		const { project, dependencies } = yield* createSandboxPackageProject(sources, entries);
 		const inspectedEntries = yield* inspectSandboxPackageEntries(sources, project);
-		yield* validateSandboxProjectDiagnostics(project, fallbackSourceFile);
+		yield* validateSandboxProjectDiagnostics(project);
 		const validatedEntries = yield* validateSandboxPackageEntries(
 			inspectedEntries,
 			project,

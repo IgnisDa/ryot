@@ -20,6 +20,12 @@ approval decision stay with the plugin compilers.
 Each target supplies a complete in-memory project configuration and resolved source/type aliases.
 Dynamic compilation does not inherit repository or package TypeScript configuration.
 
+Projects normalize every diagnostic against the source file that reports it. Diagnostics in files
+under the virtual root are `project` diagnostics with logical paths; diagnostics in resolved
+dependencies, or without a file, are `environment` diagnostics because the compiler's own
+dependencies failed rather than the submitted source. `typeScriptProjectErrors` reports environment
+errors behind a caller-supplied diagnostic when any exist, and project errors otherwise.
+
 The package does not own plugin import policies, compiler limits, worker protocols, output models, or
 public compiler APIs. `@ryot-app/plugin-client-compiler` and `@ryot-app/plugin-backend-compiler` configure and
 enforce those concerns independently.

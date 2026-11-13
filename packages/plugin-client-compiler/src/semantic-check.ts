@@ -1,11 +1,11 @@
 import {
 	createTypeScriptProject,
-	normalizeTypeScriptDiagnostic,
 	type TypeScriptProjectConfiguration,
+	typeScriptProjectErrors,
 } from "@ryot-app/typescript-compiler";
 import { Effect } from "effect";
 
-import type { ClientPluginCompilerDiagnostic } from "./diagnostics";
+import { clientPluginCompilerDiagnostic } from "./diagnostics";
 
 const VIRTUAL_ROOT = "/__ryot_client__";
 const AMBIENT_FILE = "__ryot_client_imports__.d.ts";
@@ -86,23 +86,20 @@ export const analyzeClientPluginTypes = (
 			},
 		},
 	}).pipe(
-		Effect.map(({ diagnostics, sourceFiles, entrySourceFiles }) => {
-			const fallbackFile = entrySourceFiles[entries[0] ?? AMBIENT_FILE];
-			if (!fallbackFile) {
-				return { sourceFiles: {}, diagnostics: [] };
-			}
-			return {
-				sourceFiles: Object.fromEntries(
-					sourceFiles
-						.filter(({ fileName }) => Object.hasOwn(files, logicalFile(fileName)))
-						.map((file) => [logicalFile(file.fileName), file]),
+		Effect.map(({ diagnostics, sourceFiles }) => ({
+			sourceFiles: Object.fromEntries(
+				sourceFiles
+					.filter(({ fileName }) => Object.hasOwn(files, logicalFile(fileName)))
+					.map((file) => [logicalFile(file.fileName), file]),
+			),
+			diagnostics: typeScriptProjectErrors(
+				diagnostics,
+				clientPluginCompilerDiagnostic(
+					"RYOT_CLIENT_COMPILER_ENVIRONMENT",
+					"client",
+					"Client plugin compiler dependencies failed type checking",
 				),
-				diagnostics: diagnostics
-					.map((diagnostic): ClientPluginCompilerDiagnostic =>
-						normalizeTypeScriptDiagnostic(diagnostic, sourceFiles, fallbackFile, logicalFile),
-					)
-					.filter((diagnostic) => diagnostic.severity === "error"),
-			};
-		}),
+			),
+		})),
 	);
 };

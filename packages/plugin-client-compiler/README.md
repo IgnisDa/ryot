@@ -123,6 +123,8 @@ Compositions reference these immutable modules; their HTML documents are dynamic
 owns Effect codecs for canonical base64 source and artifact bytes. Requests contain `input`,
 `workspaceParentPath` and `workspaceJobId`; responses contain either `{ success: true, value: { artifact } }`
 or `{ success: false, error }` with bounded compiler diagnostics. The worker never executes authored code.
+Type errors in the SDKs or other resolved dependencies fail with `RYOT_CLIENT_COMPILER_ENVIRONMENT`
+instead of being attributed to the authored source.
 `compileClientPluginModule` accepts optional compiler workspace options for supervised execution.
 The source worker runs its exported `runClientCompilerWorker` entry when executed directly; the
 packaged server worker imports and calls the same entry.

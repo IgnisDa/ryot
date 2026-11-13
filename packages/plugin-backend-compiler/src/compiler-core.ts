@@ -49,7 +49,7 @@ export const compileSandboxSource = (source: string, workspaceOptions?: Compiler
 		const inspected = yield* inspectSandboxEntry(project.entry, source, {
 			allowRelativeImports: false,
 		});
-		yield* validateSandboxProjectDiagnostics(project, project.entry.sourceFile);
+		yield* validateSandboxProjectDiagnostics(project);
 		const validated = yield* validateSandboxEntry({
 			inspected,
 			moduleDiagnostics: [],
