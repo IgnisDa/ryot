@@ -37,7 +37,29 @@ resource provisioning, public registration, discovery aliases and hosted consent
 
 Transport tests exercise authentication challenges, write-access tool lists and annotations,
 registry delegation, sessionful and 2026-07-28 confirmation, disabled credentials and cross-user
-session isolation. Focused API e2e covers API
-keys, OAuth registration and consent, resource audience separation, discovery and real registry
-list/call. These tests do not establish compatibility with Claude Desktop or another installed client;
-those require actual client runs against a reachable deployment.
+session isolation. Focused API e2e covers API keys, OAuth registration and consent, access-scope
+narrowing, resource audience separation, discovery, real registry list/call and connected-app
+revocation. These tests do not establish compatibility with any installed client.
+
+## Client verification
+
+Before a beta release, connect each client below to a deployment it can reach over HTTPS (hosted
+clients cannot reach a LAN address; use a tunnel or a staging server) and record the Ryot version,
+client version and result here. For each client:
+
+1. Add `<FRONTEND_URL>/api/mcp` with no credentials and complete OAuth discovery, registration and
+   consent. Confirm the consent page offers the access levels and the token carries the chosen scopes.
+2. Run a read (`search`, then `execute` calling `kernel:collections.list`) and confirm the client
+   does not prompt for approval of reads.
+3. With **Ask before each change**, run an `execute` that creates a collection. Confirm the client
+   shows Ryot's confirmation, that declining leaves no collection, and that accepting creates exactly
+   one. If the client cannot show confirmations, confirm Ryot refuses the write with the reconnect
+   message.
+4. With **Read only**, confirm the same write is refused and `page_write` is absent.
+5. Revoke the app in Settings → Access and confirm the next call, after the access token expires,
+   fails authentication and the client prompts to reconnect.
+6. Repeat 2 and 3 with an API key in `X-Api-Key` where the client supports custom headers.
+
+Clients: Claude Desktop or claude.ai, ChatGPT, Cursor, Claude Code. Record which protocol version each
+negotiates, because sessionful clients use inline elicitation and 2026-07-28 clients use input
+requests.
