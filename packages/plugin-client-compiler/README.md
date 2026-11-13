@@ -152,8 +152,9 @@ source or packaged worker path for the supervisor. Page lifecycle code provides 
 artifact; compilation itself has no database or publication effects.
 
 Server builds emit `plugin-client-compiler-worker.js` and `smoke-compiler-workers.js` alongside the
-server bundle. The runtime image retains compiler dependencies and runs the smoke script as its
-runtime user during the image build. Run the smoke script with an optional worker path to exercise
+server bundle. The runtime image installs only the production dependency closure of the two compiler
+packages, which `turbo prune` derives from their manifests, and runs the smoke script as its runtime
+user during the image build. Run the smoke script with an optional worker path to exercise
 another packaged layout. Its workers verify their environments, then it compiles TSX, SDK imports,
 Tailwind, authored CSS and an SVG, and checks the emitted artifact references.
 

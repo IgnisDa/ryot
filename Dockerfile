@@ -24,7 +24,8 @@ RUN cargo chef cook --tests --recipe-path recipe.json
 FROM base AS prepare
 RUN --mount=type=cache,target=/root/.bun/install/cache bun install --global turbo@2.10.12
 COPY . .
-RUN turbo prune @ryot-app/kernel-client @ryot-app/server --docker
+RUN turbo prune @ryot-app/kernel-client @ryot-app/server --docker && \
+    turbo prune @ryot-app/plugin-client-compiler @ryot-app/plugin-backend-compiler --docker --out-dir out/compilers
 
 FROM base AS builder-base
 COPY --from=prepare /app/out/json/ .
@@ -67,10 +68,10 @@ ENV RYOT_VERSION=$RYOT_VERSION
 RUN bun turbo --filter=@ryot-app/kernel-client build
 
 FROM base AS runtime-deps
-COPY --from=prepare /app/out/json/ .
-COPY --from=prepare /app/out/full/packages ./packages
+COPY --from=prepare /app/out/compilers/json/ .
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --linker hoisted --filter @ryot-app/compiler-worker --filter @ryot-app/vite-compiler --filter @ryot-app/typescript-compiler --filter @ryot-app/plugin-client-compiler --filter @ryot-app/plugin-backend-compiler --filter @ryot-app/plugin-backend-sdk --filter @ryot-app/plugin-client-sdk --filter @ryot-app/plugin-ui-sdk --filter @ryot-app/plugin-kit --production --frozen-lockfile
+    bun install --linker hoisted --filter @ryot-app/plugin-client-compiler --filter @ryot-app/plugin-backend-compiler --production --frozen-lockfile
+COPY --from=prepare /app/out/compilers/full/packages ./packages
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \
