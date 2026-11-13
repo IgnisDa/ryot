@@ -20,7 +20,7 @@ const definition: PageDefinition = {
 		{ path: "client/image.bin", content: Buffer.from([0xff, 0xfe]).toString("base64") },
 	],
 };
-const draft = { definition, pageId: "page", name: "Page", slug: "page", draftRevision: 3 };
+const draft = { definition, name: "Page", slug: "page", pageId: "page", draftRevision: 3 };
 const edit = (edits: Parameters<typeof applyPageEdits>[1]["edits"]) =>
 	applyPageEdits(definition, { edits, pageId: "page", expectedDraftRevision: 3 });
 
@@ -35,12 +35,14 @@ it("lists draft files and reads numbered line ranges", () => {
 			entry: "client/page.tsx",
 			queries: { queries: {} },
 			files: [
-				{ path: "client/page.tsx", lines: 3 },
-				{ path: "client/image.bin", lines: null },
+				{ lines: 3, path: "client/page.tsx" },
+				{ lines: null, path: "client/image.bin" },
 			],
 		}),
 	);
-	expect(readPageDraft(draft, { pageId: "page", path: "client/page.tsx", offset: 2, limit: 1 })).toEqual(
+	expect(
+		readPageDraft(draft, { limit: 1, offset: 2, pageId: "page", path: "client/page.tsx" }),
+	).toEqual(
 		Result.succeed({
 			endLine: 2,
 			startLine: 2,
@@ -61,9 +63,9 @@ it("lists draft files and reads numbered line ranges", () => {
 it("applies replacements, writes and deletes in order", () => {
 	const edited = edit([
 		{ path: "client/page.tsx", oldText: "const a = 1;", newText: "const a = 2;" },
-		{ path: "client/page.tsx", oldText: "= ", newText: "=  ", replaceAll: true },
+		{ oldText: "= ", newText: "=  ", replaceAll: true, path: "client/page.tsx" },
 		{ path: "client/util.ts", text: "export const $ = '$&';" },
-		{ path: "client/image.bin", delete: true },
+		{ delete: true, path: "client/image.bin" },
 	]);
 	assert(Result.isSuccess(edited));
 	expect(decode(edited.success)).toEqual({
@@ -73,23 +75,25 @@ it("applies replacements, writes and deletes in order", () => {
 });
 
 it("names the first edit that cannot apply", () => {
-	expect(edit([{ path: "client/page.tsx", oldText: "= 1;", newText: "= 2;" }])).toEqual(
+	expect(edit([{ oldText: "= 1;", newText: "= 2;", path: "client/page.tsx" }])).toEqual(
 		Result.fail(
 			"Edit 1 (client/page.tsx): oldText occurs 2 times; include more surrounding text or set replaceAll",
 		),
 	);
 	expect(
 		edit([
-			{ path: "client/page.tsx", oldText: "const a", newText: "let a" },
-			{ path: "client/page.tsx", oldText: "const a", newText: "let a" },
+			{ newText: "let a", oldText: "const a", path: "client/page.tsx" },
+			{ newText: "let a", oldText: "const a", path: "client/page.tsx" },
 		]),
 	).toEqual(
-		Result.fail("Edit 2 (client/page.tsx): oldText was not found; read the file again with page_read"),
+		Result.fail(
+			"Edit 2 (client/page.tsx): oldText was not found; read the file again with page_read",
+		),
 	);
-	expect(edit([{ path: "missing.tsx", delete: true }])).toEqual(
+	expect(edit([{ delete: true, path: "missing.tsx" }])).toEqual(
 		Result.fail("Edit 1 (missing.tsx): the draft has no such file"),
 	);
-	expect(edit([{ path: "client/image.bin", oldText: "x", newText: "y" }])).toEqual(
+	expect(edit([{ oldText: "x", newText: "y", path: "client/image.bin" }])).toEqual(
 		Result.fail("Edit 1 (client/image.bin): the file is not UTF-8 text"),
 	);
 });

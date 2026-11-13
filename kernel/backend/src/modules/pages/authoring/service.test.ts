@@ -184,7 +184,10 @@ layer(database)((test) => {
 				request: { entry: "client/page.tsx" },
 				apply: (current: PageDefinition) => {
 					applied += 1;
-					return Result.succeed({ ...current, files: [...current.files, { path: "client/extra.ts", content: "" }] });
+					return Result.succeed({
+						...current,
+						files: [...current.files, { content: "", path: "client/extra.ts" }],
+					});
 				},
 			};
 			const input = { pageId: created.pageId, expectedDraftRevision: 1 };
@@ -193,7 +196,10 @@ layer(database)((test) => {
 			expect(applied).toBe(1);
 			const draft = yield* service.readDraft(owner, created.pageId);
 			expect(draft).toMatchObject({ name: "Edit", draftRevision: 2 });
-			expect(draft.definition.files.map(({ path }) => path)).toEqual(["client/extra.ts", "client/page.tsx"]);
+			expect(draft.definition.files.map(({ path }) => path)).toEqual([
+				"client/extra.ts",
+				"client/page.tsx",
+			]);
 			assertExitFails(
 				yield* Effect.exit(
 					service.editDraft(

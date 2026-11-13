@@ -33,7 +33,9 @@ export function AssistantQuestion(props: {
 				{entry.questions.map((question, index) => (
 					<div key={question.question} className="grid gap-0.5">
 						<span className="text-text-muted">{question.question}</span>
-						<span className="font-medium text-text">{entry.answers?.[index] ?? "Not answered"}</span>
+						<span className="font-medium text-text">
+							{entry.answers?.[index] ?? "Not answered"}
+						</span>
 					</div>
 				))}
 			</section>
@@ -74,8 +76,8 @@ export function AssistantQuestion(props: {
 					const Choice = question.multiple === true ? Checkbox : Radio;
 					return (
 						<fieldset
-							key={question.question}
 							className="grid gap-2"
+							key={question.question}
 							disabled={props.disabled || answer.isPending}
 						>
 							<legend className="mb-1 font-semibold text-text">{question.question}</legend>
@@ -97,11 +99,13 @@ export function AssistantQuestion(props: {
 								/>
 							))}
 							<TextField
-								aria-label={question.question}
 								value={written[index] ?? ""}
+								aria-label={question.question}
 								onChange={(event) => setWritten(replaced(written, index, event.target.value))}
 								placeholder={
-									(question.options ?? []).length > 0 ? "Or answer in your own words" : "Your answer"
+									(question.options ?? []).length > 0
+										? "Or answer in your own words"
+										: "Your answer"
 								}
 							/>
 						</fieldset>

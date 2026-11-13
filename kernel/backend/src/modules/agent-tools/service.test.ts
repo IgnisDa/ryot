@@ -119,6 +119,11 @@ const servicesLayer = Layer.unwrap(
 			Layer.mock(PageAuthoringService)({
 				create: (actor, input, key) =>
 					recordIn({ key, actor, create: input.name }, { pageId: "page", draftRevision: 1 }),
+				replaceDraft: (actor, input, key) =>
+					recordIn(
+						{ key, actor, replace: input.pageId },
+						{ pageId: input.pageId, draftRevision: input.expectedDraftRevision + 1 },
+					),
 				readDraft: (_userId, pageId) =>
 					Effect.succeed({
 						pageId,
@@ -142,16 +147,14 @@ const servicesLayer = Layer.unwrap(
 									pluginDependencies: {},
 									queries: { queries: {} },
 									entry: "client/page.tsx",
-									files: [{ path: "client/page.tsx", content: Buffer.from("old").toString("base64") }],
+									files: [
+										{ path: "client/page.tsx", content: Buffer.from("old").toString("base64") },
+									],
 								}),
-								({ files }) => files.map(({ content }) => Buffer.from(content, "base64").toString()),
+								({ files }) =>
+									files.map(({ content }) => Buffer.from(content, "base64").toString()),
 							),
 						},
-						{ pageId: input.pageId, draftRevision: input.expectedDraftRevision + 1 },
-					),
-				replaceDraft: (actor, input, key) =>
-					recordIn(
-						{ key, actor, replace: input.pageId },
 						{ pageId: input.pageId, draftRevision: input.expectedDraftRevision + 1 },
 					),
 				compile: (_userId, input, key) => {
@@ -745,7 +748,7 @@ layer(registryLayer)("agent tools", (test) => {
 					arguments: {
 						pageId: "page",
 						expectedDraftRevision: 2,
-						edits: [{ path: "client/page.tsx", oldText: "old", newText: "new" }],
+						edits: [{ oldText: "old", newText: "new", path: "client/page.tsx" }],
 					},
 				});
 				expect(edited.state === "completed" && edited.preview?.draftRevision).toBe(3);
@@ -758,7 +761,9 @@ layer(registryLayer)("agent tools", (test) => {
 					{ key: "edit:compile", compile: { pageId: "page", expectedDraftRevision: 3 } },
 				]);
 				expect(
-					value((yield* call("page_read", { pageId: "page", path: "client/page.tsx" }, gate)).result),
+					value(
+						(yield* call("page_read", { pageId: "page", path: "client/page.tsx" }, gate)).result,
+					),
 				).toEqual({
 					endLine: 1,
 					startLine: 1,

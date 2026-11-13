@@ -71,7 +71,7 @@ export const makeAssistantService = Effect.fn(function* (
 		);
 		if (
 			turn.requestId === input.requestId &&
-			["queued", "running", "awaiting-approval", "awaiting-input"].includes(turn.status)
+			["queued", "running", "awaiting-input", "awaiting-approval"].includes(turn.status)
 		) {
 			yield* start(userId, turn.id);
 		}
@@ -102,13 +102,15 @@ export const makeAssistantService = Effect.fn(function* (
 	) {
 		const { turn, next, awaitingDecision } = yield* transact(
 			userId,
-			repository.interrupt(userId, input.conversationId, input.turnId).pipe(
-				Effect.tap(({ turn: updated, next: queued }) =>
-					Effect.forEach(queued === null ? [updated] : [updated, queued], (changed) =>
-						publishAssistantUpdated(userId, changed.conversationId, changed.id, changed.revision),
-					).pipe(Effect.provideService(DatabaseSession, session)),
+			repository
+				.interrupt(userId, input.conversationId, input.turnId)
+				.pipe(
+					Effect.tap(({ next: queued, turn: updated }) =>
+						Effect.forEach(queued === null ? [updated] : [updated, queued], (changed) =>
+							publishAssistantUpdated(userId, changed.conversationId, changed.id, changed.revision),
+						).pipe(Effect.provideService(DatabaseSession, session)),
+					),
 				),
-			),
 		);
 		for (const toolCallId of awaitingDecision) {
 			yield* wake(userId, turn.id, toolCallId, "decline");

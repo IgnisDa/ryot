@@ -21,8 +21,8 @@ const conversationMoods: Record<AssistantConversationStatus, AssistantMood> = {
 	idle: "idle",
 	failed: "oops",
 	working: "working",
-	"awaiting-approval": "waiting",
 	"awaiting-input": "waiting",
+	"awaiting-approval": "waiting",
 };
 
 export const conversationMood = (status: AssistantConversationStatus) => conversationMoods[status];

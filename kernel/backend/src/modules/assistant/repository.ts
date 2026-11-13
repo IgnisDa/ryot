@@ -3,17 +3,18 @@ import {
 	ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH,
 	type AssistantApprovalDecision,
 	AssistantError,
-	AssistantQuestionInput,
 	AssistantMessagePart,
+	AssistantQuestionInput,
 	AssistantToolCall,
 	AssistantTurnFailure,
 	type AssistantTurnStatus,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
+import { stableStringify } from "@ryot-app/ts-utils/json";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { generateId } from "better-auth";
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
@@ -168,20 +169,15 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				return row;
 			});
 			const takeInbox = Effect.fn("AssistantRepository.takeInbox")(function* (turnId: string) {
-				return yield* session.run((db) =>
-					db
-						.update(inbox)
-						.set({ deliveredAt: sql`now()` })
-						.where(and(eq(inbox.turnId, turnId), isNull(inbox.deliveredAt)))
-						.returning(),
-				).pipe(
-					Effect.map((rows) =>
-						rows.toSorted(
-							(left, right) =>
-								left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id),
-						),
-					),
-				);
+				return yield* session
+					.run((db) =>
+						db
+							.update(inbox)
+							.set({ deliveredAt: sql`now()` })
+							.where(and(eq(inbox.turnId, turnId), isNull(inbox.deliveredAt)))
+							.returning(),
+					)
+					.pipe(Effect.map((rows) => sortBy(rows, ["createdAt", "id"])));
 			});
 			const refreshStatus = Effect.fn("AssistantRepository.refreshStatus")(function* (
 				turnId: string,
@@ -261,7 +257,11 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 					const [owner] = yield* session.run((db) =>
 						db.select().from(turns).where(eq(turns.id, queued.turnId)),
 					);
-					if (!owner || queued.text !== input.text || queued.conversationId !== input.conversationId) {
+					if (
+						!owner ||
+						queued.text !== input.text ||
+						queued.conversationId !== input.conversationId
+					) {
 						return yield* fail("request-conflict");
 					}
 					return owner;
@@ -288,14 +288,16 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 					);
 					if (active) {
 						yield* session.run((db) =>
-							db.insert(inbox).values({
-								userId,
-								conversationId,
-								id: generateId(),
-								text: input.text,
-								turnId: active.id,
-								requestId: input.requestId,
-							}),
+							db
+								.insert(inbox)
+								.values({
+									userId,
+									conversationId,
+									id: generateId(),
+									text: input.text,
+									turnId: active.id,
+									requestId: input.requestId,
+								}),
 						);
 						return yield* bumpTurn(active.id, {});
 					}
@@ -388,13 +390,19 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 					[next = null] = yield* session.run((db) =>
 						db
 							.insert(turns)
-							.values({ text, userId, conversationId, id: generateId(), requestId: `inbox:${first.id}` })
+							.values({
+								text,
+								userId,
+								conversationId,
+								id: generateId(),
+								requestId: `inbox:${first.id}`,
+							})
 							.returning(),
 					);
 					if (next === null) {
 						return yield* Effect.die("Assistant turn insert returned no row");
 					}
-					yield* appendMessage(userId, conversationId, next.id, "user", [{ kind: "text", text }]);
+					yield* appendMessage(userId, conversationId, next.id, "user", [{ text, kind: "text" }]);
 				}
 				return {
 					next,
@@ -564,9 +572,7 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				]);
 				const updated = yield* bumpTurn(turnId, {
 					round,
-					status: pendingStatus(
-						toolCalls.map((call) => ({ call, result: null, decision: null })),
-					),
+					status: pendingStatus(toolCalls.map((call) => ({ call, result: null, decision: null }))),
 				});
 				return updated;
 			});
@@ -944,12 +950,12 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				decide,
 				answer,
 				complete,
-				deliverInbox,
 				loadTurn,
 				interrupt,
 				transition,
 				readOutput,
 				recordRound,
+				deliverInbox,
 				setRoundText,
 				recordResult,
 				recoverableTurns,

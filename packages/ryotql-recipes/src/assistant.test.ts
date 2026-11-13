@@ -58,9 +58,18 @@ const turn = (
 	requestId: "request",
 	text: "Delete my old page",
 	calls: { pageInfo, items: calls },
-	queued: { pageInfo, items: [{ id: "queued", text: "Also add sleep" }] },
 	createdAt: "2026-11-13T10:00:00.000Z",
 	messages: { pageInfo, items: messages },
+	queued: { pageInfo, items: [{ id: "queued", text: "Also add sleep" }] },
+});
+
+const local = (id: string, name: "todo" | "question", input: JsonValue): AssistantToolCall => ({
+	tool: name,
+	kind: "tool",
+	arguments: input,
+	requiresApproval: false,
+	modelCallId: `model-${id}`,
+	id: AssistantToolCallId.make(id),
 });
 
 describe("projectAssistantTurn", () => {
@@ -177,14 +186,6 @@ describe("projectAssistantTurn", () => {
 	});
 
 	it("shows only the latest plan and question answers by state", () => {
-		const local = (id: string, name: "todo" | "question", input: JsonValue): AssistantToolCall => ({
-			tool: name,
-			kind: "tool",
-			arguments: input,
-			modelCallId: `model-${id}`,
-			requiresApproval: false,
-			id: AssistantToolCallId.make(id),
-		});
 		const firstPlan = local("plan-1", "todo", { items: [{ content: "Look", status: "pending" }] });
 		const items = [{ content: "Look", status: "completed" }] as const;
 		const latestPlan = local("plan-2", "todo", { items });
@@ -217,14 +218,8 @@ describe("projectAssistantTurn", () => {
 			{ questions, id: "ask", answers: null, kind: "question", state: "pending" },
 		]);
 		expect(
-			project("completed", ok({ answers: [{ question: "Which layout?", answer: "Grid" }] }))[1],
-		).toEqual({
-			questions,
-			id: "ask",
-			answers: ["Grid"],
-			kind: "question",
-			state: "answered",
-		});
+			project("completed", ok({ answers: [{ answer: "Grid", question: "Which layout?" }] }))[1],
+		).toEqual({ questions, id: "ask", kind: "question", answers: ["Grid"], state: "answered" });
 		expect(project("interrupted", ok({ interrupted: true }))[1]).toMatchObject({
 			answers: null,
 			state: "expired",
@@ -239,7 +234,7 @@ describe("projectAssistantTurn", () => {
 					message("prompt", "user", [{ kind: "text", text: "Build a page" }]),
 					message("reply", "assistant", [{ kind: "text", text: "Starting." }]),
 					message("steer", "user", [{ kind: "text", text: "Use a dark theme" }]),
-					message("next", "user", [{ kind: "instruction", text: "Continue." }]),
+					message("next", "user", [{ text: "Continue.", kind: "instruction" }]),
 				],
 				[],
 			),
@@ -248,6 +243,6 @@ describe("projectAssistantTurn", () => {
 			{ id: "reply:0", kind: "reply", text: "Starting." },
 			{ id: "steer:0", kind: "steer", text: "Use a dark theme" },
 		]);
-		expect(projected.queued).toEqual(["Also add sleep"]);
+		expect(projected.queued).toEqual([{ id: "queued", text: "Also add sleep" }]);
 	});
 });

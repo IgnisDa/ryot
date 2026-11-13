@@ -31,7 +31,6 @@ import {
 } from "#platform/tool-result";
 
 import { type AgentAccount, CapabilityCatalog, capabilityNamespaces } from "./catalog";
-import { applyPageEdits, readPageDraft } from "./page-files";
 import { AgentDocs, listAgentDocs, readAgentDocs } from "./docs";
 import {
 	credentialWriteGate,
@@ -39,6 +38,7 @@ import {
 	referencedCapabilities,
 	type WriteGate,
 } from "./execute";
+import { applyPageEdits, readPageDraft } from "./page-files";
 import { searchCapabilities } from "./search";
 
 export type AgentToolOutcome =
@@ -242,7 +242,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 				idempotencyKey: string | undefined,
 			) {
 				const draft = yield* pages.editDraft(
-					{ userId: account.user.id, kind: "assistant" },
+					{ kind: "assistant", userId: account.user.id },
 					{ pageId: input.pageId, expectedDraftRevision: input.expectedDraftRevision },
 					{ request: input, apply: (definition) => applyPageEdits(definition, input) },
 					keyed(idempotencyKey, "draft"),

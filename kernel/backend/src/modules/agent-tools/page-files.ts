@@ -11,10 +11,9 @@ const utf8 = new TextDecoder("utf-8", { fatal: true });
 
 const fileText = (content: string) =>
 	Result.flatMap(Base64.decode(content), (bytes) =>
-		Result.try({ try: () => utf8.decode(bytes), catch: () => null }),
+		Result.try({ catch: () => null, try: () => utf8.decode(bytes) }),
 	).pipe(Result.getOrNull);
 
-/** The draft summary, or one file's numbered lines when `path` is given. */
 export const readPageDraft = (
 	draft: {
 		readonly name: string;
@@ -60,7 +59,6 @@ export const readPageDraft = (
 	});
 };
 
-/** Applies `page_edit` changes in order; the message names the first edit that cannot apply. */
 export const applyPageEdits = (
 	definition: PageDefinition,
 	input: PageEditInput,

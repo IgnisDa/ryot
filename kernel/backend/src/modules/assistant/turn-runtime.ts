@@ -16,11 +16,11 @@ import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Result, Schema, Stream } from "effect";
 
-import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { AuthService } from "#modules/accounts/auth/service";
 import { capabilityPin } from "#modules/agent-tools/catalog";
 import type { WriteGate, WriteRequest } from "#modules/agent-tools/execute";
 import { AgentToolsService } from "#modules/agent-tools/service";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { publishAssistantUpdated } from "#modules/live-updates/publish";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { AgentRunSuspended } from "#modules/scripts/agent/service";
@@ -89,7 +89,7 @@ const assistantSystemSections = [
 	],
 	["Replies", "Reply concisely, and say plainly what you could not find or finish."],
 ] as const;
-export const assistantSystemPrompt = (
+const assistantSystemPrompt = (
 	plugins: ReadonlyArray<{ readonly packageId: string; readonly instructions: string }>,
 ) =>
 	[
@@ -136,12 +136,6 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	checkAccount,
 	instructions,
 }: {
-	readonly instructions: (
-		userId: UserId,
-	) => Effect.Effect<
-		ReadonlyArray<{ readonly packageId: string; readonly instructions: string }>,
-		Effect.Error<ReturnType<DefinitionCatalog["Service"]["forUser"]>>
-	>;
 	readonly model: AssistantModel["Service"];
 	readonly providers: Pick<AssistantProviderConfiguration["Service"], "effective">;
 	readonly tools: Pick<
@@ -153,6 +147,12 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	) => Effect.Effect<
 		void,
 		Effect.Error<ReturnType<AuthService["Service"]["resolveTrustedAccount"]>>
+	>;
+	readonly instructions: (
+		userId: UserId,
+	) => Effect.Effect<
+		ReadonlyArray<{ readonly packageId: string; readonly instructions: string }>,
+		Effect.Error<ReturnType<DefinitionCatalog["Service"]["forUser"]>>
 	>;
 }) {
 	const repository = yield* AssistantRepository;
@@ -424,11 +424,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 				state.messages.filter((message) => message.id !== textId(payload.turnId, round)),
 				payload.turnId,
 			);
-			const prompt = assistantProviderPrompt(
-				system,
-				history.summary,
-				history.messages,
-			);
+			const prompt = assistantProviderPrompt(system, history.summary, history.messages);
 			const characters = stableStringify([prompt, available]).length;
 			const estimate = estimateTokens(characters, state.measurement);
 			if (!compacted && estimate > compactionThreshold(provider.contextWindow)) {
@@ -527,7 +523,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	});
 	const isActive = Effect.fn(function* (payload: AssistantTurnPayload) {
 		const state = yield* load(payload);
-		return ["queued", "running", "awaiting-approval", "awaiting-input"].includes(state.turn.status);
+		return ["queued", "running", "awaiting-input", "awaiting-approval"].includes(state.turn.status);
 	});
 
 	const decision = Effect.fn("AssistantTurnRuntime.decision")(function* (
@@ -647,7 +643,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		if (
 			call.kind !== "tool" ||
 			stored.result !== null ||
-			!["queued", "running", "awaiting-approval", "awaiting-input"].includes(state.turn.status)
+			!["queued", "running", "awaiting-input", "awaiting-approval"].includes(state.turn.status)
 		) {
 			return null;
 		}
@@ -772,6 +768,10 @@ export class AssistantTurnRuntime extends Context.Service<AssistantTurnRuntime>(
 			const auth = yield* AuthService;
 			const catalogs = yield* DefinitionCatalog;
 			return yield* makeAssistantTurnRuntime({
+				model: yield* AssistantModel,
+				tools: yield* AgentToolsService,
+				providers: yield* AssistantProviderConfiguration,
+				checkAccount: (userId) => auth.resolveTrustedAccount(userId).pipe(Effect.asVoid),
 				instructions: Effect.fn(function* (userId: UserId) {
 					const { plugins } = yield* catalogs.forUser(userId);
 					return yield* Effect.forEach(
@@ -786,15 +786,13 @@ export class AssistantTurnRuntime extends Context.Service<AssistantTurnRuntime>(
 							catalogs.revision(plugin.activeRevisionId).pipe(
 								Effect.map(({ sections }) => {
 									const text = sections.client?.assistantInstructions;
-									return text === undefined ? [] : [{ instructions: text, packageId: plugin.packageId }];
+									return text === undefined
+										? []
+										: [{ instructions: text, packageId: plugin.packageId }];
 								}),
 							),
 					).pipe(Effect.map((entries) => entries.flat()));
 				}),
-				model: yield* AssistantModel,
-				tools: yield* AgentToolsService,
-				providers: yield* AssistantProviderConfiguration,
-				checkAccount: (userId) => auth.resolveTrustedAccount(userId).pipe(Effect.asVoid),
 			});
 		}),
 	},

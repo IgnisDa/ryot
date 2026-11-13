@@ -36,8 +36,9 @@ export const assistantAttentionEntries = (options: {
 			tone: "warning",
 			source: ASSISTANT_NAME,
 			title: conversation.title,
-			status: conversation.status === "awaiting-input" ? "Needs your answer" : "Needs your approval",
 			id: `assistant:${conversation.id}`,
 			onDismiss: () => options.onDismiss(conversation.id),
 			action: { label: "Review", onClick: () => options.onReview(conversation.id) },
+			status:
+				conversation.status === "awaiting-input" ? "Needs your answer" : "Needs your approval",
 		}));

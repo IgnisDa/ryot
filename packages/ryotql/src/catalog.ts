@@ -67,6 +67,17 @@ export const catalogTables = {
 			eventSchemaPluginId: { kind: "text", nullable: true },
 		},
 	},
+	assistantInbox: {
+		primaryKey: ["id"],
+		visibility: { user: { pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			text: { kind: "text", nullable: false },
+			turnId: { kind: "text", nullable: false },
+			createdAt: { kind: "date", nullable: false },
+			deliveredAt: { kind: "date", nullable: true },
+		},
+	},
 	agentScriptExecution: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: false } },
@@ -135,17 +146,6 @@ export const catalogTables = {
 			settledAt: { kind: "date", nullable: true },
 			createdAt: { kind: "date", nullable: false },
 			reminderId: { kind: "text", nullable: true },
-		},
-	},
-	assistantInbox: {
-		primaryKey: ["id"],
-		visibility: { user: { pluginReadable: false } },
-		fields: {
-			id: { kind: "text", nullable: false },
-			text: { kind: "text", nullable: false },
-			turnId: { kind: "text", nullable: false },
-			createdAt: { kind: "date", nullable: false },
-			deliveredAt: { kind: "date", nullable: true },
 		},
 	},
 	assistantMessage: {

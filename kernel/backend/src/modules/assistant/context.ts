@@ -1,6 +1,6 @@
 import type { AssistantMessage } from "@ryot-app/contract/modules/assistant/schemas";
 
-export type PromptMeasurement = { readonly tokens: number; readonly characters: number };
+type PromptMeasurement = { readonly tokens: number; readonly characters: number };
 
 type ContextMessage = { readonly turnId: string } & Pick<
 	AssistantMessage,
@@ -12,7 +12,6 @@ const RESERVE_SHARE = 0.15;
 const RESERVE_MIN = 16_000;
 export const ASSISTANT_COMPACTION_KEEP_TOKENS = 15_000;
 
-/** Scales prompt characters by the provider's last reported tokens-per-character for this conversation. */
 export const estimateTokens = (characters: number, measurement: null | PromptMeasurement) =>
 	Math.ceil(
 		measurement === null || measurement.characters === 0
@@ -79,7 +78,6 @@ export const messageGroups = <M extends Pick<AssistantMessage, "parts">>(
 	return groups;
 };
 
-/** Splits history into older groups to summarize and the newest groups kept verbatim within `keepTokens`. */
 export const compactionSplit = <M extends ContextMessage>(
 	messages: readonly M[],
 	tokens: (messages: readonly M[]) => number,

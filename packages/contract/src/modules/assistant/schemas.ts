@@ -131,7 +131,7 @@ export const AssistantTurn = strictStruct({
 	failure: Schema.NullOr(AssistantTurnFailure),
 });
 export const ASSISTANT_DEFAULT_MODEL_LIMITS = { contextWindow: 496_000, maxOutputTokens: 32_000 };
-export const AssistantTokenCount = Schema.Int.check(Schema.isGreaterThan(0));
+const AssistantTokenCount = Schema.Int.check(Schema.isGreaterThan(0));
 export const assistantModelLimitsValid = (limits: {
 	readonly contextWindow: number;
 	readonly maxOutputTokens: number;
@@ -180,7 +180,7 @@ export const AssistantTodoInput = strictStruct({
 		}),
 	),
 });
-export const ASSISTANT_QUESTION_MAX_COUNT = 4;
+const ASSISTANT_QUESTION_MAX_COUNT = 4;
 export const AssistantQuestionInput = strictStruct({
 	questions: Schema.Array(
 		strictStruct({
@@ -212,8 +212,10 @@ export const SaveAssistantPageResult = strictStruct({
 export type AssistantTurn = typeof AssistantTurn.Type;
 
 export type AssistantMessage = typeof AssistantMessage.Type;
+export type AssistantTodoInput = typeof AssistantTodoInput.Type;
 export type AssistantConversation = typeof AssistantConversation.Type;
 export type SaveAssistantPageBody = typeof SaveAssistantPageBody.Type;
+export type AssistantQuestionInput = typeof AssistantQuestionInput.Type;
 export type SubmitAssistantTurnBody = typeof SubmitAssistantTurnBody.Type;
 export type SaveAssistantPageResult = typeof SaveAssistantPageResult.Type;
 export type AssistantProviderMetadata = typeof AssistantProviderMetadata.Type;
@@ -222,8 +224,6 @@ export type InterruptAssistantTurnBody = typeof InterruptAssistantTurnBody.Type;
 export type AssistantConversationResult = typeof AssistantConversationResult.Type;
 export type DecideAssistantToolCallBody = typeof DecideAssistantToolCallBody.Type;
 export type AnswerAssistantQuestionBody = typeof AnswerAssistantQuestionBody.Type;
-export type AssistantQuestionInput = typeof AssistantQuestionInput.Type;
-export type AssistantTodoInput = typeof AssistantTodoInput.Type;
 export type ConfigureAssistantProviderBody = typeof ConfigureAssistantProviderBody.Type;
 export type RenameAssistantConversationBody = typeof RenameAssistantConversationBody.Type;
 export class AssistantError extends Schema.TaggedError<

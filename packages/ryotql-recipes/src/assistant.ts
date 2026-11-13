@@ -78,16 +78,16 @@ export const assistantActivityRecipe = defineRecipe({
 			limit: 20,
 			maxLimit: 20,
 			orderBy: [...recentConversations],
-			where: inArray(column(conversation, "status"), [
-				literal("working"),
-				literal("awaiting-approval"),
-				literal("awaiting-input"),
-			]),
 			selection: {
 				id: conversationSelection.id,
 				title: conversationSelection.title,
 				status: conversationSelection.status,
 			},
+			where: inArray(column(conversation, "status"), [
+				literal("working"),
+				literal("awaiting-approval"),
+				literal("awaiting-input"),
+			]),
 		}),
 	},
 });
@@ -127,6 +127,18 @@ export const assistantConversationRecipe = defineRecipe({
 				completedAt: selectedField(column(turn, "completedAt"), Schema.NullOr(IsoDateString)),
 			},
 			include: {
+				queued: selectedInclude(inbox, {
+					limit: 20,
+					orderBy: [ascending(column(inbox, "createdAt")), ascending(column(inbox, "id"))],
+					where: and(
+						eq(column(inbox, "turnId"), column(turn, "id")),
+						isNull(column(inbox, "deliveredAt")),
+					),
+					selection: {
+						id: selectedField(column(inbox, "id"), Schema.String),
+						text: selectedField(column(inbox, "text"), Schema.String),
+					},
+				}),
 				messages: selectedInclude(message, {
 					limit: 100,
 					where: eq(column(message, "turnId"), column(turn, "id")),
@@ -139,15 +151,6 @@ export const assistantConversationRecipe = defineRecipe({
 							column(message, "role"),
 							Schema.Literals(["user", "assistant", "tool"]),
 						),
-					},
-				}),
-				queued: selectedInclude(inbox, {
-					limit: 20,
-					where: and(eq(column(inbox, "turnId"), column(turn, "id")), isNull(column(inbox, "deliveredAt"))),
-					orderBy: [ascending(column(inbox, "createdAt")), ascending(column(inbox, "id"))],
-					selection: {
-						id: selectedField(column(inbox, "id"), Schema.String),
-						text: selectedField(column(inbox, "text"), Schema.String),
 					},
 				}),
 				calls: selectedInclude(call, {
@@ -198,22 +201,14 @@ export type AssistantTranscriptTurn = {
 	readonly id: AssistantTurnRecord["id"];
 	readonly status: AssistantTurnRecord["status"];
 	readonly failure: AssistantTurnRecord["failure"];
-	readonly queued: readonly string[];
 	readonly entries: readonly AssistantTranscriptEntry[];
+	readonly queued: readonly { readonly id: string; readonly text: string }[];
 };
 export type AssistantTranscriptEntry =
 	| { readonly id: string; readonly kind: "compaction" }
 	| { readonly id: string; readonly text: string; readonly kind: "steer" }
-	| { readonly id: string; readonly kind: "todo"; readonly items: AssistantTodoInput["items"] }
-	| {
-			readonly id: string;
-			readonly kind: "question";
-			readonly call: AssistantCallRecord;
-			readonly answers: null | readonly string[];
-			readonly state: "pending" | "answered" | "expired";
-			readonly questions: AssistantQuestionInput["questions"];
-	  }
 	| { readonly id: string; readonly text: string; readonly kind: "reply" }
+	| { readonly id: string; readonly kind: "todo"; readonly items: AssistantTodoInput["items"] }
 	| {
 			readonly id: string;
 			readonly kind: "page-preview";
@@ -229,13 +224,21 @@ export type AssistantTranscriptEntry =
 			readonly kind: "approval";
 			readonly call: AssistantCallRecord;
 			readonly state: AssistantApprovalState;
+	  }
+	| {
+			readonly id: string;
+			readonly kind: "question";
+			readonly call: AssistantCallRecord;
+			readonly answers: null | readonly string[];
+			readonly state: "pending" | "expired" | "answered";
+			readonly questions: AssistantQuestionInput["questions"];
 	  };
 
 const activeTurnStatuses: ReadonlySet<AssistantTurnRecord["status"]> = new Set([
 	"queued",
 	"running",
-	"awaiting-approval",
 	"awaiting-input",
+	"awaiting-approval",
 ]);
 export const isActiveAssistantTurn = (status: AssistantTurnRecord["status"]) =>
 	activeTurnStatuses.has(status);
@@ -311,7 +314,7 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 				if (part.kind === "text") {
 					if (prompted) {
 						closeSteps();
-						entries.push({ id: `${item.id}:${index}`, kind: "steer", text: part.text });
+						entries.push({ kind: "steer", text: part.text, id: `${item.id}:${index}` });
 					}
 					prompted = true;
 				}
@@ -337,11 +340,11 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 				if (stored === undefined || part.call.kind !== "tool") {
 					return;
 				}
-				const { arguments: input, tool } = part.call;
+				const { tool, arguments: input } = part.call;
 				if (tool === "todo" && Schema.is(AssistantTodoInput)(input)) {
 					if (stored.id === latestTodo) {
 						closeSteps();
-						entries.push({ id: stored.id, kind: "todo", items: input.items });
+						entries.push({ kind: "todo", id: stored.id, items: input.items });
 					}
 					return;
 				}
@@ -350,7 +353,7 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 					const answers = Schema.is(QuestionAnswers)(value)
 						? value.answers.map(({ answer }) => answer)
 						: null;
-					let state: "pending" | "answered" | "expired" = "expired";
+					let state: "pending" | "expired" | "answered" = "expired";
 					if (answers !== null) {
 						state = "answered";
 					} else if (stored.result === null && record.status === "awaiting-input") {
@@ -392,9 +395,9 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 		id: record.id,
 		prompt: record.text,
 		status: record.status,
-		queued: record.queued.items.map(({ text }) => text),
 		failure: record.failure,
 		createdAt: record.createdAt,
+		queued: record.queued.items,
 		completedAt: record.completedAt,
 		partial: record.messages.pageInfo.hasMore || record.calls.pageInfo.hasMore,
 	};

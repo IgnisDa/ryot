@@ -68,24 +68,23 @@ export const PageReadInput = strictStruct({
 	),
 });
 export type PageReadInput = typeof PageReadInput.Type;
-export const PageEditChange = Schema.Union([
+const PageEditChange = Schema.Union([
 	strictStruct({
+		newText: Schema.String,
 		path: Schema.NonEmptyString,
 		oldText: Schema.NonEmptyString,
-		newText: Schema.String,
 		replaceAll: optionalInput(Schema.Boolean),
 	}),
-	strictStruct({ path: Schema.NonEmptyString, text: Schema.String }),
+	strictStruct({ text: Schema.String, path: Schema.NonEmptyString }),
 	strictStruct({ path: Schema.NonEmptyString, delete: Schema.Literal(true) }),
 ]);
-export type PageEditChange = typeof PageEditChange.Type;
 export const PageEditInput = strictStruct({
 	...PageDraftRevisionBody.fields,
 	edits: Schema.Array(PageEditChange),
+	pluginQueries: optionalInput(PagePluginQueries),
 	entry: optionalInput(PageDefinition.fields.entry),
 	queries: optionalInput(PageDefinition.fields.queries),
 	pluginDependencies: optionalInput(PageDefinition.fields.pluginDependencies),
-	pluginQueries: optionalInput(PagePluginQueries),
 });
 export type PageEditInput = typeof PageEditInput.Type;
 export const PagePublishInput = PageDraftRevisionBody;
@@ -139,14 +138,14 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		description:
 			"Read a page's current draft. Without a path it returns the draft revision, entry, queries, dependencies and the list of files with their line counts. With a path it returns that file's numbered lines from offset (1-based, default 1), up to limit lines (default and maximum 2000).",
 	},
-	page_edit: {
+	search: {
+		name: "search",
+		hints: readHints,
 		approval: "none",
-		hints: writeHints,
-		name: "page_edit",
-		title: "Edit a page draft",
-		input: toAgentJsonSchema(PageEditInput),
+		title: "Search capabilities",
+		input: toAgentJsonSchema(DiscoveryInput),
 		description:
-			"Change a page draft without resending it, then compile it. Each edit is { path, oldText, newText } to replace text that occurs exactly once (or every occurrence with replaceAll), { path, text } to create or overwrite a file, or { path, delete: true } to remove a file. Edits apply in order. entry, queries, pluginDependencies and pluginQueries replace those definition fields when given. Returns the draft preview identity, or compiler diagnostics with the new draftRevision to repair with another edit.",
+			'Find Ryot capabilities: data schemas and queries, collections, pages, saved views and installed plugin operations and queries. Without a query it lists namespaces. Detail "names" returns IDs, "summary" (default) adds descriptions and hints, "full" adds the TypeScript input and output types used by execute.',
 	},
 	page_write: {
 		approval: "none",
@@ -157,15 +156,6 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		description:
 			"Create a page draft (name, slug, definition) or replace a whole one (pageId, expectedDraftRevision, definition), then compile it. Give each file as { path, text } with its UTF-8 source. Prefer page_edit for changes to an existing draft. Returns the draft preview identity, or compiler diagnostics to repair before writing again.",
 	},
-	search: {
-		name: "search",
-		hints: readHints,
-		approval: "none",
-		title: "Search capabilities",
-		input: toAgentJsonSchema(DiscoveryInput),
-		description:
-			'Find Ryot capabilities: data schemas and queries, collections, pages, saved views and installed plugin operations and queries. Without a query it lists namespaces. Detail "names" returns IDs, "summary" (default) adds descriptions and hints, "full" adds the TypeScript input and output types used by execute.',
-	},
 	execute: {
 		name: "execute",
 		title: "Run a script",
@@ -174,5 +164,14 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		hints: { readOnly: false, idempotent: false, destructive: true },
 		description:
 			'Run TypeScript in a sandbox. `code` is the body of an async function with `ryot` in scope. Call capabilities with `await ryot.call(id, input)` and `return` a JSON result, for example `return await ryot.call("kernel:collections.list", {});`. Reads run immediately. Writes the user has not allowed in advance ask for approval, and throw when declined or not allowed. There is no network, import or timer access. Type errors are reported before anything runs.',
+	},
+	page_edit: {
+		approval: "none",
+		hints: writeHints,
+		name: "page_edit",
+		title: "Edit a page draft",
+		input: toAgentJsonSchema(PageEditInput),
+		description:
+			"Change a page draft without resending it, then compile it. Each edit is { path, oldText, newText } to replace text that occurs exactly once (or every occurrence with replaceAll), { path, text } to create or overwrite a file, or { path, delete: true } to remove a file. Edits apply in order. entry, queries, pluginDependencies and pluginQueries replace those definition fields when given. Returns the draft preview identity, or compiler diagnostics with the new draftRevision to repair with another edit.",
 	},
 };

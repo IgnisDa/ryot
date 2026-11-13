@@ -286,7 +286,7 @@ export const PluginAssistantStarters = Schema.Array(
 	Schema.NonEmptyString.check(Schema.isMaxLength(120)),
 ).check(Schema.isMaxLength(PLUGIN_ASSISTANT_STARTERS_MAX));
 
-export const PLUGIN_ASSISTANT_INSTRUCTIONS_MAX_LENGTH = 2_000;
+const PLUGIN_ASSISTANT_INSTRUCTIONS_MAX_LENGTH = 2_000;
 
 export const PluginClientEntry = strictStruct({
 	homeView: Schema.NullOr(pluginManifestSlug),
@@ -295,11 +295,11 @@ export const PluginClientEntry = strictStruct({
 	entities: Schema.optional(PluginClientEntities),
 	notFoundPage: Schema.optional(pluginManifestSlug),
 	assistantStarters: Schema.optional(PluginAssistantStarters),
+	collectionPages: Schema.optional(PluginClientCollectionPages),
+	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
 	assistantInstructions: Schema.optional(
 		Schema.NonEmptyString.check(Schema.isMaxLength(PLUGIN_ASSISTANT_INSTRUCTIONS_MAX_LENGTH)),
 	),
-	collectionPages: Schema.optional(PluginClientCollectionPages),
-	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
 	analyticsSections: Schema.optional(
 		Schema.Record(
 			pluginManifestSlug,

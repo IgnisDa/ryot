@@ -5,8 +5,8 @@ import {
 	type CreatePageBody,
 	PageAuthoringError,
 	PageBuildResult,
-	PageDraftResult,
 	type PageDefinition,
+	PageDraftResult,
 	type PageDraftRevisionBody,
 	PageMutationResult,
 	type PageOrigin,
@@ -14,7 +14,8 @@ import {
 } from "@ryot-app/contract/modules/pages/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
-import { Context, Effect, Layer, Result } from "effect";
+import type { Result } from "effect";
+import { Context, Effect, Layer } from "effect";
 
 import { DefinitionCatalog, isReadyPackage } from "#modules/definitions/catalog";
 import { AccountAdmission } from "#modules/mutations/account-admission";

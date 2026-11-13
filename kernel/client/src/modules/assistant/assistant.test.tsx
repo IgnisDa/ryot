@@ -217,8 +217,8 @@ it.live(
 		Effect.gen(function* () {
 			const turn: AssistantTranscriptTurn = {
 				id: turnId,
-				failure: null,
 				queued: [],
+				failure: null,
 				partial: false,
 				status: "completed",
 				prompt: "How is my bench press?",
@@ -517,11 +517,11 @@ it.live(
 			const answers: AnswerAssistantQuestionBody[] = [];
 			const asked: AssistantToolCall = {
 				kind: "tool",
+				arguments: {},
 				tool: "question",
 				modelCallId: "model",
 				requiresApproval: false,
 				id: AssistantToolCallId.make("ask"),
-				arguments: {},
 			};
 			const view = mountHostedTestScreen(
 				<AssistantQuestion
@@ -534,7 +534,7 @@ it.live(
 						kind: "question",
 						call: { ...record, call: asked, id: asked.id },
 						questions: [
-							{ question: "Which charts?", multiple: true, options: ["Weight", "Steps"] },
+							{ multiple: true, question: "Which charts?", options: ["Weight", "Steps"] },
 							{ question: "What title?" },
 						],
 					}}

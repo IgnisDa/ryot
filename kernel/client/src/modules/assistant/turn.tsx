@@ -14,8 +14,8 @@ import { Effect } from "effect";
 
 import { AssistantApproval } from "./approval";
 import { AssistantPageDraft } from "./page-draft";
-import { AssistantQuestion } from "./question";
 import { ASSISTANT_NAME, stepTitle, turnFailureText, workedFor } from "./presentation";
+import { AssistantQuestion } from "./question";
 import { AssistantSprite } from "./sprite";
 import { AssistantSteps } from "./steps";
 import { AssistantTodo } from "./todo";
@@ -36,8 +36,7 @@ export function AssistantTurn(props: {
 	const groups = turn.entries.filter((entry) => entry.kind === "steps").length;
 	const worked = workedFor(turn);
 	const last = turn.entries.at(-1);
-	const working =
-		active && turn.status !== "awaiting-approval" && turn.status !== "awaiting-input";
+	const working = active && turn.status !== "awaiting-approval" && turn.status !== "awaiting-input";
 	const entry = (item: AssistantTranscriptEntry) => {
 		if (item.kind === "reply") {
 			return (
@@ -115,10 +114,12 @@ export function AssistantTurn(props: {
 		<article className="grid gap-3" aria-label={`${ASSISTANT_NAME} turn`}>
 			<p className={userBubble}>{turn.prompt}</p>
 			{turn.entries.map(entry)}
-			{turn.queued.map((text, index) => (
-				<div key={`${index}:${text}`} className="grid justify-items-end gap-1">
+			{turn.queued.map(({ id, text }) => (
+				<div key={id} className="grid justify-items-end gap-1">
 					<p className={clsx(userBubble, "opacity-60")}>{text}</p>
-					<span className="text-micro text-text-subtle">Sent when {ASSISTANT_NAME} finishes this step</span>
+					<span className="text-micro text-text-subtle">
+						Sent when {ASSISTANT_NAME} finishes this step
+					</span>
 				</div>
 			))}
 			{working && last?.kind !== "steps" ? (

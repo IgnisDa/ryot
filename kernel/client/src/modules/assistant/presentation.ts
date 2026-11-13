@@ -14,14 +14,14 @@ export const ASSISTANT_NAME = "Ryo";
 const toolLabels = {
 	read_docs: { detail: "topic", done: "Read docs", running: "Reading docs" },
 	execute: { detail: null, done: "Ran a script", running: "Running a script" },
+	todo: { detail: null, done: "Updated the plan", running: "Updating the plan" },
+	question: { detail: null, done: "Asked a question", running: "Asking a question" },
 	page_publish: { detail: null, done: "Published a page", running: "Publishing a page" },
 	page_read: { detail: "path", done: "Read a page draft", running: "Reading a page draft" },
 	page_edit: { detail: null, done: "Edited a page draft", running: "Editing a page draft" },
 	page_write: { detail: "name", done: "Wrote a page draft", running: "Writing a page draft" },
 	search: { detail: "query", done: "Searched capabilities", running: "Searching capabilities" },
 	read_result: { detail: "pattern", done: "Read stored output", running: "Reading stored output" },
-	todo: { detail: null, done: "Updated the plan", running: "Updating the plan" },
-	question: { detail: null, done: "Asked a question", running: "Asking a question" },
 } as const satisfies Record<
 	AssistantToolName,
 	{ readonly done: string; readonly running: string; readonly detail: null | string }

@@ -19,8 +19,8 @@ const initialCursor: string | undefined = undefined;
 const statuses = {
 	failed: { label: "Failed", className: "text-danger" },
 	working: { label: "Working", className: "text-accent-text" },
+	"awaiting-input": { className: "text-info", label: "Needs your answer" },
 	"awaiting-approval": { label: "Needs approval", className: "text-warning" },
-	"awaiting-input": { label: "Needs your answer", className: "text-info" },
 } as const satisfies Record<
 	Exclude<AssistantConversationStatus, "idle">,
 	{ readonly label: string; readonly className: string }

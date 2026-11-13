@@ -11,10 +11,8 @@ import { Schema } from "effect";
 
 import type { AssistantModelTool } from "./provider-model";
 
-/** Tool output kept inline in the conversation; anything larger is stored and previewed. */
-export const INLINE_OUTPUT_BYTES = 50 * 1024;
-export const INLINE_OUTPUT_LINES = 2_000;
-/** Largest result a tool may produce for Ryo before the producer cuts it. */
+const INLINE_OUTPUT_BYTES = 50 * 1024;
+const INLINE_OUTPUT_LINES = 2_000;
 export const PRODUCER_OUTPUT_BYTES = 8 * 1024 * 1024;
 const PREVIEW_HEAD_BYTES = 24 * 1024;
 const PREVIEW_TAIL_BYTES = 8 * 1024;
@@ -32,16 +30,9 @@ export const ReadResultInput = strictStruct({
 export const assistantLocalTools: {
 	readonly [Name in AssistantLocalToolName]: AssistantModelTool & { readonly readOnly: boolean };
 } = {
-	read_result: {
-		readOnly: true,
-		name: "read_result",
-		input: toAgentJsonSchema(ReadResultInput),
-		description:
-			"Read a tool output that was too large to show in full. Give the outputId from its preview. Without a pattern it returns numbered lines from offset (1-based, default 1), up to limit lines (default and maximum 2000). With a pattern (a case-insensitive regular expression) it returns up to 200 matching numbered lines.",
-	},
 	todo: {
-		readOnly: true,
 		name: "todo",
+		readOnly: true,
 		input: toAgentJsonSchema(AssistantTodoInput),
 		description:
 			"Show the user your plan for multi-step work as a checklist. Send the whole list each time, marking one item in_progress while you work on it and items completed as soon as they are done. Skip it for simple requests.",
@@ -52,6 +43,13 @@ export const assistantLocalTools: {
 		input: toAgentJsonSchema(AssistantQuestionInput),
 		description:
 			"Ask the user up to 4 questions and wait for their answers, when a choice only they can make blocks the work. Offer options when the likely answers are known; set multiple when several may apply. The user can always answer in their own words. Do not ask what you can find out with tools.",
+	},
+	read_result: {
+		readOnly: true,
+		name: "read_result",
+		input: toAgentJsonSchema(ReadResultInput),
+		description:
+			"Read a tool output that was too large to show in full. Give the outputId from its preview. Without a pattern it returns numbered lines from offset (1-based, default 1), up to limit lines (default and maximum 2000). With a pattern (a case-insensitive regular expression) it returns up to 200 matching numbered lines.",
 	},
 };
 
@@ -75,7 +73,6 @@ const resultText = (result: AgentToolResult) => {
 	return result.truncated === true ? result.jsonPrefix : null;
 };
 
-/** Stores an oversized result under `outputId`, keeping its head and tail inline. */
 export const retainToolResult = (result: AgentToolResult, outputId: string) => {
 	const text = resultText(result);
 	if (text === null) {
@@ -154,7 +151,6 @@ const runsConcurrently = (call: AssistantToolCall) => {
 	return tool.hints.readOnly && tool.approval === "none";
 };
 
-/** Consecutive read-only calls run together; any other call runs alone, in the order the model gave. */
 export const concurrentBatches = (calls: readonly AssistantToolCall[]) => {
 	const batches: AssistantToolCall[][] = [];
 	for (const call of calls) {

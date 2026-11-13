@@ -86,7 +86,9 @@ export const AssistantWorkflowLive = Layer.unwrap(
 					}
 				}
 			}).pipe(
-				Effect.catch((error) => activity("fail", runtime.finish(payload, error).pipe(Effect.asVoid))),
+				Effect.catch((error) =>
+					activity("fail", runtime.finish(payload, error).pipe(Effect.asVoid)),
+				),
 			),
 		);
 	}),
