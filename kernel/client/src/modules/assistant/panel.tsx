@@ -14,9 +14,14 @@ type AssistantPanelView =
 	| { readonly kind: "start" }
 	| { readonly kind: "conversation"; readonly conversationId: AssistantConversationId };
 
-export const useAssistantPanel = () => {
-	const [open, setOpen] = useState(false);
+export const useAssistantPanel = (location: {
+	readonly compact: boolean;
+	readonly pathname: string;
+}) => {
+	const [openedOn, setOpenedOn] = useState<null | string>(null);
 	const [view, setView] = useState<AssistantPanelView>({ kind: "start" });
+	const open = openedOn !== null && (!location.compact || openedOn === location.pathname);
+	const show = () => setOpenedOn(location.pathname);
 	const start = useAssistantSubmit({
 		onSubmitted: (conversationId) => setView({ conversationId, kind: "conversation" }),
 	});
@@ -26,15 +31,15 @@ export const useAssistantPanel = () => {
 		view,
 		start,
 		startNew,
-		close: () => setOpen(false),
-		toggle: () => setOpen((current) => !current),
+		close: () => setOpenedOn(null),
+		toggle: () => (open ? setOpenedOn(null) : show()),
 		show: (conversationId: AssistantConversationId) => {
 			setView({ conversationId, kind: "conversation" });
-			setOpen(true);
+			show();
 		},
 		ask: (text: string) => {
 			startNew();
-			setOpen(true);
+			show();
 			if (!start.locked) {
 				start.setText(text);
 				start.send(text);

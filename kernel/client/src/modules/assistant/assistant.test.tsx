@@ -359,6 +359,7 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const saves: SaveAssistantPageBody[] = [];
+			const navigations: string[] = [];
 			const view = mountHostedTestScreen(
 				<AssistantPageSave
 					turnId={turnId}
@@ -366,6 +367,7 @@ it.live(
 					identity={identity}
 					name="Training volume"
 					conversationId={conversationId}
+					onNavigate={(href) => navigations.push(href)}
 				/>,
 				{
 					query: empty,
@@ -394,7 +396,10 @@ it.live(
 					true,
 				);
 				fireEvent.click(screen.getByRole("button", { name: "Save page" }));
-				yield* Effect.promise(() => screen.findByRole("button", { name: "Open page" }));
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Open page" })),
+				);
+				expect(navigations).toEqual(["/v/c/saved-view"]);
 				expect(saves).toHaveLength(2);
 				expect(saves[1]).toEqual(saves[0]);
 				expect(saves[0]).toMatchObject({
@@ -422,6 +427,7 @@ it.live(
 					turnId={turnId}
 					disabled={false}
 					identity={identity}
+					onNavigate={() => undefined}
 					conversationId={conversationId}
 				/>,
 				{

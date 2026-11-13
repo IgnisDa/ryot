@@ -90,7 +90,6 @@ export function AuthenticatedShell(props: {
 	const router = useRouter();
 	const navigate = useNavigate();
 	const activity = useAssistantActivity();
-	const assistantPanel = useAssistantPanel();
 	const { conversationId: routeConversationId } = useParams({ strict: false });
 	const [dismissedAttention, setDismissedAttention] = useState<ReadonlySet<string>>(new Set());
 	const isDesktop = useIsDesktop();
@@ -100,6 +99,7 @@ export function AuthenticatedShell(props: {
 	const { state, search, pathname, searchStr } = useRouterState({
 		select: (routerState) => routerState.resolvedLocation ?? routerState.location,
 	});
+	const assistantPanel = useAssistantPanel({ pathname, compact: !isDesktop });
 	const contentShift = useTransform(progress, [0, 1], [0, CONTENT_SHIFT]);
 	const triggerRef = useRef<HTMLElement>(null);
 	const { scope, server, runtime, backInterceptors } = useRouteContext({ from: "/_authenticated" });

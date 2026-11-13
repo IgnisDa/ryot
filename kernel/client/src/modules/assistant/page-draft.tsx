@@ -36,8 +36,9 @@ const decodeSource = (content: string) => {
 	}
 };
 
-export function AssistantPageSave(props: DraftProps & { readonly name: string }) {
-	const navigate = useNavigate();
+export function AssistantPageSave(
+	props: DraftProps & { readonly name: string; readonly onNavigate: (href: string) => void },
+) {
 	const save = useRyotMutation(savePageMutation);
 	const identity = usePageIdentity(props.name);
 	const [requestId, setRequestId] = useState(() => crypto.randomUUID());
@@ -52,9 +53,9 @@ export function AssistantPageSave(props: DraftProps & { readonly name: string })
 				disabled={props.disabled}
 				onDone={() => setSharing(false)}
 				onCreated={(publicationId) =>
-					void navigate({
-						href: `/settings/publications#publication-${encodeURIComponent(publicationId)}`,
-					})
+					props.onNavigate(
+						`/settings/publications#publication-${encodeURIComponent(publicationId)}`,
+					)
 				}
 			/>
 		) : (
@@ -64,9 +65,7 @@ export function AssistantPageSave(props: DraftProps & { readonly name: string })
 				<Button variant="secondary" disabled={props.disabled} onClick={() => setSharing(true)}>
 					Share
 				</Button>
-				<Button
-					onClick={() => void navigate({ href: `/v/c/${encodeURIComponent(saved.savedViewId)}` })}
-				>
+				<Button onClick={() => props.onNavigate(`/v/c/${encodeURIComponent(saved.savedViewId)}`)}>
 					Open page
 				</Button>
 			</div>
@@ -153,6 +152,7 @@ const tabs = [
 
 export function AssistantPageDraft(props: DraftProps) {
 	const edge = useEdge();
+	const navigate = useNavigate();
 	const triggerRef = useRef<HTMLButtonElement>(null);
 	const page = useRyotQuery(pageQuery, { reload: 0, pageId: props.identity.pageId });
 	const [open, setOpen] = useState(false);
@@ -190,7 +190,16 @@ export function AssistantPageDraft(props: DraftProps) {
 					description="Read-only draft preview"
 					placement={edge.compact ? "sheet" : "center"}
 					footer={
-						page.data == null ? undefined : <AssistantPageSave {...props} name={page.data.name} />
+						page.data == null ? undefined : (
+							<AssistantPageSave
+								{...props}
+								name={page.data.name}
+								onNavigate={(href) => {
+									setOpen(false);
+									void navigate({ href });
+								}}
+							/>
+						)
 					}
 				>
 					<div className="grid gap-4">
