@@ -123,8 +123,8 @@
 			"dependsOn": ["build", "^build", "^check", "^test"]
 		},
 		"@ryot-app/kernel-backend#test:memory": {
-			"dependsOn": ["check", "build"],
-			"outputLogs": "errors-only"
+			"outputLogs": "errors-only",
+			"dependsOn": ["check", "build"]
 		}
 	},
 	"globalPassThroughEnv": [
