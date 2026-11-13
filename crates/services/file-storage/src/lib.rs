@@ -1,6 +1,6 @@
 use std::{collections::HashMap, sync::Arc};
 
-use anyhow::Result;
+use anyhow::{Result, bail};
 use aws_sdk_s3::{
     Client, Config,
     config::{Credentials, Region},
@@ -61,7 +61,37 @@ pub async fn get_presigned_url(ss: &Arc<SupportingService>, key: String) -> Resu
     Ok(url)
 }
 
-pub async fn delete_object(ss: &Arc<SupportingService>, key: String) -> Result<bool> {
+fn is_canonical_object_key(key: &str) -> bool {
+    key.bytes()
+        .all(|byte| byte.is_ascii_alphanumeric() || b"/_-.".contains(&byte))
+        && key
+            .split('/')
+            .all(|segment| !matches!(segment, "" | "." | ".."))
+}
+
+fn user_owns_upload(user_id: &str, key: &str) -> bool {
+    is_canonical_object_key(key)
+        && key
+            .strip_prefix("uploads/users/")
+            .and_then(|key| key.split_once('/'))
+            .is_some_and(|(owner, _)| owner == user_id)
+}
+
+pub fn ensure_user_can_use_upload(user_id: &str, key: &str, is_existing_asset: bool) -> Result<()> {
+    if user_owns_upload(user_id, key) || (is_existing_asset && !key.starts_with("uploads/users/")) {
+        return Ok(());
+    }
+    bail!("You are not authorized to use this file");
+}
+
+pub async fn delete_object(
+    ss: &Arc<SupportingService>,
+    user_id: &str,
+    key: String,
+) -> Result<bool> {
+    if !user_owns_upload(user_id, &key) {
+        return Ok(false);
+    }
     let (s3_client, bucket_name) = get_client_and_bucket_name(&ss.config);
     let response = s3_client
         .delete_object()
@@ -71,6 +101,22 @@ pub async fn delete_object(ss: &Arc<SupportingService>, key: String) -> Result<b
         .await
         .is_ok();
     Ok(response)
+}
+
+pub async fn get_presigned_user_upload(
+    ss: &Arc<SupportingService>,
+    user_id: &str,
+    prefix: String,
+) -> Result<(String, String)> {
+    if !prefix.is_empty() && !is_canonical_object_key(&prefix) {
+        bail!("Invalid upload prefix");
+    }
+    let prefix = if prefix.is_empty() {
+        format!("users/{user_id}")
+    } else {
+        format!("users/{user_id}/{prefix}")
+    };
+    get_presigned_put_url(ss, prefix, true, None).await
 }
 
 pub async fn get_presigned_put_url(
