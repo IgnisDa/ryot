@@ -14,7 +14,7 @@ Startup provisions five public clients:
 | `ryot-impersonation-web`    | Same callback and logout URIs as `ryot-web`                                  |
 | `ryot-impersonation-native` | Same callback and logout URIs as `ryot-native`                               |
 
-All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Public clients may dynamically register for `ryot:api` and the MCP resource; confidential registration is rejected. Client and resource management remain unavailable. The web client uses its current origin; only the installed native app selects a server.
+All require Authorization Code with S256 PKCE, skip consent, use `openid profile email offline_access ryot:api`, and target `<FRONTEND_URL>/api`. Public clients may dynamically register for the advertised identity scopes, `offline_access`, `ryot:api`, and the MCP resource; confidential registration is rejected. Client and resource management remain unavailable. The web client uses its current origin; only the installed native app selects a server.
 
 Better Auth accepts plain-HTTP redirect URIs only on the configured `FRONTEND_URL` origin, so non-loopback HTTP deployments register their real web callbacks. Dynamically registered clients cannot use HTTP redirects on any other non-loopback origin. This does not encrypt HTTP traffic.
 
@@ -92,9 +92,18 @@ Proxies must forward `/api/auth/*`, preserve `Authorization`, and never cache au
 
 ## MCP authorization and consent
 
+`oauth-policy.ts` owns client eligibility, resource scope allowances, registration defaults, and
+the required data scope. Provider configuration, startup provisioning, consent, token verification,
+and MCP metadata derive from this policy. Identity scopes never satisfy the required `ryot:api`
+data permission. Both resources allow the advertised identity and refresh scopes, preserving them
+through code exchange and refresh. Better Auth owns ID tokens and scope-limited UserInfo claims,
+including the stored email verification state. First-party clients target only the API resource;
+registered clients target only MCP. Registration eligibility does not grant permissions: consent
+and token issuance retain only the requested scopes.
+
 Dynamic registration uses Better Auth's `/api/auth/oauth2/register`, with explicit
 `token_endpoint_auth_method: "none"`, Authorization Code with S256 PKCE, the single `ryot:api`
-data scope, optional `offline_access` for refresh tokens, and the MCP resource. Registration assigns only that resource. Registered clients always
+data scope, optional `offline_access` for refresh tokens, optional `openid profile email` for identity, and the MCP resource. Registration assigns only that resource. Registered clients always
 receive the consent ceremony on a new authorization, including when a previous grant exists;
 first-party clients retain their provisioned skip-consent behavior. The built-in consent endpoint
 owns approval, refusal and authorization-code issuance.
@@ -102,7 +111,7 @@ owns approval, refusal and authorization-code issuance.
 The hosted page posts `{ oauth_query }` to `/api/auth/oauth2/consent-details`. The companion plugin
 verifies the provider signature and expiry before checking the session, resolves the signed client
 through the provider, validates its registered redirect (including native loopback port matching),
-and returns only `{ clientName, redirectOrigin, scope: "ryot:api" }`. Invalid or altered queries
+and returns `{ clientName, redirectOrigin, scopes }` with the verified requested permissions. Invalid or altered queries
 return 400; valid queries without a hosted session return 401. The page carries the original signed
 query into login when the session has expired. Display parameters never become authorization input.
 

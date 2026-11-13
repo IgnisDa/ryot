@@ -103,6 +103,14 @@ it("builds the exact first-party clients and API resource", () => {
 		identifier: "https://ryot.example/api",
 		allowedScopes: ["openid", "profile", "email", "offline_access", "ryot:api"],
 	});
+	expect(records.mcpResource).toEqual({
+		...records.resource,
+		id: "ryot-mcp",
+		name: "Ryot MCP",
+		identifier: "https://ryot.example/api/mcp",
+		allowedScopes: ["openid", "profile", "email", "offline_access", "ryot:api"],
+	});
+
 	expect(records.links).toEqual([
 		{
 			createdAt: now,

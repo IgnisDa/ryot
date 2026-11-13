@@ -4,7 +4,6 @@ import {
 	getMcpOAuthResource,
 	getMcpResourceMetadataUrl,
 	getOAuthIssuer,
-	OAUTH_API_SCOPE,
 } from "@ryot-app/contract/oauth";
 import { JsonValue } from "@ryot-app/contract/schema/json";
 import { strictStruct } from "@ryot-app/contract/schema/utils";
@@ -13,6 +12,7 @@ import { McpProtocol, McpSchema, McpServer } from "effect/ai";
 import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effect/http";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
+import { oauthPolicy, oauthResourcePolicies } from "#modules/accounts/auth/oauth-policy";
 import { AuthService } from "#modules/accounts/auth/service";
 import type { WriteGate } from "#modules/agent-tools/execute";
 import {
@@ -29,10 +29,10 @@ const RequestHeaders = Context.Reference<Headers.Headers>(
 );
 
 export const protectedResourceMetadata = (origin: string) => ({
-	scopes_supported: [OAUTH_API_SCOPE],
 	bearer_methods_supported: ["header"],
 	resource: getMcpOAuthResource(origin),
 	authorization_servers: [getOAuthIssuer(origin)],
+	scopes_supported: oauthResourcePolicies(origin).mcp.allowedScopes,
 });
 
 const ConnectionIdentity = strictStruct({
@@ -193,7 +193,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 					status: 401,
 					headers: {
 						"Cache-Control": "no-store",
-						"WWW-Authenticate": `Bearer resource_metadata="${getMcpResourceMetadataUrl(origin)}", scope="${OAUTH_API_SCOPE}"`,
+						"WWW-Authenticate": `Bearer resource_metadata="${getMcpResourceMetadataUrl(origin)}", scope="${oauthPolicy.requiredScopes.join(" ")}"`,
 					},
 				}),
 			),

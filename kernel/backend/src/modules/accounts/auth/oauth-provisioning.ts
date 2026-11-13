@@ -1,19 +1,13 @@
 import {
-	getMcpOAuthResource,
 	getOAuthIssuer,
-	getOAuthResource,
 	getWebOAuthLogoutRedirectUris,
 	getWebOAuthRedirectUris,
-	OAUTH_ACCESS_TOKEN_TTL_SECONDS,
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_IMPERSONATION_NATIVE_CLIENT_ID,
 	OAUTH_IMPERSONATION_WEB_CLIENT_ID,
-	OAUTH_MCP_SCOPES,
 	OAUTH_NATIVE_CALLBACK_URIS,
 	OAUTH_NATIVE_CLIENT_ID,
 	OAUTH_NATIVE_LOGOUT_CALLBACK_URIS,
-	OAUTH_REFRESH_TOKEN_TTL_SECONDS,
-	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
 } from "@ryot-app/contract/oauth";
 import { Context, DateTime, Effect, Layer, Option } from "effect";
@@ -21,6 +15,7 @@ import { Context, DateTime, Effect, Layer, Option } from "effect";
 import { AppConfig } from "#platform/config/service";
 import { DatabaseSession } from "#platform/db/session";
 
+import { oauthPolicy, oauthResourcePolicies } from "./oauth-policy";
 import {
 	AuthRepository,
 	type InternalOAuthClient,
@@ -34,7 +29,7 @@ export const allowFrontendHttpRedirectUri = (frontendOrigin: string) => (url: UR
 	url.origin === frontendOrigin;
 
 export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnabled: boolean) => {
-	const resourceIdentifier = getOAuthResource(frontendOrigin);
+	const resources = oauthResourcePolicies(frontendOrigin);
 	const webRedirectUris = getWebOAuthRedirectUris(frontendOrigin);
 	const webLogoutRedirectUris = getWebOAuthLogoutRedirectUris(frontendOrigin);
 	const client = (
@@ -59,11 +54,11 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		clientSecret: null,
 		enableEndSession: true,
 		responseTypes: ["code"],
-		scopes: [...OAUTH_SCOPES],
 		clientCredentialsScopes: [],
 		redirectUris: [...redirectUris],
 		tokenEndpointAuthMethod: "none",
 		id: `internal-oauth-client:${clientId}`,
+		scopes: [...oauthPolicy.firstPartyScopes],
 		postLogoutRedirectUris: [...postLogoutRedirectUris],
 		grantTypes: ["authorization_code", "refresh_token"],
 	});
@@ -105,11 +100,8 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		updatedAt: now,
 		disabled: false,
 		name: "Ryot API",
-		identifier: resourceIdentifier,
 		id: INTERNAL_OAUTH_RESOURCE_ID,
-		allowedScopes: [...OAUTH_SCOPES],
-		accessTokenTtl: OAUTH_ACCESS_TOKEN_TTL_SECONDS,
-		refreshTokenTtl: OAUTH_REFRESH_TOKEN_TTL_SECONDS,
+		...resources.api,
 	} satisfies InternalOAuthResource;
 	const links = clients.map(({ clientId }): InternalOAuthClientResource => ({
 		clientId,
@@ -121,8 +113,7 @@ export const internalOAuthRecords = (frontendOrigin: string, now: Date, demoEnab
 		...resource,
 		id: "ryot-mcp",
 		name: "Ryot MCP",
-		allowedScopes: [...OAUTH_MCP_SCOPES],
-		identifier: getMcpOAuthResource(frontendOrigin),
+		...resources.mcp,
 	} satisfies InternalOAuthResource;
 	return { links, clients, resource, mcpResource };
 };

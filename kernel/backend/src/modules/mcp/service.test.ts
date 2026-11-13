@@ -321,8 +321,8 @@ it.effect(
 it("advertises the MCP resource and its authorization server", () => {
 	expect(protectedResourceMetadata(origin)).toEqual({
 		resource: `${origin}/api/mcp`,
-		scopes_supported: ["ryot:api"],
 		bearer_methods_supported: ["header"],
 		authorization_servers: [`${origin}/api/auth`],
+		scopes_supported: ["openid", "profile", "email", "offline_access", "ryot:api"],
 	});
 });

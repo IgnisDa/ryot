@@ -40,14 +40,15 @@ export const NativeOAuthApplicationId = Schema.Literals(OAUTH_NATIVE_APPLICATION
 export type NativeOAuthApplicationId = typeof NativeOAuthApplicationId.Type;
 
 export const OAUTH_API_SCOPE = "ryot:api";
-export const OAUTH_MCP_SCOPES = [OAUTH_API_SCOPE, "offline_access"] as const;
+export const OAUTH_IDENTITY_SCOPES = ["openid", "profile", "email"] as const;
+export const OAUTH_OFFLINE_ACCESS_SCOPE = "offline_access";
 export const OAUTH_SCOPES = [
-	"openid",
-	"profile",
-	"email",
-	"offline_access",
+	...OAUTH_IDENTITY_SCOPES,
+	OAUTH_OFFLINE_ACCESS_SCOPE,
 	OAUTH_API_SCOPE,
 ] as const;
+export const OAuthScope = Schema.Literals(OAUTH_SCOPES);
+export type OAuthScope = typeof OAuthScope.Type;
 export const OAUTH_SCOPE = OAUTH_SCOPES.join(" ");
 
 export const OAUTH_PKCE_METHOD = "S256";
@@ -62,7 +63,7 @@ export const OAuthConsentDetailsRequest = strictStruct({ oauth_query: Schema.Str
 export const OAuthConsentDetails = strictStruct({
 	clientName: Schema.String,
 	redirectOrigin: Schema.String,
-	scope: Schema.Literal(OAUTH_API_SCOPE),
+	scopes: Schema.NonEmptyArray(OAuthScope),
 });
 export type OAuthConsentDetails = typeof OAuthConsentDetails.Type;
 

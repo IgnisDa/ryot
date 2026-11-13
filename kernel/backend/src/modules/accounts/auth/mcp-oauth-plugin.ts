@@ -1,19 +1,15 @@
 import {
 	getOAuthProviderApi,
 	getOAuthProviderState,
-	type OAuthOptions,
 	verifyOAuthQueryParams,
 } from "@better-auth/oauth-provider";
 import {
-	getMcpOAuthResource,
-	getOAuthResource,
 	isLoopbackOrigin,
-	OAUTH_API_SCOPE,
 	OAUTH_AUTHORIZE_PATH,
 	OAUTH_CLIENT_IDS,
-	OAUTH_MCP_SCOPES,
 	OAuthConsentDetails,
 	OAuthConsentDetailsRequest,
+	OAuthScope,
 } from "@ryot-app/contract/oauth";
 import type { BetterAuthPlugin } from "better-auth";
 import {
@@ -24,21 +20,9 @@ import {
 } from "better-auth/api";
 import { Option, Schema } from "effect";
 
-const invalidRequest = () => new APIError("BAD_REQUEST", { error: "invalid_request" });
+import { oauthPolicy, oauthProviderOptions, oauthResourcePolicies } from "./oauth-policy";
 
-export const mcpOAuthOptions = (origin: string) =>
-	({
-		resourcePrivileges: () => false,
-		enforcePerClientResources: true,
-		allowDynamicClientRegistration: true,
-		allowUnauthenticatedClientRegistration: true,
-		clientRegistrationDefaultApplicationType: "infer",
-		clientRegistrationDefaultScopes: [OAUTH_API_SCOPE],
-		clientPrivileges: ({ action }) => action === "create",
-		clientRegistrationAllowedScopes: [...OAUTH_MCP_SCOPES],
-		clientRegistrationDefaultResources: [getMcpOAuthResource(origin)],
-		resources: [getOAuthResource(origin), getMcpOAuthResource(origin)],
-	}) satisfies Partial<OAuthOptions<readonly string[]>>;
+const invalidRequest = () => new APIError("BAD_REQUEST", { error: "invalid_request" });
 
 const registeredRedirect = (
 	redirect: URL,
@@ -132,23 +116,33 @@ export const mcpOAuthPlugin = (origin: string): BetterAuthPlugin => ({
 				}
 				const clientId = query.get("client_id");
 				const redirectUri = query.get("redirect_uri");
-				const scopes = query.get("scope")?.split(/\s+/).filter(Boolean) ?? [];
+				const scopes = Schema.decodeUnknownOption(Schema.NonEmptyArray(OAuthScope))([
+					...new Set(query.get("scope")?.split(/\s+/).filter(Boolean) ?? []),
+				]);
 				if (
 					!clientId ||
 					!redirectUri ||
-					!scopes.includes(OAUTH_API_SCOPE) ||
-					scopes.some((scope) => !OAUTH_MCP_SCOPES.some((allowed) => allowed === scope)) ||
+					Option.isNone(scopes) ||
+					!oauthPolicy.requiredScopes.every((scope) => scopes.value.includes(scope)) ||
+					scopes.value.some((scope) => !oauthPolicy.thirdPartyScopes.includes(scope)) ||
 					query.get("claims") ||
-					query.getAll("resource").some((value) => value !== getMcpOAuthResource(origin))
+					query
+						.getAll("resource")
+						.some((value) => value !== oauthResourcePolicies(origin).mcp.identifier)
 				) {
 					throw invalidRequest();
 				}
 				const client = await getOAuthProviderApi(ctx, {
-					...mcpOAuthOptions(origin),
+					...oauthProviderOptions(origin),
 					loginPage: "/oauth/login",
 					consentPage: "/oauth/consent",
 				}).getClient(clientId);
-				if (!client || client.disabled || client.skipConsent) {
+				if (
+					!client ||
+					client.disabled ||
+					client.skipConsent ||
+					scopes.value.some((scope) => !client.scopes?.includes(scope))
+				) {
 					throw invalidRequest();
 				}
 				let redirect: URL;
@@ -169,7 +163,7 @@ export const mcpOAuthPlugin = (origin: string): BetterAuthPlugin => ({
 				}
 				return ctx.json(
 					OAuthConsentDetails.make({
-						scope: OAUTH_API_SCOPE,
+						scopes: scopes.value,
 						clientName: client.name ?? client.clientId,
 						redirectOrigin: redirect.origin === "null" ? redirect.protocol : redirect.origin,
 					}),

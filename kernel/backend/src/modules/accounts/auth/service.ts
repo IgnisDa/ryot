@@ -19,11 +19,9 @@ import {
 	getOAuthEndpoint,
 	getOAuthIssuer,
 	getOAuthResource,
-	OAUTH_API_SCOPE,
 	OAUTH_DEMO_WEB_CLIENT_ID,
 	OAUTH_LOGIN_PATH,
 	OAUTH_NATIVE_CLIENT_ID,
-	OAUTH_SCOPES,
 	OAUTH_WEB_CLIENT_ID,
 	REPORTING_TIME_ZONE_HEADER,
 } from "@ryot-app/contract/oauth";
@@ -60,7 +58,8 @@ import { impersonationOAuthExtension, isImpersonationClient } from "./impersonat
 import { impersonationPlugin } from "./impersonation-plugin";
 import { ImpersonationSessions } from "./impersonation-sessions";
 import { LifecycleWriteGuard } from "./lifecycle-write-guard";
-import { mcpOAuthOptions, mcpOAuthPlugin } from "./mcp-oauth-plugin";
+import { mcpOAuthPlugin } from "./mcp-oauth-plugin";
+import { oauthPolicy, oauthProviderOptions } from "./oauth-policy";
 import { allowFrontendHttpRedirectUri } from "./oauth-provisioning";
 import { AuthRepository } from "./repository";
 import { captureResetLink, deliverResetLink, type ResetCaptureTransport } from "./reset-capture";
@@ -189,10 +188,9 @@ const makeOAuthProviderPlugin = (
 ) => {
 	const { endpoints, ...plugin } = oauthProvider({
 		disableJwtPlugin: false,
-		scopes: [...OAUTH_SCOPES],
 		loginPage: OAUTH_LOGIN_PATH,
 		consentPage: "/oauth/consent",
-		...mcpOAuthOptions(frontendUrl),
+		...oauthProviderOptions(frontendUrl),
 		grantTypes: ["authorization_code", "refresh_token"],
 		extensions: [impersonationOAuthExtension(impersonationSessions)],
 		allowInsecureRedirectUri: allowFrontendHttpRedirectUri(frontendUrl),
@@ -627,7 +625,7 @@ export const getOAuthVerificationOptions = (
 	frontendUrl: string,
 	resource = getOAuthResource(frontendUrl),
 ) => ({
-	requiredScopes: [OAUTH_API_SCOPE],
+	requiredScopes: [...oauthPolicy.requiredScopes],
 	jwksUrl: getOAuthEndpoint(frontendUrl, "/api/auth/jwks"),
 	verifyOptions: { audience: resource, issuer: getOAuthIssuer(frontendUrl) },
 });
