@@ -24,7 +24,8 @@ type ScreenFrameProps = {
 
 const fade = "transition-opacity duration-150 ease-out motion-reduce:transition-none";
 
-const barControl = "flex size-11 shrink-0 items-center justify-center rounded-pill";
+const barControl =
+	"flex size-11 shrink-0 items-center justify-center rounded-pill text-text hover:bg-hover";
 
 export function ScreenBarButton({ label, className, ...props }: ScreenBarButtonProps) {
 	return (

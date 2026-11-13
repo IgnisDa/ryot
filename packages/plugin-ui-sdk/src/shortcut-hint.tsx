@@ -7,15 +7,33 @@ import clsx from "clsx";
 
 import { AppIcon } from "./icon";
 
-type ShortcutHintProps = {
+export function ShortcutKeys({ shortcut }: { readonly shortcut: HotkeyChord }) {
+	const platform = useDefaultHotkeysOptions().hotkey?.platform ?? detectPlatform();
+
+	return shortcut.split("+").map((key) => {
+		if (key === "Mod") {
+			return platform === "mac" ? (
+				<AppIcon key={key} size={12} name="command" />
+			) : (
+				<span key={key}>Ctrl</span>
+			);
+		}
+		if (key === "Shift") {
+			return <AppIcon key={key} size={12} name="arrow-big-up" />;
+		}
+		return key;
+	});
+}
+
+export function ShortcutHint({
+	shortcut,
+	onAccent,
+	className,
+}: {
 	readonly onAccent?: boolean;
 	readonly className?: string;
 	readonly shortcut: HotkeyChord;
-};
-
-export function ShortcutHint({ shortcut, onAccent, className }: ShortcutHintProps) {
-	const platform = useDefaultHotkeysOptions().hotkey?.platform ?? detectPlatform();
-
+}) {
 	return (
 		<kbd
 			aria-hidden="true"
@@ -25,19 +43,7 @@ export function ShortcutHint({ shortcut, onAccent, className }: ShortcutHintProp
 				className,
 			)}
 		>
-			{shortcut.split("+").map((key) => {
-				if (key === "Mod") {
-					return platform === "mac" ? (
-						<AppIcon key={key} size={12} name="command" />
-					) : (
-						<span key={key}>Ctrl</span>
-					);
-				}
-				if (key === "Shift") {
-					return <AppIcon key={key} size={12} name="arrow-big-up" />;
-				}
-				return key;
-			})}
+			<ShortcutKeys shortcut={shortcut} />
 		</kbd>
 	);
 }

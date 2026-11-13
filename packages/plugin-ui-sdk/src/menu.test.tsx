@@ -52,6 +52,19 @@ describe("Menu", () => {
 		expect(document.activeElement).toBe(first);
 	});
 
+	it("renders named item icons as decoration beside the accessible label", () => {
+		render(
+			<MenuHarness
+				onClose={() => {}}
+				items={[{ key: "share", icon: "share", label: "Share", onSelect: () => {} }]}
+			/>,
+		);
+
+		const icon = screen.getByRole("menuitem", { name: "Share" }).querySelector("[data-app-icon]");
+		expect(icon?.getAttribute("data-app-icon")).toBe("share");
+		expect(icon?.getAttribute("aria-hidden")).toBe("true");
+	});
+
 	it("closes without restoring focus when a pointer lands outside", () => {
 		const closes: boolean[] = [];
 		render(<MenuHarness items={items} onClose={(restore) => closes.push(restore)} />);

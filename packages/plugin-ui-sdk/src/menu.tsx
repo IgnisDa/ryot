@@ -10,6 +10,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 
+import { AppIcon } from "./icon";
 import { useDismissOnOutside } from "./overlay";
 import { OverlayScope } from "./shortcut";
 
@@ -20,6 +21,8 @@ const VIEWPORT_PADDING = 8;
 export type MenuItem = {
 	readonly key: string;
 	readonly label: string;
+	/** An `AppIcon` name shown before the label. */
+	readonly icon?: string;
 	/** Makes the item a radio choice; the checked one shows `checkIcon`. */
 	readonly checked?: boolean;
 	readonly disabled?: boolean;
@@ -181,6 +184,9 @@ export function Menu({
 							"disabled:text-text-subtle disabled:hover:bg-transparent",
 						)}
 					>
+						{item.icon === undefined ? null : (
+							<AppIcon size={16} name={item.icon} className="shrink-0 text-text-muted" />
+						)}
 						<span className="min-w-0 flex-1 truncate">{item.label}</span>
 						{item.checked === true ? (
 							<span aria-hidden="true" className="shrink-0 text-accent-text">

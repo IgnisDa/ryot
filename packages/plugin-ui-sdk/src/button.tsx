@@ -1,5 +1,8 @@
+import type { HotkeyChord } from "@tanstack/react-hotkeys";
 import clsx from "clsx";
 import type { ComponentProps } from "react";
+
+import { Tooltip } from "./tooltip";
 
 const variantClasses = {
 	dangerGhost: "font-medium text-danger hover:bg-danger-soft",
@@ -25,6 +28,7 @@ const sizeClasses = {
 
 type ButtonProps = ComponentProps<"button"> & {
 	readonly loading?: boolean;
+	readonly shortcut?: HotkeyChord;
 	readonly size?: keyof typeof sizeClasses;
 	readonly variant?: keyof typeof variantClasses;
 };
@@ -45,15 +49,17 @@ export function Button({
 	loading,
 	disabled,
 	children,
+	shortcut,
 	className,
 	size = "md",
 	variant = "primary",
 	type = linkVariants.has(variant) ? "button" : undefined,
 	...props
 }: ButtonProps) {
-	return (
+	const button = (
 		<button
 			type={type}
+			aria-keyshortcuts={shortcut}
 			aria-busy={loading === true ? true : undefined}
 			disabled={disabled === true || loading === true}
 			className={clsx(buttonClassName(variant, size), className)}
@@ -72,6 +78,7 @@ export function Button({
 			)}
 		</button>
 	);
+	return shortcut === undefined ? button : <Tooltip shortcut={shortcut}>{() => button}</Tooltip>;
 }
 
 const iconToneClasses = {

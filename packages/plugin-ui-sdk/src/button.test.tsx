@@ -27,6 +27,17 @@ describe("Button", () => {
 		},
 	);
 
+	it("announces its shortcut and shows the keys only in a decorative hover hint", () => {
+		render(<Button shortcut="A">Add</Button>);
+
+		const button = screen.getByRole("button", { name: "Add" });
+		expect(button.getAttribute("aria-keyshortcuts")).toBe("A");
+		expect(button.hasAttribute("aria-describedby")).toBe(false);
+		expect(button.nextElementSibling?.getAttribute("aria-hidden")).toBe("true");
+		expect(button.nextElementSibling?.textContent).toBe("A");
+		expect(screen.queryByRole("tooltip")).toBeNull();
+	});
+
 	it("keeps caller classes alongside the variant it defaults to", () => {
 		render(<Button className="w-full">Continue</Button>);
 		const fallback = screen.getByRole("button", { name: "Continue" });
