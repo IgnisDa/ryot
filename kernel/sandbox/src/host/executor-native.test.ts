@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { BunCrypto, BunServices } from "@effect/platform-bun";
 import { SandboxScriptId, UserId } from "@ryot-app/contract/schema/brands";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import {
 	anyOf,
 	arrayContaining,
@@ -10,7 +11,6 @@ import {
 } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Schema } from "effect";
 
@@ -97,7 +97,8 @@ const nativeServiceLayer = Layer.unwrap(
 			Layer.succeed(NativeServiceControl, control),
 			Layer.succeed(NativeServiceTempRoot, root),
 		);
-		return Layer.mergeAll(SandboxExecutor.layer, ViteBuildService.layer).pipe(
+		return SandboxExecutor.layer.pipe(
+			Layer.provideMerge(pluginBackendCompilerPlatformLayer),
 			Layer.provideMerge(SandboxStateStore.memoryLayer),
 			Layer.provideMerge(dependencies),
 		);

@@ -121,6 +121,7 @@
 		"@ryot-app/sandbox": "workspace:*",
 		"@ryot-app/testing": "workspace:*",
 		"@ryot-app/ts-utils": "workspace:*",
+		"@ryot-app/typescript-compiler": "workspace:*",
 		"@ryot-app/vite-compiler": "workspace:*",
 		"@testing-library/dom": "10.4.2",
 		"@types/react": "19.3.0",

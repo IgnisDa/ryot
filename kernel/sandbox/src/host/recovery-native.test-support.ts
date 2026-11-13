@@ -1,7 +1,7 @@
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { assert } from "@ryot-app/testing/assert";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Context, Effect, Layer, Option, Queue, Schema } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 
@@ -127,7 +127,6 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 	hosts,
 	files,
 	recordingClient,
-	ViteBuildService.layer,
 	SandboxHostCallGate.layer.pipe(Layer.provideMerge(SandboxSidecarAdmission.layer)),
 	SandboxRecoveryStore.layer,
 	SandboxSidecarQuarantine.layer,
@@ -136,6 +135,7 @@ export const nativeRecoveryLayer = Layer.mergeAll(
 		resolve: (principal) => Effect.succeed(principal.pluginRevision === null ? "system" : "user"),
 	}),
 ).pipe(
+	Layer.provideMerge(pluginBackendCompilerPlatformLayer),
 	Layer.provideMerge(SandboxStateStore.memoryLayer),
 	Layer.provideMerge(
 		Layer.effect(

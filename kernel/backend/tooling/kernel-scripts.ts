@@ -1,11 +1,11 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { compilePluginSandboxSourceEntries } from "@ryot-app/plugin-backend-compiler/plugins";
 import { walkSourceFiles } from "@ryot-app/plugin-backend-compiler/runtime-build/source-tree";
 import { canonicalFileSetHash } from "@ryot-app/ts-utils/crypto";
 import { encodeJsonString } from "@ryot-app/ts-utils/json";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Effect, FileSystem, Layer, Path, Ref, Schema } from "effect";
 
 import { kernelScripts } from "../src/modules/definitions/builtin-scripts";
@@ -89,5 +89,5 @@ const program = Effect.gen(function* () {
 }).pipe(Effect.tapError((error) => Effect.logError(JSON.stringify(error, null, 2))));
 
 BunRuntime.runMain(
-	program.pipe(Effect.provide(Layer.mergeAll(BunServices.layer, ViteBuildService.layer))),
+	program.pipe(Effect.provide(Layer.merge(BunServices.layer, pluginBackendCompilerPlatformLayer))),
 );

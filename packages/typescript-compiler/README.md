@@ -20,6 +20,20 @@ approval decision stay with the plugin compilers.
 Each target supplies a complete in-memory project configuration and resolved source/type aliases.
 Dynamic compilation does not inherit repository or package TypeScript configuration.
 
+`TypeScriptSession` owns one native TypeScript server for its Layer's lifetime, so the standard
+library and dependency declarations are parsed once instead of per compile. `withTypeScriptProject`
+checks each project in a fresh snapshot of that server: the session replaces the virtual project
+files, reports the changed, created, and deleted paths, and disposes the previous snapshot only after
+the next one exists, because the server reports changed files only against a live snapshot and the
+client would otherwise keep serving stale syntax trees. A failed or interrupted server request
+restarts the server on the next check. Compiler platform Layers provide the session, so workers,
+local builds, and tests share it across compiles.
+
+`TypeScriptSession.layer` checks only the project files: syntax, binding, and per-file semantics,
+plus program and configuration diagnostics. Resolved dependencies are trusted.
+`TypeScriptSession.environmentLayer` also checks global declarations and every resolved dependency;
+it verifies a compiler environment, such as an image build, and is not used per job.
+
 Projects normalize every diagnostic against the source file that reports it. Diagnostics in files
 under the virtual root are `project` diagnostics with logical paths; diagnostics in resolved
 dependencies, or without a file, are `environment` diagnostics because the compiler's own

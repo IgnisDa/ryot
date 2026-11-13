@@ -2,8 +2,12 @@ import { expect } from "bun:test";
 
 import { objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { type TypeScriptProjectAccess, withTypeScriptProject } from "@ryot-app/typescript-compiler";
-import { it } from "@voila.dev/effect-bun-test";
+import {
+	type TypeScriptProjectAccess,
+	TypeScriptSession,
+	withTypeScriptProject,
+} from "@ryot-app/typescript-compiler";
+import { layer } from "@voila.dev/effect-bun-test";
 import { Effect } from "effect";
 
 import { resolveSandboxCompilerDependencies } from "./compiler-dependencies";
@@ -47,39 +51,40 @@ const analyzeEntries = (project: TypeScriptProjectAccess, entries: ReadonlyArray
 	});
 };
 
-it.effect(
-	"collects direct host calls through helpers, references, closures, and branches",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"direct.sandbox.ts",
-				"renamed-helper.sandbox.ts",
-				"default-helper.sandbox.ts",
-				"default-parameter.sandbox.ts",
-				"closure-helper.sandbox.ts",
-				"initializer.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"closure-helper.sandbox.ts": `
+layer(TypeScriptSession.layer)((test) => {
+	test.effect(
+		"collects direct host calls through helpers, references, closures, and branches",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"direct.sandbox.ts",
+					"renamed-helper.sandbox.ts",
+					"default-helper.sandbox.ts",
+					"default-parameter.sandbox.ts",
+					"closure-helper.sandbox.ts",
+					"initializer.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"closure-helper.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { readCached } from "./helpers";
 
 export default (host: Pick<ScriptHost, "getCachedValue">) => readCached(host);
 `,
-					"default-helper.sandbox.ts": `
+						"default-helper.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import readPersistent from "./helpers";
 
 export default (host: Pick<ScriptHost, "getPersistentValue">) => readPersistent(host);
 `,
-					"renamed-helper.sandbox.ts": `
+						"renamed-helper.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { readSettings as renamedRead } from "./helpers";
 
 export default (host: Pick<ScriptHost, "getUserSettings">) => renamedRead(host);
 `,
-					"default-parameter.sandbox.ts": `
+						"default-parameter.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { createYoutubeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";
 
@@ -90,7 +95,7 @@ const createWithDefault = (
 
 export default (host: Pick<ScriptHost, "httpCall">) => createWithDefault(host);
 `,
-					"helpers.ts": `
+						"helpers.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export const readSettings = (host: Pick<ScriptHost, "getUserSettings">) => host.getUserSettings();
@@ -100,7 +105,7 @@ export const readCached = (host: Pick<ScriptHost, "getCachedValue">) => {
 };
 export default (host: Pick<ScriptHost, "getPersistentValue">) => host.getPersistentValue("key");
 `,
-					"direct.sandbox.ts": `
+						"direct.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export default (input: { useHttp: boolean }, host: Pick<ScriptHost, "httpCall" | "log">) => {
@@ -112,7 +117,7 @@ export default (input: { useHttp: boolean }, host: Pick<ScriptHost, "httpCall" |
   return shared();
 };
 `,
-					"initializer.sandbox.ts": `
+						"initializer.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 declare const initializerHost: Pick<ScriptHost, "httpCall" | "log">;
@@ -122,32 +127,32 @@ const directInitialization = initializerHost.httpCall("GET", "https://example.co
 const helperInitialization = logDuringInitialization(initializerHost);
 export default () => [directInitialization, helperInitialization];
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
-				["httpCall", "log"],
-				["getUserSettings"],
-				["getPersistentValue"],
-				["httpCall"],
-				["getCachedValue"],
-				["httpCall", "log"],
-			]);
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], [], [], [], []]);
-		}),
-	testTimeout,
-);
+				expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
+					["httpCall", "log"],
+					["getUserSettings"],
+					["getPersistentValue"],
+					["httpCall"],
+					["getCachedValue"],
+					["httpCall", "log"],
+				]);
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], [], [], [], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"infers user entity writes through the canonical host declarations",
-	() =>
-		Effect.gen(function* () {
-			const entries = ["write.sandbox.ts"];
-			const results = yield* withProject(
-				{
-					"write.sandbox.ts": `
+	test.effect(
+		"infers user entity writes through the canonical host declarations",
+		() =>
+			Effect.gen(function* () {
+				const entries = ["write.sandbox.ts"];
+				const results = yield* withProject(
+					{
+						"write.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 export default (host: ScriptHost) => {
   const create = host.createUserEntity;
@@ -155,71 +160,71 @@ export default (host: ScriptHost) => {
   return host.updateUserEntity({ entityId: "record", name: "Changed", properties: {}, expected: { name: "Record", updatedAt: "2026-10-15T00:00:00Z", properties: {} } });
 };
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
-			expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
-				["createUserEntity", "updateUserEntity"],
-			]);
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[]]);
-		}),
-	testTimeout,
-);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
+				expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
+					["createUserEntity", "updateUserEntity"],
+				]);
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[]]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"maps aliased intrinsic imports to their declared capabilities only",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"artifact.sandbox.ts",
-				"artifact-range.sandbox.ts",
-				"named-artifact.sandbox.ts",
-				"scratch.sandbox.ts",
-				"music.sandbox.ts",
-				"history.sandbox.ts",
-				"utility.sandbox.ts",
-				"type-only.sandbox.ts",
-				"unrelated.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"utility.ts": `
+	test.effect(
+		"maps aliased intrinsic imports to their declared capabilities only",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"artifact.sandbox.ts",
+					"artifact-range.sandbox.ts",
+					"named-artifact.sandbox.ts",
+					"scratch.sandbox.ts",
+					"music.sandbox.ts",
+					"history.sandbox.ts",
+					"utility.sandbox.ts",
+					"type-only.sandbox.ts",
+					"unrelated.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"utility.ts": `
 export const normalize = (value: string) => value.trim();
 `,
-					"utility.sandbox.ts": `
+						"utility.sandbox.ts": `
 import { normalize } from "./utility";
 
 export default normalize(" text ");
 `,
-					"artifact-range.sandbox.ts": `
+						"artifact-range.sandbox.ts": `
 import { readArtifactRange as loadArtifactRange } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export default loadArtifactRange(0, 1);
 `,
-					"named-artifact.sandbox.ts": `
+						"named-artifact.sandbox.ts": `
 import { readNamedArtifact as loadNamedArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export default loadNamedArtifact("input.json");
 `,
-					"scratch.sandbox.ts": `
+						"scratch.sandbox.ts": `
 import { writeScratchChunks as writeChunks } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export default writeChunks([{ name: "output.json", contents: "{}" }]);
 `,
-					"type-only.sandbox.ts": `
+						"type-only.sandbox.ts": `
 import type { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 type ArtifactEffect = typeof readArtifact;
 export const unusedType: ArtifactEffect | undefined = undefined;
 `,
-					"artifact.sandbox.ts": `
+						"artifact.sandbox.ts": `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact as loadArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export default loadArtifact.pipe(Effect.as(null));
 `,
-					"unrelated.sandbox.ts": `
+						"unrelated.sandbox.ts": `
 const readArtifact = () => null;
 const createYoutubeMusicClient = () => null;
 const host = { httpCall: () => null };
@@ -230,94 +235,94 @@ export default () => {
   createYoutubeMusicClient();
 };
 `,
-					"music.sandbox.ts": `
+						"music.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { createYoutubeMusicClient as makeMusicClient } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 export default (host: Pick<ScriptHost, "httpCall">) => makeMusicClient(host);
 `,
-					"history.sandbox.ts": `
+						"history.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { createYoutubeHistoryClient as makeHistoryClient } from "@ryot-app/plugin-backend-sdk/youtubei";
 
 export default (host: Pick<ScriptHost, "httpCall">) => makeHistoryClient(host, "cookie", "UTC");
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
-				["artifact-read"],
-				["artifact-read"],
-				["artifact-read"],
-				["scratch"],
-				["httpCall"],
-				["httpCall"],
-				[],
-				[],
-				[],
-			]);
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([
-				[],
-				[],
-				[],
-				[],
-				[],
-				[],
-				[],
-				[],
-				[],
-			]);
-		}),
-	testTimeout,
-);
+				expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
+					["artifact-read"],
+					["artifact-read"],
+					["artifact-read"],
+					["scratch"],
+					["httpCall"],
+					["httpCall"],
+					[],
+					[],
+					[],
+				]);
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([
+					[],
+					[],
+					[],
+					[],
+					[],
+					[],
+					[],
+					[],
+					[],
+				]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"keeps helper graphs and workflow dependency capabilities entry-local",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"network.sandbox.ts",
-				"pure.sandbox.ts",
-				"recursive.sandbox.ts",
-				"workflow.sandbox.ts",
-				"child.sandbox.ts",
-				"wrapped-helper.sandbox.ts",
-				"provider-helper.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"pure.sandbox.ts": `
+	test.effect(
+		"keeps helper graphs and workflow dependency capabilities entry-local",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"network.sandbox.ts",
+					"pure.sandbox.ts",
+					"recursive.sandbox.ts",
+					"workflow.sandbox.ts",
+					"child.sandbox.ts",
+					"wrapped-helper.sandbox.ts",
+					"provider-helper.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"pure.sandbox.ts": `
 import { normalize } from "./shared";
 
 export default normalize(" text ");
 `,
-					"first.ts": `
+						"first.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { second } from "./second";
 
 export const first = (host: Pick<ScriptHost, "log">) => second(host);
 `,
-					"recursive.sandbox.ts": `
+						"recursive.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { first } from "./first";
 
 export default (host: Pick<ScriptHost, "log">) => first(host);
 `,
-					"network.sandbox.ts": `
+						"network.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { request } from "./shared";
 
 export default (host: Pick<ScriptHost, "httpCall">) => request(host);
 `,
-					"wrapped-helper.sandbox.ts": `
+						"wrapped-helper.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { wrappedRequest } from "./shared";
 
 export default (host: Pick<ScriptHost, "httpCall">) => wrappedRequest({}, host);
 `,
-					"second.ts": `
+						"second.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { first } from "./first";
 
@@ -326,7 +331,7 @@ export const second = (host: Pick<ScriptHost, "log">) => {
   return host.log([{ message: "recursive graph", level: "info" }]);
 };
 `,
-					"provider-helper.sandbox.ts": `
+						"provider-helper.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { usedProvider } from "./providers";
 
@@ -335,7 +340,7 @@ const parent = (host: Pick<ScriptHost, "httpCall" | "log">) =>
 
 export default (host: Pick<ScriptHost, "httpCall" | "log">) => parent(host);
 `,
-					"workflow.sandbox.ts": `
+						"workflow.sandbox.ts": `
 import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const manifest = defineManifest({ kind: "workflow", slug: "parent", name: "Parent" });
@@ -348,7 +353,7 @@ export default defineWorkflow({
   run: (_input, replay) => replay.activity("child", child, {}).pipe(Effect.as(null)),
 });
 `,
-					"child.sandbox.ts": `
+						"child.sandbox.ts": `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readNamedArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
@@ -365,7 +370,7 @@ export default defineScript({
   },
 });
 `,
-					"shared.ts": `
+						"shared.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
@@ -381,7 +386,7 @@ export const unused = Effect.fn("unused")((host: Pick<ScriptHost, "httpCall">) =
   host.httpCall("GET", "https://unused.example.com"),
 );
 `,
-					"providers.ts": `
+						"providers.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineManifest } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
@@ -403,71 +408,71 @@ export const unusedProvider = defineProvider({
     host.log([{ message: "unused", level: "info" }]).pipe(Effect.as({ items: [] })),
 });
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results[3]?.metadata.executableDependencies).toEqual([
-				{ slug: "child", kind: "script" },
-			]);
-			expect(results[6]?.metadata.executableDependencies).toEqual([]);
-			expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
-				["httpCall"],
-				[],
-				["log"],
-				[],
-				["artifact-read", "httpCall"],
-				["httpCall"],
-				["httpCall"],
-			]);
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], [], [], [], [], []]);
-		}),
-	testTimeout,
-);
+				expect(results[3]?.metadata.executableDependencies).toEqual([
+					{ slug: "child", kind: "script" },
+				]);
+				expect(results[6]?.metadata.executableDependencies).toEqual([]);
+				expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
+					["httpCall"],
+					[],
+					["log"],
+					[],
+					["artifact-read", "httpCall"],
+					["httpCall"],
+					["httpCall"],
+				]);
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], [], [], [], [], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"follows selected object helper members without analyzing deferred siblings",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"object-alias.sandbox.ts",
-				"nested-object.sandbox.ts",
-				"method-object.sandbox.ts",
-				"local-object.sandbox.ts",
-				"used-http-member.sandbox.ts",
-				"eager-object-initializer.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"method-object.sandbox.ts": `
+	test.effect(
+		"follows selected object helper members without analyzing deferred siblings",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"object-alias.sandbox.ts",
+					"nested-object.sandbox.ts",
+					"method-object.sandbox.ts",
+					"local-object.sandbox.ts",
+					"used-http-member.sandbox.ts",
+					"eager-object-initializer.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"method-object.sandbox.ts": `
 import { methods } from "./object-helpers";
 
 export default () => methods.pure();
 `,
-					"nested-object.sandbox.ts": `
+						"nested-object.sandbox.ts": `
 import { nested } from "./object-helpers";
 
 export default () => nested.helpers.pure();
 `,
-					"eager-object-initializer.sandbox.ts": `
+						"eager-object-initializer.sandbox.ts": `
 import { helpers } from "./eager-object-initializer";
 
 export default () => helpers.pure();
 `,
-					"object-alias.sandbox.ts": `
+						"object-alias.sandbox.ts": `
 import { helpers as importedHelpers } from "./object-helpers";
 
 const helperAlias = importedHelpers;
 export default () => helperAlias.pure();
 `,
-					"used-http-member.sandbox.ts": `
+						"used-http-member.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { helpers } from "./object-helpers";
 
 export default (host: Pick<ScriptHost, "httpCall">) => helpers.http(host);
 `,
-					"eager-object-initializer.ts": `
+						"eager-object-initializer.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 declare const host: Pick<ScriptHost, "httpCall">;
@@ -476,7 +481,7 @@ export const helpers = {
   initialized: host.httpCall("GET", "https://example.com"),
 };
 `,
-					"local-object.sandbox.ts": `
+						"local-object.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
@@ -500,7 +505,7 @@ export default (host: Pick<ScriptHost, "httpCall" | "getPluginConfig" | "getOAut
   return helpers.pure();
 };
 `,
-					"object-helpers.ts": `
+						"object-helpers.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
@@ -544,39 +549,39 @@ export const methods = {
   },
 };
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			const emptyFacts = {
-				capabilities: [],
-				oauthConnectionFields: [],
-				executableDependencies: [],
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-			};
-			expect(results.slice(0, 4).map(({ metadata }) => metadata)).toEqual([
-				emptyFacts,
-				emptyFacts,
-				emptyFacts,
-				emptyFacts,
-			]);
-			expect(results[4]?.metadata).toEqual({ ...emptyFacts, capabilities: ["httpCall"] });
-			expect(results[5]?.metadata).toEqual({ ...emptyFacts, capabilities: ["httpCall"] });
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], [], [], [], []]);
-		}),
-	testTimeout,
-);
+				const emptyFacts = {
+					capabilities: [],
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				};
+				expect(results.slice(0, 4).map(({ metadata }) => metadata)).toEqual([
+					emptyFacts,
+					emptyFacts,
+					emptyFacts,
+					emptyFacts,
+				]);
+				expect(results[4]?.metadata).toEqual({ ...emptyFacts, capabilities: ["httpCall"] });
+				expect(results[5]?.metadata).toEqual({ ...emptyFacts, capabilities: ["httpCall"] });
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], [], [], [], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"keeps SDK definition siblings deferred while following selected members",
-	() =>
-		Effect.gen(function* () {
-			const entries = ["child-schema-reference.sandbox.ts", "inline-definition-run.sandbox.ts"];
-			const results = yield* withProject(
-				{
-					"child-definition.ts": `
+	test.effect(
+		"keeps SDK definition siblings deferred while following selected members",
+		() =>
+			Effect.gen(function* () {
+				const entries = ["child-schema-reference.sandbox.ts", "inline-definition-run.sandbox.ts"];
+				const results = yield* withProject(
+					{
+						"child-definition.ts": `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
@@ -590,7 +595,7 @@ export const definition = defineScript({
     host.httpCall("GET", "https://child.example.com").pipe(Effect.as(input.value)),
 });
 `,
-					"child-schema-reference.sandbox.ts": `
+						"child-schema-reference.sandbox.ts": `
 import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 import { definition } from "./child-definition";
 
@@ -608,7 +613,7 @@ export default defineWorkflow({
   run: (_input, replay) => replay.activity("child", child, { value: "input" }).pipe(Effect.as(null)),
 });
 `,
-					"inline-definition-run.sandbox.ts": `
+						"inline-definition-run.sandbox.ts": `
 import { defineManifest, defineScript } from "@ryot-app/plugin-backend-sdk/driver";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
@@ -628,42 +633,42 @@ export default (input: { value: string }, host: Pick<ScriptHost, "httpCall">) =>
   return definition.run(input, host);
 };
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results[0]?.metadata).toEqual({
-				capabilities: [],
-				oauthConnectionFields: [],
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-				executableDependencies: [{ slug: "child", kind: "script" }],
-			});
-			expect(results[1]?.metadata).toEqual({
-				oauthConnectionFields: [],
-				capabilities: ["httpCall"],
-				executableDependencies: [],
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-			});
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], []]);
-		}),
-	testTimeout,
-);
+				expect(results[0]?.metadata).toEqual({
+					capabilities: [],
+					oauthConnectionFields: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+					executableDependencies: [{ slug: "child", kind: "script" }],
+				});
+				expect(results[1]?.metadata).toEqual({
+					oauthConnectionFields: [],
+					capabilities: ["httpCall"],
+					executableDependencies: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				});
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"follows destructured and shorthand local helper members",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"binding-element-closure.sandbox.ts",
-				"shorthand-member-call.sandbox.ts",
-				"nested-renamed-forwarded.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"shorthand-member-call.sandbox.ts": `
+	test.effect(
+		"follows destructured and shorthand local helper members",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"binding-element-closure.sandbox.ts",
+					"shorthand-member-call.sandbox.ts",
+					"nested-renamed-forwarded.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"shorthand-member-call.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
@@ -685,7 +690,7 @@ export default (
   return helpers.request();
 };
 `,
-					"binding-element-closure.sandbox.ts": `
+						"binding-element-closure.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
@@ -707,7 +712,7 @@ export default (
   return request();
 };
 `,
-					"nested-renamed-forwarded.sandbox.ts": `
+						"nested-renamed-forwarded.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -744,43 +749,43 @@ export default (
   return collectFacts(host, replay);
 };
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			const httpOnlyFacts = {
-				oauthConnectionFields: [],
-				capabilities: ["httpCall"],
-				executableDependencies: [],
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-			};
-			expect(results[0]?.metadata).toEqual<unknown>(httpOnlyFacts);
-			expect(results[1]?.metadata).toEqual<unknown>(httpOnlyFacts);
-			expect(results[2]?.metadata).toEqual({
-				oauthConnectionFields: ["account"],
-				requiredPluginConfigKeys: ["token"],
-				optionalPluginConfigKeys: ["threshold"],
-				executableDependencies: [{ kind: "script", slug: "used-child" }],
-				capabilities: ["getOAuthAccessToken", "getPluginConfig", "invalidateOAuthAccessToken"],
-			});
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], []]);
-		}),
-	testTimeout,
-);
+				const httpOnlyFacts = {
+					oauthConnectionFields: [],
+					capabilities: ["httpCall"],
+					executableDependencies: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				};
+				expect(results[0]?.metadata).toEqual<unknown>(httpOnlyFacts);
+				expect(results[1]?.metadata).toEqual<unknown>(httpOnlyFacts);
+				expect(results[2]?.metadata).toEqual({
+					oauthConnectionFields: ["account"],
+					requiredPluginConfigKeys: ["token"],
+					optionalPluginConfigKeys: ["threshold"],
+					executableDependencies: [{ kind: "script", slug: "used-child" }],
+					capabilities: ["getOAuthAccessToken", "getPluginConfig", "invalidateOAuthAccessToken"],
+				});
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], [], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"preserves deferred siblings through destructured nested helper containers",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"destructured-nested-pure.sandbox.ts",
-				"destructured-nested-request.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"destructured-nested-pure.sandbox.ts": `
+	test.effect(
+		"preserves deferred siblings through destructured nested helper containers",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"destructured-nested-pure.sandbox.ts",
+					"destructured-nested-request.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"destructured-nested-pure.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -804,7 +809,7 @@ export default (
   return nested.pure();
 };
 `,
-					"destructured-nested-request.sandbox.ts": `
+						"destructured-nested-request.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineScriptReference, type WorkflowStep } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -829,51 +834,51 @@ export default (
   return nested.request();
 };
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			const emptyFacts = {
-				capabilities: [],
-				oauthConnectionFields: [],
-				executableDependencies: [],
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-			};
-			expect(results[0]?.metadata).toEqual(emptyFacts);
-			expect(results[1]?.metadata).toEqual({ ...emptyFacts, capabilities: ["httpCall"] });
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], []]);
-		}),
-	testTimeout,
-);
+				const emptyFacts = {
+					capabilities: [],
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				};
+				expect(results[0]?.metadata).toEqual(emptyFacts);
+				expect(results[1]?.metadata).toEqual({ ...emptyFacts, capabilities: ["httpCall"] });
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual([[], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"allows finite indexed methods and rejects unbounded reflection and method aliases",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"finite-index.sandbox.ts",
-				"unbounded-index.sandbox.ts",
-				"reflective-escape.sandbox.ts",
-				"config-alias.sandbox.ts",
-				"executable-alias.sandbox.ts",
-				"erased-helper.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"reflective-escape.sandbox.ts": `
+	test.effect(
+		"allows finite indexed methods and rejects unbounded reflection and method aliases",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"finite-index.sandbox.ts",
+					"unbounded-index.sandbox.ts",
+					"reflective-escape.sandbox.ts",
+					"config-alias.sandbox.ts",
+					"executable-alias.sandbox.ts",
+					"erased-helper.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"reflective-escape.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export default (host: Pick<ScriptHost, "httpCall">) => Reflect.get(host, "httpCall");
 `,
-					"unbounded-index.sandbox.ts": `
+						"unbounded-index.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export default (host: Pick<ScriptHost, "httpCall"> & Record<string, unknown>, name: string) =>
   host[name];
 `,
-					"finite-index.sandbox.ts": `
+						"finite-index.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export default (host: Pick<ScriptHost, "httpCall" | "log">, name: "httpCall" | "log") => {
@@ -881,14 +886,14 @@ export default (host: Pick<ScriptHost, "httpCall" | "log">, name: "httpCall" | "
   return method;
 };
 `,
-					"erased-helper.sandbox.ts": `
+						"erased-helper.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 const forward = (value: unknown) => Reflect.get(value, "httpCall");
 
 export default (host: Pick<ScriptHost, "httpCall">) => forward(host);
 `,
-					"config-alias.sandbox.ts": `
+						"config-alias.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export default (host: Pick<ScriptHost, "getPluginConfig">) => {
@@ -896,7 +901,7 @@ export default (host: Pick<ScriptHost, "getPluginConfig">) => {
   return readConfig({ required: ["token"] });
 };
 `,
-					"executable-alias.sandbox.ts": `
+						"executable-alias.sandbox.ts": `
 import { defineManifest, defineScriptReference, defineWorkflow, Effect, Schema } from "@ryot-app/plugin-backend-sdk/workflow";
 
 const manifest = defineManifest({ kind: "workflow", slug: "alias", name: "Alias" });
@@ -912,225 +917,225 @@ export default defineWorkflow({
   },
 });
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results[0]?.diagnostics).toEqual([]);
-			expect(results[1]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message: "SDK host indexing requires statically finite operation names",
-				}),
-			]);
-			expect(results[2]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message: "SDK hosts cannot escape to unresolved or external functions",
-				}),
-			]);
-			expect(results[3]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message:
-						"Configuration and executable SDK methods must be called directly; method aliases are unsupported",
-				}),
-			]);
-			expect(results[4]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message:
-						"Configuration and executable SDK methods must be called directly; method aliases are unsupported",
-				}),
-			]);
-			expect(results[5]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message: "SDK helper forwarding must preserve resolved host operation types",
-				}),
-			]);
-			expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
-				["httpCall", "log"],
-				[],
-				[],
-				["getPluginConfig"],
-				[],
-				[],
-			]);
-		}),
-	testTimeout,
-);
+				expect(results[0]?.diagnostics).toEqual([]);
+				expect(results[1]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message: "SDK host indexing requires statically finite operation names",
+					}),
+				]);
+				expect(results[2]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message: "SDK hosts cannot escape to unresolved or external functions",
+					}),
+				]);
+				expect(results[3]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message:
+							"Configuration and executable SDK methods must be called directly; method aliases are unsupported",
+					}),
+				]);
+				expect(results[4]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message:
+							"Configuration and executable SDK methods must be called directly; method aliases are unsupported",
+					}),
+				]);
+				expect(results[5]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message: "SDK helper forwarding must preserve resolved host operation types",
+					}),
+				]);
+				expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([
+					["httpCall", "log"],
+					[],
+					[],
+					["getPluginConfig"],
+					[],
+					[],
+				]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"rejects async initialization, allows awaiting inside functions and fails at a deterministic analysis budget",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"async-initializer.sandbox.ts",
-				"budget.sandbox.ts",
-				"async-body.sandbox.ts",
-			];
-			const outcome = yield* withProject(
-				{
-					"async-initializer.sandbox.ts": `
+	test.effect(
+		"rejects async initialization, allows awaiting inside functions and fails at a deterministic analysis budget",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"async-initializer.sandbox.ts",
+					"budget.sandbox.ts",
+					"async-body.sandbox.ts",
+				];
+				const outcome = yield* withProject(
+					{
+						"async-initializer.sandbox.ts": `
 const initialized = await Promise.resolve("ready");
 export default initialized;
 `,
-					"async-body.sandbox.ts": `
+						"async-body.sandbox.ts": `
 const run = async (value: Promise<string>) => {
 	const resolved = await value;
 	return resolved;
 };
 export default () => run(Promise.resolve("ready"));
 `,
-					"budget.sandbox.ts": `
+						"budget.sandbox.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 
 export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://example.com");
 `,
-				},
-				entries,
-				(project) => {
-					const asyncEntry = project.entrySourceFiles["async-initializer.sandbox.ts"];
-					const budgetEntry = project.entrySourceFiles["budget.sandbox.ts"];
-					const bodyEntry = project.entrySourceFiles["async-body.sandbox.ts"];
-					if (!asyncEntry || !budgetEntry || !bodyEntry) {
-						return Effect.die("Missing analysis budget fixture entry");
-					}
-					const analyze = createSandboxExecutionAnalyzer(project);
-					return Effect.gen(function* () {
-						const asyncResult = yield* analyze(asyncEntry);
-						const bodyResult = yield* analyze(bodyEntry);
-						const budgetFailure = yield* analyze(budgetEntry, 1).pipe(Effect.flip);
-						return { bodyResult, asyncResult, budgetFailure };
-					});
-				},
-			);
+					},
+					entries,
+					(project) => {
+						const asyncEntry = project.entrySourceFiles["async-initializer.sandbox.ts"];
+						const budgetEntry = project.entrySourceFiles["budget.sandbox.ts"];
+						const bodyEntry = project.entrySourceFiles["async-body.sandbox.ts"];
+						if (!asyncEntry || !budgetEntry || !bodyEntry) {
+							return Effect.die("Missing analysis budget fixture entry");
+						}
+						const analyze = createSandboxExecutionAnalyzer(project);
+						return Effect.gen(function* () {
+							const asyncResult = yield* analyze(asyncEntry);
+							const bodyResult = yield* analyze(bodyEntry);
+							const budgetFailure = yield* analyze(budgetEntry, 1).pipe(Effect.flip);
+							return { bodyResult, asyncResult, budgetFailure };
+						});
+					},
+				);
 
-			expect(outcome.asyncResult.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message: "Asynchronous module initialization is unsupported",
-				}),
-			]);
-			expect(outcome.bodyResult.diagnostics).toEqual([]);
-			expect(outcome.budgetFailure).toBeInstanceOf(PluginBackendCompilerFailure);
-			if (outcome.budgetFailure instanceof PluginBackendCompilerFailure) {
-				expect(outcome.budgetFailure.diagnostics).toEqual<unknown>([
-					objectContaining({ code: "RYOT_ANALYSIS_LIMIT" }),
+				expect(outcome.asyncResult.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message: "Asynchronous module initialization is unsupported",
+					}),
 				]);
-			}
-		}),
-	testTimeout,
-);
+				expect(outcome.bodyResult.diagnostics).toEqual([]);
+				expect(outcome.budgetFailure).toBeInstanceOf(PluginBackendCompilerFailure);
+				if (outcome.budgetFailure instanceof PluginBackendCompilerFailure) {
+					expect(outcome.budgetFailure.diagnostics).toEqual<unknown>([
+						objectContaining({ code: "RYOT_ANALYSIS_LIMIT" }),
+					]);
+				}
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"rejects canonical Effect execution during module initialization",
-	() =>
-		Effect.gen(function* () {
-			const entries = ["run-sync.sandbox.ts", "run-promise.sandbox.ts"];
-			const results = yield* withProject(
-				{
-					"run-sync.sandbox.ts": `
+	test.effect(
+		"rejects canonical Effect execution during module initialization",
+		() =>
+			Effect.gen(function* () {
+				const entries = ["run-sync.sandbox.ts", "run-promise.sandbox.ts"];
+				const results = yield* withProject(
+					{
+						"run-sync.sandbox.ts": `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 const initialized = Effect.runSync(Effect.succeed("ready"));
 export default initialized;
 `,
-					"run-promise.sandbox.ts": `
+						"run-promise.sandbox.ts": `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 
 const initialized = Effect.runPromise(Effect.succeed("ready"));
 export default initialized;
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results.map(({ diagnostics }) => diagnostics)).toEqual<unknown>([
-				[
-					objectContaining({
-						code: "RYOT_DEPENDENCY",
-						message: "Effect execution during module initialization is unsupported",
-					}),
-				],
-				[
-					objectContaining({
-						code: "RYOT_DEPENDENCY",
-						message: "Effect execution during module initialization is unsupported",
-					}),
-				],
-			]);
-			expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([[], []]);
-		}),
-	testTimeout,
-);
+				expect(results.map(({ diagnostics }) => diagnostics)).toEqual<unknown>([
+					[
+						objectContaining({
+							code: "RYOT_DEPENDENCY",
+							message: "Effect execution during module initialization is unsupported",
+						}),
+					],
+					[
+						objectContaining({
+							code: "RYOT_DEPENDENCY",
+							message: "Effect execution during module initialization is unsupported",
+						}),
+					],
+				]);
+				expect(results.map(({ metadata }) => metadata.capabilities)).toEqual([[], []]);
+			}),
+		testTimeout,
+	);
 
-it.effect(
-	"analyzes imported default initialization and ignores type-only imports",
-	() =>
-		Effect.gen(function* () {
-			const entries = [
-				"effect-side-effect-import.sandbox.ts",
-				"async-default-initializer.sandbox.ts",
-				"ordinary-default-initializer.sandbox.ts",
-				"unused-definitions.sandbox.ts",
-				"type-import.sandbox.ts",
-				"named-type-import.sandbox.ts",
-				"type-only-sdk-facts.sandbox.ts",
-			];
-			const results = yield* withProject(
-				{
-					"async-default-initializer.sandbox.ts": `
+	test.effect(
+		"analyzes imported default initialization and ignores type-only imports",
+		() =>
+			Effect.gen(function* () {
+				const entries = [
+					"effect-side-effect-import.sandbox.ts",
+					"async-default-initializer.sandbox.ts",
+					"ordinary-default-initializer.sandbox.ts",
+					"unused-definitions.sandbox.ts",
+					"type-import.sandbox.ts",
+					"named-type-import.sandbox.ts",
+					"type-only-sdk-facts.sandbox.ts",
+				];
+				const results = yield* withProject(
+					{
+						"async-default-initializer.sandbox.ts": `
 export default await Promise.resolve("ready");
 `,
-					"unused-definitions.sandbox.ts": `
+						"unused-definitions.sandbox.ts": `
 import "./unused-definitions-module";
 
 export default () => null;
 `,
-					"effect-side-effect-import.sandbox.ts": `
+						"effect-side-effect-import.sandbox.ts": `
 import "./effect-side-effect-module";
 
 export default () => null;
 `,
-					"ordinary-default-initializer.sandbox.ts": `
+						"ordinary-default-initializer.sandbox.ts": `
 import initialized from "./ordinary-default-module";
 
 export default () => initialized;
 `,
-					"type-import.sandbox.ts": `
+						"type-import.sandbox.ts": `
 import type { InitializationEffect } from "./effect-side-effect-module";
 
 export default (_effect: InitializationEffect) => null;
 `,
-					"named-type-import.sandbox.ts": `
+						"named-type-import.sandbox.ts": `
 import { type InitializationEffect } from "./effect-side-effect-module";
 
 export default (_effect: InitializationEffect) => null;
 `,
-					"type-only-sdk-facts.sandbox.ts": `
+						"type-only-sdk-facts.sandbox.ts": `
 import type { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 type ArtifactEffect = typeof readArtifact;
 export default (_effect: ArtifactEffect) => null;
 `,
-					"ordinary-default-module.ts": `
+						"ordinary-default-module.ts": `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export default readArtifact.pipe(Effect.as(null));
 `,
-					"effect-side-effect-module.ts": `
+						"effect-side-effect-module.ts": `
 import { Effect } from "@ryot-app/plugin-backend-sdk/effect";
 import { readArtifact } from "@ryot-app/plugin-backend-sdk/filesystem";
 
 export type InitializationEffect = typeof readArtifact;
 export default Effect.runPromise(readArtifact);
 `,
-					"unused-definitions-module.ts": `
+						"unused-definitions-module.ts": `
 import type { ScriptHost } from "@ryot-app/plugin-backend-sdk/core";
 import { Effect, Schema } from "@ryot-app/plugin-backend-sdk/effect";
 import { defineManifest, defineScriptReference, defineWorkflow } from "@ryot-app/plugin-backend-sdk/workflow";
@@ -1147,40 +1152,41 @@ export const unusedWorkflow = defineWorkflow({
 
 export default (host: Pick<ScriptHost, "httpCall">) => host.httpCall("GET", "https://unused.example.com");
 `,
-				},
-				entries,
-				(project) => analyzeEntries(project, entries),
-			);
+					},
+					entries,
+					(project) => analyzeEntries(project, entries),
+				);
 
-			expect(results[0]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message: "Effect execution during module initialization is unsupported",
-				}),
-			]);
-			expect(results[1]?.diagnostics).toEqual<unknown>([
-				objectContaining({
-					code: "RYOT_DEPENDENCY",
-					message: "Asynchronous module initialization is unsupported",
-				}),
-			]);
-			const emptyFacts = {
-				capabilities: [],
-				oauthConnectionFields: [],
-				executableDependencies: [],
-				requiredPluginConfigKeys: [],
-				optionalPluginConfigKeys: [],
-			};
-			expect(results[2]?.diagnostics).toEqual([]);
-			expect(results[2]?.metadata).toEqual({ ...emptyFacts, capabilities: ["artifact-read"] });
-			expect(results[3]?.diagnostics).toEqual([]);
-			expect(results[3]?.metadata).toEqual(emptyFacts);
-			expect(results[4]?.diagnostics).toEqual([]);
-			expect(results[4]?.metadata).toEqual(emptyFacts);
-			expect(results[5]?.diagnostics).toEqual([]);
-			expect(results[5]?.metadata).toEqual(emptyFacts);
-			expect(results[6]?.diagnostics).toEqual([]);
-			expect(results[6]?.metadata).toEqual(emptyFacts);
-		}),
-	testTimeout,
-);
+				expect(results[0]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message: "Effect execution during module initialization is unsupported",
+					}),
+				]);
+				expect(results[1]?.diagnostics).toEqual<unknown>([
+					objectContaining({
+						code: "RYOT_DEPENDENCY",
+						message: "Asynchronous module initialization is unsupported",
+					}),
+				]);
+				const emptyFacts = {
+					capabilities: [],
+					oauthConnectionFields: [],
+					executableDependencies: [],
+					requiredPluginConfigKeys: [],
+					optionalPluginConfigKeys: [],
+				};
+				expect(results[2]?.diagnostics).toEqual([]);
+				expect(results[2]?.metadata).toEqual({ ...emptyFacts, capabilities: ["artifact-read"] });
+				expect(results[3]?.diagnostics).toEqual([]);
+				expect(results[3]?.metadata).toEqual(emptyFacts);
+				expect(results[4]?.diagnostics).toEqual([]);
+				expect(results[4]?.metadata).toEqual(emptyFacts);
+				expect(results[5]?.diagnostics).toEqual([]);
+				expect(results[5]?.metadata).toEqual(emptyFacts);
+				expect(results[6]?.diagnostics).toEqual([]);
+				expect(results[6]?.metadata).toEqual(emptyFacts);
+			}),
+		testTimeout,
+	);
+});

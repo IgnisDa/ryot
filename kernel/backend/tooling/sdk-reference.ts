@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 
 import { BunRuntime, BunServices } from "@effect/platform-bun";
+import { pluginClientCompilerPlatformLayer } from "@ryot-app/plugin-client-compiler";
 import { generateClientSdkReference } from "@ryot-app/plugin-client-compiler/sdk-reference";
-import { Effect, FileSystem, Path, Schema } from "effect";
+import { Effect, FileSystem, Layer, Path, Schema } from "effect";
 
 const encodeJson = Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown));
 
@@ -18,4 +19,6 @@ const program = Effect.gen(function* () {
 	yield* Effect.logInfo("Generated page SDK reference topics");
 });
 
-BunRuntime.runMain(program.pipe(Effect.provide(BunServices.layer)));
+BunRuntime.runMain(
+	program.pipe(Effect.provide(Layer.merge(BunServices.layer, pluginClientCompilerPlatformLayer))),
+);

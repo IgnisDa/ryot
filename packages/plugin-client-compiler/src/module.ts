@@ -12,6 +12,7 @@ import {
 } from "@ryot-app/plugin-client-contract";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { sortBy } from "@ryot-app/ts-utils/lodash";
+import type { TypeScriptSession } from "@ryot-app/typescript-compiler";
 import { inspectJavaScriptReferences } from "@ryot-app/typescript-compiler/javascript-references";
 import type { CompilerWorkspaceOptions, ViteBuildService } from "@ryot-app/vite-compiler";
 import {
@@ -110,7 +111,7 @@ type KernelInput = Extract<PluginClientCompilerPackageInput, { readonly kind: "k
 type Compilation<Output> = Effect.Effect<
 	Output,
 	PluginClientCompilerFailure,
-	Path.Path | ViteBuildService | FileSystem.FileSystem
+	Path.Path | ViteBuildService | TypeScriptSession | FileSystem.FileSystem
 >;
 
 export function compileClientPluginModule(

@@ -13,6 +13,7 @@ import {
 import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
+import { TypeScriptSession } from "@ryot-app/typescript-compiler";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result } from "effect";
@@ -43,6 +44,7 @@ const emittedLayer = (javascript: string, css = "") =>
 	Layer.mergeAll(
 		BunPath.layer,
 		BunFileSystem.layer,
+		TypeScriptSession.layer,
 		Layer.succeed(
 			ViteBuildService,
 			ViteBuildService.of({

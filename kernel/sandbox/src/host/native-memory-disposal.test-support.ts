@@ -1,5 +1,5 @@
+import { pluginBackendCompilerPlatformLayer } from "@ryot-app/plugin-backend-compiler/platform";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { Context, Deferred, Effect, FileSystem, Layer, Option, Queue } from "effect";
 
 import {
@@ -209,11 +209,11 @@ export const nativeMemoryLayer = Layer.unwrap(
 			recordingGate,
 			recordingFiles,
 			hosts,
-			ViteBuildService.layer,
 			SandboxRecoveryStore.layer,
 			SandboxSidecarQuarantine.layer,
 			Layer.succeed(SandboxExecutionAuthority, { resolve: () => Effect.succeed("user") }),
 		).pipe(
+			Layer.provideMerge(pluginBackendCompilerPlatformLayer),
 			Layer.provideMerge(SandboxSidecarAdmission.layer),
 			Layer.provideMerge(SandboxStateStore.memoryLayer),
 			Layer.provideMerge(config),

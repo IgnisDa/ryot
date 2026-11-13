@@ -1,17 +1,18 @@
 import { expect } from "bun:test";
 
-import { BunFileSystem, BunPath } from "@effect/platform-bun";
 import { PluginPackageId } from "@ryot-app/contract/schema/brands";
-import { compileClientPluginModule } from "@ryot-app/plugin-client-compiler";
+import {
+	compileClientPluginModule,
+	pluginClientCompilerPlatformLayer,
+} from "@ryot-app/plugin-client-compiler";
 import { CLIENT_API_VERSION, clientDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Effect, FileSystem, Layer } from "effect";
+import { Effect, FileSystem } from "effect";
 
 import { fitnessPlugin } from "../../manifest/plugin";
 
-layer(Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer))((test) => {
+layer(pluginClientCompilerPlatformLayer)((test) => {
 	test.effect(
 		"packages the shared editor and its audio through the real client compiler",
 		() =>

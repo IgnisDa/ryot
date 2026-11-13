@@ -5,6 +5,7 @@ import { PluginPackageId } from "@ryot-app/contract/schema/brands";
 import { compileClientPluginModule } from "@ryot-app/plugin-client-compiler";
 import { CLIENT_API_VERSION, clientDeclarationHash } from "@ryot-app/plugin-client-contract";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { TypeScriptSession } from "@ryot-app/typescript-compiler";
 import { ViteBuildService } from "@ryot-app/vite-compiler";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, FileSystem, Layer } from "effect";
@@ -13,6 +14,7 @@ const bytes = (contents: string) => new TextEncoder().encode(contents);
 const compilerLayer = Layer.mergeAll(
 	BunPath.layer,
 	BunFileSystem.layer,
+	TypeScriptSession.layer,
 	Layer.succeed(
 		ViteBuildService,
 		ViteBuildService.of({

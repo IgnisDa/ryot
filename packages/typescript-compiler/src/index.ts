@@ -1,4 +1,4 @@
-import { Effect, Schema } from "effect";
+import { Cause, Context, Effect, Exit, Layer, Option, Schema, Semaphore } from "effect";
 import type * as ts from "typescript/unstable/ast";
 import {
 	API,
@@ -6,6 +6,7 @@ import {
 	type Diagnostic,
 	DiagnosticCategory,
 	type Program,
+	type Snapshot,
 } from "typescript/unstable/async";
 import { createVirtualFileSystem, type FileSystem } from "typescript/unstable/fs";
 
@@ -114,130 +115,259 @@ export type TypeScriptProjectAccess = {
 	readonly entrySourceFiles: Readonly<Record<string, ts.SourceFile>>;
 };
 
+type SessionState = {
+	readonly api: API;
+	readonly snapshot: Snapshot;
+	readonly configFile: string;
+	readonly tsserverPath: string;
+	readonly files: ReadonlyMap<string, string>;
+};
+
+type TypeScriptSessionShape = {
+	readonly check: <A, E, R>(
+		options: TypeScriptProjectOptions,
+		use: (project: TypeScriptProjectAccess) => Effect.Effect<A, E, R>,
+	) => Effect.Effect<A, E | TypeScriptProjectError, R>;
+};
+
+const fileChanges = (previous: ReadonlyMap<string, string>, next: ReadonlyMap<string, string>) => {
+	const changed: string[] = [];
+	const created: string[] = [];
+	for (const [path, contents] of next) {
+		const previousContents = previous.get(path);
+		if (previousContents === undefined) {
+			created.push(path);
+		} else if (previousContents !== contents) {
+			changed.push(path);
+		}
+	}
+	const deleted = [...previous.keys()].filter((path) => !next.has(path));
+	return { changed, created, deleted };
+};
+
+const isUnderRoot = (root: string, path: string) => path === root || path.startsWith(`${root}/`);
+
+const projectFiles = (options: TypeScriptProjectOptions) => {
+	const virtualPath = (path: string) => `${options.virtualRoot}/${path}`;
+	return new Map([
+		...Object.entries(options.files).map(([path, source]) => [virtualPath(path), source] as const),
+		[
+			`${options.virtualRoot}/tsconfig.json`,
+			JSON.stringify({ files: options.entries.map(virtualPath), ...options.configuration }),
+		],
+	]);
+};
+
+const collectDiagnostics = (
+	options: TypeScriptProjectOptions,
+	program: Program,
+	files: readonly ts.SourceFile[],
+	checkDependencies: boolean,
+) =>
+	Effect.gen(function* () {
+		const projectDiagnostics = yield* Effect.all(
+			[
+				typeScriptRequest(() => program.getProgramDiagnostics()),
+				typeScriptRequest(() => program.getConfigFileParsingDiagnostics()),
+				...(checkDependencies
+					? [
+							typeScriptRequest(() => program.getGlobalDiagnostics()),
+							typeScriptRequest(() => program.getSemanticDiagnostics()),
+						]
+					: []),
+			],
+			{ concurrency: "unbounded" },
+		);
+		const fileDiagnostics = yield* Effect.forEach(files, (file) =>
+			Effect.all(
+				[
+					typeScriptRequest(() => program.getBindDiagnostics(file.fileName)),
+					typeScriptRequest(() => program.getSyntacticDiagnostics(file.fileName)),
+					...(checkDependencies
+						? []
+						: [typeScriptRequest(() => program.getSemanticDiagnostics(file.fileName))]),
+				],
+				{ concurrency: "unbounded" },
+			),
+		);
+
+		const diagnostics = [...projectDiagnostics.flat(), ...fileDiagnostics.flat(2)];
+		const loadedFileNames = new Set(files.map(({ fileName }) => fileName));
+		const dependencyFiles = yield* Effect.forEach(
+			new Set(
+				diagnostics.flatMap(({ fileName }) =>
+					fileName && !loadedFileNames.has(fileName) ? [fileName] : [],
+				),
+			),
+			(fileName) => typeScriptRequest(() => program.getSourceFile(fileName)),
+		);
+		const sourceFilesByName = new Map(
+			[...files, ...dependencyFiles.filter((file) => file !== undefined)].map((file) => [
+				file.fileName,
+				file,
+			]),
+		);
+		const project: TypeScriptCompilerDiagnostic[] = [];
+		const environment: TypeScriptCompilerDiagnostic[] = [];
+		for (const diagnostic of diagnostics) {
+			const { fileName } = diagnostic;
+			const sourceFile = fileName ? sourceFilesByName.get(fileName) : undefined;
+			if (fileName && isUnderRoot(options.virtualRoot, fileName)) {
+				project.push(
+					normalizeDiagnostic(
+						diagnostic,
+						fileName.slice(options.virtualRoot.length + 1),
+						sourceFile,
+					),
+				);
+			} else {
+				environment.push(normalizeDiagnostic(diagnostic, fileName ?? "tsconfig.json", sourceFile));
+			}
+		}
+		return { project, environment } satisfies TypeScriptProjectDiagnostics;
+	});
+
+const inspect = <A, E, R>(
+	options: TypeScriptProjectOptions,
+	checkDependencies: boolean,
+	snapshot: Snapshot,
+	configFile: string,
+	use: (project: TypeScriptProjectAccess) => Effect.Effect<A, E, R>,
+) =>
+	Effect.gen(function* () {
+		const project = snapshot.getProject(configFile);
+		if (!project) {
+			return yield* new TypeScriptProjectError({
+				message: `TypeScript did not create the ${options.projectKind} project`,
+			});
+		}
+		const program = project.program;
+		const loadedSourceFiles = yield* Effect.forEach(Object.keys(options.files), (path) =>
+			typeScriptRequest(() => program.getSourceFile(`${options.virtualRoot}/${path}`)),
+		);
+		const files = loadedSourceFiles.filter((file) => file !== undefined);
+		const entrySourceFiles = Object.fromEntries(
+			options.entries.flatMap((entry) => {
+				const file = files.find(
+					(sourceFile) => sourceFile.fileName === `${options.virtualRoot}/${entry}`,
+				);
+				return file ? [[entry, file]] : [];
+			}),
+		);
+		if (Object.keys(entrySourceFiles).length !== options.entries.length) {
+			return yield* new TypeScriptProjectError({
+				message: `TypeScript did not load every ${options.projectKind} entry file`,
+			});
+		}
+		return yield* use({
+			program,
+			entrySourceFiles,
+			sourceFiles: files,
+			checker: project.checker,
+			diagnostics: yield* collectDiagnostics(options, program, files, checkDependencies),
+		});
+	});
+
+const makeTypeScriptSession = (checkDependencies: boolean) =>
+	Effect.gen(function* () {
+		const lock = yield* Semaphore.make(1);
+		let state: undefined | SessionState;
+		let virtualRoot: string | undefined;
+		let virtual = createVirtualFileSystem({});
+		const isVirtualPath = (path: string) =>
+			virtualRoot !== undefined && isUnderRoot(virtualRoot, path);
+		const fs = {
+			realpath: (path) => (isVirtualPath(path) ? path : undefined),
+			readFile: (path) => (isVirtualPath(path) ? virtual.readFile?.(path) : undefined),
+			fileExists: (path) => (isVirtualPath(path) ? virtual.fileExists?.(path) : undefined),
+			directoryExists: (path) =>
+				isVirtualPath(path) ? virtual.directoryExists?.(path) : undefined,
+			getAccessibleEntries: (path) =>
+				isVirtualPath(path) ? virtual.getAccessibleEntries?.(path) : undefined,
+		} satisfies FileSystem;
+		const close = Effect.suspend(() => {
+			const current = state;
+			state = undefined;
+			return current === undefined ? Effect.void : Effect.promise(() => current.api.close());
+		});
+		yield* Effect.addFinalizer(() => close);
+
+		const check = <A, E, R>(
+			options: TypeScriptProjectOptions,
+			use: (project: TypeScriptProjectAccess) => Effect.Effect<A, E, R>,
+		) =>
+			Effect.gen(function* () {
+				const configFile = `${options.virtualRoot}/tsconfig.json`;
+				const files = projectFiles(options);
+				if (state !== undefined && state.tsserverPath !== options.tsserverPath) {
+					yield* close;
+				}
+				const previous = state;
+				const api =
+					previous?.api ??
+					(yield* Effect.try({
+						try: () => new API({ fs, cwd: "/", tsserverPath: options.tsserverPath }),
+						catch: (cause) =>
+							new TypeScriptProjectError({
+								message: `TypeScript could not start: ${cause instanceof Error ? cause.message : String(cause)}`,
+							}),
+					}));
+				virtualRoot = options.virtualRoot;
+				virtual = createVirtualFileSystem(Object.fromEntries(files));
+				const snapshot = yield* typeScriptRequest(() =>
+					api.updateSnapshot(
+						previous === undefined
+							? { openProjects: [configFile] }
+							: {
+									fileChanges: fileChanges(previous.files, files),
+									...(previous.configFile === configFile
+										? {}
+										: { openProjects: [configFile], closeProjects: [previous.configFile] }),
+								},
+					),
+				);
+				// The server reports changed files only against a live previous snapshot; without
+				// them the client would keep serving the previous snapshot's cached syntax trees.
+				if (previous !== undefined) {
+					yield* Effect.promise(() => previous.snapshot.dispose());
+				}
+				state = { api, files, snapshot, configFile, tsserverPath: options.tsserverPath };
+				return yield* inspect(options, checkDependencies, snapshot, configFile, use);
+			}).pipe(
+				// A failed or interrupted server request leaves the server's state unknown, so the next
+				// check starts a fresh server; failures of the caller's own checks keep the session.
+				Effect.onExit((exit) =>
+					Exit.isFailure(exit) &&
+					(Cause.hasDies(exit.cause) ||
+						Cause.hasInterrupts(exit.cause) ||
+						Option.exists(
+							Cause.findErrorOption(exit.cause),
+							(error) => error instanceof TypeScriptProjectError,
+						))
+						? close
+						: Effect.void,
+				),
+				lock.withPermits(1),
+			);
+
+		return { check } satisfies TypeScriptSessionShape;
+	});
+
+export class TypeScriptSession extends Context.Service<TypeScriptSession, TypeScriptSessionShape>()(
+	"@ryot-app/typescript-compiler/TypeScriptSession",
+) {
+	static readonly layer = Layer.effect(this, makeTypeScriptSession(false));
+	static readonly environmentLayer = Layer.effect(this, makeTypeScriptSession(true));
+}
+
 export const withTypeScriptProject = <A, E, R>(
 	options: TypeScriptProjectOptions,
 	use: (project: TypeScriptProjectAccess) => Effect.Effect<A, E, R>,
-) => {
-	const virtualConfigFile = `${options.virtualRoot}/tsconfig.json`;
-	const virtualPath = (path: string) => `${options.virtualRoot}/${path}`;
-	const isVirtualPath = (path: string) =>
-		path === options.virtualRoot || path.startsWith(`${options.virtualRoot}/`);
-	const sourceFiles = Object.fromEntries(
-		Object.entries(options.files).map(([path, source]) => [virtualPath(path), source]),
-	);
-	const virtual = createVirtualFileSystem({
-		...sourceFiles,
-		[virtualConfigFile]: JSON.stringify({
-			files: options.entries.map(virtualPath),
-			...options.configuration,
-		}),
+) =>
+	Effect.gen(function* () {
+		const session = yield* TypeScriptSession;
+		return yield* session.check(options, use);
 	});
-	const fs = {
-		realpath: (path) => (isVirtualPath(path) ? path : undefined),
-		readFile: (path) => (isVirtualPath(path) ? virtual.readFile?.(path) : undefined),
-		fileExists: (path) => (isVirtualPath(path) ? virtual.fileExists?.(path) : undefined),
-		directoryExists: (path) => (isVirtualPath(path) ? virtual.directoryExists?.(path) : undefined),
-		getAccessibleEntries: (path) =>
-			isVirtualPath(path) ? virtual.getAccessibleEntries?.(path) : undefined,
-	} satisfies FileSystem;
-
-	return Effect.acquireUseRelease(
-		Effect.sync(() => new API({ fs, cwd: "/", tsserverPath: options.tsserverPath })),
-		(api) =>
-			Effect.gen(function* () {
-				const snapshot = yield* typeScriptRequest(() =>
-					api.updateSnapshot({ openProjects: [virtualConfigFile] }),
-				);
-				const project = snapshot.getProject(virtualConfigFile);
-				if (!project) {
-					return yield* new TypeScriptProjectError({
-						message: `TypeScript did not create the ${options.projectKind} project`,
-					});
-				}
-
-				const program = project.program;
-				const loadedSourceFiles = yield* Effect.forEach(Object.keys(options.files), (path) =>
-					typeScriptRequest(() => program.getSourceFile(virtualPath(path))),
-				);
-				const files = loadedSourceFiles.filter((file) => file !== undefined);
-				const entrySourceFiles = Object.fromEntries(
-					options.entries.flatMap((entry) => {
-						const file = files.find((sourceFile) => sourceFile.fileName === virtualPath(entry));
-						return file ? [[entry, file]] : [];
-					}),
-				);
-				if (Object.keys(entrySourceFiles).length !== options.entries.length) {
-					return yield* new TypeScriptProjectError({
-						message: `TypeScript did not load every ${options.projectKind} entry file`,
-					});
-				}
-
-				const projectDiagnostics = yield* Effect.all(
-					[
-						typeScriptRequest(() => program.getProgramDiagnostics()),
-						typeScriptRequest(() => program.getGlobalDiagnostics()),
-						typeScriptRequest(() => program.getSemanticDiagnostics()),
-						typeScriptRequest(() => program.getConfigFileParsingDiagnostics()),
-					],
-					{ concurrency: "unbounded" },
-				);
-				const fileDiagnostics = yield* Effect.forEach(files, (file) =>
-					Effect.all(
-						[
-							typeScriptRequest(() => program.getBindDiagnostics(file.fileName)),
-							typeScriptRequest(() => program.getSyntacticDiagnostics(file.fileName)),
-						],
-						{ concurrency: "unbounded" },
-					),
-				);
-
-				const diagnostics = [...projectDiagnostics.flat(), ...fileDiagnostics.flat(2)];
-				const loadedFileNames = new Set(files.map(({ fileName }) => fileName));
-				const dependencyFiles = yield* Effect.forEach(
-					new Set(
-						diagnostics.flatMap(({ fileName }) =>
-							fileName && !loadedFileNames.has(fileName) ? [fileName] : [],
-						),
-					),
-					(fileName) => typeScriptRequest(() => program.getSourceFile(fileName)),
-				);
-				const sourceFilesByName = new Map(
-					[...files, ...dependencyFiles.filter((file) => file !== undefined)].map((file) => [
-						file.fileName,
-						file,
-					]),
-				);
-				const projectFileDiagnostics: TypeScriptCompilerDiagnostic[] = [];
-				const environmentDiagnostics: TypeScriptCompilerDiagnostic[] = [];
-				for (const diagnostic of diagnostics) {
-					const { fileName } = diagnostic;
-					const sourceFile = fileName ? sourceFilesByName.get(fileName) : undefined;
-					if (fileName && isVirtualPath(fileName)) {
-						projectFileDiagnostics.push(
-							normalizeDiagnostic(
-								diagnostic,
-								fileName.slice(options.virtualRoot.length + 1),
-								sourceFile,
-							),
-						);
-					} else {
-						environmentDiagnostics.push(
-							normalizeDiagnostic(diagnostic, fileName ?? "tsconfig.json", sourceFile),
-						);
-					}
-				}
-
-				return yield* use({
-					program,
-					entrySourceFiles,
-					sourceFiles: files,
-					checker: project.checker,
-					diagnostics: { project: projectFileDiagnostics, environment: environmentDiagnostics },
-				});
-			}),
-		(api) => Effect.promise(() => api.close()),
-	);
-};
 
 export const createTypeScriptProject = (options: TypeScriptProjectOptions) =>
 	withTypeScriptProject(options, ({ diagnostics, sourceFiles, entrySourceFiles }) =>
