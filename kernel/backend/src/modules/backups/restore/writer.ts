@@ -1418,7 +1418,18 @@ export class BackupRestoreWriter extends Context.Service<BackupRestoreWriter>()(
 										);
 									}
 								}
-								if (value.kind === "message" || value.kind === "call") {
+								if (value.kind === "output") {
+									const [callRow] = yield* staging.getRecords(runId, "assistant", [
+										assistantArchiveId("call", value.id),
+									]);
+									const call = callRow
+										? yield* Schema.decodeUnknownEffect(ArchiveAssistantRecord)(callRow.value)
+										: null;
+									if (call?.kind !== "call" || call.turnId !== value.turnId) {
+										return yield* badRequest("Backup assistant stored output is inconsistent");
+									}
+								}
+								if (value.kind === "message" || value.kind === "call" || value.kind === "output") {
 									const [turnRow] = yield* staging.getRecords(runId, "assistant", [
 										assistantArchiveId("turn", value.turnId),
 									]);

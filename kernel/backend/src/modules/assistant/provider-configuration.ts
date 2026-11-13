@@ -1,7 +1,9 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import { BadRequest } from "@ryot-app/contract/errors";
 import {
+	ASSISTANT_DEFAULT_MODEL_LIMITS,
 	AssistantError,
+	assistantModelLimitsValid,
 	type AssistantProviderMetadata,
 	ConfigureAssistantProviderBody,
 } from "@ryot-app/contract/modules/assistant/schemas";
@@ -65,7 +67,14 @@ export class AssistantProviderConfiguration extends Context.Service<AssistantPro
 										yield* encryption.decryptWithSubkey(context, ciphertext, attribution(userId)),
 									);
 								}).pipe(Effect.mapError(unavailable));
-					return { apiKey, source: "user", model: row.model, baseUrl: row.baseUrl };
+					return {
+						apiKey,
+						source: "user",
+						model: row.model,
+						baseUrl: row.baseUrl,
+						contextWindow: row.contextWindow ?? ASSISTANT_DEFAULT_MODEL_LIMITS.contextWindow,
+						maxOutputTokens: row.maxOutputTokens ?? ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens,
+					};
 				}
 				if (Option.isNone(config.baseUrl) || Option.isNone(config.model)) {
 					return null;
@@ -75,6 +84,14 @@ export class AssistantProviderConfiguration extends Context.Service<AssistantPro
 					model: config.model.value,
 					apiKey: Option.getOrUndefined(config.apiKey),
 					baseUrl: config.baseUrl.value.replace(/\/+$/, ""),
+					contextWindow: Option.getOrElse(
+						config.contextWindow,
+						() => ASSISTANT_DEFAULT_MODEL_LIMITS.contextWindow,
+					),
+					maxOutputTokens: Option.getOrElse(
+						config.maxOutputTokens,
+						() => ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens,
+					),
 				};
 			});
 			const metadata = Effect.fn(function* (
@@ -90,7 +107,9 @@ export class AssistantProviderConfiguration extends Context.Service<AssistantPro
 							model: provider.model,
 							source: provider.source,
 							baseUrl: provider.baseUrl,
+							contextWindow: provider.contextWindow,
 							hasApiKey: provider.apiKey !== undefined,
+							maxOutputTokens: provider.maxOutputTokens,
 						};
 			});
 			const configure = Effect.fn(function* (
@@ -101,6 +120,18 @@ export class AssistantProviderConfiguration extends Context.Service<AssistantPro
 				yield* requireMutable(accessClass);
 				const validated = yield* Schema.decodeEffect(ConfigureAssistantProviderBody)(input);
 				const baseUrl = yield* validateAssistantProviderUrl(validated.baseUrl);
+				const contextWindow = validated.contextWindow ?? null;
+				const maxOutputTokens = validated.maxOutputTokens ?? null;
+				if (
+					!assistantModelLimitsValid({
+						contextWindow: contextWindow ?? ASSISTANT_DEFAULT_MODEL_LIMITS.contextWindow,
+						maxOutputTokens: maxOutputTokens ?? ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens,
+					})
+				) {
+					return yield* new BadRequest({
+						message: "Maximum output tokens must be below the context window",
+					});
+				}
 				yield* session.transaction(
 					Effect.gen(function* () {
 						yield* session.acquireUserWriteLock(userId);
@@ -116,9 +147,16 @@ export class AssistantProviderConfiguration extends Context.Service<AssistantPro
 								attribution(userId),
 							);
 						}
-						yield* repository.put(userId, { baseUrl, encryptedApiKey, model: validated.model });
+						yield* repository.put(userId, {
+							baseUrl,
+							contextWindow,
+							encryptedApiKey,
+							maxOutputTokens,
+							model: validated.model,
+						});
 					}),
 				);
+				return yield* Effect.void;
 			});
 			const remove = Effect.fn(function* (userId: UserId, accessClass: "demo" | "standard") {
 				yield* requireMutable(accessClass);

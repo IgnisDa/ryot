@@ -3,11 +3,11 @@ import {
 	AssistantConversationStatus,
 	AssistantMessagePart,
 	AssistantToolCall,
+	type AssistantToolName,
 	AssistantTurnFailure,
 	AssistantTurnStatus,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
-import type { AgentToolName } from "@ryot-app/contract/schema/agent-tool";
 import {
 	AssistantConversationId,
 	AssistantMessageId,
@@ -171,8 +171,8 @@ export type AssistantTranscriptStep =
 	| {
 			readonly id: string;
 			readonly kind: "tool";
-			readonly tool: AgentToolName;
 			readonly arguments: JsonValue;
+			readonly tool: AssistantToolName;
 			readonly status: AssistantStepStatus;
 	  };
 export type AssistantTranscriptTurn = {
@@ -186,6 +186,7 @@ export type AssistantTranscriptTurn = {
 	readonly entries: readonly AssistantTranscriptEntry[];
 };
 export type AssistantTranscriptEntry =
+	| { readonly id: string; readonly kind: "compaction" }
 	| { readonly id: string; readonly text: string; readonly kind: "reply" }
 	| {
 			readonly id: string;
@@ -274,6 +275,9 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 				entries.push({ id, kind: "reply", text: part.text });
 			} else if (part.kind === "reasoning" && part.text.trim() !== "") {
 				steps.push({ id, text: part.text, kind: "reasoning" });
+			} else if (part.kind === "compaction") {
+				closeSteps();
+				entries.push({ id, kind: "compaction" });
 			} else if (part.kind === "page-preview") {
 				const { kind: _kind, ...identity } = part;
 				closeSteps();

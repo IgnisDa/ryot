@@ -14,7 +14,7 @@ describe("agent tool result budgets", () => {
 			const result = truncateJsonResult(value, budget);
 			expect(new TextEncoder().encode(JSON.stringify(result)).length).toBeLessThanOrEqual(budget);
 			expect(result.truncated).toBe(true);
-			if (result.truncated) {
+			if (result.truncated === true) {
 				expect(JSON.stringify(value).startsWith(result.jsonPrefix)).toBe(true);
 				expect(result.jsonPrefix.isWellFormed()).toBe(true);
 				expect(result.jsonPrefix.length).toBeGreaterThan(0);

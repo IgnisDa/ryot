@@ -32,7 +32,7 @@ import { DateTime, Effect, FileSystem, Layer, Stream } from "effect";
 
 import { AuthRepository } from "#modules/accounts/auth/repository";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
-import { assistantContext } from "#modules/assistant/context";
+import { activeHistory } from "#modules/assistant/context";
 import { AutomationsRepository } from "#modules/automations/repository";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { TranslationsRepository } from "#modules/entities/localization/repository";
@@ -169,6 +169,15 @@ const historicalAssistantCall = (id: string): AssistantToolCall => ({
 		conversationId: "assistant-conversation-a",
 	},
 });
+const retainedResult = {
+	lines: 1,
+	bytes: 11,
+	tail: "line",
+	head: "stored",
+	truncated: "retained",
+	producerLimited: false,
+	outputId: "assistant-call-retained",
+} as const;
 
 layer(services)((test) => {
 	test.effect(
@@ -673,7 +682,29 @@ layer(services)((test) => {
 									call: historicalAssistantCall("assistant-call-declined"),
 									result: { truncated: false, value: { declined: true, pageId: "assistant-page" } },
 								},
+								{
+									round: 1,
+									position: 1,
+									userId: source,
+									completedAt: now,
+									result: retainedResult,
+									turnId: "assistant-turn-b",
+									id: "assistant-call-retained",
+									conversationId: "assistant-conversation-b",
+									call: historicalAssistantCall("assistant-call-retained"),
+								},
 							]),
+						);
+						yield* session.run((db) =>
+							db
+								.insert(assistantTables.assistantToolOutput)
+								.values({
+									userId: source,
+									text: "stored line",
+									turnId: "assistant-turn-b",
+									id: "assistant-call-retained",
+									conversationId: "assistant-conversation-b",
+								}),
 						);
 						yield* session.run((db) =>
 							db.insert(assistantTables.assistantMessage).values([
@@ -734,6 +765,12 @@ layer(services)((test) => {
 												value: { declined: true, pageId: "assistant-page" },
 											},
 										},
+										{ kind: "tool-call", call: historicalAssistantCall("assistant-call-retained") },
+										{
+											kind: "tool-result",
+											result: retainedResult,
+											toolCallId: AssistantToolCallId.make("assistant-call-retained"),
+										},
 									],
 								},
 							]),
@@ -743,6 +780,8 @@ layer(services)((test) => {
 								.insert(assistantTables.assistantProvider)
 								.values({
 									userId: source,
+									contextWindow: 200_000,
+									maxOutputTokens: 8_000,
 									model: "historical-model",
 									baseUrl: "https://model.example.test/v1",
 									encryptedApiKey: {
@@ -902,9 +941,9 @@ layer(services)((test) => {
 						.from(assistantTables.assistantToolCall)
 						.where(eq(assistantTables.assistantToolCall.userId, destination)),
 				);
-				expect(calls).toHaveLength(4);
+				expect(calls).toHaveLength(5);
 				expect(calls.every((row) => row.result !== null && row.call.id === row.id)).toBe(true);
-				expect(calls.filter((row) => row.decision === null)).toHaveLength(1);
+				expect(calls.filter((row) => row.decision === null)).toHaveLength(2);
 				expect(calls.filter((row) => row.decision === "approve")).toHaveLength(2);
 				expect(calls.filter((row) => row.decision === "decline")).toHaveLength(1);
 				const child = calls.find((row) => row.call.kind === "capability");
@@ -919,6 +958,17 @@ layer(services)((test) => {
 						conversationId: "assistant-conversation-a",
 					});
 				}
+				const retained = calls.find((row) => row.result?.truncated === "retained");
+				assert(retained);
+				expect(retained.result).toEqual({ ...retainedResult, outputId: retained.id });
+				expect(
+					yield* session.run((db) =>
+						db
+							.select({ id: assistantTables.assistantToolOutput.id })
+							.from(assistantTables.assistantToolOutput)
+							.where(eq(assistantTables.assistantToolOutput.userId, destination)),
+					),
+				).toEqual([{ id: retained.id }]);
 				const messages = yield* session.run((db) =>
 					db
 						.select()
@@ -926,6 +976,11 @@ layer(services)((test) => {
 						.where(eq(assistantTables.assistantMessage.userId, destination)),
 				);
 				expect(messages).toHaveLength(274);
+				expect(
+					messages
+						.flatMap((row) => row.parts)
+						.find((part) => part.kind === "tool-result" && part.toolCallId === retained.id),
+				).toMatchObject({ result: { outputId: retained.id } });
 				const interruptedTurn = turns.find((turn) => turn.status === "interrupted");
 				assert(interruptedTurn);
 				const restoredConversation = conversations.find(
@@ -937,10 +992,14 @@ layer(services)((test) => {
 					.sort((a, b) => a.sequence - b.sequence);
 				expect(restoredConversation.nextSequence).toBe((history.at(-1)?.sequence ?? 0) + 1);
 				const nextMessage = {
+					turnId: "next",
 					role: "user" as const,
+					sequence: restoredConversation.nextSequence,
 					parts: [{ kind: "text" as const, text: "Continue after restore" }],
 				};
-				expect(assistantContext([...history, nextMessage]).at(-1)).toEqual(nextMessage);
+				expect(activeHistory([...history, nextMessage], "next").messages.at(-1)).toEqual(
+					nextMessage,
+				);
 				for (const call of calls.filter(
 					(row) => row.turnId === interruptedTurn.id && row.call.kind === "tool",
 				)) {
@@ -975,6 +1034,8 @@ layer(services)((test) => {
 				expect(provider).toMatchObject({
 					userId: destination,
 					encryptedApiKey: null,
+					contextWindow: 200_000,
+					maxOutputTokens: 8_000,
 					model: "historical-model",
 					baseUrl: "https://model.example.test/v1",
 				});

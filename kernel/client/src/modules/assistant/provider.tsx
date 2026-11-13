@@ -1,3 +1,4 @@
+import { ASSISTANT_DEFAULT_MODEL_LIMITS } from "@ryot-app/contract/modules/assistant/schemas";
 import { useRyotMutation, useRyotQuery } from "@ryot-app/plugin-client-sdk/react";
 import { Button, Card, Field, Notice, TextField } from "@ryot-app/plugin-ui-sdk";
 import { Effect } from "effect";
@@ -17,10 +18,18 @@ export function AssistantProviderForm(props: { readonly disabled: boolean }) {
 	const remove = useRyotMutation(deleteProviderMutation);
 	const [baseUrl, setBaseUrl] = useState<string | undefined>(undefined);
 	const [model, setModel] = useState<string | undefined>(undefined);
+	const [contextWindow, setContextWindow] = useState<string | undefined>(undefined);
+	const [maxOutputTokens, setMaxOutputTokens] = useState<string | undefined>(undefined);
 	const [apiKey, setApiKey] = useState("");
 	const [saved, setSaved] = useState(false);
 	const currentBaseUrl = baseUrl ?? provider.data?.baseUrl ?? "";
 	const currentModel = model ?? provider.data?.model ?? "";
+	const currentContextWindow =
+		contextWindow ??
+		String(provider.data?.contextWindow ?? ASSISTANT_DEFAULT_MODEL_LIMITS.contextWindow);
+	const currentMaxOutputTokens =
+		maxOutputTokens ??
+		String(provider.data?.maxOutputTokens ?? ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens);
 	const pending = configure.isPending || remove.isPending;
 	return (
 		<Card className="grid gap-4">
@@ -54,6 +63,8 @@ export function AssistantProviderForm(props: { readonly disabled: boolean }) {
 							.mutateEffect({
 								model: currentModel,
 								baseUrl: currentBaseUrl,
+								contextWindow: Number(currentContextWindow),
+								maxOutputTokens: Number(currentMaxOutputTokens),
 								...(apiKey === "" ? {} : { apiKey }),
 							})
 							.pipe(
@@ -92,6 +103,32 @@ export function AssistantProviderForm(props: { readonly disabled: boolean }) {
 								value={currentModel}
 								onChange={(event) => setModel(event.target.value)}
 								placeholder={provider.data?.model ?? "Model name"}
+							/>
+						)}
+					</Field>
+					<Field label="Context window (tokens)">
+						{(control) => (
+							<TextField
+								{...control}
+								min={1}
+								step={1}
+								required
+								type="number"
+								value={currentContextWindow}
+								onChange={(event) => setContextWindow(event.target.value)}
+							/>
+						)}
+					</Field>
+					<Field label="Maximum output (tokens)">
+						{(control) => (
+							<TextField
+								{...control}
+								min={1}
+								step={1}
+								required
+								type="number"
+								value={currentMaxOutputTokens}
+								onChange={(event) => setMaxOutputTokens(event.target.value)}
 							/>
 						)}
 					</Field>

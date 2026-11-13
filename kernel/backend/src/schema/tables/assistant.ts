@@ -30,6 +30,8 @@ export const assistantConversation = snakeCase.table(
 	{
 		id: text().primaryKey(),
 		title: text().notNull(),
+		promptTokens: integer(),
+		promptCharacters: integer(),
 		updatedAt: updatedAtColumn(),
 		revision: integer().notNull().default(1),
 		nextSequence: integer().notNull().default(1),
@@ -118,9 +120,29 @@ export const assistantToolCall = snakeCase.table(
 		}).onDelete("cascade"),
 	],
 );
+export const assistantToolOutput = snakeCase.table(
+	"assistant_tool_output",
+	{
+		text: text().notNull(),
+		id: text().primaryKey(),
+		turnId: text().notNull(),
+		userId: text().notNull(),
+		conversationId: text().notNull(),
+		createdAt: timestamptz().notNull().defaultNow(),
+	},
+	(t) => [
+		index("assistant_tool_output_turn_idx").on(t.turnId),
+		foreignKey({
+			columns: [t.turnId, t.conversationId, t.userId],
+			foreignColumns: [assistantTurn.id, assistantTurn.conversationId, assistantTurn.userId],
+		}).onDelete("cascade"),
+	],
+);
 export const assistantProvider = snakeCase.table("assistant_provider", {
 	model: text().notNull(),
+	contextWindow: integer(),
 	baseUrl: text().notNull(),
+	maxOutputTokens: integer(),
 	updatedAt: updatedAtColumn(),
 	createdAt: timestamptz().notNull().defaultNow(),
 	encryptedApiKey: jsonb().$type<SubkeyCiphertext>(),

@@ -1,0 +1,327 @@
+{
+	"type": "diff",
+	"version": "9",
+	"dialect": "postgres",
+	"id": "9d1d61a2-6a26-418b-9b4a-b7ef6664cee5",
+	"prevIds": ["d5e97f2f-7a1c-4fc6-9821-325a6d3f7f98"],
+	"footprints": [
+		{
+			"statementType": "create_table",
+			"statementTarget": ["table", "public", "assistant_tool_output"],
+			"writes": [
+				"s|tbl|public.assistant_tool_output",
+				"n|tbl|public.assistant_tool_output",
+				"e|tbl|public.assistant_tool_output",
+				"n|rel|public.assistant_tool_output",
+				"n|type|public.assistant_tool_output",
+				"n|rel|public.assistant_tool_output_pkey"
+			],
+			"reads": ["n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "assistant_conversation", "prompt_tokens"],
+			"writes": [
+				"s|col|public.assistant_conversation.prompt_tokens",
+				"n|col|public.assistant_conversation.prompt_tokens",
+				"e|col|public.assistant_conversation.prompt_tokens"
+			],
+			"reads": ["n|tbl|public.assistant_conversation", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "assistant_conversation", "prompt_characters"],
+			"writes": [
+				"s|col|public.assistant_conversation.prompt_characters",
+				"n|col|public.assistant_conversation.prompt_characters",
+				"e|col|public.assistant_conversation.prompt_characters"
+			],
+			"reads": ["n|tbl|public.assistant_conversation", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "assistant_provider", "context_window"],
+			"writes": [
+				"s|col|public.assistant_provider.context_window",
+				"n|col|public.assistant_provider.context_window",
+				"e|col|public.assistant_provider.context_window"
+			],
+			"reads": ["n|tbl|public.assistant_provider", "n|sch|public"]
+		},
+		{
+			"statementType": "add_column",
+			"statementTarget": ["column", "public", "assistant_provider", "max_output_tokens"],
+			"writes": [
+				"s|col|public.assistant_provider.max_output_tokens",
+				"n|col|public.assistant_provider.max_output_tokens",
+				"e|col|public.assistant_provider.max_output_tokens"
+			],
+			"reads": ["n|tbl|public.assistant_provider", "n|sch|public"]
+		},
+		{
+			"statementType": "create_index",
+			"statementTarget": [
+				"index",
+				"public",
+				"assistant_tool_output",
+				"assistant_tool_output_turn_idx"
+			],
+			"writes": [
+				"s|idx|public.assistant_tool_output_turn_idx",
+				"n|idx|public.assistant_tool_output_turn_idx",
+				"e|idx|public.assistant_tool_output_turn_idx",
+				"n|rel|public.assistant_tool_output_turn_idx"
+			],
+			"reads": [
+				"n|tbl|public.assistant_tool_output",
+				"n|sch|public",
+				"n|col|public.assistant_tool_output.turn_id"
+			]
+		},
+		{
+			"statementType": "create_fk",
+			"statementTarget": ["table", "public", "assistant_tool_output"],
+			"writes": [
+				"s|fk|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"n|fk|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"e|fk|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"n|con|public.assistant_tool_output.assistant_tool_output_RBIfuTAFHrJc_fkey"
+			],
+			"reads": [
+				"n|tbl|public.assistant_tool_output",
+				"n|sch|public",
+				"n|tbl|public.assistant_turn",
+				"n|sch|public",
+				"n|col|public.assistant_tool_output.turn_id",
+				"n|col|public.assistant_tool_output.conversation_id",
+				"n|col|public.assistant_tool_output.user_id",
+				"n|col|public.assistant_turn.id",
+				"n|col|public.assistant_turn.conversation_id",
+				"n|col|public.assistant_turn.user_id",
+				"e|uniqueness|public.assistant_turn.conversation_id.id.user_id"
+			]
+		}
+	],
+	"deltas": [
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"name": "assistant_tool_output",
+				"isRlsEnabled": false,
+				"entityType": "tables"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "prompt_tokens",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_conversation",
+				"name": "prompt_characters",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "context_window",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_provider",
+				"name": "max_output_tokens",
+				"type": "integer",
+				"typeSchema": null,
+				"notNull": false,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "text",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "turn_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "user_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "conversation_id",
+				"type": "text",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": null,
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "created_at",
+				"type": "timestamp(3) with time zone",
+				"typeSchema": null,
+				"notNull": true,
+				"dimensions": 0,
+				"default": "now()",
+				"generated": null,
+				"identity": null,
+				"entityType": "columns"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "assistant_tool_output_turn_idx",
+				"nameExplicit": true,
+				"columns": [
+					{
+						"value": "turn_id",
+						"isExpression": false,
+						"asc": true,
+						"nullsFirst": false,
+						"opclass": null
+					}
+				],
+				"isUnique": false,
+				"where": null,
+				"with": "",
+				"method": "btree",
+				"concurrently": false,
+				"entityType": "indexes"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "assistant_tool_output_RBIfuTAFHrJc_fkey",
+				"nameExplicit": false,
+				"columns": ["turn_id", "conversation_id", "user_id"],
+				"schemaTo": "public",
+				"tableTo": "assistant_turn",
+				"columnsTo": ["id", "conversation_id", "user_id"],
+				"onUpdate": "NO ACTION",
+				"onDelete": "CASCADE",
+				"entityType": "fks"
+			}
+		},
+		{
+			"op": "create",
+			"row": {
+				"schema": "public",
+				"table": "assistant_tool_output",
+				"name": "assistant_tool_output_pkey",
+				"columns": ["id"],
+				"nameExplicit": false,
+				"entityType": "pks"
+			}
+		}
+	]
+}

@@ -1,7 +1,11 @@
 import { expect } from "bun:test";
 
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
-import { AssistantError } from "@ryot-app/contract/modules/assistant/schemas";
+import { BadRequest } from "@ryot-app/contract/errors";
+import {
+	ASSISTANT_DEFAULT_MODEL_LIMITS,
+	AssistantError,
+} from "@ryot-app/contract/modules/assistant/schemas";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
@@ -24,9 +28,11 @@ const other = UserId.make("provider-other");
 const baseUrl = "http://localhost:11434/v1";
 const instance = {
 	hasApiKey: true,
+	contextWindow: 200_000,
 	model: "instance-model",
 	source: "instance" as const,
 	baseUrl: "https://instance.example/v1",
+	maxOutputTokens: ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens,
 };
 const database = Layer.effectDiscard(
 	Effect.gen(function* () {
@@ -44,6 +50,7 @@ const config = makeAppConfigLayer({
 		assistant: {
 			model: Option.some(instance.model),
 			baseUrl: Option.some(instance.baseUrl),
+			contextWindow: Option.some(instance.contextWindow),
 			apiKey: Option.some(Redacted.make("instance-secret")),
 		},
 	},
@@ -67,6 +74,7 @@ layer(services)((test) => {
 					baseUrl,
 					model: "user-model",
 					apiKey: "user-secret",
+					maxOutputTokens: 8_000,
 				});
 				const original = yield* repository.find(owner);
 				assert(original?.encryptedApiKey);
@@ -76,7 +84,20 @@ layer(services)((test) => {
 					source: "user",
 					hasApiKey: true,
 					model: "user-model",
+					maxOutputTokens: 8_000,
+					contextWindow: ASSISTANT_DEFAULT_MODEL_LIMITS.contextWindow,
 				});
+				assertExitFails(
+					yield* Effect.exit(
+						providers.configure(owner, "standard", {
+							baseUrl,
+							model: "user-model",
+							contextWindow: 8_000,
+							maxOutputTokens: 8_000,
+						}),
+					),
+					new BadRequest({ message: "Maximum output tokens must be below the context window" }),
+				);
 				expect(yield* providers.metadata(other)).toEqual(instance);
 				yield* providers.configure(owner, "standard", { baseUrl, model: "changed" });
 				expect((yield* repository.find(owner))?.encryptedApiKey).toEqual(original.encryptedApiKey);
@@ -94,6 +115,7 @@ layer(services)((test) => {
 			const repository = yield* AssistantProviderRepository;
 			yield* providers.configure(owner, "standard", { baseUrl, model: "local" });
 			expect(yield* providers.metadata(owner)).toEqual({
+				...ASSISTANT_DEFAULT_MODEL_LIMITS,
 				baseUrl,
 				model: "local",
 				source: "user",

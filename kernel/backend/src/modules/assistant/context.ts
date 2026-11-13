@@ -1,31 +1,65 @@
 import type { AssistantMessage } from "@ryot-app/contract/modules/assistant/schemas";
 
-import { defaultResultByteBudget } from "#platform/tool-result";
+export type PromptMeasurement = { readonly tokens: number; readonly characters: number };
 
-export const assistantMaxRounds = 12;
-export const assistantContextByteBudget = defaultResultByteBudget * 4;
+type ContextMessage = { readonly turnId: string } & Pick<
+	AssistantMessage,
+	"role" | "parts" | "sequence"
+>;
 
-export const assistantTurnHistory = <
-	M extends { readonly turnId: string } & Pick<AssistantMessage, "role" | "parts">,
->(
-	messages: readonly M[],
-	turnId: string,
-): readonly M[] =>
-	messages.flatMap((message) => {
+const DEFAULT_CHARACTERS_PER_TOKEN = 3.5;
+const RESERVE_SHARE = 0.15;
+const RESERVE_MIN = 16_000;
+export const ASSISTANT_COMPACTION_KEEP_TOKENS = 15_000;
+
+/** Scales prompt characters by the provider's last reported tokens-per-character for this conversation. */
+export const estimateTokens = (characters: number, measurement: null | PromptMeasurement) =>
+	Math.ceil(
+		measurement === null || measurement.characters === 0
+			? characters / DEFAULT_CHARACTERS_PER_TOKEN
+			: (characters * measurement.tokens) / measurement.characters,
+	);
+
+export const compactionThreshold = (contextWindow: number) =>
+	contextWindow - Math.max(Math.round(contextWindow * RESERVE_SHARE), RESERVE_MIN);
+
+const latestCompaction = (messages: readonly ContextMessage[]) => {
+	for (const message of messages.toReversed()) {
+		for (const part of message.parts) {
+			if (part.kind === "compaction") {
+				return part;
+			}
+		}
+	}
+	return null;
+};
+
+/**
+ * The model-visible history: the latest compaction summary and every message after the span it summarized. Other
+ * turns' reasoning is dropped because providers only replay reasoning within the turn that produced it.
+ */
+export const activeHistory = <M extends ContextMessage>(messages: readonly M[], turnId: string) => {
+	const compaction = latestCompaction(messages);
+	const kept = messages.flatMap((message) => {
+		if (
+			(compaction !== null && message.sequence <= compaction.throughSequence) ||
+			message.parts.some((part) => part.kind === "compaction")
+		) {
+			return [];
+		}
 		if (message.turnId === turnId) {
 			return [message];
 		}
-		const parts = message.parts.filter((part) => part.kind === "text");
-		return message.role === "tool" || parts.length === 0 ? [] : [{ ...message, parts }];
+		const parts = message.parts.filter((part) => part.kind !== "reasoning");
+		return parts.length === 0 ? [] : [{ ...message, parts }];
 	});
+	return { messages: kept, summary: compaction?.summary ?? null };
+};
 
-// A tool-call message and all its results enter or leave model context together.
-export const assistantContext = <M extends Pick<AssistantMessage, "role" | "parts">>(
+/** Tool calls and their results stay in one group, so a split never orphans either side. */
+export const messageGroups = <M extends Pick<AssistantMessage, "parts">>(
 	messages: readonly M[],
-	byteBudget = assistantContextByteBudget,
-	fits: (messages: readonly M[]) => boolean = () => true,
-	pinned: (message: M) => boolean = () => false,
-): readonly M[] => {
+) => {
 	const groups: M[][] = [];
 	const pending = new Set<string>();
 	for (const message of messages) {
@@ -42,23 +76,26 @@ export const assistantContext = <M extends Pick<AssistantMessage, "role" | "part
 			}
 		}
 	}
-	if (pending.size > 0) {
-		groups.pop();
-	}
-	const bytes = (group: readonly M[]) => new TextEncoder().encode(JSON.stringify(group)).byteLength;
-	const kept = new Set(groups.filter((group) => group.some(pinned)));
-	let size = [...kept].reduce((total, group) => total + bytes(group), 0);
+	return groups;
+};
+
+/** Splits history into older groups to summarize and the newest groups kept verbatim within `keepTokens`. */
+export const compactionSplit = <M extends ContextMessage>(
+	messages: readonly M[],
+	tokens: (messages: readonly M[]) => number,
+	keepTokens: number,
+) => {
+	const groups = messageGroups(messages);
+	let kept = 0;
+	let size = 0;
 	for (const group of groups.toReversed()) {
-		if (kept.has(group)) {
-			continue;
-		}
-		const groupBytes = bytes(group);
-		const candidate = groups.filter((other) => other === group || kept.has(other)).flat();
-		if (size + groupBytes > byteBudget || !fits(candidate)) {
+		const groupTokens = tokens(group);
+		if (size + groupTokens > keepTokens) {
 			break;
 		}
-		size += groupBytes;
-		kept.add(group);
+		size += groupTokens;
+		kept += 1;
 	}
-	return groups.filter((group) => kept.has(group)).flat();
+	const older = groups.slice(0, groups.length - Math.max(kept, 1));
+	return older.length === 0 ? null : older;
 };

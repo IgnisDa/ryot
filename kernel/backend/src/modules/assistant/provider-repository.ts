@@ -27,7 +27,7 @@ export class AssistantProviderRepository extends Context.Service<AssistantProvid
 					userId: UserId,
 					input: Pick<
 						typeof assistantProvider.$inferInsert,
-						"model" | "baseUrl" | "encryptedApiKey"
+						"model" | "baseUrl" | "contextWindow" | "encryptedApiKey" | "maxOutputTokens"
 					>,
 				) {
 					yield* session.requireTransaction;

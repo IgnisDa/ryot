@@ -771,6 +771,25 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 					);
 				},
 			);
+			const listAssistantOutputs = Effect.fn("BackupExportRepository.listAssistantOutputs")(
+				function* (userId: UserId, afterId?: string) {
+					return yield* session.run((db) =>
+						db
+							.select()
+							.from(assistantTables.assistantToolOutput)
+							.where(
+								and(
+									eq(assistantTables.assistantToolOutput.userId, userId),
+									afterId === undefined
+										? undefined
+										: gt(assistantTables.assistantToolOutput.id, afterId),
+								),
+							)
+							.orderBy(asc(assistantTables.assistantToolOutput.id))
+							.limit(1),
+					);
+				},
+			);
 			const readAssistantProvider = Effect.fn("BackupExportRepository.readAssistantProvider")(
 				function* (userId: UserId) {
 					const [row] = yield* session.run((db) =>
@@ -780,6 +799,8 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 								baseUrl: assistantTables.assistantProvider.baseUrl,
 								createdAt: assistantTables.assistantProvider.createdAt,
 								updatedAt: assistantTables.assistantProvider.updatedAt,
+								contextWindow: assistantTables.assistantProvider.contextWindow,
+								maxOutputTokens: assistantTables.assistantProvider.maxOutputTokens,
 								hasApiKey: sql<boolean>`${assistantTables.assistantProvider.encryptedApiKey} is not null`,
 							})
 							.from(assistantTables.assistantProvider)
@@ -798,6 +819,7 @@ export class BackupExportRepository extends Context.Service<BackupExportReposito
 				assertMetadataBounds,
 				inspectRestoreTarget,
 				discoverDependencies,
+				listAssistantOutputs,
 				listAssistantMessages,
 				readAssistantProvider,
 				listAssistantToolCalls,

@@ -52,18 +52,35 @@ export const ArchiveAssistantRecord = Schema.Union([
 		createdAt: DataRecordTimestamp,
 	}),
 	strictStruct({
+		id: Schema.String,
+		text: Schema.String,
+		turnId: Schema.String,
+		conversationId: Schema.String,
+		kind: Schema.Literal("output"),
+		createdAt: DataRecordTimestamp,
+	}),
+	strictStruct({
 		hasApiKey: Schema.Boolean,
 		model: Schema.NonEmptyString,
 		createdAt: DataRecordTimestamp,
 		updatedAt: DataRecordTimestamp,
 		id: Schema.Literal("provider"),
 		kind: Schema.Literal("provider"),
+		contextWindow: Schema.NullOr(positiveInteger),
+		maxOutputTokens: Schema.NullOr(positiveInteger),
 		baseUrl: HttpUrl.check(Schema.makeFilter((value) => Result.isSuccess(parseHttpBaseUrl(value)))),
 	}),
 ]);
 export type ArchiveAssistantRecord = typeof ArchiveAssistantRecord.Type;
 
-const prefixes = { turn: "1", call: "2", message: "3", provider: "4", conversation: "0" } as const;
+const prefixes = {
+	turn: "1",
+	call: "2",
+	output: "5",
+	message: "3",
+	provider: "4",
+	conversation: "0",
+} as const;
 export const assistantArchiveId = (kind: ArchiveAssistantRecord["kind"], id: string) =>
 	`${prefixes[kind]}:${id}`;
 
@@ -71,11 +88,22 @@ export const assistantReferences = (record: ArchiveAssistantRecord) => {
 	const references: Array<{ id: string; namespace: string }> = [];
 	const add = (kind: ArchiveAssistantRecord["kind"], id: string) =>
 		references.push({ namespace: "assistant", id: assistantArchiveId(kind, id) });
-	if (record.kind === "turn" || record.kind === "message" || record.kind === "call") {
-		add("conversation", record.conversationId);
+	if (record.kind === "provider" || record.kind === "conversation") {
+		return references;
 	}
-	if (record.kind === "message" || record.kind === "call") {
+	if (record.kind !== "turn") {
 		add("turn", record.turnId);
+	}
+	add("conversation", record.conversationId);
+	if (record.kind === "output") {
+		add("call", record.id);
+	}
+	if (
+		record.kind === "call" &&
+		record.result?.truncated === "retained" &&
+		record.result.outputId !== record.id
+	) {
+		add("call", record.result.outputId);
 	}
 	if (record.kind === "call" && record.call.kind === "capability") {
 		add("call", record.call.parentId);
@@ -87,6 +115,9 @@ export const assistantReferences = (record: ArchiveAssistantRecord) => {
 			}
 			if (part.kind === "tool-result" || part.kind === "approval") {
 				add("call", part.toolCallId);
+			}
+			if (part.kind === "tool-result" && part.result.truncated === "retained") {
+				add("call", part.result.outputId);
 			}
 			if (part.kind === "page-preview") {
 				references.push({ id: part.pageId, namespace: "page" });

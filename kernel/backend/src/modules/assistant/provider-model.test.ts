@@ -34,10 +34,13 @@ const prompt = Prompt.make([
 const request = {
 	prompt,
 	tools: [tool],
+	maxOutputTokens: 4_096,
 	provider: {
 		source: "user",
 		model: "local",
 		apiKey: undefined,
+		contextWindow: 64_000,
+		maxOutputTokens: 4_096,
 		baseUrl: "http://127.0.0.1:11434/v1",
 	},
 } as const;
@@ -90,7 +93,8 @@ it.effect(
 			);
 			const events = yield* collect(client, request);
 			expect(requests).toEqual(["POST http://127.0.0.1:11434/v1/chat/completions"]);
-			expect(stableStringify(bodies)).toContain("32768");
+			expect(stableStringify(bodies)).toContain("max_tokens");
+			expect(stableStringify(bodies)).toContain("4096");
 			expect(
 				events
 					.filter((event) => event.type === "text-delta")
@@ -140,27 +144,30 @@ it.effect(
 	() =>
 		Effect.gen(function* () {
 			for (const reply of [
-				new Response('{"error":{"message":"secret-provider-diagnostic"}}', { status: 500 }),
-				new Response(
-					sse({
-						tool_calls: [
-							{
-								index: 0,
-								id: "bad",
-								type: "function",
-								function: { name: "search", arguments: "invalid-json" },
-							},
-						],
-					}) +
-						sse({}, "tool_calls") +
-						"data: [DONE]\n\n",
-					{ headers: { "content-type": "text/event-stream" } },
-				),
+				() => new Response('{"error":{"message":"secret-provider-diagnostic"}}', { status: 400 }),
+				() =>
+					new Response(
+						sse({
+							tool_calls: [
+								{
+									index: 0,
+									id: "bad",
+									type: "function",
+									function: { name: "search", arguments: "invalid-json" },
+								},
+							],
+						}) +
+							sse({}, "tool_calls") +
+							"data: [DONE]\n\n",
+						{ headers: { "content-type": "text/event-stream" } },
+					),
 			]) {
 				const client = HttpClient.make((incoming) =>
-					Effect.succeed(HttpClientResponse.fromWeb(incoming, reply)),
+					Effect.sync(() => HttpClientResponse.fromWeb(incoming, reply())),
 				);
-				const exit = yield* Effect.exit(collect(client, request));
+				const fiber = yield* collect(client, request).pipe(Effect.forkChild);
+				yield* TestClock.adjust("1 hour");
+				const exit = yield* Fiber.await(fiber);
 				assertExitFails(exit, new AssistantModelError({ code: "provider-failed" }));
 				expect(stableStringify(exit)).not.toContain("secret-provider-diagnostic");
 			}
@@ -181,7 +188,7 @@ layer(providerLogLayer)((test) => {
 				Effect.succeed(
 					HttpClientResponse.fromWeb(
 						incoming,
-						new Response('{"error":{"message":"secret-provider-diagnostic"}}', { status: 500 }),
+						new Response('{"error":{"message":"secret-provider-diagnostic"}}', { status: 400 }),
 					),
 				),
 			);
@@ -192,23 +199,6 @@ layer(providerLogLayer)((test) => {
 		}),
 	);
 });
-
-it.effect("rejects oversized prompts before making a request", () =>
-	Effect.gen(function* () {
-		let transports = 0;
-		const client = HttpClient.make((incoming) =>
-			Effect.sync(() => {
-				transports += 1;
-				return HttpClientResponse.fromWeb(incoming, response());
-			}),
-		);
-		const exit = yield* Effect.exit(
-			collect(client, { ...request, prompt: Prompt.make("x".repeat(1_048_577)) }),
-		);
-		assertExitFails(exit, new AssistantModelError({ code: "request-limit" }));
-		expect(transports).toBe(0);
-	}),
-);
 
 const streamedToolArguments = (chunks: number, text: string) =>
 	HttpClient.make((incoming) =>
@@ -240,47 +230,80 @@ const streamedToolArguments = (chunks: number, text: string) =>
 		),
 	);
 
-it.effect("bounds streamed content rather than per-chunk framing", () =>
+it.effect("streams tool arguments of any size without a byte cap", () =>
 	Effect.gen(function* () {
-		const events = yield* collect(streamedToolArguments(20_000, "page"), request);
+		const events = yield* collect(streamedToolArguments(20_000, "x".repeat(32)), request);
 		expect(events.filter((event) => event.type === "tool-call")).toEqual([
 			{
 				name: "search",
 				type: "tool-call",
 				modelCallId: "model-call-1",
-				arguments: { query: "page".repeat(20_000) },
+				arguments: { query: "x".repeat(640_000) },
 			},
 		]);
-		assertExitFails(
-			yield* Effect.exit(collect(streamedToolArguments(257, "x".repeat(1_024)), request)),
-			new AssistantModelError({ code: "output-limit" }),
-		);
 	}),
 );
 
-it.effect("bounds streamed output and cancels a stalled provider request", () =>
+const failing = (status: number, body: string) =>
+	new Response(`{"error":{"message":"${body}"}}`, { status });
+
+it.effect("retries transient failures before output and reports the prompt's measured size", () =>
 	Effect.gen(function* () {
-		const oversized = HttpClient.make((incoming) =>
-			Effect.succeed(
-				HttpClientResponse.fromWeb(
+		let transports = 0;
+		const client = HttpClient.make((incoming) =>
+			Effect.sync(() => {
+				transports += 1;
+				return HttpClientResponse.fromWeb(
 					incoming,
-					new Response(sse({ content: "x".repeat(262_145) }), {
-						headers: { "content-type": "text/event-stream" },
-					}),
-				),
-			),
+					transports < 3
+						? failing(503, "overloaded")
+						: new Response(
+								sse({ content: "done" }) +
+									sse({}, "stop") +
+									`data: ${stableStringify({ created: 1, choices: [], id: "response", model: "local", object: "chat.completion.chunk", usage: { total_tokens: 1_235, prompt_tokens: 1_234, completion_tokens: 1 } })}\n\n` +
+									"data: [DONE]\n\n",
+								{ headers: { "content-type": "text/event-stream" } },
+							),
+				);
+			}),
+		);
+		const fiber = yield* collect(client, request).pipe(Effect.forkChild);
+		yield* TestClock.adjust("2 minutes");
+		const events = yield* Fiber.join(fiber);
+		expect(transports).toBe(3);
+		expect(events.at(-1)).toEqual({ type: "finish", reason: "stop", inputTokens: 1_234 });
+	}),
+);
+
+it.effect("reports a context overflow without retrying and gives up on persistent failures", () =>
+	Effect.gen(function* () {
+		let transports = 0;
+		const overflow = HttpClient.make((incoming) =>
+			Effect.sync(() => {
+				transports += 1;
+				return HttpClientResponse.fromWeb(
+					incoming,
+					failing(400, "This model's maximum context length is 65536 tokens"),
+				);
+			}),
 		);
 		assertExitFails(
-			yield* Effect.exit(collect(oversized, request)),
-			new AssistantModelError({ code: "output-limit" }),
+			yield* Effect.exit(collect(overflow, request)),
+			new AssistantModelError({ code: "context-overflow" }),
+		);
+		expect(transports).toBe(1);
+		const unavailable = HttpClient.make((incoming) =>
+			Effect.succeed(HttpClientResponse.fromWeb(incoming, failing(503, "overloaded"))),
 		);
 		const stalled = HttpClient.make(() => Effect.never);
-		const fiber = yield* collect(stalled, request).pipe(Effect.forkChild);
-		yield* TestClock.adjust("2 minutes");
-		assertExitFails(
-			yield* Fiber.await(fiber),
-			new AssistantModelError({ code: "provider-failed" }),
-		);
+		for (const client of [unavailable, stalled]) {
+			const fiber = yield* collect(client, request).pipe(Effect.forkChild);
+			yield* TestClock.adjust("1 hour");
+			assertExitFails(
+				yield* Fiber.await(fiber),
+				new AssistantModelError({ code: "provider-failed" }),
+			);
+		}
 	}),
 );
 
@@ -341,7 +364,7 @@ it.effect("replays a round as one assistant message with its reasoning, text and
 		} as const;
 		yield* collect(client, {
 			...request,
-			prompt: assistantProviderPrompt("system", [
+			prompt: assistantProviderPrompt("system", null, [
 				{ role: "user", parts: [{ kind: "text", text: "Read records" }] },
 				{ role: "assistant", parts: [{ kind: "text", text: "Checking." }] },
 				{
@@ -368,4 +391,67 @@ it.effect("replays a round as one assistant message with its reasoning, text and
 			reasoning_content: "Need the records.",
 		});
 	}),
+);
+
+it.effect(
+	"sends the compaction summary, stored-output previews and instructions as model-visible text",
+	() =>
+		Effect.gen(function* () {
+			const bodies: string[] = [];
+			const client = HttpClient.make((incoming) =>
+				Effect.sync(() => {
+					if (incoming.body._tag === "Uint8Array") {
+						bodies.push(new TextDecoder().decode(incoming.body.body));
+					}
+					return HttpClientResponse.fromWeb(incoming, response());
+				}),
+			);
+			const call = {
+				kind: "tool",
+				tool: "search",
+				requiresApproval: false,
+				modelCallId: "model-call-1",
+				arguments: { query: "recent" },
+				id: AssistantToolCallId.make("turn:1:0"),
+			} as const;
+			yield* collect(client, {
+				...request,
+				prompt: assistantProviderPrompt("system", "Earlier work", [
+					{ role: "assistant", parts: [{ call, kind: "tool-call" }] },
+					{
+						role: "tool",
+						parts: [
+							{
+								kind: "tool-result",
+								toolCallId: call.id,
+								result: {
+									lines: 4_000,
+									bytes: 90_000,
+									outputId: call.id,
+									tail: "last line",
+									head: "first lines",
+									truncated: "retained",
+									producerLimited: false,
+								},
+							},
+						],
+					},
+					{ role: "user", parts: [{ kind: "instruction", text: "Continue where you stopped." }] },
+				]),
+			});
+			const sent = yield* Schema.decodeUnknownEffect(ChatRequest)(bodies[0]);
+			expect(sent.messages.map((message) => [message["role"], message["content"]])).toEqual([
+				["system", "system"],
+				[
+					"user",
+					"<conversation-summary>\nEarlier work\n</conversation-summary>\nThis summarizes the earlier part of this conversation, which is no longer shown.",
+				],
+				["assistant", null],
+				[
+					"tool",
+					'first lines\n[Output too large to show in full: 4000 lines, 90000 bytes. Showing the first 1 lines and the end. Read the rest with read_result({ outputId: "turn:1:0", offset }) or search it with a pattern.]\nlast line',
+				],
+				["user", "Continue where you stopped."],
+			]);
+		}),
 );

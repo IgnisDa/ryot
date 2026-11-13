@@ -2068,7 +2068,12 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 						);
 						assistantHasMore = rows.length > 0;
 						for (const row of rows) {
-							const { userId: _userId, ...data } = row;
+							const {
+								userId: _userId,
+								promptTokens: _promptTokens,
+								promptCharacters: _promptCharacters,
+								...data
+							} = row;
 							const record = yield* Schema.decodeEffect(ArchiveAssistantRecord)({
 								kind: "conversation",
 								...data,
@@ -2134,6 +2139,22 @@ export class BackupExportSnapshot extends Context.Service<BackupExportSnapshot>(
 							});
 							yield* spools.assistant.append([record]);
 							afterAssistantMessage = row.id;
+						}
+					}
+					let afterAssistantOutput: string | undefined;
+					assistantHasMore = true;
+					while (assistantHasMore) {
+						const rows = yield* exportRepository.listAssistantOutputs(userId, afterAssistantOutput);
+						assistantHasMore = rows.length > 0;
+						for (const row of rows) {
+							const { userId: _userId, ...data } = row;
+							const record = yield* Schema.decodeEffect(ArchiveAssistantRecord)({
+								kind: "output",
+								...data,
+								createdAt: row.createdAt.toISOString(),
+							});
+							yield* spools.assistant.append([record]);
+							afterAssistantOutput = row.id;
 						}
 					}
 					const assistantProvider = yield* exportRepository.readAssistantProvider(userId);

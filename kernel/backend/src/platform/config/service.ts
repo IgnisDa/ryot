@@ -1,3 +1,7 @@
+import {
+	ASSISTANT_DEFAULT_MODEL_LIMITS,
+	assistantModelLimitsValid,
+} from "@ryot-app/contract/modules/assistant/schemas";
 import { isLoopbackOrigin } from "@ryot-app/contract/oauth";
 import type { LogLevel } from "effect";
 import {
@@ -259,6 +263,27 @@ export const validateSystemConfig = (system: SystemConfigValue) =>
 			return yield* Effect.fail(
 				configError(
 					"SERVER_ASSISTANT_BASE_URL must be HTTP or HTTPS without credentials, query or fragment.",
+				),
+			);
+		}
+
+		if (
+			!assistantModelLimitsValid({
+				contextWindow: Option.getOrElse(
+					assistant.contextWindow,
+					() => ASSISTANT_DEFAULT_MODEL_LIMITS.contextWindow,
+				),
+				maxOutputTokens: Option.getOrElse(
+					assistant.maxOutputTokens,
+					() => ASSISTANT_DEFAULT_MODEL_LIMITS.maxOutputTokens,
+				),
+			}) ||
+			Option.exists(assistant.contextWindow, (tokens) => tokens <= 0) ||
+			Option.exists(assistant.maxOutputTokens, (tokens) => tokens <= 0)
+		) {
+			return yield* Effect.fail(
+				configError(
+					"SERVER_ASSISTANT_CONTEXT_WINDOW and SERVER_ASSISTANT_MAX_OUTPUT_TOKENS must be positive, with the output limit below the context window.",
 				),
 			);
 		}

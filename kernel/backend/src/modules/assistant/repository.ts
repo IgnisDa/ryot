@@ -18,6 +18,7 @@ import {
 	assistantConversation as conversations,
 	assistantMessage as messages,
 	assistantToolCall as calls,
+	assistantToolOutput as outputs,
 	assistantTurn as turns,
 } from "#schema/tables/assistant";
 
@@ -523,9 +524,20 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				toolCallId: string,
 				result: AgentToolResult,
 				parts: readonly AssistantMessagePart[] = [],
+				output: null | string = null,
 			) {
 				yield* lockTurn(userId, conversationId, turnId, expectedRevision);
 				const validated = yield* Schema.decodeEffect(AgentToolResult)(result);
+				if (validated.truncated === "retained") {
+					if (output === null) {
+						return yield* Effect.die("A retained tool result needs its full output");
+					}
+					yield* session.run((db) =>
+						db
+							.insert(outputs)
+							.values({ userId, turnId, text: output, conversationId, id: validated.outputId }),
+					);
+				}
 				const [call] = yield* session.run((db) =>
 					db
 						.select()
@@ -641,6 +653,65 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				);
 				return yield* refreshStatus(turnId);
 			});
+			const readOutput = Effect.fn("AssistantRepository.readOutput")(function* (
+				userId: UserId,
+				conversationId: string,
+				outputId: string,
+			) {
+				const [row] = yield* session.run((db) =>
+					db
+						.select({ text: outputs.text })
+						.from(outputs)
+						.where(
+							and(
+								eq(outputs.id, outputId),
+								eq(outputs.userId, userId),
+								eq(outputs.conversationId, conversationId),
+							),
+						),
+				);
+				return row?.text ?? null;
+			});
+			const recordPromptUsage = Effect.fn("AssistantRepository.recordPromptUsage")(function* (
+				userId: UserId,
+				conversationId: string,
+				usage: { readonly tokens: number; readonly characters: number },
+			) {
+				yield* session.run((db) =>
+					db
+						.update(conversations)
+						.set({ promptTokens: usage.tokens, promptCharacters: usage.characters })
+						.where(and(eq(conversations.id, conversationId), eq(conversations.userId, userId))),
+				);
+			});
+			const appendTurnMessage = Effect.fn("AssistantRepository.appendTurnMessage")(function* (
+				userId: UserId,
+				conversationId: string,
+				turnId: string,
+				expectedRevision: number,
+				message: {
+					readonly id: string;
+					readonly role: "user" | "assistant";
+					readonly parts: readonly AssistantMessagePart[];
+				},
+			) {
+				const turn = yield* lockTurn(userId, conversationId, turnId, expectedRevision);
+				const [existing] = yield* session.run((db) =>
+					db.select({ id: messages.id }).from(messages).where(eq(messages.id, message.id)),
+				);
+				if (existing) {
+					return turn;
+				}
+				yield* appendMessage(
+					userId,
+					conversationId,
+					turnId,
+					message.role,
+					message.parts,
+					message.id,
+				);
+				return yield* bumpTurn(turnId, {});
+			});
 			const loadTurn = Effect.fn("AssistantRepository.loadTurn")(function* (
 				userId: UserId,
 				turnId: string,
@@ -670,7 +741,20 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 						.where(eq(calls.turnId, turnId))
 						.orderBy(asc(calls.round), asc(calls.position)),
 				);
-				return { turn, calls: toolCalls, messages: history };
+				const [conversation] = yield* session.run((db) =>
+					db
+						.select({
+							promptTokens: conversations.promptTokens,
+							promptCharacters: conversations.promptCharacters,
+						})
+						.from(conversations)
+						.where(eq(conversations.id, turn.conversationId)),
+				);
+				const measurement =
+					conversation?.promptTokens != null && conversation.promptCharacters != null
+						? { tokens: conversation.promptTokens, characters: conversation.promptCharacters }
+						: null;
+				return { turn, measurement, calls: toolCalls, messages: history };
 			});
 			const recoverableTurns = session.run((db) =>
 				db
@@ -685,10 +769,13 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				loadTurn,
 				interrupt,
 				transition,
+				readOutput,
 				recordRound,
 				setRoundText,
 				recordResult,
 				recoverableTurns,
+				appendTurnMessage,
+				recordPromptUsage,
 				renameConversation,
 				deleteConversation,
 				recordCapabilityCall,

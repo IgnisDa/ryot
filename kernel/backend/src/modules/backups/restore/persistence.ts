@@ -17,6 +17,7 @@ import {
 	UserId,
 } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
+import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { UserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import type { ClientArtifact, PageClientArtifact } from "@ryot-app/plugin-client-contract";
 import { and, eq, isNotNull, isNull, sql } from "drizzle-orm";
@@ -138,6 +139,11 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						? badRequest("Backup assistant mapping is incomplete")
 						: Effect.succeed(mapped);
 				};
+				const restoredResult = Effect.fn(function* (result: AgentToolResult) {
+					return result.truncated === "retained"
+						? { ...result, outputId: yield* idFor("call", result.outputId) }
+						: result;
+				});
 				const { kind, ...value } = record;
 				const createdAt = parseDate(value.createdAt);
 				if (record.kind === "provider") {
@@ -150,7 +156,9 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 								model: record.model,
 								encryptedApiKey: null,
 								baseUrl: record.baseUrl,
+								contextWindow: record.contextWindow,
 								updatedAt: parseDate(record.updatedAt),
+								maxOutputTokens: record.maxOutputTokens,
 							}),
 					);
 				} else if (record.kind === "conversation") {
@@ -193,7 +201,21 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						);
 					} else {
 						const turnId = AssistantTurnId.make(yield* idFor("turn", record.turnId));
-						if (record.kind === "call") {
+						if (record.kind === "output") {
+							const outputId = yield* idFor("call", record.id);
+							yield* session.run((db) =>
+								db
+									.insert(assistantTables.assistantToolOutput)
+									.values({
+										userId,
+										turnId,
+										createdAt,
+										id: outputId,
+										conversationId,
+										text: record.text,
+									}),
+							);
+						} else if (record.kind === "call") {
 							const call =
 								record.call.kind === "capability"
 									? {
@@ -204,6 +226,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 											),
 										}
 									: { ...record.call, id: AssistantToolCallId.make(id) };
+							const result =
+								record.result === null
+									? { truncated: false as const, value: { interrupted: true } }
+									: yield* restoredResult(record.result);
 							yield* session.run((db) =>
 								db
 									.insert(assistantTables.assistantToolCall)
@@ -213,10 +239,10 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 										call,
 										userId,
 										turnId,
+										result,
 										createdAt,
 										conversationId,
 										decidedAt: record.decidedAt === null ? null : parseDate(record.decidedAt),
-										result: record.result ?? { truncated: false, value: { interrupted: true } },
 										completedAt: record.completedAt === null ? null : parseDate(record.completedAt),
 									}),
 							);
@@ -268,7 +294,14 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 											},
 										};
 									}
-									if (part.kind === "tool-result" || part.kind === "approval") {
+									if (part.kind === "tool-result") {
+										return {
+											...part,
+											result: yield* restoredResult(part.result),
+											toolCallId: AssistantToolCallId.make(yield* idFor("call", part.toolCallId)),
+										};
+									}
+									if (part.kind === "approval") {
 										return {
 											...part,
 											toolCallId: AssistantToolCallId.make(yield* idFor("call", part.toolCallId)),

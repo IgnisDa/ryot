@@ -32,9 +32,12 @@ import { WorkflowExecutionNotifications } from "#platform/workflow/execution-not
 import { user } from "#schema/tables/auth";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
-import { assistantContext } from "./context";
 import { AssistantRecoveryLive } from "./layer";
-import { AssistantModelError, type AssistantModelEvent } from "./provider-model";
+import {
+	AssistantModelError,
+	type AssistantModelEvent,
+	type AssistantModelRequest,
+} from "./provider-model";
 import { AssistantProviderRepository } from "./provider-repository";
 import { AssistantRepository } from "./repository";
 import { makeAssistantSavePage } from "./save-page";
@@ -126,11 +129,15 @@ const harness = Effect.fn(function* (
 		readonly readOnly?: boolean;
 		readonly failBuild?: boolean;
 		readonly reasoning?: boolean;
-		readonly alwaysCall?: boolean;
+		readonly callRounds?: number;
 		readonly noProvider?: boolean;
 		readonly gatedWrite?: boolean;
+		readonly resultBytes?: number;
+		readonly contextWindow?: number;
+		readonly overflowRound?: number;
+		readonly cutFirstReply?: boolean;
+		readonly readStoredResult?: boolean;
 		readonly invalidArguments?: boolean;
-		readonly answerWithoutTools?: boolean;
 		readonly interruptAfterWrite?: boolean;
 		readonly failProvider?: AssistantModelError["code"];
 	} = {},
@@ -140,6 +147,10 @@ const harness = Effect.fn(function* (
 	const writes: string[] = [];
 	const invocations: string[] = [];
 	let generated = 0;
+	let summaries = 0;
+	let firstCallId: null | string = null;
+	let overflowed = false;
+	const requests: AssistantModelRequest[] = [];
 	let changed = false;
 	let interrupted = false;
 	let retired = false;
@@ -159,15 +170,30 @@ const harness = Effect.fn(function* (
 								model: "test",
 								apiKey: undefined,
 								source: "instance",
+								maxOutputTokens: 8_000,
 								baseUrl: "https://provider.test/v1",
+								contextWindow: options.contextWindow ?? 496_000,
 							},
 				),
 		},
 		model: {
 			stream: (request) => {
+				if (request.tools.length === 0) {
+					summaries += 1;
+					return Stream.fromIterable<AssistantModelEvent>([
+						{ type: "text-delta", text: `Summary ${summaries}` },
+						{ type: "finish", reason: "stop" },
+					]);
+				}
+				requests.push(request);
 				generated += 1;
 				if (options.failProvider) {
 					return Stream.fail(new AssistantModelError({ code: options.failProvider }));
+				}
+				if (generated === options.overflowRound && !overflowed) {
+					overflowed = true;
+					generated -= 1;
+					return Stream.fail(new AssistantModelError({ code: "context-overflow" }));
 				}
 				const events: AssistantModelEvent[] = [{ type: "text-delta", text: "x".repeat(600) }];
 				if (options.reasoning) {
@@ -176,8 +202,18 @@ const harness = Effect.fn(function* (
 						{ text: "a page.", field: "reasoning", type: "reasoning-delta" },
 					);
 				}
-				const offered = request.tools.length > 0 || !options.answerWithoutTools;
-				if (offered && (generated === 1 || options.alwaysCall)) {
+				if (options.cutFirstReply && generated === 1) {
+					events.push({ type: "finish", reason: "length" });
+					return Stream.fromIterable(events);
+				}
+				if (options.readStoredResult && generated === 2 && firstCallId !== null) {
+					events.push({
+						type: "tool-call",
+						name: "read_result",
+						modelCallId: "model-read",
+						arguments: { limit: 2, offset: 2_000, outputId: firstCallId },
+					});
+				} else if (generated <= (options.callRounds ?? 1)) {
 					events.push({
 						arguments: {},
 						name: tool.name,
@@ -201,6 +237,18 @@ const harness = Effect.fn(function* (
 			callTrusted: (userId, input) =>
 				Effect.gen(function* () {
 					invocations.push(input.idempotencyKey);
+					firstCallId ??= input.idempotencyKey.replace(/^assistant:[^:]+:/, "");
+					if (options.resultBytes !== undefined) {
+						return {
+							state: "completed",
+							result: truncateJsonResult(
+								Array.from({ length: options.resultBytes / 10 }, (_, line) => `line ${line}`).join(
+									"\n",
+								),
+								input.byteBudget,
+							),
+						} satisfies AgentToolOutcome;
+					}
 					if (options.failBuild) {
 						return {
 							state: "completed",
@@ -262,7 +310,9 @@ const harness = Effect.fn(function* (
 	return {
 		writes,
 		runtime,
+		requests,
 		invocations,
+		summaries: () => summaries,
 		generated: () => generated,
 		retire: () => {
 			retired = true;
@@ -442,7 +492,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				for (const decision of ["decline", "approve"] as const) {
 					const setup = yield* harness();
 					const payload = yield* admit();
-					const round = yield* setup.runtime.generate(payload, 1, false);
+					const round = yield* setup.runtime.generate(payload, 1);
 					yield* setup.runtime.recordRound(payload, 1, round);
 					const state = yield* repository.loadTurn(owner, payload.turnId);
 					assert(state);
@@ -484,8 +534,8 @@ layer(services, { excludeTestServices: true })((test) => {
 			const repository = yield* AssistantRepository;
 			const setup = yield* harness({ readOnly: true, interruptAfterWrite: true });
 			const payload = yield* admit();
-			const result = yield* setup.runtime.generate(payload, 1, false);
-			yield* setup.runtime.generate(payload, 1, false);
+			const result = yield* setup.runtime.generate(payload, 1);
+			yield* setup.runtime.generate(payload, 1);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
 			expect(
@@ -505,44 +555,111 @@ layer(services, { excludeTestServices: true })((test) => {
 		}),
 	);
 
-	test.effect("bounds model rounds and records provider failures without diagnostic prose", () =>
+	test.effect("runs until the model stops calling tools and records failures without prose", () =>
 		Effect.gen(function* () {
 			const repository = yield* AssistantRepository;
 			const cases: readonly (readonly [
 				NonNullable<Parameters<typeof harness>[0]>,
-				AssistantTurnFailure["code"],
+				"completed" | AssistantTurnFailure["code"],
 			])[] = [
-				[{ readOnly: true, alwaysCall: true }, "round-limit"],
+				[{ readOnly: true, callRounds: 20 }, "completed"],
 				[{ failProvider: "provider-failed" }, "provider-failed"],
-				[{ failProvider: "request-limit" }, "request-limit"],
-				[{ failProvider: "output-limit" }, "output-limit"],
+				[{ failProvider: "context-overflow" }, "request-limit"],
 				[{ noProvider: true }, "provider-unavailable"],
 			];
-			for (const [options, code] of cases) {
+			for (const [options, outcome] of cases) {
 				const setup = yield* harness(options);
 				const payload = yield* admit();
 				yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
 				const state = yield* repository.loadTurn(owner, payload.turnId);
 				assert(state);
-				expect(state.turn.status).toBe("failed");
-				expect(state.turn.failure).toEqual({ code });
-				if (options.alwaysCall) {
-					expect(setup.generated()).toBe(13);
+				if (outcome === "completed") {
+					expect(state.turn.status).toBe("completed");
+					expect(setup.generated()).toBe(21);
+				} else {
+					expect(state.turn.status).toBe("failed");
+					expect(state.turn.failure).toEqual({ code: outcome });
 				}
 			}
 		}),
 	);
 
-	test.effect("answers without tools once the model rounds are spent", () =>
+	test.effect("continues a reply that reached the output limit", () =>
 		Effect.gen(function* () {
 			const repository = yield* AssistantRepository;
-			const setup = yield* harness({ readOnly: true, alwaysCall: true, answerWithoutTools: true });
+			const setup = yield* harness({ callRounds: 0, readOnly: true, cutFirstReply: true });
 			const payload = yield* admit();
 			yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
 			expect(state.turn.status).toBe("completed");
-			expect(setup.generated()).toBe(13);
+			expect(setup.generated()).toBe(2);
+			expect(
+				state.messages.flatMap((message) =>
+					message.parts.flatMap((part) => (part.kind === "instruction" ? [message.role] : [])),
+				),
+			).toEqual(["user"]);
+			expect(stableStringify(setup.requests[1]?.prompt)).toContain("reached the output limit");
+		}),
+	);
+
+	test.effect("stores oversized tool output, previews it and reads it back", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({
+				readOnly: true,
+				resultBytes: 120_000,
+				readStoredResult: true,
+			});
+			const payload = yield* admit();
+			yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			assert(state);
+			expect(state.turn.status).toBe("completed");
+			const [stored, read] = state.calls;
+			assert(stored?.result && read?.result);
+			expect(stored.result).toMatchObject({
+				lines: 12_000,
+				outputId: stored.id,
+				truncated: "retained",
+			});
+			expect(read.result).toEqual({
+				truncated: false,
+				value: {
+					endLine: 2_001,
+					startLine: 2_000,
+					totalLines: 12_000,
+					text: "2000: line 1999\n2001: line 2000",
+				},
+			});
+			const prompt = stableStringify(setup.requests[1]?.prompt);
+			expect(prompt).toContain(`outputId: \\"${stored.id}\\"`);
+			expect(prompt).not.toContain("line 6000");
+		}),
+	);
+
+	test.effect("compacts older history before the context window fills, and on overflow", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			for (const options of [
+				{ callRounds: 6, readOnly: true, resultBytes: 30_000, contextWindow: 40_000 },
+				{ callRounds: 3, readOnly: true, overflowRound: 3 },
+			]) {
+				const setup = yield* harness(options);
+				const payload = yield* admit();
+				yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
+				const state = yield* repository.loadTurn(owner, payload.turnId);
+				assert(state);
+				expect(state.turn.status).toBe("completed");
+				expect(setup.summaries()).toBeGreaterThan(0);
+				expect(
+					state.messages.some((message) =>
+						message.parts.some((part) => part.kind === "compaction"),
+					),
+				).toBe(true);
+				expect(stableStringify(setup.requests.at(-1)?.prompt)).toContain("<conversation-summary>");
+				expect(state.calls.every((call) => call.result !== null)).toBe(true);
+			}
 		}),
 	);
 
@@ -551,7 +668,7 @@ layer(services, { excludeTestServices: true })((test) => {
 			const repository = yield* AssistantRepository;
 			const setup = yield* harness({ readOnly: true, reasoning: true });
 			const payload = yield* admit();
-			const round = yield* setup.runtime.generate(payload, 1, false);
+			const round = yield* setup.runtime.generate(payload, 1);
 			yield* setup.runtime.recordRound(payload, 1, round);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
@@ -595,7 +712,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				const repository = yield* AssistantRepository;
 				const setup = yield* harness({ readOnly: true, failBuild: true });
 				const payload = yield* admit();
-				const result = yield* setup.runtime.generate(payload, 1, false);
+				const result = yield* setup.runtime.generate(payload, 1);
 				yield* setup.runtime.recordRound(payload, 1, result);
 				const call = result.calls[0];
 				assert(call);
@@ -616,7 +733,7 @@ layer(services, { excludeTestServices: true })((test) => {
 			const repository = yield* AssistantRepository;
 			const setup = yield* harness();
 			const payload = yield* admit();
-			const result = yield* setup.runtime.generate(payload, 1, false);
+			const result = yield* setup.runtime.generate(payload, 1);
 			yield* setup.runtime.recordRound(payload, 1, result);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
@@ -650,7 +767,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				const repository = yield* AssistantRepository;
 				const setup = yield* harness({ readOnly: true });
 				const payload = yield* admit();
-				const result = yield* setup.runtime.generate(payload, 1, false);
+				const result = yield* setup.runtime.generate(payload, 1);
 				yield* setup.runtime.recordRound(payload, 1, result);
 				const call = result.calls[0];
 				assert(call);
@@ -758,55 +875,40 @@ layer(services, { excludeTestServices: true })((test) => {
 				);
 			}),
 	);
-	test.effect(
-		"recovers a committed approval without its wake and retains paired bounded context",
-		() =>
-			Effect.gen(function* () {
-				const repository = yield* AssistantRepository;
-				const session = yield* DatabaseSession;
-				const setup = yield* harness();
-				const payload = yield* admit();
-				const round = yield* setup.runtime.generate(payload, 1, false);
-				yield* setup.runtime.recordRound(payload, 1, round);
-				const waiting = yield* repository.loadTurn(owner, payload.turnId);
-				assert(waiting);
-				const call = waiting.calls[0];
-				assert(call);
-				yield* session.transaction(
-					repository.decide(owner, {
-						toolCallId: call.id,
-						decision: "approve",
-						turnId: payload.turnId,
-						expectedRevision: call.revision,
-						conversationId: waiting.turn.conversationId,
-					}),
+	test.effect("recovers a committed approval without its wake", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const session = yield* DatabaseSession;
+			const setup = yield* harness();
+			const payload = yield* admit();
+			const round = yield* setup.runtime.generate(payload, 1);
+			yield* setup.runtime.recordRound(payload, 1, round);
+			const waiting = yield* repository.loadTurn(owner, payload.turnId);
+			assert(waiting);
+			const call = waiting.calls[0];
+			assert(call);
+			yield* session.transaction(
+				repository.decide(owner, {
+					toolCallId: call.id,
+					decision: "approve",
+					turnId: payload.turnId,
+					expectedRevision: call.revision,
+					conversationId: waiting.turn.conversationId,
+				}),
+			);
+			yield* Effect.gen(function* () {
+				const service = yield* makeAssistantService(account);
+				yield* service.recover();
+				yield* until(
+					repository
+						.loadTurn(owner, payload.turnId)
+						.pipe(Effect.map((state) => state?.turn.status === "completed")),
 				);
-				yield* Effect.gen(function* () {
-					const service = yield* makeAssistantService(account);
-					yield* service.recover();
-					yield* until(
-						repository
-							.loadTurn(owner, payload.turnId)
-							.pipe(Effect.map((state) => state?.turn.status === "completed")),
-					);
-				}).pipe(withEngine(engineFor(setup.runtime)));
-				expect(setup.writes).toHaveLength(1);
-				const state = yield* repository.loadTurn(owner, payload.turnId);
-				assert(state);
-				const history = [
-					{ role: "user" as const, parts: [{ kind: "text" as const, text: "x".repeat(16_000) }] },
-					...state.messages,
-				];
-				const bounded = assistantContext(history, 8_000);
-				expect(
-					bounded
-						.flatMap((message) => message.parts)
-						.filter((part) => part.kind === "tool-call" || part.kind === "tool-result"),
-				).toHaveLength(2);
-				const tiny = assistantContext(state.messages, 1);
-				expect(tiny).toEqual([]);
-				expect(history.length).toBeGreaterThan(bounded.length);
-			}),
+			}).pipe(withEngine(engineFor(setup.runtime)));
+			expect(setup.writes).toHaveLength(1);
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			assert(state);
+		}),
 	);
 	test.effect("account reset removes conversations, active histories and provider overrides", () =>
 		Effect.gen(function* () {

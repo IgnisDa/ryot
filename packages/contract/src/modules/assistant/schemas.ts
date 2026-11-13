@@ -25,10 +25,14 @@ export const AssistantTurnStatus = Schema.Literals([
 export type AssistantTurnStatus = typeof AssistantTurnStatus.Type;
 export const AssistantApprovalDecision = Schema.Literals(["approve", "decline"]);
 export type AssistantApprovalDecision = typeof AssistantApprovalDecision.Type;
+export const AssistantLocalToolName = Schema.Literals(["read_result"]);
+export type AssistantLocalToolName = typeof AssistantLocalToolName.Type;
+export const AssistantToolName = Schema.Union([AgentToolName, AssistantLocalToolName]);
+export type AssistantToolName = typeof AssistantToolName.Type;
 export const AssistantToolCall = Schema.Union([
 	strictStruct({
-		tool: AgentToolName,
 		arguments: JsonValue,
+		tool: AssistantToolName,
 		id: AssistantToolCallId,
 		kind: Schema.Literal("tool"),
 		requiresApproval: Schema.Boolean,
@@ -67,6 +71,12 @@ export const AssistantMessagePart = Schema.Union([
 		decision: AssistantApprovalDecision,
 	}),
 	strictStruct({ kind: Schema.Literal("page-preview"), ...PageDraftBuildIdentity.fields }),
+	strictStruct({ text: Schema.String, kind: Schema.Literal("instruction") }),
+	strictStruct({
+		summary: Schema.String,
+		throughSequence: Schema.Int,
+		kind: Schema.Literal("compaction"),
+	}),
 ]);
 export type AssistantMessagePart = typeof AssistantMessagePart.Type;
 export const AssistantConversationStatus = Schema.Literals([
@@ -102,9 +112,7 @@ export const AssistantTurnFailure = strictStruct({
 		"provider-unavailable",
 		"provider-failed",
 		"request-limit",
-		"output-limit",
 		"tool-failed",
-		"round-limit",
 		"execution-failed",
 	]),
 });
@@ -120,10 +128,18 @@ export const AssistantTurn = strictStruct({
 	completedAt: Schema.NullOr(Schema.String),
 	failure: Schema.NullOr(AssistantTurnFailure),
 });
+export const ASSISTANT_DEFAULT_MODEL_LIMITS = { contextWindow: 496_000, maxOutputTokens: 32_000 };
+export const AssistantTokenCount = Schema.Int.check(Schema.isGreaterThan(0));
+export const assistantModelLimitsValid = (limits: {
+	readonly contextWindow: number;
+	readonly maxOutputTokens: number;
+}) => limits.maxOutputTokens < limits.contextWindow;
 export const AssistantProviderMetadata = strictStruct({
 	baseUrl: HttpUrl,
 	hasApiKey: Schema.Boolean,
 	model: Schema.NonEmptyString,
+	contextWindow: AssistantTokenCount,
+	maxOutputTokens: AssistantTokenCount,
 	source: Schema.Literals(["instance", "user"]),
 });
 export const AssistantConversationResult = strictStruct({
@@ -153,6 +169,8 @@ export const ConfigureAssistantProviderBody = strictStruct({
 	baseUrl: HttpUrl,
 	model: Schema.NonEmptyString,
 	apiKey: Schema.optional(Schema.NonEmptyString),
+	contextWindow: Schema.optional(AssistantTokenCount),
+	maxOutputTokens: Schema.optional(AssistantTokenCount),
 });
 export const SaveAssistantPageBody = strictStruct({
 	...SubmitAssistantTurnResult.fields,

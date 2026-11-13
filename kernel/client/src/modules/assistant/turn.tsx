@@ -56,6 +56,13 @@ export function AssistantTurn(props: {
 			}
 			return <AssistantSteps live={live} key={item.id} summary={summary} steps={item.steps} />;
 		}
+		if (item.kind === "compaction") {
+			return (
+				<p key={item.id} role="separator" className="text-center text-label text-text-subtle">
+					Earlier context summarized
+				</p>
+			);
+		}
 		if (item.kind === "approval") {
 			return (
 				<AssistantApproval

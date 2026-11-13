@@ -168,7 +168,13 @@ export const makeAppConfigLayer = (
 			pluginsSystemDir: "./plugins",
 			proKeyVerificationUrl: "https://api.unkey.com",
 			adminAccessToken: Redacted.make("test-admin-token"),
-			assistant: { model: Option.none(), apiKey: Option.none(), baseUrl: Option.none() },
+			assistant: {
+				model: Option.none(),
+				apiKey: Option.none(),
+				baseUrl: Option.none(),
+				contextWindow: Option.none(),
+				maxOutputTokens: Option.none(),
+			},
 		},
 	} satisfies AppConfigValue;
 	return Layer.succeed(AppConfig, {

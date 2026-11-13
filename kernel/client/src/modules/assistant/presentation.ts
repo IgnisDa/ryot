@@ -1,5 +1,7 @@
-import type { AssistantTurnFailure } from "@ryot-app/contract/modules/assistant/schemas";
-import type { AgentToolName } from "@ryot-app/contract/schema/agent-tool";
+import type {
+	AssistantToolName,
+	AssistantTurnFailure,
+} from "@ryot-app/contract/modules/assistant/schemas";
 import type {
 	AssistantTranscriptStep,
 	AssistantTranscriptTurn,
@@ -15,8 +17,9 @@ const toolLabels = {
 	page_publish: { detail: null, done: "Published a page", running: "Publishing a page" },
 	page_write: { detail: "name", done: "Wrote a page draft", running: "Writing a page draft" },
 	search: { detail: "query", done: "Searched capabilities", running: "Searching capabilities" },
+	read_result: { detail: "pattern", done: "Read stored output", running: "Reading stored output" },
 } as const satisfies Record<
-	AgentToolName,
+	AssistantToolName,
 	{ readonly done: string; readonly running: string; readonly detail: null | string }
 >;
 
@@ -62,12 +65,10 @@ const retryText = `${ASSISTANT_NAME} could not finish this reply. You can try ag
 
 const turnFailureTexts: Record<AssistantTurnFailure["code"], string> = {
 	"tool-failed": retryText,
-	"round-limit": retryText,
 	"provider-failed": retryText,
 	"execution-failed": retryText,
 	"request-limit": "This conversation is too long to continue. Start a new conversation.",
 	"provider-unavailable": `Your provider is unavailable. Check Settings → ${ASSISTANT_NAME}.`,
-	"output-limit": `${ASSISTANT_NAME}'s reply exceeded the response size limit. Try a smaller request.`,
 };
 
 export const turnFailureText = (failure: null | AssistantTurnFailure) =>

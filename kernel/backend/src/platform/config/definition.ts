@@ -360,6 +360,17 @@ const server = group(
 					envKey: "SERVER_ASSISTANT_API_KEY",
 					description: "Optional provider API key; omit for unauthenticated endpoints",
 				}),
+				maxOutputTokens: integerField({
+					label: "Maximum output tokens",
+					envKey: "SERVER_ASSISTANT_MAX_OUTPUT_TOKENS",
+					description: "Most tokens the model may generate in one response. Defaults to 32000",
+				}),
+				contextWindow: integerField({
+					label: "Context window",
+					envKey: "SERVER_ASSISTANT_CONTEXT_WINDOW",
+					description:
+						"Model context window in tokens; Ryo compacts older history before exceeding it. Defaults to 496000",
+				}),
 			},
 		),
 	},
