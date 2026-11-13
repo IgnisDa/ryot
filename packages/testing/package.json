@@ -31,6 +31,10 @@
 			"types": "./src/matchers.ts",
 			"default": "./src/matchers.ts"
 		},
+		"./menus": {
+			"types": "./src/menus.ts",
+			"default": "./src/menus.ts"
+		},
 		"./recording-tracer": {
 			"types": "./src/recording-tracer.ts",
 			"default": "./src/recording-tracer.ts"
