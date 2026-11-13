@@ -28,6 +28,7 @@ type DesktopSidebarProps = {
 	readonly customizePanel: ReactNode;
 	readonly shortcutsEnabled: boolean;
 	readonly navigation: NavigationData;
+	readonly assistantAttention: number;
 	readonly catalog: PluginClientCatalog;
 	readonly onCreateCollection: () => void;
 	readonly workspaceSwitcherOpen: boolean;
@@ -74,6 +75,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							onSelectWorkspace={props.onSelectWorkspace}
 							showSearchShortcut={props.shortcutsEnabled}
 							onCreateCollection={props.onCreateCollection}
+							assistantAttention={props.assistantAttention}
 							showWorkspaceShortcut={props.shortcutsEnabled}
 							onNavigateAssistant={props.onNavigateAssistant}
 							workspaceSwitcherOpen={props.workspaceSwitcherOpen}

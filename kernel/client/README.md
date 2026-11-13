@@ -424,18 +424,28 @@ imported plugins too. Ordinary plugin frames retain their capabilities. The prev
 
 ## Ryobot
 
-`modules/assistant` owns the `/assistant` conversation surface and `/settings/assistant` provider
-settings. Contract adapters run through `AuthenticatedApi`; history comes from the assistant recipes.
-The shared pagination controller traverses messages, calls and turns independently, including current
-approvals beyond the first page. Approval decisions use the canonical call revision. Turn submission
-and page save retain identical request IDs and inputs for retries.
+`modules/assistant` owns the `/assistant` routes and `/settings/assistant` provider settings.
+`/assistant/new` starts a chat; the first submission creates the conversation and navigates to
+`/assistant/$conversationId`. Regular layouts keep the conversation list beside every Ryobot screen;
+compact layouts show the list at `/assistant` and push the start and thread screens. `AppScreen`'s
+`dock` holds the composer below the scrolling transcript, and `followEnd`, keyed by the latest
+turn, keeps the transcript's end in view until the reader scrolls back.
+
+The transcript pages turns newest first and renders `projectAssistantTurn` output: the prompt, step
+groups, Markdown replies, approvals and page drafts. Kernel tools are labeled here; capability
+approvals use the owner's `title` and render input through `JsonSchemaValues`. Approval decisions
+use the canonical call revision. Turn submission and page save retain identical request IDs and
+inputs for retries. While a turn works the composer offers Stop; while it awaits approval the dock
+points to the pending card. Conversations awaiting approval add a sidebar badge and an activity-tray
+entry unless that conversation is open.
 
 `assistant-updated` live frames enter the existing scope-fenced entity-watch transport and refresh
 canonical queries through `mutationCompleted`. Reconnect uses that same invalidation path. There is
 no separate assistant connection or polling loop.
 
-Inline drafts use `pages/runtime/page-document-host`, extracted from the shell document host. Each
-compiled identity mounts its own frame with the existing authenticated `srcdoc`, opaque origin,
-read-only draft authority and cancellable bridge. Embedded frames do not publish shell titles,
-navigate the conversation or register page shortcuts. Saving calls `assistant.savePage`; sharing
-reuses the user-page publication editor with the saved page selected, including snapshot mode.
+Draft previews use `pages/runtime/embedded-preview`, which mounts `page-document-host` for each
+compiled identity with the existing authenticated `srcdoc`, opaque origin, read-only draft authority
+and cancellable bridge. Embedded frames do not publish shell titles, navigate the conversation or
+register page shortcuts. Saving calls `assistant.savePage` with `page-authoring/identity-fields`,
+which the Pages manager also uses; sharing reuses the user-page publication editor with the saved
+page selected, including snapshot mode.

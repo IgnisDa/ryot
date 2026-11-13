@@ -16,7 +16,7 @@ import { Route as InstanceAdminRouteRouteImport } from './routes/instance-admin/
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as AuthenticatedIndexRouteImport } from './routes/_authenticated/index'
-import { Route as AuthenticatedAssistantRouteImport } from './routes/_authenticated/assistant'
+import { Route as AuthenticatedAssistantRouteRouteImport } from './routes/_authenticated/assistant/route'
 import { Route as AuthenticatedCustomizeSidebarRouteImport } from './routes/_authenticated/customize-sidebar'
 import { Route as AuthenticatedSettingsRouteRouteImport } from './routes/_authenticated/settings/route'
 import { Route as AuthCallbackRouteImport } from './routes/auth_.callback'
@@ -30,6 +30,9 @@ import { Route as OauthInitializingRouteImport } from './routes/oauth.initializi
 import { Route as OauthLoginRouteImport } from './routes/oauth.login'
 import { Route as OauthTwoFactorRouteImport } from './routes/oauth.two-factor'
 import { Route as SharePublicationIdRouteImport } from './routes/share.$publicationId'
+import { Route as AuthenticatedAssistantIndexRouteImport } from './routes/_authenticated/assistant/index'
+import { Route as AuthenticatedAssistantConversationIdRouteImport } from './routes/_authenticated/assistant/$conversationId'
+import { Route as AuthenticatedAssistantNewRouteImport } from './routes/_authenticated/assistant/new'
 import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authenticated/e/$entityId'
 import { Route as AuthenticatedPagePreviewPageIdRouteImport } from './routes/_authenticated/page-preview/$pageId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
@@ -94,11 +97,12 @@ const AuthenticatedIndexRoute = AuthenticatedIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAssistantRoute = AuthenticatedAssistantRouteImport.update({
-  id: '/assistant',
-  path: '/assistant',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
+const AuthenticatedAssistantRouteRoute =
+  AuthenticatedAssistantRouteRouteImport.update({
+    id: '/assistant',
+    path: '/assistant',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedCustomizeSidebarRoute =
   AuthenticatedCustomizeSidebarRouteImport.update({
     id: '/customize-sidebar',
@@ -167,6 +171,24 @@ const SharePublicationIdRoute = SharePublicationIdRouteImport.update({
   path: '/share/$publicationId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAssistantIndexRoute =
+  AuthenticatedAssistantIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAssistantRouteRoute,
+  } as any)
+const AuthenticatedAssistantConversationIdRoute =
+  AuthenticatedAssistantConversationIdRouteImport.update({
+    id: '/$conversationId',
+    path: '/$conversationId',
+    getParentRoute: () => AuthenticatedAssistantRouteRoute,
+  } as any)
+const AuthenticatedAssistantNewRoute =
+  AuthenticatedAssistantNewRouteImport.update({
+    id: '/new',
+    path: '/new',
+    getParentRoute: () => AuthenticatedAssistantRouteRoute,
+  } as any)
 const AuthenticatedEEntityIdRoute = AuthenticatedEEntityIdRouteImport.update({
   id: '/e/$entityId',
   path: '/e/$entityId',
@@ -346,8 +368,8 @@ export interface FileRoutesByFullPath {
   '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/assistant': typeof AuthenticatedAssistantRouteRouteWithChildren
   '/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
-  '/assistant': typeof AuthenticatedAssistantRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
@@ -360,6 +382,8 @@ export interface FileRoutesByFullPath {
   '/oauth/two-factor': typeof OauthTwoFactorRoute
   '/share/$publicationId': typeof SharePublicationIdRoute
   '/instance-admin/': typeof InstanceAdminIndexRoute
+  '/assistant/$conversationId': typeof AuthenticatedAssistantConversationIdRoute
+  '/assistant/new': typeof AuthenticatedAssistantNewRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -376,6 +400,7 @@ export interface FileRoutesByFullPath {
   '/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
   '/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
+  '/assistant/': typeof AuthenticatedAssistantIndexRoute
   '/settings/': typeof AuthenticatedSettingsIndexRoute
   '/p/$publisher/$name': typeof AuthenticatedPPublisherNameRouteRouteWithChildren
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
@@ -395,7 +420,6 @@ export interface FileRoutesByTo {
   '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
-  '/assistant': typeof AuthenticatedAssistantRoute
   '/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
@@ -409,6 +433,8 @@ export interface FileRoutesByTo {
   '/share/$publicationId': typeof SharePublicationIdRoute
   '/': typeof AuthenticatedIndexRoute
   '/instance-admin': typeof InstanceAdminIndexRoute
+  '/assistant/$conversationId': typeof AuthenticatedAssistantConversationIdRoute
+  '/assistant/new': typeof AuthenticatedAssistantNewRoute
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -425,6 +451,7 @@ export interface FileRoutesByTo {
   '/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
   '/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth/logout/callback': typeof AuthLogoutCallbackRoute
+  '/assistant': typeof AuthenticatedAssistantIndexRoute
   '/settings': typeof AuthenticatedSettingsIndexRoute
   '/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
   '/settings/integrations/$integrationId': typeof AuthenticatedSettingsIntegrationsIntegrationIdRoute
@@ -446,8 +473,8 @@ export interface FileRoutesById {
   '/demo': typeof DemoRoute
   '/onboarding': typeof OnboardingRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/_authenticated/assistant': typeof AuthenticatedAssistantRouteRouteWithChildren
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteRouteWithChildren
-  '/_authenticated/assistant': typeof AuthenticatedAssistantRoute
   '/_authenticated/customize-sidebar': typeof AuthenticatedCustomizeSidebarRoute
   '/auth_/callback': typeof AuthCallbackRoute
   '/instance-admin/logs': typeof InstanceAdminLogsRoute
@@ -461,6 +488,8 @@ export interface FileRoutesById {
   '/share/$publicationId': typeof SharePublicationIdRoute
   '/_authenticated/': typeof AuthenticatedIndexRoute
   '/instance-admin/': typeof InstanceAdminIndexRoute
+  '/_authenticated/assistant/$conversationId': typeof AuthenticatedAssistantConversationIdRoute
+  '/_authenticated/assistant/new': typeof AuthenticatedAssistantNewRoute
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
@@ -477,6 +506,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/publications': typeof AuthenticatedSettingsPublicationsRoute
   '/_authenticated/settings/reminders': typeof AuthenticatedSettingsRemindersRoute
   '/auth_/logout/callback': typeof AuthLogoutCallbackRoute
+  '/_authenticated/assistant/': typeof AuthenticatedAssistantIndexRoute
   '/_authenticated/settings/': typeof AuthenticatedSettingsIndexRoute
   '/_authenticated/p/$publisher/$name': typeof AuthenticatedPPublisherNameRouteRouteWithChildren
   '/_authenticated/settings/import-data/$runId': typeof AuthenticatedSettingsImportDataRunIdRoute
@@ -500,8 +530,8 @@ export interface FileRouteTypes {
     | '/demo'
     | '/onboarding'
     | '/reset-password'
-    | '/settings'
     | '/assistant'
+    | '/settings'
     | '/customize-sidebar'
     | '/auth/callback'
     | '/instance-admin/logs'
@@ -514,6 +544,8 @@ export interface FileRouteTypes {
     | '/oauth/two-factor'
     | '/share/$publicationId'
     | '/instance-admin/'
+    | '/assistant/$conversationId'
+    | '/assistant/new'
     | '/e/$entityId'
     | '/page-preview/$pageId'
     | '/settings/$'
@@ -530,6 +562,7 @@ export interface FileRouteTypes {
     | '/settings/publications'
     | '/settings/reminders'
     | '/auth/logout/callback'
+    | '/assistant/'
     | '/settings/'
     | '/p/$publisher/$name'
     | '/settings/import-data/$runId'
@@ -549,7 +582,6 @@ export interface FileRouteTypes {
     | '/demo'
     | '/onboarding'
     | '/reset-password'
-    | '/assistant'
     | '/customize-sidebar'
     | '/auth/callback'
     | '/instance-admin/logs'
@@ -563,6 +595,8 @@ export interface FileRouteTypes {
     | '/share/$publicationId'
     | '/'
     | '/instance-admin'
+    | '/assistant/$conversationId'
+    | '/assistant/new'
     | '/e/$entityId'
     | '/page-preview/$pageId'
     | '/settings/$'
@@ -579,6 +613,7 @@ export interface FileRouteTypes {
     | '/settings/publications'
     | '/settings/reminders'
     | '/auth/logout/callback'
+    | '/assistant'
     | '/settings'
     | '/settings/import-data/$runId'
     | '/settings/integrations/$integrationId'
@@ -599,8 +634,8 @@ export interface FileRouteTypes {
     | '/demo'
     | '/onboarding'
     | '/reset-password'
-    | '/_authenticated/settings'
     | '/_authenticated/assistant'
+    | '/_authenticated/settings'
     | '/_authenticated/customize-sidebar'
     | '/auth_/callback'
     | '/instance-admin/logs'
@@ -614,6 +649,8 @@ export interface FileRouteTypes {
     | '/share/$publicationId'
     | '/_authenticated/'
     | '/instance-admin/'
+    | '/_authenticated/assistant/$conversationId'
+    | '/_authenticated/assistant/new'
     | '/_authenticated/e/$entityId'
     | '/_authenticated/page-preview/$pageId'
     | '/_authenticated/settings/$'
@@ -630,6 +667,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/publications'
     | '/_authenticated/settings/reminders'
     | '/auth_/logout/callback'
+    | '/_authenticated/assistant/'
     | '/_authenticated/settings/'
     | '/_authenticated/p/$publisher/$name'
     | '/_authenticated/settings/import-data/$runId'
@@ -717,7 +755,7 @@ declare module '@tanstack/react-router' {
       id: '/_authenticated/assistant'
       path: '/assistant'
       fullPath: '/assistant'
-      preLoaderRoute: typeof AuthenticatedAssistantRouteImport
+      preLoaderRoute: typeof AuthenticatedAssistantRouteRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/customize-sidebar': {
@@ -810,6 +848,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/share/$publicationId'
       preLoaderRoute: typeof SharePublicationIdRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/assistant/': {
+      id: '/_authenticated/assistant/'
+      path: '/'
+      fullPath: '/assistant/'
+      preLoaderRoute: typeof AuthenticatedAssistantIndexRouteImport
+      parentRoute: typeof AuthenticatedAssistantRouteRoute
+    }
+    '/_authenticated/assistant/$conversationId': {
+      id: '/_authenticated/assistant/$conversationId'
+      path: '/$conversationId'
+      fullPath: '/assistant/$conversationId'
+      preLoaderRoute: typeof AuthenticatedAssistantConversationIdRouteImport
+      parentRoute: typeof AuthenticatedAssistantRouteRoute
+    }
+    '/_authenticated/assistant/new': {
+      id: '/_authenticated/assistant/new'
+      path: '/new'
+      fullPath: '/assistant/new'
+      preLoaderRoute: typeof AuthenticatedAssistantNewRouteImport
+      parentRoute: typeof AuthenticatedAssistantRouteRoute
     }
     '/_authenticated/e/$entityId': {
       id: '/_authenticated/e/$entityId'
@@ -1017,6 +1076,25 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAssistantRouteRouteChildren {
+  AuthenticatedAssistantConversationIdRoute: typeof AuthenticatedAssistantConversationIdRoute
+  AuthenticatedAssistantNewRoute: typeof AuthenticatedAssistantNewRoute
+  AuthenticatedAssistantIndexRoute: typeof AuthenticatedAssistantIndexRoute
+}
+
+const AuthenticatedAssistantRouteRouteChildren: AuthenticatedAssistantRouteRouteChildren =
+  {
+    AuthenticatedAssistantConversationIdRoute:
+      AuthenticatedAssistantConversationIdRoute,
+    AuthenticatedAssistantNewRoute: AuthenticatedAssistantNewRoute,
+    AuthenticatedAssistantIndexRoute: AuthenticatedAssistantIndexRoute,
+  }
+
+const AuthenticatedAssistantRouteRouteWithChildren =
+  AuthenticatedAssistantRouteRoute._addFileChildren(
+    AuthenticatedAssistantRouteRouteChildren,
+  )
+
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
@@ -1099,8 +1177,8 @@ const AuthenticatedPPublisherNameRouteRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAssistantRouteRoute: typeof AuthenticatedAssistantRouteRouteWithChildren
   AuthenticatedSettingsRouteRoute: typeof AuthenticatedSettingsRouteRouteWithChildren
-  AuthenticatedAssistantRoute: typeof AuthenticatedAssistantRoute
   AuthenticatedCustomizeSidebarRoute: typeof AuthenticatedCustomizeSidebarRoute
   AuthenticatedIndexRoute: typeof AuthenticatedIndexRoute
   AuthenticatedEEntityIdRoute: typeof AuthenticatedEEntityIdRoute
@@ -1112,8 +1190,9 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAssistantRouteRoute:
+    AuthenticatedAssistantRouteRouteWithChildren,
   AuthenticatedSettingsRouteRoute: AuthenticatedSettingsRouteRouteWithChildren,
-  AuthenticatedAssistantRoute: AuthenticatedAssistantRoute,
   AuthenticatedCustomizeSidebarRoute: AuthenticatedCustomizeSidebarRoute,
   AuthenticatedIndexRoute: AuthenticatedIndexRoute,
   AuthenticatedEEntityIdRoute: AuthenticatedEEntityIdRoute,

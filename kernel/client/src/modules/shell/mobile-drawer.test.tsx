@@ -29,6 +29,7 @@ const workspace = (
 	isHidden: false,
 	clientApiVersion: 1,
 	clientEntities: null,
+	assistantStarters: null,
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	...overrides,
@@ -101,6 +102,7 @@ function Harness(props: HarnessProps) {
 				activeHome={true}
 				progress={progress}
 				sections={sections}
+				assistantAttention={0}
 				drawerId="test-drawer"
 				activeSettings={false}
 				navigation={navigation}

@@ -23,6 +23,7 @@ const current: PluginClientCatalogEntry = {
 	clientApiVersion: 1,
 	homeSavedView: null,
 	clientEntities: null,
+	assistantStarters: null,
 	contentHash: "source-fixture",
 	installationId: "installation-fixture",
 	pluginId: PluginId.make("plugin-fixture"),
@@ -96,6 +97,7 @@ const renderSidebar = (
 			activeHome={false}
 			catalog={[current]}
 			sections={sections}
+			assistantAttention={0}
 			navigation={navigation}
 			workspaceSwitcherOpen={false}
 			onOpenSearch={() => undefined}
@@ -153,6 +155,7 @@ describe("sidebar navigation", () => {
 				activeHome={true}
 				catalog={[current]}
 				sections={sections}
+				assistantAttention={0}
 				navigation={navigation}
 				showSearchShortcut={false}
 				workspaceSwitcherOpen={false}
@@ -236,6 +239,7 @@ describe("sidebar overflow", () => {
 				current={current}
 				activeHome={false}
 				catalog={[current]}
+				assistantAttention={0}
 				sections={manySections}
 				navigation={navigation}
 				showSearchShortcut={false}

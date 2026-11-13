@@ -41,6 +41,7 @@ type MobileDrawerProps = {
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly navigation: NavigationData;
+	readonly assistantAttention: number;
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
 	readonly onCreateCollection: () => void;
@@ -136,6 +137,7 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							onToggleSection={props.onToggleSection}
 							expandedSections={props.expandedSections}
 							workspaceSwitcherOpen={workspaceSwitcherOpen}
+							assistantAttention={props.assistantAttention}
 							onCustomize={() => closeThen(props.onCustomize)}
 							onOpenSearch={() => closeThen(props.onOpenSearch)}
 							onNavigateHome={() => closeThen(props.onNavigateHome)}

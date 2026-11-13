@@ -11,6 +11,7 @@ import {
 	Outlet,
 	useMatch,
 	useNavigate,
+	useParams,
 	useRouteContext,
 	useRouter,
 	useRouterState,
@@ -19,6 +20,7 @@ import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
+import { assistantAttentionEntries, useAssistantAttention } from "#/modules/assistant/attention";
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { BackgroundSubmissionTrayView } from "#/modules/background-submissions/tray";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
@@ -86,6 +88,9 @@ export function AuthenticatedShell(props: {
 	const drawerId = useId();
 	const router = useRouter();
 	const navigate = useNavigate();
+	const attention = useAssistantAttention();
+	const { conversationId: activeConversationId } = useParams({ strict: false });
+	const [dismissedAttention, setDismissedAttention] = useState<ReadonlySet<string>>(new Set());
 	const isDesktop = useIsDesktop();
 	const safeAreaInsets = useSafeAreaInsets();
 	const { catalog } = usePluginCatalog();
@@ -367,6 +372,7 @@ export function AuthenticatedShell(props: {
 				onEditSection={openCustomize}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
+				assistantAttention={attention.length}
 				onOpenSearch={() => setSearchOpen(true)}
 				onToggleSection={sidebarExpansion.toggle}
 				expandedSections={sidebarExpansion.expanded}
@@ -413,6 +419,7 @@ export function AuthenticatedShell(props: {
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
+				assistantAttention={attention.length}
 				onOpenSearch={() => setSearchOpen(true)}
 				onToggleSection={sidebarExpansion.toggle}
 				expandedSections={sidebarExpansion.expanded}
@@ -472,6 +479,14 @@ export function AuthenticatedShell(props: {
 				compact={!isDesktop}
 				onReload={() => window.location.reload()}
 				safeAreaBottom={safeAreaInsets.safeAreaBottom}
+				entries={assistantAttentionEntries({
+					activeConversationId,
+					conversations: attention,
+					dismissed: dismissedAttention,
+					onDismiss: (id) => setDismissedAttention((dismissed) => new Set([...dismissed, id])),
+					onReview: (id) =>
+						void navigate({ params: { conversationId: id }, to: "/assistant/$conversationId" }),
+				})}
 			/>
 			{discarding && (
 				<Modal

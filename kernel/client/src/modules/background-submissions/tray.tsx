@@ -95,6 +95,7 @@ export function BackgroundSubmissionTrayView(props: {
 	readonly onReload: () => void;
 	readonly safeAreaBottom: number;
 	readonly catalog: PluginClientCatalog;
+	readonly entries: readonly ActivityTrayEntry[];
 }) {
 	const tray = useBackgroundSubmissionTray();
 	return tray === null ? null : <TrayEntries {...props} tray={tray} />;
@@ -133,6 +134,7 @@ function TrayEntries(props: {
 	readonly safeAreaBottom: number;
 	readonly catalog: PluginClientCatalog;
 	readonly tray: BackgroundSubmissionTray;
+	readonly entries: readonly ActivityTrayEntry[];
 }) {
 	const { tray } = props;
 	const snapshot = useSyncExternalStore(tray.subscribe, tray.getSnapshot, tray.getSnapshot);
@@ -143,14 +145,17 @@ function TrayEntries(props: {
 			announcement={snapshot.announcement}
 			safeAreaBottom={props.safeAreaBottom}
 			dismissIcon={<AppIcon name="x" size={14} />}
-			entries={snapshot.entries.map((entry) =>
-				backgroundSubmissionTrayEntry({
-					tray,
-					entry,
-					catalog: props.catalog,
-					onReload: props.onReload,
-				}),
-			)}
+			entries={[
+				...props.entries,
+				...snapshot.entries.map((entry) =>
+					backgroundSubmissionTrayEntry({
+						tray,
+						entry,
+						catalog: props.catalog,
+						onReload: props.onReload,
+					}),
+				),
+			]}
 		/>
 	);
 }

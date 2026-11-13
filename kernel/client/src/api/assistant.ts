@@ -16,6 +16,8 @@ export class AssistantApi extends Context.Service<AssistantApi>()(
 					api.run(scope, (client) => client.assistant.decide(request)),
 				savePage: (scope: ApiScope, request: ContractRequest<"assistant", "savePage">) =>
 					api.run(scope, (client) => client.assistant.savePage(request)),
+				interrupt: (scope: ApiScope, request: ContractRequest<"assistant", "interrupt">) =>
+					api.run(scope, (client) => client.assistant.interrupt(request)),
 				deleteProvider: (
 					scope: ApiScope,
 					request: ContractRequest<"assistant", "deleteProvider">,
@@ -28,10 +30,10 @@ export class AssistantApi extends Context.Service<AssistantApi>()(
 					scope: ApiScope,
 					request: ContractRequest<"assistant", "configureProvider">,
 				) => api.run(scope, (client) => client.assistant.configureProvider(request)),
-				createConversation: (
+				renameConversation: (
 					scope: ApiScope,
-					request: ContractRequest<"assistant", "createConversation">,
-				) => api.run(scope, (client) => client.assistant.createConversation(request)),
+					request: ContractRequest<"assistant", "renameConversation">,
+				) => api.run(scope, (client) => client.assistant.renameConversation(request)),
 				deleteConversation: (
 					scope: ApiScope,
 					request: ContractRequest<"assistant", "deleteConversation">,

@@ -2,104 +2,138 @@ import { expect } from "bun:test";
 
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type {
+	AssistantToolCall,
 	DecideAssistantToolCallBody,
+	InterruptAssistantTurnBody,
 	SaveAssistantPageBody,
+	SubmitAssistantTurnBody,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import { AssistantError } from "@ryot-app/contract/modules/assistant/schemas";
 import {
 	AssistantConversationId,
 	AssistantToolCallId,
 	AssistantTurnId,
-	PublicationId,
+	PluginId,
+	PluginPackageId,
 	SavedViewId,
 } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
-import { JsonValue } from "@ryot-app/contract/schema/json";
-import { assistantConversationRecipe } from "@ryot-app/ryotql-recipes/assistant";
-import { pageRecipe } from "@ryot-app/ryotql-recipes/pages";
-import { recipeResponse, rowsResult } from "@ryot-app/ryotql-recipes/test-utils";
+import type {
+	AssistantCallRecord,
+	AssistantTranscriptTurn,
+} from "@ryot-app/ryotql-recipes/assistant";
+import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { it } from "@voila.dev/effect-bun-test";
-import { Effect, Layer, Schema } from "effect";
+import { Effect } from "effect";
 
-import { AssistantApi } from "#/api/assistant";
 import { AuthenticatedApiError } from "#/api/authenticated";
-import { makePublicationsApi } from "#/api/ports.test-layer";
+import { makeAssistantApi } from "#/api/ports.test-layer";
 import { mountHostedTestScreen } from "#/host-screen.test-support";
 
-import { AssistantApprovalCard, AssistantConversations } from "./conversation";
-import { AssistantPageActions } from "./page-actions";
+import { AssistantApproval } from "./approval";
+import { AssistantComposer, useAssistantSubmit } from "./composer";
+import { AssistantPageSave } from "./page-draft";
+import { assistantStarters, stepDetail } from "./presentation";
 import { AssistantProviderForm } from "./provider";
 import { assistantFailureText } from "./service";
+import { AssistantTurn } from "./turn";
 
 const conversationId = AssistantConversationId.make("conversation");
 const turnId = AssistantTurnId.make("turn");
-const toolCallId = AssistantToolCallId.make("call");
-const unused = () => Effect.die("Unexpected assistant API call");
-const assistantLayer = (overrides: Partial<AssistantApi["Service"]>) =>
-	Layer.succeed(AssistantApi, {
-		submit: unused,
-		decide: unused,
-		savePage: unused,
-		deleteProvider: unused,
-		providerMetadata: unused,
-		configureProvider: unused,
-		createConversation: unused,
-		deleteConversation: unused,
-		...overrides,
-	});
-const call = {
-	turnId,
-	revision: 4,
-	result: null,
-	id: toolCallId,
-	decision: null,
-	call: {
-		kind: "tool",
-		arguments: {},
-		id: toolCallId,
-		tool: "page_write",
-		requiresApproval: true,
-		modelCallId: "model-call",
+const empty = () => Effect.succeed({ data: {} });
+const catalog: PluginClientCatalog = [
+	{
+		sortOrder: 0,
+		isHidden: false,
+		health: "ready",
+		scope: "system",
+		name: "Fitness",
+		icon: "dumbbell",
+		homeSavedView: null,
+		clientApiVersion: 1,
+		contentHash: "hash",
+		clientEntities: null,
+		installationId: "installation",
+		pluginId: PluginId.make("fitness"),
+		packageId: PluginPackageId.make("ryot/fitness"),
+		assistantStarters: ["Summarize my workouts this week"],
 	},
-} satisfies Parameters<typeof AssistantApprovalCard>[0]["call"];
-const capabilityCall = {
-	...call,
-	call: {
-		arguments: {},
-		hostCallIndex: 0,
-		kind: "capability",
-		parentId: toolCallId,
-		requiresApproval: true,
-		id: AssistantToolCallId.make("write-call"),
-		capability: {
-			input: {},
-			output: {},
-			source: { kind: "kernel" },
-			description: "Review the latest change",
-			id: CapabilityId.make("kernel:saved-views.update"),
-			hints: { readOnly: false, idempotent: false, destructive: false },
+	{
+		icon: "film",
+		sortOrder: 1,
+		name: "Media",
+		isHidden: true,
+		health: "ready",
+		scope: "system",
+		homeSavedView: null,
+		clientApiVersion: 1,
+		contentHash: "hash",
+		clientEntities: null,
+		installationId: "hidden",
+		pluginId: PluginId.make("media"),
+		assistantStarters: ["Hidden starter"],
+		packageId: PluginPackageId.make("ryot/media"),
+	},
+];
+const write: AssistantToolCall = {
+	hostCallIndex: 0,
+	kind: "capability",
+	requiresApproval: true,
+	parentId: AssistantToolCallId.make("execute"),
+	id: AssistantToolCallId.make("execute:write:0"),
+	arguments: { occurredAt: "2026-11-13T08:10:00Z", values: [{ value: 78.4, metricId: "weight" }] },
+	capability: {
+		title: "Log measurement",
+		output: { type: "object" },
+		description: "Record measurement values at a supplied time.",
+		hints: { readOnly: false, idempotent: false, destructive: false },
+		id: CapabilityId.make("ryot/fitness:operations/measurement-reading-log"),
+		input: {
+			type: "object",
+			properties: {
+				occurredAt: { type: "string", title: "Taken" },
+				values: { type: "array", items: { type: "object" } },
+			},
+		},
+		source: {
+			kind: "operation",
+			contentHash: "hash",
+			revisionId: "revision",
+			configRevisionId: "config",
+			installationId: "installation",
+			operationSlug: "measurement-reading-log",
+			packageId: PluginPackageId.make("ryot/fitness"),
 		},
 	},
-} satisfies Parameters<typeof AssistantApprovalCard>[0]["call"];
+};
+const record: AssistantCallRecord = {
+	turnId,
+	call: write,
+	revision: 4,
+	result: null,
+	id: write.id,
+	decision: null,
+};
 
 for (const decision of ["approve", "decline"] as const) {
 	it.live(
-		`sends the canonical call revision when users ${decision}`,
+		`describes a plugin write and sends the canonical call revision when users ${decision}`,
 		() =>
 			Effect.gen(function* () {
 				const decisions: DecideAssistantToolCallBody[] = [];
 				const view = mountHostedTestScreen(
-					<AssistantApprovalCard
-						turnActive
-						call={call}
+					<AssistantApproval
+						call={record}
+						state="pending"
 						disabled={false}
+						catalog={catalog}
 						conversationId={conversationId}
 					/>,
 					{
-						query: () => Effect.succeed({ data: {} }),
-						layer: assistantLayer({
+						query: empty,
+						layer: makeAssistantApi({
 							decide: (_scope, request) =>
 								Effect.sync(() => {
 									decisions.push(request.payload);
@@ -109,15 +143,24 @@ for (const decision of ["approve", "decline"] as const) {
 					},
 				);
 				try {
+					const card = yield* Effect.promise(() =>
+						screen.findByRole("region", { name: "Approve Log measurement" }),
+					);
+					expect(within(card).getByText(/^Fitness · /)).toBeDefined();
+					expect(within(card).getByText("Taken")).toBeDefined();
+					expect(within(card).getByText("2026-11-13T08:10:00Z")).toBeDefined();
+					expect(within(card).queryByLabelText("Raw input")).toBeNull();
+					fireEvent.click(within(card).getByRole("button", { name: "Show raw input" }));
+					expect(within(card).getByLabelText("Raw input").textContent).toContain('"value": 78.4');
 					fireEvent.click(
-						yield* Effect.promise(() =>
-							screen.findByRole("button", { name: decision === "approve" ? "Approve" : "Decline" }),
-						),
+						within(card).getByRole("button", {
+							name: decision === "approve" ? "Approve" : "Decline",
+						}),
 					);
 					yield* Effect.promise(() =>
 						waitFor(() =>
 							expect(decisions).toEqual([
-								{ turnId, decision, toolCallId, conversationId, expectedRevision: 4 },
+								{ turnId, decision, conversationId, expectedRevision: 4, toolCallId: write.id },
 							]),
 						),
 					);
@@ -130,31 +173,35 @@ for (const decision of ["approve", "decline"] as const) {
 }
 
 it.live(
-	"disables approval controls in demo sessions",
+	"disables approval controls in demo sessions and shows settled decisions without controls",
 	() =>
 		Effect.gen(function* () {
-			const decisions: unknown[] = [];
 			const view = mountHostedTestScreen(
-				<AssistantApprovalCard disabled turnActive call={call} conversationId={conversationId} />,
-				{
-					query: () => Effect.succeed({ data: {} }),
-					layer: assistantLayer({
-						decide: (_scope, request) =>
-							Effect.sync(() => {
-								decisions.push(request.payload);
-								return { turnId, conversationId };
-							}),
-					}),
-				},
+				<>
+					<AssistantApproval
+						disabled
+						call={record}
+						state="pending"
+						catalog={catalog}
+						conversationId={conversationId}
+					/>
+					<AssistantApproval
+						state="declined"
+						disabled={false}
+						catalog={catalog}
+						conversationId={conversationId}
+						call={{ ...record, decision: "decline" }}
+					/>
+				</>,
+				{ query: empty, layer: makeAssistantApi() },
 			);
 			try {
 				const approve = yield* Effect.promise(() =>
 					screen.findByRole("button", { name: "Approve" }),
 				);
 				expect(approve.hasAttribute("disabled")).toBe(true);
-				expect(screen.getByRole("button", { name: "Decline" }).hasAttribute("disabled")).toBe(true);
-				fireEvent.click(approve);
-				expect(decisions).toEqual([]);
+				expect(screen.getAllByRole("button", { name: "Approve" })).toHaveLength(1);
+				expect(screen.getByText("Declined")).toBeDefined();
 			} finally {
 				yield* Effect.promise(view.dispose);
 			}
@@ -163,33 +210,252 @@ it.live(
 );
 
 it.live(
-	"directs users without a provider to setup and prevents starting a chat",
+	"renders a finished turn as the prompt, a collapsed step trail and a formatted reply",
 	() =>
 		Effect.gen(function* () {
-			const view = mountHostedTestScreen(
-				<AssistantConversations selected={null} disabled={false} onSelect={() => undefined} />,
-				{
-					layer: assistantLayer({ providerMetadata: () => Effect.succeed(null) }),
-					query: () =>
-						Effect.succeed({
-							data: {
-								conversations: {
-									items: [],
-									type: "rows",
-									pageInfo: { limit: 20, hasMore: false, nextCursor: null },
-								},
+			const turn: AssistantTranscriptTurn = {
+				id: turnId,
+				failure: null,
+				partial: false,
+				status: "completed",
+				prompt: "How is my bench press?",
+				createdAt: "2026-11-13T10:00:00.000Z",
+				completedAt: "2026-11-13T10:00:12.000Z",
+				entries: [
+					{
+						id: "steps",
+						kind: "steps",
+						steps: [
+							{
+								id: "search",
+								kind: "tool",
+								tool: "search",
+								status: "done",
+								arguments: { namespace: "ryot/fitness" },
 							},
-						}),
+							{ id: "think", kind: "reasoning", text: "Compare monthly bests" },
+						],
+					},
+					{ id: "reply", kind: "reply", text: "## Progress\n\nUp **7%** since August." },
+				],
+			};
+			const view = mountHostedTestScreen(
+				<AssistantTurn
+					turn={turn}
+					disabled={false}
+					catalog={catalog}
+					conversationId={conversationId}
+				/>,
+				{ query: empty, layer: makeAssistantApi() },
+			);
+			try {
+				expect(
+					yield* Effect.promise(() => screen.findByText("How is my bench press?")),
+				).toBeDefined();
+				expect(screen.getByRole("heading", { name: "Progress" })).toBeDefined();
+				expect(screen.getByText("7%").tagName).toBe("STRONG");
+				const trail = screen.getByRole("button", { name: /Worked for 12 s · 2 steps/ });
+				expect(trail.getAttribute("aria-expanded")).toBe("false");
+				expect(screen.queryByText("Searched capabilities")).toBeNull();
+				fireEvent.click(trail);
+				expect(
+					yield* Effect.promise(() => screen.findByText("Searched capabilities")),
+				).toBeDefined();
+				expect(screen.getByText("Compare monthly bests")).toBeDefined();
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
+);
+
+function NewChatComposer(props: { readonly onSubmitted: (id: string) => void }) {
+	const submit = useAssistantSubmit({ onSubmitted: props.onSubmitted });
+	return <AssistantComposer submit={submit} disabled={false} placeholder="Message Ryobot" />;
+}
+
+it.live(
+	"sends on Enter, keeps Shift+Enter for new lines and retries a failed message with its request",
+	() =>
+		Effect.gen(function* () {
+			const submissions: SubmitAssistantTurnBody[] = [];
+			const created: string[] = [];
+			const view = mountHostedTestScreen(
+				<NewChatComposer onSubmitted={(id) => created.push(id)} />,
+				{
+					query: empty,
+					layer: makeAssistantApi({
+						submit: (_scope, request) =>
+							Effect.gen(function* () {
+								submissions.push(request.payload);
+								if (submissions.length === 1) {
+									return yield* new AuthenticatedApiError({ cause: "connection lost" });
+								}
+								return { turnId, conversationId };
+							}),
+					}),
 				},
 			);
 			try {
-				const setup = yield* Effect.promise(() =>
-					screen.findByRole("link", { name: "Settings → Ryobot" }),
+				const input = yield* Effect.promise(() =>
+					screen.findByRole("textbox", { name: "Message Ryobot" }),
 				);
-				expect(setup.getAttribute("href")).toBe("/settings/assistant");
-				expect(
-					screen.getByRole("button", { name: "New conversation" }).hasAttribute("disabled"),
-				).toBe(true);
+				fireEvent.change(input, { target: { value: "Summarize my week" } });
+				fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
+				expect(submissions).toEqual([]);
+				fireEvent.keyDown(input, { key: "Enter" });
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Retry message" })),
+				);
+				yield* Effect.promise(() => waitFor(() => expect(created).toEqual([conversationId])));
+				expect(submissions).toHaveLength(2);
+				expect(submissions[1]).toEqual(submissions[0]);
+				expect(submissions[0]).toMatchObject({ text: "Summarize my week" });
+				expect(submissions[0]?.conversationId).toBeUndefined();
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"replaces Send with Stop while a turn is working",
+	() =>
+		Effect.gen(function* () {
+			const stops: InterruptAssistantTurnBody[] = [];
+			function Working() {
+				const submit = useAssistantSubmit({ conversationId });
+				return (
+					<AssistantComposer
+						submit={submit}
+						disabled={false}
+						placeholder="Reply"
+						stop={{ pending: false, onStop: () => stops.push({ turnId, conversationId }) }}
+					/>
+				);
+			}
+			const view = mountHostedTestScreen(<Working />, { query: empty, layer: makeAssistantApi() });
+			try {
+				fireEvent.click(yield* Effect.promise(() => screen.findByRole("button", { name: "Stop" })));
+				expect(screen.queryByRole("button", { name: "Send" })).toBeNull();
+				expect(stops).toEqual([{ turnId, conversationId }]);
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
+);
+
+const identity = {
+	draftRevision: 2,
+	pageId: "draft-page",
+	artifactHash: "artifact",
+	definitionHash: "definition",
+};
+
+it.live(
+	"derives the page address from its name and retries the identical save",
+	() =>
+		Effect.gen(function* () {
+			const saves: SaveAssistantPageBody[] = [];
+			const view = mountHostedTestScreen(
+				<AssistantPageSave
+					turnId={turnId}
+					disabled={false}
+					identity={identity}
+					name="Training volume"
+					conversationId={conversationId}
+				/>,
+				{
+					query: empty,
+					layer: makeAssistantApi({
+						savePage: (_scope, request) =>
+							Effect.gen(function* () {
+								saves.push(request.payload);
+								if (saves.length === 1) {
+									return yield* new AuthenticatedApiError({ cause: "connection lost" });
+								}
+								return { pageId: "saved-page", savedViewId: SavedViewId.make("saved-view") };
+							}),
+					}),
+				},
+			);
+			try {
+				const address = yield* Effect.promise(() =>
+					screen.findByRole("textbox", { name: "Page address" }),
+				);
+				expect(address).toHaveProperty("value", "training-volume");
+				fireEvent.click(screen.getByRole("button", { name: "Save page" }));
+				yield* Effect.promise(() =>
+					screen.findByText("Ryobot could not complete this request. Try again."),
+				);
+				expect(screen.getByRole("textbox", { name: "Page name" }).hasAttribute("disabled")).toBe(
+					true,
+				);
+				fireEvent.click(screen.getByRole("button", { name: "Save page" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Open page" }));
+				expect(saves).toHaveLength(2);
+				expect(saves[1]).toEqual(saves[0]);
+				expect(saves[0]).toMatchObject({
+					...identity,
+					turnId,
+					conversationId,
+					name: "Training volume",
+					slug: "training-volume",
+				});
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
+);
+
+it.live(
+	"edits rejected page details with a new request",
+	() =>
+		Effect.gen(function* () {
+			const saves: SaveAssistantPageBody[] = [];
+			const view = mountHostedTestScreen(
+				<AssistantPageSave
+					name="Overview"
+					turnId={turnId}
+					disabled={false}
+					identity={identity}
+					conversationId={conversationId}
+				/>,
+				{
+					query: empty,
+					layer: makeAssistantApi({
+						savePage: (_scope, request) =>
+							Effect.gen(function* () {
+								saves.push(request.payload);
+								if (saves.length === 1) {
+									return yield* new AuthenticatedApiError({
+										cause: new AssistantError({ reason: { code: "page-save-failed" } }),
+									});
+								}
+								return { pageId: "saved", savedViewId: SavedViewId.make("view") };
+							}),
+					}),
+				},
+			);
+			try {
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Save page" })),
+				);
+				fireEvent.click(
+					yield* Effect.promise(() => screen.findByRole("button", { name: "Edit details" })),
+				);
+				fireEvent.change(screen.getByRole("textbox", { name: "Page address" }), {
+					target: { value: "valid-overview" },
+				});
+				fireEvent.click(screen.getByRole("button", { name: "Save page" }));
+				yield* Effect.promise(() => screen.findByRole("button", { name: "Open page" }));
+				expect(saves).toHaveLength(2);
+				expect(saves[0]).toMatchObject({ name: "Overview", slug: "overview" });
+				expect(saves[1]).toMatchObject({ name: "Overview", slug: "valid-overview" });
+				expect(saves[1]?.requestId).not.toBe(saves[0]?.requestId);
 			} finally {
 				yield* Effect.promise(view.dispose);
 			}
@@ -202,8 +468,8 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const view = mountHostedTestScreen(<AssistantProviderForm disabled />, {
-				query: () => Effect.succeed({ data: {} }),
-				layer: assistantLayer({ providerMetadata: () => Effect.succeed(null) }),
+				query: empty,
+				layer: makeAssistantApi({ providerMetadata: () => Effect.succeed(null) }),
 			});
 			try {
 				yield* Effect.promise(() => screen.findByText("No provider configured."));
@@ -215,6 +481,24 @@ it.live(
 			}
 		}),
 	testTimeout,
+);
+
+it.live("offers starters from visible plugins and labels search steps by their target", () =>
+	Effect.sync(() => {
+		expect(assistantStarters(catalog)).toEqual([
+			{ source: "Fitness", text: "Summarize my workouts this week" },
+			{ source: "Pages", text: "Build a page that summarizes my recent activity" },
+		]);
+		expect(
+			stepDetail({
+				id: "search",
+				kind: "tool",
+				tool: "search",
+				status: "done",
+				arguments: { query: "", namespace: "ryot/media" },
+			}),
+		).toBe("ryot/media");
+	}),
 );
 
 it.live("names typed provider, stale approval and demo failures", () =>
@@ -241,445 +525,4 @@ it.live("names typed provider, stale approval and demo failures", () =>
 			),
 		).toContain("demo sessions");
 	}),
-);
-
-it.live(
-	"loads current messages and approval requests beyond the first hundred rows",
-	() =>
-		Effect.gen(function* () {
-			const firstPage = { limit: 100, hasMore: true, nextCursor: "next" };
-			const lastPage = { limit: 100, hasMore: false, nextCursor: null };
-			const createdAt = "2026-11-01T00:00:00.000Z";
-			const view = mountHostedTestScreen(
-				<AssistantConversations
-					disabled={false}
-					selected={conversationId}
-					onSelect={() => undefined}
-				/>,
-				{
-					layer: assistantLayer({
-						providerMetadata: () =>
-							Effect.succeed({
-								model: "test",
-								hasApiKey: true,
-								source: "instance",
-								baseUrl: "https://provider.example/v1",
-							}),
-					}),
-					query: (request) => {
-						const after = (name: string) =>
-							Object.entries(request.pages ?? {}).find(([key]) => key === name)?.[1].after;
-						const messagesAfter = after("messages");
-						const callsAfter = after("calls");
-						const turnsAfter = after("turns");
-						const messages = messagesAfter
-							? [
-									{
-										turnId,
-										createdAt,
-										sequence: 101,
-										role: "assistant",
-										id: "last-message",
-										parts: [{ kind: "text", text: "Latest reply" }],
-									},
-								]
-							: Array.from({ length: 100 }, (_, i) => ({
-									turnId,
-									createdAt,
-									sequence: i,
-									role: "assistant",
-									id: `message-${i}`,
-									parts: [{ kind: "text", text: `Earlier reply ${i}` }],
-								}));
-						const calls = callsAfter
-							? [capabilityCall]
-							: Array.from({ length: 100 }, (_, i) => ({
-									...call,
-									id: `old-call-${i}`,
-									decision: "decline",
-								}));
-						const turn = {
-							round: 1,
-							createdAt,
-							id: turnId,
-							revision: 4,
-							failure: null,
-							completedAt: null,
-							requestId: "request",
-							status: "awaiting-approval",
-						};
-						const turns = turnsAfter
-							? [turn]
-							: Array.from({ length: 100 }, (_, i) => ({
-									...turn,
-									id: `old-turn-${i}`,
-									status: "completed",
-									completedAt: createdAt,
-								}));
-						return Effect.succeed(
-							recipeResponse(assistantConversationRecipe, {
-								calls: rowsResult(calls, callsAfter ? lastPage : firstPage),
-								turns: rowsResult(turns, turnsAfter ? lastPage : firstPage),
-								messages: rowsResult(messages, messagesAfter ? lastPage : firstPage),
-								conversation: rowsResult(
-									[
-										{
-											createdAt,
-											revision: 4,
-											id: conversationId,
-											updatedAt: createdAt,
-											title: "Long conversation",
-										},
-									],
-									lastPage,
-								),
-							}),
-						);
-					},
-				},
-			);
-			try {
-				yield* Effect.promise(() => screen.findByText("Latest reply"));
-				yield* Effect.promise(() => screen.findByText("Review the latest change"));
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(screen.getByRole("button", { name: "Approve" }).hasAttribute("disabled")).toBe(
-							false,
-						),
-					),
-				);
-				expect(screen.getByRole("button", { name: "Send" }).hasAttribute("disabled")).toBe(true);
-			} finally {
-				yield* Effect.promise(view.dispose);
-			}
-		}),
-	testTimeout,
-);
-
-it.live(
-	"retries the identical atomic page save and shares its saved page as a snapshot",
-	() =>
-		Effect.gen(function* () {
-			const saves: SaveAssistantPageBody[] = [];
-			const publications: unknown[] = [];
-			const identity = {
-				draftRevision: 2,
-				pageId: "draft-page",
-				artifactHash: "artifact",
-				definitionHash: "definition",
-			};
-			const now = "2026-11-01T00:00:00.000Z";
-			const view = mountHostedTestScreen(
-				<AssistantPageActions
-					ready
-					turnId={turnId}
-					disabled={false}
-					identity={identity}
-					conversationId={conversationId}
-				/>,
-				{
-					layer: Layer.mergeAll(
-						assistantLayer({
-							savePage: (_scope, request) =>
-								Effect.gen(function* () {
-									saves.push(request.payload);
-									if (saves.length === 1) {
-										return yield* new AuthenticatedApiError({ cause: "connection lost" });
-									}
-									return { pageId: "saved-page", savedViewId: SavedViewId.make("saved-view") };
-								}),
-						}),
-						makePublicationsApi({
-							create: (_scope, request) =>
-								Effect.sync(() => {
-									publications.push(request.payload);
-									return { revision: 1, publicationId: PublicationId.make("publication") };
-								}),
-						}),
-					),
-					query: () =>
-						Effect.succeed(
-							recipeResponse(pageRecipe, {
-								page: rowsResult(
-									[
-										{
-											createdAt: now,
-											updatedAt: now,
-											id: "saved-page",
-											name: "Overview",
-											slug: "overview",
-											draftRevision: 2,
-											writeAccess: false,
-											origin: "assistant",
-											authorityRevision: 2,
-											publishedRevision: 2,
-											draftCompiledRevision: 2,
-											draftArtifactHash: "artifact",
-											draftDefinitionHash: "definition",
-											publishedArtifactHash: "artifact",
-											publishedDefinitionHash: "definition",
-											draftDefinition: {
-												files: [],
-												entry: "index.tsx",
-												pluginDependencies: {},
-												queries: { queries: {} },
-											},
-											publishedDefinition: {
-												files: [],
-												entry: "index.tsx",
-												pluginDependencies: {},
-												queries: { queries: {} },
-											},
-										},
-									],
-									{ limit: 1, hasMore: false, nextCursor: null },
-								),
-							}),
-						),
-				},
-			);
-			try {
-				fireEvent.change(
-					yield* Effect.promise(() => screen.findByRole("textbox", { name: "Page name" })),
-					{ target: { value: "Overview" } },
-				);
-				fireEvent.change(screen.getByRole("textbox", { name: "Page address" }), {
-					target: { value: "overview" },
-				});
-				fireEvent.click(screen.getByRole("button", { name: "Save page and view" }));
-				yield* Effect.promise(() =>
-					screen.findByText("Ryobot could not complete this request. Try again."),
-				);
-				expect(screen.getByRole("textbox", { name: "Page name" }).hasAttribute("disabled")).toBe(
-					true,
-				);
-				fireEvent.click(screen.getByRole("button", { name: "Save page and view" }));
-				const share = yield* Effect.promise(() => screen.findByRole("button", { name: "Share" }));
-				expect(saves).toHaveLength(2);
-				expect(saves[1]).toEqual(saves[0]);
-				expect(saves[0]).toMatchObject({
-					...identity,
-					turnId,
-					conversationId,
-					name: "Overview",
-					slug: "overview",
-				});
-				expect(screen.getByRole("link", { name: "Open saved page" }).getAttribute("href")).toBe(
-					"/v/c/saved-view",
-				);
-				fireEvent.click(share);
-				fireEvent.change(
-					yield* Effect.promise(() => screen.findByRole("textbox", { name: "Title" })),
-					{ target: { value: "Shared overview" } },
-				);
-				fireEvent.click(screen.getByRole("button", { name: /^Mode:/ }));
-				fireEvent.click(
-					yield* Effect.promise(() => screen.findByRole("radio", { name: "Snapshot" })),
-				);
-				fireEvent.click(screen.getByRole("button", { name: "Publish" }));
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(publications).toEqual([
-							{
-								arguments: {},
-								mode: "snapshot",
-								description: null,
-								icon: "file-text",
-								showOwnerName: false,
-								title: "Shared overview",
-								page: { kind: "page", pageId: "saved-page" },
-							},
-						]),
-					),
-				);
-				const manage = yield* Effect.promise(() =>
-					screen.findByRole("link", { name: "Manage sharing links" }),
-				);
-				expect(manage.getAttribute("href")).toBe("/settings/publications#publication-publication");
-				expect(screen.getByRole("link", { name: "Share" }).getAttribute("href")).toBe(
-					manage.getAttribute("href"),
-				);
-				fireEvent.click(screen.getByRole("link", { name: "Share" }));
-				fireEvent.click(screen.getByRole("link", { name: "Share" }));
-				expect(screen.queryByRole("button", { name: "Share" })).toBeNull();
-				expect(screen.queryByRole("button", { name: "Publish" })).toBeNull();
-				expect(publications).toHaveLength(1);
-			} finally {
-				yield* Effect.promise(view.dispose);
-			}
-		}),
-	testTimeout,
-);
-
-for (const rejected of [
-	{ name: "Overview", slug: "invalid address" },
-	{ name: "   ", slug: "overview" },
-]) {
-	it.live(
-		`edits rejected page details (${rejected.slug}, ${JSON.stringify(rejected.name)}) with a new request`,
-		() =>
-			Effect.gen(function* () {
-				const saves: SaveAssistantPageBody[] = [];
-				const view = mountHostedTestScreen(
-					<AssistantPageActions
-						ready
-						turnId={turnId}
-						disabled={false}
-						conversationId={conversationId}
-						identity={{
-							pageId: "draft",
-							draftRevision: 2,
-							artifactHash: "artifact",
-							definitionHash: "definition",
-						}}
-					/>,
-					{
-						query: () => Effect.succeed({ data: {} }),
-						layer: assistantLayer({
-							savePage: (_scope, request) =>
-								Effect.gen(function* () {
-									saves.push(request.payload);
-									if (saves.length === 1) {
-										return yield* new AuthenticatedApiError({
-											cause: new AssistantError({ reason: { code: "page-save-failed" } }),
-										});
-									}
-									return { pageId: "saved", savedViewId: SavedViewId.make("view") };
-								}),
-						}),
-					},
-				);
-				try {
-					fireEvent.change(
-						yield* Effect.promise(() => screen.findByRole("textbox", { name: "Page name" })),
-						{ target: { value: rejected.name } },
-					);
-					fireEvent.change(screen.getByRole("textbox", { name: "Page address" }), {
-						target: { value: rejected.slug },
-					});
-					fireEvent.click(screen.getByRole("button", { name: "Save page and view" }));
-					fireEvent.click(
-						yield* Effect.promise(() => screen.findByRole("button", { name: "Edit details" })),
-					);
-					expect(screen.getByRole("textbox", { name: "Page name" }).hasAttribute("disabled")).toBe(
-						false,
-					);
-					expect(
-						screen.getByRole("textbox", { name: "Page address" }).hasAttribute("disabled"),
-					).toBe(false);
-					fireEvent.change(screen.getByRole("textbox", { name: "Page name" }), {
-						target: { value: "Valid overview" },
-					});
-					fireEvent.change(screen.getByRole("textbox", { name: "Page address" }), {
-						target: { value: "valid-overview" },
-					});
-					fireEvent.click(screen.getByRole("button", { name: "Save page and view" }));
-					yield* Effect.promise(() => screen.findByRole("link", { name: "Open saved page" }));
-					expect(saves).toHaveLength(2);
-					expect(saves[0]).toMatchObject(rejected);
-					expect(saves[1]).toMatchObject({ name: "Valid overview", slug: "valid-overview" });
-					expect(saves[1]?.requestId).not.toBe(saves[0]?.requestId);
-				} finally {
-					yield* Effect.promise(view.dispose);
-				}
-			}),
-		testTimeout,
-	);
-}
-
-it.live(
-	"shows the stored write intent and all long source text before approval",
-	() =>
-		Effect.gen(function* () {
-			const source = `${"// source\n".repeat(1100)}ryot.call("remove", { id: "last-target" });`;
-			const args = { code: source, readOnly: true, page: { content: btoa(source) } };
-			const decisions: DecideAssistantToolCallBody[] = [];
-			const view = mountHostedTestScreen(
-				<AssistantApprovalCard
-					turnActive
-					disabled={false}
-					conversationId={conversationId}
-					call={{ ...call, call: { ...call.call, arguments: args } }}
-				/>,
-				{
-					query: () => Effect.succeed({ data: {} }),
-					layer: assistantLayer({
-						decide: (_scope, request) =>
-							Effect.sync(() => {
-								decisions.push(request.payload);
-								return { turnId, conversationId };
-							}),
-					}),
-				},
-			);
-			try {
-				expect(yield* Effect.promise(() => screen.findByText("page_write"))).toBeDefined();
-				yield* Effect.promise(() => screen.findByLabelText("Exact call arguments"));
-				expect(screen.getByText("readOnly")).toBeDefined();
-				expect(screen.getByText("true")).toBeDefined();
-
-				let inspected = screen.getByLabelText("Exact call arguments").textContent;
-				while (!screen.getByRole("button", { name: "Next arguments" }).hasAttribute("disabled")) {
-					fireEvent.click(screen.getByRole("button", { name: "Next arguments" }));
-					inspected += screen.getByLabelText("Exact call arguments").textContent;
-				}
-				expect(yield* Schema.decodeEffect(Schema.fromJsonString(JsonValue))(inspected)).toEqual(
-					args,
-				);
-				fireEvent.click(screen.getByRole("button", { name: "Decode base64 text" }));
-				let decoded = screen.getByLabelText("Arguments with decoded text").textContent;
-				while (!screen.getByRole("button", { name: "Next arguments" }).hasAttribute("disabled")) {
-					fireEvent.click(screen.getByRole("button", { name: "Next arguments" }));
-					decoded += screen.getByLabelText("Arguments with decoded text").textContent;
-				}
-				expect(decoded).toContain("last-target");
-				expect(decoded).not.toContain(btoa(source));
-				expect(decisions).toEqual([]);
-				fireEvent.click(screen.getByRole("button", { name: "Approve" }));
-				yield* Effect.promise(() =>
-					waitFor(() =>
-						expect(decisions).toEqual([
-							{ turnId, toolCallId, conversationId, decision: "approve", expectedRevision: 4 },
-						]),
-					),
-				);
-			} finally {
-				yield* Effect.promise(view.dispose);
-			}
-		}),
-	testTimeout,
-);
-
-it.live(
-	"shows read-only arguments without approval controls",
-	() =>
-		Effect.gen(function* () {
-			const view = mountHostedTestScreen(
-				<AssistantApprovalCard
-					turnActive
-					disabled={false}
-					conversationId={conversationId}
-					call={{
-						...call,
-						call: {
-							...call.call,
-							requiresApproval: false,
-							arguments: { query: "<script>do not execute</script>" },
-						},
-					}}
-				/>,
-				{ layer: assistantLayer({}), query: () => Effect.succeed({ data: {} }) },
-			);
-			try {
-				yield* Effect.promise(() => screen.findByLabelText("Exact call arguments"));
-				expect(screen.getByLabelText("Exact call arguments").textContent).toContain(
-					"<script>do not execute</script>",
-				);
-				expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
-				expect(screen.queryByRole("button", { name: "Decline" })).toBeNull();
-			} finally {
-				yield* Effect.promise(view.dispose);
-			}
-		}),
-	testTimeout,
 );

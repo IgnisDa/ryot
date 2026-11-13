@@ -165,10 +165,11 @@ export const makeAssistantApi = (overrides: Partial<AssistantApi["Service"]> = {
 		submit: unused,
 		decide: unused,
 		savePage: unused,
+		interrupt: unused,
 		deleteProvider: unused,
 		providerMetadata: unused,
 		configureProvider: unused,
-		createConversation: unused,
+		renameConversation: unused,
 		deleteConversation: unused,
 		...overrides,
 	});

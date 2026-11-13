@@ -1,13 +1,12 @@
 import type { ContractPayload, ContractSuccess } from "@ryot-app/contract/client";
 import { AssistantError } from "@ryot-app/contract/modules/assistant/schemas";
-import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
-import type { PreparedClientPage } from "@ryot-app/contract/modules/pages/schemas";
 import {
 	createRyotHostMutation,
 	createRyotHostQuery,
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
+	assistantAwaitingApprovalRecipe,
 	type AssistantConversationDetail,
 	type AssistantConversationList,
 	assistantConversationRecipe,
@@ -17,7 +16,7 @@ import { Effect, Schema } from "effect";
 
 import { AssistantApi } from "#/api/assistant";
 import { AuthenticatedApiError, isDemoOperationProtectedError } from "#/api/authenticated";
-import { PagesApi } from "#/api/pages";
+import type { ApiScope } from "#/api/scope";
 import { KernelHostServices } from "#/host-services";
 
 export const conversationsQuery = createRyotQuery<
@@ -27,45 +26,19 @@ export const conversationsQuery = createRyotQuery<
 	client.data.query(
 		assistantConversationsRecipe,
 		{},
-		{ pages: { conversations: { limit: 20, after: input.after } } },
+		{ pages: { conversations: { limit: 30, after: input.after } } },
 	),
 );
-export const conversationQuery = createRyotQuery(assistantConversationRecipe);
-export const messagesQuery = createRyotQuery<
+export const awaitingApprovalQuery = createRyotQuery(assistantAwaitingApprovalRecipe);
+export const transcriptQuery = createRyotQuery<
 	{ readonly conversationId: string; readonly after?: string | undefined },
-	AssistantConversationDetail["messages"]
+	AssistantConversationDetail
 >(({ input, client }) =>
-	client.data
-		.query(
-			assistantConversationRecipe,
-			{ conversationId: input.conversationId },
-			{ pages: { messages: { limit: 100, after: input.after } } },
-		)
-		.pipe(Effect.map((detail) => detail.messages)),
-);
-export const callsQuery = createRyotQuery<
-	{ readonly conversationId: string; readonly after?: string | undefined },
-	AssistantConversationDetail["calls"]
->(({ input, client }) =>
-	client.data
-		.query(
-			assistantConversationRecipe,
-			{ conversationId: input.conversationId },
-			{ pages: { calls: { limit: 100, after: input.after } } },
-		)
-		.pipe(Effect.map((detail) => detail.calls)),
-);
-export const turnsQuery = createRyotQuery<
-	{ readonly conversationId: string; readonly after?: string | undefined },
-	AssistantConversationDetail["turns"]
->(({ input, client }) =>
-	client.data
-		.query(
-			assistantConversationRecipe,
-			{ conversationId: input.conversationId },
-			{ pages: { turns: { limit: 100, after: input.after } } },
-		)
-		.pipe(Effect.map((detail) => detail.turns)),
+	client.data.query(
+		assistantConversationRecipe,
+		{ conversationId: input.conversationId },
+		{ pages: { turns: { limit: 10, after: input.after } } },
+	),
 );
 export const providerQuery = createRyotHostQuery<
 	Record<string, never>,
@@ -77,98 +50,53 @@ export const providerQuery = createRyotHostQuery<
 		hostServices.runtime.runSync(AssistantApi).providerMetadata(hostServices.scope, {}),
 	{ hostServices: KernelHostServices },
 );
-export const createConversationMutation = createRyotHostMutation<
-	ContractPayload<"assistant", "createConversation">,
-	ContractSuccess<"assistant", "createConversation">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.createConversation(hostServices.scope, { payload: input })
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
-export const deleteConversationMutation = createRyotHostMutation<
-	ContractPayload<"assistant", "deleteConversation">,
-	ContractSuccess<"assistant", "deleteConversation">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.deleteConversation(hostServices.scope, { payload: input })
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
-export const submitMutation = createRyotHostMutation<
-	ContractPayload<"assistant", "submit">,
-	ContractSuccess<"assistant", "submit">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.submit(hostServices.scope, { payload: input })
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
-export const decideMutation = createRyotHostMutation<
-	ContractPayload<"assistant", "decide">,
-	ContractSuccess<"assistant", "decide">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.decide(hostServices.scope, { payload: input })
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
-export const configureProviderMutation = createRyotHostMutation<
-	ContractPayload<"assistant", "configureProvider">,
-	ContractSuccess<"assistant", "configureProvider">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.configureProvider(hostServices.scope, { payload: input })
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
-export const deleteProviderMutation = createRyotHostMutation<
-	undefined,
-	ContractSuccess<"assistant", "deleteProvider">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.deleteProvider(hostServices.scope, {})
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
-export const savePageMutation = createRyotHostMutation<
-	ContractPayload<"assistant", "savePage">,
-	ContractSuccess<"assistant", "savePage">,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, client, hostServices }) =>
-		hostServices.runtime
-			.runSync(AssistantApi)
-			.savePage(hostServices.scope, { payload: input })
-			.pipe(Effect.tap(() => Effect.sync(client.mutationCompleted.hint))),
-	{ hostServices: KernelHostServices },
-);
 
+const assistantMutation = <Payload, Success>(
+	run: (
+		api: AssistantApi["Service"],
+		scope: ApiScope,
+		payload: Payload,
+	) => Effect.Effect<Success, AuthenticatedApiError>,
+) =>
+	createRyotHostMutation<Payload, Success, KernelHostServices, AuthenticatedApiError>(
+		({ input, client, hostServices }) =>
+			run(hostServices.runtime.runSync(AssistantApi), hostServices.scope, input).pipe(
+				Effect.tap(() => Effect.sync(client.mutationCompleted.hint)),
+			),
+		{ hostServices: KernelHostServices },
+	);
+type AssistantPayload<Name extends keyof AssistantApi["Service"]> = ContractPayload<
+	"assistant",
+	Name
+>;
+
+export const submitMutation = assistantMutation((api, scope, payload: AssistantPayload<"submit">) =>
+	api.submit(scope, { payload }),
+);
+export const decideMutation = assistantMutation((api, scope, payload: AssistantPayload<"decide">) =>
+	api.decide(scope, { payload }),
+);
+export const interruptMutation = assistantMutation(
+	(api, scope, payload: AssistantPayload<"interrupt">) => api.interrupt(scope, { payload }),
+);
+export const savePageMutation = assistantMutation(
+	(api, scope, payload: AssistantPayload<"savePage">) => api.savePage(scope, { payload }),
+);
+export const configureProviderMutation = assistantMutation(
+	(api, scope, payload: AssistantPayload<"configureProvider">) =>
+		api.configureProvider(scope, { payload }),
+);
+export const renameConversationMutation = assistantMutation(
+	(api, scope, payload: AssistantPayload<"renameConversation">) =>
+		api.renameConversation(scope, { payload }),
+);
+export const deleteConversationMutation = assistantMutation(
+	(api, scope, payload: AssistantPayload<"deleteConversation">) =>
+		api.deleteConversation(scope, { payload }),
+);
+export const deleteProviderMutation = assistantMutation((api, scope, _payload: undefined) =>
+	api.deleteProvider(scope, {}),
+);
 export const assistantFailureText = (error: unknown): string => {
 	if (isDemoOperationProtectedError(error)) {
 		return "This change is unavailable in demo sessions.";
@@ -185,7 +113,7 @@ export const assistantFailureText = (error: unknown): string => {
 		reason === "turn-not-active" ||
 		reason === "decision-conflict"
 	) {
-		return "This request changed. Refresh the conversation before deciding.";
+		return "This request changed. Refresh the conversation and try again.";
 	}
 	if (reason === "conversation-active") {
 		return "Wait for Ryobot to finish or review its pending requests.";
@@ -198,16 +126,3 @@ export const assistantFailureText = (error: unknown): string => {
 	}
 	return "Ryobot could not complete this request. Try again.";
 };
-
-export const previewQuery = createRyotHostQuery<
-	PageDraftBuildIdentity,
-	PreparedClientPage,
-	KernelHostServices,
-	AuthenticatedApiError
->(
-	({ input, hostServices }) =>
-		hostServices.runtime
-			.runSync(PagesApi)
-			.prepare(hostServices.scope, { payload: { target: { kind: "page-preview", ...input } } }),
-	{ cancelOnUnmount: true, hostServices: KernelHostServices },
-);

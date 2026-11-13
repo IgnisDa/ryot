@@ -1,6 +1,9 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { PageWriteInput } from "@ryot-app/contract/schema/agent-tool";
-import { assistantConversationRecipe } from "@ryot-app/ryotql-recipes/assistant";
+import {
+	assistantConversationRecipe,
+	assistantConversationsRecipe,
+} from "@ryot-app/ryotql-recipes/assistant";
 import { pagesRecipe } from "@ryot-app/ryotql-recipes/pages";
 import { publicationsRecipe } from "@ryot-app/ryotql-recipes/publications";
 import { randomUuid } from "@ryot-app/testing/random";
@@ -24,7 +27,7 @@ const definition = (source: string): ContractPayload<"pageAuthoring", "create">[
 });
 
 it.live(
-	"repairs a generated page, previews it inline, saves and shares a snapshot, then reloads history",
+	"starts a chat, repairs a draft without approval, previews, saves and shares it, then reloads history",
 	() =>
 		Effect.gen(function* () {
 			const { email, client, password } = yield* createAuthenticatedClient();
@@ -50,7 +53,7 @@ it.live(
 					if (step === 1) {
 						const pages = yield* executeRyotQLRecipe(client, pagesRecipe, {});
 						const page = pages.items.find((item) => item.slug === slug);
-						assert(page !== undefined, "Approved draft should exist before the repair round");
+						assert(page !== undefined, "The draft should exist before the repair round");
 						return {
 							name: "page_write",
 							arguments: yield* Schema.encodeEffect(Schema.toCodecJson(PageWriteInput))({
@@ -68,46 +71,22 @@ it.live(
 					payload: { model: "local", baseUrl: `${provider.url}/v1` },
 				}),
 			);
-			const { conversationId } = yield* client.call((api) =>
-				api.assistant.createConversation({ payload: { title: "Recap acceptance" } }),
-			);
-			const detail = executeRyotQLRecipe(client, assistantConversationRecipe, { conversationId });
 			const browser = yield* Playwright.Browser;
 			const owner = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(owner, email, password);
-			yield* owner.goto(`${getFrontendUrl()}/assistant?conversationId=${conversationId}`);
+			yield* owner.goto(`${getFrontendUrl()}/assistant/new`);
 			yield* owner.getByRole("textbox", { name: "Message Ryobot" }).fill("Build my recap page");
 			yield* owner.getByRole("button", { exact: true, name: "Send" }).click();
-			for (const step of ["create", "repair"]) {
-				const pending = yield* pollUntil(
-					`approval for the ${step} page_write`,
-					detail.pipe(
-						Effect.map(
-							(value) =>
-								value.calls.items.find(
-									(call) =>
-										call.decision === null && call.result === null && call.call.requiresApproval,
-								) ?? null,
-						),
-					),
-				);
-				assert(pending.call.kind === "tool", "Page writes are model tool calls");
-				expect(pending.call.tool).toBe("page_write");
-				if (step === "create") {
-					expect((yield* executeRyotQLRecipe(client, pagesRecipe, {})).items).toEqual([]);
-				}
-				yield* owner.getByRole("button", { exact: true, name: "Approve" }).click();
-				yield* pollUntil(
-					"approval recorded",
-					detail.pipe(
-						Effect.map((value) =>
-							value.calls.items.find((call) => call.id === pending.id)?.decision === "approve"
-								? true
-								: null,
-						),
-					),
-				);
-			}
+			const conversation = yield* pollUntil(
+				"created conversation",
+				executeRyotQLRecipe(client, assistantConversationsRecipe, {}).pipe(
+					Effect.map((value) => value.items[0] ?? null),
+				),
+			);
+			expect(conversation.title).toBe("Build my recap page");
+			const detail = executeRyotQLRecipe(client, assistantConversationRecipe, {
+				conversationId: conversation.id,
+			});
 			const complete = yield* pollUntil(
 				"recap completion",
 				detail.pipe(
@@ -116,29 +95,40 @@ it.live(
 					),
 				),
 			);
-			expect(complete.calls.items).toHaveLength(2);
-			expect(stableStringify(complete.calls.items[0]?.result)).toContain("build-failed");
+			const calls = complete.turns.items.flatMap((turn) => turn.calls.items);
+			expect(calls.map((call) => call.decision)).toEqual([null, null]);
+			expect(stableStringify(calls[0]?.result)).toContain("build-failed");
 			expect(stableStringify(provider.requests[1]?.body)).toContain("build-failed");
 			yield* owner
+				.getByText("Your recap is ready to preview and save.", { exact: true })
+				.waitFor({ state: "visible" });
+			yield* owner.getByRole("button", { exact: true, name: "Open preview" }).click();
+			const dialog = owner.getByRole("dialog", { name: "Generated recap" });
+			yield* dialog
 				.locator("iframe")
 				.contentFrame()
 				.getByRole("heading", { name: "Acceptance recap" })
 				.waitFor({ state: "visible" });
-			yield* owner.getByRole("textbox", { exact: true, name: "Page name" }).fill("Saved recap");
-			yield* owner.getByRole("textbox", { exact: true, name: "Page address" }).fill(slug);
-			yield* owner.getByRole("button", { name: "Save page and view" }).click();
-			yield* owner.getByRole("link", { name: "Open saved page" }).waitFor({ state: "visible" });
+			expect(
+				yield* dialog.getByRole("textbox", { exact: true, name: "Page name" }).inputValue(),
+			).toBe("Generated recap");
+			yield* dialog.getByRole("textbox", { exact: true, name: "Page name" }).fill("Saved recap");
+			yield* dialog.getByRole("textbox", { exact: true, name: "Page address" }).fill(slug);
+			yield* dialog.getByRole("button", { exact: true, name: "Save page" }).click();
+			yield* dialog
+				.getByRole("button", { exact: true, name: "Open page" })
+				.waitFor({ state: "visible" });
 			expect(
 				(yield* executeRyotQLRecipe(client, pagesRecipe, {})).items.map((page) => ({
 					writeAccess: page.writeAccess,
 					publishedRevision: page.publishedRevision,
 				})),
 			).toEqual([{ writeAccess: false, publishedRevision: 2 }]);
-			yield* owner.getByRole("button", { exact: true, name: "Share" }).click();
-			yield* owner.getByRole("textbox", { exact: true, name: "Title" }).fill("Snapshot recap");
-			yield* owner.getByRole("button", { name: /^Mode:/ }).click();
+			yield* dialog.getByRole("button", { exact: true, name: "Share" }).click();
+			yield* dialog.getByRole("textbox", { exact: true, name: "Title" }).fill("Snapshot recap");
+			yield* dialog.getByRole("button", { name: /^Mode:/ }).click();
 			yield* owner.getByRole("radio", { exact: true, name: "Snapshot" }).click();
-			yield* owner.getByRole("button", { exact: true, name: "Publish" }).click();
+			yield* dialog.getByRole("button", { exact: true, name: "Publish" }).click();
 			const publication = yield* pollUntil(
 				"snapshot publication",
 				executeRyotQLRecipe(client, publicationsRecipe, {}).pipe(
@@ -148,11 +138,6 @@ it.live(
 				),
 			);
 			expect(publication.definition.mode).toBe("snapshot");
-			const share = owner.getByRole("link", { exact: true, name: "Share" });
-			expect(yield* share.getAttribute("href")).toBe(
-				`/settings/publications#publication-${publication.id}`,
-			);
-			yield* share.click();
 			const card = owner.locator(`#publication-${publication.id}`);
 			yield* card.getByRole("button", { exact: true, name: "New link" }).click();
 			yield* card.getByRole("textbox", { name: "Who is it for?" }).fill("Acceptance visitor");
@@ -169,20 +154,18 @@ it.live(
 				.contentFrame()
 				.getByRole("heading", { name: "Acceptance recap" })
 				.waitFor({ state: "visible" });
-			yield* owner.goto(`${getFrontendUrl()}/assistant?conversationId=${conversationId}`);
+			yield* owner.goto(`${getFrontendUrl()}/assistant/${conversation.id}`);
 			yield* owner.reload;
 			yield* owner
 				.getByText("Your recap is ready to preview and save.", { exact: true })
 				.waitFor({ state: "visible" });
+			yield* owner.getByRole("button", { exact: true, name: "Open preview" }).click();
 			yield* owner
+				.getByRole("dialog")
 				.locator("iframe")
 				.contentFrame()
 				.getByRole("heading", { name: "Acceptance recap" })
 				.waitFor({ state: "visible" });
-			expect((yield* detail).calls.items.map((call) => call.decision)).toEqual([
-				"approve",
-				"approve",
-			]);
 			expect(provider.requests).toHaveLength(3);
 		}).pipe(PlaywrightSpawner.withBrowser),
 );

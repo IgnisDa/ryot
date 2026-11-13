@@ -32,8 +32,8 @@ it.live(
 				yield* owner.getByRole("link", { name: "Read the pages guide" }).getAttribute("href"),
 			).toBe("https://docs.ryot.io/concepts/pages.html");
 			yield* owner.getByRole("button", { exact: true, name: "New page" }).click();
-			yield* owner.getByLabel("Name", { exact: true }).fill(name);
-			yield* owner.getByLabel("Slug", { exact: true }).fill(`page-${suffix}`);
+			yield* owner.getByLabel("Page name", { exact: true }).fill(name);
+			yield* owner.getByLabel("Page address", { exact: true }).fill(`page-${suffix}`);
 			yield* owner
 				.getByLabel("Paste source", { exact: true })
 				.fill("export default function Page() { return <div>invalid; }");

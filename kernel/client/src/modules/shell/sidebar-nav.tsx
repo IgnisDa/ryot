@@ -1,6 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
-import { ShortcutHint } from "@ryot-app/plugin-ui-sdk";
+import { Badge, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -31,6 +31,7 @@ type SidebarNavProps = {
 	readonly onOpenSearch: () => void;
 	readonly sections: SidebarSections;
 	readonly navigation: NavigationData;
+	readonly assistantAttention: number;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
 	readonly onCreateCollection: () => void;
@@ -114,7 +115,13 @@ export function SidebarNav(props: SidebarNavProps) {
 				}
 			>
 				<AppIcon size={16} name="message-circle" />
-				Ryobot
+				<span className="flex-1">Ryobot</span>
+				{props.assistantAttention > 0 ? (
+					<Badge size="sm" variant="warning">
+						{props.assistantAttention}
+						<span className="sr-only"> awaiting approval</span>
+					</Badge>
+				) : null}
 			</a>
 
 			<SidebarSection

@@ -12,13 +12,11 @@ import {
 	Card,
 	DestructiveConfirmation,
 	EmptyState,
-	Field,
 	LoadMoreButton,
 	Notice,
 	RadioGroup,
 	RowGroup,
 	SearchField,
-	TextField,
 } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon, appIconNames } from "@ryot-app/plugin-ui-sdk/icon";
 import type { PageRecord } from "@ryot-app/ryotql-recipes/pages";
@@ -30,6 +28,7 @@ import { useRef, useState } from "react";
 import { SettingsSection } from "#/modules/settings/settings-section";
 
 import { DefinitionForm } from "./definition-form";
+import { PageIdentityFields, usePageIdentity } from "./identity-fields";
 import {
 	authoringFailureText,
 	authoringReason,
@@ -226,8 +225,8 @@ function PageEditor(props: {
 	const create = useRyotMutation(createPageMutation);
 	const command = useRyotMutation(pageCommandMutation);
 	const view = useRyotMutation(createPageViewMutation);
-	const [name, setName] = useState(page?.name ?? "");
-	const [slug, setSlug] = useState(page?.slug ?? "");
+	const identity = usePageIdentity(page?.name ?? "");
+	const { name, slug } = identity;
 	const [viewIcon, setViewIcon] = useState("file-text");
 	const [iconQuery, setIconQuery] = useState("");
 	const iconOptions = appIconNames
@@ -348,29 +347,7 @@ function PageEditor(props: {
 			{page === null ? (
 				<SettingsSection title="New page" detail="Name the page and choose its URL slug.">
 					<Card className="grid gap-4">
-						<Field label="Name">
-							{(control) => (
-								<TextField
-									{...control}
-									required
-									value={name}
-									disabled={busy}
-									onChange={(event) => setName(event.target.value)}
-								/>
-							)}
-						</Field>
-						<Field label="Slug">
-							{(control) => (
-								<TextField
-									{...control}
-									required
-									value={slug}
-									disabled={busy}
-									className="font-mono"
-									onChange={(event) => setSlug(event.target.value)}
-								/>
-							)}
-						</Field>
+						<PageIdentityFields disabled={busy} identity={identity} />
 					</Card>
 				</SettingsSection>
 			) : (
@@ -414,7 +391,7 @@ function PageEditor(props: {
 						<Button
 							onClick={save}
 							variant={page === null ? "primary" : "secondary"}
-							disabled={busy || conflict || !dirty || name.trim() === "" || slug.trim() === ""}
+							disabled={busy || conflict || !dirty || !identity.complete}
 						>
 							{page === null ? "Create draft" : "Save draft"}
 						</Button>

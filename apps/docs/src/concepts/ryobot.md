@@ -14,22 +14,29 @@ returns to the server default, if available. API keys are never displayed after 
 
 ## Chat and review changes
 
-Choose **New conversation** and describe what you want. Replies and action requests appear as Ryobot
-works. Conversations remain in your account until you delete them. You can return to an older
-conversation and continue it.
+Choose **New chat** and type what you want, or pick a suggestion from one of your installed apps.
+Press Enter to send and Shift+Enter for a new line. Your first message starts the conversation and
+names it; use the conversation menu to rename or delete it. Conversations stay in your account, and
+the list shows which ones are working, need your approval or failed.
 
-Ryobot asks for approval before changing data or running a script that may make changes. Review each
-request, then choose **Approve** or **Decline**. If a request changed elsewhere, refresh the conversation
-before deciding. Wait for the current reply or its review requests before sending another message.
+Each reply shows what Ryobot did as a short list of steps. The list stays open while Ryobot works and
+collapses when it finishes; select it to see every step again. Choose **Stop** to end a reply early.
+
+Ryobot asks for approval before changing data or publishing a page. The request names the change, the
+app that makes it and the values it will use; choose **Show raw input** to see the exact request.
+Choose **Approve** or **Decline**. While Ryobot waits, the message box is replaced by a reminder, and
+a notice appears if you are elsewhere in Ryot. If a request changed elsewhere, refresh the
+conversation before deciding.
 
 ## Build and share a page
 
-Ask Ryobot to build a page and describe what it should show. Compiled drafts appear as read-only
-previews in the conversation. Ask for changes until you are happy with the result.
+Ask Ryobot to build a page and describe what it should show. Ryobot writes a private draft without
+asking; nothing is published until you save it. Choose **Open preview** to see the draft read-only,
+or open **Source** to read its files. Ask for changes until you are happy with the result.
 
-Enter a page name and address, then choose **Save page and view**. This publishes the page and creates
-its saved view together. **Open saved page** opens that view. Pages start without write access; manage
-that permission in **Settings → Pages**.
+Check the page name and address, then choose **Save page**. This publishes the page and creates its
+saved view together. **Open page** opens that view. Pages start without write access; manage that
+permission in **Settings → Pages**.
 
 Choose **Share** after saving to publish the saved page. Enter a title and choose **Live** for current
 data or **Snapshot** to freeze the page and the first page of each query. Manage links and refresh
