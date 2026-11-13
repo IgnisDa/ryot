@@ -111,7 +111,7 @@ CREATE TABLE "assistant_turn" (
 	"failure" jsonb,
 	"created_at" timestamp(3) with time zone DEFAULT now() NOT NULL,
 	"status" text DEFAULT 'queued' NOT NULL,
-	CONSTRAINT "assistant_turn_conversation_id_request_id_unique" UNIQUE("conversation_id","request_id"),
+	CONSTRAINT "assistant_turn_user_id_request_id_unique" UNIQUE("user_id","request_id"),
 	CONSTRAINT "assistant_turn_id_conversation_id_user_id_unique" UNIQUE("id","conversation_id","user_id"),
 	CONSTRAINT "assistant_turn_status" CHECK ("status" in ('queued', 'running', 'awaiting-approval', 'completed', 'failed', 'interrupted'))
 );
@@ -1362,6 +1362,8 @@ CREATE INDEX "account_userId_idx" ON "account" ("user_id");--> statement-breakpo
 CREATE INDEX "apikey_configId_idx" ON "apikey" ("config_id");--> statement-breakpoint
 CREATE INDEX "apikey_referenceId_idx" ON "apikey" ("reference_id");--> statement-breakpoint
 CREATE INDEX "apikey_key_idx" ON "apikey" ("key");--> statement-breakpoint
+CREATE INDEX "assistant_message_turn_sequence_idx" ON "assistant_message" ("turn_id","sequence");--> statement-breakpoint
+CREATE INDEX "assistant_turn_conversation_created_idx" ON "assistant_turn" ("conversation_id","created_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "assistant_turn_active_unique" ON "assistant_turn" ("conversation_id") WHERE "status" in ('queued', 'running', 'awaiting-approval');--> statement-breakpoint
 CREATE INDEX "automation_run_reconciliation_idx" ON "automation_run" ("status","next_attempt_at","queued_at","id");--> statement-breakpoint
 CREATE INDEX "automation_run_history_idx" ON "automation_run" ("execution_user_id","queued_at" DESC NULLS LAST,"id" DESC NULLS LAST);--> statement-breakpoint
