@@ -148,6 +148,7 @@ The kernel-audience `agentScriptExecution` catalog table exposes the current use
 (source, write approval, timestamps and bounded result). Plugin-audience queries cannot read it.
 
 Assistant history uses the kernel-only, owner-scoped `assistantConversation`, `assistantTurn`,
-`assistantMessage` and `assistantToolCall` catalog tables. Ordered message parts include text,
-pinned calls, bounded results, approval decisions and page-preview identities. Provider settings
+`assistantMessage`, `assistantToolCall` and `assistantInbox` (messages queued for an active turn)
+catalog tables. Ordered message parts include text, instructions, compaction summaries, pinned
+calls, results, approval decisions and page-preview identities. Provider settings
 and encrypted keys have no catalog table.

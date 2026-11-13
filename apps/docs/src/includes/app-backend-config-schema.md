@@ -53,6 +53,8 @@
 | `server.assistant.model` | `SERVER_ASSISTANT_MODEL` | Provider model identifier | No | No | — |
 | `server.assistant.baseUrl` | `SERVER_ASSISTANT_BASE_URL` | Chat Completions API base URL, including its API prefix | No | No | — |
 | `server.assistant.apiKey` | `SERVER_ASSISTANT_API_KEY` | Optional provider API key; omit for unauthenticated endpoints | No | Yes | — |
+| `server.assistant.maxOutputTokens` | `SERVER_ASSISTANT_MAX_OUTPUT_TOKENS` | Most tokens the model may generate in one response. Defaults to 32000 | No | No | — |
+| `server.assistant.contextWindow` | `SERVER_ASSISTANT_CONTEXT_WINDOW` | Model context window in tokens; Ryo compacts older history before exceeding it. Defaults to 496000 | No | No | — |
 
 ### Sandbox execution settings
 

@@ -448,18 +448,23 @@ the composer below the transcript and pass `followEnd`, keyed by the latest turn
 `useFollowEnd`, which keeps the end in view until the reader scrolls back.
 
 `AssistantSprite` draws Ryo with a mood. Conversation status maps to idle, working, waiting
-(`awaiting-approval`) or oops (`failed`); an active turn whose latest step is reasoning shows
+(`awaiting-approval` or `awaiting-input`) or oops (`failed`); an active turn whose latest step is reasoning shows
 thinking. A sprite that leaves working or thinking for idle hops for a moment. Reduced motion keeps
 the poses without animation. `assistantActivityRecipe` feeds the sidebar row's mood and the
-activity-tray entries for conversations awaiting approval.
+activity-tray entries for conversations awaiting approval or an answer.
 
 The transcript pages turns newest first and renders `projectAssistantTurn` output: the prompt, step
-groups, Markdown replies, approvals and page drafts. Kernel tools are labeled here; capability
+groups, Markdown replies, approvals, page drafts, messages sent mid-turn, a marker where earlier
+context was summarized, the latest plan as a checklist and question cards, then the turn's queued
+messages. Kernel tools are labeled here; capability
 approvals use the owner's `title` and render input through `JsonSchemaValues`. Approval decisions
 use the canonical call revision. Turn submission and page save retain identical request IDs and
-inputs for retries. While a turn works the composer offers Stop; while it awaits approval the dock
-points to the pending card. Conversations awaiting approval set the sidebar row's waiting mood and add
-an activity-tray entry unless that conversation is open in a route or the panel.
+inputs for retries. While a turn works the composer offers Stop and still sends messages, which the
+turn receives at its next step; while it awaits approval or an answer the dock points to the
+pending card. A question card takes chosen options and free text and sends one answer per question.
+Conversations awaiting approval or an answer set the sidebar row's waiting mood and add an
+activity-tray entry unless that conversation is open in a route or the panel. Provider settings
+include the context window and output limit, prefilled with the defaults.
 
 `assistant-updated` live frames enter the existing scope-fenced entity-watch transport and refresh
 canonical queries through `mutationCompleted`. Reconnect uses that same invalidation path. There is

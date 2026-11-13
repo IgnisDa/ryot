@@ -221,23 +221,25 @@ and growing ID mappings are processed one bounded staging page at a time.
 ## Assistant history
 
 `assistant.ndjson` is a required streamed section containing tagged conversation, turn, tool-call,
-message and user-provider records. Export traverses each owner-bound table by primary-key cursor,
+message, stored tool output and user-provider records. Export traverses each owner-bound table by primary-key cursor,
 one row at a time, independently of runtime history pagination. The shared record/entry limits and
 spool backpressure apply. Restore stages composite kind/ID identities and reference edges on disk,
 allocates destination identities before rewriting, and writes in conversation/turn/call/message order.
 Text, tool names, pinned capabilities, opaque arguments and opaque results retain their historical
-values. Only typed conversation, turn, message, call (including a capability call's parent) and
-inline preview page references change identity. A capability call's parent must be a model tool
-call in the same turn.
+values. Only typed conversation, turn, message, call (including a capability call's parent and a
+retained result's `outputId`) and inline preview page references change identity. A capability
+call's parent must be a model tool call in the same turn. A stored output shares its call's ID and
+turn and is restored under the restored call ID. Queued mid-turn messages and prompt-size
+measurements are not exported.
 
-Queued, running and awaiting-approval turns become interrupted history. Every unfinished call gains
+Queued, running, awaiting-approval and awaiting-input turns become interrupted history. Every unfinished call gains
 an inert `{ interrupted: true }` result, including approved and undecided calls; existing decisions
 and completed results remain intact. No assistant workflows, wakes or execution authority are
 created. Draft preview page IDs are remapped, but compiled draft markers/artifacts remain omitted;
 the preview host reports these historical previews as unavailable and the user must prepare them
 again. Previews of deleted pages become explicit unavailable text.
 
-Only user provider URL/model configuration is exported. Key presence is recorded and
+Only user provider URL, model, context window and output limit configuration is exported. Key presence is recorded and
 `/assistant/provider/apiKey` appears in manifest redactions when applicable; plaintext, ciphertext,
 encryption attribution and instance provider configuration never enter the archive. Backups offer
 no secret-inclusive option. Restored user overrides have no key: re-enter it in Settings → Ryo

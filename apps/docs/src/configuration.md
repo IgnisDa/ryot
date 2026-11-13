@@ -33,9 +33,14 @@ An instance default needs `SERVER_ASSISTANT_BASE_URL` and `SERVER_ASSISTANT_MODE
 Set `SERVER_ASSISTANT_API_KEY` if the provider requires authentication. The base URL must include
 the API prefix, for example `https://api.openai.com/v1`, without credentials, query or fragment.
 The provider must support OpenAI-compatible Chat Completions, streaming and tool calling.
+Set `SERVER_ASSISTANT_CONTEXT_WINDOW` and `SERVER_ASSISTANT_MAX_OUTPUT_TOKENS` to the model's
+context window and output limit in tokens. They default to 496,000 and 32,000, and the output limit
+must be below the context window. Ryo summarizes older history before the window fills, and also when
+the provider reports that a request is too long.
 
 Users can configure a provider in Settings → Ryo. Their configuration overrides the instance
-default completely, so a keyless user provider does not inherit the instance key. Saving without
+default completely, including its context window and output limit, so a keyless user provider
+does not inherit the instance key. Saving without
 a new API key retains their previous encrypted key. Removing the user provider also removes its
 key and restores the instance default. To switch to a keyless user provider, remove it and add
 it again without a key. Demo sessions cannot change provider settings.

@@ -123,13 +123,17 @@ encoded `definition.arguments.source`; user pages are excluded. The backend cata
 the persisted `definition` JSON column.
 
 `assistantConversationsRecipe` lists conversation metadata and derived `status` (`idle`, `working`,
-`awaiting-approval` or `failed`, from the latest turn) ordered by latest update, with stable ID
-ordering. `assistantActivityRecipe` lists conversations that are working or waiting for a decision.
+`awaiting-approval`, `awaiting-input` or `failed`, from the latest turn) ordered by latest update,
+with stable ID ordering. `assistantActivityRecipe` lists conversations that are working or waiting
+for a decision or an answer.
 `assistantConversationRecipe` takes `{ conversationId }`; its named results are `conversation` and
-`turns`. Turns page newest first (ten per page) and include up to 100 of their messages and calls each.
+`turns`. Turns page newest first (ten per page) and include up to 100 of their messages and calls
+each, and up to 20 undelivered queued messages.
 Call rows carry the current approval revision, immutable descriptor/input pin and bounded result.
 `projectAssistantTurn` turns one turn row into the ordered transcript entries clients render: replies,
-grouped steps, approvals placed after the step that requested them, and page previews. A turn whose
+grouped steps, approvals placed after the step that requested them, page previews, user messages
+delivered mid-turn, compaction markers, the latest `todo` plan and `question` cards with their
+answer state, plus the turn's queued messages. A turn whose
 messages or calls exceed one include page is marked `partial`. Exported decoded types are
 `AssistantConversationList` and `AssistantConversationDetail`.
 
