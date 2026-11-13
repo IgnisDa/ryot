@@ -128,6 +128,8 @@
 		}
 	},
 	"globalPassThroughEnv": [
+		"CARGO_HOME",
+		"RUSTUP_HOME",
 		"DOCKER_HOST",
 		"TEST_DATABASE_URL",
 		"TESTCONTAINERS_HOST_OVERRIDE",
