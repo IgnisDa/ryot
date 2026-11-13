@@ -2,6 +2,10 @@ import { CLIENT_API_VERSION, definePlugin } from "@ryot-app/contract/modules/plu
 import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
 
 import {
+	fitnessEntityPresentationSource,
+	fitnessPresentationSource,
+} from "../shared/entity-presentations";
+import {
 	ExerciseMergeInputSchema,
 	exerciseMergeOperationSlug,
 	ExerciseMergeOutputSchema,
@@ -53,6 +57,7 @@ import {
 	WorkoutEditorSaveOutputSchema,
 } from "../shared/workout-editor-operations";
 import { fitnessClientRoutes } from "../shared/workout-editor-routes";
+import { workoutPresentationSource } from "../shared/workout-list-recipes";
 import {
 	WorkoutTimeCorrectionInputSchema,
 	WorkoutTimeCorrectionOutputSchema,
@@ -297,22 +302,43 @@ export const fitnessPlugin = definePlugin({
 			"Log today's bodyweight",
 		],
 		entities: {
-			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
-			workout: {
-				detailPage: "workout-detail",
-				listPresentation: "workout-row",
-				gridPresentation: "workout-card",
+			"measurement-metric": {
+				listPresentation: "entity-row",
+				gridPresentation: "entity-card",
+				presentation: {
+					owner: fitnessPresentationSource("measurement-metric").fields,
+					entity: fitnessEntityPresentationSource("measurement-metric").fields,
+				},
 			},
 			"workout-template": {
 				listPresentation: "entity-row",
 				gridPresentation: "entity-card",
 				detailPage: "workout-template-detail",
+				presentation: {
+					owner: fitnessPresentationSource("workout-template").fields,
+					entity: fitnessEntityPresentationSource("workout-template").fields,
+				},
 			},
 			exercise: {
 				createRoute: "/exercises/new",
 				detailPage: "exercise-detail",
 				listPresentation: "entity-row",
 				gridPresentation: "entity-card",
+				presentation: {
+					owner: fitnessPresentationSource("exercise").fields,
+					entity: fitnessEntityPresentationSource("exercise").fields,
+				},
+			},
+			workout: {
+				detailPage: "workout-detail",
+				listPresentation: "workout-row",
+				gridPresentation: "workout-card",
+				presentation: {
+					settings: true,
+					owner: workoutPresentationSource().fields,
+					ownerIncludes: workoutPresentationSource().include,
+					entity: fitnessEntityPresentationSource("workout").fields,
+				},
 			},
 		},
 		exports: {

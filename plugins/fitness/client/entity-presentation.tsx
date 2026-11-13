@@ -1,18 +1,16 @@
-import { type ManagedAssetLocator, RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
 	deviceTimeZone,
 	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
 	type EntityReference,
-	PluginId,
 	PluginLink,
+	type TimeZone,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider, useAssetUrl } from "@ryot-app/plugin-client-sdk/react";
-import { defineRecipe, parameters } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Eyebrow, schemaSlugLabel } from "@ryot-app/plugin-ui-sdk";
 import {
 	EntityArtWell,
@@ -23,6 +21,8 @@ import {
 import clsx from "clsx";
 
 import {
+	type FitnessEntityPresentationData,
+	fitnessEntityPresentationSource,
 	fitnessPresentationSource,
 	type FitnessPresentationSourceData,
 } from "../shared/entity-presentations";
@@ -40,7 +40,8 @@ export type FitnessPresentationViewData = {
 
 const buildFitnessPresentations = (
 	references: readonly EntityReference[],
-	sources: readonly FitnessPresentationSourceData[],
+	sources: readonly (FitnessPresentationSourceData | FitnessEntityPresentationData)[],
+	timeZone: TimeZone,
 ) => {
 	const byId = new Map(sources.map((source) => [source.presentationId, source]));
 	return Result.map(
@@ -55,7 +56,6 @@ const buildFitnessPresentations = (
 			}),
 		),
 		(rows) => {
-			const timeZone = deviceTimeZone();
 			const batchAssets = managedAssetBatch(
 				rows.map(({ presentationImage }) => presentationImage ?? undefined),
 			);
@@ -69,7 +69,10 @@ const buildFitnessPresentations = (
 						callout: source.presentationCallout,
 						secondary: source.presentationSecondary,
 						primary:
-							source.presentationLatestValue === null || source.presentationLatestAt === null
+							!("presentationLatestAt" in source) ||
+							!("presentationLatestValue" in source) ||
+							typeof source.presentationLatestValue !== "number" ||
+							typeof source.presentationLatestAt !== "string"
 								? source.presentationPrimary
 								: `${formatValue(source.presentationLatestValue, source.presentationPrimary)} · ${formatDay(source.presentationLatestAt, timeZone)}`,
 					},
@@ -81,54 +84,11 @@ const buildFitnessPresentations = (
 
 export const prepareFitnessPresentations: EntityPresentationPrepare<
 	FitnessPresentationViewData
-> = ({ sources, references }) => {
+> = ({ sources, context, references }) => {
 	const source = fitnessPresentationSource(references[0]?.entitySchemaSlug ?? "");
 	return Result.flatMap(
 		Result.all(references.map((reference) => source.decode(sources.get(reference.entityId)))),
-		(rows) => buildFitnessPresentations(references, rows),
-	);
-};
-
-export const loadFitnessPresentations: EntityPresentationLoader<FitnessPresentationViewData> = ({
-	client,
-	references,
-}) => {
-	const source = fitnessPresentationSource(references[0]?.entitySchemaSlug ?? "");
-	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const selected = references[0];
-	if (selected === undefined) {
-		return Effect.succeed({});
-	}
-	if (selected.ownerPluginId === null) {
-		return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
-	}
-	const owner = {
-		kind: "local",
-		pluginId: PluginId.make(selected.ownerPluginId),
-	} satisfies Parameters<typeof source.query>[0];
-	const input = parameters({
-		fields: {
-			entityIds: {
-				type: "array",
-				label: "Entities",
-				validation: { required: true },
-				description: "Entities to present",
-				items: { type: "string", label: "Entity", description: "Entity ID" },
-			},
-		},
-	});
-	const recipe = defineRecipe({
-		parameters: input.schema,
-		map: ({ presentations }) => Result.succeed(presentations.items),
-		queries: { presentations: source.query(owner, input.list("entityIds")) },
-	});
-	return client.data.query(recipe, { entityIds }).pipe(
-		Effect.flatMap((rows) => {
-			const result = buildFitnessPresentations(references, rows);
-			return result._tag === "Failure"
-				? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
-				: Effect.succeed(result.success);
-		}),
+		(rows) => buildFitnessPresentations(references, rows, context?.timeZone ?? deviceTimeZone()),
 	);
 };
 
@@ -245,14 +205,39 @@ function FitnessPresentation(props: {
 	);
 }
 
+const prepareEntity: EntityPresentationPrepare<FitnessPresentationViewData> = ({
+	sources,
+	context,
+	references,
+}) =>
+	Result.flatMap(
+		Result.all(
+			references.map((reference) =>
+				fitnessEntityPresentationSource(reference.entitySchemaSlug).decode(
+					sources.get(reference.entityId),
+				),
+			),
+		),
+		(rows) => buildFitnessPresentations(references, rows, context?.timeZone ?? deviceTimeZone()),
+	);
+
+export const fitnessEntityCardPresentation = defineEntityPresentation({
+	component: FitnessCard,
+	prepare: prepareEntity,
+});
+export const fitnessEntityRowPresentation = defineEntityPresentation({
+	component: FitnessRow,
+	prepare: prepareEntity,
+});
+
 export const fitnessCardPresentation = defineEntityPresentation({
 	component: FitnessCard,
-	loader: loadFitnessPresentations,
 	prepare: prepareFitnessPresentations,
+	entity: fitnessEntityCardPresentation,
 });
 
 export const fitnessRowPresentation = defineEntityPresentation({
 	component: FitnessRow,
-	loader: loadFitnessPresentations,
 	prepare: prepareFitnessPresentations,
+	entity: fitnessEntityRowPresentation,
 });

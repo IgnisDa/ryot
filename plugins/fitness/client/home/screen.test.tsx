@@ -63,13 +63,16 @@ const latestWorkout = {
 	setCount: 21,
 	volume: 24600,
 	entityId: "w1",
+	muscleCount: 0,
 	name: "Legs - 2",
 	exerciseCount: 7,
 	personalBests: 1,
+	muscles: rows([]),
 	template: rows([]),
 	processing: "ready",
 	activeDuration: 5220,
 	repeatedFromId: null,
+	comparisons: rows([]),
 	endedAt: hoursAgo(46),
 	startedAt: hoursAgo(48),
 	previousTemplateWorkoutId: null,
@@ -168,21 +171,6 @@ const respond = (
 			exercises: rows([
 				{ id: "squat", targets: rows([{ role: "primary", id: "quadriceps", name: "Quadriceps" }]) },
 				{ id: "bench", targets: rows([{ id: "chest", name: "Chest", role: "primary" }]) },
-			]),
-		};
-	}
-	if (names.includes("taxonomy")) {
-		return {
-			taxonomy: rows([
-				{
-					setCount: 1,
-					workoutId: "w1",
-					exerciseOrder: 0,
-					id: "occurrence-0",
-					exerciseId: "squat",
-					equipment: rows([]),
-					targets: rows([{ role: "primary", id: "quadriceps", name: "Quadriceps" }]),
-				},
 			]),
 		};
 	}

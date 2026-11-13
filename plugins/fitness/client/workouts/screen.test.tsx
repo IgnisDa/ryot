@@ -67,6 +67,7 @@ const listWorkout = (entityId: string, name: string, startedAt: string) => ({
 	startedAt,
 	setCount: 2,
 	volume: 1000,
+	muscleCount: 2,
 	exerciseCount: 2,
 	personalBests: 1,
 	template: rows([]),
@@ -75,7 +76,12 @@ const listWorkout = (entityId: string, name: string, startedAt: string) => ({
 	activeDuration: 3600,
 	repeatedFromId: "prior",
 	previousTemplateWorkoutId: null,
+	comparisons: rows([{ id: "prior", volume: 800, startedAt: hoursAgo(24 * 7) }]),
 	sets: rows([listSet("squat", "Back Squat", 0), listSet("press", "Leg Press", 1)]),
+	muscles: rows([
+		{ sets: 1, id: "quadriceps", name: "Quadriceps" },
+		{ sets: 0.5, id: "glutes", name: "Glutes" },
+	]),
 });
 type Queries = ReturnType<typeof bindWorkoutRequest>["queries"];
 type Answers = {
@@ -108,33 +114,7 @@ const respond = (queries: Queries, answers: Answers) => {
 				]),
 		};
 	}
-	if (list?.output.type === "rows") {
-		return { workouts: rows([{ id: "prior", volume: 800, startedAt: hoursAgo(24 * 7) }]) };
-	}
-	if ("taxonomy" in queries) {
-		return {
-			taxonomy: rows([
-				{
-					setCount: 1,
-					workoutId: "w1",
-					exerciseOrder: 0,
-					id: "occurrence-0",
-					exerciseId: "squat",
-					equipment: rows([]),
-					targets: rows([{ role: "primary", id: "quadriceps", name: "Quadriceps" }]),
-				},
-				{
-					setCount: 1,
-					workoutId: "w1",
-					exerciseOrder: 1,
-					id: "occurrence-1",
-					exerciseId: "press",
-					equipment: rows([]),
-					targets: rows([{ id: "glutes", name: "Glutes", role: "secondary" }]),
-				},
-			]),
-		};
-	}
+
 	if ("total" in queries) {
 		return { total: aggregate([{ workouts: answers.total ?? 0 }]) };
 	}

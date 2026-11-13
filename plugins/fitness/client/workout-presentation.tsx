@@ -1,57 +1,53 @@
-import { DateTime, Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { Result, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
-	deviceTimeZone,
 	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
+	type EntityPresentationPrepare,
 } from "@ryot-app/plugin-client-sdk/plugin";
 
-import { WORKOUT_LIST_PAGE_SIZE } from "../shared/workout-list-recipes";
-import { invokeWorkoutEditorContext } from "./workout-editor/context-query";
+import { WorkoutPreferenceSettingsSchema } from "../shared/workout-editor-preferences";
+import { workoutPresentationSource } from "../shared/workout-list-recipes";
+import { fitnessEntityCardPresentation, fitnessEntityRowPresentation } from "./entity-presentation";
 import { buildWorkoutCards, type WorkoutCard } from "./workouts/model";
-import { loadWorkoutPages } from "./workouts/queries";
 import { WorkoutGridCard, WorkoutListRow } from "./workouts/results";
 
-export const loadWorkoutPresentations: EntityPresentationLoader<WorkoutCard> = ({
-	client,
+export const prepareWorkoutPresentations: EntityPresentationPrepare<WorkoutCard> = ({
+	sources,
+	context,
 	references,
 }) =>
-	Effect.gen(function* () {
-		const workoutIds = [...new Set(references.map(({ entityId }) => entityId))];
-		const [context, pages, now] = yield* Effect.all(
-			[
-				invokeWorkoutEditorContext(client),
-				loadWorkoutPages(client, {
-					search: "",
-					workoutIds,
-					pages: Math.ceil(workoutIds.length / WORKOUT_LIST_PAGE_SIZE),
-				}),
-				DateTime.now,
-			],
-			{ concurrency: "unbounded" },
+	Result.gen(function* () {
+		if (context === undefined) {
+			return yield* Result.fail(new Error("Workout presentation context is missing"));
+		}
+		const settings = yield* Schema.decodeUnknownResult(WorkoutPreferenceSettingsSchema)(
+			context.settings,
+		);
+		const source = workoutPresentationSource();
+		const rows = yield* Result.all(
+			references.map((reference) => source.decode(sources.get(reference.entityId))),
 		);
 		const cards = buildWorkoutCards({
-			...pages,
-			now: DateTime.toDate(now),
-			timeZone: deviceTimeZone(),
-			imperial: context.settings.unitSystem === "imperial",
+			now: new Date(context.now),
+			timeZone: context.timeZone,
+			imperial: settings.unitSystem === "imperial",
+			comparisons: rows.flatMap((row) => row.comparisons.items),
+			items: rows.map(({ sets, template, ...item }) =>
+				Object.assign(item, { sets: sets.items, template: template.items[0] ?? null }),
+			),
 		});
 		return Object.fromEntries(cards.map((card) => [card.id, card]));
 	});
-
-const prepare = () => Result.fail(new Error("Workout presentations load their own data"));
-
 export const workoutCardPresentation = defineEntityPresentation({
-	prepare,
-	loader: loadWorkoutPresentations,
+	prepare: prepareWorkoutPresentations,
+	entity: fitnessEntityCardPresentation,
 	component: ({ data }: EntityPresentationComponentProps<WorkoutCard>) => (
 		<WorkoutGridCard card={data} />
 	),
 });
-
 export const workoutRowPresentation = defineEntityPresentation({
-	prepare,
-	loader: loadWorkoutPresentations,
+	prepare: prepareWorkoutPresentations,
+	entity: fitnessEntityRowPresentation,
 	component: ({ data }: EntityPresentationComponentProps<WorkoutCard>) => (
 		<WorkoutListRow card={data} />
 	),

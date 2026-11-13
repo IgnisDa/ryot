@@ -1,42 +1,17 @@
 import { describe, expect, it } from "bun:test";
 
-import { arrayContaining, objectContaining } from "@ryot-app/testing/matchers";
+import { objectContaining } from "@ryot-app/testing/matchers";
 
+import { fitnessPlugin } from "./plugin";
 import { fitnessSavedViews } from "./saved-views";
 
 const savedView = (slug: string) =>
 	fitnessSavedViews().find((candidate) => candidate.slug === slug);
 
 describe("fitness saved-view presentations", () => {
-	it("selects card data in every entity-browser row", () => {
-		for (const view of fitnessSavedViews()) {
-			if (view.dataSources === null) {
-				continue;
-			}
-			const { output } = view.dataSources.queries.savedView;
-			const fields = output.fields.flatMap((selection) =>
-				"key" in selection ? [selection.key] : [],
-			);
-			expect(fields).toEqual<unknown>(
-				arrayContaining([
-					"presentationName",
-					"presentationImage",
-					"presentationPrimary",
-					"presentationSecondary",
-					"presentationCallout",
-				]),
-			);
-			expect(output.include).toBeUndefined();
-		}
-	});
-
 	it("projects one exercise image locator instead of the image array", () => {
-		const exercise = fitnessSavedViews()[0]?.dataSources?.queries.savedView;
-		if (exercise?.output.type !== "rows") {
-			throw new Error("Expected exercise saved-view rows query");
-		}
-		const image = exercise.output.fields.find(
-			(selection) => "key" in selection && selection.key === "presentationImage",
+		const image = fitnessPlugin.client.entities.exercise.presentation.entity.find(
+			(selection) => selection.key === "presentationImage",
 		);
 		expect(image).toEqual<unknown>(
 			objectContaining({ expr: objectContaining({ type: "jsonPath", path: ["images", 0] }) }),

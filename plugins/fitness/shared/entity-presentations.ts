@@ -6,49 +6,20 @@ import {
 	castText,
 	column,
 	eq,
-	inArray,
 	jsonPath,
 	latestEventField,
 	literal,
 	NullableNumber,
-	schemaOwnerPredicate,
 	selectedField,
 	selectedRowsSource,
-	type SelectedSelection,
 	table,
 	titleCase,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
 
 import { propertyNumber } from "./entity-selections";
 
 type Table = Parameters<typeof column>[0];
-
-const selectedPresentationSource = <const Selection extends SelectedSelection>(input: {
-	readonly table: Table;
-	readonly selection: Selection;
-	readonly where: (entityIds: Parameters<typeof inArray>[1]) => ReturnType<typeof and>;
-}) => {
-	const source = selectedRowsSource(input.table, { selection: input.selection });
-	return {
-		...source,
-		query: (reference: PluginIdentityReference, entityIds: Parameters<typeof inArray>[1]) =>
-			source.query({
-				limit: 100,
-				where: and(
-					input.where(entityIds),
-					schemaOwnerPredicate(input.table, "entitySchemaPluginId", reference),
-				),
-			}),
-	};
-};
-
-const entityIdsWhere = (entity: Table, slug: string, entityIds: Parameters<typeof inArray>[1]) =>
-	and(
-		eq(column(entity, "entitySchemaSlug"), literal(slug)),
-		inArray(column(entity, "id"), entityIds),
-	);
 
 const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);
 
@@ -77,47 +48,58 @@ const presentationPrimary = (slug: string, entity: Table) => {
 	return castDate(column(entity, "createdAt"));
 };
 
-export const fitnessPresentationSource = (slug: string) => {
+const fitnessSelection = (slug: string) => {
 	const entity = table("entity", "entity");
 	const property = (key: string) => jsonPath(column(entity, "properties"), key);
 	const isExercise = slug === "exercise";
 	const isMetric = slug === "measurement-metric";
 	const primary = presentationPrimary(slug, entity);
-	return selectedPresentationSource({
-		table: entity,
-		where: (entityIds) => entityIdsWhere(entity, slug, entityIds),
-		selection: {
-			presentationId: selectedField(column(entity, "id"), Schema.String),
-			presentationName: selectedField(column(entity, "name"), Schema.String),
-			presentationPrimary: selectedField(primary, Schema.NullOr(Schema.String)),
-			presentationCallout: selectedField(
-				isExercise ? titleCase(property("level")) : literal(null),
-				Schema.NullOr(Schema.String),
-			),
-			presentationSecondary: selectedField(
-				isExercise || isMetric ? literal(null) : castText(property("comment")),
-				Schema.NullOr(Schema.String),
-			),
-			presentationImage: selectedField(
-				isExercise ? jsonPath(column(entity, "properties"), "images", 0) : literal(null),
-				Schema.NullOr(AssetLocator),
-			),
-			presentationLatestValue: selectedField(
-				isMetric
-					? latestMetricReading(entity, (reading) => propertyNumber(reading, "value"))
-					: literal(null),
-				NullableNumber,
-			),
-			presentationLatestAt: selectedField(
-				isMetric
-					? latestMetricReading(entity, (reading) => column(reading, "occurredAt"))
-					: literal(null),
-				Schema.NullOr(Schema.String),
-			),
-		},
-	});
+	return {
+		presentationId: selectedField(column(entity, "id"), Schema.String),
+		presentationName: selectedField(column(entity, "name"), Schema.String),
+		presentationPrimary: selectedField(primary, Schema.NullOr(Schema.String)),
+		presentationCallout: selectedField(
+			isExercise ? titleCase(property("level")) : literal(null),
+			Schema.NullOr(Schema.String),
+		),
+		presentationSecondary: selectedField(
+			isExercise || isMetric ? literal(null) : castText(property("comment")),
+			Schema.NullOr(Schema.String),
+		),
+		presentationImage: selectedField(
+			isExercise ? jsonPath(column(entity, "properties"), "images", 0) : literal(null),
+			Schema.NullOr(AssetLocator),
+		),
+		presentationLatestValue: selectedField(
+			isMetric
+				? latestMetricReading(entity, (reading) => propertyNumber(reading, "value"))
+				: literal(null),
+			NullableNumber,
+		),
+		presentationLatestAt: selectedField(
+			isMetric
+				? latestMetricReading(entity, (reading) => column(reading, "occurredAt"))
+				: literal(null),
+			Schema.NullOr(Schema.String),
+		),
+	};
+};
+
+export const fitnessPresentationSource = (slug: string) =>
+	selectedRowsSource(table("entity", "entity"), { selection: fitnessSelection(slug) });
+export const fitnessEntityPresentationSource = (slug: string) => {
+	const {
+		presentationLatestAt: _at,
+		presentationLatestValue: _value,
+		...selection
+	} = fitnessSelection(slug);
+	return selectedRowsSource(table("entity", "entity"), { selection });
 };
 
 export type FitnessPresentationSourceData = Result.Result.Success<
 	ReturnType<ReturnType<typeof fitnessPresentationSource>["decode"]>
+>;
+
+export type FitnessEntityPresentationData = Result.Result.Success<
+	ReturnType<ReturnType<typeof fitnessEntityPresentationSource>["decode"]>
 >;

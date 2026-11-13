@@ -20,7 +20,6 @@ import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
 import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Array as Arr } from "effect";
 
-import { fitnessPresentationSource } from "../shared/entity-presentations";
 import { fitnessLibraryLinkExists, fitnessLibraryMembership } from "../shared/library-recipes";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { timesPerformed } from "./browse";
@@ -70,7 +69,6 @@ export const fitnessSavedViews = () => {
 	];
 	const entityBrowserViews = inputs.map((input) => {
 		const { summary, table: tableExpressions } = buildViewExpressions(input.entitySchemaSlug);
-		const presentation = fitnessPresentationSource(input.entitySchemaSlug);
 		const fields = [
 			field("entityId", column(entity, "id")),
 			...(tableExpressions.image === null ? [] : [field("image", tableExpressions.image)]),
@@ -79,7 +77,6 @@ export const fitnessSavedViews = () => {
 			),
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-			...presentation.fields,
 		];
 		const where = and(
 			entitySchemaPredicate(entity, input.entitySchemaSlug, { kind: "self" }),

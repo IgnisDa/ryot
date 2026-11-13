@@ -110,7 +110,7 @@ it.effect(
 				["exercise-equipment", { relationships: [] }],
 			]);
 			expect(fitnessPlugin.signalSchemas.map(({ slug }) => slug)).toEqual(["workout.created"]);
-			expect(fitnessPlugin.client).toEqual({
+			expect(fitnessPlugin.client).toMatchObject({
 				homeView: null,
 				routes: fitnessClientRoutes,
 				apiVersion: CLIENT_API_VERSION,

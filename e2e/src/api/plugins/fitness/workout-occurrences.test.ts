@@ -4,6 +4,7 @@ import {
 	exerciseEquipmentRecipe,
 	exerciseTargetsRecipe,
 } from "@ryot-app/fitness-plugin/taxonomy-recipes";
+import { workoutCardsRecipe } from "@ryot-app/fitness-plugin/workout-list-recipes";
 import { reportingArguments } from "@ryot-app/ryotql-recipes/reporting-parameters";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect, Result } from "effect";
@@ -277,6 +278,19 @@ it.live("records repeated exercise occurrences with exact taxonomy and ranking c
 		]);
 
 		const reference = yield* workoutReference(client);
+		const cards = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+			workoutIds: [saved.entityId],
+		});
+		const card = requirePresent(cards.items[0], "Expected workout card");
+		expect(card.muscleCount).toBe(3);
+		for (const target of taxonomy.targets) {
+			const muscle = card.muscles.items.find(({ id }) => id === target.entityId);
+			if (target.role === "stabilizer") {
+				expect(muscle).toBeUndefined();
+			} else {
+				expect(muscle).toMatchObject({ sets: target.role === "secondary" ? 1 : 2 });
+			}
+		}
 		const targetRankings = yield* readRankings(client, reference, "targets");
 		for (const target of taxonomy.targets) {
 			const expectedWeight =
@@ -295,6 +309,33 @@ it.live("records repeated exercise occurrences with exact taxonomy and ranking c
 			weightedSets: 2,
 			exerciseOccurrences: 2,
 		});
+	}),
+);
+
+it.live("summarizes workout card muscles across more than one page of occurrences", () =>
+	Effect.gen(function* () {
+		const { client } = yield* createAuthenticatedClient();
+		const { exerciseId } = yield* createExerciseEntityFixture(client);
+		const taxonomy = yield* createWorkoutOccurrenceTaxonomy(client, exerciseId, {
+			equipmentCount: 0,
+			targetRoles: ["primary"],
+		});
+		const saved = yield* saveWorkoutData(
+			client,
+			workoutData({
+				occurrences: Array.from({ length: 101 }, () =>
+					workoutOccurrence(exerciseId, [workoutSet()]),
+				),
+			}),
+		);
+		assertCondition(saved.kind === "saved", "Expected large workout to save");
+		const reference = yield* workoutReference(client);
+		const cards = yield* executeRyotQLRecipe(client, workoutCardsRecipe({ reference }), {
+			workoutIds: [saved.entityId],
+		});
+		const card = requirePresent(cards.items[0], "Expected workout card");
+		expect(card.muscleCount).toBe(1);
+		expect(card.muscles.items).toMatchObject([{ sets: 101, id: taxonomy.targets[0]?.entityId }]);
 	}),
 );
 

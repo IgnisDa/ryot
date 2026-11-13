@@ -58,6 +58,7 @@ const workout = (overrides: Partial<WorkoutListItem> = {}): WorkoutListItem => (
 	volume: 1000,
 	entityId: "w1",
 	template: null,
+	muscleCount: 0,
 	exerciseCount: 0,
 	personalBests: 0,
 	processing: "ready",
@@ -66,6 +67,8 @@ const workout = (overrides: Partial<WorkoutListItem> = {}): WorkoutListItem => (
 	previousTemplateWorkoutId: null,
 	endedAt: "2026-10-14T18:30:00.000Z",
 	startedAt: "2026-10-14T17:00:00.000Z",
+	muscles: { items: [], pageInfo: { limit: 3, hasMore: false } },
+	comparisons: { items: [], pageInfo: { limit: 1, hasMore: false } },
 	...overrides,
 });
 
@@ -82,7 +85,6 @@ const cards = (items: readonly WorkoutListItem[], imperial = false) =>
 		now,
 		items,
 		imperial,
-		targets: [],
 		timeZone: TimeZone.make("UTC"),
 		comparisons: [
 			{ id: "prior", volume: 800, startedAt: "2026-10-07T17:00:00.000Z" },

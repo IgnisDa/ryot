@@ -7,14 +7,13 @@ import {
 	type TimeZone,
 } from "@ryot-app/plugin-client-sdk/plugin";
 
-import { countMuscleSets, elapsedWorkoutSeconds } from "../../shared/fitness-metrics";
+import { elapsedWorkoutSeconds } from "../../shared/fitness-metrics";
 import type {
 	WorkoutComparison,
 	WorkoutListItem,
 	WorkoutPeriodTotals,
 	WorkoutSummary,
 } from "../../shared/workout-list-recipes";
-import type { WorkoutTaxonomy } from "../../shared/workout-taxonomy-recipes";
 import { kilogramsToPounds } from "../../shared/workout-units";
 import { formatDuration, formatNumber, formatSetMain, parseDate } from "../workout/format";
 
@@ -193,7 +192,6 @@ export const buildWorkoutCards = (input: {
 	readonly imperial: boolean;
 	readonly timeZone: TimeZone;
 	readonly items: readonly WorkoutListItem[];
-	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
 }) => {
 	const { now, imperial, timeZone } = input;
@@ -230,11 +228,7 @@ export const buildWorkoutCards = (input: {
 	};
 	return input.items.map((item) => {
 		const groups = exerciseGroups(item.sets);
-		const muscles = countMuscleSets(
-			input.targets
-				.filter((recorded) => recorded.workoutId === item.entityId)
-				.map((recorded) => ({ sets: recorded.setCount, targets: recorded.targets.items })),
-		);
+		const muscles = item.muscles.items;
 		const lines = groups.map(({ key, sets, first }) => {
 			const best = sets.reduce((current, set) => (outranks(set, current) ? set : current), first);
 			return {
@@ -254,7 +248,7 @@ export const buildWorkoutCards = (input: {
 			exercises: item.exerciseCount,
 			personalBests: item.personalBests,
 			top: lines.slice(0, CARD_EXERCISES),
-			moreMuscles: Math.max(0, muscles.length - CARD_MUSCLES),
+			moreMuscles: Math.max(0, item.muscleCount - CARD_MUSCLES),
 			moreExercises: Math.max(0, item.exerciseCount - CARD_EXERCISES),
 			muscles: muscles.slice(0, CARD_MUSCLES).map(({ name }) => name),
 			comparison: comparisonFor(item, comparisons, currentYear, timeZone),

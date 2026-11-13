@@ -19,7 +19,6 @@ import { PLUGIN_PACKAGE_ID } from "../../shared/plugin-identity";
 import {
 	workoutCardsRecipe,
 	type WorkoutComparison,
-	workoutComparisonsRecipe,
 	workoutCountRecipe,
 	workoutIdsRecipe,
 	type WorkoutListItem,
@@ -28,7 +27,6 @@ import {
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
 } from "../../shared/workout-list-recipes";
-import { type WorkoutTaxonomy, workoutTaxonomyRecipe } from "../../shared/workout-taxonomy-recipes";
 import { type PeriodKey, periodOptions } from "./model";
 
 const LOOKUP_BATCH_SIZE = 100;
@@ -36,13 +34,11 @@ const LOOKUP_BATCH_SIZE = 100;
 export type WorkoutPages = {
 	readonly hasMore: boolean;
 	readonly items: readonly WorkoutListItem[];
-	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
 };
 
 export type WorkoutPage = {
 	readonly items: readonly WorkoutListItem[];
-	readonly targets: readonly WorkoutTaxonomy[];
 	readonly comparisons: readonly WorkoutComparison[];
 	readonly pageInfo: { readonly hasMore: boolean; readonly nextCursor: null | string };
 };
@@ -56,37 +52,9 @@ export const batched = <A>(
 		(batches) => batches.flat(),
 	);
 
-const enrichWorkoutItems = (client: RyotClient, items: readonly WorkoutListItem[]) =>
-	Effect.gen(function* () {
-		const reference = client.pluginIdentity(PLUGIN_PACKAGE_ID);
-		const comparisonIds = new Set(
-			items.flatMap(({ repeatedFromId, previousTemplateWorkoutId }) => {
-				const id = repeatedFromId ?? previousTemplateWorkoutId;
-				return id === null ? [] : [id];
-			}),
-		);
-		const [comparisons, targets] = yield* Effect.all(
-			[
-				batched(comparisonIds, (workoutIds) =>
-					client.data.query(workoutComparisonsRecipe({ reference }), { workoutIds }),
-				),
-				items.length === 0
-					? Effect.succeed([])
-					: Effect.map(
-							readCursorPages((after) =>
-								client.data.query(
-									workoutTaxonomyRecipe({ reference: reference }),
-									{ workoutIds: items.map(({ entityId }) => entityId) },
-									{ pages: { taxonomy: { after: after } } },
-								),
-							),
-							({ items: taxonomy }) => taxonomy,
-						),
-			],
-			{ concurrency: 2 },
-		);
-		return { targets, comparisons };
-	});
+const workoutItemDetails = (items: readonly WorkoutListItem[]) => ({
+	comparisons: items.flatMap((item) => item.comparisons.items),
+});
 
 export const loadWorkoutPages = (
 	client: RyotClient,
@@ -109,7 +77,7 @@ export const loadWorkoutPages = (
 				),
 			{ maxPages: input.pages },
 		);
-		return { items, hasMore, ...(yield* enrichWorkoutItems(client, items)) } satisfies WorkoutPages;
+		return { items, hasMore, ...workoutItemDetails(items) } satisfies WorkoutPages;
 	});
 export const workoutsQuery = createRyotQuery<BrowserQueryInput, WorkoutPage, Error>(
 	({ input, client }) =>
@@ -122,7 +90,7 @@ export const workoutsQuery = createRyotQuery<BrowserQueryInput, WorkoutPage, Err
 					pages: { workouts: { after: input.cursor ?? undefined } },
 				},
 			);
-			return { ...page, ...(yield* enrichWorkoutItems(client, page.items)) } satisfies WorkoutPage;
+			return { ...page, ...workoutItemDetails(page.items) } satisfies WorkoutPage;
 		}),
 );
 

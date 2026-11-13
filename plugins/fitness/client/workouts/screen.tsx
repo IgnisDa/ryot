@@ -118,18 +118,9 @@ function WorkoutCards(props: {
 			),
 		[pages],
 	);
-	const targets = useMemo(
-		() =>
-			paginationItems(
-				pages,
-				(page) => page.targets,
-				({ id }) => id,
-			),
-		[pages],
-	);
 	const cards = useMemo(
-		() => buildWorkoutCards({ now, items, targets, imperial, timeZone, comparisons }),
-		[items, comparisons, targets, now, imperial, timeZone],
+		() => buildWorkoutCards({ now, items, imperial, timeZone, comparisons }),
+		[items, comparisons, now, imperial, timeZone],
 	);
 	const window = weeksWindow(cards);
 	return layout === "table" || window === null ? (

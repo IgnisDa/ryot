@@ -1,7 +1,6 @@
 import { builtinSavedViewReference } from "@ryot-app/contract/modules/plugins/references";
 import {
 	workoutCardsRecipe,
-	workoutComparisonsRecipe,
 	workoutCountRecipe,
 	workoutSummaryRecipe,
 	workoutWeeksRecipe,
@@ -423,11 +422,9 @@ describe("Workouts E2E", () => {
 			expect(
 				yield* executeRyotQLRecipe(client, workoutCountRecipe({ reference }), { search: "pul" }),
 			).toBe(2);
-			expect(
-				yield* executeRyotQLRecipe(client, workoutComparisonsRecipe({ reference }), {
-					workoutIds: [legs],
-				}),
-			).toEqual<unknown>([{ id: legs, volume: 500, startedAt: anyOf(String) }]);
+			expect(page.items[0]?.comparisons.items).toEqual<unknown>([
+				{ id: legs, volume: 500, startedAt: anyOf(String) },
+			]);
 
 			const weeks = yield* executeRyotQLRecipe(client, workoutWeeksRecipe({ reference }), {
 				search: "",
@@ -443,6 +440,7 @@ describe("Workouts E2E", () => {
 			const summary = yield* executeRyotQLRecipe(client, workoutSummaryRecipe({ reference }), {
 				range: "custom",
 				customEndDate: "2026-10-15",
+				comparison: "previous-period",
 				customStartDate: "2026-10-09",
 				customPreviousEndDate: "2026-10-08",
 				customPreviousStartDate: "2026-10-02",
