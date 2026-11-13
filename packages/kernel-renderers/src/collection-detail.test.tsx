@@ -111,6 +111,7 @@ const replyMembers = (
 									)
 								: {};
 						return Object.assign(Object.assign({}, member), missing, projected, {
+							__entityPresentation: null,
 							addedAt: "2026-01-01T00:00:00Z",
 							orderRevision: input.revision ?? 0,
 							"member-type": `${owner}/${schema}`,

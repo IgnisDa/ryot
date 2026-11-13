@@ -4,6 +4,7 @@ export { periodCaption, reportingRangeOptions } from "./analytics/reporting";
 export { UTC, TimeZone, deviceTimeZone } from "@ryot-app/contract/schema/time-zone";
 export type { EntityBrowserLayout } from "@ryot-app/contract/modules/saved-views/schemas";
 export type { PluginIdentityReference } from "@ryot-app/contract/modules/plugins/references";
+export { EntityPresentationPayload } from "@ryot-app/contract/modules/entities/presentation";
 export { IosLiveActivityValue, IosLiveActivityContent } from "@ryot-app/plugin-client-contract";
 export {
 	useDrillRequest,
@@ -43,6 +44,17 @@ export type {
 	PluginIosLiveActivityListResult,
 } from "@ryot-app/plugin-client-contract";
 export {
+	EntityResults,
+	type EntityReference,
+	defineEntityPresentation,
+	type EntityResultsLayout,
+	type EntityPresentationSource,
+	type EntityPresentationPrepare,
+	type EntityPresentationDefinition,
+	type EntityPresentationRegistration,
+	type EntityPresentationComponentProps,
+} from "./presentations/entity-results";
+export {
 	PluginLink,
 	usePluginTitle,
 	usePageShortcut,
@@ -58,18 +70,7 @@ export {
 	type PluginEntityDefinition,
 	type PluginRouterDefinition,
 } from "./navigation/routing";
-export {
-	EntityResults,
-	type EntityReference,
-	defineEntityPresentation,
-	type EntityResultsLayout,
-	type EntityPresentationLoader,
-	type EntityPresentationSource,
-	type EntityPresentationPrepare,
-	type EntityPresentationDefinition,
-	type EntityPresentationRegistration,
-	type EntityPresentationComponentProps,
-} from "./presentations/entity-results";
+
 export {
 	CalendarDate,
 	type Reported,

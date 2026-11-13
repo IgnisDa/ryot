@@ -200,12 +200,20 @@ export const browserRow = (entityId: string, name: string) => ({
 	name,
 	year: 2026,
 	image: null,
+	memberCount: 0,
 	__entityBrowserName: name,
 	__entityBrowserId: entityId,
 	__entityBrowserSchemaSlug: "item",
 	__entityBrowserOwnerPluginId: "fixture",
 	__entityBrowserPopulationStatus: { state: "succeeded", availability: "complete" },
 	__entityBrowserTranslationStatus: { state: "succeeded", availability: "complete" },
+	__entityPresentation: {
+		data: { name },
+		scope: "owner",
+		schemaSlug: "item",
+		pluginId: "fixture",
+		context: { now: 0, settings: null, timeZone: "UTC" },
+	},
 });
 
 export const browserPage = (

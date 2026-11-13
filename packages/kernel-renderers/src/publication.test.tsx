@@ -30,7 +30,6 @@ const rowsResult = (items: readonly Record<string, unknown>[]) => ({
 const browse = {
 	slug: "item",
 	pluginId: "fixture",
-	presentationFields: [],
 	browse: {
 		fields: [
 			{

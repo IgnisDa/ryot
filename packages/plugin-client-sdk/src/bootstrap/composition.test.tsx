@@ -37,8 +37,6 @@ const About = () => null;
 const Missing = () => null;
 const presentation = defineEntityPresentation<string>({
 	component: ({ data }) => <p>{data}</p>,
-	loader: ({ references }) =>
-		Effect.succeed(Object.fromEntries(references.map(({ entityId }) => [entityId, entityId]))),
 	prepare: ({ references }) =>
 		Result.succeed(Object.fromEntries(references.map(({ entityId }) => [entityId, entityId]))),
 });
@@ -501,10 +499,9 @@ describe("composition bootstrap presentations", () => {
 	);
 
 	for (const [name, value] of [
-		["non-callable loader", { ...presentation, loader: {} }],
 		["non-callable prepare", { ...presentation, prepare: "prepare" }],
 		["plain object component", { ...presentation, component: {} }],
-		["missing component", { loader: presentation.loader, prepare: presentation.prepare }],
+		["missing component", { prepare: presentation.prepare }],
 	] as const) {
 		it.effect(
 			`rejects a present but invalid presentation export: ${name}`,

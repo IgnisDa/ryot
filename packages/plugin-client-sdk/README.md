@@ -415,28 +415,6 @@ Before an action runs, `readIds` pages through matching IDs (`ENTITY_IDS_PAGE_SI
 completed, which ends selection mode. `addToCollectionAction` and `removeFromCollectionAction` open
 the kernel collection members screen.
 
-## Entity Presentations
-
-`defineEntityPresentation` accepts an Effect-returning loader. Its context has only `client` and
-`references`; cancellation interrupts the loader fiber rather than passing an `AbortSignal`:
-
-```ts
-loader: ({ client, references }) =>
-	Effect.gen(function* () {
-		// Load and return a record indexed by reference.entityId.
-		return yield* client.data.query(recipeForIdentity, { entityIds: references.map(({ entityId }) => entityId) });
-	}),
-```
-
-The loader returns `Effect.Effect<Readonly<Record<string, Data>>, RyotClientError>`.
-`prepare` decodes embedded query rows without I/O. Missing rows or a failed preparation use the
-loader, so saved views can select only entity references. Thrown preparation errors and malformed
-prepared records remain item failures.
-Presentation batches contain up to 100 sorted references and at most four loaders run at once.
-Interrupted queued work is removed, and completed or interrupted work releases its slot. The
-registry's `load()` still returns a Promise because React's dynamic module import is a framework
-boundary. Batch drain delays continue to use `RyotSchedule` and its TestClock-backed test runtime.
-
 ## Scheduling
 
 `RyotSchedule` supplies clock reads, delayed callbacks, and scoped refresh Effects from the
@@ -456,7 +434,7 @@ the harness clock; per-screen React contexts remain separate from these runtime 
 The test clock governs SDK scheduling only. It does **not** drive `AtomRegistry` idle-TTL sweeps
 (raw `setTimeout`, 5 min default TTL) or `Atom.swr` staleness (`Date.now()` against a 30 s
 `staleTime`), and interested queries never get `Atom.swr` at all. Advancing the test clock past
-those thresholds will not expire an atom. Cancel-on-unmount queries, including presentation and
+those thresholds will not expire an atom. Cancel-on-unmount queries, including
 managed-asset batches, also skip `Atom.swr`; their refreshes are explicitly requested or scheduled.
 
 `useEntityRefresh` supports controller-owned data and passes a deduplicated batch of updates to its
@@ -538,9 +516,13 @@ The host rejects inline documents, direct plugin sources, saved-view sources, fo
 `describe` equivalents. Draft reads use the exact compiled draft revision, definition hash and artifact
 hash supplied by preview preparation. A stale build must be compiled and prepared again.
 
-Use `EntityResults` with the presentation fields selected by the declared query. Its shared projection
-path calls the plugin presentation's `prepare`; the plugin owns field selection and projection.
-Page frames never fall back to a presentation loader when selected fields are absent or invalid.
+Use `EntityResults` with the typed presentation envelopes returned by a declared rows query with
+`presentation: { entityId: "id", scope: "entity" }` (or `"owner"` for owner enrichment). The backend
+resolves each entity's plugin declaration. Pass the decoded envelopes and references to the SDK;
+`prepare` receives the declared data and captured clock, timezone, and optional settings. It is pure
+and has no query client. Missing or invalid data fails explicitly. An optional `entity` definition
+selects a separate public renderer; without it, both scopes use the same prepare/component pair.
+Paginated results are prepared separately when their captured contexts differ.
 
 Draft previews always refuse operations. Published pages require write access; foreground and
 background calls fail with the displayable `page-write-access-required` reason when access is absent

@@ -27,10 +27,11 @@ and parameter metadata. Do not send inline documents, saved-view queries or refe
 page from a page.
 Decode responses with source-owned schemas or recipe decoders, and derive types from schemas.
 
-Use `EntityResults` from `@ryot-app/plugin-client-sdk/plugin` for entity cards. Select the owning
-plugin's presentation fields in the declared query, then pass the selected sources and references
-to that component. Its projection uses the registered presentation's `prepare`; missing or invalid
-fields fail rather than fetching data through a presentation loader. Generic metrics and charts
+Use `EntityResults` from `@ryot-app/plugin-client-sdk/plugin` for entity cards. Request a rows output
+with `presentation: { entityId: "id", scope: "entity" }`, or `"owner"` when the page intentionally
+includes owner enrichment. Pass decoded presentation envelopes and entity references to the
+component. The shared backend resolves the owning plugin's declaration; `prepare` renders captured
+data without fallback reads. Generic metrics and charts
 can render decoded aggregate fields directly.
 
 Compile the saved draft, inspect diagnostics, repair its source and compile again before preview.

@@ -65,11 +65,17 @@ const openCollectionBrowser = () => {
 	return mountBrowsingPage(CollectionBrowserPage, {
 		location: routeLocation("/v/collections"),
 		page: savedViewPageContext({
-			settings: browserSettings,
 			dataSources: browserDataSources,
 			rendererName: "collection-browser",
 			savedViewId: `collection-view-${views}`,
 			view: { icon: "library", name: "All Collections" },
+			settings: {
+				...browserSettings,
+				tableColumns: [
+					...browserSettings.tableColumns,
+					{ label: "Items", field: "memberCount", displayKind: "number" },
+				],
+			},
 		}),
 	});
 };
@@ -109,7 +115,7 @@ const collectionBrowserRow = (entityId: string, name: string) => ({
 	...browserRow(entityId, name),
 	__entityBrowserOwnerPluginId: null,
 	__entityBrowserSchemaSlug: "collection",
-	presentationMemberCount: name === "Favorites" ? 2 : 0,
+	memberCount: name === "Favorites" ? 2 : 0,
 });
 
 const answerBrowser = (
@@ -304,7 +310,6 @@ describe("entity browser", () => {
 			Effect.gen(function* () {
 				const presentation = defineEntityPresentation<string>({
 					component: ({ data }) => <p>{`Presented ${data}`}</p>,
-					loader: () => Effect.die("Embedded presentation should not load"),
 					prepare: ({ sources, references }) =>
 						Result.all(
 							Object.fromEntries(

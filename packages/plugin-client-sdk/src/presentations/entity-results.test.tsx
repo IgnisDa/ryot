@@ -1,5 +1,7 @@
 import { afterEach, describe, expect } from "bun:test";
 
+import type { EntityPresentationPayload } from "@ryot-app/contract/modules/entities/presentation";
+import { UTC } from "@ryot-app/contract/schema/time-zone";
 import type { EntityWatch } from "@ryot-app/plugin-client-contract";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { fireEvent } from "@testing-library/dom";
@@ -38,7 +40,19 @@ const reference = (
 
 const presentationSources = (
 	sources: Readonly<Record<string, EntityPresentationSource>>,
-): ReadonlyMap<string, EntityPresentationSource> => new Map(Object.entries(sources));
+): ReadonlyMap<string, EntityPresentationPayload> =>
+	new Map(
+		Object.entries(sources).map(([id, data]) => [
+			id,
+			{
+				data,
+				scope: "owner",
+				pluginId: "owner",
+				schemaSlug: "item",
+				context: { now: 0, timeZone: UTC, settings: null },
+			},
+		]),
+	);
 
 const presentationsFor = (...entityIds: readonly string[]) =>
 	presentationSources(
@@ -53,8 +67,6 @@ const presentationsAt = (references: readonly EntityReference[], revision: numbe
 const presentationRevision = (source: undefined | EntityPresentationSource) =>
 	typeof source?.revision === "number" ? source.revision : -1;
 
-const unusedPresentationLoader = () => Effect.die("Unexpected presentation loader");
-
 type Clock = ReturnType<typeof createTestRyotClock>;
 let roots: Root[] = [];
 let clocks: Clock[] = [];
@@ -65,7 +77,6 @@ const render = (
 	registrations: readonly EntityPresentationRegistration[],
 	children: ReactNode,
 	adapter: Partial<RyotClientAdapter> = {},
-	allowQueries = true,
 ) => {
 	let current = children;
 	const listeners = new Set<() => void>();
@@ -122,10 +133,7 @@ const render = (
 	act(() => {
 		root.render(
 			<RyotProvider runtime={clock.runtime}>
-				<EntityPresentationRegistryProvider
-					allowQueries={allowQueries}
-					registrations={registrations}
-				>
+				<EntityPresentationRegistryProvider registrations={registrations}>
 					<PluginRouter />
 				</EntityPresentationRegistryProvider>
 			</RyotProvider>,
@@ -296,7 +304,6 @@ describe("EntityResults", () => {
 		() =>
 			Effect.gen(function* () {
 				const definition = defineEntityPresentation<string>({
-					loader: unusedPresentationLoader,
 					prepare: () => Result.succeed({ one: "Projected" }),
 					component: ({ data, reference: entity }) => (
 						<PluginLink to={{ kind: "entity", entityId: entity.entityId }}>{data}</PluginLink>
@@ -320,7 +327,6 @@ describe("EntityResults", () => {
 						references={[reference("one"), reference("generic", { ownerPluginId: null })]}
 					/>,
 					{},
-					false,
 				);
 				yield* flush(clock);
 				expect(container.textContent).toContain("Projected");
@@ -350,7 +356,6 @@ describe("EntityResults", () => {
 				let preparations = 0;
 				let mounts = 0;
 				const definition = defineEntityPresentation<string>({
-					loader: unusedPresentationLoader,
 					component: function Presentation({ data }) {
 						useState(() => {
 							mounts++;
@@ -431,160 +436,16 @@ describe("EntityResults", () => {
 		testTimeout,
 	);
 
-	it.live.each(["missing", "incomplete"])(
-		"loads presentation data for %s embedded sources",
-		(source) =>
-			Effect.gen(function* () {
-				const requests: (readonly EntityReference[])[] = [];
-				const failed = reference("one", {
-					populationStatus: { state: "failed", availability: "missing" },
-					translationStatus: { state: "failed", availability: "missing" },
-				});
-				const registration: EntityPresentationRegistration = {
-					layout: "grid",
-					ownerPluginId: "owner",
-					entitySchemaSlug: "item",
-					load: () =>
-						Promise.resolve(
-							defineEntityPresentation<string>({
-								component: ({ data }) => <p>{data}</p>,
-								prepare: () => Result.fail(new Error("Embedded source has no presentation fields")),
-								loader: ({ references }) => {
-									requests.push(references);
-									return Effect.succeed(
-										Object.fromEntries(
-											references.map(({ entityId }) => [entityId, `Loaded ${entityId}`]),
-										),
-									);
-								},
-							}),
-						),
-				};
-				const { clock, container } = render(
-					[registration],
-					<EntityResults
-						layout="grid"
-						viewContext={null}
-						references={[failed]}
-						presentations={
-							source === "missing"
-								? new Map()
-								: presentationSources({ one: { name: "Entity one" } })
-						}
-					/>,
-				);
-				yield* flush(clock);
-				expect(requests).toEqual([[failed]]);
-				expect(container.textContent).toBe("Loaded one");
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"shares canonical loader batches and reloads changed reference content",
-		() =>
-			Effect.gen(function* () {
-				const requests: (readonly EntityReference[])[] = [];
-				const registration: EntityPresentationRegistration = {
-					layout: "grid",
-					ownerPluginId: "owner",
-					entitySchemaSlug: "item",
-					load: () =>
-						Promise.resolve(
-							defineEntityPresentation<string>({
-								prepare: () => Result.fail("missing"),
-								component: ({ data }) => <p>{data}</p>,
-								loader: ({ references }) => {
-									requests.push(references);
-									return Effect.succeed(
-										Object.fromEntries(
-											references.map((item) => [item.entityId, item.name ?? "Unnamed"]),
-										),
-									);
-								},
-							}),
-						),
-				};
-				const page = (name = "Entity b") => (
-					<>
-						{gridFor([reference("b", { name }), reference("a")], new Map())}
-						{gridFor([reference("a"), reference("b", { name })], new Map())}
-					</>
-				);
-				const { draw, clock, container } = render([registration], page());
-				yield* flush(clock);
-				expect(requests).toEqual([[reference("a"), reference("b")]]);
-				expect(container.textContent).toBe("Entity bEntity aEntity aEntity b");
-				draw(page());
-				yield* flush(clock);
-				expect(requests).toHaveLength(1);
-				draw(page("Changed"));
-				yield* flush(clock);
-				expect(requests).toEqual([
-					[reference("a"), reference("b")],
-					[reference("a"), reference("b", { name: "Changed" })],
-				]);
-				expect(container.textContent).toBe("ChangedEntity aEntity aChanged");
-			}),
-		testTimeout,
-	);
-
-	it.live(
-		"cancels a shared loader only after its final consumer leaves",
-		() =>
-			Effect.gen(function* () {
-				let loads = 0;
-				let cancellations = 0;
-				const registration: EntityPresentationRegistration = {
-					layout: "grid",
-					ownerPluginId: "owner",
-					entitySchemaSlug: "item",
-					load: () =>
-						Promise.resolve(
-							defineEntityPresentation<string>({
-								prepare: () => Result.fail("missing"),
-								component: ({ data }) => <p>{data}</p>,
-								loader: () => {
-									loads++;
-									return Effect.never.pipe(
-										Effect.onInterrupt(() => Effect.sync(() => cancellations++)),
-									);
-								},
-							}),
-						),
-				};
-				const { draw, clock } = render(
-					[registration],
-					<>
-						{gridFor([reference("one")], new Map())}
-						{gridFor([reference("one")], new Map())}
-					</>,
-				);
-				yield* flush(clock);
-				expect(loads).toBe(1);
-				draw(<>{gridFor([reference("one")], new Map())}</>);
-				yield* flush(clock);
-				expect(loads).toBe(1);
-				expect(cancellations).toBe(0);
-				draw(null);
-				yield* flush(clock);
-				expect(cancellations).toBe(1);
-			}),
-		testTimeout,
-	);
-
 	it.live(
 		"uses the exact owner, schema, and layout while preserving visible order",
 		() =>
 			Effect.gen(function* () {
-				const loads: string[] = [];
 				const requests: Array<{
 					readonly ids: readonly string[];
 					readonly sourceIds: readonly string[];
 				}> = [];
 				const presentation = (label: string) =>
 					defineEntityPresentation<string>({
-						loader: unusedPresentationLoader,
 						component: ({ data, reference: entityReference }) => (
 							<p>{`${label}:${entityReference.entityId}:${data}`}</p>
 						),
@@ -596,6 +457,7 @@ describe("EntityResults", () => {
 							return Result.succeed({ a: "first", b: "second" });
 						},
 					});
+				const loads: string[] = [];
 				const registration = (
 					label: string,
 					ownerPluginId: string,
@@ -649,7 +511,6 @@ describe("EntityResults", () => {
 					load: () =>
 						Promise.resolve(
 							defineEntityPresentation<string>({
-								loader: unusedPresentationLoader,
 								component: ({ data }) => <p>{data}</p>,
 								prepare: ({ sources, references }) => {
 									const ids = references.map(({ entityId }) => entityId);
@@ -687,7 +548,6 @@ describe("EntityResults", () => {
 					load: () =>
 						Promise.resolve(
 							defineEntityPresentation<string>({
-								loader: unusedPresentationLoader,
 								component: ({ data }) => <p>{data}</p>,
 								prepare: ({ references }) => {
 									const entityId = references[0]?.entityId ?? "";
@@ -728,7 +588,6 @@ describe("EntityResults", () => {
 					load: () =>
 						Promise.resolve(
 							defineEntityPresentation<string>({
-								loader: unusedPresentationLoader,
 								prepare: () => Result.succeed({ crash: "crash" }),
 								component: () => {
 									renderAttempts++;
@@ -764,7 +623,6 @@ describe("EntityResults", () => {
 					load: () =>
 						Promise.resolve(
 							defineEntityPresentation<string>({
-								loader: unusedPresentationLoader,
 								component: ({ data }) => <p>{data}</p>,
 								prepare: ({ sources, references }) => {
 									preparations++;
@@ -873,7 +731,6 @@ describe("EntityResults", () => {
 						Promise.resolve(
 							defineEntityPresentation<number>({
 								component: Presentation,
-								loader: unusedPresentationLoader,
 								prepare: ({ sources }) => {
 									const revision = presentationRevision(sources.get("one"));
 									revisions.push(revision);
@@ -933,7 +790,6 @@ it.live(
 	"page presentations render selected data and refuse fallback reads",
 	() =>
 		Effect.gen(function* () {
-			const loads: string[] = [];
 			const registration: EntityPresentationRegistration = {
 				layout: "grid",
 				ownerPluginId: "owner",
@@ -942,10 +798,6 @@ it.live(
 					Promise.resolve(
 						defineEntityPresentation<string>({
 							component: ({ data }) => <p>{data}</p>,
-							loader: () => {
-								loads.push("fallback");
-								return Effect.succeed({ one: "Unexpected" });
-							},
 							prepare: ({ sources }) =>
 								sources.get("one")?.title === "Selected"
 									? Result.succeed({ one: "Selected" })
@@ -962,7 +814,6 @@ it.live(
 					presentations={presentationSources({ one: { title: "Selected" } })}
 				/>,
 				{},
-				false,
 			);
 			yield* flush(clock);
 			expect(container.textContent).toContain("Selected");
@@ -976,7 +827,83 @@ it.live(
 			);
 			yield* flush(clock);
 			expect(container.textContent).toContain("This entity could not be loaded.");
-			expect(loads).toEqual([]);
+		}),
+	testTimeout,
+);
+
+it.live(
+	"dispatches entity scope and preserves each page's captured context without extra reads",
+	() =>
+		Effect.gen(function* () {
+			const queries: unknown[] = [];
+			const entity = defineEntityPresentation<string>({
+				component: ({ data }) => <p>{data}</p>,
+				prepare: ({ references }) =>
+					Result.succeed(
+						Object.fromEntries(references.map(({ entityId }) => [entityId, `Public ${entityId}`])),
+					),
+			});
+			const definition = defineEntityPresentation<string>({
+				entity,
+				component: ({ data }) => <p>{data}</p>,
+				prepare: ({ context, references }) =>
+					Result.succeed(
+						Object.fromEntries(
+							references.map(({ entityId }) => [entityId, `${entityId} at ${context?.now}`]),
+						),
+					),
+			});
+			const payloads = new Map(
+				[...presentationsFor("one", "two", "three")].map(([id, payload]) => [
+					id,
+					{ ...payload, context: { ...payload.context, now: id === "one" ? 10 : 20 } },
+				]),
+			);
+			const third = payloads.get("three");
+			if (third) {
+				payloads.set("three", { ...third, scope: "entity" });
+			}
+			const { draw, clock, container } = render(
+				[
+					{
+						layout: "grid",
+						ownerPluginId: "owner",
+						entitySchemaSlug: "item",
+						load: () => Promise.resolve(definition),
+					},
+				],
+				<EntityResults
+					layout="grid"
+					viewContext={null}
+					presentations={payloads}
+					references={[reference("one"), reference("two"), reference("three")]}
+				/>,
+				{
+					query: (request) => {
+						queries.push(request);
+						return Effect.die("Unexpected presentation query");
+					},
+				},
+			);
+			yield* flush(clock);
+			expect(container.textContent).toContain("one at 10");
+			expect(container.textContent).toContain("two at 20");
+			expect(container.textContent).toContain("Public three");
+			const first = payloads.get("one");
+			if (first) {
+				payloads.set("one", { ...first, pluginId: "different" });
+			}
+			draw(
+				<EntityResults
+					layout="grid"
+					viewContext={null}
+					references={[reference("one")]}
+					presentations={new Map(payloads)}
+				/>,
+			);
+			yield* flush(clock);
+			expect(container.textContent).toContain("This entity could not be loaded.");
+			expect(queries).toEqual([]);
 		}),
 	testTimeout,
 );

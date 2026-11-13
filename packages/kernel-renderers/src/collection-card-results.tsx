@@ -1,5 +1,4 @@
 import { browserResultEntries, countLabel } from "@ryot-app/plugin-client-sdk/browser";
-import { Option, Schema } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	type EntityBrowserLayout,
 	type EntityReference,
@@ -19,8 +18,6 @@ import {
 	SyncPip,
 } from "@ryot-app/plugin-ui-sdk/sync";
 import type { EntityBrowserResultItem } from "@ryot-app/ryotql-recipes/saved-views";
-
-const CollectionPresentation = Schema.Struct({ presentationMemberCount: Schema.Finite });
 
 const countText = (count: number | undefined) => {
 	if (count !== undefined) {
@@ -86,13 +83,10 @@ export const CollectionCardResults = ({
 }) => {
 	const { references } = browserResultEntries(items);
 	const counts = new Map(
-		items.map(({ entityId, presentation }) => [
-			entityId,
-			Option.map(
-				Schema.decodeUnknownOption(CollectionPresentation)(presentation),
-				({ presentationMemberCount }) => presentationMemberCount,
-			).pipe(Option.getOrUndefined),
-		]),
+		items.map(({ cells, entityId }) => {
+			const value = cells.find((cell) => cell.key === "memberCount")?.value.value;
+			return [entityId, typeof value === "number" ? value : undefined];
+		}),
 	);
 	return (
 		<div className="@container">

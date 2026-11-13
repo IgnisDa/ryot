@@ -1,3 +1,4 @@
+import type { EntityPresentationPayload } from "@ryot-app/contract/modules/entities/presentation";
 import type { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import {
@@ -33,16 +34,12 @@ import {
 	useSyncExternalStore,
 } from "react";
 
-import type { RyotClient } from "../client/client";
-import { RyotClientError } from "../client/errors";
 import { isComponentType } from "../component-type";
 import {
 	NavigationEnabledContext,
 	PluginLink,
 	usePluginScreenSurface,
 } from "../navigation/routing";
-import { createRyotQuery, type RyotQuery } from "../queries/definitions";
-import { useRyotQuery } from "../queries/hooks";
 import { useEntityRefresh } from "../refresh/entity-hooks";
 import { usePageRefreshRequest } from "../refresh/page-registry";
 
@@ -63,20 +60,16 @@ export type EntityReference = EntitySyncState & {
 	readonly ownerPluginId: null | string;
 };
 
-export type EntityPresentationLoader<Data = unknown> = (context: {
-	readonly client: RyotClient;
-	readonly references: readonly EntityReference[];
-}) => Effect.Effect<Readonly<Record<string, Data>>, RyotClientError>;
-
 export type EntityPresentationDefinition = {
-	readonly loader: EntityPresentationLoader;
 	readonly prepare: EntityPresentationPrepare;
+	readonly entity?: EntityPresentationDefinition;
 	readonly component: ComponentType<EntityPresentationComponentProps<unknown>>;
 };
 
 export type EntityPresentationPrepare<Data = unknown> = (context: {
 	readonly references: readonly EntityReference[];
 	readonly sources: ReadonlyMap<string, EntityPresentationSource>;
+	readonly context?: undefined | EntityPresentationPayload["context"];
 }) => Result.Result<Readonly<Record<string, Data>>, unknown>;
 
 export const isEntityPresentationDefinition = (
@@ -84,15 +77,16 @@ export const isEntityPresentationDefinition = (
 ): value is EntityPresentationDefinition =>
 	typeof value === "object" &&
 	value !== null &&
-	"loader" in value &&
-	typeof value.loader === "function" &&
 	"prepare" in value &&
 	typeof value.prepare === "function" &&
 	"component" in value &&
-	isComponentType(value.component);
+	isComponentType(value.component) &&
+	(!("entity" in value) ||
+		value.entity === undefined ||
+		isEntityPresentationDefinition(value.entity));
 
 export const defineEntityPresentation = <Data,>(definition: {
-	readonly loader: EntityPresentationLoader<Data>;
+	readonly entity?: EntityPresentationDefinition;
 	readonly prepare: EntityPresentationPrepare<Data>;
 	readonly component: ComponentType<EntityPresentationComponentProps<Data>>;
 }): EntityPresentationDefinition => {
@@ -108,19 +102,14 @@ export type EntityPresentationRegistration = {
 	readonly load: () => Promise<EntityPresentationDefinition>;
 };
 
-type BatchInput = readonly EntityReference[];
-
+type PresentationRuntime = { readonly definition: EntityPresentationDefinition };
 type PreparedPresentation =
 	{ readonly success: false } | { readonly success: true; readonly data: unknown };
-type PresentationRuntime = {
-	readonly definition: EntityPresentationDefinition;
-	readonly query: RyotQuery<BatchInput, Readonly<Record<string, unknown>>>;
-};
 type PresentationEntry = {
 	readonly load: () => void;
 	readonly subscribe: (listener: () => void) => () => void;
-	readonly getRuntime: () => undefined | PresentationRuntime;
 	readonly getSnapshot: () => "idle" | "ready" | "failed" | "loading";
+	readonly getRuntime: (scope: "owner" | "entity") => undefined | PresentationRuntime;
 };
 
 class PresentationLoadError extends Schema.TaggedError<
@@ -134,8 +123,6 @@ const registryKey = (
 	layout: EntityResultsLayout,
 ) => `${ownerPluginId}\u0000${entitySchemaSlug}\u0000${layout}`;
 
-const PresentationQueryAllowedContext = createContext(true);
-
 const PresentationRegistryContext = createContext<null | ReadonlyMap<string, PresentationEntry>>(
 	null,
 );
@@ -145,6 +132,7 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 	for (const registration of registrations) {
 		let state: ReturnType<PresentationEntry["getSnapshot"]> = "idle";
 		let presentation: undefined | PresentationRuntime;
+		let entityPresentation: undefined | PresentationRuntime;
 		const listeners = new Set<() => void>();
 		const notify = () => {
 			for (const listener of listeners) {
@@ -155,7 +143,7 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 			registryKey(registration.ownerPluginId, registration.entitySchemaSlug, registration.layout),
 			{
 				getSnapshot: () => state,
-				getRuntime: () => presentation,
+				getRuntime: (scope) => (scope === "entity" ? entityPresentation : presentation),
 				subscribe: (listener) => {
 					listeners.add(listener);
 					return () => {
@@ -175,21 +163,8 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 						}).pipe(
 							Effect.flatMap((definition) =>
 								Effect.sync(() => {
-									const query = createRyotQuery<BatchInput, Readonly<Record<string, unknown>>>(
-										({ client, input: references }) => {
-											const requested = new Set(references.map(({ entityId }) => entityId));
-											return Effect.flatMap(definition.loader({ client, references }), (result) => {
-												for (const entityId of Object.keys(result)) {
-													if (!requested.has(entityId)) {
-														return Effect.fail(new RyotClientError({ reason: "malformed-result" }));
-													}
-												}
-												return Effect.succeed(result);
-											});
-										},
-										{ cancelOnUnmount: true },
-									);
-									presentation = { query, definition };
+									presentation = { definition };
+									entityPresentation = { definition: definition.entity ?? definition };
 									state = "ready";
 									notify();
 								}),
@@ -212,19 +187,15 @@ const createPresentationRuntime = (registrations: readonly EntityPresentationReg
 export const EntityPresentationRegistryProvider = ({
 	children,
 	registrations,
-	allowQueries = true,
 }: {
 	readonly children: ReactNode;
-	readonly allowQueries?: boolean;
 	readonly registrations: readonly EntityPresentationRegistration[];
 }) => {
 	const registry = useMemo(() => createPresentationRuntime(registrations), [registrations]);
 	return (
-		<PresentationQueryAllowedContext.Provider value={allowQueries}>
-			<PresentationRegistryContext.Provider value={registry}>
-				{children}
-			</PresentationRegistryContext.Provider>
-		</PresentationQueryAllowedContext.Provider>
+		<PresentationRegistryContext.Provider value={registry}>
+			{children}
+		</PresentationRegistryContext.Provider>
 	);
 };
 
@@ -352,55 +323,6 @@ const PresentedEntity = ({
 	);
 };
 
-const LoadedEntity = ({
-	input,
-	runtime,
-	reference,
-	viewContext,
-}: {
-	readonly input: BatchInput;
-	readonly viewContext: JsonValue;
-	readonly reference: EntityReference;
-	readonly runtime: PresentationRuntime;
-}) => {
-	const result = useRyotQuery(runtime.query, input);
-	const data = result.data?.[reference.entityId];
-	if (result.isPending) {
-		return <StatusMessage tone="pending">Loading {reference.name ?? "entity"}...</StatusMessage>;
-	}
-	if (data === undefined) {
-		return (
-			<ItemFailure
-				reference={reference}
-				onRetry={result.refetch}
-				message={
-					result.isError
-						? "This entity could not be loaded."
-						: "The presentation did not return this entity."
-				}
-			/>
-		);
-	}
-	return (
-		<>
-			{result.isError && (
-				<div>
-					<StatusMessage tone="error">Refresh failed.</StatusMessage>
-					<Button type="button" variant="ghost" onClick={result.refetch}>
-						Retry
-					</Button>
-				</div>
-			)}
-			<PresentedEntity
-				data={data}
-				reference={reference}
-				viewContext={viewContext}
-				definition={runtime.definition}
-			/>
-		</>
-	);
-};
-
 type ResolvedItem =
 	| { readonly kind: "failed"; readonly reference: EntityReference }
 	| { readonly kind: "generic"; readonly reference: EntityReference }
@@ -408,12 +330,6 @@ type ResolvedItem =
 			readonly kind: "pending";
 			readonly entry: PresentationEntry;
 			readonly reference: EntityReference;
-	  }
-	| {
-			readonly kind: "load";
-			readonly input: BatchInput;
-			readonly reference: EntityReference;
-			readonly runtime: PresentationRuntime;
 	  }
 	| {
 			readonly kind: "ready";
@@ -440,16 +356,7 @@ const EntityResultItem = ({
 	if (item.kind === "failed") {
 		return <ItemFailure reference={item.reference} message="This entity could not be loaded." />;
 	}
-	if (item.kind === "load") {
-		return (
-			<LoadedEntity
-				input={item.input}
-				runtime={item.runtime}
-				viewContext={viewContext}
-				reference={item.reference}
-			/>
-		);
-	}
+
 	return (
 		<PresentedEntity
 			data={item.data}
@@ -524,11 +431,10 @@ export const EntityResults = ({
 	readonly layout: EntityResultsLayout;
 	readonly selection?: undefined | ItemSelection;
 	readonly references: readonly EntityReference[];
-	readonly presentations: ReadonlyMap<string, EntityPresentationSource>;
+	readonly presentations: ReadonlyMap<string, EntityPresentationPayload>;
 	readonly renderItemActions?: undefined | ((reference: EntityReference) => ReactNode);
 }) => {
 	const registry = useContext(PresentationRegistryContext);
-	const allowQueries = useContext(PresentationQueryAllowedContext);
 	if (!registry) {
 		throw new Error("EntityResults must be used in a bootstrapped client application");
 	}
@@ -650,7 +556,9 @@ export const EntityResults = ({
 				reference.ownerPluginId === null
 					? undefined
 					: registry.get(registryKey(reference.ownerPluginId, reference.entitySchemaSlug, layout));
-			const runtime = presentation?.getRuntime();
+			const runtime = presentation?.getRuntime(
+				presentations.get(reference.entityId)?.scope ?? "owner",
+			);
 			if (runtime) {
 				const group = grouped.get(runtime) ?? [];
 				group.push(reference);
@@ -659,55 +567,70 @@ export const EntityResults = ({
 			return { runtime, presentation };
 		});
 		const prepared = new Map<PresentationRuntime, Map<string, PreparedPresentation>>();
-		const loads = new Map<PresentationRuntime, Map<string, BatchInput>>();
 		for (const [runtime, group] of grouped) {
 			const runtimeData = new Map<string, PreparedPresentation>();
-			const runtimeLoads = new Map<string, BatchInput>();
 			prepared.set(runtime, runtimeData);
-			loads.set(runtime, runtimeLoads);
-			const unique = [
-				...new Map(group.map((reference) => [reference.entityId, reference])).values(),
-			];
-			unique.sort((left, right) => left.entityId.localeCompare(right.entityId));
-			for (let offset = 0; offset < unique.length; offset += 100) {
-				const batchReferences = unique.slice(offset, offset + 100);
-				const sources = new Map<string, EntityPresentationSource>();
-				for (const reference of batchReferences) {
-					const source = presentations.get(reference.entityId);
-					if (source !== undefined) {
-						sources.set(reference.entityId, source);
+			const contexts = new Map<string, EntityReference[]>();
+			for (const reference of group) {
+				const key = JSON.stringify(presentations.get(reference.entityId)?.context ?? null);
+				const contextGroup = contexts.get(key) ?? [];
+				contextGroup.push(reference);
+				contexts.set(key, contextGroup);
+			}
+			for (const contextGroup of contexts.values()) {
+				const unique = [
+					...new Map(contextGroup.map((reference) => [reference.entityId, reference])).values(),
+				];
+				unique.sort((left, right) => left.entityId.localeCompare(right.entityId));
+				for (let offset = 0; offset < unique.length; offset += 100) {
+					const batchReferences = unique.slice(offset, offset + 100);
+					const sources = new Map<string, EntityPresentationSource>();
+					for (const reference of batchReferences) {
+						const source = presentations.get(reference.entityId);
+						if (
+							source !== undefined &&
+							source.pluginId === reference.ownerPluginId &&
+							source.schemaSlug === reference.entitySchemaSlug
+						) {
+							sources.set(reference.entityId, source.data);
+						}
 					}
-				}
-				let result: undefined | Result.Result<Readonly<Record<string, unknown>>, unknown>;
-				if (sources.size === batchReferences.length) {
-					try {
-						result = runtime.definition.prepare({ sources, references: batchReferences });
-					} catch {
+					let result: undefined | Result.Result<Readonly<Record<string, unknown>>, unknown>;
+					if (sources.size === batchReferences.length) {
+						try {
+							result = runtime.definition.prepare({
+								sources,
+								references: batchReferences,
+								context: presentations.get(batchReferences[0]?.entityId ?? "")?.context,
+							});
+						} catch {
+							for (const reference of batchReferences) {
+								runtimeData.set(reference.entityId, { success: false });
+							}
+							continue;
+						}
+					}
+					if (result === undefined || Result.isFailure(result)) {
 						for (const reference of batchReferences) {
 							runtimeData.set(reference.entityId, { success: false });
 						}
 						continue;
 					}
-				}
-				if (result === undefined || Result.isFailure(result)) {
-					for (const reference of batchReferences) {
-						runtimeLoads.set(reference.entityId, batchReferences);
-					}
-					continue;
-				}
-				const requested = new Set(batchReferences.map(({ entityId }) => entityId));
-				const hasUnexpected = Object.keys(result.success).some(
-					(entityId) => !requested.has(entityId),
-				);
-				for (const reference of batchReferences) {
-					const data = result.success[reference.entityId];
-					runtimeData.set(
-						reference.entityId,
-						hasUnexpected || data === undefined ? { success: false } : { data, success: true },
+					const requested = new Set(batchReferences.map(({ entityId }) => entityId));
+					const hasUnexpected = Object.keys(result.success).some(
+						(entityId) => !requested.has(entityId),
 					);
+					for (const reference of batchReferences) {
+						const data = result.success[reference.entityId];
+						runtimeData.set(
+							reference.entityId,
+							hasUnexpected || data === undefined ? { success: false } : { data, success: true },
+						);
+					}
 				}
 			}
 		}
+
 		return references.map<ResolvedItem>((reference, index) => {
 			const { runtime, presentation } = entries[index] ?? {};
 			if (!runtime) {
@@ -715,13 +638,6 @@ export const EntityResults = ({
 					return { reference, kind: "pending", entry: presentation };
 				}
 				return { reference, kind: "generic" };
-			}
-			const input = loads.get(runtime)?.get(reference.entityId);
-			if (input !== undefined) {
-				if (!allowQueries) {
-					return { reference, kind: "failed" };
-				}
-				return { input, runtime, reference, kind: "load" };
 			}
 			const preparedPresentation = prepared.get(runtime)?.get(reference.entityId);
 			if (preparedPresentation?.success !== true) {
@@ -735,7 +651,7 @@ export const EntityResults = ({
 			};
 		});
 		// oxlint-disable-next-line react-hooks/exhaustive-deps -- The registry's entries change state without changing map identity.
-	}, [layout, presentations, references, registry, presentationState, allowQueries]);
+	}, [layout, presentations, references, registry, presentationState]);
 	return (
 		<NavigationEnabledContext.Provider value={navigationEnabled}>
 			<div className="@container">
