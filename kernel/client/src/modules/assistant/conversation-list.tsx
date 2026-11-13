@@ -4,29 +4,25 @@ import {
 	paginationItems,
 	useRyotInfiniteQuery,
 } from "@ryot-app/plugin-client-sdk/react";
-import {
-	type ActivityTone,
-	Button,
-	LoadMoreButton,
-	Notice,
-	StatusDot,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, LoadMoreButton, Notice } from "@ryot-app/plugin-ui-sdk";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
+import { ASSISTANT_NAME } from "./presentation";
 import { conversationsQuery } from "./service";
+import { AssistantSprite, conversationMood } from "./sprite";
 
 const initialCursor: string | undefined = undefined;
 const statuses = {
-	failed: { tone: "error", label: "Failed", className: "text-danger" },
-	working: { tone: "pending", label: "Working", className: "text-accent-text" },
-	"awaiting-approval": { tone: "warning", label: "Needs approval", className: "text-warning" },
+	failed: { label: "Failed", className: "text-danger" },
+	working: { label: "Working", className: "text-accent-text" },
+	"awaiting-approval": { label: "Needs approval", className: "text-warning" },
 } as const satisfies Record<
 	Exclude<AssistantConversationStatus, "idle">,
-	{ readonly label: string; readonly className: string; readonly tone: ActivityTone }
+	{ readonly label: string; readonly className: string }
 >;
 
 export function AssistantConversationList(props: {
@@ -57,7 +53,7 @@ export function AssistantConversationList(props: {
 			) : null}
 			{items.length === 0 && !conversations.isPending && !conversations.isError ? (
 				<p className="px-2.5 py-4 text-label text-text-subtle">
-					Your conversations with Ryobot appear here.
+					Your conversations with {ASSISTANT_NAME} appear here.
 				</p>
 			) : null}
 			{items.map((item) => {
@@ -79,7 +75,7 @@ export function AssistantConversationList(props: {
 						<span className="flex items-center gap-1.5 text-micro text-text-subtle">
 							{status === null ? null : (
 								<>
-									<StatusDot tone={status.tone} />
+									<AssistantSprite className="w-4" mood={conversationMood(item.status)} />
 									<span className={clsx("font-medium", status.className)}>{status.label}</span>
 									<span aria-hidden="true">·</span>
 								</>

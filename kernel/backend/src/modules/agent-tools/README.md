@@ -1,6 +1,6 @@
 # Agent tools
 
-`AgentToolsService` serves the fixed agent tool surface shared by Ryobot and MCP. Plugins never
+`AgentToolsService` serves the fixed agent tool surface shared by Ryo and MCP. Plugins never
 contribute provider functions; they contribute capabilities that agents discover with `search` and
 call from `execute`. Tool names, input schemas, descriptions and hints are constants in
 `@ryot-app/contract/schema/agent-tool`; every name satisfies the strictest provider function-name
@@ -64,7 +64,7 @@ Every other capability passes through the caller's `WriteGate`:
 - `settle` receives each authorized write's outcome.
 
 Host-call idempotency keys are `<execution>:<host call index>`, so a write retried after a crash
-replays through its owner's idempotency. Ryobot and MCP supply their own gates; see their READMEs.
+replays through its owner's idempotency. Ryo and MCP supply their own gates; see their READMEs.
 
 ## Pages and documentation
 

@@ -48,6 +48,7 @@ const results = (overrides: Partial<CommandResults> = {}): CommandResults => ({
 
 function Harness(props: {
 	readonly stale?: boolean;
+	readonly asked?: string[];
 	readonly pending?: boolean;
 	readonly closed?: string[];
 	readonly retried?: string[];
@@ -75,6 +76,11 @@ function Harness(props: {
 				props.filtered?.push(next);
 				setFilter(next);
 			}}
+			ask={
+				props.asked === undefined
+					? undefined
+					: { text: query.trim(), onAsk: () => props.asked?.push(query.trim()) }
+			}
 		/>
 	);
 }
@@ -101,6 +107,21 @@ describe("command center dialog", () => {
 		expect(within(top).getByText("7")).toBeTruthy();
 		expect(activeLabel()).toBe("Alpha");
 		expect(document.activeElement).toBe(input());
+	});
+
+	it("offers asking the assistant after the results without taking the default", () => {
+		const asked: string[] = [];
+		const selected: string[] = [];
+		render(
+			<Harness asked={asked} selected={selected} results={results()} initialQuery="what's next" />,
+		);
+
+		expect(activeLabel()).toBe("Alpha");
+		fireEvent.keyDown(input(), { key: "End" });
+		expect(activeLabel()).toBe(`Ask Ryo "what's next"`);
+		fireEvent.keyDown(input(), { key: "Enter" });
+		expect(asked).toEqual(["what's next"]);
+		expect(selected).toEqual([]);
 	});
 
 	it("moves the active option with arrows, Home, and End and wraps around", () => {

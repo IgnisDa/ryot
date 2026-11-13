@@ -20,7 +20,7 @@ import type { AuthSessionStore } from "#/modules/auth/service";
 import { gestureSpring } from "#/modules/navigation/drawer-metrics";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { AccountSummary } from "#/modules/shell/account-summary";
-import { SidebarNav } from "#/modules/shell/sidebar-nav";
+import { type SidebarAssistant, SidebarNav } from "#/modules/shell/sidebar-nav";
 import type {
 	SidebarEntry,
 	SidebarSectionName,
@@ -41,7 +41,7 @@ type MobileDrawerProps = {
 	readonly sections: SidebarSections;
 	readonly session: AuthSessionStore;
 	readonly navigation: NavigationData;
-	readonly assistantAttention: number;
+	readonly assistant: SidebarAssistant;
 	readonly catalog: PluginClientCatalog;
 	readonly progress: MotionValue<number>;
 	readonly onCreateCollection: () => void;
@@ -49,7 +49,6 @@ type MobileDrawerProps = {
 	readonly triggerRef: RefObject<null | HTMLElement>;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
-	readonly onNavigateAssistant?: () => void | Promise<void>;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
 	readonly expandedSections?: undefined | Partial<Record<SidebarSectionName, boolean>>;
@@ -137,19 +136,14 @@ export function MobileDrawer(props: MobileDrawerProps) {
 							onToggleSection={props.onToggleSection}
 							expandedSections={props.expandedSections}
 							workspaceSwitcherOpen={workspaceSwitcherOpen}
-							assistantAttention={props.assistantAttention}
 							onCustomize={() => closeThen(props.onCustomize)}
 							onOpenSearch={() => closeThen(props.onOpenSearch)}
 							onNavigateHome={() => closeThen(props.onNavigateHome)}
 							onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 							onCreateCollection={() => closeThen(props.onCreateCollection)}
 							onNavigateItem={(item) => closeThen(() => props.onNavigateItem(item))}
+							assistant={{ ...props.assistant, onOpen: () => closeThen(props.assistant.onOpen) }}
 							onSelectWorkspace={(workspace) => closeThen(() => props.onSelectWorkspace(workspace))}
-							onNavigateAssistant={
-								props.onNavigateAssistant === undefined
-									? undefined
-									: () => closeThen(() => props.onNavigateAssistant?.())
-							}
 						/>
 					</div>
 

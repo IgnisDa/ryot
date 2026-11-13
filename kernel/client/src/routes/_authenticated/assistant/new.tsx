@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { AssistantStart } from "#/modules/assistant/start";
+import { AssistantStartScreen } from "#/modules/assistant/start";
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
 
@@ -9,6 +9,8 @@ export const Route = createFileRoute("/_authenticated/assistant/new")({ componen
 function NewChat() {
 	const { server, runtime } = Route.useRouteContext();
 	return (
-		<AssistantStart disabled={useIsDemoSession(runtime.runSync(AuthService).session(server))} />
+		<AssistantStartScreen
+			disabled={useIsDemoSession(runtime.runSync(AuthService).session(server))}
+		/>
 	);
 }

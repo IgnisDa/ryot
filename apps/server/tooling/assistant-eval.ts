@@ -114,7 +114,7 @@ const tasks: readonly EvalTask[] = [
 		tools: ["page_write"],
 		page: { state: "draft", slug: "eval-hello" },
 		prompt:
-			"Create a page named 'Eval hello' with slug 'eval-hello' that shows the heading 'Hello from Ryobot'.",
+			"Create a page named 'Eval hello' with slug 'eval-hello' that shows the heading 'Hello from Ryo'.",
 	},
 	{
 		name: "page-edit",

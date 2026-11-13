@@ -20,7 +20,8 @@ import { Effect } from "effect";
 import { motion, useMotionValue, useTransform } from "motion/react";
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 
-import { assistantAttentionEntries, useAssistantAttention } from "#/modules/assistant/attention";
+import { assistantAttentionEntries, useAssistantActivity } from "#/modules/assistant/activity";
+import { AssistantPanel, useAssistantPanel } from "#/modules/assistant/panel";
 import { useAuthenticatedSession } from "#/modules/auth/session-boundary";
 import { BackgroundSubmissionTrayView } from "#/modules/background-submissions/tray";
 import { CollectionEditor } from "#/modules/collections/collection-editor";
@@ -88,8 +89,9 @@ export function AuthenticatedShell(props: {
 	const drawerId = useId();
 	const router = useRouter();
 	const navigate = useNavigate();
-	const attention = useAssistantAttention();
-	const { conversationId: activeConversationId } = useParams({ strict: false });
+	const activity = useAssistantActivity();
+	const assistantPanel = useAssistantPanel();
+	const { conversationId: routeConversationId } = useParams({ strict: false });
 	const [dismissedAttention, setDismissedAttention] = useState<ReadonlySet<string>>(new Set());
 	const isDesktop = useIsDesktop();
 	const safeAreaInsets = useSafeAreaInsets();
@@ -209,17 +211,27 @@ export function AuthenticatedShell(props: {
 		setDiscarding(false);
 		return true;
 	};
+	const toggleAssistant = useStableHandler(assistantPanel.toggle);
+	const sidebarAssistant = {
+		mood: activity.mood,
+		onOpen: assistantPanel.toggle,
+		attention: activity.attention.length,
+	};
 	const onKernelShortcut = useCallback(
 		(shortcut: KernelShortcut) => {
 			if (shortcut === "command-center") {
 				setSearchOpen(true);
 				return;
 			}
+			if (shortcut === "assistant") {
+				toggleAssistant();
+				return;
+			}
 			if (isDesktop) {
 				setWorkspaceSwitcherOpen(true);
 			}
 		},
-		[isDesktop],
+		[isDesktop, toggleAssistant],
 	);
 	const customize = useCustomizeDraft({
 		catalog,
@@ -354,6 +366,7 @@ export function AuthenticatedShell(props: {
 	}, [backInterceptors, customizeActive, customize.isDirty, discarding]);
 	useDesktopEffect(() => setDrawerOpen(false));
 	useShortcut(KERNEL_SHORTCUTS.commandCenter, () => setSearchOpen(true));
+	useShortcut(KERNEL_SHORTCUTS.assistant, toggleAssistant);
 
 	return (
 		<div data-testid="authenticated-shell" className="flex h-dvh min-h-0 flex-col md:flex-row">
@@ -366,13 +379,13 @@ export function AuthenticatedShell(props: {
 				activeKey={activeKey}
 				activeHome={homeActive}
 				shortcutsEnabled={isDesktop}
+				assistant={sidebarAssistant}
 				navigation={props.navigation}
 				onNavigateHome={navigateHome}
 				onNavigateItem={navigateItem}
 				onEditSection={openCustomize}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
-				assistantAttention={attention.length}
 				onOpenSearch={() => setSearchOpen(true)}
 				onToggleSection={sidebarExpansion.toggle}
 				expandedSections={sidebarExpansion.expanded}
@@ -380,7 +393,6 @@ export function AuthenticatedShell(props: {
 				onCreateCollection={() => setCreatingCollection(true)}
 				onWorkspaceSwitcherOpenChange={setWorkspaceSwitcherOpen}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
-				onNavigateAssistant={() => navigate({ href: "/assistant" })}
 				customizePanel={
 					customizeActive && isDesktop ? (
 						<CustomizeSidebarPanel
@@ -413,20 +425,19 @@ export function AuthenticatedShell(props: {
 				triggerRef={triggerRef}
 				activeHome={homeActive}
 				hasDrawer={workspaceChrome}
+				assistant={sidebarAssistant}
 				navigation={props.navigation}
 				onNavigateItem={navigateItem}
 				onNavigateHome={navigateHome}
 				activeSettings={settingsActive}
 				onSelectWorkspace={selectWorkspace}
 				onClose={() => setDrawerOpen(false)}
-				assistantAttention={attention.length}
 				onOpenSearch={() => setSearchOpen(true)}
 				onToggleSection={sidebarExpansion.toggle}
 				expandedSections={sidebarExpansion.expanded}
 				onCustomize={() => openCustomize("workspaces")}
 				onCreateCollection={() => setCreatingCollection(true)}
 				onNavigateSettings={() => navigate({ href: "/settings" })}
-				onNavigateAssistant={() => navigate({ href: "/assistant" })}
 			/>
 			<RememberedWorkspaceContext value={rememberedPluginId}>
 				<DeviceScope scope={scope} runtime={runtime} onNavigate={navigateDeviceTarget} />
@@ -468,6 +479,7 @@ export function AuthenticatedShell(props: {
 											}
 										/>
 									</motion.div>
+									<AssistantPanel disabled={isDemo} compact={!isDesktop} panel={assistantPanel} />
 								</ShellChromeContext>
 							</EdgeContext>
 						</PluginTitleContext>
@@ -480,12 +492,14 @@ export function AuthenticatedShell(props: {
 				onReload={() => window.location.reload()}
 				safeAreaBottom={safeAreaInsets.safeAreaBottom}
 				entries={assistantAttentionEntries({
-					activeConversationId,
-					conversations: attention,
 					dismissed: dismissedAttention,
+					onReview: assistantPanel.show,
+					conversations: activity.attention,
 					onDismiss: (id) => setDismissedAttention((dismissed) => new Set([...dismissed, id])),
-					onReview: (id) =>
-						void navigate({ params: { conversationId: id }, to: "/assistant/$conversationId" }),
+					activeConversationId:
+						assistantPanel.open && assistantPanel.view.kind === "conversation"
+							? assistantPanel.view.conversationId
+							: (routeConversationId ?? null),
 				})}
 			/>
 			{discarding && (
@@ -536,6 +550,10 @@ export function AuthenticatedShell(props: {
 					onClose={() => setSearchOpen(false)}
 					onInterceptBack={interceptSearchBack}
 					onNavigate={(href) => void navigate({ href })}
+					onAsk={(text) => {
+						setSearchOpen(false);
+						assistantPanel.ask(text);
+					}}
 				/>
 			)}
 		</div>

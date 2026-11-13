@@ -255,10 +255,11 @@ describe("plugin client bridge contract", () => {
 		const decodeShortcut = Schema.decodeUnknownResult(KernelShortcut);
 
 		expect(KERNEL_SHORTCUTS).toEqual({
+			assistant: "Mod+J",
 			commandCenter: "Mod+K",
 			workspaceSwitcher: "Mod+Shift+Space",
 		});
-		for (const shortcut of ["command-center", "workspace-switcher"]) {
+		for (const shortcut of ["assistant", "command-center", "workspace-switcher"]) {
 			const message = { shortcut, type: "kernel-shortcut" };
 			expect(Result.isSuccess(decodeShortcut(shortcut))).toBe(true);
 			expect(Result.isSuccess(decodeClient(message))).toBe(true);

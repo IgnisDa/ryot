@@ -126,7 +126,7 @@ the persisted `definition` JSON column.
 
 `assistantConversationsRecipe` lists conversation metadata and derived `status` (`idle`, `working`,
 `awaiting-approval` or `failed`, from the latest turn) ordered by latest update, with stable ID
-ordering. `assistantAwaitingApprovalRecipe` lists conversations waiting for a decision.
+ordering. `assistantActivityRecipe` lists conversations that are working or waiting for a decision.
 `assistantConversationRecipe` takes `{ conversationId }`; its named results are `conversation` and
 `turns`. Turns page newest first (ten per page) and include up to 100 of their messages and calls each.
 Call rows carry the current approval revision, immutable descriptor/input pin and bounded result.

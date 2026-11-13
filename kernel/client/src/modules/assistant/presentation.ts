@@ -10,6 +10,8 @@ import type {
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 
+export const ASSISTANT_NAME = "Ryo";
+
 const toolLabels = {
 	read_docs: { detail: "topic", done: "Read docs", approval: "Read docs", running: "Reading docs" },
 	execute: {
@@ -108,8 +110,8 @@ export const workedFor = (turn: Pick<AssistantTranscriptTurn, "createdAt" | "com
 
 export const turnFailureText = (failure: null | AssistantTurnFailure) =>
 	failure?.code === "provider-unavailable"
-		? "Your provider is unavailable. Check Settings → Ryobot."
-		: "Ryobot could not finish this reply. You can try again.";
+		? `Your provider is unavailable. Check Settings → ${ASSISTANT_NAME}.`
+		: `${ASSISTANT_NAME} could not finish this reply. You can try again.`;
 
 export const assistantStarters = (catalog: PluginClientCatalog) => [
 	...catalog.flatMap((entry) =>

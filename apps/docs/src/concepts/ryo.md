@@ -1,12 +1,17 @@
-# Ryobot
+# Ryo
 
-Open **Ryobot** from the sidebar or command center to ask questions about your data, make changes or
-build a custom page. Ryobot does not require Pro.
+Ryo is the little flame that lives in Ryot. Ask it questions about your data, have it make changes or
+let it build a custom page. Ryo does not require Pro.
+
+Open Ryo with **Ask Ryo** in the sidebar or with Cmd+J (Ctrl+J on Windows and Linux). It opens beside
+the page you are on, or as a sheet on phones, so you never lose your place. In the command center,
+type a question and choose **Ask Ryo** below the results. Ryo's face shows what it is doing: thinking,
+working, waiting for your approval or stuck on an error.
 
 ## Connect a provider
 
 If your server has a default provider, you can start chatting immediately. Otherwise, open
-**Settings → Ryobot** and enter your OpenAI-compatible provider's base URL, model name and API key.
+**Settings → Ryo** and enter your OpenAI-compatible provider's base URL, model name and API key.
 Your provider may charge for usage. Your personal settings override the server default.
 
 When updating your settings, leave the API key empty to keep your saved key. **Remove my provider**
@@ -14,23 +19,25 @@ returns to the server default, if available. API keys are never displayed after 
 
 ## Chat and review changes
 
-Choose **New chat** and type what you want, or pick a suggestion from one of your installed apps.
+Choose **New chat** in Ryo's panel and type what you want, or pick a suggestion from one of your
+installed apps.
 Press Enter to send and Shift+Enter for a new line. Your first message starts the conversation and
-names it; use the conversation menu to rename or delete it. Conversations stay in your account, and
-the list shows which ones are working, need your approval or failed.
+names it; use the conversation menu to rename or delete it. Conversations stay in your account.
+Choose **All conversations** in the panel to browse them full screen, where the list shows which
+ones are working, need your approval or failed.
 
-Each reply shows what Ryobot did as a short list of steps. The list stays open while Ryobot works and
+Each reply shows what Ryo did as a short list of steps. The list stays open while Ryo works and
 collapses when it finishes; select it to see every step again. Choose **Stop** to end a reply early.
 
-Ryobot asks for approval before changing data or publishing a page. The request names the change, the
+Ryo asks for approval before changing data or publishing a page. The request names the change, the
 app that makes it and the values it will use; choose **Show raw input** to see the exact request.
-Choose **Approve** or **Decline**. While Ryobot waits, the message box is replaced by a reminder, and
+Choose **Approve** or **Decline**. While Ryo waits, the message box is replaced by a reminder, and
 a notice appears if you are elsewhere in Ryot. If a request changed elsewhere, refresh the
 conversation before deciding.
 
 ## Build and share a page
 
-Ask Ryobot to build a page and describe what it should show. Ryobot writes a private draft without
+Ask Ryo to build a page and describe what it should show. Ryo writes a private draft without
 asking; nothing is published until you save it. Choose **Open preview** to see the draft read-only,
 or open **Source** to read its files. Ask for changes until you are happy with the result.
 

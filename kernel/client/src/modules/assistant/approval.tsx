@@ -11,7 +11,7 @@ import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client
 import { Effect } from "effect";
 import { useState } from "react";
 
-import { approvalSubject } from "./presentation";
+import { approvalSubject, ASSISTANT_NAME } from "./presentation";
 import { assistantFailureText, decideMutation } from "./service";
 
 const settled = {
@@ -61,7 +61,7 @@ export function AssistantApproval(props: {
 			className="overflow-hidden rounded-xl border border-border-emphasis bg-surface shadow-card"
 		>
 			<p className="bg-warning-soft px-4 py-2 text-label font-medium text-warning">
-				Ryobot wants to make a change
+				{ASSISTANT_NAME} wants to make a change
 			</p>
 			<div className="grid gap-3 p-4">
 				<div className="grid gap-1">

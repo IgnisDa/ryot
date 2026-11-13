@@ -3,7 +3,8 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 
 import { AssistantConversationList } from "#/modules/assistant/conversation-list";
-import { AssistantStart } from "#/modules/assistant/start";
+import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
+import { AssistantStartScreen } from "#/modules/assistant/start";
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { AppScreen } from "#/modules/shell/app-screen";
@@ -17,11 +18,11 @@ function AssistantHome() {
 	const edge = useEdge();
 	const navigate = useNavigate();
 	if (!edge.compact) {
-		return <AssistantStart disabled={disabled} />;
+		return <AssistantStartScreen disabled={disabled} />;
 	}
 	return (
 		<AppScreen
-			title="Ryobot"
+			title={ASSISTANT_NAME}
 			barActions={
 				<Button size="sm" variant="ghost" onClick={() => void navigate({ to: "/assistant/new" })}>
 					<AppIcon size={14} name="plus" />

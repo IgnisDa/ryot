@@ -24,7 +24,7 @@ SDK-owned examples. Ship it beside the server bundle and shared chunks. Producti
 without loading build tooling or regenerating the topics; unbundled development generates them from
 current sources.
 
-`assistant-eval.ts` measures Ryobot against a running server with real provider calls, so it is
+`assistant-eval.ts` measures Ryo against a running server with real provider calls, so it is
 kept out of CI. Create an API key for a dedicated account and run
 `RYOT_EVAL_API_URL=http://localhost:<port>/api RYOT_EVAL_API_KEY=<key> bun run tooling/assistant-eval.ts`
 from `apps/server`. When `SERVER_ASSISTANT_MODEL` and `SERVER_ASSISTANT_BASE_URL` are set (Bun also

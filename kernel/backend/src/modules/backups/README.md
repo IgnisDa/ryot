@@ -240,6 +240,6 @@ again. Previews of deleted pages become explicit unavailable text.
 Only user provider URL/model configuration is exported. Key presence is recorded and
 `/assistant/provider/apiKey` appears in manifest redactions when applicable; plaintext, ciphertext,
 encryption attribution and instance provider configuration never enter the archive. Backups offer
-no secret-inclusive option. Restored user overrides have no key: re-enter it in Settings → Ryobot
+no secret-inclusive option. Restored user overrides have no key: re-enter it in Settings → Ryo
 before using an authenticated provider. The override remains selected rather than silently using
 instance credentials. Assistant history or any provider override makes the destination unclean.

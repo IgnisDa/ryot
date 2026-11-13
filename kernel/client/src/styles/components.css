@@ -54,3 +54,168 @@
 @utility ui-form-status {
 	@apply mt-2.5 mb-1.5 text-sm;
 }
+
+.assistant-sprite :is(.assistant-sprite-body, .assistant-sprite-orbit) {
+	transform-box: view-box;
+}
+.assistant-sprite .assistant-sprite-body {
+	transform-origin: 60px 116px;
+	animation: assistant-sprite-bob 3s ease-in-out infinite;
+}
+.assistant-sprite
+	:is(
+		.assistant-sprite-shadow,
+		.assistant-sprite-eyes,
+		.assistant-sprite-alert,
+		.assistant-sprite-twinkle path
+	) {
+	transform-box: fill-box;
+	transform-origin: center;
+}
+.assistant-sprite .assistant-sprite-shadow {
+	animation: assistant-sprite-shadow 3s ease-in-out infinite;
+}
+.assistant-sprite .assistant-sprite-eyes {
+	animation: assistant-sprite-blink 4.6s infinite;
+}
+.assistant-sprite .assistant-sprite-think circle {
+	opacity: 0.25;
+	animation: assistant-sprite-dot 1.5s ease-in-out infinite;
+}
+.assistant-sprite .assistant-sprite-think circle:nth-child(2) {
+	animation-delay: 0.2s;
+}
+.assistant-sprite .assistant-sprite-think circle:nth-child(3) {
+	animation-delay: 0.4s;
+}
+.assistant-sprite .assistant-sprite-orbit {
+	transform-origin: 60px 72px;
+	animation: assistant-sprite-spin 4s linear infinite;
+}
+.assistant-sprite .assistant-sprite-alert {
+	transform-origin: 20% 100%;
+	animation: assistant-sprite-pop 1.3s ease-in-out infinite;
+}
+.assistant-sprite .assistant-sprite-twinkle path {
+	animation: assistant-sprite-twinkle 1.6s ease-in-out infinite;
+}
+.assistant-sprite .assistant-sprite-twinkle path:nth-child(2) {
+	animation-delay: 0.3s;
+}
+.assistant-sprite .assistant-sprite-twinkle path:nth-child(3) {
+	animation-delay: 0.6s;
+}
+.assistant-sprite .assistant-sprite-sweat {
+	animation: assistant-sprite-drip 2.4s ease-in infinite;
+}
+.assistant-sprite[data-mood="working"] :is(.assistant-sprite-body, .assistant-sprite-shadow) {
+	animation-duration: 0.8s;
+}
+.assistant-sprite[data-mood="waiting"] :is(.assistant-sprite-body, .assistant-sprite-shadow) {
+	animation-duration: 1.6s;
+}
+.assistant-sprite[data-mood="thinking"] .assistant-sprite-body {
+	animation: assistant-sprite-tilt 3.4s ease-in-out infinite;
+}
+.assistant-sprite[data-mood="done"] .assistant-sprite-body {
+	animation: assistant-sprite-hop 1.7s cubic-bezier(0.3, 0.7, 0.4, 1) infinite;
+}
+.assistant-sprite[data-mood="oops"] .assistant-sprite-body {
+	animation: assistant-sprite-wobble 2.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+	.assistant-sprite * {
+		animation: none !important;
+	}
+}
+@keyframes assistant-sprite-bob {
+	50% {
+		transform: translateY(-4px);
+	}
+}
+@keyframes assistant-sprite-shadow {
+	50% {
+		transform: scaleX(0.84);
+		opacity: 0.65;
+	}
+}
+@keyframes assistant-sprite-blink {
+	0%,
+	92%,
+	100% {
+		transform: scaleY(1);
+	}
+	95% {
+		transform: scaleY(0.1);
+	}
+}
+@keyframes assistant-sprite-dot {
+	50% {
+		opacity: 1;
+	}
+}
+@keyframes assistant-sprite-spin {
+	to {
+		transform: rotate(360deg);
+	}
+}
+@keyframes assistant-sprite-pop {
+	50% {
+		transform: scale(1.12) rotate(-6deg);
+	}
+}
+@keyframes assistant-sprite-twinkle {
+	0%,
+	100% {
+		transform: scale(0.6);
+		opacity: 0.4;
+	}
+	50% {
+		transform: scale(1.1);
+		opacity: 1;
+	}
+}
+@keyframes assistant-sprite-drip {
+	0% {
+		transform: translateY(-2px);
+		opacity: 0;
+	}
+	25% {
+		opacity: 1;
+	}
+	100% {
+		transform: translateY(10px);
+		opacity: 0;
+	}
+}
+@keyframes assistant-sprite-tilt {
+	0%,
+	100% {
+		transform: rotate(-4deg);
+	}
+	50% {
+		transform: rotate(3deg) translateY(-3px);
+	}
+}
+@keyframes assistant-sprite-hop {
+	14% {
+		transform: scale(1.07, 0.93);
+	}
+	40% {
+		transform: translateY(-13px) scale(0.96, 1.05);
+	}
+	64% {
+		transform: scale(1.05, 0.95);
+	}
+	80% {
+		transform: none;
+	}
+}
+@keyframes assistant-sprite-wobble {
+	25% {
+		transform: rotate(-4deg);
+	}
+	75% {
+		transform: rotate(4deg);
+	}
+}

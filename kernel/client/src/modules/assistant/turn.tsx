@@ -13,7 +13,8 @@ import { Effect } from "effect";
 
 import { AssistantApproval } from "./approval";
 import { AssistantPageDraft } from "./page-draft";
-import { stepTitle, turnFailureText, workedFor } from "./presentation";
+import { ASSISTANT_NAME, stepTitle, turnFailureText, workedFor } from "./presentation";
+import { AssistantSprite } from "./sprite";
 import { AssistantSteps } from "./steps";
 
 const plural = (count: number) => `${count} ${count === 1 ? "step" : "steps"}`;
@@ -78,19 +79,15 @@ export function AssistantTurn(props: {
 		);
 	};
 	return (
-		<article className="grid gap-3" aria-label="Ryobot turn">
+		<article className="grid gap-3" aria-label={`${ASSISTANT_NAME} turn`}>
 			<p className="max-w-[85%] justify-self-end rounded-xl rounded-br-sm bg-surface-2 px-3.5 py-2 text-body whitespace-pre-wrap text-text">
 				{turn.prompt}
 			</p>
 			{turn.entries.map(entry)}
 			{working && last?.kind !== "steps" ? (
 				<p role="status" className="flex items-center gap-2 text-label text-text-muted">
-					<AppIcon
-						size={14}
-						name="loader-circle"
-						className="animate-spin text-accent-text motion-reduce:animate-none"
-					/>
-					Ryobot is working…
+					<AssistantSprite mood="thinking" className="w-6" />
+					{ASSISTANT_NAME} is working…
 				</p>
 			) : null}
 			{turn.partial ? (

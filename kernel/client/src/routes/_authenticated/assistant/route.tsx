@@ -3,6 +3,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { createFileRoute, Outlet, useNavigate, useParams } from "@tanstack/react-router";
 
 import { AssistantConversationList } from "#/modules/assistant/conversation-list";
+import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
 import { useClearClientPageDocument } from "#/modules/pages/documents/state";
 import { useEdge } from "#/modules/shell/authenticated-shell-context";
 
@@ -18,9 +19,12 @@ function AssistantLayout() {
 	}
 	return (
 		<div className="flex h-full min-h-0">
-			<aside aria-label="Ryobot" className="flex w-72 shrink-0 flex-col border-r border-border">
+			<aside
+				aria-label={`${ASSISTANT_NAME} conversations`}
+				className="flex w-72 shrink-0 flex-col border-r border-border"
+			>
 				<div className="flex items-center justify-between gap-2 px-4 pt-6 pb-3">
-					<h2 className="font-display text-heading font-semibold text-text">Ryobot</h2>
+					<h2 className="font-display text-heading font-semibold text-text">{ASSISTANT_NAME}</h2>
 					<Button
 						size="sm"
 						variant="outline"

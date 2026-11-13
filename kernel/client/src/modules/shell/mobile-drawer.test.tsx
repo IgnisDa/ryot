@@ -102,7 +102,6 @@ function Harness(props: HarnessProps) {
 				activeHome={true}
 				progress={progress}
 				sections={sections}
-				assistantAttention={0}
 				drawerId="test-drawer"
 				activeSettings={false}
 				navigation={navigation}
@@ -116,6 +115,7 @@ function Harness(props: HarnessProps) {
 				catalog={props.catalog ?? [current]}
 				onNavigateHome={() => props.onNavigateHome?.()}
 				onSelectWorkspace={(target) => props.onSelectWorkspace?.(target)}
+				assistant={{ attention: 0, mood: "idle", onOpen: () => undefined }}
 				onClose={() => {
 					props.onClose?.();
 					setIsOpen(false);

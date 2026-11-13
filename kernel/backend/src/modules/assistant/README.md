@@ -182,6 +182,6 @@ because backups omit draft artifacts and compiled markers; deleted page previews
 text. No workflow, wake or provider execution is restored.
 
 User provider URL/model overrides are portable, but API keys are always redacted. Re-enter a
-restored provider's key in Settings → Ryobot. Ciphertext is never copied across users, and instance
+restored provider's key in Settings → Ryo. Ciphertext is never copied across users, and instance
 provider settings and credentials are never exported. Existing history or a provider override makes
 an account ineligible as a clean restore destination.

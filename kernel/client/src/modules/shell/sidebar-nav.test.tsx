@@ -10,7 +10,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import axe from "axe-core";
 import { Effect } from "effect";
 
-import { SidebarNav } from "#/modules/shell/sidebar-nav";
+import { type SidebarAssistant, SidebarNav } from "#/modules/shell/sidebar-nav";
 import type { SidebarSections } from "#/modules/shell/sidebar-sections";
 
 const current: PluginClientCatalogEntry = {
@@ -83,6 +83,8 @@ const sections: SidebarSections = {
 	],
 };
 
+const idleAssistant: SidebarAssistant = { attention: 0, mood: "idle", onOpen: () => undefined };
+
 const renderSidebar = (
 	showSearchShortcut: boolean,
 	customize?: {
@@ -90,6 +92,7 @@ const renderSidebar = (
 		readonly onEditSection?: (section: "views" | "savedViews") => void;
 	},
 	onCreateCollection: () => void = () => undefined,
+	assistant: SidebarAssistant = idleAssistant,
 ) =>
 	render(
 		<SidebarNav
@@ -97,7 +100,7 @@ const renderSidebar = (
 			activeHome={false}
 			catalog={[current]}
 			sections={sections}
-			assistantAttention={0}
+			assistant={assistant}
 			navigation={navigation}
 			workspaceSwitcherOpen={false}
 			onOpenSearch={() => undefined}
@@ -114,6 +117,21 @@ const renderSidebar = (
 	);
 
 describe("sidebar navigation", () => {
+	it("opens the assistant from its row and shows what it is doing", () => {
+		const opened: string[] = [];
+		renderSidebar(true, undefined, undefined, {
+			attention: 2,
+			mood: "waiting",
+			onOpen: () => opened.push("open"),
+		});
+
+		const ask = screen.getByRole("button", { name: /^Ask Ryo/ });
+		expect(within(ask).getByText("Needs your approval · 2")).toBeTruthy();
+		expect(ask.getAttribute("aria-keyshortcuts")).toBe("Mod+J");
+		fireEvent.click(ask);
+		expect(opened).toEqual(["open"]);
+	});
+
 	it("renders sections, counts, empty messages, and the active row", () => {
 		renderSidebar(true);
 
@@ -155,8 +173,8 @@ describe("sidebar navigation", () => {
 				activeHome={true}
 				catalog={[current]}
 				sections={sections}
-				assistantAttention={0}
 				navigation={navigation}
+				assistant={idleAssistant}
 				showSearchShortcut={false}
 				workspaceSwitcherOpen={false}
 				onNavigateHome={() => undefined}
@@ -239,9 +257,9 @@ describe("sidebar overflow", () => {
 				current={current}
 				activeHome={false}
 				catalog={[current]}
-				assistantAttention={0}
 				sections={manySections}
 				navigation={navigation}
+				assistant={idleAssistant}
 				showSearchShortcut={false}
 				activeKey={props.activeKey}
 				workspaceSwitcherOpen={false}

@@ -35,6 +35,7 @@ type CommandCenterProps = {
 	readonly runtime: ClientRuntime;
 	readonly navigation: NavigationData;
 	readonly catalog: PluginClientCatalog;
+	readonly onAsk: (text: string) => void;
 	readonly onInterceptBack: () => boolean;
 	readonly onNavigate: (href: string) => void;
 };
@@ -151,6 +152,7 @@ export function CommandCenter(props: CommandCenterProps) {
 			onInterceptBack={props.onInterceptBack}
 			stale={searching && shown?.query !== trimmed}
 			pending={searching && (shown?.query !== trimmed || !shown.complete)}
+			ask={searching ? { text: trimmed, onAsk: () => props.onAsk(trimmed) } : undefined}
 			onQueryChange={(next) => {
 				setQuery(next);
 				if (next.trim() === "") {

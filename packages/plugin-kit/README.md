@@ -93,7 +93,7 @@ realm across locations, so the initial page context is not a navigation state so
 Client code runs in an opaque-origin iframe without `localStorage`; keep per-device preferences with
 the client SDK's `usePluginStorage`.
 
-`client.assistantStarters` lists up to three example prompts that Ryobot offers when a person starts
+`client.assistantStarters` lists up to three example prompts that Ryo offers when a person starts
 a new chat. Keep each prompt specific to the plugin's data.
 
 Plugins can request a kernel-rendered fixed card through `client.iosLiveActivities`; the client SDK
@@ -790,7 +790,7 @@ is skipped when `scheduler.disableDispatchers` is enabled. Boot scripts must be 
 Operations map a public slug and `user` or `integration` auth to an `operation`-kind script.
 Every operation declares a `title`, `input` and `output` JSON Schema documents, a description of its
 behavior, and `hints: { readOnly, destructive, idempotent }`. The title is a short imperative phrase,
-such as "Log measurement", that Ryobot shows when a person approves the operation. Generate each document with
+such as "Log measurement", that Ryo shows when a person approves the operation. Generate each document with
 `operationJsonSchema(sharedEffectSchema)` from `@ryot-app/plugin-kit/operations`, importing the same
 shared schemas that the script uses. The helper rejects opaque declarations and non-JSON types,
 retains referenced definitions, and describes the encoded wire values as draft 2020-12 JSON Schema.

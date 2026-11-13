@@ -27,7 +27,7 @@ const definition = (source: string): ContractPayload<"pageAuthoring", "create">[
 });
 
 it.live(
-	"starts a chat, repairs a draft without approval, previews, saves and shares it, then reloads history",
+	"asks Ryo from the sidebar, repairs a draft without approval, previews, saves and shares it, then reloads history",
 	() =>
 		Effect.gen(function* () {
 			const { email, client, password } = yield* createAuthenticatedClient();
@@ -74,9 +74,11 @@ it.live(
 			const browser = yield* Playwright.Browser;
 			const owner = yield* browser.newPage();
 			yield* signInThroughHostedOAuth(owner, email, password);
-			yield* owner.goto(`${getFrontendUrl()}/assistant/new`);
-			yield* owner.getByRole("textbox", { name: "Message Ryobot" }).fill("Build my recap page");
-			yield* owner.getByRole("button", { exact: true, name: "Send" }).click();
+			yield* owner.goto(getFrontendUrl());
+			yield* owner.getByRole("button", { name: /^Ask Ryo/ }).click();
+			const panel = owner.getByRole("complementary", { exact: true, name: "Ryo" });
+			yield* panel.getByRole("textbox", { name: "Message Ryo" }).fill("Build my recap page");
+			yield* panel.getByRole("button", { exact: true, name: "Send" }).click();
 			const conversation = yield* pollUntil(
 				"created conversation",
 				executeRyotQLRecipe(client, assistantConversationsRecipe, {}).pipe(
@@ -99,10 +101,10 @@ it.live(
 			expect(calls.map((call) => call.decision)).toEqual([null, null]);
 			expect(stableStringify(calls[0]?.result)).toContain("build-failed");
 			expect(stableStringify(provider.requests[1]?.body)).toContain("build-failed");
-			yield* owner
+			yield* panel
 				.getByText("Your recap is ready to preview and save.", { exact: true })
 				.waitFor({ state: "visible" });
-			yield* owner.getByRole("button", { exact: true, name: "Open preview" }).click();
+			yield* panel.getByRole("button", { exact: true, name: "Open preview" }).click();
 			const dialog = owner.getByRole("dialog", { name: "Generated recap" });
 			yield* dialog
 				.locator("iframe")

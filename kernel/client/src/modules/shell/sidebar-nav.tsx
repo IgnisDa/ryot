@@ -1,6 +1,6 @@
 import { pluginPath } from "@ryot-app/contract/modules/plugins/navigation";
 import { KERNEL_SHORTCUTS } from "@ryot-app/plugin-client-contract";
-import { Badge, ShortcutHint } from "@ryot-app/plugin-ui-sdk";
+import { ShortcutHint } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import type { NavigationData } from "@ryot-app/ryotql-recipes/navigation";
 import type {
@@ -10,6 +10,12 @@ import type {
 import clsx from "clsx";
 import type { ReactNode } from "react";
 
+import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
+import {
+	type AssistantMood,
+	assistantMoodLabels,
+	AssistantSprite,
+} from "#/modules/assistant/sprite";
 import { activateLink } from "#/modules/navigation/link-activation";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { WorkspaceSwitcher } from "#/modules/navigation/workspace-switcher";
@@ -25,13 +31,19 @@ import {
 	workspaceSummary,
 } from "#/modules/shell/sidebar-sections";
 
+export type SidebarAssistant = {
+	readonly attention: number;
+	readonly onOpen: () => void;
+	readonly mood: AssistantMood;
+};
+
 type SidebarNavProps = {
 	readonly activeHome: boolean;
 	readonly activeKey: null | string;
 	readonly onOpenSearch: () => void;
 	readonly sections: SidebarSections;
 	readonly navigation: NavigationData;
-	readonly assistantAttention: number;
+	readonly assistant: SidebarAssistant;
 	readonly showSearchShortcut: boolean;
 	readonly catalog: PluginClientCatalog;
 	readonly onCreateCollection: () => void;
@@ -40,7 +52,6 @@ type SidebarNavProps = {
 	readonly current: null | PluginClientCatalogEntry;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly showWorkspaceShortcut?: boolean | undefined;
-	readonly onNavigateAssistant?: () => void | Promise<void>;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
 	readonly onSelectWorkspace: (workspace: WorkspaceTarget) => void | Promise<void>;
@@ -105,24 +116,24 @@ export function SidebarNav(props: SidebarNavProps) {
 				{props.showSearchShortcut && <ShortcutHint shortcut={KERNEL_SHORTCUTS.commandCenter} />}
 			</button>
 
-			<a
-				href="/assistant"
-				className="flex h-8 items-center gap-2.5 rounded-md px-2.5 text-sm text-text-muted hover:bg-surface-3"
-				onClick={
-					props.onNavigateAssistant === undefined
-						? undefined
-						: activateLink(props.onNavigateAssistant)
-				}
+			<button
+				type="button"
+				onClick={props.assistant.onOpen}
+				aria-keyshortcuts={props.showSearchShortcut ? KERNEL_SHORTCUTS.assistant : undefined}
+				className="flex h-10 items-center gap-2 rounded-md bg-accent-soft px-1.5 text-left transition-colors duration-100 hover:bg-surface-3 motion-reduce:transition-none"
 			>
-				<AppIcon size={16} name="message-circle" />
-				<span className="flex-1">Ryobot</span>
-				{props.assistantAttention > 0 ? (
-					<Badge size="sm" variant="warning">
-						{props.assistantAttention}
-						<span className="sr-only"> awaiting approval</span>
-					</Badge>
-				) : null}
-			</a>
+				<AssistantSprite className="w-7" mood={props.assistant.mood} />
+				<span className="grid min-w-0 flex-1 leading-tight">
+					<span className="text-sm font-medium text-text">Ask {ASSISTANT_NAME}</span>
+					{props.assistant.mood === "idle" ? null : (
+						<span className="truncate text-micro font-medium text-accent-text">
+							{assistantMoodLabels[props.assistant.mood]}
+							{props.assistant.attention > 1 ? ` · ${props.assistant.attention}` : ""}
+						</span>
+					)}
+				</span>
+				{props.showSearchShortcut && <ShortcutHint shortcut={KERNEL_SHORTCUTS.assistant} />}
+			</button>
 
 			<SidebarSection
 				title="Views"

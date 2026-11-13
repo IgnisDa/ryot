@@ -24,14 +24,14 @@ import {
 	isActiveAssistantTurn,
 	projectAssistantTurn,
 } from "@ryot-app/ryotql-recipes/assistant";
-import { useNavigate } from "@tanstack/react-router";
+import { Link } from "@tanstack/react-router";
 import { Effect, Schema } from "effect";
-import { useMemo, useRef, useState } from "react";
+import { type ReactNode, useMemo, useRef, useState } from "react";
 
 import { usePluginCatalog } from "#/modules/plugins/catalog/provider";
-import { AppScreen } from "#/modules/shell/app-screen";
 
 import { AssistantComposer, useAssistantSubmit } from "./composer";
+import { ASSISTANT_NAME } from "./presentation";
 import {
 	assistantFailureText,
 	deleteConversationMutation,
@@ -40,16 +40,28 @@ import {
 	renameConversationMutation,
 	transcriptQuery,
 } from "./service";
+import { type AssistantMood, turnMood } from "./sprite";
 import { AssistantTurn } from "./turn";
 
 const initialCursor: string | undefined = undefined;
 const isTitle = Schema.is(AssistantConversationTitle);
 
-export function AssistantThread(props: {
+export type AssistantFrameParts = {
+	readonly title: string;
+	readonly dock?: ReactNode;
+	readonly followEnd?: string;
+	readonly mood: AssistantMood;
+	readonly actions?: ReactNode;
+	readonly children: ReactNode;
+};
+
+export function AssistantConversation(props: {
 	readonly disabled: boolean;
+	readonly onDeleted: () => void;
+	readonly onStartNew: () => void;
 	readonly conversationId: AssistantConversationId;
+	readonly renderFrame: (parts: AssistantFrameParts) => ReactNode;
 }) {
-	const navigate = useNavigate();
 	const { catalog } = usePluginCatalog();
 	const provider = useRyotQuery(providerQuery, {});
 	const transcript = useRyotInfiniteQuery(
@@ -91,23 +103,25 @@ export function AssistantThread(props: {
 	const active = latest !== undefined && isActiveAssistantTurn(latest.status);
 
 	if (transcript.isSuccess && conversation === undefined) {
-		return (
-			<AppScreen title="Conversation" backFallbackHref="/assistant">
+		return props.renderFrame({
+			mood: "oops",
+			title: "Conversation",
+			children: (
 				<EmptyState
 					description="It may have been deleted."
 					title="This conversation is no longer available"
-					action={<Button onClick={() => void navigate({ to: "/assistant/new" })}>New chat</Button>}
+					action={<Button onClick={props.onStartNew}>New chat</Button>}
 				/>
-			</AppScreen>
-		);
+			),
+		});
 	}
 
 	const title = conversation?.title ?? "Conversation";
 	let dock = (
 		<AssistantComposer
 			submit={submit}
-			placeholder="Reply to Ryobot"
 			disabled={provider.data == null}
+			placeholder={`Reply to ${ASSISTANT_NAME}`}
 			stop={
 				active
 					? {
@@ -127,7 +141,7 @@ export function AssistantThread(props: {
 		dock = (
 			<div className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-xl border border-dashed border-border-strong bg-surface px-4 py-3 text-label text-text-muted">
 				<span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" />
-				<span className="flex-1">Ryobot is waiting for your decision.</span>
+				<span className="flex-1">{ASSISTANT_NAME} is waiting for your decision.</span>
 				<Button
 					size="sm"
 					variant="secondary"
@@ -143,30 +157,28 @@ export function AssistantThread(props: {
 		);
 	}
 
-	return (
-		<AppScreen
-			dock={dock}
-			title={title}
-			width="readable"
-			followEnd={latest?.id ?? ""}
-			backFallbackHref="/assistant"
-			actions={
-				<MenuButton
-					label="Conversation actions"
-					icon={<AppIcon size={16} name="more-horizontal" />}
-					items={[
-						{ key: "rename", label: "Rename", onSelect: () => setRenaming(true) },
-						{
-							key: "delete",
-							label: "Delete",
-							disabled: active,
-							destructive: true,
-							onSelect: () => setDeleting(true),
-						},
-					]}
-				/>
-			}
-		>
+	return props.renderFrame({
+		dock,
+		title,
+		mood: turnMood(latest),
+		followEnd: latest?.id ?? "",
+		actions: (
+			<MenuButton
+				label="Conversation actions"
+				icon={<AppIcon size={16} name="more-horizontal" />}
+				items={[
+					{ key: "rename", label: "Rename", onSelect: () => setRenaming(true) },
+					{
+						key: "delete",
+						label: "Delete",
+						disabled: active,
+						destructive: true,
+						onSelect: () => setDeleting(true),
+					},
+				]}
+			/>
+		),
+		children: (
 			<div className="grid gap-6 pb-2">
 				{props.disabled ? (
 					<Notice tone="info">
@@ -175,8 +187,8 @@ export function AssistantThread(props: {
 				) : null}
 				{provider.data === null ? (
 					<Notice tone="info">
-						Connect your provider in <a href="/settings/assistant">Settings → Ryobot</a> to keep
-						chatting.
+						Connect your provider in{" "}
+						<Link to="/settings/assistant">Settings → {ASSISTANT_NAME}</Link> to keep chatting.
 					</Notice>
 				) : null}
 				{transcript.isError ? (
@@ -208,40 +220,35 @@ export function AssistantThread(props: {
 				{interrupt.error === null ? null : (
 					<Notice tone="danger">{assistantFailureText(interrupt.error)}</Notice>
 				)}
+				{renaming ? (
+					<RenameDialog
+						title={title}
+						onClose={() => setRenaming(false)}
+						conversationId={props.conversationId}
+					/>
+				) : null}
+				{deleting ? (
+					<DestructiveConfirmation
+						triggerRef={menuTrigger}
+						pendingLabel="Deleting…"
+						pending={remove.isPending}
+						title="Delete this conversation?"
+						actionLabel="Delete conversation"
+						onClose={() => setDeleting(false)}
+						detail="Its messages and history are removed permanently. Saved pages stay."
+						errorMessage={remove.error === null ? undefined : assistantFailureText(remove.error)}
+						onConfirm={() =>
+							void Effect.runPromise(
+								remove
+									.mutateEffect({ conversationId: props.conversationId })
+									.pipe(Effect.match({ onFailure: () => undefined, onSuccess: props.onDeleted })),
+							)
+						}
+					/>
+				) : null}
 			</div>
-			{renaming ? (
-				<RenameDialog
-					title={title}
-					onClose={() => setRenaming(false)}
-					conversationId={props.conversationId}
-				/>
-			) : null}
-			{deleting ? (
-				<DestructiveConfirmation
-					triggerRef={menuTrigger}
-					pendingLabel="Deleting…"
-					pending={remove.isPending}
-					title="Delete this conversation?"
-					actionLabel="Delete conversation"
-					onClose={() => setDeleting(false)}
-					detail="Its messages and history are removed permanently. Saved pages stay."
-					errorMessage={remove.error === null ? undefined : assistantFailureText(remove.error)}
-					onConfirm={() =>
-						void Effect.runPromise(
-							remove
-								.mutateEffect({ conversationId: props.conversationId })
-								.pipe(
-									Effect.match({
-										onFailure: () => undefined,
-										onSuccess: () => void navigate({ to: "/assistant" }),
-									}),
-								),
-						)
-					}
-				/>
-			) : null}
-		</AppScreen>
-	);
+		),
+	});
 }
 
 function RenameDialog(props: {

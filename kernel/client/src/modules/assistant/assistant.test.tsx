@@ -271,7 +271,7 @@ it.live(
 
 function NewChatComposer(props: { readonly onSubmitted: (id: string) => void }) {
 	const submit = useAssistantSubmit({ onSubmitted: props.onSubmitted });
-	return <AssistantComposer submit={submit} disabled={false} placeholder="Message Ryobot" />;
+	return <AssistantComposer submit={submit} disabled={false} placeholder="Message Ryo" />;
 }
 
 it.live(
@@ -298,7 +298,7 @@ it.live(
 			);
 			try {
 				const input = yield* Effect.promise(() =>
-					screen.findByRole("textbox", { name: "Message Ryobot" }),
+					screen.findByRole("textbox", { name: "Message Ryo" }),
 				);
 				fireEvent.change(input, { target: { value: "Summarize my week" } });
 				fireEvent.keyDown(input, { key: "Enter", shiftKey: true });
@@ -388,7 +388,7 @@ it.live(
 				expect(address).toHaveProperty("value", "training-volume");
 				fireEvent.click(screen.getByRole("button", { name: "Save page" }));
 				yield* Effect.promise(() =>
-					screen.findByText("Ryobot could not complete this request. Try again."),
+					screen.findByText("Ryo could not complete this request. Try again."),
 				);
 				expect(screen.getByRole("textbox", { name: "Page name" }).hasAttribute("disabled")).toBe(
 					true,
@@ -509,7 +509,7 @@ it.live("names typed provider, stale approval and demo failures", () =>
 					cause: new AssistantError({ reason: { code: "provider-unavailable" } }),
 				}),
 			),
-		).toContain("Settings → Ryobot");
+		).toContain("Settings → Ryo");
 		expect(
 			assistantFailureText(
 				new AuthenticatedApiError({

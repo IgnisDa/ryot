@@ -6,8 +6,18 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { EntityArtWell } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
 import { Schema } from "effect";
-import { type KeyboardEvent, useEffect, useId, useMemo, useRef, useState } from "react";
+import {
+	type KeyboardEvent,
+	type ReactNode,
+	useEffect,
+	useId,
+	useMemo,
+	useRef,
+	useState,
+} from "react";
 
+import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
+import { AssistantSprite } from "#/modules/assistant/sprite";
 import {
 	type CommandOption,
 	type CommandResults,
@@ -26,7 +36,10 @@ type CommandCenterDialogProps = {
 	readonly onQueryChange: (query: string) => void;
 	readonly onFilterChange: (filter: string) => void;
 	readonly onSelect: (option: CommandOption) => void;
+	readonly ask: undefined | { readonly text: string; readonly onAsk: () => void };
 };
+
+const ASK_ID = "ask";
 
 const isHttpUrl = Schema.is(HttpUrl);
 
@@ -46,12 +59,35 @@ function OptionArt(props: { readonly label: string; readonly image: null | Asset
 	);
 }
 
-function OptionRow(props: {
+function OptionContent(props: { readonly option: CommandOption }) {
+	return (
+		<>
+			{props.option.art === undefined ? (
+				<AppIcon size={16} name={props.option.icon} className="shrink-0 text-text-muted" />
+			) : (
+				<OptionArt label={props.option.label} image={props.option.art.image} />
+			)}
+			<span className="min-w-0 flex-1 truncate text-body text-text">{props.option.label}</span>
+			{props.option.description !== undefined && (
+				<span className="shrink-0 truncate text-micro text-text-subtle">
+					{props.option.description}
+				</span>
+			)}
+			{props.option.tag !== undefined && (
+				<span className="max-w-32 shrink-0 truncate rounded-pill border border-border px-1.5 text-micro text-text-subtle">
+					{props.option.tag}
+				</span>
+			)}
+		</>
+	);
+}
+
+function CommandRow(props: {
 	readonly id: string;
 	readonly active: boolean;
+	readonly children: ReactNode;
 	readonly onHover: () => void;
 	readonly onSelect: () => void;
-	readonly option: CommandOption;
 }) {
 	const ref = useRef<HTMLLIElement>(null);
 	useEffect(() => {
@@ -73,22 +109,7 @@ function OptionRow(props: {
 				props.active ? "bg-nav-indicator" : "hover:bg-hover",
 			)}
 		>
-			{props.option.art === undefined ? (
-				<AppIcon size={16} name={props.option.icon} className="shrink-0 text-text-muted" />
-			) : (
-				<OptionArt label={props.option.label} image={props.option.art.image} />
-			)}
-			<span className="min-w-0 flex-1 truncate text-body text-text">{props.option.label}</span>
-			{props.option.description !== undefined && (
-				<span className="shrink-0 truncate text-micro text-text-subtle">
-					{props.option.description}
-				</span>
-			)}
-			{props.option.tag !== undefined && (
-				<span className="max-w-32 shrink-0 truncate rounded-pill border border-border px-1.5 text-micro text-text-subtle">
-					{props.option.tag}
-				</span>
-			)}
+			{props.children}
 		</li>
 	);
 }
@@ -105,14 +126,16 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 	const { empty, filter, groups, filters } = props.results;
 	const options = selectableOptions(groups);
 	const assets = useMemo(() => managedImages(options), [options]);
-	const active = options.find(({ id }) => id === activeOptionId) ?? options.at(0);
+	const ids = [...options.map(({ id }) => id), ...(props.ask === undefined ? [] : [ASK_ID])];
+	const activeId = ids.find((id) => id === activeOptionId) ?? ids.at(0);
+	const active = options.find(({ id }) => id === activeId);
 	const optionDomId = (id: string) => `${baseId}-${id}`;
 	const trimmed = props.query.trim();
 
 	const move = (index: number) => {
-		const next = options.at(index);
+		const next = ids.at(index);
 		if (next !== undefined) {
-			setActiveOptionId(next.id);
+			setActiveOptionId(next);
 		}
 	};
 	const changeFilter = (key: string) => {
@@ -120,7 +143,7 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 		inputRef.current?.focus();
 	};
 	const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-		const index = active === undefined ? -1 : options.indexOf(active);
+		const index = activeId === undefined ? -1 : ids.indexOf(activeId);
 		if (event.key === "Tab" && filters.length > 1) {
 			event.preventDefault();
 			const current = filters.findIndex(({ key }) => key === filter);
@@ -131,16 +154,19 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 			}
 		} else if (event.key === "ArrowDown") {
 			event.preventDefault();
-			move(index + 1 >= options.length ? 0 : index + 1);
+			move(index + 1 >= ids.length ? 0 : index + 1);
 		} else if (event.key === "ArrowUp") {
 			event.preventDefault();
-			move(index <= 0 ? options.length - 1 : index - 1);
+			move(index <= 0 ? ids.length - 1 : index - 1);
 		} else if (event.key === "Home") {
 			event.preventDefault();
 			move(0);
 		} else if (event.key === "End") {
 			event.preventDefault();
-			move(options.length - 1);
+			move(ids.length - 1);
+		} else if (event.key === "Enter" && activeId === ASK_ID) {
+			event.preventDefault();
+			props.ask?.onAsk();
 		} else if (event.key === "Enter" && active !== undefined) {
 			event.preventDefault();
 			props.onSelect(active);
@@ -173,7 +199,7 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 					placeholder="Search or jump to..."
 					aria-controls={`${baseId}-listbox`}
 					onChange={(event) => props.onQueryChange(event.currentTarget.value)}
-					aria-activedescendant={active === undefined ? undefined : optionDomId(active.id)}
+					aria-activedescendant={activeId === undefined ? undefined : optionDomId(activeId)}
 					className="h-12 min-w-0 flex-1 bg-transparent text-base text-text outline-none placeholder:text-text-subtle pointer-fine:text-sm"
 				/>
 				<div
@@ -248,18 +274,47 @@ export function CommandCenterDialog(props: CommandCenterDialogProps) {
 										)}
 									</li>
 									{group.options.map((option) => (
-										<OptionRow
-											option={option}
+										<CommandRow
 											key={option.id}
 											id={optionDomId(option.id)}
-											active={option.id === active?.id}
+											active={option.id === activeId}
 											onSelect={() => props.onSelect(option)}
 											onHover={() => setActiveOptionId(option.id)}
-										/>
+										>
+											<OptionContent option={option} />
+										</CommandRow>
 									))}
 								</ul>
 							</li>
 						))}
+						{props.ask === undefined ? null : (
+							<li role="presentation">
+								<ul
+									role="group"
+									className="flex flex-col gap-0.5"
+									aria-labelledby={`${baseId}-group-${ASK_ID}`}
+								>
+									<li
+										role="presentation"
+										className="px-2.5 py-1 text-micro font-semibold tracking-wide text-text-subtle uppercase"
+									>
+										<span id={`${baseId}-group-${ASK_ID}`}>Ask</span>
+									</li>
+									<CommandRow
+										id={optionDomId(ASK_ID)}
+										onSelect={props.ask.onAsk}
+										active={activeId === ASK_ID}
+										onHover={() => setActiveOptionId(ASK_ID)}
+									>
+										<AssistantSprite mood="thinking" className="w-6" />
+										<span className="min-w-0 flex-1 truncate text-body text-text">
+											Ask {ASSISTANT_NAME}{" "}
+											<span className="text-accent-text">"{props.ask.text}"</span>
+										</span>
+									</CommandRow>
+								</ul>
+							</li>
+						)}
 					</ul>
 				</div>
 			</ManagedAssetProvider>

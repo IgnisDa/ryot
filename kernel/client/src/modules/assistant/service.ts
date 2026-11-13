@@ -6,7 +6,7 @@ import {
 	createRyotQuery,
 } from "@ryot-app/plugin-client-sdk/react";
 import {
-	assistantAwaitingApprovalRecipe,
+	assistantActivityRecipe,
 	type AssistantConversationDetail,
 	type AssistantConversationList,
 	assistantConversationRecipe,
@@ -19,6 +19,8 @@ import { AuthenticatedApiError, isDemoOperationProtectedError } from "#/api/auth
 import type { ApiScope } from "#/api/scope";
 import { KernelHostServices } from "#/host-services";
 
+import { ASSISTANT_NAME } from "./presentation";
+
 export const conversationsQuery = createRyotQuery<
 	{ readonly after?: string | undefined },
 	AssistantConversationList
@@ -29,7 +31,7 @@ export const conversationsQuery = createRyotQuery<
 		{ pages: { conversations: { limit: 30, after: input.after } } },
 	),
 );
-export const awaitingApprovalQuery = createRyotQuery(assistantAwaitingApprovalRecipe);
+export const activityQuery = createRyotQuery(assistantActivityRecipe);
 export const transcriptQuery = createRyotQuery<
 	{ readonly conversationId: string; readonly after?: string | undefined },
 	AssistantConversationDetail
@@ -106,7 +108,7 @@ export const assistantFailureText = (error: unknown): string => {
 			? error.cause.reason.code
 			: null;
 	if (reason === "provider-unavailable") {
-		return "Set up a provider in Settings → Ryobot to start chatting.";
+		return `Set up a provider in Settings → ${ASSISTANT_NAME} to start chatting.`;
 	}
 	if (
 		reason === "revision-stale" ||
@@ -116,13 +118,13 @@ export const assistantFailureText = (error: unknown): string => {
 		return "This request changed. Refresh the conversation and try again.";
 	}
 	if (reason === "conversation-active") {
-		return "Wait for Ryobot to finish or review its pending requests.";
+		return `Wait for ${ASSISTANT_NAME} to finish or review its pending requests.`;
 	}
 	if (reason === "conversation-not-found") {
 		return "This conversation is no longer available.";
 	}
 	if (reason === "page-preview-not-found") {
-		return "This preview has changed. Ask Ryobot for a new preview.";
+		return `This preview has changed. Ask ${ASSISTANT_NAME} for a new preview.`;
 	}
-	return "Ryobot could not complete this request. Try again.";
+	return `${ASSISTANT_NAME} could not complete this request. Try again.`;
 };

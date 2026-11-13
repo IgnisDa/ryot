@@ -3,6 +3,7 @@ import { Button, Card, Field, Notice, TextField } from "@ryot-app/plugin-ui-sdk"
 import { Effect } from "effect";
 import { useState } from "react";
 
+import { ASSISTANT_NAME } from "./presentation";
 import {
 	assistantFailureText,
 	configureProviderMutation,
@@ -24,7 +25,8 @@ export function AssistantProviderForm(props: { readonly disabled: boolean }) {
 	return (
 		<Card className="grid gap-4">
 			<p>
-				Connect an OpenAI-compatible provider to use Ryobot. Your provider may charge for usage.
+				Connect an OpenAI-compatible provider to use {ASSISTANT_NAME}. Your provider may charge for
+				usage.
 			</p>
 			{provider.isError ? (
 				<Notice tone="danger" action={<Button onClick={provider.refetch}>Retry</Button>}>

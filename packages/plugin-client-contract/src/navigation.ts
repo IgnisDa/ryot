@@ -18,6 +18,7 @@ import { strictStruct } from "@ryot-app/contract/schema/utils";
 import { Schema } from "effect";
 
 export const KERNEL_SHORTCUTS = {
+	assistant: "Mod+J",
 	commandCenter: "Mod+K",
 	workspaceSwitcher: "Mod+Shift+Space",
 } as const;
@@ -166,7 +167,11 @@ export const PluginLeadingIntent = Schema.Literals(["back", "drawer", "none"]);
 
 export type PluginLeadingIntent = Schema.Schema.Type<typeof PluginLeadingIntent>;
 
-export const KernelShortcut = Schema.Literals(["command-center", "workspace-switcher"]);
+export const KernelShortcut = Schema.Literals([
+	"assistant",
+	"command-center",
+	"workspace-switcher",
+]);
 
 export type KernelShortcut = Schema.Schema.Type<typeof KernelShortcut>;
 

@@ -1,3 +1,5 @@
+import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
+
 export const settingsGroups = [
 	{
 		label: "You",
@@ -22,7 +24,12 @@ export const settingsGroups = [
 	{
 		label: "Connections",
 		sections: [
-			{ label: "Ryobot", slug: "assistant", icon: "message-circle", path: "/settings/assistant" },
+			{
+				slug: "assistant",
+				label: ASSISTANT_NAME,
+				icon: "message-circle",
+				path: "/settings/assistant",
+			},
 			{
 				icon: "globe",
 				slug: "integrations",

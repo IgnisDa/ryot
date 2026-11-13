@@ -22,6 +22,7 @@ import {
 	defineRecipe,
 	descending,
 	eq,
+	inArray,
 	literal,
 	type Recipe,
 	selectedField,
@@ -65,15 +66,22 @@ export const assistantConversationsRecipe = defineRecipe({
 	},
 });
 
-export const assistantAwaitingApprovalRecipe = defineRecipe({
+export const assistantActivityRecipe = defineRecipe({
 	map: ({ conversations }) => Result.succeed(conversations),
 	queries: {
 		conversations: selectedRows(conversation, {
 			limit: 20,
 			maxLimit: 20,
 			orderBy: [...recentConversations],
-			where: eq(column(conversation, "status"), literal("awaiting-approval")),
-			selection: { id: conversationSelection.id, title: conversationSelection.title },
+			where: inArray(column(conversation, "status"), [
+				literal("working"),
+				literal("awaiting-approval"),
+			]),
+			selection: {
+				id: conversationSelection.id,
+				title: conversationSelection.title,
+				status: conversationSelection.status,
+			},
 		}),
 	},
 });

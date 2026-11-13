@@ -244,6 +244,8 @@ hardware Back close it through the shell back interceptor. Groups:
   not offered.
 - **Recent**: with an empty input, the last eight destinations opened from the command center,
   stored per server/user scope. Storage access is best-effort and the dialog renders without it.
+- **Ask**: while searching, a final row asks the assistant the typed text. It never takes the default
+  selection, so Enter still opens the top result.
 
 The sidebar and mobile drawer share one overflow rule: a section with more than seven items shows the
 first seven plus a "Show N more" / "Show less" disclosure. The active item is always visible: it
@@ -422,22 +424,40 @@ changes from page frames, and closes mutation screens without opening them. Thes
 imported plugins too. Ordinary plugin frames retain their capabilities. The preview route
 `/_authenticated/page-preview/$pageId` uses the same document host and bridge lifecycle.
 
-## Ryobot
+## Ryo
 
-`modules/assistant` owns the `/assistant` routes and `/settings/assistant` provider settings.
-`/assistant/new` starts a chat; the first submission creates the conversation and navigates to
-`/assistant/$conversationId`. Regular layouts keep the conversation list beside every Ryobot screen;
-compact layouts show the list at `/assistant` and push the start and thread screens. `AppScreen`'s
-`dock` holds the composer below the scrolling transcript, and `followEnd`, keyed by the latest
-turn, keeps the transcript's end in view until the reader scrolls back.
+`modules/assistant` owns the assistant panel, the `/assistant` routes and `/settings/assistant`
+provider settings. Product copy names the assistant through `ASSISTANT_NAME`; routes and code say
+`assistant`.
+
+The shell owns `useAssistantPanel`, which opens the panel beside the content column on regular
+layouts and as a `Modal` sheet on compact ones. It renders inside the shell's context providers so
+drafts and previews resolve the edge and chrome. The sidebar and drawer "Ask" row, `Mod+J` (also
+forwarded from plugin frames), the command center's Ask row and the activity-tray Review action all
+open it. The panel keeps its last conversation while closed; the command center's ask starts a new
+one with the typed question. "All conversations" closes the panel and opens the matching route.
+
+`/assistant/new` starts a chat full screen; the first submission creates the conversation and
+navigates to `/assistant/$conversationId`. Regular layouts keep the conversation list beside every
+Ryo screen; compact layouts show the list at `/assistant` and push the start and thread screens.
+`AssistantConversation` and `AssistantStart` own the transcript, composer and dialogs; the route
+supplies an `AppScreen` frame and the panel supplies its own header and scroller. Both frames hold
+the composer below the transcript and pass `followEnd`, keyed by the latest turn, to
+`useFollowEnd`, which keeps the end in view until the reader scrolls back.
+
+`AssistantSprite` draws Ryo with a mood. Conversation status maps to idle, working, waiting
+(`awaiting-approval`) or oops (`failed`); an active turn whose latest step is reasoning shows
+thinking. A sprite that leaves working or thinking for idle hops for a moment. Reduced motion keeps
+the poses without animation. `assistantActivityRecipe` feeds the sidebar row's mood and the
+activity-tray entries for conversations awaiting approval.
 
 The transcript pages turns newest first and renders `projectAssistantTurn` output: the prompt, step
 groups, Markdown replies, approvals and page drafts. Kernel tools are labeled here; capability
 approvals use the owner's `title` and render input through `JsonSchemaValues`. Approval decisions
 use the canonical call revision. Turn submission and page save retain identical request IDs and
 inputs for retries. While a turn works the composer offers Stop; while it awaits approval the dock
-points to the pending card. Conversations awaiting approval add a sidebar badge and an activity-tray
-entry unless that conversation is open.
+points to the pending card. Conversations awaiting approval set the sidebar row's waiting mood and add
+an activity-tray entry unless that conversation is open in a route or the panel.
 
 `assistant-updated` live frames enter the existing scope-fenced entity-watch transport and refresh
 canonical queries through `mutationCompleted`. Reconnect uses that same invalidation path. There is

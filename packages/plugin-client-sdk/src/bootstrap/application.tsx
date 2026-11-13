@@ -85,6 +85,7 @@ const KernelShortcutForwarder = ({
 		runtime.navigation.getSnapshot,
 		runtime.navigation.getSnapshot,
 	);
+	useShortcut(KERNEL_SHORTCUTS.assistant, () => runtime.forwardKernelShortcut("assistant"));
 	useShortcut(KERNEL_SHORTCUTS.commandCenter, () =>
 		runtime.forwardKernelShortcut("command-center"),
 	);

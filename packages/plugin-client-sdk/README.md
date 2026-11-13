@@ -22,7 +22,7 @@ nonsecret contributor package, local plugin, revision, and installation identiti
 `usePluginIdentity(packageId)` and the non-React `client.pluginIdentity(packageId)` accessor return
 the exact `{ kind: "local", pluginId }` binding from that same contributor set. Missing or ambiguous
 membership fails; neither accessor supplies an ambient page-wide `self` owner.
-Reserved `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as semantic kernel messages,
+Reserved `Mod+J`, `Mod+K` and `Mod+Shift+Space` shortcuts are forwarded as semantic kernel messages,
 not raw keyboard events or public `RyotClient` capabilities. An active plugin `OverlayScope`
 suppresses forwarding.
 

@@ -14,6 +14,7 @@ import type { LibrarySearchHit, LibrarySearchResult } from "@ryot-app/ryotql-rec
 import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { Effect, Fiber, Result, Schema } from "effect";
 
+import { ASSISTANT_NAME } from "#/modules/assistant/presentation";
 import { savedViewHref } from "#/modules/plugins/catalog/location";
 import { settingsGroups } from "#/modules/settings/sections";
 import { navigationViewHref } from "#/modules/shell/sidebar-sections";
@@ -113,11 +114,11 @@ export const destinationOptions = (input: {
 			id: `plugin:${plugin.installationId}`,
 		})),
 	{
-		label: "Ryobot",
 		href: "/assistant",
 		group: GO_TO_GROUP,
 		icon: "message-circle",
 		id: "kernel:assistant",
+		label: `${ASSISTANT_NAME} conversations`,
 	},
 	{
 		icon: "settings",

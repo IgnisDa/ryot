@@ -10,7 +10,7 @@ import type { AuthSessionStore } from "#/modules/auth/service";
 import type { WorkspaceTarget } from "#/modules/navigation/workspace-state";
 import { AccountSummary } from "#/modules/shell/account-summary";
 import type { CustomizeSection } from "#/modules/shell/customize/customize-state";
-import { SidebarNav } from "#/modules/shell/sidebar-nav";
+import { type SidebarAssistant, SidebarNav } from "#/modules/shell/sidebar-nav";
 import type {
 	SidebarEntry,
 	SidebarSectionName,
@@ -28,14 +28,13 @@ type DesktopSidebarProps = {
 	readonly customizePanel: ReactNode;
 	readonly shortcutsEnabled: boolean;
 	readonly navigation: NavigationData;
-	readonly assistantAttention: number;
+	readonly assistant: SidebarAssistant;
 	readonly catalog: PluginClientCatalog;
 	readonly onCreateCollection: () => void;
 	readonly workspaceSwitcherOpen: boolean;
 	readonly current: null | PluginClientCatalogEntry;
 	readonly onNavigateHome: () => void | Promise<void>;
 	readonly onNavigateSettings: () => void | Promise<void>;
-	readonly onNavigateAssistant?: () => void | Promise<void>;
 	readonly onEditSection: (section: CustomizeSection) => void;
 	readonly onWorkspaceSwitcherOpenChange: (open: boolean) => void;
 	readonly onNavigateItem: (item: SidebarEntry) => void | Promise<void>;
@@ -64,6 +63,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							catalog={props.catalog}
 							sections={props.sections}
 							activeKey={props.activeKey}
+							assistant={props.assistant}
 							navigation={props.navigation}
 							activeHome={props.activeHome}
 							onOpenSearch={props.onOpenSearch}
@@ -75,9 +75,7 @@ export function DesktopSidebar(props: DesktopSidebarProps) {
 							onSelectWorkspace={props.onSelectWorkspace}
 							showSearchShortcut={props.shortcutsEnabled}
 							onCreateCollection={props.onCreateCollection}
-							assistantAttention={props.assistantAttention}
 							showWorkspaceShortcut={props.shortcutsEnabled}
-							onNavigateAssistant={props.onNavigateAssistant}
 							workspaceSwitcherOpen={props.workspaceSwitcherOpen}
 							onCustomize={() => props.onEditSection("workspaces")}
 							onWorkspaceSwitcherOpenChange={props.onWorkspaceSwitcherOpenChange}

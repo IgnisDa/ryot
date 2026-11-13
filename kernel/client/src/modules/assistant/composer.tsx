@@ -5,6 +5,7 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Effect } from "effect";
 import { type ReactNode, useId, useState } from "react";
 
+import { ASSISTANT_NAME } from "./presentation";
 import { assistantFailureText, submitMutation } from "./service";
 
 export const useAssistantSubmit = (options: {
@@ -79,7 +80,7 @@ export function AssistantComposer(props: {
 				className="grid gap-1.5 rounded-xl border border-border-emphasis bg-surface p-2 pl-3 shadow-sm focus-within:border-border-strong"
 			>
 				<label htmlFor={inputId} className="sr-only">
-					Message Ryobot
+					Message {ASSISTANT_NAME}
 				</label>
 				<div className="flex items-end gap-2">
 					<textarea
