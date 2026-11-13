@@ -5,6 +5,7 @@ import {
 	ClientRendererFile,
 	PageDefinition,
 	PageDraftRevisionBody,
+	PagePluginQueries,
 } from "../modules/pages/schemas";
 import { PluginOperationHints, PluginOperationJsonSchema } from "../modules/plugins/manifest";
 import { strictStruct } from "./utils";
@@ -15,6 +16,8 @@ export const AgentToolName = Schema.Literals([
 	"search",
 	"execute",
 	"read_docs",
+	"page_read",
+	"page_edit",
 	"page_write",
 	"page_publish",
 ]);
@@ -55,6 +58,36 @@ export const PageWriteInput = strictStruct({
 	definition: strictStruct({ ...PageDefinition.fields, files: Schema.Array(PageWriteFile) }),
 });
 export type PageWriteInput = typeof PageWriteInput.Type;
+export const PAGE_READ_MAX_LINES = 2_000;
+export const PageReadInput = strictStruct({
+	pageId: Schema.NonEmptyString,
+	path: optionalInput(Schema.NonEmptyString),
+	offset: optionalInput(Schema.Int.check(Schema.isGreaterThan(0))),
+	limit: optionalInput(
+		Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: PAGE_READ_MAX_LINES })),
+	),
+});
+export type PageReadInput = typeof PageReadInput.Type;
+export const PageEditChange = Schema.Union([
+	strictStruct({
+		path: Schema.NonEmptyString,
+		oldText: Schema.NonEmptyString,
+		newText: Schema.String,
+		replaceAll: optionalInput(Schema.Boolean),
+	}),
+	strictStruct({ path: Schema.NonEmptyString, text: Schema.String }),
+	strictStruct({ path: Schema.NonEmptyString, delete: Schema.Literal(true) }),
+]);
+export type PageEditChange = typeof PageEditChange.Type;
+export const PageEditInput = strictStruct({
+	...PageDraftRevisionBody.fields,
+	edits: Schema.Array(PageEditChange),
+	entry: optionalInput(PageDefinition.fields.entry),
+	queries: optionalInput(PageDefinition.fields.queries),
+	pluginDependencies: optionalInput(PageDefinition.fields.pluginDependencies),
+	pluginQueries: optionalInput(PagePluginQueries),
+});
+export type PageEditInput = typeof PageEditInput.Type;
 export const PagePublishInput = PageDraftRevisionBody;
 
 export const AgentToolDescriptor = strictStruct({
@@ -97,6 +130,24 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		description:
 			"Read Ryot documentation. Without a topic it lists topics. Long topics are split into pages, starting at 1. Read the pages topic before writing a page.",
 	},
+	page_read: {
+		hints: readHints,
+		approval: "none",
+		name: "page_read",
+		title: "Read a page draft",
+		input: toAgentJsonSchema(PageReadInput),
+		description:
+			"Read a page's current draft. Without a path it returns the draft revision, entry, queries, dependencies and the list of files with their line counts. With a path it returns that file's numbered lines from offset (1-based, default 1), up to limit lines (default and maximum 2000).",
+	},
+	page_edit: {
+		approval: "none",
+		hints: writeHints,
+		name: "page_edit",
+		title: "Edit a page draft",
+		input: toAgentJsonSchema(PageEditInput),
+		description:
+			"Change a page draft without resending it, then compile it. Each edit is { path, oldText, newText } to replace text that occurs exactly once (or every occurrence with replaceAll), { path, text } to create or overwrite a file, or { path, delete: true } to remove a file. Edits apply in order. entry, queries, pluginDependencies and pluginQueries replace those definition fields when given. Returns the draft preview identity, or compiler diagnostics with the new draftRevision to repair with another edit.",
+	},
 	page_write: {
 		approval: "none",
 		hints: writeHints,
@@ -104,7 +155,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		title: "Write a page draft",
 		input: toAgentJsonSchema(PageWriteInput),
 		description:
-			"Create a page draft (name, slug, definition) or replace one (pageId, expectedDraftRevision, definition), then compile it. Give each file as { path, text } with its UTF-8 source. Returns the draft preview identity, or compiler diagnostics to repair before writing again.",
+			"Create a page draft (name, slug, definition) or replace a whole one (pageId, expectedDraftRevision, definition), then compile it. Give each file as { path, text } with its UTF-8 source. Prefer page_edit for changes to an existing draft. Returns the draft preview identity, or compiler diagnostics to repair before writing again.",
 	},
 	search: {
 		name: "search",

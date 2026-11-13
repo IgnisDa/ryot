@@ -25,7 +25,7 @@ import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { Context, Effect, Layer, Ref, Schema } from "effect";
+import { Context, Effect, Layer, Ref, Result, Schema } from "effect";
 import { Headers as PlatformHeaders } from "effect/http";
 
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
@@ -119,6 +119,36 @@ const servicesLayer = Layer.unwrap(
 			Layer.mock(PageAuthoringService)({
 				create: (actor, input, key) =>
 					recordIn({ key, actor, create: input.name }, { pageId: "page", draftRevision: 1 }),
+				readDraft: (_userId, pageId) =>
+					Effect.succeed({
+						pageId,
+						name: "Page",
+						slug: "page",
+						draftRevision: 2,
+						definition: {
+							pluginDependencies: {},
+							queries: { queries: {} },
+							entry: "client/page.tsx",
+							files: [{ path: "client/page.tsx", content: Buffer.from("old").toString("base64") }],
+						},
+					}),
+				editDraft: (actor, input, change, key) =>
+					recordIn(
+						{
+							key,
+							actor,
+							edit: Result.map(
+								change.apply({
+									pluginDependencies: {},
+									queries: { queries: {} },
+									entry: "client/page.tsx",
+									files: [{ path: "client/page.tsx", content: Buffer.from("old").toString("base64") }],
+								}),
+								({ files }) => files.map(({ content }) => Buffer.from(content, "base64").toString()),
+							),
+						},
+						{ pageId: input.pageId, draftRevision: input.expectedDraftRevision + 1 },
+					),
 				replaceDraft: (actor, input, key) =>
 					recordIn(
 						{ key, actor, replace: input.pageId },
@@ -348,6 +378,8 @@ layer(registryLayer)("agent tools", (test) => {
 					"search",
 					"execute",
 					"read_docs",
+					"page_read",
+					"page_edit",
 					"page_write",
 					"page_publish",
 				]);
@@ -355,6 +387,7 @@ layer(registryLayer)("agent tools", (test) => {
 					"search",
 					"execute",
 					"read_docs",
+					"page_read",
 				]);
 				assertExitFails(
 					yield* Effect.exit(registry.list(PlatformHeaders.empty)),
@@ -615,7 +648,7 @@ layer(registryLayer)("agent tools", (test) => {
 				const registry = yield* AgentToolsService;
 				expect(
 					(yield* registry.list(headers(owner, false, "none"))).map(({ name }) => name),
-				).toEqual(["search", "execute", "read_docs"]);
+				).toEqual(["search", "execute", "read_docs", "page_read"]);
 				const asked = yield* Ref.make(0);
 				const confirm = yield* recordingGate(() =>
 					Ref.update(asked, (count) => count + 1).pipe(Effect.as(true)),
@@ -641,7 +674,7 @@ layer(registryLayer)("agent tools", (test) => {
 	);
 
 	test.effect(
-		"writes and compiles pages in one call and returns build diagnostics as results",
+		"writes, edits, reads and compiles pages and returns build diagnostics as results",
 		() =>
 			Effect.gen(function* () {
 				yield* Ref.set(yield* Recorded, []);
@@ -700,8 +733,39 @@ layer(registryLayer)("agent tools", (test) => {
 				expect(value(invalid.result)).toEqual({
 					draftRevision: 2,
 					pageId: "invalid",
-					instruction: "Repair the page and write it again with this draftRevision.",
+					instruction: "Repair the page with page_edit using this draftRevision.",
 					error: { code: "definition-invalid", message: "Query 'items': unknown table" },
+				});
+				yield* Ref.set(yield* Recorded, []);
+				const edited = yield* (yield* AgentToolsService).call({
+					confirm: gate,
+					name: "page_edit",
+					headers: headers(),
+					idempotencyKey: "edit",
+					arguments: {
+						pageId: "page",
+						expectedDraftRevision: 2,
+						edits: [{ path: "client/page.tsx", oldText: "old", newText: "new" }],
+					},
+				});
+				expect(edited.state === "completed" && edited.preview?.draftRevision).toBe(3);
+				expect(yield* Ref.get(yield* Recorded)).toEqual([
+					{
+						key: "edit:draft",
+						edit: Result.succeed(["new"]),
+						actor: { userId: owner, kind: "assistant" },
+					},
+					{ key: "edit:compile", compile: { pageId: "page", expectedDraftRevision: 3 } },
+				]);
+				expect(
+					value((yield* call("page_read", { pageId: "page", path: "client/page.tsx" }, gate)).result),
+				).toEqual({
+					endLine: 1,
+					startLine: 1,
+					totalLines: 1,
+					text: "1: old",
+					draftRevision: 2,
+					path: "client/page.tsx",
 				});
 				assertExitFails(
 					yield* Effect.exit(call("page_write", { definition }, gate)),

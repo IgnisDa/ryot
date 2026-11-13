@@ -204,6 +204,8 @@ it.live(
 				"search",
 				"execute",
 				"read_docs",
+				"page_read",
+				"page_edit",
 				"page_write",
 				"page_publish",
 			]);
@@ -254,6 +256,7 @@ it.live(
 				"search",
 				"execute",
 				"read_docs",
+				"page_read",
 			]);
 			expect(listed.result.tools.find(({ name }) => name === "execute")?.annotations).toEqual({
 				readOnlyHint: true,
@@ -266,6 +269,7 @@ it.live(
 				"search",
 				"execute",
 				"read_docs",
+				"page_read",
 			]);
 		}).pipe(Effect.scoped),
 );

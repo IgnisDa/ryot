@@ -1,11 +1,12 @@
 import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
-import { DbError } from "@ryot-app/contract/errors";
+import { BadRequest, DbError } from "@ryot-app/contract/errors";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import {
 	type CreatePageBody,
 	PageAuthoringError,
 	PageBuildResult,
 	PageDraftResult,
+	type PageDefinition,
 	type PageDraftRevisionBody,
 	PageMutationResult,
 	type PageOrigin,
@@ -13,7 +14,7 @@ import {
 } from "@ryot-app/contract/modules/pages/schemas";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { DefinitionCatalog, isReadyPackage } from "#modules/definitions/catalog";
 import { AccountAdmission } from "#modules/mutations/account-admission";
@@ -80,6 +81,31 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				yield* session.acquireUserWriteLock(userId);
 				yield* admission.admitAccount(userId);
 			});
+			const onceDraft = <E, R>(
+				actor: PageAuthoringActor,
+				kind: string,
+				request: unknown,
+				idempotencyKey: string | undefined,
+				write: Effect.Effect<typeof PageDraftResult.Type, E, R>,
+			) =>
+				idempotencyKey === undefined
+					? write
+					: keys
+							.once(
+								idempotencyIdentity({
+									kind,
+									key: idempotencyKey,
+									userId: actor.userId,
+									request: { actor, input: request },
+								}),
+								PageDraftResult,
+								write,
+							)
+							.pipe(
+								Effect.catchTag("IdempotencyConflict", () =>
+									definitionInvalid("Page idempotency key was reused with different input"),
+								),
+							);
 			const create = Effect.fn("PageAuthoringService.create")(function* (
 				actor: PageAuthoringActor,
 				input: CreatePageBody,
@@ -144,26 +170,60 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				return yield* session.transaction(
 					Effect.gen(function* () {
 						yield* lockCatalog(actor.userId);
-						return yield* idempotencyKey === undefined
-							? write
-							: keys
-									.once(
-										idempotencyIdentity({
-											key: idempotencyKey,
-											userId: actor.userId,
-											kind: "page:replace",
-											request: { actor, input },
-										}),
-										PageDraftResult,
-										write,
-									)
-									.pipe(
-										Effect.catchTag("IdempotencyConflict", () =>
-											definitionInvalid("Page idempotency key was reused with different input"),
-										),
-									);
+						return yield* onceDraft(actor, "page:replace", input, idempotencyKey, write);
 					}),
 				);
+			});
+			const editDraft = Effect.fn("PageAuthoringService.editDraft")(function* (
+				actor: PageAuthoringActor,
+				input: PageDraftRevisionBody,
+				change: {
+					readonly request: unknown;
+					readonly apply: (definition: PageDefinition) => Result.Result<PageDefinition, string>;
+				},
+				idempotencyKey?: string,
+			) {
+				const write = Effect.gen(function* () {
+					const row = yield* requireRevision(actor.userId, input, true);
+					const prepared = yield* preparePageDefinition(
+						yield* Effect.fromResult(change.apply(row.draftDefinition)).pipe(
+							Effect.mapError((message) => new BadRequest({ message })),
+						),
+					);
+					yield* checkDependencies(actor.userId, prepared.definition);
+					return yield* repository.replaceDraft(
+						actor.userId,
+						input.pageId,
+						prepared.definition,
+						prepared.definitionHash,
+						actor.kind,
+					);
+				});
+				return yield* session.transaction(
+					Effect.gen(function* () {
+						yield* lockCatalog(actor.userId);
+						return yield* onceDraft(
+							actor,
+							"page:edit",
+							{ input, change: change.request },
+							idempotencyKey,
+							write,
+						);
+					}),
+				);
+			});
+			const readDraft = Effect.fn("PageAuthoringService.readDraft")(function* (
+				userId: UserId,
+				pageId: string,
+			) {
+				const row = yield* requirePage(userId, pageId, false);
+				return {
+					name: row.name,
+					slug: row.slug,
+					pageId: row.id,
+					definition: row.draftDefinition,
+					draftRevision: row.draftRevision,
+				};
 			});
 			const recordBuild = Effect.fn(function* (
 				userId: UserId,
@@ -364,6 +424,8 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			return {
 				create,
 				remove,
+				editDraft,
+				readDraft,
 				replaceDraft,
 				setWriteAccess,
 				publishCompiledDraft,

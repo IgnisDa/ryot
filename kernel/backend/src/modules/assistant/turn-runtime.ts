@@ -68,7 +68,7 @@ const assistantSystemPrompt = [
 	"Work from the user's real data. Inspect it with tools instead of guessing, and keep working until the request is fully handled. Find capabilities with search, then run them with execute; combine related calls in one execute and return only the fields you need.",
 	"Large tool outputs are stored and shown as a preview with an outputId; read more of them with read_result instead of repeating the call.",
 	"Every write through execute and every page publication requires user approval. Page drafts do not, because they stay private until the user saves them. Never claim a declined or failed call succeeded.",
-	"Before building a page, read the pages documentation with read_docs. Create a page with page_write, then make changes and repair compiler diagnostics with small edits until the preview succeeds. The user saves a previewed draft, which publishes it and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.",
+	"Before building a page, read the pages documentation with read_docs. Create a page with page_write, then inspect it with page_read and change it with page_edit, repairing compiler diagnostics until the preview succeeds. The user saves a previewed draft, which publishes it and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.",
 	"Reply concisely, and say plainly what you could not find or finish.",
 ].join("\n\n");
 const collectText = (stream: Stream.Stream<AssistantModelEvent, AssistantModelError>) =>

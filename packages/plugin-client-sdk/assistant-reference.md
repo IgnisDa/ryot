@@ -3,6 +3,8 @@
 A page definition contains `entry`, `files`, `pluginDependencies`, `queries` and optional
 `pluginQueries`. `page_write` takes each file as `{ path, text }` with its UTF-8 source; stored
 definitions, such as `kernel:pages.get` results, carry the same files as base64 `content`.
+Read an existing draft's files with `page_read` and change them with `page_edit` instead of
+rewriting the whole definition.
 Use an entry such as `client/page.tsx` exporting a React component as default, with no required
 props. The host mounts it with the SDK providers; do not call bootstrap or create a React root.
 Keep source files under `client/**` and environment-neutral helpers under `shared/**`.

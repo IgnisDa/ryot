@@ -15,6 +15,8 @@ const toolLabels = {
 	read_docs: { detail: "topic", done: "Read docs", running: "Reading docs" },
 	execute: { detail: null, done: "Ran a script", running: "Running a script" },
 	page_publish: { detail: null, done: "Published a page", running: "Publishing a page" },
+	page_read: { detail: "path", done: "Read a page draft", running: "Reading a page draft" },
+	page_edit: { detail: null, done: "Edited a page draft", running: "Editing a page draft" },
 	page_write: { detail: "name", done: "Wrote a page draft", running: "Writing a page draft" },
 	search: { detail: "query", done: "Searched capabilities", running: "Searching capabilities" },
 	read_result: { detail: "pattern", done: "Read stored output", running: "Reading stored output" },

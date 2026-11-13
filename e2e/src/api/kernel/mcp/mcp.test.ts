@@ -96,7 +96,8 @@ const describeData = (
 			"search",
 			"execute",
 			"read_docs",
-			...(writeAccess === "none" ? [] : ["page_write", "page_publish"]),
+			"page_read",
+			...(writeAccess === "none" ? [] : ["page_edit", "page_write", "page_publish"]),
 		]);
 		expect(tools.result.tools.find(({ name }) => name === "search")?.annotations.readOnlyHint).toBe(
 			true,

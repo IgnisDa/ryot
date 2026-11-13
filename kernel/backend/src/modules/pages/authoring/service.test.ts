@@ -1,6 +1,7 @@
 import { expect } from "bun:test";
 
 import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
+import { BadRequest } from "@ryot-app/contract/errors";
 import { PageAuthoringError, type PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
@@ -170,6 +171,40 @@ layer(database)((test) => {
 					yield* Effect.result(service.create(actor, { ...input, name: "Changed" }, "create")),
 				),
 			).toBe(true);
+		}),
+	);
+
+	test.effect("edits the locked draft in place and replays the edit from its receipt", () =>
+		Effect.gen(function* () {
+			const service = yield* PageAuthoringService;
+			const actor = { userId: owner, kind: "assistant" as const };
+			const created = yield* service.create(actor, { definition, slug: "edit", name: "Edit" });
+			let applied = 0;
+			const change = {
+				request: { entry: "client/page.tsx" },
+				apply: (current: PageDefinition) => {
+					applied += 1;
+					return Result.succeed({ ...current, files: [...current.files, { path: "client/extra.ts", content: "" }] });
+				},
+			};
+			const input = { pageId: created.pageId, expectedDraftRevision: 1 };
+			const edited = yield* service.editDraft(actor, input, change, "edit");
+			expect(yield* service.editDraft(actor, input, change, "edit")).toEqual(edited);
+			expect(applied).toBe(1);
+			const draft = yield* service.readDraft(owner, created.pageId);
+			expect(draft).toMatchObject({ name: "Edit", draftRevision: 2 });
+			expect(draft.definition.files.map(({ path }) => path)).toEqual(["client/extra.ts", "client/page.tsx"]);
+			assertExitFails(
+				yield* Effect.exit(
+					service.editDraft(
+						actor,
+						{ pageId: created.pageId, expectedDraftRevision: 2 },
+						{ request: null, apply: () => Result.fail("oldText was not found") },
+					),
+				),
+				new BadRequest({ message: "oldText was not found" }),
+			);
+			expect((yield* service.readDraft(owner, created.pageId)).draftRevision).toBe(2);
 		}),
 	);
 

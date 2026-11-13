@@ -8,7 +8,9 @@ import {
 	agentTools,
 	DiscoveryInput,
 	ExecuteInput,
+	PageEditInput,
 	PagePublishInput,
+	PageReadInput,
 	PageWriteInput,
 	ReadDocsInput,
 } from "@ryot-app/contract/schema/agent-tool";
@@ -29,6 +31,7 @@ import {
 } from "#platform/tool-result";
 
 import { type AgentAccount, CapabilityCatalog, capabilityNamespaces } from "./catalog";
+import { applyPageEdits, readPageDraft } from "./page-files";
 import { AgentDocs, listAgentDocs, readAgentDocs } from "./docs";
 import {
 	credentialWriteGate,
@@ -75,6 +78,16 @@ const decodeToolInput = (name: AgentToolName, value: JsonValue) => {
 	if (name === "read_docs") {
 		return decode(ReadDocsInput, value).pipe(
 			Effect.map((input) => ({ input, name: "read_docs" as const })),
+		);
+	}
+	if (name === "page_read") {
+		return decode(PageReadInput, value).pipe(
+			Effect.map((input) => ({ input, name: "page_read" as const })),
+		);
+	}
+	if (name === "page_edit") {
+		return decode(PageEditInput, value).pipe(
+			Effect.map((input) => ({ input, name: "page_edit" as const })),
 		);
 	}
 	if (name === "page_write") {
@@ -221,6 +234,26 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 							"Supply name and slug to create a page, or pageId and expectedDraftRevision to replace a draft",
 					});
 				}
+				return yield* compileDraft(account, draft, idempotencyKey);
+			});
+			const pageEdit = Effect.fn("AgentToolsService.pageEdit")(function* (
+				account: AgentAccount,
+				input: PageEditInput,
+				idempotencyKey: string | undefined,
+			) {
+				const draft = yield* pages.editDraft(
+					{ userId: account.user.id, kind: "assistant" },
+					{ pageId: input.pageId, expectedDraftRevision: input.expectedDraftRevision },
+					{ request: input, apply: (definition) => applyPageEdits(definition, input) },
+					keyed(idempotencyKey, "draft"),
+				);
+				return yield* compileDraft(account, draft, idempotencyKey);
+			});
+			const compileDraft = Effect.fn(function* (
+				account: AgentAccount,
+				draft: { readonly pageId: string; readonly draftRevision: number },
+				idempotencyKey: string | undefined,
+			) {
 				return yield* pages
 					.compile(
 						account.user.id,
@@ -236,7 +269,7 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 										value: {
 											...draft,
 											error: error.reason,
-											instruction: "Repair the page and write it again with this draftRevision.",
+											instruction: "Repair the page with page_edit using this draftRevision.",
 										},
 									})
 								: Effect.fail(error),
@@ -283,6 +316,18 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 							? listAgentDocs(docs)
 							: yield* readAgentDocs(docs, topic, page ?? undefined),
 					);
+				}
+				if (decoded.name === "page_read") {
+					const draft = yield* pages.readDraft(account.user.id, decoded.input.pageId);
+					return yield* completed(
+						yield* Effect.fromResult(readPageDraft(draft, decoded.input)).pipe(
+							Effect.mapError((message) => new BadRequest({ message })),
+						),
+					);
+				}
+				if (decoded.name === "page_edit") {
+					const edited = yield* pageEdit(account, decoded.input, invocation.idempotencyKey);
+					return yield* completed(edited.value, edited.preview);
 				}
 				if (decoded.name === "page_write") {
 					const written = yield* pageWrite(account, decoded.input, invocation.idempotencyKey);
