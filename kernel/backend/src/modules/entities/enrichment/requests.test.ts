@@ -7,7 +7,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { Context, DateTime, Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
 
@@ -247,6 +247,83 @@ layer(requestLayer)((test) => {
 					}),
 				);
 				yield* requests.update(full.id, { state: "succeeded" });
+			}),
+		testTimeout,
+	);
+
+	test.effect(
+		"cancels the requester's unclaimed base work when full work for the same target is admitted",
+		() =>
+			Effect.gen(function* () {
+				const requests = yield* EnrichmentRequests;
+				const fixture = yield* RequestFixture;
+				const session = yield* DatabaseSession;
+				const admitBase = Effect.fnUntraced(function* (
+					name: string,
+					status: "queued" | "running",
+					requester: UserId = owner,
+				) {
+					const request = yield* requests.ensure(
+						fixture.input(`${name}-base`, {
+							requester,
+							level: "base",
+							externalId: name,
+							populationPin: "supersede-pin",
+						}),
+					);
+					yield* session.run((db) =>
+						db
+							.insert(job)
+							.values({
+								status,
+								payload: {},
+								attempts: 0,
+								priority: 1,
+								maxAttempts: 3,
+								key: request.id,
+								id: `job-${request.id}`,
+								kind: "entity-population",
+							}),
+					);
+					return request;
+				});
+				const admitFull = (name: string) =>
+					requests.ensure(
+						fixture.input(`${name}-full`, { externalId: name, populationPin: "supersede-pin" }),
+					);
+				const unclaimed = yield* admitBase("supersede-unclaimed", "queued");
+				const claimed = yield* admitBase("supersede-claimed", "running");
+				const shared = yield* admitBase("supersede-shared", "queued");
+				yield* requests.ensure(
+					fixture.input("supersede-shared-follower", {
+						level: "base",
+						requester: recipient,
+						externalId: "supersede-shared",
+						populationPin: "supersede-pin",
+					}),
+				);
+				const foreign = yield* admitBase("supersede-foreign", "queued", recipient);
+				for (const name of [
+					"supersede-unclaimed",
+					"supersede-claimed",
+					"supersede-shared",
+					"supersede-foreign",
+				]) {
+					yield* admitFull(name);
+				}
+				expect(yield* requests.get(unclaimed.id)).toMatchObject({ state: "cancelled" });
+				for (const kept of [claimed, shared, foreign]) {
+					expect(yield* requests.get(kept.id)).toMatchObject({ state: "queued" });
+				}
+				const jobs = yield* session.run((db) =>
+					db
+						.select({ key: job.key })
+						.from(job)
+						.where(inArray(job.key, [unclaimed.id, claimed.id, shared.id, foreign.id])),
+				);
+				expect(new Set(jobs.map(({ key }) => key))).toEqual(
+					new Set([shared.id, claimed.id, foreign.id]),
+				);
 			}),
 		testTimeout,
 	);

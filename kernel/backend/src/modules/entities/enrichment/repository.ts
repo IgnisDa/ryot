@@ -130,6 +130,26 @@ export class EnrichmentRequestsRepository extends Context.Service<EnrichmentRequ
 						.values({ ...input, joinedTo, createdAt, requesterUserId: input.requester })
 						.onConflictDoNothing(),
 				);
+				if (input.operation === "population" && input.level === "full" && input.requester) {
+					yield* session.run((db) =>
+						db.execute(sql`with superseded as (
+							select request.id from ${table} request
+							join ${job} queued on queued.key = request.id and queued.status = 'queued'
+							where request.operation = 'population' and request.level = 'base'
+								and request.state = 'queued' and request.joined_to is null and request.id <> ${input.id}
+								and request.requester_user_id = ${input.requester}
+								and request.provider_id = ${input.providerId} and request.external_id = ${input.externalId}
+								and request.plugin_id = ${input.pluginId} and request.entity_schema_slug = ${input.entitySchemaSlug}
+								and request.scope_user_id is not distinct from ${input.scopeUserId}
+								and not exists (select 1 from ${table} follower where follower.joined_to = request.id)
+							for update of request, queued skip locked
+						), unqueued as (
+							delete from ${job} where key in (select id from superseded) and status = 'queued'
+						)
+						update ${table} set state = 'cancelled', completed_at = ${createdAt}, payload = '{}'
+						where id in (select id from superseded)`),
+					);
+				}
 				const [row] = yield* session.run((db) =>
 					db
 						.select()

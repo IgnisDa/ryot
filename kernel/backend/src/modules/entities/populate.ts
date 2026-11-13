@@ -30,9 +30,20 @@ type PopulatePrincipal = {
 	readonly preferredLanguage: null | string;
 };
 
+const incomplete = (status: WatchedEntity["populationStatus"]) =>
+	status.availability === "missing" || status.availability === "partial";
+
+const active = (status: WatchedEntity["populationStatus"]) =>
+	status.state === "queued" || status.state === "running" || status.state === "retrying";
+
 const missingData = (status: WatchedEntity["populationStatus"]) =>
-	(status.availability === "missing" || status.availability === "partial") &&
-	status.state === "idle";
+	incomplete(status) && status.state === "idle";
+
+/** Related state follows only full requests, so active population without it is base-only work an interactive ask outranks. */
+const awaitingBaseOnly = (row: WatchedEntity) =>
+	incomplete(row.populationStatus) &&
+	active(row.populationStatus) &&
+	!active(row.relatedPopulationStatus);
 
 /** A stale entity gets one refresh try per day, so a provider that keeps failing is not asked on every page view. */
 const refreshAttempt = (populatedAt: string, now: DateTime.Utc) =>
@@ -122,6 +133,9 @@ export class EntityPopulation extends Context.Service<EntityPopulation>()(
 								const populatedAt = staleSince(row);
 								if (missingData(row.populationStatus)) {
 									return yield* populate(provided, { level: interactive ? "full" : "base" });
+								}
+								if (interactive && awaitingBaseOnly(row)) {
+									return yield* populate(provided, { level: "full" });
 								}
 								if (populatedAt !== null && row.populationStatus.state === "idle") {
 									return yield* populate(provided, {

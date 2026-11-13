@@ -37,7 +37,10 @@ Population admission is shared by imports, populate requests, monitoring, refres
 active requests share one fetch under the same provider, external ID, schema owner, data scope,
 and revision/config pin. Requester rows retain separate account authority and outcomes. A refresh
 never joins an ensure-only request, and full work never joins base-only work. Each owning request
-queues one job, interactive before background; each process runs at most eight. At most 1,000 active
+queues one job, interactive before background; each process runs at most eight. A page that asks
+interactively for an entity with only base work in flight admits full interactive work, and admitting
+full work cancels the same requester's unclaimed base request for that target unless another requester
+joined it. At most 1,000 active
 requester rows exist across the installation and 50 per user. Queued jobs hold no sandbox slot.
 Manual refresh can reuse a successful matching refresh for one minute; failed work has no cooldown.
 
