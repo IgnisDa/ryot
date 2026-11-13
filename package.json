@@ -10,7 +10,6 @@
 	],
 	"scripts": {
 		"dev": "turbo dev",
-		"test": "turbo --filter='!@ryot-app/e2e' test",
 		"build": "turbo build",
 		"prepare": "effect-tsgo patch --no-typescript --oxlint",
 		"docker:up": "docker compose -f ci/dev/docker-compose.yml up",
