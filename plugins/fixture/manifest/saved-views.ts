@@ -23,8 +23,6 @@ import { librarySearchQuery } from "@ryot-app/ryotql-recipes/library-search";
 import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
 import { Array as Arr } from "effect";
 
-import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
-
 const entity = table("entity", "entity");
 const name = column(entity, "name");
 const property = (key: string) => jsonPath(column(entity, "properties"), key);
@@ -52,7 +50,6 @@ const buildDefinition = (
 	orderBy: ReturnType<typeof ascending>,
 	image: null | ScalarExpression,
 	columns: NonEmptyColumns,
-	presentationFields: ReturnType<typeof pokemonPresentationSource>["fields"],
 	subtitle: AuthoredEntityBrowserSavedViewSettings["summary"]["subtitle"],
 ) => {
 	const args = parameters({
@@ -74,7 +71,6 @@ const buildDefinition = (
 			...columns.map((tableColumn) => field(tableColumn.field, tableColumn.expression)),
 			field("ownerPluginId", column(entity, "entitySchemaPluginId")),
 			field("entitySchemaSlug", column(entity, "entitySchemaSlug")),
-			...presentationFields,
 		],
 	});
 	const subtitleField = subtitle;
@@ -198,7 +194,6 @@ export const fixtureSavedViews = [
 			ascending(castNumber(property("pokedexNumber"))),
 			pokemonImage,
 			pokemonColumns,
-			pokemonPresentationSource().fields,
 			null,
 		),
 	},
@@ -207,14 +202,10 @@ export const fixtureSavedViews = [
 		sortOrder: 1,
 		name: "All Moves",
 		slug: "all-moves",
-		...buildDefinition(
-			"move",
-			ascending(name),
-			null,
-			moveColumns,
-			movePresentationSource().fields,
-			{ field: "type", displayKind: "text" },
-		),
+		...buildDefinition("move", ascending(name), null, moveColumns, {
+			field: "type",
+			displayKind: "text",
+		}),
 	},
 	{
 		icon: "list",
@@ -226,7 +217,6 @@ export const fixtureSavedViews = [
 			ascending(name),
 			castJson(property("asset")),
 			allFieldControlsColumns,
-			[],
 			{ field: "text", displayKind: "text" },
 		),
 	},

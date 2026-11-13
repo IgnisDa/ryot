@@ -1,16 +1,12 @@
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
 	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
 	type EntityReference,
-	PluginId,
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
-import { defineRecipe, parameters } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Badge, Eyebrow } from "@ryot-app/plugin-ui-sdk";
 import { isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import clsx from "clsx";
@@ -69,49 +65,6 @@ export const prepareMovePresentations: EntityPresentationPrepare<MovePresentatio
 	);
 };
 
-export const loadMovePresentations: EntityPresentationLoader<MovePresentationData> = ({
-	client,
-	references,
-}) => {
-	const source = movePresentationSource();
-	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const selected = references[0];
-	if (selected === undefined) {
-		return Effect.succeed({});
-	}
-	if (selected.ownerPluginId === null) {
-		return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
-	}
-	const owner = {
-		kind: "local",
-		pluginId: PluginId.make(selected.ownerPluginId),
-	} satisfies Parameters<typeof source.query>[0];
-	const input = parameters({
-		fields: {
-			entityIds: {
-				type: "array",
-				label: "Entities",
-				validation: { required: true },
-				description: "Entities to present",
-				items: { type: "string", label: "Entity", description: "Entity ID" },
-			},
-		},
-	});
-	const recipe = defineRecipe({
-		parameters: input.schema,
-		map: ({ presentations }) => Result.succeed(presentations.items),
-		queries: { presentations: source.query(owner, input.list("entityIds")) },
-	});
-	return client.data.query(recipe, { entityIds }).pipe(
-		Effect.flatMap((rows) => {
-			const result = buildMovePresentations(references, rows);
-			return result._tag === "Failure"
-				? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
-				: Effect.succeed(result.success);
-		}),
-	);
-};
-
 function MoveRow({ data, reference }: EntityPresentationComponentProps<MovePresentationData>) {
 	const { compact } = useRyotViewport();
 	return <MovePresentation data={data} layout="list" compact={compact} reference={reference} />;
@@ -165,12 +118,10 @@ function MovePresentation(props: {
 
 export const moveCardPresentation = defineEntityPresentation({
 	component: MoveCard,
-	loader: loadMovePresentations,
 	prepare: prepareMovePresentations,
 });
 
 export const moveRowPresentation = defineEntityPresentation({
 	component: MoveRow,
-	loader: loadMovePresentations,
 	prepare: prepareMovePresentations,
 });

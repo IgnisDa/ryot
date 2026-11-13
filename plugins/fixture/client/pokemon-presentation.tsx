@@ -1,18 +1,14 @@
 import type { ManagedAssetLocator } from "@ryot-app/plugin-client-sdk";
-import { RyotClientError } from "@ryot-app/plugin-client-sdk";
-import { Effect, Result } from "@ryot-app/plugin-client-sdk/effect";
+import { Result } from "@ryot-app/plugin-client-sdk/effect";
 import {
 	defineEntityPresentation,
 	type EntityPresentationComponentProps,
-	type EntityPresentationLoader,
 	type EntityPresentationPrepare,
 	type EntityReference,
-	PluginId,
 	PluginLink,
 	useRyotViewport,
 } from "@ryot-app/plugin-client-sdk/plugin";
 import { ManagedAssetProvider } from "@ryot-app/plugin-client-sdk/react";
-import { defineRecipe, parameters } from "@ryot-app/plugin-client-sdk/ryotql";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { fieldSyncState, isTitleProvisional, SyncPip } from "@ryot-app/plugin-ui-sdk/sync";
 import { useState } from "react";
@@ -86,49 +82,6 @@ export const preparePokemonPresentations: EntityPresentationPrepare<
 	return Result.flatMap(
 		Result.all(references.map((reference) => source.decode(sources.get(reference.entityId)))),
 		(rows) => buildPokemonPresentations(references, rows),
-	);
-};
-
-export const loadPokemonPresentations: EntityPresentationLoader<PokemonPresentationViewData> = ({
-	client,
-	references,
-}) => {
-	const source = pokemonPresentationSource();
-	const entityIds = [...new Set(references.map(({ entityId }) => entityId))];
-	const selected = references[0];
-	if (selected === undefined) {
-		return Effect.succeed({});
-	}
-	if (selected.ownerPluginId === null) {
-		return Effect.fail(new RyotClientError({ reason: "invalid-input" }));
-	}
-	const owner = {
-		kind: "local",
-		pluginId: PluginId.make(selected.ownerPluginId),
-	} satisfies Parameters<typeof source.query>[0];
-	const input = parameters({
-		fields: {
-			entityIds: {
-				type: "array",
-				label: "Entities",
-				validation: { required: true },
-				description: "Entities to present",
-				items: { type: "string", label: "Entity", description: "Entity ID" },
-			},
-		},
-	});
-	const recipe = defineRecipe({
-		parameters: input.schema,
-		map: ({ presentations }) => Result.succeed(presentations.items),
-		queries: { presentations: source.query(owner, input.list("entityIds")) },
-	});
-	return client.data.query(recipe, { entityIds }).pipe(
-		Effect.flatMap((rows) => {
-			const result = buildPokemonPresentations(references, rows);
-			return result._tag === "Failure"
-				? Effect.fail(new RyotClientError({ reason: "malformed-result" }))
-				: Effect.succeed(result.success);
-		}),
 	);
 };
 
@@ -238,12 +191,10 @@ export const PokemonRow = ({
 
 export const pokemonCardPresentation = defineEntityPresentation({
 	component: PokemonCard,
-	loader: loadPokemonPresentations,
 	prepare: preparePokemonPresentations,
 });
 
 export const pokemonRowPresentation = defineEntityPresentation({
 	component: PokemonRow,
-	loader: loadPokemonPresentations,
 	prepare: preparePokemonPresentations,
 });

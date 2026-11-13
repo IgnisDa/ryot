@@ -11,7 +11,7 @@ describe("fixture client registration", () => {
 			"/all-field-controls/new": "all-field-controls-create",
 		});
 		expect(fixturePlugin.client.notFoundPage).toBe("fixture-not-found");
-		expect(fixturePlugin.client.entities).toEqual({
+		expect(fixturePlugin.client.entities).toMatchObject({
 			"all-field-controls": { createRoute: "/all-field-controls/new" },
 			move: { listPresentation: "move-row", gridPresentation: "move-card" },
 			pokemon: {

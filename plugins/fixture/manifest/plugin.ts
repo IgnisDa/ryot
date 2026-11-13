@@ -8,6 +8,7 @@ import {
 import { operationJsonSchema } from "@ryot-app/plugin-kit/operations";
 import { castNumber, column, jsonPath, table } from "@ryot-app/ryotql";
 
+import { movePresentationSource, pokemonPresentationSource } from "../shared/entity-presentations";
 import { GreetInput, GreetOutput } from "../shared/greet";
 import { PLUGIN_PACKAGE_ID } from "../shared/plugin-identity";
 import { allFieldControlsSchema } from "./all-field-controls";
@@ -136,11 +137,22 @@ export const fixturePlugin = definePlugin({
 		},
 		entities: {
 			"all-field-controls": { createRoute: "/all-field-controls/new" },
-			move: { listPresentation: "move-row", gridPresentation: "move-card" },
+			move: {
+				listPresentation: "move-row",
+				gridPresentation: "move-card",
+				presentation: {
+					owner: movePresentationSource().fields,
+					entity: movePresentationSource().fields,
+				},
+			},
 			pokemon: {
 				detailPage: "pokemon-detail",
 				listPresentation: "pokemon-row",
 				gridPresentation: "pokemon-card",
+				presentation: {
+					owner: pokemonPresentationSource().fields,
+					entity: pokemonPresentationSource().fields,
+				},
 			},
 		},
 		exports: {

@@ -1,40 +1,16 @@
 import type { Result } from "@ryot-app/plugin-kit/effect";
 import { Schema } from "@ryot-app/plugin-kit/effect";
 import {
-	and,
 	castNumber,
 	castText,
 	column,
-	entitySchemaPredicate,
-	inArray,
 	jsonPath,
 	NullableNumber,
 	selectedField,
 	selectedRowsSource,
-	type SelectedSelection,
 	table,
 } from "@ryot-app/plugin-kit/ryotql";
 import { LocalAssetLocator, RemoteAssetLocator, S3AssetLocator } from "@ryot-app/plugin-kit/schema";
-import type { PluginIdentityReference } from "@ryot-app/plugin-kit/schema";
-
-const selectedPresentationSource = <const Selection extends SelectedSelection>(input: {
-	readonly slug: string;
-	readonly selection: Selection;
-}) => {
-	const entity = table("entity", "entity");
-	const source = selectedRowsSource(entity, { selection: input.selection });
-	return {
-		...source,
-		query: (reference: PluginIdentityReference, entityIds: Parameters<typeof inArray>[1]) =>
-			source.query({
-				limit: 100,
-				where: and(
-					entitySchemaPredicate(entity, input.slug, reference),
-					inArray(column(entity, "id"), entityIds),
-				),
-			}),
-	};
-};
 
 const AssetLocator = Schema.Union([LocalAssetLocator, RemoteAssetLocator, S3AssetLocator]);
 const nullableString = Schema.NullOr(Schema.String);
@@ -43,8 +19,7 @@ const nullableStrings = Schema.NullOr(Schema.Array(Schema.String));
 export const pokemonPresentationSource = () => {
 	const pokemon = table("entity", "entity");
 	const property = (key: string) => jsonPath(column(pokemon, "properties"), key);
-	return selectedPresentationSource({
-		slug: "pokemon",
+	return selectedRowsSource(pokemon, {
 		selection: {
 			presentationId: selectedField(column(pokemon, "id"), Schema.String),
 			presentationTypes: selectedField(property("types"), nullableStrings),
@@ -67,8 +42,7 @@ export type PokemonPresentationSourceData = Result.Result.Success<
 export const movePresentationSource = () => {
 	const move = table("entity", "entity");
 	const property = (key: string) => jsonPath(column(move, "properties"), key);
-	return selectedPresentationSource({
-		slug: "move",
+	return selectedRowsSource(move, {
 		selection: {
 			presentationId: selectedField(column(move, "id"), Schema.String),
 			presentationName: selectedField(column(move, "name"), Schema.String),
