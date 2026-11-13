@@ -34,7 +34,6 @@ export function PluginConfigForm(props: {
 			props.onSubmit(toSchemaFormPayload(props.schema, values, mode, initialValues())),
 	});
 	useFormSeed(form, props.seedKey, initialValues);
-	const hasFields = Object.keys(props.schema.fields).length > 0;
 	return (
 		<form
 			noValidate
@@ -44,20 +43,16 @@ export function PluginConfigForm(props: {
 				void form.handleSubmit();
 			}}
 		>
-			{hasFields ? (
-				<fieldset disabled={props.pending}>
-					<SchemaForm
-						mode={mode}
-						form={form}
-						onChange={() => {}}
-						schema={props.schema}
-						icons={schemaFormIcons}
-						uploadFile={uploadFile}
-					/>
-				</fieldset>
-			) : (
-				<p className="text-sm text-text-muted">This plugin has no configuration.</p>
-			)}
+			<fieldset disabled={props.pending}>
+				<SchemaForm
+					mode={mode}
+					form={form}
+					onChange={() => {}}
+					schema={props.schema}
+					icons={schemaFormIcons}
+					uploadFile={uploadFile}
+				/>
+			</fieldset>
 			<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 				<Button
 					type="submit"

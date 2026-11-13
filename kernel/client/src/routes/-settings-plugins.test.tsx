@@ -224,6 +224,44 @@ it.live(
 );
 
 it.live(
+	"installs a plugin without configuration from the review step",
+	() =>
+		Effect.gen(function* () {
+			const installs: unknown[] = [];
+			mountView({
+				inspect: () =>
+					Effect.succeed({
+						...inspection,
+						configSchema: { fields: {}, unknownKeys: "strict" as const },
+					}),
+				install: (_scope, request) => {
+					installs.push(request.payload);
+					return Effect.succeed({
+						id: "installation",
+						activationId: "activation",
+						pluginId: PluginId.make("plugin"),
+					});
+				},
+			});
+			const wizard = yield* chooseArchive;
+
+			yield* Effect.promise(() => wizard.findByText("Step 2 of 2 · Review the plugin"));
+			const install = wizard.getByRole("button", { name: "Install plugin" });
+			expect(install.hasAttribute("disabled")).toBe(true);
+			fireEvent.click(
+				wizard.getByLabelText("I understand these risks and trust this plugin's publisher."),
+			);
+			fireEvent.click(install);
+
+			yield* Effect.promise(() =>
+				screen.findByText("Plugin installed. It finishes setting up in the background."),
+			);
+			expect(installs).toEqual([{ config: {}, uploadToken: "upload_1" }]);
+		}),
+	testTimeout,
+);
+
+it.live(
 	"keeps the archive step open with the existing error copy when inspection is rejected",
 	() =>
 		Effect.gen(function* () {

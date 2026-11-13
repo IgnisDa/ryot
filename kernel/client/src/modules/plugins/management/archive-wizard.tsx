@@ -20,6 +20,8 @@ import { wizardStepLabel } from "#/modules/ui/wizard/wizard-state";
 
 const STEPS = ["choose", "review", "configure"] as const;
 
+const UNCONFIGURABLE_STEPS = ["choose", "review"] as const;
+
 type Step = (typeof STEPS)[number];
 
 const RISKS = [
@@ -52,6 +54,18 @@ export function PluginArchiveWizard(props: {
 	const [uploadToken, setUploadToken] = useState<string>();
 	const [inspection, setInspection] = useState<PluginInspection>();
 	const [acknowledged, setAcknowledged] = useState(false);
+	const configurable =
+		inspection === undefined || Object.keys(inspection.configSchema.fields).length > 0;
+	const submitLabel = isUpdate ? "Update plugin" : "Install plugin";
+	const pendingLabel = isUpdate ? "Updating..." : "Installing...";
+	let reviewActionLabel = submitLabel;
+	if (configurable) {
+		reviewActionLabel = "Continue";
+	} else if (props.pending) {
+		reviewActionLabel = pendingLabel;
+	}
+	const failure =
+		props.failureDetail === undefined ? null : <FieldMessage>{props.failureDetail}</FieldMessage>;
 
 	const review = (token: string) =>
 		void Effect.runPromise(
@@ -103,7 +117,7 @@ export function PluginArchiveWizard(props: {
 			</div>
 		)),
 		Match.when("review", () =>
-			inspection === undefined ? null : (
+			inspection === undefined || uploadToken === undefined ? null : (
 				<div className="flex flex-col gap-5">
 					<InspectionSummary inspection={inspection} installation={props.installation} />
 					<Notice
@@ -122,20 +136,24 @@ export function PluginArchiveWizard(props: {
 						onChange={(event) => setAcknowledged(event.currentTarget.checked)}
 						label="I understand these risks and trust this plugin's publisher."
 					/>
+					{configurable ? null : failure}
 					<div className="flex flex-col gap-2 sm:flex-row-reverse sm:justify-end">
 						<Button
 							type="button"
 							variant="primary"
 							className="sm:px-6"
-							disabled={!acknowledged}
-							onClick={() => setStep("configure")}
+							disabled={!acknowledged || props.pending}
+							onClick={() =>
+								configurable ? setStep("configure") : props.onSubmit({ config: {}, uploadToken })
+							}
 						>
-							Continue
+							{reviewActionLabel}
 						</Button>
 						<Button
 							type="button"
 							variant="secondary"
 							className="sm:px-6"
+							disabled={props.pending}
 							onClick={() => setStep("choose")}
 						>
 							Back
@@ -152,16 +170,14 @@ export function PluginArchiveWizard(props: {
 							? "Review the configuration for the new version. Secrets you leave blank keep their current values."
 							: "Set the plugin's initial configuration. You can change it later from this screen."}
 					</p>
-					{props.failureDetail === undefined ? null : (
-						<FieldMessage>{props.failureDetail}</FieldMessage>
-					)}
+					{failure}
 					<PluginConfigForm
 						pending={props.pending}
+						submitLabel={submitLabel}
+						pendingLabel={pendingLabel}
 						schema={inspection.configSchema}
 						stored={props.installation?.config}
 						seedKey={`${uploadToken}:${inspection.metadata.version}`}
-						pendingLabel={isUpdate ? "Updating..." : "Installing..."}
-						submitLabel={isUpdate ? "Update plugin" : "Install plugin"}
 						onSubmit={(config) => props.onSubmit({ config, uploadToken })}
 						actions={
 							<Button
@@ -188,7 +204,7 @@ export function PluginArchiveWizard(props: {
 			title={
 				props.installation === undefined ? "Install plugin" : `Update ${props.installation.name}`
 			}
-			stepLabel={wizardStepLabel(step, STEPS, {
+			stepLabel={wizardStepLabel(step, configurable ? STEPS : UNCONFIGURABLE_STEPS, {
 				configure: "Configure",
 				review: "Review the plugin",
 				choose: "Choose the archive",
