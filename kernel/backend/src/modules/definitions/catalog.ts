@@ -2,11 +2,13 @@ import {
 	dataJsonImportInputSchema,
 	dataJsonIntegrationSettingsSchema,
 } from "@ryot-app/contract/modules/imports/data-json";
-import type { PluginPackageId } from "@ryot-app/contract/schema/brands";
+import type { PluginPackageReference } from "@ryot-app/contract/modules/plugins/references";
+import { mapPluginIdentityReferences } from "@ryot-app/contract/modules/ryotql/authored";
+import { PluginId, type PluginPackageId } from "@ryot-app/contract/schema/brands";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
 import { and, asc, eq, getTableColumns, inArray, isNull, or, type SQL, sql } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
-import { Context, Effect, Layer } from "effect";
+import { Context, Effect, Layer, Result } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
 import * as schema from "#schema/tables/combined";
@@ -52,6 +54,15 @@ export type UserCatalog = DefinitionCatalogRows & {
 	readonly importSources: ReadonlyArray<CatalogImportSource>;
 	readonly integrationProviders: ReadonlyArray<CatalogIntegrationProvider>;
 };
+export const isReadyPackage =
+	(reference: PluginPackageReference) =>
+	(plugin: UserPlugin): boolean =>
+		plugin.packageId === reference.packageId &&
+		plugin.scope === reference.scope &&
+		plugin.health === "ready" &&
+		plugin.isDefinitionEffective &&
+		plugin.isExecutable;
+
 export type UserPlugin = {
 	readonly userId: string;
 	readonly pluginId: string;
@@ -874,12 +885,39 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 				return { providers, operations };
 			});
 
+			const declaredQuery = Effect.fn("DefinitionCatalog.declaredQuery")(function* (
+				userId: string,
+				reference: PluginPackageReference,
+				query: string,
+				context?: { readonly pluginId: string; readonly pluginRevisionId: string },
+			) {
+				const installed = (yield* forUser(userId)).plugins.find(isReadyPackage(reference));
+				if (!installed) {
+					return null;
+				}
+				const revisionId =
+					context?.pluginId === installed.pluginId
+						? context.pluginRevisionId
+						: installed.activeRevisionId;
+				const declaration = (yield* revision(revisionId)).sections.queries?.[query];
+				if (!declaration) {
+					return null;
+				}
+				const document = mapPluginIdentityReferences(declaration.document, (owner) =>
+					owner.kind === "self"
+						? { kind: "local", pluginId: PluginId.make(installed.pluginId) }
+						: owner,
+				);
+				return Result.isFailure(document) ? null : { revisionId, document: document.success };
+			});
+
 			return {
 				global,
 				forUser,
 				allUsers,
 				revision,
 				userPlugins,
+				declaredQuery,
 				globalPlugins,
 				listUserPlugins,
 				sandboxProviders,

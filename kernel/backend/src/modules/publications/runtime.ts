@@ -24,6 +24,7 @@ import { Context, Effect, Layer, Result, Schema } from "effect";
 
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { PagesService } from "#modules/pages/preparation/service";
+import { pageQueryDocument } from "#modules/pages/query-document";
 import { RyotQLService } from "#modules/ryotql/service";
 
 import { PUBLICATION_RESULT_BYTES, type PublicationSnapshot } from "./model";
@@ -80,7 +81,16 @@ export class PublicationRuntime extends Context.Service<PublicationRuntime>()(
 					return { prepared, document: snapshot.document, settings: snapshot.settings };
 				}
 				if (prepared.page) {
-					return { prepared, settings: {}, document: prepared.page.definition.queries };
+					const document = yield* pageQueryDocument(
+						catalogs,
+						userId,
+						prepared.page.definition,
+					).pipe(
+						Effect.mapError(
+							() => new PublicationBadRequest({ reason: { code: "source-unavailable" } }),
+						),
+					);
+					return { prepared, document, settings: {} };
 				}
 				const catalog = yield* catalogs.forUser(userId);
 				const projections = catalog.savedViews.flatMap((view) => {

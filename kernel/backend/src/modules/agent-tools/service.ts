@@ -206,15 +206,13 @@ export class AgentToolsService extends Context.Service<AgentToolsService>()(
 					.pipe(
 						Effect.map((preview) => ({ preview, value: preview })),
 						Effect.catchTag("PageAuthoringError", (error) =>
-							error.reason.code === "build-failed"
+							error.reason.code === "build-failed" || error.reason.code === "definition-invalid"
 								? Effect.succeed({
 										preview: undefined,
 										value: {
 											...draft,
-											error: "build-failed",
-											diagnostics: error.reason.diagnostics,
-											instruction:
-												"Repair these compiler diagnostics and write the same page again with this draftRevision.",
+											error: error.reason,
+											instruction: "Repair the page and write it again with this draftRevision.",
 										},
 									})
 								: Effect.fail(error),

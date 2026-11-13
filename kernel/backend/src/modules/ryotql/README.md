@@ -26,8 +26,11 @@ Requests are `{ source, arguments?, filter?, sort?, pages? }`. Sources are inlin
 (with an optional named `query`), an owned saved-view reference and query name, or a declared plugin
 query identified by scoped package ID and declaration name, or an owned page ID and named published
 query. A plugin declaration executes its whole named document. Page sources load the published
-definition through `PageAuthoringRepository`, never the authoring service, and include the published
-revision and definition hash in cursor identity. Draft-only pages and undeclared query names fail
+definition through `PageAuthoringRepository`, never the authoring service, and run its effective
+document (`pages/query-document.ts`): the page's `queries` merged with each `pluginQueries` entry,
+the dependency's declared document resolved through `DefinitionCatalog.declaredQuery` and added as
+`<local>.<query>` by `@ryot-app/ryotql/imports`. Cursor identity includes that document, the
+published revision and definition hash. Publications and page compilation use the same document. Draft-only pages and undeclared query names fail
 with `source-unavailable`. A `page-preview` source additionally carries `draftRevision`,
 `definitionHash` and `artifactHash` from the compile result. It resolves the current compiled draft
 only when every fence and `draftCompiledRevision` matches, and uses the existing read-only execution
@@ -37,11 +40,11 @@ Source loading, account reporting-zone lookup, controls, source entities, bindin
 validation, identity binding and execution share a repeatable-read, read-only transaction. Inline named
 selection keeps the full document available for explicit control projections without executing other
 queries. The pure binder receives the Effect clock; the planner receives only executable language.
+A rejected document, argument, control or source fails with `invalid-query` and a `message` naming
+the query and the rule it broke; plugin scripts and agent `execute` code receive that message.
 The response is `{ data: { [queryName]: result } }`. Queries run sequentially in declaration order;
 any failure fails the request, with no partial results.
 
-A rejected document, argument, control or source fails with `invalid-query` and a `message` naming
-the query and the rule it broke; plugin scripts and agent `execute` code receive that message.
 `/ryotql/describe`, `/ryotql/plugin/describe` and `/instance-admin/ryotql/describe` take
 `{ source, arguments? }` and return parameter schemas, resolved filter fields and sort choices.
 Collection membership metadata requires source arguments so its schema can be loaded under authority.

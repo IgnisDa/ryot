@@ -528,6 +528,47 @@ layer(database)((test) => {
 			expect(invalid.reason.code).toBe("definition-invalid");
 		}),
 	);
+	test.effect("rejects invalid queries and unresolved plugin queries when compiling a draft", () =>
+		Effect.gen(function* () {
+			const service = yield* PageAuthoringService;
+			const compileFailure = Effect.fn(function* (slug: string, changes: Partial<PageDefinition>) {
+				const { pageId } = yield* service.create(
+					{ userId: owner, kind: "assistant" },
+					{ slug, name: slug, definition: { ...definition, ...changes } },
+				);
+				const failure = yield* Effect.flip(
+					service.compile(owner, { pageId, expectedDraftRevision: 1 }),
+				);
+				assert(failure instanceof PageAuthoringError);
+				return failure.reason;
+			});
+			expect(
+				yield* compileFailure("unknown-table", {
+					queries: {
+						queries: {
+							items: {
+								from: { alias: "item", table: "missing" },
+								output: {
+									fields: [],
+									orderBy: [],
+									type: "rows",
+									pagination: { limit: 1, maxLimit: 1 },
+								},
+							},
+						},
+					},
+				}),
+			).toEqual({ code: "definition-invalid", message: "Query 'items': Unknown table 'missing'" });
+			expect(
+				yield* compileFailure("unresolved-import", {
+					pluginQueries: { found: { query: "search", dependency: "missing" } },
+				}),
+			).toEqual({
+				code: "definition-invalid",
+				message: "Plugin query 'found' names undeclared dependency 'missing'",
+			});
+		}),
+	);
 	test.effect("maps referencing foreign keys to page-in-use and deletes unreferenced pages", () =>
 		Effect.gen(function* () {
 			const service = yield* PageAuthoringService;

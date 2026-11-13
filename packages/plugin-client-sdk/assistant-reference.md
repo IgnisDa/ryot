@@ -1,6 +1,7 @@
 ## Page authoring conventions
 
-A page definition contains `entry`, base64-encoded `files`, `pluginDependencies` and `queries`.
+A page definition contains `entry`, base64-encoded `files`, `pluginDependencies`, `queries` and
+optional `pluginQueries`.
 Use an entry such as `client/page.tsx` exporting a React component as default, with no required
 props. The host mounts it with the SDK providers; do not call bootstrap or create a React root.
 Keep source files under `client/**` and environment-neutral helpers under `shared/**`.
@@ -10,12 +11,18 @@ import only neutral `@ryot-app/plugin-kit/*` entries listed below, and relative 
 Plugin component imports require a declared dependency and the public
 `@ryot-app/plugins/<dependency-alias>/<export>` path; discover real exports before using them.
 
-Put one static RyotQL document in the page definition's `queries`, with named queries and typed
-AppSchema parameters. Discover available tables, columns and presentation selections with tools;
-do not invent schema names. Execute those names through `client.page.query(name, request)`.
-The request carries runtime `arguments`, `filter`, `sort`, `pages` and a Result-returning `decode`.
-`client.page.describe(name, arguments?)` discovers controls and parameter metadata. Do not send
-inline documents, plugin queries, saved-view queries or references to another page from a page.
+Prefer a dependency's declared query over writing your own: find them with `search`, declare the
+plugin in `pluginDependencies`, and map a local name to it in `pluginQueries`, for example
+`{ "series": { "dependency": "fitness", "query": "measurement-series" } }`. Each of its named queries
+runs as `<local>.<query>`, such as `series.averages`, and shares the page's parameters; a parameter
+defined differently by two sources fails compilation. Otherwise put one static RyotQL document in
+`queries`, with named queries and typed AppSchema parameters. Find tables, fields, entity schemas and
+their properties with `kernel:data.describe`; do not invent names. Every compile validates both, and
+a `definition-invalid` result names the broken query. Execute names through
+`client.page.query(name, request)`. The request carries runtime `arguments`, `filter`, `sort`,
+`pages` and a Result-returning `decode`. `client.page.describe(name, arguments?)` discovers controls
+and parameter metadata. Do not send inline documents, saved-view queries or references to another
+page from a page.
 Decode responses with source-owned schemas or recipe decoders, and derive types from schemas.
 
 Use `EntityResults` from `@ryot-app/plugin-client-sdk/plugin` for entity cards. Select the owning

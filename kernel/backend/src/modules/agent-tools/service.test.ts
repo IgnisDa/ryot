@@ -115,8 +115,15 @@ const servicesLayer = Layer.unwrap(
 						{ key, actor, replace: input.pageId },
 						{ pageId: input.pageId, draftRevision: input.expectedDraftRevision + 1 },
 					),
-				compile: (_userId, input, key) =>
-					input.pageId === "broken"
+				compile: (_userId, input, key) => {
+					if (input.pageId === "invalid") {
+						return Effect.fail(
+							new PageAuthoringError({
+								reason: { code: "definition-invalid", message: "Query 'items': unknown table" },
+							}),
+						);
+					}
+					return input.pageId === "broken"
 						? Effect.fail(
 								new PageAuthoringError({
 									reason: {
@@ -142,7 +149,8 @@ const servicesLayer = Layer.unwrap(
 									definitionHash: "definition",
 									draftRevision: input.expectedDraftRevision,
 								},
-							),
+							);
+				},
 			}),
 			Layer.succeed(AgentDocs, [
 				{ topic: "execute", content: "# execute" },
@@ -627,8 +635,18 @@ layer(registryLayer)("agent tools", (test) => {
 				expect(value(broken.result)).toMatchObject({
 					pageId: "broken",
 					draftRevision: 4,
-					error: "build-failed",
-					diagnostics: [{ message: "Broken" }],
+					error: { code: "build-failed", diagnostics: [{ message: "Broken" }] },
+				});
+				const invalid = yield* call(
+					"page_write",
+					{ definition, pageId: "invalid", expectedDraftRevision: 1 },
+					gate,
+				);
+				expect(value(invalid.result)).toEqual({
+					draftRevision: 2,
+					pageId: "invalid",
+					instruction: "Repair the page and write it again with this draftRevision.",
+					error: { code: "definition-invalid", message: "Query 'items': unknown table" },
 				});
 				assertExitFails(
 					yield* Effect.exit(call("page_write", { definition }, gate)),

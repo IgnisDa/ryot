@@ -15,7 +15,9 @@ Draft replacement requires `expectedDraftRevision`, increments the draft revisio
 compiled draft metadata. Compile and publish check that revision before compilation, run the worker
 outside a transaction, then lock and check it again before recording the result. The commit shares
 the plugin ingestion fence and account write lock and rechecks declared dependency availability.
-Publish additionally validates every stored query branch and its plugin identity references.
+Compile and publish both build the effective query document, importing each `pluginQueries`
+entry from its declared dependency, and validate every stored query branch and its plugin identity
+references; failures are `definition-invalid` with the query and rule named.
 Published definitions, revisions, definition hashes and artifact hashes remain separate from drafts.
 
 Compilation persists immutable page artifacts through `ClientArtifactsRepository`. The build result

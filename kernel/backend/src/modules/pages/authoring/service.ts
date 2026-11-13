@@ -14,11 +14,12 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { Context, Effect, Layer } from "effect";
 
-import { DefinitionCatalog } from "#modules/definitions/catalog";
+import { DefinitionCatalog, isReadyPackage } from "#modules/definitions/catalog";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { idempotencyIdentity, IdempotencyKeys } from "#modules/mutations/idempotency";
 import { ClientArtifactsRepository } from "#modules/pages/bundles/repository";
 import { ClientPluginCompiler } from "#modules/pages/compiler";
+import { pageQueryDocument } from "#modules/pages/query-document";
 import { lockPluginIngestionShared } from "#modules/plugins/packages/ingestion-fence";
 import { bindRyotQLDocument } from "#modules/ryotql/binding";
 import { DatabaseSession } from "#platform/db/session";
@@ -65,15 +66,7 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 			) {
 				const catalog = yield* catalogs.forUser(userId);
 				for (const reference of Object.values(definition.pluginDependencies)) {
-					const dependency = catalog.plugins.find(
-						(plugin) =>
-							plugin.packageId === reference.packageId &&
-							plugin.scope === reference.scope &&
-							plugin.isExecutable &&
-							plugin.isDefinitionEffective &&
-							plugin.health === "ready",
-					);
-					if (!dependency) {
+					if (!catalog.plugins.some(isReadyPackage(reference))) {
 						return yield* new PageAuthoringError({
 							reason: { reference, code: "dependency-unavailable" },
 						});
@@ -179,9 +172,12 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 				publish: boolean,
 			) {
 				const catalog = yield* checkDependencies(userId, locked.draftDefinition);
-				if (publish && Object.keys(locked.draftDefinition.queries.queries).length > 0) {
+				const document = yield* pageQueryDocument(catalogs, userId, locked.draftDefinition).pipe(
+					Effect.mapError((error) => definitionInvalid(error.message)),
+				);
+				if (Object.keys(document.queries).length > 0) {
 					const branches = yield* Effect.fromResult(
-						storedValidationBranches(locked.draftDefinition.queries, catalog.entitySchemas),
+						storedValidationBranches(document, catalog.entitySchemas),
 					).pipe(Effect.mapError((error) => definitionInvalid(error.message)));
 					for (const branch of branches) {
 						yield* bindRyotQLDocument(

@@ -474,11 +474,18 @@ export class ClientPageDocumentStale extends Schema.TaggedError<
 	reason: strictStruct({ code: Schema.Literal("client-page-document-stale") }),
 }) {}
 
+const PagePluginQuery = strictStruct({
+	query: Schema.NonEmptyString,
+	dependency: Schema.NonEmptyString,
+});
+export const PagePluginQueries = Schema.Record(Schema.NonEmptyString, PagePluginQuery);
+
 export const PageDefinition = strictStruct({
 	entry: Schema.String,
 	queries: RyotQLDocument,
 	pluginDependencies: PluginDependencies,
 	files: Schema.Array(ClientRendererFile),
+	pluginQueries: Schema.optional(PagePluginQueries),
 });
 export type PageDefinition = typeof PageDefinition.Type;
 

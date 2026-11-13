@@ -18,11 +18,13 @@ export function DefinitionForm(props: {
 	readonly queries: string;
 	readonly disabled: boolean;
 	readonly dependencies: string;
+	readonly pluginQueries: string;
 	readonly files: PageDefinition["files"];
 	readonly onEntry: (entry: string) => void;
 	readonly onQueries: (value: string) => void;
 	readonly onError: (message: string) => void;
 	readonly onDependencies: (value: string) => void;
+	readonly onPluginQueries: (value: string) => void;
 	readonly onFiles: (files: PageDefinition["files"]) => void;
 }) {
 	const [path, setPath] = useState("client/page.tsx");
@@ -105,6 +107,20 @@ export function DefinitionForm(props: {
 								className="font-mono"
 								value={props.queries}
 								onChange={(event) => props.onQueries(event.target.value)}
+							/>
+						)}
+					</Field>
+					<Field
+						label="Plugin queries (JSON)"
+						hint='Map each name to a dependency alias and one of its declared queries, such as {"series": {"dependency": "fitness", "query": "measurement-series"}}. Page code runs them as name.query.'
+					>
+						{(control) => (
+							<TextArea
+								{...control}
+								rows={3}
+								className="font-mono"
+								value={props.pluginQueries}
+								onChange={(event) => props.onPluginQueries(event.target.value)}
 							/>
 						)}
 					</Field>

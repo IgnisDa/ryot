@@ -1,4 +1,4 @@
-import { PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
+import { PageDefinition, PagePluginQueries } from "@ryot-app/contract/modules/pages/schemas";
 import {
 	nextPageCursor,
 	paginationItems,
@@ -239,6 +239,9 @@ function PageEditor(props: {
 	const [queries, setQueries] = useState(
 		JSON.stringify(page?.draftDefinition.queries ?? { queries: {} }, null, 2),
 	);
+	const [pluginQueries, setPluginQueries] = useState(
+		JSON.stringify(page?.draftDefinition.pluginQueries ?? {}, null, 2),
+	);
 	const [files, setFiles] = useState<PageDefinition["files"]>(page?.draftDefinition.files ?? []);
 	const [revision, setRevision] = useState(page?.draftRevision ?? 0);
 	const [dirty, setDirty] = useState(page === null);
@@ -286,6 +289,7 @@ function PageEditor(props: {
 		setMessage(null);
 		const decode = Effect.all({
 			queries: Schema.decodeEffect(Schema.fromJsonString(PageDefinition.fields.queries))(queries),
+			pluginQueries: Schema.decodeEffect(Schema.fromJsonString(PagePluginQueries))(pluginQueries),
 			pluginDependencies: Schema.decodeEffect(
 				Schema.fromJsonString(PageDefinition.fields.pluginDependencies),
 			)(dependencies),
@@ -297,7 +301,7 @@ function PageEditor(props: {
 					onFailure: () =>
 						Effect.sync(() =>
 							setMessage(
-								"Check the entry, files, plugin dependencies and declared queries. Enter valid JSON matching the page definition.",
+								"Check the entry, files, plugin dependencies, declared queries and plugin queries. Enter valid JSON matching the page definition.",
 							),
 						),
 					onSuccess: (definition) =>
@@ -368,6 +372,7 @@ function PageEditor(props: {
 				onError={setMessage}
 				dependencies={dependencies}
 				disabled={busy || conflict}
+				pluginQueries={pluginQueries}
 				onEntry={(value) => {
 					changed();
 					setEntry(value);
@@ -383,6 +388,10 @@ function PageEditor(props: {
 				onDependencies={(value) => {
 					changed();
 					setDependencies(value);
+				}}
+				onPluginQueries={(value) => {
+					changed();
+					setPluginQueries(value);
 				}}
 			/>
 			<div className="grid gap-3">

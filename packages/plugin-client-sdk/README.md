@@ -526,8 +526,9 @@ a page fail with `invalid-request`. `client.page.describe(name, arguments?)` ret
 parameter schema and controls. Both APIs work in authored and kernel publication pages; publication
 requests carry only the name and runtime values, and the host supplies visitor authority.
 
-The entire page iframe, including imported plugin components, can read only its own declared queries.
-The host rejects inline documents, plugin queries, saved-view sources, foreign pages and their
+The entire page iframe, including imported plugin components, can read only its own declared queries:
+its `queries` document plus each `pluginQueries` entry, whose named queries run as `<local>.<query>`.
+The host rejects inline documents, direct plugin sources, saved-view sources, foreign pages and their
 `describe` equivalents. Draft reads use the exact compiled draft revision, definition hash and artifact
 hash supplied by preview preparation. A stale build must be compiled and prepared again.
 

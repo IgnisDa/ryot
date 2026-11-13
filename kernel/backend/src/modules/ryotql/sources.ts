@@ -7,7 +7,7 @@ import { decodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/e
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import type { ExecutionRequest, ExecutionSource } from "@ryot-app/contract/modules/ryotql/request";
 import { EntityBrowserSavedViewSettings } from "@ryot-app/contract/modules/saved-views/schemas";
-import { PluginId, UserId } from "@ryot-app/contract/schema/brands";
+import { UserId } from "@ryot-app/contract/schema/brands";
 import { and, entitySchemaPredicate, or, table } from "@ryot-app/ryotql";
 import type { MembershipSource } from "@ryot-app/ryotql-recipes/controls";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -19,6 +19,7 @@ import { CollectionsRepository } from "#modules/collections/repository";
 import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PageAuthoringRepository } from "#modules/pages/authoring/repository";
+import { pageQueryDocument } from "#modules/pages/query-document";
 import { SavedViewsRepository } from "#modules/saved-views/repository";
 
 import type { RyotQLExecutionScope } from "./catalog";
@@ -84,14 +85,22 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 
 				if (source.kind === "page-preview") {
 					const page = yield* pages.findCompiledDraft(UserId.make(scope.userId), source);
-					if (!page || !Object.hasOwn(page.draftDefinition.queries.queries, source.query)) {
+					if (!page) {
+						return yield* unavailable("page-preview");
+					}
+					const document = yield* pageQueryDocument(
+						catalogs,
+						scope.userId,
+						page.draftDefinition,
+					).pipe(Effect.mapError(() => unavailable("page-preview")));
+					if (!Object.hasOwn(document.queries, source.query)) {
 						return yield* unavailable("page-preview");
 					}
 					return {
+						document,
 						values: {},
 						selectedQuery: source.query,
-						identity: stableStringify(source),
-						document: page.draftDefinition.queries,
+						identity: stableStringify({ source, document }),
 					};
 				}
 
@@ -100,17 +109,25 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 					if (
 						!page?.publishedDefinition ||
 						page.publishedRevision === null ||
-						page.publishedArtifactHash === null ||
-						!Object.hasOwn(page.publishedDefinition.queries.queries, source.query)
+						page.publishedArtifactHash === null
 					) {
 						return yield* unavailable("page");
 					}
+					const document = yield* pageQueryDocument(
+						catalogs,
+						scope.userId,
+						page.publishedDefinition,
+					).pipe(Effect.mapError(() => unavailable("page")));
+					if (!Object.hasOwn(document.queries, source.query)) {
+						return yield* unavailable("page");
+					}
 					return {
+						document,
 						values: {},
 						selectedQuery: source.query,
-						document: page.publishedDefinition.queries,
 						identity: stableStringify({
 							source,
+							document,
 							revision: page.publishedRevision,
 							definitionHash: page.publishedDefinitionHash,
 						}),
@@ -160,37 +177,23 @@ export class RyotQLSources extends Context.Service<RyotQLSources>()(
 						},
 					};
 				}
-				const catalog = yield* catalogs.forUser(scope.userId);
-				const installed = catalog.plugins.find(
-					(entry) =>
-						entry.packageId === source.packageId &&
-						entry.scope === source.scope &&
-						entry.health === "ready" &&
-						entry.isDefinitionEffective &&
-						entry.isExecutable,
+				const declared = yield* catalogs.declaredQuery(
+					scope.userId,
+					source,
+					source.query,
+					scope.definitionContext,
 				);
-				if (!installed) {
+				if (!declared) {
 					return yield* unavailable("plugin");
 				}
-				const revisionId =
-					scope.definitionContext?.pluginId === installed.pluginId
-						? scope.definitionContext.pluginRevisionId
-						: installed.activeRevisionId;
-				const declaration = (yield* catalogs.revision(revisionId)).sections.queries?.[source.query];
-				if (!declaration) {
-					return yield* unavailable("plugin");
-				}
-				const document = yield* Effect.fromResult(
-					mapPluginIdentityReferences(declaration.document, (owner) =>
-						owner.kind === "self"
-							? { kind: "local", pluginId: PluginId.make(installed.pluginId) }
-							: owner,
-					),
-				).pipe(Effect.mapError(() => unavailable("plugin")));
 				return {
-					document,
 					values: {},
-					identity: stableStringify({ source, document, revisionId }),
+					document: declared.document,
+					identity: stableStringify({
+						source,
+						document: declared.document,
+						revisionId: declared.revisionId,
+					}),
 				};
 			});
 			const entitySource = Effect.fn("RyotQLSources.entitySource")(function* (
