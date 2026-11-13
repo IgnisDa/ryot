@@ -48,10 +48,10 @@ const command = <A, E, R>(
 
 export const AssistantRoutesLive = HttpApiBuilder.group(AppContract, "assistant", (handlers) => {
 	return handlers
-		.handle("createConversation", ({ payload }) =>
+		.handle("renameConversation", ({ payload }) =>
 			Effect.gen(function* () {
 				return yield* command(
-					(yield* AssistantService).createConversation((yield* CurrentUser).id, payload.title),
+					(yield* AssistantService).renameConversation((yield* CurrentUser).id, payload),
 				);
 			}),
 		)
@@ -68,6 +68,13 @@ export const AssistantRoutesLive = HttpApiBuilder.group(AppContract, "assistant"
 		.handle("submit", ({ payload }) =>
 			Effect.gen(function* () {
 				return yield* command((yield* AssistantService).submit((yield* CurrentUser).id, payload));
+			}),
+		)
+		.handle("interrupt", ({ payload }) =>
+			Effect.gen(function* () {
+				return yield* command(
+					(yield* AssistantService).interrupt((yield* CurrentUser).id, payload),
+				);
 			}),
 		)
 		.handle("decide", ({ payload }) =>

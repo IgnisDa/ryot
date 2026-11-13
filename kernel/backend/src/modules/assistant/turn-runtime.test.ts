@@ -46,6 +46,7 @@ import { AssistantWorkflowLive } from "./workflow-live";
 const owner = UserId.make("assistant-loop-owner");
 const other = UserId.make("assistant-loop-other");
 const writeCapability = {
+	title: "Delete page",
 	input: { type: "object" },
 	output: { type: "object" },
 	description: "Delete a page",
@@ -108,14 +109,12 @@ const engineFor = (runtime: AssistantTurnRuntime["Service"]) =>
 		),
 		Layer.fresh,
 	);
+let admissions = 0;
 const admit = Effect.fn(function* () {
 	const repository = yield* AssistantRepository;
 	const session = yield* DatabaseSession;
-	const { conversationId } = yield* session.transaction(
-		repository.createConversation(owner, "Assistant"),
-	);
 	const turn = yield* session.transaction(
-		repository.submit(owner, { conversationId, requestId: "request", text: "Create a page" }),
+		repository.submit(owner, { text: "Create a page", requestId: `request-${admissions++}` }),
 	);
 	return { userId: owner, turnId: turn.id };
 });
@@ -328,6 +327,48 @@ layer(services, { excludeTestServices: true })((test) => {
 						.filter((part) => part.kind === "page-preview"),
 				).toEqual([{ kind: "page-preview", ...preview }]);
 			}),
+	);
+
+	test.effect("stop wakes a turn awaiting approval and settles it without dispatching", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness();
+			const payload = yield* admit();
+			const executionId = yield* AssistantTurnWorkflow.executionId(payload);
+			yield* Effect.gen(function* () {
+				const service = yield* makeAssistantService(account);
+				yield* service.recover();
+				yield* until(
+					AssistantTurnWorkflow.poll(executionId).pipe(
+						Effect.map((result) => Option.isSome(result) && result.value._tag === "Suspended"),
+					),
+				);
+				const state = yield* repository.loadTurn(owner, payload.turnId);
+				assert(state);
+				const stop = {
+					turnId: AssistantTurnId.make(payload.turnId),
+					conversationId: AssistantConversationId.make(state.turn.conversationId),
+				};
+				yield* service.interrupt(owner, stop);
+				yield* until(
+					AssistantTurnWorkflow.poll(executionId).pipe(
+						Effect.map((result) => Option.isSome(result) && result.value._tag === "Complete"),
+					),
+				);
+				assertExitFails(
+					yield* Effect.exit(service.interrupt(owner, stop)),
+					new AssistantError({ reason: { code: "turn-not-active" } }),
+				);
+			}).pipe(withEngine(engineFor(setup.runtime)));
+			const final = yield* repository.loadTurn(owner, payload.turnId);
+			assert(final);
+			expect(final.turn.status).toBe("interrupted");
+			expect(final.calls.map((call) => call.result)).toEqual([
+				{ truncated: false, value: { interrupted: true } },
+			]);
+			expect(setup.writes).toEqual([]);
+			expect(setup.generated()).toBe(1);
+		}),
 	);
 
 	test.effect("pauses execute at each write for approval and resumes the same execution", () =>
@@ -759,17 +800,12 @@ layer(services, { excludeTestServices: true })((test) => {
 			);
 			const turn = yield* session.transaction(
 				Effect.gen(function* () {
-					const conversation = yield* repository.createConversation(victim, "Reset");
 					yield* providers.put(victim, {
 						model: "test",
 						encryptedApiKey: null,
 						baseUrl: "https://provider.test/v1",
 					});
-					return yield* repository.submit(victim, {
-						...conversation,
-						text: "Read data",
-						requestId: "reset",
-					});
+					return yield* repository.submit(victim, { text: "Read data", requestId: "reset" });
 				}),
 			);
 			yield* lifecycle.deleteUserData(victim);
@@ -793,8 +829,7 @@ layer(services, { excludeTestServices: true })((test) => {
 							AssistantRecoveryLive.pipe(Layer.provide(Layer.succeed(AssistantService, service))),
 						),
 					);
-					const conversation = yield* service.createConversation(owner, "Startup");
-					const request = { ...conversation, text: "Read data", requestId: "same-request" };
+					const request = { text: "Read data", requestId: "same-request" };
 					const submitted = yield* service.submit(owner, request);
 					expect(yield* service.submit(owner, request)).toEqual(submitted);
 					yield* service.recover();

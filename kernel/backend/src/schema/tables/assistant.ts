@@ -11,6 +11,7 @@ import { sql } from "drizzle-orm";
 import {
 	check,
 	foreignKey,
+	index,
 	integer,
 	jsonb,
 	snakeCase,
@@ -59,8 +60,9 @@ export const assistantTurn = snakeCase.table(
 			columns: [t.conversationId, t.userId],
 			foreignColumns: [assistantConversation.id, assistantConversation.userId],
 		}).onDelete("cascade"),
-		unique().on(t.conversationId, t.requestId),
+		unique().on(t.userId, t.requestId),
 		unique().on(t.id, t.conversationId, t.userId),
+		index("assistant_turn_conversation_created_idx").on(t.conversationId, t.createdAt),
 		uniqueIndex("assistant_turn_active_unique")
 			.on(t.conversationId)
 			.where(sql`${t.status} in ('queued', 'running', 'awaiting-approval')`),
@@ -84,6 +86,7 @@ export const assistantMessage = snakeCase.table(
 	},
 	(t) => [
 		unique().on(t.conversationId, t.sequence),
+		index("assistant_message_turn_sequence_idx").on(t.turnId, t.sequence),
 		foreignKey({
 			columns: [t.turnId, t.conversationId, t.userId],
 			foreignColumns: [assistantTurn.id, assistantTurn.conversationId, assistantTurn.userId],

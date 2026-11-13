@@ -10,15 +10,22 @@ settings alongside other user data.
 
 The repository exports:
 
-- `createConversation(userId, title)` → `{ conversationId }`.
+- `renameConversation(userId, conversationId, title)`.
 - `deleteConversation(userId, conversationId)` rejects any queued, running or awaiting-approval turn.
-- `submit(userId, { conversationId, requestId, text })` → persisted turn. Reusing the request ID
-  replays that turn; changing its text fails. A different request fails while a turn is active.
+- `submit(userId, { conversationId?, requestId, text })` → persisted turn. Without a conversation ID
+  it creates one titled from the message's first 60 characters. Request IDs are unique per user:
+  reusing one replays that turn, and changing its text or conversation fails. A different request
+  fails while a turn is active.
+- `interrupt(userId, conversationId, turnId)` → `{ turn, awaitingDecision }`. Stops an active turn,
+  gives every unfinished call the inert `{ interrupted: true }` result (tool calls also get a
+  tool-result message so later prompts stay paired), and returns the calls whose approval deferreds
+  the service must complete with a decline.
 - `transition(userId, conversationId, turnId, expectedRevision, status, failure?)` → updated turn.
   Status is `running`, `completed`, `failed` or `interrupted`. Completion and starting another model
   round require every previous call to have a result.
 - `setRoundText(userId, conversationId, turnId, round, text)` → updated turn. Replaces the
-  deterministic text message for an unfinished round; committed rounds are immutable. The caller
+  deterministic text message for an unfinished round; empty text stores no message and removes a
+  previous one. Committed rounds are immutable. The caller
   omits this text from `recordRound`.
 - `recordRound(userId, conversationId, turnId, expectedRevision, { text, calls, parts? })` → updated
   turn. Stores the completed model round's tool calls with immutable arguments; `parts` may carry
@@ -46,7 +53,8 @@ envelope, and provider rows have no RyotQL catalog binding. The loop must use st
 idempotency keys for external side effects.
 
 The kernel-only owner-scoped catalog exposes `assistantConversation`, `assistantMessage`,
-`assistantTurn` and `assistantToolCall`. It exposes neither provider keys nor provider settings.
+`assistantTurn` and `assistantToolCall`. A conversation's `status` is computed from its latest turn,
+so it needs no maintenance and restored history reports it correctly. It exposes neither provider keys nor provider settings.
 Read access and demo write approval restrictions remain service responsibilities.
 
 Terminal failures use `AssistantTurnFailure` codes (`provider-unavailable`, `provider-failed`,
@@ -114,7 +122,7 @@ restarting an unfinished model request replaces that message instead of appendin
 The completed round, including validated call arguments, enters the workflow journal before its
 immutable calls are committed or dispatched. Calls execute sequentially with stable
 turn/round/position identities and call-based owner replay keys. The [agent tools](../agent-tools/README.md)
-registry decides which tools require call approval (`page_write`, `page_publish`) and revalidates
+registry decides which tools require call approval (`page_publish`) and revalidates
 that requirement before dispatch; a changed requirement refuses the call.
 
 `execute` writes are approved one at a time. The turn's write gate records each write as a
@@ -126,9 +134,14 @@ Each write's outcome is stored on its capability call.
 
 A decision commits before its durable deferred is completed. Workflow replay reads the persisted
 decision, covering a process exit between those operations. Duplicate decisions replay; competing
-and stale decisions fail. Declines persist a tool result without dispatch. All registry writes,
-including page writes and every `execute` write, require approval. Demo accounts cannot decide, save
+and stale decisions fail. Declines persist a tool result without dispatch. Page publication and every
+`execute` write require approval; private page drafts do not. Demo accounts cannot decide, save
 pages or change provider settings. Agent-script replay is owned by its persisted journal.
+
+Stopping a turn commits the interruption first, then completes each waiting approval deferred with a
+decline. The workflow observes the terminal status at its next step: streaming refuses to persist
+more round text, settled calls are not dispatched, the next round returns no calls and finishing is a
+no-op. A tool already running when the user stops finishes, but its result is not recorded.
 
 The loop permits twelve model rounds and at most 32 calls in a round. The shared tool-result owner
 bounds each result to 64 KiB. Model context retains a bounded suffix of messages, keeping each tool

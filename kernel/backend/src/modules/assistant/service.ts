@@ -1,7 +1,10 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import {
+	type AssistantApprovalDecision,
 	AssistantError,
 	type DecideAssistantToolCallBody,
+	type InterruptAssistantTurnBody,
+	type RenameAssistantConversationBody,
 	type SubmitAssistantTurnBody,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import { AssistantConversationId, AssistantTurnId, UserId } from "@ryot-app/contract/schema/brands";
@@ -73,6 +76,46 @@ export const makeAssistantService = Effect.fn(function* (
 			conversationId: AssistantConversationId.make(turn.conversationId),
 		};
 	});
+	const wake = Effect.fn(function* (
+		userId: UserId,
+		turnId: string,
+		toolCallId: string,
+		decision: AssistantApprovalDecision,
+	) {
+		const deferred = assistantApproval(toolCallId);
+		const executionId = yield* AssistantTurnWorkflow.executionId({ userId, turnId });
+		yield* DurableDeferred.succeed(deferred, {
+			value: decision,
+			token: DurableDeferred.tokenFromExecutionId(deferred, {
+				executionId,
+				workflow: AssistantTurnWorkflow,
+			}),
+		}).pipe(Effect.provideService(WorkflowEngine, engine));
+	});
+	const interrupt = Effect.fn("AssistantService.interrupt")(function* (
+		userId: UserId,
+		input: InterruptAssistantTurnBody,
+	) {
+		const { turn, awaitingDecision } = yield* transact(
+			userId,
+			repository
+				.interrupt(userId, input.conversationId, input.turnId)
+				.pipe(
+					Effect.tap(({ turn: updated }) =>
+						publishAssistantUpdated(
+							userId,
+							updated.conversationId,
+							updated.id,
+							updated.revision,
+						).pipe(Effect.provideService(DatabaseSession, session)),
+					),
+				),
+		);
+		for (const toolCallId of awaitingDecision) {
+			yield* wake(userId, turn.id, toolCallId, "decline");
+		}
+		return { turnId: input.turnId, conversationId: input.conversationId };
+	});
 	const decide = Effect.fn("AssistantService.decide")(function* (
 		userId: UserId,
 		input: DecideAssistantToolCallBody,
@@ -100,15 +143,7 @@ export const makeAssistantService = Effect.fn(function* (
 				return undefined;
 			}),
 		);
-		const deferred = assistantApproval(input.toolCallId);
-		const executionId = yield* AssistantTurnWorkflow.executionId({ userId, turnId: input.turnId });
-		yield* DurableDeferred.succeed(deferred, {
-			value: input.decision,
-			token: DurableDeferred.tokenFromExecutionId(deferred, {
-				executionId,
-				workflow: AssistantTurnWorkflow,
-			}),
-		}).pipe(Effect.provideService(WorkflowEngine, engine));
+		yield* wake(userId, input.turnId, input.toolCallId, input.decision);
 		return { turnId: input.turnId, conversationId: input.conversationId };
 	});
 	const recover = Effect.fn("AssistantService.recover")(function* () {
@@ -124,16 +159,16 @@ export const makeAssistantService = Effect.fn(function* (
 		submit,
 		decide,
 		recover,
+		interrupt,
 		deleteConversation: (userId: UserId, conversationId: string) =>
 			transact(userId, repository.deleteConversation(userId, conversationId)).pipe(
 				Effect.as({ conversationId: AssistantConversationId.make(conversationId) }),
 			),
-		createConversation: (userId: UserId, title: string) =>
-			transact(userId, repository.createConversation(userId, title)).pipe(
-				Effect.map(({ conversationId }) => ({
-					conversationId: AssistantConversationId.make(conversationId),
-				})),
-			),
+		renameConversation: (userId: UserId, input: RenameAssistantConversationBody) =>
+			transact(
+				userId,
+				repository.renameConversation(userId, input.conversationId, input.title),
+			).pipe(Effect.as({ conversationId: input.conversationId })),
 	};
 });
 

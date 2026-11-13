@@ -83,12 +83,15 @@ const decodeToolInput = (name: AgentToolName, value: JsonValue) => {
 const keyed = (key: string | undefined, suffix: string) =>
 	key === undefined ? undefined : `${key}:${suffix}`;
 
+export const writesDirectly = (tool: AgentToolDescriptor) =>
+	!tool.hints.readOnly && tool.approval !== "per-write";
+
 export const availableAgentTools = (
 	accessClass: "demo" | "standard",
 ): readonly AgentToolDescriptor[] =>
 	AgentToolName.literals
 		.map((name) => agentTools[name])
-		.filter((tool) => accessClass !== "demo" || tool.approval !== "call");
+		.filter((tool) => accessClass !== "demo" || !writesDirectly(tool));
 
 export class AgentToolsService extends Context.Service<AgentToolsService>()(
 	"@ryot-app/kernel-backend/modules/agent-tools/service/AgentToolsService",

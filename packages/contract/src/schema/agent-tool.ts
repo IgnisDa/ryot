@@ -76,7 +76,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 			"Read Ryot documentation. Without a topic it lists topics. Long topics are split into pages, starting at 1. Read the pages topic before writing a page.",
 	},
 	page_write: {
-		approval: "call",
+		approval: "none",
 		hints: writeHints,
 		name: "page_write",
 		input: toAgentJsonSchema(PageWriteInput),

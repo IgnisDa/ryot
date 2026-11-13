@@ -15,7 +15,11 @@ import { Headers, HttpRouter, HttpServerRequest, HttpServerResponse } from "effe
 import { LifecycleWriteGuard } from "#modules/accounts/auth/lifecycle-write-guard";
 import { AuthService } from "#modules/accounts/auth/service";
 import type { WriteGate } from "#modules/agent-tools/execute";
-import { AgentToolsService, availableAgentTools } from "#modules/agent-tools/service";
+import {
+	AgentToolsService,
+	availableAgentTools,
+	writesDirectly,
+} from "#modules/agent-tools/service";
 import { RYOT_VERSION } from "#platform/build-info";
 import { AppConfig } from "#platform/config/service";
 
@@ -93,7 +97,7 @@ export const makeMcpTransport = Effect.fn("makeMcpTransport")(function* (
 				).pipe(Effect.provideService(Layer.CurrentMemoMap, connectionMemoMap));
 				const registry = yield* Deferred.await(registryReady);
 				for (const tool of availableAgentTools(authorization.accessClass)) {
-					if (readOnly && tool.approval === "call") {
+					if (readOnly && writesDirectly(tool)) {
 						continue;
 					}
 					const inputSchema = yield* Schema.decodeEffect(McpSchema.ToolJson)({

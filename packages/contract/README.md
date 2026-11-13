@@ -96,11 +96,12 @@ and gate writes. These wire shapes do not confer plugin ownership.
 
 ## Assistant
 
-`modules/assistant/contract` registers `AssistantGroup`: `createConversation`, `deleteConversation`,
-`submit`, `decide`, `providerMetadata`, `configureProvider`, `deleteProvider` and `savePage`. Conversation creation,
-submission and deletion explicitly allow demos; services restrict their tools to read-only behavior.
-Approval, provider configuration and page saving are demo-protected. Submission returns only the
-conversation and turn IDs and uses a caller request ID for replay. Decisions fence a tool-call
+`modules/assistant/contract` registers `AssistantGroup`: `renameConversation`, `deleteConversation`,
+`submit`, `interrupt`, `decide`, `providerMetadata`, `configureProvider`, `deleteProvider` and
+`savePage`. Renaming, submission, interruption and deletion explicitly allow demos; services restrict
+their tools to read-only behavior. Approval, provider configuration and page saving are
+demo-protected. Submission without a conversation ID creates one titled from the message. It returns
+only the conversation and turn IDs and uses a caller request ID, unique per user, for replay. Decisions fence a tool-call
 revision. Provider key omission retains the stored key; deletion removes the entire user override.
 
 `modules/assistant/schemas` owns conversation/turn/message schemas, tool calls (agent tools from

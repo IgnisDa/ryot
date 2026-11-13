@@ -69,6 +69,18 @@ export const AssistantMessagePart = Schema.Union([
 	strictStruct({ kind: Schema.Literal("page-preview"), ...PageDraftBuildIdentity.fields }),
 ]);
 export type AssistantMessagePart = typeof AssistantMessagePart.Type;
+export const AssistantConversationStatus = Schema.Literals([
+	"idle",
+	"working",
+	"awaiting-approval",
+	"failed",
+]);
+export type AssistantConversationStatus = typeof AssistantConversationStatus.Type;
+export const ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH = 60;
+export const AssistantConversationTitle = Schema.Trim.check(
+	Schema.isMinLength(1),
+	Schema.isMaxLength(ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH),
+);
 export const AssistantConversation = strictStruct({
 	title: Schema.String,
 	revision: Schema.Int,
@@ -112,19 +124,23 @@ export const AssistantProviderMetadata = strictStruct({
 	model: Schema.NonEmptyString,
 	source: Schema.Literals(["instance", "user"]),
 });
-export const CreateAssistantConversationBody = strictStruct({ title: Schema.NonEmptyString });
 export const AssistantConversationResult = strictStruct({
 	conversationId: AssistantConversationId,
 });
-export const SubmitAssistantTurnBody = strictStruct({
+export const RenameAssistantConversationBody = strictStruct({
 	...AssistantConversationResult.fields,
+	title: AssistantConversationTitle,
+});
+export const SubmitAssistantTurnBody = strictStruct({
 	text: Schema.NonEmptyString,
 	requestId: Schema.NonEmptyString,
+	conversationId: Schema.optional(AssistantConversationId),
 });
 export const SubmitAssistantTurnResult = strictStruct({
 	...AssistantConversationResult.fields,
 	turnId: AssistantTurnId,
 });
+export const InterruptAssistantTurnBody = SubmitAssistantTurnResult;
 export const DecideAssistantToolCallBody = strictStruct({
 	...SubmitAssistantTurnResult.fields,
 	toolCallId: AssistantToolCallId,
@@ -157,10 +173,11 @@ export type SubmitAssistantTurnBody = typeof SubmitAssistantTurnBody.Type;
 export type SaveAssistantPageResult = typeof SaveAssistantPageResult.Type;
 export type AssistantProviderMetadata = typeof AssistantProviderMetadata.Type;
 export type SubmitAssistantTurnResult = typeof SubmitAssistantTurnResult.Type;
+export type InterruptAssistantTurnBody = typeof InterruptAssistantTurnBody.Type;
 export type AssistantConversationResult = typeof AssistantConversationResult.Type;
 export type DecideAssistantToolCallBody = typeof DecideAssistantToolCallBody.Type;
 export type ConfigureAssistantProviderBody = typeof ConfigureAssistantProviderBody.Type;
-export type CreateAssistantConversationBody = typeof CreateAssistantConversationBody.Type;
+export type RenameAssistantConversationBody = typeof RenameAssistantConversationBody.Type;
 export class AssistantError extends Schema.TaggedError<
 	AssistantError,
 	{ readonly brand: unique symbol }

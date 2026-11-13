@@ -19,15 +19,15 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		),
 	)
 	.add(
-		AuthenticatedMutationEndpoint.post("allowed")(
-			"createConversation",
+		AuthenticatedMutationEndpoint.patch("allowed")(
+			"renameConversation",
 			"/assistant/conversations",
 			{
 				success: S.AssistantConversationResult,
-				payload: S.CreateAssistantConversationBody,
+				payload: S.RenameAssistantConversationBody,
 				error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
 			},
-		).annotate(OpenApi.Description, "Create an owned assistant conversation."),
+		).annotate(OpenApi.Description, "Rename an owned assistant conversation."),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.delete("allowed")(
@@ -45,7 +45,20 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 			payload: S.SubmitAssistantTurnBody,
 			success: S.SubmitAssistantTurnResult,
 			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
-		}).annotate(OpenApi.Description, "Admit or replay a durable assistant turn by request ID."),
+		}).annotate(
+			OpenApi.Description,
+			"Admit or replay a durable assistant turn by request ID, creating the conversation when none is given.",
+		),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.post("allowed")("interrupt", "/assistant/interrupts", {
+			success: S.SubmitAssistantTurnResult,
+			payload: S.InterruptAssistantTurnBody,
+			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
+		}).annotate(
+			OpenApi.Description,
+			"Stop an active assistant turn and settle its unfinished calls as interrupted.",
+		),
 	)
 	.add(
 		AuthenticatedMutationEndpoint.post("protected")("decide", "/assistant/decisions", {

@@ -1,4 +1,5 @@
 import {
+	ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH,
 	type AssistantApprovalDecision,
 	AssistantError,
 	AssistantMessagePart,
@@ -21,7 +22,14 @@ import {
 } from "#schema/tables/assistant";
 
 const activeStatuses: readonly AssistantTurnStatus[] = ["queued", "running", "awaiting-approval"];
+const interruptedResult: AgentToolResult = { truncated: false, value: { interrupted: true } };
 const fail = (code: AssistantError["reason"]["code"]) => new AssistantError({ reason: { code } });
+export const conversationTitle = (text: string) => {
+	const title = text.replaceAll(/\s+/g, " ").trim();
+	return title.length <= ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH
+		? title
+		: `${title.slice(0, ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH - 1).trimEnd()}…`;
+};
 export class AssistantRepository extends Context.Service<AssistantRepository>()(
 	"@ryot-app/kernel-backend/modules/assistant/repository/AssistantRepository",
 	{
@@ -148,14 +156,19 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 						: "running",
 				});
 			});
-			const createConversation = Effect.fn("AssistantRepository.createConversation")(function* (
+			const renameConversation = Effect.fn("AssistantRepository.renameConversation")(function* (
 				userId: UserId,
+				conversationId: string,
 				title: string,
 			) {
-				yield* session.requireTransaction;
-				const id = generateId();
-				yield* session.run((db) => db.insert(conversations).values({ id, title, userId }));
-				return { conversationId: id };
+				yield* lockConversation(userId, conversationId);
+				yield* session.run((db) =>
+					db
+						.update(conversations)
+						.set({ title, revision: sql`${conversations.revision} + 1` })
+						.where(eq(conversations.id, conversationId)),
+				);
+				return undefined;
 			});
 			const deleteConversation = Effect.fn("AssistantRepository.deleteConversation")(function* (
 				userId: UserId,
@@ -181,54 +194,138 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 			});
 			const submit = Effect.fn("AssistantRepository.submit")(function* (
 				userId: UserId,
-				input: { text: string; requestId: string; conversationId: string },
+				input: { text: string; requestId: string; conversationId?: string | undefined },
 			) {
-				yield* lockConversation(userId, input.conversationId);
+				if (input.conversationId === undefined) {
+					yield* session.requireTransaction;
+				} else {
+					yield* lockConversation(userId, input.conversationId);
+				}
 				const [existing] = yield* session.run((db) =>
 					db
 						.select()
 						.from(turns)
-						.where(
-							and(
-								eq(turns.conversationId, input.conversationId),
-								eq(turns.requestId, input.requestId),
-							),
-						),
+						.where(and(eq(turns.userId, userId), eq(turns.requestId, input.requestId))),
 				);
 				if (existing) {
-					if (existing.text !== input.text) {
+					if (
+						existing.text !== input.text ||
+						(input.conversationId !== undefined && existing.conversationId !== input.conversationId)
+					) {
 						return yield* fail("request-conflict");
 					}
 					return existing;
 				}
-				const [active] = yield* session.run((db) =>
-					db
-						.select()
-						.from(turns)
-						.where(
-							and(
-								eq(turns.conversationId, input.conversationId),
-								inArray(turns.status, activeStatuses),
-							),
-						)
-						.limit(1),
-				);
-				if (active) {
-					return yield* fail("conversation-active");
+				const conversationId = input.conversationId ?? generateId();
+				if (input.conversationId === undefined) {
+					yield* session.run((db) =>
+						db
+							.insert(conversations)
+							.values({ userId, id: conversationId, title: conversationTitle(input.text) }),
+					);
+				} else {
+					const [active] = yield* session.run((db) =>
+						db
+							.select()
+							.from(turns)
+							.where(
+								and(
+									eq(turns.conversationId, conversationId),
+									inArray(turns.status, activeStatuses),
+								),
+							)
+							.limit(1),
+					);
+					if (active) {
+						return yield* fail("conversation-active");
+					}
 				}
 				const [row] = yield* session.run((db) =>
 					db
 						.insert(turns)
-						.values({ ...input, userId, id: generateId() })
+						.values({
+							userId,
+							conversationId,
+							id: generateId(),
+							text: input.text,
+							requestId: input.requestId,
+						})
 						.returning(),
 				);
 				if (!row) {
 					return yield* Effect.die("Assistant turn insert returned no row");
 				}
-				yield* appendMessage(userId, input.conversationId, row.id, "user", [
+				yield* appendMessage(userId, conversationId, row.id, "user", [
 					{ kind: "text", text: input.text },
 				]);
 				return row;
+			});
+			const interrupt = Effect.fn("AssistantRepository.interrupt")(function* (
+				userId: UserId,
+				conversationId: string,
+				turnId: string,
+			) {
+				yield* lockConversation(userId, conversationId);
+				const [turn] = yield* session.run((db) =>
+					db
+						.select()
+						.from(turns)
+						.where(
+							and(
+								eq(turns.id, turnId),
+								eq(turns.userId, userId),
+								eq(turns.conversationId, conversationId),
+							),
+						)
+						.for("update"),
+				);
+				if (!turn) {
+					return yield* fail("turn-not-found");
+				}
+				if (!activeStatuses.includes(turn.status)) {
+					return yield* fail("turn-not-active");
+				}
+				const unfinished = yield* session.run((db) =>
+					db
+						.select()
+						.from(calls)
+						.where(and(eq(calls.turnId, turnId), sql`${calls.result} is null`))
+						.orderBy(asc(calls.round), asc(calls.position)),
+				);
+				if (unfinished.length > 0) {
+					yield* session.run((db) =>
+						db
+							.update(calls)
+							.set({ completedAt: sql`now()`, result: interruptedResult })
+							.where(
+								inArray(
+									calls.id,
+									unfinished.map((call) => call.id),
+								),
+							),
+					);
+				}
+				const results = unfinished.flatMap((item) =>
+					item.call.kind === "tool"
+						? [
+								{
+									toolCallId: item.call.id,
+									result: interruptedResult,
+									kind: "tool-result" as const,
+								},
+							]
+						: [],
+				);
+				if (results.length > 0) {
+					yield* appendMessage(userId, conversationId, turnId, "tool", results);
+				}
+				const updated = yield* bumpTurn(turnId, { status: "interrupted" });
+				return {
+					turn: updated,
+					awaitingDecision: unfinished
+						.filter((item) => item.call.requiresApproval && item.decision === null)
+						.map((item) => item.id),
+				};
 			});
 			const transition = Effect.fn("AssistantRepository.transition")(function* (
 				userId: UserId,
@@ -276,7 +373,13 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 					return yield* fail("turn-not-active");
 				}
 				const id = `${turnId}:round:${round}:text`;
-				if (state.messages.some((message) => message.id === id)) {
+				const stored = state.messages.some((message) => message.id === id);
+				if (text === "") {
+					if (!stored) {
+						return state.turn;
+					}
+					yield* session.run((db) => db.delete(messages).where(eq(messages.id, id)));
+				} else if (stored) {
 					yield* session.run((db) =>
 						db
 							.update(messages)
@@ -580,12 +683,13 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				submit,
 				decide,
 				loadTurn,
+				interrupt,
 				transition,
 				recordRound,
 				setRoundText,
 				recordResult,
 				recoverableTurns,
-				createConversation,
+				renameConversation,
 				deleteConversation,
 				recordCapabilityCall,
 				settleCapabilityCall,

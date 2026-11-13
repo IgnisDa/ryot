@@ -11,10 +11,11 @@ rules.
 | `search`       | none      | Lists namespaces, or ranks capabilities at `names`, `summary` or `full` detail |
 | `execute`      | per write | Runs model-written TypeScript against the user's capabilities                  |
 | `read_docs`    | none      | Lists documentation topics or reads one page of a topic                        |
-| `page_write`   | call      | Creates or replaces a page draft and compiles it                               |
+| `page_write`   | none      | Creates or replaces a private page draft and compiles it                       |
 | `page_publish` | call      | Publishes a compiled draft revision                                            |
 
-Demo credentials do not see call-approved tools. Credentials are resolved at each service call:
+Drafts stay private until published, so only publishing needs call approval. Demo credentials and
+read-only MCP connections do not see tools that write directly (`page_write`, `page_publish`). Credentials are resolved at each service call:
 `list`/`call` authenticate request headers with the transport's OAuth resource, and
 `listTrusted`/`validateTrusted`/`callTrusted` reload the persisted account for durable assistant
 turns. Results use the shared bounded `AgentToolResult` envelope from
@@ -35,7 +36,7 @@ the UTF-8 serialization of the whole envelope (default 65,536 bytes, minimum 64)
 
 Capability IDs are `<owner>:<name>` and never rewritten: `kernel:<slug>`,
 `<publisher>/<package>:operations/<slug>` and `<publisher>/<package>:queries/<name>`. Capabilities
-carry their source pins (revision, installation, configuration and content hash for operations;
+carry the title declared by their owner, which approval screens show, and their source pins (revision, installation, configuration and content hash for operations;
 revision and scope for declared queries). Operation calls go through `OperationsService` with those
 pins; declared and inline queries cap root pages at 100 rows and fail with an instructive error when
 the result exceeds the execution byte cap. RyotQL-backed capabilities declare the `RyotQLResponse`
