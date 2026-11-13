@@ -407,6 +407,7 @@ layer(registryLayer)("agent tools", (test) => {
 							readOnly: true,
 							description: "Search item names",
 							id: "testing/search-owner:queries/search",
+							dependency: { scope: "user", packageId: "testing/search-owner" },
 						},
 					],
 				});

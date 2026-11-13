@@ -11,8 +11,9 @@ import only neutral `@ryot-app/plugin-kit/*` entries listed below, and relative 
 Plugin component imports require a declared dependency and the public
 `@ryot-app/plugins/<dependency-alias>/<export>` path; discover real exports before using them.
 
-Prefer a dependency's declared query over writing your own: find them with `search`, declare the
-plugin in `pluginDependencies`, and map a local name to it in `pluginQueries`, for example
+Prefer a dependency's declared query over writing your own: find them with `search`, add the
+result's `dependency` reference to `pluginDependencies` under an alias, and map a local name to the
+alias and query in `pluginQueries`, for example
 `{ "series": { "dependency": "fitness", "query": "measurement-series" } }`. Each of its named queries
 runs as `<local>.<query>`, such as `series.averages`, and shares the page's parameters; a parameter
 defined differently by two sources fails compilation. Otherwise put one static RyotQL document in

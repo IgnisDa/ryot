@@ -35,6 +35,14 @@ export const searchCapabilities = (
 							description: capability.description,
 							destructive: capability.hints.destructive,
 						},
+						capability.source.kind === "declared-query"
+							? {
+									dependency: {
+										scope: capability.source.scope,
+										packageId: capability.source.packageId,
+									},
+								}
+							: {},
 						detail === "full" ? { types: capabilitySignature(capability) } : {},
 					),
 		),

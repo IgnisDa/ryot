@@ -52,7 +52,8 @@ system operations whose `demoAccess` is `allowed`; writes are refused before dis
 `search` ranks by term matches over IDs, descriptions and input/output field names, ties broken by
 ID. Its `full` detail prints input and output TypeScript types from the JSON Schemas through
 `SchemaRepresentation` (`declarations.ts`), followed by input notes listing each field's description
-and numeric, length and item bounds, which the printed types cannot carry.
+and numeric, length and item bounds, which the printed types cannot carry. Declared-query results
+also carry the `dependency` package reference a page declares to import them.
 
 ## Execute
 
