@@ -16,6 +16,7 @@ import { Clock, Context, Duration, Effect, Layer, Result } from "effect";
 import { managedAssetLocators } from "#modules/assets/storage/locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
+import { clientPagePluginRevisions } from "#modules/pages/preparation/composition";
 import { PagesService } from "#modules/pages/preparation/service";
 import { invalidQuery, RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
@@ -165,6 +166,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 								found.document,
 								{ query: "count", arguments: publication.definition.arguments },
 								PUBLICATION_RESULT_BYTES,
+								clientPagePluginRevisions(found.prepared.capturedComposition.identity),
 							)
 							.pipe(
 								Effect.catchTags({
@@ -294,6 +296,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 						found.document,
 						runtime.request(publication.definition, request),
 						PUBLICATION_RESULT_BYTES,
+						clientPagePluginRevisions(found.prepared.capturedComposition.identity),
 					),
 				);
 				for (const locator of managedAssetLocators(result)) {

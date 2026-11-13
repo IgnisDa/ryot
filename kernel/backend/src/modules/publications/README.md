@@ -9,9 +9,10 @@ Live visits follow the latest published page. Visitors send only a declared quer
 the server chooses the document, overrides visitor arguments with owner bindings, and runs under the
 owner's standard, plugin-audience authority in a read-only transaction. User pages may deliberately
 select owner data. The kernel page instead builds `items`, `count`, `item` and `linked` from the
-canonical encoded `sourceEntity` reference and system/kernel authored entity-browser presentation projections. Safe projection filtering shares the recipe policy after subject-alias rebasing; conflicting
-projections fail readiness with a field-specific issue. It exposes no
-owner/event columns, and both relationship endpoints remain inside the bound selection. Unset item
+canonical encoded `sourceEntity` reference and plugin-declared `entity` presentation sources.
+The shared RyotQL executor resolves complete sources; declarations that read private columns or
+related rows in entity scope fail plugin validation. Public cards omit owner progress, ratings,
+and measurements. Both relationship endpoints remain inside the bound selection. Unset item
 IDs produce empty item and linked results. No anonymous endpoint accepts query documents.
 
 ## Snapshots
@@ -64,3 +65,8 @@ expiry and owner disablement. Requests never establish `CurrentUser`.
 Exchanges permit ten attempts per visitor address per minute, resolved through the authentication
 module's trusted address handling. Sessions allow six concurrent reads. Query statements time out
 after ten seconds; live responses and complete snapshot captures are bounded to 2 MB.
+
+Presentation data and its execution context are included in the snapshot response. Projection
+revisions come from the captured client composition, so data and presentation code use the same
+plugin revision. Entity cards do not execute fallback queries. Republish to recapture data after
+changing a plugin's presentation contract.

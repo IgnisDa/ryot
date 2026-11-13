@@ -143,3 +143,10 @@ export const composeClientPage = (input: {
 		bootstrap: file(identity.runtimeArtifactHash, bootstrap),
 	};
 };
+
+export const clientPagePluginRevisions = (identity: ClientPageCompositionIdentity) =>
+	Object.fromEntries(
+		identity.contributors.flatMap((contributor) =>
+			contributor.kind === "plugin" ? [[contributor.pluginId, contributor.revisionId]] : [],
+		),
+	);

@@ -52,7 +52,7 @@ import { PublicationVisitsService } from "./visits";
 const owner = { id: UserId.make("owner"), preferences: defaultUserPreferences };
 const subject = table("entity", "subject");
 const browser = kernelPublicationPage({
-	schemas: [{ slug: "root", browse: null, pluginId: null, presentationFields: [] }],
+	schemas: [{ slug: "root", browse: null, pluginId: null }],
 });
 const stranger = { id: UserId.make("stranger"), preferences: defaultUserPreferences };
 
@@ -597,7 +597,27 @@ layer(publicationsLayer())("publication result assets", (test) => {
 					.set({ properties: { cover: locator, hidden: guessed } })
 					.where(eq(tables.entity.id, "a")),
 			);
-			const live = yield* publications.create(owner, details);
+			const input = { ...details, arguments: {}, page: { kind: "page", pageId: "page" } as const };
+			yield* session.run((db) =>
+				db
+					.update(tables.page)
+					.set({
+						publishedDefinition: {
+							files: [],
+							pluginDependencies: {},
+							entry: "client/page.tsx",
+							queries: {
+								queries: {
+									items: rows(subject, {
+										fields: [field("cover", jsonPath(column(subject, "properties"), "cover"))],
+									}),
+								},
+							},
+						},
+					})
+					.where(eq(tables.page.id, "page")),
+			);
+			const live = yield* publications.create(owner, input);
 			const principal = yield* publications
 				.preview(owner, live.publicationId)
 				.pipe(Effect.flatMap((preview) => visits.authenticate(preview.sessionToken)));
@@ -610,9 +630,9 @@ layer(publicationsLayer())("publication result assets", (test) => {
 				.preview(owner, live.publicationId)
 				.pipe(Effect.flatMap((preview) => visits.authenticate(preview.sessionToken)));
 			expect(yield* visits.resolveAssets(other, [locator])).toEqual([]);
-			yield* publications.republish(owner, { ...details, publicationId: live.publicationId });
+			yield* publications.republish(owner, { ...input, publicationId: live.publicationId });
 			expect(yield* visits.resolveAssets(principal, [locator])).toEqual([]);
-			const snapshot = yield* publications.create(owner, { ...details, mode: "snapshot" });
+			const snapshot = yield* publications.create(owner, { ...input, mode: "snapshot" });
 			const frozen = yield* publications
 				.preview(owner, snapshot.publicationId)
 				.pipe(Effect.flatMap((preview) => visits.authenticate(preview.sessionToken)));
@@ -660,7 +680,7 @@ layer(publicationsLayer())("publication result assets", (test) => {
 				const principal = yield* publications
 					.preview(owner, published.publicationId)
 					.pipe(Effect.flatMap((preview) => visits.authenticate(preview.sessionToken)));
-				const before = yield* visits.query(principal, { query: "names" });
+				const before = yield* visits.query(principal, { query: "items" });
 				const query = rows(subject, {
 					fields: [field("properties", column(subject, "properties"))],
 				});
@@ -722,7 +742,7 @@ layer(publicationsLayer())("publication result assets", (test) => {
 						})
 						.pipe(Effect.flip),
 				).toMatchObject({ reason: { code: "snapshot-too-large" } });
-				expect(yield* visits.query(principal, { query: "names" })).toEqual(before);
+				expect(yield* visits.query(principal, { query: "items" })).toEqual(before);
 				expect(yield* pageRepository.remove(owner.id, "page").pipe(Effect.flip)).toMatchObject({
 					reason: { code: "page-in-use" },
 				});
@@ -731,7 +751,7 @@ layer(publicationsLayer())("publication result assets", (test) => {
 });
 
 layer(publicationsLayer())("system publication projections", (test) => {
-	test.effect("reuses computed projections and strips owner fields", () =>
+	test.effect("does not derive public presentation data from saved-view fields", () =>
 		Effect.gen(function* () {
 			const publications = yield* PublicationsService;
 			const visits = yield* PublicationVisitsService;
@@ -740,40 +760,9 @@ layer(publicationsLayer())("system publication projections", (test) => {
 				.preview(owner, publicationId)
 				.pipe(Effect.flatMap((preview) => visits.authenticate(preview.sessionToken)));
 			const result = yield* visits.query(principal, { query: "items" });
-			expect(result).toMatchObject({
-				data: { items: { items: [{ computedLabel: "Name: Alpha" }] } },
-			});
+			expect(result.data["items"]?.items[0]).toMatchObject({ __entityPresentation: null });
+			expect(result.data["items"]?.items[0]).not.toHaveProperty("computedLabel");
 			expect(result.data["items"]?.items[0]).not.toHaveProperty("unsafeOwner");
-			const session = yield* DatabaseSession;
-			yield* session.run((db) =>
-				db
-					.insert(tables.definitionSavedView)
-					.values({
-						icon: "box",
-						position: 1,
-						sortOrder: 1,
-						slug: "conflict",
-						name: "Conflict",
-						settings: browser.settings,
-						renderer: { kind: "kernel", name: "entity-browser" },
-						dataSources: document({
-							items: rows(subject, { fields: [field("computedLabel", column(subject, "name"))] }),
-						}),
-					}),
-			);
-			yield* (yield* DefinitionCatalog).replaceKernel;
-			expect(yield* publications.status(owner, publicationId)).toMatchObject({
-				status: "needs-attention",
-				reason: {
-					code: "bindings-invalid",
-					issues: [
-						{
-							path: ["page", "root", "computedLabel"],
-							message: "Conflicting system presentation projections for 'root.computedLabel'",
-						},
-					],
-				},
-			});
 		}),
 	);
 });

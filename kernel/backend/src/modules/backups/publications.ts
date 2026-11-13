@@ -32,7 +32,6 @@ export const kernelPublicationDocument = (
 		browse: null,
 		sortTypes: {},
 		slug: schema.slug,
-		presentationFields: [],
 		pluginId: schema.pluginId,
 	}));
 	if (!first) {

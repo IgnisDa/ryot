@@ -1,8 +1,10 @@
+import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
 import { randomUuid } from "@ryot-app/testing/random";
 import { Effect } from "effect";
 import { Playwright, PlaywrightSpawner } from "effect-playwright";
 
 import { createAuthenticatedClient, createCollection } from "~/fixtures/kernel";
+import { seedMediaEntity } from "~/fixtures/plugins/media/media";
 import { chooseMenuItem, signInThroughHostedOAuth } from "~/support/browser";
 import { expect, it } from "~/support/effect-test";
 import { getFrontendUrl } from "~/support/harness-target";
@@ -193,3 +195,61 @@ it.live("renders an authored page anonymously and freezes snapshot code until re
 		}
 	}).pipe(PlaywrightSpawner.withBrowser),
 );
+
+for (const mode of ["live", "snapshot"] as const) {
+	it.live(`renders plugin cards in a ${mode} mixed collection publication`, () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const suffix = yield* randomUuid;
+			const shelf = yield* createCollection(client, { name: `Cards ${suffix}` });
+			const names: string[] = [];
+			for (const schemaSlug of ["movie", "show", "person", "movie-group"]) {
+				const name = `${schemaSlug} ${suffix}`;
+				names.push(name);
+				const member = yield* seedMediaEntity({
+					name,
+					properties: {},
+					providerId: null,
+					target: client.target,
+					entitySchemaSlug: schemaSlug,
+				});
+				yield* client.call((api) =>
+					api.collections.createMembership({
+						payload: { entityId: member.id, collectionId: shelf.id },
+					}),
+				);
+			}
+			const { publicationId } = yield* client.call((api) =>
+				api.publications.create({
+					payload: {
+						mode,
+						icon: "book",
+						title: "Cards",
+						description: null,
+						showOwnerName: false,
+						page: { kind: "kernel", name: "publication" },
+						arguments: {
+							source: encodeEntitySourceReference({ kind: "collection", collectionId: shelf.id }),
+						},
+					},
+				}),
+			);
+			const link = yield* client.call((api) =>
+				api.publications.createLink({
+					payload: { publicationId, expiresAt: null, label: "Visitors" },
+				}),
+			);
+			const browser = yield* Playwright.Browser;
+			const visitor = yield* browser.newPage();
+			yield* visitor.goto(`${getFrontendUrl()}/share/${publicationId}#${link.secret}`);
+			const shared = visitor.locator("iframe").contentFrame();
+			for (const name of names) {
+				yield* shared.getByText(name, { exact: true }).first().waitFor({ state: "visible" });
+			}
+			expect(
+				yield* shared.getByText("This entity could not be loaded.", { exact: true }).count,
+			).toBe(0);
+			expect(yield* shared.locator("article[data-entity-id]").count).toBe(4);
+		}).pipe(PlaywrightSpawner.withBrowser),
+	);
+}

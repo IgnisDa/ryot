@@ -1,10 +1,19 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import { DbError } from "@ryot-app/contract/errors";
+import {
+	ENTITY_PRESENTATION_FIELD,
+	type EntityPresentationPayload,
+} from "@ryot-app/contract/modules/entities/presentation";
 import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/references";
+import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { documentTables, type RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
-import type { RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
+import {
+	type PresentationSelection,
+	RyotQLResponse,
+	type RyotQLResult,
+} from "@ryot-app/contract/modules/ryotql/language";
 import { argumentIssuesMessage, bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import type {
 	DescribeResponse,
@@ -22,6 +31,12 @@ import {
 	type MembershipSource,
 	resolveControl,
 } from "@ryot-app/ryotql-recipes/controls";
+import {
+	presentationDocument,
+	PresentationIdentities,
+	presentationIdentities,
+	PresentationRows,
+} from "@ryot-app/ryotql-recipes/presentations";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { bindDocument as bindAuthoredDocument, cursorBindingKey } from "@ryot-app/ryotql/binding";
 import type { RyotQLAudience } from "@ryot-app/ryotql/catalog";
@@ -39,7 +54,7 @@ import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { DatabaseSession } from "#platform/db/session";
 import { HmacSigner } from "#platform/storage/hmac-signer";
 import { user as userTable } from "#schema/tables/auth";
-import { plugin } from "#schema/tables/core";
+import { plugin, pluginInstallation } from "#schema/tables/core";
 
 import { bindRyotQLDocument, type PluginBinding, pluginIdentityReferences } from "./binding";
 import type { RyotQLExecutionScope } from "./catalog";
@@ -188,6 +203,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					readonly relationsOwner: null | string;
 					readonly resultBytes: number | undefined;
 					readonly loadCatalog: Effect.Effect<ReadonlyArray<PluginBinding>, E, R>;
+					readonly execution: { readonly now: number; readonly timeZone: TimeZone };
 				},
 			) {
 				const bound = yield* bindDocument(document, scope, options.loadCatalog);
@@ -199,6 +215,159 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					options.resultBytes === undefined
 						? undefined
 						: { limitBytes: options.resultBytes, remainingBytes: options.resultBytes };
+				const projection = Effect.fnUntraced(function* (source: RyotQLDocument) {
+					const expanded = yield* Effect.fromResult(
+						bindAuthoredDocument(
+							source,
+							{},
+							{
+								reportingTimeZone: options.execution.timeZone,
+								now: DateTime.toDateUtc(DateTime.makeUnsafe(options.execution.now)),
+							},
+						),
+					).pipe(Effect.mapError((error) => invalidQuery(error.message)));
+					const preliminary = validateRyotQLDocument(expanded.document, scope);
+					if (preliminary.error !== null) {
+						return yield* invalidQuery(preliminary.error);
+					}
+					const projectionDocument = yield* bindDocument(
+						preliminary.value,
+						scope,
+						options.loadCatalog,
+					);
+					const checked = validateRyotQLDocument(projectionDocument, scope);
+					if (checked.error !== null) {
+						return yield* invalidQuery(checked.error);
+					}
+					const query = projectionDocument.queries["items"];
+					if (!query) {
+						return yield* invalidQuery("Missing presentation query");
+					}
+					return yield* executeNamedQuery(scope, query, "items", transaction, budget, (names) =>
+						loadCatalogRelations(catalogs, options.relationsOwner, names),
+					).pipe(Effect.provideService(HmacSigner, signer));
+				});
+				const present = Effect.fnUntraced(function* (
+					result: RyotQLResult,
+					selection: undefined | PresentationSelection,
+				) {
+					if (!selection || result.type !== "rows") {
+						return result;
+					}
+					if (scope.type !== "user") {
+						return yield* invalidQuery("Entity presentations require a user scope");
+					}
+					const ids = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.String))(
+						result.items.map((row) => row[selection.entityId]),
+					).pipe(
+						Effect.mapError(() =>
+							invalidQuery("Presentation selection must name an entity ID field"),
+						),
+					);
+					const payloads = new Map<string, EntityPresentationPayload>();
+					const catalog = yield* catalogs.forUser(scope.userId);
+					for (let offset = 0; offset < ids.length; offset += 100) {
+						const identities = yield* Schema.decodeUnknownEffect(PresentationIdentities)(
+							yield* projection(presentationIdentities(ids.slice(offset, offset + 100))),
+						).pipe(Effect.mapError(() => invalidQuery("Invalid presentation identities")));
+						for (const installedPlugin of catalog.plugins.filter(
+							(candidate) => candidate.health === "ready" && candidate.isDefinitionEffective,
+						)) {
+							if (!identities.items.some((row) => row.pluginId === installedPlugin.pluginId)) {
+								continue;
+							}
+							if (
+								scope.presentationRevisions &&
+								!Object.hasOwn(scope.presentationRevisions, installedPlugin.pluginId)
+							) {
+								continue;
+							}
+							const revisionId =
+								scope.presentationRevisions?.[installedPlugin.pluginId] ??
+								(scope.definitionContext?.pluginId === installedPlugin.pluginId
+									? scope.definitionContext.pluginRevisionId
+									: installedPlugin.activeRevisionId);
+							const revision = yield* catalogs.revision(revisionId);
+
+							for (const [schemaSlug, registration] of Object.entries(
+								revision.sections.client?.entities ?? {},
+							)) {
+								const selected = identities.items.filter(
+									(row) =>
+										row.pluginId === installedPlugin.pluginId && row.schemaSlug === schemaSlug,
+								);
+								if (selected.length === 0) {
+									continue;
+								}
+								const declaration = registration.presentation;
+								if (!declaration) {
+									if (registration.gridPresentation || registration.listPresentation) {
+										return yield* invalidQuery(
+											`Missing presentation declaration for '${schemaSlug}'`,
+										);
+									}
+									continue;
+								}
+								const rows = yield* Schema.decodeUnknownEffect(PresentationRows)(
+									yield* projection(
+										presentationDocument({
+											schemaSlug,
+											pluginId: installedPlugin.pluginId,
+											ids: selected.map((row) => row.id),
+											fields: declaration[selection.scope],
+											include: selection.scope === "owner" ? declaration.ownerIncludes : undefined,
+										}),
+									),
+								).pipe(
+									Effect.mapError(() =>
+										invalidQuery(`Invalid presentation result for '${schemaSlug}'`),
+									),
+								);
+								const [installation] =
+									selection.scope === "owner" && declaration.settings
+										? yield* transaction
+												.select({ settings: pluginInstallation.userSettings })
+												.from(pluginInstallation)
+												.where(
+													and(
+														eq(pluginInstallation.id, installedPlugin.installationId),
+														eq(pluginInstallation.userId, scope.userId),
+													),
+												)
+										: [];
+								const settings =
+									selection.scope === "owner" &&
+									declaration.settings &&
+									revision.sections.userSettingsSchema
+										? yield* resolveStoredPluginUserSettings(
+												revision.sections.userSettingsSchema,
+												installation?.settings ?? {},
+											).pipe(Effect.mapError(() => invalidQuery("Invalid presentation settings")))
+										: null;
+								for (const row of rows.items) {
+									const { __presentationEntityId: id, ...data } = row;
+									if (typeof id !== "string") {
+										return yield* invalidQuery("Presentation result has no entity ID");
+									}
+									payloads.set(id, {
+										data,
+										schemaSlug,
+										scope: selection.scope,
+										pluginId: installedPlugin.pluginId,
+										context: { ...options.execution, settings },
+									});
+								}
+							}
+						}
+					}
+					return {
+						...result,
+						items: result.items.map((row, index) => ({
+							...row,
+							[ENTITY_PRESENTATION_FIELD]: payloads.get(ids[index] ?? "") ?? null,
+						})),
+					};
+				});
 				const results: Array<readonly [string, RyotQLResult]> = [];
 				for (const [name, query] of Object.entries(bound.queries)) {
 					results.push([
@@ -210,10 +379,31 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 							transaction,
 							budget,
 							(names) => loadCatalogRelations(catalogs, options.relationsOwner, names),
-						).pipe(Effect.provideService(HmacSigner, signer)),
+						).pipe(
+							Effect.provideService(HmacSigner, signer),
+							Effect.flatMap((result) =>
+								present(
+									result,
+									query.output.type === "rows" ? query.output.presentation : undefined,
+								),
+							),
+						),
 					]);
 				}
-				return { data: Object.fromEntries(results) };
+				const response = { data: Object.fromEntries(results) };
+				if (
+					budget &&
+					Buffer.byteLength(
+						yield* Schema.encodeEffect(Schema.fromJsonString(RyotQLResponse))(response).pipe(
+							Effect.orDie,
+						),
+					) > budget.limitBytes
+				) {
+					return yield* new RyotQLBadRequest({
+						reason: { code: "result-too-large", limitBytes: budget.limitBytes },
+					});
+				}
+				return response;
 			});
 
 			const controlSchemas = Effect.fn("RyotQLService.controlSchemas")(function* (
@@ -576,6 +766,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						const prepared = yield* prepareRequest(transaction, scope, request);
 						const result = yield* runDocument(transaction, prepared.scope, prepared.document, {
 							resultBytes,
+							execution: prepared.execution,
 							loadCatalog: scopePlugins(transaction, scope),
 							relationsOwner: scope.type === "user" ? scope.userId : null,
 						});
@@ -644,8 +835,10 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				document: RyotQLDocument,
 				request: { readonly query?: string } & Omit<ExecutionRequest, "source">,
 				resultBytes: number,
+				presentationRevisions?: Readonly<Record<string, string>>,
 			) {
 				const scope = {
+					presentationRevisions,
 					...owner,
 					type: "user",
 					audience: "plugin",
@@ -676,6 +869,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						const result = yield* runDocument(transaction, prepared.scope, prepared.document, {
 							resultBytes,
 							relationsOwner: owner.userId,
+							execution: prepared.execution,
 							loadCatalog: scopePlugins(transaction, scope),
 						});
 						return { ...result, execution: prepared.execution };

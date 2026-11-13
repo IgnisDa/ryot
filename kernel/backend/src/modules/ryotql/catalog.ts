@@ -34,6 +34,7 @@ export type RyotQLExecutionScope = (
 ) & {
 	readonly cursorIdentity?: string;
 	readonly sourceRevisions?: Readonly<Record<string, number>>;
+	readonly presentationRevisions?: undefined | Readonly<Record<string, string>>;
 	readonly sourceEntities?: Readonly<
 		Record<string, readonly { readonly rank: number; readonly entityId: string }[]>
 	>;

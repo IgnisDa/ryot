@@ -180,12 +180,14 @@ const insertPlugin = Effect.fn(function* (input: {
 	readonly ownerId: null | string;
 	readonly homeView: null | string;
 	readonly configSchema?: PluginConfigSchema;
+	readonly client?: PluginManifest["client"];
 }) {
 	const revisionId = `${input.id}-revision`;
 	const packageId =
 		input.slug === systemPluginName ? systemPackageId : PluginPackageId.make(`test/${input.slug}`);
 	const revisionManifest = {
 		...manifest(input.slug, input.homeView, packageId),
+		...(input.client ? { client: input.client } : {}),
 		...(input.configSchema ? { configSchema: input.configSchema } : {}),
 	};
 	const session = yield* DatabaseSession;
@@ -2256,6 +2258,144 @@ layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
 						expect(yield* matchingIds("mixed", not(match(externalId, slug)))).toEqual(ids(pairs));
 						expect(yield* matchingIds("mixed", not(match(name, externalId)))).toEqual(ids(pairs));
 					}
+				}),
+			testTimeout,
+		);
+	},
+);
+
+layer(catalogDatabaseLayer.pipe(Layer.provide(makeAppConfigLayer())))(
+	"entity presentation resolution",
+	(test) => {
+		test.effect(
+			"hydrates owner and entity data from declarations and honors captured revisions",
+			() =>
+				Effect.gen(function* () {
+					const service = yield* RyotQLService;
+					const session = yield* DatabaseSession;
+					const subject = table("entity", "entity");
+					const client = {
+						homeView: null,
+						apiVersion: CLIENT_API_VERSION,
+						exports: {
+							card: {
+								kind: "presentation",
+								entry: "client/card.tsx",
+								automaticEntityPresentations: false,
+							},
+						},
+						entities: {
+							card: {
+								gridPresentation: "card",
+								presentation: {
+									entity: [field("title", column(subject, "name"))],
+									owner: [
+										field("title", column(subject, "name")),
+										field("owner", column(subject, "userId")),
+									],
+								},
+							},
+						},
+					} satisfies NonNullable<PluginManifest["client"]>;
+					yield* insertPlugin({
+						client,
+						ownerId: null,
+						homeView: null,
+						slug: "presentation",
+						id: "presentation-plugin",
+					});
+					yield* session.run((db) =>
+						Effect.gen(function* () {
+							yield* db
+								.insert(pluginInstallation)
+								.values({
+									userId: "owner",
+									health: "ready",
+									id: "presentation-install",
+									pluginId: "presentation-plugin",
+								});
+							yield* db
+								.insert(definitionEntitySchema)
+								.values({ ...entitySchemaDefinition("card", "presentation-plugin") });
+							yield* db.insert(entity).values([
+								{
+									name: "Visible",
+									userId: "owner",
+									id: "presentation-one",
+									entitySchemaSlug: "card",
+									entitySchemaPluginId: "presentation-plugin",
+								},
+								{
+									name: "Private",
+									userId: "other",
+									id: "presentation-other",
+									entitySchemaSlug: "card",
+									entitySchemaPluginId: "presentation-plugin",
+								},
+							]);
+							const pinned = {
+								...manifest("presentation", null, PluginPackageId.make("test/presentation")),
+								client: {
+									...client,
+									entities: {
+										card: {
+											...client.entities.card,
+											presentation: {
+												...client.entities.card.presentation,
+												entity: [field("title", literal("Captured"))],
+											},
+										},
+									},
+								},
+							};
+							yield* insertPluginRevision(db, {
+								manifest: pinned,
+								id: "presentation-captured",
+								pluginId: "presentation-plugin",
+								contentHash: "presentation-captured",
+							});
+						}),
+					);
+					const document = (scope: "owner" | "entity") => ({
+						queries: {
+							rows: rows(subject, {
+								presentation: { scope, entityId: "id" },
+								fields: [field("id", column(subject, "id"))],
+								where: queryEq(
+									column(subject, "entitySchemaPluginId"),
+									literal("presentation-plugin"),
+								),
+							}),
+						},
+					});
+					const privateResult = yield* service.executeForUser("owner", null, "kernel", {
+						source: { kind: "inline", document: document("owner") },
+					});
+					expect(rowsOf(privateResult).items).toHaveLength(1);
+					expect(rowsOf(privateResult).items[0]).toMatchObject({
+						__entityPresentation: {
+							scope: "owner",
+							schemaSlug: "card",
+							pluginId: "presentation-plugin",
+							data: { owner: "owner", title: "Visible" },
+						},
+					});
+					const publicResult = yield* service.executeDeclared(
+						{ language: null, userId: "owner" },
+						document("entity"),
+						{},
+						100000,
+						{ "presentation-plugin": "presentation-captured" },
+					);
+					expect(rowsOf(publicResult).items).toHaveLength(1);
+					expect(rowsOf(publicResult).items[0]?.["__entityPresentation"]).toMatchObject({
+						scope: "entity",
+						data: { title: "Captured" },
+						context: { settings: null },
+					});
+					expect(rowsOf(publicResult).items[0]?.["__entityPresentation"]).not.toHaveProperty(
+						"data.owner",
+					);
 				}),
 			testTimeout,
 		);

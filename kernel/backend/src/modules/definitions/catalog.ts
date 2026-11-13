@@ -93,11 +93,6 @@ type GlobalCatalog = DefinitionCatalogRows & { readonly plugins: ReadonlyArray<G
 /** Every user's catalog: kernel rows apply to all users, and each user's catalog holds only plugin rows. */
 type AllUsersCatalog = { readonly kernel: UserCatalog; readonly users: ReadonlyArray<UserCatalog> };
 
-type RevisionSections = Pick<
-	typeof schema.pluginRevision.$inferSelect,
-	"hooks" | "scripts" | "queries" | "signalSchemas"
->;
-
 type Owner = {
 	readonly pluginId: null | string;
 	readonly pluginScope: null | PluginScope;
@@ -109,10 +104,15 @@ type Executable = Owner & {
 	readonly installationId: null | string;
 	readonly configRevisionId: null | string;
 };
+
 type EventSchemaRow = typeof schema.definitionEventSchema.$inferSelect & {
 	readonly entitySchemaSlug: string;
 	readonly pluginRevisionId: null | string;
 };
+type RevisionSections = Pick<
+	typeof schema.pluginRevision.$inferSelect,
+	"hooks" | "client" | "scripts" | "queries" | "signalSchemas" | "userSettingsSchema"
+>;
 
 type ImportSourceRow = Omit<
 	typeof schema.definitionImportSource.$inferSelect,
@@ -210,7 +210,14 @@ const emptyRevision: RevisionCatalog = {
 	providerOperations: [],
 	relationshipSchemas: [],
 	integrationProviders: [],
-	sections: { hooks: [], scripts: [], signalSchemas: [], queries: undefined },
+	sections: {
+		hooks: [],
+		scripts: [],
+		signalSchemas: [],
+		client: undefined,
+		queries: undefined,
+		userSettingsSchema: undefined,
+	},
 };
 
 const groupByRevision = <Row extends { readonly pluginRevisionId: null | string }>(
@@ -672,9 +679,11 @@ export class DefinitionCatalog extends Context.Service<DefinitionCatalog>()(
 								.select({
 									id: schema.pluginRevision.id,
 									hooks: schema.pluginRevision.hooks,
+									client: schema.pluginRevision.client,
 									queries: schema.pluginRevision.queries,
 									scripts: schema.pluginRevision.scripts,
 									signalSchemas: schema.pluginRevision.signalSchemas,
+									userSettingsSchema: schema.pluginRevision.userSettingsSchema,
 								})
 								.from(schema.pluginRevision)
 								.where(inArray(schema.pluginRevision.id, revisionIds)),
