@@ -76,6 +76,8 @@ export const makePluginInstallationsApi = (
 ) =>
 	Layer.succeed(PluginInstallationsApi, {
 		update: unused,
+		inspect: unused,
+		install: unused,
 		uninstall: unused,
 		updatePackage: unused,
 		...overrides,
@@ -234,7 +236,7 @@ export const makeInstanceAdminApi = (overrides: Partial<InstanceAdminApi["Servic
 export const KernelApiTestLayer = Layer.mergeAll(
 	makeRemindersApi(),
 	makeAutomationsApi(),
-	Layer.succeed(PluginManagementService, { load: unused, execute: unused }),
+	Layer.succeed(PluginManagementService, { load: unused, inspect: unused, execute: unused }),
 	Layer.succeed(ExternalLinks, {
 		open: () => Effect.die("Unused external link"),
 		outcome: () => Effect.die("Unused external link"),

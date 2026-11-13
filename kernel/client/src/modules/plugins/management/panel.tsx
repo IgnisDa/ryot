@@ -1,14 +1,9 @@
-import {
-	Button,
-	DestructiveConfirmation,
-	StatusMessage,
-	TextArea,
-	TextField,
-} from "@ryot-app/plugin-ui-sdk";
+import { Button, DestructiveConfirmation, StatusMessage } from "@ryot-app/plugin-ui-sdk";
 import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import clsx from "clsx";
 import { type ReactNode, useRef, useState } from "react";
 
+import { PluginConfigForm } from "#/modules/plugins/management/config-form";
 import type {
 	ManagedPluginInstallation,
 	PluginManagementAction,
@@ -32,29 +27,47 @@ const pillClassName = "shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium
 
 const compactButtonClassName = "min-h-9 px-3 py-1.5 text-sm";
 
+export type PluginManagementFeedback = {
+	readonly message: string;
+	readonly tone: "error" | "success";
+	readonly installationId: string | undefined;
+};
+
+type InstallationProps = {
+	readonly pending: boolean;
+	readonly installation: ManagedPluginInstallation;
+	readonly feedback: undefined | PluginManagementFeedback;
+	readonly onAction: (action: PluginManagementAction) => void;
+	readonly onOpenArchive: (installation: ManagedPluginInstallation) => void;
+};
+
 export function PluginManagementPanel(props: {
 	readonly pending: boolean;
-	readonly error?: string | undefined;
-	readonly status?: string | undefined;
+	readonly feedback: undefined | PluginManagementFeedback;
 	readonly onAction: (action: PluginManagementAction) => void;
 	readonly installations: readonly ManagedPluginInstallation[];
+	readonly onOpenArchive: (installation?: ManagedPluginInstallation) => void;
 }) {
 	return (
 		<div className="flex flex-col gap-6 pb-4">
-			<p className="text-sm leading-6 text-text-muted">
-				Plugins add workspaces, views, and data types to Ryot. Package names are metadata, not
-				publisher verification. Unavailable entries do not load plugin client code.
-			</p>
-			{props.error ? (
-				<StatusMessage tone="error" className="text-sm">
-					{props.error}
-				</StatusMessage>
-			) : null}
-			{props.status ? (
-				<StatusMessage tone="success" className="text-sm">
-					{props.status}
-				</StatusMessage>
-			) : null}
+			<div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+				<p className="text-sm leading-6 text-text-muted">
+					Plugins add workspaces, views, and data types to Ryot. Package names are metadata, not
+					publisher verification. Unavailable entries do not load plugin client code.
+				</p>
+				<Button
+					variant="primary"
+					disabled={props.pending}
+					onClick={() => props.onOpenArchive()}
+					className={clsx(compactButtonClassName, "flex shrink-0 items-center gap-1.5 self-start")}
+				>
+					<AppIcon size={14} name="plus" />
+					Install plugin
+				</Button>
+			</div>
+			<Feedback
+				feedback={props.feedback?.installationId === undefined ? props.feedback : undefined}
+			/>
 			{props.installations.length === 0 ? (
 				<p className="text-sm text-text-muted">No plugin installations.</p>
 			) : (
@@ -65,11 +78,25 @@ export function PluginManagementPanel(props: {
 							onAction={props.onAction}
 							installation={installation}
 							key={installation.installationId}
+							onOpenArchive={props.onOpenArchive}
+							feedback={
+								props.feedback?.installationId === installation.installationId
+									? props.feedback
+									: undefined
+							}
 						/>
 					))}
 				</div>
 			)}
 		</div>
+	);
+}
+
+function Feedback(props: { readonly feedback: undefined | PluginManagementFeedback }) {
+	return props.feedback === undefined ? null : (
+		<StatusMessage className="text-sm" tone={props.feedback.tone}>
+			{props.feedback.message}
+		</StatusMessage>
 	);
 }
 
@@ -84,11 +111,7 @@ function DetailsSection(props: { readonly title: string; readonly children: Reac
 	);
 }
 
-function InstallationCard(props: {
-	readonly pending: boolean;
-	readonly installation: ManagedPluginInstallation;
-	readonly onAction: (action: PluginManagementAction) => void;
-}) {
+function InstallationCard(props: InstallationProps) {
 	const installation = props.installation;
 	const health = healthPresentation[installation.health];
 	return (
@@ -130,22 +153,17 @@ function InstallationCard(props: {
 			</summary>
 			<InstallationDetails
 				pending={props.pending}
+				feedback={props.feedback}
 				onAction={props.onAction}
 				installation={installation}
+				onOpenArchive={props.onOpenArchive}
 			/>
 		</details>
 	);
 }
 
-function InstallationDetails(props: {
-	readonly pending: boolean;
-	readonly installation: ManagedPluginInstallation;
-	readonly onAction: (action: PluginManagementAction) => void;
-}) {
+function InstallationDetails(props: InstallationProps) {
 	const installation = props.installation;
-	const [config, setConfig] = useState(JSON.stringify(installation.config, null, 2));
-	const [unsetKeys, setUnsetKeys] = useState("");
-	const [file, setFile] = useState<File>();
 	const [confirmRemoval, setConfirmRemoval] = useState(false);
 	const uninstallTrigger = useRef<HTMLButtonElement>(null);
 	const technicalDetails = [
@@ -163,6 +181,7 @@ function InstallationDetails(props: {
 	];
 	return (
 		<div className="flex flex-col gap-5 border-t border-border px-4 py-4">
+			<Feedback feedback={props.feedback} />
 			{installation.healthReason === null &&
 			installation.incompatibilityReason !== "package-identity-conflict" ? null : (
 				<div
@@ -218,86 +237,41 @@ function InstallationDetails(props: {
 			</div>
 			{installation.scope === "user" ? (
 				<>
-					<DetailsSection title="Configuration">
-						<form
-							className="flex flex-col gap-3"
-							onSubmit={(event) => {
-								event.preventDefault();
-								props.onAction({ config, unsetKeys, installation, kind: "configure" });
-							}}
-						>
-							<label className="flex flex-col gap-1.5 text-sm font-medium text-text-muted">
-								Configuration JSON
-								<TextArea
-									value={config}
-									density="compact"
-									className="min-h-32 font-mono"
-									onChange={(event) => setConfig(event.currentTarget.value)}
-								/>
-							</label>
-							<label className="flex flex-col gap-1.5 text-sm font-medium text-text-muted">
-								Unset configuration keys (comma separated)
-								<TextField
-									value={unsetKeys}
-									density="compact"
-									onChange={(event) => setUnsetKeys(event.currentTarget.value)}
-								/>
-							</label>
-							<p className="text-xs text-text-muted">
-								Configured secrets:{" "}
-								{installation.configuredSecrets.length === 0
-									? "None"
-									: installation.configuredSecrets.join(", ")}
-								. Existing secret values are not shown; omit a key to preserve it.
-							</p>
-							<Button
-								type="submit"
-								disabled={props.pending}
-								className={clsx(compactButtonClassName, "self-start")}
-							>
-								Save configuration
-							</Button>
-						</form>
-					</DetailsSection>
+					{Object.keys(installation.configSchema.fields).length === 0 ? null : (
+						<DetailsSection title="Configuration">
+							<PluginConfigForm
+								pending={props.pending}
+								pendingLabel="Saving..."
+								stored={installation.config}
+								submitLabel="Save configuration"
+								schema={installation.configSchema}
+								submitClassName={compactButtonClassName}
+								onSubmit={(config) => props.onAction({ config, installation, kind: "configure" })}
+								seedKey={`${installation.installationId}:${installation.contentHash}:${JSON.stringify(installation.config)}`}
+							/>
+						</DetailsSection>
+					)}
 					<DetailsSection title="Package">
-						<form
-							className="flex flex-col gap-3"
-							onSubmit={(event) => {
-								event.preventDefault();
-								if (file) {
-									props.onAction({ file, installation, kind: "package" });
-								}
-							}}
-						>
-							<label className="flex flex-col gap-1.5 text-sm font-medium text-text-muted">
-								Replacement plugin archive
-								<input
-									type="file"
-									accept=".zip"
-									onChange={(event) => setFile(event.currentTarget.files?.[0])}
-									className="text-sm text-text file:mr-3 file:rounded-lg file:border file:border-border-strong file:bg-transparent file:px-3 file:py-1.5 file:font-semibold file:text-text"
-								/>
-							</label>
-							<div className="flex flex-wrap gap-2">
-								<Button
-									type="submit"
-									className={compactButtonClassName}
-									disabled={props.pending || file === undefined}
-								>
-									Update package
-								</Button>
-								<Button
-									type="button"
-									variant="secondary"
-									ref={uninstallTrigger}
-									disabled={props.pending}
-									onClick={() => setConfirmRemoval(true)}
-									className={clsx(compactButtonClassName, "text-danger")}
-								>
-									Uninstall
-								</Button>
-							</div>
-						</form>
+						<div className="flex flex-wrap gap-2">
+							<Button
+								type="button"
+								disabled={props.pending}
+								className={compactButtonClassName}
+								onClick={() => props.onOpenArchive(installation)}
+							>
+								Update package
+							</Button>
+							<Button
+								type="button"
+								variant="secondary"
+								ref={uninstallTrigger}
+								disabled={props.pending}
+								onClick={() => setConfirmRemoval(true)}
+								className={clsx(compactButtonClassName, "text-danger")}
+							>
+								Uninstall
+							</Button>
+						</div>
 					</DetailsSection>
 				</>
 			) : (

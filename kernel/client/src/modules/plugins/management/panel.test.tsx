@@ -23,6 +23,8 @@ it("shows a retained private identity separately from the system copy without lo
 	const view = render(
 		<PluginManagementPanel
 			pending={false}
+			feedback={undefined}
+			onOpenArchive={() => {}}
 			installations={[system, retained]}
 			onAction={(action) => actions.push(action)}
 		/>,
@@ -59,6 +61,8 @@ it("requires confirmation for exact private removal and offers no system package
 	const view = render(
 		<PluginManagementPanel
 			pending={false}
+			feedback={undefined}
+			onOpenArchive={() => {}}
 			installations={[installation]}
 			onAction={(action) => actions.push(action)}
 		/>,

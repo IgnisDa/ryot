@@ -10,7 +10,6 @@ import { Context, Effect, Layer, Ref } from "effect";
 import { AuthenticatedApiError } from "#/api/authenticated";
 import { ServerOrigin } from "#/api/origin";
 import { PluginInstallationsApi } from "#/api/plugin-installations";
-import { Uploads } from "#/modules/assets/uploads";
 import { PluginManagementService } from "#/modules/plugins/management/service";
 import { managedInstallation } from "#/modules/plugins/management/service.test-fixtures";
 
@@ -31,6 +30,10 @@ const dependencies = Layer.effectContext(
 			Context.add(PluginInstallationsApi, {
 				update: (_scope, request) => record("state", request),
 				updatePackage: (_scope, request) => record("package", request),
+				install: (_scope, request) =>
+					record("install", request).pipe(
+						Effect.map((result) => ({ ...result, activationId: "a" })),
+					),
 				uninstall: () =>
 					Effect.fail(
 						new AuthenticatedApiError({
@@ -39,21 +42,26 @@ const dependencies = Layer.effectContext(
 							}),
 						}),
 					),
-			}),
-			Context.add(Uploads, {
-				upload: () => Effect.die("unused"),
-				outcome: () => Effect.succeed({ outcome: "failure", reason: "transport" }),
-				uploadTemporary: (_scope, request) =>
-					Ref.update(calls, (all) => [...all, { request, method: "upload" }]).pipe(
+				inspect: (_scope, request) =>
+					Ref.update(calls, (all) => [...all, { request, method: "inspect" }]).pipe(
 						Effect.as({
-							action: "temporary" as const,
-							token: { token: "archive-token", expiresAt: "2026-10-13T00:00:00.000Z" },
+							operations: [],
+							configSchema: { fields: {}, unknownKeys: "strict" as const },
+							metadata: {
+								icon: installation.icon,
+								name: installation.name,
+								version: installation.version,
+								packageId: installation.packageId,
+								description: installation.description,
+							},
 						}),
 					),
 			}),
 		);
 	}),
 );
+
+const scope = { userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") };
 
 layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((test) => {
 	test.effect(
@@ -85,7 +93,6 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			Effect.gen(function* () {
 				const installation = managedInstallation();
 				const service = yield* PluginManagementService;
-				const scope = { userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") };
 				expect(
 					yield* service.execute(scope, { installation, kind: "state", isHidden: false }),
 				).toEqual({ id: installation.installationId, pluginId: installation.pluginId });
@@ -107,42 +114,59 @@ layer(PluginManagementService.layer.pipe(Layer.provideMerge(dependencies)))((tes
 			Effect.gen(function* () {
 				const service = yield* PluginManagementService;
 				const error = yield* Effect.flip(
-					service.execute(
-						{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
-						{ kind: "uninstall", installation: managedInstallation() },
-					),
+					service.execute(scope, { kind: "uninstall", installation: managedInstallation() }),
 				);
 				expect(error.detail).toBe("Your library still has entities that use this plugin.");
 			}),
 		testTimeout,
 	);
 	test.effect(
-		"updates only the displayed private installation at its expected source hash",
+		"inspects an uploaded archive against the selected installation",
 		() =>
 			Effect.gen(function* () {
 				const installation = managedInstallation();
 				const service = yield* PluginManagementService;
-				const file = new File(["archive bytes"], "whiskey.zip", { type: "application/zip" });
-				yield* service.execute(
-					{ userId: "user", serverUrl: ServerOrigin.make("https://ryot.example") },
-					{ file, installation, kind: "package" },
-				);
+				yield* service.inspect(scope, { installation, uploadToken: "archive-token" });
+				yield* service.inspect(scope, { uploadToken: "install-token" });
 				expect((yield* (yield* Commands).calls).slice(-2)).toEqual([
 					{
-						method: "upload",
+						method: "inspect",
 						request: {
-							source: file,
-							action: "temporary",
-							fileName: "whiskey.zip",
-							contentType: "application/zip",
+							payload: { uploadToken: "archive-token", installationId: "private-installation" },
 						},
 					},
+					{ method: "inspect", request: { payload: { uploadToken: "install-token" } } },
+				]);
+			}),
+		testTimeout,
+	);
+	test.effect(
+		"installs and updates packages from uploaded archive tokens with replacement config",
+		() =>
+			Effect.gen(function* () {
+				const installation = managedInstallation();
+				const service = yield* PluginManagementService;
+				const config = { region: "eu" };
+				yield* service.execute(scope, { config, kind: "install", uploadToken: "install-token" });
+				yield* service.execute(scope, {
+					config,
+					installation,
+					kind: "package",
+					uploadToken: "archive-token",
+				});
+				yield* service.execute(scope, { config, installation, kind: "configure" });
+				expect((yield* (yield* Commands).calls).slice(-3)).toEqual([
+					{ method: "install", request: { payload: { config, uploadToken: "install-token" } } },
 					{
 						method: "package",
 						request: {
 							params: { installationId: "private-installation" },
-							payload: { contentHash: "source-hash", uploadToken: "archive-token" },
+							payload: { config, contentHash: "source-hash", uploadToken: "archive-token" },
 						},
+					},
+					{
+						method: "state",
+						request: { payload: { config }, params: { installationId: "private-installation" } },
 					},
 				]);
 			}),

@@ -1,9 +1,10 @@
 import {
 	PluginConflictError,
+	type PluginInspection,
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
-import { JsonValue } from "@ryot-app/contract/schema/json";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { createRyotHostMutation, createRyotHostQuery } from "@ryot-app/plugin-client-sdk/react";
 import {
 	type PluginInstallationsPage,
@@ -17,28 +18,38 @@ import { PluginInstallationsApi } from "#/api/plugin-installations";
 import type { KernelRyotClient } from "#/api/ryot-client";
 import type { ApiScope } from "#/api/scope";
 import { KernelHostServices } from "#/host-services";
-import { Uploads } from "#/modules/assets/uploads";
 
 export type ManagedPluginInstallation = PluginInstallationsPage["items"][number];
 
+export type PluginArchiveSubmission = {
+	readonly uploadToken: string;
+	readonly config: PluginConfig;
+};
+
 export type PluginManagementAction =
+	| (PluginArchiveSubmission & { readonly kind: "install" })
 	| { readonly kind: "uninstall"; readonly installation: ManagedPluginInstallation }
-	| {
-			readonly file: File;
+	| (PluginArchiveSubmission & {
 			readonly kind: "package";
 			readonly installation: ManagedPluginInstallation;
-	  }
+	  })
 	| {
 			readonly kind: "state";
 			readonly isHidden: boolean;
 			readonly installation: ManagedPluginInstallation;
 	  }
 	| {
-			readonly config: string;
 			readonly kind: "configure";
-			readonly unsetKeys: string;
+			readonly config: PluginConfig;
 			readonly installation: ManagedPluginInstallation;
 	  };
+
+type PluginConfig = Readonly<Record<string, JsonValue>>;
+
+type PluginArchiveInspectionRequest = {
+	readonly uploadToken: string;
+	readonly installation?: undefined | ManagedPluginInstallation;
+};
 
 export class PluginManagementError extends Schema.TaggedError<
 	PluginManagementError,
@@ -100,7 +111,6 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 	{
 		make: Effect.gen(function* () {
 			const api = yield* PluginInstallationsApi;
-			const uploads = yield* Uploads;
 			const load = Effect.fn("PluginManagement.load")(function* (
 				client: Pick<KernelRyotClient, "data">,
 			) {
@@ -116,61 +126,52 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 					),
 				);
 			});
-			const execute = Effect.fn("PluginManagement.execute")(function* (
-				scope: ApiScope,
-				action: PluginManagementAction,
-			) {
+			const inspect = Effect.fn("PluginManagement.inspect")(
+				(scope: ApiScope, request: PluginArchiveInspectionRequest) =>
+					api
+						.inspect(scope, {
+							payload: {
+								uploadToken: request.uploadToken,
+								...(request.installation === undefined
+									? {}
+									: { installationId: request.installation.installationId }),
+							},
+						})
+						.pipe(Effect.mapError(commandFailure)),
+			);
+			const run = (scope: ApiScope, action: PluginManagementAction) => {
+				if (action.kind === "install") {
+					return api.install(scope, {
+						payload: { config: action.config, uploadToken: action.uploadToken },
+					});
+				}
 				const installation = action.installation;
 				const params = { installationId: installation.installationId };
 				if (action.kind === "state") {
-					return yield* api
-						.update(scope, { params, payload: { isHidden: action.isHidden } })
-						.pipe(Effect.mapError(commandFailure));
+					return api.update(scope, { params, payload: { isHidden: action.isHidden } });
 				}
 				if (action.kind === "configure") {
-					const config = yield* Schema.decodeEffect(
-						Schema.fromJsonString(Schema.Record(Schema.String, JsonValue)),
-					)(action.config).pipe(
-						Effect.mapError(
-							() => new PluginManagementError({ detail: "Configuration must be a JSON object." }),
-						),
-					);
-					const unsetConfigKeys = action.unsetKeys
-						.split(",")
-						.map((key) => key.trim())
-						.filter(Boolean);
-					return yield* api
-						.update(scope, { params, payload: { config, unsetConfigKeys } })
-						.pipe(Effect.mapError(commandFailure));
+					return api.update(scope, { params, payload: { config: action.config } });
 				}
 				if (action.kind === "package") {
-					const upload = yield* uploads
-						.uploadTemporary(scope, {
-							action: "temporary",
-							source: action.file,
-							fileName: action.file.name,
-							contentType: action.file.type || "application/zip",
-						})
-						.pipe(
-							Effect.mapError(
-								() =>
-									new PluginManagementError({
-										detail: "Could not upload the selected plugin archive.",
-									}),
-							),
-						);
-					return yield* api
-						.updatePackage(scope, {
-							params,
-							payload: { uploadToken: upload.token.token, contentHash: installation.contentHash },
-						})
-						.pipe(Effect.mapError(commandFailure));
+					return api.updatePackage(scope, {
+						params,
+						payload: {
+							config: action.config,
+							uploadToken: action.uploadToken,
+							contentHash: installation.contentHash,
+						},
+					});
 				}
-				return yield* api
-					.uninstall(scope, { params: { ...params, activationId: installation.activationId } })
-					.pipe(Effect.mapError(commandFailure));
-			});
-			return { load, execute };
+				return api.uninstall(scope, {
+					params: { ...params, activationId: installation.activationId },
+				});
+			};
+			const execute = Effect.fn("PluginManagement.execute")(
+				(scope: ApiScope, action: PluginManagementAction) =>
+					run(scope, action).pipe(Effect.mapError(commandFailure)),
+			);
+			return { load, inspect, execute };
 		}),
 	},
 ) {
@@ -178,7 +179,7 @@ export class PluginManagementService extends Context.Service<PluginManagementSer
 }
 
 export const PluginManagementLive = PluginManagementService.layer.pipe(
-	Layer.provide(Layer.mergeAll(PluginInstallationsApi.layer, Uploads.layer)),
+	Layer.provide(PluginInstallationsApi.layer),
 );
 
 export const pluginManagementQuery = createRyotHostQuery<
@@ -198,5 +199,15 @@ export const pluginManagementMutation = createRyotHostMutation<
 >(
 	({ input, hostServices }) =>
 		hostServices.runtime.runSync(PluginManagementService).execute(hostServices.scope, input),
+	{ hostServices: KernelHostServices },
+);
+export const pluginArchiveInspectionMutation = createRyotHostMutation<
+	PluginArchiveInspectionRequest,
+	PluginInspection,
+	KernelHostServices,
+	PluginManagementError
+>(
+	({ input, hostServices }) =>
+		hostServices.runtime.runSync(PluginManagementService).inspect(hostServices.scope, input),
 	{ hostServices: KernelHostServices },
 );
