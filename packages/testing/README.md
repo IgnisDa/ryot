@@ -38,3 +38,25 @@ DOM events come from that window, including their subclasses. Fetch, Request, Bl
 and global cancellation remain Bun-native. DOM listeners use their owning window's AbortController;
 host I/O uses the global controller. Signals must not cross these API realms.
 File filters and native Bun test flags can be passed through the package test script.
+
+## Reproducing intermittent failures
+
+Use repetition and a recorded order seed through the owning package script:
+
+```sh
+bun run --cwd kernel/backend test src/modules/backups/streaming-memory.test.ts --rerun-each 3 --seed 42
+bun run --cwd e2e test src/api/kernel/backups/lifecycle.test.ts --rerun-each 3 --seed 42
+```
+
+These are diagnostic runs, separate from cached Turbo acceptance runs. Every repetition must pass;
+retries must not turn a failed execution into a passing gate. A seed reproduces test order, not OS
+scheduling. Each repeated case must acquire fresh mutable fixtures and close its resources. File
+isolation does not reset external state such as database rows between repetitions.
+
+`captureTestProcess` runs a workload in a fresh Bun process, captures diagnostics, and kills and
+awaits the child on interruption. `reportProcessMemory` records current memory and lifetime peak
+RSS in bytes at workload phase boundaries. Peak RSS includes startup and cannot be reset by a phase
+marker. Resource workloads must run in fresh processes rather than reusing a process across samples.
+
+Turbo forwards the PostgreSQL URL and Docker/Testcontainers connection settings centrally. These
+select isolated test infrastructure and do not alter cache keys; test behavior stays source-defined.

@@ -243,3 +243,17 @@ encryption attribution and instance provider configuration never enter the archi
 no secret-inclusive option. Restored user overrides have no key: re-enter it in Settings → Ryo
 before using an authenticated provider. The override remains selected rather than silently using
 instance credentials. Assistant history or any provider override makes the destination unclean.
+
+## Memory regression coverage
+
+`streaming-memory.test.ts` starts a dedicated workload process for each dataset size (1,000 and
+5,000 entities, with relationships, events and reminders). Each process owns a fresh schema, runs
+with live time, and checks restored references and staging cleanup. The 512 MiB lifetime peak-RSS
+budget includes module loading, service setup, SQL fixture seeding, export, validation and restore.
+Phase diagnostics are captured and included in failures. No forced GC or retry changes the gate.
+The two sizes exercise bounded memory as the record count grows; they do not establish a universal
+memory bound for every allowed input. Archive decoder limits and restore batch tests provide the
+corresponding deterministic boundary coverage.
+
+Linux CI runs `bun turbo --filter=@ryot-app/kernel-backend test:memory` after the backend suite.
+This repeats both sizes three times with seed 42; every execution must pass.

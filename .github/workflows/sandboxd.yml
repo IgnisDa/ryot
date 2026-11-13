@@ -99,6 +99,12 @@ jobs:
           --env TEST_DATABASE_URL
           --workdir /app/kernel/backend
           ryot-sandbox-test bun ./test.ts --parallel=1
+      - name: Repeat the backup memory contract in fresh processes
+        run: >-
+          docker run --rm --user 1001 --network host
+          --env TEST_DATABASE_URL
+          --workdir /app
+          ryot-sandbox-test bun turbo --filter=@ryot-app/kernel-backend test:memory
       - name: Test the sandbox SDK workflow
         run: >-
           docker run --rm --user 1001 --network host

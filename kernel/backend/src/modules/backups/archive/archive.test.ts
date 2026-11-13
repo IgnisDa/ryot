@@ -369,13 +369,16 @@ const excludedAccountArchiveSections = [
 
 layer(BunFileSystem.layer)((test) => {
 	test.effect(
-		"closes the active ZIP input when the archive consumer stops early",
+		"reads ZIP input on demand and closes it when the consumer stops early",
 		() =>
 			Effect.gen(function* () {
 				let closed = false;
+				let reads = 0;
 				function* chunks() {
 					try {
+						reads += 1;
 						yield new Uint8Array([1]);
+						reads += 1;
 						yield new Uint8Array([2]);
 					} finally {
 						closed = true;
@@ -384,7 +387,9 @@ layer(BunFileSystem.layer)((test) => {
 				const archive = zipChunks([{ path: "fixture", chunks: chunks(), compression: "store" }]);
 				yield* Effect.promise(() => archive.next());
 				yield* Effect.promise(() => archive.next());
+				expect(reads).toBe(1);
 				yield* Effect.promise(() => archive.return());
+				expect(reads).toBe(1);
 				expect(closed).toBe(true);
 			}),
 		testTimeout,

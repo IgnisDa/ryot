@@ -3,6 +3,7 @@ import { expect, test } from "bun:test";
 import { BunFileSystem } from "@effect/platform-bun";
 import { Effect, Exit, FileSystem, Layer, Schema, type Scope } from "effect";
 
+import { captureTestProcess } from "./process.js";
 import { testWorkers } from "./runner.js";
 
 const encodeString = Schema.encodeEffect(Schema.fromJsonString(Schema.String));
@@ -26,33 +27,15 @@ const runClient = Effect.fn(function* (
 	for (const [name, source] of Object.entries(files)) {
 		yield* fs.writeFileString(`${directory}/${name}`, source);
 	}
-	const child = yield* Effect.acquireRelease(
-		Effect.sync(() =>
-			Bun.spawn(
-				[
-					process.execPath,
-					entry === undefined
-						? Bun.fileURLToPath(new URL("./run-client-tests.ts", import.meta.url))
-						: `${directory}/${entry}`,
-					...args,
-				],
-				{ cwd: directory, stdout: "pipe", stderr: "pipe" },
-			),
-		),
-		(process) =>
-			Effect.gen(function* () {
-				if (process.exitCode === null) {
-					process.kill();
-				}
-				yield* Effect.promise(() => process.exited);
-			}),
-	);
-	const [exitCode, stdout, stderr] = yield* Effect.all([
-		Effect.promise(() => child.exited),
-		Effect.promise(() => new Response(child.stdout).text()),
-		Effect.promise(() => new Response(child.stderr).text()),
-	]);
-	return { exitCode, output: stdout + stderr };
+	return yield* captureTestProcess({
+		cwd: directory,
+		args: [
+			entry === undefined
+				? Bun.fileURLToPath(new URL("./run-client-tests.ts", import.meta.url))
+				: `${directory}/${entry}`,
+			...args,
+		],
+	});
 });
 
 const fixtures = {
@@ -230,5 +213,22 @@ test("client runner forwards supplied environment to node and DOM files", () =>
 			expect(result.exitCode).toBe(0);
 			expect(result.output).toContain("node forwarded");
 			expect(result.output).toContain("DOM forwarded");
+		}),
+	));
+
+test("repeated runs preserve a failure even when later repetitions pass", () =>
+	run(
+		Effect.gen(function* () {
+			const result = yield* runClient(
+				{
+					"repeat.test.ts": `import { test, expect } from "bun:test";
+import { existsSync, writeFileSync } from "node:fs";
+test("repeat failure", () => { const seen = existsSync("./first-run"); writeFileSync("./first-run", "started"); expect(seen).toBe(true); });`,
+				},
+				["--rerun-each", "3", "--seed", "42"],
+			);
+			expect(result.exitCode, result.output).not.toBe(0);
+			expect(result.output).toContain("2 pass");
+			expect(result.output).toContain("1 fail");
 		}),
 	));

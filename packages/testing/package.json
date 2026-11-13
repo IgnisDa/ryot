@@ -46,6 +46,14 @@
 		"./run-client-tests": {
 			"types": "./src/run-client-tests.ts",
 			"default": "./src/run-client-tests.ts"
+		},
+		"./process": {
+			"types": "./src/process.ts",
+			"default": "./src/process.ts"
+		},
+		"./process-memory": {
+			"types": "./src/process-memory.ts",
+			"default": "./src/process-memory.ts"
 		}
 	},
 	"scripts": {

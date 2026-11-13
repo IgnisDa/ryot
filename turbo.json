@@ -121,6 +121,16 @@
 		"@ryot-app/kernel-renderers#test": {
 			"outputLogs": "errors-only",
 			"dependsOn": ["build", "^build", "^check", "^test"]
+		},
+		"@ryot-app/kernel-backend#test:memory": {
+			"dependsOn": ["check", "build"],
+			"outputLogs": "errors-only"
 		}
-	}
+	},
+	"globalPassThroughEnv": [
+		"DOCKER_HOST",
+		"TEST_DATABASE_URL",
+		"TESTCONTAINERS_HOST_OVERRIDE",
+		"TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE"
+	]
 }
