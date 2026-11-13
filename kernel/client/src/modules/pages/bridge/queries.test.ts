@@ -80,7 +80,9 @@ describe("plugin queries service", () => {
 	const expectedFailures = [
 		new AuthUnauthorized({ reason: { code: "authentication-required" } }),
 		new AuthRateLimited({ reason: { retryAfterMs: 30_000, code: "api-key-rate-limited" } }),
-		new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+		new RyotQLBadRequest({
+			reason: { code: "invalid-query", message: "Query 'items' is not declared" },
+		}),
 		new RyotQLInternalError({ reason: { code: "execution-failed" } }),
 	];
 

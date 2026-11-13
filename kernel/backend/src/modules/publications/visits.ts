@@ -6,7 +6,6 @@ import {
 	type PublicationUnavailableCode,
 	type PublicationVisitorPage,
 } from "@ryot-app/contract/modules/publications/schemas";
-import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import type { VisitorRequest } from "@ryot-app/contract/modules/ryotql/request";
 import { type PublicationId, UserId } from "@ryot-app/contract/schema/brands";
 import { decodeSavedViewCount } from "@ryot-app/ryotql-recipes/saved-views";
@@ -18,7 +17,7 @@ import { managedAssetLocators } from "#modules/assets/storage/locators";
 import { ManagedAssetsService } from "#modules/assets/storage/managed-assets";
 import { ClientArtifactGrantService } from "#modules/pages/bundles/grant-service";
 import { PagesService } from "#modules/pages/preparation/service";
-import { RyotQLService } from "#modules/ryotql/service";
+import { invalidQuery, RyotQLService } from "#modules/ryotql/service";
 import { AppConfig } from "#platform/config/service";
 import { isOpaqueTicket } from "#platform/http/opaque-tickets";
 import { TransientValues } from "#platform/transient-values";
@@ -29,8 +28,7 @@ import { PublicationsRepository } from "./repository";
 import { PublicationRuntime } from "./runtime";
 import { PublicationSessions } from "./sessions";
 
-const invalidQuery = () => new RyotQLBadRequest({ reason: { code: "invalid-query" } });
-
+const snapshotRequestMessage = "Snapshot pages accept only their published arguments";
 const unavailable = (code: PublicationUnavailableCode) =>
 	new PublicationUnavailable({ reason: { code } });
 
@@ -258,7 +256,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 				const found = yield* resolve(principal);
 				const { publication } = found;
 				if (!Object.hasOwn(found.document.queries, request.query)) {
-					return yield* invalidQuery();
+					return yield* invalidQuery(`Query '${request.query}' is not declared`);
 				}
 				if (publication.definition.mode === "snapshot") {
 					const snapshot = publication.snapshot;
@@ -276,11 +274,11 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 						request.sort !== undefined ||
 						(request.pages && Object.keys(request.pages).length > 0)
 					) {
-						return yield* invalidQuery();
+						return yield* invalidQuery(snapshotRequestMessage);
 					}
 					const result = snapshot.result.data[request.query];
 					if (!result) {
-						return yield* invalidQuery();
+						return yield* invalidQuery(`Query '${request.query}' has no snapshot result`);
 					}
 					return {
 						data: { [request.query]: result },
@@ -314,7 +312,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 			) {
 				const found = yield* resolve(principal);
 				if (!Object.hasOwn(found.document.queries, queryName)) {
-					return yield* invalidQuery();
+					return yield* invalidQuery(`Query '${queryName}' is not declared`);
 				}
 				if (found.publication.definition.mode === "snapshot") {
 					const snapshot = found.publication.snapshot;
@@ -327,7 +325,7 @@ export class PublicationVisitsService extends Context.Service<PublicationVisitsS
 									stableStringify(value) !== stableStringify(snapshot.arguments[key]),
 							))
 					) {
-						return yield* invalidQuery();
+						return yield* invalidQuery(snapshotRequestMessage);
 					}
 					return { sort: [], filter: [], parameters: found.document.parameters ?? { fields: {} } };
 				}

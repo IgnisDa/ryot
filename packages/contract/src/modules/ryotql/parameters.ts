@@ -7,6 +7,7 @@ import {
 	AppSchema,
 	type PropertyValidationIssue,
 } from "../../schema/property-schema";
+import { formatPropertyIssues } from "../../schema/property-validation";
 import { parseAppSchemaPropertiesSafe } from "../../schema/property-values";
 
 const propertyIssues = (
@@ -98,6 +99,9 @@ const bindParameterArguments = (
 			)
 		: Result.fail(parsed.issues);
 };
+
+export const argumentIssuesMessage = (issues: readonly PropertyValidationIssue[]) =>
+	`Invalid arguments: ${formatPropertyIssues(issues)}`;
 
 export const bindArguments = (schema: AppSchema | undefined, input: unknown = {}) =>
 	bindParameterArguments(schema, input, false);

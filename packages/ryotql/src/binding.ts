@@ -5,6 +5,7 @@ import {
 	type TableReference,
 } from "@ryot-app/contract/modules/ryotql/language";
 import {
+	argumentIssuesMessage,
 	bindArguments,
 	validateParameterSchema,
 } from "@ryot-app/contract/modules/ryotql/parameters";
@@ -19,10 +20,12 @@ import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
+import { queryPaging } from "./paging";
+
 const decodeDocument = (input: unknown) =>
 	Result.mapError(
 		Schema.decodeUnknownResult(RyotQLDocument)(input),
-		(error) => new Error("Invalid executable document", { cause: error }),
+		(error) => new Error(`Invalid executable document: ${error.message}`),
 	);
 
 const fail = (message: string) => Result.fail(new Error(message));
@@ -315,7 +318,7 @@ export const bindDocument = (
 		Result.flatMap(
 			Result.mapError(
 				bindArguments(document.parameters, values.arguments),
-				(issues) => new Error(issues.map(({ message }) => message).join("; ")),
+				(issues) => new Error(argumentIssuesMessage(issues)),
 			),
 			(boundArguments) => {
 				if (
@@ -371,20 +374,22 @@ export const bindDocument = (
 											return fail("Malformed query limits");
 										}
 										const page = values.pages?.[name];
-										if (
-											page !== undefined &&
-											query.output.type === "aggregate" &&
-											(query.output.groupBy?.length ?? 0) === 0
-										) {
-											return fail("Only grouped aggregates support paging");
+										const paging = queryPaging(query);
+										if (page !== undefined && paging === null) {
+											return fail(
+												`Query '${name}' cannot be paged; only rows and grouped aggregates support paging`,
+											);
 										}
 										if (
 											page?.limit !== undefined &&
+											paging !== null &&
 											(!Number.isInteger(page.limit) ||
 												page.limit <= 0 ||
-												page.limit > pagination["maxLimit"])
+												page.limit > paging.maxLimit)
 										) {
-											return fail(`Page limit for '${name}' exceeds its declared maximum`);
+											return fail(
+												`Page limit for '${name}' must be an integer from 1 to ${paging.maxLimit}`,
+											);
 										}
 										const { maxLimit: _, ...limits } = pagination;
 										const paged = {

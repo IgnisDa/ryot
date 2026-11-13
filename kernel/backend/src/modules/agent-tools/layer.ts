@@ -32,6 +32,7 @@ export const AgentToolsServiceLive = AgentToolsService.layer.pipe(
 									PageAuthoringServiceLive,
 									SavedViewsServiceLive,
 									RyotQLService.layer,
+									DefinitionCatalog.layer,
 									DefinitionRepository.layer,
 								),
 							),

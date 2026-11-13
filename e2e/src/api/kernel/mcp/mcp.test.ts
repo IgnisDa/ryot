@@ -97,14 +97,16 @@ const describeData = (headers: Record<string, string>, session: string) =>
 			"tools/call",
 			{
 				name: "execute",
-				arguments: { code: 'return await ryot.call("kernel:data.describe", {});' },
+				arguments: {
+					code: 'return await ryot.call("kernel:data.describe", { limit: 50, namespace: "kernel", detail: "names" });',
+				},
 			},
 			session,
 		);
 		expect(called.status).toBe(200);
 		const result = yield* Schema.decodeUnknownEffect(CallResult)(yield* resultBody(called));
 		expect(result.result.isError).not.toBe(true);
-		expect(result.result.content[0]?.text).toContain("entitySchemas");
+		expect(result.result.content[0]?.text).toContain("kernel:tables/entity");
 	});
 
 describe("MCP Streamable HTTP", () => {

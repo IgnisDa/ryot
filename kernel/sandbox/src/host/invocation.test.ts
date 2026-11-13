@@ -138,3 +138,20 @@ it("names a host failure without a message by its tag and code", () => {
 		message: "denied",
 	});
 });
+
+class ReasonedFailure extends Schema.TaggedError<
+	ReasonedFailure,
+	{ readonly brand: unique symbol }
+>()("ReasonedFailure", {
+	reason: Schema.Struct({ code: Schema.String, message: Schema.optionalKey(Schema.String) }),
+}) {}
+
+it("reports a reason's message before its code", () => {
+	expect(
+		toSandboxHostError(new ReasonedFailure({ reason: { code: "invalid", message: "Bad limit" } })),
+	).toEqual({ message: "Bad limit", data: { code: "invalid", message: "Bad limit" } });
+	expect(toSandboxHostError(new ReasonedFailure({ reason: { code: "invalid" } }))).toEqual({
+		message: "invalid",
+		data: { code: "invalid" },
+	});
+});

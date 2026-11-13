@@ -6,13 +6,13 @@ import { SavedViewReference } from "@ryot-app/contract/modules/plugins/reference
 import type { RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import type { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
-import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
-import { ExecutionRequest } from "@ryot-app/contract/modules/ryotql/request";
+import { argumentIssuesMessage, bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
+import { ExecutionRequest, RequestValues } from "@ryot-app/contract/modules/ryotql/request";
 import {
 	CreateSavedViewBody,
 	UpdateSavedViewBody,
 } from "@ryot-app/contract/modules/saved-views/schemas";
-import { toAgentJsonSchema } from "@ryot-app/contract/schema/agent-tool";
+import { DiscoveryInput, toAgentJsonSchema } from "@ryot-app/contract/schema/agent-tool";
 import { appSchemaJsonSchema } from "@ryot-app/contract/schema/app-schema-json-schema";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { type Capability, kernelCapabilityId } from "@ryot-app/contract/schema/capability";
@@ -27,15 +27,17 @@ import {
 	savedViewRecordRecipe,
 	savedViewRecordsRecipe,
 } from "@ryot-app/ryotql-recipes/saved-view-records";
+import { type QueryPaging, queryPaging } from "@ryot-app/ryotql/paging";
 import { Context, Effect, Layer, Result, Schema } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { DefinitionRepository } from "#modules/definitions/repository";
 import { PageAuthoringService } from "#modules/pages/authoring/service";
 import { RyotQLService } from "#modules/ryotql/service";
 import { SavedViewsService } from "#modules/saved-views/service";
 import { defaultResultByteBudget } from "#platform/tool-result";
 
-import { AgentDataDescription } from "./schemas";
+import { dataItems, describeData } from "./data-catalog";
 
 type CapabilityFailure = { readonly message: string };
 type KernelCapabilityContext = {
@@ -50,23 +52,7 @@ const deleteHints = { readOnly: false, idempotent: false, destructive: true } as
 const objectOutput: PluginOperationJsonSchema = { type: "object" };
 export const ryotqlOutput = toAgentJsonSchema(Schema.toCodecJson(RyotQLResponse));
 
-const Pages = Schema.Record(
-	Schema.String,
-	Schema.Struct({
-		after: Schema.optional(Schema.NonEmptyString),
-		limit: Schema.optional(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 100 }))),
-	}),
-);
-const ReadRequest = Schema.Struct({
-	pages: Schema.optional(Pages),
-	arguments: Schema.optional(Schema.Record(Schema.String, JsonValue)),
-});
-const QueryRequest = Schema.Struct({
-	sort: Schema.optional(Schema.String),
-	pages: Schema.optional(Schema.Record(Schema.String, JsonValue)),
-	filter: Schema.optional(Schema.Record(Schema.String, JsonValue)),
-	arguments: Schema.optional(Schema.Record(Schema.String, JsonValue)),
-});
+const RequestInput = Schema.Struct(RequestValues);
 const membersRecipe = collectionMembersRecipe();
 const memberParameters = {
 	fields: Object.fromEntries(
@@ -74,15 +60,48 @@ const memberParameters = {
 	),
 };
 
+const agentPageLimit = 100;
+
+const requestInput = (values: {
+	readonly pages: PluginOperationJsonSchema;
+	readonly arguments: PluginOperationJsonSchema;
+}): Record<string, PluginOperationJsonSchema> => ({
+	sort: { type: "string", description: "A sort choice key from the query's sort control" },
+	filter: { type: "object", description: "A filter over the query's filter control fields" },
+	...values,
+});
+
+const pageInput = (name: string, paging: QueryPaging): PluginOperationJsonSchema => {
+	const maximum = Math.min(paging.maxLimit, agentPageLimit);
+	return {
+		type: "object",
+		additionalProperties: false,
+		description: `Page of '${name}': up to ${maximum} rows; pass the previous pageInfo.nextCursor as after`,
+		properties: {
+			after: { minLength: 1, type: "string" },
+			limit: { maximum, minimum: 1, type: "integer" },
+		},
+	};
+};
+
+const pagesInput = (document: RyotQLDocument): PluginOperationJsonSchema => ({
+	type: "object",
+	additionalProperties: false,
+	properties: Object.fromEntries(
+		Object.entries(document.queries).flatMap(([name, query]) => {
+			const paging = queryPaging(query);
+			return paging === null ? [] : [[name, pageInput(name, paging)]];
+		}),
+	),
+});
+
 export const declaredQueryInput = (document: RyotQLDocument): PluginOperationJsonSchema => ({
 	type: "object",
 	additionalProperties: false,
-	properties: {
-		sort: { type: "string" },
-		pages: { type: "object" },
-		filter: { type: "object" },
+	properties: requestInput({
+		pages: pagesInput(document),
 		arguments: appSchemaJsonSchema(document.parameters ?? { fields: {} }),
-	},
+	}),
 });
 
 export const cappedRequest = (
@@ -94,21 +113,24 @@ export const cappedRequest = (
 		...request.pages,
 		...Object.fromEntries(
 			Object.entries(document.queries).flatMap(([name, query]) => {
+				const paging = queryPaging(query);
 				if (
-					request.source.kind === "inline" &&
-					request.source.query !== undefined &&
-					request.source.query !== name
+					paging === null ||
+					(request.source.kind === "inline" &&
+						request.source.query !== undefined &&
+						request.source.query !== name)
 				) {
 					return [];
 				}
-				if (query.output.type === "aggregate" && !query.output.groupBy?.length) {
-					return [];
-				}
 				const requested = request.pages?.[name];
-				const fallback =
-					query.output.type === "rows" ? query.output.pagination.limit : query.output.limit;
 				return [
-					[name, { ...requested, limit: Math.min(requested?.limit ?? fallback ?? 100, 100) }],
+					[
+						name,
+						{
+							...requested,
+							limit: Math.min(requested?.limit ?? paging.limit, paging.maxLimit, agentPageLimit),
+						},
+					],
 				];
 			}),
 		),
@@ -181,6 +203,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 			const views = yield* SavedViewsService;
 			const ryotql = yield* RyotQLService;
 			const definitions = yield* DefinitionRepository;
+			const catalogs = yield* DefinitionCatalog;
 			const encodeResponse = Schema.encodeEffect(Schema.toCodecJson(RyotQLResponse));
 			const execute = (
 				context: KernelCapabilityContext,
@@ -200,70 +223,54 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 						)
 						.pipe(Effect.flatMap(encodeResponse)),
 				);
-			const recipeRead =
-				(document: RyotQLDocument) =>
-				(context: KernelCapabilityContext, input: typeof ReadRequest.Type) =>
-					decodeRequest({ ...input, source: { document, kind: "inline" } }).pipe(
-						Effect.flatMap((request) => execute(context, "kernel", request, document)),
-					);
-			const describe = Effect.fn("KernelCapabilities.describe")(function* (userId: UserId) {
-				const snapshot = yield* definitions.getUserSnapshot(userId, { listed: false });
-				return yield* Schema.encodeEffect(Schema.toCodecJson(AgentDataDescription))({
-					relationshipSchemas: Object.values(snapshot.relationshipSchemas).map(
-						({
-							slug,
-							name,
-							pluginId,
-							projection,
-							propertiesSchema,
-							sourceEntitySchemaSlug,
-							targetEntitySchemaSlug,
-						}) =>
-							Object.assign(
-								{
-									slug,
-									name,
-									pluginId,
-									propertiesSchema,
-									sourceEntitySchemaSlug,
-									targetEntitySchemaSlug,
-								},
-								projection ? { projection } : {},
+			const recipeCapability = (definition: {
+				readonly slug: string;
+				readonly title: string;
+				readonly description: string;
+				readonly document: RyotQLDocument;
+				readonly audience: "kernel" | "plugin";
+			}) =>
+				define({
+					hints: readHints,
+					input: RequestInput,
+					output: ryotqlOutput,
+					slug: definition.slug,
+					title: definition.title,
+					description: definition.description,
+					inputJson: declaredQueryInput(definition.document),
+					handle: (context, input) =>
+						decodeRequest({
+							...input,
+							source: { kind: "inline", document: definition.document },
+						}).pipe(
+							Effect.flatMap((request) =>
+								execute(context, definition.audience, request, definition.document),
 							),
-					),
-					entitySchemas: Object.values(snapshot.entitySchemas).map((entity) =>
-						Object.assign(
-							{
-								slug: entity.slug,
-								name: entity.name,
-								pluginId: entity.pluginId,
-								propertiesSchema: entity.propertiesSchema,
-								eventSchemas: Object.values(entity.eventSchemas).map((event) =>
-									Object.assign(
-										{
-											slug: event.slug,
-											name: event.name,
-											pluginId: event.pluginId,
-											propertiesSchema: event.propertiesSchema,
-										},
-										event.projection ? { projection: event.projection } : {},
-									),
-								),
-							},
-							entity.browse ? { browse: entity.browse } : {},
 						),
+				});
+			const describe = Effect.fn("KernelCapabilities.describe")(function* (
+				userId: UserId,
+				input: DiscoveryInput,
+			) {
+				const snapshot = yield* definitions.getUserSnapshot(userId, { listed: false });
+				const { plugins } = yield* catalogs.forUser(userId);
+				return describeData(
+					dataItems(
+						snapshot,
+						new Map(plugins.map((plugin) => [plugin.pluginId, plugin.packageId])),
 					),
-				}).pipe(Effect.orDie);
+					input,
+				);
 			});
 			const all = [
 				define({
 					hints: readHints,
 					slug: "data.describe",
-					input: Schema.Struct({}),
-					title: "Describe data schemas",
-					handle: (context) => describe(context.user.id),
+					input: DiscoveryInput,
+					title: "Describe data",
+					handle: (context, input) => describe(context.user.id, input),
 					description:
-						"Describe the effective entity, event and relationship schemas, their properties and entity browse fields.",
+						'Find the data RyotQL documents read: kernel:tables/<name> query tables with their fields, <owner>:entities/<slug> entity schemas with their properties and events, and <owner>:relationships/<slug> relationship schemas. Without a query it lists namespaces. Detail "names" returns IDs, "summary" (default) adds field and property names, "full" adds kinds and property schemas.',
 				}),
 				define({
 					slug: "query",
@@ -271,8 +278,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					title: "Run a query",
 					output: ryotqlOutput,
 					input: Schema.Record(Schema.String, JsonValue),
-					description:
-						"Execute an inline RyotQL request using plugin-readable tables and fields. Results are capped at 100 rows per query and a bounded JSON byte budget.",
+					description: `Execute an inline RyotQL request using plugin-readable tables and fields. Results are capped at ${agentPageLimit} rows per query and a bounded JSON byte budget.`,
 					handle: (context, input) =>
 						Effect.gen(function* () {
 							const request = yield* decodeRequest(input);
@@ -286,10 +292,13 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 						required: ["source"],
 						additionalProperties: false,
 						properties: {
-							sort: { type: "string" },
-							pages: { type: "object" },
-							filter: { type: "object" },
-							arguments: { type: "object" },
+							...requestInput({
+								arguments: { type: "object" },
+								pages: {
+									type: "object",
+									description: `Pages by query name, each { after?: string, limit?: 1 to ${agentPageLimit} }`,
+								},
+							}),
 							source: {
 								type: "object",
 								required: ["kind", "document"],
@@ -302,26 +311,16 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 						},
 					},
 				}),
-				define({
-					hints: readHints,
-					output: ryotqlOutput,
+				recipeCapability({
+					audience: "plugin",
 					slug: "collections.list",
 					title: "List collections",
-					input: Schema.Struct({ pages: Schema.optional(Pages) }),
+					document: allCollectionsRecipe.document,
 					description: "List the user's collections with forward pagination.",
-					handle: (context, input) =>
-						decodeRequest({
-							...input,
-							source: { kind: "inline", document: allCollectionsRecipe.document },
-						}).pipe(
-							Effect.flatMap((request) =>
-								execute(context, "plugin", request, allCollectionsRecipe.document),
-							),
-						),
 				}),
 				define({
 					hints: readHints,
-					input: QueryRequest,
+					input: RequestInput,
 					output: ryotqlOutput,
 					slug: "collections.members",
 					title: "Read collection members",
@@ -331,20 +330,16 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 						type: "object",
 						required: ["arguments"],
 						additionalProperties: false,
-						properties: {
-							sort: { type: "string" },
-							pages: { type: "object" },
-							filter: { type: "object" },
+						properties: requestInput({
+							pages: pagesInput(membersRecipe.document),
 							arguments: appSchemaJsonSchema(memberParameters),
-						},
+						}),
 					},
 					handle: (context, input) =>
 						Effect.gen(function* () {
 							const bound = bindArguments(memberParameters, input.arguments);
 							if (Result.isFailure(bound)) {
-								return yield* new BadRequest({
-									message: bound.failure.map(({ message }) => message).join("; "),
-								});
+								return yield* new BadRequest({ message: argumentIssuesMessage(bound.failure) });
 							}
 							const collectionId = bound.success["collectionId"];
 							if (typeof collectionId !== "string") {
@@ -362,24 +357,19 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 							return yield* execute(context, "plugin", request, membersRecipe.document);
 						}),
 				}),
-				define({
-					hints: readHints,
+				recipeCapability({
+					audience: "kernel",
 					slug: "pages.list",
-					input: ReadRequest,
 					title: "List pages",
-					output: ryotqlOutput,
-					handle: recipeRead(pagesRecipe.document),
+					document: pagesRecipe.document,
 					description: "List owned pages and their draft, compilation and publication identities.",
 				}),
-				define({
-					hints: readHints,
+				recipeCapability({
 					slug: "pages.get",
+					audience: "kernel",
 					title: "Read page",
-					input: ReadRequest,
-					output: ryotqlOutput,
-					handle: recipeRead(pageRecipe.document),
-					description:
-						"Read an owned page including draft and published source definitions. Supply arguments.pageId.",
+					document: pageRecipe.document,
+					description: "Read an owned page including draft and published source definitions.",
 				}),
 				define({
 					input: PageIdBody,
@@ -390,22 +380,18 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					handle: (context, input) =>
 						pages.remove(context.user.id, input.pageId, context.idempotencyKey),
 				}),
-				define({
-					hints: readHints,
-					input: ReadRequest,
-					output: ryotqlOutput,
+				recipeCapability({
+					audience: "kernel",
 					slug: "saved-views.list",
 					title: "List saved views",
-					handle: recipeRead(savedViewRecordsRecipe.document),
+					document: savedViewRecordsRecipe.document,
 					description: "List owned effective saved views including renderer and query selections.",
 				}),
-				define({
-					hints: readHints,
-					input: ReadRequest,
-					output: ryotqlOutput,
+				recipeCapability({
+					audience: "kernel",
 					slug: "saved-views.get",
 					title: "Read saved view",
-					handle: recipeRead(savedViewRecordRecipe.document),
+					document: savedViewRecordRecipe.document,
 					description:
 						"Read a saved view using arguments.referenceKind (custom, kernel or plugin), savedViewId for custom, slug for builtins, and pluginId for plugin builtins.",
 				}),

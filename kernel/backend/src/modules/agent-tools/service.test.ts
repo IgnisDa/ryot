@@ -21,7 +21,7 @@ import {
 import { parameters } from "@ryot-app/ryotql/authoring";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
-import { objectContaining, stringContaining } from "@ryot-app/testing/matchers";
+import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Context, Effect, Layer, Ref, Schema } from "effect";
@@ -226,7 +226,7 @@ const searchDocument = defineRecipe({
 	queries: {
 		items: selectedRows(item, {
 			limit: 1,
-			maxLimit: 200,
+			maxLimit: 2,
 			selection: { id: selectedField(column(item, "id"), Schema.String) },
 			where: startsWith(column(item, "name"), queryParameters.value("prefix")),
 		}),
@@ -403,7 +403,13 @@ layer(registryLayer)("agent tools", (test) => {
 					],
 				});
 				expect(full).toMatchObject({
-					capabilities: [{ types: stringContaining('readonly "prefix"?: string') }],
+					capabilities: [
+						{
+							types: stringContaining(
+								"readonly \"prefix\"?: string | null } & { readonly [x: string]: Json } }\ninput notes:\n  sort: A sort choice key from the query's sort control\n  filter: A filter over the query's filter control fields\n  pages.items: Page of 'items': up to 2 rows; pass the previous pageInfo.nextCursor as after\n  pages.items.after: non-empty\n  pages.items.limit: 1 to 2\n  arguments.prefix: Name prefix\noutput:",
+							),
+						},
+					],
 				});
 				expect(
 					value(
@@ -421,6 +427,52 @@ layer(registryLayer)("agent tools", (test) => {
 						(yield* call("search", { namespace: "testing/search-owner" }, gate, recipient)).result,
 					),
 				).toEqual({ total: 0, capabilities: [] });
+				const described = yield* Outcomes(
+					value(
+						(yield* call(
+							"execute",
+							{
+								code: yield* Schema.encodeEffect(Schema.fromJsonString(Schema.Unknown))([
+									{
+										id: "kernel:data.describe",
+										input: { query: "fixture link", namespace: "testing/search-owner" },
+									},
+									{
+										id: "kernel:data.describe",
+										input: { limit: 50, detail: "names", namespace: "kernel" },
+									},
+								]),
+							},
+							gate,
+						)).result,
+					),
+				);
+				expect(described[0]).toEqual({
+					value: {
+						total: 2,
+						items: [
+							{
+								name: "Fixture Link",
+								source: "fixture-entity",
+								target: "fixture-entity",
+								id: "testing/search-owner:relationships/fixture-link",
+								description:
+									"Fixture Link relationships: table relationship rows whose relationshipSchemaSlug is 'fixture-link'",
+							},
+							{
+								name: "Fixture",
+								events: ["changed"],
+								properties: ["kind", "name"],
+								id: "testing/search-owner:entities/fixture-entity",
+								description:
+									"Fixture entities: table entity rows whose entitySchemaSlug is 'fixture-entity', with events in table event",
+							},
+						],
+					},
+				});
+				expect(described[1]).toMatchObject({
+					value: { items: arrayContaining(["kernel:tables/entity", "kernel:tables/event"]) },
+				});
 			}),
 		testTimeout,
 	);
@@ -448,6 +500,11 @@ layer(registryLayer)("agent tools", (test) => {
 					{ input: {}, id: "testing/execute-owner:queries/search" },
 					{ input: { value: "write" }, id: "testing/execute-owner:operations/write" },
 					{ input: {}, id: "testing/execute-owner:operations/missing" },
+					{
+						input: { pages: { items: { limit: 50 } } },
+						id: "testing/execute-owner:queries/search",
+					},
+					{ input: { arguments: { prefix: 1 } }, id: "testing/execute-owner:queries/search" },
 				]);
 				let approve = true;
 				const recordedCalls = yield* Recorded;
@@ -467,6 +524,16 @@ layer(registryLayer)("agent tools", (test) => {
 				const rows = response.data["items"];
 				assert(rows?.type === "rows");
 				expect(rows.items).toHaveLength(1);
+				const paged = approved[4];
+				assert(paged !== undefined && "value" in paged);
+				const pagedRows = (yield* Schema.decodeUnknownEffect(RyotQLResponse)(paged.value)).data[
+					"items"
+				];
+				assert(pagedRows?.type === "rows");
+				expect(pagedRows.items).toHaveLength(2);
+				const refused = approved[5];
+				assert(refused !== undefined && "error" in refused);
+				expect(refused.error).toContain("Invalid arguments: prefix: ");
 				expect(approved[2]).toEqual({ value: { accepted: { value: "write" } } });
 				expect(approved[3]).toEqual({
 					error:

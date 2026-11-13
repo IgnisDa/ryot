@@ -29,7 +29,10 @@ the UTF-8 serialization of the whole envelope (default 65,536 bytes, minimum 64)
 - Kernel capabilities owned by `KernelCapabilities`: `data.describe`, inline `query`,
   `collections.list`, `collections.members`, `pages.list`, `pages.get`, `pages.delete` and
   `saved-views.{list,get,create,update,delete}`. Each is declared once with an Effect Schema input
-  that both validates calls and produces its JSON Schema.
+  that both validates calls and produces its JSON Schema. `data.describe` takes the same discovery
+  input as `search` and ranks the same way (`discovery.ts`) over the plugin-readable RyotQL tables
+  (`kernel:tables/<name>`) and the user's entity and relationship schemas
+  (`<owner>:entities/<slug>`, `<owner>:relationships/<slug>`).
 - Plugin `auth: "user"` operations with an available operation script, from one executable catalog
   snapshot.
 - Declared queries of effective, ready, executable installations, from persisted revision sections.
@@ -38,14 +41,18 @@ Capability IDs are `<owner>:<name>` and never rewritten: `kernel:<slug>`,
 `<publisher>/<package>:operations/<slug>` and `<publisher>/<package>:queries/<name>`. Capabilities
 carry the title declared by their owner, which approval screens show, and their source pins (revision, installation, configuration and content hash for operations;
 revision and scope for declared queries). Operation calls go through `OperationsService` with those
-pins; declared and inline queries cap root pages at 100 rows and fail with an instructive error when
-the result exceeds the execution byte cap. RyotQL-backed capabilities declare the `RyotQLResponse`
-output schema. Demo credentials see only read-only kernel capabilities, declared queries and
+pins. Declared queries and the recipe-backed kernel reads share one input derived from their document:
+typed `arguments` from its parameters and a `pages` entry for each query `@ryot-app/ryotql/paging`
+reports as pageable, bounded by its declared maximum and at most 100 rows. Requests are clamped to
+the same bound, and fail with an instructive error when the result exceeds the execution byte cap.
+RyotQL rejections reach the model with their `invalid-query` message. RyotQL-backed capabilities
+declare the `RyotQLResponse` output schema. Demo credentials see only read-only kernel capabilities, declared queries and
 system operations whose `demoAccess` is `allowed`; writes are refused before dispatch.
 
 `search` ranks by term matches over IDs, descriptions and input/output field names, ties broken by
 ID. Its `full` detail prints input and output TypeScript types from the JSON Schemas through
-`SchemaRepresentation` (`declarations.ts`).
+`SchemaRepresentation` (`declarations.ts`), followed by input notes listing each field's description
+and numeric, length and item bounds, which the printed types cannot carry.
 
 ## Execute
 

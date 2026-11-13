@@ -165,7 +165,12 @@ layer(
 					yield* Effect.exit(
 						service.update(user, reference, { ...config, isHidden: false, sort: "missing-asc" }),
 					),
-					new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+					new RyotQLBadRequest({
+						reason: {
+							code: "invalid-query",
+							message: "Sort choice 'missing-asc' is not available",
+						},
+					}),
 				);
 				assertExitFails(
 					yield* Effect.exit(
@@ -175,7 +180,12 @@ layer(
 							filter: { value: 1, field: "name", operator: "gte" },
 						}),
 					),
-					new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+					new RyotQLBadRequest({
+						reason: {
+							code: "invalid-query",
+							message: "Operator 'gte' is not available for field 'name'",
+						},
+					}),
 				);
 			}),
 		testTimeout,

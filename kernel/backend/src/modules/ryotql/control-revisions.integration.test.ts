@@ -279,7 +279,12 @@ layer(
 				);
 				assertExitFails(
 					yield* Effect.exit(run("foreign")),
-					new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+					new RyotQLBadRequest({
+						reason: {
+							code: "invalid-query",
+							message: "Browse schema 'item' is unavailable or duplicated",
+						},
+					}),
 				);
 			}),
 		testTimeout,

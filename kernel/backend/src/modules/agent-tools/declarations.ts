@@ -1,5 +1,6 @@
 import type { PluginOperationJsonSchema } from "@ryot-app/contract/modules/plugins/manifest";
 import type { Capability } from "@ryot-app/contract/schema/capability";
+import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { JsonSchema, SchemaAST, SchemaRepresentation } from "effect";
 
 type PrintedType = {
@@ -45,9 +46,47 @@ const printSide = (label: string, printed: PrintedType) =>
 		...printed.references.map(([name, type]) => `  where ${name} = ${type}`),
 	].join("\n");
 
+const range = (minimum: unknown, maximum: unknown, unit: string) => {
+	if (typeof minimum === "number" && typeof maximum === "number") {
+		return `${minimum} to ${maximum}${unit}`;
+	}
+	if (typeof minimum === "number") {
+		return `at least ${minimum}${unit}`;
+	}
+	return typeof maximum === "number" ? `at most ${maximum}${unit}` : null;
+};
+
+const fieldNotes = (schema: unknown, path: string): readonly string[] => {
+	if (!isObjectRecord(schema)) {
+		return [];
+	}
+	const notes = [
+		typeof schema["description"] === "string" ? schema["description"] : null,
+		range(schema["minimum"], schema["maximum"], ""),
+		schema["minLength"] === 1 && schema["maxLength"] === undefined
+			? "non-empty"
+			: range(schema["minLength"], schema["maxLength"], " characters"),
+		range(schema["minItems"], schema["maxItems"], " items"),
+	].filter((note) => note !== null);
+	const properties = isObjectRecord(schema["properties"]) ? schema["properties"] : {};
+	return [
+		...(path === "" || notes.length === 0 ? [] : [`  ${path}: ${notes.join("; ")}`]),
+		...Object.entries(properties).flatMap(([key, child]) =>
+			fieldNotes(child, path === "" ? key : `${path}.${key}`),
+		),
+		...fieldNotes(schema["items"], `${path}[]`),
+	];
+};
+
+const printNotes = (label: string, schema: PluginOperationJsonSchema) => {
+	const notes = fieldNotes(schema, "");
+	return notes.length === 0 ? [] : [`${label} notes:`, ...notes];
+};
+
 export const capabilitySignature = (capability: Capability) =>
 	[
 		printSide("input", printJsonSchemaType(capability.input)),
+		...printNotes("input", capability.input),
 		printSide("output", printJsonSchemaType(capability.output)),
 	].join("\n");
 

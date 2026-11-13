@@ -39,7 +39,7 @@ export const pluginOperationCapabilityId = (packageId: PluginPackageId, slug: st
 	CapabilityId.make(`${packageId}:operations/${slug}`);
 export const pluginQueryCapabilityId = (packageId: PluginPackageId, query: string) =>
 	CapabilityId.make(`${packageId}:queries/${query}`);
-export const capabilityOwner = (id: CapabilityId) => id.slice(0, id.indexOf(":"));
+export const capabilityOwner = (id: string) => id.slice(0, id.indexOf(":"));
 
 const CapabilitySource = Schema.Union([
 	strictStruct({ kind: Schema.Literal("kernel") }),

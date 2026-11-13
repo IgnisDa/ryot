@@ -14,7 +14,7 @@ const RyotQLBadRequestReason = Schema.Union([
 		code: Schema.Literal("source-unavailable"),
 		kind: Schema.Literals(["inline", "savedView", "plugin", "page", "page-preview"]),
 	}),
-	Schema.Struct({ code: Schema.Literal("invalid-query") }),
+	Schema.Struct({ message: Schema.NonEmptyString, code: Schema.Literal("invalid-query") }),
 	Schema.Struct({
 		reference: PluginIdentityReference,
 		code: Schema.Literal("unresolved-query-owner"),

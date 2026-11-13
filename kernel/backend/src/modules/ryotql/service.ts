@@ -5,7 +5,7 @@ import type { SavedViewReference } from "@ryot-app/contract/modules/plugins/refe
 import { documentTables, type RyotQLDocument } from "@ryot-app/contract/modules/ryotql/authored";
 import { RyotQLBadRequest, RyotQLInternalError } from "@ryot-app/contract/modules/ryotql/contract";
 import type { RyotQLResult } from "@ryot-app/contract/modules/ryotql/language";
-import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
+import { argumentIssuesMessage, bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import type {
 	DescribeResponse,
 	ExecutionRequest,
@@ -50,7 +50,10 @@ import { RyotQLSources } from "./sources";
 const RYOTQL_STATEMENT_TIMEOUT_MS = 30_000;
 const PUBLICATION_STATEMENT_TIMEOUT_MS = 10_000;
 
-const invalidQuery = () => new RyotQLBadRequest({ reason: { code: "invalid-query" } });
+export const invalidQuery = (message: string) =>
+	new RyotQLBadRequest({ reason: { message, code: "invalid-query" } });
+const demoScopeFailure = () =>
+	invalidQuery("The query reads fields that are not readable in this scope");
 
 class DiscardedSavepoint extends Schema.TaggedError<
 	DiscardedSavepoint,
@@ -188,8 +191,9 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				},
 			) {
 				const bound = yield* bindDocument(document, scope, options.loadCatalog);
-				if (validateRyotQLDocument(bound, scope).error !== null) {
-					return yield* invalidQuery();
+				const validated = validateRyotQLDocument(bound, scope);
+				if (validated.error !== null) {
+					return yield* invalidQuery(validated.error);
 				}
 				const budget =
 					options.resultBytes === undefined
@@ -269,8 +273,14 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 			> {
 				const resolved = yield* sources.resolve(scope, request.source);
 				budget.identities.push(resolved.identity);
-				if (path.includes(resolved.identity) || path.length >= 16 || ++budget.sources > 64) {
-					return yield* invalidQuery();
+				if (path.includes(resolved.identity)) {
+					return yield* invalidQuery("Query sources must not reference themselves");
+				}
+				if (path.length >= 16) {
+					return yield* invalidQuery("Query sources may nest at most 16 levels deep");
+				}
+				if (++budget.sources > 64) {
+					return yield* invalidQuery("A query may use at most 64 sources");
 				}
 				const values = {
 					...resolved.values,
@@ -279,7 +289,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				};
 				const argumentsResult = bindArguments(resolved.document.parameters, values.arguments);
 				if (Result.isFailure(argumentsResult)) {
-					return yield* invalidQuery();
+					return yield* invalidQuery(argumentIssuesMessage(argumentsResult.failure));
 				}
 				const selected =
 					resolved.selectedQuery === undefined
@@ -334,24 +344,30 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				};
 				visit(selected.queries);
 				if ([...documentTables(selected)].some((table) => table.startsWith("sourceEntity:"))) {
-					return yield* invalidQuery();
+					return yield* invalidQuery(
+						"Source entity tables are read through source parameters only",
+					);
 				}
 				for (const reference of references) {
 					if (++budget.sources > 64) {
-						return yield* invalidQuery();
+						return yield* invalidQuery("A query may use at most 64 sources");
 					}
 					if (scope.type !== "user") {
-						return yield* invalidQuery();
+						return yield* invalidQuery("Source parameters require a user scope");
 					}
 					const source = yield* sources
 						.entitySource(scope, reference)
-						.pipe(Effect.catchTag("RyotQLBadRequest", invalidQuery));
+						.pipe(
+							Effect.catchTag("RyotQLBadRequest", () =>
+								invalidQuery(`Source '${reference}' is unavailable`),
+							),
+						);
 					if (
 						source.kind === "savedView" &&
 						forbiddenSource !== undefined &&
 						stableStringify(source.reference) === stableStringify(forbiddenSource)
 					) {
-						return yield* invalidQuery();
+						return yield* invalidQuery("A saved view cannot use itself as a source");
 					}
 					let selection: ExpandedRyotQLDocument;
 					let subjectAlias: string;
@@ -372,7 +388,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						).pipe(Effect.orDie);
 						const validated = validateRyotQLDocument(collection.document, scope);
 						if (validated.error !== null) {
-							return yield* invalidQuery();
+							return yield* invalidQuery(validated.error);
 						}
 						selection = validated.value;
 					} else {
@@ -389,7 +405,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						selection = prepared.document;
 						membership.push(...prepared.membership);
 						if (prepared.scope.type !== "user") {
-							return yield* invalidQuery();
+							return yield* invalidQuery("Source saved views must run in a user scope");
 						}
 						selectionScope = prepared.scope;
 					}
@@ -408,7 +424,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 							),
 						].some((table) => table.alias === subjectAlias && table.table === "entity")
 					) {
-						return yield* invalidQuery();
+						return yield* invalidQuery(`Source '${reference}' must return entity rows`);
 					}
 					const rows = yield* executeSubjectSet(
 						selectionScope,
@@ -465,8 +481,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					},
 				});
 				if (Result.isFailure(bound)) {
-					yield* Effect.logWarning("RyotQL binding failed", bound.failure);
-					return yield* invalidQuery();
+					return yield* invalidQuery(bound.failure.message);
 				}
 				const executionScope = {
 					...scope,
@@ -498,8 +513,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 							reason: { code: "demo-operation-protected" },
 						});
 					}
-					yield* Effect.logWarning("RyotQL validation failed", { diagnostic: validated.error });
-					return yield* invalidQuery();
+					return yield* invalidQuery(validated.error);
 				}
 				return {
 					membership,
@@ -536,7 +550,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					});
 					if (unresolvedSources.size === 0) {
 						if (Result.isFailure(bound)) {
-							return yield* invalidQuery();
+							return yield* invalidQuery(bound.failure.message);
 						}
 						const validated = validateRyotQLDocument(bound.success.document, scope);
 						if (validated.error !== null) {
@@ -552,7 +566,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 									reason: { code: "demo-operation-protected" },
 								});
 							}
-							return yield* invalidQuery();
+							return yield* invalidQuery(validated.error);
 						}
 					}
 				}
@@ -590,30 +604,30 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 										...resolved.values.arguments,
 										...argumentsValue,
 									}),
-								).pipe(Effect.mapError(invalidQuery)),
+								).pipe(Effect.mapError((issues) => invalidQuery(argumentIssuesMessage(issues)))),
 							};
 				const schemas = yield* controlSchemas(scope);
 				yield* Effect.fromResult(storedValidationBranches(document, schemas, scope)).pipe(
-					Effect.mapError(invalidQuery),
+					Effect.mapError((error) => invalidQuery(error.message)),
 				);
 				const query =
 					selectedQuery === undefined
 						? Object.values(document.queries)[0]
 						: document.queries[selectedQuery];
 				if (!query) {
-					return yield* invalidQuery();
+					return yield* invalidQuery("The selected query is not declared");
 				}
 				const filters = yield* Effect.fromResult(
 					resolveControl(document.controls?.filter, query, schemas, document, context),
-				).pipe(Effect.mapError(invalidQuery));
+				).pipe(Effect.mapError((error) => invalidQuery(error.message)));
 				const sorts = yield* Effect.fromResult(
 					resolveControl(document.controls?.sort, query, schemas, document, context),
-				).pipe(Effect.mapError(invalidQuery));
+				).pipe(Effect.mapError((error) => invalidQuery(error.message)));
 				return {
 					parameters: document.parameters ?? { fields: {} },
 					sort: sorts.sorts.map(({ branches: _, ...choice }) => choice),
 					filter: yield* Effect.fromResult(describeFilterFields(filters)).pipe(
-						Effect.mapError(invalidQuery),
+						Effect.mapError((error) => invalidQuery(error.message)),
 					),
 				} satisfies typeof DescribeResponse.Type;
 			});
@@ -638,7 +652,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 					accessClass: "standard",
 				} as const;
 				if (request.query !== undefined && !Object.hasOwn(document.queries, request.query)) {
-					return yield* invalidQuery();
+					return yield* invalidQuery(`Query '${request.query}' is not declared`);
 				}
 				return yield* runRead(PUBLICATION_STATEMENT_TIMEOUT_MS, (transaction) =>
 					Effect.gen(function* () {
@@ -666,7 +680,7 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 						});
 						return { ...result, execution: prepared.execution };
 					}),
-				).pipe(Effect.catchTag("DemoOperationProtected", invalidQuery));
+				).pipe(Effect.catchTag("DemoOperationProtected", demoScopeFailure));
 			});
 			const describeDeclared = Effect.fn("RyotQLService.describeDeclared")(function* (
 				owner: { readonly userId: string; readonly language: null | string },
@@ -726,12 +740,12 @@ export class RyotQLService extends Context.Service<RyotQLService>()(
 				resultBytes: number,
 			) =>
 				executeWithScope({ ...scope, type: "plugin" }, request, resultBytes).pipe(
-					Effect.catchTag("DemoOperationProtected", invalidQuery),
+					Effect.catchTag("DemoOperationProtected", demoScopeFailure),
 				);
 
 			const executeForAdmin = (request: ExecutionRequest) =>
 				executeWithScope({ type: "admin" }, request).pipe(
-					Effect.catchTag("DemoOperationProtected", invalidQuery),
+					Effect.catchTag("DemoOperationProtected", demoScopeFailure),
 				);
 
 			const execute = (

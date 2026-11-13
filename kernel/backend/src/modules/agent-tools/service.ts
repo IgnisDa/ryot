@@ -5,11 +5,11 @@ import {
 	type AgentToolDescriptor,
 	AgentToolName,
 	agentTools,
+	DiscoveryInput,
 	ExecuteInput,
 	PagePublishInput,
 	PageWriteInput,
 	ReadDocsInput,
-	SearchCapabilitiesInput,
 } from "@ryot-app/contract/schema/agent-tool";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { JsonValue } from "@ryot-app/contract/schema/json";
@@ -57,7 +57,7 @@ const decode = <A, I>(schema: Schema.Codec<A, I>, value: unknown) =>
 	);
 const decodeToolInput = (name: AgentToolName, value: JsonValue) => {
 	if (name === "search") {
-		return decode(SearchCapabilitiesInput, value).pipe(
+		return decode(DiscoveryInput, value).pipe(
 			Effect.map((input) => ({ input, name: "search" as const })),
 		);
 	}

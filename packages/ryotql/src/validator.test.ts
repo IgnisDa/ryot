@@ -1065,7 +1065,7 @@ it("validates aggregate keys, grouped requirements, ordering, and limits", () =>
 			userAccess,
 			{ pages: { entities: { after: "cursor" } } },
 		).error,
-	).toBe("Only grouped aggregates support paging");
+	).toBe("Query 'entities' cannot be paged; only rows and grouped aggregates support paging");
 	expect(
 		validateAuthoredFixture(
 			document({

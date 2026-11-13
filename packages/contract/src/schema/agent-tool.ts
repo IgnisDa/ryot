@@ -15,13 +15,13 @@ export const AgentToolName = Schema.Literals([
 ]);
 export type AgentToolName = typeof AgentToolName.Type;
 
-export const SearchCapabilitiesInput = strictStruct({
+export const DiscoveryInput = strictStruct({
 	query: optionalInput(Schema.String),
 	namespace: optionalInput(Schema.NonEmptyString),
 	detail: optionalInput(Schema.Literals(["names", "summary", "full"])),
 	limit: optionalInput(Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 50 }))),
 });
-export type SearchCapabilitiesInput = typeof SearchCapabilitiesInput.Type;
+export type DiscoveryInput = typeof DiscoveryInput.Type;
 export const ExecuteInput = strictStruct({ code: Schema.NonEmptyString });
 export const ReadDocsInput = strictStruct({
 	topic: optionalInput(Schema.NonEmptyString),
@@ -87,7 +87,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		name: "search",
 		hints: readHints,
 		approval: "none",
-		input: toAgentJsonSchema(SearchCapabilitiesInput),
+		input: toAgentJsonSchema(DiscoveryInput),
 		description:
 			'Find Ryot capabilities: data schemas and queries, collections, pages, saved views and installed plugin operations and queries. Without a query it lists namespaces. Detail "names" returns IDs, "summary" (default) adds descriptions and hints, "full" adds the TypeScript input and output types used by execute.',
 	},

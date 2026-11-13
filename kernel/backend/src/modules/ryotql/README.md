@@ -40,6 +40,8 @@ queries. The pure binder receives the Effect clock; the planner receives only ex
 The response is `{ data: { [queryName]: result } }`. Queries run sequentially in declaration order;
 any failure fails the request, with no partial results.
 
+A rejected document, argument, control or source fails with `invalid-query` and a `message` naming
+the query and the rule it broke; plugin scripts and agent `execute` code receive that message.
 `/ryotql/describe`, `/ryotql/plugin/describe` and `/instance-admin/ryotql/describe` take
 `{ source, arguments? }` and return parameter schemas, resolved filter fields and sort choices.
 Collection membership metadata requires source arguments so its schema can be loaded under authority.

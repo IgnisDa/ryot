@@ -56,12 +56,12 @@ export const toSandboxHostError = (error: unknown): SandboxHostError => {
 		typeof error["reason"]["code"] === "string" &&
 		isJsonValue(error["reason"])
 	) {
+		const message = [error["message"], error["reason"]["message"]].find(
+			(candidate) => typeof candidate === "string" && candidate.length > 0,
+		);
 		return {
 			data: error["reason"],
-			message:
-				typeof error["message"] === "string" && error["message"].length > 0
-					? error["message"]
-					: error["reason"]["code"],
+			message: typeof message === "string" ? message : error["reason"]["code"],
 		};
 	}
 	if (isObjectRecord(error) && typeof error["message"] === "string") {

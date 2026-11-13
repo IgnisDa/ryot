@@ -253,7 +253,12 @@ layer(database)((test) => {
 							arguments: { unexpected: true },
 						}),
 					),
-					new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+					new RyotQLBadRequest({
+						reason: {
+							code: "invalid-query",
+							message: "Invalid arguments: unexpected: Expected no excess property",
+						},
+					}),
 				);
 			}),
 	);
@@ -271,7 +276,9 @@ layer(database)((test) => {
 				expect(result.data["items"]?.items).toEqual([{ id: "a" }]);
 				assertExitFails(
 					yield* Effect.exit(service.executeForUser("other", null, "plugin", request)),
-					new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+					new RyotQLBadRequest({
+						reason: { code: "invalid-query", message: `Source '${savedSource}' is unavailable` },
+					}),
 				);
 			}),
 	);
@@ -400,7 +407,9 @@ layer(database)((test) => {
 						},
 					}),
 				),
-				new RyotQLBadRequest({ reason: { code: "invalid-query" } }),
+				new RyotQLBadRequest({
+					reason: { code: "invalid-query", message: "Query sources must not reference themselves" },
+				}),
 			);
 		}),
 	);
