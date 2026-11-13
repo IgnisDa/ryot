@@ -250,7 +250,7 @@ pub async fn update_custom_metadata(
         metadata.created_by_user_id.clone(),
         user_id,
     )?;
-    delete_removed_s3_assets(ss, &metadata.assets, &update.assets).await?;
+    delete_removed_s3_assets(ss, user_id, &metadata.assets, &update.assets).await?;
     MetadataToGenre::delete_many()
         .filter(metadata_to_genre::Column::MetadataId.eq(&existing_metadata_id))
         .exec(&ss.db)
@@ -394,7 +394,7 @@ pub async fn update_custom_metadata_group(
         group.created_by_user_id.clone(),
         user_id,
     )?;
-    delete_removed_s3_assets(ss, &group.assets, &update.assets).await?;
+    delete_removed_s3_assets(ss, user_id, &group.assets, &update.assets).await?;
     let new_group = metadata_group::ActiveModel {
         parts: ActiveValue::Set(1),
         lot: ActiveValue::Set(update.lot),
@@ -432,7 +432,7 @@ pub async fn update_custom_person(
         person_model.created_by_user_id.clone(),
         user_id,
     )?;
-    delete_removed_s3_assets(ss, &person_model.assets, &update.assets).await?;
+    delete_removed_s3_assets(ss, user_id, &person_model.assets, &update.assets).await?;
     let new_person = person::ActiveModel {
         name: ActiveValue::Set(update.name),
         place: ActiveValue::Set(update.place),
@@ -456,15 +456,16 @@ pub async fn update_custom_person(
 
 async fn delete_removed_s3_assets(
     ss: &Arc<SupportingService>,
+    user_id: &str,
     existing_assets: &EntityAssets,
     updated_assets: &EntityAssets,
 ) -> Result<()> {
     let (images_to_delete, videos_to_delete) = existing_assets.removed_s3_objects(updated_assets);
     for image in images_to_delete {
-        file_storage_service::delete_object(ss, image).await?;
+        file_storage_service::delete_object(ss, user_id, image).await?;
     }
     for video in videos_to_delete {
-        file_storage_service::delete_object(ss, video).await?;
+        file_storage_service::delete_object(ss, user_id, video).await?;
     }
     Ok(())
 }
