@@ -109,8 +109,13 @@ it.live(
 				"search",
 				"execute",
 				"read_docs",
+				"page_read",
+				"page_edit",
 				"page_write",
 				"page_publish",
+				"todo",
+				"question",
+				"read_result",
 			]);
 			const payload = {
 				name: "Approved draft",
