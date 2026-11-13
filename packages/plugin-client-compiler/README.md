@@ -5,8 +5,10 @@ artifact into the plugin archive. Server assembly builds the shared iframe runti
 modules with the same compiler. The running server imports these artifacts and composes page documents
 without invoking a compiler. User-authored pages compile on demand in a supervised subprocess.
 
-`compileClientPluginModule` and `buildClientRuntime` require `FileSystem` and `ViteBuildService`;
-callers provide `pluginClientCompilerPlatformLayer` at their entrypoint.
+`compileClientPluginModule` and `buildClientRuntime` require `FileSystem`, `ViteBuildService`, and
+`TypeScriptSession`; callers provide `pluginClientCompilerPlatformLayer` at their entrypoint, so every
+compile in that scope shares one TypeScript server. `pluginClientCompilerEnvironmentLayer` also type
+checks the SDKs and other resolved dependencies to verify the compiler environment.
 
 Module input selects `kind: "plugin"` with a required canonical `packageId`, or `kind: "kernel"`
 without an authored package identity, or `kind: "page"` with a required `pageDeclarationHash`.
@@ -119,30 +121,41 @@ Compositions reference these immutable modules; their HTML documents are dynamic
 
 ## Server Worker
 
-`./worker` reads one JSON request from stdin and writes one JSON response to stdout. `./protocol`
-owns Effect codecs for canonical base64 source and artifact bytes. Requests contain `input`,
-`workspaceParentPath` and `workspaceJobId`; responses contain either `{ success: true, value: { artifact } }`
-or `{ success: false, error }` with bounded compiler diagnostics. The worker never executes authored code.
-Type errors in the SDKs or other resolved dependencies fail with `RYOT_CLIENT_COMPILER_ENVIRONMENT`
-instead of being attributed to the authored source.
-`compileClientPluginModule` accepts optional compiler workspace options for supervised execution.
+`./worker` is a long-lived `@ryot-app/compiler-worker` host. It compiles
+`CLIENT_COMPILER_WARM_UP_INPUT` from `./warm-up` before it accepts jobs and then serves one JSON
+request per line, so a page compile type checks only its own sources against already-loaded SDK and
+React declarations.
+`src/protocol.ts` owns Effect codecs for canonical base64 source and artifact bytes. Requests contain
+`input`, `workspaceParentPath` and `workspaceJobId`; responses contain either
+`{ success: true, value: { artifact } }` or `{ success: false, error }` with bounded compiler
+diagnostics. The worker never executes authored code. Runtime compiles trust the SDKs and their
+dependencies; under environment verification their type errors fail with
+`RYOT_CLIENT_COMPILER_ENVIRONMENT` instead of being attributed to the authored source.
 The source worker runs its exported `runClientCompilerWorker` entry when executed directly; the
 packaged server worker imports and calls the same entry.
 
-`kernel/backend/src/modules/pages/compiler.ts` owns `ClientPluginCompiler.layer`. Its `compile` accepts
-the page variant of `PluginClientCompilerPackageInput` and returns `Effect<PageClientArtifact,
-PluginClientCompilerFailure>`. The service owns concurrency, timeout, memory and stdout limits through
-`platform/process/compiler-worker.ts`, and scopes the workspace in the parent so process termination
-also removes staged files. Workspaces remain beneath the compiler package so ordinary package
-resolution finds its declared dependencies in both source and packaged layouts. Page lifecycle code
-provides this Layer and persists the returned artifact;
-compilation itself has no database or publication effects.
+`./supervisor` exports `makeClientCompilerSupervisor`, which runs the worker in a supervised pool. Its
+`compile` accepts the page variant of `PluginClientCompilerPackageInput` and returns
+`Effect<PageClientArtifact, PluginClientCompilerFailure | CompilerWorkerUnavailable>`. Timeouts,
+memory overruns, and oversized responses fail the job with `RYOT_CLIENT_COMPILER_TIMEOUT`,
+`RYOT_CLIENT_COMPILER_MEMORY`, or `RYOT_CLIENT_COMPILER_PROCESS` diagnostics; a worker that cannot
+start, exits, returns an invalid result, or loses memory supervision fails with
+`CompilerWorkerUnavailable`. Job workspaces stay beneath the compiler package so ordinary package
+resolution finds its declared dependencies in both source and packaged layouts, and the pool removes
+each one after its job. Limits are two concurrent workers, a 30-second job timeout, a 60-second
+warm-up timeout, a 5-minute idle timeout, 1 GiB sampled Linux process-tree memory with recycling above
+768 MiB, and a 384 MiB `GOMEMLIMIT` for the native TypeScript server.
+
+`kernel/backend/src/modules/pages/compiler.ts` owns `ClientPluginCompiler.layer`, which resolves the
+source or packaged worker path for the supervisor. Page lifecycle code provides this Layer, reports
+`CompilerWorkerUnavailable` as the `compiler-unavailable` authoring reason, and persists the returned
+artifact; compilation itself has no database or publication effects.
 
 Server builds emit `plugin-client-compiler-worker.js` and `smoke-compiler-workers.js` alongside the
 server bundle. The runtime image retains compiler dependencies and runs the smoke script as its
 runtime user during the image build. Run the smoke script with an optional worker path to exercise
-another packaged layout. It compiles TSX, SDK imports, Tailwind, authored CSS and an SVG, then checks
-the emitted page identity, artifact references and workspace cleanup.
+another packaged layout. Its workers verify their environments, then it compiles TSX, SDK imports,
+Tailwind, authored CSS and an SVG, and checks the emitted artifact references.
 
 Page declaration identity includes only entry and portable scoped package references. Queries, page
 IDs, installation IDs, ownership and write grants remain runtime metadata. Restoring a page can remap

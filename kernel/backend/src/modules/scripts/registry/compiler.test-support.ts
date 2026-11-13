@@ -1,3 +1,5 @@
+import { SandboxCompilationFailure } from "@ryot-app/contract/modules/scripts/schemas";
+import { assert } from "@ryot-app/testing/assert";
 import { Effect } from "effect";
 
 import { SandboxCompiler } from "./compiler";
@@ -23,4 +25,10 @@ export default defineScript({
 export const compileSandboxSourceForTest = Effect.fnUntraced(function* (source: string) {
 	const compiler = yield* SandboxCompiler;
 	return yield* compiler.compile(source);
+});
+
+export const compilationFailureForTest = Effect.fnUntraced(function* (source: string) {
+	const failure = yield* compileSandboxSourceForTest(source).pipe(Effect.flip);
+	assert(failure instanceof SandboxCompilationFailure);
+	return failure;
 });

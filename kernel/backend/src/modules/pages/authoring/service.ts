@@ -1,3 +1,4 @@
+import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
 import { DbError } from "@ryot-app/contract/errors";
 import type { PageDraftBuildIdentity } from "@ryot-app/contract/modules/pages/identity";
 import {
@@ -237,19 +238,22 @@ export class PageAuthoringService extends Context.Service<PageAuthoringService>(
 						Effect.mapError(
 							(error) =>
 								new PageAuthoringError({
-									reason: {
-										code: "build-failed",
-										diagnostics: error.diagnostics.map(
-											({ line, code, file, column, message, severity }) => ({
-												line,
-												code,
-												file,
-												column,
-												message,
-												severity,
-											}),
-										),
-									},
+									reason:
+										error instanceof CompilerWorkerUnavailable
+											? { code: "compiler-unavailable" }
+											: {
+													code: "build-failed",
+													diagnostics: error.diagnostics.map(
+														({ line, code, file, column, message, severity }) => ({
+															line,
+															code,
+															file,
+															column,
+															message,
+															severity,
+														}),
+													),
+												},
 								}),
 						),
 					);

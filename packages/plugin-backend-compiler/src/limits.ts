@@ -13,11 +13,16 @@ export const SANDBOX_COMPILER_LIMITS = {
 	timeoutMs: 5_000,
 	diagnosticCount: 100,
 	javascriptBytes: MiB,
-	memoryBytes: 384 * MiB,
+	responseBytes: 8 * MiB,
+	memoryBytes: 768 * MiB,
 	sourceBytes: 256 * KiB,
+	idleTimeoutMs: 300_000,
 	memoryPollIntervalMs: 5,
 	manifestBytes: 16 * KiB,
+	startupTimeoutMs: 30_000,
 	diagnosticBytes: 256 * KiB,
+	recycleMemoryBytes: 512 * MiB,
+	goMemoryLimitBytes: 256 * MiB,
 	executionAnalysisSteps: 100_000,
 } as const;
 

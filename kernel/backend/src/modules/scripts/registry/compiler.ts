@@ -1,159 +1,35 @@
 import { BunServices } from "@effect/platform-bun";
-import {
-	SandboxCompilationFailure,
-	SandboxScriptManifest,
-} from "@ryot-app/contract/modules/scripts/schemas";
-import { utf8ByteLength } from "@ryot-app/plugin-backend-compiler/limits";
-import {
-	CompilerWorkerRequest,
-	CompilerWorkerResponse,
-} from "@ryot-app/plugin-backend-compiler/protocol";
-import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { getCompilerWorkspaceRoot } from "@ryot-app/vite-compiler/workspace";
-import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Semaphore } from "effect";
+import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
+import { SandboxCompilationFailure } from "@ryot-app/contract/modules/scripts/schemas";
+import { makeSandboxCompilerSupervisor } from "@ryot-app/plugin-backend-compiler/supervisor";
+import { Context, Effect, Layer } from "effect";
 
-import {
-	type CompilerWorkerFailure,
-	makeCompilerWorkerRunner,
-} from "#platform/process/compiler-worker";
+import { compilerWorkerPath } from "#platform/process/compiler-worker";
 
-const processFailure = (code: string, message: string) =>
-	new SandboxCompilationFailure({
-		message: "Sandbox TypeScript compilation failed",
-		diagnostics: [{ code, message, line: 1, column: 1, severity: "error", file: "script.ts" }],
-	});
-
-const workerFailure = Match.type<CompilerWorkerFailure>().pipe(
-	Match.tag("Timeout", () =>
-		processFailure(
-			"RYOT_COMPILER_TIMEOUT",
-			`Sandbox compilation timed out after ${SANDBOX_LIMITS.compiler.timeoutMs}ms`,
-		),
-	),
-	Match.tag("MemoryExceeded", () =>
-		processFailure(
-			"RYOT_COMPILER_MEMORY",
-			`Sandbox compiler exceeded ${SANDBOX_LIMITS.compiler.memoryBytes} bytes of proportional memory`,
-		),
-	),
-	Match.tag("MemorySupervisionFailed", () =>
-		processFailure(
-			"RYOT_COMPILER_MEMORY",
-			"Sandbox compiler memory supervision became unavailable",
-		),
-	),
-	Match.tag("OutputExceeded", () =>
-		processFailure("RYOT_COMPILER_PROCESS", "Sandbox compiler returned an oversized result"),
-	),
-	Match.tag("ProcessExited", () =>
-		processFailure(
-			"RYOT_COMPILER_PROCESS",
-			"Sandbox compiler process exited before returning a result",
-		),
-	),
-	Match.tag("ProcessUnavailable", () =>
-		processFailure(
-			"RYOT_COMPILER_PROCESS",
-			"Sandbox compiler process could not be started or read",
-		),
-	),
-	Match.exhaustive,
-);
-
-const decodeCompilerWorkerResponse = Schema.decodeUnknownEffect(
-	Schema.fromJsonString(CompilerWorkerResponse),
-);
-const encodeCompilerWorkerRequest = Schema.encodeEffect(
-	Schema.fromJsonString(CompilerWorkerRequest),
-);
-
-export const makeSandboxCompiler = (configuredWorkspaceParentPath?: string) =>
+export const makeSandboxCompiler = (workspaceDirectory?: string) =>
 	Effect.gen(function* () {
-		const path = yield* Path.Path;
-		const fs = yield* FileSystem.FileSystem;
-		const workspaceParentPath =
-			configuredWorkspaceParentPath ??
-			(yield* fs.makeTempDirectoryScoped({ prefix: "ryot-sandbox-compiler-" }));
-		const semaphore = yield* Semaphore.make(SANDBOX_LIMITS.compiler.concurrency);
-		const current = new URL(import.meta.url);
-		const currentPath = yield* path.fromFileUrl(current).pipe(Effect.orDie);
-		const workerPath = currentPath.endsWith(".ts")
-			? Bun.resolveSync("@ryot-app/plugin-backend-compiler/worker", currentPath)
-			: yield* path
-					.fromFileUrl(new URL("./plugin-backend-compiler-worker.js", current))
-					.pipe(Effect.orDie);
-		const runWorker = yield* makeCompilerWorkerRunner({
-			semaphore,
-			path: workerPath,
-			failure: workerFailure,
-			timeoutMs: SANDBOX_LIMITS.compiler.timeoutMs,
-			memoryBytes: SANDBOX_LIMITS.compiler.memoryBytes,
-			memoryPollIntervalMs: SANDBOX_LIMITS.compiler.memoryPollIntervalMs,
+		const supervisor = yield* makeSandboxCompilerSupervisor({
+			workerPath: yield* compilerWorkerPath(
+				"@ryot-app/plugin-backend-compiler/worker",
+				"plugin-backend-compiler-worker.js",
+			),
+			...(workspaceDirectory === undefined ? {} : { workspaceDirectory }),
 		});
-
-		const compile = (source: string) => {
-			if (utf8ByteLength(source) > SANDBOX_LIMITS.compiler.sourceBytes) {
-				return Effect.fail(
-					processFailure(
-						"RYOT_SOURCE_SIZE",
-						`Sandbox TypeScript source exceeds ${SANDBOX_LIMITS.compiler.sourceBytes} UTF-8 bytes`,
-					),
-				);
-			}
-
-			const workspaceJobId = crypto.randomUUID();
-			const workspaceRoot = Effect.fromResult(
-				getCompilerWorkspaceRoot(path, { jobId: workspaceJobId, parentPath: workspaceParentPath }),
-			).pipe(Effect.orDie);
-			return Effect.acquireUseRelease(
-				workspaceRoot,
-				() =>
-					encodeCompilerWorkerRequest({ source, workspaceJobId, workspaceParentPath }).pipe(
-						Effect.orDie,
-						Effect.flatMap(runWorker),
-						Effect.flatMap((output) =>
-							decodeCompilerWorkerResponse(output).pipe(
-								Effect.mapError(() =>
-									processFailure(
-										"RYOT_COMPILER_PROCESS",
-										"Sandbox compiler process returned an invalid result",
-									),
-								),
-							),
+		return {
+			compile: (source: string) =>
+				supervisor
+					.compile(source)
+					.pipe(
+						Effect.mapError((error) =>
+							error instanceof CompilerWorkerUnavailable
+								? error
+								: new SandboxCompilationFailure({
+										message: error.message,
+										diagnostics: error.diagnostics,
+									}),
 						),
-						Effect.flatMap((response) => {
-							if (!response.success) {
-								return Effect.fail(
-									new SandboxCompilationFailure({
-										message: response.error.message,
-										diagnostics: response.error.diagnostics,
-									}),
-								);
-							}
-
-							return Schema.decodeUnknownEffect(SandboxScriptManifest)(
-								response.value.manifest,
-							).pipe(
-								Effect.mapBoth({
-									onSuccess: (manifest) => ({
-										manifest,
-										format: response.value.format,
-										javascript: response.value.javascript,
-									}),
-									onFailure: () =>
-										processFailure(
-											"RYOT_COMPILER_PROCESS",
-											"Sandbox compiler process returned an invalid manifest",
-										),
-								}),
-							);
-						}),
 					),
-				(root) => fs.remove(root, { force: true, recursive: true }).pipe(Effect.orDie),
-			);
 		};
-
-		return { compile };
 	});
 
 export class SandboxCompiler extends Context.Service<SandboxCompiler>()(

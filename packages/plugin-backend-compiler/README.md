@@ -6,26 +6,31 @@ uses `@ryot-app/vite-compiler` for the complete Sandbox ESM build profile and sc
 
 ## Public Entrypoints And Callers
 
-| Entrypoint                                | Public surface                                                                                     | Main callers                                                              |
-| ----------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `./worker`                                | Standalone JSON stdin/stdout compiler worker                                                       | The kernel sandbox compiler supervisor and the packaged-worker smoke test |
-| `./builtins`                              | `compileBuiltInSandboxEntry` and `compileSandboxPackageEntries`                                    | Built-in compiler tests and backend tooling                               |
-| `./platform`                              | `pluginBackendCompilerPlatformLayer`, the Bun file system and Vite build services compiles require | Entrypoints and test harnesses that run compiles                          |
-| `./plugins`                               | `compilePluginSandboxEntries`, `compilePluginSandboxSourceEntries`, and entry-path helpers         | Kernel source-zero generation and sandbox runner tests                    |
-| `./plugin-manifest`                       | `derivePluginSandboxScripts` and `compilePluginManifestScripts`                                    | Local `ryot plugin build` and compiler tests                              |
-| `./script-metadata`                       | `declaredScriptMetadata`, the compile-free metadata view of a declared plugin script               | Kernel plugin ingestion                                                   |
-| `./protocol`, `./diagnostics`, `./limits` | Worker wire types, diagnostics, and shared limits                                                  | Kernel supervisors, runtime services, and CLI code                        |
-| `./runtime-build/*`                       | Trusted dependency registry, payload, source walking, and process capture                          | Kernel build and server runtime-image verification                        |
+| Entrypoint                                | Public surface                                                                                      | Main callers                                                    |
+| ----------------------------------------- | --------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `./worker`                                | Long-lived compiler worker that warms up and then serves one JSON request per line                  | The supervisor, as the source or packaged worker path           |
+| `./supervisor`                            | `makeSandboxCompilerSupervisor`                                                                     | The kernel `SandboxCompiler` and the packaged-worker smoke test |
+| `./warm-up`                               | `SANDBOX_COMPILER_WARM_UP_SOURCE`, the script each worker compiles before accepting jobs            | The worker and the packaged-worker smoke test                   |
+| `./builtins`                              | `compileBuiltInSandboxEntry` and `compileSandboxPackageEntries`                                     | Built-in compiler tests and backend tooling                     |
+| `./platform`                              | Platform Layers with the Bun file system, Vite build, and TypeScript session services compiles need | Entrypoints and test harnesses that run compiles                |
+| `./plugins`                               | `compilePluginSandboxEntries`, `compilePluginSandboxSourceEntries`, and entry-path helpers          | Kernel source-zero generation and sandbox runner tests          |
+| `./plugin-manifest`                       | `derivePluginSandboxScripts` and `compilePluginManifestScripts`                                     | Local `ryot plugin build` and compiler tests                    |
+| `./script-metadata`                       | `declaredScriptMetadata`, the compile-free metadata view of a declared plugin script                | Kernel plugin ingestion                                         |
+| `./protocol`, `./diagnostics`, `./limits` | Worker wire types, diagnostics, and shared limits                                                   | Kernel supervisors, runtime services, and CLI code              |
+| `./runtime-build/*`                       | Trusted dependency registry, payload, source walking, and process capture                           | Kernel build and server runtime-image verification              |
 
-Compile functions require `FileSystem` and `ViteBuildService`; callers provide
-`pluginBackendCompilerPlatformLayer` at their entrypoint. Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
+Compile functions require `FileSystem`, `ViteBuildService`, and `TypeScriptSession`; callers provide
+`pluginBackendCompilerPlatformLayer` at their entrypoint, so every compile in that scope shares one
+TypeScript server. `pluginBackendCompilerEnvironmentLayer` also type-checks the SDK and other
+resolved dependencies to verify the compiler environment. Standalone user scripts enter through `./worker`. Built-ins and plugin manifest scripts use the same
 semantic and Vite Sandbox ESM build stages, but retain their separate public APIs and metadata checks.
 
 ## Build Pipeline
 
 The compiler creates a TypeScript 7 no-emit project, inspects each entry's import policy and
-definition shape, and then reports bounded semantic diagnostics. Type errors in the SDK or other
-resolved dependencies fail with `RYOT_COMPILER_ENVIRONMENT` instead of being attributed to the script. Only inspected entries reach
+definition shape, and then reports bounded semantic diagnostics for the project files. Program and
+configuration errors outside the project, and dependency type errors under environment verification,
+fail with `RYOT_COMPILER_ENVIRONMENT` instead of being attributed to the script. Only inspected entries reach
 validation of execution metadata, declarations, workflows, and literal manifests; validated entries
 compile with bounded concurrency. A semantic or policy failure never reaches the build stage.
 
@@ -99,15 +104,25 @@ compiled sandbox module executes in a fresh V8 isolate inside `ryot-sandboxd`.
 Worker dependencies resolve from the installed plugin-backend-compiler package, including when the worker
 is bundled into a different directory.
 
-The parent supervisor creates a UUID job directory, passes its path and job ID to the worker, and
-removes that directory with scoped acquire/use/release cleanup after success, failure, cancellation,
-timeout, or forced termination. The worker is run with no orphan processes and is killed on cleanup.
+`makeSandboxCompilerSupervisor` runs `./worker` in a `@ryot-app/compiler-worker` pool. Each worker
+compiles `SANDBOX_COMPILER_WARM_UP_SOURCE` before it accepts jobs and then stays warm, so a job type
+checks only its own source against already-loaded SDK declarations. The pool passes each job a
+workspace address and removes that workspace after success, failure, cancellation, timeout, or forced
+termination. The supervisor bounds source size before dispatch and decodes the returned manifest.
+Timeouts, memory overruns, and oversized responses fail the job with `RYOT_COMPILER_TIMEOUT`,
+`RYOT_COMPILER_MEMORY`, or `RYOT_COMPILER_PROCESS` diagnostics; a worker that cannot start, exits,
+returns an invalid result, or loses memory supervision fails with `CompilerWorkerUnavailable`.
 
-Compiler limits are two concurrent jobs, a 5-second timeout, 384 MiB sampled Linux process-tree
-memory, 256 KiB source, 1 MiB compiled JavaScript, 100 diagnostics, and 256 KiB diagnostic output.
-The supervisor sets the native TypeScript child's `GOMEMLIMIT` to half the process-tree budget
-(192 MiB), leaving room for the Bun worker, bundling, and mapped pages. This is a soft Go GC budget;
-the parent still kills the worker when the full process tree exceeds the hard memory limit.
+Runtime jobs trust the SDK and its dependencies. The server image build runs the smoke script, whose
+workers verify the full environment with `--verify-environment`; SDK type errors then fail the build
+with `RYOT_COMPILER_ENVIRONMENT` instead of reaching runtime compiles.
+
+Compiler limits are two concurrent workers, a 5-second job timeout, a 30-second warm-up timeout, a
+5-minute idle timeout, 768 MiB sampled Linux process-tree memory with recycling above 512 MiB, an
+8 MiB response, 256 KiB source, 1 MiB compiled JavaScript, 100 diagnostics, and 256 KiB diagnostic
+output. The native TypeScript server's `GOMEMLIMIT` is 256 MiB: lower budgets sit below its working
+heap and make the Go collector dominate warm compiles. This is a soft Go GC budget; the pool still
+kills the worker when the full process tree exceeds the hard memory limit.
 
 The agent SDK entry point is an allowed sandbox import and uses the same direct `defineScript` /
 `defineManifest` declaration analysis and compiler-derived host metadata. It does not create a separate

@@ -1,52 +1,50 @@
-import { BunRuntime } from "@effect/platform-bun";
+import { runCompilerWorker } from "@ryot-app/compiler-worker/host";
 import { Effect, Schema } from "effect";
 
 import { compileSandboxSource } from "./compiler-core";
 import { pluginBackendCompilerDiagnostic, sandboxCompilationFailure } from "./compiler-diagnostics";
-import { pluginBackendCompilerPlatformLayer } from "./compiler-platform";
+import {
+	pluginBackendCompilerEnvironmentLayer,
+	pluginBackendCompilerPlatformLayer,
+} from "./compiler-platform";
 import {
 	compilerWorkerFailure,
 	CompilerWorkerRequest,
 	CompilerWorkerResponse,
 	compilerWorkerSuccess,
 } from "./compiler-protocol";
+import { SANDBOX_COMPILER_WARM_UP_SOURCE } from "./compiler-warm-up";
 
 const decodeRequest = Schema.decodeUnknownEffect(Schema.fromJsonString(CompilerWorkerRequest));
+const encodeResponse = Schema.encodeEffect(Schema.fromJsonString(CompilerWorkerResponse));
 
-const program = Effect.tryPromise({
-	try: () => Bun.stdin.text(),
-	catch: (error) =>
-		sandboxCompilationFailure([
-			pluginBackendCompilerDiagnostic(
-				"RYOT_COMPILER_PROCESS",
-				`Sandbox compiler input could not be read: ${String(error)}`,
-			),
-		]),
-}).pipe(
-	Effect.flatMap((input) =>
-		decodeRequest(input).pipe(
-			Effect.mapError((error) =>
-				sandboxCompilationFailure([
-					pluginBackendCompilerDiagnostic(
-						"RYOT_COMPILER_PROCESS",
-						`Sandbox compiler request is invalid: ${String(error)}`,
-					),
-				]),
-			),
+const handle = (input: string) =>
+	decodeRequest(input).pipe(
+		Effect.mapError((error) =>
+			sandboxCompilationFailure([
+				pluginBackendCompilerDiagnostic(
+					"RYOT_COMPILER_PROCESS",
+					`Sandbox compiler request is invalid: ${String(error)}`,
+				),
+			]),
 		),
-	),
-	Effect.flatMap(({ source, workspaceJobId, workspaceParentPath }) =>
-		compileSandboxSource(source, { jobId: workspaceJobId, parentPath: workspaceParentPath }),
-	),
-	Effect.match({ onFailure: compilerWorkerFailure, onSuccess: compilerWorkerSuccess }),
-	Effect.flatMap((response) =>
-		Schema.encodeEffect(Schema.fromJsonString(CompilerWorkerResponse))(response),
-	),
-	Effect.flatMap((response) => Effect.sync(() => process.stdout.write(response))),
-);
+		Effect.flatMap(({ source, workspaceJobId, workspaceParentPath }) =>
+			compileSandboxSource(source, { jobId: workspaceJobId, parentPath: workspaceParentPath }),
+		),
+		Effect.match({ onFailure: compilerWorkerFailure, onSuccess: compilerWorkerSuccess }),
+		Effect.flatMap(encodeResponse),
+		Effect.orDie,
+	);
 
 export const runBackendCompilerWorker = () =>
-	BunRuntime.runMain(program.pipe(Effect.provide(pluginBackendCompilerPlatformLayer)));
+	runCompilerWorker({
+		handle,
+		warmUp: compileSandboxSource(SANDBOX_COMPILER_WARM_UP_SOURCE),
+		layer: ({ verifyEnvironment }) =>
+			verifyEnvironment
+				? pluginBackendCompilerEnvironmentLayer
+				: pluginBackendCompilerPlatformLayer,
+	});
 
 if (import.meta.main) {
 	runBackendCompilerWorker();

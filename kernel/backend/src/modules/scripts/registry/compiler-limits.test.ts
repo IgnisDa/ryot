@@ -10,6 +10,7 @@ import { Effect, Schema } from "effect";
 
 import { SandboxCompiler } from "./compiler";
 import {
+	compilationFailureForTest as compileFailure,
 	compileSandboxSourceForTest as compile,
 	validSandboxSource as validSource,
 } from "./compiler.test-support";
@@ -31,7 +32,7 @@ layer(SandboxCompiler.layer)((test) => {
 					`${boundarySource}a`,
 					"🙂".repeat(Math.floor(SANDBOX_LIMITS.compiler.sourceBytes / 4) + 1),
 				]) {
-					const failure = yield* compile(source).pipe(Effect.flip);
+					const failure = yield* compileFailure(source);
 					expect(failure.diagnostics).toEqual<unknown>([
 						objectContaining({ file: "script.ts", code: "RYOT_SOURCE_SIZE" }),
 					]);
@@ -55,9 +56,9 @@ layer(SandboxCompiler.layer)((test) => {
 				expect(jsonByteLength(boundary.manifest)).toBe(SANDBOX_LIMITS.compiler.manifestBytes);
 
 				for (const overflow of ["a", "🙂"]) {
-					const failure = yield* compile(
+					const failure = yield* compileFailure(
 						validSource.replace("Plain value", `${name}${overflow}`),
-					).pipe(Effect.flip);
+					);
 					expect(failure.diagnostics).toEqual<unknown>([
 						objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
 					]);
@@ -79,7 +80,7 @@ layer(SandboxCompiler.layer)((test) => {
 				);
 				expect(utf8ByteLength(source)).toBeLessThan(SANDBOX_LIMITS.compiler.sourceBytes);
 				expect(jsonByteLength(keys)).toBeGreaterThan(SANDBOX_LIMITS.compiler.manifestBytes);
-				const failure = yield* compile(source).pipe(Effect.flip);
+				const failure = yield* compileFailure(source);
 				expect(failure.diagnostics).toEqual<unknown>([
 					objectContaining({ file: "script.ts", code: "RYOT_MANIFEST_SIZE" }),
 				]);
@@ -97,7 +98,7 @@ layer(SandboxCompiler.layer)((test) => {
 					{ length: SANDBOX_LIMITS.compiler.diagnosticCount + 25 },
 					(_, index) => `void missingIdentifier${index};`,
 				).join("\n");
-				const failure = yield* compile(`${validSource}\n${invalidReferences}`).pipe(Effect.flip);
+				const failure = yield* compileFailure(`${validSource}\n${invalidReferences}`);
 
 				expect(failure.diagnostics).toHaveLength(SANDBOX_LIMITS.compiler.diagnosticCount);
 				expect(jsonByteLength(failure.diagnostics)).toBeLessThanOrEqual(
@@ -131,7 +132,7 @@ layer(SandboxCompiler.layer)((test) => {
 	});
 	`;
 				expect(utf8ByteLength(source)).toBeLessThan(SANDBOX_LIMITS.compiler.sourceBytes);
-				const failure = yield* compile(source).pipe(Effect.flip);
+				const failure = yield* compileFailure(source);
 
 				expect(failure.diagnostics).toEqual<unknown>([
 					objectContaining({ file: "script.ts", code: "RYOT_COMPILED_SIZE" }),

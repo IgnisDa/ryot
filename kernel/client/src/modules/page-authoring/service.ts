@@ -122,6 +122,8 @@ export const authoringFailureText = (error: unknown): string => {
 			return reason.message;
 		case "draft-revision-stale":
 			return "This draft changed elsewhere. Reload the latest draft before saving again. Your changes have not been saved.";
+		case "compiler-unavailable":
+			return "The page compiler is temporarily unavailable. Try compiling again shortly.";
 		case "dependency-unavailable":
 			return "A declared plugin dependency is unavailable. Check its package and scope.";
 		default:

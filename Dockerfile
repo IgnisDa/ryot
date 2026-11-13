@@ -70,7 +70,7 @@ FROM base AS runtime-deps
 COPY --from=prepare /app/out/json/ .
 COPY --from=prepare /app/out/full/packages ./packages
 RUN --mount=type=cache,target=/root/.bun/install/cache \
-    bun install --linker hoisted --filter @ryot-app/vite-compiler --filter @ryot-app/typescript-compiler --filter @ryot-app/plugin-client-compiler --filter @ryot-app/plugin-backend-compiler --filter @ryot-app/plugin-backend-sdk --filter @ryot-app/plugin-client-sdk --filter @ryot-app/plugin-ui-sdk --filter @ryot-app/plugin-kit --production --frozen-lockfile
+    bun install --linker hoisted --filter @ryot-app/compiler-worker --filter @ryot-app/vite-compiler --filter @ryot-app/typescript-compiler --filter @ryot-app/plugin-client-compiler --filter @ryot-app/plugin-backend-compiler --filter @ryot-app/plugin-backend-sdk --filter @ryot-app/plugin-client-sdk --filter @ryot-app/plugin-ui-sdk --filter @ryot-app/plugin-kit --production --frozen-lockfile
 
 FROM base AS runner
 RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates && \

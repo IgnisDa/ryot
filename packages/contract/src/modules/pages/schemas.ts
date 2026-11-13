@@ -544,6 +544,7 @@ export class PageAuthoringError extends Schema.TaggedError<
 			reference: PluginPackageReference,
 			code: Schema.Literal("dependency-unavailable"),
 		}),
+		strictStruct({ code: Schema.Literal("compiler-unavailable") }),
 		strictStruct({ code: Schema.Literal("page-in-use") }),
 	]),
 }) {}

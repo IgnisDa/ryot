@@ -7,6 +7,7 @@ import { Effect } from "effect";
 
 import { SandboxCompiler } from "./compiler";
 import {
+	compilationFailureForTest as compileFailure,
 	compileSandboxSourceForTest as compile,
 	validSandboxSource as validSource,
 } from "./compiler.test-support";
@@ -118,12 +119,12 @@ layer(SandboxCompiler.layer)((test) => {
 		"rejects workflow nondeterminism through the worker-facing API: %s",
 		(expression) =>
 			Effect.gen(function* () {
-				const failure = yield* compile(
+				const failure = yield* compileFailure(
 					workflowSource.replace(
 						'Effect.succeed("workflow")',
 						`Effect.succeed(String(${expression}))`,
 					),
-				).pipe(Effect.flip);
+				);
 				expect(failure.diagnostics).toEqual<unknown>([
 					objectContaining({
 						file: "script.ts",
@@ -162,9 +163,9 @@ layer(SandboxCompiler.layer)((test) => {
 		"returns an actionable TypeScript diagnostic",
 		() =>
 			Effect.gen(function* () {
-				const failure = yield* compile(
+				const failure = yield* compileFailure(
 					validSource.replace("Effect.succeed(input.value)", 'Effect.succeed("wrong")'),
-				).pipe(Effect.flip);
+				);
 
 				expect(failure._tag).toBe("SandboxCompilationFailure");
 				expect(failure.diagnostics.length).toBeGreaterThan(0);
@@ -182,9 +183,9 @@ layer(SandboxCompiler.layer)((test) => {
 		"rejects source-authored manifest capabilities",
 		() =>
 			Effect.gen(function* () {
-				const failure = yield* compile(
+				const failure = yield* compileFailure(
 					validSource.replace('kind: "script",', 'kind: "script",\n  capabilities: [],'),
-				).pipe(Effect.flip);
+				);
 
 				expect(failure.diagnostics).toEqual<unknown>(
 					arrayContaining([objectContaining({ code: "TS2322", severity: "error" })]),
@@ -209,9 +210,7 @@ layer(SandboxCompiler.layer)((test) => {
 					"bun:test",
 					"./helper.ts",
 				]) {
-					const failure = yield* compile(`import "${specifier}";\n${validSource}`).pipe(
-						Effect.flip,
-					);
+					const failure = yield* compileFailure(`import "${specifier}";\n${validSource}`);
 
 					expect(failure.diagnostics).toEqual<unknown>([
 						objectContaining({
@@ -231,9 +230,9 @@ layer(SandboxCompiler.layer)((test) => {
 		"rejects computed dynamic imports before resolution",
 		() =>
 			Effect.gen(function* () {
-				const failure = yield* compile(
+				const failure = yield* compileFailure(
 					`${validSource}\nconst dependency = "@ryot-app/plugin-backend-sdk/cheerio";\nvoid import(dependency);`,
-				).pipe(Effect.flip);
+				);
 
 				expect(failure.diagnostics).toEqual<unknown>([
 					objectContaining({ code: "RYOT_IMPORT", message: "Dynamic imports are not allowed" }),
@@ -253,7 +252,7 @@ layer(SandboxCompiler.layer)((test) => {
 					"void eval('require(\"node:fs\")');",
 					'void new Worker("data:text/javascript,export default 1", { type: "module" });',
 				]) {
-					const failure = yield* compile(`${validSource}\n${generatedModule}`).pipe(Effect.flip);
+					const failure = yield* compileFailure(`${validSource}\n${generatedModule}`);
 
 					expect(failure.diagnostics).toEqual<unknown>([
 						objectContaining({
@@ -272,9 +271,9 @@ layer(SandboxCompiler.layer)((test) => {
 		"rejects CommonJS require before bundling",
 		() =>
 			Effect.gen(function* () {
-				const failure = yield* compile(
+				const failure = yield* compileFailure(
 					`${validSource}\ndeclare const require: (path: string) => unknown;\nrequire("./package.json");`,
-				).pipe(Effect.flip);
+				);
 
 				expect(failure.diagnostics).toEqual<unknown>([
 					objectContaining({
@@ -292,9 +291,9 @@ layer(SandboxCompiler.layer)((test) => {
 		"rejects a computed static manifest",
 		() =>
 			Effect.gen(function* () {
-				const failure = yield* compile(
+				const failure = yield* compileFailure(
 					validSource.replace('name: "Plain value"', 'name: ["Plain", "value"].join(" ")'),
-				).pipe(Effect.flip);
+				);
 
 				expect(failure.diagnostics).toEqual<unknown>([
 					objectContaining({

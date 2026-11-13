@@ -1,5 +1,6 @@
 import { expect } from "bun:test";
 
+import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
 import { PageAuthoringError, type PageDefinition } from "@ryot-app/contract/modules/pages/schemas";
 import { RyotQLBadRequest } from "@ryot-app/contract/modules/ryotql/contract";
 import { PluginPackageId, UserId } from "@ryot-app/contract/schema/brands";
@@ -59,9 +60,10 @@ const definition: PageDefinition = {
 const CompileGate = Context.Reference<Effect.Effect<void>>("test/PageCompileGate", {
 	defaultValue: () => Effect.void,
 });
-const CompileFailure = Context.Reference<boolean>("test/PageCompileFailure", {
-	defaultValue: () => false,
-});
+const CompileFailure = Context.Reference<"none" | "diagnostics" | "unavailable">(
+	"test/PageCompileFailure",
+	{ defaultValue: () => "none" },
+);
 const file = clientArtifactFile({
 	path: "page.js",
 	contentType: "text/javascript",
@@ -76,7 +78,11 @@ const compiler = Layer.effect(
 				Effect.gen(function* () {
 					expect(yield* session.isTransactionActive).toBe(false);
 					yield* yield* CompileGate;
-					if (yield* CompileFailure) {
+					const compileFailure = yield* CompileFailure;
+					if (compileFailure === "unavailable") {
+						return yield* new CompilerWorkerUnavailable({ message: "Compiler worker exited" });
+					}
+					if (compileFailure === "diagnostics") {
 						return yield* clientPluginCompilationFailure([
 							{
 								...clientPluginCompilerDiagnostic("TEST", "client/page.tsx", "Invalid page"),
@@ -197,7 +203,7 @@ layer(database)((test) => {
 			expect((yield* repository.find(owner, pageId))?.publishedRevision).toBeNull();
 			const published = yield* service
 				.publishCompiledDraft(owner, compiled, "publication")
-				.pipe(Effect.provideService(CompileFailure, true));
+				.pipe(Effect.provideService(CompileFailure, "diagnostics"));
 			expect(published).toEqual(compiled);
 			yield* service.replaceDraft(actor, { pageId, definition, expectedDraftRevision: 1 });
 			const edited = yield* repository.find(owner, pageId);
@@ -332,7 +338,7 @@ layer(database)((test) => {
 		}),
 	);
 	test.effect(
-		"returns compiler diagnostics and rejects invalid stored query branches when publishing",
+		"returns compiler diagnostics, reports an unavailable compiler, and rejects invalid stored query branches when publishing",
 		() =>
 			Effect.gen(function* () {
 				const service = yield* PageAuthoringService;
@@ -343,7 +349,7 @@ layer(database)((test) => {
 				assertExitFails(
 					yield* service
 						.compile(owner, { pageId, expectedDraftRevision: 1 })
-						.pipe(Effect.provideService(CompileFailure, true), Effect.exit),
+						.pipe(Effect.provideService(CompileFailure, "diagnostics"), Effect.exit),
 					new PageAuthoringError({
 						reason: {
 							code: "build-failed",
@@ -352,6 +358,12 @@ layer(database)((test) => {
 							],
 						},
 					}),
+				);
+				assertExitFails(
+					yield* service
+						.compile(owner, { pageId, expectedDraftRevision: 1 })
+						.pipe(Effect.provideService(CompileFailure, "unavailable"), Effect.exit),
+					new PageAuthoringError({ reason: { code: "compiler-unavailable" } }),
 				);
 				const items = definition.queries.queries["items"];
 				assert(items);

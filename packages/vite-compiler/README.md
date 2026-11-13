@@ -42,6 +42,6 @@ requested entry, in request order.
 
 The package does not own plugin source, TypeScript analysis,
 artifact limits, hashing, publication, worker supervision, or client and sandbox artifact contracts.
-Those decisions remain with the target compiler and its parent supervisor. The package does not
+Those decisions remain with the target compiler and `@ryot-app/compiler-worker`. The package does not
 load caller Vite, environment, public-directory, or PostCSS configuration and does not install or
 execute dependencies from staged sources.
