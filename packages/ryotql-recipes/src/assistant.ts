@@ -19,12 +19,14 @@ import {
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import {
+	and,
 	ascending,
 	column,
 	defineRecipe,
 	descending,
 	eq,
 	inArray,
+	isNull,
 	literal,
 	type Recipe,
 	selectedField,
@@ -43,6 +45,7 @@ const conversation = table("assistantConversation", "conversation");
 const message = table("assistantMessage", "message");
 const turn = table("assistantTurn", "turn");
 const call = table("assistantToolCall", "call");
+const inbox = table("assistantInbox", "inbox");
 const conversationSelection = {
 	title: selectedField(column(conversation, "title"), Schema.String),
 	revision: selectedField(column(conversation, "revision"), Schema.Int),
@@ -138,6 +141,15 @@ export const assistantConversationRecipe = defineRecipe({
 						),
 					},
 				}),
+				queued: selectedInclude(inbox, {
+					limit: 20,
+					where: and(eq(column(inbox, "turnId"), column(turn, "id")), isNull(column(inbox, "deliveredAt"))),
+					orderBy: [ascending(column(inbox, "createdAt")), ascending(column(inbox, "id"))],
+					selection: {
+						id: selectedField(column(inbox, "id"), Schema.String),
+						text: selectedField(column(inbox, "text"), Schema.String),
+					},
+				}),
 				calls: selectedInclude(call, {
 					limit: 100,
 					where: eq(column(call, "turnId"), column(turn, "id")),
@@ -186,10 +198,12 @@ export type AssistantTranscriptTurn = {
 	readonly id: AssistantTurnRecord["id"];
 	readonly status: AssistantTurnRecord["status"];
 	readonly failure: AssistantTurnRecord["failure"];
+	readonly queued: readonly string[];
 	readonly entries: readonly AssistantTranscriptEntry[];
 };
 export type AssistantTranscriptEntry =
 	| { readonly id: string; readonly kind: "compaction" }
+	| { readonly id: string; readonly text: string; readonly kind: "steer" }
 	| { readonly id: string; readonly kind: "todo"; readonly items: AssistantTodoInput["items"] }
 	| {
 			readonly id: string;
@@ -290,8 +304,18 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 			state: approvalState(item, record.status),
 		});
 	};
+	let prompted = false;
 	for (const item of record.messages.items) {
 		if (item.role === "user") {
+			for (const [index, part] of item.parts.entries()) {
+				if (part.kind === "text") {
+					if (prompted) {
+						closeSteps();
+						entries.push({ id: `${item.id}:${index}`, kind: "steer", text: part.text });
+					}
+					prompted = true;
+				}
+			}
 			continue;
 		}
 		item.parts.forEach((part, index) => {
@@ -368,6 +392,7 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 		id: record.id,
 		prompt: record.text,
 		status: record.status,
+		queued: record.queued.items.map(({ text }) => text),
 		failure: record.failure,
 		createdAt: record.createdAt,
 		completedAt: record.completedAt,

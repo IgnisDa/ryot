@@ -368,8 +368,14 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 					"running",
 				),
 			);
-			state = yield* load(payload);
 		}
+		yield* latest(payload, (turn) =>
+			write(
+				payload.userId,
+				repository.deliverInbox(payload.userId, turn.conversationId, payload.turnId, turn.revision),
+			),
+		);
+		state = yield* load(payload);
 		const provider = yield* providers
 			.effective(payload.userId)
 			.pipe(Effect.mapError(() => failure("provider-unavailable")));
@@ -692,20 +698,34 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		error: null | AssistantTurnFailure,
 	) {
 		const state = yield* load(payload);
-		if (["failed", "completed", "interrupted"].includes(state.turn.status)) {
-			return;
+		if (terminalStatuses.has(state.turn.status)) {
+			return true;
 		}
-		yield* write(
-			payload.userId,
-			repository.transition(
-				payload.userId,
-				state.turn.conversationId,
-				payload.turnId,
-				state.turn.revision,
-				error === null ? "completed" : "failed",
-				error,
-			),
-		);
+		if (error === null) {
+			const outcome = yield* latest(payload, (turn) =>
+				write(
+					payload.userId,
+					repository.complete(payload.userId, turn.conversationId, payload.turnId, turn.revision),
+				),
+			);
+			return outcome.completed;
+		}
+		for (const step of [
+			(turn: { readonly revision: number; readonly conversationId: string }) =>
+				repository.deliverInbox(payload.userId, turn.conversationId, payload.turnId, turn.revision),
+			(turn: { readonly revision: number; readonly conversationId: string }) =>
+				repository.transition(
+					payload.userId,
+					turn.conversationId,
+					payload.turnId,
+					turn.revision,
+					"failed",
+					error,
+				),
+		]) {
+			yield* latest(payload, (turn) => write(payload.userId, step(turn)));
+		}
+		return true;
 	});
 	return { finish, generate, decision, dispatch, isActive, recordRound };
 });

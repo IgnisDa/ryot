@@ -120,6 +120,27 @@ export const assistantToolCall = snakeCase.table(
 		}).onDelete("cascade"),
 	],
 );
+export const assistantInbox = snakeCase.table(
+	"assistant_inbox",
+	{
+		text: text().notNull(),
+		id: text().primaryKey(),
+		turnId: text().notNull(),
+		userId: text().notNull(),
+		deliveredAt: timestamptz(),
+		requestId: text().notNull(),
+		conversationId: text().notNull(),
+		createdAt: timestamptz().notNull().defaultNow(),
+	},
+	(t) => [
+		unique().on(t.userId, t.requestId),
+		index("assistant_inbox_turn_idx").on(t.turnId),
+		foreignKey({
+			columns: [t.turnId, t.conversationId, t.userId],
+			foreignColumns: [assistantTurn.id, assistantTurn.conversationId, assistantTurn.userId],
+		}).onDelete("cascade"),
+	],
+);
 export const assistantToolOutput = snakeCase.table(
 	"assistant_tool_output",
 	{

@@ -12,7 +12,7 @@ import {
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { generateId } from "better-auth";
-import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
@@ -20,6 +20,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { truncateJsonResult } from "#platform/tool-result";
 import {
 	assistantConversation as conversations,
+	assistantInbox as inbox,
 	assistantMessage as messages,
 	assistantToolCall as calls,
 	assistantToolOutput as outputs,
@@ -166,6 +167,22 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				}
 				return row;
 			});
+			const takeInbox = Effect.fn("AssistantRepository.takeInbox")(function* (turnId: string) {
+				return yield* session.run((db) =>
+					db
+						.update(inbox)
+						.set({ deliveredAt: sql`now()` })
+						.where(and(eq(inbox.turnId, turnId), isNull(inbox.deliveredAt)))
+						.returning(),
+				).pipe(
+					Effect.map((rows) =>
+						rows.toSorted(
+							(left, right) =>
+								left.createdAt.getTime() - right.createdAt.getTime() || left.id.localeCompare(right.id),
+						),
+					),
+				);
+			});
 			const refreshStatus = Effect.fn("AssistantRepository.refreshStatus")(function* (
 				turnId: string,
 			) {
@@ -234,6 +251,21 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 					}
 					return existing;
 				}
+				const [queued] = yield* session.run((db) =>
+					db
+						.select()
+						.from(inbox)
+						.where(and(eq(inbox.userId, userId), eq(inbox.requestId, input.requestId))),
+				);
+				if (queued) {
+					const [owner] = yield* session.run((db) =>
+						db.select().from(turns).where(eq(turns.id, queued.turnId)),
+					);
+					if (!owner || queued.text !== input.text || queued.conversationId !== input.conversationId) {
+						return yield* fail("request-conflict");
+					}
+					return owner;
+				}
 				const conversationId = input.conversationId ?? generateId();
 				if (input.conversationId === undefined) {
 					yield* session.run((db) =>
@@ -255,7 +287,17 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 							.limit(1),
 					);
 					if (active) {
-						return yield* fail("conversation-active");
+						yield* session.run((db) =>
+							db.insert(inbox).values({
+								userId,
+								conversationId,
+								id: generateId(),
+								text: input.text,
+								turnId: active.id,
+								requestId: input.requestId,
+							}),
+						);
+						return yield* bumpTurn(active.id, {});
 					}
 				}
 				const [row] = yield* session.run((db) =>
@@ -338,7 +380,24 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 					yield* appendMessage(userId, conversationId, turnId, "tool", results);
 				}
 				const updated = yield* bumpTurn(turnId, { status: "interrupted" });
+				const undelivered = yield* takeInbox(turnId);
+				const [first] = undelivered;
+				let next: null | typeof turns.$inferSelect = null;
+				if (first) {
+					const text = undelivered.map((item) => item.text).join("\n\n");
+					[next = null] = yield* session.run((db) =>
+						db
+							.insert(turns)
+							.values({ text, userId, conversationId, id: generateId(), requestId: `inbox:${first.id}` })
+							.returning(),
+					);
+					if (next === null) {
+						return yield* Effect.die("Assistant turn insert returned no row");
+					}
+					yield* appendMessage(userId, conversationId, next.id, "user", [{ kind: "text", text }]);
+				}
 				return {
+					next,
 					turn: updated,
 					awaitingDecision: unfinished
 						.filter(
@@ -374,6 +433,44 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				}
 				const updated = yield* bumpTurn(turnId, { status, failure });
 				return updated;
+			});
+			const deliverInbox = Effect.fn("AssistantRepository.deliverInbox")(function* (
+				userId: UserId,
+				conversationId: string,
+				turnId: string,
+				expectedRevision: number,
+			) {
+				const turn = yield* lockTurn(userId, conversationId, turnId, expectedRevision);
+				const delivered = yield* takeInbox(turnId);
+				for (const item of delivered) {
+					yield* appendMessage(userId, conversationId, turnId, "user", [
+						{ kind: "text", text: item.text },
+					]);
+				}
+				return delivered.length === 0 ? turn : yield* bumpTurn(turnId, {});
+			});
+			/** Completes the turn unless a message arrived for it, which the next round delivers instead. */
+			const complete = Effect.fn("AssistantRepository.complete")(function* (
+				userId: UserId,
+				conversationId: string,
+				turnId: string,
+				expectedRevision: number,
+			) {
+				const locked = yield* lockTurn(userId, conversationId, turnId, expectedRevision);
+				const [waiting] = yield* session.run((db) =>
+					db
+						.select({ id: inbox.id })
+						.from(inbox)
+						.where(and(eq(inbox.turnId, turnId), isNull(inbox.deliveredAt)))
+						.limit(1),
+				);
+				if (waiting) {
+					return { ...locked, completed: false };
+				}
+				return {
+					...(yield* transition(userId, conversationId, turnId, expectedRevision, "completed")),
+					completed: true,
+				};
 			});
 			const setRoundText = Effect.fn("AssistantRepository.setRoundText")(function* (
 				userId: UserId,
@@ -846,6 +943,8 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				submit,
 				decide,
 				answer,
+				complete,
+				deliverInbox,
 				loadTurn,
 				interrupt,
 				transition,

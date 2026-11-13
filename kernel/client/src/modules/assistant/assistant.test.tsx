@@ -218,6 +218,7 @@ it.live(
 			const turn: AssistantTranscriptTurn = {
 				id: turnId,
 				failure: null,
+				queued: [],
 				partial: false,
 				status: "completed",
 				prompt: "How is my bench press?",

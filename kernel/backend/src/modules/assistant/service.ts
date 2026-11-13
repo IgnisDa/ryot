@@ -69,7 +69,10 @@ export const makeAssistantService = Effect.fn(function* (
 					),
 				),
 		);
-		if (["queued", "running", "awaiting-approval", "awaiting-input"].includes(turn.status)) {
+		if (
+			turn.requestId === input.requestId &&
+			["queued", "running", "awaiting-approval", "awaiting-input"].includes(turn.status)
+		) {
 			yield* start(userId, turn.id);
 		}
 		return {
@@ -97,23 +100,21 @@ export const makeAssistantService = Effect.fn(function* (
 		userId: UserId,
 		input: InterruptAssistantTurnBody,
 	) {
-		const { turn, awaitingDecision } = yield* transact(
+		const { turn, next, awaitingDecision } = yield* transact(
 			userId,
-			repository
-				.interrupt(userId, input.conversationId, input.turnId)
-				.pipe(
-					Effect.tap(({ turn: updated }) =>
-						publishAssistantUpdated(
-							userId,
-							updated.conversationId,
-							updated.id,
-							updated.revision,
-						).pipe(Effect.provideService(DatabaseSession, session)),
-					),
+			repository.interrupt(userId, input.conversationId, input.turnId).pipe(
+				Effect.tap(({ turn: updated, next: queued }) =>
+					Effect.forEach(queued === null ? [updated] : [updated, queued], (changed) =>
+						publishAssistantUpdated(userId, changed.conversationId, changed.id, changed.revision),
+					).pipe(Effect.provideService(DatabaseSession, session)),
 				),
+			),
 		);
 		for (const toolCallId of awaitingDecision) {
 			yield* wake(userId, turn.id, toolCallId, "decline");
+		}
+		if (next !== null) {
+			yield* start(userId, next.id);
 		}
 		return { turnId: input.turnId, conversationId: input.conversationId };
 	});

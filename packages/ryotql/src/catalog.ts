@@ -137,6 +137,17 @@ export const catalogTables = {
 			reminderId: { kind: "text", nullable: true },
 		},
 	},
+	assistantInbox: {
+		primaryKey: ["id"],
+		visibility: { user: { pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			text: { kind: "text", nullable: false },
+			turnId: { kind: "text", nullable: false },
+			createdAt: { kind: "date", nullable: false },
+			deliveredAt: { kind: "date", nullable: true },
+		},
+	},
 	assistantMessage: {
 		primaryKey: ["id"],
 		visibility: { user: { pluginReadable: false } },

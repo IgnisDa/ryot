@@ -103,16 +103,7 @@ export function AssistantComposer(props: {
 							}
 						}}
 					/>
-					{props.stop === undefined ? (
-						<IconButton
-							type="submit"
-							tone="accent"
-							disabled={!canSend && !submit.retrying}
-							label={submit.retrying ? "Retry message" : "Send"}
-						>
-							<AppIcon size={16} name={submit.retrying ? "rotate-ccw" : "arrow-up"} />
-						</IconButton>
-					) : (
+					{props.stop === undefined ? null : (
 						<IconButton
 							label="Stop"
 							tone="filled"
@@ -120,6 +111,16 @@ export function AssistantComposer(props: {
 							disabled={props.stop.pending}
 						>
 							<AppIcon size={14} name="square" />
+						</IconButton>
+					)}
+					{props.stop !== undefined && submit.text.trim() === "" && !submit.retrying ? null : (
+						<IconButton
+							type="submit"
+							tone="accent"
+							disabled={!canSend && !submit.retrying}
+							label={submit.retrying ? "Retry message" : "Send"}
+						>
+							<AppIcon size={16} name={submit.retrying ? "rotate-ccw" : "arrow-up"} />
 						</IconButton>
 					)}
 				</div>

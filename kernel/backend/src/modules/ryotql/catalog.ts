@@ -810,6 +810,17 @@ const assistantTurn: TableBinding<"assistantTurn"> = {
 		conversationId: column("conversation_id"),
 	},
 };
+const assistantInbox: TableBinding<"assistantInbox"> = {
+	relation: "assistant_inbox",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		text: column("text"),
+		turnId: column("turn_id"),
+		createdAt: column("created_at"),
+		deliveredAt: column("delivered_at"),
+	},
+};
 const assistantMessage: TableBinding<"assistantMessage"> = {
 	relation: "assistant_message",
 	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
@@ -1327,6 +1338,7 @@ const bindings: { readonly [Name in CatalogTableName]: TableBinding<Name> } = {
 	migrationReport,
 	sandboxProvider,
 	publicationLink,
+	assistantInbox,
 	assistantMessage,
 	entityTranslation,
 	assistantToolCall,

@@ -72,12 +72,22 @@ export const AssistantWorkflowLive = Layer.unwrap(
 					for (const batch of concurrentBatches(result.calls)) {
 						yield* Effect.forEach(batch, settle, { discard: true, concurrency: "unbounded" });
 					}
-					if (result.calls.length === 0 && !result.continued) {
-						yield* activity("complete", runtime.finish(payload, null));
+					if (
+						result.calls.length === 0 &&
+						!result.continued &&
+						(yield* makeActivity({
+							success: Schema.Boolean,
+							error: AssistantTurnFailure,
+							name: `round:${round}:complete`,
+							execute: runtime.finish(payload, null).pipe(Effect.mapError(executionFailure)),
+						}))
+					) {
 						return undefined;
 					}
 				}
-			}).pipe(Effect.catch((error) => activity("fail", runtime.finish(payload, error)))),
+			}).pipe(
+				Effect.catch((error) => activity("fail", runtime.finish(payload, error).pipe(Effect.asVoid))),
+			),
 		);
 	}),
 );

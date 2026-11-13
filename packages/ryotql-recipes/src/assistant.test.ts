@@ -58,6 +58,7 @@ const turn = (
 	requestId: "request",
 	text: "Delete my old page",
 	calls: { pageInfo, items: calls },
+	queued: { pageInfo, items: [{ id: "queued", text: "Also add sleep" }] },
 	createdAt: "2026-11-13T10:00:00.000Z",
 	messages: { pageInfo, items: messages },
 });
@@ -228,5 +229,25 @@ describe("projectAssistantTurn", () => {
 			answers: null,
 			state: "expired",
 		});
+	});
+
+	it("shows messages delivered mid-turn after the prompt and lists queued ones", () => {
+		const projected = projectAssistantTurn(
+			turn(
+				"running",
+				[
+					message("prompt", "user", [{ kind: "text", text: "Build a page" }]),
+					message("reply", "assistant", [{ kind: "text", text: "Starting." }]),
+					message("steer", "user", [{ kind: "text", text: "Use a dark theme" }]),
+					message("next", "user", [{ kind: "instruction", text: "Continue." }]),
+				],
+				[],
+			),
+		);
+		expect(projected.entries).toEqual([
+			{ id: "reply:0", kind: "reply", text: "Starting." },
+			{ id: "steer:0", kind: "steer", text: "Use a dark theme" },
+		]);
+		expect(projected.queued).toEqual(["Also add sleep"]);
 	});
 });

@@ -42,7 +42,7 @@ const titles = Effect.fn(function* (conversationId: string) {
 });
 layer(AssistantRepository.layer.pipe(Layer.provideMerge(database)))((test) => {
 	test.effect(
-		"creates titled conversations, replays submissions, rejects competing work and active deletion, and isolates owners",
+		"creates titled conversations, replays submissions, queues messages for the active turn, rejects active deletion, and isolates owners",
 		() =>
 			Effect.gen(function* () {
 				const repository = yield* AssistantRepository;
@@ -61,12 +61,10 @@ layer(AssistantRepository.layer.pipe(Layer.provideMerge(database)))((test) => {
 					),
 					new AssistantError({ reason: { code: "request-conflict" } }),
 				);
-				assertExitFails(
-					yield* Effect.exit(
-						session.transaction(repository.submit(owner, { ...input, requestId: "second" })),
-					),
-					new AssistantError({ reason: { code: "conversation-active" } }),
+				const queued = yield* session.transaction(
+					repository.submit(owner, { ...input, requestId: "second", text: "Also my notes" }),
 				);
+				expect(queued.id).toBe(turn.id);
 				assertExitFails(
 					yield* Effect.exit(
 						session.transaction(repository.deleteConversation(owner, conversationId)),
@@ -101,7 +99,7 @@ layer(AssistantRepository.layer.pipe(Layer.provideMerge(database)))((test) => {
 				]);
 				expect((yield* repository.recoverableTurns).some((item) => item.id === turn.id)).toBe(true);
 				yield* session.transaction(
-					repository.transition(owner, conversationId, turn.id, turn.revision, "interrupted"),
+					repository.transition(owner, conversationId, turn.id, queued.revision, "interrupted"),
 				);
 				yield* session.transaction(repository.deleteConversation(owner, conversationId));
 				expect(yield* repository.loadTurn(owner, turn.id)).toBeNull();

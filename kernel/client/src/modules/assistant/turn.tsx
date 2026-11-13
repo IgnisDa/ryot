@@ -9,6 +9,7 @@ import {
 	isActiveAssistantTurn,
 } from "@ryot-app/ryotql-recipes/assistant";
 import type { PluginClientCatalog } from "@ryot-app/ryotql-recipes/plugin-client-catalog";
+import clsx from "clsx";
 import { Effect } from "effect";
 
 import { AssistantApproval } from "./approval";
@@ -19,6 +20,8 @@ import { AssistantSprite } from "./sprite";
 import { AssistantSteps } from "./steps";
 import { AssistantTodo } from "./todo";
 
+const userBubble =
+	"max-w-[85%] justify-self-end rounded-xl rounded-br-sm bg-surface-2 px-3.5 py-2 text-body whitespace-pre-wrap text-text";
 const plural = (count: number) => `${count} ${count === 1 ? "step" : "steps"}`;
 
 export function AssistantTurn(props: {
@@ -66,6 +69,13 @@ export function AssistantTurn(props: {
 				</p>
 			);
 		}
+		if (item.kind === "steer") {
+			return (
+				<p key={item.id} className={userBubble}>
+					{item.text}
+				</p>
+			);
+		}
 		if (item.kind === "todo") {
 			return <AssistantTodo key={item.id} items={item.items} />;
 		}
@@ -103,10 +113,14 @@ export function AssistantTurn(props: {
 	};
 	return (
 		<article className="grid gap-3" aria-label={`${ASSISTANT_NAME} turn`}>
-			<p className="max-w-[85%] justify-self-end rounded-xl rounded-br-sm bg-surface-2 px-3.5 py-2 text-body whitespace-pre-wrap text-text">
-				{turn.prompt}
-			</p>
+			<p className={userBubble}>{turn.prompt}</p>
 			{turn.entries.map(entry)}
+			{turn.queued.map((text, index) => (
+				<div key={`${index}:${text}`} className="grid justify-items-end gap-1">
+					<p className={clsx(userBubble, "opacity-60")}>{text}</p>
+					<span className="text-micro text-text-subtle">Sent when {ASSISTANT_NAME} finishes this step</span>
+				</div>
+			))}
 			{working && last?.kind !== "steps" ? (
 				<p role="status" className="flex items-center gap-2 text-label text-text-muted">
 					<AssistantSprite mood="thinking" className="w-6" />

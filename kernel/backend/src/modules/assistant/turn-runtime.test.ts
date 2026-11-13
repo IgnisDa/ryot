@@ -20,6 +20,7 @@ import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { layer } from "@voila.dev/effect-bun-test";
+import { asc, eq } from "drizzle-orm";
 import { Effect, Exit, Layer, Option, Schedule, Stream } from "effect";
 
 import { UserLifecycleRepository } from "#modules/accounts/lifecycle/repository";
@@ -30,6 +31,7 @@ import { DatabaseSession } from "#platform/db/session";
 import { truncateJsonResult } from "#platform/tool-result";
 import { PostgresWorkflowEngine } from "#platform/workflow/engine";
 import { WorkflowExecutionNotifications } from "#platform/workflow/execution-notifications";
+import { assistantTurn } from "#schema/tables/assistant";
 import { user } from "#schema/tables/auth";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
@@ -153,6 +155,8 @@ const harness = Effect.fn(function* (
 	let firstCallId: null | string = null;
 	let overflowed = false;
 	const requests: AssistantModelRequest[] = [];
+	const repository = yield* AssistantRepository;
+	let steer: null | { readonly text: string; readonly conversationId: string } = null;
 	let changed = false;
 	let interrupted = false;
 	let retired = false;
@@ -189,6 +193,24 @@ const harness = Effect.fn(function* (
 				}
 				requests.push(request);
 				generated += 1;
+				if (steer !== null) {
+					const { text, conversationId } = steer;
+					steer = null;
+					return Stream.fromEffect(
+						session
+							.transaction(
+								repository.submit(owner, { text, conversationId, requestId: `steer-${generated}` }),
+							)
+							.pipe(Effect.orDie),
+					).pipe(
+						Stream.flatMap(() =>
+							Stream.fromIterable<AssistantModelEvent>([
+								{ type: "text-delta", text: "Working on it." },
+								{ type: "finish", reason: "stop" },
+							]),
+						),
+					);
+				}
 				if (options.failProvider) {
 					return Stream.fail(new AssistantModelError({ code: options.failProvider }));
 				}
@@ -319,6 +341,9 @@ const harness = Effect.fn(function* (
 		requests,
 		invocations,
 		summaries: () => summaries,
+		steerNext: (conversationId: string, text: string) => {
+			steer = { text, conversationId };
+		},
 		generated: () => generated,
 		retire: () => {
 			retired = true;
@@ -418,8 +443,7 @@ layer(services, { excludeTestServices: true })((test) => {
 						Effect.map((result) => Option.isSome(result) && result.value._tag === "Complete"),
 					),
 				);
-				assertExitFails(
-					yield* Effect.exit(service.interrupt(owner, stop)),
+				expect(yield* Effect.flip(service.interrupt(owner, stop))).toEqual(
 					new AssistantError({ reason: { code: "turn-not-active" } }),
 				);
 			}).pipe(withEngine(engineFor(setup.runtime)));
@@ -500,6 +524,86 @@ layer(services, { excludeTestServices: true })((test) => {
 				]);
 				expect(setup.generated()).toBe(stop ? 1 : 2);
 			}
+		}),
+	);
+
+	test.effect("delivers a message sent mid-turn at the next step before completing", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({ readOnly: true, callRounds: 0 });
+			const payload = yield* admit();
+			const conversationId = (yield* repository.loadTurn(owner, payload.turnId))?.turn
+				.conversationId;
+			assert(conversationId);
+			setup.steerNext(conversationId, "Use a dark theme");
+			yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			assert(state);
+			expect(state.turn.status).toBe("completed");
+			expect(setup.generated()).toBe(2);
+			expect(
+				state.messages.flatMap(({ role, parts }) =>
+					parts.length === 0 ? [] : [[role, parts.map((part) => part.kind)]],
+				),
+			).toEqual([
+				["user", ["text"]],
+				["assistant", ["text"]],
+				["user", ["text"]],
+				["assistant", ["text"]],
+			]);
+			expect(stableStringify(setup.requests[1]?.prompt)).toContain("Use a dark theme");
+			expect(stableStringify(setup.requests[0]?.prompt)).not.toContain("Use a dark theme");
+		}),
+	);
+
+	test.effect("replays a queued message and turns undelivered ones into the next turn on stop", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({ callRounds: 1 });
+			const payload = yield* admit();
+			const executionId = yield* AssistantTurnWorkflow.executionId(payload);
+			yield* Effect.gen(function* () {
+				const service = yield* makeAssistantService(account);
+				yield* service.recover();
+				yield* until(
+					AssistantTurnWorkflow.poll(executionId).pipe(
+						Effect.map((result) => Option.isSome(result) && result.value._tag === "Suspended"),
+					),
+				);
+				const state = yield* repository.loadTurn(owner, payload.turnId);
+				assert(state);
+				const conversationId = AssistantConversationId.make(state.turn.conversationId);
+				const queued = { conversationId, requestId: "queued", text: "Then add a chart" };
+				const sent = yield* service.submit(owner, queued);
+				expect(String(sent.turnId)).toBe(payload.turnId);
+				expect(yield* service.submit(owner, queued)).toEqual(sent);
+				expect(yield* Effect.flip(service.submit(owner, { ...queued, text: "Other" }))).toEqual(
+					new AssistantError({ reason: { code: "request-conflict" } }),
+				);
+				yield* service.interrupt(owner, { conversationId, turnId: sent.turnId });
+				yield* until(
+					repository
+						.loadTurn(owner, payload.turnId)
+						.pipe(Effect.map((current) => current?.turn.status === "interrupted")),
+				);
+				yield* until(
+					repository.recoverableTurns.pipe(
+						Effect.map((active) => active.every((turn) => turn.conversationId !== conversationId)),
+					),
+				);
+				const conversation = yield* (yield* DatabaseSession).run((db) =>
+					db
+						.select({ text: assistantTurn.text, status: assistantTurn.status })
+						.from(assistantTurn)
+						.where(eq(assistantTurn.conversationId, conversationId))
+						.orderBy(asc(assistantTurn.createdAt)),
+				);
+				expect(conversation.map(({ text, status }) => [text, status])).toEqual([
+					["Create a page", "interrupted"],
+					["Then add a chart", "completed"],
+				]);
+			}).pipe(withEngine(engineFor(setup.runtime)));
+			expect(setup.generated()).toBe(2);
 		}),
 	);
 
