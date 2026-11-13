@@ -53,7 +53,7 @@ const systemConfig = (
 });
 
 const details = {
-	scope: "ryot:api",
+	scopes: ["ryot:api"],
 	clientName: "Registered app",
 	redirectOrigin: "https://client.example",
 } as const;
@@ -115,7 +115,7 @@ const mountConsent = (overrides: Partial<HostedAuthService["Service"]> = {}) => 
 
 describe("Hosted OAuth consent", () => {
 	it.live(
-		"renders server-verified details and the API permission",
+		"renders only the server-verified permissions",
 		() =>
 			Effect.gen(function* () {
 				const mounted = mountConsent();
@@ -123,8 +123,33 @@ describe("Hosted OAuth consent", () => {
 				expect(screen.getByText("Registered app")).not.toBeNull();
 				expect(screen.getByText("https://client.example")).not.toBeNull();
 				expect(screen.getByText("ryot:api")).not.toBeNull();
+				expect(screen.queryByText("openid")).toBeNull();
+				expect(screen.queryByText("offline_access")).toBeNull();
 				expect(mounted.queries).toEqual([signedOAuthQuery]);
 				expect(mounted.decisions).toEqual([]);
+			}),
+		testTimeout,
+	);
+
+	it.live(
+		"explains each requested identity, refresh and data permission",
+		() =>
+			Effect.gen(function* () {
+				mountConsent({
+					consentDetails: () =>
+						Effect.succeed({
+							...details,
+							scopes: ["openid", "email", "profile", "offline_access", "ryot:api"],
+						}),
+				});
+				yield* Effect.promise(() => screen.findByRole("heading", { name: "Approve access" }));
+				expect(screen.getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+					"openid — Identify your account.",
+					"email — Read your email address and whether it is verified.",
+					"profile — Read your name and profile picture.",
+					"offline_access — Keep access through refresh tokens when you are away.",
+					"ryot:api — Read, change and delete your Ryot data, including through your installed plugins.",
+				]);
 			}),
 		testTimeout,
 	);

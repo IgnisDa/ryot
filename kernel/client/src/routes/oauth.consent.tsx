@@ -1,4 +1,4 @@
-import type { OAuthConsentDetails } from "@ryot-app/contract/oauth";
+import type { OAuthConsentDetails, OAuthScope } from "@ryot-app/contract/oauth";
 import { Button } from "@ryot-app/plugin-ui-sdk";
 import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { Effect } from "effect";
@@ -113,6 +113,14 @@ function ConsentForm(props: {
 	return <ConsentRequest error={error} decide={decide} pending={pending} details={props.details} />;
 }
 
+const permissionDescriptions: Record<OAuthScope, string> = {
+	openid: "Identify your account.",
+	profile: "Read your name and profile picture.",
+	email: "Read your email address and whether it is verified.",
+	offline_access: "Keep access through refresh tokens when you are away.",
+	"ryot:api": "Read, change and delete your Ryot data, including through your installed plugins.",
+};
+
 function ConsentRequest(props: {
 	readonly error?: string;
 	readonly pending: boolean;
@@ -138,11 +146,14 @@ function ConsentRequest(props: {
 					You will return to <strong className="break-all">{props.details.redirectOrigin}</strong>.
 				</p>
 				<div>
-					<h2 className="font-medium">Requested permission</h2>
-					<p>
-						<code>{props.details.scope}</code> — Read, change and delete your Ryot data, including
-						through your installed plugins.
-					</p>
+					<h2 className="font-medium">Requested permissions</h2>
+					<ul className="ui-stack">
+						{props.details.scopes.map((scope) => (
+							<li key={scope}>
+								<code>{scope}</code> — {permissionDescriptions[scope]}
+							</li>
+						))}
+					</ul>
 				</div>
 				<p className="text-sm text-text-subtle">
 					The app name was supplied during registration. Ryot does not verify its publisher. Approve
