@@ -97,6 +97,7 @@ export const privatePluginPackage = (
 				auth: "user",
 				slug: operationSlug,
 				demoAccess: "allowed",
+				title: "Fixture operation",
 				hints: { readOnly: true, idempotent: true, destructive: false },
 				description: "Returns a value derived from the caller's own plugin config",
 				output: {
@@ -212,6 +213,7 @@ export const privateBootstrapPluginPackage = (): PrivateBootstrapPluginPackage =
 				description: name,
 				slug: operationSlug,
 				demoAccess: "allowed",
+				title: "Fixture operation",
 				scriptSlug: operationScriptSlug,
 				hints: { readOnly: true, idempotent: true, destructive: false },
 				input: {
@@ -438,6 +440,7 @@ export const privateIntegrationPluginPackage = (
 				scriptSlug,
 				slug: operationSlug,
 				auth: "integration",
+				title: "Fixture operation",
 				hints: { readOnly: true, idempotent: true, destructive: false },
 				description: "Reads the integration that authenticated the call",
 				input: {

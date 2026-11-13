@@ -164,6 +164,7 @@ describe("universal durable sandbox tracer", () => {
 							demoAccess: "allowed",
 							slug: "durable-tracer",
 							scriptSlug: operationSlug,
+							title: "Fixture operation",
 							description: "Exercises the universal durable host protocol",
 							hints: { readOnly: false, idempotent: false, destructive: false },
 							input: {

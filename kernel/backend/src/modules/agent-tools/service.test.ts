@@ -209,6 +209,7 @@ const operation = (
 	auth: "user",
 	scriptSlug: "run",
 	output: { type: "object" },
+	title: "Fixture operation",
 	description: `Perform ${slug}`,
 	hints: { readOnly, idempotent: readOnly, destructive: !readOnly },
 	input: { type: "object", properties: { value: { type: "string" } } },
@@ -238,12 +239,18 @@ const registryPackage = (name: string): NormalizedPlugin => {
 		...fixture,
 		hooks: [],
 		signalSchemas: [],
-		queries: { search: { document: searchDocument, description: "Search item names" } },
 		operations: [
 			operation("read", true),
 			operation("write", false),
 			operation("protected", true, "protected"),
 		],
+		queries: {
+			search: {
+				title: "Fixture query",
+				document: searchDocument,
+				description: "Search item names",
+			},
+		},
 		scripts: [
 			{
 				...emptySandboxExecutionMetadata,

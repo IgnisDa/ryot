@@ -65,7 +65,7 @@ const makePackage = (
 		...value,
 		manifest: {
 			...value.manifest,
-			queries: { items: { document, description: "Browse items" } },
+			queries: { items: { document, title: "Browse items", description: "Browse items" } },
 			entitySchemas: value.manifest.entitySchemas.map((schema) =>
 				Object.assign(
 					{},
@@ -236,7 +236,11 @@ layer(
 						dependencies: { foreign: { scope: "system", packageId: foreignPackageId } },
 						queries: {
 							...ownPackage.manifest.queries,
-							foreign: { document: foreignDocument, description: "Foreign items" },
+							foreign: {
+								title: "Foreign items",
+								document: foreignDocument,
+								description: "Foreign items",
+							},
 						},
 					},
 				});

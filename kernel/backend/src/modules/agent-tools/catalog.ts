@@ -88,6 +88,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 							capability: {
 								hints: readHints,
 								output: ryotqlOutput,
+								title: declaration.title,
 								description: declaration.description,
 								input: declaredQueryInput(declaration.document),
 								id: pluginQueryCapabilityId(plugin.packageId, query),
@@ -125,6 +126,7 @@ export class CapabilityCatalog extends Context.Service<CapabilityCatalog>()(
 							capability: {
 								input: operation.input,
 								hints: operation.hints,
+								title: operation.title,
 								output: operation.output,
 								description: operation.description,
 								id: pluginOperationCapabilityId(plugin.packageId, operation.slug),

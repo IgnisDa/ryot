@@ -52,6 +52,7 @@ export const fixturePlugin = definePlugin({
 		{
 			auth: "user",
 			slug: "greet",
+			title: "Greet",
 			demoAccess: "allowed",
 			scriptSlug: "operation.greet",
 			input: operationJsonSchema(GreetInput),

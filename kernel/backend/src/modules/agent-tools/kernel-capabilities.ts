@@ -146,6 +146,7 @@ type KernelCapabilityDefinition = {
 const define = <S extends Schema.Codec<unknown, unknown>>(definition: {
 	readonly input: S;
 	readonly slug: string;
+	readonly title: string;
 	readonly description: string;
 	readonly hints: Capability["hints"];
 	readonly output?: PluginOperationJsonSchema;
@@ -157,6 +158,7 @@ const define = <S extends Schema.Codec<unknown, unknown>>(definition: {
 }): KernelCapabilityDefinition => ({
 	capability: {
 		hints: definition.hints,
+		title: definition.title,
 		source: { kind: "kernel" },
 		description: definition.description,
 		id: kernelCapabilityId(definition.slug),
@@ -258,6 +260,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					hints: readHints,
 					slug: "data.describe",
 					input: Schema.Struct({}),
+					title: "Describe data schemas",
 					handle: (context) => describe(context.user.id),
 					description:
 						"Describe the effective entity, event and relationship schemas, their properties and entity browse fields.",
@@ -265,6 +268,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 				define({
 					slug: "query",
 					hints: readHints,
+					title: "Run a query",
 					output: ryotqlOutput,
 					input: Schema.Record(Schema.String, JsonValue),
 					description:
@@ -302,6 +306,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					hints: readHints,
 					output: ryotqlOutput,
 					slug: "collections.list",
+					title: "List collections",
 					input: Schema.Struct({ pages: Schema.optional(Pages) }),
 					description: "List the user's collections with forward pagination.",
 					handle: (context, input) =>
@@ -319,6 +324,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					input: QueryRequest,
 					output: ryotqlOutput,
 					slug: "collections.members",
+					title: "Read collection members",
 					description:
 						"Read members of an owned collection using its collectionId, optional searchText, and forward pagination.",
 					inputJson: {
@@ -360,6 +366,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					hints: readHints,
 					slug: "pages.list",
 					input: ReadRequest,
+					title: "List pages",
 					output: ryotqlOutput,
 					handle: recipeRead(pagesRecipe.document),
 					description: "List owned pages and their draft, compilation and publication identities.",
@@ -367,6 +374,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 				define({
 					hints: readHints,
 					slug: "pages.get",
+					title: "Read page",
 					input: ReadRequest,
 					output: ryotqlOutput,
 					handle: recipeRead(pageRecipe.document),
@@ -377,6 +385,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					input: PageIdBody,
 					hints: deleteHints,
 					slug: "pages.delete",
+					title: "Delete page",
 					description: "Delete an owned page unless referenced by a view or publication.",
 					handle: (context, input) =>
 						pages.remove(context.user.id, input.pageId, context.idempotencyKey),
@@ -386,6 +395,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					input: ReadRequest,
 					output: ryotqlOutput,
 					slug: "saved-views.list",
+					title: "List saved views",
 					handle: recipeRead(savedViewRecordsRecipe.document),
 					description: "List owned effective saved views including renderer and query selections.",
 				}),
@@ -394,6 +404,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 					input: ReadRequest,
 					output: ryotqlOutput,
 					slug: "saved-views.get",
+					title: "Read saved view",
 					handle: recipeRead(savedViewRecordRecipe.document),
 					description:
 						"Read a saved view using arguments.referenceKind (custom, kernel or plugin), savedViewId for custom, slug for builtins, and pluginId for plugin builtins.",
@@ -401,6 +412,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 				define({
 					hints: writeHints,
 					slug: "saved-views.create",
+					title: "Create saved view",
 					input: CreateSavedViewBody,
 					handle: (context, input) =>
 						views.create(context.user, input, undefined, context.idempotencyKey),
@@ -410,6 +422,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 				define({
 					hints: writeHints,
 					slug: "saved-views.update",
+					title: "Update saved view",
 					description: "Update a saved view by reference.",
 					input: Schema.Struct({ body: UpdateSavedViewBody, reference: SavedViewReference }),
 					handle: (context, input) =>
@@ -418,6 +431,7 @@ export class KernelCapabilities extends Context.Service<KernelCapabilities>()(
 				define({
 					hints: deleteHints,
 					slug: "saved-views.delete",
+					title: "Delete saved view",
 					description: "Delete a custom saved view by reference.",
 					input: Schema.Struct({ reference: SavedViewReference }),
 					handle: (context, input) =>

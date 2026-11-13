@@ -725,6 +725,11 @@ export const mediaPlugin = definePlugin({
 		analyticsSections: {
 			media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
 		},
+		assistantStarters: [
+			"What should I watch next from my watchlist?",
+			"Which titles did I finish this month?",
+			"What's releasing for titles I follow this week?",
+		],
 		collectionPages: {
 			recommendations: {
 				icon: "sparkles",
@@ -953,6 +958,7 @@ export const mediaPlugin = definePlugin({
 			auth: "user",
 			demoAccess: "protected",
 			slug: "media-user-data",
+			title: "Remove or merge title history",
 			scriptSlug: "operation.media-user-data",
 			input: operationJsonSchema(MediaUserDataInput),
 			output: operationJsonSchema(MediaUserDataOutput),
@@ -962,6 +968,7 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			title: "Write review",
 			demoAccess: "protected",
 			slug: "media-review-create",
 			scriptSlug: "operation.media-review-create",
@@ -975,6 +982,7 @@ export const mediaPlugin = definePlugin({
 			auth: "user",
 			demoAccess: "protected",
 			slug: "media-activity-log",
+			title: "Log media activity",
 			scriptSlug: "operation.media-activity-log",
 			input: operationJsonSchema(MediaActivityLogInput),
 			output: operationJsonSchema(MediaActivityLogOutput),
@@ -986,6 +994,7 @@ export const mediaPlugin = definePlugin({
 			auth: "user",
 			demoAccess: "protected",
 			slug: "media-activity-update",
+			title: "Update media activity",
 			scriptSlug: "operation.media-activity-update",
 			output: operationJsonSchema(MediaActivityLogOutput),
 			input: operationJsonSchema(MediaActivityUpdateInput),
@@ -997,6 +1006,7 @@ export const mediaPlugin = definePlugin({
 			auth: "user",
 			demoAccess: "protected",
 			slug: "media-activity-delete",
+			title: "Delete media activity",
 			scriptSlug: "operation.media-activity-delete",
 			output: operationJsonSchema(MediaActivityLogOutput),
 			input: operationJsonSchema(MediaActivityDeleteInput),
@@ -1006,6 +1016,7 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			title: "Update review",
 			demoAccess: "protected",
 			slug: "media-review-update",
 			scriptSlug: "operation.media-review-update",
@@ -1017,6 +1028,7 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			title: "Delete review",
 			demoAccess: "protected",
 			slug: "media-review-delete",
 			scriptSlug: "operation.media-review-delete",
@@ -1030,6 +1042,7 @@ export const mediaPlugin = definePlugin({
 			auth: "user",
 			demoAccess: "allowed",
 			slug: "media-monitoring-status",
+			title: "Read monitoring status",
 			scriptSlug: "operation.media-monitoring-status",
 			output: operationJsonSchema(MediaMonitoringOutput),
 			input: operationJsonSchema(MediaMonitoringStatusInput),
@@ -1040,6 +1053,7 @@ export const mediaPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Monitor titles",
 			slug: "media-monitoring-enable",
 			scriptSlug: "operation.media-monitoring-enable",
 			output: operationJsonSchema(MediaMonitoringOutput),
@@ -1051,6 +1065,7 @@ export const mediaPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Stop monitoring titles",
 			slug: "media-monitoring-disable",
 			scriptSlug: "operation.media-monitoring-disable",
 			output: operationJsonSchema(MediaMonitoringOutput),
@@ -1061,6 +1076,7 @@ export const mediaPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			title: "Set ownership",
 			demoAccess: "protected",
 			slug: "media-ownership-set",
 			scriptSlug: "operation.media-ownership-set",
@@ -1073,6 +1089,7 @@ export const mediaPlugin = definePlugin({
 		{
 			auth: "integration",
 			slug: "metadata-lookup",
+			title: "Match extension titles",
 			scriptSlug: "operation.metadata-lookup",
 			input: operationJsonSchema(MetadataLookupInput),
 			output: operationJsonSchema(MetadataLookupOutput),
@@ -1084,6 +1101,7 @@ export const mediaPlugin = definePlugin({
 			auth: "user",
 			demoAccess: "allowed",
 			slug: "resolve-episodes",
+			title: "Resolve episodes",
 			scriptSlug: "operation.resolve-episodes",
 			input: operationJsonSchema(ResolveEpisodesInput),
 			output: operationJsonSchema(ResolveEpisodesOutput),

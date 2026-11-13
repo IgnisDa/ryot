@@ -269,12 +269,18 @@ export const collectionPagePath = (route: string, collectionId: string) =>
 		)
 		.join("/");
 
+export const PLUGIN_ASSISTANT_STARTERS_MAX = 3;
+export const PluginAssistantStarters = Schema.Array(
+	Schema.NonEmptyString.check(Schema.isMaxLength(120)),
+).check(Schema.isMaxLength(PLUGIN_ASSISTANT_STARTERS_MAX));
+
 export const PluginClientEntry = strictStruct({
 	homeView: Schema.NullOr(pluginManifestSlug),
 	exports: Schema.optional(PluginClientExports),
 	apiVersion: Schema.Literal(CLIENT_API_VERSION),
 	entities: Schema.optional(PluginClientEntities),
 	notFoundPage: Schema.optional(pluginManifestSlug),
+	assistantStarters: Schema.optional(PluginAssistantStarters),
 	collectionPages: Schema.optional(PluginClientCollectionPages),
 	routes: Schema.optional(Schema.Record(Schema.String, pluginManifestSlug)),
 	analyticsSections: Schema.optional(
@@ -742,6 +748,7 @@ export type PluginOperationHints = Schema.Schema.Type<typeof PluginOperationHint
 const PluginOperationFields = {
 	slug: sandboxManifestSlug,
 	hints: PluginOperationHints,
+	title: sandboxManifestString,
 	scriptSlug: sandboxManifestSlug,
 	input: PluginOperationJsonSchema,
 	output: PluginOperationJsonSchema,
@@ -1048,7 +1055,11 @@ const PluginManifestAuthoredFields = {
 	queries: Schema.optional(
 		Schema.Record(
 			Schema.NonEmptyString,
-			strictStruct({ document: AuthoredRyotQLDocument, description: Schema.NonEmptyString }),
+			strictStruct({
+				title: Schema.NonEmptyString,
+				document: AuthoredRyotQLDocument,
+				description: Schema.NonEmptyString,
+			}),
 		),
 	),
 };

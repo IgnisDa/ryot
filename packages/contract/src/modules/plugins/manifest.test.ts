@@ -111,6 +111,7 @@ const authoredManifest = definePlugin({
 			demoAccess: "allowed",
 			input: { type: "object" },
 			output: { type: "object" },
+			title: "Fixture operation",
 			scriptSlug: "operation.test",
 			description: "Resolve test references",
 			hints: { readOnly: true, idempotent: true, destructive: false },
@@ -658,6 +659,7 @@ describe("definePlugin", () => {
 				} as const;
 				const queries = {
 					items: {
+						title: "Fixture query",
 						description: "Dependency entities",
 						document: {
 							queries: {
@@ -1301,6 +1303,7 @@ describe("definePlugin", () => {
 								input: operation.input,
 								hints: operation.hints,
 								output: operation.output,
+								title: "Fixture operation",
 								scriptSlug: operation.scriptSlug,
 								description: operation.description,
 							},
@@ -2479,6 +2482,7 @@ describe("operation schemas and hints", () => {
 		demoAccess: "allowed",
 		input: { type: "object" },
 		output: { type: "string" },
+		title: "Fixture operation",
 		scriptSlug: "operation.test",
 		description: "Read a fixture without changing stored data",
 		hints: { readOnly: true, idempotent: true, destructive: false },

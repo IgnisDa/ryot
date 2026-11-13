@@ -114,6 +114,11 @@ it.effect(
 				homeView: null,
 				routes: fitnessClientRoutes,
 				apiVersion: CLIENT_API_VERSION,
+				assistantStarters: [
+					"Summarize my workouts this week",
+					"How has my strongest lift progressed this year?",
+					"Log today's bodyweight",
+				],
 				analyticsSections: {
 					fitness: {
 						sortOrder: 20,

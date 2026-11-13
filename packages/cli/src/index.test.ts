@@ -87,10 +87,10 @@ const declareDependency = Effect.fn("declareDependency")(function* (
 });
 
 const declaredQuery = (table: string) =>
-	`queries: { items: { description: "Items", document: { queries: { items: { from: { table: "${table}", alias: "item" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "item", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
+	`queries: { items: { title: "Items", description: "Items", document: { queries: { items: { from: { table: "${table}", alias: "item" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "item", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
 
 const browseQuery = (slug: string) =>
-	`queries: { records: { description: "Records", document: { controls: { filter: { kind: "browse", alias: "record", schemas: [{ slug: "${slug}", owner: { kind: "package", packageId: "test/other", scope: "system" } }] } }, queries: { records: { from: { table: "entity", alias: "record" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "record", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
+	`queries: { records: { title: "Records", description: "Records", document: { controls: { filter: { kind: "browse", alias: "record", schemas: [{ slug: "${slug}", owner: { kind: "package", packageId: "test/other", scope: "system" } }] } }, queries: { records: { from: { table: "entity", alias: "record" }, output: { type: "rows", fields: [{ key: "id", expr: { type: "column", tableAlias: "record", field: "id" } }], orderBy: [], pagination: { limit: 20, maxLimit: 100 } } } } } } },`;
 
 const collect = <E>(stream: Stream.Stream<Uint8Array, E>) =>
 	stream.pipe(

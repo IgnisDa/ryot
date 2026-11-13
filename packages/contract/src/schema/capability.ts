@@ -67,6 +67,7 @@ export const Capability = strictStruct({
 	source: CapabilitySource,
 	description: Schema.String,
 	hints: PluginOperationHints,
+	title: Schema.NonEmptyString,
 	input: PluginOperationJsonSchema,
 	output: PluginOperationJsonSchema,
 });

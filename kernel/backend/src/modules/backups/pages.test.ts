@@ -644,6 +644,7 @@ layer(services)((test) => {
 											input: { type: "object" },
 											output: { type: "object" },
 											source: { kind: "kernel" },
+											title: "Fixture capability",
 											description: "Delete a page",
 											id: CapabilityId.make("kernel:pages.delete"),
 											hints: { readOnly: false, destructive: true, idempotent: false },

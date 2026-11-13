@@ -95,36 +95,43 @@ const entity = table("entity", "reviewTitle"),
 
 export const mediaDeclaredQueries = {
 	"analytics-trend": {
+		title: "Read media trend",
 		document: mediaAnalyticsTrendRecipe({ reference }).document,
 		description:
 			"Group dated media consumption by reporting calendar day, week, month, or year for the selected and comparison periods, optionally restricted to a title or media type.",
 	},
 	"library-by-state": {
+		title: "Find library titles by state",
 		document: libraryByLifecycleStateRecipe(reference).document,
 		description:
 			"Find titles saved in your media library by lifecycle states and optional media types. Flat titles, shows, and podcasts have separate cursor pages named flat, show, and podcast.",
 	},
 	"activity-history": {
+		title: "Summarize media activity",
 		document: mediaActivityRecipe(reference).document,
 		description:
 			"Summarize dated media activity over a reporting period, including completions, recorded minutes, active days, reviews, and media-type shares. Episode contributions count toward their parent title.",
 	},
-	upcoming: {
-		document: upcomingRecipe({ reference }).document,
-		description:
-			"Find upcoming episodes, anime airings, and monitored title releases from today through daysAhead in the account's reporting time zone. Each title includes its upcoming occurrences and total occurrences in the window.",
-	},
 	"analytics-ranking": {
+		title: "Rank titles",
 		document: mediaAnalyticsRankingRecipe({ reference }).document,
 		description:
 			"Rank titles by active observations, title completions, or episode completions within the selected reporting period. Optionally restrict by title or media type and page ranking for additional titles.",
 	},
+	upcoming: {
+		title: "Find upcoming releases",
+		document: upcomingRecipe({ reference }).document,
+		description:
+			"Find upcoming episodes, anime airings, and monitored title releases from today through daysAhead in the account's reporting time zone. Each title includes its upcoming occurrences and total occurrences in the window.",
+	},
 	"analytics-summary": {
+		title: "Compare media periods",
 		document: mediaAnalyticsSummaryRecipe({ reference }).document,
 		description:
 			"Compare media consumption and reviews across selected reporting periods. Totals distinguish recorded, estimated, missing, and superseded measurements, and include processing state and undated activity.",
 	},
 	"title-history": {
+		title: "Read title history",
 		document: {
 			parameters: history.parameters,
 			queries: { ...history.document.queries, ...people.document.queries },
@@ -133,6 +140,7 @@ export const mediaDeclaredQueries = {
 			"Read a title's complete media and collection history in global event order, together with its credited people. Bind entityId to the title ID; page history and people independently.",
 	},
 	reviews: {
+		title: "Read reviews",
 		description:
 			"Read reviews of media titles over a reporting period, optionally restricted to media types. Results include ratings, review text, spoiler markers, and original event properties. Page the reviews query to read older reviews.",
 		document: {

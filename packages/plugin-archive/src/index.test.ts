@@ -63,6 +63,7 @@ const fixture = {
 		},
 		queries: {
 			entities: {
+				title: "Fixture query",
 				description: "List entities",
 				document: {
 					queries: {

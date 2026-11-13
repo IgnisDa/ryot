@@ -25,6 +25,7 @@ const operationManifest = () => {
 				slug: "resolve.fixture",
 				input: { type: "object" },
 				output: { type: "object" },
+				title: "Fixture operation",
 				demoAccess: "allowed" as const,
 				scriptSlug: "operation.fixture",
 				description: "Resolve fixture references",
@@ -45,6 +46,7 @@ it.effect(
 					...manifest,
 					queries: {
 						[operation.slug]: {
+							title: "Fixture query",
 							description: "Conflicting tool name",
 							document: {
 								queries: {

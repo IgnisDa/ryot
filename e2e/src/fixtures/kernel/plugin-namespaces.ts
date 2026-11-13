@@ -741,6 +741,7 @@ const namespacePackage = (input: {
 		operations: [
 			{
 				auth: "integration",
+				title: "Fixture operation",
 				slug: "inspect-integration",
 				scriptSlug: "inspect-integration",
 				description: "Inspect an exact integration installation",
@@ -764,6 +765,7 @@ const namespacePackage = (input: {
 				slug: "inspect",
 				scriptSlug: "inspect",
 				demoAccess: "allowed",
+				title: "Fixture operation",
 				description: "Inspect exact namespace",
 				hints: { readOnly: false, idempotent: false, destructive: false },
 				input: {

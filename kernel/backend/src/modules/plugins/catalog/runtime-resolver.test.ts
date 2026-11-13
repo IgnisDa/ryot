@@ -71,6 +71,7 @@ const operationPackage = (version: string, packageId?: PluginPackageId) => {
 					slug: "same-operation",
 					description: "Operation",
 					input: { type: "object" },
+					title: "Fixture operation",
 					output: { type: "string" },
 					scriptSlug: "whiskey.task",
 					demoAccess: "allowed" as const,

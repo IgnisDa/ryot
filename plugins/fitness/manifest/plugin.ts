@@ -291,6 +291,11 @@ export const fitnessPlugin = definePlugin({
 				exportName: "fitness-analytics",
 			},
 		},
+		assistantStarters: [
+			"Summarize my workouts this week",
+			"How has my strongest lift progressed this year?",
+			"Log today's bodyweight",
+		],
 		entities: {
 			"measurement-metric": { listPresentation: "entity-row", gridPresentation: "entity-card" },
 			workout: {
@@ -390,6 +395,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Delete workout",
 			slug: workoutDeleteOperationSlug,
 			scriptSlug: "operation.workout-delete",
 			input: operationJsonSchema(WorkoutDeleteInputSchema),
@@ -401,6 +407,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Delete workout template",
 			slug: workoutTemplateDeleteOperationSlug,
 			scriptSlug: "operation.workout-template-delete",
 			input: operationJsonSchema(WorkoutDeleteInputSchema),
@@ -411,6 +418,7 @@ export const fitnessPlugin = definePlugin({
 		},
 		{
 			auth: "user",
+			title: "Save workout",
 			demoAccess: "protected",
 			slug: workoutEditorSaveOperationSlug,
 			scriptSlug: "operation.workout-editor-save",
@@ -423,6 +431,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "allowed",
+			title: "Load workout editor",
 			slug: workoutEditorContextOperationSlug,
 			scriptSlug: "operation.workout-editor-context",
 			input: operationJsonSchema(WorkoutEditorContextInputSchema),
@@ -434,6 +443,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Update exercise preferences",
 			slug: exerciseOverrideUpdateOperationSlug,
 			scriptSlug: "operation.exercise-override-update",
 			input: operationJsonSchema(ExerciseOverrideUpdateInputSchema),
@@ -445,6 +455,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Merge exercises",
 			slug: exerciseMergeOperationSlug,
 			scriptSlug: "operation.exercise-merge",
 			input: operationJsonSchema(ExerciseMergeInputSchema),
@@ -456,6 +467,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Correct workout time",
 			slug: workoutTimeCorrectionOperationSlug,
 			scriptSlug: "operation.workout-time-correction",
 			input: operationJsonSchema(WorkoutTimeCorrectionInputSchema),
@@ -467,6 +479,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Create measurement metric",
 			slug: measurementMetricCreateOperationSlug,
 			scriptSlug: "operation.measurement-metric-create",
 			input: operationJsonSchema(MeasurementMetricCreateInput),
@@ -478,6 +491,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Pin measurement metric",
 			slug: measurementMetricPinOperationSlug,
 			scriptSlug: "operation.measurement-metric-pin",
 			input: operationJsonSchema(MeasurementMetricPinInput),
@@ -489,6 +503,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Log measurement",
 			slug: measurementReadingLogOperationSlug,
 			scriptSlug: "operation.measurement-reading-log",
 			input: operationJsonSchema(MeasurementReadingLogInput),
@@ -500,6 +515,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Update measurement",
 			slug: measurementReadingUpdateOperationSlug,
 			scriptSlug: "operation.measurement-reading-update",
 			output: operationJsonSchema(MeasurementReadingOutput),
@@ -511,6 +527,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Delete measurement",
 			slug: measurementReadingDeleteOperationSlug,
 			scriptSlug: "operation.measurement-reading-delete",
 			output: operationJsonSchema(MeasurementReadingOutput),
@@ -522,6 +539,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Add exercise note",
 			slug: exerciseNoteOperationSlugs.create,
 			scriptSlug: "operation.exercise-note-create",
 			output: operationJsonSchema(ExerciseNoteOutput),
@@ -533,6 +551,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Update exercise note",
 			slug: exerciseNoteOperationSlugs.update,
 			scriptSlug: "operation.exercise-note-update",
 			output: operationJsonSchema(ExerciseNoteOutput),
@@ -544,6 +563,7 @@ export const fitnessPlugin = definePlugin({
 		{
 			auth: "user",
 			demoAccess: "protected",
+			title: "Delete exercise note",
 			slug: exerciseNoteOperationSlugs.delete,
 			scriptSlug: "operation.exercise-note-delete",
 			output: operationJsonSchema(ExerciseNoteOutput),

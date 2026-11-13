@@ -55,6 +55,7 @@ describe("sandbox integration reads", () => {
 							slug: "read",
 							scriptSlug: slug,
 							auth: "integration",
+							title: "Fixture operation",
 							description: "Reads integration scope",
 							hints: { readOnly: true, idempotent: true, destructive: false },
 							input: {

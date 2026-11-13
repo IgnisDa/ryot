@@ -38,6 +38,7 @@ const installOtherOperationPlugin = (client: Client) => {
 				auth: "user",
 				slug: "echo",
 				demoAccess: "allowed",
+				title: "Fixture operation",
 				description: "Uppercases every requested title",
 				hints: { readOnly: true, idempotent: true, destructive: false },
 				input: {

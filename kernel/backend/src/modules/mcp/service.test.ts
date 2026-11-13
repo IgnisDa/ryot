@@ -22,6 +22,7 @@ const write = {
 	capability: {
 		input: {},
 		output: {},
+		title: "Fixture capability",
 		description: "Delete a page",
 		source: { kind: "kernel" as const },
 		id: CapabilityId.make("kernel:pages.delete"),

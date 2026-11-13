@@ -107,6 +107,7 @@ it("validates declared query owners against the complete ingestion authority", (
 	const plugin = systemPlugin("a");
 	const entity = table("entity", "subject");
 	const declaration = (pluginId: string) => ({
+		title: "Fixture query",
 		description: "Owned entities",
 		document: document({
 			items: rows(entity, {

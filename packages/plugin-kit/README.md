@@ -7,7 +7,8 @@ letters and numbers separated by `.`, `_`, or `-`; `/` is reserved for path mapp
 
 ## Declared queries
 
-Optional `queries` maps names to `{ description, document }`. Build each static authored document
+Optional `queries` maps names to `{ title, description, document }`. The title is a short
+capitalized phrase, such as "Read workout", that assistants and approval screens show to people. Build each static authored document
 from shared recipes; declare runtime inputs as parameters and send paging through request `pages`.
 Ingestion validates all authored branches and control targets against effective definitions.
 Runtime execution reads the persisted revision's query section and resolves parameter values and
@@ -91,6 +92,9 @@ entity IDs, and entity schema slugs from the live routing APIs. The kernel retai
 realm across locations, so the initial page context is not a navigation state source.
 Client code runs in an opaque-origin iframe without `localStorage`; keep per-device preferences with
 the client SDK's `usePluginStorage`.
+
+`client.assistantStarters` lists up to three example prompts that Ryobot offers when a person starts
+a new chat. Keep each prompt specific to the plugin's data.
 
 Plugins can request a kernel-rendered fixed card through `client.iosLiveActivities`; the client SDK
 documents its Effect API and lifecycle.
@@ -784,8 +788,9 @@ script and run once per server start. Both run with system subject through durab
 is skipped when `scheduler.disableDispatchers` is enabled. Boot scripts must be idempotent.
 
 Operations map a public slug and `user` or `integration` auth to an `operation`-kind script.
-Every operation declares `input` and `output` JSON Schema documents, a description of its behavior,
-and `hints: { readOnly, destructive, idempotent }`. Generate each document with
+Every operation declares a `title`, `input` and `output` JSON Schema documents, a description of its
+behavior, and `hints: { readOnly, destructive, idempotent }`. The title is a short imperative phrase,
+such as "Log measurement", that Ryobot shows when a person approves the operation. Generate each document with
 `operationJsonSchema(sharedEffectSchema)` from `@ryot-app/plugin-kit/operations`, importing the same
 shared schemas that the script uses. The helper rejects opaque declarations and non-JSON types,
 retains referenced definitions, and describes the encoded wire values as draft 2020-12 JSON Schema.

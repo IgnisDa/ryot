@@ -97,6 +97,11 @@ it.effect(
 				analyticsSections: {
 					media: { icon: "film", name: "Media", sortOrder: 10, exportName: "media-analytics" },
 				},
+				assistantStarters: [
+					"What should I watch next from my watchlist?",
+					"Which titles did I finish this month?",
+					"What's releasing for titles I follow this week?",
+				],
 				collectionPages: {
 					recommendations: {
 						icon: "sparkles",

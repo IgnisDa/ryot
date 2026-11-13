@@ -26,6 +26,7 @@ const capability = (id: string, readOnly: boolean, input: Capability["input"]): 
 	input,
 	id: CapabilityId.make(id),
 	source: { kind: "kernel" },
+	title: "Fixture capability",
 	description: `Capability ${id}`,
 	hints: { readOnly, destructive: false, idempotent: readOnly },
 	output: {

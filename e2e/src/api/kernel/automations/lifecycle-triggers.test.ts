@@ -360,6 +360,7 @@ const installLifecyclePlugin = () =>
 				output: {},
 				auth: "user",
 				demoAccess: "allowed",
+				title: "Fixture operation",
 				slug: slugs.replayOperation,
 				scriptSlug: slugs.replayOperation,
 				description: "Replays one lifecycle event workflow",
