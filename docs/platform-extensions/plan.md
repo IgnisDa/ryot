@@ -540,6 +540,14 @@ listings, and backup export and restore.
   publishers. The user confirms before installing.
 - **Docs:** `apps/docs` documents installing and the same risks.
 
+**H implementation complete.** `POST /plugins/inspect` reads the temporary upload without claiming
+it and runs the same candidate validation as install, update and retained recovery, plus dependency
+checks; with an installation ID it validates the archive as that installation's update. Plugin config
+writes replace the stored config, keeping omitted secrets, so `unsetConfigKeys` is removed. Settings →
+Plugins shares one archive wizard for install and package updates (inspect, summary, warnings with an
+explicit acknowledgement, then the config schema form), and per-installation configuration uses the
+same schema form. `apps/docs` documents installation and its risks in the private plugins guide.
+
 ## Accepted limitations
 
 These are known gaps accepted for the MVP. Each can be added later without changing the shapes
