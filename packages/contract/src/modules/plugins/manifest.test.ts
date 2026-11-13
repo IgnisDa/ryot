@@ -544,13 +544,18 @@ describe("definePlugin", () => {
 					homeView: null,
 					notFoundPage: "dashboard",
 					apiVersion: CLIENT_API_VERSION,
-					entities: {
-						thing: { createRoute: "/", detailPage: "dashboard", gridPresentation: "row" },
-					},
 					routes: {
 						"/": "dashboard",
 						"/things/$thingId": "dashboard",
 						"/collections/$collectionId/related": "dashboard",
+					},
+					entities: {
+						thing: {
+							createRoute: "/",
+							detailPage: "dashboard",
+							gridPresentation: "row",
+							presentation: { owner: [], entity: [] },
+						},
 					},
 					collectionPages: {
 						related: {

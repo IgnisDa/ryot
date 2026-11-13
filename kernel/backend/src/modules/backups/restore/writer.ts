@@ -8,6 +8,7 @@ import {
 	identityTupleKey,
 	pluginPackageKey,
 } from "@ryot-app/contract/modules/plugins/references";
+import { resolvePluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { RyotQLResponse } from "@ryot-app/contract/modules/ryotql/language";
 import { bindPartialArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import {
@@ -61,7 +62,6 @@ import { validateRestoredProperties } from "#modules/plugins/configuration/revis
 import { PluginRepository } from "#modules/plugins/packages/repository";
 import { validateAdditiveSchemaEvolution } from "#modules/plugins/packages/schema-evolution";
 import type { StoredPlugin } from "#modules/plugins/packages/types";
-import { resolvePluginUserSettings } from "#modules/plugins/preferences/user-settings";
 import { PUBLICATION_RESULT_BYTES } from "#modules/publications/model";
 import { DatabaseSession } from "#platform/db/session";
 

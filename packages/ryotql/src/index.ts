@@ -441,6 +441,7 @@ export const rows = (
 		readonly fields: readonly RowSelection[];
 		readonly joins?: undefined | readonly Join[];
 		readonly include?: undefined | readonly Include[];
+		readonly presentation?: RowsOutput["presentation"];
 		readonly orderBy?: Ordering | undefined | readonly OrderBy[];
 	},
 ): NamedQuery & { readonly output: RowsOutput } => ({
@@ -450,6 +451,7 @@ export const rows = (
 	output: {
 		type: "rows",
 		fields: [...input.fields],
+		...(input.presentation === undefined ? {} : { presentation: input.presentation }),
 		pagination: { limit: input.limit ?? 20, maxLimit: input.maxLimit ?? input.limit ?? 20 },
 		...(isNonEmpty(input.include) ? { include: [...input.include] } : {}),
 		orderBy: input.orderBy ?? [ascending(column(from, "id"))],
@@ -1005,10 +1007,10 @@ type SelectedMeasures = Readonly<Record<string, SelectedMeasure<unknown>>>;
 
 type SelectedMeasureValue<Measure> = Measure extends SelectedMeasure<infer A, infer _I> ? A : never;
 
-type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = { readonly measures: Measures; readonly groupBy?: undefined } & Omit<
-	Parameters<typeof aggregate>[1],
-	"groupBy" | "measures"
->;
+type SelectedUngroupedAggregateInput<Measures extends SelectedMeasures> = Omit<Parameters<typeof aggregate>[1], "groupBy" | "measures"> & {
+	readonly measures: Measures;
+	readonly groupBy?: undefined;
+};
 
 type SelectedAggregateInput<
 	GroupBy extends SelectedSelection,

@@ -1,4 +1,8 @@
 import { AssetLocator } from "@ryot-app/contract/modules/assets/schemas";
+import {
+	ENTITY_PRESENTATION_FIELD,
+	EntityPresentationPayload,
+} from "@ryot-app/contract/modules/entities/presentation";
 import { EntitySyncState } from "@ryot-app/contract/modules/entities/schemas";
 import { SavedViewClientPageTarget } from "@ryot-app/contract/modules/pages/schemas";
 import { ownerIdentityReference } from "@ryot-app/contract/modules/plugins/references";
@@ -95,7 +99,7 @@ export const EntityBrowserResultItem = Schema.Struct({
 	entityId: Schema.String,
 	entitySchemaSlug: Schema.String,
 	ownerPluginId: Schema.NullOr(Schema.String),
-	presentation: Schema.NullOr(Schema.Record(Schema.String, JsonValue)),
+	presentation: Schema.NullOr(EntityPresentationPayload),
 	cells: Schema.Array(
 		Schema.Struct({ key: Schema.String, label: Schema.String, value: SavedViewDisplayValue }),
 	),
@@ -237,11 +241,13 @@ export const decodeEntityBrowserResult = (
 					);
 					return {
 						cells,
-						presentation: row,
 						name: values[entityBrowserFields.name],
 						entityId: values[entityBrowserFields.id],
 						ownerPluginId: values[entityBrowserFields.owner],
 						entitySchemaSlug: values[entityBrowserFields.schema],
+						presentation: yield* Schema.decodeUnknownResult(
+							Schema.NullOr(EntityPresentationPayload),
+						)(row[ENTITY_PRESENTATION_FIELD]),
 						sync: {
 							populationStatus: values[entityBrowserFields.population],
 							translationStatus: values[entityBrowserFields.translation],

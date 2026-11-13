@@ -15,6 +15,8 @@ import {
 import { AuthoredEntitySchemaBrowse } from "../filters/browse";
 import { relationshipEnds } from "../relationships/orientation";
 import {
+	FieldSelection,
+	Include,
 	mapScalarExpression,
 	pluginIdentityReferences,
 	RyotQLDocument as AuthoredRyotQLDocument,
@@ -37,6 +39,7 @@ import {
 } from "./execution";
 import { SandboxExecutionMetadata } from "./execution-metadata";
 import { pluginConfigEnvironmentKey } from "./plugin-config";
+import { presentationDeclarationIssue } from "./presentation";
 import { ProviderRelatedInputs, ProviderTranslationInputs } from "./provider-inputs";
 import {
 	AuthoredEventSchemaReference,
@@ -239,6 +242,14 @@ export const PluginDependencies = Schema.Record(Schema.String, PluginPackageRefe
 	Schema.check(pluginManifestSlugKeys),
 );
 
+export const PluginEntityPresentation = strictStruct({
+	owner: Schema.Array(FieldSelection),
+	entity: Schema.Array(FieldSelection),
+	settings: Schema.optional(Schema.Boolean),
+	ownerIncludes: Schema.optional(Schema.NonEmptyArray(Include)),
+});
+export type PluginEntityPresentation = typeof PluginEntityPresentation.Type;
+
 export const PluginClientEntities = Schema.Record(
 	pluginManifestSlug,
 	strictStruct({
@@ -246,6 +257,7 @@ export const PluginClientEntities = Schema.Record(
 		detailPage: Schema.optional(pluginManifestSlug),
 		gridPresentation: Schema.optional(pluginManifestSlug),
 		listPresentation: Schema.optional(pluginManifestSlug),
+		presentation: Schema.optional(PluginEntityPresentation),
 	}),
 );
 
@@ -1184,7 +1196,7 @@ const declaredDependencies = Schema.makeFilter(
 const hasValidClientManifestReferences = (
 	manifest: Pick<
 		typeof AuthoredPluginManifestFields.Type,
-		"client" | "metadata" | "savedViews" | "entitySchemas"
+		"client" | "metadata" | "savedViews" | "entitySchemas" | "userSettingsSchema"
 	>,
 ) => {
 	const clientExports = manifest.client?.exports ?? {};
@@ -1198,6 +1210,20 @@ const hasValidClientManifestReferences = (
 	}
 	const entitySchemaSlugs = new Set(manifest.entitySchemas.map(({ slug }) => slug));
 	for (const [entitySchemaSlug, registrations] of Object.entries(manifest.client?.entities ?? {})) {
+		if (
+			registrations.presentation !== undefined &&
+			(presentationDeclarationIssue(registrations.presentation) !== null ||
+				(registrations.presentation.settings && manifest.userSettingsSchema === undefined))
+		) {
+			return false;
+		}
+		if (
+			(registrations.gridPresentation !== undefined ||
+				registrations.listPresentation !== undefined) &&
+			registrations.presentation === undefined
+		) {
+			return false;
+		}
 		if (!entitySchemaSlugs.has(entitySchemaSlug)) {
 			return false;
 		}

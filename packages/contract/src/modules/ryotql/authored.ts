@@ -488,6 +488,7 @@ export const RowsOutput = strictStruct({
 	fields: Schema.Array(RowSelection),
 	include: Schema.optional(Schema.NonEmptyArray(Include)),
 	orderBy: Schema.Union([Schema.Array(OrderBy), Ordering]),
+	presentation: Schema.optional(Bound.PresentationSelection),
 }).annotate({ identifier: "AuthoredRyotQLRowsOutput" });
 export type RowsOutput = typeof RowsOutput.Type;
 

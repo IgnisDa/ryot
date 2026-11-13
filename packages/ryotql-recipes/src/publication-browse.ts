@@ -1,14 +1,11 @@
 import { BROWSE_SUBJECT_ALIAS } from "@ryot-app/contract/modules/filters/browse";
+import { isEntityExpression } from "@ryot-app/contract/modules/plugins/presentation";
 import {
 	definitionOwner,
 	ownerIdentityReference,
 } from "@ryot-app/contract/modules/plugins/references";
-import {
-	type Controls,
-	type FieldSelection,
-	type ScalarExpression,
-	scalarExpressionTables,
-} from "@ryot-app/contract/modules/ryotql/authored";
+import type { Controls, ScalarExpression } from "@ryot-app/contract/modules/ryotql/authored";
+import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	entityBrowserFields,
 	EntityBrowserRowFields,
@@ -40,67 +37,10 @@ import {
 	table,
 } from "@ryot-app/ryotql";
 import { filter, parameters, sort } from "@ryot-app/ryotql/authoring";
-import { isObjectRecord, isUnknownArray } from "@ryot-app/ts-utils/predicates";
 import { Result, Schema } from "effect";
 
 import type { BrowseSchema } from "./browse";
 import { decodeEntityBrowserResult, decodeSavedViewCount } from "./saved-views";
-
-const entityColumns = new Set([
-	"id",
-	"name",
-	"createdAt",
-	"updatedAt",
-	"properties",
-	"externalId",
-	"providerId",
-	"populatedAt",
-	"entitySchemaSlug",
-	"populationStatus",
-	"translationStatus",
-	"entitySchemaPluginId",
-	"relatedPopulationStatus",
-]);
-
-const safeNode = (node: unknown): boolean => {
-	if (isUnknownArray(node)) {
-		return node.every(safeNode);
-	}
-	if (!isObjectRecord(node) || node["type"] === "literal") {
-		return true;
-	}
-	if (node["type"] === "column") {
-		return (
-			node["tableAlias"] === BROWSE_SUBJECT_ALIAS &&
-			typeof node["field"] === "string" &&
-			entityColumns.has(node["field"])
-		);
-	}
-	if (
-		"query" in node ||
-		"parameter" in node ||
-		node["type"] === "parameter" ||
-		node["type"] === "sourceEntity" ||
-		("table" in node && "alias" in node)
-	) {
-		return false;
-	}
-	return Object.values(node).every(safeNode);
-};
-const safeExpression = (expression: ScalarExpression) =>
-	[...scalarExpressionTables(expression)].every((name) => name === "entity") &&
-	safeNode(expression);
-
-const reservedPresentationKeys = new Set([...Object.values(entityBrowserFields), "name"]);
-const isPublicationPresentationField = (field: FieldSelection) =>
-	!reservedPresentationKeys.has(field.key) &&
-	!field.key.startsWith("__publicationDetail") &&
-	!field.key.startsWith("browse") &&
-	safeExpression(field.expr);
-
-export const publicationPresentationFields = (
-	fields: readonly FieldSelection[],
-): readonly FieldSelection[] => fields.filter(isPublicationPresentationField);
 
 export const publicationBrowse = (browse: readonly BrowseSchema[]): readonly BrowseSchema[] =>
 	browse.map((schema) => ({
@@ -112,13 +52,12 @@ export const publicationBrowse = (browse: readonly BrowseSchema[]): readonly Bro
 						fields: schema.browse.fields.filter(
 							(field) =>
 								(field.kind === "value" || field.kind === "sort") &&
-								safeExpression(field.expression),
+								isEntityExpression(field.expression, BROWSE_SUBJECT_ALIAS),
 						),
 					},
 	}));
 
 export type PublicationCatalogSchema = BrowseSchema & {
-	readonly presentationFields: readonly FieldSelection[];
 	readonly sortTypes?: Readonly<Record<string, "text" | "date" | "number" | "boolean">>;
 };
 
@@ -226,21 +165,6 @@ export const kernelPublicationPage = (input: {
 			ownerIdentityReference(definitionOwner(schema.pluginId)),
 		);
 	const expressions = new Map<string, ScalarExpression>();
-	for (const schema of input.schemas) {
-		for (const field of schema.presentationFields) {
-			if (!isPublicationPresentationField(field)) {
-				throw new Error(`Unsafe publication presentation field '${field.key}'`);
-			}
-			expressions.set(
-				field.key,
-				conditional(
-					schemaPredicate(schema),
-					field.expr,
-					expressions.get(field.key) ?? literal(null),
-				),
-			);
-		}
-	}
 	const details = browse.flatMap((schema) =>
 		(schema.browse?.fields ?? [])
 			.flatMap((field) =>
@@ -382,6 +306,7 @@ export const kernelPublicationPage = (input: {
 				selection,
 				maxLimit: 100,
 				orderBy: sort(orderBy),
+				presentation: { scope: "entity", entityId: entityBrowserFields.id },
 			}),
 			linked: selectedRows(source, {
 				joins,
@@ -390,6 +315,7 @@ export const kernelPublicationPage = (input: {
 				limit: 100,
 				maxLimit: 100,
 				where: linkedWhere,
+				presentation: { scope: "entity", entityId: entityBrowserFields.id },
 			}),
 			item: selectedRows(source, {
 				joins,
@@ -397,6 +323,7 @@ export const kernelPublicationPage = (input: {
 				limit: 1,
 				selection,
 				maxLimit: 1,
+				presentation: { scope: "entity", entityId: entityBrowserFields.id },
 				where: selectedEntity(eq(column(subject, "id"), args.value("entityId"))),
 			}),
 		},
@@ -434,12 +361,18 @@ export const decodePublicationItem = (
 	settings: EntityBrowserSavedViewSettings,
 	fields: readonly PublicationItemDetailField[],
 ) =>
-	Result.flatMap(decodeEntityBrowserResult(response, "item", settings), (page) => {
+	Result.gen(function* () {
+		const page = yield* decodeEntityBrowserResult(response, "item", settings);
+		const raw = yield* Schema.decodeUnknownResult(
+			Schema.Struct({
+				data: Schema.Struct({ item: rowsResultSchema(Schema.Record(Schema.String, JsonValue)) }),
+			}),
+		)(response);
 		const item = page.items[0];
 		if (item === undefined) {
-			return Result.succeed(undefined);
+			return undefined;
 		}
-		return Result.map(
+		return yield* Result.map(
 			Result.all(
 				fields
 					.filter(
@@ -448,7 +381,7 @@ export const decodePublicationItem = (
 					)
 					.map((field) =>
 						Result.map(
-							Schema.decodeUnknownResult(DetailValue)(item.presentation?.[field.field]),
+							Schema.decodeUnknownResult(DetailValue)(raw.data.item.items[0]?.[field.field]),
 							(value) => itemDetail(field, value),
 						),
 					),

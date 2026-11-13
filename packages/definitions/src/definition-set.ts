@@ -6,6 +6,7 @@ import {
 import { bindArguments } from "@ryot-app/contract/modules/ryotql/parameters";
 import { PluginId } from "@ryot-app/contract/schema/brands";
 import type { ControlSchema } from "@ryot-app/ryotql-recipes/controls";
+import { presentationDocument } from "@ryot-app/ryotql-recipes/presentations";
 import { storedValidationBranches } from "@ryot-app/ryotql-recipes/stored-validation";
 import { Result } from "effect";
 
@@ -85,6 +86,23 @@ const validateStoredQueries = (
 		}
 	}
 	for (const plugin of plugins) {
+		for (const [schemaSlug, registration] of Object.entries(
+			plugin.manifest.client?.entities ?? {},
+		)) {
+			if (!registration.presentation) {
+				continue;
+			}
+			for (const scope of ["entity", "owner"] as const) {
+				const document = presentationDocument({
+					schemaSlug,
+					pluginId: plugin.id,
+					ids: ["presentation-subject"],
+					fields: registration.presentation[scope],
+					include: scope === "owner" ? registration.presentation.ownerIncludes : undefined,
+				});
+				Result.getOrThrow(storedValidationBranches(bindOwners(document, plugin.id), schemas));
+			}
+		}
 		for (const [name, declaration] of Object.entries(plugin.manifest.queries ?? {})) {
 			if (plugin.manifest.operations.some(({ slug }) => slug === name)) {
 				throw new Error(`Query and operation share a tool name: ${name}`);

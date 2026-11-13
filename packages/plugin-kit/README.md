@@ -41,8 +41,8 @@ shared navigation helpers.
 
 Domain recipes accept a `PluginIdentityReference`. Authored saved views and trusted sandbox scripts
 pass `{ kind: "self" }`. Browser contributors call `usePluginIdentity(packageId)` or the non-React
-`client.pluginIdentity(packageId)`. Presentation loaders use the selected entity's stored owner, not
-the page owner. Ordinary HTTP queries use `local` or `{ kind: "package", packageId, scope }`
+`client.pluginIdentity(packageId)`. Presentation declarations use `{ kind: "self" }`; the executor binds them to the selected
+entity's stored owner. Ordinary HTTP queries use `local` or `{ kind: "package", packageId, scope }`
 references, never `self`.
 
 Plugin dependencies are a top-level, importer-local alias map:
@@ -814,3 +814,18 @@ sources use ordinary fields.
 `@ryot-app/plugin-kit/operations` provides an Effect-based typed operation invoker.
 `defineOperationRecipe` pins the package ID, operation slug, and input/output Effect Schemas;
 `invokeOperationRecipe` encodes input, calls the supplied transport, and decodes output.
+
+### Entity presentation sources
+
+Each `client.entities[slug]` registration with a grid/list presentation declares
+`presentation: { entity, owner, ownerIncludes?, settings? }`. `entity` and `owner` are RyotQL field
+selections rooted at `table("entity", "entity")`; reuse a shared selected source for its fields and
+client decoder. `entity` expressions read only public subject columns, without correlated queries,
+parameters, relationships or events. `owner` may use owner-scoped reads and nested includes.
+`settings: true` captures normalized plugin user settings for owner scope only. Definition-set
+validation checks complete projections during build and ingestion; no fields are silently removed.
+
+Presentation exports use `defineEntityPresentation({ prepare, component, entity? })`. The optional
+`entity` pair renders the public source when it differs from the owner source. Preparation is pure;
+it receives references, selected data, and captured context. Share UI components between variants.
+Saved views declare table fields and selection controls; they do not embed card projections.

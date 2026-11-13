@@ -384,11 +384,18 @@ export const Pagination = strictStruct({
 }).annotate({ identifier: "RyotQLPagination" });
 export type Pagination = typeof Pagination.Type;
 
+export const PresentationSelection = strictStruct({
+	entityId: Schema.String,
+	scope: Schema.Literals(["entity", "owner"]),
+});
+export type PresentationSelection = typeof PresentationSelection.Type;
+
 export const RowsOutput = strictStruct({
 	pagination: Pagination,
 	type: Schema.Literal("rows"),
 	orderBy: Schema.Array(OrderBy),
 	fields: Schema.Array(RowSelection),
+	presentation: Schema.optional(PresentationSelection),
 	include: Schema.optional(Schema.NonEmptyArray(Include)),
 }).annotate({ identifier: "RyotQLRowsOutput" });
 export type RowsOutput = typeof RowsOutput.Type;

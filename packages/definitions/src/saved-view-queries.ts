@@ -100,7 +100,13 @@ export const deriveSavedViewQueries = (
 		return Result.succeed({
 			...query,
 			...(where === undefined ? {} : { where }),
-			output: { ...query.output, fields },
+			output: {
+				...query.output,
+				fields,
+				...(entity === undefined
+					? {}
+					: { presentation: { scope: "owner" as const, entityId: entityBrowserFields.id } }),
+			},
 		});
 	};
 	const selected = prepare(source);
@@ -123,7 +129,7 @@ export const deriveSavedViewQueries = (
 			],
 		},
 	});
-	const { include: _, ...output } = source.output;
+	const { include: _, presentation: _presentation, ...output } = source.output;
 	const ids: NamedQuery = {
 		...selected.success,
 		output: {

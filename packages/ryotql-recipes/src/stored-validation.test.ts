@@ -40,7 +40,7 @@ const nameField = {
 describe("stored authored validation", () => {
 	it("validates publication browser controls across the full document", () => {
 		const browser = kernelPublicationPage({
-			schemas: [{ slug: "root", browse: null, pluginId: null, presentationFields: [] }],
+			schemas: [{ slug: "root", browse: null, pluginId: null }],
 		});
 		const result = storedValidationBranches(
 			browser.document,

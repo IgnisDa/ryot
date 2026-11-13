@@ -4,6 +4,7 @@ import type {
 	IngestionScope,
 } from "@ryot-app/contract/modules/imports/ingestion";
 import type { ImportRunFailureReason } from "@ryot-app/contract/modules/imports/schemas";
+import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { ImportRunId, IntegrationId, UserId } from "@ryot-app/contract/schema/brands";
 import { IsoUtcString } from "@ryot-app/contract/schema/utils";
 import {
@@ -32,7 +33,6 @@ import { ImportWorkflowPinning } from "#modules/imports/workflow-pinning";
 import { AccountAdmission } from "#modules/mutations/account-admission";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { resolveStoredPluginUserSettings } from "#modules/plugins/preferences/user-settings";
 import { samePluginPin } from "#modules/scripts/authorization/principal";
 import { ScriptExecutionService } from "#modules/scripts/executions/service";
 import { SandboxPluginScriptResolver } from "#modules/scripts/registry/plugin-script-resolver";

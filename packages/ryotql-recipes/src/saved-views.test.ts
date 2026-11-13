@@ -33,6 +33,7 @@ const settings: EntityBrowserSavedViewSettings = {
 const pageInfo = { limit: 20, hasMore: true, nextCursor: "next" };
 const row = {
 	rating: 75,
+	__entityPresentation: null,
 	[entityBrowserFields.id]: "one",
 	[entityBrowserFields.name]: "One",
 	[entityBrowserFields.owner]: null,

@@ -87,10 +87,8 @@ scalar values. Overrides are preserved verbatim, including deliberately malforme
 
 `kernelPublicationPage({ schemas })` in `publication-browse` authors one server declaration with
 exactly `items`, `count`, `item`, and `linked`. `schemas` is a nonempty authorized structural catalog:
-each entry supplies `{ slug, pluginId, browse, presentationFields, sortTypes? }`. Presentation fields
-are existing entity presentation projections rebased to the `subject` entity alias; they must read
-only that entity's public columns. They cannot use events, relationships, correlated reads, owner
-user IDs, query parameters, or reserved output keys. `sortTypes` supplies the scalar type (`text`,
+each entry supplies `{ slug, pluginId, browse, sortTypes? }`. Rows request the plugin-declared
+`entity` presentation scope. `sortTypes` supplies the scalar type (`text`,
 `number`, `date`, or `boolean`) by key for each sort-only browse declaration. Value declarations
 already carry their type. The backend must resolve this catalog under owner authority and provide
 stable ordering of its schemas/fields. No visitor fragments participate in declaration construction.
@@ -105,8 +103,8 @@ only in predicates, never returned. There is no publication RyotQL scope or inli
 
 The factory returns the recipe (`document`, `parameters`, `queries`, `decode`), sanitized `browse`,
 entity-browser `settings`, and response decoders `decodeItems`, `decodeCount`, `decodeItem`, and
-`decodeLinked`. Each rows query projects `EntityBrowserRowFields`, `name`, schema-conditional JSON
-presentation fields, and private detail/control output keys. Existing entity-browser decoding
+`decodeLinked`. Each rows query projects `EntityBrowserRowFields`, `name`, and private detail/control output keys.
+The shared executor attaches the typed `__entityPresentation` envelope. Existing entity-browser decoding
 produces `{ items, pageInfo }` with entity references, sync state, presentation rows, and cells.
 `decodeItem` returns one such item with formatted `details`, or `undefined`; invalid detail values
 fail decoding. Detail values accept null, text, finite numbers, booleans, and text arrays.
@@ -134,3 +132,12 @@ Call rows carry the current approval revision, immutable descriptor/input pin an
 grouped steps, approvals placed after the step that requested them, and page previews. A turn whose
 messages or calls exceed one include page is marked `partial`. Exported decoded types are
 `AssistantConversationList` and `AssistantConversationDetail`.
+
+## Entity presentation data
+
+`presentations` owns the identity and batched projection recipes. A rows output requests
+`presentation: { entityId: "selectedIdField", scope: "entity" | "owner" }`. The executor resolves
+stored entity ownership and the plugin's declared source in the same transaction and clock.
+`entity` reads public subject fields; `owner` may include owner events, relationships, and explicitly
+requested plugin settings. The response envelope contains plugin/schema identity, scope, data, and
+execution context. Browser and collection decoders retain this envelope separately from table cells.

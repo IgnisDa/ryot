@@ -124,8 +124,11 @@ const collectionSettings = {
 	controls: { search: "searchText" },
 	layouts: ["grid", "list", "table"],
 	summary: { image: null, subtitle: null },
-	tableColumns: [{ label: "Name", field: "name", displayKind: "text" }],
 	subject: { entityAlias: "entity", schemas: [{ slug: "collection", owner: { kind: "kernel" } }] },
+	tableColumns: [
+		{ label: "Name", field: "name", displayKind: "text" },
+		{ label: "Items", field: "memberCount", displayKind: "number" },
+	],
 } as const;
 const collectionQuery = rows(collection, {
 	orderBy: [ascending(column(collection, "name"))],
@@ -137,7 +140,7 @@ const collectionQuery = rows(collection, {
 		field("entityId", column(collection, "id")),
 		field("name", column(collection, "name")),
 		field(
-			"presentationMemberCount",
+			"memberCount",
 			countDistinct(collectionMembership, column(collectionMembership, "sourceEntityId"), {
 				where: and(
 					schemaOwnerPredicate(collectionMembership, "relationshipSchemaPluginId", {

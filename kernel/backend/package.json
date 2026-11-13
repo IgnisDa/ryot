@@ -29,7 +29,6 @@
 		"./modules/plugins/installations/repository": "./src/modules/plugins/installations/repository.ts",
 		"./modules/plugins/layer": "./src/modules/plugins/layer.ts",
 		"./modules/plugins/packages/repository": "./src/modules/plugins/packages/repository.ts",
-		"./modules/plugins/preferences/user-settings": "./src/modules/plugins/preferences/user-settings.ts",
 		"./modules/plugins/source.test-support": "./src/modules/plugins/source.test-support.ts",
 		"./modules/ryotql/service": "./src/modules/ryotql/service.ts",
 		"./modules/scripts/authorization/principal": "./src/modules/scripts/authorization/principal.ts",

@@ -1965,3 +1965,23 @@ it("keeps notification internals out of kernel fields and wildcards", () => {
 		expect(new Set(query.output.fields.map(({ key }) => key))).toEqual(new Set(safeFields));
 	}
 });
+
+it("validates presentation selection and reserves its response envelope", () => {
+	const source = table("entity", "entity");
+	const query = (fields: readonly ReturnType<typeof field>[]) =>
+		document({
+			items: rows(source, { fields, presentation: { entityId: "id", scope: "entity" } }),
+		});
+	expect(
+		validateAuthoredFixture(query([field("id", column(source, "id"))]), userAccess).error,
+	).toBeNull();
+	expect(
+		validateAuthoredFixture(query([field("name", column(source, "name"))]), userAccess).error,
+	).toContain("must name a selected entity ID");
+	expect(
+		validateAuthoredFixture(
+			query([field("id", column(source, "id")), field("__entityPresentation", literal("forged"))]),
+			userAccess,
+		).error,
+	).toContain("reserved");
+});

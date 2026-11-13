@@ -37,7 +37,7 @@ it("keeps source zero limited to generic kernel definitions", () => {
 	expect(query.output.fields).toMatchObject([
 		{ key: "entityId" },
 		{ key: "name" },
-		{ key: "presentationMemberCount" },
+		{ key: "memberCount" },
 		{ key: "ownerPluginId" },
 		{ key: "entitySchemaSlug" },
 		{ key: entityBrowserFields.id },

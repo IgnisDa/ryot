@@ -1,3 +1,4 @@
+import { ENTITY_PRESENTATION_FIELD } from "@ryot-app/contract/modules/entities/presentation";
 import type {
 	AggregateOutput,
 	CorrelatedQuerySet,
@@ -737,6 +738,15 @@ const validateNamedQuery = (
 	);
 	if (selections.error !== null) {
 		return invalid(selections.error);
+	}
+	const presentation = query.output.presentation;
+	if (presentation !== undefined) {
+		if (!selections.value.fields.some((field) => field.key === presentation.entityId)) {
+			return invalid("Presentation selection must name a selected entity ID field");
+		}
+		if (selections.value.fields.some((field) => field.key === ENTITY_PRESENTATION_FIELD)) {
+			return invalid("Presentation output field is reserved");
+		}
 	}
 	const { fields: _fields, include: _include, ...output } = query.output;
 	return { error: null, value: { ...query, output: { ...output, ...selections.value } } };

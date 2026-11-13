@@ -11,6 +11,7 @@ import {
 } from "@ryot-app/contract/modules/imports/schemas";
 import type { ImportRunSource } from "@ryot-app/contract/modules/imports/types";
 import type { IntegrationLot } from "@ryot-app/contract/modules/integrations/types";
+import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import {
 	AutomationExecutionId,
 	ImportRunId,
@@ -34,7 +35,6 @@ import {
 } from "#modules/plugins/catalog/import-sources";
 import { IngestionReadinessService } from "#modules/plugins/catalog/readiness-service";
 import { PluginInstallationRepository } from "#modules/plugins/installations/repository";
-import { resolveStoredPluginUserSettings } from "#modules/plugins/preferences/user-settings";
 import { DatabaseSession } from "#platform/db/session";
 import { DownloadTickets } from "#platform/storage/download-tickets";
 

@@ -22,6 +22,7 @@ const member = {
 	ownerPluginName: null,
 	"member-type": "/item",
 	entitySchemaSlug: "item",
+	__entityPresentation: null,
 	addedAt: "2026-01-01T00:00:00Z",
 	populationStatus: { state: "succeeded", availability: "complete" },
 	translationStatus: { state: "succeeded", availability: "complete" },

@@ -1,21 +1,16 @@
 import { expect, it } from "bun:test";
 
 import { entityBrowserFields } from "@ryot-app/contract/modules/saved-views/entity-browser-fields";
-import { castNumber, column, count, field, jsonPath, table } from "@ryot-app/ryotql";
+import { castNumber, column, count, jsonPath, table } from "@ryot-app/ryotql";
 import { Result } from "effect";
 
-import {
-	kernelPublicationPage,
-	publicationBrowse,
-	publicationPresentationFields,
-} from "./publication-browse";
+import { kernelPublicationPage, publicationBrowse } from "./publication-browse";
 import { bindRecipe, rowsResponse } from "./test-utils";
 
 const subject = table("entity", "subject");
 const schema = {
 	slug: "record",
 	pluginId: null,
-	presentationFields: [field("cover", jsonPath(column(subject, "properties"), "cover"))],
 	browse: {
 		fields: [
 			{
@@ -103,13 +98,6 @@ it("excludes identity, unbound aliases, and correlated reads from browse and pre
 		},
 	]);
 	expect(browse[0]?.browse?.fields).toEqual([]);
-	for (const expression of unsafe) {
-		expect(() =>
-			kernelPublicationPage({
-				schemas: [{ ...schema, presentationFields: [field("unsafe", expression)] }],
-			}),
-		).toThrow("Unsafe publication presentation field");
-	}
 	const page = kernelPublicationPage({ schemas: [schema] });
 	expect(JSON.stringify(page.document)).not.toContain("userId");
 	expect(JSON.stringify(page.document)).not.toContain("publicationRank");
@@ -119,7 +107,7 @@ it("reuses entity-browser presentation decoding and formats the selected schema'
 	const page = kernelPublicationPage({ schemas: [schema] });
 	const row = {
 		name: "Record",
-		cover: "cover",
+		__entityPresentation: null,
 		__publicationDetail0_score: 12,
 		[entityBrowserFields.owner]: null,
 		[entityBrowserFields.id]: "entity",
@@ -132,7 +120,7 @@ it("reuses entity-browser presentation decoding and formats the selected schema'
 		page.decodeItem(rowsResponse("item", [row], { limit: 1, hasMore: false, nextCursor: null })),
 	);
 	expect(item?.entityId).toBe("entity");
-	expect(item?.presentation?.["cover"]).toBe("cover");
+	expect(item?.presentation).toBeNull();
 	expect(item?.details).toEqual([
 		{ key: "score", label: "Score", value: { value: 12, displayKind: "number" } },
 	]);
@@ -170,16 +158,4 @@ it("requires scalar type metadata for sort-only fields and keeps them out of fil
 			page.decodeCount({ data: { count: { type: "aggregate", items: [{ count: 4 }] } } }),
 		),
 	).toBe(4);
-});
-
-it("filters presentation projections through the same field and expression policy", () => {
-	const cover = field("cover", jsonPath(column(subject, "properties"), "cover"));
-	expect(
-		publicationPresentationFields([
-			cover,
-			field("owner", column(subject, "userId")),
-			field("name", column(subject, "name")),
-			field("wrongAlias", column(table("entity", "other"), "name")),
-		]),
-	).toEqual([cover]);
 });

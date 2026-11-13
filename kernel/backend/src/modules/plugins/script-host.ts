@@ -1,3 +1,4 @@
+import { resolveStoredPluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { isJsonValue, type JsonValue } from "@ryot-app/contract/schema/json";
 import { sandboxHostEffect, sandboxHostFailure } from "@ryot-app/sandbox/host/invocation";
@@ -17,7 +18,6 @@ import { userSandboxRunUserId } from "#modules/scripts/host/execution-context";
 import { PluginRuntimeResolver } from "./catalog/runtime-resolver";
 import { getPluginConfig } from "./configuration/access";
 import { PluginInstallationRepository } from "./installations/repository";
-import { resolveStoredPluginUserSettings } from "./preferences/user-settings";
 import { PluginUserSettingsWriter } from "./preferences/user-settings-writer";
 
 const normalizeConfigKeys = (

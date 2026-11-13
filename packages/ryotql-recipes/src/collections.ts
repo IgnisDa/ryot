@@ -3,6 +3,10 @@ import {
 	decodeCollectionFields,
 	type KeyedCollectionField,
 } from "@ryot-app/contract/modules/collections/fields";
+import {
+	ENTITY_PRESENTATION_FIELD,
+	EntityPresentationPayload,
+} from "@ryot-app/contract/modules/entities/presentation";
 import { EnrichmentState } from "@ryot-app/contract/modules/entities/schemas";
 import {
 	collectionPagePath,
@@ -14,6 +18,7 @@ import {
 } from "@ryot-app/contract/modules/plugins/references";
 import type { Controls } from "@ryot-app/contract/modules/ryotql/authored";
 import { encodeEntitySourceReference } from "@ryot-app/contract/modules/ryotql/entity-source";
+import { rowsResultSchema } from "@ryot-app/contract/modules/ryotql/language";
 import {
 	SavedViewDisplayValue,
 	type SavedViewTableColumn,
@@ -570,6 +575,7 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 		where,
 		limit: 20,
 		maxLimit: 1000,
+		presentation: { scope: "owner", entityId: "entityId" },
 		orderBy: sort([ascending(column(source, "rank")), ascending(column(entity, "id"))]),
 		selection: {
 			...projectedProperties,
@@ -631,26 +637,37 @@ const collectionRecipe = (input?: CollectionMemberFields) => {
 			members: {
 				document: members.document,
 				decodeResult: (result: unknown) =>
-					Result.map(members.decodeResult(result), (page) => ({
-						pageInfo: page.pageInfo,
-						stale: page.pageInfo.stale ?? false,
-						orderRevision:
-							page.items[0]?.orderRevision ??
-							Object.values(page.pageInfo.sourceRevisions ?? {})[0] ??
-							0,
-						items: page.items.map((member) => ({
-							name: member.name,
-							presentation: null,
-							entityId: member.entityId,
-							ownerPluginId: member.ownerPluginId,
-							entitySchemaSlug: member.entitySchemaSlug,
-							cells: collectionMemberCells(member, input?.membershipPropertiesSchema ?? null),
-							sync: {
-								populationStatus: member.populationStatus,
-								translationStatus: member.translationStatus,
-							},
-						})),
-					})),
+					Result.flatMap(members.decodeResult(result), (page) =>
+						Result.map(
+							Schema.decodeUnknownResult(
+								rowsResultSchema(
+									Schema.Struct({
+										[ENTITY_PRESENTATION_FIELD]: Schema.NullOr(EntityPresentationPayload),
+									}),
+								),
+							)(result),
+							(raw) => ({
+								pageInfo: page.pageInfo,
+								stale: page.pageInfo.stale ?? false,
+								orderRevision:
+									page.items[0]?.orderRevision ??
+									Object.values(page.pageInfo.sourceRevisions ?? {})[0] ??
+									0,
+								items: page.items.map((member, index) => ({
+									name: member.name,
+									entityId: member.entityId,
+									ownerPluginId: member.ownerPluginId,
+									entitySchemaSlug: member.entitySchemaSlug,
+									presentation: raw.items[index]?.[ENTITY_PRESENTATION_FIELD] ?? null,
+									cells: collectionMemberCells(member, input?.membershipPropertiesSchema ?? null),
+									sync: {
+										populationStatus: member.populationStatus,
+										translationStatus: member.translationStatus,
+									},
+								})),
+							}),
+						),
+					),
 			},
 		},
 	});

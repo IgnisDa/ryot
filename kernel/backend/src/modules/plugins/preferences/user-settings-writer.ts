@@ -3,6 +3,7 @@ import {
 	PluginNotFoundError,
 	PluginRequestError,
 } from "@ryot-app/contract/modules/plugins/schemas";
+import { resolvePluginUserSettings } from "@ryot-app/contract/modules/plugins/user-settings";
 import type { UserId } from "@ryot-app/contract/schema/brands";
 import type { JsonValue } from "@ryot-app/contract/schema/json";
 import type { AppSchema } from "@ryot-app/contract/schema/property-schema";
@@ -17,7 +18,6 @@ import { DatabaseSession } from "#platform/db/session";
 import { PluginCatalogInvalidator } from "../catalog/events";
 import { PluginInstallationRepository } from "../installations/repository";
 import { PluginRepository } from "../packages/repository";
-import { resolvePluginUserSettings } from "./user-settings";
 
 export const PLUGIN_USER_SETTINGS_MAX_BYTES = 64 * 1024;
 
