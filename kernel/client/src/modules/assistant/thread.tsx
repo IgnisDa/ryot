@@ -18,7 +18,6 @@ import {
 	Notice,
 	TextField,
 } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import {
 	type AssistantTranscriptTurn,
 	isActiveAssistantTurn,
@@ -165,7 +164,6 @@ export function AssistantConversation(props: {
 		actions: (
 			<MenuButton
 				label="Conversation actions"
-				icon={<AppIcon size={16} name="more-horizontal" />}
 				items={[
 					{ key: "rename", label: "Rename", onSelect: () => setRenaming(true) },
 					{

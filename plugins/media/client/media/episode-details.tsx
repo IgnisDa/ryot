@@ -93,11 +93,7 @@ export function MediaEpisodeDetails<Episode extends MediaEpisode>(props: {
 							<AppIcon size={15} name="star" />
 							Review
 						</Button>
-						<MenuButton
-							items={[reminders.item]}
-							label="More episode actions"
-							icon={<AppIcon size={16} name="more-horizontal" />}
-						/>
+						<MenuButton items={[reminders.item]} label="More episode actions" />
 					</div>
 					{reminders.error}
 					{props.editable ? (

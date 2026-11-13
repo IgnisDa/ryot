@@ -1,6 +1,5 @@
 import { useBackgroundSubmission } from "@ryot-app/plugin-client-sdk/react";
-import { DestructiveConfirmation, IconButton, MenuButton } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { DestructiveConfirmation, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import { createContext, type RefObject, useContext, useRef, useState } from "react";
 
 import { mediaActivityPatchableKeys } from "../../shared/media-activity-fields";
@@ -61,25 +60,11 @@ export function MediaActivityRowMenu(props: { readonly row: MediaActivityRowBase
 		<>
 			<MenuButton
 				label="Record actions"
+				triggerRef={triggerRef}
 				items={[
 					...(editable ? [{ key: "edit", label: "Edit", onSelect: () => setOpen("edit") }] : []),
 					{ key: "delete", label: "Delete", destructive: true, onSelect: () => setOpen("delete") },
 				]}
-				renderTrigger={(trigger) => (
-					<IconButton
-						size="sm"
-						label="Record actions"
-						onClick={trigger.onClick}
-						aria-haspopup={trigger["aria-haspopup"]}
-						aria-expanded={trigger["aria-expanded"]}
-						ref={(element) => {
-							triggerRef.current = element;
-							trigger.ref(element);
-						}}
-					>
-						<AppIcon size={16} name="more-horizontal" />
-					</IconButton>
-				)}
 			/>
 			{open === "delete" && review !== undefined ? (
 				<DeleteReview onClose={close} triggerRef={triggerRef} eventId={review.event.id} />

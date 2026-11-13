@@ -9,8 +9,7 @@ import {
 	useRyotSchedule,
 	useRyotSubmission,
 } from "@ryot-app/plugin-client-sdk/react";
-import { DestructiveConfirmation, IconButton, MenuButton } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { DestructiveConfirmation, MenuButton } from "@ryot-app/plugin-ui-sdk";
 import { useEffect, useRef, useState } from "react";
 
 import { mediaLibraryMemberEntitySchemaSlugs } from "../../shared/media-schema-slugs";
@@ -215,6 +214,7 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 			<MenuButton
 				label="Your data"
 				disabled={isPicking}
+				triggerRef={triggerRef}
 				items={[
 					reminders.item,
 					...(entitySchemaSlug === undefined
@@ -229,22 +229,6 @@ export function MediaUserDataControl(props: { readonly media: MediaEntitySummary
 								{ key: "merge", onSelect: beginMerge, label: "Merge my data into…" },
 							]),
 				]}
-				renderTrigger={(trigger) => (
-					<IconButton
-						size="sm"
-						label="Your data"
-						disabled={isPicking}
-						onClick={trigger.onClick}
-						aria-haspopup={trigger["aria-haspopup"]}
-						aria-expanded={trigger["aria-expanded"]}
-						ref={(element) => {
-							triggerRef.current = element;
-							trigger.ref(element);
-						}}
-					>
-						<AppIcon size={16} name="more-horizontal" />
-					</IconButton>
-				)}
 			/>
 			{reminders.error}
 			{pickerError === undefined ? null : (

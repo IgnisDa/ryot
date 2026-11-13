@@ -188,7 +188,6 @@ export function ExerciseCard(props: {
 				</IconButton>
 				<MenuButton
 					label={`${name} actions`}
-					icon={<AppIcon size={18} name="more-horizontal" />}
 					items={[
 						...(compact && !template
 							? [{ key: "history", label: "History", onSelect: () => props.onSheet("history") }]

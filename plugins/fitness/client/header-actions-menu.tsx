@@ -1,7 +1,6 @@
 import { Effect } from "@ryot-app/plugin-client-sdk/effect";
 import { createRyotMutation, useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
-import { Button, MenuButton, type MenuItem } from "@ryot-app/plugin-ui-sdk";
-import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
+import { MenuButton, type MenuItem } from "@ryot-app/plugin-ui-sdk";
 
 const manageReminders = createRyotMutation<{ readonly entityId: string }, void>(
 	({ input, client }) => client.screens.manageReminders(input).pipe(Effect.asVoid),
@@ -16,12 +15,8 @@ export function HeaderActionsMenu(props: {
 	return (
 		<>
 			<MenuButton
+				trigger="toolbar"
 				label={props.label}
-				renderTrigger={(trigger) => (
-					<Button {...trigger} variant="secondary" aria-label={props.label}>
-						<AppIcon size={18} name="more-horizontal" />
-					</Button>
-				)}
 				items={[
 					{
 						key: "reminders",

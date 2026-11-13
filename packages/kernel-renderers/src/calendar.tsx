@@ -638,11 +638,11 @@ export default function CalendarPage() {
 				title={name}
 				titleIcon={<AppIcon size={22} name={icon} className="shrink-0 text-text-muted" />}
 				actions={
-					<div className="flex flex-wrap items-center gap-2">
+					<>
 						{todayButton}
 						{monthNavigation}
 						{layoutSwitch}
-					</div>
+					</>
 				}
 				meta={
 					compact ? (
@@ -657,7 +657,7 @@ export default function CalendarPage() {
 						{todayButton}
 						<ScreenBarButton
 							ref={sheetTrigger}
-							className="relative text-text"
+							className="relative"
 							onClick={() => setSheetOpen(true)}
 							label={hiddenCount === 0 ? "Sources" : `Sources, ${hiddenCount} hidden`}
 						>

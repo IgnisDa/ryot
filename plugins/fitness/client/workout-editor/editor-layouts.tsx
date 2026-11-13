@@ -38,8 +38,6 @@ type EditorLayoutProps = {
 	readonly context: typeof WorkoutEditorContextOutputSchema.Type;
 };
 
-const barButtonClass = "text-text hover:bg-surface-2";
-
 export function CompactBarActions(props: {
 	readonly live: boolean;
 	readonly paused: boolean;
@@ -55,22 +53,13 @@ export function CompactBarActions(props: {
 			{props.live ? (
 				<ScreenBarButton
 					disabled={props.locked}
-					className={barButtonClass}
 					onClick={props.onTogglePause}
 					label={props.paused ? "Resume workout" : "Pause workout"}
 				>
 					<AppIcon size={20} name={props.paused ? "play" : "pause"} />
 				</ScreenBarButton>
 			) : null}
-			<MenuButton
-				items={props.menu}
-				label="Workout actions"
-				renderTrigger={(trigger) => (
-					<ScreenBarButton {...trigger} label="Workout actions" className={barButtonClass}>
-						<AppIcon size={20} name="more-horizontal" />
-					</ScreenBarButton>
-				)}
-			/>
+			<MenuButton trigger="bar" items={props.menu} label="Workout actions" />
 			<Button
 				size="sm"
 				className="ml-1"
