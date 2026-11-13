@@ -6,12 +6,8 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer, Result, Schema } from "effect";
 
-import {
-	auditSandboxEsmOutput,
-	buildSandboxEsm,
-	buildSandboxEsmPackage,
-	ViteBuildService,
-} from "./index";
+import { buildSandboxEsm, buildSandboxEsmPackage, ViteBuildService } from "./index";
+import { auditSandboxEsmOutput } from "./sandbox-audit";
 import { FakeViteBuild, fakeViteBuildLayer } from "./vite-build.test-support";
 
 const liveLayer = Layer.mergeAll(BunFileSystem.layer, BunPath.layer, ViteBuildService.layer);

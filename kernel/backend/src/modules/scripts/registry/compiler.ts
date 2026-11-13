@@ -9,7 +9,7 @@ import {
 	CompilerWorkerResponse,
 } from "@ryot-app/plugin-backend-compiler/protocol";
 import { SANDBOX_LIMITS } from "@ryot-app/sandbox/protocol/limits";
-import { getCompilerWorkspaceRoot } from "@ryot-app/vite-compiler";
+import { getCompilerWorkspaceRoot } from "@ryot-app/vite-compiler/workspace";
 import { Context, Effect, FileSystem, Layer, Match, Path, Schema, Semaphore } from "effect";
 
 import {

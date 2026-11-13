@@ -1,4 +1,4 @@
-import { sanitizeEnvironment } from "@ryot-app/vite-compiler";
+import { sanitizeEnvironment } from "@ryot-app/vite-compiler/environment";
 import { Duration, Effect, Fiber, FileSystem, Ref, Result, type Semaphore, Stream } from "effect";
 import { ChildProcess, ChildProcessSpawner } from "effect/process";
 

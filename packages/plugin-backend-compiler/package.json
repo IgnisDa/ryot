@@ -27,6 +27,10 @@
 			"types": "./src/compiler-plugin-manifest.ts",
 			"default": "./src/compiler-plugin-manifest.ts"
 		},
+		"./script-metadata": {
+			"types": "./src/script-metadata.ts",
+			"default": "./src/script-metadata.ts"
+		},
 		"./platform": {
 			"types": "./src/compiler-platform.ts",
 			"default": "./src/compiler-platform.ts"

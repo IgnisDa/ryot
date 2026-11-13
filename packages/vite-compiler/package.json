@@ -6,6 +6,18 @@
 		".": {
 			"types": "./src/index.ts",
 			"default": "./src/index.ts"
+		},
+		"./environment": {
+			"types": "./src/environment.ts",
+			"default": "./src/environment.ts"
+		},
+		"./sandbox-audit": {
+			"types": "./src/sandbox-audit.ts",
+			"default": "./src/sandbox-audit.ts"
+		},
+		"./workspace": {
+			"types": "./src/workspace.ts",
+			"default": "./src/workspace.ts"
 		}
 	},
 	"scripts": {

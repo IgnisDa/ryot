@@ -1,6 +1,6 @@
 import type { PluginManifest } from "@ryot-app/contract/modules/plugins/manifest";
 import type { PluginArchiveCompiledScript } from "@ryot-app/plugin-archive";
-import type { PluginScriptMetadata } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import type { PluginScriptMetadata } from "@ryot-app/plugin-backend-compiler/script-metadata";
 import type { PluginClientArtifact } from "@ryot-app/plugin-client-contract";
 
 export type { PluginScriptMetadata };

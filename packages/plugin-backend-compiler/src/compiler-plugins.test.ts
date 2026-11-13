@@ -8,8 +8,9 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Effect, Schema } from "effect";
 
 import { pluginBackendCompilerPlatformLayer } from "./compiler-platform";
-import { declaredScriptMetadata, derivePluginSandboxScripts } from "./compiler-plugin-manifest";
+import { derivePluginSandboxScripts } from "./compiler-plugin-manifest";
 import { compilePluginSandboxEntries, compilePluginSandboxSourceEntries } from "./compiler-plugins";
+import { declaredScriptMetadata } from "./script-metadata";
 
 const digest = sha256Hex;
 

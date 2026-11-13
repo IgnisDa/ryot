@@ -4,7 +4,7 @@ import { SandboxRunError } from "@ryot-app/contract/errors";
 import { definitionOwner } from "@ryot-app/contract/modules/plugins/references";
 import { EntityId, UserId } from "@ryot-app/contract/schema/brands";
 import { emptySandboxExecutionMetadata } from "@ryot-app/contract/testing";
-import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/script-metadata";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { randomUuid } from "@ryot-app/testing/random";

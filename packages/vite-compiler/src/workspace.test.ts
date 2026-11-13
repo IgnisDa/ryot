@@ -5,13 +5,10 @@ import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { it, layer } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect, Exit, Fiber, FileSystem, Layer, Path, Result } from "effect";
 
-import {
-	acquireCompilerWorkspace,
-	getCompilerWorkspaceRoot,
-	sanitizeEnvironment,
-	validateRelativePath,
-} from "./index";
+import { sanitizeEnvironment } from "./environment";
+import { acquireCompilerWorkspace, validateRelativePath } from "./index";
 import type { CompilerWorkspace, ViteCompilerError, WorkspaceFile } from "./index";
+import { getCompilerWorkspaceRoot } from "./workspace";
 
 const errorReason = <Value>(result: Result.Result<Value, ViteCompilerError>) =>
 	Result.isFailure(result) ? result.failure.reason : undefined;

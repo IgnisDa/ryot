@@ -29,10 +29,8 @@ const build = Effect.gen(function* () {
 			naming: { entry: "[name].[ext]", chunk: "[name]-[hash].[ext]" },
 			define: { "process.env.RYOT_VERSION": version, "process.env.UNKEY_ROOT_KEY": unkeyRootKey },
 			external: [
-				"@ryot-app/plugin-client-compiler",
-				"@ryot-app/plugin-backend-compiler",
-				"@ryot-app/vite-compiler",
-				"@tailwindcss/vite",
+				"@ryot-app/plugin-client-compiler/worker",
+				"@ryot-app/plugin-backend-compiler/worker",
 			],
 			entrypoints: [
 				`${serverRoot}/src/main.ts`,

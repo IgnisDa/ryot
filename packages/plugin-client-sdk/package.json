@@ -67,6 +67,8 @@
 		"@ryot-app/plugin-ui-sdk": "workspace:*",
 		"@ryot-app/ryotql": "workspace:*",
 		"@ryot-app/ryotql-recipes": "workspace:*",
+		"@types/react": "19.3.0",
+		"@types/react-dom": "19.3.0",
 		"effect": "4.1.2",
 		"react": "19.3.1",
 		"react-dom": "19.3.1"
@@ -74,8 +76,6 @@
 	"devDependencies": {
 		"@ryot-app/testing": "workspace:*",
 		"@testing-library/dom": "10.4.2",
-		"@types/react": "19.3.0",
-		"@types/react-dom": "19.3.0",
 		"@voila.dev/effect-bun-test": "4.0.4",
 		"bun-types": "1.4.4",
 		"jsdom": "30.1.3",

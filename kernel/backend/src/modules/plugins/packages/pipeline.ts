@@ -10,7 +10,7 @@ import {
 	type PluginArchiveCompiledScript,
 	type PluginArchiveError,
 } from "@ryot-app/plugin-archive";
-import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/plugin-manifest";
+import { declaredScriptMetadata } from "@ryot-app/plugin-backend-compiler/script-metadata";
 import { SANDBOX_RUNTIME_EXTERNAL_SPECIFIERS } from "@ryot-app/plugin-backend-sdk/imports";
 import {
 	clientArtifactMetadata,
@@ -22,7 +22,7 @@ import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText, encodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { canonicalRelativePosixPathIssue } from "@ryot-app/ts-utils/path";
-import { auditSandboxEsmOutput } from "@ryot-app/vite-compiler";
+import { auditSandboxEsmOutput } from "@ryot-app/vite-compiler/sandbox-audit";
 import { Effect, Match, Result, Schema } from "effect";
 
 import type { ManagedAssetReferenceRejected } from "#lib/domain/managed-asset-writes";

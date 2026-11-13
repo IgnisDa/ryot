@@ -1,15 +1,11 @@
 import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { decodeExecutableText } from "@ryot-app/ts-utils/executable-text";
 import type { TypeScriptProjectConfiguration } from "@ryot-app/typescript-compiler";
-import {
-	inspectJavaScriptReferences,
-	literalString,
-} from "@ryot-app/typescript-compiler/javascript-references";
-import { Effect, FileSystem, Path, Result } from "effect";
+import { Effect, FileSystem, Path } from "effect";
 import type { InlineConfig } from "vite";
 
-import { viteCompilerError } from "./error";
-import type { ViteCompilerError, ViteDiagnostic } from "./error";
+import type { ViteDiagnostic } from "./error";
+import { auditSandboxEsmOutput, invalidSandboxOutput } from "./sandbox-audit";
 import { buildWithVite } from "./vite";
 import { acquireCompilerWorkspace, validateRelativePath } from "./workspace";
 import type { CompilerWorkspace, CompilerWorkspaceOptions, WorkspaceFile } from "./workspace";
@@ -64,87 +60,6 @@ const typeScriptProject = {
 		moduleResolution: "Bundler",
 	},
 } satisfies TypeScriptProjectConfiguration;
-
-const forbiddenImportPattern = /^(?:node:|bun:|https?:|npm:|jsr:)/;
-const forbiddenViteIdentifiers = new Set([
-	"__vitePreload",
-	"__vite__mapDeps",
-	"__vite_browser_external",
-]);
-
-const diagnosticError = (message: string) =>
-	viteCompilerError("invalid-output", message, undefined, [{ message, severity: "error" }]);
-
-export const auditSandboxEsmOutput = (
-	javascript: string,
-	approvedExternalSpecifiers: ReadonlySet<string>,
-	approvedDynamicImportExpressions: ReadonlySet<string> = new Set(),
-): Result.Result<readonly string[], ViteCompilerError> => {
-	let forbiddenHelper: string | undefined;
-	let references: ReturnType<typeof inspectJavaScriptReferences>;
-	try {
-		references = inspectJavaScriptReferences(javascript, (node) => {
-			if (node.type === "Identifier") {
-				const name = typeof node.name === "string" ? node.name : undefined;
-				if (name === "Bun" || (name && forbiddenViteIdentifiers.has(name))) {
-					forbiddenHelper ??= name;
-				}
-			} else if (node.type === "CallExpression") {
-				const { callee } = node;
-				if (
-					callee.type === "Identifier" &&
-					(callee.name === "require" || callee.name === "__require")
-				) {
-					forbiddenHelper ??= callee.name;
-				} else if (
-					callee.type === "MemberExpression" &&
-					!callee.computed &&
-					callee.object.type === "Identifier" &&
-					callee.object.name === "document" &&
-					callee.property.type === "Identifier" &&
-					callee.property.name === "getElementsByTagName"
-				) {
-					forbiddenHelper ??= "document.getElementsByTagName";
-				}
-			} else if (
-				node.type === "NewExpression" &&
-				node.callee.type === "Identifier" &&
-				node.callee.name === "Event" &&
-				node.arguments[0] &&
-				literalString(node.arguments[0]) === "vite:preloadError"
-			) {
-				forbiddenHelper ??= "vite:preloadError Event";
-			}
-		});
-	} catch (cause) {
-		return Result.fail(diagnosticError(`Sandbox ESM output could not be parsed: ${String(cause)}`));
-	}
-	if (forbiddenHelper) {
-		return Result.fail(
-			diagnosticError(`Sandbox ESM output contains a forbidden runtime helper: ${forbiddenHelper}`),
-		);
-	}
-	if (
-		references.dynamicExpressions.some(
-			(expression) => !approvedDynamicImportExpressions.has(expression),
-		)
-	) {
-		return Result.fail(diagnosticError("Sandbox ESM output contains a non-literal dynamic import"));
-	}
-	for (const specifier of references.imports) {
-		if (forbiddenImportPattern.test(specifier)) {
-			return Result.fail(
-				diagnosticError(`Sandbox ESM output contains a forbidden runtime import: ${specifier}`),
-			);
-		}
-		if (!approvedExternalSpecifiers.has(specifier)) {
-			return Result.fail(
-				diagnosticError(`Sandbox ESM output contains an unapproved external import: ${specifier}`),
-			);
-		}
-	}
-	return Result.succeed([...new Set(references.imports)].sort());
-};
 
 const externalSourcePath = (path: Path.Path, source: string, absolute: string) => {
 	const normalized = absolute.split(path.sep).join("/");
@@ -237,7 +152,7 @@ const buildStagedEntry = Effect.fn("buildSandboxEsmEntry")(function* (
 		generated: fs.realPath(workspace.generatedPath),
 	}).pipe(
 		Effect.mapError((cause) =>
-			diagnosticError(`Could not resolve compiler workspace: ${String(cause)}`),
+			invalidSandboxOutput(`Could not resolve compiler workspace: ${String(cause)}`),
 		),
 	);
 	const result = yield* buildWithVite({
@@ -259,11 +174,11 @@ const buildStagedEntry = Effect.fn("buildSandboxEsmEntry")(function* (
 	});
 	const output = result.files[0];
 	if (result.files.length !== 1 || output?.path !== options.outputFile) {
-		return yield* diagnosticError(`Vite did not emit exactly ${options.outputFile}`);
+		return yield* invalidSandboxOutput(`Vite did not emit exactly ${options.outputFile}`);
 	}
 	const decoded = yield* Effect.try({
 		try: () => decodeExecutableText(output.bytes),
-		catch: () => diagnosticError("Vite emitted JavaScript that is not valid UTF-8"),
+		catch: () => invalidSandboxOutput("Vite emitted JavaScript that is not valid UTF-8"),
 	});
 	const javascript = decoded
 		.replace(
