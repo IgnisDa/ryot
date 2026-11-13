@@ -2,6 +2,7 @@ import { expect } from "bun:test";
 
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import type {
+	AnswerAssistantQuestionBody,
 	AssistantToolCall,
 	DecideAssistantToolCallBody,
 	InterruptAssistantTurnBody,
@@ -37,6 +38,7 @@ import { AssistantComposer, useAssistantSubmit } from "./composer";
 import { AssistantPageSave } from "./page-draft";
 import { assistantStarters, stepDetail } from "./presentation";
 import { AssistantProviderForm } from "./provider";
+import { AssistantQuestion } from "./question";
 import { assistantFailureText } from "./service";
 import { AssistantTurn } from "./turn";
 
@@ -505,6 +507,79 @@ it.live("offers starters from visible plugins and labels search steps by their t
 			}),
 		).toBe("ryot/media");
 	}),
+);
+
+it.live(
+	"answers a question with chosen options and its own words",
+	() =>
+		Effect.gen(function* () {
+			const answers: AnswerAssistantQuestionBody[] = [];
+			const asked: AssistantToolCall = {
+				kind: "tool",
+				tool: "question",
+				modelCallId: "model",
+				requiresApproval: false,
+				id: AssistantToolCallId.make("ask"),
+				arguments: {},
+			};
+			const view = mountHostedTestScreen(
+				<AssistantQuestion
+					disabled={false}
+					conversationId={conversationId}
+					entry={{
+						id: "ask",
+						answers: null,
+						state: "pending",
+						kind: "question",
+						call: { ...record, call: asked, id: asked.id },
+						questions: [
+							{ question: "Which charts?", multiple: true, options: ["Weight", "Steps"] },
+							{ question: "What title?" },
+						],
+					}}
+				/>,
+				{
+					query: empty,
+					layer: makeAssistantApi({
+						answer: (_scope, request) =>
+							Effect.sync(() => {
+								answers.push(request.payload);
+								return { turnId, conversationId };
+							}),
+					}),
+				},
+			);
+			try {
+				const send = yield* Effect.promise(() =>
+					screen.findByRole("button", { name: "Send answers" }),
+				);
+				fireEvent.click(screen.getByLabelText("Weight"));
+				fireEvent.click(screen.getByLabelText("Steps"));
+				fireEvent.change(screen.getByRole("textbox", { name: "Which charts?" }), {
+					target: { value: "and sleep" },
+				});
+				expect(send.hasAttribute("disabled")).toBe(true);
+				fireEvent.change(screen.getByRole("textbox", { name: "What title?" }), {
+					target: { value: "Health" },
+				});
+				fireEvent.click(send);
+				yield* Effect.promise(() =>
+					waitFor(() =>
+						expect(answers).toEqual([
+							{
+								turnId,
+								conversationId,
+								toolCallId: asked.id,
+								answers: ["Weight, Steps, and sleep", "Health"],
+							},
+						]),
+					),
+				);
+			} finally {
+				yield* Effect.promise(view.dispose);
+			}
+		}),
+	testTimeout,
 );
 
 it.live("names typed provider, stale approval and demo failures", () =>

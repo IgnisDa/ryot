@@ -68,6 +68,13 @@ export const AssistantGroup = HttpApiGroup.make("assistant")
 		}).annotate(OpenApi.Description, "Persist an approval decision and wake the waiting turn."),
 	)
 	.add(
+		AuthenticatedMutationEndpoint.post("demo-write")("answer", "/assistant/answers", {
+			success: S.SubmitAssistantTurnResult,
+			payload: S.AnswerAssistantQuestionBody,
+			error: [S.AssistantError.pipe(HttpApiSchema.status(400))],
+		}).annotate(OpenApi.Description, "Answer the assistant's pending question and wake the turn."),
+	)
+	.add(
 		AuthenticatedMutationEndpoint.put("write")("configureProvider", "/assistant/provider", {
 			success: Schema.Void,
 			payload: S.ConfigureAssistantProviderBody,

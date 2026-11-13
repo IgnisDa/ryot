@@ -1,6 +1,8 @@
-import type {
-	AssistantLocalToolName,
-	AssistantToolCall,
+import {
+	type AssistantLocalToolName,
+	AssistantQuestionInput,
+	AssistantTodoInput,
+	type AssistantToolCall,
 } from "@ryot-app/contract/modules/assistant/schemas";
 import { agentTools, toAgentJsonSchema } from "@ryot-app/contract/schema/agent-tool";
 import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
@@ -36,6 +38,20 @@ export const assistantLocalTools: {
 		input: toAgentJsonSchema(ReadResultInput),
 		description:
 			"Read a tool output that was too large to show in full. Give the outputId from its preview. Without a pattern it returns numbered lines from offset (1-based, default 1), up to limit lines (default and maximum 2000). With a pattern (a case-insensitive regular expression) it returns up to 200 matching numbered lines.",
+	},
+	todo: {
+		readOnly: true,
+		name: "todo",
+		input: toAgentJsonSchema(AssistantTodoInput),
+		description:
+			"Show the user your plan for multi-step work as a checklist. Send the whole list each time, marking one item in_progress while you work on it and items completed as soon as they are done. Skip it for simple requests.",
+	},
+	question: {
+		readOnly: false,
+		name: "question",
+		input: toAgentJsonSchema(AssistantQuestionInput),
+		description:
+			"Ask the user up to 4 questions and wait for their answers, when a choice only they can make blocks the work. Offer options when the likely answers are known; set multiple when several may apply. The user can always answer in their own words. Do not ask what you can find out with tools.",
 	},
 };
 
@@ -131,7 +147,7 @@ const runsConcurrently = (call: AssistantToolCall) => {
 	if (call.kind !== "tool" || call.requiresApproval) {
 		return false;
 	}
-	if (call.tool === "read_result") {
+	if (call.tool === "read_result" || call.tool === "todo" || call.tool === "question") {
 		return assistantLocalTools[call.tool].readOnly;
 	}
 	const tool = agentTools[call.tool];

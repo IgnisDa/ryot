@@ -14,6 +14,8 @@ export class AssistantApi extends Context.Service<AssistantApi>()(
 					api.run(scope, (client) => client.assistant.submit(request)),
 				decide: (scope: ApiScope, request: ContractRequest<"assistant", "decide">) =>
 					api.run(scope, (client) => client.assistant.decide(request)),
+				answer: (scope: ApiScope, request: ContractRequest<"assistant", "answer">) =>
+					api.run(scope, (client) => client.assistant.answer(request)),
 				savePage: (scope: ApiScope, request: ContractRequest<"assistant", "savePage">) =>
 					api.run(scope, (client) => client.assistant.savePage(request)),
 				interrupt: (scope: ApiScope, request: ContractRequest<"assistant", "interrupt">) =>

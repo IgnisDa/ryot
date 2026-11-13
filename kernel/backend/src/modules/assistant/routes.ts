@@ -82,6 +82,11 @@ export const AssistantRoutesLive = HttpApiBuilder.group(AppContract, "assistant"
 				return yield* command((yield* AssistantService).decide((yield* CurrentUser).id, payload));
 			}),
 		)
+		.handle("answer", ({ payload }) =>
+			Effect.gen(function* () {
+				return yield* command((yield* AssistantService).answer((yield* CurrentUser).id, payload));
+			}),
+		)
 		.handle("providerMetadata", () =>
 			Effect.gen(function* () {
 				return yield* (yield* AssistantProviderConfiguration)

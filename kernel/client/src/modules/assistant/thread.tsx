@@ -136,11 +136,14 @@ export function AssistantConversation(props: {
 			}
 		/>
 	);
-	if (latest?.status === "awaiting-approval") {
+	if (latest?.status === "awaiting-approval" || latest?.status === "awaiting-input") {
 		dock = (
 			<div className="mx-auto flex w-full max-w-2xl items-center gap-3 rounded-xl border border-dashed border-border-strong bg-surface px-4 py-3 text-label text-text-muted">
 				<span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-warning" />
-				<span className="flex-1">{ASSISTANT_NAME} is waiting for your decision.</span>
+				<span className="flex-1">
+					{ASSISTANT_NAME} is waiting for your{" "}
+					{latest.status === "awaiting-input" ? "answer" : "decision"}.
+				</span>
 				<Button
 					size="sm"
 					variant="secondary"

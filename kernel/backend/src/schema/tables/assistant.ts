@@ -67,10 +67,10 @@ export const assistantTurn = snakeCase.table(
 		index("assistant_turn_conversation_created_idx").on(t.conversationId, t.createdAt),
 		uniqueIndex("assistant_turn_active_unique")
 			.on(t.conversationId)
-			.where(sql`${t.status} in ('queued', 'running', 'awaiting-approval')`),
+			.where(sql`${t.status} in ('queued', 'running', 'awaiting-approval', 'awaiting-input')`),
 		check(
 			"assistant_turn_status",
-			sql`${t.status} in ('queued', 'running', 'awaiting-approval', 'completed', 'failed', 'interrupted')`,
+			sql`${t.status} in ('queued', 'running', 'awaiting-approval', 'awaiting-input', 'completed', 'failed', 'interrupted')`,
 		),
 	],
 );

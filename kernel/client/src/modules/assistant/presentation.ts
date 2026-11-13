@@ -20,6 +20,8 @@ const toolLabels = {
 	page_write: { detail: "name", done: "Wrote a page draft", running: "Writing a page draft" },
 	search: { detail: "query", done: "Searched capabilities", running: "Searching capabilities" },
 	read_result: { detail: "pattern", done: "Read stored output", running: "Reading stored output" },
+	todo: { detail: null, done: "Updated the plan", running: "Updating the plan" },
+	question: { detail: null, done: "Asked a question", running: "Asking a question" },
 } as const satisfies Record<
 	AssistantToolName,
 	{ readonly done: string; readonly running: string; readonly detail: null | string }

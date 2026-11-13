@@ -78,6 +78,9 @@ export const submitMutation = assistantMutation((api, scope, payload: AssistantP
 export const decideMutation = assistantMutation((api, scope, payload: AssistantPayload<"decide">) =>
 	api.decide(scope, { payload }),
 );
+export const answerMutation = assistantMutation((api, scope, payload: AssistantPayload<"answer">) =>
+	api.answer(scope, { payload }),
+);
 export const interruptMutation = assistantMutation(
 	(api, scope, payload: AssistantPayload<"interrupt">) => api.interrupt(scope, { payload }),
 );
@@ -116,6 +119,9 @@ export const assistantFailureText = (error: unknown): string => {
 		reason === "decision-conflict"
 	) {
 		return "This request changed. Refresh the conversation and try again.";
+	}
+	if (reason === "answer-invalid") {
+		return "Answer every question to continue.";
 	}
 	if (reason === "conversation-active") {
 		return `Wait for ${ASSISTANT_NAME} to finish or review its pending requests.`;

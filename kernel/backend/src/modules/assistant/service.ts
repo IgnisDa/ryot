@@ -1,5 +1,6 @@
 import { DemoOperationProtected } from "@ryot-app/contract/auth-middleware";
 import {
+	type AnswerAssistantQuestionBody,
 	type AssistantApprovalDecision,
 	AssistantError,
 	type DecideAssistantToolCallBody,
@@ -68,7 +69,7 @@ export const makeAssistantService = Effect.fn(function* (
 					),
 				),
 		);
-		if (["queued", "running", "awaiting-approval"].includes(turn.status)) {
+		if (["queued", "running", "awaiting-approval", "awaiting-input"].includes(turn.status)) {
 			yield* start(userId, turn.id);
 		}
 		return {
@@ -146,6 +147,30 @@ export const makeAssistantService = Effect.fn(function* (
 		yield* wake(userId, input.turnId, input.toolCallId, input.decision);
 		return { turnId: input.turnId, conversationId: input.conversationId };
 	});
+	const answer = Effect.fn("AssistantService.answer")(function* (
+		userId: UserId,
+		input: AnswerAssistantQuestionBody,
+	) {
+		yield* transact(
+			userId,
+			Effect.gen(function* () {
+				yield* repository.answer(userId, input);
+				const state = yield* repository.loadTurn(userId, input.turnId);
+				if (!state) {
+					return yield* new AssistantError({ reason: { code: "turn-not-found" } });
+				}
+				yield* publishAssistantUpdated(
+					userId,
+					input.conversationId,
+					input.turnId,
+					state.turn.revision,
+				).pipe(Effect.provideService(DatabaseSession, session));
+				return undefined;
+			}),
+		);
+		yield* wake(userId, input.turnId, input.toolCallId, "approve");
+		return { turnId: input.turnId, conversationId: input.conversationId };
+	});
 	const recover = Effect.fn("AssistantService.recover")(function* () {
 		for (const turn of yield* repository.recoverableTurns) {
 			const userId = UserId.make(turn.userId);
@@ -158,6 +183,7 @@ export const makeAssistantService = Effect.fn(function* (
 	return {
 		submit,
 		decide,
+		answer,
 		recover,
 		interrupt,
 		deleteConversation: (userId: UserId, conversationId: string) =>

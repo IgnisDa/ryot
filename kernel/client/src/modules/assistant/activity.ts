@@ -8,7 +8,9 @@ import type { AssistantMood } from "./sprite";
 
 export const useAssistantActivity = () => {
 	const conversations = useRyotQuery(activityQuery, { arguments: {} }).data?.items ?? [];
-	const attention = conversations.filter(({ status }) => status === "awaiting-approval");
+	const attention = conversations.filter(
+		({ status }) => status === "awaiting-approval" || status === "awaiting-input",
+	);
 	let mood: AssistantMood = "idle";
 	if (attention.length > 0) {
 		mood = "waiting";
@@ -34,7 +36,7 @@ export const assistantAttentionEntries = (options: {
 			tone: "warning",
 			source: ASSISTANT_NAME,
 			title: conversation.title,
-			status: "Needs your approval",
+			status: conversation.status === "awaiting-input" ? "Needs your answer" : "Needs your approval",
 			id: `assistant:${conversation.id}`,
 			onDismiss: () => options.onDismiss(conversation.id),
 			action: { label: "Review", onClick: () => options.onReview(conversation.id) },

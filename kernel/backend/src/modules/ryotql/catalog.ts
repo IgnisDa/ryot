@@ -785,6 +785,7 @@ const assistantConversation: TableBinding<"assistantConversation"> = {
 					when 'queued' then 'working'
 					when 'running' then 'working'
 					when 'awaiting-approval' then 'awaiting-approval'
+					when 'awaiting-input' then 'awaiting-input'
 					when 'failed' then 'failed'
 					else 'idle' end
 				from assistant_turn latest

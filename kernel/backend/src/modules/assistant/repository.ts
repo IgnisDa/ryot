@@ -1,7 +1,9 @@
 import {
+	type AnswerAssistantQuestionBody,
 	ASSISTANT_CONVERSATION_TITLE_MAX_LENGTH,
 	type AssistantApprovalDecision,
 	AssistantError,
+	AssistantQuestionInput,
 	AssistantMessagePart,
 	AssistantToolCall,
 	AssistantTurnFailure,
@@ -11,9 +13,11 @@ import type { UserId } from "@ryot-app/contract/schema/brands";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { generateId } from "better-auth";
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Schema } from "effect";
 
 import { DatabaseSession } from "#platform/db/session";
+import { truncateJsonResult } from "#platform/tool-result";
 import {
 	assistantConversation as conversations,
 	assistantMessage as messages,
@@ -22,7 +26,26 @@ import {
 	assistantTurn as turns,
 } from "#schema/tables/assistant";
 
-const activeStatuses: readonly AssistantTurnStatus[] = ["queued", "running", "awaiting-approval"];
+const activeStatuses: readonly AssistantTurnStatus[] = [
+	"queued",
+	"running",
+	"awaiting-approval",
+	"awaiting-input",
+];
+const isQuestion = (call: AssistantToolCall) => call.kind === "tool" && call.tool === "question";
+const pendingStatus = (
+	pending: ReadonlyArray<{
+		readonly call: AssistantToolCall;
+		readonly result: null | AgentToolResult;
+		readonly decision: null | AssistantApprovalDecision;
+	}>,
+) => {
+	const unfinished = pending.filter((item) => item.result === null);
+	if (unfinished.some((item) => item.call.requiresApproval && item.decision === null)) {
+		return "awaiting-approval" as const;
+	}
+	return unfinished.some((item) => isQuestion(item.call)) ? "awaiting-input" : "running";
+};
 const interruptedResult: AgentToolResult = { truncated: false, value: { interrupted: true } };
 const fail = (code: AssistantError["reason"]["code"]) => new AssistantError({ reason: { code } });
 export const conversationTitle = (text: string) => {
@@ -149,13 +172,7 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				const pending = yield* session.run((db) =>
 					db.select().from(calls).where(eq(calls.turnId, turnId)),
 				);
-				return yield* bumpTurn(turnId, {
-					status: pending.some(
-						(item) => item.result === null && item.call.requiresApproval && item.decision === null,
-					)
-						? "awaiting-approval"
-						: "running",
-				});
+				return yield* bumpTurn(turnId, { status: pendingStatus(pending) });
 			});
 			const renameConversation = Effect.fn("AssistantRepository.renameConversation")(function* (
 				userId: UserId,
@@ -324,7 +341,10 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				return {
 					turn: updated,
 					awaitingDecision: unfinished
-						.filter((item) => item.call.requiresApproval && item.decision === null)
+						.filter(
+							(item) =>
+								(item.call.requiresApproval && item.decision === null) || isQuestion(item.call),
+						)
 						.map((item) => item.id),
 				};
 			});
@@ -447,7 +467,9 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				]);
 				const updated = yield* bumpTurn(turnId, {
 					round,
-					status: toolCalls.some((call) => call.requiresApproval) ? "awaiting-approval" : "running",
+					status: pendingStatus(
+						toolCalls.map((call) => ({ call, result: null, decision: null })),
+					),
 				});
 				return updated;
 			});
@@ -515,6 +537,63 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 				]);
 				yield* bumpTurn(input.turnId, {});
 				return updated;
+			});
+			const answer = Effect.fn("AssistantRepository.answer")(function* (
+				userId: UserId,
+				input: AnswerAssistantQuestionBody,
+			) {
+				yield* lockConversation(userId, input.conversationId);
+				const [call] = yield* session.run((db) =>
+					db
+						.select()
+						.from(calls)
+						.where(
+							and(
+								eq(calls.id, input.toolCallId),
+								eq(calls.turnId, input.turnId),
+								eq(calls.userId, userId),
+								eq(calls.conversationId, input.conversationId),
+							),
+						)
+						.for("update"),
+				);
+				if (!call || !isQuestion(call.call)) {
+					return yield* fail("tool-call-not-found");
+				}
+				const asked = yield* Schema.decodeUnknownEffect(AssistantQuestionInput)(
+					call.call.arguments,
+				).pipe(Effect.mapError(() => fail("answer-invalid")));
+				if (asked.questions.length !== input.answers.length) {
+					return yield* fail("answer-invalid");
+				}
+				const result = truncateJsonResult({
+					answers: asked.questions.map(({ question }, index) => ({
+						question,
+						answer: input.answers[index] ?? "",
+					})),
+				});
+				if (call.result !== null) {
+					return stableStringify(call.result) === stableStringify(result)
+						? undefined
+						: yield* fail("decision-conflict");
+				}
+				const [turn] = yield* session.run((db) =>
+					db.select().from(turns).where(eq(turns.id, input.turnId)),
+				);
+				if (turn?.status !== "awaiting-input") {
+					return yield* fail("turn-not-active");
+				}
+				yield* session.run((db) =>
+					db
+						.update(calls)
+						.set({ result, completedAt: sql`now()`, revision: call.revision + 1 })
+						.where(eq(calls.id, call.id)),
+				);
+				yield* appendMessage(userId, input.conversationId, input.turnId, "tool", [
+					{ result, kind: "tool-result", toolCallId: call.call.id },
+				]);
+				yield* refreshStatus(input.turnId);
+				return undefined;
 			});
 			const recordResult = Effect.fn("AssistantRepository.recordResult")(function* (
 				userId: UserId,
@@ -766,6 +845,7 @@ export class AssistantRepository extends Context.Service<AssistantRepository>()(
 			return {
 				submit,
 				decide,
+				answer,
 				loadTurn,
 				interrupt,
 				transition,

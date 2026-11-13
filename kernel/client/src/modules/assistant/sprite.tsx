@@ -22,6 +22,7 @@ const conversationMoods: Record<AssistantConversationStatus, AssistantMood> = {
 	failed: "oops",
 	working: "working",
 	"awaiting-approval": "waiting",
+	"awaiting-input": "waiting",
 };
 
 export const conversationMood = (status: AssistantConversationStatus) => conversationMoods[status];
@@ -30,7 +31,7 @@ export const turnMood = (turn: undefined | AssistantTranscriptTurn): AssistantMo
 	if (turn === undefined) {
 		return "idle";
 	}
-	if (turn.status === "awaiting-approval") {
+	if (turn.status === "awaiting-approval" || turn.status === "awaiting-input") {
 		return "waiting";
 	}
 	if (turn.status === "failed") {

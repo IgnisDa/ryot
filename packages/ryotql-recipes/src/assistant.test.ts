@@ -174,4 +174,59 @@ describe("projectAssistantTurn", () => {
 		expect(projected.partial).toBe(true);
 		expect(projected.entries).toEqual([]);
 	});
+
+	it("shows only the latest plan and question answers by state", () => {
+		const local = (id: string, name: "todo" | "question", input: JsonValue): AssistantToolCall => ({
+			tool: name,
+			kind: "tool",
+			arguments: input,
+			modelCallId: `model-${id}`,
+			requiresApproval: false,
+			id: AssistantToolCallId.make(id),
+		});
+		const firstPlan = local("plan-1", "todo", { items: [{ content: "Look", status: "pending" }] });
+		const items = [{ content: "Look", status: "completed" }] as const;
+		const latestPlan = local("plan-2", "todo", { items });
+		const questions = [{ question: "Which layout?", options: ["Grid", "List"] }];
+		const asked = local("ask", "question", { questions });
+		const parts: AssistantMessagePart[] = [firstPlan, latestPlan, asked].map((call) => ({
+			call,
+			kind: "tool-call",
+		}));
+		const project = (status: AssistantTurnRecord["status"], answer: null | AgentToolResult) =>
+			projectAssistantTurn(
+				turn(
+					status,
+					[message("calls", "assistant", parts)],
+					[
+						record(firstPlan, ok({ updated: true })),
+						record(latestPlan, ok({ updated: true })),
+						record(asked, answer),
+					],
+				),
+			).entries.map((entry) => {
+				if (entry.kind !== "question") {
+					return entry;
+				}
+				const { call: _call, ...shown } = entry;
+				return shown;
+			});
+		expect(project("awaiting-input", null)).toEqual([
+			{ items, id: "plan-2", kind: "todo" },
+			{ questions, id: "ask", answers: null, kind: "question", state: "pending" },
+		]);
+		expect(
+			project("completed", ok({ answers: [{ question: "Which layout?", answer: "Grid" }] }))[1],
+		).toEqual({
+			questions,
+			id: "ask",
+			answers: ["Grid"],
+			kind: "question",
+			state: "answered",
+		});
+		expect(project("interrupted", ok({ interrupted: true }))[1]).toMatchObject({
+			answers: null,
+			state: "expired",
+		});
+	});
 });

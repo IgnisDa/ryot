@@ -13,9 +13,11 @@ import { Effect } from "effect";
 
 import { AssistantApproval } from "./approval";
 import { AssistantPageDraft } from "./page-draft";
+import { AssistantQuestion } from "./question";
 import { ASSISTANT_NAME, stepTitle, turnFailureText, workedFor } from "./presentation";
 import { AssistantSprite } from "./sprite";
 import { AssistantSteps } from "./steps";
+import { AssistantTodo } from "./todo";
 
 const plural = (count: number) => `${count} ${count === 1 ? "step" : "steps"}`;
 
@@ -31,7 +33,8 @@ export function AssistantTurn(props: {
 	const groups = turn.entries.filter((entry) => entry.kind === "steps").length;
 	const worked = workedFor(turn);
 	const last = turn.entries.at(-1);
-	const working = active && turn.status !== "awaiting-approval";
+	const working =
+		active && turn.status !== "awaiting-approval" && turn.status !== "awaiting-input";
 	const entry = (item: AssistantTranscriptEntry) => {
 		if (item.kind === "reply") {
 			return (
@@ -61,6 +64,19 @@ export function AssistantTurn(props: {
 				<p key={item.id} role="separator" className="text-center text-label text-text-subtle">
 					Earlier context summarized
 				</p>
+			);
+		}
+		if (item.kind === "todo") {
+			return <AssistantTodo key={item.id} items={item.items} />;
+		}
+		if (item.kind === "question") {
+			return (
+				<AssistantQuestion
+					entry={item}
+					key={item.id}
+					disabled={props.disabled}
+					conversationId={props.conversationId}
+				/>
 			);
 		}
 		if (item.kind === "approval") {

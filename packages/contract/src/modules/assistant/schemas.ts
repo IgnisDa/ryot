@@ -18,6 +18,7 @@ export const AssistantTurnStatus = Schema.Literals([
 	"queued",
 	"running",
 	"awaiting-approval",
+	"awaiting-input",
 	"completed",
 	"failed",
 	"interrupted",
@@ -25,7 +26,7 @@ export const AssistantTurnStatus = Schema.Literals([
 export type AssistantTurnStatus = typeof AssistantTurnStatus.Type;
 export const AssistantApprovalDecision = Schema.Literals(["approve", "decline"]);
 export type AssistantApprovalDecision = typeof AssistantApprovalDecision.Type;
-export const AssistantLocalToolName = Schema.Literals(["read_result"]);
+export const AssistantLocalToolName = Schema.Literals(["read_result", "todo", "question"]);
 export type AssistantLocalToolName = typeof AssistantLocalToolName.Type;
 export const AssistantToolName = Schema.Union([AgentToolName, AssistantLocalToolName]);
 export type AssistantToolName = typeof AssistantToolName.Type;
@@ -83,6 +84,7 @@ export const AssistantConversationStatus = Schema.Literals([
 	"idle",
 	"working",
 	"awaiting-approval",
+	"awaiting-input",
 	"failed",
 ]);
 export type AssistantConversationStatus = typeof AssistantConversationStatus.Type;
@@ -165,6 +167,29 @@ export const DecideAssistantToolCallBody = strictStruct({
 	decision: AssistantApprovalDecision,
 	expectedRevision: Schema.Int.check(Schema.isGreaterThan(0)),
 });
+export const AnswerAssistantQuestionBody = strictStruct({
+	...SubmitAssistantTurnResult.fields,
+	toolCallId: AssistantToolCallId,
+	answers: Schema.Array(Schema.Trim.check(Schema.isMinLength(1))),
+});
+export const AssistantTodoInput = strictStruct({
+	items: Schema.Array(
+		strictStruct({
+			content: Schema.NonEmptyString,
+			status: Schema.Literals(["pending", "in_progress", "completed"]),
+		}),
+	),
+});
+export const ASSISTANT_QUESTION_MAX_COUNT = 4;
+export const AssistantQuestionInput = strictStruct({
+	questions: Schema.Array(
+		strictStruct({
+			question: Schema.NonEmptyString,
+			multiple: Schema.optional(Schema.NullOr(Schema.Boolean)),
+			options: Schema.optional(Schema.NullOr(Schema.Array(Schema.NonEmptyString))),
+		}),
+	).check(Schema.isMinLength(1), Schema.isMaxLength(ASSISTANT_QUESTION_MAX_COUNT)),
+});
 export const ConfigureAssistantProviderBody = strictStruct({
 	baseUrl: HttpUrl,
 	model: Schema.NonEmptyString,
@@ -196,6 +221,9 @@ export type SubmitAssistantTurnResult = typeof SubmitAssistantTurnResult.Type;
 export type InterruptAssistantTurnBody = typeof InterruptAssistantTurnBody.Type;
 export type AssistantConversationResult = typeof AssistantConversationResult.Type;
 export type DecideAssistantToolCallBody = typeof DecideAssistantToolCallBody.Type;
+export type AnswerAssistantQuestionBody = typeof AnswerAssistantQuestionBody.Type;
+export type AssistantQuestionInput = typeof AssistantQuestionInput.Type;
+export type AssistantTodoInput = typeof AssistantTodoInput.Type;
 export type ConfigureAssistantProviderBody = typeof ConfigureAssistantProviderBody.Type;
 export type RenameAssistantConversationBody = typeof RenameAssistantConversationBody.Type;
 export class AssistantError extends Schema.TaggedError<
@@ -211,6 +239,7 @@ export class AssistantError extends Schema.TaggedError<
 			"revision-stale",
 			"tool-call-not-found",
 			"decision-conflict",
+			"answer-invalid",
 			"turn-not-active",
 			"provider-unavailable",
 			"page-preview-not-found",

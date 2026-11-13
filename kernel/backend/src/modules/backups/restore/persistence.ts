@@ -185,7 +185,8 @@ export class BackupRestorePersistence extends Context.Service<BackupRestorePersi
 						const active =
 							record.status === "queued" ||
 							record.status === "running" ||
-							record.status === "awaiting-approval";
+							record.status === "awaiting-approval" ||
+							record.status === "awaiting-input";
 						yield* session.run((db) =>
 							db
 								.insert(assistantTables.assistantTurn)

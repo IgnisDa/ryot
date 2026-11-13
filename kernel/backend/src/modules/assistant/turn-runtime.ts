@@ -3,7 +3,9 @@ import {
 	AssistantLocalToolName,
 	type AssistantMessage,
 	type AssistantMessagePart,
+	AssistantQuestionInput,
 	AssistantReasoningField,
+	AssistantTodoInput,
 	AssistantToolCall,
 	AssistantToolName,
 	type AssistantTurnFailure,
@@ -484,7 +486,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	});
 	const isActive = Effect.fn(function* (payload: AssistantTurnPayload) {
 		const state = yield* load(payload);
-		return ["queued", "running", "awaiting-approval"].includes(state.turn.status);
+		return ["queued", "running", "awaiting-approval", "awaiting-input"].includes(state.turn.status);
 	});
 
 	const decision = Effect.fn("AssistantTurnRuntime.decision")(function* (
@@ -496,9 +498,10 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		if (!call) {
 			return yield* new AssistantError({ reason: { code: "tool-call-not-found" } });
 		}
-		return ["failed", "completed", "interrupted"].includes(state.turn.status)
-			? "decline"
-			: call.decision;
+		if (["failed", "completed", "interrupted"].includes(state.turn.status)) {
+			return "decline";
+		}
+		return call.decision ?? (call.result === null ? null : "approve");
 	});
 	const gate = (payload: AssistantTurnPayload, parentId: AssistantToolCallId): WriteGate => {
 		const childId = (index: number) => AssistantToolCallId.make(`${parentId}:write:${index}`);
@@ -603,7 +606,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		if (
 			call.kind !== "tool" ||
 			stored.result !== null ||
-			!["queued", "running", "awaiting-approval"].includes(state.turn.status)
+			!["queued", "running", "awaiting-approval", "awaiting-input"].includes(state.turn.status)
 		) {
 			return null;
 		}
@@ -617,6 +620,17 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			result = truncateJsonResult({ declined: true });
 		} else if (call.tool === "read_result") {
 			result = yield* readResult(payload, state.turn.conversationId, call.arguments);
+		} else if (call.tool === "todo") {
+			result = Schema.is(AssistantTodoInput)(call.arguments)
+				? truncateJsonResult({ updated: true })
+				: toolFailure({ message: "todo needs items, each with content and a status" });
+		} else if (call.tool === "question") {
+			if (Schema.is(AssistantQuestionInput)(call.arguments)) {
+				return callId;
+			}
+			result = toolFailure({
+				message: "question needs 1 to 4 questions, each with question text and optional options",
+			});
 		} else {
 			const input = {
 				name: call.tool,

@@ -15,6 +15,7 @@ import {
 } from "@ryot-app/contract/schema/brands";
 import { CapabilityId } from "@ryot-app/contract/schema/capability";
 import { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
+import type { JsonValue } from "@ryot-app/contract/schema/json";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { stableStringify } from "@ryot-app/ts-utils/json";
@@ -139,6 +140,7 @@ const harness = Effect.fn(function* (
 		readonly readStoredResult?: boolean;
 		readonly invalidArguments?: boolean;
 		readonly interruptAfterWrite?: boolean;
+		readonly localCalls?: ReadonlyArray<{ readonly name: string; readonly arguments: JsonValue }>;
 		readonly failProvider?: AssistantModelError["code"];
 	} = {},
 ) {
@@ -213,7 +215,11 @@ const harness = Effect.fn(function* (
 						modelCallId: "model-read",
 						arguments: { limit: 2, offset: 2_000, outputId: firstCallId },
 					});
-				} else if (generated <= (options.callRounds ?? 1)) {
+				} else if (options.localCalls && generated === 1) {
+					for (const [index, call] of options.localCalls.entries()) {
+						events.push({ ...call, type: "tool-call", modelCallId: `model-local-${index}` });
+					}
+				} else if (!options.localCalls && generated <= (options.callRounds ?? 1)) {
 					events.push({
 						arguments: {},
 						name: tool.name,
@@ -425,6 +431,75 @@ layer(services, { excludeTestServices: true })((test) => {
 			]);
 			expect(setup.writes).toEqual([]);
 			expect(setup.generated()).toBe(1);
+		}),
+	);
+
+	test.effect("waits for answers to a question, keeps the plan and stops while waiting", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const localCalls = [
+				{ name: "todo", arguments: { items: [{ content: "Pick a layout", status: "in_progress" }] } },
+				{
+					name: "question",
+					arguments: { questions: [{ question: "Which layout?", options: ["Grid", "List"] }] },
+				},
+			];
+			for (const stop of [false, true]) {
+				const setup = yield* harness({ localCalls });
+				const payload = yield* admit();
+				const executionId = yield* AssistantTurnWorkflow.executionId(payload);
+				yield* Effect.gen(function* () {
+					const service = yield* makeAssistantService(account);
+					yield* service.recover();
+					yield* until(
+						AssistantTurnWorkflow.poll(executionId).pipe(
+							Effect.map((result) => Option.isSome(result) && result.value._tag === "Suspended"),
+						),
+					);
+					const state = yield* repository.loadTurn(owner, payload.turnId);
+					assert(state);
+					expect(state.turn.status).toBe("awaiting-input");
+					const question = state.calls.find(({ call }) => call.kind === "tool" && call.tool === "question");
+					assert(question);
+					const target = {
+						toolCallId: question.call.id,
+						turnId: AssistantTurnId.make(payload.turnId),
+						conversationId: AssistantConversationId.make(state.turn.conversationId),
+					};
+					if (stop) {
+						yield* service.interrupt(owner, target);
+					} else {
+						assertExitFails(
+							yield* Effect.exit(service.answer(owner, { ...target, answers: ["Grid", "Extra"] })),
+							new AssistantError({ reason: { code: "answer-invalid" } }),
+						);
+						yield* service.answer(owner, { ...target, answers: ["Grid"] });
+						yield* service.answer(owner, { ...target, answers: ["Grid"] });
+						assertExitFails(
+							yield* Effect.exit(service.answer(owner, { ...target, answers: ["List"] })),
+							new AssistantError({ reason: { code: "decision-conflict" } }),
+						);
+					}
+					yield* until(
+						AssistantTurnWorkflow.poll(executionId).pipe(
+							Effect.map((result) => Option.isSome(result) && result.value._tag === "Complete"),
+						),
+					);
+				}).pipe(withEngine(engineFor(setup.runtime)));
+				const final = yield* repository.loadTurn(owner, payload.turnId);
+				assert(final);
+				expect(final.turn.status).toBe(stop ? "interrupted" : "completed");
+				expect(final.calls.map(({ result }) => result)).toEqual([
+					{ truncated: false, value: { updated: true } },
+					{
+						truncated: false,
+						value: stop
+							? { interrupted: true }
+							: { answers: [{ question: "Which layout?", answer: "Grid" }] },
+					},
+				]);
+				expect(setup.generated()).toBe(stop ? 1 : 2);
+			}
 		}),
 	);
 

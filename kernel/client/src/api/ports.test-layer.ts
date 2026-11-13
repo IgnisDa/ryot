@@ -166,6 +166,7 @@ export const makeAssistantApi = (overrides: Partial<AssistantApi["Service"]> = {
 	Layer.succeed(AssistantApi, {
 		submit: unused,
 		decide: unused,
+		answer: unused,
 		savePage: unused,
 		interrupt: unused,
 		deleteProvider: unused,

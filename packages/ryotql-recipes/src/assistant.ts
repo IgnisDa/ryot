@@ -2,6 +2,8 @@ import {
 	AssistantApprovalDecision,
 	AssistantConversationStatus,
 	AssistantMessagePart,
+	AssistantQuestionInput,
+	AssistantTodoInput,
 	AssistantToolCall,
 	type AssistantToolName,
 	AssistantTurnFailure,
@@ -76,6 +78,7 @@ export const assistantActivityRecipe = defineRecipe({
 			where: inArray(column(conversation, "status"), [
 				literal("working"),
 				literal("awaiting-approval"),
+				literal("awaiting-input"),
 			]),
 			selection: {
 				id: conversationSelection.id,
@@ -187,6 +190,15 @@ export type AssistantTranscriptTurn = {
 };
 export type AssistantTranscriptEntry =
 	| { readonly id: string; readonly kind: "compaction" }
+	| { readonly id: string; readonly kind: "todo"; readonly items: AssistantTodoInput["items"] }
+	| {
+			readonly id: string;
+			readonly kind: "question";
+			readonly call: AssistantCallRecord;
+			readonly answers: null | readonly string[];
+			readonly state: "pending" | "answered" | "expired";
+			readonly questions: AssistantQuestionInput["questions"];
+	  }
 	| { readonly id: string; readonly text: string; readonly kind: "reply" }
 	| {
 			readonly id: string;
@@ -209,12 +221,17 @@ const activeTurnStatuses: ReadonlySet<AssistantTurnRecord["status"]> = new Set([
 	"queued",
 	"running",
 	"awaiting-approval",
+	"awaiting-input",
 ]);
 export const isActiveAssistantTurn = (status: AssistantTurnRecord["status"]) =>
 	activeTurnStatuses.has(status);
 
 const resultValue = (result: AgentToolResult) =>
 	!result.truncated && isObjectRecord(result.value) ? result.value : null;
+
+const QuestionAnswers = Schema.Struct({
+	answers: Schema.Array(Schema.Struct({ answer: Schema.String })),
+});
 
 const stepStatus = (record: AssistantCallRecord, active: boolean): AssistantStepStatus => {
 	if (record.result === null) {
@@ -246,6 +263,15 @@ const approvalState = (
 export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTranscriptTurn => {
 	const active = isActiveAssistantTurn(record.status);
 	const calls = new Map(record.calls.items.map((item) => [item.id, item]));
+	const latestTodo = record.messages.items
+		.flatMap((item) =>
+			item.parts.flatMap((part) =>
+				part.kind === "tool-call" && part.call.kind === "tool" && part.call.tool === "todo"
+					? [part.call.id]
+					: [],
+			),
+		)
+		.at(-1);
 	const entries: AssistantTranscriptEntry[] = [];
 	let steps: AssistantTranscriptStep[] = [];
 	const closeSteps = () => {
@@ -285,6 +311,36 @@ export const projectAssistantTurn = (record: AssistantTurnRecord): AssistantTran
 			} else if (part.kind === "tool-call") {
 				const stored = calls.get(part.call.id);
 				if (stored === undefined || part.call.kind !== "tool") {
+					return;
+				}
+				const { arguments: input, tool } = part.call;
+				if (tool === "todo" && Schema.is(AssistantTodoInput)(input)) {
+					if (stored.id === latestTodo) {
+						closeSteps();
+						entries.push({ id: stored.id, kind: "todo", items: input.items });
+					}
+					return;
+				}
+				if (tool === "question" && Schema.is(AssistantQuestionInput)(input)) {
+					const value = stored.result?.truncated === false ? stored.result.value : null;
+					const answers = Schema.is(QuestionAnswers)(value)
+						? value.answers.map(({ answer }) => answer)
+						: null;
+					let state: "pending" | "answered" | "expired" = "expired";
+					if (answers !== null) {
+						state = "answered";
+					} else if (stored.result === null && record.status === "awaiting-input") {
+						state = "pending";
+					}
+					closeSteps();
+					entries.push({
+						state,
+						answers,
+						call: stored,
+						id: stored.id,
+						kind: "question",
+						questions: input.questions,
+					});
 					return;
 				}
 				if (part.call.requiresApproval) {
