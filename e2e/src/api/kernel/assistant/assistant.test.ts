@@ -1,4 +1,4 @@
-import type { ContractPayload } from "@ryot-app/contract/client";
+import type { PageWriteInput } from "@ryot-app/contract/schema/agent-tool";
 import { kernelCapabilityId } from "@ryot-app/contract/schema/capability";
 import {
 	type AssistantConversationDetail,
@@ -122,13 +122,11 @@ it.live(
 					files: [
 						{
 							path: "client/page.tsx",
-							content: Buffer.from(
-								"export default function Page() { return <h2>Approved</h2>; }",
-							).toString("base64"),
+							text: "export default function Page() { return <h2>Approved</h2>; }",
 						},
 					],
 				},
-			} satisfies ContractPayload<"pageAuthoring", "create">;
+			} satisfies (typeof PageWriteInput)["Encoded"];
 			const publish = executeRyotQLRecipe(client, pagesRecipe, {}).pipe(
 				Effect.map((pages) => ({
 					name: "page_publish",

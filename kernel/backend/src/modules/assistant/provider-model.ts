@@ -44,7 +44,7 @@ export type AssistantModelRequest = {
 export const assistantModelRequestByteBudget = 1_048_576;
 const limits = {
 	events: 16_384,
-	maxTokens: 8192,
+	maxTokens: 32_768,
 	outputBytes: 262_144,
 	timeout: "2 minutes",
 	requestBytes: assistantModelRequestByteBudget,

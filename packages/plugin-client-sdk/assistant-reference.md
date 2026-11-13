@@ -1,7 +1,8 @@
 ## Page authoring conventions
 
-A page definition contains `entry`, base64-encoded `files`, `pluginDependencies`, `queries` and
-optional `pluginQueries`.
+A page definition contains `entry`, `files`, `pluginDependencies`, `queries` and optional
+`pluginQueries`. `page_write` takes each file as `{ path, text }` with its UTF-8 source; stored
+definitions, such as `kernel:pages.get` results, carry the same files as base64 `content`.
 Use an entry such as `client/page.tsx` exporting a React component as default, with no required
 props. The host mounts it with the SDK providers; do not call bootstrap or create a React root.
 Keep source files under `client/**` and environment-neutral helpers under `shared/**`.

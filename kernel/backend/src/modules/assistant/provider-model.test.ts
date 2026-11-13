@@ -89,7 +89,7 @@ it.effect(
 			);
 			const events = yield* collect(client, request);
 			expect(requests).toEqual(["POST http://127.0.0.1:11434/v1/chat/completions"]);
-			expect(stableStringify(bodies)).toContain("8192");
+			expect(stableStringify(bodies)).toContain("32768");
 			expect(
 				events
 					.filter((event) => event.type === "text-delta")

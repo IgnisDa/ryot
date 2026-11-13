@@ -1,6 +1,11 @@
-import { Result, Schema } from "effect";
+import { Effect, Result, Schema, SchemaGetter, SchemaIssue } from "effect";
+import { Base64 } from "effect/encoding";
 
-import { PageDefinition, PageDraftRevisionBody } from "../modules/pages/schemas";
+import {
+	ClientRendererFile,
+	PageDefinition,
+	PageDraftRevisionBody,
+} from "../modules/pages/schemas";
 import { PluginOperationHints, PluginOperationJsonSchema } from "../modules/plugins/manifest";
 import { strictStruct } from "./utils";
 
@@ -28,12 +33,26 @@ export const ReadDocsInput = strictStruct({
 	page: optionalInput(Schema.Int.check(Schema.isGreaterThan(0))),
 });
 export type ReadDocsInput = typeof ReadDocsInput.Type;
+const utf8 = new TextDecoder("utf-8", { fatal: true });
+const PageWriteFile = strictStruct({ path: Schema.String, text: Schema.String }).pipe(
+	Schema.decodeTo(ClientRendererFile, {
+		decode: SchemaGetter.transform(({ path, text }) => ({ path, content: Base64.encode(text) })),
+		encode: SchemaGetter.transformEffect(({ path, content }) =>
+			Effect.try({
+				try: () => ({ path, text: utf8.decode(Result.getOrThrow(Base64.decode(content))) }),
+				catch: () =>
+					new SchemaIssue.InvalidValue({ message: `${path} is not UTF-8 text` }, content),
+			}),
+		),
+	}),
+);
+
 export const PageWriteInput = strictStruct({
-	definition: PageDefinition,
 	name: optionalInput(Schema.NonEmptyString),
 	slug: optionalInput(Schema.NonEmptyString),
 	pageId: optionalInput(Schema.NonEmptyString),
 	expectedDraftRevision: optionalInput(Schema.Int.check(Schema.isGreaterThan(0))),
+	definition: strictStruct({ ...PageDefinition.fields, files: Schema.Array(PageWriteFile) }),
 });
 export type PageWriteInput = typeof PageWriteInput.Type;
 export const PagePublishInput = PageDraftRevisionBody;
@@ -81,7 +100,7 @@ export const agentTools: { readonly [Name in AgentToolName]: AgentToolDescriptor
 		name: "page_write",
 		input: toAgentJsonSchema(PageWriteInput),
 		description:
-			"Create a page draft (name, slug, definition) or replace one (pageId, expectedDraftRevision, definition), then compile it. Returns the draft preview identity, or compiler diagnostics to repair before writing again.",
+			"Create a page draft (name, slug, definition) or replace one (pageId, expectedDraftRevision, definition), then compile it. Give each file as { path, text } with its UTF-8 source. Returns the draft preview identity, or compiler diagnostics to repair before writing again.",
 	},
 	search: {
 		name: "search",

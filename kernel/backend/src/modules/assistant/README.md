@@ -101,7 +101,7 @@ recorded calls, become one provider message, and reasoning is replayed in its or
 thinking-mode providers reject tool-call follow-ups without it. Each round stores its reasoning as a
 `reasoning` part beside its tool calls.
 
-Each request is capped at 1 MiB of serialized prompt/tool input, 8192 generated tokens, 256 KiB of
+Each request is capped at 1 MiB of serialized prompt/tool input, 32,768 generated tokens, 256 KiB of
 streamed parts, 16,384 parts and two minutes including connection/header wait. Provider errors
 become fixed `AssistantModelError` codes without response bodies or diagnostics. Provider tracing
 is disabled to keep SDK error and response data out of spans. Egress restrictions apply to every
