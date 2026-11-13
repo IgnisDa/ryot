@@ -333,6 +333,18 @@
         "bun-types": "1.4.4",
       },
     },
+    "packages/compiler-worker": {
+      "name": "@ryot-app/compiler-worker",
+      "dependencies": {
+        "@effect/platform-bun": "4.1.2",
+        "effect": "4.1.2",
+      },
+      "devDependencies": {
+        "@ryot-app/testing": "workspace:*",
+        "@voila.dev/effect-bun-test": "4.0.4",
+        "bun-types": "1.4.4",
+      },
+    },
     "packages/config": {
       "name": "@ryot-app/config",
       "dependencies": {
@@ -1440,6 +1452,8 @@
     "@ryot-app/browser-extension": ["@ryot-app/browser-extension@workspace:apps/browser-extension"],
 
     "@ryot-app/cli": ["@ryot-app/cli@workspace:packages/cli"],
+
+    "@ryot-app/compiler-worker": ["@ryot-app/compiler-worker@workspace:packages/compiler-worker"],
 
     "@ryot-app/config": ["@ryot-app/config@workspace:packages/config"],
 

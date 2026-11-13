@@ -1,0 +1,28 @@
+{
+	"name": "@ryot-app/compiler-worker",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./host": {
+			"types": "./src/host.ts",
+			"default": "./src/host.ts"
+		},
+		"./pool": {
+			"types": "./src/pool.ts",
+			"default": "./src/pool.ts"
+		}
+	},
+	"scripts": {
+		"test": "bun ../../packages/testing/src/run-tests.ts",
+		"check": "bun --check && bun fmt . --write && oxlint . --fix"
+	},
+	"dependencies": {
+		"@effect/platform-bun": "4.1.2",
+		"effect": "4.1.2"
+	},
+	"devDependencies": {
+		"@ryot-app/testing": "workspace:*",
+		"@voila.dev/effect-bun-test": "4.0.4",
+		"bun-types": "1.4.4"
+	}
+}
