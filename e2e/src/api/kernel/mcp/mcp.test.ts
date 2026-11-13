@@ -12,7 +12,13 @@ import {
 } from "@ryot-app/contract/oauth";
 import { Effect, Schema } from "effect";
 
-import { createApiKey, createTestUser, prepareOAuth } from "~/fixtures/kernel/auth";
+import { getConnectedApps } from "~/fixtures/kernel/account";
+import {
+	createApiKey,
+	createAuthenticatedClient,
+	createTestUser,
+	prepareOAuth,
+} from "~/fixtures/kernel/auth";
 import { requirePresent } from "~/support/assertions";
 import { describe, expect, it } from "~/support/effect-test";
 import { getApiUrl, getFrontendUrl } from "~/support/harness-target";
@@ -155,7 +161,7 @@ describe("MCP Streamable HTTP", () => {
 		"registers a public OAuth client, requires consent, exchanges an MCP token and calls tools",
 		() =>
 			Effect.gen(function* () {
-				const owner = yield* createTestUser();
+				const owner = yield* createAuthenticatedClient();
 				const pending = yield* prepareOAuth(getApiUrl());
 				const registered = yield* postJson(`${getApiUrl()}/auth/oauth2/register`, {
 					response_types: ["code"],
@@ -301,6 +307,32 @@ describe("MCP Streamable HTTP", () => {
 						pending.serverOrigin,
 					).pathname,
 				).toBe("/oauth/consent");
+
+				const [app] = (yield* getConnectedApps(owner.client)).items;
+				expect(app).toMatchObject({ writeAccess: "none", name: "E2E MCP Client" });
+				yield* owner.client.call((c) =>
+					c.account.revokeConnectedApp({
+						params: { connectedAppId: requirePresent(app, "Missing connected app").id },
+					}),
+				);
+				expect((yield* getConnectedApps(owner.client)).items).toEqual([]);
+				const revoked = yield* webRequest(
+					getOAuthEndpoint(pending.serverOrigin, OAUTH_TOKEN_PATH),
+					{
+						method: "POST",
+						headers: { "content-type": "application/x-www-form-urlencoded" },
+						body: new URLSearchParams({
+							client_id,
+							grant_type: "refresh_token",
+							resource: getMcpOAuthResource(pending.frontendOrigin),
+							refresh_token: requirePresent(
+								refreshed.refresh_token,
+								"Missing rotated refresh token",
+							),
+						}),
+					},
+				);
+				expect(revoked.status).toBe(400);
 			}),
 	);
 });

@@ -42,7 +42,7 @@ export const settingsGroups = [
 				label: "Notification channels",
 				path: "/settings/notification-channels",
 			},
-			{ slug: "api-keys", icon: "key-round", label: "API keys", path: "/settings/api-keys" },
+			{ slug: "access", label: "Access", icon: "key-round", path: "/settings/access" },
 		],
 	},
 	{

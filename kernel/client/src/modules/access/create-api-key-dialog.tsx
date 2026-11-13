@@ -13,11 +13,11 @@ import { AppIcon } from "@ryot-app/plugin-ui-sdk/icon";
 import { Effect } from "effect";
 import { type RefObject, type SubmitEvent, useId, useRef, useState } from "react";
 
-import { WriteAccessField } from "#/modules/access/write-access";
 import { shareOrCopy, sharesNatively } from "#/modules/device/share";
 import { formatDateLabel } from "#/modules/ui/run/run-status";
 
 import { createApiKeyMutation } from "./service";
+import { WriteAccessField } from "./write-access";
 
 const DAY_MS = 86_400_000;
 

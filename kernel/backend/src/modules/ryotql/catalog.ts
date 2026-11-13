@@ -13,6 +13,7 @@ import {
 } from "@ryot-app/ryotql/catalog";
 import { sql } from "drizzle-orm";
 
+import { API_KEY_SCOPES_PERMISSION } from "#modules/accounts/auth/api-key-scopes";
 import type { DefinitionReadContext } from "#modules/definitions/read-context";
 import { ingestionReadinessMetadataSql } from "#modules/plugins/catalog/readiness-projection";
 import type {
@@ -1117,6 +1118,32 @@ const apiKey: TableBinding<"apiKey"> = {
 		createdAt: column("created_at"),
 		expiresAt: column("expires_at"),
 		lastUsedAt: column("last_request"),
+		scopes: {
+			resolve: ({ sqlAlias }) =>
+				sql`COALESCE((${sql.raw(sqlAlias)}.permissions::jsonb) -> ${API_KEY_SCOPES_PERMISSION}, '[]'::jsonb)`,
+		},
+	},
+};
+
+const connectedApp: TableBinding<"connectedApp"> = {
+	relation: "oauth_consent",
+	policies: { user: { type: "owned", column: "user_id", includeGlobal: false } },
+	fields: {
+		id: column("id"),
+		createdAt: column("created_at"),
+		scopes: textArrayField("scopes"),
+		name: {
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(SELECT COALESCE(client.name, client.client_id) FROM oauth_client client WHERE client.client_id = ${sqlAlias}.client_id)`,
+				),
+		},
+		lastUsedAt: {
+			resolve: ({ sqlAlias }) =>
+				sql.raw(
+					`(SELECT max(token.created_at) FROM oauth_access_token token WHERE token.user_id = ${sqlAlias}.user_id AND token.client_id = ${sqlAlias}.client_id)`,
+				),
+		},
 	},
 };
 
@@ -1286,6 +1313,7 @@ const bindings: { readonly [Name in CatalogTableName]: TableBinding<Name> } = {
 	eventSchema,
 	integration,
 	importIssue,
+	connectedApp,
 	entitySchema,
 	importSource,
 	relationship,

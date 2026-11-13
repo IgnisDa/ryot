@@ -1,6 +1,6 @@
 import type { CurrentUserValue } from "@ryot-app/contract/auth-middleware";
 import type { CreateApiKeyBody } from "@ryot-app/contract/modules/account/schemas";
-import type { ApiKeyId } from "@ryot-app/contract/schema/brands";
+import type { ApiKeyId, ConnectedAppId } from "@ryot-app/contract/schema/brands";
 import type { UserPreferencesPatch } from "@ryot-app/contract/schema/user-preferences";
 import { Context, Effect, Layer } from "effect";
 import { SecureRandom } from "effect/crypto";
@@ -53,7 +53,20 @@ export class UserSettingsService extends Context.Service<UserSettingsService>()(
 			) {
 				yield* auth.revokeUserApiKey(user.id, apiKeyId);
 			});
-			return { rename, revokeApiKey, createApiKey, refreshAvatar, updatePreferences };
+			const revokeConnectedApp = Effect.fn("UserSettingsService.revokeConnectedApp")(function* (
+				user: CurrentUserValue,
+				connectedAppId: ConnectedAppId,
+			) {
+				yield* auth.revokeUserConnectedApp(user.id, connectedAppId);
+			});
+			return {
+				rename,
+				revokeApiKey,
+				createApiKey,
+				refreshAvatar,
+				updatePreferences,
+				revokeConnectedApp,
+			};
 		}),
 	},
 ) {

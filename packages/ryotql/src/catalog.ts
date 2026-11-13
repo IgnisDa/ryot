@@ -78,6 +78,17 @@ export const catalogTables = {
 			completedAt: { kind: "date", nullable: true },
 		},
 	},
+	connectedApp: {
+		primaryKey: ["id"],
+		visibility: { user: { demoReadable: false, pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			name: { kind: "text", nullable: false },
+			scopes: { kind: "json", nullable: false },
+			createdAt: { kind: "date", nullable: false },
+			lastUsedAt: { kind: "date", nullable: true },
+		},
+	},
 	sandboxProviderOperation: {
 		primaryKey: ["providerId", "operation"],
 		visibility: { user: { pluginReadable: true } },
@@ -99,18 +110,6 @@ export const catalogTables = {
 			createdAt: { kind: "date", nullable: false },
 			updatedAt: { kind: "date", nullable: false },
 			revision: { kind: "number", nullable: false },
-		},
-	},
-	apiKey: {
-		primaryKey: ["id"],
-		visibility: { user: { demoReadable: false, pluginReadable: false } },
-		fields: {
-			id: { kind: "text", nullable: false },
-			name: { kind: "text", nullable: true },
-			start: { kind: "text", nullable: true },
-			expiresAt: { kind: "date", nullable: true },
-			createdAt: { kind: "date", nullable: false },
-			lastUsedAt: { kind: "date", nullable: true },
 		},
 	},
 	notificationChannel: {
@@ -149,6 +148,19 @@ export const catalogTables = {
 			createdAt: { kind: "date", nullable: false },
 			sequence: { kind: "number", nullable: false },
 			conversationId: { kind: "text", nullable: false },
+		},
+	},
+	apiKey: {
+		primaryKey: ["id"],
+		visibility: { user: { demoReadable: false, pluginReadable: false } },
+		fields: {
+			id: { kind: "text", nullable: false },
+			name: { kind: "text", nullable: true },
+			start: { kind: "text", nullable: true },
+			scopes: { kind: "json", nullable: false },
+			expiresAt: { kind: "date", nullable: true },
+			createdAt: { kind: "date", nullable: false },
+			lastUsedAt: { kind: "date", nullable: true },
 		},
 	},
 	entityTranslation: {

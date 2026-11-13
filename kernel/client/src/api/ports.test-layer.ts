@@ -217,6 +217,7 @@ export const makeAccountApi = (overrides: Partial<AccountApi["Service"]> = {}) =
 		revokeApiKey: unused,
 		refreshAvatar: unused,
 		updatePreferences: unused,
+		revokeConnectedApp: unused,
 		...overrides,
 	});
 

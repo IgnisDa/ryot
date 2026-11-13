@@ -106,11 +106,11 @@ grant permissions: consent and token issuance retain only the approved scopes.
 Every credential carries a `writeAccess` level in `AuthorizationContext`, resolved by
 `writeAccessFromScopes` in `@ryot-app/contract/oauth`:
 
-| Level        | Scopes                                         | Writes                                   |
-| ------------ | ---------------------------------------------- | ---------------------------------------- |
-| `none`       | `ryot:read`                                    | Refused                                  |
-| `confirm`    | `ryot:read ryot:write`                         | Only after the user confirms each write  |
-| `unattended` | `ryot:read ryot:write ryot:write:unattended`   | Allowed without confirmation             |
+| Level        | Scopes                                       | Writes                                  |
+| ------------ | -------------------------------------------- | --------------------------------------- |
+| `none`       | `ryot:read`                                  | Refused                                 |
+| `confirm`    | `ryot:read ryot:write`                       | Only after the user confirms each write |
+| `unattended` | `ryot:read ryot:write ryot:write:unattended` | Allowed without confirmation            |
 
 OAuth tokens carry the scopes; API keys store them in Better Auth's `permissions.scopes`, chosen at
 creation. Keys created outside Ryot's account endpoint have no scopes and are read-only. Trusted

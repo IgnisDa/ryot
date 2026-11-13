@@ -1,8 +1,9 @@
 import { expect } from "bun:test";
 
 import type { ContractRequest } from "@ryot-app/contract/client";
-import { ApiKeyId } from "@ryot-app/contract/schema/brands";
+import { ApiKeyId, ConnectedAppId } from "@ryot-app/contract/schema/brands";
 import type { ApiKeyItem } from "@ryot-app/ryotql-recipes/api-keys";
+import type { ConnectedAppItem } from "@ryot-app/ryotql-recipes/connected-apps";
 import { bindTestRequest } from "@ryot-app/ryotql-recipes/test-utils";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router";
@@ -42,38 +43,52 @@ const DAY_MS = 86_400_000;
 
 const nowMs = Date.now();
 
-const makeKey = (overrides: Partial<ApiKeyItem> = {}): ApiKeyItem => ({
+type KeyRow = Omit<ApiKeyItem, "writeAccess"> & { readonly scopes: readonly string[] };
+type AppRow = Omit<ConnectedAppItem, "writeAccess"> & { readonly scopes: readonly string[] };
+
+const makeKey = (overrides: Partial<KeyRow> = {}): KeyRow => ({
 	start: "abc123",
 	lastUsedAt: null,
 	name: "Home server",
 	id: ApiKeyId.make("key_1"),
 	createdAt: new Date(nowMs - DAY_MS).toISOString(),
 	expiresAt: new Date(nowMs + 90 * DAY_MS).toISOString(),
+	scopes: ["ryot:read", "ryot:write", "ryot:write:unattended"],
 	...overrides,
 });
+
+const claudeApp: AppRow = {
+	name: "Claude",
+	lastUsedAt: null,
+	scopes: ["ryot:read", "ryot:write"],
+	id: ConnectedAppId.make("consent-1"),
+	createdAt: new Date(nowMs - DAY_MS).toISOString(),
+};
 
 type CreateRequest = ContractRequest<"account", "createApiKey">;
 
 const mountView = (options: {
 	readonly demo?: boolean;
+	readonly apps?: readonly AppRow[];
+	readonly keys: () => readonly KeyRow[];
 	readonly revoked?: (id: ApiKeyId) => void;
-	readonly keys: () => readonly ApiKeyItem[];
+	readonly revokedApp?: (id: ConnectedAppId) => void;
 	readonly created?: (request: CreateRequest) => void;
 }) => {
-	const queries: number[] = [];
+	const queries: string[] = [];
 	const ryotql = makeRyotQLApi({
 		execute: (_scope, request) => {
-			const keys = bindTestRequest(request.payload).queries.keys;
-			if (keys.output.type !== "rows") {
-				return Effect.die("Expected API key rows query");
+			const [[name, query] = []] = Object.entries(bindTestRequest(request.payload).queries);
+			if ((name !== "keys" && name !== "apps") || query?.output.type !== "rows") {
+				return Effect.die("Expected a credential rows query");
 			}
-			queries.push(keys.output.pagination.limit);
+			queries.push(name);
 			return Effect.succeed({
 				data: {
-					keys: {
+					[name]: {
 						type: "rows" as const,
-						items: options.keys(),
-						pageInfo: { hasMore: false, nextCursor: null, limit: keys.output.pagination.limit },
+						items: name === "keys" ? options.keys() : (options.apps ?? []),
+						pageInfo: { hasMore: false, nextCursor: null, limit: query.output.pagination.limit },
 					},
 				},
 			});
@@ -82,6 +97,8 @@ const mountView = (options: {
 	const account = makeAccountApi({
 		revokeApiKey: (_scope, request) =>
 			Effect.sync(() => options.revoked?.(request.params.apiKeyId)),
+		revokeConnectedApp: (_scope, request) =>
+			Effect.sync(() => options.revokedApp?.(request.params.connectedAppId)),
 		createApiKey: (_scope, request) =>
 			Effect.sync(() => {
 				options.created?.(request);
@@ -120,7 +137,7 @@ const mountView = (options: {
 	);
 	const router = getRouter(
 		{ theme, runtime, backInterceptors: createBackInterceptors() },
-		createMemoryHistory({ initialEntries: ["/settings/api-keys"] }),
+		createMemoryHistory({ initialEntries: ["/settings/access"] }),
 	);
 	render(<RouterProvider router={router} />);
 	return { queries };
@@ -131,7 +148,7 @@ it.live(
 	() =>
 		Effect.gen(function* () {
 			const requests: CreateRequest[] = [];
-			let keys: readonly ApiKeyItem[] = [];
+			let keys: readonly KeyRow[] = [];
 			mountView({
 				keys: () => keys,
 				created: (request) => {
@@ -195,7 +212,9 @@ it.live(
 				],
 			});
 
-			const [home, old, forever] = yield* Effect.promise(() => screen.findAllByRole("listitem"));
+			const keys = yield* Effect.promise(() => screen.findByRole("list", { name: "API keys" }));
+			const [home, old, forever] = within(keys).getAllByRole("listitem");
+			expect(home.textContent).toContain("Allow changes without asking");
 			expect(home.textContent).toContain("Expires soon");
 			expect(home.textContent).toContain("Last used 2 hours ago");
 			expect(old.textContent).toContain("Expired");
@@ -210,6 +229,29 @@ it.live(
 			fireEvent.click(within(confirm).getByRole("button", { name: "Revoke key" }));
 			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
 			expect(revoked).toEqual([ApiKeyId.make("key_2")]);
+		}),
+	testTimeout,
+);
+
+it.live(
+	"lists connected apps with their access and revokes one after confirmation",
+	() =>
+		Effect.gen(function* () {
+			const revoked: ConnectedAppId[] = [];
+			mountView({ keys: () => [], apps: [claudeApp], revokedApp: (id) => revoked.push(id) });
+			const apps = yield* Effect.promise(() =>
+				screen.findByRole("list", { name: "connected apps" }),
+			);
+			const [claude] = within(apps).getAllByRole("listitem");
+			expect(claude.textContent).toContain("Ask before each change");
+			expect(claude.textContent).toContain("Never used");
+			fireEvent.click(screen.getByRole("button", { name: "Revoke Claude" }));
+			const confirm = yield* Effect.promise(() =>
+				screen.findByRole("dialog", { name: 'Revoke "Claude"?' }),
+			);
+			fireEvent.click(within(confirm).getByRole("button", { name: "Revoke access" }));
+			yield* Effect.promise(() => waitFor(() => expect(screen.queryByRole("dialog")).toBeNull()));
+			expect(revoked).toEqual([ConnectedAppId.make("consent-1")]);
 		}),
 	testTimeout,
 );

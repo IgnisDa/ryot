@@ -22,6 +22,10 @@ export class AccountApi extends Context.Service<AccountApi>()(
 					scope: ApiScope,
 					request: ContractRequest<"account", "updatePreferences">,
 				) => api.run(scope, (client) => client.account.updatePreferences(request)),
+				revokeConnectedApp: (
+					scope: ApiScope,
+					request: ContractRequest<"account", "revokeConnectedApp">,
+				) => api.run(scope, (client) => client.account.revokeConnectedApp(request)),
 			};
 		}),
 	},

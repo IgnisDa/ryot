@@ -11,11 +11,12 @@ import {
 import { Result, Schema } from "effect";
 
 import { IsoDateString } from "./codecs";
+import { withWriteAccess } from "./write-access";
 
 const key = table("apiKey", "key");
 
 export const apiKeysRecipe = defineRecipe({
-	map: ({ keys }) => Result.succeed(keys),
+	map: ({ keys }) => Result.succeed({ ...keys, items: keys.items.map(withWriteAccess) }),
 	queries: {
 		keys: selectedRows(key, {
 			limit: 50,
@@ -26,6 +27,7 @@ export const apiKeysRecipe = defineRecipe({
 				createdAt: selectedField(column(key, "createdAt"), IsoDateString),
 				name: selectedField(column(key, "name"), Schema.NullOr(Schema.String)),
 				start: selectedField(column(key, "start"), Schema.NullOr(Schema.String)),
+				scopes: selectedField(column(key, "scopes"), Schema.Array(Schema.String)),
 				expiresAt: selectedField(column(key, "expiresAt"), Schema.NullOr(IsoDateString)),
 				lastUsedAt: selectedField(column(key, "lastUsedAt"), Schema.NullOr(IsoDateString)),
 			},

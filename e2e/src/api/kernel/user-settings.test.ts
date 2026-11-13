@@ -71,10 +71,28 @@ describe("user settings", () => {
 			);
 			const keys = (yield* getApiKeys(owner.client)).items;
 			expect(
-				keys.map(({ id, name, start, lastUsedAt }) => ({ id, name, start, lastUsedAt })),
+				keys.map(({ id, name, start, lastUsedAt, writeAccess }) => ({
+					id,
+					name,
+					start,
+					lastUsedAt,
+					writeAccess,
+				})),
 			).toEqual([
-				{ name: "Sync", lastUsedAt: null, id: permanent.id, start: permanent.key.slice(0, 6) },
-				{ id: created.id, name: "Scripts", lastUsedAt: null, start: created.key.slice(0, 6) },
+				{
+					name: "Sync",
+					lastUsedAt: null,
+					id: permanent.id,
+					writeAccess: "none",
+					start: permanent.key.slice(0, 6),
+				},
+				{
+					id: created.id,
+					name: "Scripts",
+					lastUsedAt: null,
+					writeAccess: "unattended",
+					start: created.key.slice(0, 6),
+				},
 			]);
 			expect(keys.find(({ id }) => id === permanent.id)?.expiresAt).toBeNull();
 			const expiresAt = keys.find(({ id }) => id === created.id)?.expiresAt;
@@ -97,7 +115,7 @@ describe("user settings", () => {
 			expect(yield* useKey(created.key)).toBe(204);
 			yield* owner.client.call((c) => c.account.revokeApiKey({ params: { apiKeyId: created.id } }));
 			expect(yield* useKey(created.key)).toBe(401);
-			expect(yield* useKey(permanent.key)).toBe(204);
+			expect(yield* useKey(permanent.key)).toBe(403);
 			expect((yield* getApiKeys(owner.client)).items.map(({ id }) => id)).toEqual([permanent.id]);
 
 			for (const payload of [

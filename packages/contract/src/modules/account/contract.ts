@@ -3,7 +3,7 @@ import { HttpApiGroup, HttpApiSchema, OpenApi } from "effect/http-api";
 
 import { AuthMiddleware } from "../../auth-middleware";
 import { AuthenticatedMutationEndpoint } from "../../authenticated-mutation-endpoint";
-import { ApiKeyId } from "../../schema/brands";
+import { ApiKeyId, ConnectedAppId } from "../../schema/brands";
 import { UserPreferencesPatch } from "../../schema/user-preferences";
 import { AccountName, CreateApiKeyBody, CreatedApiKey } from "./schemas";
 
@@ -40,5 +40,18 @@ export const AccountGroup = HttpApiGroup.make("account")
 			params: { apiKeyId: ApiKeyId },
 			success: Schema.Void.pipe(HttpApiSchema.status(204)),
 		}).annotate(OpenApi.Description, "Revoke one of the current user's API keys."),
+	)
+	.add(
+		AuthenticatedMutationEndpoint.delete("write")(
+			"revokeConnectedApp",
+			"/account/connected-apps/:connectedAppId",
+			{
+				params: { connectedAppId: ConnectedAppId },
+				success: Schema.Void.pipe(HttpApiSchema.status(204)),
+			},
+		).annotate(
+			OpenApi.Description,
+			"Revoke an app's OAuth access to the current user's account, including its refresh tokens.",
+		),
 	)
 	.middleware(AuthMiddleware);

@@ -29,7 +29,7 @@ import {
 	writeAccessFromScopes,
 	writeAccessScopes,
 } from "@ryot-app/contract/oauth";
-import { ApiKeyId, UserId } from "@ryot-app/contract/schema/brands";
+import { ApiKeyId, type ConnectedAppId, UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import {
 	UserPreferences,
@@ -54,6 +54,7 @@ import { logHttpResponse } from "#platform/http/response-logger";
 import { TransientValues } from "#platform/transient-values";
 import * as authSchema from "#schema/tables/auth";
 
+import { API_KEY_SCOPES_PERMISSION } from "./api-key-scopes";
 import { authAdvancedOptions } from "./client-address";
 import { demoAccessPlugin } from "./demo-access-plugin";
 import { effectPostgresAuthAdapter } from "./effect-postgres-adapter";
@@ -566,8 +567,6 @@ type ApiKeyVerification = {
 	};
 };
 
-export const API_KEY_SCOPES_PERMISSION = "scopes";
-
 const rateLimitError = Schema.Struct({
 	code: Schema.Literal("RATE_LIMITED"),
 	details: Schema.optional(Schema.Struct({ tryAgainIn: Schema.Finite })),
@@ -886,11 +885,15 @@ export class AuthService extends Context.Service<AuthService>()(
 				yield* purgeApiKeyCaches(userId, yield* repository.deleteUserApiKey(userId, apiKeyId));
 			});
 
+			const revokeUserConnectedApp = (userId: UserId, connectedAppId: ConnectedAppId) =>
+				repository.revokeUserOAuthConsent(userId, connectedAppId);
+
 			return {
 				revokeUserApiKey,
 				createUserApiKey,
 				purgeApiKeyCaches,
 				handler: auth.handler,
+				revokeUserConnectedApp,
 				requestPasswordResetLink,
 				revokePasswordResetLinks,
 				startUserImpersonation: handoffs.create,

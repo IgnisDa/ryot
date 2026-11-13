@@ -1,5 +1,6 @@
 import type { ContractPayload } from "@ryot-app/contract/client";
 import { apiKeysRecipe } from "@ryot-app/ryotql-recipes/api-keys";
+import { connectedAppsRecipe } from "@ryot-app/ryotql-recipes/connected-apps";
 import { twoFactorStatusRecipe, userSettingsRecipe } from "@ryot-app/ryotql-recipes/user-settings";
 
 import type { Client } from "./auth";
@@ -16,6 +17,9 @@ export const getTwoFactorStatus = (client: Client) =>
 	executeRyotQLRecipe(client, twoFactorStatusRecipe, {});
 
 export const getApiKeys = (client: Client) => executeRyotQLRecipe(client, apiKeysRecipe, {});
+
+export const getConnectedApps = (client: Client) =>
+	executeRyotQLRecipe(client, connectedAppsRecipe, {});
 
 export const updateUserSettingsPreferences = (
 	client: Client,

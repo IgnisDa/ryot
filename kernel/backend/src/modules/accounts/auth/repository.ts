@@ -1,5 +1,5 @@
 import { DbError } from "@ryot-app/contract/errors";
-import type { ApiKeyId, UserId } from "@ryot-app/contract/schema/brands";
+import type { ApiKeyId, ConnectedAppId, UserId } from "@ryot-app/contract/schema/brands";
 import {
 	UserPreferences,
 	type UserPreferencesPatch,
@@ -212,30 +212,24 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 			const revokeOAuthTokens = Effect.fn("AuthRepository.revokeOAuthTokens")(function* (
 				field: "userId" | "sessionId",
 				id: string,
+				clientId?: string,
 			) {
 				const revoked = yield* DateTime.nowAsDate;
+				const tokens = [schema.oauthRefreshToken, schema.oauthAccessToken] as const;
 				yield* database.run((db) =>
 					Effect.all(
-						[
+						tokens.map((token) =>
 							db
-								.update(schema.oauthRefreshToken)
+								.update(token)
 								.set({ revoked })
 								.where(
 									and(
-										eq(schema.oauthRefreshToken[field], id),
-										isNull(schema.oauthRefreshToken.revoked),
+										eq(token[field], id),
+										isNull(token.revoked),
+										clientId === undefined ? undefined : eq(token.clientId, clientId),
 									),
 								),
-							db
-								.update(schema.oauthAccessToken)
-								.set({ revoked })
-								.where(
-									and(
-										eq(schema.oauthAccessToken[field], id),
-										isNull(schema.oauthAccessToken.revoked),
-									),
-								),
-						],
+						),
 						{ discard: true },
 					),
 				);
@@ -245,6 +239,32 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				userId: UserId,
 			) {
 				yield* revokeOAuthTokens("userId", userId);
+			});
+
+			const revokeUserOAuthConsent = Effect.fn("AuthRepository.revokeUserOAuthConsent")(function* (
+				userId: UserId,
+				consentId: ConnectedAppId,
+			) {
+				yield* database
+					.transaction(
+						Effect.gen(function* () {
+							const [consent] = yield* database.run((db) =>
+								db
+									.delete(schema.oauthConsent)
+									.where(
+										and(
+											eq(schema.oauthConsent.id, consentId),
+											eq(schema.oauthConsent.userId, userId),
+										),
+									)
+									.returning({ clientId: schema.oauthConsent.clientId }),
+							);
+							if (consent) {
+								yield* revokeOAuthTokens("userId", userId, consent.clientId);
+							}
+						}),
+					)
+					.pipe(Effect.catchTag("DatabaseSessionStateError", Effect.die));
 			});
 
 			const deleteUserApiKeys = Effect.fn("AuthRepository.deleteUserApiKeys")(function* (
@@ -382,6 +402,7 @@ export class AuthRepository extends Context.Service<AuthRepository>()(
 				patchUserPreferences,
 				markBootstrapComplete,
 				revokeUserOAuthTokens,
+				revokeUserOAuthConsent,
 				listIncompleteBootstraps,
 				revokeSessionOAuthTokens,
 				upsertInternalOAuthClient,

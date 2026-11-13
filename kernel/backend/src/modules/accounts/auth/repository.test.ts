@@ -1,11 +1,12 @@
 import { expect } from "bun:test";
 
 import { DbError } from "@ryot-app/contract/errors";
-import { UserId } from "@ryot-app/contract/schema/brands";
+import { ConnectedAppId, UserId } from "@ryot-app/contract/schema/brands";
 import { TimeZone } from "@ryot-app/contract/schema/time-zone";
 import { defaultUserPreferences } from "@ryot-app/contract/schema/user-preferences";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { sortBy } from "@ryot-app/ts-utils/lodash";
 import { layer } from "@voila.dev/effect-bun-test";
 import { eq, sql } from "drizzle-orm";
 import { Deferred, Effect, Layer } from "effect";
@@ -14,16 +15,117 @@ import { TranslationsRepository } from "#modules/entities/localization/repositor
 import { IntegrationsRepository } from "#modules/integrations/repository";
 import { PluginConfigEncryptionKey } from "#modules/plugins/configuration/encryption-key";
 import { DatabaseSession } from "#platform/db/session";
-import { user } from "#schema/tables/auth";
+import {
+	oauthAccessToken,
+	oauthClient,
+	oauthConsent,
+	oauthRefreshToken,
+	user,
+} from "#schema/tables/auth";
 import { isolatedDatabaseLayer } from "#testing/isolated-database";
 
 import { AuthRepository } from "./repository";
+
+const grantTime = new Date(0);
+const grantExpiry = new Date(3_600_000);
 
 const testLayer = Layer.mergeAll(AuthRepository.layer, PluginConfigEncryptionKey.layer).pipe(
 	Layer.provideMerge(isolatedDatabaseLayer("auth_prefs_test")),
 );
 
 layer(testLayer)((test) => {
+	test.effect(
+		"revokes one connected app's consent and tokens without touching other apps or users",
+		() =>
+			Effect.gen(function* () {
+				const session = yield* DatabaseSession;
+				const repository = yield* AuthRepository;
+				const owner = UserId.make("connected-owner");
+				const other = UserId.make("connected-other");
+				yield* session.run((db) =>
+					db.insert(user).values([
+						{ id: owner, name: "Owner", email: "connected-owner@example.test" },
+						{ id: other, name: "Other", email: "connected-other@example.test" },
+					]),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthClient)
+						.values(
+							["revoked-client", "kept-client"].map((clientId) => ({
+								clientId,
+								id: clientId,
+								redirectUris: ["https://client.example/callback"],
+							})),
+						),
+				);
+				const grants = [
+					{ id: "revoked", userId: owner, clientId: "revoked-client" },
+					{ id: "kept", userId: owner, clientId: "kept-client" },
+					{ id: "foreign", userId: other, clientId: "revoked-client" },
+				];
+				yield* session.run((db) =>
+					db
+						.insert(oauthConsent)
+						.values(
+							grants.map(({ id, userId, clientId }) => ({
+								id,
+								userId,
+								clientId,
+								scopes: [],
+								createdAt: grantTime,
+								updatedAt: grantTime,
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthRefreshToken)
+						.values(
+							grants.map(({ id, userId, clientId }) => ({
+								id,
+								userId,
+								clientId,
+								scopes: [],
+								createdAt: grantTime,
+								expiresAt: grantExpiry,
+								token: `refresh-${id}`,
+							})),
+						),
+				);
+				yield* session.run((db) =>
+					db
+						.insert(oauthAccessToken)
+						.values(
+							grants.map(({ id, userId, clientId }) => ({
+								id,
+								userId,
+								clientId,
+								scopes: [],
+								createdAt: grantTime,
+								token: `access-${id}`,
+								expiresAt: grantExpiry,
+							})),
+						),
+				);
+				yield* repository.revokeUserOAuthConsent(owner, ConnectedAppId.make("foreign"));
+				yield* repository.revokeUserOAuthConsent(owner, ConnectedAppId.make("revoked"));
+				const consents = yield* session.run((db) =>
+					db.select({ id: oauthConsent.id }).from(oauthConsent),
+				);
+				expect(sortBy(consents.map(({ id }) => id))).toEqual(["foreign", "kept"]);
+				for (const table of [oauthRefreshToken, oauthAccessToken]) {
+					const tokens = yield* session.run((db) =>
+						db.select({ id: table.id, revoked: table.revoked }).from(table),
+					);
+					expect(tokens.filter(({ revoked }) => revoked !== null).map(({ id }) => id)).toEqual([
+						"revoked",
+					]);
+				}
+			}),
+		testTimeout,
+	);
+
 	test.effect(
 		"preference consumers preserve missing users and reject malformed storage",
 		() =>

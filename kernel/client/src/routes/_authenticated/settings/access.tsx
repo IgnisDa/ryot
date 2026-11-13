@@ -1,20 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-import { ApiKeysManager } from "#/modules/api-keys/manager";
+import { AccessManager } from "#/modules/access/manager";
 import { AuthService } from "#/modules/auth/service";
 import { useIsDemoSession } from "#/modules/demo-protection";
 import { SettingsFrame } from "#/modules/settings/settings-frame";
 
-export const Route = createFileRoute("/_authenticated/settings/api-keys")({
-	component: ApiKeysRoute,
-});
+export const Route = createFileRoute("/_authenticated/settings/access")({ component: AccessRoute });
 
-function ApiKeysRoute() {
+function AccessRoute() {
 	const { server, runtime } = Route.useRouteContext();
 	const isDemo = useIsDemoSession(runtime.runSync(AuthService).session(server));
 	return (
-		<SettingsFrame title="API keys" backFallbackHref="/settings">
-			<ApiKeysManager isDemo={isDemo} />
+		<SettingsFrame title="Access" backFallbackHref="/settings">
+			<AccessManager isDemo={isDemo} />
 		</SettingsFrame>
 	);
 }

@@ -207,6 +207,7 @@ const fakeAuthRepositoryLayer = Layer.effectContext(
 				patchUserPreferences: () => Effect.die("unused"),
 				markBootstrapComplete: () => Effect.die("unused"),
 				revokeUserOAuthTokens: () => Effect.die("unused"),
+				revokeUserOAuthConsent: () => Effect.die("unused"),
 				listIncompleteBootstraps: () => Effect.die("unused"),
 				revokeSessionOAuthTokens: () => Effect.die("unused"),
 				upsertInternalOAuthClient: (client) =>

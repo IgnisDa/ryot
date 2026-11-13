@@ -37,9 +37,9 @@ import { Route as AuthenticatedEEntityIdRouteImport } from './routes/_authentica
 import { Route as AuthenticatedPagePreviewPageIdRouteImport } from './routes/_authenticated/page-preview/$pageId'
 import { Route as AuthenticatedSettingsIndexRouteImport } from './routes/_authenticated/settings/index'
 import { Route as AuthenticatedSettingsSplatRouteImport } from './routes/_authenticated/settings/$'
+import { Route as AuthenticatedSettingsAccessRouteImport } from './routes/_authenticated/settings/access'
 import { Route as AuthenticatedSettingsAccountRouteImport } from './routes/_authenticated/settings/account'
 import { Route as AuthenticatedSettingsAdministrationRouteImport } from './routes/_authenticated/settings/administration'
-import { Route as AuthenticatedSettingsApiKeysRouteImport } from './routes/_authenticated/settings/api-keys'
 import { Route as AuthenticatedSettingsAssistantRouteImport } from './routes/_authenticated/settings/assistant'
 import { Route as AuthenticatedSettingsBackupsRouteImport } from './routes/_authenticated/settings/backups'
 import { Route as AuthenticatedSettingsNotificationChannelsRouteImport } from './routes/_authenticated/settings/notification-channels'
@@ -212,6 +212,12 @@ const AuthenticatedSettingsSplatRoute =
     path: '/$',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
+const AuthenticatedSettingsAccessRoute =
+  AuthenticatedSettingsAccessRouteImport.update({
+    id: '/access',
+    path: '/access',
+    getParentRoute: () => AuthenticatedSettingsRouteRoute,
+  } as any)
 const AuthenticatedSettingsAccountRoute =
   AuthenticatedSettingsAccountRouteImport.update({
     id: '/account',
@@ -222,12 +228,6 @@ const AuthenticatedSettingsAdministrationRoute =
   AuthenticatedSettingsAdministrationRouteImport.update({
     id: '/administration',
     path: '/administration',
-    getParentRoute: () => AuthenticatedSettingsRouteRoute,
-  } as any)
-const AuthenticatedSettingsApiKeysRoute =
-  AuthenticatedSettingsApiKeysRouteImport.update({
-    id: '/api-keys',
-    path: '/api-keys',
     getParentRoute: () => AuthenticatedSettingsRouteRoute,
   } as any)
 const AuthenticatedSettingsAssistantRoute =
@@ -387,9 +387,9 @@ export interface FileRoutesByFullPath {
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/settings/access': typeof AuthenticatedSettingsAccessRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
-  '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -438,9 +438,9 @@ export interface FileRoutesByTo {
   '/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/settings/access': typeof AuthenticatedSettingsAccessRoute
   '/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
-  '/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -493,9 +493,9 @@ export interface FileRoutesById {
   '/_authenticated/e/$entityId': typeof AuthenticatedEEntityIdRoute
   '/_authenticated/page-preview/$pageId': typeof AuthenticatedPagePreviewPageIdRoute
   '/_authenticated/settings/$': typeof AuthenticatedSettingsSplatRoute
+  '/_authenticated/settings/access': typeof AuthenticatedSettingsAccessRoute
   '/_authenticated/settings/account': typeof AuthenticatedSettingsAccountRoute
   '/_authenticated/settings/administration': typeof AuthenticatedSettingsAdministrationRoute
-  '/_authenticated/settings/api-keys': typeof AuthenticatedSettingsApiKeysRoute
   '/_authenticated/settings/assistant': typeof AuthenticatedSettingsAssistantRoute
   '/_authenticated/settings/backups': typeof AuthenticatedSettingsBackupsRoute
   '/_authenticated/settings/notification-channels': typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -549,9 +549,9 @@ export interface FileRouteTypes {
     | '/e/$entityId'
     | '/page-preview/$pageId'
     | '/settings/$'
+    | '/settings/access'
     | '/settings/account'
     | '/settings/administration'
-    | '/settings/api-keys'
     | '/settings/assistant'
     | '/settings/backups'
     | '/settings/notification-channels'
@@ -600,9 +600,9 @@ export interface FileRouteTypes {
     | '/e/$entityId'
     | '/page-preview/$pageId'
     | '/settings/$'
+    | '/settings/access'
     | '/settings/account'
     | '/settings/administration'
-    | '/settings/api-keys'
     | '/settings/assistant'
     | '/settings/backups'
     | '/settings/notification-channels'
@@ -654,9 +654,9 @@ export interface FileRouteTypes {
     | '/_authenticated/e/$entityId'
     | '/_authenticated/page-preview/$pageId'
     | '/_authenticated/settings/$'
+    | '/_authenticated/settings/access'
     | '/_authenticated/settings/account'
     | '/_authenticated/settings/administration'
-    | '/_authenticated/settings/api-keys'
     | '/_authenticated/settings/assistant'
     | '/_authenticated/settings/backups'
     | '/_authenticated/settings/notification-channels'
@@ -898,6 +898,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsSplatRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
+    '/_authenticated/settings/access': {
+      id: '/_authenticated/settings/access'
+      path: '/access'
+      fullPath: '/settings/access'
+      preLoaderRoute: typeof AuthenticatedSettingsAccessRouteImport
+      parentRoute: typeof AuthenticatedSettingsRouteRoute
+    }
     '/_authenticated/settings/account': {
       id: '/_authenticated/settings/account'
       path: '/account'
@@ -910,13 +917,6 @@ declare module '@tanstack/react-router' {
       path: '/administration'
       fullPath: '/settings/administration'
       preLoaderRoute: typeof AuthenticatedSettingsAdministrationRouteImport
-      parentRoute: typeof AuthenticatedSettingsRouteRoute
-    }
-    '/_authenticated/settings/api-keys': {
-      id: '/_authenticated/settings/api-keys'
-      path: '/api-keys'
-      fullPath: '/settings/api-keys'
-      preLoaderRoute: typeof AuthenticatedSettingsApiKeysRouteImport
       parentRoute: typeof AuthenticatedSettingsRouteRoute
     }
     '/_authenticated/settings/assistant': {
@@ -1097,9 +1097,9 @@ const AuthenticatedAssistantRouteRouteWithChildren =
 
 interface AuthenticatedSettingsRouteRouteChildren {
   AuthenticatedSettingsSplatRoute: typeof AuthenticatedSettingsSplatRoute
+  AuthenticatedSettingsAccessRoute: typeof AuthenticatedSettingsAccessRoute
   AuthenticatedSettingsAccountRoute: typeof AuthenticatedSettingsAccountRoute
   AuthenticatedSettingsAdministrationRoute: typeof AuthenticatedSettingsAdministrationRoute
-  AuthenticatedSettingsApiKeysRoute: typeof AuthenticatedSettingsApiKeysRoute
   AuthenticatedSettingsAssistantRoute: typeof AuthenticatedSettingsAssistantRoute
   AuthenticatedSettingsBackupsRoute: typeof AuthenticatedSettingsBackupsRoute
   AuthenticatedSettingsNotificationChannelsRoute: typeof AuthenticatedSettingsNotificationChannelsRoute
@@ -1121,10 +1121,10 @@ interface AuthenticatedSettingsRouteRouteChildren {
 const AuthenticatedSettingsRouteRouteChildren: AuthenticatedSettingsRouteRouteChildren =
   {
     AuthenticatedSettingsSplatRoute: AuthenticatedSettingsSplatRoute,
+    AuthenticatedSettingsAccessRoute: AuthenticatedSettingsAccessRoute,
     AuthenticatedSettingsAccountRoute: AuthenticatedSettingsAccountRoute,
     AuthenticatedSettingsAdministrationRoute:
       AuthenticatedSettingsAdministrationRoute,
-    AuthenticatedSettingsApiKeysRoute: AuthenticatedSettingsApiKeysRoute,
     AuthenticatedSettingsAssistantRoute: AuthenticatedSettingsAssistantRoute,
     AuthenticatedSettingsBackupsRoute: AuthenticatedSettingsBackupsRoute,
     AuthenticatedSettingsNotificationChannelsRoute:

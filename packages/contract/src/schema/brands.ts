@@ -30,6 +30,10 @@ export const ApiKeyId = Schema.String.pipe(Schema.brand("ApiKeyId"));
 
 export type ApiKeyId = typeof ApiKeyId.Type;
 
+export const ConnectedAppId = Schema.String.pipe(Schema.brand("ConnectedAppId"));
+
+export type ConnectedAppId = typeof ConnectedAppId.Type;
+
 export const RelationshipId = Schema.String.pipe(Schema.brand("RelationshipId"));
 
 export type RelationshipId = typeof RelationshipId.Type;

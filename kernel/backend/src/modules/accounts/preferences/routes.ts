@@ -36,6 +36,13 @@ export const UserSettingsRoutesLive = HttpApiBuilder.group(AppContract, "account
 				return yield* service.revokeApiKey(user, params.apiKeyId).pipe(dieOnDbError);
 			}),
 		)
+		.handle("revokeConnectedApp", ({ params }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* UserSettingsService;
+				return yield* service.revokeConnectedApp(user, params.connectedAppId).pipe(dieOnDbError);
+			}),
+		)
 		.handle("refreshAvatar", () =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
