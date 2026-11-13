@@ -95,6 +95,9 @@ the client SDK's `usePluginStorage`.
 
 `client.assistantStarters` lists up to three example prompts that Ryo offers when a person starts
 a new chat. Keep each prompt specific to the plugin's data.
+`client.assistantInstructions` (up to 2,000 characters) adds domain guidance to Ryo's system
+prompt while the plugin is installed, ready and visible, such as units, vocabulary and which
+capabilities answer common requests. Keep it factual; the kernel adds it under the package ID.
 
 Plugins can request a kernel-rendered fixed card through `client.iosLiveActivities`; the client SDK
 documents its Effect API and lifecycle.

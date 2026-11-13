@@ -16,6 +16,7 @@ import type { AgentToolResult } from "@ryot-app/contract/schema/tool-result";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { Context, Effect, Layer, Option, Result, Schema, Stream } from "effect";
 
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { AuthService } from "#modules/accounts/auth/service";
 import { capabilityPin } from "#modules/agent-tools/catalog";
 import type { WriteGate, WriteRequest } from "#modules/agent-tools/execute";
@@ -65,14 +66,40 @@ const toolFailure = (error: { readonly message: string }): AgentToolResult =>
 		message: error.message,
 		instruction: "The call was refused or failed. Correct it or ask for approval again if needed.",
 	});
-const assistantSystemPrompt = [
-	"You are Ryo, the assistant inside Ryot, an app where people track and analyze parts of their life such as media, fitness and other data that installed plugins describe.",
-	"Work from the user's real data. Inspect it with tools instead of guessing, and keep working until the request is fully handled. Find capabilities with search, then run them with execute; combine related calls in one execute and return only the fields you need.",
-	"Large tool outputs are stored and shown as a preview with an outputId; read more of them with read_result instead of repeating the call.",
-	"Every write through execute and every page publication requires user approval. Page drafts do not, because they stay private until the user saves them. Never claim a declined or failed call succeeded.",
-	"Before building a page, read the pages documentation with read_docs. Create a page with page_write, then inspect it with page_read and change it with page_edit, repairing compiler diagnostics until the preview succeeds. The user saves a previewed draft, which publishes it and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.",
-	"Reply concisely, and say plainly what you could not find or finish.",
-].join("\n\n");
+const assistantSystemSections = [
+	[
+		"Role",
+		"You are Ryo, the assistant inside Ryot, an app where people track and analyze parts of their life such as media, fitness and other data that installed plugins describe.",
+	],
+	[
+		"Working",
+		"Work from the user's real data. Inspect it with tools instead of guessing, and keep working until the request is fully handled. For multi-step work, keep a plan with todo. Ask with question only when a choice that only the user can make blocks the work. The user may send more messages while you work; take each into account at the next step.",
+	],
+	[
+		"Tools",
+		"Find capabilities with search, then run them with execute; combine related calls in one execute and return only the fields you need. Independent read-only calls in one step run together. Large tool outputs are stored and shown as a preview with an outputId; read more of them with read_result instead of repeating the call.",
+	],
+	[
+		"Approvals",
+		"Every write through execute and every page publication requires user approval. Page drafts do not, because they stay private until the user saves them. Never claim a declined or failed call succeeded.",
+	],
+	[
+		"Pages",
+		"Before building a page, read the pages documentation with read_docs. Create a page with page_write, then inspect it with page_read and change it with page_edit, repairing compiler diagnostics until the preview succeeds. The user saves a previewed draft, which publishes it and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.",
+	],
+	["Replies", "Reply concisely, and say plainly what you could not find or finish."],
+] as const;
+export const assistantSystemPrompt = (
+	plugins: ReadonlyArray<{ readonly packageId: string; readonly instructions: string }>,
+) =>
+	[
+		...assistantSystemSections.map(([title, text]) => `# ${title}\n\n${text}`),
+		...(plugins.length === 0
+			? []
+			: [
+					`# Installed plugins\n\n${plugins.map(({ packageId, instructions }) => `## ${packageId}\n\n${instructions}`).join("\n\n")}`,
+				]),
+	].join("\n\n");
 const collectText = (stream: Stream.Stream<AssistantModelEvent, AssistantModelError>) =>
 	Effect.gen(function* () {
 		let text = "";
@@ -107,7 +134,14 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	model,
 	providers,
 	checkAccount,
+	instructions,
 }: {
+	readonly instructions: (
+		userId: UserId,
+	) => Effect.Effect<
+		ReadonlyArray<{ readonly packageId: string; readonly instructions: string }>,
+		Effect.Error<ReturnType<DefinitionCatalog["Service"]["forUser"]>>
+	>;
 	readonly model: AssistantModel["Service"];
 	readonly providers: Pick<AssistantProviderConfiguration["Service"], "effective">;
 	readonly tools: Pick<
@@ -383,6 +417,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 			return yield* Effect.fail(failure("provider-unavailable"));
 		}
 		const available = [...(yield* tools.listTrusted(payload.userId)), ...localModelTools];
+		const system = assistantSystemPrompt(yield* instructions(payload.userId));
 		let compacted = false;
 		for (;;) {
 			const history = activeHistory(
@@ -390,7 +425,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 				payload.turnId,
 			);
 			const prompt = assistantProviderPrompt(
-				assistantSystemPrompt,
+				system,
 				history.summary,
 				history.messages,
 			);
@@ -735,7 +770,27 @@ export class AssistantTurnRuntime extends Context.Service<AssistantTurnRuntime>(
 	{
 		make: Effect.gen(function* () {
 			const auth = yield* AuthService;
+			const catalogs = yield* DefinitionCatalog;
 			return yield* makeAssistantTurnRuntime({
+				instructions: Effect.fn(function* (userId: UserId) {
+					const { plugins } = yield* catalogs.forUser(userId);
+					return yield* Effect.forEach(
+						plugins.filter(
+							(plugin) =>
+								plugin.health === "ready" &&
+								plugin.isExecutable &&
+								plugin.isDefinitionEffective &&
+								!plugin.isHidden,
+						),
+						(plugin) =>
+							catalogs.revision(plugin.activeRevisionId).pipe(
+								Effect.map(({ sections }) => {
+									const text = sections.client?.assistantInstructions;
+									return text === undefined ? [] : [{ instructions: text, packageId: plugin.packageId }];
+								}),
+							),
+					).pipe(Effect.map((entries) => entries.flat()));
+				}),
 				model: yield* AssistantModel,
 				tools: yield* AgentToolsService,
 				providers: yield* AssistantProviderConfiguration,

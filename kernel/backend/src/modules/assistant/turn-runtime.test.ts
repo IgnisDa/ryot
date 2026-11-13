@@ -143,6 +143,7 @@ const harness = Effect.fn(function* (
 		readonly invalidArguments?: boolean;
 		readonly interruptAfterWrite?: boolean;
 		readonly localCalls?: ReadonlyArray<{ readonly name: string; readonly arguments: JsonValue }>;
+		readonly instructions?: ReadonlyArray<{ readonly packageId: string; readonly instructions: string }>;
 		readonly failProvider?: AssistantModelError["code"];
 	} = {},
 ) {
@@ -163,6 +164,7 @@ const harness = Effect.fn(function* (
 	const tool = options.gatedWrite ? agentTools.execute : agentTools.page_write;
 	const requiresApproval = !options.readOnly && !options.gatedWrite;
 	const runtime = yield* makeAssistantTurnRuntime({
+		instructions: () => Effect.succeed(options.instructions ?? []),
 		checkAccount: () =>
 			retired
 				? Effect.fail(new AuthUnauthorized({ reason: { code: "authentication-required" } }))
@@ -523,6 +525,24 @@ layer(services, { excludeTestServices: true })((test) => {
 					},
 				]);
 				expect(setup.generated()).toBe(stop ? 1 : 2);
+			}
+		}),
+	);
+
+	test.effect("adds installed plugins' instructions to the system prompt", () =>
+		Effect.gen(function* () {
+			const instructions = [{ packageId: "ryot/fitness", instructions: "Weights are kilograms." }];
+			for (const plugins of [[], instructions]) {
+				const setup = yield* harness({ readOnly: true, callRounds: 0, instructions: plugins });
+				yield* AssistantTurnWorkflow.execute(yield* admit()).pipe(
+					withEngine(engineFor(setup.runtime)),
+				);
+				const prompt = stableStringify(setup.requests[0]?.prompt);
+				expect(prompt).toContain("# Approvals");
+				expect(prompt.includes("# Installed plugins")).toBe(plugins.length > 0);
+				expect(prompt.includes("## ryot/fitness\\n\\nWeights are kilograms.")).toBe(
+					plugins.length > 0,
+				);
 			}
 		}),
 	);

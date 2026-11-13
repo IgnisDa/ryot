@@ -2,6 +2,7 @@ import { Effect, Layer } from "effect";
 
 import { AuthServiceLive } from "#modules/accounts/auth/layer";
 import { AgentToolsServiceLive } from "#modules/agent-tools/layer";
+import { DefinitionCatalog } from "#modules/definitions/catalog";
 import { IdempotencyKeys } from "#modules/mutations/idempotency";
 import { PageAuthoringServiceLive } from "#modules/pages/authoring/layer";
 import { SavedViewsServiceLive } from "#modules/saved-views/layer";
@@ -35,6 +36,7 @@ export const AssistantWorkflowDefinitionsLive = AssistantWorkflowLive.pipe(
 				Layer.mergeAll(
 					AssistantPersistenceLive,
 					AgentToolsServiceLive,
+					DefinitionCatalog.layer,
 					AssistantProviderConfiguration.layer,
 					AssistantModel.live,
 				),
