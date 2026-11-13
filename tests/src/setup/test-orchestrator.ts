@@ -39,6 +39,7 @@ export interface StartedServices {
 }
 
 const MONOREPO_ROOT = path.resolve(__dirname, "../../../");
+const BACKEND_PATH = path.join(MONOREPO_ROOT, "target/release/backend");
 const STORAGE_ACCESS_KEY = "rustfs-admin";
 const STORAGE_SECRET_KEY = "rustfs-admin";
 const TEST_BUCKET_NAME = "test-bucket";
@@ -205,15 +206,11 @@ async function startBackendProcess(
 			USERS_DISABLE_LOCAL_AUTH: "false",
 		};
 
-		const backendProcess = spawn(
-			"cargo",
-			["run", "--release", "--bin", "backend"],
-			{
-				cwd: MONOREPO_ROOT,
-				stdio: ["ignore", "pipe", "pipe"],
-				env: { ...process.env, ...backendEnv },
-			},
-		);
+		const backendProcess = spawn(BACKEND_PATH, [], {
+			cwd: MONOREPO_ROOT,
+			stdio: ["ignore", "pipe", "pipe"],
+			env: { ...process.env, ...backendEnv },
+		});
 
 		setupProcessLogging(backendProcess);
 
