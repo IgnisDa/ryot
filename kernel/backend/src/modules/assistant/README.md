@@ -143,14 +143,17 @@ decline. The workflow observes the terminal status at its next step: streaming r
 more round text, settled calls are not dispatched, the next round returns no calls and finishing is a
 no-op. A tool already running when the user stops finishes, but its result is not recorded.
 
-The loop permits twelve model rounds and at most 32 calls in a round. The shared tool-result owner
-bounds each result to 64 KiB. Model context retains a bounded suffix of messages, keeping each tool
-call and all its results together; persisted history is never trimmed. The system prompt is short
-and points to `read_docs` for authoring guidance. Context selection also measures the exact
-serialized prompt and current tool descriptors against the adapter's 1 MiB request cap; it drops
-whole history groups. A request that cannot fit recent context fails. The model adapter separately bounds generated output, event
-count, tokens and request duration. Provider failures
-persist only public failure codes. Compiler failures instead become bounded repair results containing
+The loop permits twelve tool rounds and at most 32 calls in a round, then one final round offered no
+tools whose prompt asks the model to answer from what it found; a tool call in that round fails the
+turn with `round-limit`. The shared tool-result owner bounds each result to 64 KiB. Earlier turns
+enter model context only as their user and assistant text; the current turn keeps its tool traffic
+and reasoning. Context always keeps the current user message, then adds the newest remaining groups
+within 256 KiB, keeping each tool call and all its results together; persisted history is never
+trimmed. The system prompt is short and points to `read_docs` for authoring guidance. Context
+selection also measures the exact serialized prompt and current tool descriptors against the
+adapter's 1 MiB request cap; it drops whole history groups. A request that cannot fit the current
+user message fails. The model adapter separately bounds generated output, event count, tokens and
+request duration. Provider failures are logged by code and persist only public failure codes. Compiler failures instead become bounded repair results containing
 the actual build diagnostics.
 
 Successful `page_write` calls persist a `page-preview` beside the tool result in the same

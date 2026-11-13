@@ -6,7 +6,7 @@ import {
 } from "../shared/analytics-recipes";
 import { exerciseDetailsRecipe } from "../shared/exercise-details-recipes";
 import { recentPersonalBestsRecipe } from "../shared/home-recipes";
-import { measurementSeriesRecipe } from "../shared/measurement-recipes";
+import { measurementSeriesRecipe, measurementSummaryRecipe } from "../shared/measurement-recipes";
 import { workoutDetailRecipe } from "../shared/query-recipes";
 
 const reference = { kind: "self" } as const;
@@ -50,6 +50,12 @@ export const fitnessDeclaredQueries = {
 		document: historicalFitnessRankingRecipe({ reference }).document,
 		description:
 			"Rank recorded muscles, equipment, or exercises by weighted set counts in a reporting period. Muscles retain primary and secondary weighting. Page the query named by kind: targets, equipment, or exercises.",
+	},
+	"measurement-metrics": {
+		title: "List measurement metrics",
+		document: measurementSummaryRecipe({ reference }).document,
+		description:
+			"List the account's measurement metrics, such as body weight, with their IDs, keys, units, latest values and reading counts in a reporting period. Use these IDs with measurement-series and the measurement reading operations.",
 	},
 	"measurement-series": {
 		title: "Read measurement series",

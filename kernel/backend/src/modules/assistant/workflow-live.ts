@@ -40,13 +40,13 @@ export const AssistantWorkflowLive = Layer.unwrap(
 				if (!(yield* runtime.isActive(payload).pipe(Effect.mapError(executionFailure)))) {
 					return undefined;
 				}
-				for (let round = 1; round <= assistantMaxRounds; round += 1) {
+				for (let round = 1; round <= assistantMaxRounds + 1; round += 1) {
 					const result = yield* makeActivity({
 						success: AssistantRound,
 						error: AssistantTurnFailure,
 						name: `round:${round}:generate`,
 						execute: runtime
-							.generate(payload, round)
+							.generate(payload, round, round > assistantMaxRounds)
 							.pipe(
 								Effect.mapError((error) =>
 									Schema.decodeUnknownOption(AssistantTurnFailure)(error).pipe(

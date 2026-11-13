@@ -128,6 +128,7 @@ const harness = Effect.fn(function* (
 		readonly gatedWrite?: boolean;
 		readonly failProvider?: boolean;
 		readonly invalidArguments?: boolean;
+		readonly answerWithoutTools?: boolean;
 		readonly interruptAfterWrite?: boolean;
 	} = {},
 ) {
@@ -160,7 +161,7 @@ const harness = Effect.fn(function* (
 				),
 		},
 		model: {
-			stream: () => {
+			stream: (request) => {
 				generated += 1;
 				if (options.failProvider) {
 					return Stream.fail(new AssistantModelError({ code: "provider-failed" }));
@@ -172,7 +173,8 @@ const harness = Effect.fn(function* (
 						{ text: "a page.", field: "reasoning", type: "reasoning-delta" },
 					);
 				}
-				if (generated === 1 || options.alwaysCall) {
+				const offered = request.tools.length > 0 || !options.answerWithoutTools;
+				if (offered && (generated === 1 || options.alwaysCall)) {
 					events.push({
 						arguments: {},
 						name: tool.name,
@@ -435,7 +437,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				for (const decision of ["decline", "approve"] as const) {
 					const setup = yield* harness();
 					const payload = yield* admit();
-					const round = yield* setup.runtime.generate(payload, 1);
+					const round = yield* setup.runtime.generate(payload, 1, false);
 					yield* setup.runtime.recordRound(payload, 1, round);
 					const state = yield* repository.loadTurn(owner, payload.turnId);
 					assert(state);
@@ -477,8 +479,8 @@ layer(services, { excludeTestServices: true })((test) => {
 			const repository = yield* AssistantRepository;
 			const setup = yield* harness({ readOnly: true, interruptAfterWrite: true });
 			const payload = yield* admit();
-			const result = yield* setup.runtime.generate(payload, 1);
-			yield* setup.runtime.generate(payload, 1);
+			const result = yield* setup.runtime.generate(payload, 1, false);
+			yield* setup.runtime.generate(payload, 1, false);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
 			expect(
@@ -521,9 +523,22 @@ layer(services, { excludeTestServices: true })((test) => {
 				}
 				expect(state.turn.failure).toEqual({ code });
 				if (options.alwaysCall) {
-					expect(setup.generated()).toBe(12);
+					expect(setup.generated()).toBe(13);
 				}
 			}
+		}),
+	);
+
+	test.effect("answers without tools once the model rounds are spent", () =>
+		Effect.gen(function* () {
+			const repository = yield* AssistantRepository;
+			const setup = yield* harness({ readOnly: true, alwaysCall: true, answerWithoutTools: true });
+			const payload = yield* admit();
+			yield* AssistantTurnWorkflow.execute(payload).pipe(withEngine(engineFor(setup.runtime)));
+			const state = yield* repository.loadTurn(owner, payload.turnId);
+			assert(state);
+			expect(state.turn.status).toBe("completed");
+			expect(setup.generated()).toBe(13);
 		}),
 	);
 
@@ -532,7 +547,7 @@ layer(services, { excludeTestServices: true })((test) => {
 			const repository = yield* AssistantRepository;
 			const setup = yield* harness({ readOnly: true, reasoning: true });
 			const payload = yield* admit();
-			const round = yield* setup.runtime.generate(payload, 1);
+			const round = yield* setup.runtime.generate(payload, 1, false);
 			yield* setup.runtime.recordRound(payload, 1, round);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
@@ -576,7 +591,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				const repository = yield* AssistantRepository;
 				const setup = yield* harness({ readOnly: true, failBuild: true });
 				const payload = yield* admit();
-				const result = yield* setup.runtime.generate(payload, 1);
+				const result = yield* setup.runtime.generate(payload, 1, false);
 				yield* setup.runtime.recordRound(payload, 1, result);
 				const call = result.calls[0];
 				assert(call);
@@ -597,7 +612,7 @@ layer(services, { excludeTestServices: true })((test) => {
 			const repository = yield* AssistantRepository;
 			const setup = yield* harness();
 			const payload = yield* admit();
-			const result = yield* setup.runtime.generate(payload, 1);
+			const result = yield* setup.runtime.generate(payload, 1, false);
 			yield* setup.runtime.recordRound(payload, 1, result);
 			const state = yield* repository.loadTurn(owner, payload.turnId);
 			assert(state);
@@ -631,7 +646,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				const repository = yield* AssistantRepository;
 				const setup = yield* harness({ readOnly: true });
 				const payload = yield* admit();
-				const result = yield* setup.runtime.generate(payload, 1);
+				const result = yield* setup.runtime.generate(payload, 1, false);
 				yield* setup.runtime.recordRound(payload, 1, result);
 				const call = result.calls[0];
 				assert(call);
@@ -744,7 +759,7 @@ layer(services, { excludeTestServices: true })((test) => {
 				const session = yield* DatabaseSession;
 				const setup = yield* harness();
 				const payload = yield* admit();
-				const round = yield* setup.runtime.generate(payload, 1);
+				const round = yield* setup.runtime.generate(payload, 1, false);
 				yield* setup.runtime.recordRound(payload, 1, round);
 				const waiting = yield* repository.loadTurn(owner, payload.turnId);
 				assert(waiting);

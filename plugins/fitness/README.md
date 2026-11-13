@@ -388,6 +388,7 @@ partial history. Extraordinary all-time spans can exceed the grouped-row budget 
 grouping and fail explicitly.
 
 `manifest/queries.ts` declares workouts, workout-detail, exercise-history, personal-bests,
-analytics-totals, analytics-trend, analytics-ranking, and measurement-series using these recipes.
+analytics-totals, analytics-trend, analytics-ranking, measurement-metrics, and measurement-series using
+these recipes.
 Entity-browser saved views declare browse controls and a ranked `librarySearch` query using the same
 search parameter and summary expressions as their source selection.

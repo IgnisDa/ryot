@@ -23,7 +23,7 @@ import { AgentRunSuspended } from "#modules/scripts/agent/service";
 import { DatabaseSession } from "#platform/db/session";
 import { defaultResultByteBudget, truncateJsonResult } from "#platform/tool-result";
 
-import { assistantContext, assistantContextByteBudget } from "./context";
+import { assistantContext, assistantContextByteBudget, assistantTurnHistory } from "./context";
 import { AssistantProviderConfiguration } from "./provider-configuration";
 import {
 	AssistantModel,
@@ -47,11 +47,14 @@ const toolFailure = (error: { readonly message: string }): AgentToolResult =>
 		instruction: "The call was refused or failed. Correct it or ask for approval again if needed.",
 	});
 const assistantSystemPrompt =
-	"You are Ryobot, the assistant inside Ryot. Inspect current data with tools instead of guessing. Find capabilities with search, then run them with execute; combine related calls in one execute and return only the fields you need. Every write through execute and every page publication requires user approval; page drafts do not, because they stay private until the user saves them. Never claim a declined or failed call succeeded. Before building a page, read the pages documentation with read_docs. Write pages with page_write, repair compiler diagnostics with bounded changes and write again until the preview succeeds. The user saves a previewed draft, which publishes it and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.";
+	"You are Ryo, the assistant inside Ryot. Inspect current data with tools instead of guessing. Find capabilities with search, then run them with execute; combine related calls in one execute and return only the fields you need. Answer as soon as you have what the request needs instead of searching further. Every write through execute and every page publication requires user approval; page drafts do not, because they stay private until the user saves them. Never claim a declined or failed call succeeded. Before building a page, read the pages documentation with read_docs. Write pages with page_write, repair compiler diagnostics with bounded changes and write again until the preview succeeds. The user saves a previewed draft, which publishes it and creates a saved view; sharing uses the publication UI. Call read_docs without a topic to list documentation.";
 
-const promptFor = (messages: readonly Pick<AssistantMessage, "role" | "parts">[]) =>
+const finalRoundPrompt =
+	" You have used every tool round for this request, so no tools are available now. Answer from what you found, and say plainly what you could not find or finish.";
+
+const promptFor = (messages: readonly Pick<AssistantMessage, "role" | "parts">[], final: boolean) =>
 	assistantProviderPrompt(
-		assistantSystemPrompt,
+		final ? assistantSystemPrompt + finalRoundPrompt : assistantSystemPrompt,
 		messages.filter(
 			(message) => message.role !== "user" || message.parts.some((part) => part.kind === "text"),
 		),
@@ -112,6 +115,7 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 	const generate = Effect.fn("AssistantTurnRuntime.generate")(function* (
 		payload: AssistantTurnPayload,
 		round: number,
+		final: boolean,
 	) {
 		let state = yield* load(payload);
 		if (state.turn.round >= round) {
@@ -142,18 +146,23 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 		if (!provider) {
 			return yield* Effect.fail(failure("provider-unavailable"));
 		}
-		const available = yield* tools.listTrusted(payload.userId);
+		const available = final ? [] : yield* tools.listTrusted(payload.userId);
 		const history = assistantContext(
-			state.messages.filter((message) => message.id !== `${payload.turnId}:round:${round}:text`),
+			assistantTurnHistory(
+				state.messages.filter((message) => message.id !== `${payload.turnId}:round:${round}:text`),
+				payload.turnId,
+			),
 			assistantContextByteBudget,
 			(messages) =>
-				new TextEncoder().encode(stableStringify([promptFor(messages), available])).byteLength <=
-				assistantModelRequestByteBudget,
+				new TextEncoder().encode(stableStringify([promptFor(messages, final), available]))
+					.byteLength <= assistantModelRequestByteBudget,
+			(message) => message.turnId === payload.turnId && message.role === "user",
 		);
 		if (history.length === 0) {
+			yield* Effect.logWarning("Assistant history did not fit the model request budget");
 			return yield* Effect.fail(failure("provider-failed"));
 		}
-		const prompt = promptFor(history);
+		const prompt = promptFor(history, final);
 
 		let text = "";
 		let reasoning: AssistantRound["reasoning"] = null;
@@ -225,6 +234,11 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 					return undefined;
 				}),
 			),
+			Effect.tapError((error) =>
+				Effect.logWarning("Assistant model request failed", {
+					error: "code" in error ? error.code : String(error),
+				}),
+			),
 			Effect.mapError(() => failure("provider-failed")),
 		);
 		if (!finishReasons.some((reason) => reason === "stop" || reason === "tool-calls")) {
@@ -232,6 +246,9 @@ export const makeAssistantTurnRuntime = Effect.fn(function* ({
 				finishReasons,
 			});
 			return yield* Effect.fail(failure("provider-failed"));
+		}
+		if (final && calls.length > 0) {
+			return yield* Effect.fail(failure("round-limit"));
 		}
 		yield* persistText();
 		return { calls, reasoning };
