@@ -1,3 +1,4 @@
+import { fixturePlugin } from "@ryot-app/fixture-plugin";
 import { mediaPlugin } from "@ryot-app/media-plugin";
 import { writePluginArchive } from "@ryot-app/plugin-archive";
 import {
@@ -606,6 +607,28 @@ describe("private plugins", () => {
 				code: "installation-not-found",
 				installationId: installed.installationId,
 			});
+		}),
+	);
+
+	it.live("installs the built fixture plugin archive unchanged", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const bytes = yield* Effect.promise(() =>
+				Bun.file(
+					new URL(
+						`../../../../../plugins/fixture/dist/${fixturePlugin.metadata.packageId}.zip`,
+						import.meta.url,
+					),
+				).bytes(),
+			);
+			const uploadToken = yield* uploadTemporaryArchive(client, bytes, { fileName: "fixture.zip" });
+			const inspection = yield* client.call((c) => c.plugins.inspect({ payload: { uploadToken } }));
+			expect(inspection.metadata.packageId).toBe(fixturePlugin.metadata.packageId);
+
+			const installed = yield* client.call((c) =>
+				c.plugins.install({ payload: { config: {}, uploadToken } }),
+			);
+			expect((yield* namespaceInstallation(client, installed.pluginId)).health).toBe("ready");
 		}),
 	);
 

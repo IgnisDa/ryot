@@ -1,3 +1,5 @@
+import { fixturePlugin } from "@ryot-app/fixture-plugin";
+
 import { collectionWorkflowRendererSource } from "~/fixtures/kernel";
 import { describe, expect, it } from "~/support/effect-test";
 
@@ -7,7 +9,7 @@ describe("collection workflow renderer fixture", () => {
 			'ownerPluginId: selectedField(column(entity, "entitySchemaPluginId")',
 		);
 		expect(collectionWorkflowRendererSource).toContain(
-			'ownerPackageId === "ryot/fixture" && group.schemaSlug === "pokemon"',
+			`ownerPackageId === ${JSON.stringify(fixturePlugin.metadata.packageId)} && group.schemaSlug === "pokemon"`,
 		);
 	});
 });
