@@ -57,6 +57,3 @@ isolation does not reset external state such as database rows between repetition
 awaits the child on interruption. `reportProcessMemory` records current memory and lifetime peak
 RSS in bytes at workload phase boundaries. Peak RSS includes startup and cannot be reset by a phase
 marker. Resource workloads must run in fresh processes rather than reusing a process across samples.
-
-Turbo forwards the PostgreSQL URL and Docker/Testcontainers connection settings centrally. These
-select isolated test infrastructure and do not alter cache keys; test behavior stays source-defined.
