@@ -58,7 +58,7 @@
 	},
 	"scripts": {
 		"test": "bun ./test.ts",
-		"build": "bun run tooling/kernel-scripts.ts",
+		"build": "bun run tooling/kernel-scripts.ts && bun run tooling/sdk-reference.ts",
 		"db:generate": "bun --bun drizzle-kit generate",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix"
 	},

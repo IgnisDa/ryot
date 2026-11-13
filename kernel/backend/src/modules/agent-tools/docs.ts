@@ -1,10 +1,9 @@
 import { NotFound } from "@ryot-app/contract/errors";
-import { Context, Effect, FileSystem, Layer, Schema } from "effect";
+import { Context, Effect, Layer } from "effect";
 
-const AgentDocsTopics = Schema.Array(
-	Schema.Struct({ content: Schema.String, topic: Schema.NonEmptyString }),
-);
-type AgentDocsTopics = typeof AgentDocsTopics.Type;
+import { sdkReferenceTopics } from "./sdk-reference.generated";
+
+type AgentDocsTopics = typeof sdkReferenceTopics;
 
 const executeTopic = {
 	topic: "execute",
@@ -28,27 +27,12 @@ return pages;
 `,
 };
 
-export const loadAgentDocs = Effect.gen(function* () {
-	if (import.meta.url.endsWith(".ts")) {
-		const { generateClientSdkReference } = yield* Effect.promise(
-			() => import("@ryot-app/plugin-client-compiler/sdk-reference"),
-		);
-		return [executeTopic, ...(yield* generateClientSdkReference())];
-	}
-	const fs = yield* FileSystem.FileSystem;
-	const generated = yield* fs.readFileString(
-		Bun.fileURLToPath(new URL("./agent-docs.json", import.meta.url)),
-	);
-	return [
-		executeTopic,
-		...(yield* Schema.decodeEffect(Schema.fromJsonString(AgentDocsTopics))(generated)),
-	];
-});
+export const agentDocsTopics: AgentDocsTopics = [executeTopic, ...sdkReferenceTopics];
 
 export class AgentDocs extends Context.Service<AgentDocs, AgentDocsTopics>()(
 	"@ryot-app/kernel-backend/modules/agent-tools/docs/AgentDocs",
 ) {
-	static readonly layer = Layer.effect(this, loadAgentDocs);
+	static readonly layer = Layer.succeed(this, agentDocsTopics);
 }
 
 const pageCharacters = 40_000;

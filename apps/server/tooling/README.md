@@ -18,12 +18,6 @@ reports unconfined development. Run `bun turbo --filter=@ryot-app/server dev` fr
 root. Turbo builds or restores dependency artifacts before server dev; `apps/server/dev.ts` assembles
 artifacts, watches local changes, and restarts the server.
 
-`agent-docs.ts` generates `dist/agent-docs.json`, the page SDK documentation topics served by the
-`read_docs` agent tool, during every server build from the compiler's allowed SDK entries and
-SDK-owned examples. Ship it beside the server bundle and shared chunks. Production loads this file
-without loading build tooling or regenerating the topics; unbundled development generates them from
-current sources.
-
 `assistant-eval.ts` measures Ryo against a running server with real provider calls, so it is
 kept out of CI. Create an API key for a dedicated account and run
 `RYOT_EVAL_API_URL=http://localhost:<port>/api RYOT_EVAL_API_KEY=<key> bun run tooling/assistant-eval.ts`
