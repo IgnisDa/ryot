@@ -268,7 +268,7 @@ export const updatePrivatePlugin = (input: {
 		Omit<UpdatePluginPayload, "uploadToken" | "contentHash">;
 }) =>
 	Effect.gen(function* () {
-		const { config, unsetConfigKeys } = input.payload;
+		const { config } = input.payload;
 		const uploadToken = yield* uploadPrivatePluginPackage(input.client, input.payload);
 		return yield* input.client.call((c) =>
 			c.plugins.update({
@@ -277,7 +277,6 @@ export const updatePrivatePlugin = (input: {
 					uploadToken,
 					contentHash: input.expectedContentHash,
 					...(config === undefined ? {} : { config }),
-					...(unsetConfigKeys === undefined ? {} : { unsetConfigKeys }),
 				},
 			}),
 		);

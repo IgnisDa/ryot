@@ -186,8 +186,8 @@ describe("plugin package conflicts", () => {
 				);
 				yield* client.call((contract) =>
 					contract.plugins.updatePluginState({
+						payload: { config: {}, isHidden: true },
 						params: { installationId: installed.id },
-						payload: { isHidden: true, unsetConfigKeys: ["bootstrapGateUrl"] },
 					}),
 				);
 				const hidden = yield* namespaceInstallation(client, installed.pluginId);

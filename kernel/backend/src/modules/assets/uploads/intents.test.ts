@@ -512,6 +512,35 @@ layer(makeUploadIntentsLayer({ intentRecord: makeIntentRecord() }))((test) => {
 	);
 });
 
+layer(makeUploadIntentsLayer({ intentRecord: makeIntentRecord() }))((test) => {
+	test.effect(
+		"reads a completed temporary upload for its owner without claiming it",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* UploadIntentsService;
+				expect(yield* service.readTemporaryUpload("upload-token", user.id)).toEqual({
+					fileName: "photo.png",
+					locator: { type: "local", key: "temporary/object.png" },
+				});
+				expect((yield* storedIntent(cleanupIntentId))?.metadata).toMatchObject({
+					state: "completed",
+				});
+				assertExitFails(
+					yield* Effect.exit(
+						service.readTemporaryUpload("upload-token", UserId.make("other-user")),
+					),
+					new UploadBadRequest({ reason: { code: "token-forbidden" } }),
+				);
+				yield* TestClock.adjust("900 seconds");
+				assertExitFails(
+					yield* Effect.exit(service.readTemporaryUpload("upload-token", user.id)),
+					new UploadBadRequest({ reason: { code: "token-invalid" } }),
+				);
+			}),
+		testTimeout,
+	);
+});
+
 layer(makeUploadIntentsLayer({ blockStat: true }))((test) => {
 	test.effect(
 		"completion excludes writes, duplicate completion, and cleanup; concurrent claimants have one winner",

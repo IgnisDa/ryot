@@ -144,6 +144,7 @@ type Recordings = {
 	readonly persisted: ReadonlyArray<PersistedPlugin>;
 	readonly created: ReadonlyArray<Record<string, unknown>>;
 	readonly updated: ReadonlyArray<Record<string, unknown>>;
+	readonly readUploads: ReadonlyArray<Record<string, unknown>>;
 	readonly healthUpdates: ReadonlyArray<Record<string, unknown>>;
 	readonly claimedUploads: ReadonlyArray<Record<string, unknown>>;
 	readonly homeViewUpdates: ReadonlyArray<Record<string, unknown>>;
@@ -164,6 +165,7 @@ const emptyRecordings: Recordings = {
 	persisted: [],
 	dispatched: [],
 	deactivated: [],
+	readUploads: [],
 	healthUpdates: [],
 	invalidatedAll: [],
 	deletedUploads: [],
@@ -277,6 +279,7 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 				persisted: read("persisted"),
 				dispatched: read("dispatched"),
 				deactivated: read("deactivated"),
+				readUploads: read("readUploads"),
 				healthUpdates: read("healthUpdates"),
 				invalidatedAll: read("invalidatedAll"),
 				deletedUploads: read("deletedUploads"),
@@ -543,6 +546,13 @@ const makeLayer = (options: FakeInstallationOptions = {}) => {
 						),
 				}),
 				Layer.mock(UploadIntentsService)({
+					readTemporaryUpload: (token, ownerId) =>
+						record(recordings, "readUploads", { token, userId: ownerId }).pipe(
+							Effect.as({
+								fileName: "plugin.zip",
+								locator: { key: "plugin-upload", type: "local" as const },
+							}),
+						),
 					deleteTemporaryUpload: (intentId) =>
 						record(recordings, "deletedUploads", intentId).pipe(
 							Effect.andThen(
@@ -669,6 +679,86 @@ layer(
 				expect(yield* fake.deletedUploads).toEqual(["plugin-upload-intent"]);
 			});
 		},
+		testTimeout,
+	);
+});
+
+layer(
+	makeLayer({
+		archiveBytes: writePluginArchive({ compiledScripts: [], manifest: privateManifest() }),
+	}),
+)("plugin installation harness", (test) => {
+	test.effect(
+		"inspects an uploaded archive without claiming, deleting, or installing it",
+		() =>
+			Effect.gen(function* () {
+				const fake = yield* FakeInstallationDependencies;
+				const service = yield* PluginInstallationService;
+				const manifest = privateManifest();
+				const inspection = yield* service.inspectPrivatePlugin({
+					userId,
+					uploadToken: "plugin-upload-token",
+				});
+				expect(inspection).toEqual<unknown>({
+					metadata: manifest.metadata,
+					configSchema: manifest.configSchema,
+					operations: manifest.operations.map(({ auth, slug, hints, title, description }) => ({
+						auth,
+						slug,
+						hints,
+						title,
+						description,
+					})),
+				});
+				expect(yield* fake.readUploads).toEqual([{ userId, token: "plugin-upload-token" }]);
+				expect(yield* fake.claimedUploads).toEqual([]);
+				expect(yield* fake.deletedUploads).toEqual([]);
+				expect(yield* fake.persisted).toEqual([]);
+				expect(yield* fake.created).toEqual([]);
+			}),
+		testTimeout,
+	);
+});
+
+const otherPackagePlugin = storedPrivatePlugin(
+	privateManifest({
+		metadata: {
+			...privateManifest().metadata,
+			packageId: PluginPackageId.make("test/other-fixture"),
+		},
+	}),
+);
+const otherPackageInstallation = installationRow({ pluginId: otherPackagePlugin.id });
+
+layer(
+	makeLayer({
+		privatePlugins: [otherPackagePlugin],
+		installations: [otherPackageInstallation],
+		archiveBytes: writePluginArchive({ compiledScripts: [], manifest: privateManifest() }),
+	}),
+)("plugin installation harness", (test) => {
+	test.effect(
+		"inspects an update candidate against the selected installation's package",
+		() =>
+			Effect.gen(function* () {
+				const service = yield* PluginInstallationService;
+				const failure = failureOf(
+					yield* Effect.exit(
+						service.inspectPrivatePlugin({
+							userId,
+							uploadToken: "plugin-upload-token",
+							installationId: otherPackageInstallation.id,
+						}),
+					),
+				);
+				assert(failure instanceof PluginRequestError);
+				expect(failure.reason).toEqual<unknown>({
+					code: "package-id-mismatch",
+					pluginId: otherPackagePlugin.id,
+					expectedPackageId: otherPackagePlugin.packageId,
+					packageId: privateManifest().metadata.packageId,
+				});
+			}),
 		testTimeout,
 	);
 });
@@ -1192,7 +1282,7 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 	"plugin installation harness",
 	(test) => {
 		test.effect(
-			"patches config while preserving omitted secrets and returning a safe response",
+			"replaces config while preserving omitted secrets and returning a safe response",
 			() =>
 				Effect.gen(function* () {
 					const fake = yield* FakeInstallationDependencies;
@@ -1256,13 +1346,13 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 	"plugin installation harness",
 	(test) => {
 		test.effect(
-			"applies defaults after explicit unsets and rejects removing required config",
+			"applies defaults to omitted config fields and rejects invalid replacements",
 			() =>
 				Effect.gen(function* () {
 					const fake = yield* FakeInstallationDependencies;
 					const service = yield* PluginInstallationService;
 					const reset = yield* service.updateInstallation(userId, configuredInstallation.id, {
-						unsetConfigKeys: ["region"],
+						config: {},
 					});
 					expect((yield* fake.updated)[0]).toMatchObject({
 						config: { region: "eu", token: "stored-secret" },
@@ -1275,7 +1365,7 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [configured
 					const failure = failureOf(
 						yield* Effect.exit(
 							service.updateInstallation(userId, configuredInstallation.id, {
-								unsetConfigKeys: ["token"],
+								config: { region: 42 },
 							}),
 						),
 					);
@@ -1867,7 +1957,7 @@ layer(makeLayer({ privatePlugins: [configuredPlugin], installations: [unconfigur
 							sortOrder: 0,
 							isHidden: false,
 							id: unconfiguredInstallation.id,
-							config: { region: "us", token: "replacement-secret" },
+							config: { region: "eu", token: "replacement-secret" },
 						},
 					]);
 				}),

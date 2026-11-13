@@ -64,6 +64,18 @@ Explicit re-enable validates the retained archive, configuration, declarations, 
 before clearing quarantine. Package updates validate the submitted archive and compatibility with
 the retained revision. Normal compatible upgrades do not drain admitted work.
 
+## Private installation
+
+Private installs, package updates, retained recovery, and `POST /plugins/inspect` share one candidate
+validation: manifest policy, script entries, effective definitions, references, additive schema
+evolution against an update target, and executable scripts. Inspect also checks dependencies and
+returns the manifest summary without persisting anything. It reads the temporary upload without
+claiming it, so the same token can then install or update; install and update claim and delete it.
+
+A submitted `config` replaces the stored configuration. Omitted secrets keep their stored values, and
+omitted non-secret fields fall back to schema defaults. Package updates without `config` revalidate
+the stored configuration against the new schema.
+
 `isInitialized` records successful installation bootstrap separately from availability and visibility.
 Quarantine and ordinary revision changes preserve it. Explicit recovery of a completed installation
 does not reseed it; incomplete recovery uses a fresh private activation token and the existing

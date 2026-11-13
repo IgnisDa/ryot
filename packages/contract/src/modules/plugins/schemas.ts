@@ -5,6 +5,12 @@ import { JsonValue } from "../../schema/json";
 import { IsoUtcString, strictStruct } from "../../schema/utils";
 import { PageOperationAuthority } from "../pages/identity";
 import { SandboxCompilationDiagnostic, SandboxExecutionError } from "../scripts/schemas";
+import {
+	PluginConfigSchema,
+	PluginMetadata,
+	PluginOperationAuth,
+	PluginOperationHints,
+} from "./manifest";
 import { SavedViewReference } from "./references";
 
 const PluginValidationDiagnostic = Schema.Struct({
@@ -195,10 +201,32 @@ export const InstallPluginBody = Schema.Struct({
 
 export type InstallPluginBody = Schema.Schema.Type<typeof InstallPluginBody>;
 
+export const InspectPluginBody = strictStruct({
+	uploadToken: Schema.String,
+	installationId: Schema.optional(Schema.String),
+});
+
+export type InspectPluginBody = typeof InspectPluginBody.Type;
+
+export const PluginInspection = Schema.Struct({
+	metadata: PluginMetadata,
+	configSchema: PluginConfigSchema,
+	operations: Schema.Array(
+		Schema.Struct({
+			slug: Schema.String,
+			title: Schema.String,
+			auth: PluginOperationAuth,
+			description: Schema.String,
+			hints: PluginOperationHints,
+		}),
+	),
+});
+
+export type PluginInspection = typeof PluginInspection.Type;
+
 export const UpdatePrivatePluginBody = strictStruct({
 	contentHash: Schema.String,
 	uploadToken: Schema.String,
-	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 });
 
@@ -206,7 +234,6 @@ export type UpdatePrivatePluginBody = typeof UpdatePrivatePluginBody.Type;
 
 export const UpdatePluginInstallationBody = strictStruct({
 	isHidden: Schema.optional(Schema.Boolean),
-	unsetConfigKeys: Schema.optional(Schema.Array(Schema.String)),
 	config: Schema.optional(Schema.Record(Schema.String, JsonValue)),
 	sortOrder: Schema.optional(
 		Schema.Int.pipe(

@@ -290,7 +290,7 @@ const schemaEvolutionCode = (code: SchemaEvolutionError["issues"][number]["code"
 		Match.exhaustive,
 	);
 
-type StructurablePluginFailure =
+export type StructurablePluginFailure =
 	| DbError
 	| BadRequest
 	| UploadBadRequest

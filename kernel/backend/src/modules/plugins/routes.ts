@@ -26,6 +26,15 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 				});
 			}),
 		)
+		.handle("inspect", ({ payload }) =>
+			Effect.gen(function* () {
+				const user = yield* CurrentUser;
+				const service = yield* PluginInstallationService;
+				return yield* service
+					.inspectPrivatePlugin({ ...payload, userId: user.id })
+					.pipe(dieOnDbError);
+			}),
+		)
 		.handle("install", ({ payload }) =>
 			Effect.gen(function* () {
 				const user = yield* CurrentUser;
@@ -50,7 +59,6 @@ export const PluginsRoutesLive = HttpApiBuilder.group(AppContract, "plugins", (h
 						contentHash: payload.contentHash,
 						uploadToken: payload.uploadToken,
 						installationId: params.installationId,
-						unsetConfigKeys: payload.unsetConfigKeys,
 					})
 					.pipe(dieOnDbError);
 			}),

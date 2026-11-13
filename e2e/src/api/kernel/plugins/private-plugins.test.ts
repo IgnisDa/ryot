@@ -395,41 +395,43 @@ describe("private plugins", () => {
 		}),
 	);
 
-	it.live("rejects required unsets, system config, and another user's patch", () =>
-		Effect.gen(function* () {
-			const owner = yield* createAuthenticatedClient();
-			const outsider = yield* createAuthenticatedClient();
-			const plugin = yield* installPrivatePlugin({
-				client: owner.client,
-				config: {
-					[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
-					[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
-				},
-			});
+	it.live(
+		"rejects replacement config missing required values, system config, and another user's patch",
+		() =>
+			Effect.gen(function* () {
+				const owner = yield* createAuthenticatedClient();
+				const outsider = yield* createAuthenticatedClient();
+				const plugin = yield* installPrivatePlugin({
+					client: owner.client,
+					config: {
+						[PRIVATE_PLUGIN_CONFIG_KEY]: "alpha",
+						[PRIVATE_PLUGIN_SECRET_KEY]: "token-alpha",
+					},
+				});
 
-			const unset = yield* Effect.flip(
-				updatePluginState(owner.client, plugin.installationId, {
-					unsetConfigKeys: [PRIVATE_PLUGIN_CONFIG_KEY],
-				}),
-			);
-			assertTaggedError(unset, "PluginRequestError");
-			expect(unset.reason.code).toBe("validation-failed");
+				const missing = yield* Effect.flip(
+					updatePluginState(owner.client, plugin.installationId, { config: {} }),
+				);
+				assertTaggedError(missing, "PluginRequestError");
+				expect(missing.reason.code).toBe("validation-failed");
 
-			const foreign = yield* Effect.flip(
-				updatePluginState(outsider.client, plugin.installationId, { sortOrder: 4 }),
-			);
-			assertTaggedError(foreign, "PluginNotFoundError");
+				const foreign = yield* Effect.flip(
+					updatePluginState(outsider.client, plugin.installationId, { sortOrder: 4 }),
+				);
+				assertTaggedError(foreign, "PluginNotFoundError");
 
-			const media = requirePresent(
-				(yield* listNamespaceInstallations(owner.client)).find(
-					({ scope, packageId }) => packageId === mediaPackageId && scope === "system",
-				),
-				"Media installation missing",
-			);
-			const system = yield* Effect.flip(updatePluginState(owner.client, media.id, { config: {} }));
-			assertTaggedError(system, "PluginConflictError");
-			expect(system.reason).toEqual({ code: "system-plugin", pluginId: media.pluginId });
-		}),
+				const media = requirePresent(
+					(yield* listNamespaceInstallations(owner.client)).find(
+						({ scope, packageId }) => packageId === mediaPackageId && scope === "system",
+					),
+					"Media installation missing",
+				);
+				const system = yield* Effect.flip(
+					updatePluginState(owner.client, media.id, { config: {} }),
+				);
+				assertTaggedError(system, "PluginConflictError");
+				expect(system.reason).toEqual({ code: "system-plugin", pluginId: media.pluginId });
+			}),
 	);
 
 	it.live("isolates two users installing different packages under the same package identity", () =>
@@ -523,6 +525,87 @@ describe("private plugins", () => {
 
 			assertTaggedError(failure, "PluginRequestError");
 			expect(failure.reason.code).toBe("reserved-system-identity");
+		}),
+	);
+
+	it.live("inspects an uploaded archive without installing it or spending the upload", () =>
+		Effect.gen(function* () {
+			const { client } = yield* createAuthenticatedClient();
+			const plugin = privatePluginPackage();
+			const packageId = plugin.manifest.metadata.packageId;
+			const uploadToken = yield* uploadPrivatePluginPackage(client, plugin);
+
+			const inspection = yield* client.call((c) => c.plugins.inspect({ payload: { uploadToken } }));
+			expect(inspection.metadata).toMatchObject({ packageId, name: plugin.manifest.metadata.name });
+			expect(Object.keys(inspection.configSchema.fields).sort()).toEqual(
+				[PRIVATE_PLUGIN_CONFIG_KEY, PRIVATE_PLUGIN_SECRET_KEY].sort(),
+			);
+			expect(inspection.operations.map(({ slug }) => slug)).toEqual([plugin.operationSlug]);
+			expect((yield* listPlugins(client)).some((item) => item.packageId === packageId)).toBe(false);
+
+			yield* client.call((c) =>
+				c.plugins.install({
+					payload: { uploadToken, config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" } },
+				}),
+			);
+			const repeated = yield* uploadPrivatePluginPackage(client, plugin);
+			const again = yield* Effect.flip(
+				client.call((c) => c.plugins.inspect({ payload: { uploadToken: repeated } })),
+			);
+			assertTaggedError(again, "PluginConflictError");
+			expect(again.reason).toEqual({ packageId, code: "already-installed" });
+		}),
+	);
+
+	it.live("inspects an update archive only against the caller's matching installation", () =>
+		Effect.gen(function* () {
+			const owner = yield* createAuthenticatedClient();
+			const outsider = yield* createAuthenticatedClient();
+			const installed = yield* installPrivatePlugin({
+				client: owner.client,
+				config: { [PRIVATE_PLUGIN_CONFIG_KEY]: "alpha" },
+			});
+			const sameUpload = yield* uploadPrivatePluginPackage(
+				owner.client,
+				privatePluginPackage({ packageId: installed.manifest.metadata.packageId }),
+			);
+			const update = yield* owner.client.call((c) =>
+				c.plugins.inspect({
+					payload: { uploadToken: sameUpload, installationId: installed.installationId },
+				}),
+			);
+			expect(update.metadata.packageId).toBe(installed.manifest.metadata.packageId);
+
+			const other = privatePluginPackage();
+			const ownerUpload = yield* uploadPrivatePluginPackage(owner.client, other);
+			const mismatch = yield* Effect.flip(
+				owner.client.call((c) =>
+					c.plugins.inspect({
+						payload: { uploadToken: ownerUpload, installationId: installed.installationId },
+					}),
+				),
+			);
+			assertTaggedError(mismatch, "PluginRequestError");
+			expect(mismatch.reason).toEqual({
+				code: "package-id-mismatch",
+				pluginId: installed.pluginId,
+				packageId: other.manifest.metadata.packageId,
+				expectedPackageId: installed.manifest.metadata.packageId,
+			});
+
+			const outsiderUpload = yield* uploadPrivatePluginPackage(outsider.client, other);
+			const foreign = yield* Effect.flip(
+				outsider.client.call((c) =>
+					c.plugins.inspect({
+						payload: { uploadToken: outsiderUpload, installationId: installed.installationId },
+					}),
+				),
+			);
+			assertTaggedError(foreign, "PluginNotFoundError");
+			expect(foreign.reason).toEqual({
+				code: "installation-not-found",
+				installationId: installed.installationId,
+			});
 		}),
 	);
 

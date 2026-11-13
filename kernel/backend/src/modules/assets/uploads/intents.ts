@@ -477,47 +477,69 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 				},
 			);
 
+			const resolveTemporaryToken = Effect.fnUntraced(function* (token: string, userId: UserId) {
+				const rawToken = yield* values.get(uploadTokenKey(token)).pipe(Effect.orDie);
+				if (!rawToken) {
+					return yield* uploadError({ code: "token-invalid" });
+				}
+				const tokenValue = yield* Schema.decodeEffect(Schema.fromJsonString(UploadTokenValue))(
+					rawToken,
+				).pipe(Effect.mapError(() => uploadError({ code: "token-invalid" })));
+				if (tokenValue.userId !== userId) {
+					return yield* uploadError({ code: "token-forbidden" });
+				}
+				return { rawToken, intentId: tokenValue.intentId };
+			});
+
+			const getCompletedTemporaryIntent = Effect.fnUntraced(function* (
+				token: string,
+				userId: UserId,
+				intentId: string,
+			) {
+				const metadata = yield* getIntent(intentId);
+				const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
+				const deadline = intentDeadline(metadata);
+				if (
+					metadata.userId !== userId ||
+					metadata.kind !== "temporary" ||
+					metadata.state === "pending" ||
+					deadline === null ||
+					deadline <= now ||
+					metadata.completion.token !== token
+				) {
+					return yield* uploadError({ code: "token-invalid" });
+				}
+				return { now, metadata };
+			});
+
+			const readTemporaryUpload = Effect.fn("UploadIntentsService.readTemporaryUpload")(function* (
+				token: string,
+				userId: UserId,
+			) {
+				const { intentId } = yield* resolveTemporaryToken(token, userId);
+				const { metadata } = yield* getCompletedTemporaryIntent(token, userId, intentId);
+				return {
+					fileName: metadata.fileName,
+					locator: { type: metadata.provider, key: metadata.objectKey },
+				};
+			});
+
 			const claimTemporaryUpload = Effect.fn("UploadIntentsService.claimTemporaryUpload")(
 				function* (token: string, userId: UserId, claimId: string) {
-					const rawToken = yield* values.get(uploadTokenKey(token)).pipe(Effect.orDie);
-					if (!rawToken) {
-						return yield* uploadError({ code: "token-invalid" });
-					}
-					const tokenValue = yield* Schema.decodeEffect(Schema.fromJsonString(UploadTokenValue))(
-						rawToken,
-					).pipe(Effect.mapError(() => uploadError({ code: "token-invalid" })));
-					if (tokenValue.userId !== userId) {
-						return yield* uploadError({ code: "token-forbidden" });
-					}
-					const lockKey = intentLockKey(tokenValue.intentId);
+					const { rawToken, intentId } = yield* resolveTemporaryToken(token, userId);
+					const lockKey = intentLockKey(intentId);
 					const lease = yield* acquireLease(lockKey, CLEANUP_LEASE_SECONDS);
 					if (lease === null) {
 						return yield* uploadError({ code: "token-busy" });
 					}
 					return yield* Effect.gen(function* () {
-						const metadata = yield* getIntent(tokenValue.intentId);
-						const now = Math.floor((yield* Clock.currentTimeMillis) / 1000);
-						const deadline = intentDeadline(metadata);
-						if (
-							metadata.userId !== userId ||
-							metadata.kind !== "temporary" ||
-							metadata.state === "pending" ||
-							deadline === null ||
-							deadline <= now ||
-							metadata.completion.token !== token
-						) {
-							return yield* uploadError({ code: "token-invalid" });
-						}
+						const { now, metadata } = yield* getCompletedTemporaryIntent(token, userId, intentId);
 						if (metadata.state === "claimed" && metadata.claimId !== claimId) {
 							return yield* uploadError({ code: "token-already-claimed" });
 						}
 						const resolvedPath = yield* localStorage
 							.resolveObjectPath(metadata.objectKey)
-							.pipe(
-								Effect.mapError(() =>
-									uploadError({ code: "object-missing", intentId: tokenValue.intentId }),
-								),
-							);
+							.pipe(Effect.mapError(() => uploadError({ intentId, code: "object-missing" })));
 						const leaseExpiresAt =
 							metadata.state === "claimed"
 								? metadata.leaseExpiresAt
@@ -532,12 +554,12 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 							};
 							const encoded = yield* encodeIntent(claimed).pipe(Effect.orDie);
 							yield* setToken(token, rawToken, PROCESSING_LEASE_SECONDS);
-							yield* intents.put(tokenValue.intentId, encoded, leaseExpiresAt);
+							yield* intents.put(intentId, encoded, leaseExpiresAt);
 						}
 						return {
+							intentId,
 							resolvedPath,
 							fileName: metadata.fileName,
-							intentId: tokenValue.intentId,
 							locator: { type: metadata.provider, key: metadata.objectKey },
 							leaseExpiresAt: DateTime.formatIso(DateTime.makeUnsafe(leaseExpiresAt * 1000)),
 						};
@@ -560,6 +582,7 @@ export class UploadIntentsService extends Context.Service<UploadIntentsService>(
 			return {
 				putLocalIntent,
 				createUploadIntent,
+				readTemporaryUpload,
 				completeUploadIntent,
 				claimTemporaryUpload,
 				deleteTemporaryUpload,

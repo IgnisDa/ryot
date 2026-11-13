@@ -18,20 +18,15 @@ const pluginId = PluginId.make("fixture-plugin-id");
 
 describe("UpdatePrivatePluginBody", () => {
 	it.effect(
-		"decodes an upload token and config patch",
+		"decodes an upload token and config replacement",
 		() =>
 			Effect.gen(function* () {
 				expect(
 					yield* Schema.decodeEffect(UpdatePrivatePluginBody)({
 						...uploadPayload,
-						unsetConfigKeys: ["region"],
 						config: { token: "replacement" },
 					}),
-				).toEqual({
-					...uploadPayload,
-					unsetConfigKeys: ["region"],
-					config: { token: "replacement" },
-				});
+				).toEqual({ ...uploadPayload, config: { token: "replacement" } });
 			}),
 		testTimeout,
 	);
@@ -55,22 +50,16 @@ describe("UpdatePrivatePluginBody", () => {
 
 describe("UpdatePluginInstallationBody", () => {
 	it.effect(
-		"decodes config replacements, explicit unsets, and controls",
+		"decodes config replacements and controls",
 		() =>
 			Effect.gen(function* () {
 				expect(
 					yield* Schema.decodeEffect(UpdatePluginInstallationBody)({
 						sortOrder: 3,
 						isHidden: true,
-						unsetConfigKeys: ["region"],
 						config: { token: "replacement" },
 					}),
-				).toEqual({
-					sortOrder: 3,
-					isHidden: true,
-					unsetConfigKeys: ["region"],
-					config: { token: "replacement" },
-				});
+				).toEqual({ sortOrder: 3, isHidden: true, config: { token: "replacement" } });
 			}),
 		testTimeout,
 	);
@@ -89,7 +78,6 @@ describe("UpdatePluginInstallationBody", () => {
 					{ sortOrder: -2_147_483_649 },
 					{ sortOrder: 2_147_483_648 },
 					{ isHidden: null },
-					{ unsetConfigKeys: [null] },
 					{ unknown: true },
 				]) {
 					yield* Effect.flip(Schema.decodeUnknownEffect(UpdatePluginInstallationBody)(input));
