@@ -1,3 +1,4 @@
+import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
 import { BadRequest, SandboxRunError } from "@ryot-app/contract/errors";
 import { SandboxCompilationFailure } from "@ryot-app/contract/modules/scripts/schemas";
 import { isSandboxHostCapability } from "@ryot-app/contract/modules/scripts/wire";
@@ -254,11 +255,21 @@ export class AgentScriptService extends Context.Service<AgentScriptService>()(
 				const raw = yield* execute.pipe(
 					Effect.timeout(SANDBOX_LIMITS.execution.timeoutMs),
 					Effect.catch((error) =>
-						Effect.succeed(
-							error instanceof SandboxCompilationFailure
-								? { logs: [], value: null, executionId: id, diagnostics: error.diagnostics }
-								: { logs: [], value: null, executionId: id, error: { message: error.message } },
-						),
+						// An unavailable compiler says nothing about the source, so the execution stays
+						// incomplete and the same request can run once the compiler recovers.
+						error instanceof CompilerWorkerUnavailable
+							? Effect.fail(
+									new SandboxRunError({
+										kind: "resource-unavailable",
+										message:
+											"The script compiler is temporarily unavailable. This is a Ryot platform failure, not a problem with the submitted code; try again shortly.",
+									}),
+								)
+							: Effect.succeed(
+									error instanceof SandboxCompilationFailure
+										? { logs: [], value: null, executionId: id, diagnostics: error.diagnostics }
+										: { logs: [], value: null, executionId: id, error: { message: error.message } },
+								),
 					),
 				);
 				if (raw === null) {

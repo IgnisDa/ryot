@@ -1,18 +1,21 @@
 import { expect } from "bun:test";
 
 import { BunCrypto } from "@effect/platform-bun";
+import { CompilerWorkerUnavailable } from "@ryot-app/compiler-worker/pool";
 import { BadRequest } from "@ryot-app/contract/errors";
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { assert } from "@ryot-app/testing/assert";
 import { assertExitFails } from "@ryot-app/testing/effect-assertions";
 import { arrayContaining, objectContaining, stringContaining } from "@ryot-app/testing/matchers";
 import { testTimeout } from "@ryot-app/testing/test-timeout";
+import { sha256Hex } from "@ryot-app/ts-utils/crypto";
 import { stableStringify } from "@ryot-app/ts-utils/json";
 import { isObjectRecord } from "@ryot-app/ts-utils/predicates";
 import { layer } from "@voila.dev/effect-bun-test";
 import { Effect, Layer } from "effect";
 
 import { realSandboxLayer, realSandboxUserId } from "../executions/real-sandbox.test-support";
+import { SandboxCompiler } from "../registry/compiler";
 import { AgentScriptRepository } from "./repository";
 import {
 	type AgentCapabilityCall,
@@ -207,6 +210,44 @@ layer(agentLayer)((test) => {
 				);
 				expect(new TextEncoder().encode(stableStringify(large)).length).toBeLessThanOrEqual(65_536);
 				expect(large).toMatchObject({ truncated: true });
+			}),
+		testTimeout,
+	);
+});
+
+const unavailableCompilerLayer = AgentScriptService.layer.pipe(
+	Layer.provide(
+		Layer.succeed(
+			SandboxCompiler,
+			SandboxCompiler.of({
+				compile: () =>
+					Effect.fail(new CompilerWorkerUnavailable({ message: "Compiler worker exited" })),
+			}),
+		),
+	),
+	Layer.provideMerge(AgentScriptRepository.layer),
+	Layer.provideMerge(realSandboxLayer()),
+	Layer.provide(BunCrypto.layerSecureRandom),
+);
+
+layer(unavailableCompilerLayer)((test) => {
+	test.effect(
+		"reports an unavailable compiler as retryable without completing the execution",
+		() =>
+			Effect.gen(function* () {
+				const scripts = yield* AgentScriptService;
+				const repository = yield* AgentScriptRepository;
+				const input = { ...options(source("return null;"), unexpected), idempotencyKey: "offline" };
+
+				expect(yield* scripts.run(input).pipe(Effect.flip)).toMatchObject({
+					_tag: "SandboxRunError",
+					kind: "resource-unavailable",
+				});
+				const stored = yield* repository.find(
+					realSandboxUserId,
+					`agent-${sha256Hex(stableStringify([realSandboxUserId, "offline"]))}`,
+				);
+				expect(stored).toMatchObject({ result: null, completedAt: null });
 			}),
 		testTimeout,
 	);

@@ -293,7 +293,9 @@ memory/call/journal limits, bounded diagnostics/logs, and the shared tool-result
 `AgentScriptRepository` alone writes `agent_script_execution`. It records source, journal, exact
 principal and bounded final results, including compiler diagnostics and logs. Completed executions
 with the same caller idempotency key replay the retained result; changed inputs or authority
-conflict. History rows cascade with the user. The kernel-audience `agentScriptExecution` RyotQL table
+conflict. An unavailable compiler worker is not a result: the run fails with a `resource-unavailable`
+`SandboxRunError` and leaves the execution incomplete, so the same request runs once the compiler
+recovers. History rows cascade with the user. The kernel-audience `agentScriptExecution` RyotQL table
 exposes only that user's history, without the private principal or journal.
 
 The bounded JSON envelope is defined once in the client-safe
