@@ -6,9 +6,12 @@ Code inventory audited on **2026-10-26**, against repository commit
 `e85f5099664211919552cca54b26c8ffe97541d5`. This is a legacy engineering reference,
 not maintained product documentation; maintained user documentation lives in `apps/docs`.
 
-The current-status inventory was reconciled on **2026-11-10** against commits through
-`68beedb34e`, including bulk collection management, collection reviews and Order 19. This
-was a source/documentation check, not a new execution of the historical validation suites.
+The current-status inventory was reconciled on **2026-11-14** against commit
+`48addd16dae37c070073d3d592edbc2230111efe`, including the post-Order-19 publication,
+query, page-authoring, assistant and access-control changes. This was a source/documentation
+check, not a new execution of the historical validation suites. Dated acceptance records
+retain their original evidence; supersession notes distinguish earlier implementations from
+the current inventory.
 
 The comparison covers V1's public operations, HTTP handlers, scheduled work, dependent
 utilities, data models, preferences, and client screens. It maps these to executable V2
@@ -29,7 +32,9 @@ and fixtures do not prove that every upstream service works live.
 | Metadata providers | `crates/providers` | `plugins/media/backend/providers`, `plugins/fitness/backend/providers` |
 | Plugin execution and authoring | Compiled-in Rust services/providers | `kernel/sandbox`, `packages/plugin-{backend,client}-compiler`, plugin SDKs, `packages/plugin-archive`, `packages/cli` |
 | Client | `crates/frontend/app` | `kernel/client`, plugin `client` directories, `packages/kernel-renderers` |
-| Queries | Domain-specific Rust services | `packages/ryotql`, `packages/ryotql-recipes`, plugin `shared/*recipes.ts` |
+| Queries | Domain-specific Rust services | `packages/ryotql`, `packages/ryotql-recipes`, plugin `shared/*recipes.ts` and `manifest/queries.ts` |
+| Page authoring and agent access | No equivalent | `kernel/backend/src/modules/{pages,assistant,agent-tools,mcp}`, kernel Pages/Ryo settings and client surfaces |
+| Credential access management | Auth tokens | `kernel/backend/src/modules/{accounts/auth,oauth-connections}`, kernel Settings → Access |
 | Deployed V1 data conversion | Not applicable | `apps/server/src/migrations` |
 | Companion clients | `apps/browser-extension`, `apps/kodi` | Same directories; extension now uses the V2 contract |
 
@@ -60,6 +65,10 @@ have client consumers, not only hand-built test queries.
 Orders 1–19 are complete, including notification producers, retention, analytics and the
 history/review controls. Bulk collection add/remove and collection review management also
 have usable client paths. Completion of this roadmap does not mean exact V1 parity.
+
+V2 also provides authored Pages, Ryo, MCP and credential write-access controls. Publications
+support kernel selections and user pages in live or snapshot mode; these additions extend the
+platform inventory without creating new V1 port commitments.
 
 Pro verification exists, but feature-by-feature entitlement parity remains open. No equivalent
 was found for V1's media-consumed-during-a-workout panel. Provider-source exercise merging is
@@ -172,8 +181,8 @@ readiness fix. Order 12 is Done.
 | 15 | Done | **Ship collection recommendations** | 4 and 6 | A Media-owned recipe ranks every title suggested by collection members by suggesting-member count, with name search and cursor pages, behind a generic `collectionPages` collection-detail action. Members and known NSFW titles are excluded; library titles stay marked. Empty, exhausted, no-match and missing-collection states are distinct. Home keeps the latest-completion design. See the Order 15 acceptance record below. |
 | 16 | Done | **Complete the analytics experience** | 1; a metric contract and the exclusion decisions below | The unified Analytics destination provides Media and Fitness totals, comparisons, grouping, trends, hourly activity, rankings and drill-downs with the agreed historical facts, units, date and timezone semantics. Targeted API/browser coverage and both real datasets pass correctness, readiness and restart acceptance. See the Order 16 acceptance record below. |
 | 17 | Done | **Add self-service account rename** | Existing account authentication | Account settings edit the current user’s display name with validation, save/retry feedback and refreshed identity on web/native. Demo sessions cannot rename. Admin-on-behalf rename, V1 roles and the onboarding-tour flag are excluded by agreement. |
-| 18 | Done | **Share collections and saved views read-only** | 5 and 6; existing saved views and backups | Owners publish a kernel collection or entity-browser saved view as a live, read-only page with labelled, expiring, revocable links, an in-app preview and a status check. Visitors need no account and see only the published items. Backups carry publication definitions but never links. Collaborators and V1 access links are not reproduced. See the Order 18 acceptance record below. |
-| 19 | Done | **Add history and review controls** | 1 and 3; the 2026-11-10 decisions in the [Order 19 plan](order-19-history-review-controls-plan.md) | User-selectable rating scales (100, 10, 5 stars, 3-point smiley) as a kernel preference across Media, Fitness and collection reviews; one Media position model with episode/chapter/volume reviews; a review's optional link to one consumption event with kernel event-reference integrity; same-parent episode retargeting; multiple consumption sources; progress started dates and optional time of day; manga volume tracking with next entry and completion. Review visibility is not reproduced. See the Order 19 acceptance record below. |
+| 18 | Done | **Share collections and saved views read-only** | 5 and 6; existing saved views and backups | Owners publish a kernel collection or entity-browser saved view with labelled, expiring, revocable links, an in-app preview and a status check. Subsequent work adds user pages, live/snapshot modes and owner-controlled visitor parameters; see [current publications](#current-publications). Visitors need no account. Backups retain definitions and captured snapshot dependencies, but never links or visitor sessions. Collaborators and V1 access links are not reproduced. See the historical Order 18 acceptance record below. |
+| 19 | Done | **Add history and review controls** | 1 and 3; the 2026-11-10 decisions in the [Order 19 acceptance record](#order-19-acceptance--2026-11-10) | User-selectable rating scales (100, 10, 5 stars, 3-point smiley) as a kernel preference across Media, Fitness and collection reviews; one Media position model with episode/chapter/volume reviews; a review's optional link to one consumption event with kernel event-reference integrity; same-parent episode retargeting; multiple consumption sources; progress started dates and optional time of day; manga volume tracking with next entry and completion. Review visibility is not reproduced. See the Order 19 acceptance record below. |
 
 #### Order 15 acceptance — 2026-11-08
 
@@ -255,6 +264,10 @@ assets remain accepted limitations. They do not waive correctness, readiness or 
 
 #### Order 18 acceptance — 2026-11-09
 
+Historical implementation and validation record: subsequent work replaced the publication query
+scope and source limit described here and added user pages, snapshots and visitor parameters.
+See [current publications](#current-publications) for the current authority, limits and backup model.
+
 V1 access links shared a whole account view and were consumed by count or expiry. V2 replaces them
 with publications: a publication's source is a kernel collection or an entity-browser saved view,
 resolved on every request, so membership, item and saved-view query changes appear without
@@ -331,7 +344,7 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | --- | --- |
 | Automatic library-reason recomputation and default smart-collection edits | Closed as intentional redesign under the agreed policy. Do not implement; explicit removal, live state and explicit monitoring are the replacement. |
 | Exact V1 recommendation sampling, enabled-lot gates and global fallback | Keep current home selection. Decide whether a separate explicit recommendation preference is needed; hiding a navigation view must not silently become a processing permission. |
-| Rating scales, positional reviews, consumption-to-review links, episode retargeting, multi-source consumption, dated/manual-time progress and manga volume-only next-entry | **Done** as Order 19 (2026-11-10); the [Order 19 plan](order-19-history-review-controls-plan.md) records the product decisions. Review visibility stays excluded; Fitness notes stay text-required notes sharing the rating scale; batch episode logs take no time spent; retargeting stays within one parent. |
+| Rating scales, positional reviews, consumption-to-review links, episode retargeting, multi-source consumption, dated/manual-time progress and manga volume-only next-entry | **Done** as Order 19 (2026-11-10); the [Order 19 acceptance record](#order-19-acceptance--2026-11-10) records the shipped behavior and decisions. Review visibility stays excluded; Fitness notes stay text-required notes sharing the rating scale; batch episode logs take no time spent; retargeting stays within one parent. |
 | Learned collection string choices and standalone genre pages | Excluded from further porting by the owner on 2026-11-10; keep explicit choices and existing genre pickers/filters. |
 | Broader exercise merge and `exclude_from_analytics` | Provider-source merging is implemented by the 2026-11-10 follow-up. The owner declined porting `exclude_from_analytics`. Keep same-kind/ownership protections; do not change recorded units/kinds or restore destructive workout replay. An exclusion preference is not required merely because V1 stored one. |
 | Same-time import ordering, association-only imports and old Generic JSON files | Keep source-order/dependency-safe V2 processing unless a concrete correctness case requires a change in row 1. Decide direct old-file conversion separately; do not reinstate the removed sink or old backup format. |
@@ -755,6 +768,12 @@ Validation on **2026-10-28**:
 
 ### Phase 3 Order 11 acceptance — Upcoming feed
 
+Historical implementation and validation record: the query window now uses the server clock and
+account reporting timezone, rather than the viewer-device window described below. The typed
+`daysAhead` argument bounds reporting-zone calendar days for date-only releases and anime instants.
+Client tile captions still group instants by device-local day. See
+`plugins/media/shared/upcoming-recipes.ts` and `plugins/media/client/home/upcoming-rail.tsx`.
+
 Accepted behavior: the Media home **Upcoming** rail replaces "Airing soon". One Media
 `upcomingRecipe` replaces the separate show and anime airing recipes and reads four sources: unwatched
 regular show and podcast episodes of in-progress, caught-up or monitored titles; anime airings after
@@ -905,13 +924,13 @@ Paths abbreviated as `modules/...` in the tables below are under
 
 | V1 behavior | Status | Current V2 home and limits |
 | --- | --- | --- |
-| Register, login/logout, OIDC, long-lived auth tokens | Reshaped | `modules/accounts/auth/service.ts`: Better Auth hosted login, external OIDC, OAuth 2.1/PKCE for web/native, API keys. Application APIs accept OAuth bearer tokens or `X-Api-Key`, not hosted-login cookies. Username login becomes email login. |
+| Register, login/logout, OIDC, long-lived auth tokens | Reshaped | `modules/accounts/auth/service.ts`: Better Auth hosted login, external OIDC, OAuth 2.1/PKCE for web/native, API keys. Application APIs accept OAuth bearer tokens or `X-Api-Key`, not hosted-login cookies. Settings → Access manages connected apps and API keys with read-only, confirm-before-write or unattended write access. Username login becomes email login. |
 | TOTP setup, verification, disable, recovery codes | Covered | Better Auth two-factor plugin, hosted `/oauth/two-factor`, kernel Account settings. Availability depends on a credential account. |
 | Password-change sessions and admin provisioning/reset | Reshaped | Instance Admin provisions credential/OIDC accounts and obtains Better Auth reset links; links expire after 30 minutes. No V1 password-change-session wire contract. |
 | User details, preferences, account name | Covered; reshaped | Self `user` reads use RyotQL; kernel preferences include `language`, `disableIntegrations`, `reportingTimeZone` and `ratingScale`; domain preferences belong to installations. The Account screen offers self-service display-name editing through the protected `/account/name` command. See [account and preference differences](#account-and-preference-differences). |
 | User listing, disable/delete/reset | Covered | `modules/instance-admin` commands plus admin RyotQL `user` and `userLifecycleOperation` reads; client `kernel/client/src/routes/instance-admin`. Reset/delete are durable operations. Normal user reads see only self; the old claim that any authenticated caller receives the full user list is wrong. |
 | Admin impersonation | Reshaped | Instance Admin one-use 60-second handoff, PKCE, one-hour impersonation session, client banner and explicit exit. This replaces the admin use of access links; public read-only sharing is covered separately by publications. |
-| Access links / public sharing | Reshaped | `modules/publications`: owners publish a collection or entity-browser saved view and hand out labelled, expiring, revocable links; visitors need no account and read only the published items. Whole-account access links, usage-count limits and collaborators are not reproduced. See Order 18. |
+| Access links / public sharing | Reshaped | `modules/publications`: owners publish kernel collection/saved-view selections or owned published user pages in live or snapshot mode with labelled, expiring, revocable links. Visitors need no account; only server-declared queries run, with owner-bound arguments and explicitly allowed visitor parameters. Whole-account access links, usage-count limits and collaborators are not reproduced. See [current publications](#current-publications). |
 | Demo account | Reshaped | `USERS_DEMO_ACCOUNT_ID`, `/demo`, credential-scoped restrictions. Owner credentials remain unrestricted; shared demo changes persist, with no periodic reset. |
 | Admin application-log download | Covered | `modules/instance-admin/logs.ts`, contract `modules/instance-admin/logs.ts`: paged active/rotated files, individual downloads and ZIP-all. Signed tickets expire after five minutes and are reusable until expiry, unlike V1's consumed single-use token. |
 | Core details and capabilities | Reshaped | `/system/config` reports version, frontend origin, auth, SMTP availability, Pro state, analytics, and storage provider. Provider/schema/source catalogs supply domain capabilities through RyotQL. Not just an auth-config payload. |
@@ -925,6 +944,37 @@ Paths abbreviated as `modules/...` in the tables below are under
 Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,assets,backups}`;
 `kernel/backend/src/modules/{accounts/auth,backups}/README.md`;
 `kernel/backend/src/platform/{config/definition,pro-key,storage/download-tickets}.ts`.
+
+### Current publications
+
+Publications bind either the kernel publication page over a collection/entity-browser saved view
+or an owned published user page. Live mode follows current source data and the latest published
+page. Snapshot mode freezes each declared query's first result page, its execution clock, page
+definition, presentation and dependency artifacts; refresh requires republishing. Snapshot visits
+do not run live queries or accept changed arguments, filters, sorts or pagination.
+
+Visitors submit a declared query name and values, never query documents. The server runs live
+queries under the owner's plugin-audience authority in a read-only transaction; there is no
+separate publication execution scope. Owner arguments bind parameters, and only parameters listed
+in `visitorParameters` may change. Kernel pages constrain items and both relationship endpoints to
+their bound selection and omit private progress, ratings and measurements from public cards.
+User pages may deliberately query owner data through their declared queries; they do not inherit
+the kernel page's item-only contract. Visitor frames have no write access.
+
+The current limits are 2 MiB per live response or complete snapshot capture, six concurrent reads
+per visitor session and a ten-second query statement timeout. Source selections use the shared
+RyotQL materialization bounds, rather than the historical 5,000-item publication limit. Link
+exchanges permit ten attempts per visitor address per minute. Every request rechecks revocation,
+expiry, owner disablement and the instance publication switch; owner previews use linkless sessions.
+
+Backups retain publication definitions, snapshots and their captured composition artifacts, remap
+page/source and asset references, and restore snapshots without compilation. Links and visitor
+sessions are never portable, so restored publications require new links. Snapshot assets remain
+referenced for managed-asset retention.
+
+Evidence: `packages/contract/src/modules/publications/{schemas,bindings}.ts`,
+`kernel/backend/src/modules/publications/{README.md,runtime.ts,visits.ts,model.ts}`,
+`kernel/backend/src/modules/ryotql/README.md`, `kernel/backend/src/modules/backups/README.md`.
 
 ### Media, library, and discovery
 
@@ -950,7 +1000,7 @@ Primary evidence: `packages/contract/src/modules/{account,instance-admin,system,
 | Watch providers | Covered | TMDB movie/show properties and detail UI filtered by viewer region, offer kinds and JustWatch attribution. Data includes stream/free/ads/rent/buy. V1's user-defined consumption-source lists are now Media per-type settings, not dropped. |
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
-| Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). |
+| Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). Its query window uses the server clock and account reporting timezone; tile captions group instants by device-local day. |
 | Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. The follow-up redesign passes targeted API/browser and real-dump acceptance; see Order 16. |
 | Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
@@ -991,13 +1041,22 @@ These facilities explain where V1 behavior now lives; they are not additional V1
 
 | Facility | Current owner |
 | --- | --- |
-| System/private plugin archives, immutable revisions, install/uninstall, readiness, quarantine, encrypted configuration and installation preferences | `modules/plugins`, `modules/definitions`; kernel plugin settings UI |
+| System/private plugin archives, immutable revisions, install/uninstall, readiness, quarantine, encrypted configuration and installation preferences | `modules/plugins`, `modules/definitions`; Settings → Plugins inspects, installs and updates private archives through one wizard |
 | Backend/client authoring builds, deterministic archives and plugin-facing APIs | `packages/plugin-backend-compiler`, `packages/plugin-client-compiler`, `packages/plugin-archive`, `packages/cli`, plugin SDKs and `packages/plugin-kit` |
 | Isolated backend script execution, bounded host capabilities, egress/rate limits and durable replay | `kernel/sandbox`, `modules/scripts`, `kernel/backend/src/platform/egress`; the sandbox still includes a native Rust daemon |
 | Persisted lifecycle policies, hooks, signals, subscriptions, run history and retry | `modules/automations`, plugin hook declarations and kernel Automation History settings |
-| User-scoped generic reads, custom/built-in saved views, renderer composition and workspace homes | `modules/ryotql`, `modules/saved-views`, `modules/pages`, shared recipes and kernel renderers; saved-view APIs do not imply a complete visual query-authoring UI |
+| User-scoped generic reads, typed declared queries, custom/built-in saved views, renderer composition and workspace homes | `modules/ryotql`, `modules/saved-views`, plugin `manifest/queries.ts`, shared recipes and kernel renderers; execution resolves declared plugin, saved-view and page sources with typed arguments and server-bound reporting windows |
+| User-authored Pages: source drafts, compile diagnostics, read-only previews, publishing, saved views, write grants and backup/restore | `modules/pages/{authoring,preparation}`, `packages/plugin-client-compiler`; Settings → Pages; assistant edits revoke page write grants |
+| Ryo conversations, durable turns, queued messages, write approvals, questions, page authoring and portable history | `modules/assistant`, kernel Ryo panel and settings; provider credentials are encrypted and redacted from backups |
+| Shared agent tools and per-user capabilities discovered with `search` and called through sandboxed `execute` | `modules/agent-tools`, `modules/scripts`, plugin operation/query declarations; Ryo and MCP share dispatch and per-write authorization |
+| MCP connections and credential access levels | `modules/mcp`, `modules/accounts/auth`, `modules/oauth-connections`; `/api/mcp` accepts resource-scoped OAuth or API keys; Settings → Access manages and revokes credentials with read-only, confirm or unattended write access |
 | Atomic user commands, replay receipts, source-preserving projections and live enrichment hints | `modules/user-commands`, `modules/mutations`, `modules/events`, `modules/entities` |
 | Sandboxed client pages and semantic native capabilities | `kernel/client`, `packages/plugin-client-contract`, client/UI SDKs; plugin frames receive no bearer credentials or native authority |
+
+Evidence: `kernel/backend/src/modules/{ryotql,saved-views,assistant,agent-tools,mcp,plugins}/README.md`,
+`kernel/backend/src/modules/pages/authoring/README.md`,
+`kernel/backend/src/modules/accounts/auth/README.md`;
+`apps/docs/src/concepts/{pages,ryo}.md`, `apps/docs/src/guides/{mcp,private-plugins}.md`.
 
 ## External-source inventory
 
@@ -1116,7 +1175,7 @@ V2 `plugins/media/{manifest/plugin.ts,backend/integrations,backend/automations}`
 
 V1 dispatch is in `crates/backend/src/job.rs`; its background implementation root is
 `crates/services/miscellaneous/background/src`. V2 frequent tasks are assembled in
-`kernel/backend/src/boot/cron-workflow-definitions.ts`, while domain crons are plugin-owned.
+`kernel/backend/src/boot/frequent-cron-job.ts`, while domain crons are plugin-owned.
 
 | V1 task / job | V2 equivalent or gap |
 | --- | --- |
@@ -1389,8 +1448,8 @@ Absence alone is not proof of product intent. The following retain the previous 
 exclusions or have explicit current migration/design evidence:
 
 - **Collection collaborators and whole-account access links:** no V2 shared-editing or public
-  profile contract. Read-only sharing of collections and saved views is reshaped as publications
-  (Order 18), and admin impersonation has a separate working replacement.
+  profile contract. Read-only sharing uses live/snapshot publications of kernel selections or
+  owned published user pages; admin impersonation has a separate working replacement.
 - **Public/private review visibility, cross-user reviews, comment threads and likes:** events
   are user-owned; migration omits visibility and comments. Actor-only review notification is
   not a port of the old public-review audience.
@@ -1412,12 +1471,15 @@ They migrate referenced media/provider entities, custom entities, episodes, genr
 credits, collections/member schemas, library/owned/monitoring links, seen history/reviews,
 workouts/templates/sets, measurements, managed assets, integrations, channels and selected
 preferences. Watchlist memberships also seed backlog events; Media memberships seed library
-events. Workout streams are seeded for current projection processors.
+events. Workout streams are seeded for current projection processors. V1 `seen.review_id` links
+map to a review's `consumptionEventId` and the kernel event-reference index when a compatible
+consumption event exists on the reviewed entity. Shared or unresolved links are reported as
+`review-consumption-shared` or `review-consumption-unresolved`; they are not a blanket omission.
 
 Important omissions/changes include old passwords/sessions/TOTP, admin role, access links
 (recreate them as publications), unreferenced provider data, translations, stale watch-provider data, provider-only suggestions,
 review visibility/comments, removed Generic JSON integrations, automation/notification
-history, seen-to-review links, and preferences without current equivalents. Migration preserves or reports anomalies;
+history, and preferences without current equivalents. Migration preserves or reports anomalies;
 it does not replay historical notification hooks. Losing old sessions or a cached translation
 does not mean runtime login or translation is unimplemented. Conversely, a migration mapping
 does not prove that its runtime editor or notification producer exists.
