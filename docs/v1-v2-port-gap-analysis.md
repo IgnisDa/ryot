@@ -7,7 +7,7 @@ Code inventory audited on **2026-10-26**, against repository commit
 not maintained product documentation; maintained user documentation lives in `apps/docs`.
 
 The current-status inventory was reconciled on **2026-11-14** against commit
-`48addd16dae37c070073d3d592edbc2230111efe`, including the post-Order-19 publication,
+`76864f869ac08cc6a8fb5522465005e70bfb5ee1`, including the post-Order-19 publication,
 query, page-authoring, assistant and access-control changes. This was a source/documentation
 check, not a new execution of the historical validation suites. Dated acceptance records
 retain their original evidence; supersession notes distinguish earlier implementations from
@@ -64,7 +64,10 @@ have client consumers, not only hand-built test queries.
 
 Orders 1–19 are complete, including notification producers, retention, analytics and the
 history/review controls. Bulk collection add/remove and collection review management also
-have usable client paths. Completion of this roadmap does not mean exact V1 parity.
+have usable client paths. The owner approved two additional ports on **2026-11-14**:
+Analytics image export (Order 20) and original-language metadata limited to the source/type
+combinations that supplied it in V1 (Order 21). Both are pending. Media trailers/videos will
+not be ported. Completion of Orders 1–19 does not mean exact V1 parity.
 
 V2 also provides authored Pages, Ryo, MCP and credential write-access controls. Publications
 support kernel selections and user pages in live or snapshot mode; these additions extend the
@@ -112,7 +115,7 @@ and **Done** means the accepted behavior and validation results are recorded bel
 | 4 | Done | **Add explicit provider refresh** | Existing population/enrichment workflows | Successful provider data can be refreshed from Media detail screens with progress, failure and retry controls. Shared bounded admission, write fences, current-language translation refresh, and successful-check freshness evidence preserve saved data and user intent. See the Order 4 acceptance record below. |
 | 5 | Done | **Add collection member reordering** | Existing memberships and rank reads | Server-owned moves, sparse integer ranks, transactional respacing, revision-fenced pagination, retry-safe submissions and shared pointer/keyboard controls with haptics are shipped. Real dump migrations preserve complete collection order. See the Order 5 acceptance record below. |
 | 6 | Done | **Finish everyday library and collection browsing** | Existing recipes/filter primitives | Media and Fitness entity schemas declare source, lifecycle state, rating, date and activity filters and sorts; entity browsers and collection detail compile search, count and pages from them without kernel branches on plugin IDs. Stored library summaries keep V2's cycle-aware state. See the Order 6 acceptance record below. |
-| 7 | Done | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. |
+| 7 | Done | **Complete custom relationship and episodic authoring** | 2; 1 for changes affecting recorded coverage | Add user-owned custom seasons/episodes and the missing creator/group association controls, with ordering and ownership validation. Define what happens when an edited/deleted child has history; do not silently delete history. Keep provider-owned inventories read-only to ordinary custom editors. See the Order 7 completion record below for shipped scope and the limits of recoverable validation evidence. |
 | 8 | Done | **Expose Media merge and explicit removal/clear controls** | 1; agreed persistent-membership policy | Ship one confirmed destructive **Remove from library** action that clears the caller's history, reviews, annotations, monitoring, collection memberships and correction evidence, including child data. Preserve metadata and structural links. Already-running and future imports/integrations may restore data normally; add no exclusion state. Merge keeps same-schema/identity rules, destination conflict values and explicit records; missing or ambiguous child mappings reject before any writes with actionable errors. See the Order 8 acceptance record below. |
 
 Rows 2, 3 and 4 can proceed independently once any relevant correctness contract is settled;
@@ -334,6 +337,22 @@ Validation: `bun run check` passed 38 tasks; root Turbo tests passed for the 13 
 (51 tasks); 51 affected API and browser e2e files passed, run one at a time. Read-only reviews of
 the kernel and plugin changes were addressed and the main-session cleanup is complete.
 
+### Approved follow-up ports — 2026-11-14
+
+These are additions to the completed Orders 1–19, not reopened acceptance gates. The owner
+approved recording them as required ports; this documentation update implements neither feature.
+
+| Order | Completion status | Feature to implement | Depends on | Completion criteria |
+| --- | --- | --- | --- | --- |
+| 20 | Pending | **Restore Analytics image export** | 16 | Add a usable **Save image** action that exports the displayed Analytics report as a PNG, with pending/error/retry feedback. Capture the selected report and displayed values; account backups and publication links do not replace this export. Cover the user action and generated image. |
+| 21 | Pending | **Restore source-supported original-language metadata** | Existing movie/show provider population, migration and detail surfaces | Port original-language data only for TMDB and TVDB movies and shows, the V1 source/type combinations that populated it. Add the corresponding movie/show properties, provider mappings, reads and detail display; migrate nonblank retained V1 values for those combinations. Missing source values stay absent. Do not infer original language from interface/translation language, add placeholder values or extend the feature across unrelated media types. |
+
+V1 evidence: `crates/frontend/app/routes/_dashboard.analytics.tsx` (**Save image**),
+`crates/providers/{tmdb,tvdb}/src/{movies,shows}.rs` (`original_language`), and the Media detail
+display in `crates/frontend/app/routes/_dashboard.media.item.$id._index.tsx`.
+Current omissions: `plugins/media/manifest/schemas/property.ts`, Media/Fitness analytics clients,
+and `apps/server/src/migrations/metadata-mapping.ts`.
+
 ### Differences that need a decision, not an automatic implementation slot
 
 Keeping V2's redesigns does not settle every individual behavior. Before adding any of the
@@ -350,6 +369,9 @@ choice beside the gap. Only an approved capability enters the numbered backlog.
 | Same-time import ordering, association-only imports and old Generic JSON files | Keep source-order/dependency-safe V2 processing unless a concrete correctness case requires a change in row 1. Decide direct old-file conversion separately; do not reinstate the removed sink or old backup format. |
 | V1 display/dashboard/per-provider-language preferences | Excluded from further porting by the owner on 2026-11-10. Keep workspace/home, current language and plugin-owned settings; row 11 added the Media upcoming days-ahead and one-per-title settings, not a wholesale preference-schema port. |
 | S3 prefix/custom metadata helpers, bucket probe, URL expiries and operator configuration knobs | Excluded from this port by the owner on 2026-11-10; old export internals, token settings and startup knobs do not block this roadmap. |
+| Media trailers/videos | **Excluded** by the owner on 2026-11-14. Do not port the V1 Media video tab, provider trailers or Media video fields. Fitness video attachments remain a separate implemented capability. |
+| Analytics PNG export | **Implement** as Order 20, approved on 2026-11-14. |
+| Original-language metadata | **Implement** as Order 21, approved on 2026-11-14, limited to TMDB/TVDB movies and shows with actual source data; no blanket media implementation. |
 | Pro entitlement parity | Verification is implemented; audit and decide each feature's backend enforcement, client gating and expiry behavior. Existing integration/Fitness gates do not establish full parity. |
 | Media consumed during a workout | Excluded by the owner on 2026-11-10; no current equivalent for the V1 workout-detail panel. |
 | Public sharing, collaborators, review visibility/comments/likes | Read-only public sharing of collections and saved views ships as Order 18 publications. Collaborators, shared editing, review visibility, comments and likes remain excluded; restoring them would be a separate product/security scope. |
@@ -387,6 +409,10 @@ repository's final validation requirements for code changes. Update this invento
 the numbered item only when those results and the accepted behavior are recorded.
 
 ### Phase 1, Order 1 — History-correction acceptance
+
+Historical implementation and validation record: the checkpoint/continuation machinery and
+owners described here were superseded by `fold.media-history`. The correction behavior is retained;
+see [current history and record processing](#current-history-and-record-processing).
 
 Accepted behavior: corrections repair automatic completions without removing independent explicit
 records. Editing an automatic completion makes it explicit; deleting it suppresses that occurrence
@@ -479,6 +505,9 @@ Validation on **2026-10-26** (before repository-wide checks):
   failed/Retry path is covered by recipe, operation, client, and recovery tests.
 
 ### Phase 1, Order 2 — Custom entity editing acceptance
+
+Historical acceptance record: the custom episode and incoming-credit work described below as
+remaining in row 7 has shipped; see the Order 7 completion record.
 
 Accepted behavior: owned custom media, people, companies, and groups expose **Edit** and use the
 shared editor's update mode. Provider-owned entities remain read-only. Saves retain declared
@@ -644,6 +673,10 @@ Validation on **2026-10-27**:
 
 ### Phase 1, Order 6 — Everyday library and collection browsing acceptance
 
+Historical implementation and validation record: `fold.media-history` now produces library
+summaries. The earlier processor, hook-driven reconciliation and read-freshness description below
+are superseded by [current history and record processing](#current-history-and-record-processing).
+
 Accepted behavior: plugin entity schemas declare their filters and sorts in `browse.fields`;
 entity-browser saved views no longer carry `filterFields` or `sortChoices`. Each sortable field
 declares a neutral label, default direction, and human-readable labels for both directions. The entity
@@ -707,7 +740,35 @@ Validation on **2026-10-28**:
 test`: **51 successful tasks**, no failures. No compatibility path, version change or type-checker bypass was added. This
   item is **Done**.
 
+### Phase 1, Order 7 — Custom relationship and episodic authoring completion record
+
+Shipped scope: owner-only Media editors create and edit custom show seasons/episodes and podcast
+episodes under fixed parents. Season numbers remain immutable after creation. Deletion refuses
+history-bearing children and seasons with remaining episodes; provider-owned inventories stay
+read-only. Media and credit-bearing group editors edit incoming person/company credits, including
+ordering and declared credit fields; group editors manage their members.
+
+Implementation and coverage are preserved in the Order 7 commits `89ae5e2ca7`, `ec65b42808`,
+`8fbeee159c`, `7113079613`, `ec83fbe076` and `18a8da2554` (2026-10-18). The last commit records
+completion and documents the shipped behavior. Owners are the kernel entity editor and relationship
+services, `plugins/media/shared/media-entity-editors.ts` and the Media entity/episode editors.
+User documentation: `apps/docs/src/guides/custom-media.md`.
+
+Validation evidence reconciled on **2026-11-14**: the existing API suites
+`e2e/src/api/plugins/media/{custom-entity-editor,custom-episodic-authoring}.test.ts` cover
+media-side credits, fixed-parent authoring, ownership, stale writes and deletion protections;
+`e2e/src/browser/media-custom-entity.test.ts` includes authoring/tracking/protection of custom
+seasons and episodes. Kernel editor and relationship suites cover shared authority and stale-write
+behavior. The cited commits do not preserve execution commands or pass counts, so those historical
+results cannot be reconstructed here. No application checks or tests were rerun for this
+documentation update.
+The existing **Done** implementation status is retained with that evidence limitation explicit.
+
 ### Phase 1 Order 8 acceptance — Media removal and merge
+
+Historical implementation and validation record: current merges preserve and absorb subject fold
+state instead of using the temporary correction checkpoints described below. See
+[current history and record processing](#current-history-and-record-processing).
 
 Media detail screens expose **Your data** with confirmed **Remove from library** and
 **Merge my data into…** actions. Removal and clear are one destructive operation. Metadata,
@@ -976,6 +1037,30 @@ Evidence: `packages/contract/src/modules/publications/{schemas,bindings}.ts`,
 `kernel/backend/src/modules/publications/{README.md,runtime.ts,visits.ts,model.ts}`,
 `kernel/backend/src/modules/ryotql/README.md`, `kernel/backend/src/modules/backups/README.md`.
 
+### Current history and record processing
+
+The kernel `modules/derived-values` owner runs schema-declared folds. Media's `fold.media-history`
+derives automatic completions, consumption contributions and library-link summaries from subject
+history and provider inventory. Fitness's `fold.exercise-records` computes set statistics and
+personal bests per exercise and recorded exercise kind. Both preserve source history; they replace
+the earlier correction continuations, library-summary processor and workout-record-step script.
+
+Interactive event writes run their required folds in the writing transaction; a fold that cannot
+finish rolls back the write. Background imports/integrations queue subject folds. Provider/status
+and inventory changes request refolds, while plugin changes, migration and restore queue rebuilds.
+Current-revision projections remain visible while background processing is pending or failed, with
+processing status exposed separately. A successful backup restore does not imply finished rebuilds.
+
+Media's subject fold state retains suppressed occurrences and frozen completion inventories.
+Backups retain that state and restore/merge remap and absorb it before refolding; event and
+relationship projections are rebuilt. Correcting supporting history can repair automatic records,
+while explicit records and deleted-occurrence suppressions retain their established semantics.
+
+Evidence: `kernel/backend/src/modules/events/README.md` (Folds),
+`kernel/backend/src/modules/derived-values`, `kernel/backend/src/modules/backups/README.md`,
+`plugins/media/backend/{media-fold.sandbox.ts,fold/history.ts,fold/consumption.ts}`,
+`plugins/fitness/backend/exercise-records.sandbox.ts` and both plugins' schema declarations.
+
 ### Media, library, and discovery
 
 | V1 behavior | Status | Current V2 home and limits |
@@ -985,8 +1070,8 @@ Evidence: `packages/contract/src/modules/publications/{schemas,bindings}.ts`,
 | Browser-extension metadata lookup | Covered | Media `metadata-lookup`, integration-authenticated and restricted to the browser-extension integration; TMDB movies before shows. Extension uses `apps/browser-extension/src/lib/contract-client.ts`. |
 | User media/people/group lists | Partial | Built-in saved views and the generic entity browser with search plus schema-declared filters and sorts: status, times completed, rating, completion/activity/release/added dates, source, owned and monitored for titles; source, rating and dates for creators. The default sort is activity for titles, credit count for creators, parts for groups. No random sort or V1 filter presets. |
 | Media-library admission | Reshaped | Required Media entity/import/event/collection hooks add `in-media-library`; new memberships record `add-to-media-library`. Library membership is persistent intent, not a materialized set of V1 reasons. No reason recomputation/removal sweep. |
-| Seen/progress/status history | Reshaped | `backlog`, `progress`, `complete`, `dropped`, `on_hold`, plus integration `list-state` snapshots; plugin `media-activity-log`, history UI, and RyotQL lifecycle recipes. Events can be edited and deleted. |
-| Completion, rewatch, episodic progress | Reshaped | Required full-progress and episodic-parent hooks, per-cycle coverage, session assignment, season/episode queries and next-up. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/manga progress is cumulative position, not per-chapter/episode history expansion. |
+| Seen/progress/status history | Reshaped | `backlog`, `progress`, `complete`, `dropped`, `on_hold`, plus Anime/Manga independent `item-complete` events and integration `list-state` snapshots; plugin `media-activity-log`, history UI, and RyotQL lifecycle recipes. Events can be edited and deleted. |
+| Completion, rewatch, episodic progress | Reshaped | `fold.media-history` owns automatic completion, per-cycle coverage, consumption contributions and library summaries; the episodic-session policy assigns sessions. Season/episode queries and next-up expose that state. Shows/podcasts distinguish `caught_up` from terminal `complete`; specials do not block completion. Anime/Manga progress uses cumulative position without expanding every intermediate item; separately recorded `item-complete` occurrences preserve independent episode/chapter/volume history without advancing cumulative progress or completing the title. |
 | Correct/delete existing history or reviews | Covered | Kernel `PATCH`/`DELETE /events/:eventId`; Media activity/review update/delete operations and row menus. Snapshot preconditions detect stale edits. Media-owned completion evidence and atomic reconciliation repair derived records, preserve explicit overrides and deletion suppressions, and keep corrections silent. |
 | Ratings and review text/spoilers | Covered; reshaped | Private `review` events support rating-only, text-only or combined content, spoilers and create/update/delete. Storage stays 0–100; the kernel `ratingScale` preference selects 100, 10, five half-stars or three-point smiley display across Media, Fitness and collection reviews. Order 19 adds positions and optional consumption-event links; public review visibility stays excluded. |
 | Collections and membership metadata | Partial | Kernel collections CRUD, strict member-field schemas, add/remove/upsert membership, paged browser/detail renderer, search/type/property/cross-collection filters, server-owned reordering with revision-fenced pagination and shared haptics, plus member-type filters and sorts declared by plugin schemas and a date-added filter. Shared browser selection supports bulk add/remove; collection detail opens private review management. Learned membership choices remain absent. Details below. |
@@ -998,10 +1083,12 @@ Evidence: `packages/contract/src/modules/publications/{schemas,bindings}.ts`,
 | Recommendations | Reshaped | `media-suggestion` graph, detail rails, `latestCompletionSuggestionsRecipe`, Media home and Order 15 collection recommendations. V1 randomized multi-source selection, fallback, enabled-lot filtering and candidate sampling are not reproduced. |
 | Trending | Covered; reshaped | Media infrequent cron populates `media-trending`, TMDB movie/show scripts and `trendingLatestMediaRecipe`; consumed by Media home. Not a missing dedicated endpoint or saved view. |
 | Watch providers | Covered | TMDB movie/show properties and detail UI filtered by viewer region, offer kinds and JustWatch attribution. Data includes stream/free/ads/rent/buy. V1's user-defined consumption-source lists are now Media per-type settings, not dropped. |
+| Media trailers/videos | Excluded | V1's embedded video tab and provider trailers have no V2 Media equivalent and will not be ported, by the owner's 2026-11-14 decision. Fitness videos are unaffected. |
+| Original-language metadata | Missing; approved port | V1 populated and displayed original language for TMDB/TVDB movies and shows. Current movie/show properties, provider mappings and migration omit it. Order 21 restores only those source/type combinations and actual values; this is separate from user language and translation preferences. |
 | Translated titles/descriptions/images | Reshaped | `modules/entities/localization`, durable enrichment requests and generation-bound overlays; user-language RyotQL resolution, watches and retry controls. TMDB/TVDB show children and iTunes podcast episodes have translation bindings; the old blanket episode-translation gap is wrong. Per-provider language preferences are not preserved as such. |
 | Provider-change monitoring | Covered; reshaped | Media monitoring sweep refreshes eligible global provider entities; entity/relationship detectors emit persisted signals, catalog subscriptions and notification formatters. Includes monitored people/company associations. No global V1 periodic partial-state reset. |
 | Calendar and upcoming | Partial / reshaped | Kernel Calendar with month/agenda and source visibility; Media show/podcast episodes, anime airings and flat releases; Fitness workouts. Dates come directly from entities/JSON via recipes, so nightly `calendar_event` materialization is unnecessary. The home **Upcoming** rail covers monitored and actively followed show/podcast episodes, anime airings and monitored releases with days-ahead and one-per-title settings (row 11). Its query window uses the server clock and account reporting timezone; tile captions group instants by device-local day. |
-| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. The follow-up redesign passes targeted API/browser and real-dump acceptance; see Order 16. |
+| Analytics | Covered; reshaped | Unified Analytics destination with Media and Fitness sections: period comparison and grouping, trends, hourly activity, consistency, rankings and record drill-downs, plus per-entity consumption summaries. Values stay visible while processing, with a note. The follow-up redesign passes targeted API/browser and real-dump acceptance; see Order 16. V1's **Save image** PNG export remains missing and is an approved follow-up in Order 20. |
 | Merge/disassociate user data | Covered; reshaped | Media detail **Your data** controls confirm removal or same-schema merge through `media-user-data` and the canonical `/entity-user-data/merge` and `/entity-user-data/clear/:entityId` owner. Scope includes child history, reviews, annotations, monitoring, collections and correction evidence; metadata and structural links remain. Merge preserves explicit records and destination conflict values; missing or ambiguous child mappings reject atomically. Imports and integrations may restore removed data normally. |
 | Recently-consumed flag | Partial / reshaped | V1 `userEntityRecentlyConsumed` reads a time-limited debounce cache marker, not a recently-consumed list. Integration admission now has persistent debounce/duplicate checks, but there is no corresponding public flag or V1 dashboard badge. |
 
@@ -1023,15 +1110,15 @@ Primary evidence: `plugins/media/{README.md,manifest/plugin.ts,manifest/saved-vi
 | Media consumed during a workout | Excluded | V1 workout details queried media consumption during the workout interval and displayed linked titles. No equivalent V2 recipe/client panel was found; excluded from porting by the owner on 2026-11-10. |
 | Workout duration and unit handling | Reshaped | Active duration excludes explicit pauses and remains distinct from elapsed timestamps. Time correction preserves recorded duration unless explicitly changed; unlike V1, editing times does not silently replace it with elapsed duration. |
 | Templates: list/detail/create/edit/delete/use | Covered | Template saved view/detail, shared editor and explicit delete; templates store plans without workout execution events. Writes/replacement and protected notes/media have current Pro rules. |
-| Personal bests, derived set stats, history repair | Covered; reshaped | `script.workout-record-step`, event-stream projections, changed-set/context hooks, durable reconciliation and freshness checks. Rebuilds derived stats by exercise and recorded kind, without deleting/recreating workouts or replaying historical notifications. |
+| Personal bests, derived set stats, history repair | Covered; reshaped | `fold.exercise-records` in `backend/exercise-records.sandbox.ts` reads ordered sets per exercise and recorded kind and writes statistics/personal-best projections. Event writes run required folds; background work and rebuilds use kernel fold jobs, with pending/failed status exposed. Source sets and workouts are preserved and historical notification hooks are not replayed. |
 | Exercise reviews/notes | Covered; reshaped | Private exercise `review` events, note create/update/delete and detail UI. No public reviews, comments or likes. |
 | Measurement logging/list/edit/delete/charts | Covered; reshaped | Metric entities, entry entities and session-linked reading events; dynamic metrics, pinning, composer, trends and paged history. Names on V1 measurement entries are not retained; time and comments are. Multi-call reading edits may partially commit. |
-| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. The follow-up redesign passes Order 16 acceptance. |
+| Fitness analytics | Covered; reshaped | Analytics section with period totals and comparisons, trends, workout-start hours, consistency, taxonomy rankings, workout drill-downs and measurement trends, alongside workout summaries and history. The follow-up redesign passes Order 16 acceptance. Dashboard PNG export is a separate pending port in Order 20. |
 | Strong, Hevy, OpenScale imports | Covered | Fitness-owned sources and bounded import workflows; chronological processing and unit normalization. Strong provides active duration, Hevy leaves it unknown; OpenScale reuses normalized metrics. |
 | Native workout experience | Additional V2 behavior | Shared Capacitor client, native rest alerts/haptics/screen-awake control, device-local recovery, iOS Live Activities. This is not server reminder delivery. |
 
 Primary evidence: `plugins/fitness/{README.md,manifest/plugin.ts,manifest/schemas}`;
-`plugins/fitness/backend/{operations,automations,workout-record-step.sandbox.ts}`;
+`plugins/fitness/backend/{operations,automations,exercise-records.sandbox.ts}`;
 `plugins/fitness/shared/{workout-records,workout-list-recipes,measurement-recipes}.ts`;
 `kernel/backend/src/modules/events/README.md`; `kernel/client/README.md`.
 
@@ -1050,7 +1137,7 @@ These facilities explain where V1 behavior now lives; they are not additional V1
 | Ryo conversations, durable turns, queued messages, write approvals, questions, page authoring and portable history | `modules/assistant`, kernel Ryo panel and settings; provider credentials are encrypted and redacted from backups |
 | Shared agent tools and per-user capabilities discovered with `search` and called through sandboxed `execute` | `modules/agent-tools`, `modules/scripts`, plugin operation/query declarations; Ryo and MCP share dispatch and per-write authorization |
 | MCP connections and credential access levels | `modules/mcp`, `modules/accounts/auth`, `modules/oauth-connections`; `/api/mcp` accepts resource-scoped OAuth or API keys; Settings → Access manages and revokes credentials with read-only, confirm or unattended write access |
-| Atomic user commands, replay receipts, source-preserving projections and live enrichment hints | `modules/user-commands`, `modules/mutations`, `modules/events`, `modules/entities` |
+| Atomic user commands, replay receipts, source-preserving folds/projections and live enrichment hints | `modules/user-commands`, `modules/mutations`, `modules/events`, `modules/derived-values`, `modules/entities` |
 | Sandboxed client pages and semantic native capabilities | `kernel/client`, `packages/plugin-client-contract`, client/UI SDKs; plugin frames receive no bearer credentials or native authority |
 
 Evidence: `kernel/backend/src/modules/{ryotql,saved-views,assistant,agent-tools,mcp,plugins}/README.md`,
@@ -1160,16 +1247,26 @@ Evidence: `crates/models/enum/src/user_enums.rs`, `crates/utils/dependent/import
 | No V1 provider entry | Media Spotify and AniList OAuth yanks | Added; AniList uses list-state snapshots, not invented historical watches |
 
 Kernel integration CRUD, enabled state, manual user sync, scheduled yank sync, durable sink
-ingress, owned run history/issues, automatic disable after five consecutive failed runs,
-and the disablement notification are present. Ownership is stored on library relationships,
+ingress, owned run history/issues and the disablement notification are present. Automatic disable
+is opt-in through `disableOnContinuousErrors`, whose default is **false**. When enabled, a qualifying
+source failure disables the integration only if its five latest eligible settled health outcomes
+are all failed; held work and selected non-source failures are excluded from the health window.
+Ownership is stored on library relationships,
 not an Owned collection. Provider minimum/maximum normalization, percent debounce,
 positional duplicate suppression and timestamp fallback now live in Media import application
 (`backend/imports/integration-progress.ts`), not the old event-policy file. Push hooks and
 notification formatters use one external-delivery attempt without automatic uncertain retry.
 
+Self-hosted integrations whose destinations use private or loopback addresses require the
+appropriate CIDRs in `SERVER_EGRESS_ALLOWED_NETWORKS`. The same egress policy applies to relevant
+provider/import, notification and OAuth requests. This is an operational prerequisite, not a missing
+integration implementation; hard-blocked address ranges cannot be enabled by the allowlist.
+
 Evidence: V1 `crates/models/enum/src/integration_enums.rs`, `crates/services/integration`;
 V2 `plugins/media/{manifest/plugin.ts,backend/integrations,backend/automations}`;
-`kernel/backend/src/modules/{integrations,imports}/README.md`.
+`kernel/backend/src/modules/{integrations,imports}/README.md`,
+`kernel/backend/src/modules/integrations/{service,worker,repository}.ts`,
+`kernel/backend/src/platform/egress/address-policy.ts`.
 
 ## Scheduled and dependent behavior inventory
 
@@ -1185,7 +1282,7 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `PerformExport` | Account backup export workflow, storage and download; covered with a different archive. |
 | `AddEntitiesToCollection`, `RemoveEntitiesFromCollection` | Membership commands/workflows plus import/host batches; covered without preserving the V1 job API. |
 | `HandleEntityAddedToCollectionEvent` | Membership events and typed fields exist. V1's automatic learning of string/string-array `possible_values` is absent; choices are explicitly configured. |
-| `BulkMetadataProgressUpdate`, `HandleOnSeenComplete` | Media activity batches, source writers and required completion hooks; reshaped. No V1 default-collection side effects. |
+| `BulkMetadataProgressUpdate`, `HandleOnSeenComplete` | Media activity batches and source writers with `fold.media-history` completion/consumption reconciliation; reshaped. No V1 default-collection side effects. |
 | `HandleMetadataEligibleForSmartCollectionMoving` | Live episodic coverage replaces the state correction. No Completed→Watchlist collection move; `media.episodes-available` replaces its notification for unmonitored caught-up series (Order 14). |
 | Refresh monitored metadata and people | Media monitoring sweep, provider refresh and semantic detectors; covered. |
 | Reminder notification + removal | Covered/reshaped: independent entity reminders use the frequent scheduler, durable delivery outcomes and explicit cancellation/history removal. Ordinary collection membership is unchanged. |
@@ -1201,13 +1298,13 @@ V1 dispatch is in `crates/backend/src/job.rs`; its background implementation roo
 | `revoke_invalid_access_tokens` | This function revokes expired/exhausted **access links**, not all login tokens. Publication links need no sweeper: every visitor request rechecks link expiry and revocation, and visitor sessions expire with their link. OAuth/API-key expiry is handled by auth. |
 | `rebalance_collection_ranks` | Reshaped: canonical collection writes allocate sparse integer ranks and respace exhausted gaps transactionally, first in a bounded window and then set-based across a fully dense collection if needed. No separate job or V1 fractional-fragmentation thresholds. |
 | `UpdateExerciseLibrary`, `UpdateGithubExercises` | Free Exercise DB search/details and watched population replace eager whole-library loading. No exposed refresh-all-dataset command. |
-| Scheduled / explicit `ReviseUserWorkouts` | Replaced by source-preserving event-stream record processors and reconciliation, including migrated stream seeding. It is incorrect to call fitness recalculation unbuilt because the V1 destructive replay scheduler is absent. |
+| Scheduled / explicit `ReviseUserWorkouts` | Replaced by `fold.exercise-records` and kernel fold/rebuild jobs, including rebuild admission for enabled migrated users. Source sets/workouts are preserved and historical notification hooks are not replayed. |
 | `UpdateMediaDetails`, post-import person/group enrichment | Provider import/population fetches base details; foreground interest completes related data, monitoring refreshes. Explicit enrichment refreshes successful data through the same population owner. No separate stub-enrichment job. |
 | `UpdateMediaTranslations` | Generation-bound, language-scoped on-demand translation and explicit failed/cancelled-request retry; covered/reshaped. |
 | `ReviewPosted` | Media `review.created` signal exists, but its actor audience replaces V1 notification to monitoring users of a public review. Not social-alert parity. |
 | `PerformBackgroundTasks` | Owning V2 schedulers/reconcilers replace one global maintenance job. Missing domain jobs are the specific rows above. |
 
-V2 also reconciles bootstrap/account-lifecycle work, event streams, automation runs and
+V2 also reconciles bootstrap/account-lifecycle work, subject folds/rebuilds, automation runs and
 retention, integration recovery, OAuth connections, upload intents, plugin catalogs and
 installations, expired backup artifacts, completed workflow trees, mutation receipts and settled
 background work. See `modules/garbage-collection/README.md` for workflow retention. Unused provider
@@ -1351,11 +1448,17 @@ Bulk UI commits: `85e3802ccc`, `5dc3976d3f`, `f6cf65ead0`; collection review com
   rules intentionally differ from V1's “next after latest history position” and lifetime
   times-seen tree. Anime/manga expose the latest position; Order 19 adds manga volume runs,
   next-volume suggestions, completion at the volume total and separate volume analytics.
+- Independent Anime/Manga item occurrences use `item-complete` with an episode/chapter/volume
+  position. Migration/import preserve repeated original occurrences as distinct source records;
+  these are not synthesized intermediate progress. They contribute their own consumption facts
+  without advancing cumulative progress or triggering title completion, and support history
+  display, edit/delete, analytics and review links. Ordinary progress logging remains cumulative.
 
 Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,anime-recipes,manga-recipes}.ts`,
 `plugins/media/client/entity-editor/page.tsx`, `plugins/media/shared/media-activity-operations.ts`,
 `plugins/media/README.md` (Operations and Lifecycle),
-`crates/services/miscellaneous/{metadata-operations,entity-user-details}/src/lib.rs`.
+`crates/services/miscellaneous/{metadata-operations,entity-user-details}/src/lib.rs`,
+`plugins/media/manifest/schemas/entity.ts`, `apps/server/src/migrations/seen-mapping.ts`.
 
 ### Analytics and upcoming feeds
 
@@ -1363,6 +1466,9 @@ Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,an
   type-specific quantities, Fitness reps/weight/distance/rest/calories/bests, per-hour activity,
   exercise/muscle/equipment rankings and day/week/month/year grouping, read from grouped RyotQL
   aggregates. No `daily_user_activity` table exists. The follow-up redesign passes Order 16 acceptance.
+- **Required port:** restore V1's Analytics **Save image** PNG export (Order 20). Charts and report
+  queries exist, but there is no corresponding V2 image-export action. Existing Order 16 acceptance
+  does not establish that this separate capability shipped.
 - Calendar and the upcoming feed are built (row 11). The home **Upcoming** rail covers every
   dated Media source with a days-ahead window and one-per-title deduplication. V1's alternative
   "next N items" mode is not reproduced: the rail always shows the soonest 20 in the window.
@@ -1372,6 +1478,24 @@ Evidence: `plugins/media/shared/{media-entity-editors,media-review-operations,an
 Evidence: `crates/services/statistics/src`, `crates/utils/dependent/analytics/src/lib.rs`;
 `plugins/media/shared/{activity-recipes,upcoming-recipes}.ts`;
 `plugins/fitness/shared/*recipes.ts`; `packages/kernel-renderers/src/calendar.tsx`.
+
+### Media metadata and video decisions
+
+- **Original language — required port (Order 21):** V1's TMDB and TVDB movie/show providers
+  populated `original_language`, and Media detail displayed it. V2 currently has neither the
+  corresponding properties/display nor a legacy migration mapping. Restore source-supported data
+  for those movie/show combinations only, including nonblank retained legacy values; absent values
+  remain absent. Do not add original-language support indiscriminately to every media schema or
+  infer it from translation/interface settings.
+- **Trailers/videos — excluded:** the owner declined this port on 2026-11-14. V2 Media has images
+  but no replacement for V1's embedded video tab or provider trailers. Media video fields are not
+  migrated; the generic managed-asset inventory must not be read as preserving those omitted
+  fields. Fitness video attachments remain supported.
+
+Evidence: `crates/providers/{tmdb,tvdb}/src/{movies,shows}.rs`,
+`crates/frontend/app/routes/_dashboard.media.item.$id._index.tsx`,
+`plugins/media/manifest/schemas/property.ts`,
+`apps/server/src/migrations/{metadata-mapping,person-mapping-entity-sql,metadata-group-mapping}.ts`.
 
 ### Account and preference differences
 
@@ -1429,6 +1553,14 @@ port, timezone, storage paths/S3 credentials, frequent/infrequent schedules, dis
 disablement, and Media provider credentials/progress threshold. Do not leave these in an
 “unverified/missing” list.
 
+Additional current controls include `SERVER_DISABLE_NOTIFICATIONS`,
+`SERVER_DISABLE_PUBLICATIONS`, the `SERVER_ASSISTANT_*` provider/model/token-limit settings,
+`SERVER_EGRESS_ALLOWED_NETWORKS`, and the `SANDBOX_*` memory/concurrency/isolation settings.
+Private-network integrations and other outbound callers need explicit network allowances;
+link-local/metadata, multicast and unspecified destinations remain blocked. The server `TZ` setting
+controls plugin cron schedules; account reporting timezone separately controls reporting windows
+and scheduled release-notification days.
+
 No matching operator setting was found for V1's login-token lifetime, password-strength
 validation toggle, dashboard announcement, provider image-size preference, configurable
 max upload size, host binding or startup sleep. Auth now uses short access tokens and refresh
@@ -1440,6 +1572,7 @@ CORS/auth proxy behavior is redesigned; the GraphQL playground and its config se
 
 Evidence: `crates/config/definition/src/lib.rs`,
 `kernel/backend/src/platform/config/definition.ts`,
+`kernel/backend/src/platform/egress/address-policy.ts`,
 `plugins/media/manifest/config.ts`, `modules/accounts/auth/README.md`.
 
 ## Excluded and deliberately replaced contracts
@@ -1453,6 +1586,9 @@ exclusions or have explicit current migration/design evidence:
 - **Public/private review visibility, cross-user reviews, comment threads and likes:** events
   are user-owned; migration omits visibility and comments. Actor-only review notification is
   not a port of the old public-review audience.
+- **Media trailers/videos:** explicitly excluded by the owner on 2026-11-14, including the Media
+  video tab, provider trailer mappings and Media video fields. Fitness videos are a separate
+  supported feature.
 - **Manual partial-state flag:** provider population/related status and explicit enrichment refresh
   replace it without invalidating saved data first.
 - **V1 Generic JSON wire formats:** replaced by owner-qualified Data JSON and deterministic
@@ -1471,7 +1607,9 @@ They migrate referenced media/provider entities, custom entities, episodes, genr
 credits, collections/member schemas, library/owned/monitoring links, seen history/reviews,
 workouts/templates/sets, measurements, managed assets, integrations, channels and selected
 preferences. Watchlist memberships also seed backlog events; Media memberships seed library
-events. Workout streams are seeded for current projection processors. V1 `seen.review_id` links
+events. A final pass queues Media/Fitness fold rebuilds for enabled migrated users; derived
+statistics and projections are rebuilt after startup without historical hook replay.
+V1 `seen.review_id` links
 map to a review's `consumptionEventId` and the kernel event-reference index when a compatible
 consumption event exists on the reviewed entity. Shared or unresolved links are reported as
 `review-consumption-shared` or `review-consumption-unresolved`; they are not a blanket omission.
@@ -1483,6 +1621,11 @@ history, and preferences without current equivalents. Migration preserves or rep
 it does not replay historical notification hooks. Losing old sessions or a cached translation
 does not mean runtime login or translation is unimplemented. Conversely, a migration mapping
 does not prove that its runtime editor or notification producer exists.
+
+Media trailers/video fields are also omitted and will not be ported. Original-language metadata
+is currently omitted, but Order 21 requires mapping actual retained values for TMDB/TVDB movies
+and shows only. Independent numbered Anime/Manga completions migrate as `item-complete` events,
+preserving each original occurrence separately from cumulative baselines and title completions.
 
 ## V1 public-operation coverage index
 
