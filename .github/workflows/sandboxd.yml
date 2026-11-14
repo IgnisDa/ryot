@@ -80,6 +80,10 @@ jobs:
       - name: Check the sidecar, launcher, and protocol fixtures
         if: matrix.arch == 'amd64'
         run: docker run --rm --user 1001 --workdir /app/kernel/sandbox ryot-sandbox-test bun run check
+      - name: Test the shared test infrastructure
+        run: >-
+          docker run --rm --user 1001 --workdir /app
+          ryot-sandbox-test bun turbo --filter=@ryot-app/testing test
       - name: Test the sidecar
         run: docker run --rm --user 1001 --workdir /app/kernel/sandbox/native ryot-sandbox-test cargo test
       - name: Test the launcher under Docker defaults

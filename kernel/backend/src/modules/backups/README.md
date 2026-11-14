@@ -258,4 +258,4 @@ memory bound for every allowed input. Archive decoder limits and restore batch t
 corresponding deterministic boundary coverage.
 
 Linux CI runs `bun turbo --filter=@ryot-app/kernel-backend test:memory` after the backend suite.
-This repeats both sizes three times with seed 42; every execution must pass.
+This uses one database worker and repeats both sizes three times with seed 42; every execution must pass.

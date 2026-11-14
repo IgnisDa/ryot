@@ -61,7 +61,7 @@
 		"db:generate": "bun --bun drizzle-kit generate",
 		"check": "bun --check && bun fmt . --write && oxlint . --fix",
 		"build": "bun run tooling/kernel-scripts.ts && bun run tooling/sdk-reference.ts",
-		"test:memory": "bun ./test.ts src/modules/backups/streaming-memory.test.ts --rerun-each 3 --seed 42"
+		"test:memory": "bun ./test.ts src/modules/backups/streaming-memory.test.ts --parallel=1 --rerun-each 3 --seed 42"
 	},
 	"dependencies": {
 		"@better-auth/api-key": "1.7.21",

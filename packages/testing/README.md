@@ -57,3 +57,6 @@ isolation does not reset external state such as database rows between repetition
 awaits the child on interruption. `reportProcessMemory` records current memory and lifetime peak
 RSS in bytes at workload phase boundaries. Peak RSS includes startup and cannot be reset by a phase
 marker. Resource workloads must run in fresh processes rather than reusing a process across samples.
+On Linux the peak comes from `/proc/self/status`'s `VmHWM`, which belongs to the current executable's
+address space. `getrusage` retains the pre-exec address space's peak and can charge the parent's
+memory to a newly spawned workload. Other platforms use `process.resourceUsage().maxRSS`.
