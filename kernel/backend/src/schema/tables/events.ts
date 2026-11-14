@@ -49,6 +49,12 @@ export const event = snakeCase.table(
 			table.eventSchemaSlug,
 			table.occurredAt,
 		),
+		index("event_user_session_entity_schema_idx").on(
+			table.userId,
+			table.sessionEntityId,
+			table.entityId,
+			table.eventSchemaSlug,
+		),
 		index("event_user_session_order_idx").on(
 			table.userId,
 			table.sessionEntityId,
