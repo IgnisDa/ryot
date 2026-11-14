@@ -1,7 +1,7 @@
 import { UserId } from "@ryot-app/contract/schema/brands";
 import { createFileRoute } from "@tanstack/react-router";
 
-import { shareOrCopy } from "#/modules/device/share";
+import { shareActionWith } from "#/modules/device/share";
 import { useInstanceAdmin } from "#/modules/instance-admin/context";
 import { InstanceAdminImpersonationService } from "#/modules/instance-admin/impersonation";
 import { InstanceAdminService } from "#/modules/instance-admin/service";
@@ -29,9 +29,9 @@ function InstanceAdminUsers() {
 	return (
 		<UsersAdministration
 			operations={operations}
-			shareOrCopy={shareOrCopy}
 			onUnauthorized={unauthorized}
 			backInterceptors={backInterceptors}
+			shareAction={shareActionWith((work, onExit) => runtime.runCallback(work, { onExit }))}
 		/>
 	);
 }

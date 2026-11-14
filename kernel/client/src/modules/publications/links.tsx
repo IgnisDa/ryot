@@ -6,6 +6,7 @@ import { useRyotMutation } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Badge,
 	Button,
+	CopyField,
 	DestructiveConfirmation,
 	Field,
 	Notice,
@@ -20,8 +21,8 @@ import { type SubmitEvent, useRef, useState } from "react";
 
 import { AuthenticatedApiError } from "#/api/authenticated";
 import type { ServerOrigin } from "#/api/origin";
+import { useShareAction } from "#/modules/device/share";
 import { formatDateLabel, formatRelativeTime } from "#/modules/ui/run/run-status";
-import { ShareLinkField } from "#/modules/ui/share-link-field";
 import { RELATIVE_TIME_REFRESH_MS, useNowMs } from "#/modules/ui/use-now-ms";
 
 import { createPublicationLinkMutation, publicationCommandMutation } from "./service";
@@ -84,12 +85,16 @@ const linkDetail = (link: Link, now: number) => {
 };
 
 export function CreatedLink(props: { readonly url: string; readonly title: string }) {
+	const shareAction = useShareAction();
 	return (
 		<Notice tone="success" title="Your link is ready">
-			<p className="mb-2 text-xs">
-				Copy it now. It is shown only once, and anyone with it can view this page.
-			</p>
-			<ShareLinkField url={props.url} label="New link" title={props.title} />
+			<CopyField
+				label="New link"
+				className="mt-2"
+				value={props.url}
+				action={shareAction({ url: props.url, title: props.title })}
+				hint="Copy it now. It is shown only once, and anyone with it can view this page."
+			/>
 		</Notice>
 	);
 }

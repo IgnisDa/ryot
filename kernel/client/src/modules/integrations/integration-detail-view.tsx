@@ -1,5 +1,5 @@
 import { useSchemaAssetUpload } from "@ryot-app/plugin-client-sdk/react";
-import { Button, FieldMessage, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
+import { Button, CopyField, FieldMessage, LoadMoreButton } from "@ryot-app/plugin-ui-sdk";
 import type {
 	SchemaFileUpload,
 	SchemaFormApi,
@@ -10,6 +10,7 @@ import type { ImportRunSummary } from "@ryot-app/ryotql-recipes/import-runs";
 import { Link } from "@tanstack/react-router";
 import clsx from "clsx";
 
+import { useShareAction } from "#/modules/device/share";
 import { IngestionRunReport } from "#/modules/imports/ingestion-run-report";
 import { importRunOutcomeLabel } from "#/modules/imports/run-presentation";
 import { SelectedIntegrationReadiness } from "#/modules/imports/selected-readiness";
@@ -21,7 +22,6 @@ import type {
 import { IntegrationSettingsForm } from "#/modules/integrations/settings-form";
 import { formatRelativeTime } from "#/modules/ui/run/run-status";
 import { RunStatusGlyph } from "#/modules/ui/run/run-status-pill";
-import { ShareLinkField } from "#/modules/ui/share-link-field";
 
 export function IntegrationDetailView(props: {
 	readonly nowMs: number;
@@ -41,6 +41,7 @@ export function IntegrationDetailView(props: {
 	readonly provider: undefined | IntegrationProviderItem;
 }) {
 	const uploadAsset = useSchemaAssetUpload();
+	const shareAction = useShareAction();
 	return (
 		<div className="flex flex-col gap-6 pb-4">
 			{props.integration.webhookUrl === undefined ? (
@@ -48,7 +49,11 @@ export function IntegrationDetailView(props: {
 					{props.provider === undefined ? "" : integrationLotDetail(props.provider.lot)}
 				</p>
 			) : (
-				<ShareLinkField label="Webhook URL" url={props.integration.webhookUrl} />
+				<CopyField
+					label="Webhook URL"
+					value={props.integration.webhookUrl}
+					action={shareAction({ url: props.integration.webhookUrl })}
+				/>
 			)}
 			{props.integration.pluginId === null ? (
 				<p className="text-sm leading-6 text-text-muted">

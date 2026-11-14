@@ -1,6 +1,7 @@
 import { nextPageCursor, paginationItems, usePagination } from "@ryot-app/plugin-client-sdk/react";
 import {
 	Button,
+	CopyField,
 	LoadMoreButton,
 	Menu,
 	type MenuItem,
@@ -21,7 +22,7 @@ import {
 	useState,
 } from "react";
 
-import type { ShareOrCopy } from "#/modules/device/share";
+import type { ShareAction } from "#/modules/device/share";
 import {
 	isUnauthorizedCause,
 	runAdminAction,
@@ -38,7 +39,6 @@ import type {
 	InstanceAdminUserResetResult,
 } from "#/modules/instance-admin/user-lifecycle";
 import type { BackInterceptors } from "#/modules/navigation/back-interceptors";
-import { ShareLinkField } from "#/modules/ui/share-link-field";
 import { useUnmountSignal } from "#/modules/ui/use-unmount-signal";
 
 const PAGE_SIZE = 50;
@@ -66,7 +66,7 @@ export type InstanceAdminUserOperations = {
 type UserAction = "reset" | "delete" | "password" | "disabled" | "impersonate";
 
 type UsersAdministrationProps = {
-	readonly shareOrCopy: ShareOrCopy;
+	readonly shareAction: ShareAction;
 	readonly onUnauthorized: () => void;
 	readonly backInterceptors: BackInterceptors;
 	readonly operations: InstanceAdminUserOperations;
@@ -207,7 +207,7 @@ export function UsersAdministration(props: UsersAdministrationProps) {
 							user={user}
 							onRefresh={refreshUsers}
 							operations={props.operations}
-							shareOrCopy={props.shareOrCopy}
+							shareAction={props.shareAction}
 							onUnauthorized={props.onUnauthorized}
 							backInterceptors={props.backInterceptors}
 						/>
@@ -300,7 +300,7 @@ function UserActionsMenu(props: {
 function UserRow(props: {
 	readonly onRefresh: () => void;
 	readonly user: InstanceAdminUser;
-	readonly shareOrCopy: ShareOrCopy;
+	readonly shareAction: ShareAction;
 	readonly onUnauthorized: () => void;
 	readonly backInterceptors: BackInterceptors;
 	readonly operations: InstanceAdminUserOperations;
@@ -565,23 +565,14 @@ function UserRow(props: {
 							</p>
 						)}
 						{linkUrl && (
-							<div className="grid gap-2 rounded-lg border border-border bg-raised p-3">
-								<p className="text-xs text-text-muted">
-									{impersonationUrl === null ? "Reset link" : "Impersonation link"} for{" "}
-									{result?.email ?? props.user.email}
-								</p>
-								<ShareLinkField url={linkUrl} label={linkLabel} share={props.shareOrCopy}>
-									<a
-										href={linkUrl}
-										target="_blank"
-										rel="noopener noreferrer"
-										className="inline-flex items-center gap-1 text-sm font-medium text-accent-text hover:underline"
-									>
-										<AppIcon size={14} name="external-link" />
-										Open in new tab
-									</a>
-								</ShareLinkField>
-							</div>
+							<CopyField
+								href={linkUrl}
+								value={linkUrl}
+								label={linkLabel}
+								className="max-w-2xl"
+								action={props.shareAction({ url: linkUrl })}
+								hint={`For ${result?.email ?? props.user.email}`}
+							/>
 						)}
 					</td>
 				</tr>

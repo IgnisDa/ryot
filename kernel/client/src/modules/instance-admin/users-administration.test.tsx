@@ -9,7 +9,7 @@ import { it } from "@voila.dev/effect-bun-test";
 import { Deferred, Effect } from "effect";
 
 import { AdminApiError } from "#/api/admin";
-import type { ShareContent, ShareOrCopy } from "#/modules/device/share";
+import { shareActionWith, type ShareContent, type ShareOrCopy } from "#/modules/device/share";
 import type { InstanceAdminUser } from "#/modules/instance-admin/service";
 import {
 	type InstanceAdminUserOperations,
@@ -84,17 +84,20 @@ const makeOperations = (users: ReadonlyArray<InstanceAdminUser>, calls: Array<un
 
 const renderUsers = (
 	users: ReadonlyArray<InstanceAdminUser>,
-	transfer: ShareOrCopy = () => Effect.succeed("copied"),
+	transfer: ShareOrCopy = () => Effect.void,
 	overrides: Partial<InstanceAdminUserOperations> = {},
 ) => {
 	const calls: Array<unknown> = [];
 	const backInterceptors = createBackInterceptors();
 	const view = render(
 		<UsersAdministration
-			shareOrCopy={transfer}
 			backInterceptors={backInterceptors}
 			onUnauthorized={() => calls.push("unauthorized")}
 			operations={{ ...makeOperations(users, calls), ...overrides }}
+			shareAction={shareActionWith(
+				(work, onExit) => Effect.runCallback(work, { onExit }),
+				transfer,
+			)}
 		/>,
 	);
 	return { ...view, calls, backInterceptors };
@@ -354,7 +357,7 @@ describe("Instance Admin users administration", () => {
 				const transferred: ShareContent[] = [];
 				renderUsers([makeUser(0)], (content) => {
 					transferred.push(content);
-					return Effect.succeed("copied" as const);
+					return Effect.void;
 				});
 				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
@@ -433,7 +436,7 @@ describe("Instance Admin users administration", () => {
 				const transferred: ShareContent[] = [];
 				const view = renderUsers([makeUser(0)], (content) => {
 					transferred.push(content);
-					return Effect.succeed("copied");
+					return Effect.void;
 				});
 				yield* Effect.promise(() => screen.findByText("reader-0@example.com"));
 
